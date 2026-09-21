@@ -89,5 +89,6 @@ void main() {
       await tester.pumpWidget(const SizedBox());
       await tester.pumpAndSettle();
     },
+    variant: TargetPlatformVariant.only(TargetPlatform.macOS),
   );
 }

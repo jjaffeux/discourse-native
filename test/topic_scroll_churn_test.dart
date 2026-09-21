@@ -173,13 +173,21 @@ void main() {
             );
             final anchor = find.byKey(ValueKey(firstLoaded + 10));
             final gesture = dragging
-                ? await tester.startGesture(
-                    tester.getCenter(topicPostListFinder()),
+                ? list.controller!.position.drag(
+                    DragStartDetails(
+                      globalPosition: tester.getCenter(topicPostListFinder()),
+                    ),
+                    () {},
                   )
                 : null;
             if (gesture != null) {
-              await gesture.moveBy(const Offset(0, 20));
-              await gesture.moveBy(const Offset(0, 60));
+              gesture.update(
+                DragUpdateDetails(
+                  globalPosition: tester.getCenter(topicPostListFinder()),
+                  delta: const Offset(0, 60),
+                  primaryDelta: 60,
+                ),
+              );
               await tester.pump();
             }
             final top = tester.getTopLeft(anchor).dy;
@@ -211,10 +219,25 @@ void main() {
               expect(entry.value.mounted, isTrue, reason: 'Post ${entry.key}');
             }
             if (gesture != null) {
-              await gesture.moveBy(const Offset(0, -60));
+              final viewportTop = tester.getTopLeft(topicPostListFinder()).dy;
+              expect(
+                list.controller!.position.activity,
+                isA<DragScrollActivity>(),
+              );
+              gesture.update(
+                DragUpdateDetails(
+                  globalPosition: tester.getCenter(topicPostListFinder()),
+                  delta: const Offset(0, -60),
+                  primaryDelta: -60,
+                ),
+              );
               await tester.pump();
-              expect(tester.getTopLeft(anchor).dy, closeTo(top - 60, 1));
-              await gesture.up();
+              expect(
+                tester.getTopLeft(anchor).dy -
+                    tester.getTopLeft(topicPostListFinder()).dy,
+                closeTo(top - viewportTop - 60, 1),
+              );
+              gesture.end(DragEndDetails(primaryVelocity: 0));
               await tester.pumpAndSettle();
             }
             expect(tester.takeException(), isNull);

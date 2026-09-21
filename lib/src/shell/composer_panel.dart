@@ -2533,7 +2533,7 @@ class _ComposerEditorState extends State<ComposerEditor> {
       left,
       top.clamp(
         0.0,
-        constraints.maxHeight > height ? constraints.maxHeight - height : 0.0,
+        stack.size.height > height ? stack.size.height - height : 0.0,
       ),
     );
   }

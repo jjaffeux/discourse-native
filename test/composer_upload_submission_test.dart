@@ -110,9 +110,7 @@ void main() {
         isNotNull,
       );
 
-      await tester.tap(
-        find.widgetWithText(DButton, editing ? 'Save' : 'Reply'),
-      );
+      await tester.tap(find.byKey(const ValueKey('composer-submit')));
       await tester.pump();
       expect((editing ? api.updated : api.created).single['raw'], _body);
       expect(composer.submitting, isTrue);

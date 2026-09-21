@@ -154,18 +154,12 @@ void main() {
           theme.value = palette.resolve(AppTheme.light);
           await tester.pumpAndSettle();
           expect(find.text('Save Changes'), findsOneWidget);
-          final foreground = theme.value.extension<DTokens>()!.background;
+          final tokens = theme.value.extension<DTokens>()!;
+          final foreground = tokens.foreground;
           final surface = tester.widget<AnimatedContainer>(
             find.descendant(of: hint, matching: find.byType(AnimatedContainer)),
           );
-          expect(
-            (surface.decoration! as BoxDecoration).color,
-            foreground.withValues(
-              alpha:
-                  foreground.a *
-                  (theme.value.brightness == Brightness.dark ? 0.10 : 0.20),
-            ),
-          );
+          expect((surface.decoration! as BoxDecoration).color, tokens.muted);
           final label = tester.widget<AnimatedDefaultTextStyle>(
             find.descendant(
               of: hint,

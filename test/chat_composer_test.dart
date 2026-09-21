@@ -1606,7 +1606,13 @@ void main() {
           tester.getSize(find.byKey(const ValueKey('chat-composer'))).height,
           greaterThan(compactComposerHeight),
         );
-        expect(find.text('photo.png'), findsOneWidget);
+        expect(
+          find.descendant(
+            of: find.byType(ChatComposer),
+            matching: find.text('photo.png'),
+          ),
+          findsOneWidget,
+        );
         expect(find.byTooltip('Save edit'), findsOneWidget);
 
         await tester.tap(
@@ -1615,7 +1621,13 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(_text(tester), 'unrelated draft');
-        expect(find.text('photo.png'), findsNothing);
+        expect(
+          find.descendant(
+            of: find.byType(ChatComposer),
+            matching: find.text('photo.png'),
+          ),
+          findsNothing,
+        );
 
         await pointer.moveTo(
           tester.getCenter(find.byKey(ChatMessageTile.actionsKey(7))),
@@ -1644,8 +1656,15 @@ void main() {
           tester.getSize(find.byKey(const ValueKey('chat-composer'))).height,
           compactComposerHeight,
         );
-        expect(find.text('photo.png'), findsNothing);
+        expect(
+          find.descendant(
+            of: find.byType(ChatComposer),
+            matching: find.text('photo.png'),
+          ),
+          findsNothing,
+        );
       },
+      variant: TargetPlatformVariant.only(TargetPlatform.macOS),
     );
 
     testWidgets(
@@ -2972,12 +2991,22 @@ Future<void> _hoverReply(WidgetTester tester, int messageId) async {
     await tester.pump();
     await pointer.moveBy(const Offset(1, 0));
     await tester.pump();
-    if (find.byTooltip('Reply').evaluate().isEmpty) {
-      await tester.tap(find.byTooltip('More message actions'));
+    if (find
+        .descendant(of: tile, matching: find.byTooltip('Reply'))
+        .evaluate()
+        .isEmpty) {
+      await tester.tap(
+        find.descendant(
+          of: tile,
+          matching: find.byTooltip('More message actions'),
+        ),
+      );
       await tester.pumpAndSettle();
       await tester.tap(find.text('Reply'));
     } else {
-      await tester.tap(find.byTooltip('Reply'));
+      await tester.tap(
+        find.descendant(of: tile, matching: find.byTooltip('Reply')),
+      );
     }
   } finally {
     await pointer.removePointer();

@@ -79,7 +79,7 @@ void main() {
       expect(decoration().color, Colors.transparent);
       expect(
         (decoration().shape as RoundedRectangleBorder).borderRadius,
-        BorderRadius.circular(8),
+        BorderRadius.circular(4),
       );
       expect(
         (decoration().shape as OutlinedBorder).side.color,

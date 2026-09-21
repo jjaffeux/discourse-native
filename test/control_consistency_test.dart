@@ -81,7 +81,11 @@ void main() {
                     )
                     .decoration!
                 as DButtonDecoration;
-        const radius = BorderRadius.all(Radius.circular(8));
+        final radius = BorderRadius.circular(
+          DTokens.of(
+            tester.element(find.byType(TopicTaxonomyButton)),
+          ).controlRadius,
+        );
         expect(action.borderRadius, radius);
         for (final tooltip in ['Toolbar action', 'Toolbar menu action']) {
           final button = find.ancestor(

@@ -375,14 +375,11 @@ class DAlertDialogFooter extends StatelessWidget {
         },
       );
     } else if (wide) {
-      actions = Row(
-        mainAxisAlignment: MainAxisAlignment.end,
-        children: [
-          for (var index = 0; index < children.length; index++) ...[
-            if (index > 0) const SizedBox(width: DSpacing.controlGap),
-            children[index],
-          ],
-        ],
+      actions = Wrap(
+        alignment: WrapAlignment.end,
+        spacing: DSpacing.controlGap,
+        runSpacing: DSpacing.sm,
+        children: children,
       );
     } else {
       actions = Column(

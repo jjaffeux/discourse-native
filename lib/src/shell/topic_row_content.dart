@@ -93,7 +93,9 @@ class _TopicListTitle extends StatelessWidget {
               topic.title,
               siteUrl: row.siteUrl,
               maxLines: largeText || mobile ? null : 2,
-              overflow: largeText ? TextOverflow.clip : TextOverflow.ellipsis,
+              overflow: largeText || mobile
+                  ? TextOverflow.clip
+                  : TextOverflow.ellipsis,
               style: style?.copyWith(
                 color: topicListTitleColor(
                   theme,

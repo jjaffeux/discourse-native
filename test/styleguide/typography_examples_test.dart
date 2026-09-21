@@ -135,7 +135,9 @@ void main() {
               as BoxDecoration;
       expect(
         codeBox.color,
-        DTokens.of(tester.element(find.text('community_guidelines'))).muted,
+        DTokens.of(
+          tester.element(find.text('community_guidelines')),
+        ).inlineCodeBackground,
       );
       await tester.sendKeyEvent(LogicalKeyboardKey.space);
       await tester.pump();

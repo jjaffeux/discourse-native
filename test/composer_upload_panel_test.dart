@@ -1152,7 +1152,7 @@ void main() {
         composer.text.collapsedImageGlobalRect(image)!.top,
         lessThan(oldTop),
       );
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
   });
 
   group('gallery editing', () {

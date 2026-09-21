@@ -5,6 +5,7 @@ import 'package:highlight/highlight.dart' show Mode;
 import '../foundation/code_editor_theme.dart';
 import '../foundation/code_syntax.dart';
 import '../foundation/code_typography.dart';
+import '../foundation/control_style.dart';
 import '../foundation/tokens.dart';
 
 /// Native code controller. The creator owns and disposes it.
@@ -124,7 +125,7 @@ class _DCodeEditorState extends State<DCodeEditor> {
     final theme = Theme.of(context);
     final tokens = DTokens.of(context);
     final style = monospaceTextStyle.copyWith(
-      fontSize: 13,
+      fontSize: DControlStyle.labelFontSize,
       height: 1.8,
       color: tokens.foreground,
     );

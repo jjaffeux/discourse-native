@@ -57,7 +57,7 @@ void main() {
             )
             .first;
         final center = paragraph.localToGlobal(firstLine.toRect().center).dy;
-        for (final icon in [DIcons.lock, DIcons.thumbtack, DIcons.bookmark]) {
+        for (final icon in [DIcons.lock, DIcons.bookmark]) {
           final finder = find.byWidgetPredicate(
             (widget) => widget is DIcon && widget.icon == icon,
           );
@@ -66,6 +66,17 @@ void main() {
             closeTo(center, 2),
             reason: 'width $width, scale $scale',
           );
+        }
+        final pin = find.byWidgetPredicate(
+          (widget) => widget is DIcon && widget.icon == DIcons.thumbtack,
+        );
+        if (width < 600) {
+          expect(
+            tester.getBottomLeft(pin).dy,
+            lessThanOrEqualTo(tester.getTopLeft(title).dy),
+          );
+        } else {
+          expect(tester.getCenter(pin).dy, closeTo(center, 2));
         }
         expect(tester.takeException(), isNull);
       }

@@ -543,9 +543,14 @@ void main() {
       expect(tester.getSize(preview).width, 360);
       await _choose(tester, 'Text scale', '200%');
       expect(MediaQuery.textScalerOf(tester.element(preview)).scale(14), 28);
+      await tester.ensureVisible(find.text('Right to left'));
       await tester.tap(find.text('Right to left'));
-      await tester.tap(find.text('Reduce motion'));
       await tester.pump();
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text('Reduce motion'));
+      await tester.tap(find.text('Reduce motion'));
+      await tester.pumpAndSettle();
       expect(Directionality.of(tester.element(preview)), TextDirection.rtl);
       expect(MediaQuery.disableAnimationsOf(tester.element(preview)), isTrue);
       expect(tester.takeException(), isNull);

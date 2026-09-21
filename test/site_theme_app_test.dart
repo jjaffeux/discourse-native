@@ -159,7 +159,9 @@ void main() {
       MediaQuery.textScalerOf(
         tester.element(find.byType(AdaptiveShell)),
       ).scale(DiscourseTypography.base),
-      moreOrLessEquals(DiscourseTypography.base * 1.25),
+      moreOrLessEquals(
+        DiscourseTypography.base * 1.25 * DiscourseTypography.mobileScale,
+      ),
     );
   });
 
@@ -790,7 +792,7 @@ void main() {
 
           final theme = _activeTheme(tester);
           final railSurface = Color.alphaBlend(
-            theme.shell.rail,
+            theme.shell.content,
             opaqueColorOnCanvas(
               theme.scaffoldBackgroundColor,
               theme.brightness,

@@ -1203,9 +1203,11 @@ void main() {
 
         await wheel(200);
         expect(bar.hitTestable(), findsNothing);
-        await wheel(-99);
+        final hiddenBottom = tester.getBottomLeft(bar).dy;
+        await wheel(-20);
+        expect(tester.getBottomLeft(bar).dy, closeTo(hiddenBottom + 20, 1));
         expect(bar.hitTestable(), findsNothing);
-        await wheel(-1);
+        await wheel(-80);
         expect(bar.hitTestable(), findsOneWidget);
         await wheel(2000);
         expect(position.pixels, 0);
@@ -2430,7 +2432,12 @@ Future<void> _startSelectingNewestMessage(WidgetTester tester) async {
     tester.getCenter(find.byKey(const ValueKey('chat-message-2'))),
   );
   await tester.pump();
-  await tester.tap(find.byKey(const ValueKey('chat-message-more-actions-2')));
+  final more = find.byKey(const ValueKey('chat-message-more-actions-2'));
+  if (more.evaluate().isEmpty) {
+    await tester.longPress(find.byKey(const ValueKey('chat-message-2')));
+  } else {
+    await tester.tap(more);
+  }
   await tester.pumpAndSettle();
   await tester.tap(find.text('Select'));
   await tester.pumpAndSettle();

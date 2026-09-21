@@ -310,7 +310,7 @@ void main() {
     },
   );
 
-  testWidgets('default buttons use the mockup radius at every size', (
+  testWidgets('default buttons use the theme control radius at every size', (
     tester,
   ) async {
     for (final baseRadius in [0.0, 4.0, 10.0, 14.0, 20.0]) {
@@ -348,7 +348,7 @@ void main() {
                       .shape!
                       .resolve({})!
                   as RoundedRectangleBorder;
-          const expected = 8.0;
+          final expected = tokens.controlRadius;
           final radius = shape.borderRadius.resolve(TextDirection.ltr);
           expect(radius.topLeft.x, closeTo(expected, .000001));
           expect(radius, BorderRadius.circular(radius.topLeft.x));
@@ -808,7 +808,10 @@ void main() {
               matching: find.byType(Material),
             ),
           );
-          expect(surface.size, const Size.square(24));
+          expect(
+            surface.size,
+            Size.square(platform == TargetPlatform.macOS ? 24 : 40),
+          );
           expect(
             target.size,
             Size.square(platform == TargetPlatform.macOS ? 24 : 48),
@@ -854,7 +857,9 @@ void main() {
           );
           expect(
             tester.getSize(material),
-            Size.square(DButton.visualDimensionFor(size)),
+            Size.square(
+              DControlStyle.height(size, context: tester.element(material)),
+            ),
           );
           final target = tester.getRect(find.byType(FilledButton));
           expect(

@@ -72,7 +72,13 @@ void main() {
     final sidebar = tester.element(find.byType(InstanceSidebar));
     final avatar = tester.element(find.byType(UserMenuButton));
     final panel = tester.element(find.byType(UserMenuPanel));
-    final sidebarSelector = _onlyChild(sidebar);
+    final sidebarSelector = find
+        .descendant(
+          of: find.byType(InstanceSidebar),
+          matching: find.byWidgetPredicate((widget) => widget is ShellSelector),
+        )
+        .evaluate()
+        .first;
     final avatarSelector = _onlyChild(avatar);
     final panelSelector = _onlyChild(panel);
     final broadDependent = tester.element(find.byKey(broadKey));

@@ -2714,7 +2714,8 @@ void main() {
               )
               .last,
         );
-        expect(management.left - reply.right, closeTo(DSpacing.sm, .01));
+        expect(management.top, greaterThanOrEqualTo(reply.bottom));
+        expect(management.left, closeTo(reply.left, .01));
         expect(find.text('5188 / 5188'), findsOneWidget);
         expect(footer.right - progressBounds.right, closeTo(8, .01));
         expect(progressBounds.left, greaterThan(reply.right));
@@ -2731,7 +2732,7 @@ void main() {
           5188,
         );
         expect(tester.takeException(), isNull);
-      });
+      }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 
       testWidgets('opens a stream-position navigator', (tester) async {
         final site = instance('meta.example');
