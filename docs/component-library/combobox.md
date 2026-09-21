@@ -175,3 +175,6 @@ search input is the sheet's initial focus target. Category/subcategory selection
 closes the sheet; mobile multi-tag selectors use `closeOnSelect: false` and retain
 the input focus across additions and removals. Desktop keeps its anchored popup.
 The Full-screen mobile picker styleguide example demonstrates the new option.
+
+The full-height mobile picker uses an opaque theme-background backdrop and a
+subtle 97%–100% sheet scale transition. Reduced-motion mode skips the animation.

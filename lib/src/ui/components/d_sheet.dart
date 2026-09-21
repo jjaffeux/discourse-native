@@ -163,8 +163,13 @@ Widget _sheetPresentation(
     curve: const Interval(0, .75, curve: Curves.easeInOut),
     reverseCurve: const Interval(.25, 1, curve: Curves.easeInOut),
   );
-  Widget backdrop = presentation.buildBackdrop(blurSigma: 2);
-  if (animate) {
+  Widget backdrop = fillAvailableHeight
+      ? presentation.buildBackdrop(
+          color: DTokens.of(context).background.withValues(alpha: 1),
+          blurSigma: 0,
+        )
+      : presentation.buildBackdrop(blurSigma: 2);
+  if (animate && !fillAvailableHeight) {
     backdrop = FadeTransition(opacity: backdropCurve, child: backdrop);
   }
 
@@ -194,6 +199,12 @@ Widget _sheetPresentation(
         : presentation.content,
   );
   if (animate) {
+    if (fillAvailableHeight) {
+      popup = ScaleTransition(
+        scale: Tween<double>(begin: .97, end: 1).animate(popupCurve),
+        child: popup,
+      );
+    }
     popup = FadeTransition(
       opacity: popupCurve,
       child: AnimatedBuilder(
