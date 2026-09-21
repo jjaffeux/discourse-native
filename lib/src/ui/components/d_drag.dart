@@ -92,6 +92,8 @@ class _DDragHandleState<T extends Object> extends State<DDragHandle<T>> {
       tooltip: widget.label,
       semanticLabel: '${widget.label}. Drag to move or activate for actions.',
       variant: DButtonVariant.transparentBackground,
+      // The source highlight owns the shared backdrop, including on hover.
+      backgroundColor: Colors.transparent,
       focusNode: widget.focusNode,
       mouseCursor: _pressedPointer != null || _dragging
           ? SystemMouseCursors.grabbing
