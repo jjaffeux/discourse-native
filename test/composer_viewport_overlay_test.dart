@@ -145,7 +145,15 @@ void main() {
         final footer = tester.widget<Container>(
           find.byKey(const ValueKey('composer-footer')),
         );
-        expect((footer.decoration! as BoxDecoration).color, Colors.transparent);
+        final fade =
+            (footer.decoration! as BoxDecoration).gradient! as LinearGradient;
+        expect(fade.begin, Alignment.bottomCenter);
+        expect(fade.end, Alignment.topCenter);
+        expect(fade.colors, [
+          background,
+          background.withValues(alpha: 0.94),
+          background.withValues(alpha: 0),
+        ]);
         expect(
           tester
               .widget<CustomScrollView>(

@@ -51,8 +51,9 @@ actions keep their Native controls and scroll horizontally when needed. Desktop
 cards and the desktop composer retain their previous appearance.
 
 The mobile shell Scaffold uses `shell.content`, matching the composer behind
-the keyboard's rounded upper corners. The outer footer is transparent, letting
-the draft paint behind the floating toolbar capsule. The scroll viewport keeps
+the keyboard's rounded upper corners. The outer footer mirrors the header's
+opacity gradient, fading the draft behind the floating toolbar capsule into the
+surface at the keyboard edge. The scroll viewport keeps
 its reveal bounds above the footer so typing and moving the caret keep the
 active line clear of the tools; the composer frame clips at the keyboard edge.
 Light/dark widget
