@@ -1,5 +1,8 @@
 import 'dart:async';
 
+import 'package:discourse_native/src/data/discourse_api_contracts.dart';
+import 'package:discourse_native/src/data/origin_cooldown.dart';
+import 'package:discourse_native/src/models/composer_upload.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/plugin_api/core_plugin_host.dart';
 import 'package:discourse_native/src/plugin_api/live_channels.dart';
@@ -10,11 +13,245 @@ import 'package:discourse_native/src/plugins/chat/chat_stream_target.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/fakes.dart';
+import 'support/manual_scheduler.dart';
 
 const _site = 'https://meta.discourse.org';
 
 void main() {
   group('DefaultChatSendCoordinator', () {
+    for (final target in <ChatStreamTarget>[
+      const ChatChannelTarget(9),
+      const ChatThreadTarget(channelId: 9, threadId: 12),
+    ]) {
+      test(
+        'retries ${target.storageKey} only after cooldown with its original payload',
+        () async {
+          final scheduler = ManualScheduler();
+          const refusal = WriteException(
+            WriteFailure.rateLimited,
+            statusCode: 429,
+            retryAfter: Duration(seconds: 30),
+          );
+          final api = FakeDiscourseApi(chatSendFailure: refusal);
+          final projection = _Projection()
+            ..messageContext = (topicId: 10, postIds: [20]);
+          final coordinator = DefaultChatSendCoordinator(
+            api: api,
+            requests: _Requests(),
+            host: projection.host,
+            cooldownFactory: () => OriginCooldown(
+              clock: scheduler.now,
+              timerFactory: scheduler.createTimer,
+            ),
+          );
+          addTearDown(coordinator.dispose);
+          final first = coordinator.sendMessage(
+            _site,
+            target,
+            OutgoingChatMessage.text(
+              '  original raw\n',
+              uploads: const [
+                ComposerUploadResult(
+                  id: 51,
+                  url: '/file.txt',
+                  originalFilename: 'file.txt',
+                  shortUrl: 'upload://file',
+                ),
+              ],
+              replyTo: const ChatReplyTo(
+                id: 7,
+                excerpt: 'reply',
+                userId: 8,
+                username: 'sam',
+              ),
+            ),
+          )!;
+          expect(await first.settled, ChatSendResult.failed);
+          expect(projection.staged.single.sendFailure, same(refusal));
+          expect(projection.staged.single.retryWaiting, isTrue);
+          expect(
+            coordinator.retryMessage(_site, target, first.stagedId),
+            isNull,
+          );
+          scheduler.advance(const Duration(seconds: 29));
+          expect(
+            coordinator.retryMessage(_site, target, first.stagedId),
+            isNull,
+          );
+          expect(api.chatMessagesSent, hasLength(1));
+          scheduler.advance(const Duration(seconds: 1));
+          expect(projection.staged.single.retryWaiting, isFalse);
+          expect(api.chatMessagesSent, hasLength(1));
+          api.chatSendFailure = null;
+          final gate = Completer<void>();
+          api.chatSendGate = gate;
+          final retry = coordinator.retryMessage(
+            _site,
+            target,
+            first.stagedId,
+          )!;
+          expect(
+            coordinator.retryMessage(_site, target, first.stagedId),
+            isNull,
+          );
+          await Future<void>.delayed(Duration.zero);
+          expect(api.chatMessagesSent, hasLength(2));
+          final original = api.chatMessagesSent.first;
+          final resent = api.chatMessagesSent.last;
+          expect(
+            [
+              resent.siteUrl,
+              resent.channelId,
+              resent.threadId,
+              resent.message,
+              resent.inReplyToId,
+              resent.stagedId,
+              resent.clientCreatedAt,
+              resent.contextTopicId,
+              resent.contextPostIds,
+              resent.uploadIds,
+            ],
+            [
+              original.siteUrl,
+              original.channelId,
+              original.threadId,
+              original.message,
+              original.inReplyToId,
+              original.stagedId,
+              original.clientCreatedAt,
+              original.contextTopicId,
+              original.contextPostIds,
+              original.uploadIds,
+            ],
+          );
+          expect(
+            projection.staged.single.delivery,
+            ChatMessageDelivery.sending,
+          );
+          gate.complete();
+          expect(await retry.settled, ChatSendResult.sent);
+          expect(scheduler.activeTimerCount, 0);
+        },
+      );
+    }
+
+    test(
+      'a repeated rate limit starts a new wait and an uncertain retry cannot be resent',
+      () async {
+        final scheduler = ManualScheduler();
+        final api = FakeDiscourseApi(
+          chatSendFailure: const WriteException(
+            WriteFailure.rateLimited,
+            retryAfter: Duration(seconds: 10),
+          ),
+        );
+        final projection = _Projection();
+        final coordinator = DefaultChatSendCoordinator(
+          api: api,
+          requests: _Requests(),
+          host: projection.host,
+          cooldownFactory: () => OriginCooldown(
+            clock: scheduler.now,
+            timerFactory: scheduler.createTimer,
+          ),
+        );
+        addTearDown(coordinator.dispose);
+        const target = ChatChannelTarget(9);
+        final first = coordinator.sendMessage(
+          _site,
+          target,
+          OutgoingChatMessage.text('hello'),
+        )!;
+        await first.settled;
+        scheduler.advance(const Duration(seconds: 10));
+        final retry = coordinator.retryMessage(_site, target, first.stagedId)!;
+        expect(await retry.settled, ChatSendResult.failed);
+        expect(projection.staged.single.retryWaiting, isTrue);
+        expect(coordinator.retryMessage(_site, target, first.stagedId), isNull);
+        scheduler.advance(const Duration(seconds: 10));
+        expect(api.chatMessagesSent, hasLength(2));
+        api.chatSendFailure = const WriteException(WriteFailure.unreachable);
+        final uncertain = coordinator.retryMessage(
+          _site,
+          target,
+          first.stagedId,
+        )!;
+        expect(await uncertain.settled, ChatSendResult.failed);
+        expect(coordinator.retryMessage(_site, target, first.stagedId), isNull);
+        expect(api.chatMessagesSent, hasLength(3));
+        expect(scheduler.activeTimerCount, 0);
+      },
+    );
+
+    for (final retirement in ['channel', 'account', 'dispose']) {
+      test('cancels retry cooldown on $retirement retirement', () async {
+        final scheduler = ManualScheduler();
+        final api = FakeDiscourseApi(
+          chatSendFailure: const WriteException(
+            WriteFailure.rateLimited,
+            retryAfter: Duration(seconds: 30),
+          ),
+        );
+        final projection = _Projection();
+        final coordinator = DefaultChatSendCoordinator(
+          api: api,
+          requests: _Requests(),
+          host: projection.host,
+          cooldownFactory: () => OriginCooldown(
+            clock: scheduler.now,
+            timerFactory: scheduler.createTimer,
+          ),
+        );
+        addTearDown(coordinator.dispose);
+        const target = ChatChannelTarget(9);
+        final send = coordinator.sendMessage(
+          _site,
+          target,
+          OutgoingChatMessage.text('hello'),
+        )!;
+        await send.settled;
+        expect(scheduler.activeTimerCount, 1);
+        switch (retirement) {
+          case 'channel':
+            coordinator.cancelChannel(_site, 9);
+          case 'account':
+            coordinator.forget(_site);
+          case 'dispose':
+            coordinator.dispose();
+        }
+        expect(scheduler.activeTimerCount, 0);
+        scheduler.advance(const Duration(minutes: 1));
+        expect(coordinator.retryMessage(_site, target, send.stagedId), isNull);
+        expect(api.chatMessagesSent, hasLength(1));
+      });
+    }
+
+    test('does not retry a stale account lease after cooldown', () async {
+      final api = FakeDiscourseApi(
+        chatSendFailure: const WriteException(
+          WriteFailure.rateLimited,
+          retryAfter: Duration.zero,
+        ),
+      );
+      final requests = _Requests();
+      final coordinator = DefaultChatSendCoordinator(
+        api: api,
+        requests: requests,
+        host: _Projection().host,
+      );
+      addTearDown(coordinator.dispose);
+      const target = ChatChannelTarget(9);
+      final send = coordinator.sendMessage(
+        _site,
+        target,
+        OutgoingChatMessage.text('hello'),
+      )!;
+      await send.settled;
+      requests.generation++;
+      expect(coordinator.retryMessage(_site, target, send.stagedId), isNull);
+      expect(api.chatMessagesSent, hasLength(1));
+    });
+
     test('stages synchronously and pumps each stream in FIFO order', () async {
       final sendGate = Completer<void>();
       final api = FakeDiscourseApi(
@@ -337,6 +574,21 @@ final class _Projection {
   int sentNotifications = 0;
 
   late final host = ChatSendCoordinatorHost(
+    outgoing: (_, _, stagedId) =>
+        staged.where((m) => m.stagedId == stagedId).firstOrNull,
+    setRetryState: (_, _, stagedId, {required sending, required waiting}) {
+      final index = staged.indexWhere((m) => m.stagedId == stagedId);
+      if (index < 0) return;
+      final held = staged[index];
+      staged[index] = held.withSendState(
+        delivery: sending
+            ? ChatMessageDelivery.sending
+            : ChatMessageDelivery.failed,
+        error: sending ? null : held.sendError,
+        failure: sending ? null : held.sendFailure,
+        retryWaiting: waiting,
+      );
+    },
     isDisposed: () => false,
     canSend: (_, _) => true,
     currentUserFor: (_) =>
@@ -358,6 +610,12 @@ final class _Projection {
       onMarkSent?.call();
     },
     markFailed: (_, target, stagedId, failure) {
+      final index = staged.indexWhere((m) => m.stagedId == stagedId);
+      staged[index] = staged[index].withSendState(
+        delivery: ChatMessageDelivery.failed,
+        failure: failure,
+        error: failure.message,
+      );
       _unsettledTargets.remove(target);
       return false;
     },

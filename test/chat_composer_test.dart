@@ -2240,7 +2240,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(_text(tester), 'do not consume me');
-      expect(find.text(failure.message), findsOneWidget);
+      expect(find.text('Failed to send: ${failure.message}'), findsOneWidget);
       expect(find.byKey(const ValueKey('chat-preview-gif')), findsOneWidget);
       expect(fixture.api.chatMessagesSent, hasLength(1));
       expect(tester.takeException(), isNull);
@@ -2608,11 +2608,170 @@ void main() {
 
         expect(tester.widget<TextField>(field).controller!.text, isEmpty);
         expect(find.text('keep me visible'), findsOneWidget);
-        expect(find.text(failure.message), findsOneWidget);
+        expect(find.text('Failed to send: ${failure.message}'), findsOneWidget);
         expect(find.text('Retry'), findsNothing);
         expect(fixture.api.chatMessagesSent, hasLength(1));
       },
     );
+
+    testWidgets(
+      'retry preserves a newer composer draft and disables repeated clicks',
+      (tester) async {
+        final fixture = await _fixture(
+          pages: {FakeDiscourseApi.chatMessagesKey(9): _emptyPage},
+          sendFailure: const WriteException(
+            WriteFailure.rateLimited,
+            retryAfter: Duration.zero,
+          ),
+        );
+        addTearDown(fixture.shell.dispose);
+        await tester.pumpWidget(_TestView(shell: fixture.shell));
+        await tester.pumpAndSettle();
+        await tester.enterText(_composerField(), 'failed text');
+        await tester.pump();
+        await tester.tap(find.byKey(const ValueKey('chat-composer-send')));
+        await tester.pumpAndSettle();
+        await tester.enterText(_composerField(), 'new draft');
+        await tester.pump();
+        final retry = tester.widget<DButton>(
+          find.widgetWithText(DButton, 'Retry'),
+        );
+        final gate = Completer<void>();
+        fixture.api.chatSendFailure = null;
+        fixture.api.chatSendGate = gate;
+        retry.onPressed!();
+        retry.onPressed!();
+        await tester.pump();
+        expect(fixture.api.chatMessagesSent.map((m) => m.message), [
+          'failed text',
+          'failed text',
+        ]);
+        expect(_text(tester), 'new draft');
+        expect(find.text('Retry'), findsNothing);
+        gate.complete();
+        await tester.pumpAndSettle();
+        expect(_text(tester), 'new draft');
+        expect(find.byType(ChatMessageTile), findsOneWidget);
+      },
+    );
+
+    testWidgets('thread retry preserves a newer draft and reply target', (
+      tester,
+    ) async {
+      final fixture = await _fixture(
+        pages: {FakeDiscourseApi.chatMessagesKey(9): _emptyPage},
+        sendFailure: const WriteException(
+          WriteFailure.rateLimited,
+          retryAfter: Duration.zero,
+        ),
+      );
+      addTearDown(fixture.shell.dispose);
+      fixture.shell.chatRecords.put(
+        _site,
+        const ChatThread(id: 31, channelId: 9, status: 'open', replyCount: 0),
+      );
+      const target = ChatThreadTarget(channelId: 9, threadId: 31);
+      final send = fixture.shell.chat.sendMessageTo(
+        _site,
+        target,
+        OutgoingChatMessage.text(
+          'thread original',
+          replyTo: const ChatReplyTo(
+            id: 7,
+            userId: 8,
+            username: 'sam',
+            excerpt: 'reply',
+          ),
+        ),
+      )!;
+      await tester.pump();
+      expect(await send.settled, ChatSendResult.failed);
+      await tester.pumpWidget(
+        ShellScope(
+          controller: fixture.shell,
+          child: PluginUiScope.own(
+            chatPluginId,
+            MaterialApp(
+              theme: AppTheme.light,
+              home: Scaffold(
+                body: Column(
+                  children: [
+                    Expanded(
+                      child: ChatMessageTile(
+                        siteUrl: _site,
+                        messageId: send.localId,
+                        chained: false,
+                      ),
+                    ),
+                    const ChatComposer(
+                      siteUrl: _site,
+                      channelId: 9,
+                      threadId: 31,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.enterText(_composerField(), 'new thread draft');
+      await tester.pump();
+      final gate = Completer<void>();
+      fixture.api.chatSendFailure = null;
+      fixture.api.chatSendGate = gate;
+      var shellNotifications = 0;
+      void shellChanged() => shellNotifications++;
+      fixture.shell.addListener(shellChanged);
+      addTearDown(() => fixture.shell.removeListener(shellChanged));
+      await tester.tap(find.widgetWithText(DButton, 'Retry'));
+      await tester.pump();
+      expect(_text(tester), 'new thread draft');
+      expect(
+        fixture.api.chatMessagesSent.map(
+          (m) => [m.message, m.threadId, m.inReplyToId],
+        ),
+        [
+          ['thread original', 31, 7],
+          ['thread original', 31, 7],
+        ],
+      );
+      gate.complete();
+      await tester.pumpAndSettle();
+      expect(_text(tester), 'new thread draft');
+      expect(shellNotifications, 0);
+    });
+
+    testWidgets('rate-limited send displays a disabled retry during cooldown', (
+      tester,
+    ) async {
+      final fixture = await _fixture(
+        pages: {FakeDiscourseApi.chatMessagesKey(9): _emptyPage},
+        sendFailure: const WriteException(
+          WriteFailure.rateLimited,
+          retryAfter: Duration(seconds: 30),
+        ),
+      );
+      await tester.pumpWidget(_TestView(shell: fixture.shell));
+      await tester.pumpAndSettle();
+      await tester.enterText(_composerField(), 'wait for retry');
+      await tester.pump();
+      await tester.tap(find.byKey(const ValueKey('chat-composer-send')));
+      await tester.pumpAndSettle();
+      expect(
+        tester
+            .widget<DButton>(
+              find.widgetWithText(DButton, 'Retry after cooldown'),
+            )
+            .onPressed,
+        isNull,
+      );
+      expect(find.text('wait for retry'), findsOneWidget);
+      expect(fixture.api.chatMessagesSent, hasLength(1));
+      await tester.pumpWidget(const SizedBox());
+      fixture.shell.dispose();
+    });
 
     testWidgets('does not offer retry for a definitive refusal', (
       tester,
@@ -2634,7 +2793,7 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('chat-composer-send')));
       await tester.pumpAndSettle();
 
-      expect(find.text(failure.message), findsOneWidget);
+      expect(find.text('Failed to send: ${failure.message}'), findsOneWidget);
       expect(find.text('Retry'), findsNothing);
     });
 

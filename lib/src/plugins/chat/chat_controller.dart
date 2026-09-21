@@ -422,6 +422,21 @@ class ChatController extends FrameSafeNotifier {
       stage: _stageOutgoing,
       markSent: _markOutgoingSent,
       markFailed: _markOutgoingFailed,
+      outgoing: _outgoingMessage,
+      setRetryState:
+          (siteUrl, target, stagedId, {required sending, required waiting}) {
+            _updateOutgoing(siteUrl, target, stagedId, (held) {
+              if (held.serverId != null || held.canonicalReceived) return held;
+              return held.withSendState(
+                delivery: sending
+                    ? ChatMessageDelivery.sending
+                    : ChatMessageDelivery.failed,
+                error: sending ? null : held.sendError,
+                failure: sending ? null : held.sendFailure,
+                retryWaiting: waiting,
+              );
+            });
+          },
       onSent: _onOutgoingSent,
       hasUnsettledMessages: _hasUnsettledOutgoingMessages,
       reconcileSentEvent: _applySendMessage,
@@ -4546,6 +4561,24 @@ class ChatController extends FrameSafeNotifier {
     OutgoingChatMessage message,
   ) => _sendCoordinator.sendMessage(siteUrl, target, message);
 
+  ChatSendHandle? retryMessage(
+    String siteUrl,
+    ChatStreamTarget target,
+    String stagedId,
+  ) => _sendCoordinator.retryMessage(siteUrl, target, stagedId);
+
+  ChatMessage? _outgoingMessage(
+    String siteUrl,
+    ChatStreamTarget target,
+    String stagedId,
+  ) {
+    for (final id in streamFor(siteUrl, target).localMessageIds) {
+      final held = _store.read<ChatMessage>(siteUrl, id);
+      if (held?.stagedId == stagedId) return held;
+    }
+    return null;
+  }
+
   void _stageOutgoing(
     String siteUrl,
     ChatStreamTarget target,
@@ -4689,6 +4722,7 @@ class ChatController extends FrameSafeNotifier {
           : held.withSendState(
               delivery: ChatMessageDelivery.failed,
               error: failure.message,
+              failure: failure,
               deliveryUncertain: failure.failure == WriteFailure.unreachable,
             );
     });
@@ -4745,6 +4779,7 @@ class ChatController extends FrameSafeNotifier {
       if (local == null) continue;
       if (local.delivery == ChatMessageDelivery.sending ||
           local.deliveryUncertain ||
+          local.sendFailure?.failure == WriteFailure.rateLimited ||
           local.delivery == ChatMessageDelivery.sent &&
               !local.canonicalReceived) {
         return true;
