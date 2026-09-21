@@ -44,6 +44,63 @@ void _expectRequest(
 }
 
 void main() {
+  test(
+    'agent endpoints use authenticated site permission, refresh and trimmed names',
+    () async {
+      final (:api, :transport) = _apiWithResponses({
+        'GET /site.json': {'voice_livekit_agent_bot_id': -2},
+        'GET /voice/agents.json': {
+          'agents': [
+            {'name': 'assistant'},
+          ],
+        },
+        'GET /voice/agents.json?refresh=true': {'agents': <Object>[]},
+        'POST /voice/rooms/7/invite_agent.json': {'dispatch_id': 'AD_test'},
+      });
+      expect(
+        (await api.agentPermission(siteUrl: _siteUrl, apiKey: _apiKey)).botId,
+        -2,
+      );
+      expect(await api.agents(siteUrl: _siteUrl, apiKey: _apiKey), [
+        'assistant',
+      ]);
+      expect(
+        await api.agents(siteUrl: _siteUrl, apiKey: _apiKey, refresh: true),
+        isEmpty,
+      );
+      await api.inviteAgent(
+        siteUrl: _siteUrl,
+        roomId: 7,
+        apiKey: _apiKey,
+        agentName: ' assistant ',
+      );
+      expect(transport.requests.length, 4);
+      for (final (index, path) in [
+        '/site.json',
+        '/voice/agents.json',
+        '/voice/agents.json?refresh=true',
+      ].indexed) {
+        _expectRequest(transport.requests[index], method: 'GET', path: path);
+      }
+      _expectRequest(
+        transport.requests.last,
+        method: 'POST',
+        path: '/voice/rooms/7/invite_agent.json',
+        body: {'agent_name': 'assistant'},
+      );
+      expect(
+        () => api.inviteAgent(
+          siteUrl: _siteUrl,
+          roomId: 7,
+          apiKey: _apiKey,
+          agentName: ' ',
+        ),
+        throwsArgumentError,
+      );
+      expect(transport.requests.length, 4);
+    },
+  );
+
   group('room discovery', () {
     test('lists rooms', () async {
       final (:api, :transport) = _apiWithResponses({

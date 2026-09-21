@@ -8,6 +8,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart' as rtc;
 import 'package:livekit_client/livekit_client.dart' as lk;
 
+import 'voice_agent_invite.dart';
 import 'voice_controller.dart';
 import 'voice_diagnostics.dart';
 import 'voice_icons.dart';
@@ -374,19 +375,29 @@ class _VoiceRoomContentState extends State<VoiceRoomContent> {
           child: Padding(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
             child: active == null
-                ? DButton(
-                    onPressed: () => joinVoiceRoom(
-                      context,
-                      controller: controller,
-                      siteUrl: siteUrl,
-                      siteName: siteName,
-                      room: room,
-                      meshPrivacyWarningEnabled:
-                          widget.meshPrivacyWarningEnabled,
-                    ),
-                    icon: const DIcon(DIcons.microphoneLines),
-                    label: const Text('Join room'),
-                    variant: DButtonVariant.primary,
+                ? Wrap(
+                    spacing: DSpacing.controlGap,
+                    children: [
+                      VoiceAgentInviteAction(
+                        controller: controller,
+                        siteUrl: siteUrl,
+                        roomId: room.id,
+                      ),
+                      DButton(
+                        onPressed: () => joinVoiceRoom(
+                          context,
+                          controller: controller,
+                          siteUrl: siteUrl,
+                          siteName: siteName,
+                          room: room,
+                          meshPrivacyWarningEnabled:
+                              widget.meshPrivacyWarningEnabled,
+                        ),
+                        icon: const DIcon(DIcons.microphoneLines),
+                        label: const Text('Join room'),
+                        variant: DButtonVariant.primary,
+                      ),
+                    ],
                   )
                 : _CallControls(
                     controller: controller,
@@ -883,6 +894,11 @@ class _CallControls extends StatelessWidget {
             onPressed: () =>
                 controller.requestToSpeak(raised: me?.handRaisedAt == null),
           ),
+        VoiceAgentInviteAction(
+          controller: controller,
+          siteUrl: siteUrl,
+          roomId: call.room.id,
+        ),
         if (call.room.canInvite)
           VoiceToolbarControl(
             label: 'Invite people',

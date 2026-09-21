@@ -1,10 +1,59 @@
 import 'package:discourse_native/discourse_plugin_sdk.dart';
+
+import 'voice_agents.dart';
 import 'voice_models.dart';
 
 final class VoiceApi {
   const VoiceApi(this._transport);
 
   final PluginApiTransport _transport;
+
+  Future<VoiceAgentPermission> agentPermission({
+    required String siteUrl,
+    required String apiKey,
+    String? clientId,
+  }) async => VoiceAgentPermission.read(
+    await _transport.pluginGetJson(
+      siteUrl: siteUrl,
+      path: '/site.json',
+      apiKey: apiKey,
+      clientId: clientId,
+    ),
+  );
+
+  Future<List<String>> agents({
+    required String siteUrl,
+    required String apiKey,
+    String? clientId,
+    bool refresh = false,
+  }) async => readVoiceAgentNames(
+    await _transport.pluginGetJson(
+      siteUrl: siteUrl,
+      path: refresh ? '/voice/agents.json?refresh=true' : '/voice/agents.json',
+      apiKey: apiKey,
+      clientId: clientId,
+    ),
+  );
+
+  Future<void> inviteAgent({
+    required String siteUrl,
+    required int roomId,
+    required String apiKey,
+    required String agentName,
+    String? clientId,
+  }) {
+    if (validateVoiceAgentName(agentName) case final error?) {
+      throw ArgumentError.value(agentName, 'agentName', error);
+    }
+    return _voidWrite(
+      siteUrl,
+      '/voice/rooms/$roomId/invite_agent.json',
+      'POST',
+      apiKey,
+      {'agent_name': agentName.trim()},
+      clientId,
+    );
+  }
 
   Future<VoiceDirectory> rooms({
     required String siteUrl,
