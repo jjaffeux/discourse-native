@@ -747,21 +747,7 @@ class _ThreadHeader extends StatelessWidget {
               target: target,
               thread: thread,
             ),
-            if (chat.canEditThreadTitle(siteUrl, thread))
-              DButton.iconOnly(
-                tooltip: 'Thread settings',
-                onPressed: () => unawaited(
-                  showChatThreadSettings(
-                    context: context,
-                    chat: chat,
-                    siteUrl: siteUrl,
-                    target: target,
-                    thread: thread!,
-                  ),
-                ),
-                icon: const DIcon(DIcons.gear),
-                variant: DButtonVariant.ghost,
-              ),
+            ChatThreadSettingsButton(siteUrl: siteUrl, target: target),
             if (showFullPageClose &&
                 shell.fullPageChatActive &&
                 shell.drawerAvailable)
@@ -898,9 +884,13 @@ class ChatThreadSettingsButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final chat = PluginUiScope.require(context, chatControllerService);
-    return ValueListenableBuilder<ChatThread?>(
-      valueListenable: chat.threadRef(siteUrl, target.threadId),
-      builder: (context, thread, _) {
+    return ListenableBuilder(
+      listenable: Listenable.merge([
+        chat.threadRef(siteUrl, target.threadId),
+        chat.channelRef(siteUrl, target.channelId),
+      ]),
+      builder: (context, _) {
+        final thread = chat.thread(siteUrl, target.threadId);
         if (!chat.canEditThreadTitle(siteUrl, thread)) {
           return const SizedBox.shrink();
         }
