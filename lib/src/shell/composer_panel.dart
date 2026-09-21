@@ -1553,7 +1553,12 @@ class _ComposerEditorState extends State<ComposerEditor> {
       hintStyle: widget.hintStyle ?? widget.textStyle,
       renderEditable: () => _renderEditable,
       scroll: Listenable.merge([_scroll, _ancestorScroll]),
-      child: _textField(),
+      child: ScrollConfiguration(
+        behavior: widget.expands
+            ? _ComposerEditorScrollBehavior(_scroll)
+            : ScrollConfiguration.of(context),
+        child: _textField(),
+      ),
     ),
   );
 
@@ -2703,6 +2708,32 @@ class _ComposerEditorState extends State<ComposerEditor> {
       );
     },
   );
+}
+
+class _ComposerEditorScrollBehavior extends MaterialScrollBehavior {
+  const _ComposerEditorScrollBehavior(this.controller);
+
+  final ScrollController controller;
+
+  @override
+  Widget buildScrollbar(
+    BuildContext context,
+    Widget child,
+    ScrollableDetails details,
+  ) {
+    if (!identical(details.controller, controller)) {
+      return super.buildScrollbar(context, child, details);
+    }
+    // Inset the editable viewport while keeping its scrollbar at the panel's
+    // content edge. Embedded editors retain their own scroll decoration.
+    return DScrollBar(
+      controller: controller,
+      child: Padding(
+        padding: const EdgeInsetsDirectional.only(end: DSpacing.lg),
+        child: child,
+      ),
+    );
+  }
 }
 
 /// Widget-bound selection geometry kept separate from composer state.
