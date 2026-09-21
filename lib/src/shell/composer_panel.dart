@@ -1571,7 +1571,7 @@ class _ComposerEditorState extends State<ComposerEditor> {
     return DScrollBar(
       controller: _scroll,
       child: Padding(
-        padding: const EdgeInsetsDirectional.only(end: DSpacing.sm),
+        padding: const EdgeInsetsDirectional.only(end: 2),
         child: field,
       ),
     );
