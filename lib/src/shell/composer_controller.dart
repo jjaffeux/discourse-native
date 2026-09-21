@@ -1098,7 +1098,7 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
           _uploads[current] = _uploads[current].copyWith(
             status: ComposerUploadStatus.failed,
             error: switch (error) {
-              ComposerUploadException(:final message) => message,
+              ComposerUploadException(:final displayMessage) => displayMessage,
               _ => "Couldn't upload ${file.name}.",
             },
           );

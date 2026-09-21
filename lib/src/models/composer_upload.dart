@@ -64,10 +64,23 @@ final class ComposerUploadType {
 }
 
 final class ComposerUploadException implements Exception {
-  const ComposerUploadException(this.message, {this.statusCode});
+  const ComposerUploadException(
+    this.message, {
+    this.statusCode,
+    this.retryAfter,
+  });
 
   final String message;
   final int? statusCode;
+  final Duration? retryAfter;
+
+  String get displayMessage {
+    if (statusCode != 429) return message;
+    final wait = retryAfter;
+    if (wait == null) return 'Too many uploads. Please wait and retry.';
+    final seconds = (wait.inMilliseconds / 1000).ceil();
+    return 'Too many uploads. Try again in $seconds seconds.';
+  }
 
   @override
   String toString() => 'ComposerUploadException($statusCode, $message)';
