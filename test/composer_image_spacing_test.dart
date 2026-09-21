@@ -57,9 +57,15 @@ void main() {
           final render = tester
               .state<EditableTextState>(find.byType(EditableText))
               .renderEditable;
-          final textRect = render.getLocalRectForCaret(
-            TextPosition(offset: image.end + 1),
-          );
+          final textRect = render
+              .getBoxesForSelection(
+                TextSelection(
+                  baseOffset: image.end + 1,
+                  extentOffset: image.end + 2,
+                ),
+              )
+              .single
+              .toRect();
           expect(
             render.localToGlobal(textRect.topLeft).dy,
             greaterThanOrEqualTo(
