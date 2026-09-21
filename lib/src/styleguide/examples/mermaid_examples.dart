@@ -1,4 +1,5 @@
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:flutter/widgets.dart';
 
 import '../styleguide_example.dart';
 
@@ -40,6 +41,14 @@ final mermaidExamples = ComponentExamples(
       'Rendering follows light/dark mode, bounds images to four million pixels, '
       'and keeps a bounded memory cache. Diagram typography scales with zoom.',
   examples: [
+    StyleguideExample(
+      title: 'Composer editor',
+      description:
+          'Edit source beside a live preview. Expand the editor or copy the source using its icon actions.',
+      states: const ['Light', 'Dark', 'Narrow', 'Keyboard'],
+      code: 'DMermaidEditor(source: source, onChanged: onChanged)',
+      builder: (_) => const _EditorExample(),
+    ),
     for (final name in ['Flowchart', 'Sequence', 'Gantt', 'Invalid syntax'])
       StyleguideExample(
         title: name,
@@ -52,3 +61,19 @@ final mermaidExamples = ComponentExamples(
       ),
   ],
 );
+
+class _EditorExample extends StatefulWidget {
+  const _EditorExample();
+  @override
+  State<_EditorExample> createState() => _EditorExampleState();
+}
+
+class _EditorExampleState extends State<_EditorExample> {
+  String _source =
+      'flowchart TD\n  A[New contribution] --> B{Ready for review?}\n  B -->|Yes| C[Peer review]\n  B -->|Not yet| D[Keep refining]\n  D --> A\n  C --> E[Merge and celebrate]';
+  @override
+  Widget build(BuildContext context) => DMermaidEditor(
+    source: _source,
+    onChanged: (value) => setState(() => _source = value),
+  );
+}

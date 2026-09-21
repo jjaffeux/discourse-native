@@ -8,11 +8,14 @@ final class DiscourseMermaidModule implements PluginModule {
   const DiscourseMermaidModule();
 
   @override
-  PluginDescriptor get descriptor =>
-      const PluginDescriptor(id: discourseMermaidPluginId);
+  PluginDescriptor get descriptor => const PluginDescriptor(
+    id: discourseMermaidPluginId,
+    syntaxIds: {'discourse-mermaid/chart'},
+  );
 
   @override
   void register(PluginRegistrar registrar) {
     registrar.addCapability(const DiscourseMermaidPlugin());
+    registrar.addSyntaxId('discourse-mermaid/chart');
   }
 }

@@ -3,13 +3,16 @@ import 'dart:async';
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_code_editor/flutter_code_editor.dart' as editor;
 import 'package:html/dom.dart' as dom;
 
 import '../theme/app_theme.dart';
 import '../theme/d_icons.dart';
+import '../ui/foundation/code_typography.dart';
+
 import 'cooked_dom.dart';
 import 'syntax.dart';
+
+export '../ui/foundation/code_typography.dart';
 
 class CodeBlockData {
   const CodeBlockData({
@@ -131,29 +134,6 @@ class CodeLine {
 
   String get text => tokens.map((token) => token.text).join();
 }
-
-const String monospaceFontFamily = 'JetBrains Mono';
-
-const List<String> monospaceFallback = [
-  'packages/discourse_native/JetBrains Mono',
-  'Consolas',
-  'Monaco',
-  'monospace',
-];
-
-const List<FontFeature> monospaceFontFeatures = [
-  FontFeature.disable('liga'),
-  FontFeature.disable('clig'),
-  FontFeature.disable('dlig'),
-  FontFeature.disable('hlig'),
-  FontFeature.disable('calt'),
-];
-
-const TextStyle monospaceTextStyle = TextStyle(
-  fontFamily: monospaceFontFamily,
-  fontFamilyFallback: monospaceFallback,
-  fontFeatures: monospaceFontFeatures,
-);
 
 Color? scopeColor(String? scope, CodeColors colors) => switch (scope) {
   'keyword' ||
@@ -456,14 +436,14 @@ class CodeBlockFullscreen extends StatefulWidget {
 }
 
 class _CodeBlockFullscreenState extends State<CodeBlockFullscreen> {
-  late final editor.CodeController _controller;
+  late final DCodeEditingController _controller;
 
   @override
   void initState() {
     super.initState();
-    _controller = editor.CodeController(
+    _controller = DCodeEditingController(
       text: widget.data.text,
-      language: highlightMode(widget.data.text, widget.data.language),
+      language: widget.data.language,
       readOnly: true,
     );
   }
@@ -477,11 +457,6 @@ class _CodeBlockFullscreenState extends State<CodeBlockFullscreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final style = monospaceTextStyle.copyWith(
-      fontSize: DiscourseTypography.sm,
-      height: DiscourseTypography.codeLineHeight,
-      color: theme.discourse.primaryVeryHigh,
-    );
 
     return CallbackShortcuts(
       bindings: {
@@ -514,31 +489,11 @@ class _CodeBlockFullscreenState extends State<CodeBlockFullscreen> {
                   ],
                 ),
                 Expanded(
-                  child: editor.CodeTheme(
-                    data: editor.CodeThemeData(styles: _editorStyles(theme)),
-                    child: editor.CodeField(
-                      key: const ValueKey('code-block-fullscreen-editor'),
-                      controller: _controller,
-                      readOnly: true,
-                      expands: true,
-                      wrap: false,
-                      background: theme.code.blockBackground,
-                      textStyle: style,
-                      gutterStyle: editor.GutterStyle(
-                        width: 56,
-                        margin: 12,
-                        showErrors: false,
-                        showFoldingHandles: false,
-                        textStyle: style.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                      textSelectionTheme: TextSelectionThemeData(
-                        selectionColor: theme.colorScheme.primary.withValues(
-                          alpha: 0.28,
-                        ),
-                      ),
-                    ),
+                  child: DCodeEditor(
+                    key: const ValueKey('code-block-fullscreen-editor'),
+                    controller: _controller,
+                    readOnly: true,
+                    semanticLabel: 'Post code',
                   ),
                 ),
               ],
@@ -691,67 +646,6 @@ class _CodeCopyButtonState extends State<_CodeCopyButton> {
       ),
     );
   }
-}
-
-Map<String, TextStyle> _editorStyles(ThemeData theme) {
-  final colors = theme.code;
-  TextStyle color(Color color) => TextStyle(color: color);
-
-  return {
-    'root': TextStyle(
-      color: theme.discourse.primaryVeryHigh,
-      backgroundColor: colors.blockBackground,
-    ),
-    for (final scope in const [
-      'keyword',
-      'built_in',
-      'builtin-name',
-      'type',
-      'literal',
-      'operator',
-      'selector-tag',
-      'tag',
-    ])
-      scope: color(colors.keyword),
-    for (final scope in const [
-      'string',
-      'regexp',
-      'symbol',
-      'char',
-      'quote',
-      'addition',
-      'selector-attr',
-    ])
-      scope: color(colors.string),
-    for (final scope in const ['comment', 'doctag'])
-      scope: color(colors.comment),
-    for (final scope in const ['number', 'deletion'])
-      scope: color(colors.number),
-    for (final scope in const [
-      'title',
-      'class',
-      'function',
-      'name',
-      'section',
-      'attr',
-      'attribute',
-      'variable',
-      'template-variable',
-      'selector-id',
-      'selector-class',
-      'bullet',
-    ])
-      scope: color(colors.name),
-    for (final scope in const [
-      'meta',
-      'meta-keyword',
-      'meta-string',
-      'subst',
-      'link',
-      'formula',
-    ])
-      scope: color(colors.meta),
-  };
 }
 
 class _Line extends StatelessWidget {
