@@ -61,6 +61,27 @@ const _callRoomJson = <String, Object?>{
 };
 
 void main() {
+  test(
+    'participant parses negative agent IDs and verified provider identities',
+    () {
+      final participant = VoiceParticipant.fromJson(const {
+        'id': -1400,
+        'username': 'livekit_agent_bot',
+        'role': 'speaker',
+        'external_agent': true,
+        'livekit_identity': 'agent-dashboard',
+      });
+      expect(participant.id, -1400);
+      expect(participant.externalAgent, isTrue);
+      expect(participant.isAgent, isTrue);
+      expect(participant.livekitIdentity, 'agent-dashboard');
+      final human = VoiceParticipant.fromJson(const {'id': 2});
+      expect(human.externalAgent, isFalse);
+      expect(human.livekitIdentity, isNull);
+      expect(human.isAgent, isFalse);
+    },
+  );
+
   group('room snapshots', () {
     test('parse the complete room snapshot from the pinned contract', () {
       final room = VoiceRoom.fromJson(fixture('room'));

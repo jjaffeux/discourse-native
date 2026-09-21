@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:collection';
 import 'dart:convert';
 
 import 'package:discourse_native/src/plugins/voice/voice_diagnostics.dart';
@@ -2008,6 +2009,373 @@ void main() {
     await media.dispose();
   });
 
+  group('LiveKit agent media', () {
+    const agent = VoiceParticipant(
+      id: -1400,
+      username: 'bot',
+      role: VoiceRole.speaker,
+      externalAgent: true,
+      livekitIdentity: 'agent-dashboard',
+    );
+    late _RemoteMediaRoom room;
+    late _FakeLiveKitRoomAdapter adapter;
+    late LiveKitVoiceMediaSession media;
+    late _RemoteMediaParticipant remote;
+    late _RemoteMediaPublication<lk.RemoteAudioTrack> audio;
+    late List<double> volumes;
+
+    setUp(() async {
+      room = _RemoteMediaRoom();
+      adapter = _FakeLiveKitRoomAdapter(room: room);
+      remote = _RemoteMediaParticipant('agent-dashboard');
+      audio = _RemoteMediaPublication(lk.TrackType.AUDIO);
+      remote.trackPublications['mic'] = audio;
+      room.participants[remote.identity] = remote;
+      room.speakers.add(remote);
+      volumes = [];
+      media = _liveKitSession(
+        adapter,
+        setTrackVolume: (volume, track) async {
+          volumes.add(volume);
+          (track as _FakeTrack).volume = volume;
+        },
+      );
+      addTearDown(media.dispose);
+      await media.connect();
+      audio.requests.clear();
+    });
+
+    _FakeTrack deliverAudio() {
+      final native = _FakeTrack('agent-mic', 'audio');
+      final track = _RemoteMediaAudioTrack(native);
+      audio.track = track;
+      adapter.onRoomEvent!(
+        lk.TrackSubscribedEvent(
+          participant: remote,
+          publication: audio,
+          track: track,
+        ),
+      );
+      return native;
+    }
+
+    for (final savedVolume in <double?>[null, .4]) {
+      test(
+        'SDK late start stays silent with native stop no-op and restores ${savedVolume ?? 'default'} volume on admission',
+        () async {
+          if (savedVolume != null) {
+            await media.setParticipantVolume(-1400, savedVolume);
+          }
+          final native = _FakeTrack('darwin-remote', 'audio')
+            ..remoteStopIsNoop = true;
+          final sdkTrack = lk.RemoteAudioTrack(
+            lk.TrackSource.microphone,
+            _FakeStream('agent-stream', [native]),
+            native,
+          );
+          addTearDown(sdkTrack.dispose);
+          audio.track = sdkTrack;
+          adapter.onRoomEvent!(
+            lk.TrackSubscribedEvent(
+              participant: remote,
+              publication: audio,
+              track: sdkTrack,
+            ),
+          );
+          await sdkTrack.start();
+          expect(
+            native.enabled,
+            isTrue,
+            reason: 'real LiveKit start re-enables the rejected track',
+          );
+          expect(
+            native.stopped,
+            isFalse,
+            reason: 'Darwin remote trackDispose is a no-op',
+          );
+          expect(
+            native.volume,
+            0,
+            reason: 'source volume remains silent after SDK enable',
+          );
+          await media.syncParticipants([agent]);
+          expect(audio.track, isNull);
+
+          final readmitted = _FakeTrack('darwin-remote', 'audio')
+            ..remoteStopIsNoop = true
+            ..volume = 0;
+          final restored = lk.RemoteAudioTrack(
+            lk.TrackSource.microphone,
+            _FakeStream('agent-stream', [readmitted]),
+            readmitted,
+          );
+          addTearDown(restored.dispose);
+          audio.track = restored;
+          adapter.onRoomEvent!(
+            lk.TrackSubscribedEvent(
+              participant: remote,
+              publication: audio,
+              track: restored,
+            ),
+          );
+          await restored.start();
+          await media.syncParticipants([agent]);
+          expect(readmitted.enabled, isTrue);
+          expect(readmitted.volume, savedVolume ?? 1);
+        },
+      );
+    }
+
+    test(
+      'unknown tracks stay silent until roster admission and follow volume',
+      () async {
+        expect(adapter.connectOptions!.autoSubscribe, isFalse);
+        final early = deliverAudio();
+        expect(early.enabled, isFalse);
+        expect(early.stopped, isTrue);
+        expect(media.speakingParticipantIds, isEmpty);
+        await media.setParticipantVolume(-1400, .35);
+        await media.syncParticipants([agent]);
+        expect(audio.track, isNull);
+        expect(audio.requests.last, isTrue);
+        final admitted = deliverAudio();
+        await media.syncParticipants([agent]);
+        expect(admitted.stopped, isFalse);
+        expect(media.speakingParticipantIds, {-1400});
+        expect(volumes.last, .35);
+      },
+    );
+
+    test(
+      'demotion in an open room and removal stop audio; readmission restores subscriptions',
+      () async {
+        await media.syncParticipants([agent]);
+        final native = deliverAudio();
+        await media.syncParticipants([
+          const VoiceParticipant(
+            id: -1400,
+            username: 'bot',
+            role: VoiceRole.participant,
+            externalAgent: true,
+            livekitIdentity: 'agent-dashboard',
+          ),
+        ]);
+        expect(native.stopped, isTrue);
+        expect(audio.requests.last, isFalse);
+        expect(media.speakingParticipantIds, isEmpty);
+        await media.syncParticipants([agent]);
+        expect(audio.requests.last, isTrue);
+        final readmitted = deliverAudio();
+        await media.syncParticipants([]);
+        expect(readmitted.stopped, isTrue);
+        expect(audio.track, isNull);
+        await media.syncParticipants([agent]);
+        expect(audio.requests.last, isTrue);
+      },
+    );
+
+    test(
+      'replacement rejects old provider and numeric identities, including late events',
+      () async {
+        await media.syncParticipants([agent]);
+        final old = deliverAudio();
+        final replacement = _RemoteMediaParticipant('agent-replacement');
+        final video = _RemoteMediaPublication<lk.RemoteVideoTrack>(
+          lk.TrackType.VIDEO,
+          track: _RemoteMediaVideoTrack(_FakeTrack('video', 'video')),
+        );
+        replacement.trackPublications['video'] = video;
+        room.participants[replacement.identity] = replacement;
+        room.participants['-1400'] = _RemoteMediaParticipant('-1400');
+        room.speakers.addAll([replacement, room.participants['-1400']!]);
+        await media.syncParticipants([
+          const VoiceParticipant(
+            id: -1400,
+            username: 'bot',
+            role: VoiceRole.speaker,
+            externalAgent: true,
+            livekitIdentity: 'agent-replacement',
+          ),
+        ]);
+        expect(old.stopped, isTrue);
+        expect(media.videoTrackFor(-1400), same(video.track));
+        expect(media.speakingParticipantIds, {-1400});
+        final late = deliverAudio();
+        expect(late.stopped, isTrue);
+        await media.syncParticipants([]);
+        expect(media.videoTrackFor(-1400), isNull);
+        expect(video.track, isNull);
+      },
+    );
+
+    for (final transition in ['deafen', 'revoke']) {
+      test(
+        'same-turn $transition and restoration detach stopped tracks before resubscribing',
+        () async {
+          await media.syncParticipants([agent]);
+          final original = deliverAudio();
+          await media.syncParticipants([agent]);
+          audio.requests.clear();
+          final withdrawn = transition == 'deafen'
+              ? media.setDeafened(true)
+              : media.syncParticipants([]);
+          final restored = transition == 'deafen'
+              ? media.setDeafened(false)
+              : media.syncParticipants([agent]);
+          await Future.wait([withdrawn, restored]);
+          expect(original.stopped, isTrue);
+          expect(audio.track, isNull);
+          expect(audio.requests.first, isFalse);
+          expect(audio.requests.last, isTrue);
+          expect(deliverAudio().stopped, isFalse);
+        },
+      );
+    }
+
+    test(
+      'revocation during a pending subscription rejects a late track',
+      () async {
+        final gate = Completer<void>();
+        audio.subscribeGate = gate;
+        final admission = media.syncParticipants([agent]);
+        await pumpEventQueue();
+        expect(audio.requests.last, isTrue);
+        final removal = media.syncParticipants([]);
+        final late = deliverAudio();
+        expect(late.stopped, isTrue);
+        gate.complete();
+        await Future.wait([admission, removal]);
+        expect(audio.requests.last, isFalse);
+        expect(audio.track, isNull);
+      },
+    );
+
+    test(
+      'reconnection retains deafen, mapping and volume; humans still subscribe',
+      () async {
+        final human = _RemoteMediaParticipant(
+          '42',
+          kind: lk.ParticipantKind.STANDARD,
+        );
+        final microphone = _RemoteMediaPublication<lk.RemoteAudioTrack>(
+          lk.TrackType.AUDIO,
+        );
+        human.trackPublications['mic'] = microphone;
+        room.participants['42'] = human;
+        room.speakers.add(human);
+        await media.syncParticipants([agent]);
+        expect(microphone.requests.last, isTrue);
+        expect(media.speakingParticipantIds, {-1400, 42});
+        await media.setParticipantVolume(-1400, .6);
+        await media.setDeafened(true);
+        adapter.onRoomEvent!(const lk.RoomReconnectedEvent());
+        await media.syncParticipants([agent]);
+        expect(audio.requests.last, isFalse);
+        expect(microphone.requests.last, isFalse);
+        await media.setDeafened(false);
+        deliverAudio();
+        await media.syncParticipants([agent]);
+        expect(volumes.last, .6);
+        expect(microphone.requests.last, isTrue);
+      },
+    );
+
+    test(
+      'terminal reconnect uses fresh credentials with subscriptions still gated',
+      () async {
+        await media.syncParticipants([agent]);
+        await media.setDeafened(true);
+        final reconnected = Completer<void>();
+        media.addListener(() {
+          if (adapter.token == 'refreshed-local-test-token' &&
+              media.connectionState == VoiceMediaConnectionState.connected &&
+              !reconnected.isCompleted) {
+            reconnected.complete();
+          }
+        });
+        adapter.onDisconnected!();
+        await reconnected.future;
+        expect(adapter.connectOptions!.autoSubscribe, isFalse);
+        expect(audio.requests.last, isFalse);
+        expect(media.deafened, isTrue);
+        await media.setDeafened(false);
+        expect(audio.requests.last, isTrue);
+      },
+    );
+
+    test(
+      'disposal cancels restoration queued behind a pending subscription',
+      () async {
+        final gate = Completer<void>();
+        audio.subscribeGate = gate;
+        final admission = media.syncParticipants([agent]);
+        await pumpEventQueue();
+        final queued = media.syncParticipants([agent]);
+        final closing = media.dispose();
+        gate.complete();
+        await Future.wait([admission, queued, closing]);
+        expect(audio.requests, [true]);
+        await media.syncParticipants([agent]);
+        expect(audio.requests, [true]);
+      },
+    );
+
+    test(
+      'numeric negative agent identity requires an admitted speaking roster entry',
+      () async {
+        final numeric = _RemoteMediaParticipant('-1400');
+        final microphone = _RemoteMediaPublication<lk.RemoteAudioTrack>(
+          lk.TrackType.AUDIO,
+        );
+        numeric.trackPublications['mic'] = microphone;
+        room.participants['-1400'] = numeric;
+        await media.syncParticipants([]);
+        expect(microphone.requests.last, isFalse);
+        await media.syncParticipants([
+          const VoiceParticipant(
+            id: -1400,
+            username: 'bot',
+            role: VoiceRole.speaker,
+          ),
+        ]);
+        expect(microphone.requests.last, isTrue);
+        expect(audio.requests.last, isFalse);
+      },
+    );
+
+    test(
+      'provider agent kind cannot use the positive human identity fallback',
+      () async {
+        final impostor = _RemoteMediaParticipant('42');
+        final microphone = _RemoteMediaPublication<lk.RemoteAudioTrack>(
+          lk.TrackType.AUDIO,
+        );
+        impostor.trackPublications['mic'] = microphone;
+        room.participants['42'] = impostor;
+        room.speakers.add(impostor);
+        await media.syncParticipants([]);
+        expect(microphone.requests, [false]);
+        expect(media.speakingParticipantIds, isEmpty);
+      },
+    );
+
+    test(
+      'late events cannot restore a retired provider participant or publication',
+      () async {
+        await media.syncParticipants([agent]);
+        room.participants[remote.identity] = _RemoteMediaParticipant(
+          remote.identity,
+        );
+        final retiredParticipantTrack = deliverAudio();
+        expect(retiredParticipantTrack.stopped, isTrue);
+        room.participants[remote.identity] = remote;
+        remote.trackPublications.clear();
+        final retiredPublicationTrack = deliverAudio();
+        expect(retiredPublicationTrack.stopped, isTrue);
+      },
+    );
+  });
+
   group('LiveKit camera capture', () {
     test(
       'publishes the selected camera only while it is still wanted',
@@ -2897,6 +3265,7 @@ LiveKitVoiceMediaSession _liveKitSession(
   String endpoint = 'wss://localhost:3000',
   Future<lk.LocalVideoTrack> Function(lk.CameraCaptureOptions)?
   createCameraTrack,
+  VoiceTrackVolumeSetter? setTrackVolume,
 }) => LiveKitVoiceMediaSession(
   join: VoiceJoinResponse(
     transport: VoiceTransport.livekit,
@@ -2926,6 +3295,7 @@ LiveKitVoiceMediaSession _liveKitSession(
   ),
   roomAdapter: adapter,
   createCameraTrack: createCameraTrack,
+  setTrackVolume: setTrackVolume,
 );
 
 VoiceJoinResponse _meshJoin({
@@ -3179,22 +3549,31 @@ final class _FakeLiveKitRoomAdapter implements VoiceLiveKitRoomAdapter {
   final lk.Room room;
   String? endpoint;
   String? token;
+  lk.ConnectOptions? connectOptions;
   void Function()? onDisconnected;
+  void Function(lk.RoomEvent)? onRoomEvent;
 
   @override
   void listen({
     required void Function() onChanged,
     required void Function() onDisconnected,
+    void Function(lk.RoomEvent)? onRoomEvent,
   }) {
     calls.add('listen');
     this.onDisconnected = onDisconnected;
+    this.onRoomEvent = onRoomEvent;
   }
 
   @override
-  Future<void> connect(String endpoint, String token) {
+  Future<void> connect(
+    String endpoint,
+    String token, {
+    required lk.ConnectOptions connectOptions,
+  }) {
     calls.add('connect');
     this.endpoint = endpoint;
     this.token = token;
+    this.connectOptions = connectOptions;
     if (!connectStarted.isCompleted) connectStarted.complete();
     return connection?.future ?? Future<void>.value();
   }
@@ -3235,6 +3614,110 @@ final class _FakeLiveKitRoom extends lk.Room {
 
   @override
   final lk.LocalParticipant localParticipant;
+}
+
+final class _RemoteMediaRoom extends lk.Room {
+  final participants = <String, lk.RemoteParticipant>{};
+  final speakers = <lk.Participant>[];
+
+  @override
+  UnmodifiableMapView<String, lk.RemoteParticipant> get remoteParticipants =>
+      UnmodifiableMapView(participants);
+
+  @override
+  UnmodifiableListView<lk.Participant> get activeSpeakers =>
+      UnmodifiableListView(speakers);
+}
+
+final class _RemoteMediaParticipant implements lk.RemoteParticipant {
+  _RemoteMediaParticipant(
+    this.identity, {
+    this.kind = lk.ParticipantKind.AGENT,
+  });
+
+  @override
+  final String identity;
+  @override
+  final lk.ParticipantKind kind;
+  @override
+  String get sid => identity;
+  @override
+  String get name => identity;
+  @override
+  lk.ParticipantState get state => lk.ParticipantState.active;
+  @override
+  bool get isSpeaking => true;
+  @override
+  bool get isMuted => false;
+  @override
+  final trackPublications =
+      <String, lk.RemoteTrackPublication<lk.RemoteTrack>>{};
+
+  @override
+  List<lk.RemoteTrackPublication<lk.RemoteVideoTrack>>
+  get videoTrackPublications => trackPublications.values
+      .whereType<lk.RemoteTrackPublication<lk.RemoteVideoTrack>>()
+      .toList();
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+final class _RemoteMediaPublication<T extends lk.RemoteTrack>
+    implements lk.RemoteTrackPublication<T> {
+  _RemoteMediaPublication(this.kind, {this.track});
+
+  final requests = <bool>[];
+  Completer<void>? subscribeGate;
+  @override
+  final lk.TrackType kind;
+  @override
+  String get sid => 'track';
+  @override
+  String get name => 'track';
+  @override
+  lk.TrackSource get source => kind == lk.TrackType.AUDIO
+      ? lk.TrackSource.microphone
+      : lk.TrackSource.camera;
+  @override
+  bool get subscribed => track != null;
+  @override
+  String get mimeType => '';
+  @override
+  T? track;
+  @override
+  bool get muted => false;
+
+  @override
+  Future<void> subscribe() async {
+    requests.add(true);
+    await subscribeGate?.future;
+  }
+
+  @override
+  Future<void> unsubscribe() async {
+    requests.add(false);
+    track = null;
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+final class _RemoteMediaAudioTrack implements lk.RemoteAudioTrack {
+  _RemoteMediaAudioTrack(this.mediaStreamTrack);
+  @override
+  final rtc.MediaStreamTrack mediaStreamTrack;
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+final class _RemoteMediaVideoTrack implements lk.RemoteVideoTrack {
+  _RemoteMediaVideoTrack(this.mediaStreamTrack);
+  @override
+  final rtc.MediaStreamTrack mediaStreamTrack;
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
 final class _FakeLiveKitVideoTrack implements lk.LocalVideoTrack {
@@ -3400,6 +3883,8 @@ final class _FakeTrack implements rtc.MediaStreamTrack {
   final List<String> events;
   bool stopped = false;
   int stopCalls = 0;
+  bool remoteStopIsNoop = false;
+  double volume = 1;
   bool _enabled = true;
 
   @override
@@ -3415,7 +3900,7 @@ final class _FakeTrack implements rtc.MediaStreamTrack {
   Future<void> stop() async {
     events.add('stop:$id');
     stopCalls++;
-    stopped = true;
+    if (!remoteStopIsNoop) stopped = true;
   }
 
   @override

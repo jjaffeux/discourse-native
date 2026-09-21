@@ -1828,6 +1828,45 @@ void _roomSurfaceTests() {
       harness.dispose();
     });
 
+    testWidgets('agent stage menus retain kicking without human role actions', (
+      tester,
+    ) async {
+      final room = _room(
+        type: VoiceRoomType.stage,
+        canManage: true,
+        creatorId: 1,
+        participants: const [
+          VoiceParticipant(id: 1, username: 'sam', role: VoiceRole.moderator),
+          VoiceParticipant(
+            id: -1400,
+            username: 'bot',
+            role: VoiceRole.speaker,
+            externalAgent: true,
+            livekitIdentity: 'agent-dashboard',
+          ),
+        ],
+      );
+      final harness = _Harness(joinRoom: room);
+      addTearDown(harness.dispose);
+      await _join(harness, room);
+      await tester.pumpWidget(
+        _app(harness.controller, room: room, call: harness.controller.call),
+      );
+      await tester.tap(find.byTooltip('Participant actions'));
+      await tester.pumpAndSettle();
+      expect(find.text('Make speaker'), findsNothing);
+      expect(find.text('Move to listeners'), findsNothing);
+      expect(find.text('Remove from room'), findsOneWidget);
+      await tester.tap(find.text('Remove from room'));
+      await tester.pumpAndSettle();
+      final kicks = harness.transport.writes.where(
+        (write) => write.path.endsWith('/kick.json'),
+      );
+      expect(kicks.map((write) => write.method), ['DELETE']);
+      expect(kicks.single.body['user_id'], -1400);
+      harness.dispose();
+    });
+
     testWidgets('open rooms offer no role changes', (tester) async {
       final room = _room(
         canManage: true,

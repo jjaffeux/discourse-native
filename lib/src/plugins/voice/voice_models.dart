@@ -76,6 +76,8 @@ class VoiceParticipant {
     this.watchingVideo = false,
     this.idleState = VoiceIdleState.active,
     this.handRaisedAt,
+    this.externalAgent = false,
+    this.livekitIdentity,
   });
 
   factory VoiceParticipant.fromJson(Map<String, dynamic> json) {
@@ -86,6 +88,8 @@ class VoiceParticipant {
       name: jsonText(json['name']),
       avatarTemplate: jsonText(json['avatar_template']),
       role: VoiceRole.parse(json['role']),
+      externalAgent: json['external_agent'] == true,
+      livekitIdentity: jsonText(json['livekit_identity']),
       muted: json['is_muted'] == true,
       deafened: json['is_deafened'] == true,
       videoOn: json['is_video_on'] == true,
@@ -112,6 +116,10 @@ class VoiceParticipant {
   final bool watchingVideo;
   final VoiceIdleState idleState;
   final DateTime? handRaisedAt;
+  final bool externalAgent;
+  final String? livekitIdentity;
+
+  bool get isAgent => externalAgent || id < 0;
 
   String avatarUrl(String siteUrl, {int size = 96}) {
     final template = avatarTemplate;

@@ -1625,6 +1625,8 @@ final class VoiceController extends ChangeNotifier {
   ) => VoiceParticipant(
     id: participant.id,
     username: participant.username,
+    externalAgent: participant.externalAgent,
+    livekitIdentity: participant.livekitIdentity,
     role: role,
     name: participant.name,
     avatarTemplate: participant.avatarTemplate,
@@ -1643,6 +1645,8 @@ final class VoiceController extends ChangeNotifier {
   ) => VoiceParticipant(
     id: participant.id,
     username: participant.username,
+    externalAgent: participant.externalAgent,
+    livekitIdentity: participant.livekitIdentity,
     role: participant.role,
     name: participant.name,
     avatarTemplate: participant.avatarTemplate,
@@ -1661,6 +1665,8 @@ final class VoiceController extends ChangeNotifier {
   ) => VoiceParticipant(
     id: participant.id,
     username: participant.username,
+    externalAgent: participant.externalAgent,
+    livekitIdentity: participant.livekitIdentity,
     role: participant.role,
     name: participant.name,
     avatarTemplate: participant.avatarTemplate,
@@ -4134,7 +4140,11 @@ final class VoiceController extends ChangeNotifier {
 
   Future<void> _setParticipantRole(int userId, VoiceRole role) async {
     final call = _call;
-    if (call == null) return;
+    if (call == null ||
+        userId < 0 ||
+        call.room.participants.any((p) => p.id == userId && p.isAgent)) {
+      return;
+    }
     final siteSession = _siteSession(call.siteUrl);
     bool isCurrent() => _isCurrentCall(call, siteSession);
     final credentials = await _requestCredentials(
