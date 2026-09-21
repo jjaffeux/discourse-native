@@ -2068,6 +2068,14 @@ class _ComposerEditorState extends State<ComposerEditor> {
       );
       return KeyEventResult.handled;
     }
+    if (selectedComponent == null &&
+        event is KeyDownEvent &&
+        event.logicalKey == LogicalKeyboardKey.backspace &&
+        !hasModifier &&
+        widget.composer.text.selectBlockBeforeCaret()) {
+      widget.composer.autocomplete.dismiss();
+      return KeyEventResult.handled;
+    }
     final mediaResult = _media.handleKeyEvent(
       event,
       hasModifier: hasModifier,

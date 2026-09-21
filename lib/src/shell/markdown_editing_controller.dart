@@ -213,6 +213,59 @@ class MarkdownEditingController extends TextEditingController {
     _ => throw ArgumentError.value(block, 'block'),
   };
 
+  /// Removes the line after a collapsed component and selects it for deletion.
+  bool selectBlockBeforeCaret() {
+    if (!selection.isValid ||
+        !selection.isCollapsed ||
+        !value.composing.isCollapsed ||
+        keyboardSelectedProjection != null) {
+      return false;
+    }
+    final caret = selection.extentOffset;
+    final candidates = <Object>[
+      ...syntaxBlocks.where(
+        (block) =>
+            block.projection is ComposerBlockSyntaxProjection &&
+            isSyntaxCollapsed(block),
+      ),
+      ...quoteBlocks.where(isQuoteCollapsed),
+      ...galleryBlocks.where(isGalleryCollapsed),
+      ...imageBlocks.where(isImageCollapsed),
+    ];
+    for (final block in candidates) {
+      final (start, end) = _blockRange(block);
+      var contentEnd = end;
+      while (contentEnd > start &&
+          (text[contentEnd - 1] == '\n' || text[contentEnd - 1] == '\r')) {
+        contentEnd--;
+      }
+      if (caret < contentEnd) continue;
+      final gap = text.substring(contentEnd, caret);
+      if (gap.isNotEmpty &&
+          gap != '\n' &&
+          gap != '\r\n' &&
+          !(caret == end && gap.trim().isEmpty)) {
+        continue;
+      }
+      // Selecting the leading boundary resolves the component again after the
+      // edit, so projections whose range includes a newline stay up to date.
+      final lineIsEmpty =
+          caret == text.length || text[caret] == '\n' || text[caret] == '\r';
+      value = TextEditingValue(
+        text: lineIsEmpty && gap.isNotEmpty
+            ? text.replaceRange(
+                caret - (gap.endsWith('\r\n') ? 2 : 1),
+                caret,
+                '',
+              )
+            : text,
+        selection: TextSelection.collapsed(offset: start),
+      );
+      return true;
+    }
+    return false;
+  }
+
   /// The preceding text position, skipping the block's selection boundary.
   int caretBeforeBlock(int start) {
     final offset = start.clamp(0, text.length);
