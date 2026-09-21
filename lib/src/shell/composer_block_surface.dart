@@ -376,7 +376,7 @@ class _ComposerBlockSurfaceState extends State<ComposerBlockSurface> {
     return KeyEventResult.ignored;
   }
 
-  Widget _handle(ComposerBodyBlock block, {bool trailing = false}) {
+  Widget _handle(ComposerBodyBlock block) {
     final position = composer.blocks.index.blocks.indexOf(block);
     // Only the selected handle can have an open menu. Avoid reparsing the
     // entire draft for both actions on every row of a long outline.
@@ -427,9 +427,7 @@ class _ComposerBlockSurfaceState extends State<ComposerBlockSurface> {
       ),
       child: DDropdownMenuTrigger(
         builder: (context, trigger) => DDragHandle<_BlockDrag>(
-          key: ValueKey(
-            'composer-block-handle-${block.id}${trailing ? '-end' : ''}',
-          ),
+          key: ValueKey('composer-block-handle-${block.id}'),
           data: drag,
           label: '${block.label} actions',
           enabled:
@@ -616,7 +614,7 @@ class _ComposerBlockSurfaceState extends State<ComposerBlockSurface> {
         ? null
         : PositionedDirectional(
             start: DSpacing.xxl,
-            end: DSpacing.xxl,
+            end: 0,
             top: _dropTop,
             child: const FractionalTranslation(
               translation: Offset(0, -.5),
@@ -660,8 +658,8 @@ class _ComposerBlockSurfaceState extends State<ComposerBlockSurface> {
                 Offstage(
                   offstage: arranging,
                   child: Padding(
-                    padding: EdgeInsets.symmetric(
-                      horizontal: desktop ? DSpacing.xxl : 0,
+                    padding: EdgeInsetsDirectional.only(
+                      start: desktop ? DSpacing.xxl : 0,
                     ),
                     child: widget.child,
                   ),
@@ -679,18 +677,12 @@ class _ComposerBlockSurfaceState extends State<ComposerBlockSurface> {
                     desktop &&
                     block != null &&
                     handleRect != null &&
-                    handleRect.top >= 0) ...[
+                    handleRect.top >= 0)
                   PositionedDirectional(
                     start: 0,
                     top: handleRect.top,
                     child: _handle(block),
                   ),
-                  PositionedDirectional(
-                    end: 0,
-                    top: handleRect.top,
-                    child: _handle(block, trailing: true),
-                  ),
-                ],
                 ?line,
               ],
             ),
