@@ -3,6 +3,7 @@ import 'package:discourse_native/src/plugins/discourse_mermaid/mermaid_composer.
 import 'package:discourse_native/src/shell/composer_controller.dart';
 import 'package:discourse_native/src/shell/composer_panel.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -55,6 +56,8 @@ void main() {
     WidgetTester tester, {
     double width = 760,
     bool dark = false,
+    String source = _source,
+    double? height,
   }) async {
     late final ComposerController composer;
     composer = ComposerController(
@@ -67,9 +70,9 @@ void main() {
       syntaxPolicies: [MermaidComposerPolicy(() => composer)],
     );
     addTearDown(composer.dispose);
-    composer.text.value = const TextEditingValue(
-      text: _source,
-      selection: TextSelection.collapsed(offset: _source.length),
+    composer.text.value = TextEditingValue(
+      text: source,
+      selection: const TextSelection.collapsed(offset: 0),
     );
     await tester.pumpWidget(
       MaterialApp(
@@ -78,6 +81,7 @@ void main() {
           body: Center(
             child: SizedBox(
               width: width,
+              height: height,
               child: ComposerEditor(
                 composer: composer,
                 hintText: 'Reply',
@@ -93,6 +97,63 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
     return composer;
+  }
+
+  for (final scrolled in [false, true]) {
+    testWidgets('mouse places source caret after composer scroll: $scrolled', (
+      tester,
+    ) async {
+      final source = '${scrolled ? 'Paragraph\n\n' * 20 : ''}$_source';
+      final composer = await pump(tester, source: source, height: 420);
+      final field = find.descendant(
+        of: find.byType(DCodeEditor),
+        matching: find.byType(EditableText),
+      );
+      final render = tester.state<EditableTextState>(field).renderEditable;
+      final points = {
+        for (final offset in [3, 17, 8])
+          offset: render.localToGlobal(
+            render.getLocalRectForCaret(TextPosition(offset: offset)).center,
+          ),
+      };
+      final scroll = composer.text.imageScrollController!;
+      if (scrolled) {
+        scroll.jumpTo(
+          (render.localToGlobal(Offset.zero).dy -
+                  tester.getTopLeft(find.byType(ComposerEditor)).dy -
+                  80)
+              .clamp(0, scroll.position.maxScrollExtent),
+        );
+        await tester.pump();
+      }
+      final outerOffset = scroll.offset;
+      for (final offset in [3, 17, 8]) {
+        final point = points[offset]! - Offset(0, outerOffset);
+        await tester.tapAt(point, kind: PointerDeviceKind.mouse);
+        await tester.pump(const Duration(milliseconds: 600));
+        final editable = tester.widget<EditableText>(field);
+        expect(editable.focusNode.hasPrimaryFocus, isTrue);
+        expect(composer.text.keyboardSelectedSyntax, isNull);
+        expect(editable.controller.selection.isCollapsed, isTrue);
+        expect(editable.controller.selection.extentOffset, offset);
+        expect(composer.focus.hasFocus, isFalse);
+        expect(scroll.offset, closeTo(outerOffset, 1));
+      }
+      final drag = await tester.startGesture(
+        points[3]! - Offset(0, outerOffset),
+        kind: PointerDeviceKind.mouse,
+      );
+      await drag.moveTo(points[17]! - Offset(0, outerOffset));
+      await drag.up();
+      await tester.pump();
+      expect(
+        tester.widget<EditableText>(field).controller.selection,
+        const TextSelection(baseOffset: 3, extentOffset: 17),
+      );
+      expect(composer.text.keyboardSelectedSyntax, isNull);
+      expect(composer.raw, source);
+      await tester.pumpWidget(const SizedBox());
+    });
   }
 
   testWidgets(

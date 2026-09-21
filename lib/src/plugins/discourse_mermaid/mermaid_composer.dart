@@ -174,6 +174,7 @@ class _MermaidProjection implements ComposerInteractiveSyntaxProjection {
                   child: MermaidComposerEditor(
                     key: context.pillKey,
                     editor: readEditor(),
+                    scrollController: context.scrollController,
                     block: block,
                   ),
                 ),
@@ -231,9 +232,11 @@ class MermaidComposerEditor extends StatefulWidget {
     super.key,
     required this.editor,
     required this.block,
+    this.scrollController,
   });
   final ComposerEditorHost editor;
   final MermaidComposerBlock block;
+  final ScrollController? scrollController;
   @override
   State<MermaidComposerEditor> createState() => _MermaidComposerEditorState();
 }
@@ -287,6 +290,7 @@ class _MermaidComposerEditorState extends State<MermaidComposerEditor> {
   @override
   Widget build(BuildContext context) => ComposerEmbeddedEditor(
     owner: widget.editor,
+    scrollController: widget.scrollController,
     semanticLabel: 'Mermaid chart editor',
     child: DMermaidEditor(
       key: _key,
