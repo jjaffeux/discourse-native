@@ -35,7 +35,8 @@ String _title(DiscourseNotification row) =>
 
 ResolvedNotification? _reminder(DiscourseNotification row) {
   if (row.typeId.value != 27) return null;
-  final title = _title(row);
+  // The reminder job puts the event's display title in topic_title.
+  final title = eventText(row.data['topic_title']) ?? _title(row);
   final phrase = switch (row.data['message']) {
     'discourse_post_event.notifications.before_event_reminder' =>
       '$title is starting soon',
