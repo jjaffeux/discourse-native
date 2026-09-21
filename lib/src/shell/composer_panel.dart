@@ -377,12 +377,17 @@ class ComposerPanel extends StatelessWidget {
                                           : StackFit.expand,
                                       children: [
                                         Padding(
-                                          padding: const EdgeInsets.fromLTRB(
-                                            16,
-                                            2,
-                                            16,
-                                            8,
-                                          ),
+                                          padding:
+                                              EdgeInsetsDirectional.fromSTEB(
+                                                16,
+                                                2,
+                                                mobile
+                                                    ? 16
+                                                    : 16 -
+                                                          DScrollThumb
+                                                              .containerInset,
+                                                8,
+                                              ),
                                           child: ComposerEditor(
                                             composer: composer,
                                             showSelectionToolbar: false,
@@ -1541,26 +1546,36 @@ class _ComposerEditorState extends State<ComposerEditor> {
     }
   }
 
-  Widget _field() => Semantics(
-    container: true,
-    explicitChildNodes: true,
-    label: 'Composer editor',
-    traversalParentIdentifier: widget.composer,
-    child: ComposerSlashMenu(
-      key: _slashMenu,
-      composer: widget.composer,
-      actions: _slashActions,
-      hintStyle: widget.hintStyle ?? widget.textStyle,
-      renderEditable: () => _renderEditable,
-      scroll: Listenable.merge([_scroll, _ancestorScroll]),
-      child: ScrollConfiguration(
-        behavior: widget.expands
-            ? _ComposerEditorScrollBehavior(_scroll)
-            : ScrollConfiguration.of(context),
-        child: _textField(),
+  Widget _field() {
+    final field = Semantics(
+      container: true,
+      explicitChildNodes: true,
+      label: 'Composer editor',
+      traversalParentIdentifier: widget.composer,
+      child: ComposerSlashMenu(
+        key: _slashMenu,
+        composer: widget.composer,
+        actions: _slashActions,
+        hintStyle: widget.hintStyle ?? widget.textStyle,
+        renderEditable: () => _renderEditable,
+        scroll: Listenable.merge([_scroll, _ancestorScroll]),
+        child: ScrollConfiguration(
+          behavior: widget.expands
+              ? _ComposerEditorScrollBehavior(_scroll)
+              : ScrollConfiguration.of(context),
+          child: _textField(),
+        ),
       ),
-    ),
-  );
+    );
+    if (!widget.expands) return field;
+    return DScrollBar(
+      controller: _scroll,
+      child: Padding(
+        padding: const EdgeInsetsDirectional.only(end: DSpacing.lg),
+        child: field,
+      ),
+    );
+  }
 
   Widget _textField() => MouseRegion(
     onHover: (event) => _updateEditorHover(event.position),
@@ -2724,15 +2739,9 @@ class _ComposerEditorScrollBehavior extends MaterialScrollBehavior {
     if (!identical(details.controller, controller)) {
       return super.buildScrollbar(context, child, details);
     }
-    // Inset the editable viewport while keeping its scrollbar at the panel's
-    // content edge. Embedded editors retain their own scroll decoration.
-    return DScrollBar(
-      controller: controller,
-      child: Padding(
-        padding: const EdgeInsetsDirectional.only(end: DSpacing.lg),
-        child: child,
-      ),
-    );
+    // The editor owns its scrollbar outside the quote decoration's gutter.
+    // Embedded editors retain their own scroll decoration.
+    return child;
   }
 }
 
