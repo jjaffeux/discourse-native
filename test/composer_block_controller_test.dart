@@ -44,6 +44,40 @@ void main() {
     expect(blocks.index.blocks.first.id, id);
   });
 
+  test(
+    'moving between adjacent components preserves spacing through undo and redo',
+    () {
+      const image = '![Photo|100x100](upload://photo)';
+      const quote = '[quote="sam, post:1, topic:1"]\nQuoted text\n[/quote]';
+      const details = '[details="Summary"]\nBody\n[/details]';
+      const original = '$image\n$quote\n$details';
+      const moved = '$image\n$details\n$quote';
+      composer.text.value = const TextEditingValue(
+        text: original,
+        selection: TextSelection.collapsed(offset: original.length),
+      );
+      expect(blocks.index.blocks, hasLength(3));
+      expect(
+        blocks.moveTo(
+          1,
+          blockId: blocks.index.blocks.last.id,
+          expectedRevision: blocks.revision,
+        ),
+        isTrue,
+      );
+      expect(composer.text.text, moved);
+      expect(blocks.index.blocks.map((block) => block.label), [
+        'Image',
+        'Details',
+        'Quote',
+      ]);
+      history.undo();
+      expect(composer.text.text, original);
+      history.redo();
+      expect(composer.text.text, moved);
+    },
+  );
+
   test('an edit-undo cycle still rejects a drag captured before the edit', () {
     final index = blocks.index;
     final revision = blocks.revision;

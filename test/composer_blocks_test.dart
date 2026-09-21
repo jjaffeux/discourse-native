@@ -112,6 +112,45 @@ void main() {
     expect(move.after.blocks.first.label, 'Poll');
   });
 
+  for (final newline in ['\n', '\r\n']) {
+    for (final separation in [1, 2]) {
+      for (final from in [0, 2]) {
+        test(
+          'moving component $from between components preserves $separation separators of ${newline.length} characters',
+          () {
+            const components = [
+              '![First](upload://first)',
+              '[details="Second"]\nBody\n[/details]',
+              '[poll]\n* Third\n* Fourth\n[/poll]',
+            ];
+            final separator = newline * separation;
+            final source = components.join(separator);
+            final index = ComposerBlockIndex.parse(
+              source,
+              atoms: [
+                for (final component in components)
+                  ComposerBlockAtom(
+                    source.indexOf(component),
+                    source.indexOf(component) + component.length,
+                  ),
+              ],
+            );
+            final moved = index.move(index.blocks[from].id, from == 0 ? 2 : 1)!;
+            final expected = from == 0 ? [1, 0, 2] : [0, 2, 1];
+            expect(
+              moved.after.source,
+              expected.map((i) => components[i]).join(separator),
+            );
+            expect(
+              moved.after.blocks.map((block) => block.id),
+              expected.map((i) => index.blocks[i].id),
+            );
+          },
+        );
+      }
+    }
+  }
+
   test('moving retains exact CRLF, Unicode, and outer whitespace', () {
     const source = '\r\nFirst 😀  \r\n\r\n\r\nSecond אבג\r\n';
     final index = parse(source);
