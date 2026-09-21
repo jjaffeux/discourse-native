@@ -24,9 +24,20 @@ const applicationComponentCatalogue = <ComponentReference>[
     sections: ['Topics', 'Short list', 'Empty list', 'Disabled'],
   ),
   ComponentReference(
+    id: 'code-editor',
+    name: 'Code editor',
+    sections: ['Editable code', 'Read-only code'],
+  ),
+  ComponentReference(
     id: 'mermaid',
     name: 'Mermaid',
-    sections: ['Flowchart', 'Sequence', 'Gantt', 'Invalid syntax'],
+    sections: [
+      'Composer editor',
+      'Flowchart',
+      'Sequence',
+      'Gantt',
+      'Invalid syntax',
+    ],
   ),
   ComponentReference(
     id: 'image-preview',

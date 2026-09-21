@@ -528,7 +528,10 @@ void main() {
       expect(find.byKey(fullscreenButton), findsNothing);
 
       final editorField = tester.widget<editor.CodeField>(
-        find.byKey(const ValueKey('code-block-fullscreen-editor')),
+        find.descendant(
+          of: find.byKey(const ValueKey('code-block-fullscreen-editor')),
+          matching: find.byType(editor.CodeField),
+        ),
       );
       expect(editorField.readOnly, isTrue);
       expect(editorField.wrap, isFalse);

@@ -63,6 +63,7 @@ final class ComposerSyntaxPolicyContext {
     required this.isEdit,
     required this.initialState,
     required this.readState,
+    this.readEditor,
   });
 
   final String siteUrl;
@@ -70,6 +71,9 @@ final class ComposerSyntaxPolicyContext {
   final bool isEdit;
   final ComposerPluginState initialState;
   final ComposerPluginStateReader readState;
+
+  /// Late-bound host for embedded plugin editors; unavailable in read-only contexts.
+  final ComposerEditorHost Function()? readEditor;
 }
 
 @immutable

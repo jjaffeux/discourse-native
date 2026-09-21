@@ -7752,6 +7752,7 @@ class ShellController extends FrameSafeNotifier
           isEdit: target.isEdit,
           initialState: initialPluginState,
           readState: readPluginState,
+          readEditor: () => composer,
         ),
       ),
       pluginStateReader: readPluginState,

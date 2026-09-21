@@ -14,6 +14,7 @@ import 'examples/card_examples.dart';
 import 'examples/carousel_examples.dart';
 import 'examples/chart_examples.dart';
 import 'examples/checkbox_examples.dart';
+import 'examples/code_editor_examples.dart';
 import 'examples/collapsible_examples.dart';
 import 'examples/color_picker_examples.dart';
 import 'examples/combobox_examples.dart';
@@ -80,6 +81,7 @@ final componentExamples = <String, ComponentExamples>{
   'color-picker': colorPickerExamples,
   'pull-to-refresh': pullToRefreshExamples,
   'mermaid': mermaidExamples,
+  'code-editor': codeEditorExamples,
   'image-preview': imagePreviewExamples,
   'message-inbox-menu': messageInboxMenuExamples,
   'notification-level-menu': notificationLevelMenuExamples,

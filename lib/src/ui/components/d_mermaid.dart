@@ -36,13 +36,17 @@ class DMermaid extends StatefulWidget {
     required this.source,
     this.height,
     this.semanticLabel = 'Mermaid diagram',
+    this.showControls = true,
   }) : assert(height == null || (height > 0 && height < double.infinity)),
        _expanded = false;
 
   const DMermaid._fullscreen({required this.source, required this.height})
     : semanticLabel = 'Mermaid diagram',
+      showControls = true,
       _expanded = true;
 
+  /// Hide reader actions when embedded beside an editable source pane.
+  final bool showControls;
   final String source;
   final double? height;
   final String semanticLabel;
@@ -331,30 +335,32 @@ class _DMermaidState extends State<DMermaid> {
             );
           },
         ),
-      const SizedBox(height: DSpacing.sm),
-      Wrap(
-        alignment: WrapAlignment.end,
-        spacing: DSpacing.sm,
-        runSpacing: DSpacing.sm,
-        children: [
-          DButton(
-            label: Text(_copyLabel),
-            variant: DButtonVariant.ghost,
-            onPressed: () => unawaited(_copy()),
-          ),
-          DButton(
-            label: const Text('View source'),
-            variant: DButtonVariant.ghost,
-            onPressed: () => unawaited(_showSource()),
-          ),
-          if (!widget._expanded)
+      if (widget.showControls) ...[
+        const SizedBox(height: DSpacing.sm),
+        Wrap(
+          alignment: WrapAlignment.end,
+          spacing: DSpacing.sm,
+          runSpacing: DSpacing.sm,
+          children: [
             DButton(
-              label: const Text('Expand diagram'),
+              label: Text(_copyLabel),
               variant: DButtonVariant.ghost,
-              onPressed: _image == null ? null : () => unawaited(_expand()),
+              onPressed: () => unawaited(_copy()),
             ),
-        ],
-      ),
+            DButton(
+              label: const Text('View source'),
+              variant: DButtonVariant.ghost,
+              onPressed: () => unawaited(_showSource()),
+            ),
+            if (!widget._expanded)
+              DButton(
+                label: const Text('Expand diagram'),
+                variant: DButtonVariant.ghost,
+                onPressed: _image == null ? null : () => unawaited(_expand()),
+              ),
+          ],
+        ),
+      ],
     ],
   );
 }

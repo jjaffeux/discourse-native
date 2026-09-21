@@ -4,14 +4,27 @@ import 'package:html/dom.dart' as dom;
 
 import '../../plugin_api/site_plugin_api.dart';
 import '../../theme/d_icons.dart';
+import 'mermaid_composer.dart';
 
 /// Reader support follows Discourse's cooked marker, not theme installation.
 final class DiscourseMermaidPlugin
-    implements SitePlugin, CookedElementPlugin, ComposerToolbarPlugin {
+    implements
+        SitePlugin,
+        CookedElementPlugin,
+        ComposerToolbarPlugin,
+        ComposerSyntaxPlugin {
   const DiscourseMermaidPlugin();
 
   @override
   String get name => 'discourse-mermaid';
+
+  @override
+  ComposerSyntaxKind get composerSyntaxKind => mermaidComposerKind;
+
+  @override
+  ComposerSyntaxPolicy createComposerSyntaxPolicy(
+    ComposerSyntaxPolicyContext context,
+  ) => MermaidComposerPolicy(context.readEditor);
 
   @override
   Widget? cookedElement(String? siteUrl, dom.Element element) {
