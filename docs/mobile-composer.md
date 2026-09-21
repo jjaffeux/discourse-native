@@ -60,3 +60,11 @@ checks cover that backing color. A separate native macOS fixture with the iOS
 control theme was inspected at 390px width in light/dark modes, including toolbar
 overflow, the Insert menu, and the capsule Card styleguide example. The iOS system
 keyboard itself was not inspected on a physical device.
+
+## Content below the viewport
+
+A Native down-arrow button appears above the mobile footer when draft content
+remains below the viewport. It scales in and out over 200ms as scrolling, editing,
+or keyboard resizing changes that state. Tapping it scrolls to the bottom. Hidden
+arrows are excluded from pointer, focus, and accessibility interaction; reduced
+motion disables both the scale and scrolling animations.
