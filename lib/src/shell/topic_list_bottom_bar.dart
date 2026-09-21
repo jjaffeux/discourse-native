@@ -107,8 +107,9 @@ class TopicListBottomBar extends StatelessWidget {
     key: const ValueKey('topic-list-bottom-bar'),
     backgroundColor: context.isTouch
         ? Theme.of(context).shell.content
-        : Colors.transparent,
-    border: context.isTouch,
+        : DTokens.of(context).footerBackground,
+    borderColor: context.isTouch ? null : DTokens.of(context).footerBorder,
+    rounded: !context.isTouch,
     padding: EdgeInsets.zero,
     child: ConstrainedBox(
       constraints: BoxConstraints(minHeight: topicBottomBarHeight(context)),

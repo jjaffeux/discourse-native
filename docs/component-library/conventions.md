@@ -98,11 +98,15 @@ actions retain the regular size (28px desktop, 44px mobile), text scaling and 48
 See [the reference measurements and verification](linear-controls.md), which
 supersede the earlier [contextual tint styling](contextual-tints.md).
 
-Desktop topic-list and reader footers float like the tab bar: compose
-`DCardFooter` with a transparent background and no border, retaining the shared
-8px toolbar padding. The enclosing workspace panel supplies the surface and
-outline. Touch footers retain their opaque background and top divider.
-Ordinary card footers retain their shared spacing and square upper edge.
+Desktop topic-list and reader footers use `DCardFooter(rounded: true)` for
+upper corners matching the Card radius. The kit clips the surface and paints
+the top outline above its contents. `padding` supports existing toolbar spacing
+and `backgroundColor`/`borderColor` accept semantic colors. Desktop footers use
+`DTokens.footerBackground` (5% foreground mixed into background) and
+`DTokens.footerBorder` (12%), matching `--surface-footer` and `--border-subtle`
+in the September HTML reference. There is no shadow. Touch footers retain their
+opaque background and top divider. Ordinary card footers retain their shared
+spacing and square upper edge.
 
 ### Adjacent control spacing
 
