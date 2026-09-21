@@ -63,6 +63,8 @@ void main() {
           await gesture.moveBy(const Offset(0, 30));
           await tester.pump();
           await gesture.moveTo(tester.getCenter(find.text('Destination')));
+          await tester.pumpAndSettle();
+          expect(find.text('Move paragraph'), findsNothing);
           await gesture.up();
           await tester.pumpAndSettle();
           expect(drops, [7]);
