@@ -123,6 +123,21 @@ void main() {
           hasLength(1),
         );
 
+        final outline = find.byWidgetPredicate(
+          (widget) =>
+              widget is DItem &&
+              widget.selected &&
+              widget.selectionStyle == DItemSelectionStyle.outline,
+        );
+        final table = find.byType(DDataTable<int>);
+        expect(tester.getRect(outline), tester.getRect(table));
+        for (final label in ['Add row', 'Add column']) {
+          expect(
+            tester.getRect(outline).overlaps(tester.getRect(find.text(label))),
+            isFalse,
+          );
+        }
+
         // Keyboard focus can move into a cell without a pointer clearing the
         // component selection. The cell must keep its normal text highlight.
         final cell = find.descendant(
@@ -149,6 +164,7 @@ void main() {
           mainEditable.renderEditable.selectionColor,
           normalSelectionColor,
         );
+        expect(outline, findsNothing);
         expect(tester.takeException(), isNull);
       },
     );
