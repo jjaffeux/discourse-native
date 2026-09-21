@@ -14,6 +14,7 @@ as cooked posts, with Native inputs, menus and buttons.
 - Native selection, clipboard and undo shortcuts act on the focused cell.
   Bold, italic and code shortcuts insert Markdown in that cell.
 - Moving or clicking immediately before a block selects the whole component.
+  The selection outline frames only the table, leaving its action buttons outside.
   Backspace or Delete removes it; Left/Up returns to preceding text and Right/Down moves
   after it. Enter opens the selected table's first cell. This boundary behavior
   is shared with details, quotes, images, galleries, polls and upload slots.
