@@ -6,15 +6,36 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  for (final removeSource in [false, true]) {
+  for (final (removeSource, cancel) in [
+    (false, false),
+    (true, false),
+    (false, true),
+    (true, true),
+  ]) {
     testWidgets(
-      'grab cursor becomes a fist until release over text ($removeSource)',
+      'drag cursor stays a fist between frames ($removeSource, $cancel)',
       (tester) async {
         var actions = 0;
         var ended = 0;
         var showHandle = true;
         late StateSetter rebuild;
         final drops = <int>[];
+        final cursorUpdates = <String>[];
+        final messenger = tester.binding.defaultBinaryMessenger;
+        messenger.setMockMethodCallHandler(SystemChannels.mouseCursor, (
+          call,
+        ) async {
+          if (call.method == 'activateSystemCursor') {
+            cursorUpdates.add((call.arguments as Map)['kind'] as String);
+          }
+          return null;
+        });
+        addTearDown(
+          () => messenger.setMockMethodCallHandler(
+            SystemChannels.mouseCursor,
+            null,
+          ),
+        );
         await tester.pumpWidget(
           MaterialApp(
             theme: AppTheme.light.copyWith(platform: TargetPlatform.macOS),
@@ -74,17 +95,39 @@ void main() {
         await mouse.down(point);
         await mouse.moveBy(const Offset(0, 30));
         await tester.pump();
+        expect(cursorUpdates.last, 'grabbing');
+        cursorUpdates.clear();
         if (removeSource) {
           rebuild(() => showHandle = false);
           await tester.pump();
         }
-        await mouse.moveTo(tester.getCenter(find.text('Destination')));
-        await tester.pump();
-        expect(cursor(), SystemMouseCursors.grabbing);
-        await mouse.up();
+        final destination = tester.getCenter(find.text('Destination'));
+        for (final position in [
+          destination,
+          const Offset(400, 300),
+          const Offset(10, 400),
+          destination + const Offset(10, 0),
+          destination,
+        ]) {
+          await mouse.moveTo(position);
+          expect(
+            cursor(),
+            SystemMouseCursors.grabbing,
+            reason: 'pointer events must retain the fist before the next frame',
+          );
+          await tester.pump();
+          expect(cursor(), SystemMouseCursors.grabbing);
+        }
+        expect(cursorUpdates, everyElement('grabbing'));
+        if (cancel) {
+          await mouse.cancel();
+        } else {
+          await mouse.up();
+        }
         await tester.pump();
         expect(cursor(), SystemMouseCursors.text);
-        expect(drops, [7]);
+        expect(cursorUpdates.last, 'text');
+        expect(drops, cancel ? isEmpty : [7]);
         expect(ended, 1);
         expect(actions, 1);
         await mouse.removePointer();
