@@ -1,4 +1,6 @@
 import 'dart:math' as math;
+import 'dart:typed_data';
+import 'dart:ui' as ui;
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
@@ -43,6 +45,7 @@ class ForumWindowBackground extends StatefulWidget {
 
 class _ForumWindowBackgroundState extends State<ForumWindowBackground>
     with SingleTickerProviderStateMixin {
+  _GrainTexture? _grain;
   late final _motion = AnimationController(
     vsync: this,
     duration: const Duration(seconds: 24),
@@ -54,8 +57,15 @@ class _ForumWindowBackgroundState extends State<ForumWindowBackground>
     final background = Theme.of(
       context,
     ).extension<ForumThemeEffects>()?.background;
+    final ownsCanvas =
+        context.dependOnInheritedWidgetOfExactType<_ForumCanvas>() == null;
+    if (ownsCanvas &&
+        background?.effect == ForumBackgroundEffect.noise &&
+        background!.strength > 0) {
+      _grain ??= _GrainTexture();
+    }
     final animate =
-        context.dependOnInheritedWidgetOfExactType<_ForumCanvas>() == null &&
+        ownsCanvas &&
         background?.effect == ForumBackgroundEffect.lava &&
         background!.strength > 0 &&
         !MediaQuery.disableAnimationsOf(context) &&
@@ -70,6 +80,7 @@ class _ForumWindowBackgroundState extends State<ForumWindowBackground>
   @override
   void dispose() {
     _motion.dispose();
+    _grain?.dispose();
     super.dispose();
   }
 
@@ -105,7 +116,11 @@ class _ForumWindowBackgroundState extends State<ForumWindowBackground>
                       child: RepaintBoundary(
                         child: CustomPaint(
                           key: const ValueKey('forum-window-effect'),
-                          painter: _BackgroundPainter(background, _motion),
+                          painter: _BackgroundPainter(
+                            background,
+                            _motion,
+                            _grain?.shader,
+                          ),
                         ),
                       ),
                     ),
@@ -129,31 +144,18 @@ class _ForumCanvas extends InheritedWidget {
 }
 
 class _BackgroundPainter extends CustomPainter {
-  _BackgroundPainter(this.background, this.motion) : super(repaint: motion);
+  _BackgroundPainter(this.background, this.motion, this.grain)
+    : super(repaint: motion);
   final ForumBackground background;
   final Animation<double> motion;
+  final ui.ImageShader? grain;
 
   @override
   void paint(Canvas canvas, Size size) {
     canvas.save();
     canvas.clipRect(Offset.zero & size);
     if (background.effect == ForumBackgroundEffect.noise) {
-      final random = math.Random(73);
-      final count = (size.width * size.height / 70).round().clamp(100, 14000);
-      final light = Paint()
-        ..color = Colors.white.withValues(alpha: background.strength * .16);
-      final dark = Paint()
-        ..color = Colors.black.withValues(alpha: background.strength * .12);
-      for (var i = 0; i < count; i++) {
-        canvas.drawCircle(
-          Offset(
-            random.nextDouble() * size.width,
-            random.nextDouble() * size.height,
-          ),
-          .45 + random.nextDouble() * .5,
-          i.isEven ? light : dark,
-        );
-      }
+      _paintNoise(canvas, size);
     } else {
       final phase = motion.value * math.pi * 2;
       final base = HSLColor.fromColor(background.color);
@@ -182,9 +184,155 @@ class _BackgroundPainter extends CustomPainter {
     canvas.restore();
   }
 
+  void _paintNoise(Canvas canvas, Size size) {
+    final rect = Offset.zero & size;
+    final base = HSLColor.fromColor(background.color);
+    Color shade(double lightness) => base
+        .withLightness(lightness.clamp(0, 1))
+        .toColor()
+        .withValues(alpha: background.strength * .75);
+    canvas.drawRect(
+      rect,
+      Paint()
+        ..shader = LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            shade(base.lightness + .18),
+            shade(base.lightness),
+            shade(base.lightness - .22),
+          ],
+        ).createShader(rect),
+    );
+
+    // Like https://css-tricks.com/grainy-gradients/: contrast-boosted fractal
+    // noise, a gradient mask, and blending restricted to the background. Using
+    // monochrome grain keeps the selected hue instead of adding RGB confetti.
+    canvas.saveLayer(
+      rect,
+      Paint()
+        ..blendMode = BlendMode.softLight
+        ..color = Colors.white.withValues(alpha: background.strength * .85),
+    );
+    canvas.drawRect(rect, Paint()..shader = grain);
+    canvas.drawRect(
+      rect,
+      Paint()
+        ..blendMode = BlendMode.dstIn
+        ..shader = const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0x60ffffff), Colors.white, Color(0xa0ffffff)],
+        ).createShader(rect),
+    );
+    canvas.restore();
+  }
+
   @override
   bool shouldRepaint(_BackgroundPainter oldDelegate) =>
-      oldDelegate.background != background || oldDelegate.motion != motion;
+      oldDelegate.background != background ||
+      oldDelegate.motion != motion ||
+      oldDelegate.grain != grain;
+}
+
+/// A fixed-size, seamless three-octave Perlin tile, created once per canvas.
+/// The image shader repeats in logical pixels so resizing never redistributes
+/// the grain or makes it sparser. Repaints only composite this cached texture.
+class _GrainTexture {
+  _GrainTexture() {
+    const size = 256;
+    final permutation = List<int>.generate(256, (i) => i)
+      ..shuffle(math.Random(73));
+    final points = List.generate(256, (_) => <double>[]);
+    for (var y = 0; y < size; y++) {
+      for (var x = 0; x < size; x++) {
+        var noise = 0.0;
+        var amplitude = 1.0;
+        // 168 / 256 approximates the reference's .65 base frequency. Integer
+        // periods make every octave wrap at the same tile boundary.
+        for (var octave = 0; octave < 3; octave++) {
+          final period = 168 << octave;
+          noise +=
+              _perlin(
+                (x + .5) * period / size,
+                (y + .5) * period / size,
+                period,
+                permutation,
+              ) *
+              amplitude;
+          amplitude *= .5;
+        }
+        final value = ((.5 + noise * 1.7) * 255).round().clamp(0, 255);
+        points[value].addAll([x + .5, y + .5]);
+      }
+    }
+    final recorder = ui.PictureRecorder();
+    final canvas = Canvas(recorder);
+    final paint = Paint()
+      ..isAntiAlias = false
+      ..strokeWidth = 1;
+    for (var value = 0; value < points.length; value++) {
+      if (points[value].isEmpty) continue;
+      paint.color = Color.fromARGB(255, value, value, value);
+      canvas.drawRawPoints(
+        ui.PointMode.points,
+        Float32List.fromList(points[value]),
+        paint,
+      );
+    }
+    final picture = recorder.endRecording();
+    _image = picture.toImageSync(size, size);
+    picture.dispose();
+    shader = ui.ImageShader(
+      _image,
+      TileMode.repeated,
+      TileMode.repeated,
+      Matrix4.identity().storage,
+      filterQuality: FilterQuality.none,
+    );
+  }
+
+  late final ui.Image _image;
+  late final ui.ImageShader shader;
+
+  void dispose() {
+    shader.dispose();
+    _image.dispose();
+  }
+
+  static double _perlin(double x, double y, int period, List<int> permutation) {
+    final left = x.floor();
+    final top = y.floor();
+    final dx = x - left;
+    final dy = y - top;
+    double dot(int column, int row, double x, double y) {
+      final hash =
+          permutation[(permutation[(column % period) & 255] + row % period) &
+              255];
+      return switch (hash & 7) {
+        0 => x,
+        1 => -x,
+        2 => y,
+        3 => -y,
+        4 => (x + y) * .707106781,
+        5 => (x - y) * .707106781,
+        6 => (-x + y) * .707106781,
+        _ => (-x - y) * .707106781,
+      };
+    }
+
+    double fade(double t) => t * t * t * (t * (t * 6 - 15) + 10);
+    double mix(double a, double b, double t) => a + (b - a) * t;
+    return mix(
+      mix(dot(left, top, dx, dy), dot(left + 1, top, dx - 1, dy), fade(dx)),
+      mix(
+        dot(left, top + 1, dx, dy - 1),
+        dot(left + 1, top + 1, dx - 1, dy - 1),
+        fade(dx),
+      ),
+      fade(dy),
+    );
+  }
 }
 
 /// Applies navigation colors through the Native kit's existing theme boundary.
