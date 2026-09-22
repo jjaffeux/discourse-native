@@ -34,7 +34,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Badges').last);
     await tester.pumpAndSettle();
-    expect(find.byType(BadgeCard), findsNWidgets(3));
+    expect(find.byType(BadgeRow), findsNWidgets(3));
     final shell = ShellScope.read(tester.element(find.byType(MainContent)));
     expect(shell.currentContent!.badgeRoute, const BadgeRoute.directory());
     await tester.tap(find.text('Autobiographer'));
