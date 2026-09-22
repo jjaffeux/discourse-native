@@ -1,10 +1,13 @@
 import 'dart:math' as math;
 
+import 'composer_todo_source.dart';
+
 /// Structural units in source Markdown. Inline components stay inside text.
 enum ComposerBlockKind {
   paragraph('Paragraph'),
   heading('Heading'),
   list('List'),
+  todo('To-do'),
   quote('Quote'),
   code('Code'),
   divider('Divider'),
@@ -208,11 +211,13 @@ class ComposerBlockIndex {
       var separator = unchanged
           ? source.substring(block.end, next.start)
           : source.substring(blocks[i].end, blocks[i + 1].start);
-      // Components already have explicit boundaries; one line break keeps
-      // them separate. Text blocks still need a blank line to avoid merging.
+      // Components and standalone to-dos have explicit boundaries. Consecutive
+      // rows of either type stay distinct with just one line break.
       final minimumLineBreaks =
-          block.kind == ComposerBlockKind.component &&
-              next.kind == ComposerBlockKind.component
+          (block.kind == ComposerBlockKind.component &&
+                  next.kind == ComposerBlockKind.component) ||
+              (block.kind == ComposerBlockKind.todo &&
+                  next.kind == ComposerBlockKind.todo)
           ? 1
           : 2;
       if (!unchanged && '\n'.allMatches(separator).length < minimumLineBreaks) {
@@ -318,15 +323,20 @@ class _BlockScanner {
   final String source;
   final List<ComposerBlockAtom> atoms;
   final List<_Line> lines = [];
+  late final _todoStarts = {
+    for (final todo in composerTodos(source))
+      // Markdown lists retain their nested items and continuation paragraphs.
+      // The slash command and typing shortcuts produce standalone to-do rows.
+      if (source.substring(todo.start, todo.markerStart).trim().isEmpty)
+        todo.start,
+  };
   static final _fence = RegExp(r'^ {0,3}(`{3,}|~{3,})(.*)$');
   static final _heading = RegExp(r'^ {0,3}#{1,6}(?:[ \t]+|$)');
   static final _setext = RegExp(r'^ {0,3}(?:=+|-+)[ \t]*$');
   static final _rule = RegExp(
     r'^ {0,3}(?:(?:\*[ \t]*){3,}|(?:-[ \t]*){3,}|(?:_[ \t]*){3,})$',
   );
-  static final _list = RegExp(
-    r'^( {0,3})(?:[-+*]|\d{1,9}[.)]|\[[ xX]?\])(?:[ \t]+|$)',
-  );
+  static final _list = RegExp(r'^( {0,3})(?:[-+*]|\d{1,9}[.)])(?:[ \t]+|$)');
   static final _quote = RegExp(r'^ {0,3}>');
   static final _indented = RegExp(r'^(?: {4}|\t)');
   static final _bbOpen = RegExp(
@@ -383,10 +393,13 @@ class _BlockScanner {
         );
         continue;
       }
+      if (_todoStarts.contains(lines[i].start)) {
+        result.add(_Span(lines[i].start, lines[i].end, ComposerBlockKind.todo));
+        i++;
+        continue;
+      }
       final bb = _bbOpen.firstMatch(text);
-      if (bb != null &&
-          !_list.hasMatch(text) &&
-          !{'date', 'time'}.contains(bb[1]!.toLowerCase())) {
+      if (bb != null && !{'date', 'time', 'x'}.contains(bb[1]!.toLowerCase())) {
         final tag = bb[1]!;
         final pattern = RegExp(
           r'\[(/?)' + RegExp.escape(tag) + r'(?:[= ][^\]]*)?\]',
@@ -467,7 +480,7 @@ class _BlockScanner {
               _rule.hasMatch(lines[i].text) ||
               _atomAt(lines[i].start) != null ||
               (_bbOpen.hasMatch(lines[i].text) &&
-                  !_list.hasMatch(lines[i].text)) ||
+                  !_todoStarts.contains(lines[i].start)) ||
               _html.hasMatch(lines[i].text)) {
             break;
           }
@@ -546,6 +559,7 @@ class _BlockScanner {
       _fence.hasMatch(lines[i].text) ||
       _quote.hasMatch(lines[i].text) ||
       _list.hasMatch(lines[i].text) ||
+      _todoStarts.contains(lines[i].start) ||
       _rule.hasMatch(lines[i].text) ||
       (_bbOpen.hasMatch(lines[i].text) &&
           !{

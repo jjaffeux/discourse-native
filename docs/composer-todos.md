@@ -15,6 +15,12 @@ break, and Backspace at the beginning of the item removes its checklist prefix.
 Horizontal arrows and line-start commands skip the hidden marker. Code,
 escaped markers and reference links retain their literal editing behavior.
 
+Each standalone to-do line is its own movable block, including an empty item.
+Hover a row to use its drag handle, or use its move menu, keyboard shortcuts or
+the mobile Arrange view. Moving a row retains its checked state, text, caret
+and undo history without adding blank lines between consecutive to-dos.
+Bulleted Markdown lists retain their complete nested structure as list blocks.
+
 The offline cooking owner includes the unmodified Checklist parser from the
 same pinned Discourse revision as the rest of the bundle. Its site setting is
 stored in the cooking owner's typed settings and projected per request.
@@ -25,8 +31,8 @@ saved post requires editing it; this change does not add server-side checklist
 mutation. The insertion command is available in topic composers, not chat.
 
 Verification includes source/parser tests, widget interactions, slash commands,
-undo, source offsets, list reordering classification, narrow 200% text, stored
-settings and the cooking corpus. The offline macOS fixture at
+undo, source offsets, individual row dragging and mobile movement, narrow 200%
+text, stored settings and the cooking corpus. The offline macOS fixture at
 `tool/composer_todo_review_main.dart` mounts the production editor and saved-post
 renderer. Light/narrow and dark/wide layouts, typing, Return continuation and
 exit, and `/todo` insertion were inspected on macOS. Native accessibility

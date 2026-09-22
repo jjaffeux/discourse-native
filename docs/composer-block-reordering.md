@@ -46,15 +46,17 @@ keep their existing behavior. Topic titles remain outside the movable body.
 - Paragraphs (including soft line breaks), ATX/setext headings and dividers.
 - Complete fenced or indented code blocks.
 - Complete lists, including nested items and continuation paragraphs.
+- Individual standalone to-do rows, including checked and empty items.
 - Blockquotes and registered quote, table, poll, details, image, gallery, upload
   and diagram components. Existing component parsers supply their complete ranges.
 - Unsupported or ambiguous containers remain source blocks without a move handle.
   Raw HTML conservatively protects the remainder of the body. BBCode spanning
   paragraphs is protected against separating its opening and closing tags.
 
-A whole list is the initial movement unit. Individual list-item/subtree moves,
-multi-block selection, heading-with-section moves, duplication, type conversion,
-and changing Enter/Shift+Enter semantics are separate future work.
+A whole Markdown list is the movement unit; standalone to-dos move row by row.
+Individual nested list-item/subtree moves, multi-block selection,
+heading-with-section moves, duplication, type conversion, and changing
+Enter/Shift+Enter semantics are separate future work.
 
 ## Source and history
 
