@@ -838,7 +838,7 @@ void main() {
       matching: find.byType(DCardFooter),
     );
     expect(tester.widget<DCardFooter>(footer).rounded, isTrue);
-    expect(tester.getSize(footer).height, 44);
+    expect(tester.getSize(footer).height, 50);
     final lato = find.byKey(const ValueKey('appearance-font-lato'));
     await tester.ensureVisible(lato);
     await tester.tap(lato);

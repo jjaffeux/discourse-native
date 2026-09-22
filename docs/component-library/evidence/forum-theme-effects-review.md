@@ -39,3 +39,9 @@ Verification:
   in the preview. The fixture uses in-memory forum settings and offline data.
 
 No physical iOS/Android testing or full-suite run was performed.
+
+Merged into local main as `34401f864`. Integration verification found a stale
+44px preview-footer assertion: main's shared desktop controls had already grown
+from 28px to 34px in `236d81627`, giving the padded footer a 50px height. Updated
+that assertion to the current layout; no production geometry changed.
+All 40 focused checks pass on main after that adjustment; static analysis is clean.
