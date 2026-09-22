@@ -365,6 +365,12 @@ final class _DeleteHost {
 final class _Port implements GroupPagesPort {
   final ChangeNotifier _changes = ChangeNotifier();
   @override
+  Future<List<GroupMember>> loadMemberPreview(
+    GroupPagesOwner owner,
+    Group group,
+  ) async => const [];
+
+  @override
   final Object controllerIdentity = Object();
 
   GroupPagesOwner owner = (

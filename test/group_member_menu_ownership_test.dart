@@ -258,6 +258,12 @@ _Action _expectedAction(
 
 final class _Port extends ChangeNotifier implements GroupPagesPort {
   @override
+  Future<List<GroupMember>> loadMemberPreview(
+    GroupPagesOwner owner,
+    Group group,
+  ) async => const [];
+
+  @override
   final Object controllerIdentity = Object();
 
   final GroupPagesOwner owner = (
