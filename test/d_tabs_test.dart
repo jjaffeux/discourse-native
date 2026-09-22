@@ -400,16 +400,17 @@ void main() {
       void expectSelected(Finder trigger) {
         final painted = decoration(trigger);
         expect(painted.color, tokens.foreground.withValues(alpha: .08));
-        expect(
-          painted.borderRadius,
-          BorderRadius.circular(tokens.controlRadius),
-        );
+        expect(painted.borderRadius, BorderRadius.circular(DRadius.panel));
         expect(painted.border!.top.color, Colors.transparent);
         expect(painted.boxShadow, isNull);
       }
 
       expectSelected(latest);
       expect(decoration(newTopics).color, Colors.transparent);
+      expect(
+        decoration(newTopics).borderRadius,
+        BorderRadius.circular(DRadius.pill),
+      );
       expect(tester.getSize(latest).height, DControlStyle.regularHeight);
       expect(tester.getRect(newTopics).left - tester.getRect(latest).right, 4);
       expect(

@@ -30,6 +30,27 @@ Widget host(
 );
 
 void main() {
+  testWidgets('standard card radius stays fixed across site palettes', (
+    tester,
+  ) async {
+    for (final radius in [0.0, 13.0]) {
+      final base = ThemeData();
+      await tester.pumpWidget(
+        host(
+          const DCard(child: Text('Panel')),
+          theme: base.copyWith(
+            extensions: [DTokens.fromTheme(base).copyWith(radius: radius)],
+          ),
+        ),
+      );
+      final card = find.byType(DCard);
+      final material = tester.widget<Material>(
+        find.descendant(of: card, matching: find.byType(Material)),
+      );
+      expect(material.borderRadius, BorderRadius.circular(DRadius.panel));
+    }
+  });
+
   testWidgets('per-corner radius keeps the outline and clipping together', (
     tester,
   ) async {

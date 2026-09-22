@@ -64,7 +64,7 @@ the live stylesheet.
 | Default 16px SVG, xs12px, sm14px; icon-sm16px | Inherited IconTheme; explicit caller artwork can override |
 | Spinner keeps its own size-4 | Loading spinner stays 16px in every size (audit) |
 | `border border-transparent bg-clip-padding` | The fill stops at the 1px border, leaving the frame transparent (audit) |
-| rounded-lg; xs/sm min(radius-md,10/12px) | Host radius; xs/sm use radius × .8, capped at 10/12px |
+| rounded-lg; xs/sm min(radius-md,10/12px) | Fixed 8px default control radius; primary actions use a 999px pill radius |
 | Default primary, hover primary/80 | Live primary/primaryForeground tokens and .8 alpha hover |
 | Outline background/border, muted hover; dark input/30 → /50 | Background/border tokens; dark input token alpha multiplied by .3 → .5 |
 | Secondary → foreground 5% mix | Muted surface and 5% foreground interpolation (Flutter sRGB adaptation; CSS uses OKLCH) |

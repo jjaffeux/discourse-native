@@ -723,7 +723,7 @@ class DDialogContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tokens = DTokens.of(context);
-    final radius = BorderRadius.circular(tokens.radius * 1.4);
+    final radius = BorderRadius.circular(DRadius.panel);
     final body = Material(
       animationDuration: Duration.zero,
       color: tokens.surface,
@@ -900,8 +900,8 @@ class DDialogFooter extends StatelessWidget {
       decoration: BoxDecoration(
         color: tokens.muted.withValues(alpha: tokens.muted.a * .5),
         border: Border(top: BorderSide(color: tokens.border)),
-        borderRadius: BorderRadius.vertical(
-          bottom: Radius.circular(tokens.radius * 1.4),
+        borderRadius: const BorderRadius.vertical(
+          bottom: Radius.circular(DRadius.panel),
         ),
       ),
       child: Padding(

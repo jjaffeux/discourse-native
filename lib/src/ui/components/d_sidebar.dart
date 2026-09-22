@@ -276,7 +276,9 @@ class _DSidebarState extends State<DSidebar> {
           child: Container(
             decoration: BoxDecoration(
               color: background,
-              borderRadius: floating ? t.borderRadius : null,
+              borderRadius: floating
+                  ? BorderRadius.circular(DRadius.panel)
+                  : null,
               boxShadow: floating
                   ? [
                       BoxShadow(
@@ -290,7 +292,7 @@ class _DSidebarState extends State<DSidebar> {
             foregroundDecoration: floating
                 ? BoxDecoration(
                     border: Border.all(color: t.border),
-                    borderRadius: t.borderRadius,
+                    borderRadius: BorderRadius.circular(DRadius.panel),
                   )
                 : null,
             child: DefaultTextStyle(
@@ -1737,7 +1739,7 @@ class DSidebarInset extends StatelessWidget {
             ),
       decoration: BoxDecoration(
         color: t.background,
-        borderRadius: BorderRadius.circular(t.radius * 1.4),
+        borderRadius: BorderRadius.circular(DRadius.panel),
         boxShadow: [
           BoxShadow(
             color: t.foreground.withValues(alpha: .05),

@@ -226,6 +226,9 @@ class _MobileForumRootState extends State<MobileForumRoot> {
                   hasPopup: true,
                   expanded: state.open,
                   shape: DButtonShape.pill,
+                  borderRadius: selected == MobileTab.more
+                      ? BorderRadius.circular(DRadius.panel)
+                      : null,
                   variant: selected == MobileTab.more
                       ? DButtonVariant.primary
                       : DButtonVariant.ghost,
@@ -513,6 +516,7 @@ class _MobileForumRootState extends State<MobileForumRoot> {
         tooltip: label,
         onPressed: onPressed,
         shape: selected ? DButtonShape.rounded : DButtonShape.pill,
+        borderRadius: selected ? BorderRadius.circular(DRadius.panel) : null,
         animationDuration: const Duration(milliseconds: 240),
         variant: selected ? DButtonVariant.primary : DButtonVariant.ghost,
         backgroundColor: selected ? null : DTokens.of(context).muted,

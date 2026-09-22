@@ -220,7 +220,7 @@ class _SiteLogo extends StatelessWidget {
     final fallback = DAvatarFallback(child: Text(site.title.characters.first));
     return DAvatar(
       decorative: true,
-      borderRadius: DTokens.of(context).borderRadius,
+      borderRadius: BorderRadius.circular(DRadius.panel),
       child: site.logoUrl == null
           ? fallback
           : SiteImage(

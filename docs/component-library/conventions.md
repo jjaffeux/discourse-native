@@ -133,7 +133,7 @@ shows this standard across sizes and mixed control types.
 
 ## Theme, layout and interaction
 
-`DTokens.of(context)` supplies semantic colors and radius, with a fallback for
+`DTokens.of(context)` supplies semantic colors and fixed app geometry, with a fallback for
 ordinary Material themes. `AppTheme` maps the real site palette into this
 extension. Generic components read tokens during build; do not cache palette
 colors in initState, route closures, or overlay entries. `DSpacing` and
@@ -141,8 +141,10 @@ colors in initState, route closures, or overlay entries. `DSpacing` and
 unscaled `DiscourseTypography` size tokens with each shadcn component's explicit
 leading, weight and tracking. Theme text roles supply font families, not substitute
 component metrics. Do not scale font sizes manually. Map the configured site
-palette, font and radius into shadcn's semantic variables and relative radius
-scale. Preserve contrast and native interaction without replacing the reference
+palette and font into semantic variables. The Native kit fixes panels at 14px,
+primary buttons, unselected tab buttons and tags at 999px, selected tab buttons
+at 14px, and ordinary controls at 8px, independently of the site radius.
+Preserve contrast and native interaction without replacing the reference
 appearance with Material or Cupertino defaults. A deviation needs a concrete
 conflict and a specific rationale. Follow [visual fidelity](visual-fidelity.md).
 Avoid hardcoded light/dark swatches in reusable components.

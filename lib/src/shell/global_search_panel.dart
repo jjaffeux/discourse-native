@@ -167,7 +167,7 @@ class _GlobalSearchPanelState extends State<GlobalSearchPanel> {
       child: DecoratedBox(
         decoration: BoxDecoration(
           color: DTokens.of(context).muted,
-          borderRadius: DTokens.of(context).borderRadius,
+          borderRadius: BorderRadius.circular(DRadius.panel),
         ),
         child: Padding(
           padding: const EdgeInsets.all(6),

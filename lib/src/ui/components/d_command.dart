@@ -384,7 +384,7 @@ class _DCommandState<T> extends State<DCommand<T>> {
   @override
   Widget build(BuildContext context) {
     final tokens = DTokens.of(context);
-    final radius = BorderRadius.circular(tokens.radius * 1.4);
+    final radius = BorderRadius.circular(DRadius.panel);
     return _DCommandScope<T>(
       controller: _controller,
       filter: widget.filter ?? _defaultCommandFilter,

@@ -17,7 +17,7 @@ class DTokens extends ThemeExtension<DTokens> {
     required this.selected,
     required this.selectedForeground,
     this.successColor,
-    this.radius = 4,
+    this.radius = DRadius.control,
     this.controls,
   });
 
@@ -145,6 +145,13 @@ class DTokens extends ThemeExtension<DTokens> {
 
   DControlTheme get _referenceControls =>
       DControlTheme.linear(colors, background, radius: radius);
+}
+
+/// Fixed shape sizes for application surfaces and controls.
+abstract final class DRadius {
+  static const double control = 8;
+  static const double panel = 14;
+  static const double pill = 999;
 }
 
 /// Logical pixels; text continues to use the host's semantic TextTheme roles.

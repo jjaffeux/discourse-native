@@ -371,11 +371,8 @@ void main() {
       final theme = AppTheme.fromPalette(source);
       final dialogShape = theme.dialogTheme.shape as RoundedRectangleBorder;
       final sheetShape = theme.bottomSheetTheme.shape as RoundedRectangleBorder;
-      expect(theme.extension<DTokens>()!.controlRadius, source.borderRadius);
-      expect(
-        theme.extension<DTokens>()!.buttonTheme.radius,
-        source.borderRadius,
-      );
+      expect(theme.extension<DTokens>()!.controlRadius, DRadius.control);
+      expect(theme.extension<DTokens>()!.buttonTheme.radius, DRadius.control);
 
       expect(theme.dialogTheme.backgroundColor, source.secondary);
       expect(
@@ -394,7 +391,7 @@ void main() {
         theme.dialogTheme.actionsPadding,
         const EdgeInsets.fromLTRB(24, 16, 24, 16),
       );
-      expect(dialogShape.borderRadius, BorderRadius.circular(13));
+      expect(dialogShape.borderRadius, BorderRadius.circular(DRadius.panel));
 
       for (final style in [
         theme.filledButtonTheme.style!,
@@ -402,7 +399,7 @@ void main() {
         theme.textButtonTheme.style!,
       ]) {
         final shape = style.shape?.resolve({}) as RoundedRectangleBorder;
-        expect(shape.borderRadius, BorderRadius.circular(13));
+        expect(shape.borderRadius, BorderRadius.circular(DRadius.control));
         expect(style.minimumSize?.resolve({}), const Size(0, 32));
         expect(
           style.padding?.resolve({}),
@@ -416,7 +413,7 @@ void main() {
       expect(theme.bottomSheetTheme.clipBehavior, Clip.antiAlias);
       expect(
         sheetShape.borderRadius,
-        const BorderRadius.vertical(top: Radius.circular(13)),
+        const BorderRadius.vertical(top: Radius.circular(DRadius.panel)),
       );
     });
 
@@ -574,10 +571,7 @@ void main() {
       expect(tooltip.textStyle?.color, theme.extension<DTokens>()!.background);
       expect(decoration.color, theme.colorScheme.onSurface);
       expect(decoration.border, isNull);
-      expect(
-        decoration.borderRadius,
-        BorderRadius.circular(theme.extension<DTokens>()!.radius * 0.8),
-      );
+      expect(decoration.borderRadius, BorderRadius.circular(DRadius.control));
       expect(decoration.boxShadow, isNull);
     }
   });

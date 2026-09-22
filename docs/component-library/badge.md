@@ -33,7 +33,7 @@ CSS pixels map to Flutter logical pixels at a 16px rem root and 100% text scale.
 | text-xs, font-medium | DiscourseTypography.xs 12px, explicit 16px leading, weight 500, zero tracking; host font family |
 | px-2, icon-side p-1.5 | 8px logical text-side inset, 6px icon-side inset; border adds 1px |
 | gap-1, svg size-3 | 4px gaps, fixed 12px fitted decorative icon/spinner slots |
-| rounded-4xl | 2.6× host radius (10.4px at host default 4; 26px at reference radius 10), clamped by Flutter at small dimensions; tall labels need not be perfect capsules |
+| rounded-4xl | Fixed 999px pill radius for tags and badges, clamped by Flutter at small dimensions |
 | border, border-transparent | Always-present 1px border; outline uses DTokens.border |
 | default | primary / primaryForeground; interactive hover at 80% background opacity |
 | secondary | muted / foreground, matching the existing host secondary mapping; interactive hover at 80% opacity |

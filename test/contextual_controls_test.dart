@@ -71,8 +71,7 @@ void main() {
         expect(controls.primary.background, tokens.primary);
         expect(tokens.controlRadius, tokens.radius);
       }
-      // Controls and other surfaces use the same host radius.
-      expect(themes['dev dark']!.extension<DTokens>()!.radius, 4);
+      expect(themes['dev dark']!.extension<DTokens>()!.radius, DRadius.control);
     },
   );
 
