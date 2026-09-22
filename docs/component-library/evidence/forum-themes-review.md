@@ -320,3 +320,37 @@ continuously through the full list and split reader, Noise across the entire
 window and preview, and Normal as one flat light-mode surface. Forum menus and
 settings remained usable. The debug build and strict signature verification
 passed, with restricted push identity omitted from the review bundle only.
+
+## Separate light and dark custom appearances — 2026-09-22
+
+The custom editor uses Native line tabs for Light and Dark below the shared
+name. Each appearance retains its own color inputs, background color, strength,
+effect, darker-sidebar setting and starting preset. Switching tabs preserves
+partial invalid input and changes the local preview without changing the
+forum's selected color mode. Save and Export require both appearances to be
+valid. Preset and Surprise me actions affect the current appearance; Import,
+Export and Save retain both in the existing version-1 alternate-palette format.
+Opening a saved custom theme now passes both palettes to the editor, and palette
+resolution reads the authored surface settings for the requested brightness.
+Single-palette themes still derive their other mode by swapping text/background.
+
+Verification on the candidate containing the restored darker-sidebar toggle and
+grain-background changes: 58 focused tests passed across the editor, theme model,
+AppTheme, background controls, grain renderer and Native adoption guard. Root
+static analysis passed. Tests cover independent drafts, preset selection,
+keyboard tab activation, invalid inactive input, JSON import/export, save/reopen,
+preview brightness, and 360px/200%/RTL layouts with macOS and iOS target-platform
+overrides. Those overrides are widget checks, not mobile-device testing.
+Five focused app tests also passed, covering desktop/mobile custom backgrounds,
+Settings dismissal, palette application/default restoration and restart persistence.
+The broader site-theme suite had nine rail/settings failures on both the changed
+source and an unchanged 191c6719c checkout; the failing test names matched.
+
+Native macOS review built tool/forum_settings_review_main.dart at 44b967ad3 and
+launched the isolated org.discourse.native.review.themetabsdb4c debug bundle with
+restricted signing identities omitted. Inspected light and dark tabs/previews,
+edited only the light background, switched modes, saved, reopened, and confirmed
+the light edit and unchanged dark palette. Resizing from roughly 1144px to 768px
+retained the draft in the stacked layout. The review app was quit and desktop
+lease released. The subsequent grain-renderer integration left all inspected
+editor/model/settings source unchanged; its focused renderer tests also passed.
