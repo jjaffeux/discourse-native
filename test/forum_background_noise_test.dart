@@ -15,7 +15,12 @@ void main() {
     testWidgets('noise has dense grain and a shaded gradient in $brightness', (
       tester,
     ) async {
-      final pixels = await _render(tester, brightness: brightness, strength: 1);
+      final pixels = await _render(
+        tester,
+        brightness: brightness,
+        strength: 1,
+        noiseIntensity: 1,
+      );
       // Adjacent pixels across a whole patch must carry texture, rather than
       // mostly unchanged flat color with a few isolated dots.
       expect(_grainContrast(pixels), greaterThan(5));
@@ -24,12 +29,21 @@ void main() {
         greaterThan(10),
         reason: 'The grain sits over a visible color gradient.',
       );
-      final subtle = await _render(
+      final subtle = await _render(tester, brightness: brightness, strength: 1);
+      expect(_grainContrast(subtle), lessThan(_grainContrast(pixels) * .6));
+      final smooth = await _render(
         tester,
         brightness: brightness,
-        strength: .25,
+        strength: 1,
+        noiseIntensity: 0,
       );
-      expect(_grainContrast(subtle), lessThan(_grainContrast(pixels) * .6));
+      // Allow sub-channel rounding/dithering in the smooth gradient.
+      expect(_grainContrast(smooth), lessThan(1));
+      expect(
+        (_mean(smooth, 16, 16) - _mean(smooth, 208, 208)).abs(),
+        greaterThan(10),
+        reason: 'Disabling noise must retain the gradient.',
+      );
       expect(tester.takeException(), isNull);
     });
   }
@@ -52,7 +66,7 @@ void main() {
   });
 
   testWidgets(
-    'noise is static across repaints and disappears at zero strength',
+    'noise is static and independent of transparency and color strength',
     (tester) async {
       final original = await _render(tester, strength: .8);
       await tester.pump(const Duration(seconds: 30));
@@ -60,8 +74,15 @@ void main() {
       expect(await _capture(tester), orderedEquals(original));
       final rebuilt = await _render(tester, strength: .8);
       expect(rebuilt, orderedEquals(original));
+      expect(
+        await _render(tester, strength: .8, transparency: .2),
+        orderedEquals(original),
+        reason: 'Panel transparency must not affect the grain on the canvas.',
+      );
+      final untinted = await _render(tester, strength: 0);
+      expect(_grainContrast(untinted), greaterThan(.5));
 
-      final disabled = await _render(tester, strength: 0);
+      final disabled = await _render(tester, strength: 0, noiseIntensity: 0);
       expect(find.byKey(const ValueKey('forum-window-effect')), findsNothing);
       final normal = await _render(
         tester,
@@ -81,6 +102,8 @@ Future<Uint8List> _render(
   WidgetTester tester, {
   Brightness brightness = Brightness.dark,
   required double strength,
+  double noiseIntensity = ForumBackground.defaultNoiseIntensity,
+  double transparency = ForumBackground.defaultTransparency,
   ForumBackgroundEffect effect = ForumBackgroundEffect.noise,
   Size size = const Size.square(256),
 }) async {
@@ -90,6 +113,8 @@ Future<Uint8List> _render(
       color: const Color(0xff874ad7),
       strength: strength,
       effect: effect,
+      noiseIntensity: noiseIntensity,
+      transparency: transparency,
     ).toJson(),
   }, id: 'custom-grain-test');
   await tester.pumpWidget(
