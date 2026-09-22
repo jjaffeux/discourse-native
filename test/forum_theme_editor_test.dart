@@ -2,8 +2,10 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/src/models/app_settings.dart';
 import 'package:discourse_native/src/models/forum_background.dart';
 import 'package:discourse_native/src/models/forum_theme.dart';
+import 'package:discourse_native/src/models/forum_theme_preferences.dart';
 import 'package:discourse_native/src/models/forum_theme_presets.dart';
 import 'package:discourse_native/src/shell/forum_appearance_settings.dart';
 import 'package:discourse_native/src/shell/forum_settings_dialog.dart';
@@ -32,6 +34,90 @@ Finder input(String key) => find.descendant(
 );
 
 void main() {
+  testWidgets('saved theme thumbnails follow the resolved preview colors', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1400, 950);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final controller = ShellController(
+      instanceStore: FakeInstanceStore(),
+      api: FakeDiscourseApi(),
+      authenticator: FakeAuthenticator(),
+      drafts: FakeDraftStore(),
+      trackers: FakeSiteTracker.reset(),
+      updateStore: FakeUpdateStore(),
+    );
+    addTearDown(controller.dispose);
+    const siteUrl = 'https://a.example';
+    final source = forumThemePresets.firstWhere((t) => t.id == 'dracula');
+    await tester.pumpWidget(
+      ShellScope(
+        controller: controller,
+        child: MaterialApp(
+          theme: AppTheme.light.copyWith(platform: TargetPlatform.macOS),
+          home: const DCard(
+            child: Expanded(child: ForumAppearanceSettings(siteUrl: siteUrl)),
+          ),
+        ),
+      ),
+    );
+    for (final darkerSidebars in [false, true]) {
+      final custom = ForumTheme.fromJson({
+        ...source.toJson(),
+        'name': 'Dracula custom',
+        'background': const ForumBackground(
+          color: Color(0xff39a876),
+          strength: .8,
+        ).toJson(),
+        'darkerSidebars': darkerSidebars,
+        'alternate': {
+          ...source.forBrightness(Brightness.light).toJson(),
+          'background': const ForumBackground(
+            color: Color(0xffe891bd),
+            strength: .6,
+          ).toJson(),
+          'darkerSidebars': darkerSidebars,
+        },
+      }, id: 'custom-thumbnail');
+      await controller.forumSettings.setThemes(
+        siteUrl,
+        ForumThemePreferences(customThemes: [custom], selectedId: custom.id),
+      );
+      for (final mode in [AppThemeMode.dark, AppThemeMode.light]) {
+        await controller.forumSettings.setThemeMode(siteUrl, mode);
+        await tester.pumpAndSettle();
+        final thumbnail = find.descendant(
+          of: find.byKey(const ValueKey('forum-theme-custom-thumbnail')),
+          matching: find.byType(ThemeThumbnail),
+        );
+        final colors = tester
+            .widgetList<ColoredBox>(
+              find.descendant(of: thumbnail, matching: find.byType(ColoredBox)),
+            )
+            .map((box) => box.color)
+            .toList();
+        final preview = tester.widget<ForumThemePreview>(
+          find.byType(ForumThemePreview),
+        );
+        final sidebar = Theme.of(
+          tester.element(find.byKey(const ValueKey('theme-preview-sidebar'))),
+        );
+        expect(colors.first, preview.theme.shell.content);
+        expect(colors[1], sidebar.shell.sidebar);
+        expect(colors[2], preview.theme.colorScheme.primary);
+        expect(
+          colors.skip(3),
+          everyElement(
+            preview.theme.colorScheme.onSurface.withValues(alpha: .24),
+          ),
+        );
+        expect(tester.getSize(thumbnail), const Size(44, 36));
+        expect(tester.takeException(), isNull);
+      }
+    }
+  });
+
   testWidgets('surface toggles update the draft, save and reopen', (
     tester,
   ) async {
