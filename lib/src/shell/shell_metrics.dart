@@ -13,8 +13,7 @@ const double shellHeaderHeight = 52;
 const double readerHeaderHeight = 44;
 
 const double workspaceTabStripHeight = 38;
-// Keep tabs flush with the sidebar's top edge and reserve spacing below them.
-const workspaceTabsPadding = EdgeInsets.fromLTRB(8, 0, 8, 12);
+const workspaceTabsPadding = EdgeInsets.fromLTRB(8, 8, 8, 4);
 
 double workspaceTabStripHeightFor(BuildContext context) {
   final style = Theme.of(context).textTheme.labelMedium!;
