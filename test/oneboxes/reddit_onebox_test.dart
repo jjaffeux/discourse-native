@@ -210,7 +210,7 @@ void main() {
       (redditCommentOnebox, 300.0),
     ]) {
       testWidgets(
-        'renders a $height-pixel Reddit embed and opens its original link',
+        'renders a $height-pixel Reddit embed without a footer or bottom gap',
         (tester) async {
           await tester.pumpWidget(
             MaterialApp(
@@ -233,10 +233,18 @@ void main() {
             const JavaScriptMessage(message: 'loaded'),
           );
           await tester.pumpAndSettle();
-          await tester.ensureVisible(find.text('Open on Reddit'));
-          await tester.tap(find.text('Open on Reddit'));
+          expect(find.text('Open on Reddit'), findsNothing);
+          expect(
+            tester.getBottomLeft(find.byType(WebViewWidget)),
+            tester.getBottomLeft(find.byType(DCard)),
+          );
+          final link = parse(markup)!.linkUri.toString();
+          expect(
+            await controller.delegate!.navigate(link, isMainFrame: false),
+            NavigationDecision.prevent,
+          );
           await tester.pumpAndSettle();
-          expect(launched, [parse(markup)!.linkUri.toString()]);
+          expect(launched, [link]);
           expect(tester.takeException(), isNull);
           await tester.pumpWidget(const SizedBox.shrink());
         },

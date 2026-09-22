@@ -76,9 +76,8 @@ void main() {
   );
 
   testWidgets(
-    'loads inline, handles bounded resizes and leaves an accessible link',
+    'loads inline and stays flush with the card bottom after bounded resizes',
     (tester) async {
-      final semantics = tester.ensureSemantics();
       await tester.pumpWidget(host());
       await tester.pump();
       expect(find.byType(DSpinner), findsOneWidget);
@@ -93,6 +92,11 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.byType(DSpinner), findsNothing);
       expect(tester.getSize(find.byType(WebViewWidget)).height, 420);
+      expect(find.text('Open in browser'), findsNothing);
+      expect(
+        tester.getBottomLeft(find.byType(WebViewWidget)),
+        tester.getBottomLeft(find.byType(DCard)),
+      );
       for (final bad in [
         'bad',
         '[]',
@@ -110,20 +114,13 @@ void main() {
       send('{"height":1}');
       await tester.pump();
       expect(tester.getSize(find.byType(WebViewWidget)).height, 120);
-      final link = find.bySemanticsLabel('Open in browser');
       expect(
-        tester.getSemantics(link),
-        isSemantics(isLink: true, isButton: false, hasTapAction: true),
+        tester.getBottomLeft(find.byType(WebViewWidget)),
+        tester.getBottomLeft(find.byType(DCard)),
       );
-      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
-      await tester.pump();
-      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
-      await tester.pump();
-      expect(opened, [_externalUri]);
       await tester.pumpWidget(const SizedBox.shrink());
       expect(controller.channels, isEmpty);
       expect(controller.documents.last.html, isNot(contains('<iframe')));
-      semantics.dispose();
     },
   );
 
@@ -246,6 +243,10 @@ void main() {
       send('{"height":420}');
       await tester.pumpAndSettle();
       expect(tester.getSize(find.byType(WebViewWidget)).height, 420);
+      expect(
+        tester.getBottomLeft(find.byType(WebViewWidget)),
+        tester.getBottomLeft(find.byType(DCard)),
+      );
       expect(platform.controllers, hasLength(1));
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pump();
@@ -260,6 +261,7 @@ void main() {
   testWidgets('HTTP failures show retry and retain the browser destination', (
     tester,
   ) async {
+    final semantics = tester.ensureSemantics();
     await tester.pumpWidget(host());
     await tester.pump();
     final controller = platform.controllers.single;
@@ -272,7 +274,16 @@ void main() {
     expect(find.text('Could not load this embed.'), findsOneWidget);
     expect(find.byType(WebViewWidget), findsNothing);
     expect(errors, hasLength(1));
-    await tester.tap(find.text('Open in browser'));
+    final link = find.bySemanticsLabel('Open in browser');
+    expect(
+      tester.getSemantics(link),
+      isSemantics(isLink: true, isButton: false, hasTapAction: true),
+    );
+    await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+    await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+    await tester.pump();
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pump();
     expect(opened, [_externalUri]);
     await tester.tap(find.text('Retry'));
     await tester.pump();
@@ -281,7 +292,9 @@ void main() {
     send('loaded');
     await tester.pumpAndSettle();
     expect(find.text('Could not load this embed.'), findsNothing);
+    expect(find.text('Open in browser'), findsNothing);
     await tester.pumpWidget(const SizedBox.shrink());
+    semantics.dispose();
   });
 
   testWidgets('ignores resource failures but handles a failed embed document', (

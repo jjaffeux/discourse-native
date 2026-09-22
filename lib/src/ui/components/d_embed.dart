@@ -13,7 +13,7 @@ import 'd_button.dart';
 import 'd_card.dart';
 import 'd_spinner.dart';
 
-/// A bounded iframe with Native loading, retry and external-link controls.
+/// A bounded iframe with Native loading and failure controls.
 ///
 /// The caller validates the provider's URL and supplies its exact trusted
 /// [origins], including redirect origins. [canNavigate] can recognize canonical
@@ -263,50 +263,64 @@ class _DEmbedState extends State<DEmbed> {
   @override
   Widget build(BuildContext context) => DCard(
     size: DCardSize.small,
-    footer: DCardFooter(
-      child: Wrap(
-        spacing: DSpacing.controlGap,
-        runSpacing: DSpacing.xs,
-        crossAxisAlignment: WrapCrossAlignment.center,
-        children: [
-          if (_loading) DSpinner(semanticLabel: 'Loading ${widget.title}'),
-          if (_failed && _isEmbedUri(widget.uri))
-            DButton(
-              label: const Text('Retry'),
-              variant: DButtonVariant.outline,
-              onPressed: () => setState(_initialize),
-            ),
-          DButton(
-            label: Text(widget.openLabel),
-            variant: DButtonVariant.link,
-            isLink: true,
-            onPressed: _isExternalUri(widget.externalUri)
-                ? () => widget.onOpenLink(widget.externalUri)
-                : null,
-          ),
-        ],
-      ),
-    ),
-    children: [
-      DCardHeader(title: DCardTitle(child: Text(widget.title))),
-      if (_failed)
-        const DCardContent(child: Text('Could not load this embed.'))
-      else
-        SizedBox(
-          height: _height,
-          child: _controller == null
-              ? const SizedBox.shrink()
-              : _EmbedViewport(
-                  child: Semantics(
-                    label: widget.title,
-                    child: WebViewWidget(
-                      controller: _controller!,
-                      gestureRecognizers: const {
-                        Factory<TapGestureRecognizer>(TapGestureRecognizer.new),
-                      },
+    trailing: _failed
+        ? null
+        : SizedBox(
+            height: _height,
+            child: _controller == null
+                ? const SizedBox.shrink()
+                : _EmbedViewport(
+                    child: Semantics(
+                      label: widget.title,
+                      child: WebViewWidget(
+                        controller: _controller!,
+                        gestureRecognizers: const {
+                          Factory<TapGestureRecognizer>(
+                            TapGestureRecognizer.new,
+                          ),
+                        },
+                      ),
                     ),
                   ),
-                ),
+          ),
+    children: [
+      DCardHeader(
+        title: DCardTitle(child: Text(widget.title)),
+        action: _loading
+            ? DCardAction(
+                child: DSpinner(semanticLabel: 'Loading ${widget.title}'),
+              )
+            : null,
+      ),
+      if (_failed)
+        DCardContent(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Could not load this embed.'),
+              const SizedBox(height: DSpacing.sm),
+              Wrap(
+                spacing: DSpacing.controlGap,
+                runSpacing: DSpacing.xs,
+                children: [
+                  if (_isEmbedUri(widget.uri))
+                    DButton(
+                      label: const Text('Retry'),
+                      variant: DButtonVariant.outline,
+                      onPressed: () => setState(_initialize),
+                    ),
+                  DButton(
+                    label: Text(widget.openLabel),
+                    variant: DButtonVariant.link,
+                    isLink: true,
+                    onPressed: _isExternalUri(widget.externalUri)
+                        ? () => widget.onOpenLink(widget.externalUri)
+                        : null,
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
     ],
   );
