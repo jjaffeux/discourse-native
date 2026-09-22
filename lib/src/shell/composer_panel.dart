@@ -1841,7 +1841,7 @@ class _ComposerEditorState extends State<ComposerEditor> {
         ? widget.composer.text.collapsedSyntaxAtGlobalPosition(position)
         : null;
     if (_pointerDownSyntax?.projection is ComposerInteractiveSyntaxProjection) {
-      _clearPointerDownPill();
+      _holdPointerDownPillCollapsed();
       return;
     }
     final hasDirectHit =
@@ -1902,7 +1902,12 @@ class _ComposerEditorState extends State<ComposerEditor> {
     final text = widget.composer.text;
     if ((_pointerDownSyntax ?? _pointerDownAfterBlockSyntax)
         case final syntax?) {
-      text.keepSyntaxCollapsedForPointerEdit(syntax);
+      text.keepSyntaxCollapsedForPointerEdit(
+        syntax,
+        preserveSelection:
+            _pointerDownSyntax?.projection
+                is ComposerInteractiveSyntaxProjection,
+      );
     }
   }
 
@@ -1945,6 +1950,10 @@ class _ComposerEditorState extends State<ComposerEditor> {
     final selectedGallery = _gallerySelectedAtPointerDown;
     final position = _pointerDownPosition;
     _clearPointerDownPill(releaseCollapse: false);
+    if (syntax?.projection is ComposerInteractiveSyntaxProjection) {
+      widget.composer.text.releaseSyntaxPointerEdit(syntax!);
+      return;
+    }
     if (quote != null) {
       _media.dismissImage(requestFocus: false);
       _media.dismissGallery(requestFocus: false);
