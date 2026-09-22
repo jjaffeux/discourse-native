@@ -119,7 +119,7 @@ void main() {
     final id = composer.blocks.index.blocks.first.id;
     final add = find.byKey(ValueKey('composer-block-add-$id'));
     final handle = find.byKey(ValueKey('composer-block-handle-$id'));
-    expect(tester.getRect(add).right, lessThan(tester.getRect(handle).left));
+    expect(tester.getRect(add).right, tester.getRect(handle).left);
     await tester.tap(add);
     await tester.pumpAndSettle();
     expect(
@@ -212,7 +212,7 @@ void main() {
       expect(add, findsOneWidget);
       expect(handle, findsOneWidget);
       expect(composer.focus.hasFocus, isFalse);
-      expect(tester.getRect(add).right, lessThan(tester.getRect(handle).left));
+      expect(tester.getRect(add).right, tester.getRect(handle).left);
 
       final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
       await mouse.addPointer();
@@ -605,13 +605,13 @@ void main() {
           if (direction == TextDirection.ltr) {
             expect(
               tester.getRect(add).right,
-              lessThan(tester.getRect(start).left),
+              tester.getRect(start).left,
             );
             expect(tester.getRect(start).right, lessThanOrEqualTo(first.left));
           } else {
             expect(
               tester.getRect(add).left,
-              greaterThan(tester.getRect(start).right),
+              tester.getRect(start).right,
             );
             expect(
               tester.getRect(start).left,

@@ -510,7 +510,6 @@ class _ComposerBlockSurfaceState extends State<ComposerBlockSurface> {
 
   Widget _blockActions(ComposerBodyBlock? block, {TextRange? emptyLine}) => Row(
     mainAxisSize: MainAxisSize.min,
-    spacing: DSpacing.controlGap,
     children: [
       DButton.iconOnly(
         key: ValueKey('composer-block-add-${emptyLine?.start ?? block?.id}'),
@@ -698,7 +697,7 @@ class _ComposerBlockSurfaceState extends State<ComposerBlockSurface> {
               context: context,
             ) *
             2 +
-        DSpacing.controlGap * 2;
+        DSpacing.controlGap;
     final line = arranging || _dropTop == null
         ? null
         : PositionedDirectional(
