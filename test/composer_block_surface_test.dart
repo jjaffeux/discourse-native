@@ -111,6 +111,30 @@ void main() {
     await tester.pumpAndSettle();
   }
 
+  testWidgets('drag handle shows grab across its entire hit area', (
+    tester,
+  ) async {
+    await mount(tester);
+    final id = composer.blocks.index.blocks.first.id;
+    final handle = find.byKey(ValueKey('composer-block-handle-$id'));
+    final rect = tester.getRect(handle);
+    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    await mouse.addPointer(location: const Offset(790, 710));
+    for (final x in [1.0, rect.width / 2, rect.width - 1]) {
+      for (final y in [1.0, rect.height / 2, rect.height - 1]) {
+        await mouse.moveTo(rect.topLeft + Offset(x, y));
+        await tester.pumpAndSettle();
+        expect(handle, findsOneWidget);
+        expect(
+          tester.binding.mouseTracker.debugDeviceActiveCursor(1),
+          SystemMouseCursors.grab,
+          reason: 'Handle offset $x, $y',
+        );
+      }
+    }
+    await mouse.removePointer();
+  });
+
   testWidgets('add opens commands below a populated block and can be undone', (
     tester,
   ) async {
@@ -603,16 +627,10 @@ void main() {
           final after = surface.blockRect(blocks[2])!;
           expect(end, findsNothing);
           if (direction == TextDirection.ltr) {
-            expect(
-              tester.getRect(add).right,
-              tester.getRect(start).left,
-            );
+            expect(tester.getRect(add).right, tester.getRect(start).left);
             expect(tester.getRect(start).right, lessThanOrEqualTo(first.left));
           } else {
-            expect(
-              tester.getRect(add).left,
-              tester.getRect(start).right,
-            );
+            expect(tester.getRect(add).left, tester.getRect(start).right);
             expect(
               tester.getRect(start).left,
               greaterThanOrEqualTo(first.right),

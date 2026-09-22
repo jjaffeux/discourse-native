@@ -85,6 +85,7 @@ class _ComposerBlockSurfaceState extends State<ComposerBlockSurface> {
   Timer? _autoScroll;
   bool _wasArranging = false;
   bool _refreshScheduled = false;
+  final _blockActionsKey = GlobalKey();
   Rect? _handleRect;
   double? _dropTop;
 
@@ -725,6 +726,17 @@ class _ComposerBlockSurfaceState extends State<ComposerBlockSurface> {
           child: MouseRegion(
             onHover: desktop && !arranging && _drag == null
                 ? (event) {
+                    // Controls can extend below a short text line. Keep their
+                    // block stable instead of selecting the blank line beneath.
+                    final actions = _blockActionsKey.currentContext
+                        ?.findRenderObject();
+                    if (actions is RenderBox &&
+                        actions.hasSize &&
+                        (Offset.zero & actions.size).contains(
+                          actions.globalToLocal(event.position),
+                        )) {
+                      return;
+                    }
                     _hoverPosition = event.position;
                     _scheduleGeometry();
                     for (final item in composer.blocks.index.blocks) {
@@ -770,6 +782,7 @@ class _ComposerBlockSurfaceState extends State<ComposerBlockSurface> {
                     (handleRect.top >= 0 ||
                         (_emptyLine != null && handleRect.bottom > 0)))
                   PositionedDirectional(
+                    key: _blockActionsKey,
                     start: 0,
                     top: handleRect.top < 0 ? 0 : handleRect.top,
                     child: _blockActions(block, emptyLine: _emptyLine),
