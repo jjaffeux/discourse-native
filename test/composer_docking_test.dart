@@ -8,6 +8,7 @@ import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/shell/composer_panel.dart';
 import 'package:discourse_native/src/shell/composer_presentation.dart';
 import 'package:discourse_native/src/shell/composer_presentation_controller.dart';
+import 'package:discourse_native/src/shell/instance_sidebar.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_panel.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
@@ -135,6 +136,109 @@ void main() {
       },
     );
   }
+
+  for (final placement in [
+    ComposerPlacement.left,
+    ComposerPlacement.bottom,
+    ComposerPlacement.right,
+  ]) {
+    for (final destination in ['latest', 'messages']) {
+      testWidgets('sidebar $destination restores $placement from full screen', (
+        tester,
+      ) async {
+        final h = await _Harness.create(tester, includeSidebar: true);
+        final composer = h.shell.visibleComposer!;
+        final editor = tester.state(find.byType(ComposerEditor));
+        composer.text.value = const TextEditingValue(
+          text: 'Keep the draft while navigating',
+          selection: TextSelection(baseOffset: 2, extentOffset: 8),
+        );
+        h.presentation.dock(placement);
+        await tester.pumpAndSettle();
+        await tester.tap(find.byTooltip('Full screen'));
+        await tester.pumpAndSettle();
+        expect(
+          h.presentation.preference.placement,
+          ComposerPlacement.fullScreen,
+        );
+        expect(
+          find.byKey(const ValueKey('reader-list')).hitTestable(),
+          findsNothing,
+        );
+
+        await tester.tap(
+          find.byWidgetPredicate(
+            (widget) =>
+                widget is SidebarDestinationTile &&
+                widget.destination.id == destination,
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(h.presentation.preference.placement, placement);
+        expect(h.shell.destinationId, destination);
+        expect(
+          find.byKey(const ValueKey('reader-list')).hitTestable(),
+          findsOneWidget,
+        );
+        expect(find.text('Dock side'), findsNothing);
+        expect(tester.state(find.byType(ComposerEditor)), same(editor));
+        expect(h.shell.visibleComposer, same(composer));
+        expect(composer.raw, 'Keep the draft while navigating');
+        expect(
+          composer.text.selection,
+          const TextSelection(baseOffset: 2, extentOffset: 8),
+        );
+        expect(composer.focus.hasFocus, isFalse);
+        await tester.runAsync(composer.flushDraft);
+        await tester.pump();
+        expect(tester.takeException(), isNull);
+      });
+    }
+  }
+
+  testWidgets('More reveals destinations before leaving full screen', (
+    tester,
+  ) async {
+    final h = await _Harness.create(tester, includeSidebar: true);
+    h.presentation.dock(ComposerPlacement.bottom);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Full screen'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('More'));
+    await tester.pumpAndSettle();
+    expect(h.presentation.preference.placement, ComposerPlacement.fullScreen);
+    await tester.tap(find.text('Groups'));
+    await tester.pumpAndSettle();
+    expect(h.presentation.preference.placement, ComposerPlacement.bottom);
+    expect(h.shell.destinationId, 'groups');
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('sidebar navigation leaves a minimized composer minimized', (
+    tester,
+  ) async {
+    final h = await _Harness.create(tester, includeSidebar: true);
+    await tester.tap(find.byTooltip('Full screen'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('composer-minimize')));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is SidebarDestinationTile &&
+            widget.destination.id == 'messages',
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byType(ComposerEditor).hitTestable(), findsNothing);
+    expect(
+      find.byKey(const ValueKey('composer-restore')).hitTestable(),
+      findsOneWidget,
+    );
+    expect(h.shell.destinationId, 'messages');
+    expect(tester.takeException(), isNull);
+  });
 
   testWidgets('reader position reports do not rebuild the editor', (
     tester,
@@ -837,6 +941,7 @@ class _Harness {
   static Future<_Harness> create(
     WidgetTester tester, {
     bool mobile = false,
+    bool includeSidebar = false,
     Size size = const Size(1000, 700),
     TextDirection direction = TextDirection.ltr,
     double textScale = 1,
@@ -844,7 +949,12 @@ class _Harness {
     Widget? reader,
     double? windowCorner,
   }) async {
-    const user = DiscourseUser(id: 7, username: 'sam', canCreateTopic: true);
+    const user = DiscourseUser(
+      id: 7,
+      username: 'sam',
+      canCreateTopic: true,
+      canSendPrivateMessages: true,
+    );
     final shell = ShellController(
       instanceStore: FakeInstanceStore([
         instance('meta.discourse.org').copyWith(user: user),
@@ -884,22 +994,31 @@ class _Harness {
               textDirection: direction,
               child: ComposerPresentationHost(
                 controller: presentation,
-                child: WorkspacePanelCorner(
-                  radius: windowCorner,
-                  child: ComposerDock(
-                    child: Focus(
-                      focusNode: readerFocus,
-                      autofocus: readerFocus != null,
-                      child:
-                          reader ??
-                          ListView(
-                            key: const ValueKey('reader-list'),
-                            children: [
-                              for (var i = 0; i < 100; i++) Text('Post $i'),
-                            ],
+                child: Row(
+                  children: [
+                    if (includeSidebar)
+                      const SizedBox(width: 240, child: InstanceSidebar()),
+                    Expanded(
+                      child: WorkspacePanelCorner(
+                        radius: windowCorner,
+                        child: ComposerDock(
+                          child: Focus(
+                            focusNode: readerFocus,
+                            autofocus: readerFocus != null,
+                            child:
+                                reader ??
+                                ListView(
+                                  key: const ValueKey('reader-list'),
+                                  children: [
+                                    for (var i = 0; i < 100; i++)
+                                      Text('Post $i'),
+                                  ],
+                                ),
                           ),
+                        ),
+                      ),
                     ),
-                  ),
+                  ],
                 ),
               ),
             ),

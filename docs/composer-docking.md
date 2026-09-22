@@ -9,6 +9,8 @@ scope.
 - The inset Native toggle offers **Dock side** and **Full screen**. From full
   screen, Dock side immediately restores the previous dock position. When
   already docked, it opens a popup with left, bottom, and right icons.
+  Choosing a sidebar destination also restores the previous dock position
+  from full screen, preserving the draft while revealing the selected page.
   Each has a tooltip, accessible name, and selected
   state. The popup contains only placement choices. Save/close, minimize, and
   restore remain in the header; closing an unsaved edit retains its confirmation.
