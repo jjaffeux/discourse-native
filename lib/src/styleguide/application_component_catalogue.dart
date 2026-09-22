@@ -6,7 +6,7 @@ const applicationComponentCatalogue = <ComponentReference>[
   ComponentReference(
     id: 'embed',
     name: 'Embed',
-    sections: ['Embedded content', 'Unavailable embed'],
+    sections: ['Embedded content', 'Provider card', 'Unavailable embed'],
   ),
   ComponentReference(
     id: 'onebox',

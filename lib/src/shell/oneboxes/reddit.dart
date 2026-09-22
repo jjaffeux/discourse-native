@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import 'package:discourse_native/discourse_ui.dart';
-import 'package:flutter/widgets.dart';
+import 'package:flutter/material.dart';
 import 'package:html/dom.dart' as dom;
 
 import '../../diagnostics/diagnostics_controller.dart';
@@ -29,6 +29,13 @@ class RedditOneboxData {
   final Uri linkUri;
   final String title;
   final double height;
+
+  Uri embedUriFor(Brightness brightness) {
+    final parameters = Map<String, dynamic>.of(embedUri.queryParametersAll)
+      ..remove('theme');
+    if (brightness == Brightness.dark) parameters['theme'] = 'dark';
+    return embedUri.replace(queryParameters: parameters);
+  }
 
   /// Reddit can fill in or change the title slug while keeping the same post.
   bool allowsNavigation(Uri uri) {
@@ -115,7 +122,8 @@ Widget? redditOneboxWidgetBuilder(dom.Element element, {String? siteUrl}) {
         constraints: const BoxConstraints(maxWidth: 640),
         child: Builder(
           builder: (context) => DEmbed(
-            uri: data.embedUri,
+            uri: data.embedUriFor(Theme.of(context).brightness),
+            presentation: DEmbedPresentation.provider,
             origins: _redditOrigins,
             externalUri: data.linkUri,
             title: data.title,

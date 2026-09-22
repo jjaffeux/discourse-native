@@ -29,10 +29,14 @@ void main() {
   });
   tearDown(() => WebViewPlatform.instance = previous);
 
-  Widget host({Uri? uri}) => MaterialApp(
+  Widget host({
+    Uri? uri,
+    DEmbedPresentation presentation = DEmbedPresentation.card,
+  }) => MaterialApp(
     home: Scaffold(
       body: SingleChildScrollView(
         child: DEmbed(
+          presentation: presentation,
           uri: uri ?? _embedUri,
           origins: const {
             'https://embed.example.com',
@@ -268,7 +272,7 @@ void main() {
     tester,
   ) async {
     final semantics = tester.ensureSemantics();
-    await tester.pumpWidget(host());
+    await tester.pumpWidget(host(presentation: DEmbedPresentation.provider));
     await tester.pump();
     final controller = platform.controllers.single;
     controller.delegate!.onHttpError!(
