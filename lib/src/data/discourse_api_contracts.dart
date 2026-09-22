@@ -11,6 +11,7 @@ import '../models/found_user.dart';
 import '../models/notification.dart';
 import '../models/notification_totals.dart';
 import '../models/post.dart';
+import '../models/post_checklist.dart';
 import '../models/post_creation.dart';
 import '../models/post_flag.dart';
 import '../models/post_likers.dart';
@@ -654,6 +655,17 @@ abstract interface class TopicMutationsApi {
 }
 
 abstract interface class PostMutationsApi {
+  Future<PostChecklistUpdate> togglePostChecklist({
+    required String siteUrl,
+    required String apiKey,
+    required int postId,
+    required List<Map<String, Object?>> toggles,
+    required String expectedRaw,
+    required DateTime expectedUpdatedAt,
+    required String mutationId,
+    String? clientId,
+  });
+
   Future<void> deletePost({
     required String siteUrl,
     required String apiKey,

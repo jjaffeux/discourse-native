@@ -16,6 +16,7 @@ import '../models/json.dart';
 import '../models/notification.dart';
 import '../models/notification_totals.dart';
 import '../models/post.dart';
+import '../models/post_checklist.dart';
 import '../models/post_creation.dart';
 import '../models/post_flag.dart';
 import '../models/post_likers.dart';
@@ -1253,6 +1254,27 @@ class DiscourseApi
     topicId: topicId,
     postIds: postIds,
     username: username,
+    clientId: clientId,
+  );
+
+  @override
+  Future<PostChecklistUpdate> togglePostChecklist({
+    required String siteUrl,
+    required String apiKey,
+    required int postId,
+    required List<Map<String, Object?>> toggles,
+    required String expectedRaw,
+    required DateTime expectedUpdatedAt,
+    required String mutationId,
+    String? clientId,
+  }) => _topic.togglePostChecklist(
+    siteUrl: siteUrl,
+    apiKey: apiKey,
+    postId: postId,
+    toggles: toggles,
+    expectedRaw: expectedRaw,
+    expectedUpdatedAt: expectedUpdatedAt,
+    mutationId: mutationId,
     clientId: clientId,
   );
 

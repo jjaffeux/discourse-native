@@ -1,8 +1,10 @@
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_widget_from_html_core/flutter_widget_from_html_core.dart';
 import 'package:html/dom.dart' as dom;
 
 import '../models/post.dart';
+import '../models/post_checklist.dart';
 import '../models/user_status.dart';
 import '../plugin_api/plugin_registry.dart';
 import '../plugin_api/plugin_scope.dart';
@@ -43,6 +45,7 @@ class CookedHtml extends StatelessWidget {
     this.compactParagraphs = false,
     this.contentSized = false,
     this.revisionDiff = false,
+    this.checklistDocument,
     this.mentionedUserStatuses = const {},
   });
 
@@ -74,6 +77,9 @@ class CookedHtml extends StatelessWidget {
 
   final bool revisionDiff;
 
+  /// Retains whole-post checkbox indices when rendering nested rich content.
+  final PostChecklistDocument? checklistDocument;
+
   final Map<String, UserStatusReference> mentionedUserStatuses;
 
   static bool buildsAsynchronously(String html) =>
@@ -88,6 +94,8 @@ class CookedHtml extends StatelessWidget {
     PluginRegistry registry,
     Map<String, UserStatusReference> mentionedUserStatuses,
     Widget Function(BuildContext, String, TextStyle?) nestedContentBuilder,
+    PostChecklistDocument? checklist,
+    void Function(PostChecklistTarget, bool)? onToggle,
   ) {
     final counts = post?.linkCounts;
     final linkCounts = counts == null || counts.isEmpty
@@ -101,6 +109,8 @@ class CookedHtml extends StatelessWidget {
       return cookedTodoWidgetBuilder(
             element,
             style: textStyle,
+            checklist: checklist,
+            onToggle: onToggle,
             contentBuilder: (html, style) =>
                 nestedContentBuilder(context, html, style),
           ) ??
@@ -315,10 +325,42 @@ class CookedHtml extends StatelessWidget {
         ? _CompactParagraphMargins()
         : null;
 
+    final checklist = revisionDiff
+        ? null
+        : checklistDocument ??
+              (post != null &&
+                      html == post!.cooked &&
+                      html.contains('chcklst-box')
+                  ? PostChecklistDocument(html)
+                  : null);
+    final shell = ShellScope.maybeRead(context);
+    final canToggle =
+        checklist != null &&
+        post?.canEdit == true &&
+        post?.isLocalized != true &&
+        post?.isDeleted != true &&
+        shell?.instanceFor(resolvedSiteUrl ?? '')?.isConnected == true &&
+        containingTopic != null &&
+        resolvedSiteUrl != null;
+    void toggle(PostChecklistTarget target, bool checked) async {
+      final error = await shell!.togglePostChecklist(
+        siteUrl: resolvedSiteUrl!,
+        topicId: containingTopic!.id,
+        post: post!,
+        target: target,
+        checked: checked,
+      );
+      if (context.mounted && error != null) {
+        DToast.show(context, error, type: DToastType.error);
+      }
+    }
+
     return PluginRegistryScope(
       registry: resolvedRegistry,
       child: HtmlWidget(
-        html,
+        checklistDocument == null && checklist != null
+            ? checklist.annotatedHtml
+            : html,
         buildAsync: buildAsync,
         baseUrl: resolvedSiteUrl == null ? null : Uri.tryParse(resolvedSiteUrl),
         textStyle: style,
@@ -351,8 +393,11 @@ class CookedHtml extends StatelessWidget {
             registry: resolvedRegistry,
             buildAsync: false,
             revisionDiff: revisionDiff,
+            checklistDocument: checklist,
             mentionedUserStatuses: mentionedUserStatuses,
           ),
+          checklist,
+          canToggle ? toggle : null,
         ),
         customStylesBuilder: (element) {
           final styles = _customStyles(
@@ -381,6 +426,9 @@ class CookedHtml extends StatelessWidget {
           linkStyle,
           resolvedSiteUrl,
           post?.plugins,
+          post?.canEdit,
+          post?.isLocalized,
+          canToggle,
           containingTopic,
           resolvedRegistry,
           compactParagraphs,

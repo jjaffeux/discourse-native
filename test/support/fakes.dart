@@ -27,6 +27,7 @@ import 'package:discourse_native/src/models/incoming_topics.dart';
 import 'package:discourse_native/src/models/notification.dart';
 import 'package:discourse_native/src/models/notification_totals.dart';
 import 'package:discourse_native/src/models/post.dart';
+import 'package:discourse_native/src/models/post_checklist.dart';
 import 'package:discourse_native/src/models/post_creation.dart';
 import 'package:discourse_native/src/models/post_flag.dart';
 import 'package:discourse_native/src/models/post_likers.dart';
@@ -2593,6 +2594,18 @@ class FakeDiscourseApi
   final List<int> postsUnhidden = [];
   final List<({int postId, int postType})> postTypeUpdates = [];
   final List<({int postId, String? notice})> postNoticeUpdates = [];
+
+  @override
+  Future<PostChecklistUpdate> togglePostChecklist({
+    required String siteUrl,
+    required String apiKey,
+    required int postId,
+    required List<Map<String, Object?>> toggles,
+    required String expectedRaw,
+    required DateTime expectedUpdatedAt,
+    required String mutationId,
+    String? clientId,
+  }) async => throw UnimplementedError('togglePostChecklist');
 
   @override
   Future<void> updatePostWiki({
