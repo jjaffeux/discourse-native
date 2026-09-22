@@ -171,11 +171,14 @@ class ComposerBlockIndex {
   }
 
   /// [gap] is an insertion boundary in the original list, from zero to length.
+  /// [offset] optionally selects a source line boundary within that gap.
   /// Returns null for no-ops, locked blocks and semantically unsafe joins.
-  ComposerBlockMove? move(int id, int gap) {
+  ComposerBlockMove? move(int id, int gap, {int? offset}) {
     final from = blocks.indexWhere((b) => b.id == id);
     if (from < 0 || gap < 0 || gap > blocks.length) return null;
-    if (!blocks[from].movable || gap == from || gap == from + 1) return null;
+    if (!blocks[from].movable) return null;
+    if (offset != null) return _moveAtOffset(from, gap, offset);
+    if (gap == from || gap == from + 1) return null;
     final ordered = [...blocks];
     final moved = ordered.removeAt(from);
     final to = gap > from ? gap - 1 : gap;
@@ -183,22 +186,10 @@ class ComposerBlockIndex {
 
     final result = StringBuffer(source.substring(0, blocks.first.start));
     final positions = <int, int>{};
-    final mappedAtoms = <ComposerBlockAtom>[];
     final newline = source.contains('\r\n') ? '\r\n' : '\n';
     for (var i = 0; i < ordered.length; i++) {
       final block = ordered[i];
       positions[block.id] = result.length;
-      for (final atom in atoms) {
-        if (atom.start >= block.start && atom.end <= block.end) {
-          mappedAtoms.add(
-            ComposerBlockAtom(
-              result.length + atom.start - block.start,
-              result.length + atom.end - block.start,
-              label: atom.label,
-            ),
-          );
-        }
-      }
       result.write(block.source);
       if (i == ordered.length - 1) continue;
       final oldIndex = blocks.indexOf(block);
@@ -221,7 +212,98 @@ class ComposerBlockIndex {
       result.write(separator);
     }
     result.write(source.substring(blocks.last.end));
-    final replacement = result.toString();
+    return _validatedMove(ordered, moved.id, result.toString(), positions);
+  }
+
+  ComposerBlockMove? _moveAtOffset(int from, int gap, int offset) {
+    final gapStart = gap == 0 ? 0 : blocks[gap - 1].end;
+    final gapEnd = gap == blocks.length ? source.length : blocks[gap].start;
+    if (offset < gapStart ||
+        offset > gapEnd ||
+        (offset > 0 && source[offset - 1] != '\n')) {
+      return null;
+    }
+    final moved = blocks[from];
+    var removeStart = moved.start;
+    var removeEnd = moved.end;
+    // Move the block's own line ending with it, leaving the empty lines behind.
+    if (source.startsWith('\r\n', removeEnd)) {
+      removeEnd += 2;
+    } else if (source.startsWith('\n', removeEnd)) {
+      removeEnd++;
+    } else if (removeStart > 0) {
+      removeStart--;
+      if (removeStart > 0 && source[removeStart - 1] == '\r') removeStart--;
+    }
+    if (offset > removeStart && offset < removeEnd) return null;
+    final removedLength = removeEnd - removeStart;
+    int afterRemoval(int position) =>
+        position >= removeEnd ? position - removedLength : position;
+    final insertion = afterRemoval(offset);
+    final remaining = source.replaceRange(removeStart, removeEnd, '');
+    final ordered = [...blocks]..removeAt(from);
+    final to = gap > from ? gap - 1 : gap;
+    final before = to > 0 ? ordered[to - 1] : null;
+    final after = to < ordered.length ? ordered[to] : null;
+    final newline = source.contains('\r\n') ? '\r\n' : '\n';
+    final leadingBreaks = before == null
+        ? 0
+        : '\n'
+              .allMatches(
+                remaining.substring(afterRemoval(before.end), insertion),
+              )
+              .length;
+    final trailingBreaks = after == null
+        ? 0
+        : '\n'
+              .allMatches(
+                remaining.substring(insertion, afterRemoval(after.start)),
+              )
+              .length;
+    final leadingMinimum = before == null
+        ? 0
+        : before.kind == ComposerBlockKind.component &&
+              moved.kind == ComposerBlockKind.component
+        ? 1
+        : 2;
+    final trailingMinimum = after == null
+        ? 1
+        : after.kind == ComposerBlockKind.component &&
+              moved.kind == ComposerBlockKind.component
+        ? 1
+        : 2;
+    final prefix = newline * math.max(0, leadingMinimum - leadingBreaks);
+    final suffix = newline * math.max(1, trailingMinimum - trailingBreaks);
+    final payload = '$prefix${moved.source}$suffix';
+    final replacement = remaining.replaceRange(insertion, insertion, payload);
+    if (replacement == source) return null;
+    final positions = <int, int>{
+      for (final block in ordered)
+        block.id:
+            afterRemoval(block.start) +
+            (afterRemoval(block.start) >= insertion ? payload.length : 0),
+      moved.id: insertion + prefix.length,
+    };
+    ordered.insert(to, moved);
+    return _validatedMove(ordered, moved.id, replacement, positions);
+  }
+
+  ComposerBlockMove? _validatedMove(
+    List<ComposerBodyBlock> ordered,
+    int movedId,
+    String replacement,
+    Map<int, int> positions,
+  ) {
+    final mappedAtoms = [
+      for (final block in ordered)
+        for (final atom in atoms)
+          if (atom.start >= block.start && atom.end <= block.end)
+            ComposerBlockAtom(
+              positions[block.id]! + atom.start - block.start,
+              positions[block.id]! + atom.end - block.start,
+              label: atom.label,
+            ),
+    ];
     final parsed = ComposerBlockIndex.parse(replacement, atoms: mappedAtoms);
     if (parsed.blocks.length != ordered.length) return null;
     for (var i = 0; i < ordered.length; i++) {
@@ -248,7 +330,7 @@ class ComposerBlockIndex {
       ]),
       List.unmodifiable(mappedAtoms),
     );
-    return ComposerBlockMove(this, next, moved.id, positions);
+    return ComposerBlockMove(this, next, movedId, positions);
   }
 }
 

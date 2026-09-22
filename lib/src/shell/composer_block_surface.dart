@@ -44,8 +44,6 @@ class _BlockDrag {
   final int revision;
 }
 
-typedef ComposerEmptyLine = ({TextRange range, Rect rect});
-
 /// Adds structural controls around a single, continuously mounted text editor.
 /// Geometry comes from the editor, so soft wraps never become separate blocks.
 class ComposerBlockSurface extends StatefulWidget {
@@ -79,7 +77,7 @@ class _ComposerBlockSurfaceState extends State<ComposerBlockSurface> {
   final _rows = <int, GlobalKey>{};
   late final AppLifecycleListener _lifecycle;
   _BlockDrag? _drag;
-  int? _gap;
+  ComposerDropTarget? _dropTarget;
   int? _hoveredId;
   Offset? _hoverPosition;
   TextRange? _emptyLine;
@@ -206,27 +204,38 @@ class _ComposerBlockSurfaceState extends State<ComposerBlockSurface> {
   bool _accepts(_BlockDrag drag) =>
       identical(_drag, drag) && _validSnapshot(drag);
 
-  ComposerDropGeometry get _dropGeometry =>
-      ComposerDropGeometry(composer.blocks.index.blocks, _rect);
+  ComposerDropGeometry get _dropGeometry => ComposerDropGeometry(
+    composer.blocks.index,
+    _rect,
+    emptyLineAt: composer.blocks.arranging ? null : widget.emptyLineAt,
+  );
 
-  int? _gapAt(Offset position) => _dropGeometry.gapAt(position);
+  ComposerDropTarget? _targetAt(Offset position) =>
+      _dropGeometry.targetAt(position);
 
   void _moveDrag(_BlockDrag drag, Offset position) {
     if (!_accepts(drag)) return;
     _pointer = position;
-    final candidate = _gapAt(position);
+    final candidate = _targetAt(position);
     final source = composer.blocks.index.blocks.indexWhere(
       (block) => block.id == drag.id,
     );
-    final gap =
+    final target =
         candidate != null &&
-            (candidate == source ||
-                candidate == source + 1 ||
-                composer.blocks.index.move(drag.id, candidate) != null)
+            (candidate.gap == source ||
+                candidate.gap == source + 1 ||
+                composer.blocks.index.move(
+                      drag.id,
+                      candidate.gap,
+                      offset: candidate.offset,
+                    ) !=
+                    null)
         ? candidate
         : null;
-    if (_gap != gap) {
-      setState(() => _gap = gap);
+    if (_dropTarget != target) {
+      setState(() {
+        _dropTarget = target;
+      });
       _scheduleGeometry();
     }
     _autoScroll ??= Timer.periodic(
@@ -273,7 +282,7 @@ class _ComposerBlockSurfaceState extends State<ComposerBlockSurface> {
     _pointer = null;
     if (mounted) {
       setState(() {
-        _gap = null;
+        _dropTarget = null;
         _dropTop = null;
       });
     }
@@ -286,10 +295,11 @@ class _ComposerBlockSurfaceState extends State<ComposerBlockSurface> {
 
   void _drop(_BlockDrag drag, Offset position) {
     if (!_accepts(drag)) return;
-    final gap = _gapAt(position);
-    if (gap != null) {
+    final target = _targetAt(position);
+    if (target != null) {
       if (composer.blocks.moveTo(
-        gap,
+        target.gap,
+        offset: target.offset,
         blockId: drag.id,
         expectedRevision: drag.revision,
       )) {
@@ -554,7 +564,7 @@ class _ComposerBlockSurfaceState extends State<ComposerBlockSurface> {
             onPressed: () => _move(i),
             label: Text(i == blocks.length ? 'Move to end' : 'Move here'),
           ),
-        if (_gap == i) const DDropIndicator(),
+        if (_dropTarget?.gap == i) const DDropIndicator(),
         if (i < blocks.length)
           Padding(
             key: _rows.putIfAbsent(blocks[i].id, GlobalKey.new),
@@ -665,13 +675,13 @@ class _ComposerBlockSurfaceState extends State<ComposerBlockSurface> {
   }
 
   double? _dropY() {
-    final gap = _gap;
+    final target = _dropTarget;
     final box = _bounds.currentContext?.findRenderObject();
-    if (gap == null || box is! RenderBox || !box.hasSize) {
+    if (target == null || box is! RenderBox || !box.hasSize) {
       return null;
     }
-    final y = _dropGeometry.gapY(gap);
-    return y == null ? null : box.globalToLocal(Offset(0, y)).dy;
+    final current = _pointer == null ? target : _targetAt(_pointer!);
+    return current == null ? null : box.globalToLocal(Offset(0, current.y)).dy;
   }
 
   @override

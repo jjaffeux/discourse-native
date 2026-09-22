@@ -190,6 +190,126 @@ void main() {
     expect(index.move(999, 0), isNull);
   });
 
+  for (final newline in ['\n', '\r\n']) {
+    test(
+      'moves within trailing empty lines without reordering blocks (${newline.length})',
+      () {
+        const block = 'Move 😀  ';
+        final source = '$block${newline * 4}';
+        final index = parse(source);
+        final move = index.move(
+          index.blocks.single.id,
+          1,
+          offset: block.length + newline.length * 3,
+        )!;
+        expect(move.after.source, '${newline * 2}$block${newline * 2}');
+        expect(move.after.blocks.single.id, index.blocks.single.id);
+        expect(move.mapOffset(5), newline.length * 2 + 5);
+      },
+    );
+
+    test(
+      'moves upward between leading whitespace-only lines (${newline.length})',
+      () {
+        final source = ' $newline\t$newline$newline## Move';
+        final index = parse(source);
+        final move = index.move(
+          index.blocks.single.id,
+          0,
+          offset: 1 + newline.length,
+        )!;
+        expect(move.after.source, ' $newline## Move$newline\t$newline');
+      },
+    );
+
+    for (final from in [0, 2]) {
+      test(
+        'inserts from block $from into an exact empty-line boundary (${newline.length})',
+        () {
+          final source = from == 0
+              ? 'Move${newline * 2}Before${newline * 5}After'
+              : 'Before${newline * 5}After${newline * 2}Move';
+          final index = parse(source);
+          final offset =
+              source.indexOf('Before') + 'Before'.length + newline.length * 3;
+          final move = index.move(
+            index.blocks[from].id,
+            from == 0 ? 2 : 1,
+            offset: offset,
+          )!;
+          expect(
+            move.after.source,
+            from == 0
+                ? '${newline}Before${newline * 3}Move${newline * 3}After'
+                : 'Before${newline * 3}Move${newline * 3}After$newline',
+          );
+          for (final block in index.blocks) {
+            expect(
+              move.mapOffset(block.start + 1),
+              move.after.byId(block.id)!.start + 1,
+            );
+          }
+        },
+      );
+    }
+  }
+
+  test(
+    'registered components retain their atoms at an empty-line destination',
+    () {
+      const component = '[poll]\n* Tea\n* Coffee\n[/poll]';
+      const source = '$component\n\n\n\n';
+      final index = ComposerBlockIndex.parse(
+        source,
+        atoms: [const ComposerBlockAtom(0, component.length, label: 'Poll')],
+      );
+      final move = index.move(
+        index.blocks.single.id,
+        1,
+        offset: component.length + 3,
+      )!;
+      expect(move.after.source, '\n\n$component\n\n');
+      expect(move.after.blocks.single.label, 'Poll');
+      expect(move.after.atoms.single.start, 2);
+      expect(move.after.atoms.single.end, component.length + 2);
+    },
+  );
+
+  test(
+    'empty-line moves retain Markdown separation and reject unsafe destinations',
+    () {
+      final index = parse('Move\n\nBefore\n\n\nAfter');
+      final move = index.move(
+        index.blocks.first.id,
+        2,
+        offset: index.blocks.last.start,
+      )!;
+      expect(move.after.blocks.map((block) => block.source), [
+        'Before',
+        'Move',
+        'After',
+      ]);
+      expect(index.move(index.blocks.first.id, 2, offset: -1), isNull);
+      expect(
+        index.move(index.blocks.first.id, 2, offset: index.source.length + 1),
+        isNull,
+      );
+      expect(
+        index.move(index.blocks.first.id, 2, offset: index.blocks[1].start + 2),
+        isNull,
+      );
+      expect(index.move(index.blocks.first.id, 0, offset: 0), isNull);
+
+      final lists = parse('- One\n\nSeparator\n\n- Two\n\n\n');
+      expect(
+        lists.move(lists.blocks[1].id, 3, offset: lists.source.length - 1),
+        isNull,
+      );
+      final fence = parse('Before\n\n```\n\nunfinished');
+      expect(fence.move(fence.blocks.first.id, 1, offset: 12), isNull);
+    },
+  );
+
   test('duplicate paragraphs retain distinct identities during movement', () {
     final index = parse('Same\n\nDifferent\n\nSame');
     final ids = index.blocks.map((b) => b.id).toList();

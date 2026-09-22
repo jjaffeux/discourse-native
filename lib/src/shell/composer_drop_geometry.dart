@@ -2,12 +2,48 @@ import 'dart:ui';
 
 import 'composer_blocks.dart';
 
+typedef ComposerEmptyLine = ({TextRange range, Rect rect});
+typedef ComposerDropTarget = ({int gap, int? offset, double y});
+
 /// Shared hit testing and insertion-line geometry for blocks and media.
 class ComposerDropGeometry {
-  const ComposerDropGeometry(this.blocks, this.blockRect);
+  const ComposerDropGeometry(this.index, this.blockRect, {this.emptyLineAt});
 
-  final List<ComposerBodyBlock> blocks;
+  final ComposerBlockIndex index;
   final Rect? Function(ComposerBodyBlock block) blockRect;
+  final ComposerEmptyLine? Function(Offset position)? emptyLineAt;
+
+  List<ComposerBodyBlock> get blocks => index.blocks;
+
+  ComposerDropTarget? targetAt(Offset position) {
+    final line = emptyLineAt?.call(position);
+    if (line != null) {
+      final following = blocks.indexWhere(
+        (block) => block.start >= line.range.end,
+      );
+      final gap = following < 0 ? blocks.length : following;
+      final start = gap == 0 ? 0 : blocks[gap - 1].end;
+      final end = gap == blocks.length
+          ? index.source.length
+          : blocks[gap].start;
+      // A single paragraph separator keeps its centered block boundary.
+      // Longer runs and outer whitespace expose individual empty lines.
+      if (gap == 0 ||
+          gap == blocks.length ||
+          '\n'.allMatches(index.source.substring(start, end)).length > 2) {
+        final newline = index.source.indexOf('\n', line.range.end);
+        final after = position.dy >= line.rect.center.dy && newline >= 0;
+        return (
+          gap: gap,
+          offset: after ? newline + 1 : line.range.start,
+          y: after ? line.rect.bottom : line.rect.top,
+        );
+      }
+    }
+    final gap = gapAt(position);
+    final y = gap == null ? null : gapY(gap);
+    return gap == null || y == null ? null : (gap: gap, offset: null, y: y);
+  }
 
   int? gapAt(Offset position) {
     int? afterLastVisible;

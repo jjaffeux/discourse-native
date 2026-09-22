@@ -69,6 +69,18 @@ Future<void> main() async {
                           ),
                           DButton(label: const Text('Reset'), onPressed: reset),
                           DButton(
+                            label: const Text('Empty line drops'),
+                            onPressed: () {
+                              composer.text.value = const TextEditingValue(
+                                text:
+                                    '\n\nA movable paragraph.\n\n\n\n\n## Another block\n\n\n\n',
+                                selection: TextSelection.collapsed(offset: 2),
+                              );
+                              composer.history.reset();
+                              composer.focus.unfocus();
+                            },
+                          ),
+                          DButton(
                             label: const Text('Empty draft'),
                             onPressed: () {
                               composer.text.clear();
