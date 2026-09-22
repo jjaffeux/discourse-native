@@ -30,6 +30,7 @@ import 'package:discourse_native/src/plugins/gifs/gifs_contract.dart';
 import 'package:discourse_native/src/plugins/gifs/gifs_settings.dart';
 import 'package:discourse_native/src/plugins/local_dates/local_dates_settings.dart';
 import 'package:discourse_native/src/shell/app_text_scale.dart';
+import 'package:discourse_native/src/shell/composer_block_surface.dart';
 import 'package:discourse_native/src/shell/composer_blockquote.dart';
 import 'package:discourse_native/src/shell/composer_link.dart';
 import 'package:discourse_native/src/shell/composer_panel.dart';
@@ -1012,6 +1013,58 @@ void main() {
         await tester.binding.setSurfaceSize(null);
       }
     });
+
+    for (final threadId in <int?>[null, 44]) {
+      testWidgets(
+        '${threadId == null ? 'channel' : 'thread'} composer does not reorder blocks',
+        (tester) async {
+          final fixture = await _fixture(
+            pages: {FakeDiscourseApi.chatMessagesKey(9): _emptyPage},
+          );
+          addTearDown(fixture.shell.dispose);
+          await tester.pumpWidget(
+            _ComposerVisibilityView(
+              shell: fixture.shell,
+              visible: true,
+              threadId: threadId,
+            ),
+          );
+          await tester.pumpAndSettle();
+
+          const draft = 'First paragraph\n\nMiddle paragraph\n\nLast paragraph';
+          final controller = _field(tester).controller!;
+          _field(tester).focusNode!.requestFocus();
+          for (final key in [
+            LogicalKeyboardKey.arrowUp,
+            LogicalKeyboardKey.arrowDown,
+          ]) {
+            controller.value = TextEditingValue(
+              text: draft,
+              selection: TextSelection.collapsed(
+                offset: draft.indexOf('Middle'),
+              ),
+            );
+            await tester.pump();
+            await tester.sendKeyDownEvent(LogicalKeyboardKey.altLeft);
+            await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+            await tester.sendKeyEvent(key);
+            await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+            await tester.sendKeyUpEvent(LogicalKeyboardKey.altLeft);
+            await tester.pump();
+
+            expect(controller.text, draft, reason: key.keyLabel);
+          }
+
+          expect(find.byType(ComposerBlockSurface), findsNothing);
+          expect(find.byTooltip('Arrange blocks'), findsNothing);
+          expect(find.byTooltip('Move paragraph'), findsNothing);
+        },
+        variant: const TargetPlatformVariant({
+          TargetPlatform.macOS,
+          TargetPlatform.iOS,
+        }),
+      );
+    }
 
     testWidgets('Command-E wraps the selected chat text in backticks', (
       tester,

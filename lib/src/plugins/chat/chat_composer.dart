@@ -1105,6 +1105,7 @@ class _ChatComposerState extends State<ChatComposer> {
                         _handleEditLastMessage(event, composer),
                     child: ComposerEditor(
                       composer: composer,
+                      enableBlockReordering: false,
                       slashActions: (context) {
                         final gifs = PluginUiScope.maybe(
                           context,
