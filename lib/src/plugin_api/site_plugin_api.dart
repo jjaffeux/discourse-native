@@ -592,7 +592,12 @@ final class SidebarPanelContribution {
     this.selectedDestinationId,
     this.badge,
     this.mobileBuilder,
+    this.groupId,
   });
+
+  /// Contributions with the same group share one tab and section list.
+  /// Defaults to the contributing plugin ID.
+  final String? groupId;
 
   /// Optional plugin-owned status displayed beside the tab label.
   final Widget? badge;
@@ -642,7 +647,17 @@ abstract interface class SidebarPanelListenablePlugin {
 
 @immutable
 final class OwnedSidebarPanel {
-  const OwnedSidebarPanel({required this.owner, required this.panel});
+  const OwnedSidebarPanel({
+    required this.owner,
+    required this.panel,
+    this.sectionOwners = const [],
+  });
+
+  final List<PluginId> sectionOwners;
+
+  bool includesOwner(PluginId candidate) => sectionOwners.isEmpty
+      ? candidate == owner
+      : sectionOwners.contains(candidate);
 
   final PluginId owner;
   final SidebarPanelContribution panel;

@@ -166,7 +166,7 @@ void main() {
       find.byKey(UserMenuButton.bellKey),
       find.byKey(UserMenuButton.avatarKey),
     ];
-    for (final mode in ['home', 'chat', 'voice']) {
+    for (final mode in ['home', 'chat']) {
       await tester.tap(find.byKey(ValueKey('mobile-mode-$mode')));
       await tester.pumpAndSettle();
       final bounds = tester.getRect(panel);
@@ -355,7 +355,7 @@ void main() {
   ) async {
     final shell = await _pumpMobile(tester, voice: true);
     final create = find.byKey(const ValueKey('mobile-new-topic'));
-    for (final mode in ['home', 'chat', 'voice']) {
+    for (final mode in ['home', 'chat']) {
       await tester.tap(find.byKey(ValueKey('mobile-mode-$mode')));
       await tester.pumpAndSettle();
       expect(create, findsOneWidget);
@@ -380,23 +380,26 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  _mobileTest('available modes stay scoped and revoked Voice returns home', (
-    tester,
-  ) async {
-    final shell = await _pumpMobile(tester, voice: true);
-    final voice = shell.pluginSession.require(voiceControllerService);
-    await tester.tap(find.byKey(const ValueKey('mobile-mode-voice')));
-    await tester.pumpAndSettle();
-    expect(find.text('Watercooler'), findsOneWidget);
-    expect(find.byType(InstanceRail), findsNothing);
-    expect(voice.call, isNull);
-    voice.forget(_site);
-    await tester.pumpAndSettle();
-    expect(find.byKey(const ValueKey('mobile-mode-voice')), findsNothing);
-    expect(find.byType(InstanceRail), findsOneWidget);
-    expect(shell.mobileNavigation.panelOwner, isNull);
-    expect(tester.takeException(), isNull);
-  });
+  _mobileTest(
+    'voice rooms share Chat and revoking Voice keeps Chat available',
+    (tester) async {
+      final shell = await _pumpMobile(tester, voice: true);
+      final voice = shell.pluginSession.require(voiceControllerService);
+      expect(find.byKey(const ValueKey('mobile-mode-voice')), findsNothing);
+      await tester.tap(find.byKey(const ValueKey('mobile-mode-chat')));
+      await tester.pumpAndSettle();
+      expect(find.text('Watercooler'), findsOneWidget);
+      expect(find.byType(InstanceRail), findsNothing);
+      expect(voice.call, isNull);
+      voice.forget(_site);
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('mobile-mode-voice')), findsNothing);
+      expect(find.text('Watercooler'), findsNothing);
+      expect(find.byType(InstanceRail), findsNothing);
+      expect(shell.mobileNavigation.panelOwner, 'chat');
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   _mobileTest(
     'home has rail, bell and desktop logo actions; search is a dedicated page',

@@ -1576,11 +1576,51 @@ final class PluginRegistry
     return List.unmodifiable(sections);
   }
 
-  List<OwnedSidebarPanel> sidebarPanels(BuildContext context) => [
-    for (final plugin in plugins.whereType<SidebarPanelPlugin>())
-      if (plugin.sidebarPanel(_uiContext(context, plugin)) case final panel?)
-        OwnedSidebarPanel(owner: _owner(plugin), panel: panel),
-  ];
+  List<OwnedSidebarPanel> sidebarPanels(BuildContext context) {
+    final groups = <String, List<OwnedSidebarPanel>>{};
+    for (final plugin in plugins.whereType<SidebarPanelPlugin>()) {
+      final panel = plugin.sidebarPanel(_uiContext(context, plugin));
+      if (panel == null) continue;
+      final owner = _owner(plugin);
+      (groups[panel.groupId ?? owner.value] ??= []).add(
+        OwnedSidebarPanel(owner: owner, panel: panel),
+      );
+    }
+    return [
+      for (final entry in groups.entries)
+        _sidebarPanelGroup(entry.key, entry.value),
+    ];
+  }
+
+  OwnedSidebarPanel _sidebarPanelGroup(
+    String groupId,
+    List<OwnedSidebarPanel> contributions,
+  ) {
+    final primary =
+        contributions
+            .where((entry) => entry.owner.value == groupId)
+            .firstOrNull ??
+        contributions.first;
+    final panel = primary.panel;
+    return OwnedSidebarPanel(
+      owner: PluginId(groupId),
+      sectionOwners: [for (final entry in contributions) entry.owner],
+      panel: SidebarPanelContribution(
+        label: panel.label,
+        icon: panel.icon,
+        active: contributions.any((entry) => entry.panel.active),
+        separateWhenActive: panel.separateWhenActive,
+        includeSectionsWhenInactive: panel.includeSectionsWhenInactive,
+        showSwitch: panel.showSwitch,
+        onOpen: panel.onOpen,
+        onClose: panel.onClose,
+        badge: panel.badge,
+        selectedDestinationId: panel.selectedDestinationId,
+        // Shared panels use the same scrollable section list on both platforms.
+        mobileBuilder: contributions.length == 1 ? panel.mobileBuilder : null,
+      ),
+    );
+  }
 
   List<Listenable> sidebarPanelListenables(BuildContext context) => [
     for (final plugin in plugins.whereType<SidebarPanelListenablePlugin>())

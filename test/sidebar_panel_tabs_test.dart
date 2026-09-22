@@ -289,18 +289,19 @@ void main() {
   });
 
   _desktopTest(
-    'three tabs partition destinations without navigating or joining',
+    'Chat contains text and voice destinations without navigating or joining',
     (tester) async {
       final shell = await pumpTabs(tester);
       final route = shell.currentContent;
       final count = shell.tabsForCurrentForum.length;
       expect(tabs, findsOneWidget);
+      expect(tab('voice'), findsNothing);
       expect(sidebarDestination('Topics'), findsOneWidget);
       expect(sidebarDestination('General'), findsNothing);
       expect(sidebarDestination('Watercooler'), findsNothing);
       for (final (owner, destination) in [
         ('chat', 'General'),
-        ('voice', 'Watercooler'),
+        ('chat', 'Watercooler'),
         ('main', 'Topics'),
       ]) {
         await tester.ensureVisible(tab(owner));
@@ -383,8 +384,8 @@ void main() {
         installed: scenario.installed,
       );
       expect(tabs, scenario.hasVoice ? findsOneWidget : findsNothing);
-      expect(tab('voice'), scenario.hasVoice ? findsOneWidget : findsNothing);
-      expect(tab('chat'), findsNothing);
+      expect(tab('voice'), findsNothing);
+      expect(tab('chat'), scenario.hasVoice ? findsOneWidget : findsNothing);
       expect(sidebarDestination('Topics'), findsOneWidget);
     });
   }
@@ -393,10 +394,10 @@ void main() {
     tester,
   ) async {
     await pumpTabs(tester, rooms: false);
-    await tester.ensureVisible(tab('voice'));
+    await tester.ensureVisible(tab('chat'));
     await tester.pumpAndSettle();
     await tester.tapAt(
-      tester.getRect(tab('voice')).centerLeft + const Offset(8, 0),
+      tester.getRect(tab('chat')).centerLeft + const Offset(8, 0),
     );
     await tester.pumpAndSettle();
     expect(find.byTooltip('Create voice room'), findsOneWidget);
@@ -404,7 +405,7 @@ void main() {
   });
 
   _desktopTest(
-    'route navigation selects Voice and revoked access falls back to Forum',
+    'voice room navigation selects Chat and revoked voice access falls back to Forum',
     (tester) async {
       final shell = await pumpTabs(tester);
       shell.pushContent(
@@ -415,7 +416,7 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      expect(tester.widget<DTabs<String>>(tabs).value, 'voice');
+      expect(tester.widget<DTabs<String>>(tabs).value, 'chat');
       shell.pluginSession.require(voiceControllerService).forget(site);
       await tester.pumpAndSettle();
       expect(tab('voice'), findsNothing);
@@ -424,7 +425,9 @@ void main() {
     },
   );
 
-  _desktopTest('revoking Chat access removes its selected tab', (tester) async {
+  _desktopTest('revoking text Chat access keeps voice rooms inside Chat', (
+    tester,
+  ) async {
     final shell = await pumpTabs(tester);
     await tester.tap(tab('chat'));
     await tester.pumpAndSettle();
@@ -433,11 +436,12 @@ void main() {
       (_) => chatNotificationTotals(available: false),
     );
     await tester.pumpAndSettle();
-    expect(tab('chat'), findsNothing);
-    expect(tab('voice'), findsOneWidget);
-    expect(tester.widget<DTabs<String>>(tabs).value, 'forum');
+    expect(tab('chat'), findsOneWidget);
+    expect(tab('voice'), findsNothing);
+    expect(tester.widget<DTabs<String>>(tabs).value, 'chat');
     expect(sidebarDestination('General'), findsNothing);
-    expect(sidebarDestination('Topics'), findsOneWidget);
+    expect(sidebarDestination('Watercooler'), findsOneWidget);
+    expect(sidebarDestination('Topics'), findsNothing);
   });
 
   _desktopTest('keyboard moves between sidebar tabs', (tester) async {

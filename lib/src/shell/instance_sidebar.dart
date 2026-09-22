@@ -328,8 +328,8 @@ class _SidebarPanelBodyState extends State<_SidebarPanelBody> {
     }
 
     bool includePluginOwner(PluginId owner) {
-      if (activePanel case final active?) return owner == active.owner;
-      return !panels.any((candidate) => candidate.owner == owner);
+      if (activePanel case final active?) return active.includesOwner(owner);
+      return !panels.any((candidate) => candidate.includesOwner(owner));
     }
 
     return DSidebar(
