@@ -18,6 +18,7 @@ import 'package:discourse_native/src/shell/bookmark_list.dart';
 import 'package:discourse_native/src/shell/forum_search.dart';
 import 'package:discourse_native/src/shell/forum_tabs_bar.dart';
 import 'package:discourse_native/src/shell/instance_rail.dart';
+import 'package:discourse_native/src/shell/instance_sidebar.dart';
 import 'package:discourse_native/src/shell/main_content.dart';
 import 'package:discourse_native/src/shell/mobile_navigation.dart';
 import 'package:discourse_native/src/shell/mobile_shell.dart';
@@ -179,6 +180,41 @@ void _mobileTest(String name, WidgetTesterCallback callback) => testWidgets(
 );
 
 void main() {
+  _mobileTest('topics startup keeps chat mounted but inactive until selected', (
+    tester,
+  ) async {
+    final shell = await pumpMobileShellFixture(tester);
+    final chatPanel = find.byWidgetPredicate(
+      (widget) => widget is InstanceSidebar && widget.panelOwner == 'chat',
+      skipOffstage: false,
+    );
+    void expectChatActive(bool active) {
+      expect(chatPanel, findsOneWidget);
+      final offstage = tester.widget<Offstage>(
+        find
+            .ancestor(
+              of: chatPanel,
+              matching: find.byType(Offstage, skipOffstage: false),
+            )
+            .first,
+      );
+      expect(offstage.offstage, !active);
+      expect(tester.takeException(), isNull);
+    }
+
+    expect(shell.mobileNavigation.tab, MobileTab.topics);
+    expectChatActive(false);
+    final initialPanel = tester.element(chatPanel);
+    await tester.tap(find.byKey(const ValueKey('mobile-mode-panel/chat')));
+    await tester.pumpAndSettle();
+    expectChatActive(true);
+    await tester.tap(find.byKey(const ValueKey('mobile-mode-topics')));
+    await tester.pumpAndSettle();
+    expectChatActive(false);
+    expect(tester.element(chatPanel), same(initialPanel));
+    expect(find.byKey(const ValueKey('topic-card-7')), findsOneWidget);
+  });
+
   _mobileTest(
     'persistent header and independent buttons surround the content',
     (tester) async {

@@ -52,6 +52,17 @@ Platform-only cases use an explicit conditional `skip` with a diagnostic
 reason (for example, `skip: unsupported ? 'requires POSIX modes' : false`). Do
 not silently return from a test on an unsupported platform.
 
+Mobile startup also has an AOT smoke fixture:
+`flutter run --release -d macos -t tool/mobile_startup_smoke_main.dart` (or an
+iOS device with development signing). It renders the production mobile shell
+with an available chat panel, opens Chat, and returns to Topics, then exits.
+Require all three `PASS` lines and exit code zero. Build 83 crashed in this
+path because the optimized panel loop loaded `panel.owner.value` even when
+the selected tab had no panel; debug/widget tests did not reproduce it. Keep
+the nullable owner lookup outside that loop. The macOS fixture uses the iOS
+theme platform so an Apple Silicon Mac can exercise this path in ARM64 AOT
+without a connected phone.
+
 ## Names and structure
 
 The complete runner name (`group` plus `test`) must say what observable outcome

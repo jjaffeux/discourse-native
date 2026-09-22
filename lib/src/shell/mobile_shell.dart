@@ -116,11 +116,18 @@ class _MobileForumRootState extends State<MobileForumRoot> {
             }
           });
         }
-        final panel = panels
+        // Resolve the nullable owner before the panel loop. Dart's iOS AOT
+        // optimizer can hoist panel.owner past the panelRoot guard and crash
+        // on Topics startup, where there is no selected panel.
+        final panelOwner = panels
             .where((p) => p.owner.value == selected.panelOwner)
-            .firstOrNull;
+            .firstOrNull
+            ?.owner
+            .value;
         final panelRoot =
-            !widget.boundary && shell.mobileNavigation.atRoot && panel != null;
+            !widget.boundary &&
+            shell.mobileNavigation.atRoot &&
+            panelOwner != null;
         final buttons = <Widget>[
           _tabButton(
             context,
@@ -357,12 +364,14 @@ class _MobileForumRootState extends State<MobileForumRoot> {
                         for (final entry in panels)
                           Offstage(
                             offstage:
-                                !(panelRoot && panel.owner == entry.owner),
+                                !(panelRoot && panelOwner == entry.owner.value),
                             child: TickerMode(
-                              enabled: panelRoot && panel.owner == entry.owner,
+                              enabled:
+                                  panelRoot && panelOwner == entry.owner.value,
                               child: ExcludeFocus(
                                 excluding:
-                                    !(panelRoot && panel.owner == entry.owner),
+                                    !(panelRoot &&
+                                        panelOwner == entry.owner.value),
                                 child: InstanceSidebar(
                                   key: ValueKey((
                                     'mobile-panel',
