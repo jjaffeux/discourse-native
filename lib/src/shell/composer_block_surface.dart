@@ -7,6 +7,7 @@ import 'package:flutter/widgets.dart';
 import '../theme/d_icons.dart';
 import 'composer_blocks.dart';
 import 'composer_controller.dart';
+import 'composer_drop_geometry.dart';
 import 'platform.dart';
 
 class ComposerArrangeButton extends StatelessWidget {
@@ -190,17 +191,10 @@ class _ComposerBlockSurfaceState extends State<ComposerBlockSurface> {
   bool _accepts(_BlockDrag drag) =>
       identical(_drag, drag) && _validSnapshot(drag);
 
-  int? _gapAt(Offset position) {
-    final blocks = composer.blocks.index.blocks;
-    int? afterLastVisible;
-    for (var i = 0; i < blocks.length; i++) {
-      final rect = _rect(blocks[i]);
-      if (rect == null) continue;
-      if (position.dy < rect.center.dy) return i;
-      afterLastVisible = i + 1;
-    }
-    return afterLastVisible;
-  }
+  ComposerDropGeometry get _dropGeometry =>
+      ComposerDropGeometry(composer.blocks.index.blocks, _rect);
+
+  int? _gapAt(Offset position) => _dropGeometry.gapAt(position);
 
   void _moveDrag(_BlockDrag drag, Offset position) {
     if (!_accepts(drag)) return;
@@ -590,16 +584,11 @@ class _ComposerBlockSurfaceState extends State<ComposerBlockSurface> {
 
   double? _dropY() {
     final gap = _gap;
-    final blocks = composer.blocks.index.blocks;
     final box = _bounds.currentContext?.findRenderObject();
-    if (gap == null || blocks.isEmpty || box is! RenderBox || !box.hasSize) {
+    if (gap == null || box is! RenderBox || !box.hasSize) {
       return null;
     }
-    final before = gap > 0 ? _rect(blocks[gap - 1]) : null;
-    final after = gap < blocks.length ? _rect(blocks[gap]) : null;
-    final y = before != null && after != null
-        ? (before.bottom + after.top) / 2
-        : after?.top ?? before?.bottom;
+    final y = _dropGeometry.gapY(gap);
     return y == null ? null : box.globalToLocal(Offset(0, y)).dy;
   }
 

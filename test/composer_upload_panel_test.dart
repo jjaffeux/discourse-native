@@ -5,6 +5,7 @@ import 'package:desktop_drop/desktop_drop.dart';
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/composer_upload.dart';
 import 'package:discourse_native/src/models/site_config.dart';
+import 'package:discourse_native/src/shell/composer_block_surface.dart';
 import 'package:discourse_native/src/shell/composer_clipboard.dart';
 import 'package:discourse_native/src/shell/composer_controller.dart';
 import 'package:discourse_native/src/shell/composer_galleries.dart';
@@ -1452,7 +1453,7 @@ void main() {
       }
     });
 
-    testWidgets('standalone image moves to the text drop caret', (
+    testWidgets('standalone image moves to the displayed block boundary', (
       tester,
     ) async {
       final composer = ComposerController(
@@ -1478,8 +1479,17 @@ void main() {
           .renderEditable;
       final offset = composer.text.text.indexOf('\ntest\n') + 1;
       final destination = editable.localToGlobal(
-        editable.getLocalRectForCaret(TextPosition(offset: offset)).center,
+        editable.getLocalRectForCaret(TextPosition(offset: offset)).topLeft +
+            const Offset(0, 1),
       );
+      final surface = tester.widget<ComposerBlockSurface>(
+        find.byType(ComposerBlockSurface),
+      );
+      final blocks = composer.blocks.index.blocks;
+      final gapCenter =
+          (surface.blockRect(blocks[1])!.bottom +
+              surface.blockRect(blocks[2])!.top) /
+          2;
       final start = composer.text
           .collapsedImageGlobalRect(composer.standaloneImages.single)!
           .center;
@@ -1489,8 +1499,19 @@ void main() {
       );
       await drag.moveTo(destination);
       await tester.pump();
+      expect(
+        tester.getCenter(find.byType(DDropIndicator)).dy,
+        closeTo(gapCenter, .01),
+      );
+      await drag.moveTo(const Offset(0, 0));
+      await tester.pump();
+      expect(find.byType(DDropIndicator), findsNothing);
+      await drag.moveTo(destination);
+      await tester.pump();
+      expect(find.byType(DDropIndicator), findsOneWidget);
       await drag.up();
       await tester.pumpAndSettle();
+      expect(find.byType(DDropIndicator), findsNothing);
       expect(
         composer.text.text.indexOf(image),
         lessThan(composer.text.text.indexOf('\ntest\n')),
@@ -1984,6 +2005,7 @@ void main() {
       );
       await tester.pump();
       expect(find.text('Drop images into this gallery'), findsOneWidget);
+      expect(find.byType(DDropIndicator), findsNothing);
 
       dropTarget.onDragDone!(
         DropDoneDetails(

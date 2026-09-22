@@ -1500,7 +1500,9 @@ void main() {
             final caret = editable.getLocalRectForCaret(
               TextPosition(offset: dropOffset),
             );
-            final target = editable.localToGlobal(caret.center);
+            final target = editable.localToGlobal(
+              before ? caret.topCenter : caret.bottomCenter,
+            );
             final start = tester.getCenter(
               find.byType(ComposerImageGalleryTile).first,
             );
@@ -1514,8 +1516,10 @@ void main() {
             await tester.pump();
             await gesture.moveTo(target);
             await tester.pump();
+            expect(find.byType(DDropIndicator), findsOneWidget);
             await gesture.up();
             await tester.pumpAndSettle();
+            expect(find.byType(DDropIndicator), findsNothing);
             expect(composer.standaloneImages.single.source, image);
             expect(
               composer.text.text,

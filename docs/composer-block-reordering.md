@@ -24,6 +24,12 @@ source and undo history unchanged.
 The handle's action label stays in its hover tooltip rather than following the
 pointer in a card.
 
+Dragging an existing image or dropping a file into the editor uses the same
+insertion line and block boundaries. The line follows the destination without
+shifting content and clears when the drag leaves or completes. File drops into
+expanded details use the inner editor's boundaries; drops onto galleries retain
+their gallery target instead of showing a document insertion line.
+
 The toolbar's **Arrange blocks** button opens an outline on desktop or mobile.
 On touch devices this dismisses the keyboard, while keeping the original editor
 mounted. Select a row and use the arrows, drag its handle, or choose **Move to…**

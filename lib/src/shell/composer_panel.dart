@@ -30,6 +30,7 @@ import 'composer_controller.dart';
 import 'composer_details.dart';
 import 'composer_discard.dart';
 import 'composer_drop.dart';
+import 'composer_drop_geometry.dart';
 import 'composer_galleries.dart';
 import 'composer_header.dart';
 import 'composer_history_scope.dart';
@@ -1186,6 +1187,8 @@ class _ComposerEditorState extends State<ComposerEditor> {
   late final ComposerMediaEditingCoordinator _media;
   late final _ComposerSelectionOverlay _selectionOverlay;
   final ValueNotifier<int> _mediaLayoutRevision = ValueNotifier(0);
+  final ValueNotifier<Offset?> _mediaDropPosition = ValueNotifier(null);
+  double? _mediaDropIndicatorTop;
   bool _mediaLayoutRefreshScheduled = false;
   Rect? _lastImageMenuAnchor;
   (double, double)? _lastGalleryMenuPosition;
@@ -1303,6 +1306,7 @@ class _ComposerEditorState extends State<ComposerEditor> {
     _hoveringLink = false;
     _lastImageMenuAnchor = null;
     _lastGalleryMenuPosition = null;
+    _clearMediaDropIndicator();
     if (identical(oldWidget.composer.text.imageScrollController, _scroll)) {
       oldWidget.composer.text.imageScrollController = null;
     }
@@ -1337,6 +1341,7 @@ class _ComposerEditorState extends State<ComposerEditor> {
     _media.dispose();
     _selectionOverlay.dispose();
     _mediaLayoutRevision.dispose();
+    _mediaDropPosition.dispose();
     _scroll.dispose();
     super.dispose();
   }
@@ -1435,6 +1440,7 @@ class _ComposerEditorState extends State<ComposerEditor> {
     _parentEditor?._scheduleMediaLayoutRefresh(descendantHasMedia: hasMedia);
     if (_mediaLayoutRefreshScheduled ||
         (!hasMedia &&
+            _mediaDropPosition.value == null &&
             _lastImageMenuAnchor == null &&
             _lastGalleryMenuPosition == null)) {
       return;
@@ -1442,7 +1448,11 @@ class _ComposerEditorState extends State<ComposerEditor> {
     _mediaLayoutRefreshScheduled = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _mediaLayoutRefreshScheduled = false;
-      if (mounted) _mediaLayoutRevision.value++;
+      if (!mounted) return;
+      // Block geometry traverses the editor, so measure after layout, never
+      // while the overlay's widget subtree is being built.
+      _mediaDropIndicatorTop = _mediaDropTop();
+      _mediaLayoutRevision.value++;
     });
   }
 
@@ -1733,42 +1743,68 @@ class _ComposerEditorState extends State<ComposerEditor> {
     final text = widget.composer.text;
     final gallery = text.collapsedGalleryAtGlobalPosition(globalPosition);
     if (gallery != null) {
+      _clearMediaDropIndicator();
       _media.updateDropTarget(gallery);
       widget.composer.focus.requestFocus();
       return;
     }
     _media.updateDropTarget(null);
-    final editable = _renderEditable;
-    if (editable == null) return;
-    final offset = editable
-        .getPositionForPoint(globalPosition)
-        .offset
-        .clamp(0, text.text.length);
-    final image =
-        text.collapsedImageAtGlobalPosition(globalPosition) ??
-        text.collapsedImageAtOffset(offset);
-    text.selection = TextSelection.collapsed(offset: image?.end ?? offset);
+    final offset = _mediaDropOffset(globalPosition);
+    if (offset == null) return;
+    text.selection = TextSelection.collapsed(offset: offset);
     widget.composer.focus.requestFocus();
   }
 
   int? _imageDropOffset(Offset globalPosition) {
     final text = widget.composer.text;
     if (text.collapsedGalleryAtGlobalPosition(globalPosition) != null) {
+      _clearMediaDropIndicator();
       return null;
     }
-    final editable = _renderEditable;
-    if (editable == null) return null;
-    final offset = editable
-        .getPositionForPoint(globalPosition)
-        .offset
-        .clamp(0, text.text.length);
-    if (text.galleryBlocks.any(
-      (gallery) => offset > gallery.start && offset < gallery.end,
-    )) {
-      return null;
+    return _mediaDropOffset(globalPosition);
+  }
+
+  ComposerDropGeometry get _dropGeometry =>
+      ComposerDropGeometry(widget.composer.blocks.index.blocks, _blockRect);
+
+  int? _mediaDropGapAt(Offset position) =>
+      widget.composer.text.text.trim().isEmpty
+      ? 0
+      : _dropGeometry.gapAt(position);
+
+  int? _mediaDropOffset(Offset position) {
+    final gap = widget.composer.isEditing ? _mediaDropGapAt(position) : null;
+    _mediaDropPosition.value = gap == null ? null : position;
+    _mediaDropIndicatorTop = _mediaDropTop();
+    return gap == null ? null : _dropGeometry.offsetAt(gap);
+  }
+
+  void _clearMediaDropIndicator() {
+    _mediaDropIndicatorTop = null;
+    _mediaDropPosition.value = null;
+  }
+
+  double? _mediaDropTop() {
+    final position = _mediaDropPosition.value;
+    final stack = _stackKey.currentContext?.findRenderObject();
+    if (position == null || stack is! RenderBox || !stack.hasSize) return null;
+    final gap = _mediaDropGapAt(position);
+    if (gap == null) return null;
+    var y = _dropGeometry.gapY(gap);
+    if (y == null && widget.composer.text.text.trim().isEmpty) {
+      final editable = _renderEditable;
+      if (editable == null) return null;
+      y = editable
+          .localToGlobal(
+            editable
+                .getLocalRectForCaret(const TextPosition(offset: 0))
+                .topLeft,
+          )
+          .dy;
     }
-    final image = text.collapsedImageAtGlobalPosition(globalPosition);
-    return image?.end ?? offset;
+    if (y == null) return null;
+    final top = stack.globalToLocal(Offset(0, y)).dy;
+    return top >= 0 && top <= stack.size.height ? top : null;
   }
 
   void _moveImageDropCaret(Offset position) {
@@ -1782,6 +1818,7 @@ class _ComposerEditorState extends State<ComposerEditor> {
     final target = _editorAt(details.globalPosition);
     if (!identical(target, this)) {
       target._dropFiles(details);
+      _cancelNativeDrop();
       return;
     }
     _moveDropCaret(details.globalPosition);
@@ -1793,6 +1830,7 @@ class _ComposerEditorState extends State<ComposerEditor> {
       files,
       offset: widget.composer.text.selection.extentOffset,
     );
+    _cancelNativeDrop();
   }
 
   _ComposerEditorState _editorAt(Offset position) {
@@ -1812,6 +1850,7 @@ class _ComposerEditorState extends State<ComposerEditor> {
     final target = _editorAt(position);
     if (!identical(target, _nativeDropEditor)) {
       _nativeDropEditor?._media.cancelDrag();
+      _nativeDropEditor?._clearMediaDropIndicator();
       _nativeDropEditor = target;
     }
     target._moveDropCaret(position);
@@ -1820,7 +1859,9 @@ class _ComposerEditorState extends State<ComposerEditor> {
 
   void _cancelNativeDrop() {
     _nativeDropEditor?._media.cancelDrag();
+    _nativeDropEditor?._clearMediaDropIndicator();
     _nativeDropEditor = null;
+    _clearMediaDropIndicator();
   }
 
   bool get _hasPointerDownPill =>
@@ -2574,6 +2615,7 @@ class _ComposerEditorState extends State<ComposerEditor> {
       _galleryMenuContentWidth,
       constraints.maxWidth,
     );
+    final dropTop = _mediaDropIndicatorTop;
     return Positioned.fill(
       child: Stack(
         clipBehavior: Clip.none,
@@ -2629,6 +2671,16 @@ class _ComposerEditorState extends State<ComposerEditor> {
                     ),
                   ),
                 ),
+              ),
+            ),
+          if (dropTop != null)
+            Positioned(
+              left: 0,
+              right: 0,
+              top: dropTop,
+              child: const FractionalTranslation(
+                translation: Offset(0, -.5),
+                child: DDropIndicator(),
               ),
             ),
         ],
@@ -2788,16 +2840,18 @@ class _ComposerEditorState extends State<ComposerEditor> {
           onDragUpdated: (details) => _updateNativeDrop(details.globalPosition),
           onDragExited: (_) => _cancelNativeDrop(),
           onDragDone: _dropFiles,
-          child: DragTarget<ComposerImageBlock>(
-            onWillAcceptWithDetails: (details) => widget.composer.isEditing,
-            onMove: (details) => _moveImageDropCaret(details.offset),
-            onAcceptWithDetails: (details) {
-              final offset = _imageDropOffset(details.offset);
+          child: DDragRegion<ComposerImageBlock>(
+            accepts: (_) => widget.composer.isEditing,
+            onMove: (_, position) => _moveImageDropCaret(position),
+            onLeave: _clearMediaDropIndicator,
+            onDrop: (image, position) {
+              final offset = _imageDropOffset(position);
+              _clearMediaDropIndicator();
               if (offset != null) {
-                _media.moveImageToOffset(details.data, offset);
+                _media.moveImageToOffset(image, offset);
               }
             },
-            builder: (context, candidates, rejected) => Stack(
+            child: Stack(
               key: _stackKey,
               clipBehavior: Clip.none,
               children: [
@@ -2827,7 +2881,7 @@ class _ComposerEditorState extends State<ComposerEditor> {
                     child: _field(),
                   ),
                 ListenableBuilder(
-                  listenable: _media,
+                  listenable: Listenable.merge([_media, _mediaDropPosition]),
                   builder: (context, _) => ValueListenableBuilder<int>(
                     valueListenable: _mediaLayoutRevision,
                     builder: (context, _, _) => _mediaOverlays(constraints),
