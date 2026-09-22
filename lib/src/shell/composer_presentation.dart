@@ -13,6 +13,7 @@ import 'composer_discard.dart';
 import 'composer_header.dart';
 import 'composer_panel.dart';
 import 'composer_presentation_controller.dart';
+import 'forum_theme_surfaces.dart';
 import 'platform.dart';
 import 'shell_controller.dart';
 import 'shell_metrics.dart';
@@ -558,7 +559,10 @@ class _ComposerDockState extends State<ComposerDock> {
               padding: editorPadding,
               child: WorkspacePanel(
                 child: Container(
-                  color: Theme.of(context).shell.content,
+                  color: ForumWindowBackground.surfaceColor(
+                    context,
+                    Theme.of(context).shell.content,
+                  ),
                   padding: EdgeInsets.only(top: dividerInset),
                   child: LayoutBuilder(
                     builder: (context, bounds) => Column(
@@ -661,7 +665,10 @@ class _ComposerSurface extends StatelessWidget {
     final composer = entry.composer;
     final minimized = entry.minimized;
     return Material(
-      color: Theme.of(context).shell.content,
+      color: ForumWindowBackground.surfaceColor(
+        context,
+        Theme.of(context).shell.content,
+      ),
       child: AbsorbPointer(
         absorbing: entry.moving,
         child: Stack(
@@ -689,7 +696,10 @@ class _ComposerSurface extends StatelessWidget {
             ),
             if (minimized)
               ColoredBox(
-                color: Theme.of(context).shell.content,
+                color: ForumWindowBackground.surfaceColor(
+                  context,
+                  Theme.of(context).shell.content,
+                ),
                 child: ComposerHeader(
                   composer: composer,
                   minimized: true,

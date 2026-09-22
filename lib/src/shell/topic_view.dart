@@ -28,6 +28,7 @@ import 'adaptive_dialog_action.dart';
 import 'avatar_image.dart';
 import 'content_reading_lane.dart';
 import 'cooked_html.dart';
+import 'forum_theme_surfaces.dart';
 import 'inline_action.dart';
 import 'keyboard_navigation.dart';
 import 'list_boundary_shortcuts.dart';
@@ -2426,9 +2427,12 @@ class _TopicBottomBar extends StatelessWidget {
         controller.instanceFor(siteUrl!)?.user?.canSendPrivateMessages == true;
     return DCardFooter(
       key: const ValueKey('topic-bottom-bar'),
-      backgroundColor: context.isTouch
+      backgroundColor: ForumWindowBackground.isContinuous(context)
+          ? Colors.transparent
+          : context.isTouch
           ? (topic == null ? theme.shell.panel : theme.shell.content)
           : DTokens.of(context).footerBackground,
+      border: !ForumWindowBackground.isContinuous(context),
       borderColor: context.isTouch ? null : DTokens.of(context).footerBorder,
       rounded: !context.isTouch,
       padding: EdgeInsets.zero,
@@ -3104,7 +3108,7 @@ class _TopicSidebarPanel extends StatelessWidget {
       child: DecoratedBox(
         key: const ValueKey('topic-sidebar-surface'),
         decoration: BoxDecoration(
-          color: theme.shell.panel,
+          color: ForumWindowBackground.surfaceColor(context, theme.shell.panel),
           border: Border(left: BorderSide(color: theme.shell.divider)),
         ),
         child: Column(

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../models/composer_placement.dart';
 import '../theme/app_theme.dart';
 import 'composer_presentation.dart';
+import 'forum_theme_surfaces.dart';
 import 'platform.dart';
 import 'shell_metrics.dart';
 
@@ -21,7 +22,12 @@ class ShellPanel extends StatelessWidget {
     );
     final composerPlacement = ComposerDock.workspacePlacementOf(context);
     final rtl = Directionality.of(context) == TextDirection.rtl;
-    final side = BorderSide(color: Theme.of(context).shell.divider);
+    final side = BorderSide(
+      color: ForumWindowBackground.surfaceColor(
+        context,
+        Theme.of(context).shell.divider,
+      ),
+    );
 
     return Padding(
       padding: EdgeInsets.only(top: MediaQuery.paddingOf(context).top),
@@ -66,7 +72,8 @@ class WorkspacePanel extends StatelessWidget {
   final Widget child;
 
   @override
-  Widget build(BuildContext context) => context.isTouch
+  Widget build(BuildContext context) =>
+      context.isTouch || ForumWindowBackground.isContinuous(context)
       ? child
       : DCard(spacing: 0, child: Expanded(child: child));
 }

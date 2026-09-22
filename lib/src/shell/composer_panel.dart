@@ -47,6 +47,7 @@ import 'composer_upload_attachment.dart';
 import 'composer_upload_picker.dart';
 import 'emoji_composer.dart';
 import 'emoji_picker.dart';
+import 'forum_theme_surfaces.dart';
 import 'markdown_highlight.dart';
 import 'platform.dart';
 import 'shell_metrics.dart';
@@ -185,7 +186,12 @@ class ComposerPanel extends StatelessWidget {
                   : composerHeight),
           clipBehavior: Clip.antiAlias,
           // The dock divider owns the boundary with adjacent containers.
-          decoration: BoxDecoration(color: theme.shell.content),
+          decoration: BoxDecoration(
+            color: ForumWindowBackground.surfaceColor(
+              context,
+              theme.shell.content,
+            ),
+          ),
           child: CallbackShortcuts(
             bindings: {
               const SingleActivator(LogicalKeyboardKey.enter, meta: true): () =>
@@ -3910,12 +3916,15 @@ class ComposerUploadQueue extends StatelessWidget {
   }
 }
 
-Color _composerFooterColor(BuildContext context) => Color.alphaBlend(
-  DTokens.of(
-    context,
-  ).foreground.withValues(alpha: context.isTouch ? 0.04 : 0.025),
-  Theme.of(context).shell.content,
-);
+Color _composerFooterColor(BuildContext context) =>
+    ForumWindowBackground.isContinuous(context)
+    ? Colors.transparent
+    : Color.alphaBlend(
+        DTokens.of(
+          context,
+        ).foreground.withValues(alpha: context.isTouch ? 0.04 : 0.025),
+        Theme.of(context).shell.content,
+      );
 
 class _Footer extends StatelessWidget {
   const _Footer({

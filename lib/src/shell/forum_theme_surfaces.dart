@@ -5,11 +5,20 @@ import 'package:flutter/material.dart';
 import '../models/forum_background.dart';
 import '../theme/app_theme.dart';
 
-/// Paints the shared window canvas behind the title bar, rail and panel gaps.
+/// Paints one shared canvas behind the entire forum workspace.
 class ForumWindowBackground extends StatefulWidget {
   const ForumWindowBackground({super.key, required this.child});
 
   final Widget child;
+
+  /// Page chrome lets a custom canvas show through; controls and overlays keep
+  /// their ordinary opaque tokens. The scope exists only inside this canvas.
+  static bool isContinuous(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<_ForumCanvas>()?.continuous ??
+      false;
+
+  static Color surfaceColor(BuildContext context, Color fallback) =>
+      isContinuous(context) ? Colors.transparent : fallback;
 
   @override
   State<ForumWindowBackground> createState() => _ForumWindowBackgroundState();
@@ -29,6 +38,7 @@ class _ForumWindowBackgroundState extends State<ForumWindowBackground>
       context,
     ).extension<ForumThemeEffects>()?.background;
     final animate =
+        context.dependOnInheritedWidgetOfExactType<_ForumCanvas>() == null &&
         background?.effect == ForumBackgroundEffect.lava &&
         background!.strength > 0 &&
         !MediaQuery.disableAnimationsOf(context) &&
@@ -48,35 +58,57 @@ class _ForumWindowBackgroundState extends State<ForumWindowBackground>
 
   @override
   Widget build(BuildContext context) {
+    // Mobile and boundary shells can nest this owner. Never restart the effect
+    // or its coordinate space at an inner page boundary.
+    if (context.dependOnInheritedWidgetOfExactType<_ForumCanvas>() != null) {
+      return widget.child;
+    }
     final theme = Theme.of(context);
     final effects = theme.extension<ForumThemeEffects>();
     final background = effects?.background;
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: theme.scaffoldBackgroundColor,
-        gradient: background == null ? effects?.windowGradient : null,
-      ),
-      child:
-          background == null ||
-              background.effect == ForumBackgroundEffect.normal ||
-              background.strength == 0
-          ? widget.child
-          : Stack(
-              children: [
-                Positioned.fill(
-                  child: IgnorePointer(
-                    child: RepaintBoundary(
-                      child: CustomPaint(
-                        painter: _BackgroundPainter(background, _motion),
+    return _ForumCanvas(
+      continuous: background != null,
+      child: DecoratedBox(
+        key: const ValueKey('forum-window-canvas'),
+        decoration: BoxDecoration(
+          color: background == null
+              ? theme.scaffoldBackgroundColor
+              : theme.shell.content,
+          gradient: background == null ? effects?.windowGradient : null,
+        ),
+        child:
+            background == null ||
+                background.effect == ForumBackgroundEffect.normal ||
+                background.strength == 0
+            ? widget.child
+            : Stack(
+                children: [
+                  Positioned.fill(
+                    child: IgnorePointer(
+                      child: RepaintBoundary(
+                        child: CustomPaint(
+                          key: const ValueKey('forum-window-effect'),
+                          painter: _BackgroundPainter(background, _motion),
+                        ),
                       ),
                     ),
                   ),
-                ),
-                widget.child,
-              ],
-            ),
+                  widget.child,
+                ],
+              ),
+      ),
     );
   }
+}
+
+class _ForumCanvas extends InheritedWidget {
+  const _ForumCanvas({required this.continuous, required super.child});
+
+  final bool continuous;
+
+  @override
+  bool updateShouldNotify(_ForumCanvas oldWidget) =>
+      continuous != oldWidget.continuous;
 }
 
 class _BackgroundPainter extends CustomPainter {
@@ -146,6 +178,7 @@ class ForumSidebarTheme extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (ForumWindowBackground.isContinuous(context)) return child;
     final theme = Theme.of(context);
     final sidebar = theme.extension<ForumThemeEffects>()?.sidebarTheme;
     if (sidebar == null) return child;

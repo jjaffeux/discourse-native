@@ -332,32 +332,30 @@ class _MobileForumRootState extends State<MobileForumRoot> {
             Expanded(
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: DSpacing.xs),
-                child: DCard(
+                child: DPageSurface(
                   key: const ValueKey('mobile-content-panel'),
-                  spacing: 0,
-                  child: Expanded(
-                    child: MobileHistoryGestures(
-                      child: Stack(
-                        fit: StackFit.expand,
-                        children: [
-                          if (chat != null)
-                            Offstage(
-                              offstage: !chatRoot,
-                              child: TickerMode(
-                                enabled: chatRoot,
-                                child: ExcludeFocus(
-                                  excluding: !chatRoot,
-                                  child: InstanceSidebar(
-                                    key: ValueKey(('mobile-chat', owner)),
-                                    mobile: true,
-                                    panelOwner: chat.owner.value,
-                                  ),
+                  framed: !ForumWindowBackground.isContinuous(context),
+                  child: MobileHistoryGestures(
+                    child: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        if (chat != null)
+                          Offstage(
+                            offstage: !chatRoot,
+                            child: TickerMode(
+                              enabled: chatRoot,
+                              child: ExcludeFocus(
+                                excluding: !chatRoot,
+                                child: InstanceSidebar(
+                                  key: ValueKey(('mobile-chat', owner)),
+                                  mobile: true,
+                                  panelOwner: chat.owner.value,
                                 ),
                               ),
                             ),
-                          if (!chatRoot) widget.content,
-                        ],
-                      ),
+                          ),
+                        if (!chatRoot) widget.content,
+                      ],
                     ),
                   ),
                 ),

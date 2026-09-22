@@ -18,6 +18,7 @@ import '../theme/d_icons.dart';
 import 'add_instance_sheet.dart';
 import 'app_settings_page.dart';
 import 'avatar_image.dart';
+import 'forum_theme_surfaces.dart';
 import 'instance_actions.dart';
 import 'platform.dart';
 import 'shell_controller.dart';
@@ -52,7 +53,10 @@ class InstanceRail extends StatelessWidget {
                 !context.isTouch &&
                     theme.extension<ForumThemeEffects>()?.windowGradient != null
                 ? Colors.transparent
-                : _railBackground(theme),
+                : ForumWindowBackground.surfaceColor(
+                    context,
+                    _railBackground(theme),
+                  ),
             child: SafeArea(
               right: false,
               child: Column(

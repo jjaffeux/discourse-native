@@ -10,6 +10,7 @@ import '../plugin_api/site_plugin_api.dart';
 import '../theme/app_theme.dart';
 import 'aggregate_branding.dart';
 import 'forum_search.dart';
+import 'forum_theme_surfaces.dart';
 import 'shell_controller.dart';
 import 'shell_scope.dart';
 import 'user_menu_button.dart';
@@ -93,7 +94,7 @@ class ShellTitleBar extends StatelessWidget {
                       ).extension<ForumThemeEffects>()?.windowGradient !=
                       null
                   ? Colors.transparent
-                  : surface,
+                  : ForumWindowBackground.surfaceColor(context, surface),
               child: Stack(
                 fit: StackFit.expand,
                 children: [

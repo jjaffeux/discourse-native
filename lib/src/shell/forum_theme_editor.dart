@@ -337,21 +337,23 @@ class _ForumThemeEditorState extends State<ForumThemeEditor> {
             );
           },
         ),
-        Align(
-          alignment: AlignmentDirectional.centerStart,
-          child: DToggle(
-            key: const ValueKey('custom-theme-darker-sidebars'),
-            pressed: _darkerSidebars,
-            enabled: enabled,
-            variant: DToggleVariant.outline,
-            onPressedChanged: (value) {
-              _darkerSidebars = value;
-              _changed('');
-            },
-            child: const Text('Darker sidebars'),
+        if (!_backgroundEdited) ...[
+          Align(
+            alignment: AlignmentDirectional.centerStart,
+            child: DToggle(
+              key: const ValueKey('custom-theme-darker-sidebars'),
+              pressed: _darkerSidebars,
+              enabled: enabled,
+              variant: DToggleVariant.outline,
+              onPressedChanged: (value) {
+                _darkerSidebars = value;
+                _changed('');
+              },
+              child: const Text('Darker sidebars'),
+            ),
           ),
-        ),
-        const Text('Use darker backgrounds for forum and chat navigation.'),
+          const Text('Use darker backgrounds for forum and chat navigation.'),
+        ],
         if (theme != null && _contrast(theme) < 4.5)
           const DAlert(
             description: DAlertDescription(

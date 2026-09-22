@@ -6,6 +6,7 @@ import '../models/topic.dart';
 import '../models/topic_filter.dart';
 import '../theme/app_theme.dart';
 import 'content_reading_lane.dart';
+import 'forum_theme_surfaces.dart';
 import 'topic_list_layout.dart';
 
 typedef TopicListTagSearch =
@@ -187,7 +188,7 @@ class TopicListFilterBar extends StatelessWidget {
 
     return Material(
       key: const ValueKey('topic-list-filter-bar'),
-      color: theme.shell.content,
+      color: ForumWindowBackground.surfaceColor(context, theme.shell.content),
       child: compact
           ? controls
           : wrap

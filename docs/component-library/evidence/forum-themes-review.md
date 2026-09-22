@@ -193,3 +193,41 @@ Inspected the full shell, forum settings and the applied Light/Dark switch in an
 isolated ad-hoc `org.discourse.native.review.backgroundsurfaces` bundle. Header,
 rail, sidebar, topic list and footer all carry the chosen color. No external forum
 data or release configuration changed.
+
+
+## One continuous workspace canvas — 2026-09-22
+
+The user clarified that equal colors on separate panels were insufficient. A
+custom background now has one window-sized canvas. Application page owners use
+Native Page Surface's existing frameless mode and Sidebar/Footer's transparent
+background options. Navigation, title and topic headers, split list/reader panes,
+footers and docked composer chrome reveal that canvas. Outer panel frames are
+removed in this mode. Controls, selected rows, content cards and floating overlays
+keep their Native semantic surfaces. No Native component API was added.
+
+The canvas has an inherited application scope; nested mobile background owners
+reuse it instead of painting or animating another effect. The theme preview uses
+the same continuous composition and no longer reserves an artificial 80px strip
+above the sample page. The legacy darker-sidebar setting is retained in saved
+palette data but does not override a continuous custom canvas, and its toggle is
+hidden while that canvas is enabled. Themes without a custom background retain
+the previous framing and darker-sidebar behavior.
+
+Verification: 221 focused tests passed: 135 appearance/editor/model/AppTheme,
+shell-panel and topic-inbox regressions; 84 mobile-shell, composer-docking,
+chat-workspace and Native-adoption tests; plus desktop and mobile canvas
+regressions. The desktop test opens a real split topic reader and checks actual
+rendered pixels across the title bar, rail, sidebar, list, reader and footer for
+the same flat color in light/dark mode. It verifies transparent chrome across all
+three effects, including saved darker-sidebar settings and default restoration.
+The mobile test verifies one painter at 390px and 1200px and restoration of the
+default frame; these use target-platform overrides, not physical mobile devices.
+Nested effect ownership and reduced motion also pass. Static analysis is clean.
+
+Native macOS verification used `tool/continuous_background_review_main.dart`
+with local fake topics in an isolated ad-hoc
+`org.discourse.native.review.continuousbackground` bundle. Inspected Lava flowing
+continuously through the full list and split reader, Noise across the entire
+window and preview, and Normal as one flat light-mode surface. Forum menus and
+settings remained usable. The debug build and strict signature verification
+passed, with restricted push identity omitted from the review bundle only.

@@ -16,6 +16,7 @@ import 'anchored_picker.dart';
 import 'avatar_image.dart';
 import 'category_icon.dart';
 import 'content_reading_lane.dart';
+import 'forum_theme_surfaces.dart';
 import 'open_link.dart';
 import 'platform.dart';
 import 'relative_time.dart';
@@ -84,7 +85,10 @@ class TopicInboxHeader extends StatelessWidget {
     final showActivity = hasTopic;
     final taxonomy = hasTopic
         ? ColoredBox(
-            color: Theme.of(context).shell.content,
+            color: ForumWindowBackground.surfaceColor(
+              context,
+              Theme.of(context).shell.content,
+            ),
             child: _TopicHeaderReadingLane(
               child: Padding(
                 padding: const EdgeInsets.only(bottom: DSpacing.sm),
@@ -171,7 +175,10 @@ class _TopicHeaderToolbar extends StatelessWidget {
         ),
       );
       return ColoredBox(
-        color: Theme.of(context).shell.content,
+        color: ForumWindowBackground.surfaceColor(
+          context,
+          Theme.of(context).shell.content,
+        ),
         child: ConstrainedBox(
           key: const ValueKey('topic-content-header'),
           constraints: const BoxConstraints(minHeight: readerHeaderHeight),

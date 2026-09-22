@@ -86,14 +86,10 @@ void main() {
           .values,
       [ForumBackgroundEffect.noise],
     );
-    for (final key in ['darker-sidebars']) {
-      expect(
-        tester
-            .widget<DToggle>(find.byKey(ValueKey('custom-theme-$key')))
-            .pressed,
-        isTrue,
-      );
-    }
+    expect(
+      find.byKey(const ValueKey('custom-theme-darker-sidebars')),
+      findsNothing,
+    );
   });
 
   testWidgets('preview scopes dark navigation and paints the window gradient', (
