@@ -126,6 +126,7 @@ class ComposerSlashMenuState extends State<ComposerSlashMenu> {
   void _schedule() {
     if (_scheduled) return;
     _scheduled = true;
+    WidgetsBinding.instance.ensureVisualUpdate();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _scheduled = false;
       if (!mounted) return;
