@@ -12,7 +12,8 @@ final oneboxExamples = ComponentExamples(
       'use the production cooked-content renderers and local sample markup. '
       'Event previews use the same EventCard as hydrated event oneboxes, with '
       'local attendance state. Generic cards cover other providers through '
-      'their shared onebox markup. Images and activated video require a network '
+      'their shared onebox markup. Reddit embeds, images and activated video '
+      'require a network '
       'connection; links open their sample destinations. Theme, width, text '
       'scale and direction can be changed with the styleguide preview settings.',
   examples: [

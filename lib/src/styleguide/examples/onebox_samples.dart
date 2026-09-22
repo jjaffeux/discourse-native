@@ -43,6 +43,8 @@ const _photo =
 const _avatar = 'https://avatars.githubusercontent.com/u/3220138?s=120';
 const _video =
     'https://flutter.github.io/assets-for-api-docs/assets/videos/bee.mp4';
+const _redditPost =
+    'https://embed.reddit.com/r/FlutterDev/comments/w8ssuy/airdash_new_free_and_open_source_flutter_app_for';
 
 final _registry = PluginRegistry([
   DiscourseGithubPlugin(
@@ -177,6 +179,23 @@ final oneboxSamples = <OneboxSample>[
         'The generic onebox card with the native numbered code renderer.',
     keywords: 'github blob file code source snippet lines',
     states: [_cooked('Code', _file()), _cooked('Line range', _file(start: 42))],
+  ),
+  OneboxSample(
+    id: 'reddit',
+    name: 'Reddit',
+    description:
+        'Live post and comment embeds, with loading, retry and open-link controls. Requires a network connection.',
+    keywords: 'reddit social post comment iframe embed subreddit',
+    states: [
+      _cooked(
+        'Post',
+        '<iframe class="reddit-onebox" src="$_redditPost/?embed=true&amp;ref_source=embed&amp;ref=share" height="500"></iframe>',
+      ),
+      _cooked(
+        'Comment',
+        '<iframe class="reddit-onebox" src="$_redditPost/ihrafxr/?embed=true&amp;ref_source=embed&amp;ref=share&amp;showmedia=false&amp;showmore=false&amp;depth=1&amp;context=1" height="300"></iframe>',
+      ),
+    ],
   ),
   OneboxSample(
     id: 'twitter',

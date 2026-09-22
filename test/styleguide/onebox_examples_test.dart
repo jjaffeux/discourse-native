@@ -20,6 +20,9 @@ import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:webview_all/webview_all.dart';
+
+import '../support/fake_media_webview.dart';
 
 const _renderers = <String, Type>{
   'generic': OneboxCard,
@@ -31,6 +34,7 @@ const _renderers = <String, Type>{
   'github-issue': GithubIssueOnebox,
   'github-commit': GithubCommitOnebox,
   'github-file': CodeBlock,
+  'reddit': DEmbed,
   'twitter': OneboxCard,
   'inline': CookedHtml,
   'github-pr-inline': CookedHtml,
@@ -40,6 +44,16 @@ const _renderers = <String, Type>{
 };
 
 void main() {
+  late FakeMediaWebViewPlatform platform;
+  late WebViewPlatform previousPlatform;
+
+  setUp(() {
+    previousPlatform = WebViewPlatform.instance ?? FakeMediaWebViewPlatform();
+    platform = FakeMediaWebViewPlatform();
+    WebViewPlatform.instance = platform;
+  });
+  tearDown(() => WebViewPlatform.instance = previousPlatform);
+
   testWidgets('Onebox is discoverable in the styleguide navigation', (
     tester,
   ) async {
@@ -141,6 +155,57 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
+
+  testWidgets('Reddit states replace and retire the live embed', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _host(Builder(builder: oneboxExamples.topLevelExample.builder)),
+    );
+    await tester.pumpAndSettle();
+    final input = find.descendant(
+      of: find.byKey(const ValueKey('onebox-picker')),
+      matching: find.byType(TextField),
+    );
+    await tester.enterText(input, 'reddit');
+    await tester.pumpAndSettle();
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(
+      tester.widget<DEmbed>(find.byType(DEmbed)).title,
+      'Reddit post · r/FlutterDev',
+    );
+    final postController = platform.controllers.single;
+    expect(find.byType(DSpinner), findsOneWidget);
+    postController.channels['NativeEmbed']!.onMessageReceived(
+      const JavaScriptMessage(message: 'loaded'),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const ValueKey('onebox-state-reddit-1')));
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(postController.channels, isEmpty);
+    expect(
+      tester.widget<DEmbed>(find.byType(DEmbed)).title,
+      'Reddit comment · r/FlutterDev',
+    );
+    final commentController = platform.controllers.last;
+    expect(commentController, isNot(same(postController)));
+    expect(commentController.documents.single.html, contains('/ihrafxr/'));
+    commentController.channels['NativeEmbed']!.onMessageReceived(
+      const JavaScriptMessage(message: 'loaded'),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.enterText(input, 'generic link');
+    await tester.pumpAndSettle();
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pumpAndSettle();
+    expect(find.byType(DEmbed), findsNothing);
+    expect(find.byType(OneboxCard), findsOneWidget);
+    expect(commentController.channels, isEmpty);
+    expect(tester.takeException(), isNull);
+  });
 
   for (final configuration in [
     (name: 'light desktop', width: 640.0, theme: AppTheme.light, scale: 1.0),
