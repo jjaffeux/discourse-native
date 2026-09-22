@@ -13,6 +13,9 @@ import 'd_button.dart';
 import 'd_card.dart';
 import 'd_spinner.dart';
 
+// Leave the Card's existing outline visible beneath the native platform view.
+const _embedBorderInsets = EdgeInsets.only(left: 1, right: 1, bottom: 1);
+
 /// A bounded iframe with Native loading and failure controls.
 ///
 /// The caller validates the provider's URL and supplies its exact trusted
@@ -266,7 +269,7 @@ class _DEmbedState extends State<DEmbed> {
     trailing: _failed
         ? null
         : SizedBox(
-            height: _height,
+            height: _height + _embedBorderInsets.vertical,
             child: _controller == null
                 ? const SizedBox.shrink()
                 : _EmbedViewport(
@@ -411,7 +414,19 @@ class _EmbedViewportState extends State<_EmbedViewport> {
 
   @override
   Widget build(BuildContext context) {
-    if (defaultTargetPlatform != TargetPlatform.macOS) return widget.child;
+    final content = Padding(
+      padding: _embedBorderInsets,
+      child: ClipRRect(
+        borderRadius: BorderRadius.vertical(
+          bottom: Radius.circular(
+            (DTokens.of(context).radius * 1.4 - _embedBorderInsets.bottom)
+                .clamp(0.0, double.infinity),
+          ),
+        ),
+        child: widget.child,
+      ),
+    );
+    if (defaultTargetPlatform != TargetPlatform.macOS) return content;
     return LayoutBuilder(
       builder: (context, constraints) {
         final size = constraints.biggest;
@@ -436,7 +451,7 @@ class _EmbedViewportState extends State<_EmbedViewport> {
                       child: SizedBox.fromSize(
                         key: _surface,
                         size: _size,
-                        child: widget.child,
+                        child: content,
                       ),
                     ),
                   ),
