@@ -367,6 +367,7 @@ class DButton extends StatelessWidget {
     this.autofocus = false,
     this.alignment = Alignment.center,
     this.shape = DButtonShape.rounded,
+    this.animationDuration,
     this.borderRadius,
     this.backgroundColor,
     this.foregroundColor,
@@ -391,6 +392,7 @@ class DButton extends StatelessWidget {
     this.autofocus = false,
     this.alignment = Alignment.center,
     this.shape = DButtonShape.rounded,
+    this.animationDuration,
     this.borderRadius,
     this.backgroundColor,
     this.foregroundColor,
@@ -451,6 +453,10 @@ class DButton extends StatelessWidget {
 
   /// Defaults to the theme’s control radius; pill is an explicit geometry override.
   final DButtonShape shape;
+
+  /// Overrides the button's state and shape transition duration.
+  /// Reduced motion still applies changes immediately.
+  final Duration? animationDuration;
   final BorderRadiusGeometry? borderRadius;
 
   /// Overrides the variant's fill in every state, including expanded and
@@ -618,7 +624,10 @@ class DButton extends StatelessWidget {
     final radius =
         joined?.resolveRadius(baseRadius, direction) ??
         baseRadius.resolve(direction);
-    final animationDuration = DMotion.duration(context, DControlStyle.duration);
+    final effectiveAnimationDuration = DMotion.duration(
+      context,
+      animationDuration ?? DControlStyle.duration,
+    );
     final destructiveRing =
         invalid || _visualVariant == DButtonVariant.destructive;
     final ringColor = destructiveRing ? tokens.destructive : tokens.focusRing;
@@ -735,7 +744,7 @@ class DButton extends StatelessWidget {
       elevation: const WidgetStatePropertyAll(0),
       shadowColor: const WidgetStatePropertyAll(Colors.transparent),
       surfaceTintColor: const WidgetStatePropertyAll(Colors.transparent),
-      animationDuration: animationDuration,
+      animationDuration: effectiveAnimationDuration,
       visualDensity: VisualDensity.standard,
       tapTargetSize: touch
           ? MaterialTapTargetSize.padded
@@ -760,7 +769,7 @@ class DButton extends StatelessWidget {
                       ? Colors.transparent
                       : border.color);
         final surface = _DButtonSurface(
-          duration: animationDuration,
+          duration: effectiveAnimationDuration,
           hovered:
               states.contains(WidgetState.hovered) ||
               states.contains(WidgetState.pressed),

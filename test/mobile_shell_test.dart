@@ -262,6 +262,48 @@ void main() {
     },
   );
 
+  _mobileTest('tab buttons take 240ms to change shape', (tester) async {
+    await pumpMobileShellFixture(tester);
+    final button = find.byKey(const ValueKey('mobile-mode-panel/chat'));
+    final surface = find.descendant(
+      of: button,
+      matching: find.byWidgetPredicate(
+        (widget) =>
+            widget is AnimatedContainer &&
+            widget.decoration is DButtonDecoration,
+      ),
+    );
+    final painted = find.descendant(
+      of: button,
+      matching: find.byWidgetPredicate(
+        (widget) =>
+            widget is DecoratedBox && widget.decoration is DButtonDecoration,
+      ),
+    );
+    double radius() =>
+        (tester.widget<DecoratedBox>(painted).decoration as DButtonDecoration)
+            .borderRadius
+            .topLeft
+            .x;
+
+    final circleRadius = radius();
+    expect(
+      tester.widget<AnimatedContainer>(surface).duration,
+      const Duration(milliseconds: 240),
+    );
+
+    await tester.tap(button);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 120));
+    final halfwayRadius = radius();
+    await tester.pumpAndSettle();
+    final selectedRadius = radius();
+
+    expect(selectedRadius, lessThan(halfwayRadius));
+    expect(halfwayRadius, lessThan(circleRadius));
+    expect(tester.takeException(), isNull);
+  });
+
   _mobileTest(
     'hamburger exposes only Forum categories/tags and custom Shortcuts',
     (tester) async {

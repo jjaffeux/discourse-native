@@ -512,6 +512,7 @@ class _MobileForumRootState extends State<MobileForumRoot> {
         tooltip: label,
         onPressed: onPressed,
         shape: selected ? DButtonShape.rounded : DButtonShape.pill,
+        animationDuration: const Duration(milliseconds: 240),
         variant: selected ? DButtonVariant.primary : DButtonVariant.ghost,
         backgroundColor: selected ? null : DTokens.of(context).muted,
       ),
