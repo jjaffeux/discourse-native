@@ -579,9 +579,6 @@ class _ForumThemeEditorState extends State<ForumThemeEditor> {
                         )
                       : null,
                 ),
-                const DFieldDescription(
-                  child: Text('Set to 0% for a smooth background.'),
-                ),
               ],
             ),
           DField(
@@ -604,11 +601,6 @@ class _ForumThemeEditorState extends State<ForumThemeEditor> {
                         ),
                       )
                     : null,
-              ),
-              const DFieldDescription(
-                child: Text(
-                  'Let the background show through panels. Limited to 20% to keep text readable.',
-                ),
               ),
             ],
           ),
