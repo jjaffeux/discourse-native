@@ -157,7 +157,7 @@ void main() {
     final shell = await pumpComposer(tester, platform: TargetPlatform.macOS);
 
     expect(find.text('Category'), findsOneWidget);
-    expect(find.text('Tags'), findsOneWidget);
+    expect(find.text('Tag'), findsOneWidget);
     final title = find.byKey(const ValueKey('composer-topic-title'));
     final editor = find.byType(ComposerEditor);
     final category = tester.getRect(

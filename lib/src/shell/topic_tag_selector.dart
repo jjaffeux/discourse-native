@@ -24,7 +24,7 @@ class TopicTagSelector extends StatefulWidget {
     this.capabilities = const TopicComposerCapabilities(),
     this.multiple = true,
     this.includeAll = false,
-    this.placeholder = 'Tags',
+    this.placeholder = 'Tag',
     this.semanticLabel,
     this.keyPrefix = 'tag-selector',
     this.size = DButtonSize.regular,
@@ -233,6 +233,7 @@ class _TopicTagSelectorState extends State<TopicTagSelector> {
         buttonKey: widget.valueKey,
         size: widget.size,
         label: label,
+        icon: selected.isEmpty ? const DIcon(DIcons.tag) : null,
         semanticLabel:
             widget.semanticLabel ??
             (selected.isEmpty
