@@ -127,63 +127,69 @@ class ForumThemePreview extends StatelessWidget {
                                   MediaQuery.textScalerOf(context).scale(14) <
                                       22)
                                 ForumSidebarTheme(
-                                  child: DSidebar(
-                                    key: const ValueKey(
-                                      'theme-preview-sidebar',
-                                    ),
-                                    backgroundColor:
-                                        ForumWindowBackground.isContinuous(
-                                          context,
-                                        )
-                                        ? Colors.transparent
-                                        : null,
-                                    width: 132,
-                                    collapsible: DSidebarCollapsible.none,
-                                    child: DSidebarContent(
-                                      children: [
-                                        DSidebarGroup(
-                                          child: DSidebarMenu(
-                                            children: [
-                                              for (final (label, icon) in [
-                                                ('Latest', DIcons.house),
-                                                ('Unread', DIcons.bell),
-                                                ('Bookmarks', DIcons.bookmark),
-                                              ])
-                                                DSidebarMenuItem(
-                                                  child: DSidebarMenuButton(
-                                                    icon: DIcon(icon),
-                                                    isActive: label == 'Latest',
-                                                    onPressed: () {},
-                                                    child: Text(label),
+                                  child: Builder(
+                                    builder: (context) => DSidebar(
+                                      key: const ValueKey(
+                                        'theme-preview-sidebar',
+                                      ),
+                                      backgroundColor:
+                                          ForumWindowBackground.isContinuous(
+                                            context,
+                                          )
+                                          ? Colors.transparent
+                                          : null,
+                                      width: 132,
+                                      collapsible: DSidebarCollapsible.none,
+                                      child: DSidebarContent(
+                                        children: [
+                                          DSidebarGroup(
+                                            child: DSidebarMenu(
+                                              children: [
+                                                for (final (label, icon) in [
+                                                  ('Latest', DIcons.house),
+                                                  ('Unread', DIcons.bell),
+                                                  (
+                                                    'Bookmarks',
+                                                    DIcons.bookmark,
                                                   ),
-                                                ),
-                                            ],
-                                          ),
-                                        ),
-                                        DSidebarGroup(
-                                          label: const DSidebarGroupLabel(
-                                            child: Text('Categories'),
-                                          ),
-                                          child: DSidebarMenu(
-                                            children: [
-                                              for (final label in [
-                                                'General',
-                                                'Design',
-                                                'Support',
-                                              ])
-                                                DSidebarMenuItem(
-                                                  child: DSidebarMenuButton(
-                                                    icon: const DIcon(
-                                                      DIcons.circle,
+                                                ])
+                                                  DSidebarMenuItem(
+                                                    child: DSidebarMenuButton(
+                                                      icon: DIcon(icon),
+                                                      isActive:
+                                                          label == 'Latest',
+                                                      onPressed: () {},
+                                                      child: Text(label),
                                                     ),
-                                                    onPressed: () {},
-                                                    child: Text(label),
                                                   ),
-                                                ),
-                                            ],
+                                              ],
+                                            ),
                                           ),
-                                        ),
-                                      ],
+                                          DSidebarGroup(
+                                            label: const DSidebarGroupLabel(
+                                              child: Text('Categories'),
+                                            ),
+                                            child: DSidebarMenu(
+                                              children: [
+                                                for (final label in [
+                                                  'General',
+                                                  'Design',
+                                                  'Support',
+                                                ])
+                                                  DSidebarMenuItem(
+                                                    child: DSidebarMenuButton(
+                                                      icon: const DIcon(
+                                                        DIcons.circle,
+                                                      ),
+                                                      onPressed: () {},
+                                                      child: Text(label),
+                                                    ),
+                                                  ),
+                                              ],
+                                            ),
+                                          ),
+                                        ],
+                                      ),
                                     ),
                                   ),
                                 ),
