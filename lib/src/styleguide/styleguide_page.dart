@@ -181,6 +181,10 @@ class _ComponentStyleguidePageState extends State<ComponentStyleguidePage> {
             _focusSearch,
         const SingleActivator(LogicalKeyboardKey.keyK, control: true):
             _focusSearch,
+        const SingleActivator(LogicalKeyboardKey.keyF, meta: true):
+            _focusSearch,
+        const SingleActivator(LogicalKeyboardKey.keyF, control: true):
+            _focusSearch,
       },
       child: Scaffold(
         key: const ValueKey('component-styleguide'),

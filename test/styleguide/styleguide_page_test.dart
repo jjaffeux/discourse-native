@@ -911,34 +911,43 @@ void main() {
     expect(closed, false);
   });
 
-  testWidgets(
-    'mobile search shortcut opens Sidebar and focuses its search field',
-    (tester) async {
-      await _pump(tester, size: const Size(390, 800));
-      final action = find.widgetWithText(DButton, 'primary');
-      await tester.ensureVisible(action);
-      await tester.tap(action);
-      await tester.pump();
-      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
-      await tester.sendKeyEvent(LogicalKeyboardKey.keyK);
-      await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
-      await tester.pumpAndSettle();
-      final search = tester.widget<DInput>(
-        find.byKey(const ValueKey('styleguide-search')),
-      );
-      expect(search.focusNode!.hasFocus, true);
-      await tester.enterText(
-        find.byKey(const ValueKey('styleguide-search')),
-        'kbd',
-      );
-      await tester.pump();
-      expect(
-        find.byKey(const ValueKey('styleguide-component-kbd')),
-        findsOneWidget,
-      );
-      expect(find.text('Actions: 1'), findsOneWidget);
-    },
-  );
+  for (final width in [1200.0, 390.0]) {
+    for (final modifier in [
+      LogicalKeyboardKey.metaLeft,
+      LogicalKeyboardKey.controlLeft,
+    ]) {
+      for (final key in [LogicalKeyboardKey.keyF, LogicalKeyboardKey.keyK]) {
+        testWidgets(
+          'search shortcut $modifier + $key focuses search at width $width',
+          (tester) async {
+            await _pump(tester, size: Size(width, 800));
+            final action = find.widgetWithText(DButton, 'primary');
+            await tester.ensureVisible(action);
+            await tester.tap(action);
+            await tester.pump();
+            await tester.sendKeyDownEvent(modifier);
+            await tester.sendKeyEvent(key);
+            await tester.sendKeyUpEvent(modifier);
+            await tester.pumpAndSettle();
+            final search = tester.widget<DInput>(
+              find.byKey(const ValueKey('styleguide-search')),
+            );
+            expect(search.focusNode!.hasFocus, true);
+            await tester.enterText(
+              find.byKey(const ValueKey('styleguide-search')),
+              'kbd',
+            );
+            await tester.pump();
+            expect(
+              find.byKey(const ValueKey('styleguide-component-kbd')),
+              findsOneWidget,
+            );
+            expect(find.text('Actions: 1'), findsOneWidget);
+          },
+        );
+      }
+    }
+  }
 
   testWidgets(
     'search reveals a collapsed desktop Sidebar without resetting the preview',
