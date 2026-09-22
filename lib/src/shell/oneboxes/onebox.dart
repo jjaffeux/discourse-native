@@ -13,6 +13,7 @@ import 'discourse/category/block.dart';
 import 'discourse/topic/block.dart';
 import 'discourse/user/block.dart';
 import 'markup.dart';
+import 'reddit.dart';
 
 class OneboxData {
   const OneboxData({
@@ -172,6 +173,9 @@ final List<OneboxEngine> _engines = [
 ];
 
 Widget? oneboxWidgetBuilder(dom.Element element, {String? siteUrl}) {
+  if (element.localName == 'iframe') {
+    return redditOneboxWidgetBuilder(element, siteUrl: siteUrl);
+  }
   if (element.localName != 'aside') return null;
   if (!element.classes.contains('onebox')) return null;
 
