@@ -3675,7 +3675,7 @@ class _Toolbar extends StatelessWidget {
     builder: (context, _, _) => ListenableBuilder(
       listenable: composer.blocks,
       builder: (context, _) => composer.blocks.arranging
-          ? Row(
+          ? _ComposerToolbarOverflow(
               children: [
                 ComposerArrangeButton(composer: composer),
                 const Text('Arrange blocks'),
@@ -4122,25 +4122,14 @@ class _Footer extends StatelessWidget {
       builder: (context, constraints) {
         final compact =
             constraints.maxWidth <
-            (380 + pluginControls.length * 120) *
+            (620 + pluginControls.length * 120) *
                 MediaQuery.textScalerOf(context).scale(14) /
                 14;
-        final compactCreate =
-            compact &&
-            composer.target.isNewTopic &&
-            !composer.canRecheck &&
-            MediaQuery.textScalerOf(context).scale(14) <= 22;
         // Native image pickers outlive a resize, so the toolbar keeps its state.
         return ComposerFooterLayout(
           compact: compact,
-          child: Flex(
-            direction: constraints.maxWidth < 620
-                ? Axis.vertical
-                : Axis.horizontal,
+          child: Row(
             mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: constraints.maxWidth < 620
-                ? CrossAxisAlignment.stretch
-                : CrossAxisAlignment.center,
             spacing: 8,
             children: [
               if (!context.isTouch)
@@ -4163,7 +4152,7 @@ class _Footer extends StatelessWidget {
                               ],
                             )
                           : theme,
-                      child: compact && !compactCreate
+                      child: compact
                           ? DButton.iconOnly(
                               key: const ValueKey('composer-submit'),
                               tooltip: label,
@@ -4176,7 +4165,7 @@ class _Footer extends StatelessWidget {
                                     : composer.target.isEdit
                                     ? DIcons.check
                                     : composer.target.isNewTopic
-                                    ? DIcons.farPenToSquare
+                                    ? DIcons.plus
                                     : DIcons.reply,
                               ),
                             )
@@ -4185,7 +4174,6 @@ class _Footer extends StatelessWidget {
                               onPressed: busy ? null : onSubmit,
                               loading: busy,
                               semanticLabel: label,
-                              tooltip: compactCreate ? label : null,
                               icon: DIcon(
                                 composer.whisper
                                     ? DIcons.farEyeSlash
@@ -4195,18 +4183,16 @@ class _Footer extends StatelessWidget {
                                     ? DIcons.plus
                                     : DIcons.reply,
                               ),
-                              label: Text(compactCreate ? 'Create' : label),
+                              label: Text(label),
                             ),
                     ),
                     const SizedBox(width: DSpacing.controlGap),
-                    Flexible(
-                      fit: FlexFit.loose,
-                      child: DButton(
-                        key: const ValueKey('composer-cancel'),
-                        onPressed: onCancel,
-                        variant: DButtonVariant.transparentBackground,
-                        label: const Text('Discard'),
-                      ),
+                    DButton.iconOnly(
+                      key: const ValueKey('composer-cancel'),
+                      onPressed: onCancel,
+                      variant: DButtonVariant.transparentBackground,
+                      tooltip: 'Discard',
+                      icon: const DIcon(DIcons.trashCan),
                     ),
                     for (final control in pluginControls)
                       Padding(
@@ -4219,10 +4205,7 @@ class _Footer extends StatelessWidget {
                 Wrap(spacing: DSpacing.controlGap, children: pluginControls),
               if (toolbar != null)
                 Flexible(
-                  flex: constraints.maxWidth < 620 ? 0 : 1,
-                  fit: constraints.maxWidth < 620
-                      ? FlexFit.loose
-                      : FlexFit.tight,
+                  fit: FlexFit.tight,
                   child: context.isTouch
                       ? DCard(
                           key: const ValueKey('composer-toolbar-bar'),
