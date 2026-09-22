@@ -21,6 +21,10 @@ block's bottom and following block's top, spans the text area beside the gutter,
 and does not shift the text. At the beginning or end it marks the outer block edge.
 The original position also shows an insertion line; dropping there leaves the
 source and undo history unchanged.
+Runs of empty lines expose individual insertion boundaries, including before the
+first content block and after the last. A block can move within these lines
+without changing the order of the content blocks. The move preserves the other
+empty lines and adds only the separators needed to keep Markdown blocks distinct.
 The handle's action label stays in its hover tooltip rather than following the
 pointer in a card.
 

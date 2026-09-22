@@ -128,7 +128,12 @@ class ComposerBlockController extends ChangeNotifier {
     return enabled && block != null && index.move(block.id, gap) != null;
   }
 
-  bool moveTo(int gap, {int? blockId, required int expectedRevision}) {
+  bool moveTo(
+    int gap, {
+    int? offset,
+    int? blockId,
+    required int expectedRevision,
+  }) {
     if (!enabled) return false;
     if (_revision != expectedRevision) {
       notice('The draft changed. Move the block again.');
@@ -136,7 +141,7 @@ class ComposerBlockController extends ChangeNotifier {
     }
     final id = blockId ?? selected?.id;
     if (id == null) return false;
-    final move = index.move(id, gap);
+    final move = index.move(id, gap, offset: offset);
     if (move == null) return false;
     final selection = text.selection;
     final mappedSelection = selection.isValid
