@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/data/discourse_api.dart';
 import 'package:discourse_native/src/data/user_api_key.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
@@ -498,7 +499,7 @@ void main() {
       await tester.pumpAndSettle();
       final cell = find.descendant(
         of: find.byType(ReactionGrid),
-        matching: find.byType(InkWell),
+        matching: find.byType(DToggle),
       );
       await tester.tap(cell);
       await tester.pump();
@@ -542,7 +543,7 @@ void main() {
       await tester.tap(
         find.descendant(
           of: find.byType(ReactionGrid),
-          matching: find.byType(InkWell),
+          matching: find.byType(DToggle),
         ),
       );
       await tester.pumpAndSettle();
@@ -582,7 +583,7 @@ void main() {
       await tester.tap(
         find.descendant(
           of: find.byType(ReactionGrid),
-          matching: find.byType(InkWell),
+          matching: find.byType(DToggle),
         ),
       );
       await tester.pump();

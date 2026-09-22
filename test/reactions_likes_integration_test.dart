@@ -107,7 +107,7 @@ void _registerReactionAndLikeTests() {
       );
       if (defaultTargetPlatform == TargetPlatform.android ||
           defaultTargetPlatform == TargetPlatform.iOS) {
-        await tester.tap(sidebarDestination('Topics'));
+        await tester.tap(find.bySemanticsLabel('Topics'));
         await tester.pumpAndSettle();
       }
       await tester.tap(find.text('A real topic'));
@@ -560,7 +560,7 @@ void _registerReactionAndLikeTests() {
       if (beforeSettle == null) {
         if (defaultTargetPlatform == TargetPlatform.android ||
             defaultTargetPlatform == TargetPlatform.iOS) {
-          await tester.tap(sidebarDestination('Topics'));
+          await tester.tap(find.bySemanticsLabel('Topics'));
           await tester.pumpAndSettle();
         }
         await tester.tap(find.text('A real topic'));
@@ -1035,7 +1035,7 @@ void _registerReactionAndLikeTests() {
         final grid = tester.getRect(find.byType(ReactionGrid));
         expect(grid.left, greaterThanOrEqualTo(12));
         expect(grid.right, lessThanOrEqualTo(308));
-        expect(grid.height, greaterThan(ReactionGrid.cell * 2));
+        expect(grid.height, greaterThan(DSpacing.touchTarget * 2));
         expect(find.byTooltip('More emojis').hitTestable(), findsOneWidget);
         expect(tester.takeException(), isNull);
 
@@ -1353,7 +1353,7 @@ void _registerReactionAndLikeTests() {
 
       expect(
         tester.getSemantics(find.bySemanticsLabel('clap')),
-        isSemantics(isSelected: true),
+        isSemantics(isToggled: true),
       );
     }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
@@ -1496,7 +1496,7 @@ void _registerReactionAndLikeTests() {
 
       final cells = find.descendant(
         of: find.byType(ReactionGrid),
-        matching: find.byType(InkWell),
+        matching: find.byType(DToggle),
       );
       expect(cells, findsNWidgets(3));
 
@@ -1587,7 +1587,7 @@ void _registerReactionAndLikeTests() {
       await openReactionPicker(tester);
       expect(
         tester.getSemantics(find.bySemanticsLabel('heart')),
-        isSemantics(isSelected: true),
+        isSemantics(isToggled: true),
       );
     }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
@@ -1645,7 +1645,7 @@ void _registerReactionAndLikeTests() {
       await openReactionPicker(tester);
       expect(
         tester.getSemantics(find.bySemanticsLabel('clap')),
-        isSemantics(isSelected: true),
+        isSemantics(isToggled: true),
       );
     }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
