@@ -8,6 +8,7 @@ import 'package:discourse_native/src/plugins/chat/chat_channel_view.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message_tile.dart';
 import 'package:discourse_native/src/plugins/chat/chat_services.dart';
+import 'package:discourse_native/src/shell/cooked_html.dart';
 import 'package:discourse_native/src/shell/oneboxes/onebox.dart';
 import 'package:discourse_native/src/shell/quote.dart';
 import 'package:discourse_native/src/shell/reaction_presentation.dart';
@@ -21,6 +22,80 @@ import 'support/chat_shell.dart';
 import 'support/topic_scroll_capture.dart';
 
 void main() {
+  testWidgets('hover and scroll suppression do not rebuild message bodies', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(900, 700);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final controller = await chatScrollController();
+    addTearDown(controller.dispose);
+    final diagnostics = DiagnosticsController.start(
+      persistence: MemoryDiagnosticsPersistence(),
+    );
+    addTearDown(diagnostics.close);
+    await tester.pumpWidget(
+      ChatScrollFixture(
+        controller: controller,
+        diagnostics: diagnostics,
+        width: 800,
+      ),
+    );
+    await tester.pumpAndSettle();
+    final body = find.byType(CookedHtml).hitTestable().first;
+    final bodyElement = tester.element(body);
+    final tile = find.ancestor(
+      of: body,
+      matching: find.byType(ChatMessageTile),
+    );
+    final id = tester.widget<ChatMessageTile>(tile).messageId;
+    final more = find.byKey(ValueKey('chat-message-more-actions-$id'));
+    final scrollable = find.descendant(
+      of: find.byType(ChatMessageStream),
+      matching: find.byWidgetPredicate(
+        (widget) =>
+            widget is Scrollable &&
+            axisDirectionToAxis(widget.axisDirection) == Axis.vertical,
+      ),
+    );
+    final position = tester.state<ScrollableState>(scrollable).position;
+    final rebuilt = <Element>[];
+    final previous = debugOnRebuildDirtyWidget;
+    debugOnRebuildDirtyWidget = (element, builtOnce) {
+      previous?.call(element, builtOnce);
+      if (identical(element, bodyElement)) rebuilt.add(element);
+    };
+    addTearDown(() => debugOnRebuildDirtyWidget = previous);
+    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    await mouse.addPointer(location: Offset.zero);
+    addTearDown(mouse.removePointer);
+    await mouse.moveTo(tester.getCenter(body));
+    await tester.pumpAndSettle();
+    expect(more.hitTestable(), findsOneWidget);
+    expect(
+      rebuilt,
+      isEmpty,
+      reason: 'hover only changes the controls and surface',
+    );
+
+    position.pointerScroll(10);
+    await tester.pumpAndSettle();
+    expect(bodyElement.mounted, isTrue);
+    expect(more.hitTestable(), findsNothing);
+    expect(
+      rebuilt,
+      isEmpty,
+      reason: 'scroll suppression must leave HTML alone',
+    );
+
+    // Moving the pointer again restores the controls without reconstructing HTML.
+    await mouse.moveTo(tester.getCenter(body) + const Offset(1, 0));
+    await tester.pumpAndSettle();
+    expect(more.hitTestable(), findsOneWidget);
+    expect(rebuilt, isEmpty);
+    await diagnostics.close();
+  }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
+
   testWidgets(
     'recent rich rows survive reversals with bounded retention and live data',
     (tester) async {
