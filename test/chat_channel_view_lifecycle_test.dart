@@ -1721,6 +1721,88 @@ void main() {
   });
 
   group('live updates and mounted presentation', () {
+    for (final deletedCount in [1, 2]) {
+      testWidgets(
+        'reading a DM ending in $deletedCount deleted messages clears its unread badge',
+        (tester) async {
+          const reader = DiscourseUser(id: 7, username: 'reader', staff: true);
+          final newestId = deletedCount + 1;
+          final api = _ChatApi(
+            user: reader,
+            chatChannelsBySite: {
+              firstSite: ChatChannels(
+                direct: [
+                  ChatChannel(
+                    id: 9,
+                    title: 'Chat',
+                    kind: ChatChannelKind.directMessage,
+                    membership: const ChatMembership(
+                      following: true,
+                      lastReadMessageId: 1,
+                    ),
+                    tracking: const ChatTracking(unreadCount: 1),
+                    lastMessageId: newestId,
+                  ),
+                ],
+              ),
+            },
+            openPages: {
+              firstSite: [
+                (
+                  messages: [
+                    _message(1),
+                    for (var id = 2; id <= newestId; id++)
+                      _message(id, deletedAt: DateTime.utc(2026, 9, 22)),
+                  ],
+                  canLoadMorePast: false,
+                  canLoadMoreFuture: false,
+                  targetMessageId: null,
+                ),
+              ],
+            },
+          );
+          final controller = await _controller(
+            api,
+            sites: const [firstSite],
+            user: reader,
+          );
+          addTearDown(controller.dispose);
+          await controller.chat.loadChannels(firstSite);
+          await controller.chat.openChannel(firstSite, 9);
+          await tester.pumpWidget(
+            _TestView(controller: controller, tickerEnabled: false),
+          );
+          await tester.pumpAndSettle();
+          await tester.pump(const Duration(milliseconds: 600));
+
+          expect(api.chatReadsMarked, isEmpty);
+          expect(
+            controller.chat.channel(firstSite, 9)?.badge.isVisible,
+            isTrue,
+          );
+
+          await tester.pumpWidget(_TestView(controller: controller));
+          await tester.pumpAndSettle();
+          await tester.pump(const Duration(milliseconds: 600));
+          await tester.pump();
+
+          expect(api.chatReadsMarked, [(channelId: 9, messageId: newestId)]);
+          final channel = controller.chat.channel(firstSite, 9)!;
+          expect(channel.membership.lastReadMessageId, newestId);
+          expect(channel.tracking, ChatTracking.none);
+          expect(channel.badge.isVisible, isFalse);
+          expect(
+            find.text(
+              deletedCount == 1
+                  ? 'A message was deleted. [view]'
+                  : '2 messages were deleted. [view all]',
+            ),
+            findsOneWidget,
+          );
+        },
+      );
+    }
+
     testWidgets('a visible live message clears its sidebar unread state', (
       tester,
     ) async {
@@ -2000,7 +2082,20 @@ void main() {
             _message(2, deletedAt: DateTime.utc(2026, 8, 25)),
           ];
           controller.chatRecords
-            ..put(firstSite, _channel(lastRead: 2))
+            ..put(firstSite, _channel(lastRead: 0))
+            ..put(
+              firstSite,
+              const ChatThread(
+                id: 3,
+                channelId: 9,
+                status: 'open',
+                replyCount: 2,
+                membership: ChatThreadMembership(
+                  threadId: 3,
+                  lastReadMessageId: 0,
+                ),
+              ),
+            )
             ..putAll(firstSite, messages);
 
           await tester.pumpWidget(
@@ -2010,6 +2105,7 @@ void main() {
               target: target,
               stream: const ChatStreamState(
                 messageIds: [1, 2],
+                lastReadOnOpen: 0,
                 fetchedOnce: true,
                 fetches: 1,
               ),
@@ -2027,6 +2123,20 @@ void main() {
             find.ancestor(of: deleted, matching: find.byType(DButton)),
           );
           expect(button.variant, DButtonVariant.ghost);
+
+          await tester.pump(const Duration(milliseconds: 600));
+          expect(
+            target.isThread
+                ? controller.chat
+                      .thread(firstSite, 3)
+                      ?.membership
+                      ?.lastReadMessageId
+                : controller.chat
+                      .channel(firstSite, 9)
+                      ?.membership
+                      .lastReadMessageId,
+            2,
+          );
 
           await tester.tap(deleted);
           await tester.pumpAndSettle();

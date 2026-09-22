@@ -1263,9 +1263,14 @@ class _StreamState extends State<ChatMessageStream>
     if (range == null) return null;
 
     for (var row = range.$1; row <= range.$2; row++) {
-      if (_itemAt(row) case final ChatStreamMessage message
-          when message.id > 0) {
-        return message.id;
+      final messageId = switch (_itemAt(row)) {
+        ChatStreamMessage(:final id) => id,
+        // Core tracks a collapsed deleted run using its newest message ID.
+        ChatStreamDeleted(:final messageIds) => messageIds.lastOrNull,
+        _ => null,
+      };
+      if (messageId != null && messageId > 0) {
+        return messageId;
       }
     }
     return null;
