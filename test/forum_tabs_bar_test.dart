@@ -177,8 +177,8 @@ void main() {
         selectedRect.left,
         barRect.left + 4 + ForumTabsBar.minimumActionTarget + 4,
       );
-      expect(selectedRect.top, barRect.top + 5);
-      expect(selectedRect.bottom, barRect.bottom - 5);
+      expect(selectedRect.top, barRect.top);
+      expect(selectedRect.bottom, barRect.bottom - 10);
       expect(ordinaryRect.top, selectedRect.top);
       expect(ordinaryRect.bottom, selectedRect.bottom);
 
@@ -212,7 +212,7 @@ void main() {
 
       final addRect = tester.getRect(add);
       expect(addRect.left, ordinaryRect.right + 4);
-      expect(addRect.center.dy, barRect.center.dy);
+      expect(addRect.center.dy, selectedRect.center.dy);
 
       // Selected tabs have an outline; the strip and inactive corners stay clear.
       await _expectTabPixels(tester, [
