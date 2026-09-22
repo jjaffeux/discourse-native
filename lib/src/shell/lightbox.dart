@@ -214,6 +214,12 @@ Widget? lightboxWidgetBuilder(dom.Element element, {String? siteUrl}) {
   };
   if (anchor == null) return null;
 
+  // Core's ExcerptParser keeps a.lightbox around text such as [image].
+  // Preserve those links instead of loading their full-size targets inline.
+  if (descendantWhere(anchor, (e) => e.localName == 'img') == null) {
+    return null;
+  }
+
   final image = LightboxImage.from(anchor);
   if (image == null) return null;
 
