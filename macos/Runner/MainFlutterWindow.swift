@@ -136,6 +136,15 @@ class MainFlutterWindow: NSWindow {
         return
       }
       switch call.method {
+      case "getWindowCornerRadius":
+        if self.styleMask.contains(.fullScreen) {
+          result(0.0)
+        } else if #available(macOS 26.0, *) {
+          // This window has a hidden title bar and no AppKit toolbar.
+          result(16.0)
+        } else {
+          result(10.0)
+        }
       case "enableYoutubeFullscreen":
         guard let identifier = call.arguments as? Int64,
           let registry = self.contentViewController as? FlutterViewController,

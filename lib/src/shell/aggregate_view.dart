@@ -14,6 +14,7 @@ import 'content_reading_lane.dart';
 import 'forum_tabs_bar.dart';
 import 'platform.dart';
 import 'shell_controller.dart';
+import 'shell_panel.dart';
 import 'shell_scope.dart';
 import 'topic_filter_input.dart';
 import 'topic_list_actions.dart';
@@ -114,6 +115,7 @@ class AggregateViewState extends State<AggregateView> {
             final state = controller.aggregate.state;
             final tabId = controller.activeAggregateTabId;
             return DPageSurface(
+              borderRadius: WorkspacePanelCorner.borderRadiusOf(context),
               identity: tabId,
               framed: !context.isTouch,
               limitContentSize: ContentSettingsScope.limitContentSizeOf(
