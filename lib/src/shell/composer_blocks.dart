@@ -324,7 +324,9 @@ class _BlockScanner {
   static final _rule = RegExp(
     r'^ {0,3}(?:(?:\*[ \t]*){3,}|(?:-[ \t]*){3,}|(?:_[ \t]*){3,})$',
   );
-  static final _list = RegExp(r'^( {0,3})(?:[-+*]|\d{1,9}[.)])(?:[ \t]+|$)');
+  static final _list = RegExp(
+    r'^( {0,3})(?:[-+*]|\d{1,9}[.)]|\[[ xX]?\])(?:[ \t]+|$)',
+  );
   static final _quote = RegExp(r'^ {0,3}>');
   static final _indented = RegExp(r'^(?: {4}|\t)');
   static final _bbOpen = RegExp(
@@ -382,7 +384,9 @@ class _BlockScanner {
         continue;
       }
       final bb = _bbOpen.firstMatch(text);
-      if (bb != null && !{'date', 'time'}.contains(bb[1]!.toLowerCase())) {
+      if (bb != null &&
+          !_list.hasMatch(text) &&
+          !{'date', 'time'}.contains(bb[1]!.toLowerCase())) {
         final tag = bb[1]!;
         final pattern = RegExp(
           r'\[(/?)' + RegExp.escape(tag) + r'(?:[= ][^\]]*)?\]',
@@ -462,7 +466,8 @@ class _BlockScanner {
           } else if (_heading.hasMatch(lines[i].text) ||
               _rule.hasMatch(lines[i].text) ||
               _atomAt(lines[i].start) != null ||
-              _bbOpen.hasMatch(lines[i].text) ||
+              (_bbOpen.hasMatch(lines[i].text) &&
+                  !_list.hasMatch(lines[i].text)) ||
               _html.hasMatch(lines[i].text)) {
             break;
           }

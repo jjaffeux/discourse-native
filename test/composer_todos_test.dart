@@ -1,0 +1,391 @@
+import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/src/shell/composer_blocks.dart';
+import 'package:discourse_native/src/shell/composer_controller.dart';
+import 'package:discourse_native/src/shell/composer_panel.dart';
+import 'package:discourse_native/src/shell/composer_todos.dart';
+import 'package:discourse_native/src/shell/cooked_html.dart';
+import 'package:discourse_native/src/theme/app_theme.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_test/flutter_test.dart';
+
+TextEditingValue valueAt(String source) {
+  final caret = source.indexOf('|');
+  return TextEditingValue(
+    text: source.replaceFirst('|', ''),
+    selection: TextSelection.collapsed(offset: caret),
+  );
+}
+
+void main() {
+  test('recognizes upstream states and keeps code and links literal', () {
+    const source =
+        '[ ] Open\n[x] Done\n[X] Permanent\n[] Empty\n- [ ] Bullet\n'
+        '    [ ] Code\n`[x] inline`\n\\[ ] Escaped\n[x](https://example.com)\n'
+        '```\n[ ] Fenced\n```';
+    final todos = composerTodos(source);
+    expect(todos.map((todo) => todo.checked), [
+      false,
+      true,
+      true,
+      false,
+      false,
+    ]);
+    expect(todos.map((todo) => source.substring(todo.contentStart, todo.end)), [
+      'Open',
+      'Done',
+      'Permanent',
+      'Empty',
+      'Bullet',
+    ]);
+    expect(composerTodos('[x] Reference\n\n[x]: https://example.com'), isEmpty);
+  });
+
+  test(
+    'insertion preserves current text and does not duplicate an existing item',
+    () {
+      for (final (before, after) in [
+        ('|', '[ ] |'),
+        ('Before\n\nDo this|', 'Before\n\n[ ] Do this|'),
+        ('## Heading|', '[ ] Heading|'),
+        ('- Bullet|', '[ ] Bullet|'),
+        ('[x] Done|', '[x] Done|'),
+      ]) {
+        expect(insertComposerTodo(valueAt(before)), valueAt(after));
+      }
+    },
+  );
+
+  test(
+    'marker shortcuts leave code, escapes, references, paste and IME intact',
+    () {
+      const formatter = ComposerTodoInputFormatter();
+      for (final before in [
+        '    [x|',
+        '```\n[x|',
+        '\\[x|',
+        'Text [x|',
+        '[x|\n\n[x]: https://example.com',
+      ]) {
+        final old = valueAt(before);
+        final caret = old.selection.extentOffset;
+        final next = TextEditingValue(
+          text: old.text.replaceRange(caret, caret, ']'),
+          selection: TextSelection.collapsed(offset: caret + 1),
+        );
+        expect(formatter.formatEditUpdate(old, next), next);
+      }
+      final paste = valueAt('[x](https://example.com)|');
+      expect(formatter.formatEditUpdate(valueAt('|'), paste), paste);
+      final composing = valueAt(
+        '[x]|',
+      ).copyWith(composing: const TextRange(start: 0, end: 3));
+      expect(formatter.formatEditUpdate(valueAt('[x|'), composing), composing);
+    },
+  );
+
+  test(
+    'Return continues unchecked items, splits text, and exits an empty item',
+    () {
+      const formatter = ComposerTodoInputFormatter();
+      for (final (before, after) in [
+        ('[ ] First|', '[ ] First\n[ ] |'),
+        ('[x] First|', '[x] First\n[ ] |'),
+        ('[ ] First| part', '[ ] First\n[ ] | part'),
+        ('- [x] First|', '- [x] First\n- [ ] |'),
+        ('[ ] First\n[ ] |', '[ ] First\n|'),
+        ('[x] |', '|'),
+      ]) {
+        final old = valueAt(before);
+        final caret = old.selection.end;
+        expect(
+          formatter.formatEditUpdate(
+            old,
+            TextEditingValue(
+              text: old.text.replaceRange(caret, caret, '\n'),
+              selection: TextSelection.collapsed(offset: caret + 1),
+            ),
+          ),
+          valueAt(after),
+        );
+      }
+    },
+  );
+
+  test(
+    'Backspace removes the whole prefix while paste and IME stay intact',
+    () {
+      const formatter = ComposerTodoInputFormatter();
+      final old = valueAt('[ ] |Keep this');
+      expect(
+        formatter.formatEditUpdate(old, valueAt('[ ]|Keep this')),
+        valueAt('|Keep this'),
+      );
+      final paste = valueAt('[ ] First\nSecond|');
+      expect(formatter.formatEditUpdate(valueAt('[ ] |'), paste), paste);
+      final composing = valueAt(
+        '[ ] 文|',
+      ).copyWith(composing: const TextRange(start: 4, end: 5));
+      expect(formatter.formatEditUpdate(old, composing), composing);
+    },
+  );
+
+  test('an empty checked item remains a movable list, not unclosed BBCode', () {
+    final blocks = ComposerBlockIndex.parse('[x] \n\nAfter');
+    expect(blocks.blocks.first.kind, ComposerBlockKind.list);
+    expect(blocks.blocks.first.movable, isTrue);
+  });
+
+  Future<ComposerController> pump(
+    WidgetTester tester, {
+    bool dark = false,
+    double scale = 1,
+  }) async {
+    final composer = ComposerController(
+      const ComposerTarget(
+        siteUrl: 'https://example.com',
+        topicId: 1,
+        slug: 'test',
+        topicTitle: 'Test',
+      ),
+    );
+    addTearDown(composer.dispose);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: dark ? AppTheme.dark : AppTheme.light,
+        home: Scaffold(
+          body: MediaQuery(
+            data: MediaQueryData(textScaler: TextScaler.linear(scale)),
+            child: Center(
+              child: SizedBox(
+                width: 360,
+                height: 320,
+                child: ComposerEditor(
+                  composer: composer,
+                  hintText: 'Reply',
+                  textStyle: const TextStyle(fontSize: 16),
+                  hintStyle: null,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    return composer;
+  }
+
+  for (final query in ['todo', 'checklist', 'checkbox', 'task']) {
+    testWidgets('/$query inserts an editable unchecked item', (tester) async {
+      final composer = await pump(tester);
+      await tester.enterText(find.byType(EditableText), '/$query');
+      await tester.pumpAndSettle();
+      expect(find.text('To-do list'), findsOneWidget);
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pumpAndSettle();
+      expect(composer.text.text, '[ ] ');
+      expect(composer.text.selection.extentOffset, 4);
+      expect(composer.focus.hasPrimaryFocus, isTrue);
+      expect(find.byType(DCheckbox), findsOneWidget);
+      expect(find.text('To-do'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+  }
+
+  for (final marker in ['[]', '[ ]', '[x]']) {
+    testWidgets('typing $marker creates an item without a trailing space', (
+      tester,
+    ) async {
+      final composer = await pump(tester);
+      await tester.showKeyboard(find.byType(EditableText));
+
+      Future<void> type(String text) async {
+        for (final character in text.split('')) {
+          final value = composer.text.value;
+          final caret = value.selection.extentOffset;
+          tester.testTextInput.updateEditingValue(
+            TextEditingValue(
+              text: value.text.replaceRange(caret, caret, character),
+              selection: TextSelection.collapsed(offset: caret + 1),
+            ),
+          );
+          await tester.pump();
+        }
+      }
+
+      for (final prefix in ['', 'Before\n']) {
+        await tester.enterText(find.byType(EditableText), prefix);
+        await type(marker);
+        expect(composer.text.value, valueAt('$prefix$marker |'));
+        expect(find.text('To-do'), findsOneWidget);
+        expect(
+          tester.widget<DCheckbox>(find.byType(DCheckbox)).value,
+          marker == '[x]',
+        );
+        await type('Buy milk');
+        expect(composer.text.value, valueAt('$prefix$marker Buy milk|'));
+        expect(find.byType(DCheckbox), findsOneWidget);
+        await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+        await tester.pump();
+        expect(composer.text.value, valueAt('$prefix$marker Buy milk\n[ ] |'));
+        expect(tester.takeException(), isNull);
+      }
+    });
+  }
+
+  for (final dark in [false, true]) {
+    testWidgets('toggles source, preserves caret, and supports undo ($dark)', (
+      tester,
+    ) async {
+      final composer = await pump(tester, dark: dark);
+      await tester.enterText(
+        find.byType(EditableText),
+        '[ ] Buy milk\n[x] Send mail',
+      );
+      await tester.pumpAndSettle();
+      composer.history.flush();
+      final selection = composer.text.selection;
+      await tester.tap(find.byType(DCheckbox).first);
+      await tester.pumpAndSettle();
+      expect(composer.text.text, '[x] Buy milk\n[x] Send mail');
+      expect(composer.text.selection, selection);
+      expect(
+        tester.widget<DCheckbox>(find.byType(DCheckbox).first).value,
+        isTrue,
+      );
+      final context = tester.element(find.byType(ComposerEditor));
+      final span = composer.text.buildTextSpan(
+        context: context,
+        style: const TextStyle(fontSize: 16),
+        withComposing: true,
+      );
+      expect(
+        span.toPlainText(includeSemanticsLabels: false).length,
+        composer.text.text.length,
+      );
+      final body = span.children!.whereType<TextSpan>().firstWhere(
+        (s) => s.text?.contains('Buy milk') ?? false,
+      );
+      expect(body.style!.decoration, TextDecoration.lineThrough);
+      composer.history.undo();
+      await tester.pumpAndSettle();
+      expect(composer.text.text, '[ ] Buy milk\n[x] Send mail');
+      composer.history.redo();
+      await tester.pumpAndSettle();
+      expect(composer.text.text, '[x] Buy milk\n[x] Send mail');
+      expect(tester.takeException(), isNull);
+    });
+  }
+
+  testWidgets('submission locks checkbox changes, including a stale callback', (
+    tester,
+  ) async {
+    final composer = await pump(tester);
+    await tester.enterText(find.byType(EditableText), '[ ] First');
+    await tester.pumpAndSettle();
+    final onChanged = tester
+        .widget<DCheckbox>(find.byType(DCheckbox))
+        .onChanged!;
+    composer.beginSubmit();
+    onChanged(true);
+    await tester.pumpAndSettle();
+    expect(composer.text.text, '[ ] First');
+  });
+
+  testWidgets('Return continues, empty Return exits, and Backspace unwraps', (
+    tester,
+  ) async {
+    final composer = await pump(tester);
+    await tester.enterText(find.byType(EditableText), '[x] First');
+    await tester.pumpAndSettle();
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pumpAndSettle();
+    expect(composer.text.text, '[x] First\n[ ] ');
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pumpAndSettle();
+    expect(composer.text.text, '[x] First\n');
+    await tester.enterText(find.byType(EditableText), '[ ] Keep');
+    composer.text.selection = const TextSelection.collapsed(offset: 4);
+    await tester.sendKeyEvent(LogicalKeyboardKey.backspace);
+    await tester.pumpAndSettle();
+    expect(composer.text.text, 'Keep');
+  });
+
+  testWidgets(
+    'keyboard checkbox toggles undo individually and arrows skip source',
+    (tester) async {
+      final composer = await pump(tester);
+      await tester.enterText(
+        find.byType(EditableText),
+        '[ ] First\n[ ] Second',
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byType(DCheckbox).first);
+      await tester.pumpAndSettle();
+      await tester.sendKeyEvent(LogicalKeyboardKey.space);
+      await tester.pumpAndSettle();
+      expect(composer.text.text, '[ ] First\n[ ] Second');
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyZ);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+      await tester.pumpAndSettle();
+      expect(composer.text.text, '[x] First\n[ ] Second');
+      composer.history.undo();
+      await tester.pumpAndSettle();
+      expect(composer.text.text, '[ ] First\n[ ] Second');
+      composer.focus.requestFocus();
+      composer.text.selection = const TextSelection.collapsed(offset: 14);
+      await tester.pumpAndSettle();
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+      expect(composer.text.selection.extentOffset, 9);
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+      expect(composer.text.selection.extentOffset, 14);
+      await tester.sendKeyEvent(LogicalKeyboardKey.home);
+      expect(composer.text.selection.extentOffset, 14);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+      await tester.pumpAndSettle();
+      expect(composer.text.text, '[ ] First\n[ ] \nSecond');
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets('narrow scaled editor and cooked rows retain checked state', (
+    tester,
+  ) async {
+    await pump(tester, dark: true, scale: 2);
+    await tester.enterText(
+      find.byType(EditableText),
+      '[ ] A longer task that wraps onto another line\n[x] Done\n[ ] ',
+    );
+    await tester.pumpAndSettle();
+    expect(find.byType(DCheckbox), findsNWidgets(3));
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.dark,
+        home: const Scaffold(
+          body: SizedBox(
+            width: 320,
+            child: CookedHtml(
+              html:
+                  '<p>Introduction<br><span class="chcklst-box fa fa-square-o"></span> Open<br>'
+                  '<span class="chcklst-box checked fa fa-square-check-o"></span> <strong>Done</strong></p>',
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      tester
+          .widgetList<DCheckbox>(find.byType(DCheckbox))
+          .map((box) => box.value),
+      [false, true],
+    );
+    expect(tester.takeException(), isNull);
+  });
+}

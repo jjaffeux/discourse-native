@@ -33510,8 +33510,8 @@
     feature("bbcode-block", bbcode_block_exports),
     feature("anchor", anchor_exports)
   ];
-  function feature(id, { setup: setup38, priority: priority3 = 0 }) {
-    return { id, setup: setup38, priority: priority3 };
+  function feature(id, { setup: setup40, priority: priority3 = 0 }) {
+    return { id, setup: setup40, priority: priority3 };
   }
 
   // vendor/frontend/discourse-markdown-it/src/options.js
@@ -33693,19 +33693,19 @@
       if (options.setup) {
         return;
       }
-      const setup38 = new _Setup(options);
+      const setup40 = new _Setup(options);
       features.sort((a, b) => a.priority - b.priority);
       for (const feature2 of features) {
-        setup38.#setupFeature(feature2.id, feature2.setup);
+        setup40.#setupFeature(feature2.id, feature2.setup);
       }
       for (const entry of Object.entries(state.allowListed ?? {})) {
-        setup38.allowList(entry);
+        setup40.allowList(entry);
       }
-      setup38.#runOptionsCallbacks(siteSettings, state);
-      setup38.#enableMarkdownFeatures();
-      setup38.#finalizeGetOptions(siteSettings);
-      setup38.#makeEngine();
-      setup38.#buildCookFunctions();
+      setup40.#runOptionsCallbacks(siteSettings, state);
+      setup40.#enableMarkdownFeatures();
+      setup40.#finalizeGetOptions(siteSettings);
+      setup40.#makeEngine();
+      setup40.#buildCookFunctions();
     }
     #context;
     #options;
@@ -33861,17 +33861,17 @@
     #context;
     #setup;
     #deprecate;
-    constructor(featureName, context, setup38) {
+    constructor(featureName, context, setup40) {
       this.#name = featureName;
       this.#context = context;
-      this.#setup = setup38;
+      this.#setup = setup40;
       this.#deprecate = (methodName, ...args) => {
         if (window.console && window.console.log) {
           window.console.log(
             featureName + ": " + methodName + " is deprecated, please use the new markdown it APIs"
           );
         }
-        return setup38(methodName, ...args);
+        return setup40(methodName, ...args);
       };
     }
     get markdownIt() {
@@ -34460,7 +34460,7 @@
         return true;
       }
     };
-    function setup38(helper) {
+    function setup40(helper) {
       helper.allowList([
         "svg[class=fa d-icon d-icon-discourse-threads svg-icon svg-node]",
         "use[href=#discourse-threads]",
@@ -34515,12 +34515,12 @@
         );
       });
     }
-    return setup38;
+    return setup40;
   }
 
   // src/modules/chat-transcript.js
   function setup26(helper, context, api) {
-    const setup38 = createSetup((key, values) => i18n(key, values, api.context.locale));
+    const setup40 = createSetup((key, values) => i18n(key, values, api.context.locale));
     helper.allowList([
       "div[data-chained]",
       "div[data-reactions]",
@@ -34542,7 +34542,7 @@
         hashtag_configurations: { "chat-composer": api.hashtagPriorities.chat || ["channel", "category", "tag"] }
       } };
     });
-    setup38({
+    setup40({
       allowList: (values) => helper.allowList(values),
       registerOptions: (callback) => helper.registerOptions((options) => callback(options, { chat_enabled: true })),
       registerPlugin: (callback) => helper.registerPlugin((md) => {
@@ -43491,6 +43491,172 @@
     return serialize(document);
   }
 
+  // src/modules/checklist.js
+  init_environment();
+
+  // vendor/plugins/checklist/assets/javascripts/lib/discourse-markdown/checklist.js
+  init_environment();
+  var CHECKLIST_HTML_PATTERN = /\bchcklst-box\b|\bdata-chk-src\b/i;
+  function neutralizeRawChecklistMarkup(state) {
+    const neutralize = (token) => {
+      if ((token.type === "html_inline" || token.type === "html_block") && CHECKLIST_HTML_PATTERN.test(token.content)) {
+        token.type = "text";
+        token.tag = "";
+        token.nesting = 0;
+      }
+    };
+    for (const block2 of state.tokens) {
+      neutralize(block2);
+      block2.children?.forEach(neutralize);
+    }
+  }
+  function tokenizeChecklistCandidate(state, silent) {
+    const candidate = state.src.slice(state.pos, state.pos + 3);
+    const marker = candidate.startsWith("[]") ? "[]" : candidate.match(/^\[[ xX]\]$/)?.[0];
+    if (!marker) {
+      return false;
+    }
+    const sourceOffset = state.pos;
+    state.pos += marker.length;
+    if (!silent) {
+      const token = state.push("checklist_candidate", "", 0);
+      token.content = marker;
+      token.meta = { checklistSourceOffset: sourceOffset };
+    }
+    return true;
+  }
+  function getClasses(marker) {
+    switch (marker) {
+      case "[x]":
+        return "checked fa fa-square-check-o";
+      case "[X]":
+        return "checked permanent fa fa-square-check";
+      default:
+        return "fa fa-square-o";
+    }
+  }
+  function markerLocations(content, baseLine, lineMarkerCounts) {
+    const locations = /* @__PURE__ */ new Map();
+    let line = baseLine;
+    let scannedThrough = 0;
+    for (const match of content.matchAll(/\[[ xX]?\]/g)) {
+      for (let index = scannedThrough; index < match.index; index += 1) {
+        if (content.charCodeAt(index) === 10) {
+          line += 1;
+        }
+      }
+      scannedThrough = match.index + match[0].length;
+      const nth = lineMarkerCounts.get(line) ?? 0;
+      lineMarkerCounts.set(line, nth + 1);
+      locations.set(match.index, { line, nth, marker: match[0] });
+    }
+    return locations;
+  }
+  function processChecklist(state) {
+    neutralizeRawChecklistMarkup(state);
+    if (!state.src.includes("[")) {
+      return;
+    }
+    const sourceLines = state.src.split("\n");
+    const sourceLineMarkers = /* @__PURE__ */ new Map();
+    const lineMarkerCounts = /* @__PURE__ */ new Map();
+    let tableRowLine;
+    const verifiedLocation = (location) => {
+      if (!location) {
+        return;
+      }
+      let markers = sourceLineMarkers.get(location.line);
+      if (!markers) {
+        markers = [
+          ...(sourceLines[location.line] ?? "").matchAll(/\[[ xX]?\]/g)
+        ].map((match) => match[0]);
+        sourceLineMarkers.set(location.line, markers);
+      }
+      if (markers[location.nth] === location.marker) {
+        return location;
+      }
+    };
+    for (const block2 of state.tokens) {
+      if (block2.type === "tr_open") {
+        tableRowLine = block2.map?.[0];
+        continue;
+      }
+      if (block2.type === "tr_close") {
+        tableRowLine = void 0;
+        continue;
+      }
+      if (block2.type !== "inline") {
+        continue;
+      }
+      const baseLine = block2.map?.[0] ?? tableRowLine;
+      const locations = baseLine === void 0 ? /* @__PURE__ */ new Map() : markerLocations(block2.content, baseLine, lineMarkerCounts);
+      const replacements2 = [];
+      let nesting = 0;
+      for (let index = 0; index < block2.children.length; index += 1) {
+        const token = block2.children[index];
+        if (token.type !== "checklist_candidate") {
+          nesting += token.nesting;
+          continue;
+        }
+        if (nesting !== 0) {
+          const text3 = new state.Token("text", "", 0);
+          text3.content = token.content;
+          replacements2.push({ index, newTokens: [text3] });
+          continue;
+        }
+        const checkbox = new state.Token("check_open", "span", 1);
+        checkbox.attrs = [["class", `chcklst-box ${getClasses(token.content)}`]];
+        if (baseLine !== void 0 && token.content !== "[X]") {
+          const location = verifiedLocation(
+            locations.get(token.meta.checklistSourceOffset)
+          );
+          if (location) {
+            checkbox.attrs.push([
+              "data-chk-src",
+              `${location.line}:${location.nth}`
+            ]);
+          }
+        }
+        replacements2.push({
+          index,
+          newTokens: [checkbox, new state.Token("check_close", "span", -1)]
+        });
+      }
+      for (let index = replacements2.length - 1; index >= 0; index -= 1) {
+        block2.children = state.md.utils.arrayReplaceAt(
+          block2.children,
+          replacements2[index].index,
+          replacements2[index].newTokens
+        );
+      }
+    }
+  }
+  function setup38(helper) {
+    helper.registerOptions((opts, siteSettings) => {
+      opts.features.checklist = !!siteSettings.checklist_enabled;
+    });
+    helper.allowList([
+      "span.chcklst-stroked",
+      "span.chcklst-box fa fa-square-o",
+      "span.chcklst-box checked fa fa-square-check-o",
+      "span.chcklst-box checked permanent fa fa-square-check",
+      "span[data-chk-src]"
+    ]);
+    helper.registerPlugin((md) => {
+      md.inline.ruler.push("checklist_candidate", tokenizeChecklistCandidate);
+      md.core.ruler.before("text_join", "checklist", processChecklist);
+    });
+  }
+
+  // src/modules/checklist.js
+  function setup39(helper, context) {
+    setup38({
+      allowList: (values) => helper.allowList(values),
+      registerPlugin: (callback) => helper.registerPlugin(callback),
+      registerOptions: (callback) => helper.registerOptions((options) => callback(options, context.settings || {}))
+    });
+  }
+
   // catalog:catalog
   if (typeof setup22 !== "function") throw Error("Invalid module implementation: spoiler-alert");
   if (typeof setup23 !== "function") throw Error("Invalid module implementation: offline-missing-uploads");
@@ -43513,7 +43679,8 @@
   if (typeof setup35 !== "function") throw Error("Invalid module implementation: calendar");
   if (typeof setup37 !== "function") throw Error("Invalid module implementation: livestream-preview");
   if (typeof transform10 !== "function") throw Error("Invalid module implementation: livestream-visibility");
-  var bundledModules = { "spoiler-alert": { ...{ "id": "spoiler-alert", "owner": "cooking", "version": "1", "source": "spoiler.js", "stage": "syntax", "policy": {} }, implementation: { setup: setup22 } }, "offline-missing-uploads": { ...{ "id": "offline-missing-uploads", "owner": "cooking", "version": "1", "source": "missing-uploads.js", "stage": "syntax", "policy": {} }, implementation: { setup: setup23 } }, "fixture-mark": { ...{ "id": "fixture-mark", "owner": "cooking-fixture", "version": "1", "source": "fixture-mark.js", "stage": "syntax", "policy": { "mark": ["data-fixture"] } }, implementation: { setup: setup24 } }, "fixture-tokens": { ...{ "id": "fixture-tokens", "owner": "cooking-fixture", "version": "1", "source": "fixture-tokens.js", "stage": "token", "policy": {} }, implementation: { transform } }, "fixture-document": { ...{ "id": "fixture-document", "owner": "cooking-fixture", "version": "1", "source": "fixture-document.js", "stage": "document", "policy": {} }, implementation: { transform: transform2 } }, "chat-source": { ...{ "id": "chat-source", "owner": "chat", "version": "1", "source": "chat-source.js", "stage": "source", "policy": {} }, implementation: { transform: transform3 } }, "chat-html-inline": { ...{ "id": "chat-html-inline", "owner": "chat", "version": "1", "source": "chat-html-inline.js", "stage": "syntax", "policy": {} }, implementation: { setup: setup25 } }, "chat-transcript": { ...{ "id": "chat-transcript", "owner": "chat", "version": "1", "source": "chat-transcript.js", "stage": "syntax", "policy": { "div": ["data-message-id", "data-channel-name", "data-channel-id", "data-username", "data-datetime", "data-chained", "data-reactions", "data-multiquote", "data-thread-id", "data-thread-title"], "details": ["class"], "summary": [], "span": ["title"] } }, implementation: { setup: setup26 } }, "chat-slash-format": { ...{ "id": "chat-slash-format", "owner": "chat", "version": "1", "source": "chat-slash-format.js", "stage": "document", "policy": { "em": ["class"] } }, implementation: { transform: transform4 } }, "discourse-local-dates": { ...{ "id": "discourse-local-dates", "owner": "discourse-local-dates", "version": "1", "source": "discourse-local-dates.js", "stage": "syntax", "policy": { "span": ["data-calendar", "data-countdown", "data-date", "data-displayed-timezone", "data-email-preview", "data-format", "data-ics", "data-recurring", "data-time", "data-timezone", "data-timezones", "data-range"] } }, implementation: { setup: setup28 } }, "cooking-links": { ...{ "id": "cooking-links", "owner": "cooking", "version": "1", "source": "cooking-links.js", "stage": "document", "policy": {} }, implementation: { transform: transform5 } }, "cooking-bidi": { ...{ "id": "cooking-bidi", "owner": "cooking", "version": "1", "source": "cooking-bidi.js", "stage": "document", "policy": { "span": ["title"], "pre": ["data-code-wrap", "data-code-height"] } }, implementation: { transform: transform6 } }, "cooking-media": { ...{ "id": "cooking-media", "owner": "cooking", "version": "1", "source": "cooking-media.js", "stage": "document", "policy": { "div": ["data-video-src", "data-thumbnail-src", "data-video-base62-sha1", "data-blocked-hotlinked-src", "data-mode"], "img": ["data-blocked-hotlinked-src"] } }, implementation: { transform: transform7 } }, "cooking-mentions": { ...{ "id": "cooking-mentions", "owner": "cooking", "version": "1", "source": "cooking-mentions.js", "stage": "document", "policy": {} }, implementation: { transform: transform8 } }, "details": { ...{ "id": "details", "owner": "cooking", "version": "1", "source": "details.js", "stage": "syntax", "policy": { "details": ["open"], "summary": ["title"] } }, implementation: { setup: setup29 } }, "d-wrap": { ...{ "id": "d-wrap", "owner": "cooking", "version": "1", "source": "d-wrap.js", "stage": "document", "policy": { "div": ["data-wrap", "data-key", "data-description", "data-delimiter", "data-default", "data-defaults"], "span": ["data-wrap", "data-key", "data-description", "data-delimiter", "data-default", "data-defaults"] } }, implementation: { transform: transform9 } }, "poll": { ...{ "id": "poll", "owner": "poll", "version": "1", "source": "poll.js", "stage": "syntax", "policy": { "div": ["data-poll-charttype", "data-poll-close", "data-poll-groups", "data-poll-max", "data-poll-min", "data-poll-name", "data-poll-order", "data-poll-public", "data-poll-results", "data-poll-status", "data-poll-step", "data-poll-type", "data-poll-dynamic"], "li": ["data-poll-option-id"] } }, implementation: { setup: setup31 } }, "post-event": { ...{ "id": "post-event", "owner": "discourse-events", "version": "1", "source": "post-event.js", "stage": "syntax", "policy": { "div": ["data-name", "data-start", "data-end", "data-timezone", "data-recurrence", "data-recurrence-until", "data-allowed-groups", "data-url", "data-location", "data-max-attendees", "data-reminders", "data-image", "data-all-day", "data-show-local-time", "data-minimal", "data-closed", "data-chat-enabled", "data-livestream", "data-status"] } }, implementation: { setup: setup33 } }, "calendar": { ...{ "id": "calendar", "owner": "discourse-events", "version": "1", "source": "calendar.js", "stage": "syntax", "policy": { "div": ["data-calendar-type", "data-calendar-default-timezone", "data-calendar-default-view", "data-weekends", "data-calendar-show-add-to-calendar", "data-calendar-full-day", "data-hidden-days", "data-group", "data-size"] } }, implementation: { setup: setup35 } }, "livestream-preview": { ...{ "id": "livestream-preview", "owner": "discourse-events", "version": "1", "source": "livestream-preview.js", "stage": "syntax", "policy": {} }, implementation: { setup: setup37 } }, "livestream-visibility": { ...{ "id": "livestream-visibility", "owner": "discourse-events", "version": "1", "source": "livestream-visibility.js", "stage": "document", "policy": {} }, implementation: { transform: transform10 } } };
+  if (typeof setup39 !== "function") throw Error("Invalid module implementation: checklist");
+  var bundledModules = { "spoiler-alert": { ...{ "id": "spoiler-alert", "owner": "cooking", "version": "1", "source": "spoiler.js", "stage": "syntax", "policy": {} }, implementation: { setup: setup22 } }, "offline-missing-uploads": { ...{ "id": "offline-missing-uploads", "owner": "cooking", "version": "1", "source": "missing-uploads.js", "stage": "syntax", "policy": {} }, implementation: { setup: setup23 } }, "fixture-mark": { ...{ "id": "fixture-mark", "owner": "cooking-fixture", "version": "1", "source": "fixture-mark.js", "stage": "syntax", "policy": { "mark": ["data-fixture"] } }, implementation: { setup: setup24 } }, "fixture-tokens": { ...{ "id": "fixture-tokens", "owner": "cooking-fixture", "version": "1", "source": "fixture-tokens.js", "stage": "token", "policy": {} }, implementation: { transform } }, "fixture-document": { ...{ "id": "fixture-document", "owner": "cooking-fixture", "version": "1", "source": "fixture-document.js", "stage": "document", "policy": {} }, implementation: { transform: transform2 } }, "chat-source": { ...{ "id": "chat-source", "owner": "chat", "version": "1", "source": "chat-source.js", "stage": "source", "policy": {} }, implementation: { transform: transform3 } }, "chat-html-inline": { ...{ "id": "chat-html-inline", "owner": "chat", "version": "1", "source": "chat-html-inline.js", "stage": "syntax", "policy": {} }, implementation: { setup: setup25 } }, "chat-transcript": { ...{ "id": "chat-transcript", "owner": "chat", "version": "1", "source": "chat-transcript.js", "stage": "syntax", "policy": { "div": ["data-message-id", "data-channel-name", "data-channel-id", "data-username", "data-datetime", "data-chained", "data-reactions", "data-multiquote", "data-thread-id", "data-thread-title"], "details": ["class"], "summary": [], "span": ["title"] } }, implementation: { setup: setup26 } }, "chat-slash-format": { ...{ "id": "chat-slash-format", "owner": "chat", "version": "1", "source": "chat-slash-format.js", "stage": "document", "policy": { "em": ["class"] } }, implementation: { transform: transform4 } }, "discourse-local-dates": { ...{ "id": "discourse-local-dates", "owner": "discourse-local-dates", "version": "1", "source": "discourse-local-dates.js", "stage": "syntax", "policy": { "span": ["data-calendar", "data-countdown", "data-date", "data-displayed-timezone", "data-email-preview", "data-format", "data-ics", "data-recurring", "data-time", "data-timezone", "data-timezones", "data-range"] } }, implementation: { setup: setup28 } }, "cooking-links": { ...{ "id": "cooking-links", "owner": "cooking", "version": "1", "source": "cooking-links.js", "stage": "document", "policy": {} }, implementation: { transform: transform5 } }, "cooking-bidi": { ...{ "id": "cooking-bidi", "owner": "cooking", "version": "1", "source": "cooking-bidi.js", "stage": "document", "policy": { "span": ["title"], "pre": ["data-code-wrap", "data-code-height"] } }, implementation: { transform: transform6 } }, "cooking-media": { ...{ "id": "cooking-media", "owner": "cooking", "version": "1", "source": "cooking-media.js", "stage": "document", "policy": { "div": ["data-video-src", "data-thumbnail-src", "data-video-base62-sha1", "data-blocked-hotlinked-src", "data-mode"], "img": ["data-blocked-hotlinked-src"] } }, implementation: { transform: transform7 } }, "cooking-mentions": { ...{ "id": "cooking-mentions", "owner": "cooking", "version": "1", "source": "cooking-mentions.js", "stage": "document", "policy": {} }, implementation: { transform: transform8 } }, "details": { ...{ "id": "details", "owner": "cooking", "version": "1", "source": "details.js", "stage": "syntax", "policy": { "details": ["open"], "summary": ["title"] } }, implementation: { setup: setup29 } }, "d-wrap": { ...{ "id": "d-wrap", "owner": "cooking", "version": "1", "source": "d-wrap.js", "stage": "document", "policy": { "div": ["data-wrap", "data-key", "data-description", "data-delimiter", "data-default", "data-defaults"], "span": ["data-wrap", "data-key", "data-description", "data-delimiter", "data-default", "data-defaults"] } }, implementation: { transform: transform9 } }, "poll": { ...{ "id": "poll", "owner": "poll", "version": "1", "source": "poll.js", "stage": "syntax", "policy": { "div": ["data-poll-charttype", "data-poll-close", "data-poll-groups", "data-poll-max", "data-poll-min", "data-poll-name", "data-poll-order", "data-poll-public", "data-poll-results", "data-poll-status", "data-poll-step", "data-poll-type", "data-poll-dynamic"], "li": ["data-poll-option-id"] } }, implementation: { setup: setup31 } }, "post-event": { ...{ "id": "post-event", "owner": "discourse-events", "version": "1", "source": "post-event.js", "stage": "syntax", "policy": { "div": ["data-name", "data-start", "data-end", "data-timezone", "data-recurrence", "data-recurrence-until", "data-allowed-groups", "data-url", "data-location", "data-max-attendees", "data-reminders", "data-image", "data-all-day", "data-show-local-time", "data-minimal", "data-closed", "data-chat-enabled", "data-livestream", "data-status"] } }, implementation: { setup: setup33 } }, "calendar": { ...{ "id": "calendar", "owner": "discourse-events", "version": "1", "source": "calendar.js", "stage": "syntax", "policy": { "div": ["data-calendar-type", "data-calendar-default-timezone", "data-calendar-default-view", "data-weekends", "data-calendar-show-add-to-calendar", "data-calendar-full-day", "data-hidden-days", "data-group", "data-size"] } }, implementation: { setup: setup35 } }, "livestream-preview": { ...{ "id": "livestream-preview", "owner": "discourse-events", "version": "1", "source": "livestream-preview.js", "stage": "syntax", "policy": {} }, implementation: { setup: setup37 } }, "livestream-visibility": { ...{ "id": "livestream-visibility", "owner": "discourse-events", "version": "1", "source": "livestream-visibility.js", "stage": "document", "policy": {} }, implementation: { transform: transform10 } }, "checklist": { ...{ "id": "checklist", "owner": "cooking", "version": "1", "source": "checklist.js", "stage": "syntax", "policy": {} }, implementation: { setup: setup39 } } };
 
   // src/final-sanitize.js
   init_environment();

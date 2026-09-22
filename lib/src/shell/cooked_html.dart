@@ -12,6 +12,7 @@ import 'code_block.dart';
 import 'cooked_details.dart';
 import 'cooked_spoiler.dart';
 import 'cooked_table.dart';
+import 'cooked_todos.dart';
 import 'emoji.dart';
 import 'hashtag.dart';
 import 'image_grid.dart';
@@ -97,7 +98,13 @@ class CookedHtml extends StatelessWidget {
         _decorateLinkCount(element, linkCounts);
       }
 
-      return cookedSpoilerWidgetBuilder(
+      return cookedTodoWidgetBuilder(
+            element,
+            style: textStyle,
+            contentBuilder: (html, style) =>
+                nestedContentBuilder(context, html, style),
+          ) ??
+          cookedSpoilerWidgetBuilder(
             element,
             contentBuilder: (context, html) =>
                 nestedContentBuilder(context, html, textStyle),

@@ -10,6 +10,33 @@ import 'package:discourse_native/src/plugins/cooking/cooking_module.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test('checklist settings survive storage and reach the bundled parser', () {
+    final installed = PluginInstaller.install(
+      const PluginManifest([cookingModule]),
+    );
+    final app = ApplicationCooking(plugins: installed, service: _Service());
+    for (final enabled in [true, false]) {
+      final config = SiteConfig.fromSettings({
+        'checklist_enabled': enabled,
+      }, extensions: installed.registry);
+      final restored = SiteConfig.fromJson(
+        config.toJson(extensions: installed.registry),
+        extensions: installed.registry,
+      );
+      final projected = installed.cookingPlugins.single.projectCookingContext(
+        CookingPluginData('cooking', restored.plugins),
+      );
+      expect(projected['settings'], {'checklist_enabled': enabled});
+    }
+    expect(
+      app.configuration.modules
+          .where((module) => module.id == 'checklist')
+          .single
+          .enabledSetting,
+      'checklist_enabled',
+    );
+  });
+
   test('core only is empty; installed owner enables bundled behavior', () {
     final core = ApplicationCooking(
       plugins: PluginInstaller.install(const PluginManifest([])),
