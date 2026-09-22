@@ -2332,6 +2332,12 @@ class _ComposerEditorState extends State<ComposerEditor> {
     }
     final value = widget.composer.text.value;
     final selection = value.selection;
+    final paragraph = widget.composer.blocks.index.atOffset(selection.start);
+    final isInParagraph =
+        selection.isValid &&
+        paragraph?.kind == ComposerBlockKind.paragraph &&
+        selection.start >= paragraph!.start &&
+        selection.end <= paragraph.end;
     if (isEnter &&
         !widget.composer.discarding &&
         (keyboard.isShiftPressed || !widget.composer.autocomplete.isOpen) &&
@@ -2339,7 +2345,8 @@ class _ComposerEditorState extends State<ComposerEditor> {
         !keyboard.isControlPressed &&
         !keyboard.isAltPressed &&
         value.composing.isCollapsed &&
-        (_blockquoteInputFormatter.isInQuote(value) ||
+        (isInParagraph ||
+            _blockquoteInputFormatter.isInQuote(value) ||
             widget.composer.text.todos.any(
               (todo) =>
                   selection.isCollapsed &&
@@ -2348,10 +2355,20 @@ class _ComposerEditorState extends State<ComposerEditor> {
             ))) {
       final editable = _editableTextState;
       if (editable == null) return KeyEventResult.ignored;
+      final newline = value.text.contains('\r\n') ? '\r\n' : '\n';
+      final insertion = isInParagraph && !keyboard.isShiftPressed
+          ? '$newline$newline'
+          : newline;
       editable.userUpdateTextEditingValue(
         TextEditingValue(
-          text: value.text.replaceRange(selection.start, selection.end, '\n'),
-          selection: TextSelection.collapsed(offset: selection.start + 1),
+          text: value.text.replaceRange(
+            selection.start,
+            selection.end,
+            insertion,
+          ),
+          selection: TextSelection.collapsed(
+            offset: selection.start + insertion.length,
+          ),
         ),
         SelectionChangedCause.keyboard,
       );

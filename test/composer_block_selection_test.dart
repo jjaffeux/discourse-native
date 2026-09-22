@@ -95,6 +95,43 @@ Future<ComposerController> _pump(
 }
 
 void main() {
+  for (final shift in [false, true]) {
+    for (final selection in [
+      const TextSelection.collapsed(offset: 5),
+      const TextSelection.collapsed(offset: 10),
+      const TextSelection(baseOffset: 3, extentOffset: 7),
+    ]) {
+      testWidgets('paragraph Enter shift=$shift selection=$selection', (
+        tester,
+      ) async {
+        final composer = await _pump(tester, 'First last');
+        composer.text.selection = selection;
+        await tester.pump();
+        if (shift) await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+        await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+        if (shift) await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+        await tester.pump();
+
+        final insertion = shift ? '\n' : '\n\n';
+        expect(
+          composer.text.text,
+          'First last'.replaceRange(selection.start, selection.end, insertion),
+        );
+        expect(
+          composer.text.selection,
+          TextSelection.collapsed(offset: selection.start + insertion.length),
+        );
+        if (selection.end < 10) {
+          expect(composer.blocks.index.blocks, hasLength(shift ? 1 : 2));
+        }
+        composer.history.undo();
+        await tester.pump();
+        expect(composer.text.text, 'First last');
+        expect(tester.takeException(), isNull);
+      });
+    }
+  }
+
   for (final theme in [AppTheme.light, AppTheme.dark]) {
     testWidgets(
       'block outline replaces the text fill in ${theme.brightness.name}',
