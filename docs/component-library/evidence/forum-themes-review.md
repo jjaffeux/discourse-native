@@ -122,3 +122,47 @@ isolated `org.discourse.native.review.themeeffects` bundle verified both toggles
 live preview, saving and the applied light-content/dark-navigation shell with
 its continuous outer gradient. A subsequent contrast refinement was covered by
 the full preset matrix and rebuilt successfully.
+
+
+## Appearance refinement — 2026-09-22
+
+Font selection now uses Native Item rows with a sample in each bundled font,
+a selected edge and a checkmark. The existing font preference and live forum
+preview remain the source of truth. The existing Color mode control is the
+only Light/Dark/System selector; no font-size control was added.
+
+The user approved extending Native Color Picker and Slider for the supplied
+reference. `DColorPicker.inline` is a dotted, persistent hue/lightness plane
+with pointer input, arrow keys, adjustable semantics and Lighter/Darker actions.
+`DSliderVariant.filled` adds a capsule and bar thumb while retaining the existing
+controlled slider interaction. Both have runnable styleguide examples. The
+application composes these with an exclusive vertical Toggle Group for Normal,
+Lava lamp and Noise. Strength and chosen color update the preview immediately;
+the strength control follows the chosen hue.
+
+Optional `ForumBackground` settings travel through custom theme JSON, per-forum
+storage, mode conversion and palette resolution. Legacy themes and gradients
+retain their prior rendering until the new controls are used. The treatment
+paints the existing window canvas (title bar, rail and panel gaps), with a larger
+exposed canvas in the preview. Normal is a flat tint, Lava lamp uses moving soft
+color fields, and Noise uses deterministic static grain. Only nonzero Lava lamp
+animates; reduced motion and disabled ticker scopes stop it. Foreground panels
+retain their existing surfaces.
+
+Verification: 141 focused tests passed across the editor, model and persistence,
+AppTheme, site appearance and app integration, color picker, all slider suites,
+slider migrations, styleguide slider examples and control-style adoption. Added
+coverage includes background export/storage/mode round trips, malformed options,
+save/reopen, pointer and keyboard input, disabled/rejected palette edits,
+standalone palette width, strength endpoints, and reduced motion. At 360px,
+200% text and RTL, the custom editor was checked with macOS and iOS target-platform
+overrides in both palettes; these are widget tests, not iOS device testing.
+Static analysis and a macOS debug build passed.
+
+Native macOS review used the in-memory forum settings fixture in isolated ad-hoc
+review bundles, with restricted push identity omitted. Inspected font samples
+and selection, custom palette dragging, strength, Lava lamp, Noise, save and
+applied light/dark previews. Inspected the filled Slider styleguide and inline
+Color Picker in full and 360px preview widths, including dragging and keyboard
+input. The standalone review caught and fixed a loose-constraint width issue.
+No external forum data or release configuration was changed.

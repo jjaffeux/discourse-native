@@ -2,6 +2,7 @@ import 'dart:ui';
 
 import 'package:flutter/foundation.dart';
 
+import 'forum_background.dart';
 import 'json.dart';
 
 const double defaultDiscourseBorderRadius = 4;
@@ -108,6 +109,7 @@ class SiteAppearance {
 @immutable
 class ResolvedSitePalette {
   const ResolvedSitePalette({
+    this.background,
     this.windowGradient = false,
     this.darkerSidebars = false,
     this.borderRadius = defaultDiscourseBorderRadius,
@@ -167,6 +169,9 @@ class ResolvedSitePalette {
     final danger = _color(json['danger']) ?? const Color(0xFFC80001);
 
     return ResolvedSitePalette(
+      background: json['background'] == null
+          ? null
+          : ForumBackground.fromJson(json['background']),
       windowGradient: json['windowGradient'] == true,
       darkerSidebars: json['darkerSidebars'] == true,
       borderRadius:
@@ -228,6 +233,7 @@ class ResolvedSitePalette {
     );
   }
 
+  final ForumBackground? background;
   final bool windowGradient;
   final bool darkerSidebars;
   final double borderRadius;
@@ -282,6 +288,7 @@ class ResolvedSitePalette {
   final Color codeMeta;
 
   Map<String, dynamic> toJson() => {
+    if (background != null) 'background': background!.toJson(),
     'windowGradient': windowGradient,
     'darkerSidebars': darkerSidebars,
     'borderRadius': borderRadius,
@@ -330,6 +337,7 @@ class ResolvedSitePalette {
   @override
   bool operator ==(Object other) =>
       other is ResolvedSitePalette &&
+      other.background == background &&
       other.windowGradient == windowGradient &&
       other.darkerSidebars == darkerSidebars &&
       other.borderRadius == borderRadius &&
@@ -376,6 +384,7 @@ class ResolvedSitePalette {
 
   @override
   int get hashCode => Object.hashAll([
+    background,
     windowGradient,
     darkerSidebars,
     borderRadius,

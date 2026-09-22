@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/src/models/forum_background.dart';
 import 'package:discourse_native/src/models/forum_theme.dart';
 import 'package:discourse_native/src/models/forum_theme_presets.dart';
 import 'package:discourse_native/src/shell/forum_appearance_settings.dart';
@@ -47,20 +48,45 @@ void main() {
       ),
     );
     await tester.pumpWidget(editor(initial));
-    for (final key in ['window-gradient', 'darker-sidebars']) {
+    for (final key in ['darker-sidebars']) {
       final toggle = find.byKey(ValueKey('custom-theme-$key'));
       await tester.ensureVisible(toggle);
       await tester.tap(toggle);
       await tester.pumpAndSettle();
     }
-    expect(draft!.windowGradient, isTrue);
+    final strength = find.byKey(const ValueKey('custom-theme-strength'));
+    await tester.ensureVisible(strength);
+    await tester.tap(strength);
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
+    await tester.pump();
+    await tester.tap(find.bySemanticsLabel('Noise background'));
+    await tester.pump();
+    final plane = find.byKey(const ValueKey('color-picker-inline-plane'));
+    await tester.tapAt(tester.getCenter(plane));
+    await tester.pump();
+    expect(draft!.background!.effect, ForumBackgroundEffect.noise);
+    expect(draft!.background!.color, isNot(initial.tertiary));
+    expect(draft!.background!.strength, closeTo(.51, .01));
+    expect(find.text('Palette mode'), findsNothing);
     expect(draft!.darkerSidebars, isTrue);
     final save = find.byKey(const ValueKey('save-custom-theme'));
     await tester.ensureVisible(save);
     await tester.tap(save);
     expect(saved, draft);
     await tester.pumpWidget(editor(saved!));
-    for (final key in ['window-gradient', 'darker-sidebars']) {
+    expect(
+      tester.widget<DSlider>(strength).value,
+      saved!.background!.strength * 100,
+    );
+    expect(
+      tester
+          .widget<DToggleGroup<ForumBackgroundEffect>>(
+            find.byKey(const ValueKey('custom-theme-background-effect')),
+          )
+          .values,
+      [ForumBackgroundEffect.noise],
+    );
+    for (final key in ['darker-sidebars']) {
       expect(
         tester
             .widget<DToggle>(find.byKey(ValueKey('custom-theme-$key')))
@@ -327,12 +353,15 @@ void main() {
         ),
       ),
     );
-    for (final key in ['window-gradient', 'darker-sidebars']) {
+    for (final key in ['darker-sidebars']) {
       final toggle = find.byKey(ValueKey('custom-theme-$key'));
       await tester.ensureVisible(toggle);
       await tester.tap(toggle);
       await tester.pumpAndSettle();
     }
+    await tester.ensureVisible(find.bySemanticsLabel('Noise background'));
+    await tester.tap(find.bySemanticsLabel('Noise background'));
+    await tester.pump();
     await tester.ensureVisible(find.text('Export'));
     await tester.tap(find.text('Export'));
     await tester.pumpAndSettle();
@@ -356,7 +385,7 @@ void main() {
             as Map<String, dynamic>;
     final exported = ForumTheme.fromJson(json, id: 'exported');
     expect(exported.name, 'Dracula custom');
-    expect(exported.windowGradient, isTrue);
+    expect(exported.background!.effect, ForumBackgroundEffect.noise);
     expect(exported.darkerSidebars, isTrue);
     expect(
       exported.tertiary,
@@ -427,9 +456,9 @@ void main() {
       previewBounds.bottom - newTopicBounds.bottom,
       greaterThanOrEqualTo(DSpacing.lg),
     );
-    await tester.tap(find.byKey(const ValueKey('appearance-font-select')));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Lato').last);
+    final lato = find.byKey(const ValueKey('appearance-font-lato'));
+    await tester.ensureVisible(lato);
+    await tester.tap(lato);
     await tester.pumpAndSettle();
     final dracula = find.byKey(const ValueKey('forum-theme-dracula'));
     await tester.ensureVisible(dracula);

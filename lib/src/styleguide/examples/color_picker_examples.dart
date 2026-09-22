@@ -9,6 +9,14 @@ final colorPickerExamples = ComponentExamples(
       'Live opaque color selection with a pointer plane and keyboard-accessible HSV sliders.',
   examples: [
     StyleguideExample(
+      title: 'Inline palette',
+      description:
+          'Drag to choose hue and lightness. Focus the palette and use arrow keys; screen readers offer Lighter and Darker actions.',
+      code:
+          'DColorPicker.inline(value: color, semanticLabel: "Background color", onChanged: updateColor)',
+      builder: (_) => const _Example(inline: true),
+    ),
+    StyleguideExample(
       title: 'Live color',
       description:
           'Drag the plane or adjust the HSV sliders. Escape closes the picker.',
@@ -31,7 +39,8 @@ final colorPickerExamples = ComponentExamples(
 );
 
 class _Example extends StatefulWidget {
-  const _Example();
+  const _Example({this.inline = false});
+  final bool inline;
   @override
   State<_Example> createState() => _ExampleState();
 }
@@ -39,17 +48,23 @@ class _Example extends StatefulWidget {
 class _ExampleState extends State<_Example> {
   Color color = const Color(0xff39845b);
   @override
-  Widget build(BuildContext context) => Row(
-    mainAxisSize: MainAxisSize.min,
-    children: [
-      DColorPicker(
-        value: color,
-        semanticLabel: 'Choose color',
-        onChanged: (value) => setState(() => color = value),
-      ),
-      Text(
-        '#${(color.toARGB32() & 0xffffff).toRadixString(16).padLeft(6, '0').toUpperCase()}',
-      ),
-    ],
-  );
+  Widget build(BuildContext context) => widget.inline
+      ? DColorPicker.inline(
+          value: color,
+          semanticLabel: "Background color",
+          onChanged: (value) => setState(() => color = value),
+        )
+      : Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            DColorPicker(
+              value: color,
+              semanticLabel: 'Choose color',
+              onChanged: (value) => setState(() => color = value),
+            ),
+            Text(
+              '#${(color.toARGB32() & 0xffffff).toRadixString(16).padLeft(6, '0').toUpperCase()}',
+            ),
+          ],
+        );
 }

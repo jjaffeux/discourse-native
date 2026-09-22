@@ -156,25 +156,48 @@ class _ForumAppearanceSettingsState extends State<ForumAppearanceSettings> {
               DField(
                 children: [
                   const DFieldLabel(child: Text('Font')),
-                  DSelect<ForumFont>(
-                    key: const ValueKey('appearance-font-select'),
-                    semanticLabel: 'Font',
-                    value: preferences.font,
-                    enabled: !_saving,
-                    entries: [
-                      for (final font in ForumFont.values)
-                        DSelectOption(
-                          value: font,
-                          label: font.label,
-                          child: Text(
-                            font.label,
-                            style: TextStyle(fontFamily: font.family),
-                          ),
+                  DItemGroup(
+                    spacing: 0,
+                    children: [
+                      for (final font in ForumFont.values) ...[
+                        if (font != ForumFont.values.first)
+                          const DItemSeparator(),
+                        DItem(
+                          key: ValueKey('appearance-font-${font.name}'),
+                          selected: preferences.font == font,
+                          enabled: !_saving,
+                          shape: DItemShape.fullWidth,
+                          selectionStyle: DItemSelectionStyle.leadingAccent,
+                          onPressed: () => unawaited(_saveFont(font)),
+                          children: [
+                            DItemContent(
+                              children: [
+                                Text(
+                                  font.label,
+                                  style: Theme.of(context).textTheme.bodySmall,
+                                ),
+                                Text(
+                                  'The quick brown fox jumps over the lazy dog.',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.fade,
+                                  softWrap: false,
+                                  style: Theme.of(context).textTheme.bodyLarge!
+                                      .copyWith(
+                                        fontFamily:
+                                            font.family ??
+                                            ThemeData(
+                                              platform: Theme.of(
+                                                context,
+                                              ).platform,
+                                            ).textTheme.bodyLarge!.fontFamily,
+                                      ),
+                                ),
+                              ],
+                            ),
+                          ],
                         ),
+                      ],
                     ],
-                    onChanged: (font) {
-                      if (font != null) unawaited(_saveFont(font));
-                    },
                   ),
                 ],
               ),

@@ -1,6 +1,7 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
+import '../models/forum_background.dart';
 import '../models/forum_theme.dart';
 import '../models/site_appearance.dart';
 import '../ui/components/d_button.dart';
@@ -608,7 +609,11 @@ abstract final class AppTheme {
       borderRadius: palette.borderRadius,
       avatarBorderRadius: palette.avatarBorderRadius,
     );
-    if (!palette.windowGradient && !palette.darkerSidebars) return theme;
+    if (!palette.windowGradient &&
+        !palette.darkerSidebars &&
+        palette.background == null) {
+      return theme;
+    }
     ThemeData? sidebarTheme;
     if (palette.darkerSidebars) {
       final background = Color.lerp(
@@ -650,6 +655,7 @@ abstract final class AppTheme {
       extensions: [
         ...theme.extensions.values,
         ForumThemeEffects(
+          background: palette.background,
           windowGradient: palette.windowGradient
               ? LinearGradient(
                   begin: Alignment.topLeft,
@@ -1015,16 +1021,24 @@ abstract final class AppTheme {
 /// App-owned custom-theme effects, resolved once with the palette.
 @immutable
 class ForumThemeEffects extends ThemeExtension<ForumThemeEffects> {
-  const ForumThemeEffects({this.windowGradient, this.sidebarTheme});
+  const ForumThemeEffects({
+    this.background,
+    this.windowGradient,
+    this.sidebarTheme,
+  });
+
+  final ForumBackground? background;
 
   final Gradient? windowGradient;
   final ThemeData? sidebarTheme;
 
   @override
   ForumThemeEffects copyWith({
+    ForumBackground? background,
     Gradient? windowGradient,
     ThemeData? sidebarTheme,
   }) => ForumThemeEffects(
+    background: background ?? this.background,
     windowGradient: windowGradient ?? this.windowGradient,
     sidebarTheme: sidebarTheme ?? this.sidebarTheme,
   );
@@ -1032,6 +1046,7 @@ class ForumThemeEffects extends ThemeExtension<ForumThemeEffects> {
   @override
   ForumThemeEffects lerp(ForumThemeEffects? other, double t) =>
       ForumThemeEffects(
+        background: t < .5 ? background : other?.background,
         windowGradient: Gradient.lerp(windowGradient, other?.windowGradient, t),
         sidebarTheme: t < .5 ? sidebarTheme : other?.sidebarTheme,
       );
