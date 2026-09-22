@@ -13,6 +13,7 @@ import '../theme/app_theme.dart';
 import '../theme/d_icons.dart';
 import 'adaptive_dialog_action.dart';
 import 'avatar_image.dart';
+import 'composer_presentation.dart';
 import 'emoji.dart';
 import 'external_link.dart';
 import 'forum_search.dart';
@@ -984,6 +985,16 @@ class _SectionState extends State<_Section> {
   bool _reordering = false;
   List<SidebarDestination>? _pendingDestinations;
 
+  void _selectDestination(SidebarDestination destination) {
+    ComposerPresentationHost.redockForNavigation(context);
+    final onTap = destination.onTap;
+    if (onTap != null) {
+      onTap();
+    } else {
+      widget.onSelect(destination);
+    }
+  }
+
   Future<void> _reorder(int oldIndex, int newIndex) async {
     if (_reordering || newIndex == oldIndex || newIndex == oldIndex + 1) return;
     final controller = ShellScope.read(context);
@@ -1130,7 +1141,7 @@ class _SectionState extends State<_Section> {
         if (destination.id == _moreDestinationId) {
           return _MoreDestinationsTile(
             destinations: more,
-            onSelect: widget.onSelect,
+            onSelect: _selectDestination,
           );
         }
         return SidebarDestinationTile(
@@ -1141,7 +1152,7 @@ class _SectionState extends State<_Section> {
           badge: widget.badgeFor(destination.id),
           submenu: submenu,
           iconSize: section.id.startsWith('custom-') ? 12 : 16,
-          onTap: destination.onTap ?? () => widget.onSelect(destination),
+          onTap: () => _selectDestination(destination),
         );
       }
 
@@ -1263,9 +1274,7 @@ class _MoreDestinationsTile extends StatelessWidget {
               size: 16,
               color: destination.iconColor,
             ),
-            onPressed: destination.enabled
-                ? destination.onTap ?? () => onSelect(destination)
-                : null,
+            onPressed: destination.enabled ? () => onSelect(destination) : null,
             child: Text(destination.label),
           ),
       ],
