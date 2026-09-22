@@ -105,8 +105,9 @@ final class VoicePlugin
       return null;
     }
     return SidebarPanelContribution(
-      label: 'Voice',
-      icon: DIcons.microphoneLines,
+      groupId: 'chat',
+      label: 'Chat',
+      icon: DIcons.comment,
       active: roomIdIn(shell.currentContent?.id ?? '') != null,
       separateWhenActive: true,
       includeSectionsWhenInactive: false,
@@ -138,9 +139,8 @@ final class VoicePlugin
       SidebarSection(
         id: 'voice-rooms',
         title: 'Voice rooms',
-        showHeader: false,
-        collapsible: false,
-        actionAboveHeader: true,
+        showHeader: true,
+        collapsible: true,
         actionIcon: DIcons.plus,
         actionLabel: 'Create voice room',
         onAction: directory.canCreateRoom
