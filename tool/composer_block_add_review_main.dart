@@ -68,6 +68,15 @@ Future<void> main() async {
                             onPressed: () => setState(() => narrow = !narrow),
                           ),
                           DButton(label: const Text('Reset'), onPressed: reset),
+                          DButton(
+                            label: const Text('Empty draft'),
+                            onPressed: () {
+                              composer.text.clear();
+                              composer.blocks.reset();
+                              composer.history.reset();
+                              composer.focus.unfocus();
+                            },
+                          ),
                           ComposerArrangeButton(composer: composer),
                         ],
                       ),

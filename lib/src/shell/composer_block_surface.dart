@@ -153,7 +153,8 @@ class _ComposerBlockSurfaceState extends State<ComposerBlockSurface> {
       if (!mounted) return;
       final block = _activeBlock;
       final emptyLine = _drag == null && !composer.blocks.arranging
-          ? widget.emptyLineAt(_hoverPosition)
+          ? widget.emptyLineAt(_hoverPosition) ??
+                (block == null ? widget.emptyLineAt(null) : null)
           : null;
       final rect = composer.blocks.arranging
           ? null
@@ -514,7 +515,17 @@ class _ComposerBlockSurfaceState extends State<ComposerBlockSurface> {
             ? () => _addBlock(block, emptyLine)
             : null,
       ),
-      if (emptyLine == null && block != null) _handle(block),
+      if (emptyLine != null)
+        DDragHandle<TextRange>(
+          key: ValueKey('composer-block-empty-handle-${emptyLine.start}'),
+          data: emptyLine,
+          label: 'Empty paragraph actions',
+          // There is no indexed block to move until this line has content.
+          enabled: false,
+          onPressed: null,
+        )
+      else if (block != null)
+        _handle(block),
     ],
   );
 
@@ -747,10 +758,11 @@ class _ComposerBlockSurfaceState extends State<ComposerBlockSurface> {
                     desktop &&
                     (block != null || _emptyLine != null) &&
                     handleRect != null &&
-                    handleRect.top >= 0)
+                    (handleRect.top >= 0 ||
+                        (_emptyLine != null && handleRect.bottom > 0)))
                   PositionedDirectional(
                     start: 0,
-                    top: handleRect.top,
+                    top: handleRect.top < 0 ? 0 : handleRect.top,
                     child: _blockActions(block, emptyLine: _emptyLine),
                   ),
                 ?line,

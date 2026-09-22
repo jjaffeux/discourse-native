@@ -10,7 +10,10 @@ the menu and preserves the slash, query and space as literal draft text.
 URLs, paths, selections, IME composition and Markdown code do not open commands.
 
 Topic composers also show an **Add block** (+) button before each block handle.
-It opens these same commands on the hovered or selected empty line. For a
+Both controls remain visible on the first line of an empty editor before focus
+or typing, including when the pointer rests below that line. An empty line's
+handle is disabled until there is a block to move.
+The + opens these same commands on the hovered or selected empty line. For a
 populated block, it inserts a new paragraph after the complete block and focuses
 its slash query, preserving surrounding content. This insertion is one undoable
 edit. In Arrange mode, + returns to the editor and opens the commands there.
