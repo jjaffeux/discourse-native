@@ -102,7 +102,6 @@ void main() {
       blocks.moveTo(0, blockId: id, expectedRevision: blocks.revision),
       isFalse,
     );
-    expect(blocks.startArranging(), isFalse);
   });
 
   test('composing input prevents rearranging and source mutations', () {
@@ -118,22 +117,8 @@ void main() {
       ),
       isFalse,
     );
-    expect(blocks.startArranging(), isFalse);
     expect(composer.text.value, before);
   });
-
-  test(
-    'Arrange and Done do not change source, selection or draft revision',
-    () {
-      final original = composer.text.value;
-      final revision = composer.draftRevision;
-      expect(blocks.startArranging(), isTrue);
-      blocks.select(blocks.index.blocks.last.id);
-      blocks.finishArranging();
-      expect(composer.text.value, original);
-      expect(composer.draftRevision, revision);
-    },
-  );
 
   test('quote ranges with owned trailing separators remain movable', () {
     const quote = '[quote="sam, post:1, topic:1"]\nQuoted text\n[/quote]';

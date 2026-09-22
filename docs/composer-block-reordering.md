@@ -38,11 +38,7 @@ shifting content and clears when the drag leaves or completes. File drops into
 expanded details use the inner editor's boundaries; drops onto galleries retain
 their gallery target instead of showing a document insertion line.
 
-The toolbar's **Arrange blocks** button opens an outline on desktop or mobile.
-On touch devices this dismisses the keyboard, while keeping the original editor
-mounted. Select a row and use the arrows or drag its handle. **Done** returns to
-the editor with its mapped selection. Undo and Redo are available in the
-arrangement controls. Escape cancels an active drag, then arrangement.
+Escape cancels an active drag. The separate Arrange blocks view has been removed.
 
 Text remains one continuous editor. A wrapped visual line is not a block. Normal
 text selection, scrolling, typing, existing slash commands and insertion controls
@@ -75,7 +71,7 @@ rejects joins that would change the number or kind of blocks, including merging
 lists or putting content inside an unfinished fence. It never serializes the
 whole document through a Markdown renderer.
 
-`ComposerBlockController` owns local block selection, arrangement state and a
+`ComposerBlockController` owns local block selection and a
 monotonically increasing source revision. A drag captures its block identity and
 revision. Typing, Undo, an upload completing, or another source edit invalidates
 the gesture. Composition, loading and submission prevent structural edits.
@@ -88,14 +84,13 @@ structural transactions. Each move establishes an explicit boundary, so two rapi
 moves undo separately and do not absorb adjacent typing. `ComposerHistoryScope`
 routes Flutter's overridable undo/redo actions and iOS UndoManager to that same
 history. Keyboard shortcuts also use it. Embedded editors retain their own scope.
-History survives docking, minimization and arrangement, and resets when the
+History survives docking and minimization, and resets when the
 controller replaces a sent/restored document.
 
-`ComposerBlockSurface` adds a desktop gutter and a touch outline around the
+`ComposerBlockSurface` adds a desktop gutter around the
 continuously mounted field. It measures editor/component bounds after layout,
 scrolls near viewport edges during a drag, cancels on app interruption, validates
-again at drop, and exposes button/menu alternatives to precise dragging. Outline
-rows announce type, position and selection; the current position is a live region.
+again at drop, and exposes button/menu alternatives to precise dragging.
 
 ## Native components
 
@@ -112,7 +107,7 @@ The user approved adding reusable drag components to the Native kit:
 
 They are exported from `discourse_ui.dart` and demonstrated in the application
 component catalogue's **Drag** entry. The frozen upstream catalogue is unchanged.
-Menus, outline rows, buttons and scrolling use existing Native components.
+Menus, buttons and scrolling use existing Native components.
 
 ## Validation
 
@@ -120,9 +115,8 @@ Source/history tests cover exact payloads, CRLF, Unicode, duplicate paragraphs,
 list and quote boundaries, plugin blocks, unsafe joins, caret mapping, rapid
 moves, typing around moves, IME guards, and stale gestures after an edit/Undo.
 
-Widget tests cover real desktop dragging, mobile arrangement at 320px with larger
-text, preserving EditableTextState, handle menus, keyboard/native
-undo routes, Escape, source edits during dragging, edge scrolling on both layouts,
+Widget tests cover real desktop dragging, handle menus, keyboard/native
+undo routes, Escape, source edits during dragging, desktop edge scrolling,
 RTL and accessible touch targets. An upload integration test moves an in-flight
 upload before its successful completion. Existing composer history, docking,
 embedded-editor, draft and selection tests are also exercised.
@@ -166,7 +160,5 @@ The original HTML concept used Notion's block model as an interaction reference.
 Notion documents [blocks and their handles](https://www.notion.com/help/what-is-a-block),
 [a toolbar above the mobile keyboard](https://www.notion.com/help/workspaces-on-mobile),
 and [mobile limitations](https://www.notion.com/help/notion-for-mobile), including
-lack of hover and desktop-style multi-block selection. Our explicit Arrange view
-is an adaptation for this composer, not a claim about Notion's exact mobile drag
-gesture. Sources were checked during the original exploration on September 21,
-2026.
+lack of hover and desktop-style multi-block selection. Sources were checked during
+the original exploration on September 21, 2026.

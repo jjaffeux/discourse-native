@@ -10,33 +10,6 @@ import 'composer_controller.dart';
 import 'composer_drop_geometry.dart';
 import 'platform.dart';
 
-class ComposerArrangeButton extends StatelessWidget {
-  const ComposerArrangeButton({super.key, required this.composer});
-  final ComposerController composer;
-
-  @override
-  Widget build(BuildContext context) => ListenableBuilder(
-    listenable: Listenable.merge([composer, composer.blocks]),
-    builder: (context, _) => DButton.iconOnly(
-      key: const ValueKey('composer-arrange'),
-      tooltip: composer.blocks.arranging ? 'Done arranging' : 'Arrange blocks',
-      variant: DButtonVariant.transparentBackground,
-      icon: DIcon(composer.blocks.arranging ? DIcons.check : DIcons.list),
-      onPressed:
-          composer.blocks.enabled && composer.blocks.index.blocks.isNotEmpty
-          ? () {
-              if (composer.blocks.arranging) {
-                composer.blocks.finishArranging();
-                composer.focus.requestFocus();
-              } else if (composer.blocks.startArranging()) {
-                composer.activeEditor.focus.unfocus();
-              }
-            }
-          : null,
-    ),
-  );
-}
-
 class _BlockDrag {
   const _BlockDrag(this.composer, this.id, this.revision);
   final ComposerController composer;
@@ -72,9 +45,7 @@ class ComposerBlockSurface extends StatefulWidget {
 
 class _ComposerBlockSurfaceState extends State<ComposerBlockSurface> {
   final _bounds = GlobalKey();
-  final _outlineScroll = ScrollController();
-  final _arrangeFocus = FocusNode(debugLabel: 'Composer arrangement');
-  final _rows = <int, GlobalKey>{};
+  final _dragFocus = FocusNode(debugLabel: 'Composer block drag');
   late final AppLifecycleListener _lifecycle;
   _BlockDrag? _drag;
   ComposerDropTarget? _dropTarget;
@@ -83,7 +54,6 @@ class _ComposerBlockSurfaceState extends State<ComposerBlockSurface> {
   TextRange? _emptyLine;
   Offset? _pointer;
   Timer? _autoScroll;
-  bool _wasArranging = false;
   bool _refreshScheduled = false;
   final _blockActionsKey = GlobalKey();
   Rect? _handleRect;
@@ -100,7 +70,6 @@ class _ComposerBlockSurfaceState extends State<ComposerBlockSurface> {
     super.initState();
     composer.blocks.addListener(_changed);
     widget.geometryChanges?.addListener(_scheduleGeometry);
-    _outlineScroll.addListener(_scheduleGeometry);
     _lifecycle = AppLifecycleListener(
       onStateChange: (state) {
         if (state != AppLifecycleState.resumed) _cancelDrag();
@@ -119,7 +88,6 @@ class _ComposerBlockSurfaceState extends State<ComposerBlockSurface> {
       oldWidget.composer.blocks.removeListener(_changed);
       composer.blocks.addListener(_changed);
       _cancelDrag();
-      _rows.clear();
       _hoveredId = null;
     }
     _scheduleGeometry();
@@ -130,15 +98,6 @@ class _ComposerBlockSurfaceState extends State<ComposerBlockSurface> {
     if (_drag case final drag?) {
       if (!_accepts(drag)) _cancelDrag();
     }
-    if (composer.blocks.arranging && !_wasArranging) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted || !composer.blocks.arranging) return;
-        _arrangeFocus.requestFocus();
-        final selected = _rows[composer.blocks.selected?.id]?.currentContext;
-        if (selected != null) Scrollable.ensureVisible(selected, alignment: .4);
-      });
-    }
-    _wasArranging = composer.blocks.arranging;
     _scheduleGeometry();
     setState(() {});
   }
@@ -151,13 +110,12 @@ class _ComposerBlockSurfaceState extends State<ComposerBlockSurface> {
       _refreshScheduled = false;
       if (!mounted) return;
       final block = _activeBlock;
-      final emptyLine = _drag == null && !composer.blocks.arranging
+      final emptyLine = _drag == null
           ? widget.emptyLineAt(_hoverPosition) ??
                 (block == null ? widget.emptyLineAt(null) : null)
           : null;
-      final rect = composer.blocks.arranging
-          ? null
-          : emptyLine?.rect ?? (block == null ? null : widget.blockRect(block));
+      final rect =
+          emptyLine?.rect ?? (block == null ? null : widget.blockRect(block));
       final box = _bounds.currentContext?.findRenderObject();
       final localRect = rect == null || box is! RenderBox || !box.hasSize
           ? null
@@ -166,7 +124,7 @@ class _ComposerBlockSurfaceState extends State<ComposerBlockSurface> {
               box.globalToLocal(rect.bottomRight),
             );
       final target = _pointer == null ? _dropTarget : _targetAt(_pointer!);
-      final dropTop = composer.blocks.arranging ? null : _dropY(target);
+      final dropTop = _dropY(target);
       if (localRect != _handleRect ||
           dropTop != _dropTop ||
           target != _dropTarget ||
@@ -186,18 +144,9 @@ class _ComposerBlockSurfaceState extends State<ComposerBlockSurface> {
     composer.blocks.removeListener(_changed);
     widget.geometryChanges?.removeListener(_scheduleGeometry);
     _autoScroll?.cancel();
-    _outlineScroll.dispose();
-    _arrangeFocus.dispose();
+    _dragFocus.dispose();
     _lifecycle.dispose();
     super.dispose();
-  }
-
-  Rect? _rect(ComposerBodyBlock block) {
-    if (!composer.blocks.arranging) return widget.blockRect(block);
-    final object = _rows[block.id]?.currentContext?.findRenderObject();
-    return object is RenderBox && object.hasSize
-        ? object.localToGlobal(Offset.zero) & object.size
-        : null;
   }
 
   bool _validSnapshot(_BlockDrag drag) =>
@@ -210,8 +159,8 @@ class _ComposerBlockSurfaceState extends State<ComposerBlockSurface> {
 
   ComposerDropGeometry get _dropGeometry => ComposerDropGeometry(
     composer.blocks.index,
-    _rect,
-    emptyLineAt: composer.blocks.arranging ? null : widget.emptyLineAt,
+    widget.blockRect,
+    emptyLineAt: widget.emptyLineAt,
   );
 
   ComposerDropTarget? _targetAt(Offset position) {
@@ -263,9 +212,7 @@ class _ComposerBlockSurfaceState extends State<ComposerBlockSurface> {
     final pointer = _pointer;
     final drag = _drag;
     if (pointer == null || drag == null || !_accepts(drag)) return;
-    final position = composer.blocks.arranging && widget.expands
-        ? (_outlineScroll.hasClients ? _outlineScroll.position : null)
-        : widget.editorScroll();
+    final position = widget.editorScroll();
     final object = _bounds.currentContext?.findRenderObject();
     if (position == null || object is! RenderBox || !object.hasSize) return;
     final bounds = object.localToGlobal(Offset.zero) & object.size;
@@ -322,7 +269,7 @@ class _ComposerBlockSurfaceState extends State<ComposerBlockSurface> {
       }
     }
     _cancelDrag();
-    if (!composer.blocks.arranging) composer.focus.requestFocus();
+    composer.focus.requestFocus();
   }
 
   void _move(int gap) {
@@ -339,71 +286,40 @@ class _ComposerBlockSurfaceState extends State<ComposerBlockSurface> {
       if (!mounted) return;
       final block = composer.blocks.selected;
       if (block == null) return;
-      if (composer.blocks.arranging) {
-        final row = _rows[block.id]?.currentContext;
-        if (row != null) Scrollable.ensureVisible(row, alignment: .4);
-      } else {
-        final rect = widget.blockRect(block);
-        final position = widget.editorScroll();
-        final box = _bounds.currentContext?.findRenderObject();
-        if (rect == null ||
-            position == null ||
-            box is! RenderBox ||
-            !box.hasSize) {
-          return;
-        }
-        final bounds = box.localToGlobal(Offset.zero) & box.size;
-        final delta = rect.top < bounds.top
-            ? rect.top - bounds.top
-            : rect.bottom > bounds.bottom
-            ? rect.bottom - bounds.bottom
-            : 0.0;
-        if (delta != 0) {
-          position.jumpTo(
-            (position.pixels + delta).clamp(
-              position.minScrollExtent,
-              position.maxScrollExtent,
-            ),
-          );
-        }
+      final rect = widget.blockRect(block);
+      final position = widget.editorScroll();
+      final box = _bounds.currentContext?.findRenderObject();
+      if (rect == null ||
+          position == null ||
+          box is! RenderBox ||
+          !box.hasSize) {
+        return;
+      }
+      final bounds = box.localToGlobal(Offset.zero) & box.size;
+      final delta = rect.top < bounds.top
+          ? rect.top - bounds.top
+          : rect.bottom > bounds.bottom
+          ? rect.bottom - bounds.bottom
+          : 0.0;
+      if (delta != 0) {
+        position.jumpTo(
+          (position.pixels + delta).clamp(
+            position.minScrollExtent,
+            position.maxScrollExtent,
+          ),
+        );
       }
       _scheduleGeometry();
     });
   }
 
-  void _done() {
-    _cancelDrag();
-    composer.blocks.finishArranging();
-    composer.focus.requestFocus();
-  }
-
   KeyEventResult _key(FocusNode node, KeyEvent event) {
-    if (event is! KeyDownEvent) return KeyEventResult.ignored;
-    final keyboard = HardwareKeyboard.instance;
-    if (event.logicalKey == LogicalKeyboardKey.escape) {
-      if (_drag != null) {
-        _cancelDrag();
-        if (!composer.blocks.arranging) composer.focus.requestFocus();
-      } else if (composer.blocks.arranging) {
-        _done();
-      } else {
-        return KeyEventResult.ignored;
-      }
+    if (event is KeyDownEvent &&
+        event.logicalKey == LogicalKeyboardKey.escape &&
+        _drag != null) {
+      _cancelDrag();
+      composer.focus.requestFocus();
       return KeyEventResult.handled;
-    }
-    if (composer.blocks.arranging &&
-        (keyboard.isControlPressed || keyboard.isMetaPressed)) {
-      if (event.logicalKey == LogicalKeyboardKey.keyZ) {
-        keyboard.isShiftPressed
-            ? composer.history.redo()
-            : composer.history.undo();
-        return KeyEventResult.handled;
-      }
-      if (event.logicalKey == LogicalKeyboardKey.keyY &&
-          keyboard.isControlPressed) {
-        composer.history.redo();
-        return KeyEventResult.handled;
-      }
     }
     return KeyEventResult.ignored;
   }
@@ -411,7 +327,7 @@ class _ComposerBlockSurfaceState extends State<ComposerBlockSurface> {
   Widget _handle(ComposerBodyBlock block) {
     final position = composer.blocks.index.blocks.indexOf(block);
     // Only the selected handle can have an open menu. Avoid reparsing the
-    // entire draft for both actions on every row of a long outline.
+    // entire draft for both actions on every block.
     final active = composer.blocks.selected?.id == block.id;
     final drag = _drag?.id == block.id
         ? _drag!
@@ -464,7 +380,7 @@ class _ComposerBlockSurfaceState extends State<ComposerBlockSurface> {
           },
           onDragStarted: () {
             composer.blocks.select(block.id);
-            _arrangeFocus.requestFocus();
+            _dragFocus.requestFocus();
             setState(() => _drag = drag);
           },
           onDragEnd: () {
@@ -504,7 +420,6 @@ class _ComposerBlockSurfaceState extends State<ComposerBlockSurface> {
       );
     });
     _hoveredId = null;
-    composer.blocks.finishArranging();
     final inserted = composer.blocks.index.atOffset(caret);
     if (inserted != null) composer.blocks.select(inserted.id);
     composer.focus.requestFocus();
@@ -541,120 +456,6 @@ class _ComposerBlockSurfaceState extends State<ComposerBlockSurface> {
     ],
   );
 
-  Widget _outline() {
-    final blocks = composer.blocks.index.blocks;
-    final selected = composer.blocks.selected;
-    final position = selected == null ? -1 : blocks.indexOf(selected);
-    final children = <Widget>[
-      Padding(
-        padding: const EdgeInsets.symmetric(vertical: DSpacing.sm),
-        child: Semantics(
-          liveRegion: true,
-          child: Text(
-            '${selected?.label ?? 'Block'} · ${position + 1} of ${blocks.length}. Drag a handle or use the arrows.',
-            style: TextStyle(color: DTokens.of(context).mutedForeground),
-          ),
-        ),
-      ),
-      for (var i = 0; i <= blocks.length; i++) ...[
-        if (_dropTarget?.gap == i) const DDropIndicator(),
-        if (i < blocks.length)
-          Padding(
-            key: _rows.putIfAbsent(blocks[i].id, GlobalKey.new),
-            padding: const EdgeInsets.symmetric(vertical: DSpacing.xs),
-            child: DItem(
-              variant: DItemVariant.outline,
-              shape: DItemShape.card,
-              selected: selected?.id == blocks[i].id,
-              semanticLabel:
-                  '${blocks[i].label}, block ${i + 1} of ${blocks.length}',
-              onPressed: () => composer.blocks.select(blocks[i].id),
-              children: [
-                DItemContent(
-                  children: [
-                    DItemTitle(child: Text(blocks[i].label)),
-                    DItemDescription(
-                      child: Text(
-                        blocks[i].movable
-                            ? blocks[i].excerpt
-                            : 'Keep in place: unsupported Markdown',
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ],
-                ),
-                _blockActions(blocks[i]),
-              ],
-            ),
-          ),
-      ],
-    ];
-    final toolbar = ListenableBuilder(
-      listenable: composer.history,
-      builder: (context, _) => Wrap(
-        spacing: DSpacing.controlGap,
-        runSpacing: DSpacing.controlGap,
-        children: [
-          DButton(onPressed: _done, label: const Text('Done')),
-          DButton.iconOnly(
-            tooltip: 'Move up',
-            icon: const DIcon(DIcons.arrowUp),
-            onPressed: composer.blocks.canMoveTo(position - 1)
-                ? () => _move(position - 1)
-                : null,
-          ),
-          DButton.iconOnly(
-            tooltip: 'Move down',
-            icon: const RotatedBox(
-              quarterTurns: 2,
-              child: DIcon(DIcons.arrowUp),
-            ),
-            onPressed: composer.blocks.canMoveTo(position + 2)
-                ? () => _move(position + 2)
-                : null,
-          ),
-          DButton.iconOnly(
-            tooltip: 'Undo',
-            icon: const DIcon(DIcons.arrowRotateLeft),
-            onPressed: composer.isEditing && composer.history.canUndo
-                ? composer.history.undo
-                : null,
-          ),
-          DButton.iconOnly(
-            tooltip: 'Redo',
-            icon: Transform.flip(
-              flipX: true,
-              child: const DIcon(DIcons.arrowRotateLeft),
-            ),
-            onPressed: composer.isEditing && composer.history.canRedo
-                ? composer.history.redo
-                : null,
-          ),
-        ],
-      ),
-    );
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      mainAxisSize: widget.expands ? MainAxisSize.max : MainAxisSize.min,
-      children: [
-        toolbar,
-        if (widget.expands)
-          Expanded(
-            child: DScrollArea(
-              controller: _outlineScroll,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: children,
-              ),
-            ),
-          )
-        else
-          ...children,
-      ],
-    );
-  }
-
   double? _dropY(ComposerDropTarget? target) {
     final box = _bounds.currentContext?.findRenderObject();
     if (target == null || box is! RenderBox || !box.hasSize) {
@@ -666,7 +467,6 @@ class _ComposerBlockSurfaceState extends State<ComposerBlockSurface> {
   @override
   Widget build(BuildContext context) {
     _scheduleGeometry();
-    final arranging = composer.blocks.arranging;
     final desktop = !context.isTouch;
     final block = _activeBlock;
     final handleRect = _handleRect;
@@ -678,7 +478,7 @@ class _ComposerBlockSurfaceState extends State<ComposerBlockSurface> {
             ) *
             2 +
         DSpacing.controlGap;
-    final line = arranging || _dropTop == null
+    final line = _dropTop == null
         ? null
         : PositionedDirectional(
             start: gutter,
@@ -690,7 +490,7 @@ class _ComposerBlockSurfaceState extends State<ComposerBlockSurface> {
             ),
           );
     return Focus(
-      focusNode: _arrangeFocus,
+      focusNode: _dragFocus,
       onKeyEvent: _key,
       child: NotificationListener<ScrollNotification>(
         onNotification: (_) {
@@ -703,7 +503,7 @@ class _ComposerBlockSurfaceState extends State<ComposerBlockSurface> {
           onDrop: _drop,
           onLeave: _leaveDrag,
           child: MouseRegion(
-            onHover: desktop && !arranging && _drag == null
+            onHover: desktop && _drag == null
                 ? (event) {
                     // Controls can extend below a short text line. Keep their
                     // block stable instead of selecting the blank line beneath.
@@ -736,17 +536,13 @@ class _ComposerBlockSurfaceState extends State<ComposerBlockSurface> {
               key: _bounds,
               fit: widget.expands ? StackFit.expand : StackFit.loose,
               children: [
-                Offstage(
-                  offstage: arranging,
-                  child: Padding(
-                    padding: EdgeInsetsDirectional.only(
-                      start: desktop ? gutter : 0,
-                    ),
-                    child: widget.child,
+                Padding(
+                  padding: EdgeInsetsDirectional.only(
+                    start: desktop ? gutter : 0,
                   ),
+                  child: widget.child,
                 ),
-                if (arranging) _outline(),
-                if (!arranging && _drag != null && handleRect != null)
+                if (_drag != null && handleRect != null)
                   Positioned(
                     left: 0,
                     right: 0,
@@ -754,8 +550,7 @@ class _ComposerBlockSurfaceState extends State<ComposerBlockSurface> {
                     height: handleRect.height + DSpacing.xs * 2,
                     child: const DDragHighlight(),
                   ),
-                if (!arranging &&
-                    desktop &&
+                if (desktop &&
                     (block != null || _emptyLine != null) &&
                     handleRect != null &&
                     (handleRect.top >= 0 ||

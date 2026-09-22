@@ -88,7 +88,6 @@ void main() {
                   padding: const EdgeInsets.all(16),
                   child: Column(
                     children: [
-                      ComposerArrangeButton(composer: composer),
                       Expanded(
                         child: mobile
                             ? SingleChildScrollView(child: editor)
@@ -103,11 +102,6 @@ void main() {
         ),
       ),
     );
-    await tester.pumpAndSettle();
-  }
-
-  Future<void> arrange(WidgetTester tester) async {
-    await tester.tap(find.byTooltip('Arrange blocks'));
     await tester.pumpAndSettle();
   }
 
@@ -449,20 +443,6 @@ void main() {
     },
   );
 
-  testWidgets('add leaves Arrange mode and opens the editor commands', (
-    tester,
-  ) async {
-    await mount(tester, mobile: true, textScale: 1.3);
-    await arrange(tester);
-    expect(find.byTooltip('Add block'), findsNWidgets(3));
-    await tester.tap(find.byTooltip('Add block').first);
-    await tester.pumpAndSettle();
-    expect(composer.blocks.arranging, isFalse);
-    expect(find.text('Type to search'), findsOneWidget);
-    expect(composer.focus.hasFocus, isTrue);
-    expect(tester.takeException(), isNull);
-  });
-
   testWidgets('desktop handle drag moves a paragraph as one undoable edit', (
     tester,
   ) async {
@@ -505,37 +485,6 @@ void main() {
     await tester.pumpAndSettle();
     expect(composer.text.value, original);
     expect(composer.history.canUndo, isFalse);
-  });
-
-  testWidgets('mobile arrangement exposes each to-do as a separate row', (
-    tester,
-  ) async {
-    composer.text.value = const TextEditingValue(
-      text: '[ ] First\n[x] Second\n[ ] ',
-      selection: TextSelection.collapsed(offset: 4),
-    );
-    composer.history.reset();
-    await mount(tester, mobile: true, textScale: 1.5);
-    await arrange(tester);
-    final blocks = composer.blocks.index.blocks;
-    expect(blocks, hasLength(3));
-    for (final block in blocks) {
-      expect(
-        find.byKey(ValueKey('composer-block-handle-${block.id}')),
-        findsOneWidget,
-      );
-    }
-    await tester.tap(
-      find.byKey(ValueKey('composer-block-handle-${blocks.first.id}')),
-    );
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Move down'));
-    await tester.pumpAndSettle();
-    expect(composer.text.text, '[x] Second\n[ ] First\n[ ] ');
-    composer.history.undo();
-    await tester.pumpAndSettle();
-    expect(composer.text.text, '[ ] First\n[x] Second\n[ ] ');
-    expect(tester.takeException(), isNull);
   });
 
   testWidgets('empty-line drop indicator follows a steady downward drag', (
@@ -897,47 +846,6 @@ void main() {
     expect(composer.history.canUndo, isFalse);
   });
 
-  testWidgets(
-    '320px mobile Arrange retains the editor and supports arrows and undo',
-    (tester) async {
-      await mount(tester, mobile: true, textScale: 1.3);
-      final editor = tester.state<EditableTextState>(find.byType(EditableText));
-      final original = composer.text.value;
-      composer.focus.requestFocus();
-      await tester.pump();
-      await arrange(tester);
-      expect(composer.focus.hasFocus, isFalse);
-      expect(find.byType(EditableText), findsNothing);
-      expect(find.text('Move to…'), findsNothing);
-      await tester.tap(find.byTooltip('Move down'));
-      await tester.pumpAndSettle();
-      expect(
-        composer.text.text,
-        '## A heading\n\nFirst paragraph\n\nLast paragraph',
-      );
-      await tester.tap(find.byTooltip('Undo'));
-      await tester.pumpAndSettle();
-      expect(composer.text.value, original);
-      await tester.tap(find.byTooltip('Move down'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.byTooltip('Move down'));
-      await tester.pumpAndSettle();
-      expect(
-        composer.text.text,
-        '## A heading\n\nLast paragraph\n\nFirst paragraph',
-      );
-      await tester.ensureVisible(find.text('Done'));
-      await tester.tap(find.text('Done'));
-      await tester.pumpAndSettle();
-      expect(
-        tester.state<EditableTextState>(find.byType(EditableText)),
-        same(editor),
-      );
-      expect(composer.focus.hasFocus, isTrue);
-      expect(tester.takeException(), isNull);
-    },
-  );
-
   testWidgets('rapid moves remain separate for keyboard and native actions', (
     tester,
   ) async {
@@ -1018,70 +926,62 @@ void main() {
     expect(composer.text.text, '$original changed');
   });
 
-  for (final mobile in [false, true]) {
-    testWidgets('handle menus move blocks up and down ($mobile)', (
-      tester,
-    ) async {
-      await mount(tester, mobile: mobile);
-      if (mobile) await arrange(tester);
-      final id = composer.blocks.index.blocks.first.id;
-      final handle = find.byKey(ValueKey('composer-block-handle-$id'));
-      await tester.tap(handle);
-      await tester.pumpAndSettle();
-      expect(find.text('Move to…'), findsNothing);
-      await tester.tap(find.text('Move down'));
-      await tester.pumpAndSettle();
-      expect(
-        composer.text.text,
-        '## A heading\n\nFirst paragraph\n\nLast paragraph',
-      );
-      await tester.tap(handle);
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Move up'));
-      await tester.pumpAndSettle();
-      expect(
-        composer.text.text,
-        'First paragraph\n\n## A heading\n\nLast paragraph',
-      );
-      expect(composer.blocks.arranging, mobile);
-      expect(tester.takeException(), isNull);
-    });
-
-    testWidgets(
-      'handle drag scrolls a long draft at the viewport edge ($mobile)',
-      (tester) async {
-        final original = List.generate(
-          60,
-          (index) => 'Paragraph $index',
-        ).join('\n\n');
-        composer.text.value = TextEditingValue(
-          text: original,
-          selection: const TextSelection.collapsed(offset: 0),
-        );
-        await mount(tester, mobile: mobile);
-        if (mobile) await arrange(tester);
-        final handle = find.byKey(
-          ValueKey(
-            'composer-block-handle-${composer.blocks.index.blocks.first.id}',
-          ),
-        );
-        final gesture = await tester.startGesture(
-          tester.getCenter(handle),
-          kind: mobile ? PointerDeviceKind.touch : PointerDeviceKind.mouse,
-        );
-        await gesture.moveBy(const Offset(0, 24));
-        await tester.pump();
-        await gesture.moveTo(const Offset(150, 694));
-        await tester.pump(const Duration(seconds: 1));
-        final positions = tester
-            .stateList<ScrollableState>(find.byType(Scrollable))
-            .map((state) => state.position.pixels);
-        expect(positions.any((pixels) => pixels > 0), isTrue);
-        await tester.sendKeyEvent(LogicalKeyboardKey.escape);
-        await gesture.up();
-        await tester.pumpAndSettle();
-        expect(composer.text.text, original);
-      },
+  testWidgets('handle menus move blocks up and down', (tester) async {
+    await mount(tester);
+    final id = composer.blocks.index.blocks.first.id;
+    final handle = find.byKey(ValueKey('composer-block-handle-$id'));
+    await tester.tap(handle);
+    await tester.pumpAndSettle();
+    expect(find.text('Move to…'), findsNothing);
+    await tester.tap(find.text('Move down'));
+    await tester.pumpAndSettle();
+    expect(
+      composer.text.text,
+      '## A heading\n\nFirst paragraph\n\nLast paragraph',
     );
-  }
+    await tester.tap(handle);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Move up'));
+    await tester.pumpAndSettle();
+    expect(
+      composer.text.text,
+      'First paragraph\n\n## A heading\n\nLast paragraph',
+    );
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('handle drag scrolls a long draft at the viewport edge', (
+    tester,
+  ) async {
+    final original = List.generate(
+      60,
+      (index) => 'Paragraph $index',
+    ).join('\n\n');
+    composer.text.value = TextEditingValue(
+      text: original,
+      selection: const TextSelection.collapsed(offset: 0),
+    );
+    await mount(tester);
+    final handle = find.byKey(
+      ValueKey(
+        'composer-block-handle-${composer.blocks.index.blocks.first.id}',
+      ),
+    );
+    final gesture = await tester.startGesture(
+      tester.getCenter(handle),
+      kind: PointerDeviceKind.mouse,
+    );
+    await gesture.moveBy(const Offset(0, 24));
+    await tester.pump();
+    await gesture.moveTo(const Offset(150, 694));
+    await tester.pump(const Duration(seconds: 1));
+    final positions = tester
+        .stateList<ScrollableState>(find.byType(Scrollable))
+        .map((state) => state.position.pixels);
+    expect(positions.any((pixels) => pixels > 0), isTrue);
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await gesture.up();
+    await tester.pumpAndSettle();
+    expect(composer.text.text, original);
+  });
 }

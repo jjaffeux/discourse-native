@@ -3672,17 +3672,7 @@ class _Toolbar extends StatelessWidget {
       controller.siteConfigFor(composer.target.siteUrl),
       controller.freshCurrentUserFor(composer.target.siteUrl),
     ),
-    builder: (context, _, _) => ListenableBuilder(
-      listenable: composer.blocks,
-      builder: (context, _) => composer.blocks.arranging
-          ? _ComposerToolbarOverflow(
-              children: [
-                ComposerArrangeButton(composer: composer),
-                const Text('Arrange blocks'),
-              ],
-            )
-          : _buildToolbar(context),
-    ),
+    builder: (context, _, _) => _buildToolbar(context),
   );
 
   Widget _buildToolbar(BuildContext context) {
@@ -3699,7 +3689,6 @@ class _Toolbar extends StatelessWidget {
     final uploadsEnabled = composer.imageUploader != null;
     return _ComposerToolbarOverflow(
       children: [
-        ComposerArrangeButton(composer: this.composer),
         _FormattingToolbar(composer: this.composer),
         const DSeparator(orientation: Axis.vertical, length: 20),
         if (uploadsEnabled)

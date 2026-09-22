@@ -28,9 +28,7 @@ class ComposerBlockController extends ChangeNotifier {
   ComposerBlockIndex? _index;
   ComposerBlockIndex? _pendingIndex;
   int? _selectedId;
-  bool _arranging = false;
 
-  bool get arranging => _arranging;
   int get revision => _revision;
   bool get enabled => canEdit() && !history.composing;
   ComposerBlockIndex get index => _index ??= _parse();
@@ -69,7 +67,7 @@ class ComposerBlockController extends ChangeNotifier {
     if (text.value == _lastValue) return;
     _lastValue = text.value;
     if (text.text == _source) {
-      if (!_arranging && _pendingIndex == null) _selectedId = null;
+      if (_pendingIndex == null) _selectedId = null;
       notifyListeners();
       return;
     }
@@ -91,24 +89,6 @@ class ComposerBlockController extends ChangeNotifier {
     if (index.byId(id) == null || _selectedId == id) return;
     _selectedId = id;
     notifyListeners();
-  }
-
-  bool startArranging() {
-    if (!enabled) return false;
-    _selectedId = selected?.id;
-    _arranging = true;
-    notifyListeners();
-    return true;
-  }
-
-  void finishArranging() {
-    _arranging = false;
-    notifyListeners();
-  }
-
-  bool canMoveTo(int gap) {
-    final block = selected;
-    return enabled && block != null && index.move(block.id, gap) != null;
   }
 
   bool moveTo(
@@ -155,7 +135,6 @@ class ComposerBlockController extends ChangeNotifier {
     _index = null;
     _pendingIndex = null;
     _selectedId = null;
-    _arranging = false;
     _source = text.text;
     _lastValue = text.value;
     _revision++;

@@ -1,6 +1,5 @@
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/macos_launch_screen.dart';
-import 'package:discourse_native/src/shell/composer_block_surface.dart';
 import 'package:discourse_native/src/shell/composer_controller.dart';
 import 'package:discourse_native/src/shell/composer_panel.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
@@ -89,7 +88,6 @@ Future<void> main() async {
                               composer.focus.unfocus();
                             },
                           ),
-                          ComposerArrangeButton(composer: composer),
                         ],
                       ),
                       const SizedBox(height: 24),
