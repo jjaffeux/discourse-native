@@ -328,7 +328,7 @@ class _MobileForumRootState extends State<MobileForumRoot> {
                             icon: const Icon(Icons.menu),
                             tooltip: 'Open navigation',
                             variant: DButtonVariant.ghost,
-                            alignment: AlignmentDirectional.centerEnd,
+                            alignment: AlignmentDirectional.centerStart,
                             onPressed: open,
                           ),
                         ),
