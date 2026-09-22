@@ -7,6 +7,7 @@ import 'package:discourse_native/src/shell/site_image.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/badge_fixtures.dart';
@@ -53,10 +54,10 @@ void main() {
         final position = tester.state<ScrollableState>(scrollable).position;
         final pointerPosition = tester.getCenter(find.byType(CustomScrollView));
         for (var group = 1; group <= 5; group++) {
-          final lastCard = find.byKey(ValueKey('badge-card-${group * 15}'));
+          final lastRow = find.byKey(ValueKey('badge-row-${group * 15}'));
           for (
             var step = 0;
-            step < 150 && lastCard.hitTestable().evaluate().isEmpty;
+            step < 150 && lastRow.hitTestable().evaluate().isEmpty;
             step++
           ) {
             final before = position.pixels;
@@ -74,7 +75,7 @@ void main() {
               reason: 'Scroll stopped before group $group',
             );
           }
-          expect(lastCard.hitTestable(), findsOneWidget);
+          expect(lastRow.hitTestable(), findsOneWidget);
         }
         for (var step = 0; step < 150 && position.pixels > 0; step++) {
           final before = position.pixels;
@@ -92,7 +93,7 @@ void main() {
         }
         expect(position.pixels, 0);
         expect(
-          find.byKey(const ValueKey('badge-card-1')).hitTestable(),
+          find.byKey(const ValueKey('badge-row-1')).hitTestable(),
           findsOneWidget,
         );
         expect(tester.takeException(), isNull);
@@ -101,14 +102,14 @@ void main() {
     );
   }
 
-  for (final (width, columns, scale, platform) in [
-    (390.0, 1, 1.0, TargetPlatform.macOS),
-    (760.0, 2, 1.0, TargetPlatform.macOS),
-    (1100.0, 3, 1.0, TargetPlatform.macOS),
-    (1100.0, 3, 1.0, TargetPlatform.android),
-    (390.0, 1, 2.0, TargetPlatform.android),
+  for (final (width, scale, platform) in [
+    (390.0, 1.0, TargetPlatform.macOS),
+    (760.0, 1.0, TargetPlatform.macOS),
+    (1100.0, 1.0, TargetPlatform.macOS),
+    (1100.0, 1.0, TargetPlatform.android),
+    (390.0, 2.0, TargetPlatform.android),
   ]) {
-    testWidgets('grouped cards fit $width at text scale $scale on $platform', (
+    testWidgets('grouped rows fit $width at text scale $scale on $platform', (
       tester,
     ) async {
       final catalog = BadgeCatalog.fromJson({
@@ -135,26 +136,105 @@ void main() {
       );
       expect(find.text('Getting Started'), findsOneWidget);
       expect(find.text('3 badges · 1 earned'), findsOneWidget);
-      final cards = [
+      final rows = [
         for (var id = 1; id <= 3; id++)
-          tester.getRect(find.byKey(ValueKey('badge-card-$id'))),
+          tester.getRect(find.byKey(ValueKey('badge-row-$id'))),
       ];
-      for (var i = 0; i < cards.length; i++) {
-        expect(cards[i].left, greaterThanOrEqualTo(0));
-        expect(cards[i].right, lessThanOrEqualTo(width));
-        for (var j = i + 1; j < cards.length; j++) {
-          expect(cards[i].overlaps(cards[j]), isFalse);
+      for (var i = 0; i < rows.length; i++) {
+        expect(rows[i].left, greaterThanOrEqualTo(0));
+        expect(rows[i].right, lessThanOrEqualTo(width));
+        for (var j = i + 1; j < rows.length; j++) {
+          expect(rows[i].overlaps(rows[j]), isFalse);
         }
       }
-      expect(cards.map((rect) => rect.left).toSet().length, columns);
-      expect(cards[0].height, greaterThan(cards[1].height));
+      expect(rows.map((rect) => rect.left).toSet().length, 1);
+      expect(rows.every((rect) => rect.width == width), isTrue);
+      expect(rows[0].height, greaterThan(rows[1].height));
       expect(find.bySemanticsLabel(RegExp('Earned')), findsWidgets);
       await tester.tap(find.text('Nouvel utilisateur du mois'));
+      expect(opened?.id, 1);
+      opened = null;
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
       expect(opened?.id, 1);
       expect(tester.takeException(), isNull);
       semantics.dispose();
     }, variant: TargetPlatformVariant.only(platform));
   }
+
+  testWidgets('filters badges while preserving groups and catalog totals', (
+    tester,
+  ) async {
+    await _pump(
+      tester,
+      BadgesState(
+        catalog: BadgeCatalog.fromJson(badgeCatalogWire, _site),
+        loaded: true,
+      ),
+    );
+    Future<void> select(String label) async {
+      await tester.tap(find.byKey(const ValueKey('badge-filter')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(label).last);
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+    }
+
+    await select('Earned');
+    expect(find.text('Autobiographer'), findsOneWidget);
+    expect(find.text('Nice Reply'), findsOneWidget);
+    expect(find.text('Reader'), findsNothing);
+    expect(find.text('3 badges · 2 earned'), findsOneWidget);
+
+    await select('Not earned');
+    expect(find.text('Reader'), findsOneWidget);
+    expect(find.text('Autobiographer'), findsNothing);
+    expect(find.text('Community'), findsNothing);
+
+    await select('Silver');
+    expect(find.text('Nice Reply'), findsOneWidget);
+    expect(find.text('Getting Started'), findsNothing);
+
+    await select('Gold');
+    expect(find.text('No badges match this filter.'), findsOneWidget);
+    expect(find.byType(BadgeRow), findsNothing);
+
+    await select('All badges');
+    expect(find.byType(BadgeRow), findsNWidgets(3));
+  });
+
+  testWidgets('clears personal filters when earned state is removed', (
+    tester,
+  ) async {
+    await _pump(
+      tester,
+      BadgesState(
+        catalog: BadgeCatalog.fromJson(badgeCatalogWire, _site),
+        loaded: true,
+      ),
+    );
+    await tester.tap(find.byKey(const ValueKey('badge-filter')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Earned').last);
+    await tester.pumpAndSettle();
+    await _pump(
+      tester,
+      BadgesState(
+        catalog: BadgeCatalog.fromJson({
+          'badges': [
+            {...badgeWire}..remove('has_badge'),
+          ],
+        }, _site),
+        loaded: true,
+      ),
+    );
+    expect(find.text('All badges'), findsOneWidget);
+    expect(find.text('Autobiographer'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('badge-filter')));
+    await tester.pumpAndSettle();
+    expect(find.text('Earned'), findsNothing);
+    expect(find.text('Not earned'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
 
   testWidgets(
     'anonymous badges omit earned status and preserve custom artwork',
