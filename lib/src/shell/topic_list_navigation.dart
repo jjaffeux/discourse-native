@@ -126,7 +126,6 @@ class TopicListNavigation extends StatelessWidget {
             keepTopicOpen: keepTopicOpen,
           );
           return DPageSurface(
-            hideHeaderOnScroll: true,
             framed: false,
             identity: state.filterOwner,
             header: constraints.maxHeight < 320

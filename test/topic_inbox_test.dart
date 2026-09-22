@@ -141,7 +141,7 @@ void main() {
     },
   );
 
-  testWidgets('topic and list headers independently follow scroll distance', (
+  testWidgets('topic header retracts while the list header stays visible', (
     tester,
   ) async {
     final setup = await _setup(
@@ -188,14 +188,10 @@ void main() {
     expect(title.hitTestable(), findsOneWidget);
     expect(tester.getTopLeft(reader).dy, readerTop);
     await wheel(list, 240);
-    expect(tester.getTopLeft(find.byType(TopicListView)).dy, lessThan(listTop));
+    expect(tester.getTopLeft(find.byType(TopicListView)).dy, listTop);
     expect(title.hitTestable(), findsOneWidget);
-    final hiddenListTop = tester.getTopLeft(find.byType(TopicListView)).dy;
     await wheel(list, -10);
-    expect(
-      tester.getTopLeft(find.byType(TopicListView)).dy,
-      closeTo(hiddenListTop + 10, 0.001),
-    );
+    expect(tester.getTopLeft(find.byType(TopicListView)).dy, listTop);
     await wheel(list, -230);
     expect(tester.getTopLeft(find.byType(TopicListView)).dy, listTop);
     expect(tester.element(reader), same(readerElement));

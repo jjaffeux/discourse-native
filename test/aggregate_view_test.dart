@@ -110,7 +110,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byKey(const ValueKey('aggregate-rail-button')));
+    await _openAggregate(tester);
     await tester.pumpAndSettle();
     final emoji = tester.widget<SiteEmojiImage>(find.byType(SiteEmojiImage));
     expect(emoji.name, 'megaphone');
@@ -576,8 +576,19 @@ _pumpMixedAggregateView(WidgetTester tester, {bool empty = false}) async {
     ),
   );
   await tester.pumpAndSettle();
-  await tester.tap(find.byKey(const ValueKey('aggregate-rail-button')));
+  await _openAggregate(tester);
   await tester.pumpAndSettle();
   expect(find.byType(TopicFilterInput), findsNothing);
   return (forumUrls: forums.map((forum) => forum.url).toList(), api: api);
+}
+
+Future<void> _openAggregate(WidgetTester tester) async {
+  final menu = find.byKey(const ValueKey('mobile-menu-button'));
+  if (menu.evaluate().isNotEmpty) {
+    await tester.tap(menu);
+    await tester.pumpAndSettle();
+  }
+  await tester.tap(find.byKey(const ValueKey('aggregate-rail-button')));
+  await tester.pumpAndSettle();
+  expect(find.byTooltip('Close navigation'), findsNothing);
 }
