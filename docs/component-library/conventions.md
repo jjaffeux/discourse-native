@@ -115,6 +115,11 @@ backgrounds use this option at panel boundaries so a single window effect
 continues behind the sidebar, list and reader. Inner content stays transparent;
 the fixed footers retain their own stronger fill and top border.
 
+`DCard.borderRadius` and `DPageSurface.borderRadius` accept per-corner geometry
+for window-adjoining panels; the Native Card owns both the outline and clip.
+The macOS workspace passes its inset bottom-right window corner through split
+layouts to the outermost panel. Other corners retain the forum's Card radius.
+
 ### Adjacent control spacing
 
 Use `DSpacing.controlGap` (4 logical pixels) between separate adjacent buttons,

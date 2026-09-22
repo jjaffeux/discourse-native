@@ -23,6 +23,7 @@ class DCard extends StatelessWidget {
     this.variant = DCardVariant.standard,
     this.spacing,
     this.backgroundColor,
+    this.borderRadius,
     this.leading,
     this.trailing,
     this.footer,
@@ -38,6 +39,10 @@ class DCard extends StatelessWidget {
   /// Overrides only the surface fill, retaining the outline, clipping and
   /// descendant theme. Supports translucent fills over a shared backdrop.
   final Color? backgroundColor;
+
+  /// Overrides the outline and clip together, for surfaces adjoining a window.
+  /// Null retains the theme radius (or the capsule variant's rounded ends).
+  final BorderRadiusGeometry? borderRadius;
   final Widget? leading;
   final Widget? trailing;
   final DCardFooter? footer;
@@ -54,7 +59,9 @@ class DCard extends StatelessWidget {
             ? DSpacing.md
             : DSpacing.lg);
     final parts = <Widget>[?leading, ?child, ...children, ?footer, ?trailing];
-    final radius = BorderRadius.circular(capsule ? 999 : tokens.radius * 1.4);
+    final radius =
+        borderRadius?.resolve(Directionality.of(context)) ??
+        BorderRadius.circular(capsule ? 999 : tokens.radius * 1.4);
     return _CardScope(
       spacing: inset,
       size: size,

@@ -30,6 +30,36 @@ Widget host(
 );
 
 void main() {
+  testWidgets('per-corner radius keeps the outline and clipping together', (
+    tester,
+  ) async {
+    const corners = BorderRadiusDirectional.only(
+      topStart: Radius.circular(4),
+      bottomEnd: Radius.circular(20),
+    );
+    for (final direction in TextDirection.values) {
+      await tester.pumpWidget(
+        host(
+          const DCard(borderRadius: corners, child: SizedBox(height: 100)),
+          direction: direction,
+        ),
+      );
+      final card = find.byType(DCard);
+      final material = tester.widget<Material>(
+        find.descendant(of: card, matching: find.byType(Material)),
+      );
+      final border = tester.widget<DecoratedBox>(
+        find.descendant(of: card, matching: find.byType(DecoratedBox)).first,
+      );
+      expect(material.borderRadius, corners.resolve(direction));
+      expect(material.clipBehavior, Clip.antiAlias);
+      expect(
+        (border.decoration as BoxDecoration).borderRadius,
+        corners.resolve(direction),
+      );
+    }
+  });
+
   testWidgets(
     'capsule card groups actions without clipping their hit targets',
     (tester) async {

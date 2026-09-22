@@ -370,30 +370,38 @@ class _ComposerDockState extends State<ComposerDock> {
       ComposerPlacement? workspacePlacement,
     }) => SizedBox.expand(
       key: _readerViewportKey,
-      child: RepaintBoundary(
-        child: widget.appWorkspace
-            ? _ComposerWorkspaceScope(
-                placement: workspacePlacement,
-                child: Semantics(
-                  container: true,
-                  explicitChildNodes: true,
-                  child: reader,
-                ),
-              )
-            : LayoutBuilder(
-                builder: (context, bounds) => DScrollArea(
-                  thumbVisibility: false,
-                  child: SizedBox(
-                    height: bottomDocked
-                        ? math.max(
-                            bounds.maxHeight,
-                            MediaQuery.textScalerOf(context).scale(320),
-                          )
-                        : bounds.maxHeight,
+      child: WorkspacePanelCorner(
+        radius:
+            entry?.minimized == true ||
+                workspacePlacement == ComposerPlacement.right ||
+                workspacePlacement == ComposerPlacement.bottom
+            ? null
+            : WorkspacePanelCorner.of(context),
+        child: RepaintBoundary(
+          child: widget.appWorkspace
+              ? _ComposerWorkspaceScope(
+                  placement: workspacePlacement,
+                  child: Semantics(
+                    container: true,
+                    explicitChildNodes: true,
                     child: reader,
                   ),
+                )
+              : LayoutBuilder(
+                  builder: (context, bounds) => DScrollArea(
+                    thumbVisibility: false,
+                    child: SizedBox(
+                      height: bottomDocked
+                          ? math.max(
+                              bounds.maxHeight,
+                              MediaQuery.textScalerOf(context).scale(320),
+                            )
+                          : bounds.maxHeight,
+                      child: reader,
+                    ),
+                  ),
                 ),
-              ),
+        ),
       ),
     );
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -462,11 +470,13 @@ class _ComposerDockState extends State<ComposerDock> {
               if (!mobile) const SizedBox(height: workspacePanelGap),
               SizedBox(
                 height: ComposerHeader.height,
-                child: owner._surface(
-                  entry,
-                  placement: placement,
-                  mobile: mobile,
-                  size: Size(constraints.maxWidth, ComposerHeader.height),
+                child: WorkspacePanel(
+                  child: owner._surface(
+                    entry,
+                    placement: placement,
+                    mobile: mobile,
+                    size: Size(constraints.maxWidth, ComposerHeader.height),
+                  ),
                 ),
               ),
             ],
@@ -478,11 +488,13 @@ class _ComposerDockState extends State<ComposerDock> {
             children: [
               Offstage(offstage: true, child: readerViewport()),
               Positioned.fill(
-                child: owner._surface(
-                  entry,
-                  placement: placement,
-                  mobile: mobile,
-                  size: Size(constraints.maxWidth, constraints.maxHeight),
+                child: WorkspacePanel(
+                  child: owner._surface(
+                    entry,
+                    placement: placement,
+                    mobile: mobile,
+                    size: Size(constraints.maxWidth, constraints.maxHeight),
+                  ),
                 ),
               ),
             ],
@@ -558,6 +570,7 @@ class _ComposerDockState extends State<ComposerDock> {
             child: Padding(
               padding: editorPadding,
               child: WorkspacePanel(
+                atRightEdge: placement != ComposerPlacement.left,
                 child: Container(
                   color: ForumWindowBackground.surfaceColor(
                     context,
