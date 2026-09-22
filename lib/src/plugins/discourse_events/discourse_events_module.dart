@@ -1,5 +1,4 @@
-import '../../plugin_api/core_plugin_host.dart';
-import '../../plugin_api/plugin_manifest.dart';
+import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'discourse_events_cooking.dart';
 import 'discourse_events_plugin.dart';
 import 'event_api.dart';

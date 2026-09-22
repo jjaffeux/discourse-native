@@ -1,13 +1,9 @@
 import 'dart:async';
 
+import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:flutter/material.dart';
 import 'package:html/dom.dart' as dom;
 
-import '../../models/content_route.dart';
-import '../../models/sidebar.dart';
-import '../../models/topic.dart';
-import '../../plugin_api/plugin_scope.dart';
-import '../../plugin_api/site_plugin_api.dart';
 import 'event_calendar_data.dart';
 import 'event_card.dart';
 import 'event_composer.dart';
@@ -176,6 +172,7 @@ final class DiscourseEventsPlugin
       SidebarDestination(
         id: 'events-upcoming',
         label: 'Upcoming events',
+        mobileNavigationLabel: 'Events',
         icon: EventIcons.calendar,
       ),
     ];

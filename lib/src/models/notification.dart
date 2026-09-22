@@ -161,7 +161,6 @@ const userMenuReplyNotificationTypes = <NotificationTypeName>[
 const userMenuLikeNotificationTypes = <NotificationTypeName>[
   NotificationTypeName('liked'),
   NotificationTypeName('liked_consolidated'),
-  NotificationTypeName('reaction'),
 ];
 
 /// Notification types already owned by a dedicated core user-menu tab.

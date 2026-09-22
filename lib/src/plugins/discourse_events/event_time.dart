@@ -1,7 +1,7 @@
+import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:intl/intl.dart';
 import 'package:timezone/timezone.dart' as tz;
 
-import '../../plugin_api/timezone_host.dart';
 import 'event_data.dart';
 
 /// Calendar days stay calendar days. The UTC carrier is never converted to

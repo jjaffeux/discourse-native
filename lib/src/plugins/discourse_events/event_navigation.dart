@@ -1,9 +1,4 @@
-import '../../models/content_route.dart';
-import '../../plugin_api/core_plugin_host.dart';
-import '../../plugin_api/plugin_manifest.dart';
-import '../../plugin_api/shell_extensions.dart';
-import '../../shell/external_link.dart';
-import '../../shell/site_url.dart';
+import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'event_calendar_data.dart';
 import 'event_controller.dart';
 import 'event_data.dart';

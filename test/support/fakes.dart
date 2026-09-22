@@ -49,6 +49,7 @@ import 'package:discourse_native/src/plugin_api/core_plugin_host.dart';
 import 'package:discourse_native/src/plugin_api/discourse_model_codec.dart';
 import 'package:discourse_native/src/plugin_api/live_channels.dart';
 import 'package:discourse_native/src/plugin_api/plugin_data.dart';
+import 'package:discourse_native/src/plugin_api/plugin_registry.dart';
 import 'package:discourse_native/src/plugins/chat/chat_api.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_direct_message_search.dart';
@@ -1437,7 +1438,7 @@ class FakeDiscourseApi
     if (gate != null) await gate.future;
     final failure = writeFailure;
     if (failure != null) throw failure;
-    final updated = UserPreferences.fromJson({
+    final updated = models.userPreferences({
       'user_option': values,
     }, fallback: fallback);
     userPreferences = updated;
@@ -1475,7 +1476,12 @@ class FakeDiscourseApi
   }) async {
     notificationFilters.add(List.unmodifiable(filterByTypes));
     final replies = _sameKinds(filterByTypes, userMenuReplyNotificationTypes);
-    final likes = _sameKinds(filterByTypes, userMenuLikeNotificationTypes);
+    final likes = _sameKinds(
+      filterByTypes,
+      models.extensions is PluginRegistry
+          ? (models.extensions as PluginRegistry).likeNotificationTypes
+          : userMenuLikeNotificationTypes,
+    );
     final chat = _sameKinds(filterByTypes, chatNotificationFeed.filterByTypes);
     if (replies) {
       replyNotificationCalls++;

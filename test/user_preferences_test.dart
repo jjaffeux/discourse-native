@@ -1,7 +1,10 @@
 import 'package:discourse_native/src/models/bookmark.dart';
-import 'package:discourse_native/src/models/chat_channel_list_preferences.dart';
 import 'package:discourse_native/src/models/user_preferences.dart';
+import 'package:discourse_native/src/plugins/chat/chat_channel_list_preferences.dart';
+import 'package:discourse_native/src/plugins/chat/chat_user_preferences.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+import 'support/bundled_plugins.dart';
 
 void main() {
   test(
@@ -14,25 +17,39 @@ void main() {
               section.filterField: filter.wireValue,
               section.sortField: sort.wireValue,
             };
-            final value = UserPreferences.fromJson({'user_option': fields});
-            expect(value.channelListPreferences.wireValues, fields);
-            expect(value.channelListPreferences.filterFor(section), filter);
-            expect(value.channelListPreferences.sortFor(section), sort);
-            expect(UserPreferences.fromJson(const {}, fallback: value), value);
+            final value = installedPlugins.models.userPreferences({
+              'user_option': fields,
+            });
+            expect(value.chatPreferences.channelList.wireValues, fields);
+            expect(
+              value.chatPreferences.channelList.filterFor(section),
+              filter,
+            );
+            expect(value.chatPreferences.channelList.sortFor(section), sort);
+            expect(
+              installedPlugins.models.userPreferences(
+                const {},
+                fallback: value,
+              ),
+              value,
+            );
             expect(value.copyWith().hashCode, value.hashCode);
           }
         }
       }
-      final missing = UserPreferences.fromJson(const {});
-      expect(missing.channelListPreferences.wireValues, isEmpty);
-      final unknown = UserPreferences.fromJson({
-        'user_option': {
-          for (final section in ChatChannelListSection.values) ...{
-            section.filterField: ['invalid'],
-            section.sortField: 999,
-          },
-        },
-      }).channelListPreferences;
+      final missing = installedPlugins.models.userPreferences(const {});
+      expect(missing.chatPreferences.channelList.wireValues, isEmpty);
+      final unknown = installedPlugins.models
+          .userPreferences({
+            'user_option': {
+              for (final section in ChatChannelListSection.values) ...{
+                section.filterField: ['invalid'],
+                section.sortField: 999,
+              },
+            },
+          })
+          .chatPreferences
+          .channelList;
       expect(unknown.wireValues, {
         for (final section in ChatChannelListSection.values) ...{
           section.filterField: 'all',
@@ -40,18 +57,20 @@ void main() {
         },
       });
       expect(
-        UserPreferences.fromJson(
-          const {
-            'user_option': {'chat_channel_list_sort_dms': 'priority'},
-          },
-        ).channelListPreferences.sortFor(ChatChannelListSection.directMessages),
+        installedPlugins.models
+            .userPreferences(const {
+              'user_option': {'chat_channel_list_sort_dms': 'priority'},
+            })
+            .chatPreferences
+            .channelList
+            .sortFor(ChatChannelListSection.directMessages),
         ChatChannelListSort.priority,
       );
     },
   );
 
   test('reads identity, permissions, and nested user-option fields', () {
-    final preferences = UserPreferences.fromJson(const {
+    final preferences = installedPlugins.models.userPreferences(const {
       'username': 'sam',
       'can_edit': true,
       'can_change_tracking_preferences': true,
@@ -79,15 +98,19 @@ void main() {
         notificationLevelWhenReplying: 3,
         bookmarkAutoDeletePreference:
             BookmarkAutoDeletePreference.whenReminderSent,
-        chatSeparateSidebarMode: ChatSeparateSidebarPreference.fullscreen,
         canEdit: true,
         canChangeTrackingPreferences: true,
+        pluginValues: {
+          'chat/preferences': ChatUserPreferences(
+            separateSidebarMode: ChatSeparateSidebarPreference.fullscreen,
+          ),
+        },
       ),
     );
   });
 
   test('uses safe defaults for malformed values', () {
-    final preferences = UserPreferences.fromJson(const {
+    final preferences = installedPlugins.models.userPreferences(const {
       'username': 12,
       'can_edit': 'true',
       'can_change_tracking_preferences': 1,
@@ -103,7 +126,12 @@ void main() {
       },
     });
 
-    expect(preferences, const UserPreferences());
+    expect(
+      preferences,
+      const UserPreferences(
+        pluginValues: {'chat/preferences': ChatUserPreferences()},
+      ),
+    );
   });
 
   test('merges a partial user response over the confirmed fallback', () {
@@ -116,12 +144,16 @@ void main() {
       autoTrackTopicsAfterMsecs: 120000,
       notificationLevelWhenReplying: 2,
       bookmarkAutoDeletePreference: BookmarkAutoDeletePreference.never,
-      chatSeparateSidebarMode: ChatSeparateSidebarPreference.always,
       canEdit: true,
       canChangeTrackingPreferences: true,
+      pluginValues: {
+        'chat/preferences': ChatUserPreferences(
+          separateSidebarMode: ChatSeparateSidebarPreference.always,
+        ),
+      },
     );
 
-    final updated = UserPreferences.fromJson(const {
+    final updated = installedPlugins.models.userPreferences(const {
       'user_option': {'like_notification_frequency': 2},
     }, fallback: fallback);
 
@@ -137,7 +169,11 @@ void main() {
       autoTrackTopicsAfterMsecs: 30000,
       notificationLevelWhenReplying: 1,
       bookmarkAutoDeletePreference: BookmarkAutoDeletePreference.onOwnerReply,
-      chatSeparateSidebarMode: ChatSeparateSidebarPreference.fullscreen,
+      pluginValues: {
+        'chat/preferences': ChatUserPreferences(
+          separateSidebarMode: ChatSeparateSidebarPreference.fullscreen,
+        ),
+      },
     );
 
     expect(preferences.payloadFor(PreferenceSection.notifications), {
@@ -155,7 +191,7 @@ void main() {
     expect(preferences.payloadFor(PreferenceSection.interface), {
       'bookmark_auto_delete_preference': 2,
     });
-    expect(preferences.payloadFor(PreferenceSection.chat), {
+    expect(preferences.payloadFor(chatPreferenceSection), {
       'chat_separate_sidebar_mode': 'fullscreen',
     });
     expect(
@@ -167,15 +203,15 @@ void main() {
   });
 
   test('preserves the server default chat sidebar sentinel', () {
-    final preferences = UserPreferences.fromJson(const {
+    final preferences = installedPlugins.models.userPreferences(const {
       'user_option': {'chat_separate_sidebar_mode': 'default'},
     });
 
     expect(
-      preferences.chatSeparateSidebarMode,
+      preferences.chatPreferences.separateSidebarMode,
       ChatSeparateSidebarPreference.siteDefault,
     );
-    expect(preferences.payloadFor(PreferenceSection.chat), {
+    expect(preferences.payloadFor(chatPreferenceSection), {
       'chat_separate_sidebar_mode': 'default',
     });
   });

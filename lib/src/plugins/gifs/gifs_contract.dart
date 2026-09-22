@@ -1,4 +1,4 @@
-import '../../theme/d_icon.dart';
+import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'gifs_icons.dart';
 
 export 'gif.dart' show GifResult;

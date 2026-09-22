@@ -1,11 +1,6 @@
 // ignore_for_file: prefer_initializing_formals
 
-import '../../data/store.dart';
-import '../../diagnostics/diagnostics_controller.dart';
-import '../../foundation/frame_safe_notifier.dart';
-import '../../models/topic.dart';
-import '../../models/topic_feed.dart';
-import '../../plugin_api/core_plugin_host.dart';
+import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'assigned_group.dart';
 import 'assigned_group_api.dart';
 

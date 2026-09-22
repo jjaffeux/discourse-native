@@ -11,6 +11,7 @@ import 'markdown_highlight.dart';
 const composerLinkSyntaxKind = ComposerSyntaxKind(
   owner: PluginId('core'),
   name: 'link',
+  label: 'Link',
 );
 
 enum ComposerLinkKind { markdown, linkify }

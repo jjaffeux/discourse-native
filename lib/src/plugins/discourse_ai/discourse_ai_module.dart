@@ -1,7 +1,4 @@
-import '../../diagnostics/diagnostics_controller.dart';
-import '../../plugin_api/cooking_plugin.dart';
-import '../../plugin_api/core_plugin_host.dart';
-import '../../plugin_api/plugin_manifest.dart';
+import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'ai_proofreading_api.dart';
 import 'ai_proofreading_controller.dart';
 import 'ai_proofreading_plugin.dart';

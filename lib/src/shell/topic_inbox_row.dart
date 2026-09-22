@@ -38,7 +38,12 @@ class TopicInboxRow extends StatelessWidget {
     final settings = ShellScope.maybeIdentityOf(context)?.appSettings;
     if (settings == null) return _buildRow(context);
     return ListenableBuilder(
-      listenable: settings,
+      listenable: Listenable.merge([
+        settings,
+        ...?(PluginScope.maybeOf(
+          context,
+        )?.registry.topicListPresentationListenables(context)),
+      ]),
       builder: (context, _) => _buildRow(context),
     );
   }

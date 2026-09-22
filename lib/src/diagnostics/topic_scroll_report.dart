@@ -20,10 +20,6 @@ String encodeTopicScrollReport(
   final listScrollDurations = <int>[];
   final listBuildDurations = <int>[];
   final listLayoutDurations = <int>[];
-  final chatScrollDurations = <int>[];
-  final chatViewportDurations = <int>[];
-  final chatRowLayoutDurations = <int>[];
-  final chatDayExtentDurations = <int>[];
   final layoutDurations = <int>[];
   final cpuProfile = _map(report['cpuProfile']);
   final cpuByFrame = {
@@ -39,7 +35,8 @@ String encodeTopicScrollReport(
   final listContexts = <Map<String, Object?>>[];
   final usersContexts = <Map<String, Object?>>[];
   final usersMaximaDurations = <int>[];
-  final chatContexts = <Map<String, Object?>>[];
+  final extensionContexts = <Map<String, Object?>>[];
+  final timings = <String, List<int>>{};
   final frames = <Map<String, Object?>>[];
 
   for (final event in events) {
@@ -59,18 +56,16 @@ String encodeTopicScrollReport(
     if (name == 'users.maxima.work') {
       usersMaximaDurations.add(_int(data['durationUs']));
     }
-    if (name == 'chat.capture.context') chatContexts.add(data);
-    if (name == 'chat.scroll.notification') {
-      chatScrollDurations.add(_int(data['durationUs']));
+    if (name.endsWith('.capture.context') &&
+        !const {
+          'topic.capture.context',
+          'topicList.capture.context',
+          'users.capture.context',
+        }.contains(name)) {
+      extensionContexts.add({'name': name, 'data': data});
     }
-    if (name == 'chat.viewport.work') {
-      chatViewportDurations.add(_int(data['durationUs']));
-    }
-    if (name == 'chat.row.layout') {
-      chatRowLayoutDurations.add(_int(data['durationUs']));
-    }
-    if (name == 'chat.dayExtents.scanned') {
-      chatDayExtentDurations.add(_int(data['durationUs']));
+    if (data['durationUs'] case final int duration when duration >= 0) {
+      (timings[name] ??= []).add(duration);
     }
     if (name == 'topicList.row.build') {
       listBuildDurations.add(_int(data['durationUs']));
@@ -114,10 +109,6 @@ String encodeTopicScrollReport(
     'topicListRowBuildUs': _distribution(listBuildDurations),
     'topicListRowLayoutUs': _distribution(listLayoutDurations),
     'topicListScrollWorkUs': _distribution(listScrollDurations),
-    'chatScrollWorkUs': _distribution(chatScrollDurations),
-    'chatViewportWorkUs': _distribution(chatViewportDurations),
-    'chatRowLayoutUs': _distribution(chatRowLayoutDurations),
-    'chatDayExtentWorkUs': _distribution(chatDayExtentDurations),
     'postLayoutUs': _distribution(layoutDurations),
     'activityCounts': activity,
     'topicContextCount': contexts.length,
@@ -126,8 +117,12 @@ String encodeTopicScrollReport(
     'usersContextCount': usersContexts.length,
     'users': usersContexts.take(8).toList(),
     'usersMaximaWorkUs': _distribution(usersMaximaDurations),
-    'chatContextCount': chatContexts.length,
-    'chats': chatContexts.take(8).toList(),
+    'extensionContextCount': extensionContexts.length,
+    'extensionContexts': extensionContexts.take(8).toList(),
+    'timingsUs': {
+      for (final entry in timings.entries)
+        entry.key: _distribution(entry.value),
+    },
     'topics': [
       for (final context in contexts.take(8))
         {
@@ -153,15 +148,7 @@ String encodeTopicScrollReport(
           ...frame,
           'topicActivity': _activityCounts(byFrame[frame['frameNumber']] ?? []),
           'measuredWorkUs': {
-            for (final name in [
-              'topicList.row.build',
-              'topicList.row.layout',
-              'post.layout',
-              'viewport.work',
-              'chat.row.layout',
-              'chat.viewport.work',
-              'chat.dayExtents.scanned',
-            ])
+            for (final name in timings.keys)
               name: (byFrame[frame['frameNumber']] ?? [])
                   .where((event) => event['name'] == name)
                   .fold<int>(
@@ -286,10 +273,10 @@ String _formatReport(Map<String, Object?> report) {
   }
   if (_int(analysis['topicContextCount']) == 0 &&
       _int(analysis['topicListContextCount']) == 0 &&
-      _int(analysis['chatContextCount']) == 0 &&
+      _int(analysis['extensionContextCount']) == 0 &&
       _int(analysis['usersContextCount']) == 0) {
     output.writeln(
-      'No topic context was recorded. Start in the affected topic, topic list, users directory or chat '
+      'No context was recorded. Start in the affected screen '
       'and scroll before stopping.',
     );
   }
@@ -363,31 +350,11 @@ String _formatReport(Map<String, Object?> report) {
     );
   }
 
-  if (_int(analysis['chatContextCount']) > 0) {
-    output
-      ..writeln(
-        'Chat scroll bookkeeping: '
-        '${_timingLine(_map(analysis['chatScrollWorkUs']))}',
-      )
-      ..writeln(
-        'Chat viewport bookkeeping: '
-        '${_timingLine(_map(analysis['chatViewportWorkUs']))}',
-      )
-      ..writeln(
-        'Chat row layout: '
-        '${_timingLine(_map(analysis['chatRowLayoutUs']))}',
-      )
-      ..writeln(
-        'Chat date extent scans: '
-        '${_timingLine(_map(analysis['chatDayExtentWorkUs']))}',
-      );
-    for (final chat in _maps(analysis['chats'])) {
-      output.writeln(
-        'Chat: ${chat['messageCount']} loaded messages | '
-        'direct message ${chat['directMessage']} | group ${chat['group']} | '
-        'thread ${chat['thread']} | viewport extent ${chat['viewportExtent']}',
-      );
-    }
+  for (final entry in _map(analysis['timingsUs']).entries) {
+    output.writeln('${entry.key}: ${_timingLine(_map(entry.value))}');
+  }
+  for (final context in _maps(analysis['extensionContexts'])) {
+    output.writeln('${context['name']}: ${jsonEncode(context['data'])}');
   }
 
   for (final topic in _maps(analysis['topics'])) {

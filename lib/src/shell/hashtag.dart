@@ -4,6 +4,7 @@ import 'package:html/dom.dart' as dom;
 
 import '../models/topic.dart';
 import '../plugin_api/hashtag_kind.dart';
+import '../plugin_api/plugin_scope.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'category_icon.dart';
@@ -44,8 +45,8 @@ HashtagPresentation resolveHashtagPresentation(
       );
 }
 
-DIconData iconFor(String? icon, DIconData fallback) {
-  final named = icon == null ? null : DIcons.byName[icon];
+DIconData iconFor(BuildContext context, String? icon, DIconData fallback) {
+  final named = icon == null ? null : pluginIconNamed(context, icon);
   return named ?? fallback;
 }
 
@@ -191,7 +192,7 @@ class HashtagPill extends StatelessWidget {
   }
 
   Widget _icon(BuildContext context, double size, Color? tint) => DIcon(
-    iconFor(presentation.icon, presentation.fallbackIcon),
+    iconFor(context, presentation.icon, presentation.fallbackIcon),
     size: Pill.iconBoxFor(baseStyle),
     color: tint ?? Theme.of(context).colorScheme.onSurfaceVariant,
   );

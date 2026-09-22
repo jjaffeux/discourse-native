@@ -22,6 +22,8 @@ void main() {
 
     expect(installed.descriptors.map((descriptor) => descriptor.id.value), [
       'cooking',
+      'discourse-solved',
+      'discourse-topic-voting',
       'discourse-local-dates',
       'discourse-github',
       'discourse-lazy-videos',

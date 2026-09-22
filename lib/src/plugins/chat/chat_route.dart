@@ -1,5 +1,5 @@
+import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:flutter/foundation.dart';
-import '../../models/discourse_instance.dart';
 
 /// Retains the pre-thread channel route for persisted tabs; thread identity is
 /// appended so the channel remains the Back-navigation root.

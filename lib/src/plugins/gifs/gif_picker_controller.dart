@@ -1,9 +1,8 @@
 import 'dart:async';
 
+import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:flutter/foundation.dart';
 
-import '../../data/discourse_api_contracts.dart' show SiteLookupException;
-import '../../plugin_api/core_plugin_host.dart';
 import 'gif.dart';
 import 'gifs_api.dart';
 

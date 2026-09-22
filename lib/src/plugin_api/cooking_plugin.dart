@@ -63,7 +63,6 @@ CookingConfiguration cookingConfiguration(Iterable<CookingPlugin> plugins) {
     modules: [for (final p in contributions) ...p.cookingModules],
     profiles: [
       CookingProfile.post,
-      CookingProfile.chat,
       for (final p in contributions) ...p.cookingProfiles,
     ],
     installedOwners: owners,

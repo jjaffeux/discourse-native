@@ -141,8 +141,9 @@ const double emojiScale = 1;
 Widget? emojiWidgetBuilder(
   dom.Element element,
   String? siteUrl,
-  TextStyle? baseStyle,
-) {
+  TextStyle? baseStyle, {
+  bool Function(dom.Element)? compactAncestor,
+}) {
   if (element.localName != 'img') return null;
   // `emoji` alone on a standard one, `emoji emoji-custom` on an upload, and
   // `emoji only-emoji` on a post that is nothing but emoji.
@@ -156,7 +157,8 @@ Widget? emojiWidgetBuilder(
   // `only-emoji` class is incidental to inline content. In particular, topic
   // and search-result links can retain that class even though their emoji is
   // sitting beside text.
-  final compactOnlyEmoji = onlyEmoji && _hasCompactOnlyEmojiAncestor(element);
+  final compactOnlyEmoji =
+      onlyEmoji && _hasCompactOnlyEmojiAncestor(element, compactAncestor);
   final largeOnlyEmoji = onlyEmoji && !compactOnlyEmoji;
   final emoji = EmojiImage(
     url: url,
@@ -185,13 +187,16 @@ Widget? emojiWidgetBuilder(
   );
 }
 
-bool _hasCompactOnlyEmojiAncestor(dom.Element element) {
+bool _hasCompactOnlyEmojiAncestor(
+  dom.Element element,
+  bool Function(dom.Element)? compactAncestor,
+) {
   var ancestor = element.parent;
   while (ancestor != null) {
     if (ancestor.localName == 'a' ||
         ancestor.localName == 'li' ||
         ancestor.classes.contains('md-table') ||
-        ancestor.classes.contains('poll')) {
+        compactAncestor?.call(ancestor) == true) {
       return true;
     }
     ancestor = ancestor.parent;

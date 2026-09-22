@@ -1,3 +1,4 @@
+import '../plugin_api/global_search.dart' show GlobalSearchLookup;
 import 'global_search_models.dart';
 
 const globalSearchFilters = <GlobalSearchFilter>[
@@ -35,6 +36,8 @@ const globalSearchFilters = <GlobalSearchFilter>[
     help: "Match any tag, every tag, or exclude selected tags.",
   ),
   GlobalSearchFilter(
+    lookup: GlobalSearchLookup.users,
+    singleIdentifier: true,
     id: "author",
     label: "Posted by",
     scope: GlobalSearchScope.forum,
@@ -47,6 +50,8 @@ const globalSearchFilters = <GlobalSearchFilter>[
     help: "Find posts written by a specific person. Use me for your posts.",
   ),
   GlobalSearchFilter(
+    lookup: GlobalSearchLookup.users,
+    singleIdentifier: true,
     id: "topicAuthor",
     label: "Started by",
     scope: GlobalSearchScope.forum,
@@ -59,6 +64,9 @@ const globalSearchFilters = <GlobalSearchFilter>[
     help: "Find opening posts written by this person.",
   ),
   GlobalSearchFilter(
+    lookup: GlobalSearchLookup.groups,
+    singleIdentifier: true,
+    rejectQuotes: true,
     id: "authorGroup",
     label: "Author’s group",
     scope: GlobalSearchScope.forum,
@@ -72,6 +80,9 @@ const globalSearchFilters = <GlobalSearchFilter>[
         "Find posts written by members of a group whose membership you can view.",
   ),
   GlobalSearchFilter(
+    lookup: GlobalSearchLookup.groups,
+    singleIdentifier: true,
+    rejectQuotes: true,
     id: "groupInbox",
     label: "Group inbox",
     scope: GlobalSearchScope.forum,
@@ -409,6 +420,7 @@ const globalSearchFilters = <GlobalSearchFilter>[
     ],
   ),
   GlobalSearchFilter(
+    rejectQuotes: true,
     id: "badge",
     label: "Author’s badge",
     scope: GlobalSearchScope.forum,
@@ -501,6 +513,8 @@ const globalSearchFilters = <GlobalSearchFilter>[
     ],
   ),
   GlobalSearchFilter(
+    lookup: GlobalSearchLookup.users,
+    singleIdentifier: true,
     id: "adminUserMessages",
     label: "User’s personal messages",
     scope: GlobalSearchScope.forum,
@@ -514,98 +528,7 @@ const globalSearchFilters = <GlobalSearchFilter>[
     optional: "admin",
   ),
   GlobalSearchFilter(
-    id: "solved",
-    label: "Solution",
-    scope: GlobalSearchScope.forum,
-    kind: GlobalSearchFilterKind.choice,
-    icon: "status",
-    group: "Extensions",
-    operators: [GlobalSearchFilterOperator("is", "is")],
-    help:
-        "Find solved topics or unsolved topics in categories that support solutions.",
-    optional: "solved",
-    choices: [
-      GlobalSearchFilterChoice(
-        value: "solved",
-        label: "Solved",
-        token: "status:solved",
-      ),
-      GlobalSearchFilterChoice(
-        value: "unsolved",
-        label: "Unsolved",
-        token: "status:unsolved",
-      ),
-    ],
-  ),
-  GlobalSearchFilter(
-    id: "assignment",
-    label: "Assignment",
-    scope: GlobalSearchScope.forum,
-    kind: GlobalSearchFilterKind.choice,
-    icon: "user",
-    group: "Extensions",
-    operators: [GlobalSearchFilterOperator("is", "is")],
-    help: "Requires permission to view assignments.",
-    optional: "assign",
-    choices: [
-      GlobalSearchFilterChoice(
-        value: "assigned",
-        label: "Assigned",
-        token: "in:assigned",
-      ),
-      GlobalSearchFilterChoice(
-        value: "unassigned",
-        label: "Unassigned",
-        token: "in:unassigned",
-      ),
-    ],
-  ),
-  GlobalSearchFilter(
-    id: "assignee",
-    label: "Assigned to",
-    scope: GlobalSearchScope.forum,
-    kind: GlobalSearchFilterKind.text,
-    icon: "user",
-    group: "Extensions",
-    operators: [GlobalSearchFilterOperator("is", "is")],
-    token: "assigned",
-    placeholder: "Username or group name",
-    help: "Find topics assigned to a person or group.",
-    optional: "assign",
-  ),
-  GlobalSearchFilter(
-    id: "polls",
-    label: "Polls",
-    scope: GlobalSearchScope.forum,
-    kind: GlobalSearchFilterKind.choice,
-    icon: "status",
-    group: "Extensions",
-    operators: [GlobalSearchFilterOperator("is", "is")],
-    help: "Find posts containing polls.",
-    optional: "poll",
-    choices: [
-      GlobalSearchFilterChoice(
-        value: "polls",
-        label: "Contains a poll",
-        token: "in:polls",
-      ),
-    ],
-  ),
-  GlobalSearchFilter(
-    id: "votes",
-    label: "Topic votes",
-    scope: GlobalSearchScope.forum,
-    kind: GlobalSearchFilterKind.number,
-    icon: "heart",
-    group: "Extensions",
-    operators: [GlobalSearchFilterOperator("gte", "at least")],
-    token: "min_vote_count",
-    placeholder: "5",
-    help: "Match the number of votes on a topic.",
-    optional: "voting",
-    opTokens: {"gte": "min_vote_count"},
-  ),
-  GlobalSearchFilter(
+    lookup: GlobalSearchLookup.groups,
     id: "userGroup",
     label: "Group",
     scope: GlobalSearchScope.users,
@@ -623,6 +546,7 @@ const globalSearchFilters = <GlobalSearchFilter>[
     opTokens: {"is": "group", "excludes": "exclude_groups"},
   ),
   GlobalSearchFilter(
+    lookup: GlobalSearchLookup.users,
     id: "userName",
     label: "Username",
     scope: GlobalSearchScope.users,
@@ -737,6 +661,8 @@ const globalSearchFilters = <GlobalSearchFilter>[
     ],
   ),
   GlobalSearchFilter(
+    lookup: GlobalSearchLookup.users,
+    singleIdentifier: true,
     id: "groupMember",
     label: "Member",
     scope: GlobalSearchScope.groups,
@@ -749,56 +675,13 @@ const globalSearchFilters = <GlobalSearchFilter>[
     help:
         "Find groups this person belongs to, where group membership is visible.",
   ),
-  GlobalSearchFilter(
-    id: "chatAuthor",
-    label: "Sent by",
-    scope: GlobalSearchScope.chat,
-    kind: GlobalSearchFilterKind.text,
-    icon: "user",
-    group: "People",
-    operators: [GlobalSearchFilterOperator("is", "is")],
-    token: "@",
-    placeholder: "Username or me",
-    help: "Find messages sent by one person.",
-  ),
-  GlobalSearchFilter(
-    id: "chatChannel",
-    label: "Channel",
-    scope: GlobalSearchScope.chat,
-    kind: GlobalSearchFilterKind.text,
-    icon: "hash",
-    group: "Where",
-    operators: [GlobalSearchFilterOperator("is", "is")],
-    token: "#",
-    placeholder: "Channel slug or ID",
-    help: "Search one channel available to your account.",
-  ),
-  GlobalSearchFilter(
-    id: "chatThreads",
-    label: "Thread replies",
-    scope: GlobalSearchScope.chat,
-    kind: GlobalSearchFilterKind.choice,
-    icon: "post",
-    group: "Content",
-    operators: [GlobalSearchFilterOperator("is", "is")],
-    help: "Excluding replies still includes messages that started a thread.",
-    choices: [
-      GlobalSearchFilterChoice(
-        value: "include",
-        label: "Include thread replies",
-        token: "exclude_threads=false",
-      ),
-      GlobalSearchFilterChoice(
-        value: "exclude",
-        label: "Exclude thread replies",
-        token: "exclude_threads=true",
-      ),
-    ],
-  ),
 ];
 
-GlobalSearchFilter? globalSearchFilter(String id) {
-  for (final filter in globalSearchFilters) {
+GlobalSearchFilter? globalSearchFilter(
+  String id, [
+  GlobalSearchCapabilities c = const GlobalSearchCapabilities(),
+]) {
+  for (final filter in [...globalSearchFilters, ...c.contributedFilters]) {
     if (filter.id == id) return filter;
   }
   return null;
@@ -808,7 +691,13 @@ bool globalSearchFilterAvailable(
   GlobalSearchFilter filter,
   GlobalSearchCapabilities c,
 ) {
-  if (filter.scope == GlobalSearchScope.chat && !c.chat) return false;
+  final owner = c.contributions
+      .where((p) => p.filters.any((f) => f.id == filter.id))
+      .firstOrNull;
+  if (owner != null && !c.enabledContributions.contains(owner.owner)) {
+    return false;
+  }
+  if (!filter.scope.isCore && !c.scopes.contains(filter.scope)) return false;
   if (filter.scope == GlobalSearchScope.users && !c.userDirectory) return false;
   if (filter.scope == GlobalSearchScope.groups && !c.groupDirectory) {
     return false;
@@ -829,10 +718,6 @@ bool globalSearchFilterAvailable(
   return switch (filter.optional) {
     'admin' => c.admin,
     'staff' => c.staff || c.admin,
-    'solved' => c.solved,
-    'assign' => c.assign,
-    'poll' => c.poll,
-    'voting' => c.voting,
     _ => true,
   };
 }
@@ -853,11 +738,8 @@ List<GlobalSearchOrder> globalSearchOrders(
     const GlobalSearchOrder('views', 'Most viewed'),
     const GlobalSearchOrder('likes', 'Most liked'),
     if (c.authenticated) const GlobalSearchOrder('read', 'Recently read'),
-    if (c.voting) const GlobalSearchOrder('votes', 'Most votes'),
-  ],
-  GlobalSearchScope.chat => const [
-    GlobalSearchOrder('relevance', 'Most relevant'),
-    GlobalSearchOrder('latest', 'Latest message'),
+    for (final p in c.contributions)
+      if (c.enabledContributions.contains(p.owner)) ...p.orders(scope),
   ],
   GlobalSearchScope.groups => [
     const GlobalSearchOrder('name', 'Group name'),
@@ -878,13 +760,17 @@ List<GlobalSearchOrder> globalSearchOrders(
         _ => key.replaceAll('_', ' '),
       }),
   ],
+  _ => [
+    for (final p in c.contributions)
+      if (c.enabledContributions.contains(p.owner)) ...p.orders(scope),
+  ],
 };
 
 String? validateGlobalSearchCondition(
   GlobalSearchCondition condition,
   GlobalSearchCapabilities c,
 ) {
-  final d = globalSearchFilter(condition.filterId);
+  final d = globalSearchFilter(condition.filterId, c);
   if (d == null || !globalSearchFilterAvailable(d, c)) {
     return 'This filter is unavailable on this site.';
   }
@@ -934,18 +820,7 @@ String? validateGlobalSearchCondition(
       return 'Choose a valid date.';
     }
   }
-  if ([
-        'author',
-        'topicAuthor',
-        'authorGroup',
-        'groupInbox',
-        'chatAuthor',
-        'chatChannel',
-        'adminUserMessages',
-        'assignee',
-        'groupMember',
-      ].contains(d.id) &&
-      RegExp(r'[\s,:]').hasMatch(value)) {
+  if (d.singleIdentifier && RegExp(r'[\s,:]').hasMatch(value)) {
     return 'Enter one username, group, or channel slug.';
   }
   if (['userGroup', 'userName'].contains(d.id) &&
@@ -960,15 +835,18 @@ String? validateGlobalSearchCondition(
       values.any((v) => RegExp(r'[\s,"+]').hasMatch(v))) {
     return 'Choose valid category slugs or tag names.';
   }
-  if (['authorGroup', 'groupInbox', 'badge', 'assignee'].contains(d.id) &&
-      value.contains('"')) {
+  if (d.rejectQuotes && value.contains('"')) {
     return 'Remove quotes from the value.';
   }
   return null;
 }
 
-String globalSearchConditionToken(GlobalSearchCondition f, {String? username}) {
-  final d = globalSearchFilter(f.filterId)!;
+String globalSearchConditionToken(
+  GlobalSearchCondition f, {
+  String? username,
+  GlobalSearchCapabilities capabilities = const GlobalSearchCapabilities(),
+}) {
+  final d = globalSearchFilter(f.filterId, capabilities)!;
   var value = f.value.join(',');
   for (final choice in d.choices) {
     if (choice.value == value && choice.token != null) return choice.token!;
@@ -1012,7 +890,11 @@ String globalSearchTerm(GlobalSearchRequest r) {
   final parts = [
     r.query.trim(),
     for (final f in r.conditions)
-      globalSearchConditionToken(f, username: r.capabilities.username),
+      globalSearchConditionToken(
+        f,
+        username: r.capabilities.username,
+        capabilities: r.capabilities,
+      ),
     if (r.scope == GlobalSearchScope.forum && r.order != 'relevance')
       'order:${r.order}',
   ];
@@ -1048,12 +930,12 @@ GlobalSearchExpression parseGlobalSearchExpression(
     'in:humans': 'in:human',
     'include:invisible': 'include:unlisted',
   };
-  final target = scope == GlobalSearchScope.chat
-      ? scope
-      : GlobalSearchScope.forum;
+  final target = scope == GlobalSearchScope.all
+      ? GlobalSearchScope.forum
+      : scope;
   for (final match in RegExp(r'(?:[^\s"]+|"[^"]*")+').allMatches(text)) {
     final raw = match.group(0)!;
-    var token = scope == GlobalSearchScope.chat ? raw : aliases[raw] ?? raw;
+    var token = !scope.isCore ? raw : aliases[raw] ?? raw;
     token = token
         .replaceFirst(RegExp(r'^min_post_count:'), 'min_posts:')
         .replaceFirst(RegExp(r'^filetype:'), 'filetypes:');
@@ -1070,7 +952,10 @@ GlobalSearchExpression parseGlobalSearchExpression(
       continue;
     }
     GlobalSearchCondition? condition;
-    for (final d in globalSearchFilters.where((d) => d.scope == target)) {
+    for (final d in [
+      ...globalSearchFilters,
+      ...c.contributedFilters,
+    ].where((d) => d.scope == target)) {
       for (final choice in d.choices) {
         if (choice.token == token) {
           condition = GlobalSearchCondition(
@@ -1081,17 +966,17 @@ GlobalSearchExpression parseGlobalSearchExpression(
         }
       }
     }
-    if (condition == null && token.startsWith('@')) {
-      condition = GlobalSearchCondition(
-        filterId: target == GlobalSearchScope.chat ? 'chatAuthor' : 'author',
-        value: [token.substring(1)],
-      );
-    }
-    if (condition == null && token.startsWith('#')) {
-      condition = GlobalSearchCondition(
-        filterId: target == GlobalSearchScope.chat ? 'chatChannel' : 'hashtag',
-        value: [token.substring(1)],
-      );
+    if (condition == null) {
+      for (final d in [...globalSearchFilters, ...c.contributedFilters]) {
+        if (d.scope != target || !const ['@', '#'].contains(d.token)) continue;
+        if (token.startsWith(d.token!)) {
+          condition = GlobalSearchCondition(
+            filterId: d.id,
+            value: [token.substring(1)],
+          );
+          break;
+        }
+      }
     }
     if (condition == null &&
         token.contains(':') &&
@@ -1127,7 +1012,7 @@ GlobalSearchExpression parseGlobalSearchExpression(
         );
       }
       if (condition == null) {
-        for (final d in globalSearchFilters.where(
+        for (final d in [...globalSearchFilters, ...c.contributedFilters].where(
           (d) =>
               d.scope == target &&
               d.kind != GlobalSearchFilterKind.choice &&

@@ -2,6 +2,7 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/plugins/chat/chat_drawer.dart';
 import 'package:discourse_native/src/plugins/chat/chat_drawer_preferences_store.dart';
+import 'package:discourse_native/src/plugins/chat/chat_global_search.dart';
 import 'package:discourse_native/src/plugins/chat/chat_shell_service.dart';
 import 'package:discourse_native/src/shell/forum_search.dart';
 import 'package:discourse_native/src/shell/global_search_models.dart';
@@ -48,7 +49,7 @@ void main() {
         await tester.tap(find.byKey(ForumSearch.inputKey));
         await tester.pumpAndSettle();
         await tester.tap(
-          find.byKey(const ValueKey('global-search-scope-chat')),
+          find.byKey(const ValueKey('global-search-scope-chat/chat')),
         );
         await tester.enterText(find.byKey(ForumSearch.inputKey), 'design');
         await _finishSearch(tester);
@@ -493,7 +494,7 @@ void main() {
             expect(
               search.scope,
               context == 'chat drawer'
-                  ? GlobalSearchScope.chat
+                  ? chatSearchScope
                   : GlobalSearchScope.forum,
             );
             expect(
@@ -897,7 +898,7 @@ void main() {
       );
       await _finishSearch(tester);
       expect(
-        find.byKey(const ValueKey('global-search-scope-chat')),
+        find.byKey(const ValueKey('global-search-scope-chat/chat')),
         findsOneWidget,
       );
 
@@ -909,7 +910,7 @@ void main() {
       expect(shell.globalSearch.query, isEmpty);
       expect(shell.globalSearch.conditions, isEmpty);
       expect(
-        find.byKey(const ValueKey('global-search-scope-chat')),
+        find.byKey(const ValueKey('global-search-scope-chat/chat')),
         findsNothing,
       );
       await tester.enterText(find.byKey(ForumSearch.inputKey), 'search');

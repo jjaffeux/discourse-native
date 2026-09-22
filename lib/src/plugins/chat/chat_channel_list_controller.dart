@@ -1,9 +1,8 @@
-import '../../foundation/frame_safe_notifier.dart';
-import '../../models/chat_channel_list_preferences.dart';
-import '../../models/discourse_user.dart';
-import '../../models/user_preferences.dart';
-import '../../plugin_api/core_plugin_host.dart';
+import 'package:discourse_native/discourse_plugin_sdk.dart';
+
+import 'chat_channel_list_preferences.dart';
 import 'chat_plugin_data.dart';
+import 'chat_user_preferences.dart';
 
 typedef _Account = ({String siteUrl, int? id, String username});
 
@@ -134,12 +133,11 @@ final class ChatChannelListController extends FrameSafeNotifier {
         values: {field: value},
         fallback: UserPreferences(
           username: account.username,
-          channelListPreferences: preferences.withValue(field, value),
-        ),
+        ).withChatPreferences(channelList: preferences.withValue(field, value)),
       );
       if (!current()) return false;
       final confirmed =
-          result.channelListPreferences.wireValues[field] ?? value;
+          result.chatPreferences.channelList.wireValues[field] ?? value;
       host!.updateData(siteUrl, field, (data) {
         final held = data.chatCurrentUser;
         return held == null

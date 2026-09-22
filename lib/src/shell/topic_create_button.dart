@@ -132,7 +132,10 @@ class _TopicCreateControl extends StatelessWidget {
   }
 
   DIconData _draftIcon(UserDraft draft) {
-    if (draft.isVoiceTranscript) return DIcons.closedCaptioning;
+    if (controller.plugins.registry.draftPresentation(draft)
+        case final presentation?) {
+      return presentation.icon;
+    }
     if (draft.isNewTopic) return DIcons.layerGroup;
     if (draft.key.startsWith('new_private_message')) return DIcons.envelope;
     return DIcons.reply;

@@ -1,11 +1,6 @@
 import 'dart:async';
 
-import '../../data/discourse_api_contracts.dart'
-    show WriteException, WriteFailure;
-import '../../foundation/frame_safe_notifier.dart';
-import '../../plugin_api/core_plugin_host.dart';
-import '../../plugin_api/plugin_manifest.dart';
-import '../../plugin_api/shell_extensions.dart';
+import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'event_api.dart';
 import 'event_data.dart';
 

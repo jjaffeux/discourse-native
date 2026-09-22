@@ -2,14 +2,9 @@
 
 import 'dart:async';
 
+import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:flutter/foundation.dart';
 
-import '../../diagnostics/diagnostics_controller.dart';
-import '../../foundation/frame_safe_notifier.dart';
-import '../../models/discourse_user.dart';
-import '../../models/json.dart';
-import '../../plugin_api/core_plugin_host.dart';
-import '../../plugin_api/live_channels.dart';
 import 'chat_channel.dart';
 import 'chat_message.dart';
 import 'chat_message_summary.dart';

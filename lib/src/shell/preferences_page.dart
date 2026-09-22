@@ -141,11 +141,8 @@ class _PreferencesPageState extends State<PreferencesPage> {
               currentUserData: instance.user!.plugins,
               currentUserIsAdmin: instance.user!.admin,
               editable: editable,
-              onEdit: (change) => shell.preferences.edit(
-                widget.siteUrl,
-                PreferenceSection.chat,
-                change,
-              ),
+              onEdit: (section, change) =>
+                  shell.preferences.edit(widget.siteUrl, section, change),
             ),
           );
     final sections = _sectionsFor(draft, pluginSections);
@@ -308,15 +305,15 @@ class _PreferencesPageState extends State<PreferencesPage> {
                     current.copyWith(bookmarkAutoDeletePreference: preference),
               ),
             ),
-            PreferenceSection.chat =>
-              _pluginSection(PreferenceSection.chat, pluginSections)?.content ??
+            _ =>
+              _pluginSection(section, pluginSections)?.content ??
                   const SizedBox.shrink(),
           },
           const SizedBox(height: 24),
           Align(
             alignment: Alignment.centerLeft,
             child: DButton(
-              key: ValueKey('preferences-save-${section.name}'),
+              key: ValueKey('preferences-save-${section.keyName}'),
               label: const Text('Save changes'),
               semanticLabel: state.saving
                   ? 'Saving preferences'
@@ -489,7 +486,7 @@ class _SectionRailItem extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 2),
         child: InkWell(
-          key: ValueKey('preferences-section-${section.name}'),
+          key: ValueKey('preferences-section-${section.keyName}'),
           onTap: onTap,
           mouseCursor: SystemMouseCursors.click,
           borderRadius: BorderRadius.circular(8),
@@ -1115,7 +1112,7 @@ String _sectionTitle(
       PreferenceSection.notifications => 'Notifications',
       PreferenceSection.tracking => 'Tracking',
       PreferenceSection.interface => 'Interface',
-      PreferenceSection.chat => 'Chat',
+      _ => section.name,
     };
 
 DIconData _sectionIcon(
@@ -1128,5 +1125,5 @@ DIconData _sectionIcon(
       PreferenceSection.notifications => DIcons.bell,
       PreferenceSection.tracking => DIcons.list,
       PreferenceSection.interface => DIcons.display,
-      PreferenceSection.chat => DIcons.comment,
+      _ => DIcons.gear,
     };

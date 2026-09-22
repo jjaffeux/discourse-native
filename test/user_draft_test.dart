@@ -1,5 +1,6 @@
 import 'package:discourse_native/src/models/composer_draft.dart';
 import 'package:discourse_native/src/models/user_draft.dart';
+import 'package:discourse_native/src/plugins/voice/voice_plugin.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -47,8 +48,12 @@ void main() {
     });
 
     expect(draft.isNewTopic, isTrue);
-    expect(draft.isVoiceTranscript, isTrue);
-    expect(draft.kindLabel, 'Call transcript draft');
+    expect(const VoicePlugin().draftPresentation(draft), isNotNull);
+    expect(
+      const VoicePlugin().draftPresentation(draft)?.label,
+      'Call transcript draft',
+    );
+    expect(draft.kindLabel, 'New topic draft');
     expect(draft.canResume, isTrue);
   });
 

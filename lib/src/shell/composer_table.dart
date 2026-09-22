@@ -14,6 +14,7 @@ import 'composer_tables.dart';
 const composerTableSyntaxKind = ComposerSyntaxKind(
   owner: PluginId('core'),
   name: 'table',
+  label: 'Table',
 );
 
 void insertComposerTable(ComposerController composer) {

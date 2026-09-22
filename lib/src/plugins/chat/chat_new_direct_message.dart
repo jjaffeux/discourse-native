@@ -1,19 +1,15 @@
 import 'dart:async';
 
+import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
-import '../../app_shortcuts.dart';
-import '../../data/discourse_api_contracts.dart';
-import '../../shell/avatar_image.dart';
-import '../../shell/relative_time.dart';
-import '../../theme/d_icons.dart';
-import '../../theme/discourse_typography.dart';
 import 'chat_channel.dart';
 import 'chat_controller.dart';
 import 'chat_direct_message_search.dart';
 import 'chat_plugin_data.dart';
 import 'chat_shell_service.dart';
+import 'chat_shortcuts.dart';
 
 Future<void> showChatNewDirectMessageDialog({
   required BuildContext context,

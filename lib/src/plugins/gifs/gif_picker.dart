@@ -1,14 +1,10 @@
 import 'dart:async';
 
+import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../../plugin_api/core_plugin_host.dart';
-import '../../shell/image_decode.dart';
-import '../../shell/shell_sheet.dart';
-import '../../theme/d_icons.dart';
-import '../../utils/pagination.dart';
 import 'gif.dart';
 import 'gif_picker_controller.dart';
 import 'gifs_api.dart';

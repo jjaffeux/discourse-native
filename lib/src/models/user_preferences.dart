@@ -1,34 +1,58 @@
 import 'package:flutter/foundation.dart';
 
 import 'bookmark.dart';
-import 'chat_channel_list_preferences.dart';
 import 'json.dart';
 
-enum PreferenceSection { profile, notifications, tracking, interface, chat }
+/// Core sections have fixed identities; plugins declare their own namespace.
+@immutable
+final class PreferenceSection {
+  const PreferenceSection.plugin({required this.owner, required this.name});
+  const PreferenceSection._core(this.name) : owner = 'core';
 
-enum ChatSeparateSidebarPreference {
-  siteDefault('default'),
-  always('always'),
-  fullscreen('fullscreen'),
-  never('never');
+  static const profile = PreferenceSection._core('profile');
+  static const notifications = PreferenceSection._core('notifications');
+  static const tracking = PreferenceSection._core('tracking');
+  static const interface = PreferenceSection._core('interface');
+  static const values = [profile, notifications, tracking, interface];
 
-  const ChatSeparateSidebarPreference(this.wireValue);
+  final String owner;
+  final String name;
+  String get id => '$owner/$name';
+  String get keyName => owner == 'core' ? name : id;
 
-  final String wireValue;
+  @override
+  bool operator ==(Object other) =>
+      other is PreferenceSection && other.owner == owner && other.name == name;
+  @override
+  int get hashCode => Object.hash(owner, name);
+}
 
-  static ChatSeparateSidebarPreference read(
-    Object? value,
-    ChatSeparateSidebarPreference fallback,
-  ) {
-    for (final preference in values) {
-      if (value == preference.wireValue) return preference;
-    }
-    return fallback;
-  }
+/// An opaque, immutable value whose wire schema belongs to its contributor.
+abstract interface class UserPreferenceValues {
+  Map<String, Object?> get payload;
 }
 
 @immutable
 final class UserPreferences {
+  static const Set<String> coreFields = {
+    'timezone',
+    'like_notification_frequency',
+    'notify_on_linked_posts',
+    'new_topic_duration_minutes',
+    'auto_track_topics_after_msecs',
+    'notification_level_when_replying',
+    'bookmark_auto_delete_preference',
+  };
+
+  /// Core response identities are reserved even when they are not editable.
+  static const coreWireFields = {
+    ...coreFields,
+    'username',
+    'can_edit',
+    'can_change_tracking_preferences',
+    'user_option',
+  };
+
   const UserPreferences({
     this.username = '',
     this.timezone = '',
@@ -39,8 +63,7 @@ final class UserPreferences {
     this.notificationLevelWhenReplying = 2,
     this.bookmarkAutoDeletePreference =
         BookmarkAutoDeletePreference.clearReminder,
-    this.chatSeparateSidebarMode = ChatSeparateSidebarPreference.siteDefault,
-    this.channelListPreferences = const ChatChannelListPreferences(),
+    this.pluginValues = const {},
     this.canEdit = false,
     this.canChangeTrackingPreferences = false,
   });
@@ -48,6 +71,7 @@ final class UserPreferences {
   factory UserPreferences.fromJson(
     Map<String, dynamic> json, {
     UserPreferences fallback = const UserPreferences(),
+    Map<String, UserPreferenceValues>? pluginValues,
   }) {
     final options = jsonObject(json['user_option']);
 
@@ -87,14 +111,7 @@ final class UserPreferences {
         options,
         fallback.bookmarkAutoDeletePreference,
       ),
-      chatSeparateSidebarMode: ChatSeparateSidebarPreference.read(
-        options['chat_separate_sidebar_mode'],
-        fallback.chatSeparateSidebarMode,
-      ),
-      channelListPreferences: ChatChannelListPreferences.read(
-        options,
-        fallback: fallback.channelListPreferences,
-      ),
+      pluginValues: Map.unmodifiable(pluginValues ?? fallback.pluginValues),
       canEdit: _boolean(json, 'can_edit', fallback.canEdit),
       canChangeTrackingPreferences: _boolean(
         json,
@@ -130,9 +147,7 @@ final class UserPreferences {
   final int notificationLevelWhenReplying;
 
   final BookmarkAutoDeletePreference bookmarkAutoDeletePreference;
-  final ChatSeparateSidebarPreference chatSeparateSidebarMode;
-
-  final ChatChannelListPreferences channelListPreferences;
+  final Map<String, UserPreferenceValues> pluginValues;
 
   final bool canEdit;
   final bool canChangeTrackingPreferences;
@@ -153,9 +168,7 @@ final class UserPreferences {
           'bookmark_auto_delete_preference':
               bookmarkAutoDeletePreference.wireValue,
         },
-        PreferenceSection.chat => {
-          'chat_separate_sidebar_mode': chatSeparateSidebarMode.wireValue,
-        },
+        _ => pluginValues[section.id]?.payload ?? const {},
       });
 
   UserPreferences withSectionFrom(
@@ -175,8 +188,11 @@ final class UserPreferences {
     PreferenceSection.interface => copyWith(
       bookmarkAutoDeletePreference: confirmed.bookmarkAutoDeletePreference,
     ),
-    PreferenceSection.chat => copyWith(
-      chatSeparateSidebarMode: confirmed.chatSeparateSidebarMode,
+    _ => copyWith(
+      pluginValues: {
+        ...pluginValues,
+        section.id: ?confirmed.pluginValues[section.id],
+      },
     ),
   };
 
@@ -189,8 +205,7 @@ final class UserPreferences {
     int? autoTrackTopicsAfterMsecs,
     int? notificationLevelWhenReplying,
     BookmarkAutoDeletePreference? bookmarkAutoDeletePreference,
-    ChatSeparateSidebarPreference? chatSeparateSidebarMode,
-    ChatChannelListPreferences? channelListPreferences,
+    Map<String, UserPreferenceValues>? pluginValues,
     bool? canEdit,
     bool? canChangeTrackingPreferences,
   }) => UserPreferences(
@@ -207,10 +222,7 @@ final class UserPreferences {
         notificationLevelWhenReplying ?? this.notificationLevelWhenReplying,
     bookmarkAutoDeletePreference:
         bookmarkAutoDeletePreference ?? this.bookmarkAutoDeletePreference,
-    chatSeparateSidebarMode:
-        chatSeparateSidebarMode ?? this.chatSeparateSidebarMode,
-    channelListPreferences:
-        channelListPreferences ?? this.channelListPreferences,
+    pluginValues: Map.unmodifiable(pluginValues ?? this.pluginValues),
     canEdit: canEdit ?? this.canEdit,
     canChangeTrackingPreferences:
         canChangeTrackingPreferences ?? this.canChangeTrackingPreferences,
@@ -229,8 +241,7 @@ final class UserPreferences {
           other.notificationLevelWhenReplying ==
               notificationLevelWhenReplying &&
           other.bookmarkAutoDeletePreference == bookmarkAutoDeletePreference &&
-          other.chatSeparateSidebarMode == chatSeparateSidebarMode &&
-          other.channelListPreferences == channelListPreferences &&
+          mapEquals(other.pluginValues, pluginValues) &&
           other.canEdit == canEdit &&
           other.canChangeTrackingPreferences == canChangeTrackingPreferences;
 
@@ -244,8 +255,9 @@ final class UserPreferences {
     autoTrackTopicsAfterMsecs,
     notificationLevelWhenReplying,
     bookmarkAutoDeletePreference,
-    chatSeparateSidebarMode,
-    channelListPreferences,
+    Object.hashAllUnordered(
+      pluginValues.entries.map((e) => Object.hash(e.key, e.value)),
+    ),
     canEdit,
     canChangeTrackingPreferences,
   );

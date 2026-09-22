@@ -7,6 +7,7 @@ import 'package:intl/intl.dart' hide TextDirection;
 import '../data/site_lifecycle.dart';
 import '../models/discourse_instance.dart';
 import '../models/user_summary.dart';
+import '../plugin_api/plugin_scope.dart';
 import '../theme/d_icons.dart';
 import '../theme/discourse_typography.dart';
 import 'avatar_image.dart';
@@ -1207,7 +1208,8 @@ class _BadgeRows extends StatelessWidget {
                     semanticLabel:
                         '${badge.name}, earned ${badge.count} ${badge.count == 1 ? 'time' : 'times'}',
                     leading: DIcon(
-                      DIcons.byName[badge.icon] ?? DIcons.certificate,
+                      pluginIconNamed(context, badge.icon) ??
+                          DIcons.certificate,
                     ),
                     trailing: badge.count > 1 ? Text('×${badge.count}') : null,
                     child: Text(badge.name),

@@ -1,6 +1,4 @@
-import 'package:discourse_cooking/discourse_cooking.dart';
-
-import '../../plugin_api/cooking_plugin.dart';
+import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'event_data.dart';
 
 final class DiscourseEventsCookingPlugin implements CookingPlugin {

@@ -1,6 +1,4 @@
-import '../../data/discourse_api_contracts.dart'
-    show WriteException, WriteFailure;
-import '../../data/plugin_transport.dart';
+import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'poll.dart';
 import 'polls_api.dart';
 

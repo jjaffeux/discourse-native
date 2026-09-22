@@ -30,7 +30,6 @@ final class AppSettings {
     this.topicListLargerText = false,
     this.topicListShowTags = true,
     this.topicListShowLastPoster = true,
-    this.topicListShowAssignments = true,
     this.topicListMode = TopicListDisplayMode.card,
   });
 
@@ -44,7 +43,6 @@ final class AppSettings {
   final bool topicListLargerText;
   final bool topicListShowTags;
   final bool topicListShowLastPoster;
-  final bool topicListShowAssignments;
   final TopicListDisplayMode topicListMode;
 
   AppSettings copyWith({
@@ -55,7 +53,6 @@ final class AppSettings {
     bool? topicListLargerText,
     bool? topicListShowTags,
     bool? topicListShowLastPoster,
-    bool? topicListShowAssignments,
     TopicListDisplayMode? topicListMode,
   }) => AppSettings(
     limitContentSize: limitContentSize ?? this.limitContentSize,
@@ -66,8 +63,6 @@ final class AppSettings {
     topicListShowTags: topicListShowTags ?? this.topicListShowTags,
     topicListShowLastPoster:
         topicListShowLastPoster ?? this.topicListShowLastPoster,
-    topicListShowAssignments:
-        topicListShowAssignments ?? this.topicListShowAssignments,
     topicListMode: topicListMode ?? this.topicListMode,
   );
 
@@ -81,7 +76,6 @@ final class AppSettings {
       other.topicListLargerText == topicListLargerText &&
       other.topicListShowTags == topicListShowTags &&
       other.topicListShowLastPoster == topicListShowLastPoster &&
-      other.topicListShowAssignments == topicListShowAssignments &&
       other.topicListMode == topicListMode;
 
   @override
@@ -93,7 +87,6 @@ final class AppSettings {
     topicListLargerText,
     topicListShowTags,
     topicListShowLastPoster,
-    topicListShowAssignments,
     topicListMode,
   );
 }

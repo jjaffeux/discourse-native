@@ -1,26 +1,15 @@
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../../models/chat_channel_list_preferences.dart';
-import '../../models/content_route.dart';
-import '../../models/sidebar.dart';
-import '../../plugin_api/plugin_scope.dart';
-import '../../shell/adaptive_shell.dart';
-import '../../shell/emoji.dart';
-import '../../shell/platform.dart';
-import '../../shell/relative_time.dart';
-import '../../shell/site_emoji_text.dart';
-import '../../shell/title_bar.dart';
-import '../../shell/user_status.dart';
-import '../../theme/app_theme.dart';
-import '../../theme/d_icons.dart';
 import 'chat_channel.dart';
 import 'chat_channel_actions.dart';
 import 'chat_channel_list_actions.dart';
+import 'chat_channel_list_preferences.dart';
 import 'chat_controller.dart';
 import 'chat_drawer_preferences_store.dart';
 import 'chat_new_direct_message.dart';

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/data/site_lifecycle.dart';
 import 'package:discourse_native/src/models/site_emoji.dart';
+import 'package:discourse_native/src/plugins/chat/chat_global_search.dart';
 import 'package:discourse_native/src/shell/global_search_api.dart';
 import 'package:discourse_native/src/shell/global_search_controller.dart';
 import 'package:discourse_native/src/shell/global_search_models.dart';
@@ -517,7 +518,7 @@ void main() {
     tester,
   ) async {
     final controller = await _pump(tester);
-    controller.setScope(GlobalSearchScope.chat);
+    controller.setScope(chatSearchScope);
     controller.setDisplayProperty(GlobalSearchDisplayProperty.likes, false);
     await tester.pumpAndSettle();
     await tester.tap(_key('global-search-display-trigger'));
@@ -592,7 +593,8 @@ Future<GlobalSearchController> _pump(
         siteUrl: 'https://example.com',
         capabilities: const GlobalSearchCapabilities(
           authenticated: true,
-          chat: true,
+          contributions: [ChatGlobalSearch()],
+          enabledContributions: {'chat'},
         ),
       );
   addTearDown(controller.dispose);
@@ -694,6 +696,7 @@ class _PanelApi extends GlobalSearchApi {
   );
   @override
   Future<List<GlobalSearchFilterChoice>> lookupChoices({
+    GlobalSearchCapabilities capabilities = const GlobalSearchCapabilities(),
     required String siteUrl,
     required String? apiKey,
     String? clientId,

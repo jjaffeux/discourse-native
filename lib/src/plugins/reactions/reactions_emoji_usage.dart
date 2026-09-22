@@ -1,6 +1,4 @@
-import 'package:discourse_plugin_api/discourse_plugin_api.dart';
-
-import '../../plugin_api/emoji_usage.dart';
+import 'package:discourse_native/discourse_plugin_sdk.dart';
 
 /// Adopts the legacy unnamespaced `postReactions` preference on first mutation.
 const reactionsEmojiUsageContext = EmojiUsageContext(

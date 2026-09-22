@@ -1,4 +1,4 @@
-import '../../models/post.dart';
+import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'post_reactors.dart';
 
 abstract interface class ReactionsApi {

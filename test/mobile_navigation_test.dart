@@ -34,7 +34,7 @@ void main() {
     expect(navigation.tab, MobileTab.messages);
     expect(navigation.canGoBack, isFalse);
     expect(navigation.canGoForward, isFalse);
-    navigation.selectTab(MobileTab.chat);
+    navigation.selectTab(const MobileTab.panel('chat'));
     navigation.synchronize(owner: 'account', location: null, contentRoot: true);
     navigation.synchronize(
       owner: 'account',
@@ -43,7 +43,7 @@ void main() {
     );
     expect(navigation.goBack(), isTrue);
     expect(navigation.atRoot, isTrue);
-    expect(navigation.tab, MobileTab.chat);
+    expect(navigation.tab, const MobileTab.panel('chat'));
     navigation.synchronize(
       owner: 'another account',
       location: page('latest'),

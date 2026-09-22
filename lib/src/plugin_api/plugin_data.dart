@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 
+import '../models/user_preferences.dart';
 import 'preserved_json.dart';
 
 /// The owner/name pair is explicit instead of relying on a Dart [Type], so the
@@ -155,6 +156,12 @@ final class PluginData {
 }
 
 abstract interface class PluginDataDecoder {
+  Set<String> get userPreferenceFields;
+  Map<String, UserPreferenceValues> readUserPreferences(
+    Map<String, dynamic> json,
+    UserPreferences fallback,
+  );
+
   PluginData readGroup(Map<String, dynamic> json, String siteUrl);
 
   PluginData readPost(Map<String, dynamic> json, String siteUrl);
@@ -183,6 +190,14 @@ abstract interface class PluginDataDecoder {
 
 final class EmptyPluginDataDecoder implements PluginDataDecoder {
   const EmptyPluginDataDecoder();
+
+  @override
+  Set<String> get userPreferenceFields => const {};
+  @override
+  Map<String, UserPreferenceValues> readUserPreferences(
+    Map<String, dynamic> json,
+    UserPreferences fallback,
+  ) => const {};
 
   @override
   PluginData readGroup(Map<String, dynamic> json, String siteUrl) =>

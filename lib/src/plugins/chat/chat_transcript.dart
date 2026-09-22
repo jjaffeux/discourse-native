@@ -1,16 +1,7 @@
+import 'package:discourse_native/discourse_plugin_sdk.dart';
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:html/dom.dart' as dom;
-
-import '../../../discourse_ui.dart';
-import '../../shell/avatar_image.dart';
-import '../../shell/cooked_dom.dart';
-import '../../shell/cooked_html.dart';
-import '../../shell/inline_action.dart';
-import '../../shell/open_link.dart';
-import '../../shell/quote_panel.dart';
-import '../../shell/site_url.dart';
-import '../../shell/user_card.dart';
-import '../../theme/app_theme.dart';
 
 class ChatTranscriptData {
   const ChatTranscriptData({

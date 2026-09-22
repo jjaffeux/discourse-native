@@ -1,6 +1,4 @@
-import '../../models/bookmark.dart';
-import '../../models/json.dart';
-import '../../plugin_api/plugin_manifest.dart';
+import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'chat_wire.dart';
 
 const chatMessageBookmarkTarget = BookmarkTargetType(

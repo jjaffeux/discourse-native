@@ -213,7 +213,7 @@ final class TopicPostIndexProjection {
 class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
   final Object _visibleTopicContextOwner = Object();
   late final TopicViewportCoordinator _viewport;
-  int? _chatContextCurrentPostId;
+  int? _visibleContextCurrentPostId;
   final ValueNotifier<int?> _keyboardPost = ValueNotifier(null);
   final ReadingFocusNode _entryFocus = ReadingFocusNode(
     debugLabel: 'topic reader',
@@ -588,7 +588,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
     _laidOutDayStarts = const [];
     _dayJumpToken = null;
     _postIndexProjection = null;
-    _chatContextCurrentPostId = null;
+    _visibleContextCurrentPostId = null;
     _postContexts.clear();
     _postRetention.clear();
     _animatedPostIds.value = const {};
@@ -670,7 +670,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
   ) {
     if (_keyboardPostLoad != null) return true;
     final posts = snapshot.streamIds;
-    final current = _keyboardPost.value ?? _chatContextCurrentPostId;
+    final current = _keyboardPost.value ?? _visibleContextCurrentPostId;
     final currentIndex = current == null
         ? (_progressPosition ?? 1) - 1
         : posts.indexOf(current);
@@ -681,7 +681,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
     _keyboardFocus.requestFocus();
     final loadedIndex = snapshot.postIds.indexOf(nextId);
     if (loadedIndex >= 0) {
-      _chatContextCurrentPostId = nextId;
+      _visibleContextCurrentPostId = nextId;
       _jumpTo(loadedIndex + (snapshot.hasEarlier ? 1 : 0));
     } else {
       final token = Object();
@@ -1218,7 +1218,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
 
     // Separators can briefly cross the eyeline. Like web, retain the prior
     // current post until another post itself contains the line.
-    final previousContextPostId = _chatContextCurrentPostId;
+    final previousContextPostId = _visibleContextCurrentPostId;
     if (contextPost == null &&
         previousContextPostId != null &&
         snapshot.postIds.contains(previousContextPostId)) {
@@ -1235,7 +1235,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
       }
     }
     contextPost ??= leadingPost;
-    _chatContextCurrentPostId = contextPost?.postId;
+    _visibleContextCurrentPostId = contextPost?.postId;
     if (_postContexts[contextPost?.postId] case final context?) {
       // Several async placeholders can initially fit in the viewport. Once
       // they expand, prefer the post being read over later offscreen rows.
@@ -1258,7 +1258,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
       topicId: snapshot.topicId!,
       postIds: contextPost == null
           ? const []
-          : _chatContextPostIds(controller, snapshot, contextPost.postId),
+          : _visibleContextPostIds(controller, snapshot, contextPost.postId),
     );
 
     // A one-pixel glimpse of a very tall post is not evidence that it was
@@ -1353,9 +1353,9 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
     return post.postNumber;
   }
 
-  /// Matches web chat context: the current intersecting post and the nearest
+  /// Provides visible topic context to consumers: the current intersecting post and the nearest
   /// non-hidden, non-deleted post on either side of it.
-  List<int> _chatContextPostIds(
+  List<int> _visibleContextPostIds(
     ShellController controller,
     TopicViewportSnapshot snapshot,
     int currentPostId,

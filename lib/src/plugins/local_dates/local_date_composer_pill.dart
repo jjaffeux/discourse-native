@@ -1,8 +1,6 @@
+import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:flutter/material.dart';
 
-import '../../shell/pill.dart';
-import '../../theme/d_icon.dart';
-import '../../theme/d_icons.dart';
 import 'local_date.dart';
 import 'local_date_composer_editor.dart';
 import 'local_date_composer_parser.dart';

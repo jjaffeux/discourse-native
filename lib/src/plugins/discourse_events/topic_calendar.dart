@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/date_symbol_data_local.dart';
@@ -8,8 +9,6 @@ import 'package:intl/intl.dart';
 import 'package:kalender/kalender.dart' as kalender;
 import 'package:timezone/timezone.dart' as tz;
 
-import '../../plugin_api/timezone_host.dart';
-import '../../theme/discourse_typography.dart';
 import 'topic_calendar_data.dart';
 import 'topic_calendar_event.dart';
 

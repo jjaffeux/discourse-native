@@ -1,12 +1,6 @@
 // ignore_for_file: prefer_initializing_formals
 
-import '../../data/discourse_api_contracts.dart';
-import '../../diagnostics/diagnostics_controller.dart';
-import '../../foundation/frame_safe_notifier.dart';
-import '../../models/post.dart';
-import '../../models/site_config.dart';
-import '../../plugin_api/core_plugin_host.dart';
-import '../../plugin_api/shell_extensions.dart';
+import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'poll.dart';
 import 'poll_data.dart';
 import 'polls_api.dart';

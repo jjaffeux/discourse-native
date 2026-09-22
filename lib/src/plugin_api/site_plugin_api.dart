@@ -12,6 +12,7 @@ import '../models/post.dart';
 import '../models/sidebar.dart';
 import '../models/topic.dart';
 import '../models/user_card.dart';
+import '../models/user_draft.dart';
 import '../models/user_preferences.dart';
 import '../shell/composer_controller.dart';
 import '../shell/global_search_models.dart';
@@ -503,8 +504,24 @@ abstract interface class ComposerTargetPlugin {
   );
 }
 
+abstract interface class UserPreferenceCodec {
+  PreferenceSection get section;
+  Set<String> get fields;
+  UserPreferenceValues decode(
+    Map<String, dynamic> json,
+    UserPreferenceValues? fallback,
+  );
+}
+
+abstract interface class UserPreferencesPlugin {
+  List<UserPreferenceCodec> get userPreferenceCodecs;
+}
+
 typedef PluginUserPreferenceEdit =
-    void Function(UserPreferences Function(UserPreferences current) change);
+    void Function(
+      PreferenceSection section,
+      UserPreferences Function(UserPreferences current) change,
+    );
 
 @immutable
 final class PluginUserPreferenceContext {
@@ -845,4 +862,26 @@ class ComposerToolbarContribution {
 
   /// Native menu hint only; the plugin retains ownership of shortcut dispatch.
   final MenuSerializableShortcut? shortcut;
+}
+
+/// A contributor recognizes only its own draft keys.
+abstract interface class DraftPresentationPlugin {
+  PluginDraftPresentation? draftPresentation(UserDraft draft);
+}
+
+final class PluginDraftPresentation {
+  const PluginDraftPresentation({required this.label, required this.icon});
+  final String label;
+  final DIconData icon;
+}
+
+/// Additional menu entries and rebuild signals for topic-list presentation.
+abstract interface class TopicListPresentationPlugin {
+  List<Widget> topicListDisplayActions(BuildContext context);
+  Listenable? topicListPresentationListenable(BuildContext context);
+}
+
+/// Plugin markup can opt its ancestors into compact inline emoji presentation.
+abstract interface class CompactEmojiPlugin {
+  bool compactEmojiAncestor(dom.Element element);
 }

@@ -1,4 +1,4 @@
-import '../../plugin_api/plugin_manifest.dart';
+import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'ai_proofreading_controller.dart';
 import 'ai_summary_controller.dart';
 

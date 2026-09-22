@@ -13,6 +13,7 @@ import 'package:discourse_native/src/plugin_api/site_plugin_api.dart';
 import 'package:discourse_native/src/plugins/assign/assign_icons.dart';
 import 'package:discourse_native/src/plugins/assign/assign_notifications.dart';
 import 'package:discourse_native/src/plugins/assign/assign_plugin.dart';
+import 'package:discourse_native/src/plugins/assign/assign_services.dart';
 import 'package:discourse_native/src/plugins/assign/assign_user_menu.dart';
 import 'package:discourse_native/src/plugins/assign/assignment_sheet.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
@@ -501,9 +502,15 @@ void main() {
       }
 
       await check(true);
-      await shell.appSettings.setTopicListShowAssignments(false);
+      await shell.pluginSession
+          .servicesFor(assignPluginId)
+          .require(assignTopicListPreferencesService)
+          .setShowAssignments(false);
       await check(false);
-      await shell.appSettings.setTopicListShowAssignments(true);
+      await shell.pluginSession
+          .servicesFor(assignPluginId)
+          .require(assignTopicListPreferencesService)
+          .setShowAssignments(true);
       await check(true);
     });
 

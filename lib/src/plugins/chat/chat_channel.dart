@@ -1,11 +1,8 @@
+import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:flutter/foundation.dart'
     show immutable, listEquals, mapEquals, setEquals;
 import 'package:flutter/material.dart';
 
-import '../../data/store.dart';
-import '../../models/json.dart';
-import '../../models/sidebar.dart';
-import '../../models/user_status.dart';
 import 'chat_message_summary.dart';
 
 /// `chatable_type` is open-ended, so unknown values remain drawable as [other].

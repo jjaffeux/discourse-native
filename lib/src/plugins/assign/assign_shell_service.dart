@@ -1,10 +1,6 @@
 // ignore_for_file: prefer_initializing_formals
 
-import '../../models/content_route.dart';
-import '../../models/group_route.dart';
-import '../../models/topic.dart';
-import '../../plugin_api/shell_extensions.dart';
-import '../../shell/site_url.dart';
+import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'assigned_group.dart';
 import 'assigned_group_link.dart';
 

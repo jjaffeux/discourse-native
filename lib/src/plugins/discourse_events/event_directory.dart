@@ -1,13 +1,10 @@
 import 'dart:async';
 
+import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:timezone/timezone.dart' as tz;
 
-import '../../plugin_api/timezone_host.dart';
-import '../../shell/content_reading_lane.dart';
-import '../../shell/external_link.dart';
-import '../../shell/site_url.dart';
 import 'event_calendar.dart';
 import 'event_calendar_data.dart';
 import 'event_controller.dart';

@@ -1,32 +1,12 @@
 import 'dart:async';
 
 import 'package:desktop_drop/desktop_drop.dart';
+import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../../diagnostics/diagnostics_controller.dart';
-import '../../foundation/frame_safe_notifier.dart';
-import '../../models/composer_upload.dart';
-import '../../models/site_config.dart';
-import '../../plugin_api/core_plugin_host.dart';
-import '../../plugin_api/plugin_scope.dart';
-import '../../shell/composer_autocomplete.dart';
-import '../../shell/composer_controller.dart';
-import '../../shell/composer_drop.dart';
-import '../../shell/composer_link.dart';
-import '../../shell/composer_marks.dart';
-import '../../shell/composer_panel.dart';
-import '../../shell/composer_slash_menu.dart';
-import '../../shell/composer_upload_picker.dart';
-import '../../shell/content_reading_lane.dart';
-import '../../shell/emoji_composer.dart';
-import '../../shell/emoji_picker.dart';
-import '../../shell/platform.dart';
-import '../../shell/site_emoji_text.dart';
-import '../../theme/app_theme.dart';
-import '../../theme/d_icons.dart';
 import '../gifs/gifs_contract.dart';
 import 'chat_channel.dart';
 import 'chat_controller.dart';

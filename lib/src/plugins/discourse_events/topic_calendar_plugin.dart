@@ -1,14 +1,10 @@
 import 'dart:async';
 
+import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:html/dom.dart' as dom;
 
-import '../../plugin_api/plugin_scope.dart';
-import '../../plugin_api/site_plugin_api.dart';
-import '../../shell/cooked_html.dart';
-import '../../shell/external_link.dart';
-import '../../shell/site_url.dart';
 import 'event_controller.dart';
 import 'event_cooked_visibility.dart';
 import 'event_navigation.dart';

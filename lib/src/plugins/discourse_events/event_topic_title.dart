@@ -1,8 +1,8 @@
+import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
-import '../../theme/discourse_typography.dart';
 import 'event_controller.dart';
 import 'event_data.dart';
 import 'event_notifications.dart';

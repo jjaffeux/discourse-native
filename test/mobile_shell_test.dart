@@ -194,10 +194,10 @@ void main() {
       double right = -1;
       for (final tab in [
         'topics',
-        'chat',
+        'panel/chat',
         'messages',
         'users',
-        'events',
+        'destination/events-upcoming',
         'more',
       ]) {
         final button = find.byKey(ValueKey('mobile-mode-$tab'));
@@ -268,7 +268,7 @@ void main() {
     tester,
   ) async {
     final shell = await pumpMobileShellFixture(tester);
-    await tester.tap(find.byKey(const ValueKey('mobile-mode-chat')));
+    await tester.tap(find.byKey(const ValueKey('mobile-mode-panel/chat')));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('mobile-menu-button')));
     await tester.pumpAndSettle();
@@ -298,7 +298,7 @@ void main() {
     expect(shell.visibleComposer, isNotNull);
     shell.closeComposer();
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey('mobile-mode-chat')));
+    await tester.tap(find.byKey(const ValueKey('mobile-mode-panel/chat')));
     await tester.pumpAndSettle();
     expect(topic, findsNothing);
     await tester.tap(find.byKey(const ValueKey('mobile-mode-messages')));
@@ -337,10 +337,10 @@ void main() {
         expect(tester.getSize(action).width, greaterThanOrEqualTo(48));
         for (final name in [
           'topics',
-          'chat',
+          'panel/chat',
           'messages',
           'users',
-          'events',
+          'destination/events-upcoming',
           'more',
         ]) {
           final button = find.byKey(ValueKey('mobile-mode-$name'));
@@ -398,8 +398,11 @@ void main() {
     tester,
   ) async {
     await pumpMobileShellFixture(tester, chat: false);
-    expect(find.byKey(const ValueKey('mobile-mode-chat')), findsNothing);
-    expect(find.byKey(const ValueKey('mobile-mode-events')), findsNothing);
+    expect(find.byKey(const ValueKey('mobile-mode-panel/chat')), findsNothing);
+    expect(
+      find.byKey(const ValueKey('mobile-mode-destination/events-upcoming')),
+      findsNothing,
+    );
     expect(find.byKey(const ValueKey('mobile-mode-topics')), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
@@ -434,14 +437,24 @@ void main() {
       ),
     );
     final shell = ShellScope.read(tester.element(find.byType(MobileForumRoot)));
-    await tester.tap(find.byKey(const ValueKey('mobile-mode-events')));
+    await tester.tap(
+      find.byKey(const ValueKey('mobile-mode-destination/events-upcoming')),
+    );
     await tester.pumpAndSettle();
-    expect(shell.mobileNavigation.tab, MobileTab.events);
+    expect(
+      shell.mobileNavigation.tab,
+      const MobileTab.destination('events-upcoming'),
+    );
     shell.selectInstance(1);
     await tester.pump();
     expect(find.byKey(const ValueKey('history-outgoing-tab')), findsNothing);
     await tester.pumpAndSettle();
-    for (final tab in ['chat', 'messages', 'users', 'events']) {
+    for (final tab in [
+      'panel/chat',
+      'messages',
+      'users',
+      'destination/events-upcoming',
+    ]) {
       expect(find.byKey(ValueKey('mobile-mode-$tab')), findsNothing);
     }
     expect(find.byKey(const ValueKey('mobile-new-topic')), findsNothing);
@@ -474,8 +487,11 @@ void main() {
         siteConfigs: {_site: config},
       ),
     );
-    expect(find.byKey(const ValueKey('mobile-mode-chat')), findsNothing);
-    expect(find.byKey(const ValueKey('mobile-mode-events')), findsNothing);
+    expect(find.byKey(const ValueKey('mobile-mode-panel/chat')), findsNothing);
+    expect(
+      find.byKey(const ValueKey('mobile-mode-destination/events-upcoming')),
+      findsNothing,
+    );
     expect(tester.takeException(), isNull);
   });
 
@@ -486,9 +502,9 @@ void main() {
       final header = tester.getRect(_header);
       final bar = tester.getRect(_bar);
       for (final (from, to, direction) in [
-        ('messages', 'chat', -1),
+        ('messages', 'panel/chat', -1),
         ('messages', 'users', 1),
-        ('events', 'topics', -1),
+        ('destination/events-upcoming', 'topics', -1),
       ]) {
         await tester.tap(find.byKey(ValueKey('mobile-mode-$from')));
         await tester.pumpAndSettle();
@@ -528,7 +544,7 @@ void main() {
       final shell = await pumpMobileShellFixture(tester, voice: true);
       final voice = shell.pluginSession.require(voiceControllerService);
       expect(find.byKey(const ValueKey('mobile-mode-voice')), findsNothing);
-      await tester.tap(find.byKey(const ValueKey('mobile-mode-chat')));
+      await tester.tap(find.byKey(const ValueKey('mobile-mode-panel/chat')));
       await tester.pumpAndSettle();
       expect(find.text('Watercooler'), findsOneWidget);
       expect(find.byType(InstanceRail), findsNothing);
@@ -670,7 +686,7 @@ void main() {
     tester,
   ) async {
     final shell = await pumpMobileShellFixture(tester);
-    await tester.tap(find.byKey(const ValueKey('mobile-mode-chat')));
+    await tester.tap(find.byKey(const ValueKey('mobile-mode-panel/chat')));
     await tester.pumpAndSettle();
     expect(find.byType(InstanceRail), findsNothing);
     expect(find.byType(ChatDrawerChannelsView), findsOneWidget);
@@ -713,7 +729,7 @@ void main() {
     tester,
   ) async {
     final shell = await pumpMobileShellFixture(tester);
-    await tester.tap(find.byKey(const ValueKey('mobile-mode-chat')));
+    await tester.tap(find.byKey(const ValueKey('mobile-mode-panel/chat')));
     await tester.pumpAndSettle();
     await tester.ensureVisible(find.text('DMs'));
     await tester.pumpAndSettle();
@@ -809,7 +825,7 @@ void main() {
     await tester.binding.handlePopRoute();
     await tester.pumpAndSettle();
     expect(shell.canPopContent, isFalse);
-    await tester.tap(find.byKey(const ValueKey('mobile-mode-chat')));
+    await tester.tap(find.byKey(const ValueKey('mobile-mode-panel/chat')));
     await tester.pumpAndSettle();
     await tester.ensureVisible(find.text('DMs'));
     await tester.pumpAndSettle();

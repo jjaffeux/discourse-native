@@ -1,6 +1,6 @@
-import 'package:discourse_native/src/models/chat_channel_list_preferences.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel_list.dart';
+import 'package:discourse_native/src/plugins/chat/chat_channel_list_preferences.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/counting_thread_overview.dart';

@@ -1,9 +1,7 @@
+import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:flutter/widgets.dart';
 import 'package:html/dom.dart' as dom;
 
-import '../../plugin_api/plugin_scope.dart';
-import '../../plugin_api/site_plugin_api.dart';
-import '../../shell/oneboxes/onebox.dart';
 import '../local_dates/local_dates_contract.dart';
 import 'discourse_github_services.dart';
 import 'oneboxes/commit/block.dart';

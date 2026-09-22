@@ -12,27 +12,19 @@ void main() {
     final store = AppSettingsStore();
     expect((await store.read()).topicListShowTags, isTrue);
     expect((await store.read()).topicListShowLastPoster, isTrue);
-    expect((await store.read()).topicListShowAssignments, isTrue);
     await store.update(topicListShowTags: false);
     await store.update(topicListShowLastPoster: false);
     var restored = await AppSettingsStore().read();
     expect(restored.topicListShowTags, isFalse);
     expect(restored.topicListShowLastPoster, isFalse);
-    expect(restored.topicListShowAssignments, isTrue);
-    await store.update(topicListShowAssignments: false);
     restored = await AppSettingsStore().read();
     expect(restored.topicListShowTags, isFalse);
     expect(restored.topicListShowLastPoster, isFalse);
-    expect(restored.topicListShowAssignments, isFalse);
-    await store.update(topicListShowTags: true, topicListShowAssignments: true);
-    await store.update(
-      topicListShowLastPoster: true,
-      topicListShowAssignments: true,
-    );
+    await store.update(topicListShowTags: true);
+    await store.update(topicListShowLastPoster: true);
     restored = await AppSettingsStore().read();
     expect(restored.topicListShowTags, isTrue);
     expect(restored.topicListShowLastPoster, isTrue);
-    expect(restored.topicListShowAssignments, isTrue);
   });
 
   test(
@@ -467,10 +459,6 @@ final class _ControlledAppSettingsPersistence
   Future<bool> writeTopicListShowTags(bool value) async => true;
   @override
   Future<bool> writeTopicListShowLastPoster(bool value) async => true;
-  @override
-  Future<bool?> readTopicListShowAssignments() async => null;
-  @override
-  Future<bool> writeTopicListShowAssignments(bool value) async => true;
 
   _ControlledAppSettingsPersistence({
     this.limitContentSize,

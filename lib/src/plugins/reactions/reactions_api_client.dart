@@ -1,6 +1,4 @@
-import '../../data/plugin_transport.dart';
-import '../../models/post.dart';
-import '../../plugin_api/discourse_model_codec.dart';
+import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'post_reactors.dart';
 import 'reactions_api.dart';
 

@@ -40,7 +40,10 @@ class _GlobalSearchFilterPickerState extends State<_GlobalSearchFilterPicker> {
     final condition = _condition;
     final definition = condition == null
         ? null
-        : globalSearchFilter(condition.filterId);
+        : globalSearchFilter(
+            condition.filterId,
+            widget.controller.capabilities,
+          );
     final editor = _editing ?? definition;
     return DPopover(
       controller: _popover,
@@ -216,7 +219,9 @@ class _GlobalSearchFilterPickerState extends State<_GlobalSearchFilterPicker> {
     }
     return DCommand<String>(
       semanticLabel: 'Search filters',
-      onSelected: (id) => setState(() => _editing = globalSearchFilter(id)),
+      onSelected: (id) => setState(
+        () => _editing = globalSearchFilter(id, widget.controller.capabilities),
+      ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -239,7 +244,10 @@ class _GlobalSearchFilterPickerState extends State<_GlobalSearchFilterPicker> {
                         searchValue:
                             '${filter.label} ${filter.group} ${filter.scope.label}',
                         keywords: [filter.token ?? '', filter.help],
-                        leading: DIcon(_filterIcon(filter.icon), size: 15),
+                        leading: DIcon(
+                          _filterIcon(context, filter.icon),
+                          size: 15,
+                        ),
                         trailing: const DIcon(DIcons.chevronRight, size: 12),
                         child: Text(filter.label),
                       ),
@@ -296,19 +304,7 @@ class _GlobalSearchConditionEditorState
       _multiple ||
       _choicesOnly ||
       widget.filter.choices.isNotEmpty ||
-      const [
-        'author',
-        'topicAuthor',
-        'authorGroup',
-        'groupInbox',
-        'chatAuthor',
-        'chatChannel',
-        'adminUserMessages',
-        'assignee',
-        'groupMember',
-        'userName',
-        'userGroup',
-      ].contains(widget.filter.id);
+      widget.filter.lookup != GlobalSearchLookup.none;
 
   @override
   void initState() {
@@ -856,14 +852,14 @@ class _GlobalSearchConditionEditorState
   }
 }
 
-DIconData _filterIcon(String name) => switch (name) {
+DIconData _filterIcon(BuildContext context, String name) => switch (name) {
   'search' => DIcons.magnifyingGlass,
   'mail' => DIcons.envelope,
   'hash' => DIcons.tag,
   'status' => DIcons.circleCheck,
   'topics' || 'post' => DIcons.comments,
-  'calendar' => DIcons.byName['calendar-days'] ?? DIcons.filter,
-  _ => DIcons.byName[name] ?? DIcons.filter,
+  'calendar' => pluginIconNamed(context, 'calendar-days') ?? DIcons.filter,
+  _ => pluginIconNamed(context, name) ?? DIcons.filter,
 };
 
 String _searchChoiceLabel(

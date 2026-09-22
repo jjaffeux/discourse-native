@@ -1,4 +1,4 @@
-import '../../plugin_api/plugin_manifest.dart';
+import 'package:discourse_native/discourse_plugin_sdk.dart';
 import '../local_dates/local_dates_contract.dart';
 import 'discourse_github_plugin.dart';
 import 'discourse_github_services.dart';

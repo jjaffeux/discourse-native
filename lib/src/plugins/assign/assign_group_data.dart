@@ -1,7 +1,5 @@
+import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:flutter/foundation.dart';
-
-import '../../models/json.dart';
-import '../../plugin_api/plugin_data.dart';
 
 const assignGroupDataKey = PluginDataKey<AssignGroupData>(
   owner: 'discourse-assign',

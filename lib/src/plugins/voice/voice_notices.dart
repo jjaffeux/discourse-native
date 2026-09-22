@@ -1,8 +1,7 @@
 import 'dart:async';
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
-
-import '../../ui/components/d_toast.dart';
 
 import 'voice_controller.dart';
 

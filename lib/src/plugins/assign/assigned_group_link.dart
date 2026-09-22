@@ -1,7 +1,6 @@
+import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:flutter/foundation.dart';
 
-import '../../foundation/uri_path.dart';
-import '../../models/discourse_instance.dart';
 import 'assigned_group.dart';
 
 @immutable

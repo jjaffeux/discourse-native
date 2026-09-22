@@ -1,8 +1,6 @@
+import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:flutter/foundation.dart';
 
-import '../../foundation/calendar_day.dart';
-import '../../models/site_config.dart';
-import '../../shell/time_gap.dart';
 import 'chat_message.dart';
 
 @immutable

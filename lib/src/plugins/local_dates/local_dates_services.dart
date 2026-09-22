@@ -1,9 +1,6 @@
 // ignore_for_file: prefer_initializing_formals
 
-import '../../models/site_config.dart';
-import '../../plugin_api/core_plugin_host.dart';
-import '../../plugin_api/plugin_manifest.dart';
-import '../../shell/composer_controller.dart';
+import 'package:discourse_native/discourse_plugin_sdk.dart';
 
 const localDatesPluginId = PluginId('discourse-local-dates');
 

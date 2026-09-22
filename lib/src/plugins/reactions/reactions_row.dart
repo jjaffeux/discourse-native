@@ -1,13 +1,9 @@
 import 'dart:async';
 
+import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
-import '../../models/post.dart';
-import '../../plugin_api/core_plugin_host.dart';
-import '../../plugin_api/plugin_scope.dart';
-import '../../shell/reaction_presentation.dart';
-import '../../shell/site_emoji_image.dart';
 import 'reaction.dart';
 import 'reaction_picker.dart';
 import 'reactions_controller.dart';

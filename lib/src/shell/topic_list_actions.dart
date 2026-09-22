@@ -4,6 +4,8 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
 import '../models/topic_filter.dart';
+import '../plugin_api/plugin_registry.dart';
+import '../plugin_api/plugin_scope.dart';
 import '../theme/d_native_icons.dart';
 import 'shell_controller.dart';
 import 'shell_scope.dart';
@@ -19,8 +21,13 @@ class TopicListActions extends StatelessWidget {
   Widget build(BuildContext context) {
     final settings = ShellScope.maybeIdentityOf(context)?.appSettings;
     if (settings == null) return filter ?? const SizedBox.shrink();
+    final registry =
+        PluginScope.maybeOf(context)?.registry ?? PluginRegistry.empty;
     return ListenableBuilder(
-      listenable: settings,
+      listenable: Listenable.merge([
+        settings,
+        ...registry.topicListPresentationListenables(context),
+      ]),
       builder: (context, _) => Row(
         mainAxisSize: MainAxisSize.min,
         spacing: DSpacing.controlGap,
@@ -50,12 +57,7 @@ class TopicListActions extends StatelessWidget {
                       unawaited(settings.setTopicListShowLastPoster(value)),
                   child: const Text('Show last poster'),
                 ),
-                DDropdownMenuCheckboxItem(
-                  checked: settings.topicListShowAssignments,
-                  onChanged: (value) =>
-                      unawaited(settings.setTopicListShowAssignments(value)),
-                  child: const Text('Show assignments'),
-                ),
+                ...registry.topicListDisplayActions(context),
               ],
             ),
             child: DDropdownMenuTrigger(

@@ -1,8 +1,6 @@
+import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:flutter/foundation.dart';
 
-import '../../plugin_api/composer_syntax.dart';
-import '../../shell/markdown_editing_controller.dart';
-import '../../shell/markdown_highlight.dart';
 import 'local_date_environment.dart';
 
 const localDateComposerSyntaxId = 'discourse-local-dates/local-date';

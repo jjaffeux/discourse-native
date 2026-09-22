@@ -1,7 +1,6 @@
+import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:flutter/material.dart';
 
-import '../../shell/pill.dart';
-import '../../theme/d_icon.dart';
 import 'poll_composer_parser.dart';
 import 'poll_icons.dart';
 

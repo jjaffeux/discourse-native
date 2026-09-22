@@ -2,13 +2,9 @@
 
 import 'dart:async';
 
+import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:flutter/widgets.dart';
 
-import '../../data/discourse_api_contracts.dart';
-import '../../diagnostics/diagnostics_controller.dart';
-import '../../foundation/frame_safe_notifier.dart';
-import '../../plugin_api/core_plugin_host.dart';
-import '../../plugin_api/site_plugin_api.dart';
 import 'ai_proofreading_api.dart';
 import 'ai_proofreading_data.dart';
 import 'ai_proofreading_preferences.dart';

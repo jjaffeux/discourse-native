@@ -1,16 +1,11 @@
 import 'dart:async';
 
+import 'package:discourse_native/discourse_plugin_sdk.dart';
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:html/dom.dart' as dom;
 
-import '../../models/live_refresh_id.dart';
-import '../../models/post.dart';
-import '../../plugin_api/plugin_scope.dart';
-import '../../plugin_api/site_plugin_api.dart';
-import '../../shell/external_link.dart';
-import '../../theme/d_icons.dart';
-import '../../ui/components/d_toast.dart';
 import 'poll.dart';
 import 'poll_card.dart';
 import 'poll_composer_editor.dart';
@@ -18,6 +13,7 @@ import 'poll_composer_pill.dart';
 import 'poll_composer_sheet.dart';
 import 'poll_controller.dart';
 import 'poll_data.dart';
+import 'poll_global_search.dart';
 import 'poll_icons.dart';
 import 'poll_services.dart';
 
@@ -26,11 +22,14 @@ export 'poll_data.dart';
 const pollComposerSyntaxKind = ComposerSyntaxKind(
   owner: PluginId('poll'),
   name: 'poll',
+  label: 'Poll',
 );
 
 class PollPlugin
     implements
         SitePlugin,
+        CompactEmojiPlugin,
+        GlobalSearchPlugin,
         IconCatalogPlugin,
         SiteSettingsPlugin<PollSettings>,
         CurrentUserPlugin<PollCurrentUser>,
@@ -40,7 +39,16 @@ class PollPlugin
         ComposerSyntaxPlugin,
         ComposerToolbarPlugin,
         TopicLivePlugin {
+  @override
+  List<GlobalSearchContribution> get searchContributions => const [
+    PollGlobalSearch(),
+  ];
+
   const PollPlugin();
+
+  @override
+  bool compactEmojiAncestor(dom.Element element) =>
+      element.classes.contains('poll');
 
   @override
   String get name => 'poll';

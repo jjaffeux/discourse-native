@@ -778,10 +778,6 @@ final class _ControlledAppSettingsPersistence
   Future<bool> writeTopicListShowTags(bool value) async => true;
   @override
   Future<bool> writeTopicListShowLastPoster(bool value) async => true;
-  @override
-  Future<bool?> readTopicListShowAssignments() async => null;
-  @override
-  Future<bool> writeTopicListShowAssignments(bool value) async => true;
 
   _ControlledAppSettingsPersistence({
     this.limitContentSize,

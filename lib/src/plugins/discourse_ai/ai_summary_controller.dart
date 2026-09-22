@@ -2,9 +2,7 @@
 
 import 'dart:async';
 
-import '../../plugin_api/cooking_plugin.dart';
-import '../../plugin_api/core_plugin_host.dart';
-import '../../plugin_api/live_channels.dart';
+import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'ai_summary.dart';
 import 'ai_summary_api.dart';
 

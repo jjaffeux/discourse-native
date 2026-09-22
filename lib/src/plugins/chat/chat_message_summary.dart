@@ -1,7 +1,6 @@
+import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:html/dom.dart' as dom;
 import 'package:html/parser.dart' as html;
-
-import '../../models/json.dart';
 
 /// Plain text for the inbox. The channel index already supplies an excerpt,
 /// so rendering the drawer does not need to fetch each conversation.

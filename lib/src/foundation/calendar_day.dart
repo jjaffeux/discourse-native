@@ -2,6 +2,9 @@ library;
 
 /// The reader's midnight at or before [value].
 ///
+/// Topic timelines use this for every post's creation date, regardless of
+/// installed plugins. It carries no event or calendar-plugin semantics.
+///
 /// Local, not the site's: a message written at 23:00 in Sydney is read under
 /// yesterday's heading in Paris, and the heading a reader scrolls past has to
 /// agree with the clock on their wall.

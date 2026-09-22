@@ -111,7 +111,12 @@ class CookedHtml extends StatelessWidget {
             registry,
           ) ??
           registry.cookedElement(siteUrl, element) ??
-          emojiWidgetBuilder(element, siteUrl, textStyle) ??
+          emojiWidgetBuilder(
+            element,
+            siteUrl,
+            textStyle,
+            compactAncestor: registry.compactEmojiAncestor,
+          ) ??
           mentionWidgetBuilder(
             element,
             textStyle,

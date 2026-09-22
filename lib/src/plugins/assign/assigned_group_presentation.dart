@@ -2,10 +2,9 @@
 
 import 'dart:async';
 
+import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:flutter/foundation.dart';
 
-import '../../models/topic.dart';
-import '../../models/topic_feed.dart';
 import 'assigned_group.dart';
 import 'assigned_group_controller.dart';
 

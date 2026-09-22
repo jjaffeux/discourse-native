@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../models/group.dart';
+import '../plugin_api/plugin_scope.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'avatar_image.dart';
@@ -24,7 +25,9 @@ class GroupFlair extends StatelessWidget {
     final imageUrl = flair != null && flair.contains('/')
         ? resolveSitePath(siteUrl, flair)
         : null;
-    final icon = DIcons.byName[group.flairIcon?.trim()] ?? DIcons.byName[flair];
+    final icon =
+        pluginIconNamed(context, group.flairIcon?.trim()) ??
+        pluginIconNamed(context, flair);
     if (imageUrl == null && icon == null) return const SizedBox.shrink();
 
     return Padding(
@@ -115,7 +118,7 @@ class GroupFlairBadge extends StatelessWidget {
               fallback: fallback,
             )
           : DIcon(
-              DIcons.byName[flair] ?? DIcons.users,
+              pluginIconNamed(context, flair) ?? DIcons.users,
               size: iconSize,
               color: foreground,
             ),

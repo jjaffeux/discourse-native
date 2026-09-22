@@ -1,10 +1,7 @@
+import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-
-import '../../plugin_api/site_plugin_api.dart';
-import '../../shell/composer_block_selection.dart';
-import '../../shell/composer_embedded_editor.dart';
 
 const mermaidComposerKind = ComposerSyntaxKind(
   owner: PluginId('discourse-mermaid'),

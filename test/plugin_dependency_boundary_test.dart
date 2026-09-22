@@ -19,9 +19,12 @@ const _pluginIdsByDirectory = <String, String>{
   'prometheus_alert_receiver': 'discourse-prometheus-alert-receiver',
   'reactions': 'discourse-reactions',
   'voice': 'voice',
+  'solved': 'discourse-solved',
+  'topic_voting': 'discourse-topic-voting',
 };
 
 const _approvedCrossFeatureContracts = <String, String>{
+  'voice->chat': 'lib/src/plugins/chat/chat_contract.dart',
   'chat->gifs': 'lib/src/plugins/gifs/gifs_contract.dart',
   'local_dates->chat': 'lib/src/plugins/chat/chat_preview_contract.dart',
   'discourse_github->local_dates':
@@ -79,10 +82,8 @@ const _featureModuleEntrypoints = <String>{
   'prometheus_alert_receiver/prometheus_alert_receiver_module.dart',
   'reactions/reactions_module.dart',
   'voice/voice_module.dart',
-};
-
-const _publicPluginContractExports = <String>{
-  'lib/discourse_plugin_sdk.dart->lib/src/plugins/chat/chat_contract.dart',
+  'solved/solved_module.dart',
+  'topic_voting/topic_voting_module.dart',
 };
 
 final _directiveStatements = RegExp(
@@ -137,11 +138,6 @@ void main() {
         for (final directive in _localDirectives(file)) {
           if (!directive.target.startsWith('lib/src/plugins/') &&
               directive.target != 'lib/discourse_bundled.dart') {
-            continue;
-          }
-          if (_publicPluginContractExports.contains(
-            '$path->${directive.target}',
-          )) {
             continue;
           }
           violations.add('$path:${directive.line} imports ${directive.uri}');
@@ -239,7 +235,7 @@ void main() {
         final path = _workspacePath(file);
         if (path.startsWith('lib/src/plugins/')) continue;
         final name = file.uri.pathSegments.last;
-        if (name == 'chat_thread_panel_width_store.dart' ||
+        if (name.startsWith('chat_') ||
             name.startsWith('voice_') ||
             path.contains('/oneboxes/github/')) {
           misplacedImplementations.add(path);
@@ -271,6 +267,28 @@ void main() {
   });
 
   group('plugin dependencies and host authority', () {
+    test('bundled plugins use the public SDK and Native UI entrypoints', () {
+      final violations = <String>[];
+      for (final file in _dartFilesUnder('lib/src/plugins')) {
+        if (_workspacePath(file) ==
+            'lib/src/plugins/bundled_plugin_manifest.dart') {
+          continue;
+        }
+        for (final directive in _localDirectives(file)) {
+          if (directive.target.startsWith('lib/src/plugins/')) continue;
+          if (!const {
+            'lib/discourse_plugin_sdk.dart',
+            'lib/discourse_ui.dart',
+          }.contains(directive.target)) {
+            violations.add(
+              '${_workspacePath(file)}:${directive.line} reaches ${directive.target}',
+            );
+          }
+        }
+      }
+      expect(violations, isEmpty, reason: violations.join('\n'));
+    });
+
     test('prevent production code from recovering the concrete shell', () {
       final violations = <String>[];
       for (final file in _dartFilesUnder('lib/src/plugins')) {
@@ -504,6 +522,57 @@ void main() {
   });
 
   group('core schema ownership', () {
+    test(
+      'shared layers do not name optional feature schemas or identities',
+      () {
+        const tokens = {
+          'chat_channel_list_',
+          'chat_separate_sidebar_mode',
+          'newDirectMessageShortcutForPlatform',
+          'ChatChannelListPreferences',
+          'ChatSeparateSidebarPreference',
+          'chat_search_enabled',
+          'has_chat_enabled',
+          '/chat/api/',
+          'chat_channel_id',
+          'chatAuthor',
+          'chatChannel',
+          'chatThreads',
+          'PreferenceSection.chat',
+          'GlobalSearchScope.chat',
+          'MobileTab.chat',
+          'MobileTab.events',
+          'events-upcoming',
+          'new_topic_voice_',
+          'isVoiceTranscript',
+          'topicListShowAssignments',
+          'showAssignments',
+          'assign_enabled',
+          'can_assign_globally',
+          'poll_enabled',
+          'solved_enabled',
+          'topic_voting_enabled',
+          'chat.capture.context',
+          'chat.row.layout',
+          'CookingProfile.chat',
+        };
+        final violations = <String>[];
+        for (final file in _dartFilesUnder('lib/src')) {
+          final path = _workspacePath(file);
+          if (path.startsWith('lib/src/plugins/') ||
+              path.startsWith('lib/src/styleguide/') ||
+              path.startsWith('lib/src/ui/')) {
+            continue;
+          }
+          final source = file.readAsStringSync();
+          for (final token in tokens) {
+            if (source.contains(token)) violations.add('$path contains $token');
+          }
+        }
+        expect(violations, isEmpty, reason: violations.join('\n'));
+      },
+    );
+
     test('keeps event endpoints and wire fields in the events module', () {
       for (final path in const [
         'lib/src/models/post.dart',

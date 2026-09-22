@@ -1,8 +1,4 @@
-import '../../models/json.dart';
-import '../../models/notification.dart';
-import '../../plugin_api/notification_types.dart';
-import '../../plugin_api/plugin_manifest.dart';
-import '../../theme/d_icons.dart';
+import 'package:discourse_native/discourse_plugin_sdk.dart';
 
 abstract final class ChatNotificationTypes {
   static const mention = NotificationWireType(29, 'chat_mention');

@@ -1316,7 +1316,12 @@ class _TopicRowBody extends StatelessWidget {
     final settings = ShellScope.maybeIdentityOf(context)?.appSettings;
     if (settings == null) return _ConversationTopicCard(row: this);
     return ListenableBuilder(
-      listenable: settings,
+      listenable: Listenable.merge([
+        settings,
+        ...?(PluginScope.maybeOf(
+          context,
+        )?.registry.topicListPresentationListenables(context)),
+      ]),
       builder: (context, _) => _ConversationTopicCard(row: this),
     );
   }

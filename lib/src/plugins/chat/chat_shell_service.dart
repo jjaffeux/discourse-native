@@ -4,26 +4,12 @@ import 'dart:async';
 import 'dart:math' as math;
 import 'dart:ui' show Rect;
 
+import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:flutter/foundation.dart';
 
-import '../../data/store.dart';
-import '../../models/bookmark.dart';
-import '../../models/chat_channel_list_preferences.dart';
-import '../../models/content_route.dart';
-import '../../models/discourse_instance.dart';
-import '../../models/discourse_user.dart';
-import '../../models/notification_totals.dart';
-import '../../models/post_flag.dart';
-import '../../models/sidebar.dart';
-import '../../models/user_preferences.dart';
-import '../../plugin_api/core_plugin_host.dart';
-import '../../plugin_api/plugin_manifest.dart';
-import '../../plugin_api/plugin_runtime.dart';
-import '../../plugin_api/shell_extensions.dart';
-import '../../shell/site_url.dart';
-import '../../theme/d_icons.dart';
 import 'chat_bookmark.dart';
 import 'chat_channel.dart';
+import 'chat_channel_list_preferences.dart';
 import 'chat_controller.dart';
 import 'chat_drawer_preferences_store.dart';
 import 'chat_notification_counter.dart';
@@ -32,6 +18,7 @@ import 'chat_plugin_data.dart';
 import 'chat_route.dart';
 import 'chat_services.dart';
 import 'chat_stream_target.dart';
+import 'chat_user_preferences.dart';
 import 'chat_wire.dart';
 
 const chatShellService = PluginServiceKey<ChatShellService>(
@@ -604,14 +591,16 @@ final class ChatShellService
     PreferenceSection section,
     UserPreferences preferences,
   ) {
-    if (section != PreferenceSection.chat) return user;
+    if (section != chatPreferenceSection) return user;
     final held = user.chatCurrentUser ?? const ChatCurrentUser();
     final updated = ChatCurrentUser(
       hasChatEnabled: held.hasChatEnabled,
       canChat: held.canChat,
       canDirectMessage: held.canDirectMessage,
       headerIndicatorPreference: held.headerIndicatorPreference,
-      separateSidebarMode: switch (preferences.chatSeparateSidebarMode) {
+      separateSidebarMode: switch (preferences
+          .chatPreferences
+          .separateSidebarMode) {
         ChatSeparateSidebarPreference.siteDefault =>
           ChatSeparateSidebarMode.siteDefault,
         ChatSeparateSidebarPreference.always => ChatSeparateSidebarMode.always,

@@ -1,8 +1,4 @@
-import '../../data/store.dart';
-import '../../diagnostics/diagnostics_controller.dart';
-import '../../plugin_api/cooking_plugin.dart';
-import '../../plugin_api/core_plugin_host.dart';
-import '../../plugin_api/plugin_manifest.dart';
+import 'package:discourse_native/discourse_plugin_sdk.dart';
 import '../gifs/gifs_contract.dart';
 import 'chat_api.dart';
 import 'chat_api_client.dart';

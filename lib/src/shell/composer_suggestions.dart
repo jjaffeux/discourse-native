@@ -2,9 +2,9 @@ import 'package:discourse_native/discourse_ui.dart' show DAvatar;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../plugin_api/plugin_scope.dart';
 import '../theme/app_theme.dart';
 import '../theme/d_icon.dart';
-import '../theme/d_icons.dart';
 import 'anchored_layout.dart';
 import 'avatar_image.dart';
 import 'composer_autocomplete.dart';
@@ -295,7 +295,7 @@ class _SuggestionRow extends StatelessWidget {
                       DIcon(
                         name == null
                             ? fallback
-                            : DIcons.byName[name] ?? fallback,
+                            : pluginIconNamed(context, name) ?? fallback,
                         size: 18,
                         color: colorValue == null
                             ? theme.colorScheme.onSurfaceVariant

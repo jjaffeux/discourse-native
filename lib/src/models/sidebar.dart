@@ -46,6 +46,7 @@ class SidebarDestination {
     this.prefixBuilder,
     this.labelSuffixBuilder,
     this.semanticDescription,
+    this.mobileNavigationLabel,
     this.iconColor,
     this.routeColor,
     this.prefixBadgeIcon,
@@ -85,6 +86,9 @@ class SidebarDestination {
   final SidebarRowDecorationBuilder? labelSuffixBuilder;
 
   final String? semanticDescription;
+
+  /// A contributed shortcut in the mobile bottom navigation.
+  final String? mobileNavigationLabel;
 
   /// Distinct from [color], which draws a category *swatch* in the icon's
   /// place.

@@ -1,8 +1,5 @@
+import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:flutter/foundation.dart';
-
-import '../../data/store.dart';
-import '../../models/json.dart';
-import '../../plugin_api/reaction_presentation.dart';
 
 @immutable
 class ChatReactor implements ReactionUser {

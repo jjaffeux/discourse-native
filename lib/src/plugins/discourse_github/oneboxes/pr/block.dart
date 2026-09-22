@@ -1,13 +1,7 @@
+import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:flutter/material.dart';
 import 'package:html/dom.dart' as dom;
 
-import '../../../../shell/code_block.dart' show monospaceTextStyle;
-import '../../../../shell/cooked_dom.dart';
-import '../../../../shell/oneboxes/markup.dart';
-import '../../../../shell/oneboxes/onebox.dart';
-import '../../../../shell/relative_time.dart';
-import '../../../../theme/app_theme.dart';
-import '../../../../theme/d_icon.dart';
 import '../../../local_dates/local_dates_contract.dart';
 import '../github.dart';
 

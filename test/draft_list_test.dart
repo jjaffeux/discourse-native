@@ -13,6 +13,8 @@ import 'package:discourse_native/src/models/notification_totals.dart';
 import 'package:discourse_native/src/models/site_emoji.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/models/user_draft.dart';
+import 'package:discourse_native/src/plugin_api/core_plugin_manifest.dart';
+import 'package:discourse_native/src/plugins/bundled_plugin_manifest.dart';
 import 'package:discourse_native/src/shell/composer_controller.dart';
 import 'package:discourse_native/src/shell/composer_panel.dart';
 import 'package:discourse_native/src/shell/draft_list.dart';
@@ -312,7 +314,12 @@ void main() {
           title: 'Call transcript: Lounge',
         ),
       );
-      await _pump(tester, draftCount: 1, userDrafts: const [transcript]);
+      await _pump(
+        tester,
+        draftCount: 1,
+        userDrafts: const [transcript],
+        withPlugins: true,
+      );
 
       await tester.tap(find.byKey(TopicCreateButton.draftsButtonKey));
       await tester.pumpAndSettle();
@@ -1132,6 +1139,7 @@ typedef _Fixture = ({FakeDiscourseApi api});
 
 Future<_Fixture> _pump(
   WidgetTester tester, {
+  bool withPlugins = false,
   Size size = const Size(1440, 900),
   int draftCount = 1,
   List<UserDraft> userDrafts = const [_draft],
@@ -1168,6 +1176,7 @@ Future<_Fixture> _pump(
   final authenticator = FakeAuthenticator()..keys[_siteUrl] = 'api-key';
   await tester.pumpWidget(
     DiscourseApp(
+      pluginManifest: withPlugins ? bundledPluginManifest : corePluginManifest,
       store: FakeInstanceStore([site]),
       api: api,
       authenticator: authenticator,

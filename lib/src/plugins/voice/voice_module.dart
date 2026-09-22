@@ -1,5 +1,6 @@
 import 'package:discourse_native/discourse_plugin_sdk.dart';
 
+import '../chat/chat_contract.dart';
 import 'voice_api.dart';
 import 'voice_call_controller_port.dart';
 import 'voice_call_port.dart';

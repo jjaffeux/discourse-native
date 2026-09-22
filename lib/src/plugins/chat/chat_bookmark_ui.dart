@@ -1,8 +1,5 @@
+import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:flutter/widgets.dart';
-
-import '../../models/bookmark.dart';
-import '../../plugin_api/bookmark_host.dart';
-import '../../shell/bookmark_ui.dart';
 
 Future<void> showChatMessageBookmarkMenu({
   required BuildContext context,

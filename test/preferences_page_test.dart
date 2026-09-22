@@ -9,6 +9,7 @@ import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/user_preferences.dart';
 import 'package:discourse_native/src/plugins/chat/chat_plugin_data.dart';
+import 'package:discourse_native/src/plugins/chat/chat_user_preferences.dart';
 import 'package:discourse_native/src/shell/content_reading_lane.dart';
 import 'package:discourse_native/src/shell/preferences_page.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
@@ -42,9 +43,13 @@ const _preferences = UserPreferences(
   autoTrackTopicsAfterMsecs: 300000,
   notificationLevelWhenReplying: 2,
   bookmarkAutoDeletePreference: BookmarkAutoDeletePreference.clearReminder,
-  chatSeparateSidebarMode: ChatSeparateSidebarPreference.fullscreen,
   canEdit: true,
   canChangeTrackingPreferences: true,
+  pluginValues: {
+    'chat/preferences': ChatUserPreferences(
+      separateSidebarMode: ChatSeparateSidebarPreference.fullscreen,
+    ),
+  },
 );
 
 final _chatSite = _site.copyWith(
@@ -135,7 +140,7 @@ Future<void> _pumpPage(
 }
 
 Finder _save(PreferenceSection section) =>
-    find.byKey(ValueKey('preferences-save-${section.name}'));
+    find.byKey(ValueKey('preferences-save-${section.keyName}'));
 
 Finder get _timezoneMenu => find.byKey(const ValueKey('preferences-timezone'));
 
@@ -171,7 +176,8 @@ String _sectionLabel(PreferenceSection section) => switch (section) {
   PreferenceSection.notifications => 'Notifications',
   PreferenceSection.tracking => 'Tracking',
   PreferenceSection.interface => 'Interface',
-  PreferenceSection.chat => 'Chat',
+  chatPreferenceSection => 'Chat',
+  _ => section.name,
 };
 
 void main() {
@@ -329,7 +335,7 @@ void main() {
       final fixture = await _fixture();
       await _pumpPage(tester, fixture, width: 1000);
 
-      const descriptions = {
+      final descriptions = {
         PreferenceSection.profile:
             'Set the account timezone used for dates and reminders.',
         PreferenceSection.notifications:
@@ -338,13 +344,16 @@ void main() {
             'Choose when topics become new, tracked, or watched.',
         PreferenceSection.interface:
             'Choose the default bookmark cleanup behavior.',
-        PreferenceSection.chat:
+        chatPreferenceSection:
             'Choose whether forum and chat use separate sidebar modes.',
       };
 
-      for (final section in PreferenceSection.values) {
+      for (final section in [
+        ...PreferenceSection.values,
+        chatPreferenceSection,
+      ]) {
         await tester.tap(
-          find.byKey(ValueKey('preferences-section-${section.name}')),
+          find.byKey(ValueKey('preferences-section-${section.keyName}')),
         );
         await tester.pumpAndSettle();
 
@@ -391,14 +400,14 @@ void main() {
       (tester) async {
         final fixture = await _fixture();
         await _pumpPage(tester, fixture);
-        await _chooseNarrowSection(tester, PreferenceSection.chat);
+        await _chooseNarrowSection(tester, chatPreferenceSection);
 
         expect(
           find.text('Show separate sidebar modes for forum and chat'),
           findsOneWidget,
         );
         expect(find.text('When chat is in fullscreen'), findsOneWidget);
-        expect(_saveButton(tester, PreferenceSection.chat).onPressed, isNull);
+        expect(_saveButton(tester, chatPreferenceSection).onPressed, isNull);
 
         await tester.tap(find.text('When chat is in fullscreen'));
         await tester.pumpAndSettle();
@@ -409,18 +418,15 @@ void main() {
 
         await tester.tap(find.text('Always'));
         await tester.pumpAndSettle();
-        expect(
-          _saveButton(tester, PreferenceSection.chat).onPressed,
-          isNotNull,
-        );
+        expect(_saveButton(tester, chatPreferenceSection).onPressed, isNotNull);
 
-        await tester.tap(_save(PreferenceSection.chat));
+        await tester.tap(_save(chatPreferenceSection));
         await tester.pumpAndSettle();
 
         expect(fixture.api.userPreferenceUpdates.single.values, {
           'chat_separate_sidebar_mode': 'always',
         });
-        expect(_saveButton(tester, PreferenceSection.chat).onPressed, isNull);
+        expect(_saveButton(tester, chatPreferenceSection).onPressed, isNull);
       },
     );
 
@@ -439,28 +445,29 @@ void main() {
         );
         final fixture = await _fixture(
           site: site,
-          preferences: _preferences.copyWith(
-            chatSeparateSidebarMode: ChatSeparateSidebarPreference.siteDefault,
+          preferences: _preferences.withChatPreferences(
+            separateSidebarMode: ChatSeparateSidebarPreference.siteDefault,
           ),
         );
         await _pumpPage(tester, fixture);
-        await _chooseNarrowSection(tester, PreferenceSection.chat);
+        await _chooseNarrowSection(tester, chatPreferenceSection);
 
         expect(find.text('Always'), findsOneWidget);
         expect(
           fixture.shell.preferences
               .stateFor(_siteUrl)!
               .draft!
-              .chatSeparateSidebarMode,
+              .chatPreferences
+              .separateSidebarMode,
           ChatSeparateSidebarPreference.siteDefault,
         );
         expect(
           fixture.shell.preferences
               .stateFor(_siteUrl)!
-              .dirty(PreferenceSection.chat),
+              .dirty(chatPreferenceSection),
           isFalse,
         );
-        expect(_saveButton(tester, PreferenceSection.chat).onPressed, isNull);
+        expect(_saveButton(tester, chatPreferenceSection).onPressed, isNull);
         expect(fixture.api.userPreferenceUpdates, isEmpty);
       },
     );
@@ -709,7 +716,7 @@ void main() {
       );
       expect(find.text('Tracking'), findsNothing);
       expect(
-        find.byKey(const ValueKey('preferences-section-chat')),
+        find.byKey(const ValueKey('preferences-section-chat/preferences')),
         findsNothing,
       );
       expect(find.text('Chat'), findsNothing);
@@ -754,7 +761,9 @@ void main() {
       final fixture = await _fixture(site: adminSite);
       await _pumpPage(tester, fixture, width: 1000);
 
-      final chat = find.byKey(const ValueKey('preferences-section-chat'));
+      final chat = find.byKey(
+        const ValueKey('preferences-section-chat/preferences'),
+      );
       expect(chat, findsOneWidget);
       await tester.tap(chat);
       await tester.pumpAndSettle();
@@ -767,10 +776,11 @@ void main() {
         fixture.shell.preferences
             .stateFor(_siteUrl)!
             .draft!
-            .chatSeparateSidebarMode,
+            .chatPreferences
+            .separateSidebarMode,
         ChatSeparateSidebarPreference.always,
       );
-      await tester.tap(_save(PreferenceSection.chat));
+      await tester.tap(_save(chatPreferenceSection));
       await tester.pumpAndSettle();
 
       expect(fixture.api.userPreferenceUpdates.single.values, {
@@ -791,7 +801,7 @@ void main() {
       await _pumpPage(tester, fixture, width: 1000);
 
       expect(
-        find.byKey(const ValueKey('preferences-section-chat')),
+        find.byKey(const ValueKey('preferences-section-chat/preferences')),
         findsNothing,
       );
       expect(find.text('Chat'), findsNothing);
@@ -920,13 +930,13 @@ void main() {
         );
         final fixture = await _fixture(site: site);
         await _pumpPage(tester, fixture);
-        await _chooseNarrowSection(tester, PreferenceSection.chat);
+        await _chooseNarrowSection(tester, chatPreferenceSection);
 
         await tester.tap(find.text('When chat is in fullscreen'));
         await tester.pumpAndSettle();
         await tester.tap(find.text('Always'));
         await tester.pumpAndSettle();
-        await tester.tap(_save(PreferenceSection.chat));
+        await tester.tap(_save(chatPreferenceSection));
         await tester.pumpAndSettle();
 
         const expected = ChatCurrentUser(

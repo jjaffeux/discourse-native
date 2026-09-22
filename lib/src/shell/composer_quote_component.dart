@@ -8,6 +8,7 @@ import 'composer_quotes.dart';
 const composerQuoteComponentKind = ComposerSyntaxKind(
   owner: PluginId('core'),
   name: 'quote',
+  label: 'Quote',
 );
 
 /// Core's atomic block declaration for a complete Markdown quote.
