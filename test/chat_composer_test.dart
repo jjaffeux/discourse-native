@@ -73,6 +73,94 @@ const _gif = GifResult(
 );
 
 void main() {
+  group('send shortcut preference', () {
+    for (final shortcut in ChatSendShortcut.values) {
+      for (final key in [
+        LogicalKeyboardKey.enter,
+        LogicalKeyboardKey.numpadEnter,
+      ]) {
+        for (final modifier in <LogicalKeyboardKey?>[
+          null,
+          LogicalKeyboardKey.shiftLeft,
+          LogicalKeyboardKey.controlLeft,
+          LogicalKeyboardKey.metaLeft,
+        ]) {
+          testWidgets(
+            '${shortcut.name} with ${modifier?.keyLabel} + ${key.keyLabel}',
+            (tester) async {
+              final fixture = await _fixture(
+                pages: {FakeDiscourseApi.chatMessagesKey(9): _emptyPage},
+                sessionUser: DiscourseUser(
+                  id: 2,
+                  username: 'sam',
+                  plugins: PluginData.none.withValue(
+                    chatCurrentUserDataKey,
+                    ChatCurrentUser(canChat: true, sendShortcut: shortcut),
+                  ),
+                ),
+              );
+              addTearDown(fixture.shell.dispose);
+              await tester.pumpWidget(_TestView(shell: fixture.shell));
+              await tester.pumpAndSettle();
+              await tester.enterText(_composerField(), 'hello');
+              await tester.pump();
+              if (modifier != null) await tester.sendKeyDownEvent(modifier);
+              await tester.sendKeyEvent(key);
+              if (modifier != null) await tester.sendKeyUpEvent(modifier);
+              await tester.pumpAndSettle();
+              final sends =
+                  modifier == LogicalKeyboardKey.controlLeft ||
+                  modifier == LogicalKeyboardKey.metaLeft ||
+                  (shortcut == ChatSendShortcut.enter && modifier == null);
+              expect(fixture.api.chatMessagesSent, hasLength(sends ? 1 : 0));
+              final text = tester
+                  .widget<TextField>(_composerField())
+                  .controller!
+                  .text;
+              expect(
+                text,
+                sends
+                    ? isEmpty
+                    : modifier == null
+                    ? 'hello\n\n'
+                    : 'hello\n',
+              );
+            },
+          );
+        }
+      }
+    }
+  });
+
+  testWidgets(
+    'IME confirmation does not send and the send button still works',
+    (tester) async {
+      final fixture = await _fixture(
+        pages: {FakeDiscourseApi.chatMessagesKey(9): _emptyPage},
+      );
+      addTearDown(fixture.shell.dispose);
+      await tester.pumpWidget(_TestView(shell: fixture.shell));
+      await tester.pumpAndSettle();
+      await tester.enterText(_composerField(), 'composing');
+      final field = tester.widget<TextField>(_composerField());
+      field.controller!.value = const TextEditingValue(
+        text: 'composing',
+        selection: TextSelection.collapsed(offset: 9),
+        composing: TextRange(start: 0, end: 9),
+      );
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+      await tester.pump();
+      expect(fixture.api.chatMessagesSent, isEmpty);
+      field.controller!.clearComposing();
+      await tester.pump();
+      await tester.tap(find.byKey(const ValueKey('chat-composer-send')));
+      await tester.pumpAndSettle();
+      expect(fixture.api.chatMessagesSent.single.message, 'composing');
+    },
+  );
+
   group('local cooking preparation', () {
     testWidgets('edit text carries composer locale and host reader timezone', (
       tester,
@@ -551,7 +639,20 @@ void main() {
     testWidgets('compact quotes continue and exit without sending', (
       tester,
     ) async {
-      final fixture = await _fixture(pages: const {});
+      final fixture = await _fixture(
+        pages: const {},
+        sessionUser: DiscourseUser(
+          id: 2,
+          username: 'sam',
+          plugins: PluginData.none.withValue(
+            chatCurrentUserDataKey,
+            const ChatCurrentUser(
+              canChat: true,
+              sendShortcut: ChatSendShortcut.metaEnter,
+            ),
+          ),
+        ),
+      );
       addTearDown(fixture.shell.dispose);
       await tester.pumpWidget(
         _ComposerVisibilityView(shell: fixture.shell, visible: true),
@@ -634,7 +735,20 @@ void main() {
     testWidgets('Backspace removes the empty quoted line and keeps editing', (
       tester,
     ) async {
-      final fixture = await _fixture(pages: const {});
+      final fixture = await _fixture(
+        pages: const {},
+        sessionUser: DiscourseUser(
+          id: 2,
+          username: 'sam',
+          plugins: PluginData.none.withValue(
+            chatCurrentUserDataKey,
+            const ChatCurrentUser(
+              canChat: true,
+              sendShortcut: ChatSendShortcut.metaEnter,
+            ),
+          ),
+        ),
+      );
       addTearDown(fixture.shell.dispose);
       await tester.pumpWidget(
         _ComposerVisibilityView(shell: fixture.shell, visible: true),
@@ -666,7 +780,20 @@ void main() {
     testWidgets('Enter edits a quote while Shift+Enter never exits or sends', (
       tester,
     ) async {
-      final fixture = await _fixture(pages: const {});
+      final fixture = await _fixture(
+        pages: const {},
+        sessionUser: DiscourseUser(
+          id: 2,
+          username: 'sam',
+          plugins: PluginData.none.withValue(
+            chatCurrentUserDataKey,
+            const ChatCurrentUser(
+              canChat: true,
+              sendShortcut: ChatSendShortcut.metaEnter,
+            ),
+          ),
+        ),
+      );
       addTearDown(fixture.shell.dispose);
       await tester.pumpWidget(
         _ComposerVisibilityView(shell: fixture.shell, visible: true),
@@ -694,7 +821,9 @@ void main() {
       expect(_text(tester), '> words\n> \n> \n> \n');
       expect(fixture.api.chatMessagesSent, isEmpty);
 
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
       await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
       await tester.pumpAndSettle();
       expect(_text(tester), isEmpty);
       expect(fixture.api.chatMessagesSent, hasLength(1));

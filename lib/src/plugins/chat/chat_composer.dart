@@ -13,6 +13,7 @@ import 'chat_controller.dart';
 import 'chat_emoji_usage.dart';
 import 'chat_message.dart';
 import 'chat_plugin.dart';
+import 'chat_plugin_data.dart';
 import 'chat_services.dart';
 import 'chat_stream_target.dart';
 
@@ -1007,6 +1008,30 @@ class _ChatComposerState extends State<ChatComposer> {
     );
   }
 
+  KeyEventResult _handleComposerKey(
+    KeyEvent event,
+    ComposerController composer,
+  ) {
+    if (event.logicalKey != LogicalKeyboardKey.enter &&
+        event.logicalKey != LogicalKeyboardKey.numpadEnter) {
+      return KeyEventResult.ignored;
+    }
+    final keyboard = HardwareKeyboard.instance;
+    if (keyboard.isAltPressed || !composer.text.value.composing.isCollapsed) {
+      return KeyEventResult.ignored;
+    }
+    final shortcut =
+        _chat?.currentUserFor(widget.siteUrl)?.chatCurrentUser?.sendShortcut ??
+        ChatSendShortcut.enter;
+    final shouldSend =
+        keyboard.isControlPressed ||
+        keyboard.isMetaPressed ||
+        (shortcut == ChatSendShortcut.enter && !keyboard.isShiftPressed);
+    if (!shouldSend) return KeyEventResult.ignored;
+    if (event is KeyDownEvent) _send(composer);
+    return KeyEventResult.handled;
+  }
+
   KeyEventResult _handleEditLastMessage(
     KeyEvent event,
     ComposerController composer,
@@ -1060,9 +1085,6 @@ class _ChatComposerState extends State<ChatComposer> {
 
     return CallbackShortcuts(
       bindings: {
-        const SingleActivator(LogicalKeyboardKey.enter): () => _send(composer),
-        const SingleActivator(LogicalKeyboardKey.numpadEnter): () =>
-            _send(composer),
         const SingleActivator(LogicalKeyboardKey.keyB, meta: true): () =>
             composer.toggleMark(ComposerMark.bold),
         const SingleActivator(LogicalKeyboardKey.keyB, control: true): () =>
@@ -1105,6 +1127,8 @@ class _ChatComposerState extends State<ChatComposer> {
                         _handleEditLastMessage(event, composer),
                     child: ComposerEditor(
                       composer: composer,
+                      onKeyEvent: (event) =>
+                          _handleComposerKey(event, composer),
                       enableBlockReordering: false,
                       slashActions: (context) {
                         final gifs = PluginUiScope.maybe(
