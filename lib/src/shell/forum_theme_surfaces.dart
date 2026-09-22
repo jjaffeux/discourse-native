@@ -53,13 +53,7 @@ class _ForumWindowBackgroundState extends State<ForumWindowBackground>
     final background = effects?.background;
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: background == null
-            ? theme.scaffoldBackgroundColor
-            : Color.lerp(
-                theme.scaffoldBackgroundColor,
-                background.color,
-                background.strength * .45,
-              ),
+        color: theme.scaffoldBackgroundColor,
         gradient: background == null ? effects?.windowGradient : null,
       ),
       child:
