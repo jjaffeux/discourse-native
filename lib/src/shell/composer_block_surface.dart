@@ -165,13 +165,16 @@ class _ComposerBlockSurfaceState extends State<ComposerBlockSurface> {
               box.globalToLocal(rect.topLeft),
               box.globalToLocal(rect.bottomRight),
             );
-      final dropTop = composer.blocks.arranging ? null : _dropY();
+      final target = _pointer == null ? _dropTarget : _targetAt(_pointer!);
+      final dropTop = composer.blocks.arranging ? null : _dropY(target);
       if (localRect != _handleRect ||
           dropTop != _dropTop ||
+          target != _dropTarget ||
           emptyLine?.range != _emptyLine) {
         setState(() {
           _emptyLine = emptyLine?.range;
           _handleRect = localRect;
+          _dropTarget = target;
           _dropTop = dropTop;
         });
       }
@@ -211,18 +214,17 @@ class _ComposerBlockSurfaceState extends State<ComposerBlockSurface> {
     emptyLineAt: composer.blocks.arranging ? null : widget.emptyLineAt,
   );
 
-  ComposerDropTarget? _targetAt(Offset position) =>
-      _dropGeometry.targetAt(position);
-
-  void _moveDrag(_BlockDrag drag, Offset position) {
-    if (!_accepts(drag)) return;
-    _pointer = position;
-    final candidate = _targetAt(position);
+  ComposerDropTarget? _targetAt(Offset position) {
+    final drag = _drag;
+    if (drag == null || !_accepts(drag)) return null;
+    final candidate = _dropGeometry.targetAt(
+      position,
+      previousTarget: _dropTarget,
+    );
     final source = composer.blocks.index.blocks.indexWhere(
       (block) => block.id == drag.id,
     );
-    final target =
-        candidate != null &&
+    return candidate != null &&
             (candidate.gap == source ||
                 candidate.gap == source + 1 ||
                 composer.blocks.index.move(
@@ -233,6 +235,12 @@ class _ComposerBlockSurfaceState extends State<ComposerBlockSurface> {
                     null)
         ? candidate
         : null;
+  }
+
+  void _moveDrag(_BlockDrag drag, Offset position) {
+    if (!_accepts(drag)) return;
+    _pointer = position;
+    final target = _targetAt(position);
     if (_dropTarget != target) {
       setState(() {
         _dropTarget = target;
@@ -674,14 +682,12 @@ class _ComposerBlockSurfaceState extends State<ComposerBlockSurface> {
     );
   }
 
-  double? _dropY() {
-    final target = _dropTarget;
+  double? _dropY(ComposerDropTarget? target) {
     final box = _bounds.currentContext?.findRenderObject();
     if (target == null || box is! RenderBox || !box.hasSize) {
       return null;
     }
-    final current = _pointer == null ? target : _targetAt(_pointer!);
-    return current == null ? null : box.globalToLocal(Offset(0, current.y)).dy;
+    return box.globalToLocal(Offset(0, target.y)).dy;
   }
 
   @override

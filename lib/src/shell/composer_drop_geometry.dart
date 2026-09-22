@@ -15,7 +15,35 @@ class ComposerDropGeometry {
 
   List<ComposerBodyBlock> get blocks => index.blocks;
 
-  ComposerDropTarget? targetAt(Offset position) {
+  ComposerDropTarget? targetAt(
+    Offset position, {
+    ComposerDropTarget? previousTarget,
+  }) {
+    final target = _targetAt(position);
+    if (target == null ||
+        previousTarget == null ||
+        _sameDestination(target, previousTarget)) {
+      return target;
+    }
+
+    // Cross a midpoint deliberately before changing destinations. Scale the
+    // tolerance down for nearby empty lines so each one remains reachable.
+    final tolerance = ((target.y - previousTarget.y).abs() / 5).clamp(0.0, 6.0);
+    final forward =
+        (target.offset ?? offsetAt(target.gap)) >
+        (previousTarget.offset ?? offsetAt(previousTarget.gap));
+    final retained = _targetAt(
+      position.translate(0, forward ? -tolerance : tolerance),
+    );
+    return retained != null && _sameDestination(retained, previousTarget)
+        ? retained
+        : target;
+  }
+
+  bool _sameDestination(ComposerDropTarget a, ComposerDropTarget b) =>
+      a.gap == b.gap && a.offset == b.offset;
+
+  ComposerDropTarget? _targetAt(Offset position) {
     final line = emptyLineAt?.call(position);
     if (line != null) {
       final following = blocks.indexWhere(
