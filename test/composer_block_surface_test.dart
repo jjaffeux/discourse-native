@@ -712,7 +712,7 @@ void main() {
   });
 
   testWidgets(
-    '320px mobile Arrange retains the editor and supports arrows, undo and tap-to-place',
+    '320px mobile Arrange retains the editor and supports arrows and undo',
     (tester) async {
       await mount(tester, mobile: true, textScale: 1.3);
       final editor = tester.state<EditableTextState>(find.byType(EditableText));
@@ -722,6 +722,7 @@ void main() {
       await arrange(tester);
       expect(composer.focus.hasFocus, isFalse);
       expect(find.byType(EditableText), findsNothing);
+      expect(find.text('Move to…'), findsNothing);
       await tester.tap(find.byTooltip('Move down'));
       await tester.pumpAndSettle();
       expect(
@@ -731,12 +732,9 @@ void main() {
       await tester.tap(find.byTooltip('Undo'));
       await tester.pumpAndSettle();
       expect(composer.text.value, original);
-      await tester.tap(find.text('Move to…'));
+      await tester.tap(find.byTooltip('Move down'));
       await tester.pumpAndSettle();
-      await tester.ensureVisible(
-        find.byKey(const ValueKey('composer-block-place-3')),
-      );
-      await tester.tap(find.byKey(const ValueKey('composer-block-place-3')));
+      await tester.tap(find.byTooltip('Move down'));
       await tester.pumpAndSettle();
       expect(
         composer.text.text,
@@ -835,36 +833,33 @@ void main() {
   });
 
   for (final mobile in [false, true]) {
-    testWidgets(
-      'handle menus move blocks and open destination selection ($mobile)',
-      (tester) async {
-        await mount(tester, mobile: mobile);
-        if (mobile) await arrange(tester);
-        final id = composer.blocks.index.blocks.first.id;
-        final handle = find.byKey(ValueKey('composer-block-handle-$id'));
-        await tester.tap(handle);
-        await tester.pumpAndSettle();
-        await tester.tap(find.text('Move down'));
-        await tester.pumpAndSettle();
-        expect(
-          composer.text.text,
-          '## A heading\n\nFirst paragraph\n\nLast paragraph',
-        );
-        await tester.tap(handle);
-        await tester.pumpAndSettle();
-        await tester.tap(find.text('Move to…').last);
-        await tester.pumpAndSettle();
-        expect(composer.blocks.arranging, isTrue);
-        expect(composer.blocks.choosingDestination, isTrue);
-        await tester.tap(find.byKey(const ValueKey('composer-block-place-0')));
-        await tester.pumpAndSettle();
-        expect(
-          composer.text.text,
-          'First paragraph\n\n## A heading\n\nLast paragraph',
-        );
-        expect(tester.takeException(), isNull);
-      },
-    );
+    testWidgets('handle menus move blocks up and down ($mobile)', (
+      tester,
+    ) async {
+      await mount(tester, mobile: mobile);
+      if (mobile) await arrange(tester);
+      final id = composer.blocks.index.blocks.first.id;
+      final handle = find.byKey(ValueKey('composer-block-handle-$id'));
+      await tester.tap(handle);
+      await tester.pumpAndSettle();
+      expect(find.text('Move to…'), findsNothing);
+      await tester.tap(find.text('Move down'));
+      await tester.pumpAndSettle();
+      expect(
+        composer.text.text,
+        '## A heading\n\nFirst paragraph\n\nLast paragraph',
+      );
+      await tester.tap(handle);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Move up'));
+      await tester.pumpAndSettle();
+      expect(
+        composer.text.text,
+        'First paragraph\n\n## A heading\n\nLast paragraph',
+      );
+      expect(composer.blocks.arranging, mobile);
+      expect(tester.takeException(), isNull);
+    });
 
     testWidgets(
       'handle drag scrolls a long draft at the viewport edge ($mobile)',

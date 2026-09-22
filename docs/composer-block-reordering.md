@@ -11,8 +11,8 @@ On desktop, hover a paragraph, heading or component to reveal its leading
 gutter handle. The handle shows an open-hand cursor on hover and a closed hand from
 press through dragging. The closed hand follows the pointer across the editor,
 including when scrolling moves the original handle out of view.
-Drag the handle to an insertion line, or click it for **Move up**, **Move down**
-and **Move to…**. Alt+Shift+Up/Down moves the block at the caret.
+Drag the handle to an insertion line, or click it for **Move up** and **Move down**.
+Alt+Shift+Up/Down moves the block at the caret.
 The source block retains a subtle themed background during the drag, with its
 handle anchored in place. The handle stays transparent in hover, pressed and drag
 states so it shares the block's background without an additional button fill.
@@ -36,10 +36,9 @@ their gallery target instead of showing a document insertion line.
 
 The toolbar's **Arrange blocks** button opens an outline on desktop or mobile.
 On touch devices this dismisses the keyboard, while keeping the original editor
-mounted. Select a row and use the arrows, drag its handle, or choose **Move to…**
-and tap a destination. **Done** returns to the editor with its mapped selection.
-Undo and Redo are available in the arrangement controls. Escape cancels an active
-drag, then destination selection, then arrangement.
+mounted. Select a row and use the arrows or drag its handle. **Done** returns to
+the editor with its mapped selection. Undo and Redo are available in the
+arrangement controls. Escape cancels an active drag, then arrangement.
 
 Text remains one continuous editor. A wrapped visual line is not a block. Normal
 text selection, scrolling, typing, existing slash commands and insertion controls
@@ -118,7 +117,7 @@ list and quote boundaries, plugin blocks, unsafe joins, caret mapping, rapid
 moves, typing around moves, IME guards, and stale gestures after an edit/Undo.
 
 Widget tests cover real desktop dragging, mobile arrangement at 320px with larger
-text, preserving EditableTextState, handle menus, tap-to-place, keyboard/native
+text, preserving EditableTextState, handle menus, keyboard/native
 undo routes, Escape, source edits during dragging, edge scrolling on both layouts,
 RTL and accessible touch targets. An upload integration test moves an in-flight
 upload before its successful completion. Existing composer history, docking,

@@ -370,8 +370,6 @@ class _ComposerBlockSurfaceState extends State<ComposerBlockSurface> {
       if (_drag != null) {
         _cancelDrag();
         if (!composer.blocks.arranging) composer.focus.requestFocus();
-      } else if (composer.blocks.choosingDestination) {
-        composer.blocks.cancelDestination();
       } else if (composer.blocks.arranging) {
         _done();
       } else {
@@ -432,16 +430,6 @@ class _ComposerBlockSurfaceState extends State<ComposerBlockSurface> {
                   }
                 : null,
             child: const Text('Move down'),
-          ),
-          DDropdownMenuItem(
-            onPressed: composer.blocks.enabled && block.movable
-                ? () {
-                    composer.blocks.select(block.id);
-                    composer.blocks.chooseDestination();
-                    composer.activeEditor.focus.unfocus();
-                  }
-                : null,
-            child: const Text('Move to…'),
           ),
         ],
       ),
@@ -549,21 +537,12 @@ class _ComposerBlockSurfaceState extends State<ComposerBlockSurface> {
         child: Semantics(
           liveRegion: true,
           child: Text(
-            composer.blocks.choosingDestination
-                ? 'Choose a position for ${selected?.label.toLowerCase() ?? 'this block'}.'
-                : '${selected?.label ?? 'Block'} · ${position + 1} of ${blocks.length}. Drag a handle or use the arrows.',
+            '${selected?.label ?? 'Block'} · ${position + 1} of ${blocks.length}. Drag a handle or use the arrows.',
             style: TextStyle(color: DTokens.of(context).mutedForeground),
           ),
         ),
       ),
       for (var i = 0; i <= blocks.length; i++) ...[
-        if (composer.blocks.choosingDestination && composer.blocks.canMoveTo(i))
-          DButton(
-            key: ValueKey('composer-block-place-$i'),
-            variant: DButtonVariant.outline,
-            onPressed: () => _move(i),
-            label: Text(i == blocks.length ? 'Move to end' : 'Move here'),
-          ),
         if (_dropTarget?.gap == i) const DDropIndicator(),
         if (i < blocks.length)
           Padding(
@@ -638,18 +617,6 @@ class _ComposerBlockSurfaceState extends State<ComposerBlockSurface> {
                 ? composer.history.redo
                 : null,
           ),
-          if (composer.blocks.choosingDestination)
-            DButton(
-              onPressed: composer.blocks.cancelDestination,
-              label: const Text('Cancel move'),
-            )
-          else
-            DButton(
-              onPressed: composer.blocks.enabled && selected?.movable == true
-                  ? composer.blocks.chooseDestination
-                  : null,
-              label: const Text('Move to…'),
-            ),
         ],
       ),
     );

@@ -29,10 +29,8 @@ class ComposerBlockController extends ChangeNotifier {
   ComposerBlockIndex? _pendingIndex;
   int? _selectedId;
   bool _arranging = false;
-  bool _choosingDestination = false;
 
   bool get arranging => _arranging;
-  bool get choosingDestination => _choosingDestination;
   int get revision => _revision;
   bool get enabled => canEdit() && !history.composing;
   ComposerBlockIndex get index => _index ??= _parse();
@@ -78,7 +76,6 @@ class ComposerBlockController extends ChangeNotifier {
     if (_index case final previous?) _remember(previous);
     _source = text.text;
     _revision++;
-    _choosingDestination = false;
     final pending = _pendingIndex;
     _index = pending?.source == _source
         ? pending!.withRevision(_revision)
@@ -106,20 +103,6 @@ class ComposerBlockController extends ChangeNotifier {
 
   void finishArranging() {
     _arranging = false;
-    _choosingDestination = false;
-    notifyListeners();
-  }
-
-  void chooseDestination() {
-    if (!enabled || selected?.movable != true) return;
-    _arranging = true;
-    _choosingDestination = true;
-    notifyListeners();
-  }
-
-  void cancelDestination() {
-    if (!_choosingDestination) return;
-    _choosingDestination = false;
     notifyListeners();
   }
 
@@ -172,7 +155,7 @@ class ComposerBlockController extends ChangeNotifier {
     _index = null;
     _pendingIndex = null;
     _selectedId = null;
-    _arranging = _choosingDestination = false;
+    _arranging = false;
     _source = text.text;
     _lastValue = text.value;
     _revision++;
