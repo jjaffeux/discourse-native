@@ -10,6 +10,50 @@ ForumTabLocation page(String id) => ForumTabLocation(
 );
 
 void main() {
+  test('content tabs root their own history and isolate earlier journeys', () {
+    final navigation = MobileNavigation();
+    navigation.synchronize(
+      owner: 'account',
+      location: page('latest'),
+      contentRoot: true,
+    );
+    expect(navigation.canGoBack, isFalse);
+    navigation.synchronize(
+      owner: 'account',
+      location: page('topic'),
+      contentRoot: true,
+    );
+    expect(navigation.goBack(), isTrue);
+    expect(navigation.location, page('latest'));
+    navigation.selectTab(MobileTab.messages);
+    navigation.synchronize(
+      owner: 'account',
+      location: page('messages'),
+      contentRoot: true,
+    );
+    expect(navigation.tab, MobileTab.messages);
+    expect(navigation.canGoBack, isFalse);
+    expect(navigation.canGoForward, isFalse);
+    navigation.selectTab(MobileTab.chat);
+    navigation.synchronize(owner: 'account', location: null, contentRoot: true);
+    navigation.synchronize(
+      owner: 'account',
+      location: page('channel'),
+      contentRoot: true,
+    );
+    expect(navigation.goBack(), isTrue);
+    expect(navigation.atRoot, isTrue);
+    expect(navigation.tab, MobileTab.chat);
+    navigation.synchronize(
+      owner: 'another account',
+      location: page('latest'),
+      contentRoot: true,
+    );
+    expect(navigation.tab, MobileTab.topics);
+    expect(navigation.panelOwner, isNull);
+    expect(navigation.canGoForward, isFalse);
+  });
+
   test('hydrated display metadata updates without creating a visit', () {
     final navigation = MobileNavigation();
     navigation.synchronize(owner: 'forum', location: page('topic'));

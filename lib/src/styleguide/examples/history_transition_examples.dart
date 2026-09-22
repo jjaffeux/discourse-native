@@ -16,6 +16,15 @@ final historyTransitionExamples = ComponentExamples(
       'of recently visited pages. Reduced motion disables page movement. '
       'Buttons remain available for keyboard, mouse and assistive technology.',
   examples: [
+    StyleguideExample(
+      title: 'Ordered tabs',
+      description:
+          'Select tabs in either direction. The destination pushes the previous page toward the opposite edge; the controls stay still.',
+      states: const ['Tab order', 'RTL', 'Reduced motion'],
+      code:
+          'DHistoryTransition(history: journeyId, entry: visitId, tabIndex: selectedIndex, tabOwner: accountId, child: currentPage)',
+      builder: (_) => const _TabTransitionExample(),
+    ),
     for (final direction in TextDirection.values)
       StyleguideExample(
         title: direction == TextDirection.ltr ? 'Back and forward' : 'RTL',
@@ -104,6 +113,56 @@ class _HistoryExampleState extends State<_HistoryExample> {
           ),
         ),
       ),
+    ),
+  );
+}
+
+class _TabTransitionExample extends StatefulWidget {
+  const _TabTransitionExample();
+  @override
+  State<_TabTransitionExample> createState() => _TabTransitionExampleState();
+}
+
+class _TabTransitionExampleState extends State<_TabTransitionExample> {
+  static const _tabs = ['Topics', 'Chat', 'Messages', 'Users'];
+  int _index = 0;
+  @override
+  Widget build(BuildContext context) => SizedBox(
+    height: 280,
+    child: Column(
+      children: [
+        Expanded(
+          child: DHistoryTransition(
+            history: _index,
+            entry: _index,
+            tabIndex: _index,
+            tabOwner: 'example',
+            child: DCard(
+              child: DCardContent(
+                child: Center(
+                  child: DText(
+                    '${_tabs[_index]} page',
+                    variant: DTextVariant.h3,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+        Wrap(
+          spacing: DSpacing.controlGap,
+          children: [
+            for (final (index, label) in _tabs.indexed)
+              DButton(
+                label: Text(label),
+                variant: index == _index
+                    ? DButtonVariant.primary
+                    : DButtonVariant.outline,
+                onPressed: () => setState(() => _index = index),
+              ),
+          ],
+        ),
+      ],
     ),
   );
 }

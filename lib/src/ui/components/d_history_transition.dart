@@ -31,7 +31,9 @@ class DHistoryTransition extends StatefulWidget {
     this.nextEntry,
     this.onBack,
     this.onForward,
-  });
+    this.tabIndex,
+    this.tabOwner,
+  }) : assert(tabIndex == null || tabOwner != null);
 
   final Object history;
   final Object entry;
@@ -40,6 +42,15 @@ class DHistoryTransition extends StatefulWidget {
   final VoidCallback? onBack;
   final VoidCallback? onForward;
   final Widget child;
+
+  /// The selected tab's visual order. A changed index pushes both pages in
+  /// that direction, mirrored in RTL, even when [history] resets for a new tab.
+  /// Only the destination is live; the outgoing page uses a bounded snapshot.
+  final int? tabIndex;
+
+  /// Account/site identity for tab transitions. Changing owners clears images
+  /// immediately and never animates the previous owner's content.
+  final Object? tabOwner;
 
   @override
   State<DHistoryTransition> createState() => _DHistoryTransitionState();
@@ -57,6 +68,8 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
   bool _back = false;
   bool _dragging = false;
   bool _settling = false;
+  bool _switchingTab = false;
+  double _tabSign = 1;
   double _distance = 0;
   int _generation = 0;
 
@@ -90,7 +103,25 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
   @override
   void didUpdateWidget(DHistoryTransition oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.history != widget.history) {
+    if (oldWidget.tabOwner != widget.tabOwner) {
+      _clear();
+    } else if (oldWidget.tabIndex != null &&
+        widget.tabIndex != null &&
+        oldWidget.tabIndex != widget.tabIndex &&
+        !MediaQuery.disableAnimationsOf(context) &&
+        _routeIsCurrent) {
+      final boundary = _boundary.currentContext?.findRenderObject();
+      final image = boundary is _HistoryRepaintBoundary
+          ? boundary.snapshot(MediaQuery.devicePixelRatioOf(context))
+          : null;
+      _clear();
+      _preview = image;
+      _tabSign =
+          (widget.tabIndex! > oldWidget.tabIndex! ? 1 : -1) *
+          (_rtl ? -1.0 : 1.0);
+      _switchingTab = true;
+      unawaited(_animateTab());
+    } else if (oldWidget.history != widget.history) {
       _clear();
     } else if (oldWidget.entry != widget.entry) {
       // The descendant still contains the outgoing page's last painted frame.
@@ -128,6 +159,7 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
     _generation++;
     _dragging = false;
     _settling = false;
+    _switchingTab = false;
     _distance = 0;
     _progress.stop();
     _progress.value = 0;
@@ -153,6 +185,7 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
         _pointers.length > 1 ||
         _dragging ||
         _settling ||
+        _switchingTab ||
         !_routeIsCurrent ||
         _size.width <= 48) {
       return false;
@@ -221,6 +254,22 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
     navigate?.call();
   }
 
+  Future<void> _animateTab() async {
+    final generation = _generation;
+    try {
+      await _progress
+          .animateTo(
+            1,
+            duration: DMotion.duration(context, DMotion.change),
+            curve: Curves.easeInOutCubic,
+          )
+          .orCancel;
+    } on TickerCanceled {
+      return;
+    }
+    if (mounted && generation == _generation) setState(_resetGesture);
+  }
+
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
@@ -237,8 +286,13 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
     return LayoutBuilder(
       builder: (context, constraints) {
         if (_size != constraints.biggest) {
+          // Contextual actions may change the page height during a tab switch.
+          // The outgoing image stretches to the destination's viewport only
+          // for this transition; no resized history preview is retained.
+          final tabHeightChange =
+              _switchingTab && _size.width == constraints.maxWidth;
           _size = constraints.biggest;
-          _clear();
+          if (!tabHeightChange) _clear();
         }
         return Listener(
           behavior: HitTestBehavior.opaque,
@@ -271,6 +325,42 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
                 animation: _progress,
                 child: _HistoryBoundary(key: _boundary, child: widget.child),
                 builder: (context, child) {
+                  if (_switchingTab && !reducedMotion) {
+                    final progress = _progress.value;
+                    return IgnorePointer(
+                      child: Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          Transform.translate(
+                            key: const ValueKey('history-outgoing-tab'),
+                            offset: Offset(
+                              -_tabSign * _size.width * progress,
+                              0,
+                            ),
+                            child: ExcludeSemantics(
+                              child: ColoredBox(
+                                color: background,
+                                child: _preview == null
+                                    ? null
+                                    : RawImage(
+                                        image: _preview,
+                                        fit: BoxFit.fill,
+                                      ),
+                              ),
+                            ),
+                          ),
+                          Transform.translate(
+                            key: const ValueKey('history-incoming-tab'),
+                            offset: Offset(
+                              _tabSign * _size.width * (1 - progress),
+                              0,
+                            ),
+                            child: ColoredBox(color: background, child: child),
+                          ),
+                        ],
+                      ),
+                    );
+                  }
                   final p = reducedMotion ? 0.0 : _progress.value;
                   final active = p > 0;
                   final dim = BoxDecoration(

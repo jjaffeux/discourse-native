@@ -7,9 +7,14 @@ import '../theme/d_icons.dart';
 import 'shell_scope.dart';
 
 class MessageCreateButton extends StatelessWidget {
-  const MessageCreateButton({super.key, required this.showLabel});
+  const MessageCreateButton({
+    super.key,
+    required this.showLabel,
+    this.pill = false,
+  });
 
   final bool showLabel;
+  final bool pill;
 
   Future<void> _compose(BuildContext context) async {
     final controller = ShellScope.read(context);
@@ -22,9 +27,10 @@ class MessageCreateButton extends StatelessWidget {
     final lease = controller.lifecycle.capture(instance.url);
     final recipients =
         source!.messageGroupName ??
-        await showDialog<String>(
+        await showDDialog<String>(
           context: context,
-          builder: (_) => const _MessageRecipientsDialog(),
+          builder: (_, controller) =>
+              _MessageRecipientsDialog(controller: controller),
         );
     if (!context.mounted ||
         recipients == null ||
@@ -53,15 +59,17 @@ class MessageCreateButton extends StatelessWidget {
           ? DButton(
               key: const ValueKey('new-message-button'),
               label: const Text('New message', softWrap: true, maxLines: 2),
-              icon: const DIcon(DIcons.farPenToSquare),
+              shape: pill ? DButtonShape.pill : DButtonShape.rounded,
+              icon: DIcon(pill ? DIcons.plus : DIcons.farPenToSquare),
               tooltip: 'New message',
               variant: DButtonVariant.primary,
               size: DButtonSize.regular,
               onPressed: () => unawaited(_compose(context)),
             )
           : DButton.iconOnly(
+              shape: pill ? DButtonShape.pill : DButtonShape.rounded,
               key: const ValueKey('new-message-button'),
-              icon: const DIcon(DIcons.farPenToSquare),
+              icon: DIcon(pill ? DIcons.plus : DIcons.farPenToSquare),
               tooltip: 'New message',
               variant: DButtonVariant.primary,
               size: DButtonSize.regular,
@@ -73,7 +81,8 @@ class MessageCreateButton extends StatelessWidget {
 }
 
 class _MessageRecipientsDialog extends StatefulWidget {
-  const _MessageRecipientsDialog();
+  const _MessageRecipientsDialog({required this.controller});
+  final DDialogController<String> controller;
 
   @override
   State<_MessageRecipientsDialog> createState() =>
@@ -86,7 +95,7 @@ class _MessageRecipientsDialogState extends State<_MessageRecipientsDialog> {
 
   void _continue() {
     if (_form.currentState!.validate()) {
-      Navigator.of(context).pop(_recipients.text.trim());
+      widget.controller.close(_recipients.text.trim());
     }
   }
 
@@ -97,39 +106,43 @@ class _MessageRecipientsDialogState extends State<_MessageRecipientsDialog> {
   }
 
   @override
-  Widget build(BuildContext context) => AlertDialog(
-    title: const Text('New message'),
-    content: SizedBox(
-      width: 400,
-      child: Form(
-        key: _form,
-        child: DInput(
-          key: const ValueKey('new-message-recipients'),
-          controller: _recipients,
-          autofocus: true,
-          autocorrect: false,
-          labelText: 'To',
-          helperText: 'Usernames or groups, separated by commas',
-          validator: (value) =>
-              (value ?? '')
-                  .split(',')
-                  .every((recipient) => recipient.trim().isEmpty)
-              ? 'Choose at least one recipient.'
-              : null,
-          onSubmitted: (_) => _continue(),
+  Widget build(BuildContext context) => DDialogContent(
+    children: [
+      const DDialogHeader(children: [DDialogTitle(child: Text('New message'))]),
+      SizedBox(
+        width: 400,
+        child: Form(
+          key: _form,
+          child: DInput(
+            key: const ValueKey('new-message-recipients'),
+            controller: _recipients,
+            autofocus: true,
+            autocorrect: false,
+            labelText: 'To',
+            helperText: 'Usernames or groups, separated by commas',
+            validator: (value) =>
+                (value ?? '')
+                    .split(',')
+                    .every((recipient) => recipient.trim().isEmpty)
+                ? 'Choose at least one recipient.'
+                : null,
+            onSubmitted: (_) => _continue(),
+          ),
         ),
       ),
-    ),
-    actions: [
-      DButton(
-        label: const Text('Cancel'),
-        variant: DButtonVariant.ghost,
-        onPressed: () => Navigator.of(context).pop(),
-      ),
-      DButton(
-        label: const Text('Continue'),
-        variant: DButtonVariant.primary,
-        onPressed: _continue,
+      DDialogFooter(
+        children: [
+          DButton(
+            label: const Text('Cancel'),
+            variant: DButtonVariant.ghost,
+            onPressed: () => widget.controller.close(),
+          ),
+          DButton(
+            label: const Text('Continue'),
+            variant: DButtonVariant.primary,
+            onPressed: _continue,
+          ),
+        ],
       ),
     ],
   );

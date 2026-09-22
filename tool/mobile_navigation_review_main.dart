@@ -5,6 +5,7 @@ import 'package:discourse_native/src/data/forum_settings_store.dart';
 import 'package:discourse_native/src/macos_launch_screen.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/post.dart';
+import 'package:discourse_native/src/models/sidebar.dart';
 import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/plugin_api/plugin_data.dart';
@@ -13,8 +14,10 @@ import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message.dart';
 import 'package:discourse_native/src/plugins/chat/chat_notification_counter.dart';
 import 'package:discourse_native/src/plugins/chat/chat_plugin_data.dart';
+import 'package:discourse_native/src/plugins/discourse_events/event_data.dart';
 import 'package:discourse_native/src/plugins/voice/voice_module.dart';
 import 'package:discourse_native/src/plugins/voice/voice_settings.dart';
+import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -31,9 +34,21 @@ Future<void> main() async {
   SharedPreferences.setMockInitialValues({});
   const site = 'https://mobile-review.invalid';
   const secondSite = 'https://second-review.invalid';
-  const user = DiscourseUser(id: 7, username: 'joffrey', name: 'Joffrey');
+  final user = DiscourseUser(
+    id: 7,
+    username: 'joffrey',
+    name: 'Joffrey',
+    canCreateTopic: true,
+    canSendPrivateMessages: true,
+    plugins: PluginData.none.withValue(
+      chatCurrentUserDataKey,
+      const ChatCurrentUser(hasChatEnabled: true, canDirectMessage: true),
+    ),
+  );
   final config = SiteConfig(
+    taggingEnabled: true,
     plugins: PluginData.none
+        .withValue(eventSettingsKey, const EventSettings(enabled: true))
         .withValue(
           chatSettingsDataKey,
           const ChatSettings(chatEnabled: true, publicChannelsEnabled: true),
@@ -101,6 +116,31 @@ Future<void> main() async {
       ]),
       api: FakeDiscourseApi(
         user: user,
+        categoryList: const [
+          TopicCategory(
+            id: 1,
+            name: 'General',
+            color: 'F6AD55',
+            slug: 'general',
+          ),
+          TopicCategory(id: 2, name: 'Design', color: 'A78BFA', slug: 'design'),
+        ],
+        customSidebarSectionsBySite: const {
+          site: [
+            SidebarSection(
+              id: 'custom-1',
+              title: 'Resources',
+              destinations: [
+                SidebarDestination(
+                  id: 'custom-handbook',
+                  label: 'Community handbook',
+                  icon: DIcons.bookOpenReader,
+                  url: '/t/topic-7/7',
+                ),
+              ],
+            ),
+          ],
+        },
         totals: chatNotificationTotals(unreadNotifications: 3),
         siteConfigs: {site: config, secondSite: config},
         feeds: {

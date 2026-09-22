@@ -13859,6 +13859,7 @@ class ShellController extends FrameSafeNotifier
         );
       }
     }
+    if (mobileNavigationEnabled) _resetToInstanceDefault();
     _mobilePane = MobilePane.sidebar;
     _notify();
     SurfaceOpeningTrace.mark('forum.notified');
@@ -14086,6 +14087,8 @@ class ShellController extends FrameSafeNotifier
       unawaited(
         badges.load(instance, const BadgeRoute.directory(), refresh: refresh),
       );
+    } else if (destination.id == 'user-bookmarks') {
+      unawaited(loadBookmarks(instance.url));
     } else if (destination.id == 'users') {
       unawaited(userDirectory.load(instance, refresh: refresh));
     } else if (destination.id == 'all-tags') {
@@ -15097,8 +15100,14 @@ class ShellController extends FrameSafeNotifier
 
   void _notify() {
     if (mobileNavigationEnabled) {
+      if (_mobilePane == MobilePane.sidebar &&
+          mobileNavigation.panelOwner == null &&
+          activeTab != null) {
+        _mobilePane = MobilePane.content;
+      }
       mobileNavigation.synchronize(
         owner: (currentInstance?.url, currentAccountIdentity),
+        contentRoot: true,
         aggregate: _rootMode == ShellRootMode.aggregate,
         location:
             _mobilePane == MobilePane.content &&
@@ -15124,6 +15133,14 @@ class ShellController extends FrameSafeNotifier
     _rootMode = ShellRootMode.forum;
     _mobilePane = MobilePane.sidebar;
     _notify();
+  }
+
+  /// Starts a tab's journey using the same route and permission owners as desktop.
+  void selectMobileDestination(MobileTab tab, SidebarDestination destination) {
+    if (!mobileNavigationEnabled || !destination.enabled) return;
+    mobileNavigation.selectTab(tab);
+    _rootMode = ShellRootMode.forum;
+    selectDestination(destination);
   }
 
   void _restoreMobileLocation() {
