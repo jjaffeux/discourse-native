@@ -73,8 +73,8 @@ void main() {
       await tester.pumpAndSettle();
       final normal = tester.widget<TopicTitle>(find.byType(TopicTitle).at(0));
       final read = tester.widget<TopicTitle>(find.byType(TopicTitle).at(1));
-      expect(normal.style!.fontWeight, FontWeight.w600);
-      expect(read.style!.fontWeight, FontWeight.w400);
+      expect(normal.style!.fontWeight, FontWeight.w700);
+      expect(read.style!.fontWeight, FontWeight.w500);
       expect(normal.style!.color, isNot(read.style!.color));
       final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
       addTearDown(mouse.removePointer);

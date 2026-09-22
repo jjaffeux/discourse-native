@@ -223,9 +223,9 @@ class DCardTitle extends StatelessWidget {
     style: TextStyle(
       fontSize: _CardScope.of(context)?.size == DCardSize.small
           ? DiscourseTypography.sm
-          : DiscourseTypography.base,
-      height: 1.375,
-      fontWeight: FontWeight.w500,
+          : DiscourseTypography.rowTitle,
+      height: DiscourseTypography.lineHeightRowTitle,
+      fontWeight: FontWeight.w600,
     ),
     child: child,
   );
@@ -237,8 +237,8 @@ class DCardDescription extends StatelessWidget {
   @override
   Widget build(BuildContext context) => DefaultTextStyle.merge(
     style: TextStyle(
-      fontSize: DiscourseTypography.sm,
-      height: 20 / 14,
+      fontSize: DiscourseTypography.preview,
+      height: DiscourseTypography.lineHeightPreview,
       color: DTokens.of(context).mutedForeground,
     ),
     child: child,

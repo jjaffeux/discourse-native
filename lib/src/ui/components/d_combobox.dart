@@ -1168,7 +1168,7 @@ class DComboboxContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => ClipRRect(
-    borderRadius: BorderRadius.circular(DTokens.of(context).radius),
+    borderRadius: BorderRadius.circular(DRadius.popover),
     child: Column(mainAxisSize: MainAxisSize.min, children: children),
   );
 }
@@ -1208,7 +1208,7 @@ class DComboboxList<T> extends StatelessWidget {
     }
     return Flexible(
       child: SingleChildScrollView(
-        padding: const EdgeInsets.all(4),
+        padding: DInsets.menu,
         child: DComboboxCollection(children: children),
       ),
     );
@@ -1268,7 +1268,7 @@ class DComboboxItem<T> extends StatelessWidget {
             constraints: const BoxConstraints(
               minHeight: DControlStyle.rowHeight,
             ),
-            padding: const EdgeInsetsDirectional.fromSTEB(8, 4, 8, 4),
+            padding: DInsets.menuItem,
             decoration: BoxDecoration(
               color: highlighted
                   ? DControlStyle.rowHover(tokens)
@@ -1663,7 +1663,7 @@ class DComboboxChipsInput<T> extends StatelessWidget {
     final tokens = DTokens.of(context);
     final style = Theme.of(context).textTheme.bodyMedium!.copyWith(
       fontSize: DControlStyle.labelFontSize,
-      height: 20 / DControlStyle.labelFontSize,
+      height: DControlStyle.labelLineHeight / DControlStyle.labelFontSize,
       color: tokens.foreground,
     );
     return SizedBox(

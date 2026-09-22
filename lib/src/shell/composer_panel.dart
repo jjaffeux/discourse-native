@@ -322,15 +322,7 @@ class ComposerPanel extends StatelessWidget {
                                       size: DControlSize.large,
                                       readOnly: !composer.isEditing,
                                       semanticLabel: 'Title',
-                                      style:
-                                          (mobile
-                                                  ? theme
-                                                        .textTheme
-                                                        .headlineSmall
-                                                  : theme.textTheme.bodyLarge)
-                                              ?.copyWith(
-                                                fontWeight: FontWeight.w600,
-                                              ),
+                                      style: theme.textTheme.titleMedium,
                                       hintText: 'Give your topic a title',
                                       textInputAction: TextInputAction.next,
                                     ),

@@ -18,7 +18,7 @@ void main() {
       expect(scaler.scale(12), platform.scale(12) * 1.25);
       expect(scaler.scale(24), platform.scale(24) * 1.25);
       // ignore: deprecated_member_use
-      expect(scaler.textScaleFactor, platform.scale(16) / 16 * 1.25);
+      expect(scaler.textScaleFactor, platform.scale(14) / 14 * 1.25);
       expect(
         scaler,
         const AppTextScaler(platformScaler: platform, appScale: 1.25),
@@ -30,27 +30,16 @@ void main() {
     },
   );
 
-  test('mobile baseline precedes nonlinear accessibility and app zoom', () {
+  test('100% app zoom preserves the platform scaler at every type size', () {
     const platform = _TestTextScaler();
-    const scaler = AppTextScaler(
-      platformScaler: platform,
-      baselineScale: 1.2,
-      appScale: 1.25,
-    );
-    for (final size in [12.0, 14.0, 16.0, 24.0, 36.0]) {
-      expect(scaler.scale(size), platform.scale(size * 1.2) * 1.25);
+    const scaler = AppTextScaler(platformScaler: platform, appScale: 1);
+    for (final size in [11.0, 12.5, 14.0, 14.5, 22.0, 32.0]) {
+      expect(scaler.scale(size), platform.scale(size));
     }
-    // ignore: deprecated_member_use
-    expect(scaler.textScaleFactor, scaler.scale(16) / 16);
-    expect(
-      scaler,
-      isNot(const AppTextScaler(platformScaler: platform, appScale: 1.25)),
-    );
     expect(
       const AppTextScaler(
         platformScaler: TextScaler.noScaling,
         appScale: 1,
-        baselineScale: 1.2,
       ).scale(0),
       0,
     );

@@ -6,12 +6,12 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
     for (final (size, height, font, icon) in [
-      (DControlSize.small, 40.0, 14.0, 18.0),
-      (DControlSize.regular, 44.0, 15.0, 20.0),
-      (DControlSize.large, 48.0, 16.0, 22.0),
+      (DControlSize.small, 40.0, 12.5, 12.0),
+      (DControlSize.regular, 44.0, 13.0, 14.0),
+      (DControlSize.large, 48.0, 14.0, 16.0),
     ]) {
       testWidgets(
-        '$platform ${size.name} paints larger controls and accepts edge taps',
+        '$platform ${size.name} keeps shared type with touch geometry and accepts edge taps',
         (tester) async {
           var presses = 0;
           var toggles = 0;

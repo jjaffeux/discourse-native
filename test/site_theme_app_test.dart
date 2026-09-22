@@ -517,9 +517,7 @@ void main() {
       MediaQuery.textScalerOf(
         tester.element(find.byType(AdaptiveShell)),
       ).scale(DiscourseTypography.base),
-      moreOrLessEquals(
-        DiscourseTypography.base * 1.25 * DiscourseTypography.mobileScale,
-      ),
+      moreOrLessEquals(DiscourseTypography.base * 1.25),
     );
   });
 

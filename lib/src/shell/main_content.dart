@@ -1169,9 +1169,7 @@ class _TopicListHeadingTitle extends StatelessWidget {
       key: const ValueKey('topic-list-title'),
       maxLines: 1,
       overflow: TextOverflow.ellipsis,
-      style: Theme.of(
-        context,
-      ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
+      style: Theme.of(context).textTheme.headlineSmall,
     );
 
     final categoryId = this.categoryId;

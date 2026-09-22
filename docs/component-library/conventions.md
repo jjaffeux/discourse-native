@@ -34,6 +34,13 @@ and framework-specific form integration pages do not add catalogue rows.
 - Every public feature must work; no inert properties or illustrative-only
   control affordances. No TODOs. Document public behavior and constraints.
 
+## Application design system
+
+[Application design rules](../design/reference-rules.md) records the audited
+local HTML reference, complete page recipes and the current shared scale. It
+supersedes older component measurements for typography, spacing and geometry.
+The live specimen is Foundations → Application design scale.
+
 ## Control consistency
 
 The September 18 HTML redesign defines three button families through `DButton`:
@@ -52,13 +59,13 @@ through focus, expanded state and activation.
 
 Use shared control geometry and paint from `foundation/control_style.dart`.
 Button-like controls must use the Button styleguide's shared `DControlSize`
-scale: desktop `small` (24px), `regular` (28px), and `large` (32px).
+scale: desktop `small` (24px), `regular` (34px), and `large` (40px).
 On iOS, Android and Fuchsia, the same sizes render at 40/44/48px with
-14/15/16px labels and 18/20/22px icons. Touch targets remain at least 48px.
+the same 12.5/13/14px labels and 12/14/16px icons as desktop. Touch targets remain at least 48px.
 Platform comes from the inherited theme, including mobile web; resizing a
 desktop window does not change its control density. Desktop small labels use
-12px text with 16px leading; regular labels use 13px and large labels use 14px,
-both with 20px leading.
+12.5px text with 18.75px leading; regular labels use 13/19.5 and large
+labels use 14/21.
 Chat reaction chips use the explicitly approved `DToggleDensity.reaction`:
 28px artwork, 18px emoji, 12px counts with 16px leading, and symmetric 8px
 horizontal padding. This density supersedes the size preset, grows with text
@@ -89,12 +96,12 @@ use the outlined hover fill and border. Other editable controls retain their exi
 `DTokens.controls` styling. Buttons and button-based popup triggers also use
 the theme’s control radius, independent of size. Keep the default
 `DButtonShape.rounded` in application code; explicit pill shapes belong only to
-documented design exceptions. Menu rows use 32px minimum height and an 8px highlight radius inside
-popups using the theme’s control radius, matching buttons. Keyboard focus uses a 1px ring separated by 2px. Hover, pressed and
+documented design exceptions. Menu rows use 34px minimum height (48px on touch), 7px highlight corners,
+7×8px item insets and 6px outer padding inside 10px popup corners. Keyboard focus uses a 1px ring separated by 2px. Hover, pressed and
 open fills change immediately, without translating the control. The `AppTheme`
 boundary derives colors from the current forum palette; category identity
 retains its own color. Standard topic filters, header triggers and bottom
-actions retain the regular size (28px desktop, 44px mobile), text scaling and 48px touch targets.
+actions retain the regular size (34px desktop, 44px mobile), text scaling and 48px touch targets.
 See [the reference measurements and verification](linear-controls.md), which
 supersede the earlier [contextual tint styling](contextual-tints.md).
 
@@ -122,7 +129,7 @@ layouts to the outermost panel. Other corners retain the forum's Card radius.
 
 ### Adjacent control spacing
 
-Use `DSpacing.controlGap` (4 logical pixels) between separate adjacent buttons,
+Use `DSpacing.controlGap` (6 logical pixels) between separate adjacent buttons,
 toggles, toggle groups, selectors and menu triggers in action rows and toolbars.
 Use it with `Row(spacing: ...)`, `Wrap(spacing: ...)` or a `SizedBox` between
 conditional children. Dialog action footers use the same horizontal gap.
@@ -138,8 +145,8 @@ ordinary Material themes. `AppTheme` maps the real site palette into this
 extension. Generic components read tokens during build; do not cache palette
 colors in initState, route closures, or overlay entries. `DSpacing` and
 `DMotion` supply shared geometry and motion. Typography uses the existing
-unscaled `DiscourseTypography` size tokens with each shadcn component's explicit
-leading, weight and tracking. Theme text roles supply font families, not substitute
+unscaled `DiscourseTypography` size tokens with explicit application
+leading, weight and tracking. There is no mobile typography multiplier. Theme text roles supply font families, not substitute
 component metrics. Do not scale font sizes manually. Map the configured site
 palette and font into semantic variables. The Native kit fixes panels at 14px,
 primary buttons, unselected tab buttons and tags at 999px, selected tab buttons

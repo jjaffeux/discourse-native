@@ -647,13 +647,13 @@ void main() {
         )
         .map((widget) => widget.decoration)
         .whereType<BoxDecoration>()
-        .firstWhere((decoration) => decoration.boxShadow?.isNotEmpty == true);
+        .firstWhere(
+          (decoration) => decoration.borderRadius == BorderRadius.circular(10),
+        );
     final rootShadow = surfaceDecoration(find.byType(DPopoverContent).first);
     final submenuShadow = surfaceDecoration(find.byType(DPopoverContent).last);
-    expect(rootShadow.boxShadow!.first.offset, const Offset(0, 3));
-    expect(rootShadow.boxShadow!.first.blurRadius, 8);
-    expect(submenuShadow.boxShadow!.last.offset, const Offset(0, 10));
-    expect(submenuShadow.boxShadow!.last.blurRadius, 15);
+    expect(rootShadow.boxShadow, isEmpty);
+    expect(submenuShadow.boxShadow, isEmpty);
   });
 
   testWidgets(
@@ -1218,7 +1218,7 @@ void main() {
       );
       final profile = tester.getRect(find.text('Profile').first);
       final billing = tester.getRect(find.text('Billing').first);
-      expect(billing.top - profile.top, closeTo(32, 0.1));
+      expect(billing.top - profile.top, closeTo(34, 0.1));
     } finally {
       debugDefaultTargetPlatformOverride = null;
     }

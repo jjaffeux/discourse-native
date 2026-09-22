@@ -370,7 +370,6 @@ class _DBubbleContentState extends State<DBubbleContent> {
 
   Widget _surface(BuildContext context, {required bool interactive}) {
     final scope = _DBubbleScope.of(context);
-    final tokens = DTokens.of(context);
     final style = _style(context, interactive);
     final ghost = scope.variant == DBubbleVariant.ghost;
     final conversation =
@@ -379,7 +378,7 @@ class _DBubbleContentState extends State<DBubbleContent> {
         scope.variant == DBubbleVariant.neutral;
     final radius = ghost
         ? BorderRadius.zero
-        : BorderRadius.circular(conversation ? 12 : tokens.radius * 1.4);
+        : BorderRadius.circular(DRadius.bubble);
     final status = widget.busy
         ? DSpinner(size: 14, semanticLabel: null, color: style.foreground)
         : widget.invalid
@@ -389,7 +388,9 @@ class _DBubbleContentState extends State<DBubbleContent> {
         : null;
     final textStyle = Theme.of(context).textTheme.bodyMedium?.copyWith(
       color: style.foreground,
-      fontSize: conversation ? 13.5 : DiscourseTypography.sm,
+      fontSize: conversation
+          ? DiscourseTypography.compact
+          : DiscourseTypography.sm,
       height: conversation ? 1.5 : 1.625,
     );
 
@@ -401,10 +402,9 @@ class _DBubbleContentState extends State<DBubbleContent> {
       clipBehavior: widget.trailingAction == null ? Clip.antiAlias : Clip.none,
       padding: ghost
           ? EdgeInsets.zero
-          : EdgeInsets.symmetric(
-              horizontal: 12,
-              vertical: widget.compact ? 4 : 8,
-            ),
+          : widget.compact
+          ? const EdgeInsets.symmetric(horizontal: 12, vertical: 4)
+          : DInsets.bubble,
       decoration: BoxDecoration(
         color: style.background,
         borderRadius: radius,

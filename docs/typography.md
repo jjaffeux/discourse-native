@@ -1,239 +1,118 @@
 # Typography
 
-`lib/src/theme/discourse_typography.dart` owns every base font size and the
-semantic Material text theme. AppTheme applies it to light, dark, site palette,
-and Cupertino themes. Existing app widgets choose a role and override color or emphasis when needed.
-The shadcn library uses the same numeric tokens with its reference component
-metrics, including explicit weights, tracking and leading.
+The application uses **one scale on desktop and mobile**, measured from the
+local HTML design reference on 2026-09-23. See [Application design rules](design/reference-rules.md)
+for the full page recipes, spacing, radii, palette and source inventory.
+This replaces the earlier shadcn size pairs and the 120% mobile baseline.
+
+`DiscourseTypography` owns numeric sizes and the semantic `TextTheme`.
+`AppTheme` applies it to light, dark, forum and Cupertino themes. Use a role
+and override color or emphasis where necessary. Keep font sizes unscaled.
 
 ## Scale and roles
 
-The scale uses [Tailwind's size/leading pairs](https://tailwindcss.com/docs/font-size).
-Its smaller steps suit a dense interface; larger steps establish heading
-hierarchy. This is an established stepped scale, not a constant-ratio scale.
-[shadcn's buttons](https://github.com/shadcn-ui/ui/blob/main/apps/v4/registry/new-york-v4/ui/button.tsx),
-[sidebar](https://github.com/shadcn-ui/ui/blob/main/apps/v4/registry/new-york-v4/ui/sidebar.tsx),
-and [tables](https://github.com/shadcn-ui/ui/blob/main/apps/v4/registry/new-york-v4/ui/table.tsx)
-share compact interface sizing. [Radix](https://www.radix-ui.com/themes/docs/theme/typography)
-also treats size and leading as paired tokens. We adapt those principles to
-Flutter while keeping the platform font family and Discourse colors.
+All measurements below are logical pixels at 100% app zoom.
 
-| Purpose | TextTheme role | Size / line height at 100% |
-| --- | --- | --- |
-| Captions, dates, counts, secondary metadata | bodySmall, labelSmall | 12 / 16 |
-| Sidebar destinations, menu items, form inputs, table cells, previews | bodyMedium | 14 / 20 |
-| Buttons, navigation tabs, table headings | labelLarge | 14 / 20, medium weight |
-| Secondary interface labels | labelMedium | 14 / 20 |
-| Posts, chat, composer, reading content | bodyLarge | 16 / 24 |
-| Topic, user, group, and card row titles | titleSmall | 16 / 24, medium weight |
-| Section headings | titleMedium | 18 / 28, semibold |
-| Dialog and sheet titles | titleLarge | 20 / 28, semibold |
-| Page titles | headlineSmall | 24 / 32, semibold |
-| Larger headings | headlineMedium | 30 / 36, semibold |
-| Display headings | headlineLarge | 36 / 40, semibold |
+| Purpose | Role / token | Size / line height | Weight |
+| --- | --- | --- | --- |
+| Tiny taxonomy labels | micro | 11 / 16.5 | By state |
+| Bylines | labelSmall | 11.5 / 17.25 | 500 |
+| Dates, counts, metadata | bodySmall | 12 / 18 | 400 |
+| List excerpt | preview, DItemDescription | 12.5 / 18.125 | 400 |
+| Filter / secondary label | labelMedium | 12.5 / 18.75 | 400 |
+| Buttons, menus, fields | labelLarge, control | 13 / 19.5 | 500 |
+| Chat bubble | compact | 13.5 / 20.25 | 400 |
+| Interface text | bodyMedium | 14 / 21 | 400 |
+| Posts and reading | bodyLarge | 14 / 23.1 | 400 |
+| Quotes and lists | base + lineHeightContent | 14 / 22.4 | 400 |
+| Topic, group, card row title | titleSmall | 14.5 / 19.575 | 600; read topic 500, unread 700 |
+| Section title | titleMedium | 17 / 25.5 | 600 |
+| Dialog title | titleLarge | 18 / 25.2 | 600 |
+| Page title | headlineSmall | 22 / 27.5 | 700 |
+| Larger heading | headlineMedium | 28 / 35 | 600 |
+| Display heading | headlineLarge | 32 / 40 | 600 |
 
-The Native control presets use 12/16 labels for small and regular controls,
-and 14/20 for large controls. The application sidebar uses the large preset
-for destinations, expandable section headings, More, and Forum/Chat switches:
-14/20 text in 32px desktop rows. Counts and the forum URL remain 12/16.
-This keeps primary navigation closer to 16/24 topic titles and reading text
-at every zoom level. iOS and Android apply a separate 120% text baseline to
-these roles, alongside larger touch targets. Desktop retains its 100% baseline,
-even in narrow windows. At the default zoom, mobile metadata is 14.4px,
-interface text is 16.8px, and topic titles and reading text are 19.2px.
-Authored h1–h6 use 30, 24, 20, 18, 16, and 14 with their paired leading in both cooked HTML and the composer. Relative authored formatting
-(small, big, superscripts, inline code) derives from its surrounding text;
-zero-size syntax spans in projected editors are deliberately invisible.
+The 18, 28 and 32px steps complete the hierarchy for Native surfaces absent
+from the mockup. Authored h1–h6 use 28, 22, 18, 17, 14 and 14px; weight,
+leading and semantic level distinguish adjacent small headings. Do not
+introduce another mobile or desktop font scale.
 
-## Zoom
+Control presets share text and icon metrics: small 12.5/18.75 with 12px icons,
+regular 13/19.5 with 14px icons, large 14/21 with 16px icons. Artwork heights
+are 24/34/40px on desktop and 40/44/48px on touch platforms. Touch interaction
+bounds stay at least 48px. See `DControlStyle` for scaling and platform rules.
 
-All theme sizes remain unscaled. `AppTextScaleRegion` at the MaterialApp builder
-applies `DiscourseTypography.mobileScale` on iOS/Android before the platform
-TextScaler, then composes the app's 80–200% preference. Resetting zoom to 100%
-retains the mobile baseline. The baseline is uniform so cooked HTML's linear
-compatibility scaler stays consistent with native text. This also
-covers Navigator overlays, dialogs, tooltips, and menus. Custom text measurement
-uses `MediaQuery.textScalerOf(context)` so layout follows the rendered text.
-Do not multiply a TextStyle's fontSize by zoom or replace the inherited scaler.
+## Zoom and accessibility
 
-Tabs and sidebar rows grow with text. Dropdown rows size intrinsically. Table
-rows must admit taller cells, and constrained navigation can scroll. Long row
-labels may ellipsize, but text must not be squeezed into a shorter fixed box.
-Decorative forum initials fit their avatar bounds; their adjacent forum labels
-continue to scale normally.
-The HTML package currently consumes a linear compatibility factor anchored to
-16-point reading text; it applies that factor internally, so its rendered
-fontSize already includes zoom.
+`AppTextScaleRegion`, above the Navigator, composes the platform accessibility
+`TextScaler` with the app's 80–200% preference. At 100%, the platform scaler
+is preserved without a mobile multiplier. Overlays, dialogs, tooltips and
+menus inherit the same scaler. Custom measurements use
+`MediaQuery.textScalerOf(context)`; never multiply a `TextStyle.fontSize` by
+zoom or replace the inherited scaler.
 
-`typography_boundary_test.dart` verifies rendered control roles at every zoom,
-light/dark themes, overlay inheritance, and nonlinear platform scaling.
-`sidebar_width_test.dart` covers narrow and wide sidebar reflow at 200%.
-The source adoption test guards the single owner of numeric font sizes.
+The HTML package still consumes a linear compatibility factor anchored to
+14px reading text. It applies that factor internally, so rendered HTML font
+sizes already include zoom. Native text retains the full nonlinear scaler.
+Relative authored formatting derives from its surrounding style. Zero-size
+syntax spans in projected editors remain deliberately invisible.
 
-## Native component API
+Rows and controls grow for larger text. Topic metadata and toolbars wrap;
+constrained navigation scrolls. Long labels may ellipsize where the component
+explicitly owns that policy. Do not squeeze text into a smaller fixed box.
+
+## Native typography API
 
 Import `package:discourse_native/discourse_ui.dart`. `DText` and `DText.rich`
-render native `Text` / `Text.rich`; `DProse`, `DBlockquote` and `DTextList`
-compose ordinary Flutter widgets. They add no typography scale, text scaler,
-networking, focus manager, or selection owner.
+compose native text; `DProse`, `DBlockquote` and `DTextList` provide document
+layout. They do not add a second scaler, focus manager or selection owner.
 
-| DTextVariant | Size / leading | Weight and treatment |
+| DTextVariant | Size / line height | Treatment |
 | --- | --- | --- |
-| h1 | 36 / 40 | 800, -0.025em tracking, balanced plain-text heading |
-| h2 | 30 / 36 | 600, -0.025em tracking, 1px bottom rule and 8px bottom padding |
-| h3 | 24 / 32 | 600, -0.025em tracking |
-| h4 | 20 / 28 | 600, -0.025em tracking |
-| paragraph (default) | 16 / 28 | Normal weight |
-| lead | 20 / 28 | Normal weight, muted foreground |
-| large | 18 / 28 | 600 |
-| small | 14 / 14 | 500, reference leading-none |
-| muted | 14 / 20 | Normal weight, muted foreground |
-| inlineCode | 14 / 20 | Bundled JetBrains Mono, 600, outlined palette-derived background |
+| h1 | 32 / 40 | 800, -0.025em tracking; balances plain-text headings |
+| h2 | 28 / 35 | 600, -0.025em tracking; 1px bottom rule, 8px bottom inset |
+| h3 | 22 / 27.5 | 700, zero tracking; page title |
+| h4 | 18 / 25.2 | 600, -0.025em tracking |
+| paragraph | 14 / 23.1 | Normal reading text |
+| lead | 18 / 25.2 | Muted foreground |
+| large | 17 / 25.5 | 600 |
+| small | 13 / 19.5 | 500 |
+| muted | 12.5 / 18.75 | Muted foreground |
+| inlineCode | 12.5 / 18.75 | JetBrains Mono, 600 |
 
-`DText.bodyStyleOf(context)` supplies the reference's inherited 16/24 body text
-for lists, quotes and table compositions. `DText.linkStyleOf(context)` supplies
-the demo's inline link treatment (weight 500, primary color and underline) with
-no size, so a span inherits its paragraph or lead metrics; the caller owns the
-span's recognizer, which also gives it link semantics and a pointer cursor.
-`style` merges after the reference style for intentional caller customization.
-Sizes remain unscaled; font families and semantic colors come from the live
-theme. Tracking is the reference's -0.025em of the rendered size: Flutter
-scales font size but not letter spacing, so the inherited scaler is applied to
-the tracking when the style is resolved.
-`headingLevel` can override semantic hierarchy
-without changing visual size: a compact dialog title can use h4 with level 1,
-or a section can use large with level 2. Zero opts out of heading semantics.
-`semanticsLabel`, `textAlign`, `softWrap`, `maxLines` and `overflow` have native
-Text behavior. Text normally wraps without a line limit and inherits direction.
+`DText.bodyStyleOf` supplies 14/22.4 inherited text for lists, quotes and table
+compositions. `DText.linkStyleOf` adds weight, primary color and underline
+without changing size. Callers own link recognizers and keyboard actions.
+`style` merges intentional customizations after the role. Tracking is resolved
+against the inherited scaler because Flutter scales font size but not letter
+spacing. `headingLevel` changes semantic hierarchy without changing appearance;
+zero opts out. Wrapping, direction and native text semantics are preserved.
 
-```dart
-SelectionArea(
-  child: DProse(children: [
-    const DText('Community handbook', variant: DTextVariant.h1),
-    const DText('Everyone has something to contribute.',
-      variant: DTextVariant.lead),
-    const DBlockquote(child: Text('“Make room for new perspectives.”')),
-    DText.rich(TextSpan(children: [
-      const TextSpan(text: 'Open '),
-      TextSpan(text: 'community.settings',
-        style: DText.styleOf(context, DTextVariant.inlineCode)),
-      const TextSpan(text: ' to get started.'),
-    ])),
-    const DTextList(children: [
-      Text('Welcome someone new.'),
-      Text('Share a useful resource.'),
-    ]),
-  ]),
-)
-```
+`DProse` provides full-width blocks and default article spacing (24px between
+blocks, 40px before h2, 32px before h3). Its `spacing` option supports compact
+flows. Application post renderers own the reference's 10px paragraph rhythm.
+`DBlockquote` supplies a directional rule and inset. `DTextList` provides native
+list semantics and bullets or ordered markers (`ordered`, `start`), wrapping
+and nested children. Empty flows have zero height. Decorative markers are
+excluded from copied text.
 
-The host supplies bounded width and scrolling. `DProse` supplies reading style,
-full-width blocks and 24px between children, with 40px before h2 and 32px before
-h3, without outer margins. Its optional `spacing` overrides these defaults for
-compact nested content. `DBlockquote` supplies a leading
-rule, directional inset and inherited italic reading text; explicit child styles
-can identify an attribution. `DTextList` supplies directional bullets or ordered
-markers (`ordered: true`, `start: 9`), native list/item semantics and wrapping
-children. Children may include nested lists or native controls. Empty flows and
-lists have zero height. Ordered markers are announced; decorative bullets are
-not. Markers are excluded from copied text.
+Standalone code and `DText.code` share 4px corners, 5px horizontal / 1px vertical
+insets and a 1px outline. The approved inline code palette uses 12% foreground
+fill and a 24% border. Inline spans use a wrapping rectangular background;
+boxed WidgetSpans would compromise text selection and copying. Authored fenced
+code and syntax highlighting retain their separate semantic palette.
 
-A document's existing `SelectionArea` (or the app's route-aware selection area)
-owns selection across blocks and spans. For rich inline actions, compose a
-focusable native control inside a `WidgetSpan`; a span gesture recognizer alone
-is not keyboard focusable. The caller owns recognizers, focus nodes and actions.
-Typography itself has no hover, pressed, disabled, loading, overlay or animation
-state. Composed controls retain their native focus, activation and lifecycle.
+A host `SelectionArea` owns selection across blocks. Use a focusable Native
+control in a WidgetSpan for keyboard-operable inline actions. Styleguide
+examples retain the original reference content but render the application
+scale; Foundations → Application design scale shows the live semantic roles.
 
-## Official reference and adaptations
+## Verification
 
-The current official Typography MDX and base examples were rechecked on
-2026-09-09 at shadcn/ui main
-`3ba91b1cc83e1bbe4ab35a422ff2a694849c5048`. They retain h1–h4, p,
-blockquote, table, list, Inline code, Lead, Large, Small, Muted and RTL. The
-[Typography demo source](https://github.com/shadcn-ui/ui/blob/main/apps/v4/examples/base/typography-demo.tsx)
-retains the original composition and utilities. The live documentation URL now
-redirects to Typeset and its MDX uses preview references instead of embedding
-the example source; Typeset is a separate generated document-styling system and
-is outside this catalogue entry. The 2026-09-08 embedded capture remains at
-`docs/component-library/reference/typography.md` for reproducibility.
-
-The user's clarification that this is a copy of shadcn supersedes the earlier
-adaptation to generic Material typography roles. The table above now matches
-the frozen utilities. The same numeric size owner and native scaler remain in
-use. Plain h1 text balances up to six lines by finding a narrower measure that
-preserves the natural line count without introducing extra breaks within words.
-Native font shaping and soft breaks can differ from a browser; rich headings
-retain native span layout for selection/copy.
-Callers own scroll-to-heading behavior instead of CSS scroll margins. DProse
-translates the reference's sibling margins into explicit Flutter block gaps.
-
-Standalone inline code has a palette-derived background and a 1px outline,
-with the reference’s fixed 4px corners and 4.8px horizontal / 3.2px vertical padding. Tailwind’s bare
-`rounded` utility is a 0.25rem compatibility value rather than a step of the
-theme radius scale, so the corners do not follow the site radius. The box is
-painted once; the text carries no second background. Within a
-paragraph, `DText.styleOf(context, DTextVariant.inlineCode)` supplies a rectangular
-span background so code can wrap, select and copy as text. Using a boxed
-WidgetSpan for the code itself would compromise those behaviors.
-
-Inline code shares a 12% foreground/background fill and a 24% outline through
-`DTokens`, including authored posts and chat via `DText.code`. This compact
-constructor retains their 4px horizontal / 1px vertical padding. The outline
-paints inside the existing bounds, so it adds no layout space. Composer spans
-use the same fill while retaining native editing and wrapping. These inline
-colors intentionally override a site's potentially indistinguishable
-`--inline-code-bg`; fenced code and syntax highlighting retain `CodeColors`.
-This stronger treatment was requested on 2026-09-19 to distinguish code from
-neutral conversation bubbles across palettes.
-
-The styleguide's table example uses Flutter `Table` with flexible columns,
-16/24 body text, bold headers, 16px/8px cell padding, intrinsic row heights,
-TableBorder, alternating token backgrounds, column-header
-semantics and start/center/end cell alignment. Flutter owns table/row semantics;
-only column-header roles need annotation. Cells wrap to fit the preview instead
-of requiring a minimum-width horizontal scroller. This is a documented native
-composition, not a competing public table engine. The later Table entry owns
-its full reusable API. The reference demo, RTL reference and complete-article
-examples reuse that same sample composition with the reference's start-aligned
-cells and "King's Treasury" / "People's happiness" header.
-
-The styleguide opens with the frozen `TypographyDemo` composition (including
-its primary link and status line after it is followed), the per-section
-examples with their original text, and the frozen RTL example: the demo in
-Arabic by default with the reference's English and Hebrew translations behind
-a language selector whose document sets its own direction. Native
-demonstrations follow: headings, reading text, quotes and nested lists, rich
-text with a keyboard-focusable action and an LTR code island, the table
-composition with mixed alignment, and a complete article.
-
-The core/plugin adoption audit retains control-owned Text styles (button/menu
-labels, form fields, badges and metadata), authored HTML/Markdown/composer
-renderers, site emoji and inline-link spans, syntax code blocks and specialized
-alert/onebox tables. Their density, markup semantics, editing offsets, or domain
-interactions have different owners. Settings, shared sheets, add-site, group
-management, Chat channel information, Poll/Local Dates/GIF dialogs, Voice room
-chat and the event fallback now use the public API for appropriate headings
-and secondary prose. Their callbacks, permissions and state remain app-owned.
-
-## Mobile baseline verification (2026-09-20)
-
-The 120% baseline was verified together with the mobile control presets from
-`2172b324c`. Formatting, `flutter analyze --no-pub`, and 86 focused tests passed:
-`app_text_scale`, `typography_boundary`, `mobile_text_scale`,
-`discourse_typography_adoption`, `mobile_control_scale`, `mobile_shell`,
-`categories_page`, `sidebar_width`, and `topic_list_view_lifecycle`.
-Mobile tests cover iOS/Android platform variants, light/dark themes, 320px
-layouts, topic rows, native/cooked reading parity, all app zoom levels,
-menu selection, and resetting zoom. Desktop boundary tests remain unscaled.
-
-The offline `mobile_navigation_review_main.dart` fixture built and ran on macOS
-with its iOS platform override. Native review at 440px width covered navigation,
-topic lists, wrapped reader text and filter menus in the dark palette; the
-integrated control presets were rechecked on navigation and topic lists.
-This was not an iOS/Android device run. Light-theme coverage was via widget tests.
-
-The broader chat-composer suite had five failures (reply-menu ambiguity,
-edit-cancel, GIF send failure, uncertain send failure and definitive refusal).
-All five also reproduced with the original root text scaler; they are unrelated
-to the mobile baseline. Its other 67 tests passed with the change.
+`app_text_scale_test.dart` verifies nonlinear scaling, keyboard zoom and reset.
+`mobile_text_scale_test.dart` checks the same rendered reading/title/control
+sizes in macOS, iOS and Android theme variants, at 320px and every app zoom,
+including popup selection and reset. `typography_boundary_test.dart` checks
+role inheritance and overlays. The adoption guard prevents new numeric font
+sizes outside their designated owners. Platform variants are widget tests,
+not device runs. See the design rules' verification record for native review.

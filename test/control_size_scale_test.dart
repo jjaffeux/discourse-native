@@ -6,9 +6,9 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   for (final scale in [1.0, 2.0]) {
     for (final (size, baseHeight, fontSize) in [
-      (DControlSize.small, 24.0, 12.0),
-      (DControlSize.regular, 28.0, 13.0),
-      (DControlSize.large, 32.0, 14.0),
+      (DControlSize.small, 24.0, 12.5),
+      (DControlSize.regular, 34.0, 13.0),
+      (DControlSize.large, 40.0, 14.0),
     ]) {
       final height = DControlStyle.scaledHeight(size, TextScaler.linear(scale));
       assert(scale != 1 || height == baseHeight);

@@ -20,9 +20,9 @@ final typographyExamples = ComponentExamples(
       'headings. h2 has a token-colored rule; DProse adds reference spacing '
       'without outer margins. SelectionArea belongs to the document. Span code '
       'wraps with a rectangular background; standalone code has the '
-      'fixed 4px corners and 4.8px/3.2px padding. All code uses a stronger '
+      'fixed 4px corners and 5px/1px padding. All code uses a stronger '
       'palette-derived fill, with a quiet outline on chips. DText.code keeps '
-      'the compact 4px/1px spacing for authored posts and chat. Code alone uses '
+      'the same spacing for authored posts and chat. Code alone uses '
       'the existing JetBrains Mono. DText.linkStyleOf supplies the demo’s '
       'medium primary underlined link for a caller-owned span recognizer. '
       'Native controls own focus, keyboard and activation. Native Table '
@@ -254,8 +254,8 @@ Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
     StyleguideExample(
       title: 'Reading text: p, Lead, Large, Small and Muted',
       description:
-          'Paragraphs use the reference’s 16px text and 28px leading; Small uses '
-          '14px medium text with leading-none. All text wraps and grows at 200%; '
+          'Paragraphs use 14px text and 23.1px leading; Small uses '
+          '13px medium text with 19.5px leading. Text wraps and grows at 200%; '
           'no fixed line-height boxes.',
       states: const ['p', 'Lead', 'Large', 'Small', 'Muted', 'Text scale'],
       code: '''const DProse(children: [
@@ -889,7 +889,7 @@ class _RichTypographyState extends State<_RichTypography> {
   );
 }
 
-/// The frozen table: bordered 16/24 cells with 16px/8px padding, a bold
+/// The reference table on shared 14/22.4 text with 16px/8px padding, a bold
 /// header row, the second body row on the muted surface and start alignment.
 /// [mixedAlignment] demonstrates the center and end alignment the reference's
 /// cell classes support for `align` attributes.

@@ -149,13 +149,20 @@ class DTokens extends ThemeExtension<DTokens> {
 
 /// Fixed shape sizes for application surfaces and controls.
 abstract final class DRadius {
+  static const double marker = 2;
+  static const double code = 4;
+  static const double nested = 6;
+  static const double menuItem = 7;
   static const double control = 8;
+  static const double popover = 10;
+  static const double bubble = 12;
   static const double panel = 14;
   static const double pill = 999;
 }
 
 /// Logical pixels; text continues to use the host's semantic TextTheme roles.
 abstract final class DSpacing {
+  static const double xxs = 2;
   static const double xs = 4;
   static const double sm = 8;
   static const double md = 12;
@@ -166,9 +173,22 @@ abstract final class DSpacing {
   /// Gap between separate adjacent buttons, toggles and selection controls.
   /// Joined groups own their internal spacing; content and row gaps use the
   /// general spacing scale instead.
-  static const double controlGap = xs;
+  static const double controlGap = 6;
+  static const double filterGap = sm;
 
   static const double touchTarget = 48;
+}
+
+/// Repeated content insets measured across the reference pages.
+abstract final class DInsets {
+  static const page = EdgeInsets.all(DSpacing.lg);
+  static const listRow = EdgeInsets.symmetric(horizontal: 16, vertical: 12);
+  static const menu = EdgeInsets.all(6);
+  static const menuItem = EdgeInsetsDirectional.symmetric(
+    horizontal: 8,
+    vertical: 7,
+  );
+  static const bubble = EdgeInsets.symmetric(horizontal: 12, vertical: 8);
 }
 
 abstract final class DMotion {

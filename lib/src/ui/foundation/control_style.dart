@@ -6,21 +6,24 @@ import 'package:flutter/material.dart';
 import '../../theme/discourse_typography.dart';
 import 'tokens.dart';
 
-/// Control surfaces: desktop 24/28/32px; mobile 40/44/48px.
+/// Control artwork uses 24/34/40px on desktop and 40/44/48px on touch.
+/// Typography is shared; touch targets remain at least 48px.
 enum DControlSize { small, regular, large }
 
 /// Shared geometry and outlined surfaces for action and selection controls.
 abstract final class DControlStyle {
   static const smallHeight = 24.0;
-  static const regularHeight = 28.0;
-  static const largeHeight = 32.0;
+  static const regularHeight = 34.0;
+  static const largeHeight = 40.0;
 
   static const duration = Duration(milliseconds: 150);
   static const iconSize = 16.0;
   static const gap = 6.0;
-  static const labelFontSize = 13.0;
-  static const rowHeight = 32.0;
-  static const rowRadius = 8.0;
+  static const labelFontSize = DiscourseTypography.control;
+  static const labelLineHeight =
+      labelFontSize * DiscourseTypography.lineHeightSmall;
+  static const rowHeight = 34.0;
+  static const rowRadius = DRadius.menuItem;
   static const focusWidth = 1.0;
   static const focusOffset = 2.0;
   static bool isTouch(BuildContext? context) =>
@@ -45,40 +48,19 @@ abstract final class DControlStyle {
           DControlSize.large => largeHeight,
         };
   static double fontSize(DControlSize size, {BuildContext? context}) =>
-      isTouch(context)
-      ? switch (size) {
-          DControlSize.small => 14,
-          DControlSize.regular => 15,
-          DControlSize.large => 16,
-        }
-      : switch (size) {
-          DControlSize.small => DiscourseTypography.xs,
-          DControlSize.regular => labelFontSize,
-          DControlSize.large => DiscourseTypography.sm,
-        };
+      switch (size) {
+        DControlSize.small => DiscourseTypography.preview,
+        DControlSize.regular => labelFontSize,
+        DControlSize.large => DiscourseTypography.sm,
+      };
   static double lineHeight(DControlSize size, {BuildContext? context}) =>
-      isTouch(context)
-      ? switch (size) {
-          DControlSize.small => 20,
-          DControlSize.regular => 20,
-          DControlSize.large => 24,
-        }
-      : switch (size) {
-          DControlSize.small => 16,
-          DControlSize.regular || DControlSize.large => 20,
-        };
+      fontSize(size) * DiscourseTypography.lineHeightSmall;
   static double iconDimension(DControlSize size, {BuildContext? context}) =>
-      isTouch(context)
-      ? switch (size) {
-          DControlSize.small => 18,
-          DControlSize.regular => 20,
-          DControlSize.large => 22,
-        }
-      : switch (size) {
-          DControlSize.small => 12,
-          DControlSize.regular => 14,
-          DControlSize.large => iconSize,
-        };
+      switch (size) {
+        DControlSize.small => 12,
+        DControlSize.regular => 14,
+        DControlSize.large => iconSize,
+      };
   static double contentGap(DControlSize size) =>
       size == DControlSize.large ? gap : 4;
 

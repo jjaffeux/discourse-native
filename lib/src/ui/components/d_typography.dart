@@ -7,7 +7,7 @@ import '../foundation/tokens.dart';
 
 final RegExp _words = RegExp(r'\S+');
 
-/// Semantic styles from the frozen shadcn Typography reference.
+/// Semantic styles on the shared application typography scale.
 enum DTextVariant {
   h1,
   h2,
@@ -31,7 +31,7 @@ enum DTextVariant {
 
 /// Native text with a semantic typography role and optional caller emphasis.
 ///
-/// Uses shadcn's sizes, leading, weights and tracking, with the current theme's
+/// Uses the shared application sizes, leading and weights with the current theme's
 /// font family and colors. The inherited text scaler remains authoritative.
 /// Headings expose their level to accessibility.
 /// h2 includes a bottom rule; inlineCode includes a padded, rounded background.
@@ -55,7 +55,6 @@ class DText extends StatelessWidget {
     this.semanticsLabel,
     this.headingLevel,
   }) : textSpan = null,
-       _compactCode = false,
        assert(maxLines == null || maxLines > 0),
        assert(headingLevel == null || (headingLevel >= 0 && headingLevel <= 6));
 
@@ -71,7 +70,6 @@ class DText extends StatelessWidget {
     this.semanticsLabel,
     this.headingLevel,
   }) : data = null,
-       _compactCode = false,
        assert(maxLines == null || maxLines > 0),
        assert(headingLevel == null || (headingLevel >= 0 && headingLevel <= 6));
 
@@ -80,7 +78,6 @@ class DText extends StatelessWidget {
   const DText.code(String this.data, {super.key, this.style})
     : textSpan = null,
       variant = DTextVariant.inlineCode,
-      _compactCode = true,
       textAlign = TextAlign.start,
       softWrap = true,
       maxLines = null,
@@ -91,7 +88,6 @@ class DText extends StatelessWidget {
   final String? data;
   final InlineSpan? textSpan;
   final DTextVariant variant;
-  final bool _compactCode;
 
   /// Merged after the reference style for an intentional caller customization.
   final TextStyle? style;
@@ -109,7 +105,7 @@ class DText extends StatelessWidget {
   /// Tailwind's bare `rounded` utility is a fixed 0.25rem compatibility value
   /// rather than a step of the theme radius scale, so standalone code keeps
   /// 4px corners under every site radius.
-  static const double _codeRadius = 4;
+  static const double _codeRadius = DRadius.code;
 
   Widget _balanceHeading(BuildContext context, TextStyle style, Widget child) {
     return LayoutBuilder(
@@ -179,12 +175,11 @@ class DText extends StatelessWidget {
     );
   }
 
-  /// The reference's inherited 16px/24px body text for lists, quotes and tables.
-  /// Paragraphs explicitly use the roomier 28px leading from `leading-7`.
+  /// Reading text for lists, quotes and tables; paragraphs have roomier leading.
   static TextStyle bodyStyleOf(BuildContext context) =>
       Theme.of(context).textTheme.bodyLarge!.copyWith(
         fontSize: DiscourseTypography.base,
-        height: DiscourseTypography.lineHeightBody,
+        height: DiscourseTypography.lineHeightContent,
         fontWeight: FontWeight.normal,
         letterSpacing: 0,
         color: DTokens.of(context).foreground,
@@ -212,7 +207,7 @@ class DText extends StatelessWidget {
   /// selected within a paragraph. Use [DText] with inlineCode for a standalone
   /// padded, rounded label. Only code opts into the app's bundled monospace;
   /// all other families remain theme-owned. Sizes are the app's unscaled
-  /// Tailwind tokens with the frozen reference's weights and leading. Tracking
+  /// application tokens with explicit weights and leading. Tracking
   /// is em-relative in the reference, and Flutter scales font size but not
   /// letter spacing, so it is resolved against the inherited scaler here.
   static TextStyle styleOf(BuildContext context, DTextVariant variant) {
@@ -263,8 +258,7 @@ class DText extends StatelessWidget {
         text.headlineSmall!,
         DiscourseTypography.xxl,
         DiscourseTypography.lineHeightHeading,
-        weight: FontWeight.w600,
-        tight: true,
+        weight: FontWeight.w700,
       ),
       DTextVariant.h4 => resolve(
         text.titleLarge!,
@@ -292,19 +286,19 @@ class DText extends StatelessWidget {
       ),
       DTextVariant.small => resolve(
         text.labelLarge!,
-        DiscourseTypography.sm,
-        1,
+        DiscourseTypography.control,
+        DiscourseTypography.lineHeightSmall,
         weight: FontWeight.w500,
       ),
       DTextVariant.muted => resolve(
         text.bodyMedium!,
-        DiscourseTypography.sm,
+        DiscourseTypography.preview,
         DiscourseTypography.lineHeightSmall,
         color: tokens.mutedForeground,
       ),
       DTextVariant.inlineCode => resolve(
         text.bodyMedium!,
-        DiscourseTypography.sm,
+        DiscourseTypography.preview,
         DiscourseTypography.lineHeightSmall,
         weight: FontWeight.w600,
       ).copyWith(fontFamily: 'JetBrains Mono'),
@@ -369,9 +363,7 @@ class DText extends StatelessWidget {
             border: Border.all(color: tokens.inlineCodeBorder),
           ),
           child: Padding(
-            padding: _compactCode
-                ? const EdgeInsets.symmetric(horizontal: 4, vertical: 1)
-                : const EdgeInsets.symmetric(horizontal: 4.8, vertical: 3.2),
+            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
             child: result,
           ),
         ),

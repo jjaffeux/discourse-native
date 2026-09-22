@@ -1041,7 +1041,8 @@ class _DCommandItemSurfaceState<T> extends State<_DCommandItemSurface<T>> {
             child: DefaultTextStyle(
               style: Theme.of(context).textTheme.bodyMedium!.copyWith(
                 fontSize: DControlStyle.labelFontSize,
-                height: 20 / DControlStyle.labelFontSize,
+                height:
+                    DControlStyle.labelLineHeight / DControlStyle.labelFontSize,
                 color: item.destructive
                     ? tokens.destructive
                     : tokens.foreground,

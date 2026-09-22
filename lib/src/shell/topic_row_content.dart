@@ -100,8 +100,8 @@ class _TopicListTitle extends StatelessWidget {
                   visited: topic.visited && !topic.hasUnseenActivity,
                 ),
                 fontWeight: topic.visited && !topic.hasUnseenActivity
-                    ? FontWeight.w400
-                    : FontWeight.w600,
+                    ? FontWeight.w500
+                    : FontWeight.w700,
               ),
               trailing: [
                 if (topic.showNewTopicDot || topic.showNewRepliesDot)

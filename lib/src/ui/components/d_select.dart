@@ -172,7 +172,7 @@ class DSelect<T> extends FormField<T> {
     this.alignItemWithTrigger = true,
     this.side = DPopoverSide.bottom,
     this.align = DPopoverAlign.center,
-    this.sideOffset = 4,
+    this.sideOffset = DSpacing.controlGap,
     this.alignOffset = 0,
     this.sideCollision = DPopoverCollision.flip,
     this.alignCollision = DPopoverCollision.shift,
@@ -228,7 +228,7 @@ class DSelect<T> extends FormField<T> {
     this.alignItemWithTrigger = true,
     this.side = DPopoverSide.bottom,
     this.align = DPopoverAlign.center,
-    this.sideOffset = 4,
+    this.sideOffset = DSpacing.controlGap,
     this.alignOffset = 0,
     this.sideCollision = DPopoverCollision.flip,
     this.alignCollision = DPopoverCollision.shift,
@@ -475,7 +475,7 @@ class DMultiSelect<T> extends FormField<List<T>> {
     this.autofocus = false,
     this.side = DPopoverSide.bottom,
     this.align = DPopoverAlign.center,
-    this.sideOffset = 4,
+    this.sideOffset = DSpacing.controlGap,
     this.alignOffset = 0,
     this.sideCollision = DPopoverCollision.flip,
     this.alignCollision = DPopoverCollision.shift,
@@ -532,7 +532,7 @@ class DMultiSelect<T> extends FormField<List<T>> {
     this.autofocus = false,
     this.side = DPopoverSide.bottom,
     this.align = DPopoverAlign.center,
-    this.sideOffset = 4,
+    this.sideOffset = DSpacing.controlGap,
     this.alignOffset = 0,
     this.sideCollision = DPopoverCollision.flip,
     this.alignCollision = DPopoverCollision.shift,
@@ -1268,11 +1268,11 @@ class _DSelectBodyState<T> extends State<_DSelectBody<T>> {
     final touch = _touch;
     final scaler = MediaQuery.textScalerOf(context);
     final scaledLineHeight =
-        scaler.scale(DiscourseTypography.sm) *
+        scaler.scale(DControlStyle.labelFontSize) *
         DiscourseTypography.lineHeightSmall;
     final itemHeight = math.max(
       touch ? DSpacing.touchTarget : DControlStyle.rowHeight,
-      scaledLineHeight + 8,
+      scaledLineHeight + DInsets.menuItem.vertical,
     );
     final labelHeight = math.max(
       24.0,
@@ -1281,7 +1281,10 @@ class _DSelectBodyState<T> extends State<_DSelectBody<T>> {
           8,
     );
     final naturalHeight = _naturalHeight(itemHeight, labelHeight);
-    final viewportHeight = math.max(0.0, widget.maxPopupHeight - 8);
+    final viewportHeight = math.max(
+      0.0,
+      widget.maxPopupHeight - DInsets.menu.vertical,
+    );
     final height = math.min(viewportHeight, naturalHeight);
     final overflows = naturalHeight > viewportHeight;
     final arrows = overflows && !touch;
@@ -1334,7 +1337,7 @@ class _DSelectBodyState<T> extends State<_DSelectBody<T>> {
       semanticLabel: widget.semanticLabel ?? 'Select options',
       width: popupWidth,
       constraints: BoxConstraints(maxHeight: widget.maxPopupHeight),
-      padding: const EdgeInsets.all(4),
+      padding: DInsets.menu,
       scrollable: false,
       side: widget.side,
       align: widget.align,
@@ -1351,7 +1354,10 @@ class _DSelectBodyState<T> extends State<_DSelectBody<T>> {
                   placement.boundary.bottom - placement.target.bottom < 20) {
                 return null;
               }
-              final top = placement.target.center.dy - selectedCenter - 4;
+              final top =
+                  placement.target.center.dy -
+                  selectedCenter -
+                  DInsets.menu.top;
               if (top < placement.boundary.top ||
                   top + placement.contentSize.height >
                       placement.boundary.bottom) {
@@ -1554,7 +1560,9 @@ class _DSelectBodyState<T> extends State<_DSelectBody<T>> {
                   child: DefaultTextStyle.merge(
                     style: const TextStyle(
                       fontSize: DControlStyle.labelFontSize,
-                      height: 20 / DControlStyle.labelFontSize,
+                      height:
+                          DControlStyle.labelLineHeight /
+                          DControlStyle.labelFontSize,
                       fontWeight: FontWeight.w500,
                     ),
                     child: widget.label!,
@@ -1568,7 +1576,9 @@ class _DSelectBodyState<T> extends State<_DSelectBody<T>> {
                 DefaultTextStyle.merge(
                   style: TextStyle(
                     fontSize: DControlStyle.labelFontSize,
-                    height: 20 / DControlStyle.labelFontSize,
+                    height:
+                        DControlStyle.labelLineHeight /
+                        DControlStyle.labelFontSize,
                     color: tokens.mutedForeground,
                   ),
                   child: widget.description!,
@@ -1582,7 +1592,9 @@ class _DSelectBodyState<T> extends State<_DSelectBody<T>> {
                     error,
                     style: TextStyle(
                       fontSize: DControlStyle.labelFontSize,
-                      height: 20 / DControlStyle.labelFontSize,
+                      height:
+                          DControlStyle.labelLineHeight /
+                          DControlStyle.labelFontSize,
                       color: tokens.destructive,
                     ),
                   ),
@@ -1666,7 +1678,7 @@ class _DSelectOptionRowState<T> extends State<_DSelectOptionRow<T>> {
     Widget row = interactiveRowSurface(
       key: ValueKey(('d-select-item', widget.item.value)),
       height: widget.height,
-      padding: const EdgeInsetsDirectional.fromSTEB(8, 4, 8, 4),
+      padding: DInsets.menuItem,
       decoration: BoxDecoration(
         color: highlighted
             ? DControlStyle.rowHover(tokens)
@@ -1682,7 +1694,8 @@ class _DSelectOptionRowState<T> extends State<_DSelectOptionRow<T>> {
               style: TextStyle(
                 color: foreground,
                 fontSize: DControlStyle.labelFontSize,
-                height: 20 / DControlStyle.labelFontSize,
+                height:
+                    DControlStyle.labelLineHeight / DControlStyle.labelFontSize,
                 fontWeight: FontWeight.w400,
               ),
               child: widget.item.child,
