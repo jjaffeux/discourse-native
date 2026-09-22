@@ -2602,8 +2602,10 @@ instead of fetching a second copy through Reddit's API. It preserves comment
 context and older redditmedia embeds, restricts embedded navigation to trusted
 provider origins and the same post or comment, and routes other links through the
 normal app link handler. `resize.embed` messages from the trusted iframe adjust
-the viewport within a bounded height. Loaded embeds have no footer or bottom
-gap. Loading failures show Retry and Open on Reddit actions; disposing or
+the viewport within a bounded height. The card follows the app's light or dark
+theme and uses Reddit's own heading and outline, with no duplicate frame,
+footer, bottom gap, or scrollbar when the content fits. Loading failures show
+Retry and Open on Reddit actions; disposing or
 replacing an embed unloads the old document.
 The Embed styleguide examples use self-contained HTML without network requests.
 

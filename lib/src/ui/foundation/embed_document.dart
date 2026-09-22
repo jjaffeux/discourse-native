@@ -1,5 +1,7 @@
 import 'dart:convert';
 
+const maxEmbedHeight = 2000.0;
+
 /// A minimal host for an iframe; only its own trusted messages reach Flutter.
 String embedDocument({
   required Uri uri,
@@ -18,7 +20,7 @@ String embedDocument({
 html,body { margin:0; width:100%; height:100%; overflow:hidden; }
 iframe { display:block; width:100%; height:100%; border:0; }
 </style></head><body>
-<iframe id="embed" title="${escape.convert(title)}" allowfullscreen></iframe>
+<iframe id="embed" title="${escape.convert(title)}" scrolling="no" allowfullscreen></iframe>
 <script>
 const frame = document.getElementById('embed');
 const origins = ${scriptValue(origins.toList())};
@@ -33,6 +35,7 @@ window.addEventListener('message', (event) => {
   if (!resizeType || message?.type !== resizeType) return;
   const height = Number(message.data);
   if (Number.isFinite(height) && height > 0) {
+    frame.scrolling = height > $maxEmbedHeight ? 'auto' : 'no';
     NativeEmbed.postMessage(JSON.stringify({height}));
   }
 });
