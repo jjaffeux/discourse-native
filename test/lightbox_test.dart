@@ -360,6 +360,71 @@ void main() {
   });
 
   group('in a post', () {
+    testWidgets('keeps excerpt lightboxes as inline text links', (
+      tester,
+    ) async {
+      const channel = MethodChannel('plugins.flutter.io/url_launcher');
+      final messenger =
+          TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+      final launched = <String>[];
+      messenger.setMockMethodCallHandler(channel, (call) async {
+        if (call.method == 'launch') {
+          launched.add((call.arguments as Map)['url'] as String);
+        }
+        return true;
+      });
+      addTearDown(() => messenger.setMockMethodCallHandler(channel, null));
+
+      // Core's ExcerptParser strips carousel markup and replaces images with
+      // bracketed labels, but preserves their enclosing a.lightbox links.
+      await pumpCooked(
+        tester,
+        '<aside class="quote" data-topic="123" data-post="1">'
+        '<div class="title"><a href="/t/blog/123">Discourse Blog</a></div>'
+        '<blockquote>I deployed the blog. '
+        '<a class="lightbox" href="https://example.com/one.png">[image]</a> '
+        '<a class="lightbox" href="https://example.com/two.png">[second image]</a> '
+        'More quoted text...</blockquote></aside>'
+        '<p>After the quote.</p>',
+      );
+
+      expect(find.byType(LightboxThumbnail), findsNothing);
+      expect(find.byType(SiteImage), findsNothing);
+      expect(renderedText('[image]'), findsOneWidget);
+      expect(renderedText('[second image]'), findsOneWidget);
+      expect(
+        tester.getBottomLeft(renderedText('After the quote.')).dy,
+        lessThan(200),
+      );
+      await tester.tapOnText(find.textRange.ofSubstring('[second image]'));
+      await tester.pumpAndSettle();
+      expect(launched, ['https://example.com/two.png']);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('keeps wrapped text lightboxes as links too', (tester) async {
+      await pumpCooked(
+        tester,
+        '<div class="lightbox-wrapper">'
+        '<a class="lightbox" href="https://example.com/full.png">'
+        '[screenshot]</a></div>',
+      );
+
+      expect(find.byType(LightboxThumbnail), findsNothing);
+      expect(find.byType(SiteImage), findsNothing);
+      expect(renderedText('[screenshot]'), findsOneWidget);
+    });
+
+    testWidgets('still renders actual images inside quotes', (tester) async {
+      await pumpCooked(
+        tester,
+        '<aside class="quote"><blockquote>$singleImage</blockquote></aside>',
+      );
+
+      expect(find.byType(LightboxThumbnail), findsOneWidget);
+      expect(find.byType(DImagePreview), findsOneWidget);
+    });
+
     testWidgets('draws the thumbnail natively instead of as a bare img', (
       tester,
     ) async {
