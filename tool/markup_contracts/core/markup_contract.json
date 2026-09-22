@@ -15,6 +15,8 @@
         "lib/onebox/templates/discourse_user_onebox.mustache",
         "lib/onebox/templates/discourse_category_onebox.mustache",
         "lib/onebox/engine/youtube_onebox.rb",
+        "lib/onebox/engine/reddit_media_onebox.rb",
+        "frontend/discourse/app/instance-initializers/onebox-decorators.js",
         "app/assets/stylesheets/common/base/onebox.scss",
         "frontend/discourse/app/lib/lightbox.js",
         "lib/cooked_processor_mixin.rb",

@@ -4,6 +4,11 @@ import 'styleguide_example.dart';
 /// component reference catalogue.
 const applicationComponentCatalogue = <ComponentReference>[
   ComponentReference(
+    id: 'embed',
+    name: 'Embed',
+    sections: ['Embedded content', 'Unavailable embed'],
+  ),
+  ComponentReference(
     id: 'drag',
     name: 'Drag',
     sections: ['Drag and tap', 'Disabled'],

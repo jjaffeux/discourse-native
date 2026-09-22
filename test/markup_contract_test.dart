@@ -57,6 +57,19 @@ void main() {
     );
   });
 
+  test('core pins the Reddit iframe and resize message contracts', () async {
+    final core = (await loadMarkupContracts()).singleWhere(
+      (contract) => contract.name == 'core-onebox',
+    );
+    expect(
+      core.watched,
+      containsAll([
+        'lib/onebox/engine/reddit_media_onebox.rb',
+        'frontend/discourse/app/instance-initializers/onebox-decorators.js',
+      ]),
+    );
+  });
+
   test('rejects snapshot paths which resolve outside the repository', () async {
     final repository = await Directory.systemTemp.createTemp(
       'markup-contract-repository-',

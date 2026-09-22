@@ -2595,6 +2595,18 @@ share a line with the prose around it and wrap at word boundaries. The generic
 cooked factory applies `CookedInlinePlugin` prefixes without replacing that
 text; discourse-github contributes the pull request's status glyph.
 
+Reddit's `iframe.reddit-onebox` is handled by
+[`reddit.dart`](lib/src/shell/oneboxes/reddit.dart). The cooked iframe carries
+no post body, so the Native `DEmbed` component displays Reddit's official embed
+instead of fetching a second copy through Reddit's API. It preserves comment
+context and older redditmedia embeds, restricts embedded navigation to trusted
+provider origins and the same post or comment, and routes other links through the
+normal app link handler. `resize.embed` messages from the trusted iframe adjust
+the viewport within a bounded height. Loaded embeds have no footer or bottom
+gap. Loading failures show Retry and Open on Reddit actions; disposing or
+replacing an embed unloads the old document.
+The Embed styleguide examples use self-contained HTML without network requests.
+
 YouTube is the media exception. Core's
 [`youtube_video.dart`](lib/src/shell/youtube_video.dart) owns the validated data,
 native player, and Onebox's older iframe fallback; the
