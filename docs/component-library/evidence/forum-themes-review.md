@@ -1,5 +1,38 @@
 # Forum themes — 2026-09-19
 
+## Panel surfaces restored over the shared canvas — 2026-09-22
+
+The continuous-canvas follow-up removed too much panel styling. Sidebar,
+topic-list, reader, mobile page and composer frames are restored, along with
+the topic footers' rounded fills and top borders. One window canvas still owns
+the background effect. Inner chrome remains transparent to avoid painting the
+effect again or stacking independent opaque sections.
+
+The user approved a Native background-color option after reviewing the
+restored opaque panels. `DCard.backgroundColor` and the forwarded
+`DPageSurface.backgroundColor` change only the surface fill; Native outlines,
+clipping, geometry and descendant tokens are unchanged. Custom panels use a
+5% foreground tint at 60% opacity; fixed desktop footers use their usual
+semantic fill at 90% opacity. Forum-default panels retain their existing fills.
+The appearance preview uses the same panel and footer colors.
+
+Verification: 200 focused tests passed, including Card, Page Surface, the Card
+styleguide at narrow 200% RTL, appearance controls/editor, workspace panels,
+topic inbox, mobile shell, composer docking and the control-adoption guard.
+The desktop app regression inspects the real sidebar/list/reader frames and
+footers in both modes and all three effects, checks flat compositing pixels,
+and confirms noise remains visible through every panel. A separate iOS-layout
+widget test checks one painter and a framed mobile page at 390px and 1200px;
+this is not device testing. Static analysis with fatal infos passed.
+
+The macOS debug fixture `tool/continuous_background_review_main.dart` built
+and launched in the isolated `org.discourse.native.review.restoredpanels`
+bundle. Native inspection covered lava in the split workspace, noise in the
+preview and split workspace, light-mode noise, Settings dismissal, and the
+new translucent Card styleguide example. Borders, footer fills and the shared
+effect were visible together. The review app was closed and desktop lease
+released. The existing lava/noise algorithms were not changed by this fix.
+
 The forum Settings dialog combines the gallery study's section sidebar with the
 studio study's side-by-side theme controls and preview. General displays the
 forum identity; Appearance owns color mode, forum default, presets, and custom

@@ -52,16 +52,17 @@ class ForumThemePreview extends StatelessWidget {
             child: Builder(
               builder: (context) => Padding(
                 padding: const EdgeInsets.all(DSpacing.md),
-                child: _PreviewSurface(
+                child: DCard(
+                  spacing: 0,
                   key: const ValueKey('forum-theme-preview'),
+                  backgroundColor: ForumWindowBackground.panelColor(context),
                   footer: DCardFooter(
                     rounded: true,
                     padding: const EdgeInsets.all(DSpacing.lg),
-                    backgroundColor: ForumWindowBackground.surfaceColor(
+                    backgroundColor: ForumWindowBackground.footerColor(
                       context,
                       DTokens.of(context).footerBackground,
                     ),
-                    border: !ForumWindowBackground.isContinuous(context),
                     borderColor: DTokens.of(context).footerBorder,
                     child: Wrap(
                       spacing: DSpacing.controlGap,
@@ -255,26 +256,4 @@ class ForumThemePreview extends StatelessWidget {
       ),
     ),
   );
-}
-
-// The preview uses the same frameless composition as the custom workspace.
-class _PreviewSurface extends StatelessWidget {
-  const _PreviewSurface({
-    super.key,
-    required this.children,
-    required this.footer,
-  });
-
-  final List<Widget> children;
-  final DCardFooter footer;
-
-  @override
-  Widget build(BuildContext context) =>
-      ForumWindowBackground.isContinuous(context)
-      ? Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [...children, footer],
-        )
-      : DCard(spacing: 0, footer: footer, children: children);
 }

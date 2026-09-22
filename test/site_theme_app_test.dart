@@ -23,7 +23,6 @@ import 'package:discourse_native/src/shell/avatar_image.dart';
 import 'package:discourse_native/src/shell/forum_settings_dialog.dart';
 import 'package:discourse_native/src/shell/forum_theme_surfaces.dart';
 import 'package:discourse_native/src/shell/instance_rail.dart';
-import 'package:discourse_native/src/shell/main_content.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/title_bar.dart';
@@ -45,7 +44,7 @@ void main() {
   const siteA = 'https://a.example';
   const siteB = 'https://b.example';
 
-  testWidgets('custom background is one continuous desktop canvas', (
+  testWidgets('custom background retains framed panels on one desktop canvas', (
     tester,
   ) async {
     tester.view.physicalSize = const Size(1200, 800);
@@ -100,6 +99,7 @@ void main() {
         )
         .color;
 
+    final flatPixels = <(AppThemeMode, bool), ByteData>{};
     for (final mode in [AppThemeMode.dark, AppThemeMode.light]) {
       await controller.forumSettings.setThemeMode(siteA, mode);
       for (final effect in ForumBackgroundEffect.values) {
@@ -131,35 +131,63 @@ void main() {
           expect(theme.shell.content, expected);
           expect(paintedBox(find.byType(ShellTitleBar)), Colors.transparent);
           expect(paintedBox(find.byType(InstanceRail)), Colors.transparent);
-          final sidebarPanel = tester.widget<Container>(
+          final panels = [
             find
-                .descendant(
+                .ancestor(
                   of: find.byType(DSidebar),
-                  matching: find.byWidgetPredicate(
-                    (widget) =>
-                        widget is Container &&
-                        widget.decoration is BoxDecoration &&
-                        (widget.decoration! as BoxDecoration).color != null,
-                  ),
+                  matching: find.byType(DCard),
                 )
                 .first,
-          );
-          expect(
-            (sidebarPanel.decoration! as BoxDecoration).color,
-            Colors.transparent,
-          );
-          expect(
-            find.descendant(
-              of: find.byType(MainContent),
-              matching: find.byType(DCard),
-            ),
-            findsNothing,
-          );
+            find
+                .descendant(
+                  of: find.byKey(const ValueKey('inbox-topic-list-pane')),
+                  matching: find.byType(DCard),
+                )
+                .first,
+            find
+                .descendant(
+                  of: find.byKey(const ValueKey('inbox-topic-reader-pane')),
+                  matching: find.byType(DCard),
+                )
+                .first,
+          ];
+          final panelColors = <Color>[];
+          for (final panel in panels) {
+            final surface = tester.widget<Material>(
+              find.descendant(of: panel, matching: find.byType(Material)).first,
+            );
+            expect(surface.color!.a, greaterThan(0));
+            expect(surface.color!.a, lessThan(1));
+            panelColors.add(surface.color!);
+            final frame = tester.widget<DecoratedBox>(
+              find
+                  .descendant(of: panel, matching: find.byType(DecoratedBox))
+                  .first,
+            );
+            final border =
+                (frame.decoration as BoxDecoration).border! as Border;
+            expect(border.top.color.a, greaterThan(0));
+            expect(border.top.width, greaterThan(0));
+            expect(frame.position, DecorationPosition.foreground);
+          }
+          expect(panelColors.toSet(), hasLength(1));
           for (final key in ['topic-list-bottom-bar', 'topic-bottom-bar']) {
             final footer = find.byKey(ValueKey(key));
-            expect(paintedBox(footer), Colors.transparent);
-            expect(tester.widget<DCardFooter>(footer).border, isFalse);
+            expect(paintedBox(footer).a, greaterThan(panelColors.first.a));
+            expect(paintedBox(footer).a, lessThan(1));
+            expect(tester.widget<DCardFooter>(footer).border, isTrue);
+            expect(tester.widget<DCardFooter>(footer).rounded, isTrue);
           }
+          expect(
+            find.byKey(const ValueKey('forum-window-canvas')),
+            findsOneWidget,
+          );
+          expect(
+            find.byKey(const ValueKey('forum-window-effect')),
+            effect == ForumBackgroundEffect.normal
+                ? findsNothing
+                : findsOneWidget,
+          );
           final canvas = tester.widget<DecoratedBox>(
             find
                 .descendant(
@@ -173,7 +201,7 @@ void main() {
             expected,
             reason: 'Only the root canvas paints the base color.',
           );
-          if (effect == ForumBackgroundEffect.normal) {
+          {
             final boundary = tester.renderObject<RenderRepaintBoundary>(
               find.byKey(const ValueKey('app-paint-boundary')),
             );
@@ -187,6 +215,9 @@ void main() {
               return (bytes: bytes, width: width);
             }))!;
             final bytes = pixels.bytes;
+            if (effect == ForumBackgroundEffect.normal) {
+              flatPixels[(mode, darkerSidebars)] = bytes;
+            }
             final sidebar = tester.getRect(find.byType(DSidebar));
             final list = tester.getRect(
               find.byKey(const ValueKey('inbox-topic-list-pane')),
@@ -194,15 +225,22 @@ void main() {
             final reader = tester.getRect(
               find.byKey(const ValueKey('inbox-topic-reader-pane')),
             );
-            for (final point in [
-              const Offset(16, 400),
-              const Offset(80, 44),
-              sidebar.bottomRight - const Offset(24, 90),
-              list.bottomCenter - const Offset(0, 90),
-              reader.bottomCenter - const Offset(0, 90),
-              tester
-                  .getRect(find.byKey(const ValueKey('topic-list-bottom-bar')))
-                  .center,
+            var totalChangedPixels = 0;
+            for (final (point, surface) in [
+              (const Offset(16, 400), expected),
+              (const Offset(80, 44), expected),
+              (
+                sidebar.bottomRight - const Offset(24, 90),
+                Color.alphaBlend(panelColors[0], expected),
+              ),
+              (
+                list.bottomCenter - const Offset(0, 90),
+                Color.alphaBlend(panelColors[1], expected),
+              ),
+              (
+                reader.bottomCenter - const Offset(0, 90),
+                Color.alphaBlend(panelColors[2], expected),
+              ),
             ]) {
               final index =
                   (point.dy.floor() * pixels.width + point.dx.floor()) * 4;
@@ -212,10 +250,56 @@ void main() {
                 bytes.getUint8(index + 1),
                 bytes.getUint8(index + 2),
               );
+              if (effect == ForumBackgroundEffect.normal) {
+                for (final (actual, desired) in [
+                  (painted.r, surface.r),
+                  (painted.g, surface.g),
+                  (painted.b, surface.b),
+                ]) {
+                  expect(
+                    actual,
+                    closeTo(desired, 1 / 255),
+                    reason:
+                        'The shared canvas and retained panel fill at $point in $mode',
+                  );
+                }
+              } else {
+                final flat = flatPixels[(mode, darkerSidebars)]!;
+                var changedPixels = 0;
+                for (var dy = -32; dy <= 32; dy++) {
+                  for (var dx = -12; dx <= 12; dx++) {
+                    final pixel =
+                        ((point.dy.floor() + dy) * pixels.width +
+                            point.dx.floor() +
+                            dx) *
+                        4;
+                    if ([0, 1, 2].any(
+                      (channel) =>
+                          (bytes.getUint8(pixel + channel) -
+                                  flat.getUint8(pixel + channel))
+                              .abs() >
+                          1,
+                    )) {
+                      changedPixels++;
+                    }
+                  }
+                }
+                totalChangedPixels += changedPixels;
+                if (effect == ForumBackgroundEffect.noise) {
+                  expect(
+                    changedPixels,
+                    greaterThan(0),
+                    reason:
+                        'Noise remains visible through the surface at $point in $mode',
+                  );
+                }
+              }
+            }
+            if (effect == ForumBackgroundEffect.lava) {
               expect(
-                painted,
-                expected,
-                reason: 'One uninterrupted background at $point in $mode',
+                totalChangedPixels,
+                greaterThan(0),
+                reason: 'Lava remains visible behind the framed workspace',
               );
             }
           }
@@ -269,7 +353,7 @@ void main() {
               find.byKey(const ValueKey('mobile-content-panel')),
             )
             .framed,
-        isFalse,
+        isTrue,
       );
       expect(tester.takeException(), isNull);
     }

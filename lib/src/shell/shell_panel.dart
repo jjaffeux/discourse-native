@@ -22,12 +22,7 @@ class ShellPanel extends StatelessWidget {
     );
     final composerPlacement = ComposerDock.workspacePlacementOf(context);
     final rtl = Directionality.of(context) == TextDirection.rtl;
-    final side = BorderSide(
-      color: ForumWindowBackground.surfaceColor(
-        context,
-        Theme.of(context).shell.divider,
-      ),
-    );
+    final side = BorderSide(color: Theme.of(context).shell.divider);
 
     return Padding(
       padding: EdgeInsets.only(top: MediaQuery.paddingOf(context).top),
@@ -72,10 +67,13 @@ class WorkspacePanel extends StatelessWidget {
   final Widget child;
 
   @override
-  Widget build(BuildContext context) =>
-      context.isTouch || ForumWindowBackground.isContinuous(context)
+  Widget build(BuildContext context) => context.isTouch
       ? child
-      : DCard(spacing: 0, child: Expanded(child: child));
+      : DCard(
+          spacing: 0,
+          backgroundColor: ForumWindowBackground.panelColor(context),
+          child: Expanded(child: child),
+        );
 }
 
 /// Desktop breathing room around the workspace; touch retains its shell frame.

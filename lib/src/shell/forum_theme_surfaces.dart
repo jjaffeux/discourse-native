@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
 import '../models/forum_background.dart';
@@ -11,14 +12,30 @@ class ForumWindowBackground extends StatefulWidget {
 
   final Widget child;
 
-  /// Page chrome lets a custom canvas show through; controls and overlays keep
-  /// their ordinary opaque tokens. The scope exists only inside this canvas.
+  /// A custom canvas sits behind translucent framed panels. Inner page chrome
+  /// lets it show through; controls and overlays retain their opaque tokens.
   static bool isContinuous(BuildContext context) =>
       context.dependOnInheritedWidgetOfExactType<_ForumCanvas>()?.continuous ??
       false;
 
   static Color surfaceColor(BuildContext context, Color fallback) =>
       isContinuous(context) ? Colors.transparent : fallback;
+
+  /// Paint once at each panel boundary, without restarting the window effect.
+  /// The slight foreground tint keeps flat backgrounds visibly framed too.
+  static Color? panelColor(BuildContext context) {
+    if (!isContinuous(context)) return null;
+    final tokens = DTokens.of(context);
+    return Color.lerp(
+      tokens.background,
+      tokens.foreground,
+      .05,
+    )!.withValues(alpha: .6);
+  }
+
+  /// Footers retain a stronger surface so their fixed actions remain distinct.
+  static Color footerColor(BuildContext context, Color fallback) =>
+      isContinuous(context) ? fallback.withValues(alpha: .9) : fallback;
 
   @override
   State<ForumWindowBackground> createState() => _ForumWindowBackgroundState();

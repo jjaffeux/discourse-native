@@ -17,6 +17,46 @@ final cardExamples = ComponentExamples(
       'the header action moves below its text to keep both readable.',
   examples: [
     StyleguideExample(
+      title: 'Translucent surface',
+      description:
+          'A custom fill exposes the backdrop while retaining the Card outline '
+          'and the ordinary colors of its content and controls.',
+      code: '''DCard(
+  backgroundColor: DTokens.of(context).background.withValues(alpha: .6),
+  children: [DCardContent(child: Text('A shared backdrop'))],
+)''',
+      builder: (context) => _Frame(
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [
+                DTokens.of(context).primary,
+                DTokens.of(context).background,
+              ],
+            ),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(DSpacing.lg),
+            child: DCard(
+              backgroundColor: DTokens.of(
+                context,
+              ).background.withValues(alpha: .6),
+              children: const [
+                DCardHeader(
+                  title: DCardTitle(child: Text('A shared backdrop')),
+                ),
+                DCardContent(
+                  child: Text(
+                    'The surface keeps its outline and rounded corners.',
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    ),
+    StyleguideExample(
       title: 'Login',
       description:
           'Frozen login composition, max width 384. Enter an email and '
