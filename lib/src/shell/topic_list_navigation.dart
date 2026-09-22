@@ -249,7 +249,7 @@ class _TopicListNavigationControls extends StatelessWidget {
             ),
           ContentReadingLaneBox(
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
               child: Row(
                 key: const ValueKey('topic-list-feed-row'),
                 children: [
@@ -274,6 +274,11 @@ class _TopicListNavigationControls extends StatelessWidget {
               ),
             ),
           ),
+          if (headingBuilder != null)
+            const ContentReadingLaneBox(
+              padding: EdgeInsets.symmetric(horizontal: 16),
+              child: DSeparator(key: ValueKey('topic-list-heading-separator')),
+            ),
         ],
       ),
     );
