@@ -44,6 +44,8 @@ class _BlockDrag {
   final int revision;
 }
 
+typedef ComposerEmptyLine = ({TextRange range, Rect rect});
+
 /// Adds structural controls around a single, continuously mounted text editor.
 /// Geometry comes from the editor, so soft wraps never become separate blocks.
 class ComposerBlockSurface extends StatefulWidget {
@@ -52,6 +54,7 @@ class ComposerBlockSurface extends StatefulWidget {
     required this.composer,
     required this.child,
     required this.blockRect,
+    required this.emptyLineAt,
     required this.editorScroll,
     required this.expands,
     this.geometryChanges,
@@ -60,6 +63,7 @@ class ComposerBlockSurface extends StatefulWidget {
   final ComposerController composer;
   final Widget child;
   final Rect? Function(ComposerBodyBlock block) blockRect;
+  final ComposerEmptyLine? Function(Offset? position) emptyLineAt;
   final ScrollPosition? Function() editorScroll;
   final bool expands;
   final Listenable? geometryChanges;
@@ -77,6 +81,8 @@ class _ComposerBlockSurfaceState extends State<ComposerBlockSurface> {
   _BlockDrag? _drag;
   int? _gap;
   int? _hoveredId;
+  Offset? _hoverPosition;
+  TextRange? _emptyLine;
   Offset? _pointer;
   Timer? _autoScroll;
   bool _wasArranging = false;
@@ -121,6 +127,7 @@ class _ComposerBlockSurfaceState extends State<ComposerBlockSurface> {
   }
 
   void _changed() {
+    _hoverPosition = null;
     if (_drag case final drag?) {
       if (!_accepts(drag)) _cancelDrag();
     }
@@ -140,13 +147,17 @@ class _ComposerBlockSurfaceState extends State<ComposerBlockSurface> {
   void _scheduleGeometry() {
     if (_refreshScheduled) return;
     _refreshScheduled = true;
+    WidgetsBinding.instance.ensureVisualUpdate();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _refreshScheduled = false;
       if (!mounted) return;
       final block = _activeBlock;
-      final rect = block == null || composer.blocks.arranging
+      final emptyLine = _drag == null && !composer.blocks.arranging
+          ? widget.emptyLineAt(_hoverPosition)
+          : null;
+      final rect = composer.blocks.arranging
           ? null
-          : widget.blockRect(block);
+          : emptyLine?.rect ?? (block == null ? null : widget.blockRect(block));
       final box = _bounds.currentContext?.findRenderObject();
       final localRect = rect == null || box is! RenderBox || !box.hasSize
           ? null
@@ -155,8 +166,11 @@ class _ComposerBlockSurfaceState extends State<ComposerBlockSurface> {
               box.globalToLocal(rect.bottomRight),
             );
       final dropTop = composer.blocks.arranging ? null : _dropY();
-      if (localRect != _handleRect || dropTop != _dropTop) {
+      if (localRect != _handleRect ||
+          dropTop != _dropTop ||
+          emptyLine?.range != _emptyLine) {
         setState(() {
+          _emptyLine = emptyLine?.range;
           _handleRect = localRect;
           _dropTop = dropTop;
         });
@@ -447,6 +461,63 @@ class _ComposerBlockSurfaceState extends State<ComposerBlockSurface> {
     );
   }
 
+  void _addBlock(ComposerBodyBlock? block, TextRange? emptyLine) {
+    if (!composer.blocks.enabled || _drag != null) return;
+    final source = composer.text.text;
+    final current = block == null ? null : composer.blocks.index.byId(block.id);
+    if (block != null && current?.source != block.source) return;
+    final start = emptyLine?.start ?? current?.end;
+    if (start == null || start > source.length) return;
+    final end = emptyLine?.end ?? start;
+    if (end > source.length ||
+        (emptyLine != null && source.substring(start, end).trim().isNotEmpty)) {
+      return;
+    }
+    final newline = source.contains('\r\n') ? '\r\n' : '\n';
+    final prefix = emptyLine == null ? newline * 2 : '';
+    var suffix = '';
+    if (emptyLine == null && source.substring(end).trim().isNotEmpty) {
+      final following = RegExp(r'^[\r\n]*').stringMatch(source.substring(end))!;
+      final breaks = '\n'.allMatches(following).length;
+      if (breaks < 2) suffix = newline * (2 - breaks);
+    }
+    final caret = start + prefix.length + 1;
+    composer.history.transact(() {
+      composer.text.clearKeyboardPillSelection();
+      composer.text.value = TextEditingValue(
+        text: source.replaceRange(start, end, '$prefix/$suffix'),
+        selection: TextSelection.collapsed(offset: caret),
+      );
+    });
+    _hoveredId = null;
+    composer.blocks.finishArranging();
+    final inserted = composer.blocks.index.atOffset(caret);
+    if (inserted != null) composer.blocks.select(inserted.id);
+    composer.focus.requestFocus();
+    _revealSelection();
+  }
+
+  Widget _blockActions(ComposerBodyBlock? block, {TextRange? emptyLine}) => Row(
+    mainAxisSize: MainAxisSize.min,
+    spacing: DSpacing.controlGap,
+    children: [
+      DButton.iconOnly(
+        key: ValueKey('composer-block-add-${emptyLine?.start ?? block?.id}'),
+        tooltip: 'Add block',
+        variant: DButtonVariant.transparentBackground,
+        icon: const DIcon(DIcons.plus),
+        hasPopup: true,
+        onPressed:
+            composer.blocks.enabled &&
+                _drag == null &&
+                !(block?.kind == ComposerBlockKind.code && !block!.movable)
+            ? () => _addBlock(block, emptyLine)
+            : null,
+      ),
+      if (emptyLine == null && block != null) _handle(block),
+    ],
+  );
+
   Widget _outline() {
     final blocks = composer.blocks.index.blocks;
     final selected = composer.blocks.selected;
@@ -499,7 +570,7 @@ class _ComposerBlockSurfaceState extends State<ComposerBlockSurface> {
                     ),
                   ],
                 ),
-                _handle(blocks[i]),
+                _blockActions(blocks[i]),
               ],
             ),
           ),
@@ -599,10 +670,18 @@ class _ComposerBlockSurfaceState extends State<ComposerBlockSurface> {
     final desktop = !context.isTouch;
     final block = _activeBlock;
     final handleRect = _handleRect;
+    final gutter =
+        DControlStyle.scaledHeight(
+              DControlSize.regular,
+              MediaQuery.textScalerOf(context),
+              context: context,
+            ) *
+            2 +
+        DSpacing.controlGap * 2;
     final line = arranging || _dropTop == null
         ? null
         : PositionedDirectional(
-            start: DSpacing.xxl,
+            start: gutter,
             end: 0,
             top: _dropTop,
             child: const FractionalTranslation(
@@ -626,6 +705,8 @@ class _ComposerBlockSurfaceState extends State<ComposerBlockSurface> {
           child: MouseRegion(
             onHover: desktop && !arranging && _drag == null
                 ? (event) {
+                    _hoverPosition = event.position;
+                    _scheduleGeometry();
                     for (final item in composer.blocks.index.blocks) {
                       final rect = widget.blockRect(item);
                       if (rect != null &&
@@ -648,7 +729,7 @@ class _ComposerBlockSurfaceState extends State<ComposerBlockSurface> {
                   offstage: arranging,
                   child: Padding(
                     padding: EdgeInsetsDirectional.only(
-                      start: desktop ? DSpacing.xxl : 0,
+                      start: desktop ? gutter : 0,
                     ),
                     child: widget.child,
                   ),
@@ -664,13 +745,13 @@ class _ComposerBlockSurfaceState extends State<ComposerBlockSurface> {
                   ),
                 if (!arranging &&
                     desktop &&
-                    block != null &&
+                    (block != null || _emptyLine != null) &&
                     handleRect != null &&
                     handleRect.top >= 0)
                   PositionedDirectional(
                     start: 0,
                     top: handleRect.top,
-                    child: _handle(block),
+                    child: _blockActions(block, emptyLine: _emptyLine),
                   ),
                 ?line,
               ],
