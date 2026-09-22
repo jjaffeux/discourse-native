@@ -7,6 +7,8 @@ import 'package:flutter/services.dart';
 
 import 'package:html/dom.dart' as dom;
 
+import '../models/post_checklist.dart';
+
 import '../theme/d_icons.dart';
 
 /// Adapts ordinary cooked Markdown tables. Document tables with merged cells,
@@ -42,7 +44,7 @@ Widget? cookedTableWidgetBuilder(
     }
   }
   return _CookedTable(
-    key: ValueKey(element.outerHtml),
+    key: ValueKey(PostChecklistDocument.contentKey(element.outerHtml)),
     headers: [for (final cell in headers) _Cell(cell)],
     rows: [
       for (final row in rows.skip(1))

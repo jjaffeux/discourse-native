@@ -2,6 +2,8 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/widgets.dart';
 import 'package:html/dom.dart' as dom;
 
+import '../models/post_checklist.dart';
+
 /// Keeps the post's rendering context inside each disclosure, including nested
 /// details, plugin content, relative links and authenticated images.
 Widget? cookedDetailsWidgetBuilder(
@@ -18,7 +20,7 @@ Widget? cookedDetailsWidgetBuilder(
     if (!identical(node, summary)) body.append(node.clone(true));
   }
   return DAccordion<int>(
-    key: ValueKey(element.outerHtml),
+    key: ValueKey(PostChecklistDocument.contentKey(element.outerHtml)),
     defaultValues: element.attributes.containsKey('open')
         ? const [0]
         : const [],

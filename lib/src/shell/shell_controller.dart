@@ -61,6 +61,7 @@ import '../models/notification.dart';
 import '../models/notification_totals.dart';
 import '../models/notification_type_counts.dart';
 import '../models/post.dart';
+import '../models/post_checklist.dart';
 import '../models/post_creation.dart';
 import '../models/post_flag.dart';
 import '../models/post_likers.dart';
@@ -112,6 +113,7 @@ import 'groups_controller.dart';
 import 'hashtag.dart';
 import 'mobile_navigation.dart';
 import 'plugin_background_retention.dart';
+import 'post_checklist_write.dart';
 import 'post_quote.dart';
 import 'preferences_controller.dart';
 import 'shell_search_controller.dart';
@@ -10254,6 +10256,112 @@ class ShellController extends FrameSafeNotifier
     }
   }
 
+  final _postChecklistWrites = <String, PostChecklistWrite>{};
+  int _checklistMutationSequence = 0;
+
+  Future<String?> togglePostChecklist({
+    required String siteUrl,
+    required int topicId,
+    required Post post,
+    required PostChecklistTarget target,
+    required bool checked,
+  }) async {
+    final instance = _instanceAt(siteUrl);
+    final held = store.read<Post>(siteUrl, post.id);
+    if (instance?.isConnected != true ||
+        held?.canEdit != true ||
+        held!.isLocalized ||
+        held.isDeleted ||
+        topicId <= 0) {
+      return null;
+    }
+    final key = _postKey(siteUrl, post.id);
+    final active = _postChecklistWrites[key];
+    if (active != null && active.isCurrent()) {
+      active.toggle(post, target, checked);
+      return null;
+    }
+    if (postWriteInFlight(post.id, siteUrl: siteUrl)) {
+      return 'Another post action is still finishing.';
+    }
+    final lease = lifecycle.capture(siteUrl);
+    String? apiKey;
+    late final PostChecklistWrite operation;
+    operation = PostChecklistWrite(
+      post: held,
+      isCurrent: () =>
+          lease.isCurrent && identical(_postChecklistWrites[key], operation),
+      publish: (previous, next) {
+        final current = store.read<Post>(siteUrl, post.id);
+        if (current == null ||
+            current.cooked != previous.cooked ||
+            current.version != previous.version ||
+            current.updatedAt != previous.updatedAt ||
+            current.canEdit != previous.canEdit ||
+            current.isLocalized != previous.isLocalized ||
+            current.isDeleted != previous.isDeleted) {
+          return false;
+        }
+        store.put(
+          siteUrl,
+          current.copyWith(
+            cooked: next.cooked,
+            raw: next.raw,
+            updatedAt: next.updatedAt,
+            version: next.version,
+            canEdit: next.canEdit,
+            isLocalized: next.isLocalized,
+          ),
+        );
+        _notify();
+        return true;
+      },
+      load: () async {
+        final posts = await api.topicContent.posts(
+          siteUrl: siteUrl,
+          topicId: topicId,
+          ids: [post.id],
+          includeRaw: true,
+          apiKey: apiKey,
+        );
+        final fresh = posts.where((item) => item.id == post.id).firstOrNull;
+        if (fresh == null || fresh.raw == null || fresh.updatedAt == null) {
+          throw const WriteException(WriteFailure.unreachable);
+        }
+        return fresh;
+      },
+      save: (baseline, toggles) => api.postMutations.togglePostChecklist(
+        siteUrl: siteUrl,
+        apiKey: apiKey!,
+        postId: post.id,
+        toggles: toggles,
+        expectedRaw: baseline.raw!,
+        expectedUpdatedAt: baseline.updatedAt!,
+        mutationId:
+            'native-${DateTime.now().microsecondsSinceEpoch}-${_checklistMutationSequence++}',
+      ),
+    );
+    _postChecklistWrites[key] = operation;
+    _holdPostWrite(key);
+    try {
+      if (!operation.toggle(post, target, checked)) return null;
+      if (!lease.isCurrent) return null;
+      final credential = await _credentialForWrite(siteUrl);
+      if (!lease.isCurrent) return null;
+      if (credential.failure case final failure?) {
+        operation.reject();
+        return failure.message;
+      }
+      apiKey = credential.apiKey!;
+      return await operation.run();
+    } finally {
+      if (identical(_postChecklistWrites[key], operation)) {
+        _postChecklistWrites.remove(key);
+      }
+      lease.commit(() => _endPostWrite(siteUrl, post.id));
+    }
+  }
+
   Future<String?> toggleLike(Post post, {String? siteUrl}) async {
     final targetSite = siteUrl ?? currentInstance?.url;
     if (targetSite == null || !post.canToggleLike) return null;
@@ -13534,6 +13642,7 @@ class ShellController extends FrameSafeNotifier
     _userCardsLoading.removeWhere((key) => key.startsWith('$siteUrl@'));
     _userCardErrors.removeWhere((key, _) => key.startsWith('$siteUrl@'));
     _postWritesInFlight.removeWhere((key) => key.startsWith('$siteUrl~'));
+    _postChecklistWrites.removeWhere((key, _) => key.startsWith('$siteUrl~'));
     _topicPostSelections.removeWhere((key, _) => key.startsWith('$siteUrl#'));
     _topicPostSelectionWrites.removeWhere((key) => key.startsWith('$siteUrl#'));
     _topicFlagWrites.removeWhere((key) => key.startsWith('$siteUrl#'));

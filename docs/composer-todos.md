@@ -25,10 +25,23 @@ The offline cooking owner includes the unmodified Checklist parser from the
 same pinned Discourse revision as the rest of the bundle. Its site setting is
 stored in the cooking owner's typed settings and projected per request.
 Disabling `checklist_enabled` prevents checklist cooking, as upstream does.
-The native saved-post renderer recognizes the plugin's `chcklst-box` HTML and
-displays read-only Native checkboxes with completed text styling. Toggling a
-saved post requires editing it; this change does not add server-side checklist
-mutation. The insertion command is available in topic composers, not chat.
+The saved-post renderer recognizes the plugin's `chcklst-box` HTML. When the
+server grants `can_edit`, its checkboxes are interactive and update immediately.
+The client uses Discourse's `/checklist/toggle.json` endpoint with the current
+raw source and timestamp, a mutation ID, and each checkbox's source location
+(or its rendered index and count for older cooked HTML). It fetches the source
+after projecting the click and rejects stale content before sending the write.
+Rapid clicks are queued per post and persisted in order. A rejected batch rolls
+back to the last confirmed state; conflicts refresh the post. A lost response
+is reconciled by reading the server, while an offline, uncertain outcome keeps
+the optimistic view and reports that saving could not be confirmed.
+
+Quoted checkboxes, permanent `[X]` markers, revision diffs, localized bodies and
+posts without edit permission stay read-only. Nested details, spoilers and
+tables retain whole-post checkbox indices and their presentation state through
+toggles. Live post refreshes wait for writes, and responses from a retired
+account cannot change the current post. The insertion command is available in
+topic composers, not chat.
 
 Verification includes source/parser tests, widget interactions, slash commands,
 undo, source offsets, individual row dragging and mobile movement, narrow 200%

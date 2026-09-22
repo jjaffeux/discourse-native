@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_widget_from_html_core/flutter_widget_from_html_core.dart';
 import 'package:html/dom.dart' as dom;
 
+import '../models/post_checklist.dart';
+
 bool _isCheckbox(dom.Node node) =>
     node is dom.Element &&
     node.localName == 'span' &&
@@ -13,16 +15,31 @@ Widget? cookedTodoWidgetBuilder(
   dom.Element element, {
   required Widget Function(String html, TextStyle? style) contentBuilder,
   required TextStyle? style,
+  PostChecklistDocument? checklist,
+  void Function(PostChecklistTarget, bool)? onToggle,
 }) {
-  if (_isCheckbox(element)) {
-    return InlineCustomWidget(
-      child: DCheckbox(
-        value: element.classes.contains('checked'),
-        readOnly: true,
-        onChanged: (_) {},
-        semanticLabel: 'To-do',
-      ),
+  Widget checkbox(dom.Element box, String label) {
+    final index = int.tryParse(
+      box.attributes[PostChecklistDocument.indexAttribute] ?? '',
     );
+    final targets = checklist?.targets;
+    final target =
+        index != null && targets != null && index >= 0 && index < targets.length
+        ? targets[index]
+        : null;
+    final interactive = target != null && !target.permanent && onToggle != null;
+    return DCheckbox(
+      value: box.classes.contains('checked'),
+      readOnly: !interactive,
+      semanticLabel: label.isEmpty ? 'To-do' : label,
+      onChanged: (checked) {
+        if (interactive) onToggle(target, checked == true);
+      },
+    );
+  }
+
+  if (_isCheckbox(element)) {
+    return InlineCustomWidget(child: checkbox(element, 'To-do'));
   }
   if (element.localName != 'p' && element.localName != 'li') return null;
   final lines = <List<dom.Node>>[[]];
@@ -68,12 +85,7 @@ Widget? cookedTodoWidgetBuilder(
             return Row(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                DCheckbox(
-                  value: checked,
-                  readOnly: true,
-                  onChanged: (_) {},
-                  semanticLabel: label.isEmpty ? 'To-do' : label,
-                ),
+                checkbox(line.first as dom.Element, label),
                 Expanded(
                   child: contentBuilder(
                     fragment.outerHtml.trim(),

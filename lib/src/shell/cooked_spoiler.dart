@@ -2,6 +2,8 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/widgets.dart';
 import 'package:html/dom.dart' as dom;
 
+import '../models/post_checklist.dart';
+
 /// Conceals both block and inline spoilers before their descendants are built.
 /// The host supplies nested rendering so revealed content retains its context.
 Widget? cookedSpoilerWidgetBuilder(
@@ -14,7 +16,10 @@ Widget? cookedSpoilerWidgetBuilder(
   }
   return DAccordion<int>(
     // A replacement body must never inherit another spoiler's revealed state.
-    key: ValueKey(('spoiler', element.outerHtml)),
+    key: ValueKey((
+      'spoiler',
+      PostChecklistDocument.contentKey(element.outerHtml),
+    )),
     children: [
       DAccordionItem<int>(
         value: 0,

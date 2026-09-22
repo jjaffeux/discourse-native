@@ -6,6 +6,50 @@ final class DiscourseTopicApi {
   final DiscourseTransport _transport;
   final DiscourseModelCodec _models;
 
+  Future<PostChecklistUpdate> togglePostChecklist({
+    required String siteUrl,
+    required String apiKey,
+    required int postId,
+    required List<Map<String, Object?>> toggles,
+    required String expectedRaw,
+    required DateTime expectedUpdatedAt,
+    required String mutationId,
+    String? clientId,
+  }) async {
+    _requirePositiveId(postId, 'postId');
+    if (toggles.isEmpty || toggles.length > 50) {
+      throw ArgumentError.value(toggles.length, 'toggles');
+    }
+    final body = await _write(
+      Uri.parse('$siteUrl/checklist/toggle.json'),
+      siteUrl: siteUrl,
+      method: 'PUT',
+      apiKey: apiKey,
+      clientId: clientId,
+      body: {
+        'post_id': postId,
+        'toggles': toggles,
+        'expected_raw': expectedRaw,
+        'expected_updated_at': expectedUpdatedAt.toUtc().toIso8601String(),
+        'mutation_id': mutationId,
+      },
+    );
+    final updatedAt = jsonDate(body['updated_at']);
+    final version = jsonInt(body['version']);
+    if (body['raw'] is! String ||
+        body['cooked'] is! String ||
+        updatedAt == null ||
+        version < 1) {
+      throw const WriteException(WriteFailure.unreachable);
+    }
+    return PostChecklistUpdate(
+      raw: body['raw'] as String,
+      cooked: body['cooked'] as String,
+      updatedAt: updatedAt,
+      version: version,
+    );
+  }
+
   Future<List<int>> dismissNewTopics({
     required String siteUrl,
     required String apiKey,
