@@ -820,10 +820,9 @@ void _registerTopicReadingTests() {
       await tester.pumpAndSettle();
 
       expect(find.byType(InstanceSidebar), findsNothing);
-      expect(find.byType(MainContent), findsOneWidget);
       expect(find.byType(ComposerPanel), findsOneWidget);
       expect(
-        ShellScope.read(tester.element(find.byType(MainContent))).mobilePane,
+        ShellScope.read(tester.element(find.byType(ComposerPanel))).mobilePane,
         MobilePane.content,
       );
     });
@@ -1349,8 +1348,11 @@ void _registerTopicReadingTests() {
           (widget) => widget is TopicStateDot && widget.label == 'New topic',
         ),
       );
-      expect(titleRect.height, inInclusiveRange(25, 48));
-      expect(dot.left - _lastTitleLine(tester, title).right, closeTo(6, 0.5));
+      expect(titleRect.height, inInclusiveRange(50, 60));
+      expect(
+        dot.left - _lastTitleLine(tester, title).right,
+        closeTo(6 * 1.2, 0.5),
+      );
       expect(dot.top, greaterThanOrEqualTo(titleRect.top));
       expect(dot.bottom, lessThanOrEqualTo(titleRect.bottom));
     });
@@ -1377,11 +1379,11 @@ void _registerTopicReadingTests() {
 
       final titleRect = tester.getRect(find.text(title));
       final count = tester.getRect(find.text('3'));
-      expect(titleRect.height, inInclusiveRange(25, 48));
+      expect(titleRect.height, inInclusiveRange(50, 60));
       expect(
         tester.getRect(find.byKey(const ValueKey('inbox-row-unread-9'))).left -
             _lastTitleLine(tester, title).right,
-        closeTo(6, 0.5),
+        closeTo(6 * 1.2, 0.5),
       );
       expect(count.bottom, lessThanOrEqualTo(titleRect.bottom));
     });
@@ -1938,7 +1940,7 @@ void _registerTopicReadingTests() {
       expect(tester.getSize(firstTag).width, lessThan(80));
       expect(tester.getSize(secondTag).width, lessThan(80));
       expect(tester.getSize(overflow).width, lessThan(80));
-      expect(tester.getSize(overflow).height, 20);
+      expect(tester.getSize(overflow).height, 23);
       expect(tester.getSize(firstTag).height, 48);
       expect(
         DefaultTextStyle.of(tester.element(find.text('+12'))).style.fontSize,

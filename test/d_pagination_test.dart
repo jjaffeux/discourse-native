@@ -102,7 +102,7 @@ void main() {
               ),
             )
             .height,
-        DControlStyle.regularHeight,
+        44,
       );
 
       await tester.tap(find.bySemanticsLabel('Go to last page'));

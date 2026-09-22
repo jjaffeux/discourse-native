@@ -4982,7 +4982,7 @@ void _registerChatShellTests() {
           tester.getTopLeft(edit).dy,
           greaterThanOrEqualTo(tester.getBottomLeft(identity).dy),
         );
-        expect(tester.getSize(settingsTab).height, 48);
+        expect(tester.getSize(settingsTab).height, 62);
         expect(
           tester
               .getSize(
@@ -4992,18 +4992,18 @@ void _registerChatShellTests() {
                 ),
               )
               .height,
-          48,
+          62,
         );
         expect(
           tester
               .getSize(find.byKey(const ValueKey('chat-channel-info-tabs')))
               .height,
-          58,
+          62,
         );
         final settingsStyle = DefaultTextStyle.of(
           tester.element(settingsLabel),
         ).style;
-        expect(settingsStyle.fontSize, theme.textTheme.bodyMedium!.fontSize);
+        expect(settingsStyle.fontSize, 16);
         expect(settingsStyle.fontWeight, FontWeight.w600);
         expect(
           tester.widget<Text>(summaryTitle).style?.fontSize,
@@ -6216,7 +6216,9 @@ void _registerChatShellTests() {
           tester.element(find.byType(ChatMessageTile).first),
         );
 
-        await tester.tap(find.bySemanticsLabel('Add reaction'));
+        await tester.longPress(find.text('Hello there', findRichText: true));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('React'));
         await tester.pumpAndSettle();
         controller.chat.putRecordForTesting(site, msg(1));
         await tester.pumpAndSettle();

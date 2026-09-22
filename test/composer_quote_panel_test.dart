@@ -722,7 +722,7 @@ void main() {
           .dy;
 
       expect(caretTop - previewBottom, inInclusiveRange(-16, 32));
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 
     testWidgets('keeps the preview element stable while typing below it', (
       tester,

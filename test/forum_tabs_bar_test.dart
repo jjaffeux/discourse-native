@@ -225,14 +225,14 @@ void main() {
           )!,
         ),
         (
-          Offset(selectedRect.left + 1, selectedRect.bottom - 1),
+          Offset(selectedRect.left, selectedRect.bottom - 1),
           theme.shell.sidebar,
         ),
         (
           Offset(selectedRect.center.dx, barRect.bottom - 1),
           theme.shell.sidebar,
         ),
-        (ordinaryRect.topLeft + const Offset(1, 1), theme.shell.sidebar),
+        (ordinaryRect.topLeft, theme.shell.sidebar),
       ]);
 
       final close = find.byKey(const ValueKey('forum-tab-close-topic-1'));
@@ -292,7 +292,7 @@ void main() {
         )!,
       );
       await _expectTabPixels(tester, [
-        (before.topLeft + const Offset(1, 1), theme.shell.sidebar),
+        (before.topLeft, theme.shell.sidebar),
         (
           Offset(before.center.dx, before.top + 3),
           Color.lerp(

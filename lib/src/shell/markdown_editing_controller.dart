@@ -1199,7 +1199,7 @@ class MarkdownEditingController extends TextEditingController {
                 ),
               ),
             ];
-          }),
+          }, normalizeSource: false),
       for (final block in collapsedQuotes)
         _SpanProjection(
           block.start,
@@ -1255,22 +1255,24 @@ class MarkdownEditingController extends TextEditingController {
       if (projection.start < sourceOffset) continue;
       appendMarkdown(sourceOffset, projection.start);
       children.addAll(
-        normalizeCollapsedComponentSourceSpans(
-          source: source.substring(projection.start, projection.end),
-          spans: projection.build(),
-          // Real separators end the component line. A selected component or
-          // an explicit boundary caret also needs no virtual trailing line.
-          suppressSyntheticLineBreaks:
-              source.startsWith('\n', projection.end) ||
-              source.startsWith('\r\n', projection.end) ||
-              (_boundaryCaretProjection != null &&
-                  _blockRange(_boundaryCaretProjection!).$1 ==
-                      projection.start) ||
-              (projection.end == source.length &&
-                  keyboardSelectedProjection != null &&
-                  _blockRange(keyboardSelectedProjection!).$1 ==
-                      projection.start),
-        ),
+        projection.normalizeSource
+            ? normalizeCollapsedComponentSourceSpans(
+                source: source.substring(projection.start, projection.end),
+                spans: projection.build(),
+                // Real separators end the component line. A selected component or
+                // an explicit boundary caret also needs no virtual trailing line.
+                suppressSyntheticLineBreaks:
+                    source.startsWith('\n', projection.end) ||
+                    source.startsWith('\r\n', projection.end) ||
+                    (_boundaryCaretProjection != null &&
+                        _blockRange(_boundaryCaretProjection!).$1 ==
+                            projection.start) ||
+                    (projection.end == source.length &&
+                        keyboardSelectedProjection != null &&
+                        _blockRange(keyboardSelectedProjection!).$1 ==
+                            projection.start),
+              )
+            : projection.build(),
       );
       sourceOffset = projection.end;
     }
@@ -1859,8 +1861,16 @@ class _CachedMarkdownSpan {
 }
 
 class _SpanProjection {
-  const _SpanProjection(this.start, this.end, this.build);
+  const _SpanProjection(
+    this.start,
+    this.end,
+    this.build, {
+    this.normalizeSource = true,
+  });
 
+  // Inline quote markers must remain visible to the background painter;
+  // they do not need a collapsed component's layout wrapper.
+  final bool normalizeSource;
   final int start;
   final int end;
   final List<InlineSpan> Function() build;

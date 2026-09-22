@@ -138,6 +138,7 @@ void main() {
     expect(find.text('Voice'), findsOneWidget);
     expect(find.byKey(const ValueKey('diagnostics-search')), findsOneWidget);
 
+    await tester.ensureVisible(find.text('Voice'));
     await tester.tap(find.text('Voice'));
     await tester.pumpAndSettle();
 
@@ -224,6 +225,7 @@ void main() {
     expect(find.text('replacement.controller.event'), findsOneWidget);
     expect(find.text('call.safe.before_capture'), findsNothing);
 
+    await tester.ensureVisible(find.text('General'));
     await tester.tap(find.text('General'));
     await tester.pump();
     expect(find.byKey(const ValueKey('diagnostics-search')), findsOneWidget);

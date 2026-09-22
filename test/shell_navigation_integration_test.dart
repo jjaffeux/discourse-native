@@ -171,12 +171,14 @@ void _registerShellNavigationTests() {
       }
     });
 
-    testWidgets('opens mobile search from a header button into a sheet', (
+    testWidgets('opens mobile search from a header button into a page', (
       tester,
     ) async {
       await pumpShell(tester, phone);
 
-      final title = tester.getRect(find.text('Discourse Meta'));
+      final title = tester.getRect(
+        find.byKey(const ValueKey('forum-identity-button')),
+      );
       final searchTarget = find.byKey(const ValueKey('mobile-search-button'));
       final button = tester.getRect(searchTarget);
       expect(button.center.dy, closeTo(title.center.dy, 4));
@@ -190,7 +192,7 @@ void _registerShellNavigationTests() {
 
       final focusNode = tester.widget<EditableText>(_searchEditor).focusNode;
       expect(focusNode.hasFocus, isTrue);
-      expect(find.byType(DSheetContent), findsOneWidget);
+      expect(find.byKey(const ValueKey('mobile-search-back')), findsOneWidget);
     });
 
     testWidgets('global search clears its query and keeps the editor focused', (
@@ -2991,7 +2993,10 @@ void _registerShellNavigationTests() {
       await tester.pumpAndSettle();
 
       expect(tester.getTopLeft(team).dy, lessThan(tester.getTopLeft(meta).dy));
-      expect(find.text('Discourse Meta'), findsOneWidget);
+      expect(
+        find.bySemanticsLabel('Discourse Meta, forum menu'),
+        findsOneWidget,
+      );
       expect((await store.load()).map((site) => site.url), [
         'https://team.discourse.org',
         'https://meta.discourse.org',
@@ -3116,7 +3121,10 @@ void _registerShellNavigationTests() {
 
       expect(meta, findsNothing);
       expect(railItem('team.discourse.org'), findsOneWidget);
-      expect(find.text('Discourse Team'), findsOneWidget);
+      expect(
+        find.bySemanticsLabel('Discourse Team, forum menu'),
+        findsOneWidget,
+      );
       expect(auth.disconnected, ['https://meta.discourse.org']);
       // Persist the signed-out boundary before deleting credentials, then
       // persist the rail removal. Both writes are part of the transaction.

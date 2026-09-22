@@ -52,12 +52,20 @@ void main() {
 
             select();
             await tester.pumpAndSettle();
+            if (tags && platform == TargetPlatform.iOS) {
+              await tester.tap(find.byTooltip('Close').last);
+              await tester.pumpAndSettle();
+            }
 
             expect(harness.shell.saves, isEmpty);
             expect(harness.picker, findsNothing);
             await harness.open(tester);
             await tester.tap(harness.option);
             await tester.pumpAndSettle();
+            if (tags && platform == TargetPlatform.iOS) {
+              await tester.tap(find.byTooltip('Close').last);
+              await tester.pumpAndSettle();
+            }
             expect(harness.shell.saves.single.siteUrl, harness.siteUrl);
             expect(harness.shell.saves.single.topicId, harness.topicId);
           },

@@ -857,6 +857,7 @@ void main() {
       final editor = tester.state(find.byType(ComposerEditor));
       final composer = h.shell.visibleComposer!;
       composer.text.text = 'A full-screen draft';
+      await composer.flushDraft();
       await tester.tap(find.byTooltip('Full screen'));
       await tester.pumpAndSettle();
       expect(tester.getRect(find.byType(ComposerPanel)), workspace);
@@ -904,6 +905,7 @@ void main() {
         final editor = tester.state(find.byType(ComposerEditor));
         final composer = h.shell.visibleComposer!;
         composer.text.text = 'Keep this draft';
+        await composer.flushDraft();
         await tester.tap(find.byTooltip('Full screen'));
         await tester.pumpAndSettle();
         await tester.sendKeyEvent(LogicalKeyboardKey.escape);

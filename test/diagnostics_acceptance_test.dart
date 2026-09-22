@@ -193,7 +193,12 @@ void main() {
         ),
       );
 
-      final loading = shell.loadTopic(7, 'diagnostics-timeout');
+      final timers = <_ManualTimer>[];
+      final loading = _withManualTimers(
+        timers,
+        () => shell.loadTopic(7, 'diagnostics-timeout'),
+        onlyDuration: api.timeout,
+      );
       final heldRequest = await requestReceived.future.timeout(
         const Duration(seconds: 2),
       );
@@ -206,6 +211,11 @@ void main() {
       });
       expect(heldRequest.method, 'GET');
       expect(heldRequest.uri.path, '/t/7.json');
+      // Arm expiry only after the real socket connects. Under suite load,
+      // connection setup itself can exceed the deliberately short deadline.
+      expect(timers, hasLength(1));
+      await Future<void>.delayed(api.timeout);
+      timers.single.fire();
       await loading.timeout(const Duration(seconds: 2));
 
       expect(shell.currentTopic, isNull);
@@ -334,7 +344,12 @@ void main() {
       );
       addTearDown(chat.dispose);
 
-      final opening = chat.openChannel(siteUrl, 9);
+      final timers = <_ManualTimer>[];
+      final opening = _withManualTimers(
+        timers,
+        () => chat.openChannel(siteUrl, 9),
+        onlyDuration: api.timeout,
+      );
       final heldRequest = await requestReceived.future.timeout(
         const Duration(seconds: 2),
       );
@@ -349,6 +364,9 @@ void main() {
       expect(heldRequest.uri.path, '/chat/api/channels/9/messages.json');
       expect(heldRequest.uri.queryParameters['page_size'], '50');
       expect(heldRequest.uri.queryParameters['fetch_from_last_read'], 'true');
+      expect(timers, hasLength(1));
+      await Future<void>.delayed(api.timeout);
+      timers.single.fire();
       await opening.timeout(const Duration(seconds: 2));
 
       final stream = chat.stream(siteUrl, 9);
@@ -567,17 +585,23 @@ Future<HttpDiagnosticEvent> _waitForTerminalRequest(
   }
 }
 
-T _withManualTimers<T>(List<_ManualTimer> timers, T Function() body) =>
-    runZoned(
-      body,
-      zoneSpecification: ZoneSpecification(
-        createTimer: (self, parent, zone, duration, callback) {
-          final timer = _ManualTimer(duration, zone.bindCallback(callback));
-          timers.add(timer);
-          return timer;
-        },
-      ),
-    );
+T _withManualTimers<T>(
+  List<_ManualTimer> timers,
+  T Function() body, {
+  Duration? onlyDuration,
+}) => runZoned(
+  body,
+  zoneSpecification: ZoneSpecification(
+    createTimer: (self, parent, zone, duration, callback) {
+      if (onlyDuration != null && duration != onlyDuration) {
+        return parent.createTimer(zone, duration, callback);
+      }
+      final timer = _ManualTimer(duration, zone.bindCallback(callback));
+      timers.add(timer);
+      return timer;
+    },
+  ),
+);
 
 final class _ManualTimer implements Timer {
   _ManualTimer(this.delay, this._callback);

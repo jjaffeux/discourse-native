@@ -622,12 +622,21 @@ void main() {
     await _pumpApp(tester, const Size(1000, 800), diagnostics);
     await tester.tap(find.byKey(const ValueKey('diagnostics-rail-button')));
     await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Scroll performance'));
     await tester.tap(find.text('Scroll performance'));
     await tester.pump();
 
     expect(
       find.byKey(const ValueKey('topic-scroll-capture-panel')),
       findsOneWidget,
+    );
+    await tester.scrollUntilVisible(
+      find.byKey(const ValueKey('topic-scroll-capture-start')),
+      150,
+      scrollable: find.descendant(
+        of: find.byKey(const ValueKey('topic-scroll-capture-panel')),
+        matching: find.byType(Scrollable),
+      ),
     );
     await tester.tap(find.byKey(const ValueKey('topic-scroll-capture-start')));
     await tester.pumpAndSettle();
@@ -643,6 +652,14 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('diagnostics-rail-button')));
     await tester.pumpAndSettle();
     expect(find.text('Recording'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.byKey(const ValueKey('topic-scroll-capture-stop')),
+      150,
+      scrollable: find.descendant(
+        of: find.byKey(const ValueKey('topic-scroll-capture-panel')),
+        matching: find.byType(Scrollable),
+      ),
+    );
     // Stop creates the recording result that the real export isolate awaits.
     // Keep that future outside the test clock, like the clipboard operation.
     await tester.runAsync(

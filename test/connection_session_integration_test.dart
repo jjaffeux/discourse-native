@@ -986,6 +986,8 @@ void _registerConnectionSessionTests() {
 
       expect(api.topicsOpened, [7, 7]);
       expect(api.markedRead, [5]);
+      await tester.tap(find.byKey(const ValueKey('post-reaction-summary-1')));
+      await tester.pumpAndSettle();
       expect(
         find.byKey(const ValueKey('post-reaction-1-clap')),
         findsOneWidget,

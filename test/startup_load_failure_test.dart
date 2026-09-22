@@ -240,7 +240,7 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(shell.loadStatus, InstanceLoadStatus.ready);
-        expect(find.text('Saved site'), findsOneWidget);
+        expect(find.bySemanticsLabel('Saved site, forum menu'), findsOneWidget);
         expect(store.saved, isEmpty);
       },
     );

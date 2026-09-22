@@ -327,7 +327,7 @@ class _AlignmentExample extends StatelessWidget {
               children: [
                 Icon(Icons.code, size: 16),
                 SizedBox(width: DSpacing.sm),
-                Text('script.js'),
+                Flexible(child: Text('script.js')),
               ],
             ),
           ),

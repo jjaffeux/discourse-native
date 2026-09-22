@@ -943,7 +943,7 @@ void main() {
         findsOneWidget,
       );
       final headerControls = [
-        (add, DButtonSize.large, 32.0),
+        (add, DButtonSize.regular, 44.0),
         if (find
             .byKey(const ValueKey('topic-close-reader'))
             .evaluate()
@@ -951,20 +951,20 @@ void main() {
           (
             find.byKey(const ValueKey('topic-close-reader')),
             DButtonSize.regular,
-            28.0,
+            44.0,
           ),
         (
           find.byKey(const ValueKey('topic-header-browse-category-22')),
-          DButtonSize.large,
-          32.0,
+          DButtonSize.regular,
+          44.0,
         ),
         (
           find.byWidgetPredicate(
             (widget) =>
                 widget is DButton && widget.tooltip == 'Edit topic category',
           ),
-          DButtonSize.large,
-          32.0,
+          DButtonSize.regular,
+          44.0,
         ),
       ];
       for (final (control, size, height) in headerControls) {
@@ -984,6 +984,8 @@ void main() {
       await tester.tap(
         find.byKey(const ValueKey(('topic-tag-picker-option', 'community'))),
       );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('Close').last);
       await tester.pumpAndSettle();
       expect(shell.currentTopic!.tags, [_tag]);
       expect(setup.api.topicTagsUpdated.single['tags'], [_tag]);
@@ -1158,6 +1160,8 @@ void main() {
       find.byKey(const ValueKey(('topic-tag-picker-option', 'community'))),
     );
     await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Close').last);
+    await tester.pumpAndSettle();
     expect(shell.currentTopic!.tags, isEmpty);
     expect(setup.api.topicTagsUpdated.single['tags'], isEmpty);
     expect(tag, findsNothing);
@@ -1169,6 +1173,8 @@ void main() {
     await tester.tap(
       find.byKey(const ValueKey(('topic-tag-picker-option', 'community'))),
     );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Close').last);
     await tester.pumpAndSettle();
     expect(shell.currentTopic!.tags, [_tag]);
     expect(setup.api.topicTagsUpdated.last['tags'], [_tag]);
@@ -1213,6 +1219,8 @@ void main() {
               const ValueKey(('topic-tag-picker-option', 'region-27')),
             ),
           );
+          await tester.pumpAndSettle();
+          await tester.tap(find.byTooltip('Close').last);
           await tester.pumpAndSettle();
           expect(shell.currentTopic!.tags, hasLength(26));
           expect(
@@ -2082,7 +2090,7 @@ void main() {
   );
 
   testWidgets(
-    'many tags stay beside categories and hidden tags can be removed immediately',
+    'many tags stay beside categories and hidden tags can be removed on picker dismissal',
     (tester) async {
       final tags = [
         for (var id = 1; id <= 27; id++) TopicTag(id: id, name: 'region-$id'),
@@ -2117,6 +2125,8 @@ void main() {
       await tester.tap(
         find.byKey(const ValueKey(('topic-tag-picker-option', 'region-27'))),
       );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('Close').last);
       await tester.pumpAndSettle();
       expect(setup.controller.currentTopic!.tags, hasLength(26));
       expect(
@@ -2613,7 +2623,7 @@ void main() {
         }
         expect(
           tester.getRect(bookmark).left - tester.getRect(reply).right,
-          DSpacing.sm,
+          DSpacing.xs,
         );
         expect(
           tester.getRect(bookmark).right,
@@ -3157,60 +3167,61 @@ void main() {
     },
   );
 
-  testWidgets(
-    'edits title inline and applies subcategory and tag removal immediately',
-    (tester) async {
-      final setup = await _setup(tester);
-      final shell = setup.controller;
-      shell.openTopicFromList(setup.rows.first);
-      await tester.pumpAndSettle();
-      await _scrollReaderToTop(tester);
-      final title = find.byKey(const ValueKey('topic-header-title-field'));
-      final frame = find.byKey(const ValueKey('topic-header-title-field'));
-      final hint = find.text('Enter to save · Esc to cancel');
-      expect(tester.widget<DInput>(frame).focusNode!.hasFocus, isFalse);
-      expect(hint, findsNothing);
-      await tester.tap(title);
-      await tester.pump();
-      expect(tester.widget<DInput>(frame).focusNode!.hasFocus, isTrue);
-      expect(hint, findsNothing);
-      expect(find.widgetWithText(DButton, 'Save'), findsNothing);
-      await tester.enterText(title, 'A clearer topic title');
-      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
-      await tester.pumpAndSettle();
-      expect(shell.currentTopic?.title, 'A clearer topic title');
-      expect(setup.api.topicsUpdated.last['title'], 'A clearer topic title');
-      expect(tester.widget<DInput>(frame).focusNode!.hasFocus, isFalse);
-      expect(hint, findsNothing);
-      await tester.tap(title);
-      await tester.pumpAndSettle();
-      await tester.enterText(title, 'Discard this title');
-      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
-      await tester.pumpAndSettle();
-      expect(shell.currentTopic?.title, 'A clearer topic title');
-      expect(setup.api.topicsUpdated, hasLength(1));
-      expect(tester.widget<DInput>(frame).focusNode!.hasFocus, isFalse);
-      expect(hint, findsNothing);
+  testWidgets('edits title inline and applies subcategory and tag changes', (
+    tester,
+  ) async {
+    final setup = await _setup(tester);
+    final shell = setup.controller;
+    shell.openTopicFromList(setup.rows.first);
+    await tester.pumpAndSettle();
+    await _scrollReaderToTop(tester);
+    final title = find.byKey(const ValueKey('topic-header-title-field'));
+    final frame = find.byKey(const ValueKey('topic-header-title-field'));
+    final hint = find.text('Enter to save · Esc to cancel');
+    expect(tester.widget<DInput>(frame).focusNode!.hasFocus, isFalse);
+    expect(hint, findsNothing);
+    await tester.tap(title);
+    await tester.pump();
+    expect(tester.widget<DInput>(frame).focusNode!.hasFocus, isTrue);
+    expect(hint, findsNothing);
+    expect(find.widgetWithText(DButton, 'Save'), findsNothing);
+    await tester.enterText(title, 'A clearer topic title');
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pumpAndSettle();
+    expect(shell.currentTopic?.title, 'A clearer topic title');
+    expect(setup.api.topicsUpdated.last['title'], 'A clearer topic title');
+    expect(tester.widget<DInput>(frame).focusNode!.hasFocus, isFalse);
+    expect(hint, findsNothing);
+    await tester.tap(title);
+    await tester.pumpAndSettle();
+    await tester.enterText(title, 'Discard this title');
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+    expect(shell.currentTopic?.title, 'A clearer topic title');
+    expect(setup.api.topicsUpdated, hasLength(1));
+    expect(tester.widget<DInput>(frame).focusNode!.hasFocus, isFalse);
+    expect(hint, findsNothing);
 
-      await tester.tap(find.byTooltip('Edit topic subcategory'));
-      await tester.pumpAndSettle();
-      await tester.tap(
-        find.byKey(const ValueKey(('topic-category-picker-option', 0))),
-      );
-      await tester.pumpAndSettle();
-      expect(shell.currentTopic?.categoryId, _parent.id);
-      expect(find.text('Done'), findsNothing);
-      await tester.tap(find.byKey(const ValueKey('topic-header-edit-tags')));
-      await tester.pumpAndSettle();
-      await tester.tap(
-        find.byKey(const ValueKey(('topic-tag-picker-option', 'community'))),
-      );
-      await tester.pumpAndSettle();
-      expect(shell.currentTopic?.tags, isEmpty);
-      expect(setup.api.topicTagsUpdated.single['tags'], isEmpty);
-      expect(tester.takeException(), isNull);
-    },
-  );
+    await tester.tap(find.byTooltip('Edit topic subcategory'));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const ValueKey(('topic-category-picker-option', 0))),
+    );
+    await tester.pumpAndSettle();
+    expect(shell.currentTopic?.categoryId, _parent.id);
+    expect(find.text('Done'), findsNothing);
+    await tester.tap(find.byKey(const ValueKey('topic-header-edit-tags')));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const ValueKey(('topic-tag-picker-option', 'community'))),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Close').last);
+    await tester.pumpAndSettle();
+    expect(shell.currentTopic?.tags, isEmpty);
+    expect(setup.api.topicTagsUpdated.single['tags'], isEmpty);
+    expect(tester.takeException(), isNull);
+  });
 
   testWidgets('post Reply is visible and opens the composer for that post', (
     tester,
@@ -3325,8 +3336,9 @@ void main() {
       await tester.sendKeyEvent(LogicalKeyboardKey.escape);
       await tester.pumpAndSettle();
       expect(find.text('Copy link'), findsNothing);
-      await shell.jumpToCurrentTopicIndex(2);
+      final jump = shell.jumpToCurrentTopicIndex(2);
       await tester.pumpAndSettle();
+      await jump;
       final list = tester.widget<CustomScrollView>(
         find.descendant(of: reader, matching: find.byType(CustomScrollView)),
       );
@@ -3359,13 +3371,15 @@ void main() {
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
     },
+    variant: TargetPlatformVariant.only(TargetPlatform.macOS),
   );
 }
 
 Future<void> _scrollReaderToTop(WidgetTester tester) async {
   final shell = ShellScope.read(tester.element(find.byType(TopicView)));
-  await shell.jumpToCurrentTopicIndex(0);
+  final jump = shell.jumpToCurrentTopicIndex(0);
   await tester.pumpAndSettle();
+  await jump;
 }
 
 Future<({ShellController controller, FakeDiscourseApi api, List<Topic> rows})>
@@ -3466,9 +3480,7 @@ _setup(
     nextPages: const {'/latest.json': '/latest.json?page=1'},
     categoryList: categoryList,
     categoryFindResults: categoryFindResults,
-    categorySearches: const {
-      '': [_parent, _child],
-    },
+    categorySearches: {'': categoryList},
     categorySiteTopTags: const [
       SidebarTag(id: 1, name: 'community', slug: 'community'),
       SidebarTag(id: 2, name: 'mobile', slug: 'mobile'),

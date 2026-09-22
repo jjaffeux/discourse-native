@@ -223,6 +223,8 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(selections.single, ['Native']);
+      await tester.tap(find.byTooltip('Close').last);
+      await tester.pumpAndSettle();
       expect(find.byType(DComboboxContent), findsNothing);
 
       await pumpBar(
@@ -245,6 +247,8 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(selections.last, ['User experience']);
+      await tester.tap(find.byTooltip('Close').last);
+      await tester.pumpAndSettle();
       await tester.tap(anchor);
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('topic-list-tag-filter-all')));
