@@ -256,22 +256,14 @@ final class FileDiagnosticsPersistence implements DiagnosticsPersistence {
     final temporary = File('${file.path}.tmp');
     try {
       await ensurePrivateFile(temporary);
-      final sink = temporary.openWrite();
-      try {
-        for (final event in _journal.events) {
-          sink.writeln(jsonEncode(_eventLine(event)));
-        }
-        sink.writeln(
-          jsonEncode({
-            'version': formatVersion,
-            'record': 'lastSeen',
-            'sequence': _journal.lastSeenSequence,
-          }),
-        );
-        await sink.flush();
-      } finally {
-        await sink.close();
-      }
+      // Encoding the retained history is synchronous even with an async sink.
+      // Keep that work off the UI isolate, just like decoding on load. Await
+      // the worker under the existing file lock before publishing its result.
+      await _writeCompactedDiagnosticsFile(
+        temporary.path,
+        List<DiagnosticEvent>.of(_journal.events),
+        _journal.lastSeenSequence,
+      );
       await temporary.rename(file.path);
       restrictPrivateFile(file);
     } on Object {
@@ -497,3 +489,26 @@ Map<String, Object?> _eventLine(DiagnosticEvent event) => {
   'record': 'event',
   'event': event.toJson(),
 };
+
+Future<void> _writeCompactedDiagnosticsFile(
+  String path,
+  List<DiagnosticEvent> events,
+  int lastSeenSequence,
+) => Isolate.run(() async {
+  final sink = File(path).openWrite();
+  try {
+    for (final event in events) {
+      sink.writeln(jsonEncode(_eventLine(event)));
+    }
+    sink.writeln(
+      jsonEncode({
+        'version': FileDiagnosticsPersistence.formatVersion,
+        'record': 'lastSeen',
+        'sequence': lastSeenSequence,
+      }),
+    );
+    await sink.flush();
+  } finally {
+    await sink.close();
+  }
+}, debugName: 'diagnostics-file-encode');
