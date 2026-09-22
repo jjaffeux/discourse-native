@@ -591,6 +591,12 @@ void main() {
       final close = find.byKey(closeKey);
       final surface = find.byKey(surfaceKey);
       final titleRect = tester.getRect(find.text(first.title));
+      final closeIcon = find.descendant(
+        of: close,
+        matching: find.byType(DIcon),
+      );
+      Color? iconColor() => IconTheme.of(tester.element(closeIcon)).color;
+      final restingIconColor = iconColor();
 
       expect(tester.getSize(close).width, ForumTabsBar.closeTargetWidth);
       expect(
@@ -615,10 +621,8 @@ void main() {
       await pointer.moveTo(tester.getCenter(close));
       await tester.pumpAndSettle();
 
-      expect(
-        buttonSurface(tester, of: surface).color,
-        isNot(Colors.transparent),
-      );
+      expect(buttonSurface(tester, of: surface).color, Colors.transparent);
+      expect(iconColor(), isNot(restingIconColor));
       expect(tester.getSize(surface), const Size.square(24));
 
       await pointer.moveTo(tester.getCenter(find.text(second.title)));
@@ -629,6 +633,7 @@ void main() {
 
       await pointer.moveTo(Offset.zero);
       await tester.pumpAndSettle();
+      expect(iconColor(), restingIconColor);
       expect(_closeOpacity(tester, first.id), 1);
       expect(_closeOpacity(tester, second.id), 0);
     });
