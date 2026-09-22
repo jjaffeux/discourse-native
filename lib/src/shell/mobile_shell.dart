@@ -34,7 +34,7 @@ class MobileForumRoot extends StatefulWidget {
 
 class _MobileForumRootState extends State<MobileForumRoot> {
   final _drawer = DSheetController<void>();
-  Object? _owner;
+  Object? _drawerLocation;
 
   @override
   void dispose() {
@@ -58,8 +58,9 @@ class _MobileForumRootState extends State<MobileForumRoot> {
         final instance = shell.currentInstance;
         if (instance == null) return const SizedBox.shrink();
         final owner = (instance.url, shell.currentAccountIdentity);
-        if (_owner != owner) {
-          _owner = owner;
+        final drawerLocation = (owner, shell.rootMode);
+        if (_drawerLocation != drawerLocation) {
+          _drawerLocation = drawerLocation;
           if (_drawer.isOpen) {
             WidgetsBinding.instance.addPostFrameCallback((_) {
               if (mounted) _drawer.close();

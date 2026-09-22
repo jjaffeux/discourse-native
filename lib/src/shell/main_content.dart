@@ -230,7 +230,7 @@ class _MainContentBody extends StatelessWidget {
         left: false,
         child: DPageSurface(
           identity: contentKey,
-          hideHeaderOnScroll: route.isTopicList || route.isTopic,
+          hideHeaderOnScroll: route.isTopic,
           framed: !context.isTouch && !pluginOwnsChrome,
           limitContentSize: ContentSettingsScope.limitContentSizeOf(context),
           tabs: forumTabsEnabled ? const TopicPanelTabs() : null,

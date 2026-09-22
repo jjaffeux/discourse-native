@@ -114,7 +114,6 @@ class AggregateViewState extends State<AggregateView> {
             final state = controller.aggregate.state;
             final tabId = controller.activeAggregateTabId;
             return DPageSurface(
-              hideHeaderOnScroll: true,
               identity: tabId,
               framed: !context.isTouch,
               limitContentSize: ContentSettingsScope.limitContentSizeOf(
