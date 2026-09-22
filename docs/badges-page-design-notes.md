@@ -23,6 +23,15 @@ renderer, and image transport. Disabled forums hide the destination; loading,
 empty, retry, and anonymous states are supported. Title eligibility is shown as
 metadata; changing a profile title remains outside this implementation.
 
+September 22 verification: the badges page, navigation, and controller suites
+passed 26 tests, and the control-style adoption suite passed three checks.
+Targeted Dart analysis passed. Rendered fixtures were inspected at 390px and
+1100px in light and dark themes. An isolated macOS build of the production page
+was also checked at desktop and 390px widths, including earned filtering,
+detail navigation, and 200% text; the Native Item full-width styleguide example
+was inspected. Mobile platform overrides were used for layout checks, rather
+than a physical iOS or Android device.
+
 ## Alternatives
 
 | Option | Presentation | Tradeoff |
