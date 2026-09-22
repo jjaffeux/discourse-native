@@ -170,8 +170,39 @@ void main() {
     expect(separator.top, greaterThan(controls.bottom));
     expect(separator.left, controls.left);
     expect(separator.right, controls.right);
+    expect(
+      find.byKey(const ValueKey('topic-list-tracking-button')),
+      findsOneWidget,
+    );
     expect(tester.takeException(), isNull);
   }, variant: TargetPlatformVariant.only(TargetPlatform.iOS));
+
+  testWidgets('Latest topics bell saves automatic tracking', (tester) async {
+    final h = await _setup(tester, size: const Size(1800, 1000));
+    final bell = find.byKey(const ValueKey('topic-list-tracking-button'));
+    expect(bell, findsOneWidget);
+    final menu = find.ancestor(
+      of: bell,
+      matching: find.byType(DNotificationLevelMenu<int>),
+    );
+    expect(
+      tester.widget<DNotificationLevelMenu<int>>(menu).showChevron,
+      isTrue,
+    );
+    await tester.tap(bell);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('After 1 minute'));
+    await tester.pumpAndSettle();
+    expect(
+      h.api.userPreferenceUpdates.last.values['auto_track_topics_after_msecs'],
+      60000,
+    );
+    expect(
+      find.byTooltip('Automatic topic tracking: After 1 minute'),
+      findsOneWidget,
+    );
+    expect(tester.takeException(), isNull);
+  }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 
   testWidgets(
     'beside-list cards preserve the saved mode across presentation changes',

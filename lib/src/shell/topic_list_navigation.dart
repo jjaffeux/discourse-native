@@ -7,14 +7,18 @@ import '../models/content_route.dart';
 import '../models/sidebar_tag.dart';
 import '../models/topic.dart';
 import '../theme/d_icons.dart';
+import 'category_notifications.dart';
 import 'content_reading_lane.dart';
+import 'platform.dart';
 import 'shell_controller.dart';
 import 'shell_scope.dart';
 import 'topic_list_filter_bar.dart';
+import 'topic_list_tracking_button.dart';
 
 typedef _TopicListNavigationSnapshot = ({
   TopicListMode? mode,
   bool signedIn,
+  bool connected,
   bool unifiedNew,
   int allCount,
   int unreadCount,
@@ -87,6 +91,7 @@ class TopicListNavigation extends StatelessWidget {
       return (
         mode: controller.currentTopicListMode,
         signedIn: controller.currentInstance?.user != null,
+        connected: controller.currentInstance?.isConnected == true,
         unifiedNew: controller.currentInstance?.user?.unifiedNewEnabled == true,
         allCount: counts.all,
         unreadCount: controller.currentTotals?.topicTrackingUnread ?? 0,
@@ -252,6 +257,7 @@ class _TopicListNavigationControls extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
               child: Row(
                 key: const ValueKey('topic-list-feed-row'),
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Expanded(
                     child: Wrap(
@@ -266,6 +272,23 @@ class _TopicListNavigationControls extends StatelessWidget {
                       ],
                     ),
                   ),
+                  if (state.connected &&
+                      state.siteUrl != null &&
+                      state.route?.isMessages != true &&
+                      (!context.isTouch || state.route?.categoryId == null)) ...[
+                    const SizedBox(width: DSpacing.controlGap),
+                    if (state.route?.categoryId case final categoryId?)
+                      CategoryNotificationLevelButton(
+                        siteUrl: state.siteUrl!,
+                        categoryId: categoryId,
+                        showChevron: true,
+                      )
+                    else
+                      TopicListTrackingButton(
+                        key: ValueKey(owner),
+                        siteUrl: state.siteUrl!,
+                      ),
+                  ],
                   if (trailing != null) ...[
                     const SizedBox(width: DSpacing.controlGap),
                     trailing!,

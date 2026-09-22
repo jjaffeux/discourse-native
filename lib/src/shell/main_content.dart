@@ -552,7 +552,8 @@ class _TopicInboxWorkspaceState extends State<_TopicInboxWorkspace> {
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
                                       Flexible(child: createAction),
-                                      if (state.isConnected &&
+                                      if (context.isTouch &&
+                                          state.isConnected &&
                                           state.siteUrl != null &&
                                           sourceRoute.categoryId != null) ...[
                                         const SizedBox(width: DSpacing.sm),
@@ -1110,7 +1111,10 @@ class _ContentHeader extends StatelessWidget {
                 const SizedBox(width: 4),
               ],
               if (!searchOnly) ...contentHeader,
-              if (isConnected && siteUrl != null && route.categoryId != null)
+              if (isConnected &&
+                  siteUrl != null &&
+                  route.categoryId != null &&
+                  !route.isTopicListFilter)
                 CategoryNotificationLevelButton(
                   siteUrl: siteUrl!,
                   categoryId: route.categoryId!,

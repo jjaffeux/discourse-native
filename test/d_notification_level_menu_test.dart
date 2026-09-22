@@ -149,6 +149,39 @@ void main() {
     });
   }
 
+  testWidgets('bell and chevron trigger keeps the selected level accessible', (
+    tester,
+  ) async {
+    final changes = <int>[];
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: DNotificationLevelMenu<int>(
+            value: 3,
+            options: _options,
+            semanticLabel: 'Topic notifications',
+            showChevron: true,
+            variant: DButtonVariant.outline,
+            onChanged: changes.add,
+          ),
+        ),
+      ),
+    );
+    final trigger = find.byType(DButton);
+    expect(
+      find.descendant(of: trigger, matching: find.byType(DIcon)),
+      findsOneWidget,
+    );
+    expect(find.text('Watching'), findsNothing);
+    expect(find.byTooltip('Topic notifications: Watching'), findsOneWidget);
+    await tester.tap(trigger);
+    await tester.pumpAndSettle();
+    await tester.tap(_option(1));
+    await tester.pumpAndSettle();
+    expect(changes, [1]);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets(
     'selection announces the value, closes, and follows caller state',
     (tester) async {
