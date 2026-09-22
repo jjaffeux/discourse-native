@@ -379,6 +379,106 @@ void main() {
       expect(replacement.uploads, isEmpty);
     });
 
+    for (final contextMenu in [false, true]) {
+      testWidgets('pasting a URL links selected text (menu: $contextMenu)', (
+        tester,
+      ) async {
+        final messenger = tester.binding.defaultBinaryMessenger;
+        messenger.setMockMethodCallHandler(SystemChannels.platform, (
+          call,
+        ) async {
+          return switch (call.method) {
+            'Clipboard.getData' => {'text': 'https://discourse.org'},
+            'Clipboard.hasStrings' => {'value': true},
+            _ => null,
+          };
+        });
+        addTearDown(
+          () =>
+              messenger.setMockMethodCallHandler(SystemChannels.platform, null),
+        );
+        final composer = ComposerController(_target);
+        final shell = await _shell();
+        addTearDown(composer.dispose);
+        addTearDown(shell.dispose);
+        const before = TextEditingValue(
+          text: 'Visit Discourse today',
+          selection: TextSelection(baseOffset: 15, extentOffset: 6),
+        );
+        composer.text.value = before;
+        await _pumpPanel(tester, shell, composer);
+
+        if (contextMenu) {
+          final textField = tester.widget<TextField>(
+            find.byType(TextField).last,
+          );
+          final editable = tester.state<EditableTextState>(
+            find.byType(EditableText).last,
+          );
+          final toolbar =
+              textField.contextMenuBuilder!(editable.context, editable)
+                  as AdaptiveTextSelectionToolbar;
+          toolbar.buttonItems!
+              .singleWhere((item) => item.type == ContextMenuButtonType.paste)
+              .onPressed!();
+          await tester.pumpAndSettle();
+        } else {
+          await _pasteShortcut(tester);
+        }
+
+        expect(
+          composer.text.text,
+          'Visit [Discourse](https://discourse.org) today',
+        );
+        expect(
+          composer.text.selection,
+          const TextSelection.collapsed(offset: 40),
+        );
+        composer.history.undo();
+        expect(composer.text.value, before);
+        composer.history.redo();
+        expect(
+          composer.text.text,
+          'Visit [Discourse](https://discourse.org) today',
+        );
+      });
+    }
+
+    testWidgets('a delayed URL paste does not replace a changed selection', (
+      tester,
+    ) async {
+      final clipboard = Completer<Object?>();
+      final messenger = tester.binding.defaultBinaryMessenger;
+      messenger.setMockMethodCallHandler(SystemChannels.platform, (call) async {
+        return switch (call.method) {
+          'Clipboard.getData' => clipboard.future,
+          'Clipboard.hasStrings' => {'value': true},
+          _ => null,
+        };
+      });
+      addTearDown(
+        () => messenger.setMockMethodCallHandler(SystemChannels.platform, null),
+      );
+      final composer = ComposerController(_target);
+      final shell = await _shell();
+      addTearDown(composer.dispose);
+      addTearDown(shell.dispose);
+      composer.text.value = const TextEditingValue(
+        text: 'Visit Discourse today',
+        selection: TextSelection(baseOffset: 6, extentOffset: 15),
+      );
+      await _pumpPanel(tester, shell, composer);
+      await _pasteShortcut(tester);
+      composer.text.selection = const TextSelection.collapsed(offset: 20);
+      clipboard.complete({'text': 'https://discourse.org'});
+      await tester.pumpAndSettle();
+      expect(composer.text.text, 'Visit Discourse today');
+      expect(
+        composer.text.selection,
+        const TextSelection.collapsed(offset: 20),
+      );
+    });
+
     testWidgets('plain text paste keeps Flutter clipboard behavior', (
       tester,
     ) async {

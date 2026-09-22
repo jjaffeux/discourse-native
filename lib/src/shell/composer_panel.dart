@@ -1241,7 +1241,7 @@ class _ComposerEditorState extends State<ComposerEditor> {
       startingAt: (offset) =>
           widget.composer.text.renderedEmojiStartingAt(offset),
     );
-    _pasteAction = _ComposerPasteAction(_pasteClipboardFiles);
+    _pasteAction = _ComposerPasteAction(_pasteClipboard);
     widget.composer.text.imageScrollController = _scroll;
     _selectionOverlay.sync();
   }
@@ -1330,13 +1330,35 @@ class _ComposerEditorState extends State<ComposerEditor> {
     super.dispose();
   }
 
-  Future<bool> _pasteClipboardFiles() async {
-    return _media.pasteClipboardFiles(widget.readClipboardFiles);
+  Future<bool> _pasteClipboard() async {
+    final composer = widget.composer;
+    final before = composer.text.value;
+    bool isCurrent() =>
+        mounted &&
+        identical(widget.composer, composer) &&
+        !composer.isDisposed &&
+        composer.isEditing &&
+        composer.text.value == before;
+
+    if (await _media.pasteClipboardFiles(widget.readClipboardFiles)) {
+      return true;
+    }
+    if (!isCurrent()) return true;
+    if (!before.selection.isValid || before.selection.isCollapsed) return false;
+
+    final clipboard = await Clipboard.getData(Clipboard.kTextPlain);
+    if (!isCurrent()) return true;
+    final next = composerPastedLinkValue(before, clipboard?.text ?? '');
+    if (next == null) return false;
+    composer.history.transact(() {
+      composer.commitText(expectedText: before.text, value: next);
+    });
+    return true;
   }
 
   Future<void> _pasteFromContextMenu(EditableTextState state) async {
     _blockquoteInputFormatter.reset();
-    if (await _pasteClipboardFiles()) {
+    if (await _pasteClipboard()) {
       if (state.mounted) state.hideToolbar();
       return;
     }
@@ -3015,9 +3037,9 @@ class _ComposerQuoteLineStartAction<T extends DirectionalCaretMovementIntent>
 }
 
 class _ComposerPasteAction extends Action<PasteTextIntent> {
-  _ComposerPasteAction(this._pasteFiles);
+  _ComposerPasteAction(this._paste);
 
-  final Future<bool> Function() _pasteFiles;
+  final Future<bool> Function() _paste;
 
   @override
   Object? invoke(PasteTextIntent intent) {
@@ -3029,7 +3051,7 @@ class _ComposerPasteAction extends Action<PasteTextIntent> {
     PasteTextIntent intent,
     Action<PasteTextIntent>? fallback,
   ) async {
-    if (await _pasteFiles()) return null;
+    if (await _paste()) return null;
     return fallback?.invoke(intent);
   }
 

@@ -1,5 +1,6 @@
 import 'package:discourse_native/src/shell/composer_link.dart';
 import 'package:discourse_native/src/shell/markdown_highlight.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/scaling_benchmark.dart';
@@ -12,6 +13,62 @@ typedef _ExpectedLink = ({
 });
 
 void main() {
+  group('pasted links', () {
+    TextEditingValue selected(String text) => TextEditingValue(
+      text: text,
+      selection: TextSelection(baseOffset: 0, extentOffset: text.length),
+    );
+
+    test('escapes label brackets and URL delimiters', () {
+      final next = composerPastedLinkValue(
+        selected('the [guide]'),
+        ' https://example.com/a(b) ',
+      );
+      expect(next!.text, r'[the \[guide\]](https://example.com/a%28b%29)');
+      expect(parseComposerLinks(next.text), hasLength(1));
+    });
+
+    for (final clipboard in [
+      'ordinary text',
+      'https://example.com and more',
+      'https://one.com\nhttps://two.com',
+      'https://',
+      'javascript:alert(1)',
+    ]) {
+      test('keeps ordinary paste for $clipboard', () {
+        expect(composerPastedLinkValue(selected('label'), clipboard), isNull);
+      });
+    }
+
+    for (final text in [
+      '`code`',
+      '[existing](https://example.com)',
+      'https://example.com',
+      'two\nlines',
+      '   ',
+    ]) {
+      test('does not wrap $text', () {
+        expect(
+          composerPastedLinkValue(selected(text), 'https://discourse.org'),
+          isNull,
+        );
+      });
+    }
+
+    test('leaves URL paste at a collapsed caret alone', () {
+      expect(
+        composerPastedLinkValue(
+          const TextEditingValue(
+            text: 'text',
+            selection: TextSelection.collapsed(offset: 2),
+          ),
+          'https://discourse.org',
+        ),
+        isNull,
+      );
+    });
+  });
+
   group('composer link parser behavior', () {
     test('preserves ordering, UTF-16 offsets, and normalized destinations', () {
       const source =

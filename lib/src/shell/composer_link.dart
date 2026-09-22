@@ -457,6 +457,50 @@ class ComposerLinkPill extends StatelessWidget {
   }
 }
 
+/// Turns selected prose into a link when the clipboard contains one web URL.
+TextEditingValue? composerPastedLinkValue(
+  TextEditingValue current,
+  String clipboard,
+) {
+  final selection = current.selection;
+  final url = clipboard.trim();
+  final uri = Uri.tryParse(url);
+  if (!selection.isValid ||
+      selection.isCollapsed ||
+      selection.end > current.text.length ||
+      (current.composing.isValid && !current.composing.isCollapsed) ||
+      RegExp(r'\s').hasMatch(url) ||
+      uri == null ||
+      !const ['http', 'https'].contains(uri.scheme) ||
+      uri.host.isEmpty) {
+    return null;
+  }
+  final anchor = selection.textInside(current.text);
+  if (anchor.trim().isEmpty ||
+      anchor.contains('\n') ||
+      CodeRanges.of(
+        scanMarkdown(current.text),
+      ).overlaps(selection.start, selection.end) ||
+      parseComposerLinks(current.text).any(
+        (link) => link.start < selection.end && link.end > selection.start,
+      )) {
+    return null;
+  }
+  return composerLinkValue(
+    current: current,
+    expectedText: current.text,
+    selection: selection,
+    url: url.replaceAllMapped(
+      RegExp(r'[()<>\\]'),
+      (match) => '%${match[0]!.codeUnitAt(0).toRadixString(16).toUpperCase()}',
+    ),
+    anchor: anchor.replaceAllMapped(
+      RegExp(r'[\[\]\\]'),
+      (match) => '\\${match[0]}',
+    ),
+  );
+}
+
 TextEditingValue? composerLinkValue({
   required TextEditingValue current,
   required String expectedText,
