@@ -38,7 +38,7 @@ reused through an image shader. Logical-pixel grain size stays fixed on resize;
 there is no area-dependent dot cap or animation. The owner disposes its image
 and shader when removed. Existing Native controls and panel APIs are unchanged.
 
-Verification: 52 focused checks passed across noise rendering, appearance,
+Verification: 53 focused checks passed across noise rendering, appearance,
 editor, model, AppTheme and the desktop/mobile shared-canvas regressions. Pixel
 checks cover light/dark gradients, dense texture, strength, zero, deterministic
 repaints and density at 256px versus 1600px. Full static analysis and the macOS
@@ -52,7 +52,9 @@ isolated `org.discourse.native.review.grain6373` app, with in-memory forum data.
 Inspected the theme preview, full topic list and split reader, light/dark modes,
 and the live preview strength change from 80% to 40%. The texture continues
 behind framed panels while controls and footers retain their fills. The review
-app was quit and the shared desktop lease released.
+app was quit and the shared desktop lease released. Integration with the newer
+darker-sidebar change preserved its opaque navigation surface; the combined
+editor and painted workspace tests and full static analysis passed again.
 
 ## Panel surfaces restored over the shared canvas — 2026-09-22
 
