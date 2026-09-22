@@ -85,7 +85,7 @@ void main() {
   );
 
   test(
-    'Return continues unchecked items, splits text, and exits an empty item',
+    'Return continues items, splits text, and exits empty items with a line break',
     () {
       const formatter = ComposerTodoInputFormatter();
       for (final (before, after) in [
@@ -93,8 +93,11 @@ void main() {
         ('[x] First|', '[x] First\n[ ] |'),
         ('[ ] First| part', '[ ] First\n[ ] | part'),
         ('- [x] First|', '- [x] First\n- [ ] |'),
-        ('[ ] First\n[ ] |', '[ ] First\n|'),
-        ('[x] |', '|'),
+        ('[ ] First\n[ ] |', '[ ] First\n\n|'),
+        ('[x] |', '\n|'),
+        ('- [x] First\n- [ ] |', '- [x] First\n\n|'),
+        ('[ ] First\n[ ]  \t|', '[ ] First\n\n|'),
+        ('[ ] First\n[ ] |\nAfter', '[ ] First\n\n|\nAfter'),
       ]) {
         final old = valueAt(before);
         final caret = old.selection.end;
@@ -107,6 +110,7 @@ void main() {
             ),
           ),
           valueAt(after),
+          reason: before,
         );
       }
     },
@@ -130,11 +134,14 @@ void main() {
     },
   );
 
-  test('an empty checked item remains a movable to-do, not unclosed BBCode', () {
-    final blocks = ComposerBlockIndex.parse('[x] \n\nAfter');
-    expect(blocks.blocks.first.kind, ComposerBlockKind.todo);
-    expect(blocks.blocks.first.movable, isTrue);
-  });
+  test(
+    'an empty checked item remains a movable to-do, not unclosed BBCode',
+    () {
+      final blocks = ComposerBlockIndex.parse('[x] \n\nAfter');
+      expect(blocks.blocks.first.kind, ComposerBlockKind.todo);
+      expect(blocks.blocks.first.movable, isTrue);
+    },
+  );
 
   Future<ComposerController> pump(
     WidgetTester tester, {
@@ -293,7 +300,7 @@ void main() {
     expect(composer.text.text, '[ ] First');
   });
 
-  testWidgets('Return continues, empty Return exits, and Backspace unwraps', (
+  testWidgets('double Return exits with a blank line before subsequent text', (
     tester,
   ) async {
     final composer = await pump(tester);
@@ -301,10 +308,23 @@ void main() {
     await tester.pumpAndSettle();
     await tester.sendKeyEvent(LogicalKeyboardKey.enter);
     await tester.pumpAndSettle();
-    expect(composer.text.text, '[x] First\n[ ] ');
+    expect(composer.text.value, valueAt('[x] First\n[ ] |'));
+    expect(find.byType(DCheckbox), findsNWidgets(2));
     await tester.sendKeyEvent(LogicalKeyboardKey.enter);
     await tester.pumpAndSettle();
-    expect(composer.text.text, '[x] First\n');
+    expect(composer.text.value, valueAt('[x] First\n\n|'));
+    expect(find.byType(DCheckbox), findsOneWidget);
+    tester.testTextInput.updateEditingValue(valueAt('[x] First\n\nAfter|'));
+    await tester.pumpAndSettle();
+    expect(composer.text.value, valueAt('[x] First\n\nAfter|'));
+    expect(find.byType(DCheckbox), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('Backspace at the item start removes its checklist prefix', (
+    tester,
+  ) async {
+    final composer = await pump(tester);
     await tester.enterText(find.byType(EditableText), '[ ] Keep');
     composer.text.selection = const TextSelection.collapsed(offset: 4);
     await tester.sendKeyEvent(LogicalKeyboardKey.backspace);
