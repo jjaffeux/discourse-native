@@ -6,10 +6,15 @@ class _ConversationTopicCard extends StatelessWidget {
   final _TopicRowBody row;
 
   @override
-  Widget build(BuildContext context) => LayoutBuilder(
-    builder: (context, constraints) =>
-        _buildCard(context, mobile: constraints.maxWidth < 600),
-  );
+  Widget build(BuildContext context) {
+    if (row.compact case final compact?) {
+      return _buildCard(context, mobile: compact);
+    }
+    return LayoutBuilder(
+      builder: (context, constraints) =>
+          _buildCard(context, mobile: constraints.maxWidth < 600),
+    );
+  }
 
   Widget _buildCard(BuildContext context, {required bool mobile}) {
     final topic = row.topic;
@@ -74,7 +79,7 @@ class _ConversationTopicCard extends StatelessWidget {
       ..._topicRowTags(context, row),
       if (row.forum != null) Text(row.forum!.title, style: textStyle),
     ];
-    final details = Text.rich(
+    Widget desktopDetails() => Text.rich(
       TextSpan(
         children: [
           for (final child in taxonomyItems)
@@ -219,7 +224,7 @@ class _ConversationTopicCard extends StatelessWidget {
                           shell?.appSettings.topicListShowLastPoster != false,
                     ),
                   ] else
-                    details,
+                    desktopDetails(),
                   if (assignments.isNotEmpty)
                     Wrap(
                       spacing: DSpacing.xs,

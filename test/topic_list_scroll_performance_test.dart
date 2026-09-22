@@ -9,6 +9,70 @@ import 'support/topic_list_scroll_fixture.dart';
 import 'support/topic_scroll_capture.dart';
 
 void main() {
+  testWidgets(
+    'rows reuse their construction until the width breakpoint changes',
+    (tester) async {
+      tester.view.physicalSize = const Size(1000, 700);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final controller = await topicListScrollController(count: 10);
+      final diagnostics = DiagnosticsController.start(
+        persistence: MemoryDiagnosticsPersistence(),
+        topicScrollCapture: topicScrollCaptureWithoutVm(),
+      );
+      addTearDown(() async {
+        controller.dispose();
+        await controller.pluginTeardown;
+        await controller.plugins.close();
+      });
+      try {
+        await tester.pumpWidget(
+          TopicListScrollFixture(
+            controller: controller,
+            diagnostics: diagnostics,
+            width: double.infinity,
+          ),
+        );
+        Future<void> resize(double width) async {
+          tester.view.physicalSize = Size(width, 700);
+          await tester.pumpAndSettle();
+          expect(tester.takeException(), isNull);
+        }
+
+        await resize(800);
+        final row = find.byKey(const ValueKey('topic-card-1'));
+        final title = tester.element(
+          find.descendant(of: row, matching: find.byType(TopicTitle)),
+        );
+        final rebuilt = <Element>{};
+        final previous = debugOnRebuildDirtyWidget;
+        debugOnRebuildDirtyWidget = (element, builtOnce) {
+          rebuilt.add(element);
+          previous?.call(element, builtOnce);
+        };
+        addTearDown(() => debugOnRebuildDirtyWidget = previous);
+        await resize(700);
+        expect(rebuilt, isNot(contains(title)));
+
+        Finder desktopAuthor() => find.descendant(
+          of: row,
+          matching: find.text('Last post by sam · '),
+        );
+        expect(desktopAuthor(), findsOneWidget);
+        await resize(599);
+        expect(desktopAuthor(), findsNothing);
+        expect(
+          find.descendant(of: row, matching: find.text('sam')),
+          findsOneWidget,
+        );
+        await resize(600);
+        expect(desktopAuthor(), findsOneWidget);
+      } finally {
+        await diagnostics.close();
+      }
+    },
+  );
+
   testWidgets('retracting header does not repeatedly rebuild retained rows', (
     tester,
   ) async {
