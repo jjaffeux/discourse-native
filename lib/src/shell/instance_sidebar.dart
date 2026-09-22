@@ -1133,7 +1133,7 @@ class _SectionState extends State<_Section> {
             onSelect: widget.onSelect,
           );
         }
-        return _DestinationTile(
+        return SidebarDestinationTile(
           key: submenu ? ValueKey(destination.id) : null,
           destination: destination,
           selected: destination.id == widget.selectedId,
@@ -1368,8 +1368,9 @@ class _SectionHeader extends StatelessWidget {
   }
 }
 
-class _DestinationTile extends StatelessWidget {
-  const _DestinationTile({
+/// Shared destination presentation for forum navigation and appearance previews.
+class SidebarDestinationTile extends StatelessWidget {
+  const SidebarDestinationTile({
     super.key,
     required this.destination,
     required this.selected,
