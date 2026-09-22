@@ -783,6 +783,7 @@ class _TopicListViewState extends State<TopicListView> {
                             ),
                         child: _TopicRow(
                           topicId: topicId,
+                          compact: lane.width < 600,
                           inbox: widget.inbox,
                           onOpen: _openRow,
                           hiddenCategoryId:
@@ -1031,12 +1032,14 @@ class _FeedErrorBanner extends StatelessWidget {
 class _TopicRow extends StatefulWidget {
   const _TopicRow({
     required this.topicId,
+    required this.compact,
     required this.hiddenCategoryId,
     required this.onOpen,
     this.inbox = false,
   });
 
   final int topicId;
+  final bool compact;
   final int? hiddenCategoryId;
   final bool inbox;
   final ValueChanged<Topic> onOpen;
@@ -1052,6 +1055,7 @@ class _TopicRowState extends State<_TopicRow> {
   void didUpdateWidget(_TopicRow oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.topicId != widget.topicId ||
+        oldWidget.compact != widget.compact ||
         oldWidget.hiddenCategoryId != widget.hiddenCategoryId ||
         oldWidget.onOpen != widget.onOpen ||
         oldWidget.inbox != widget.inbox) {
@@ -1097,6 +1101,7 @@ class _TopicRowState extends State<_TopicRow> {
                   ),
                   builder: (context, categoryPresentation, _) => _TopicRowBody(
                     topic: topic,
+                    compact: widget.compact,
                     category: categoryPresentation.category,
                     parentCategory: categoryPresentation.parent,
                     showCategoryBreadcrumb: true,
@@ -1263,6 +1268,7 @@ class _TopicRowBody extends StatelessWidget {
     required this.showCategoryBreadcrumb,
     required this.siteUrl,
     required this.onTap,
+    this.compact,
     this.forum,
     this.titleStyle,
     this.selected = false,
@@ -1277,6 +1283,8 @@ class _TopicRowBody extends StatelessWidget {
   });
 
   final bool showViews;
+  // Lists already know the row width. Standalone rows measure it themselves.
+  final bool? compact;
   final ValueChanged<String>? onSort;
   final String? order;
   final bool ascending;
