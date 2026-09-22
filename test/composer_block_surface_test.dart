@@ -108,6 +108,188 @@ void main() {
     await tester.pumpAndSettle();
   }
 
+  testWidgets('add opens commands below a populated block and can be undone', (
+    tester,
+  ) async {
+    await mount(tester);
+    final original = composer.text.value;
+    final id = composer.blocks.index.blocks.first.id;
+    final add = find.byKey(ValueKey('composer-block-add-$id'));
+    final handle = find.byKey(ValueKey('composer-block-handle-$id'));
+    expect(tester.getRect(add).right, lessThan(tester.getRect(handle).left));
+    await tester.tap(add);
+    await tester.pumpAndSettle();
+    expect(
+      composer.text.text,
+      'First paragraph\n\n/\n\n## A heading\n\nLast paragraph',
+    );
+    expect(find.text('Type to search'), findsOneWidget);
+    expect(find.text('Heading 2'), findsOneWidget);
+    expect(composer.focus.hasFocus, isTrue);
+    composer.history.undo();
+    await tester.pumpAndSettle();
+    expect(composer.text.value, original);
+    expect(composer.history.canUndo, isFalse);
+    await tester.tap(find.byTooltip('Add block'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Heading 2'));
+    await tester.pumpAndSettle();
+    expect(
+      composer.text.text,
+      'First paragraph\n\n## \n\n## A heading\n\nLast paragraph',
+    );
+  });
+
+  for (final source in ['', '  ', 'Before\n\n\nAfter', 'Before\n\n']) {
+    testWidgets('add uses the current empty line in "$source"', (tester) async {
+      final offset = source.startsWith('Before') ? 'Before\n'.length : 0;
+      composer.text.value = TextEditingValue(
+        text: source,
+        selection: TextSelection.collapsed(offset: offset),
+      );
+      await mount(tester);
+      await tester.tap(find.byTooltip('Add block'));
+      await tester.pumpAndSettle();
+      expect(
+        composer.text.text,
+        source.trim().isEmpty ? '/' : source.replaceRange(offset, offset, '/'),
+      );
+      expect(composer.text.selection.extentOffset, offset + 1);
+      expect(find.text('Type to search'), findsOneWidget);
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+      expect(composer.text.text, source.trim().isEmpty ? '' : source);
+      expect(find.text('Close menu'), findsNothing);
+      await tester.tap(find.byTooltip('Add block'));
+      await tester.pumpAndSettle();
+      expect(find.text('Close menu'), findsOneWidget);
+    });
+  }
+
+  testWidgets('hovering an empty line targets it independently of the caret', (
+    tester,
+  ) async {
+    composer.text.value = const TextEditingValue(
+      text: 'First\n\n\nLast',
+      selection: TextSelection.collapsed(offset: 0),
+    );
+    await mount(tester);
+    final editable = tester
+        .state<EditableTextState>(find.byType(EditableText))
+        .renderEditable;
+    final blank = editable.getLocalRectForCaret(const TextPosition(offset: 6));
+    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    await mouse.addPointer();
+    addTearDown(mouse.removePointer);
+    await mouse.moveTo(
+      editable.localToGlobal(blank.center + const Offset(20, 0)),
+    );
+    await tester.pumpAndSettle();
+    await mouse.moveTo(tester.getCenter(find.byTooltip('Add block')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Add block'));
+    await tester.pumpAndSettle();
+    expect(composer.text.text, 'First\n/\n\nLast');
+    expect(find.text('Type to search'), findsOneWidget);
+  });
+
+  for (final source in [
+    'First\nsoft-wrapped paragraph',
+    '## Heading',
+    '```dart\ncode\n```',
+    '![picture](upload://picture.png)',
+    'First\r\nsecond line',
+  ]) {
+    testWidgets('add inserts after the complete block: $source', (
+      tester,
+    ) async {
+      composer.text.value = TextEditingValue(
+        text: source,
+        selection: const TextSelection.collapsed(offset: 0),
+      );
+      await mount(tester);
+      await tester.tap(find.byTooltip('Add block'));
+      await tester.pumpAndSettle();
+      final newline = source.contains('\r\n') ? '\r\n' : '\n';
+      expect(composer.text.text, '$source$newline$newline/');
+      expect(find.text('Type to search'), findsOneWidget);
+      expect(composer.focus.hasFocus, isTrue);
+      expect(tester.takeException(), isNull);
+    });
+  }
+
+  testWidgets('add separates adjacent headings without changing their source', (
+    tester,
+  ) async {
+    composer.text.value = const TextEditingValue(
+      text: '# First\n## Second',
+      selection: TextSelection.collapsed(offset: 0),
+    );
+    await mount(tester);
+    await tester.tap(find.byTooltip('Add block'));
+    await tester.pumpAndSettle();
+    expect(composer.text.text, '# First\n\n/\n\n## Second');
+    expect(find.text('Type to search'), findsOneWidget);
+  });
+
+  testWidgets('block actions leave room for the editor at 200% text', (
+    tester,
+  ) async {
+    await mount(tester, textScale: 2);
+    final block = composer.blocks.index.blocks.first;
+    final surface = tester.widget<ComposerBlockSurface>(
+      find.byType(ComposerBlockSurface),
+    );
+    expect(
+      tester
+          .getRect(find.byKey(ValueKey('composer-block-handle-${block.id}')))
+          .right,
+      lessThanOrEqualTo(surface.blockRect(block)!.left),
+    );
+    await tester.tap(find.byTooltip('Add block'));
+    await tester.pumpAndSettle();
+    expect(find.text('Type to search'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+    'add is disabled during composition and in an unclosed code block',
+    (tester) async {
+      composer.text.value = const TextEditingValue(
+        text: '```\ncode',
+        selection: TextSelection.collapsed(offset: 4),
+      );
+      await mount(tester);
+      DButton add() => tester.widget<DButton>(
+        find.byWidgetPredicate(
+          (widget) => widget is DButton && widget.tooltip == 'Add block',
+        ),
+      );
+      expect(add().onPressed, isNull);
+      composer.text.value = const TextEditingValue(
+        text: 'Text',
+        selection: TextSelection.collapsed(offset: 4),
+        composing: TextRange(start: 0, end: 4),
+      );
+      await tester.pumpAndSettle();
+      expect(add().onPressed, isNull);
+    },
+  );
+
+  testWidgets('add leaves Arrange mode and opens the editor commands', (
+    tester,
+  ) async {
+    await mount(tester, mobile: true, textScale: 1.3);
+    await arrange(tester);
+    expect(find.byTooltip('Add block'), findsNWidgets(3));
+    await tester.tap(find.byTooltip('Add block').first);
+    await tester.pumpAndSettle();
+    expect(composer.blocks.arranging, isFalse);
+    expect(find.text('Type to search'), findsOneWidget);
+    expect(composer.focus.hasFocus, isTrue);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('desktop handle drag moves a paragraph as one undoable edit', (
     tester,
   ) async {
@@ -166,6 +348,9 @@ void main() {
           final start = find.byKey(
             ValueKey('composer-block-handle-${blocks.first.id}'),
           );
+          final add = find.byKey(
+            ValueKey('composer-block-add-${blocks.first.id}'),
+          );
           final end = find.byKey(
             ValueKey('composer-block-handle-${blocks.first.id}-end'),
           );
@@ -177,8 +362,16 @@ void main() {
           final after = surface.blockRect(blocks[2])!;
           expect(end, findsNothing);
           if (direction == TextDirection.ltr) {
+            expect(
+              tester.getRect(add).right,
+              lessThan(tester.getRect(start).left),
+            );
             expect(tester.getRect(start).right, lessThanOrEqualTo(first.left));
           } else {
+            expect(
+              tester.getRect(add).left,
+              greaterThan(tester.getRect(start).right),
+            );
             expect(
               tester.getRect(start).left,
               greaterThanOrEqualTo(first.right),
