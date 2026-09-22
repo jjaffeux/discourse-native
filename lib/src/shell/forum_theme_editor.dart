@@ -7,6 +7,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart' as sharing;
 
+import '../models/forum_background.dart';
 import '../models/forum_theme.dart';
 import '../models/forum_theme_presets.dart';
 
@@ -45,6 +46,8 @@ class _ForumThemeEditorState extends State<ForumThemeEditor> {
   late final Map<String, TextEditingController> _colors;
   late Brightness _brightness;
   late bool _windowGradient;
+  late ForumBackground _background;
+  bool _backgroundEdited = false;
   late bool _darkerSidebars;
   late final Map<String, Color> _lastColors;
   String? _notice;
@@ -75,6 +78,8 @@ class _ForumThemeEditorState extends State<ForumThemeEditor> {
     _baseId = theme.id;
     _brightness = theme.brightness;
     _windowGradient = theme.windowGradient;
+    _background = theme.background ?? ForumBackground(color: theme.tertiary);
+    _backgroundEdited = theme.background != null;
     _darkerSidebars = theme.darkerSidebars;
     final colors = theme.toJson()['colors'] as Map<String, String>;
     _lastColors = {
@@ -102,6 +107,7 @@ class _ForumThemeEditorState extends State<ForumThemeEditor> {
     try {
       return ForumTheme.fromJson({
         'version': 1,
+        if (_backgroundEdited) 'background': _background.toJson(),
         'windowGradient': _windowGradient,
         'darkerSidebars': _darkerSidebars,
         'name': _name.text,
@@ -134,6 +140,8 @@ class _ForumThemeEditorState extends State<ForumThemeEditor> {
     }
     _brightness = theme.brightness;
     _windowGradient = theme.windowGradient;
+    _background = theme.background ?? ForumBackground(color: theme.tertiary);
+    _backgroundEdited = theme.background != null;
     _darkerSidebars = theme.darkerSidebars;
     final colors = theme.toJson()['colors'] as Map<String, String>;
     for (final entry in _colors.entries) {
@@ -250,6 +258,7 @@ class _ForumThemeEditorState extends State<ForumThemeEditor> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       spacing: DSpacing.md,
       children: [
+        _backgroundControls(enabled),
         DInput(
           key: const ValueKey('custom-theme-name'),
           labelText: 'Name',
@@ -276,35 +285,6 @@ class _ForumThemeEditorState extends State<ForumThemeEditor> {
               ? (id) {
                   if (id != null) {
                     _usePalette(presets.firstWhere((p) => p.id == id));
-                  }
-                }
-              : null,
-        ),
-        DSelect<Brightness>.controlled(
-          semanticLabel: 'Palette mode',
-          label: const Text('Palette mode'),
-          value: _brightness,
-          isExpanded: true,
-          entries: const [
-            DSelectOption(
-              value: Brightness.light,
-              label: 'Light',
-              child: Text('Light'),
-            ),
-            DSelectOption(
-              value: Brightness.dark,
-              label: 'Dark',
-              child: Text('Dark'),
-            ),
-          ],
-          onChanged: enabled
-              ? (value) {
-                  if (value != null && value != _brightness) {
-                    final background = _colors['secondary']!.text;
-                    _colors['secondary']!.text = _colors['primary']!.text;
-                    _colors['primary']!.text = background;
-                    _brightness = value;
-                    _changed('');
                   }
                 }
               : null,
@@ -357,21 +337,6 @@ class _ForumThemeEditorState extends State<ForumThemeEditor> {
             );
           },
         ),
-        Align(
-          alignment: AlignmentDirectional.centerStart,
-          child: DToggle(
-            key: const ValueKey('custom-theme-window-gradient'),
-            pressed: _windowGradient,
-            enabled: enabled,
-            variant: DToggleVariant.outline,
-            onPressedChanged: (value) {
-              _windowGradient = value;
-              _changed('');
-            },
-            child: const Text('Window gradient'),
-          ),
-        ),
-        const Text('Blend Background and Accent in the window background.'),
         Align(
           alignment: AlignmentDirectional.centerStart,
           child: DToggle(
@@ -431,6 +396,126 @@ class _ForumThemeEditorState extends State<ForumThemeEditor> {
         if (_notice != null)
           Text(_notice!, style: Theme.of(context).textTheme.bodySmall),
       ],
+    );
+  }
+
+  void _changeBackground(ForumBackground background) {
+    _background = background;
+    _backgroundEdited = true;
+    _windowGradient = false;
+    _changed('');
+  }
+
+  Widget _backgroundControls(bool enabled) {
+    final theme = Theme.of(context);
+    final tokens = DTokens.of(context);
+    final hsl = HSLColor.fromColor(_background.color);
+    final accent = hsl
+        .withLightness(
+          theme.brightness == Brightness.dark
+              ? max(.6, hsl.lightness)
+              : min(.42, hsl.lightness),
+        )
+        .toColor();
+    return Theme(
+      data: theme.copyWith(
+        extensions: [
+          ...theme.extensions.values,
+          tokens.copyWith(colors: tokens.colors.copyWith(primary: accent)),
+        ],
+      ),
+      child: DField(
+        children: [
+          const DFieldLabel(child: Text('Background')),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            spacing: DSpacing.sm,
+            children: [
+              Column(
+                children: [
+                  SizedBox(
+                    height: 136,
+                    child: DSlider(
+                      key: const ValueKey('custom-theme-strength'),
+                      variant: DSliderVariant.filled,
+                      orientation: Axis.vertical,
+                      value: _background.strength * 100,
+                      semanticLabel: 'Background strength',
+                      semanticFormatterCallback: (value) => '${value.round()}%',
+                      onChanged: enabled
+                          ? (value) => _changeBackground(
+                              _background.copyWith(strength: value / 100),
+                            )
+                          : null,
+                    ),
+                  ),
+                  Text('${(_background.strength * 100).round()}%'),
+                ],
+              ),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  spacing: DSpacing.sm,
+                  children: [
+                    DColorPicker.inline(
+                      value: _background.color,
+                      semanticLabel: 'Background color palette',
+                      onChanged: enabled
+                          ? (color) => _changeBackground(
+                              _background.copyWith(color: color),
+                            )
+                          : null,
+                    ),
+                    Text(
+                      ForumTheme.hex(_background.color),
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
+                ),
+              ),
+              IntrinsicWidth(
+                child: DToggleGroup<ForumBackgroundEffect>(
+                  scrollable: false,
+                  key: const ValueKey('custom-theme-background-effect'),
+                  orientation: Axis.vertical,
+                  variant: DToggleVariant.outline,
+                  values: [_background.effect],
+                  allowEmptySelection: false,
+                  enabled: enabled,
+                  items: const [
+                    DToggleGroupItem.iconOnly(
+                      value: ForumBackgroundEffect.normal,
+                      icon: Icon(Icons.crop_square_rounded),
+                      semanticLabel: 'Normal background',
+                      tooltip: 'Normal',
+                    ),
+                    DToggleGroupItem.iconOnly(
+                      value: ForumBackgroundEffect.lava,
+                      icon: Icon(Icons.blur_on_rounded),
+                      semanticLabel: 'Lava lamp background',
+                      tooltip: 'Lava lamp',
+                    ),
+                    DToggleGroupItem.iconOnly(
+                      value: ForumBackgroundEffect.noise,
+                      icon: Icon(Icons.grain_rounded),
+                      semanticLabel: 'Noise background',
+                      tooltip: 'Noise',
+                    ),
+                  ],
+                  onChanged: (values) => _changeBackground(
+                    _background.copyWith(effect: values.single),
+                  ),
+                  onItemActivated: (effect) {
+                    if (effect == _background.effect && !_backgroundEdited) {
+                      _changeBackground(_background.copyWith(effect: effect));
+                    }
+                  },
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 

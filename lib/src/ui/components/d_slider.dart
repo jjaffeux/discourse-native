@@ -8,6 +8,9 @@ import 'package:flutter/services.dart';
 
 import '../foundation/tokens.dart';
 
+/// Filled uses a capsule track and a bar thumb with the same interactions.
+enum DSliderVariant { standard, filled }
+
 /// Pointer collision policy for ordered thumbs. Keyboard movement always stops
 /// at neighbours to preserve each independently focused thumb's bounds.
 enum DSliderThumbCollisionBehavior {
@@ -24,7 +27,8 @@ enum DSliderThumbCollisionBehavior {
 /// [step] is relative to [min]; null allows continuous pointer input with a
 /// keyboard increment of one hundredth of the range. Values may be off-step
 /// (for example a live playback position); user input snaps to the step grid.
-/// The caller owns [focusNode]. Visuals remain 4px/12px inside a 48px hit area.
+/// The caller owns [focusNode]. Standard visuals use a 4px track and 12px thumb;
+/// [DSliderVariant.filled] uses a 40px capsule. Both retain a 48px hit area.
 class DSlider extends StatelessWidget {
   const DSlider({
     super.key,
@@ -38,6 +42,7 @@ class DSlider extends StatelessWidget {
     this.onChangeEnd,
     this.onChangeCancel,
     this.orientation = Axis.horizontal,
+    this.variant = DSliderVariant.standard,
     this.focusNode,
     this.autofocus = false,
     this.semanticLabel,
@@ -62,6 +67,7 @@ class DSlider extends StatelessWidget {
   final ValueChanged<double>? onChangeEnd;
   final VoidCallback? onChangeCancel;
   final Axis orientation;
+  final DSliderVariant variant;
   final FocusNode? focusNode;
   final bool autofocus;
   final String? semanticLabel;
@@ -86,6 +92,7 @@ class DSlider extends StatelessWidget {
         : (values) => onChangeEnd!(values.single),
     onChangeCancel: onChangeCancel,
     orientation: orientation,
+    variant: variant,
     focusNodes: focusNode == null ? null : [focusNode!],
     autofocus: autofocus,
     semanticLabels: [semanticLabel ?? 'Value'],
@@ -122,6 +129,7 @@ class DMultiSlider extends StatefulWidget {
     this.onChangeEnd,
     this.onChangeCancel,
     this.orientation = Axis.horizontal,
+    this.variant = DSliderVariant.standard,
     this.focusNodes,
     this.autofocus = false,
     this.semanticLabels,
@@ -181,6 +189,7 @@ class DMultiSlider extends StatefulWidget {
   final ValueChanged<List<double>>? onChangeEnd;
   final VoidCallback? onChangeCancel;
   final Axis orientation;
+  final DSliderVariant variant;
   final List<FocusNode>? focusNodes;
   final bool autofocus;
   final List<String>? semanticLabels;
@@ -547,6 +556,7 @@ class _DMultiSliderState extends State<DMultiSlider> {
                             child: CustomPaint(
                               painter: _SliderTrack(
                                 vertical: _vertical,
+                                filled: widget.variant == DSliderVariant.filled,
                                 start: _values.length == 1
                                     ? (_reverse ? extent : 0)
                                     : _position(_values.first, extent),
@@ -623,6 +633,9 @@ class _DMultiSliderState extends State<DMultiSlider> {
                                       active: _active == i,
                                       enabled: _enabled,
                                       vertical: _vertical,
+                                      filled:
+                                          widget.variant ==
+                                          DSliderVariant.filled,
                                       offset:
                                           _position(_values[i], extent) -
                                           (_position(_values[i], extent) - 24)
@@ -656,12 +669,14 @@ class _SliderThumb extends StatefulWidget {
     required this.enabled,
     required this.vertical,
     required this.offset,
+    required this.filled,
   });
   final FocusNode node;
   final bool active;
   final bool enabled;
   final bool vertical;
   final double offset;
+  final bool filled;
   @override
   State<_SliderThumb> createState() => _SliderThumbState();
 }
@@ -684,21 +699,26 @@ class _SliderThumbState extends State<_SliderThumb> {
                   (widget.node.hasFocus &&
                       FocusManager.instance.highlightMode ==
                           FocusHighlightMode.traditional));
+          final width = widget.filled ? (widget.vertical ? 24.0 : 6.0) : 12.0;
+          final height = widget.filled ? (widget.vertical ? 6.0 : 24.0) : 12.0;
+          final offset = widget.filled
+              ? widget.offset.clamp(5.0, 43.0)
+              : widget.offset;
           return Stack(
             clipBehavior: Clip.none,
             children: [
               Positioned(
-                left: widget.vertical ? 18 : widget.offset - 6,
-                top: widget.vertical ? widget.offset - 6 : 18,
+                left: widget.vertical ? (48 - width) / 2 : offset - width / 2,
+                top: widget.vertical ? offset - height / 2 : (48 - height) / 2,
                 child: AnimatedContainer(
                   duration: DMotion.duration(
                     context,
                     const Duration(milliseconds: 150),
                   ),
-                  width: 12,
-                  height: 12,
+                  width: width,
+                  height: height,
                   decoration: BoxDecoration(
-                    shape: BoxShape.circle,
+                    borderRadius: BorderRadius.circular(999),
                     // base-nova explicitly uses bg-white in both color modes.
                     color: Colors.white,
                     border: Border.all(color: ring),
@@ -730,24 +750,28 @@ class _SliderTrack extends CustomPainter {
     required this.buffered,
     required this.muted,
     required this.primary,
+    required this.filled,
   });
+  final bool filled;
   final bool vertical;
   final double start, end, origin;
   final double? buffered;
   final Color muted, primary;
   @override
   void paint(Canvas canvas, Size size) {
+    final inset = filled ? 4.0 : 22.0;
+    final breadth = 48 - 2 * inset;
     final rect = vertical
-        ? Rect.fromLTWH(22, 0, 4, size.height)
-        : Rect.fromLTWH(0, 22, size.width, 4);
+        ? Rect.fromLTWH(inset, 0, breadth, size.height)
+        : Rect.fromLTWH(0, inset, size.width, breadth);
     canvas.save();
     canvas.clipRRect(RRect.fromRectAndRadius(rect, const Radius.circular(999)));
     canvas.drawRect(rect, Paint()..color = muted);
     void segment(double a, double b, Color color) {
       canvas.drawRect(
         vertical
-            ? Rect.fromLTRB(22, math.min(a, b), 26, math.max(a, b))
-            : Rect.fromLTRB(math.min(a, b), 22, math.max(a, b), 26),
+            ? Rect.fromLTRB(inset, math.min(a, b), 48 - inset, math.max(a, b))
+            : Rect.fromLTRB(math.min(a, b), inset, math.max(a, b), 48 - inset),
         Paint()..color = color,
       );
     }
@@ -761,6 +785,7 @@ class _SliderTrack extends CustomPainter {
 
   @override
   bool shouldRepaint(_SliderTrack oldDelegate) =>
+      filled != oldDelegate.filled ||
       vertical != oldDelegate.vertical ||
       start != oldDelegate.start ||
       end != oldDelegate.end ||

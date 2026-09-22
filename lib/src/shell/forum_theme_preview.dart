@@ -2,6 +2,7 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
 import '../models/topic.dart';
+import '../theme/app_theme.dart';
 import '../theme/d_icons.dart';
 import 'forum_theme_surfaces.dart';
 import 'topic_list_view.dart';
@@ -50,7 +51,15 @@ class ForumThemePreview extends StatelessWidget {
         child: IgnorePointer(
           child: ForumWindowBackground(
             child: Padding(
-              padding: const EdgeInsets.all(DSpacing.md),
+              padding: EdgeInsets.fromLTRB(
+                DSpacing.md,
+                Theme.of(context).extension<ForumThemeEffects>()?.background ==
+                        null
+                    ? DSpacing.md
+                    : 80,
+                DSpacing.md,
+                DSpacing.md,
+              ),
               child: DCard(
                 key: const ValueKey('forum-theme-preview'),
                 spacing: 0,

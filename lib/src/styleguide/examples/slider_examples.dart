@@ -21,6 +21,14 @@ final sliderExamples = ComponentExamples(
       'parent acceptance, clamping and external updates render immediately. '
       'onChangeCancel does not undo changes already delivered to onChanged.',
   examples: [
+    StyleguideExample(
+      title: 'Filled strength',
+      description:
+          'A filled vertical capsule for effect strength, with the same pointer, keyboard and screen-reader behavior.',
+      code:
+          'DSlider(value: strength, variant: DSliderVariant.filled, orientation: Axis.vertical, semanticLabel: "Strength", onChanged: updateStrength)',
+      builder: (_) => const _FilledStrength(),
+    ),
     for (final example in [
       ('Default', <double>[75], Axis.horizontal, false, false),
       ('Range', <double>[25, 50], Axis.horizontal, false, false),
@@ -366,6 +374,27 @@ class _CollisionDemoState extends State<_CollisionDemo> {
           ],
         ),
       ],
+    ),
+  );
+}
+
+class _FilledStrength extends StatefulWidget {
+  const _FilledStrength();
+  @override
+  State<_FilledStrength> createState() => _FilledStrengthState();
+}
+
+class _FilledStrengthState extends State<_FilledStrength> {
+  double strength = 57;
+  @override
+  Widget build(BuildContext context) => SizedBox(
+    height: 136,
+    child: DSlider(
+      value: strength,
+      variant: DSliderVariant.filled,
+      orientation: Axis.vertical,
+      semanticLabel: 'Strength',
+      onChanged: (value) => setState(() => strength = value),
     ),
   );
 }

@@ -2,6 +2,7 @@ import 'dart:ui';
 
 import 'package:flutter/foundation.dart';
 
+import 'forum_background.dart';
 import 'site_appearance.dart';
 
 /// A portable color palette; the forum still owns typography and geometry.
@@ -19,6 +20,7 @@ final class ForumTheme {
     required this.success,
     required this.love,
     this.alternate,
+    this.background,
     this.windowGradient = false,
     this.darkerSidebars = false,
   });
@@ -61,6 +63,9 @@ final class ForumTheme {
       }
     }
     return ForumTheme(
+      background: json['background'] == null
+          ? null
+          : ForumBackground.fromJson(json['background']),
       windowGradient: json['windowGradient'] == true,
       darkerSidebars: json['darkerSidebars'] == true,
       alternate: alternate,
@@ -88,6 +93,7 @@ final class ForumTheme {
   final Color success;
   final Color love;
   final ForumTheme? alternate;
+  final ForumBackground? background;
   final bool windowGradient;
   final bool darkerSidebars;
 
@@ -105,6 +111,7 @@ final class ForumTheme {
   Map<String, dynamic> toJson() => {
     if (alternate != null) 'alternate': alternate!.toJson(),
     'version': 1,
+    if (background != null) 'background': background!.toJson(),
     'windowGradient': windowGradient,
     'darkerSidebars': darkerSidebars,
     'name': name,
@@ -126,6 +133,7 @@ final class ForumTheme {
     return ForumTheme(
       id: id,
       name: name,
+      background: background,
       windowGradient: windowGradient,
       darkerSidebars: darkerSidebars,
       brightness: target,
@@ -155,6 +163,7 @@ final class ForumTheme {
         Color.lerp(background, color, amount)!;
     return ResolvedSitePalette.fromJson({
       'brightness': target.name,
+      if (this.background != null) 'background': this.background!.toJson(),
       'windowGradient': windowGradient,
       'darkerSidebars': darkerSidebars,
       'borderRadius':
@@ -218,6 +227,7 @@ final class ForumTheme {
       other.success == success &&
       other.love == love &&
       other.alternate == alternate &&
+      other.background == background &&
       other.windowGradient == windowGradient &&
       other.darkerSidebars == darkerSidebars;
 
@@ -234,6 +244,7 @@ final class ForumTheme {
     success,
     love,
     alternate,
+    background,
     windowGradient,
     darkerSidebars,
   );
