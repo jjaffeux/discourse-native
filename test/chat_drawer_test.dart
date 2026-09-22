@@ -1,3 +1,6 @@
+import 'dart:async';
+
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/plugin_api/plugin_scope.dart';
@@ -25,6 +28,86 @@ const _siteUrl = 'https://meta.discourse.org';
 const _user = DiscourseUser(id: 7, username: 'reader');
 
 void main() {
+  testWidgets('channel list shows skeletons until its first load completes', (
+    tester,
+  ) async {
+    final gate = Completer<void>();
+    final controller = ShellController(
+      plugins: installedPlugins,
+      instanceStore: FakeInstanceStore([
+        DiscourseInstance(
+          url: _siteUrl,
+          title: 'Meta',
+          user: _user,
+          notificationTotals: chatNotificationTotals(),
+        ),
+      ]),
+      api: FakeDiscourseApi(
+        totals: chatNotificationTotals(),
+        user: _user,
+        chatChannelGate: gate,
+        chatChannelsBySite: const {
+          _siteUrl: ChatChannels(
+            public: [
+              ChatChannel(
+                id: 9,
+                title: 'Community discussion',
+                kind: ChatChannelKind.category,
+                membership: ChatMembership(following: true),
+              ),
+            ],
+          ),
+        },
+      ),
+      authenticator: FakeAuthenticator()..keys[_siteUrl] = 'api-key',
+      drafts: FakeDraftStore(),
+      forumTabs: FakeForumTabStore(),
+      trackers: FakeSiteTracker.reset(),
+    );
+    addTearDown(controller.dispose);
+    await controller.load();
+    await tester.pumpWidget(
+      ShellScope(
+        controller: controller,
+        child: PluginUiScope.own(
+          chatPluginId,
+          MaterialApp(
+            theme: AppTheme.light,
+            home: const Scaffold(
+              body: SizedBox(
+                width: 320,
+                child: ChatDrawerChannelsView(
+                  siteUrl: _siteUrl,
+                  kind: ChatDrawerChannelListKind.channels,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    final placeholder = find.byKey(
+      const ValueKey('chat-sidebar-loading-skeleton'),
+    );
+    expect(placeholder, findsOneWidget);
+    expect(
+      find.descendant(of: placeholder, matching: find.byType(DSkeleton)),
+      findsWidgets,
+    );
+    expect(find.text('You have not joined any channels yet.'), findsNothing);
+
+    gate.complete();
+    await controller.pluginSession
+        .require(chatControllerService)
+        .loadChannels(_siteUrl);
+    await tester.pumpAndSettle();
+
+    expect(placeholder, findsNothing);
+    expect(find.text('Community discussion'), findsOneWidget);
+  });
+
   testWidgets('unread channel rows and navigation announce their state once', (
     tester,
   ) async {

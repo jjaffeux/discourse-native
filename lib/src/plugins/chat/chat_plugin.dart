@@ -366,6 +366,17 @@ class ChatPlugin
           destinations: navigationDestinations,
         ),
       if (authenticatedChatAvailable &&
+          !chat.channelsLoaded(siteUrl) &&
+          chat.channelsError(siteUrl) == null)
+        const SidebarSection(
+          id: 'chat-loading',
+          title: 'chat channels',
+          showHeader: false,
+          collapsible: false,
+          loading: true,
+          destinations: [],
+        ),
+      if (authenticatedChatAvailable &&
           chat.starredChannels(siteUrl).isNotEmpty)
         SidebarSection(
           id: 'chat-starred-channels',

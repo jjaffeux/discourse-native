@@ -411,6 +411,7 @@ final class PluginRegistry
         id: section.id,
         title: section.title,
         unreadCount: section.unreadCount,
+        loading: section.loading,
         destinations: [
           for (final destination in section.destinations)
             _ownedDestination(plugin, destination),

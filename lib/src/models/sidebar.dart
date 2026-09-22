@@ -143,6 +143,7 @@ class SidebarSection {
     this.actionAboveHeader = false,
     this.headerActionsBuilder,
     this.unreadCount = 0,
+    this.loading = false,
     this.remoteId,
     this.public = false,
   }) : assert(showHeader || !collapsible);
@@ -152,6 +153,9 @@ class SidebarSection {
   static const int maximumCustomLinks = 50;
 
   final String id;
+
+  /// Shows placeholder rows while this section's destinations are loading.
+  final bool loading;
 
   /// Native rows supply the primary Community links; core supplies its More
   /// links with `segment: secondary`. Other built-in sections stay local.

@@ -970,6 +970,9 @@ class ChatDrawerChannelsView extends StatelessWidget {
           sidebar: false,
           activeChannelId: shell.visibleChannelId,
         );
+        final loading =
+            !chat.channelsLoaded(siteUrl) &&
+            chat.channelsError(siteUrl) == null;
         final filtered =
             !chat.channelListPreferences.bypassed(siteUrl, section) &&
             chat.channelListPreferences
@@ -1041,24 +1044,29 @@ class ChatDrawerChannelsView extends StatelessWidget {
                               ),
                             ),
                             const SizedBox(width: 8),
-                            Text(
-                              '${channels.length}',
-                              style: Theme.of(context).textTheme.labelSmall
-                                  ?.copyWith(color: colors.onSurfaceVariant),
-                            ),
+                            if (loading)
+                              const DSkeleton(width: 20, height: 12)
+                            else
+                              Text(
+                                '${channels.length}',
+                                style: Theme.of(context).textTheme.labelSmall
+                                    ?.copyWith(color: colors.onSurfaceVariant),
+                              ),
                           ],
                         );
-                    final actions = [
-                      ChatChannelListActions(
-                        controller: chat.channelListPreferences,
-                        siteUrl: siteUrl,
-                        section: section,
-                      ),
-                      if (action != null) ...[
-                        const SizedBox(width: DSpacing.controlGap),
-                        action,
-                      ],
-                    ];
+                    final actions = loading
+                        ? <Widget>[]
+                        : <Widget>[
+                            ChatChannelListActions(
+                              controller: chat.channelListPreferences,
+                              siteUrl: siteUrl,
+                              section: section,
+                            ),
+                            if (action != null) ...[
+                              const SizedBox(width: DSpacing.controlGap),
+                              action,
+                            ],
+                          ];
                     if (header != null &&
                         constraints.maxWidth <
                             MediaQuery.textScalerOf(context).scale(320)) {
@@ -1087,7 +1095,9 @@ class ChatDrawerChannelsView extends StatelessWidget {
               ),
             ),
             Expanded(
-              child: channels.isEmpty
+              child: loading
+                  ? const _ChatChannelListLoadingSkeleton()
+                  : channels.isEmpty
                   ? Center(
                       child: Padding(
                         padding: const EdgeInsets.all(24),
@@ -1129,6 +1139,50 @@ class ChatDrawerChannelsView extends StatelessWidget {
       },
     );
   }
+}
+
+class _ChatChannelListLoadingSkeleton extends StatelessWidget {
+  const _ChatChannelListLoadingSkeleton();
+
+  @override
+  Widget build(BuildContext context) => DSkeletonRegion(
+    key: const ValueKey('chat-sidebar-loading-skeleton'),
+    semanticsLabel: 'Loading chat channels',
+    expand: true,
+    child: ListView(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+      children: [
+        for (var row = 0; row < 5; row++)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: Row(
+              children: [
+                const DSkeleton.circle(diameter: 36),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      FractionallySizedBox(
+                        widthFactor: row.isEven ? .65 : .5,
+                        alignment: AlignmentDirectional.centerStart,
+                        child: const DSkeleton(height: 14),
+                      ),
+                      const SizedBox(height: 8),
+                      FractionallySizedBox(
+                        widthFactor: row.isEven ? .85 : .7,
+                        alignment: AlignmentDirectional.centerStart,
+                        child: const DSkeleton(height: 12),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+      ],
+    ),
+  );
 }
 
 class _DrawerListAction extends StatelessWidget {

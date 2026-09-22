@@ -1092,6 +1092,10 @@ void _registerTopicReadingTests() {
           findsOneWidget,
         );
         expect(
+          find.descendant(of: topicsRow, matching: find.byType(DSkeleton)),
+          findsOneWidget,
+        );
+        expect(
           find.descendant(
             of: topicsRow,
             matching: find.dIcon(DIcons.layerGroup),
