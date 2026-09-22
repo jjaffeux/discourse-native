@@ -393,10 +393,7 @@ void main() {
     await tester.pump();
     await tester.pump();
     expect(find.byType(DDropIndicator), findsOneWidget);
-    expect(
-      find.text('${composer.blocks.index.blocks.first.label} actions'),
-      findsNothing,
-    );
+    expect(find.text('Drag to move or click to open menu'), findsNothing);
     await gesture.up();
     await tester.pumpAndSettle();
     expect(
