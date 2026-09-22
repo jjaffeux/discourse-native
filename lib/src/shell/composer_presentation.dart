@@ -43,6 +43,15 @@ class ComposerPresentationHost extends StatefulWidget {
   static Listenable layoutChangesOf(BuildContext context) =>
       _ComposerPresentationScope.of(context)._presentation;
 
+  /// Reveals sidebar destinations while retaining the current draft and dock.
+  static void redockForNavigation(BuildContext context) {
+    if (context.isTouch) return;
+    context
+        .getInheritedWidgetOfExactType<_ComposerPresentationScope>()
+        ?.owner
+        ._redockForNavigation();
+  }
+
   /// Reader width if the editor were docked in the outer desktop workspace.
   /// Used to reserve room for a side composer within a topic sheet.
   static double readerWidthOf(BuildContext context, double width) {
@@ -160,7 +169,21 @@ class _ComposerPresentationHostState extends State<ComposerPresentationHost> {
     if (mounted) setState(() {});
   }
 
-  Future<void> _place(_ComposerEntry entry, ComposerPlacement placement) async {
+  void _redockForNavigation() {
+    final entry = _entries[_presentableComposer];
+    if (entry == null ||
+        entry.minimized ||
+        _presentation.preference.placement != ComposerPlacement.fullScreen) {
+      return;
+    }
+    unawaited(_place(entry, _previousDockPlacement, focusEditor: false));
+  }
+
+  Future<void> _place(
+    _ComposerEntry entry,
+    ComposerPlacement placement, {
+    bool focusEditor = true,
+  }) async {
     if (entry.moving || entry.composer.isDisposed) return;
     entry.moving = true;
     // Let the placement menu and editor selection overlay finish dismissing.
@@ -179,9 +202,11 @@ class _ComposerPresentationHostState extends State<ComposerPresentationHost> {
       entry.moving = false;
       if (mounted) {
         setState(() {});
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (!entry.composer.isDisposed) entry.composer.focus.requestFocus();
-        });
+        if (focusEditor) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!entry.composer.isDisposed) entry.composer.focus.requestFocus();
+          });
+        }
       }
     }
   }
