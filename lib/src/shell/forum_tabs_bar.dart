@@ -119,7 +119,7 @@ class _ForumTabsBarState extends State<ForumTabsBar> {
         children: [
           Positioned.fill(
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(4, 5, 5, 5),
+              padding: const EdgeInsets.fromLTRB(4, 0, 5, 10),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
