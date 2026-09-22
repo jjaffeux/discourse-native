@@ -93,6 +93,7 @@ class Bookmark {
     this.bookmarkableId,
     this.bookmarkableType,
     this.postNumber,
+    this.categoryId,
     this.title = '',
     this.name,
     this.author,
@@ -113,6 +114,7 @@ class Bookmark {
       postNumber: jsonIntOrNull(
         json['post_number'] ?? json['linked_post_number'],
       ),
+      categoryId: jsonIntOrNull(json['category_id']),
       title: jsonTitle(json['title'], json['fancy_title']),
       name: jsonText(json['name']),
       author: jsonText(user['username']),
@@ -161,6 +163,7 @@ class Bookmark {
   final int? bookmarkableId;
   final String? bookmarkableType;
   final int? postNumber;
+  final int? categoryId;
 
   BookmarkTargetType? get coreTargetType =>
       BookmarkTargetType.read(bookmarkableType);
@@ -188,6 +191,7 @@ class Bookmark {
     bookmarkableId: bookmarkableId,
     bookmarkableType: bookmarkableType,
     postNumber: postNumber,
+    categoryId: categoryId,
     title: title,
     name: clearName ? null : (name ?? this.name),
     author: author,
@@ -204,6 +208,7 @@ class Bookmark {
           other.bookmarkableId == bookmarkableId &&
           other.bookmarkableType == bookmarkableType &&
           other.postNumber == postNumber &&
+          other.categoryId == categoryId &&
           other.title == title &&
           other.name == name &&
           other.author == author &&
@@ -217,6 +222,7 @@ class Bookmark {
     bookmarkableId,
     bookmarkableType,
     postNumber,
+    categoryId,
     title,
     name,
     author,

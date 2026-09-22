@@ -13,6 +13,7 @@ void main() {
         'bookmarkable_id': 44,
         'bookmarkable_type': 'Post',
         'post_number': 3,
+        'category_id': 9,
         'name': 'Read this',
         'title': 'A topic',
         'bookmarkable_url': 'https://forum.example/t/a-topic/7/3',
@@ -24,6 +25,8 @@ void main() {
       expect(bookmark.bookmarkableId, 44);
       expect(bookmark.coreTargetType, BookmarkTargetType.post);
       expect(bookmark.postNumber, 3);
+      expect(bookmark.categoryId, 9);
+      expect(bookmark.copyWith(name: 'Updated note').categoryId, 9);
       expect(bookmark.path, '/t/a-topic/7/3');
       expect(
         bookmark.autoDeletePreference,
@@ -57,6 +60,7 @@ void main() {
       expect(bookmark.id, 0);
       expect(bookmark.bookmarkableId, isNull);
       expect(bookmark.bookmarkableType, isNull);
+      expect(bookmark.categoryId, isNull);
       expect(bookmark.reminderAt, isNull);
       expect(
         bookmark.autoDeletePreference,
