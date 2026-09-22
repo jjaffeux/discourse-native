@@ -670,13 +670,7 @@ class _ChatNewDirectMessageDialogState
             textAlign: TextAlign.center,
           ),
         ),
-        for (final group in groups)
-          DCommandGroup<String>(
-            heading: Text(group.heading),
-            items: group.items,
-          ),
         if (showNewGroup) ...[
-          const DCommandSeparator<String>(),
           DCommandGroup<String>(
             items: [
               DCommandItem<String>(
@@ -690,7 +684,13 @@ class _ChatNewDirectMessageDialogState
               ),
             ],
           ),
+          if (groups.isNotEmpty) const DCommandSeparator<String>(),
         ],
+        for (final group in groups)
+          DCommandGroup<String>(
+            heading: Text(group.heading),
+            items: group.items,
+          ),
       ],
     );
   }
