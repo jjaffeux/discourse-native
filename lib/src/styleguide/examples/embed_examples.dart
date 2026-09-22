@@ -10,8 +10,9 @@ final embedExamples = ComponentExamples(
   status: ComponentStatus.implemented,
   notes:
       'These examples use self-contained HTML and make no network requests. '
-      'The embedded provider owns its content and appearance; Native owns the '
-      'card and loading indicator. Loaded content meets the bottom edge without '
+      'The embedded provider owns its content and appearance; Native supplies '
+      'loading and failure states. Use the provider presentation for embeds '
+      'with their own heading and border. Loaded content meets the bottom edge without '
       'a footer; retry and browser actions appear only on failure. Trusted '
       'resize messages adjust the viewport between 120 and 2000 pixels. '
       'Unsupported platforms keep the browser action. The application validates '
@@ -34,6 +35,15 @@ final embedExamples = ComponentExamples(
       builder: (_) => const _EmbedExample(),
     ),
     StyleguideExample(
+      title: 'Provider card',
+      description:
+          'Providers such as Reddit supply their own heading and border. '
+          'The Native loading surface is replaced by the complete provider card.',
+      code: 'DEmbed(presentation: DEmbedPresentation.provider, ...)',
+      builder: (_) =>
+          const _EmbedExample(presentation: DEmbedPresentation.provider),
+    ),
+    StyleguideExample(
       title: 'Unavailable embed',
       description:
           'An invalid embed URL never creates a web view; the original link '
@@ -45,8 +55,12 @@ final embedExamples = ComponentExamples(
 );
 
 class _EmbedExample extends StatefulWidget {
-  const _EmbedExample({this.unavailable = false});
+  const _EmbedExample({
+    this.unavailable = false,
+    this.presentation = DEmbedPresentation.card,
+  });
   final bool unavailable;
+  final DEmbedPresentation presentation;
 
   @override
   State<_EmbedExample> createState() => _EmbedExampleState();
@@ -60,6 +74,7 @@ class _EmbedExampleState extends State<_EmbedExample> {
     crossAxisAlignment: CrossAxisAlignment.stretch,
     children: [
       DEmbed(
+        presentation: widget.presentation,
         uri: widget.unavailable
             ? Uri.parse('about:blank')
             : Uri.dataFromString(

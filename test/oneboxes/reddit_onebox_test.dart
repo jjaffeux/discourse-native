@@ -62,6 +62,23 @@ void main() {
     }
   });
 
+  test('matches the app theme while preserving comment context', () {
+    final data = parse(redditCommentOnebox)!;
+    final dark = data.embedUriFor(Brightness.dark);
+    expect(dark.queryParameters['theme'], 'dark');
+    expect(dark.queryParameters['context'], '1');
+    expect(dark.queryParameters['showmedia'], 'false');
+    expect(dark.path, data.embedUri.path);
+    final light = parse(
+      redditCommentOnebox.replaceFirst(
+        'embed=true',
+        'embed=true&amp;theme=dark',
+      ),
+    )!.embedUriFor(Brightness.light);
+    expect(light.queryParameters, isNot(contains('theme')));
+    expect(light.queryParameters['context'], '1');
+  });
+
   test('allows canonical title slugs for the same post or comment only', () {
     final post = parse(redditPostOnebox)!;
     expect(
@@ -228,19 +245,16 @@ void main() {
           );
           expect(controller.documents.single.html, contains('resize.embed'));
           expect(find.byType(DEmbed), findsOneWidget);
-          expect(tester.getSize(find.byType(WebViewWidget)), Size(638, height));
+          expect(tester.getSize(find.byType(WebViewWidget)), Size(640, height));
           controller.channels['NativeEmbed']!.onMessageReceived(
             const JavaScriptMessage(message: 'loaded'),
           );
           await tester.pumpAndSettle();
           expect(find.text('Open on Reddit'), findsNothing);
+          expect(find.byType(DCard), findsNothing);
           expect(
             tester.getBottomLeft(find.byType(WebViewWidget)),
-            tester.getBottomLeft(find.byType(DCard)) + const Offset(1, -1),
-          );
-          expect(
-            tester.getBottomRight(find.byType(WebViewWidget)),
-            tester.getBottomRight(find.byType(DCard)) + const Offset(-1, -1),
+            tester.getBottomLeft(find.byType(DEmbed)),
           );
           final link = parse(markup)!.linkUri.toString();
           expect(
@@ -279,12 +293,20 @@ void main() {
           ),
         );
         await tester.pump();
-        expect(tester.getSize(find.byType(WebViewWidget)).width, 278);
+        expect(tester.getSize(find.byType(WebViewWidget)).width, 280);
+        expect(
+          tester
+              .widget<DEmbed>(find.byType(DEmbed))
+              .uri
+              .queryParameters['theme'],
+          theme.brightness == Brightness.dark ? 'dark' : isNull,
+        );
         platform.controllers.last.channels['NativeEmbed']!.onMessageReceived(
           const JavaScriptMessage(message: 'loaded'),
         );
         await tester.pumpAndSettle();
-        expect(find.text('Reddit comment · r/cats'), findsOneWidget);
+        expect(find.text('Reddit comment · r/cats'), findsNothing);
+        expect(find.byType(DCard), findsNothing);
         expect(tester.takeException(), isNull);
         await tester.pumpWidget(const SizedBox.shrink());
       }

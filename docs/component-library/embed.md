@@ -4,16 +4,23 @@
 adapter uses it for Discourse's `iframe.reddit-onebox` markup; generic
 `aside.onebox` rendering remains available for older cooked cards.
 
-The provider supplies the iframe content. Native supplies the card and loading
-indicator. Loaded embeds have no footer and meet the inside of the card's
-one-pixel border without extra spacing. The platform view is inset only by that
-border and clips its bottom corners, preserving the outline on macOS too.
-Failed embeds show retry and external-link actions alongside the
-error message. The adapter validates Reddit's
+The provider supplies the iframe content. By default Native supplies the card
+and heading, with the platform view meeting the inside of its one-pixel border
+without extra spacing. `DEmbedPresentation.provider` lets providers such as
+Reddit supply the complete card, including their own heading and outline.
+Reddit uses this presentation to avoid duplicate headings and nested borders,
+and follows the app's light or dark theme. Native still supplies the loading
+indicator and failure card, with retry and external-link actions. Neither
+presentation adds a footer to loaded content.
+
+The adapter validates Reddit's
 embed origins and post/comment identity, preserves comment query parameters,
 and accepts canonical title-slug redirects. The host document validates both
 origin and source window before forwarding `resize.embed` messages. Heights
-are bounded to 120–2000 logical pixels. Disposing or replacing an embed
+are bounded to 120–2000 logical pixels. Following Reddit's
+[official widget host](https://embed.reddit.com/widgets.js), the iframe uses
+`scrolling="no"` while its content fits; scrolling is enabled for provider heights
+above the maximum so the remaining content stays reachable. Disposing or replacing an embed
 detaches its message channel and unloads the old document.
 
 On macOS the platform view is composited in the root overlay, clipped to its
@@ -22,8 +29,8 @@ existing native wheel bridge is shared with YouTube so wheel events scroll
 the surrounding reader and continue to respect covering Flutter surfaces.
 Touch platforms retain vertical drag scrolling with the reader.
 
-The Embed styleguide provides self-contained, offline content and an
-unavailable example. Neither requires a Reddit account or network access.
+The Embed styleguide provides self-contained examples of both presentations
+and an unavailable example. None requires a Reddit account or network access.
 
 ## Verification — 2026-09-22
 
@@ -57,6 +64,14 @@ unavailable example. Neither requires a Reddit account or network access.
   expanded Reddit post in dark mode. Pointer links, expansion and wheel
   scrolling still worked. The provider's reported content height is preserved;
   only the one-pixel card border is reserved outside it.
+- Theme and presentation follow-up: 30 embed, Reddit and Onebox gallery tests
+  and 28 styleguide tests passed, alongside static analysis and a macOS debug
+  build. The live macOS post was inspected in dark mode at regular width and
+  light mode at 280 pixels, including switching themes while mounted. Reddit's
+  own outline remained visible without a duplicate Native heading, frame,
+  footer or normal iframe scrollbar. **Read more** expanded the post and wheel
+  scrolling reached its bottom edge. The JavaScript harness also verified that
+  heights above 2000 enable iframe scrolling and smaller heights disable it.
 
 ```sh
 flutter test --no-pub test/ui/d_embed_test.dart test/oneboxes \

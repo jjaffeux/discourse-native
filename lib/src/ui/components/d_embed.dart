@@ -16,6 +16,9 @@ import 'd_spinner.dart';
 // Leave the Card's existing outline visible beneath the native platform view.
 const _embedBorderInsets = EdgeInsets.only(left: 1, right: 1, bottom: 1);
 
+/// Providers with their own header and outline can supply the complete card.
+enum DEmbedPresentation { card, provider }
+
 /// A bounded iframe with Native loading and failure controls.
 ///
 /// The caller validates the provider's URL and supplies its exact trusted
@@ -41,6 +44,7 @@ class DEmbed extends StatefulWidget {
     this.resizeMessageType,
     this.canNavigate,
     this.onError,
+    this.presentation = DEmbedPresentation.card,
   });
 
   final Uri uri;
@@ -49,6 +53,7 @@ class DEmbed extends StatefulWidget {
   final Uri externalUri;
   final ValueChanged<Uri> onOpenLink;
   final String openLabel;
+  final DEmbedPresentation presentation;
 
   /// Initial viewport height, bounded to 120–2000 logical pixels.
   final double height;
@@ -74,7 +79,7 @@ class _DEmbedState extends State<DEmbed> {
   late double _height;
 
   static double _boundedHeight(double value) =>
-      value.isFinite && value > 0 ? value.clamp(120.0, 2000.0) : 500;
+      value.isFinite && value > 0 ? value.clamp(120.0, maxEmbedHeight) : 500;
 
   @override
   void initState() {
@@ -264,74 +269,94 @@ class _DEmbedState extends State<DEmbed> {
   }
 
   @override
-  Widget build(BuildContext context) => DCard(
-    size: DCardSize.small,
-    trailing: _failed
-        ? null
-        : SizedBox(
-            height: _height + _embedBorderInsets.vertical,
-            child: _controller == null
-                ? const SizedBox.shrink()
-                : _EmbedViewport(
-                    child: Semantics(
-                      label: widget.title,
-                      child: WebViewWidget(
-                        controller: _controller!,
-                        gestureRecognizers: const {
-                          Factory<TapGestureRecognizer>(
-                            TapGestureRecognizer.new,
+  Widget build(BuildContext context) {
+    final provider = widget.presentation == DEmbedPresentation.provider;
+    final viewport = SizedBox(
+      height: _height + (provider ? 0 : _embedBorderInsets.vertical),
+      child: _controller == null
+          ? const SizedBox.shrink()
+          : _EmbedViewport(
+              framed: !provider,
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  Semantics(
+                    label: widget.title,
+                    child: WebViewWidget(
+                      controller: _controller!,
+                      gestureRecognizers: const {
+                        Factory<TapGestureRecognizer>(TapGestureRecognizer.new),
+                      },
+                    ),
+                  ),
+                  if (provider && _loading)
+                    DCard(
+                      spacing: 0,
+                      child: SizedBox(
+                        height: _height,
+                        child: Center(
+                          child: DSpinner(
+                            semanticLabel: 'Loading ${widget.title}',
                           ),
-                        },
+                        ),
                       ),
                     ),
-                  ),
-          ),
-    children: [
-      DCardHeader(
-        title: DCardTitle(child: Text(widget.title)),
-        action: _loading
-            ? DCardAction(
-                child: DSpinner(semanticLabel: 'Loading ${widget.title}'),
-              )
-            : null,
-      ),
-      if (_failed)
-        DCardContent(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text('Could not load this embed.'),
-              const SizedBox(height: DSpacing.sm),
-              Wrap(
-                spacing: DSpacing.controlGap,
-                runSpacing: DSpacing.xs,
-                children: [
-                  if (_isEmbedUri(widget.uri))
-                    DButton(
-                      label: const Text('Retry'),
-                      variant: DButtonVariant.outline,
-                      onPressed: () => setState(_initialize),
-                    ),
-                  DButton(
-                    label: Text(widget.openLabel),
-                    variant: DButtonVariant.link,
-                    isLink: true,
-                    onPressed: _isExternalUri(widget.externalUri)
-                        ? () => widget.onOpenLink(widget.externalUri)
-                        : null,
-                  ),
                 ],
               ),
-            ],
-          ),
+            ),
+    );
+    if (provider && !_failed) return viewport;
+    return DCard(
+      size: DCardSize.small,
+      trailing: _failed ? null : viewport,
+      children: [
+        DCardHeader(
+          title: DCardTitle(child: Text(widget.title)),
+          action: _loading
+              ? DCardAction(
+                  child: DSpinner(semanticLabel: 'Loading ${widget.title}'),
+                )
+              : null,
         ),
-    ],
-  );
+        if (_failed)
+          DCardContent(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Could not load this embed.'),
+                const SizedBox(height: DSpacing.sm),
+                Wrap(
+                  spacing: DSpacing.controlGap,
+                  runSpacing: DSpacing.xs,
+                  children: [
+                    if (_isEmbedUri(widget.uri))
+                      DButton(
+                        label: const Text('Retry'),
+                        variant: DButtonVariant.outline,
+                        onPressed: () => setState(_initialize),
+                      ),
+                    DButton(
+                      label: Text(widget.openLabel),
+                      variant: DButtonVariant.link,
+                      isLink: true,
+                      onPressed: _isExternalUri(widget.externalUri)
+                          ? () => widget.onOpenLink(widget.externalUri)
+                          : null,
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+      ],
+    );
+  }
 }
 
 class _EmbedViewport extends StatefulWidget {
-  const _EmbedViewport({required this.child});
+  const _EmbedViewport({required this.child, required this.framed});
   final Widget child;
+  final bool framed;
 
   @override
   State<_EmbedViewport> createState() => _EmbedViewportState();
@@ -414,15 +439,20 @@ class _EmbedViewportState extends State<_EmbedViewport> {
 
   @override
   Widget build(BuildContext context) {
+    final radius = DTokens.of(context).radius * 1.4;
     final content = Padding(
-      padding: _embedBorderInsets,
+      padding: widget.framed ? _embedBorderInsets : EdgeInsets.zero,
       child: ClipRRect(
-        borderRadius: BorderRadius.vertical(
-          bottom: Radius.circular(
-            (DTokens.of(context).radius * 1.4 - _embedBorderInsets.bottom)
-                .clamp(0.0, double.infinity),
-          ),
-        ),
+        borderRadius: widget.framed
+            ? BorderRadius.vertical(
+                bottom: Radius.circular(
+                  (radius - _embedBorderInsets.bottom).clamp(
+                    0.0,
+                    double.infinity,
+                  ),
+                ),
+              )
+            : BorderRadius.circular(radius),
         child: widget.child,
       ),
     );
