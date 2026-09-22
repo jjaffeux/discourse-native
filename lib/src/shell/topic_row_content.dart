@@ -51,7 +51,7 @@ class _TopicListTitle extends StatelessWidget {
         (large ? theme.textTheme.titleMedium : theme.textTheme.titleSmall);
     final largeText = MediaQuery.textScalerOf(context).scale(14) > 21;
     return DItemTitle(
-      maxLines: largeText || mobile ? null : 2,
+      maxLines: largeText ? null : 2,
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         spacing: 6,
@@ -92,10 +92,8 @@ class _TopicListTitle extends StatelessWidget {
             child: TopicTitle(
               topic.title,
               siteUrl: row.siteUrl,
-              maxLines: largeText || mobile ? null : 2,
-              overflow: largeText || mobile
-                  ? TextOverflow.clip
-                  : TextOverflow.ellipsis,
+              maxLines: largeText ? null : 2,
+              overflow: largeText ? TextOverflow.clip : TextOverflow.ellipsis,
               style: style?.copyWith(
                 color: topicListTitleColor(
                   theme,
