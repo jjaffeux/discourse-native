@@ -215,60 +215,57 @@ class _DesktopPickerCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Material(
+    return DPopoverContent(
       key: const ValueKey('emoji-picker-desktop-popover'),
-      elevation: 8,
-      color: theme.shell.floating,
-      borderRadius: BorderRadius.circular(12),
-      clipBehavior: Clip.antiAlias,
-      child: Container(
-        width: _desktopPickerWidth,
-        height: _desktopPickerHeight,
-        decoration: BoxDecoration(
-          border: Border.all(color: theme.shell.divider),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            SizedBox(
-              height: 44,
-              child: Padding(
-                padding: const EdgeInsetsDirectional.only(start: 16, end: 4),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        'Emoji',
-                        style: theme.textTheme.titleSmall?.copyWith(
-                          fontWeight: FontWeight.w600,
+      width: _desktopPickerWidth,
+      padding: EdgeInsets.zero,
+      scrollable: false,
+      child: Material(
+        type: MaterialType.transparency,
+        child: SizedBox(
+          height: _desktopPickerHeight,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              SizedBox(
+                height: 44,
+                child: Padding(
+                  padding: const EdgeInsetsDirectional.only(start: 16, end: 4),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          'Emoji',
+                          style: theme.textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                       ),
-                    ),
-                    DButton.iconOnly(
-                      key: const ValueKey('emoji-picker-close'),
-                      onPressed: onDismiss,
-                      variant: DButtonVariant.ghost,
-                      tooltip: 'Close',
-                      icon: const DIcon(DIcons.xmark),
-                    ),
-                  ],
+                      DButton.iconOnly(
+                        key: const ValueKey('emoji-picker-close'),
+                        onPressed: onDismiss,
+                        variant: DButtonVariant.ghost,
+                        tooltip: 'Close',
+                        icon: const DIcon(DIcons.xmark),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ),
-            DSeparator(space: 1, color: theme.shell.divider),
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(8, 8, 8, 8),
-                child: EmojiPicker(
-                  controller: controller,
-                  touch: false,
-                  onPicked: onPicked,
-                  onDismiss: onDismiss,
+              DSeparator(space: 1, color: theme.shell.divider),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(8, 8, 8, 8),
+                  child: EmojiPicker(
+                    controller: controller,
+                    touch: false,
+                    onPicked: onPicked,
+                    onDismiss: onDismiss,
+                  ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
