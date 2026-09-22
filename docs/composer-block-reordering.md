@@ -143,6 +143,12 @@ next frame, including the cursor updates sent to the platform. A stationary,
 non-blocking window overlay retains the fist throughout a drag and is removed
 on drop or cancellation, even when scrolling has unmounted the source handle.
 
+The empty-line destination follow-up passed 383 focused tests and root static
+analysis. Its four desktop gesture regressions fail on the original source.
+The macOS block-add fixture was inspected at 720px in dark mode and 360px in light
+mode: paragraph and heading drops reached internal, leading and trailing empty
+lines, and the arrangement Undo action restored the original spacing.
+
 ## Notion reference
 
 The original HTML concept used Notion's block model as an interaction reference.
