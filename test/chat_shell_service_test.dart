@@ -31,6 +31,42 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   test(
+    'unrelated host updates do not notify chat presentation listeners',
+    () async {
+      final fixture = await _fixture(
+        channels: ChatChannels(public: [_channel(9)]),
+        persistence: _PreferencesPersistence(),
+      );
+      addTearDown(fixture.dispose);
+      // Let the persisted display preference finish restoring first.
+      await Future<void>.delayed(Duration.zero);
+      var changes = 0;
+      fixture.shell.addListener(() => changes++);
+
+      fixture.host._changes.notifyListeners();
+      fixture.host._changes.notifyListeners();
+      expect(changes, 0);
+
+      fixture.host.pushContent(
+        ContentRoute.topic(topicId: 42, slug: 'topic', title: 'Topic'),
+      );
+      expect(changes, 1);
+      fixture.host._changes.notifyListeners();
+      expect(changes, 1);
+
+      fixture.host.bounds = const Rect.fromLTWH(0, 0, 600, 800);
+      fixture.host._changes.notifyListeners();
+      expect(changes, 2);
+
+      fixture.host.instance = fixture.host.instance.copyWith(
+        title: 'Renamed forum',
+      );
+      fixture.host._changes.notifyListeners();
+      expect(changes, 3);
+    },
+  );
+
+  test(
     'in-app links wait for and honor the restored full-page preference',
     () async {
       final persistence = _PreferencesPersistence.gated();
@@ -423,6 +459,7 @@ final class _NavigationHost implements PluginNavigationHost {
 
   DiscourseInstance instance;
   final NotificationTotals totals;
+  Rect? bounds;
   final ChangeNotifier _changes = ChangeNotifier();
   List<ContentRoute> _contentStack;
   List<ContentRoute>? _mainPaneStack;
@@ -458,7 +495,7 @@ final class _NavigationHost implements PluginNavigationHost {
   PluginVisibleTopicContext? get visibleTopicContext => null;
 
   @override
-  Rect? get readerContentBounds => null;
+  Rect? get readerContentBounds => bounds;
 
   @override
   void selectInstance(int index) {}

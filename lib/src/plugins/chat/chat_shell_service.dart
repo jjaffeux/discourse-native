@@ -10,6 +10,7 @@ import '../../data/store.dart';
 import '../../models/bookmark.dart';
 import '../../models/chat_channel_list_preferences.dart';
 import '../../models/content_route.dart';
+import '../../models/discourse_instance.dart';
 import '../../models/discourse_user.dart';
 import '../../models/notification_totals.dart';
 import '../../models/post_flag.dart';
@@ -60,6 +61,8 @@ final class ChatShellService
        _postFlagCatalog = postFlagCatalog,
        _drawerPreferences =
            drawerPreferences ?? const ChatDrawerPreferencesStore() {
+    _lastHostPresentation = _hostPresentation;
+    _lastHostInstance = _host.currentInstance;
     _host.changes.addListener(_handleHostChanged);
     _drawerPreferencesRestored = _restoreDrawerPreferences();
   }
@@ -76,6 +79,23 @@ final class ChatShellService
   int _displayPreferenceGeneration = 0;
   int _urlOpenGeneration = 0;
   bool _disposed = false;
+  Object? _lastHostPresentation;
+  DiscourseInstance? _lastHostInstance;
+
+  // Topic pagination and reading progress notify the host without changing
+  // anything exposed by this service. Do not rebuild chat chrome and sidebar
+  // panels for those updates. Commands still read the host directly.
+  Object get _hostPresentation => (
+    _host.currentContent,
+    _host.currentTotals,
+    _host.forumActive,
+    _host.readerContentBounds,
+    _currentSiteCanUseChat,
+    currentSiteUrl == null ? false : doNotDisturbActive(currentSiteUrl!),
+    separateSidebarMode,
+    _drawerActive,
+    _fullPagePreservesAppRoute,
+  );
   bool _drawerAvailable = false;
   bool _drawerActive = false;
   bool _drawerExpanded = true;
@@ -402,7 +422,11 @@ final class ChatShellService
         !ChatPlugin.ownsRouteId(_host.currentContent?.id)) {
       _fullPagePreservesAppRoute = false;
     }
-    _notify();
+    final presentation = _hostPresentation;
+    if (!identical(_host.currentInstance, _lastHostInstance) ||
+        presentation != _lastHostPresentation) {
+      _notify();
+    }
   }
 
   void forget(String siteUrl) {
@@ -417,7 +441,11 @@ final class ChatShellService
   }
 
   void _notify() {
-    if (!_disposed) _changes.value++;
+    if (!_disposed) {
+      _lastHostPresentation = _hostPresentation;
+      _lastHostInstance = _host.currentInstance;
+      _changes.value++;
+    }
   }
 
   @override
