@@ -278,10 +278,7 @@ void main() {
           matching: find.byIcon(Icons.menu),
         ),
       );
-      final logo = tester.getRect(
-        find.byKey(const ValueKey('forum-identity-logo')),
-      );
-      expect(logo.left - menuIcon.right, lessThanOrEqualTo(20));
+      expect(menuIcon.left - menu.left, lessThanOrEqualTo(4));
       expect(
         tester.widget<DButton>(
           find.byKey(const ValueKey('forum-identity-button')),
