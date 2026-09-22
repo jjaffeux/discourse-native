@@ -39,9 +39,10 @@ the optimistic view and reports that saving could not be confirmed.
 Quoted checkboxes, permanent `[X]` markers, revision diffs, localized bodies and
 posts without edit permission stay read-only. Nested details, spoilers and
 tables retain whole-post checkbox indices and their presentation state through
-toggles. Live post refreshes wait for writes, and responses from a retired
-account cannot change the current post. The insertion command is available in
-topic composers, not chat.
+toggles. Bookmark changes can save independently while a checklist is saving;
+bookmark reconciliation changes only bookmark metadata. Live post refreshes
+wait until both writes finish, and responses from a retired account cannot change
+the current post. The insertion command is available in topic composers, not chat.
 
 Verification includes source/parser tests, widget interactions, slash commands,
 undo, source offsets, individual row dragging and mobile movement, narrow 200%

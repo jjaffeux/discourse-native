@@ -3,12 +3,15 @@ import 'dart:convert';
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/data/discourse_api.dart';
+import 'package:discourse_native/src/models/bookmark.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/post_checklist.dart';
+import 'package:discourse_native/src/plugin_api/bookmark_host.dart';
 import 'package:discourse_native/src/plugin_api/site_plugin_api.dart';
 import 'package:discourse_native/src/shell/cooked_html.dart';
+import 'package:discourse_native/src/shell/post_actions.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
@@ -17,6 +20,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
+import 'support/bundled_plugins.dart';
 import 'support/fakes.dart';
 
 const site = 'https://meta.discourse.org';
@@ -107,8 +111,98 @@ class ChecklistApi extends FakeDiscourseApi {
   }
 }
 
-Future<ShellController> shellFor(ChecklistApi api, {Post? initial}) async {
+class ChecklistBookmarkApi extends ChecklistApi {
+  final bookmarkGate = Completer<void>();
+  Completer<void>? bookmarkReadGate;
+
+  @override
+  Future<int> createBookmark({
+    required String siteUrl,
+    required String apiKey,
+    required BookmarkTargetType targetType,
+    required int targetId,
+    String? name,
+    DateTime? reminderAt,
+    BookmarkAutoDeletePreference? autoDeletePreference,
+    String? clientId,
+  }) async {
+    final id = await super.createBookmark(
+      siteUrl: siteUrl,
+      apiKey: apiKey,
+      targetType: targetType,
+      targetId: targetId,
+      name: name,
+      reminderAt: reminderAt,
+      autoDeletePreference: autoDeletePreference,
+      clientId: clientId,
+    );
+    await bookmarkGate.future;
+    server = server.withBookmark(
+      Bookmark(id: id, bookmarkableType: 'Post', bookmarkableId: targetId),
+    );
+    return id;
+  }
+
+  @override
+  Future<void> deleteTopicBookmarks({
+    required String siteUrl,
+    required String apiKey,
+    required int topicId,
+    String? clientId,
+  }) async {
+    await bookmarkGate.future;
+    server = server.withBookmark(null);
+  }
+
+  @override
+  Future<TopicPayload> topic({
+    required String siteUrl,
+    required String slug,
+    required int id,
+    int? postNumber,
+    bool summary = false,
+    String? apiKey,
+    String? clientId,
+  }) async {
+    topicsOpened.add(id);
+    // Capture the body before waiting to exercise a stale bookmark response.
+    final snapshot = server;
+    await bookmarkReadGate?.future;
+    return (
+      detail: TopicDetail(
+        id: 7,
+        title: 'Topic',
+        stream: const [22],
+        postsCount: 1,
+        bookmarks: [?snapshot.bookmark],
+      ),
+      posts: [snapshot],
+    );
+  }
+}
+
+bool bookmarkBusy(ShellController shell) => shell.bookmarkWriteInFlight(
+  siteUrl: site,
+  topicId: 7,
+  targetType: BookmarkTargetType.post,
+  targetId: 22,
+);
+
+Future<BookmarkWriteResult> bookmark(ShellController shell) =>
+    shell.createBookmark(
+      siteUrl: site,
+      topicId: 7,
+      targetType: BookmarkTargetType.post,
+      targetId: 22,
+    );
+
+Future<ShellController> shellFor(
+  ChecklistApi api, {
+  Post? initial,
+  bool liveRefresh = false,
+}) async {
   final shell = ShellController(
+    plugins: liveRefresh ? installedPlugins : null,
     instanceStore: FakeInstanceStore([
       instance(
         'meta.discourse.org',
@@ -239,6 +333,177 @@ void main() {
       expect(shell.postWriteInFlight(22), isFalse);
     },
   );
+
+  for (final bookmarkStartsFirst in [false, true]) {
+    for (final bookmarkFinishesFirst in [false, true]) {
+      for (final rejected in [false, true]) {
+        test(
+          'independent saves: bookmark starts first=$bookmarkStartsFirst, '
+          'finishes first=$bookmarkFinishesFirst, checklist refused=$rejected',
+          () async {
+            final api = ChecklistBookmarkApi()
+              ..writeGates.add(Completer<void>())
+              ..refusal = rejected
+                  ? const WriteException(WriteFailure.validation)
+                  : null;
+            final shell = await shellFor(api, liveRefresh: true);
+            addTearDown(shell.dispose);
+            late Future<BookmarkWriteResult> savingBookmark;
+            late Future<String?> savingChecklist;
+            if (bookmarkStartsFirst) {
+              savingBookmark = bookmark(shell);
+              savingChecklist = toggle(shell, 0, true);
+            } else {
+              savingChecklist = toggle(shell, 0, true);
+              expect(bookmarkBusy(shell), isFalse);
+              savingBookmark = bookmark(shell);
+            }
+            await pumpEventQueue();
+            expect(states(shell), [true, true]);
+            expect(api.calls, hasLength(1));
+            expect(api.createdBookmarks, hasLength(1));
+            expect(bookmarkBusy(shell), isTrue);
+            expect((await bookmark(shell)).saved, isFalse);
+            expect(api.createdBookmarks, hasLength(1));
+            expect(shell.beginPluginPostWrite(site, 22), isFalse);
+            FakeSiteTracker.built.last.deliverTopicMessage(
+              '/topic/7/reactions',
+              {
+                'post_id': 22,
+                'reactions': ['heart', null],
+              },
+            );
+            await pumpEventQueue();
+            expect(api.reads, 1);
+
+            if (bookmarkFinishesFirst) {
+              api.bookmarkGate.complete();
+              expect((await savingBookmark).saved, isTrue);
+              await pumpEventQueue();
+              expect(api.topicsOpened, [7]);
+              expect(bookmarkBusy(shell), isFalse);
+              expect(states(shell), [true, true]);
+              expect(shell.postWriteInFlight(22), isTrue);
+              expect(api.reads, 1);
+              api.writeGates.single.complete();
+            } else {
+              api.writeGates.single.complete();
+              await savingChecklist;
+              await pumpEventQueue();
+              expect(api.reads, 1);
+              expect(bookmarkBusy(shell), isTrue);
+              expect(shell.postWriteInFlight(22), isTrue);
+              api.bookmarkGate.complete();
+              expect((await savingBookmark).saved, isTrue);
+            }
+            expect(await savingChecklist, rejected ? isNotNull : isNull);
+            await pumpEventQueue();
+            expect(api.reads, 2);
+            expect(states(shell), [!rejected, true]);
+            expect(shell.store.read<Post>(site, 22)!.bookmark, isNotNull);
+            expect(shell.postWriteInFlight(22), isFalse);
+            expect(bookmarkBusy(shell), isFalse);
+          },
+        );
+      }
+    }
+  }
+
+  test(
+    'late bookmark reconciliation preserves a newer saved checklist',
+    () async {
+      final api = ChecklistBookmarkApi()
+        ..writeGates.add(Completer<void>())
+        ..bookmarkReadGate = Completer<void>();
+      final shell = await shellFor(api);
+      addTearDown(shell.dispose);
+      final savingChecklist = toggle(shell, 0, true);
+      api.bookmarkGate.complete();
+      expect((await bookmark(shell)).saved, isTrue);
+      await pumpEventQueue();
+      expect(api.topicsOpened, [7]);
+      api.writeGates.single.complete();
+      expect(await savingChecklist, isNull);
+      final saved = shell.store.read<Post>(site, 22)!;
+      api.bookmarkReadGate!.complete();
+      await pumpEventQueue();
+      final after = shell.store.read<Post>(site, 22)!;
+      expect(after.cooked, saved.cooked);
+      expect(after.raw, saved.raw);
+      expect(after.version, saved.version);
+      expect(after.updatedAt, saved.updatedAt);
+      expect(after.bookmark, isNotNull);
+    },
+  );
+
+  test('bulk bookmark deletion can overlap a checklist save', () async {
+    const initialBookmark = Bookmark(
+      id: 91,
+      bookmarkableType: 'Post',
+      bookmarkableId: 22,
+    );
+    final api = ChecklistBookmarkApi()
+      ..server = post().withBookmark(initialBookmark)
+      ..writeGates.add(Completer<void>());
+    final shell = await shellFor(api, initial: api.server);
+    addTearDown(shell.dispose);
+    shell.store.update<TopicDetail>(
+      site,
+      7,
+      (held) => held.withBookmark(initialBookmark),
+    );
+    final savingChecklist = toggle(shell, 0, true);
+    final deletingBookmarks = shell.deleteAllTopicBookmarks(
+      siteUrl: site,
+      topicId: 7,
+    );
+    expect(bookmarkBusy(shell), isTrue);
+    api.bookmarkGate.complete();
+    expect((await deletingBookmarks).saved, isTrue);
+    await pumpEventQueue();
+    expect(states(shell), [true, true]);
+    expect(bookmarkBusy(shell), isFalse);
+    expect(shell.postWriteInFlight(22), isTrue);
+    api.writeGates.single.complete();
+    expect(await savingChecklist, isNull);
+    expect(shell.store.read<Post>(site, 22)!.bookmark, isNull);
+    expect(shell.postWriteInFlight(22), isFalse);
+  });
+
+  testWidgets('bookmark button stays enabled while the checklist saves', (
+    tester,
+  ) async {
+    final api = ChecklistApi()..writeGates.add(Completer<void>());
+    final shell = await shellFor(api);
+    addTearDown(shell.dispose);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light,
+        home: ShellScope(
+          controller: shell,
+          child: Scaffold(
+            body: PostActions(
+              siteUrl: site,
+              post: post(),
+              persistent: true,
+              child: const PostActionsFooter(child: Text('Post body')),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final savingChecklist = toggle(shell, 0, true);
+    await tester.pumpAndSettle();
+    expect(api.calls, hasLength(1));
+    final button = tester.widget<DButton>(
+      find.byKey(const ValueKey(('post-footer-action', 2, 'Bookmark'))),
+    );
+    expect(button.onPressed, isNotNull);
+    api.writeGates.single.complete();
+    await tester.pumpAndSettle();
+    expect(await savingChecklist, isNull);
+  });
 
   test(
     'rapid clicks remain immediate and save serially against the latest baseline',
