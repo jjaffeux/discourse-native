@@ -887,7 +887,7 @@ void main() {
       );
       expect(find.text('Send message'), findsOneWidget);
       expect(find.text('Category'), findsNothing);
-      expect(find.text('Tags'), findsNothing);
+      expect(find.text('Tag'), findsNothing);
       expect(find.text('Write your message…'), findsOneWidget);
     });
   });
