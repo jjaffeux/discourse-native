@@ -85,7 +85,20 @@ void main() {
             expect(line, findsOneWidget);
             final rect = tester.getRect(line);
             expect(rect.center.dy, closeTo(y, .01));
-            expect(rect.width, closeTo(editorRect.width - DSpacing.xxl, .01));
+            final handle = tester.getRect(
+              find.byKey(
+                ValueKey(
+                  'composer-block-handle-${composer.blocks.selected!.id}',
+                ),
+              ),
+            );
+            final contentEdge = direction == TextDirection.ltr
+                ? handle.right + DSpacing.controlGap
+                : handle.left - DSpacing.controlGap;
+            expect(
+              direction == TextDirection.ltr ? rect.left : rect.right,
+              closeTo(contentEdge, .01),
+            );
             expect(
               direction == TextDirection.ltr ? rect.right : rect.left,
               closeTo(

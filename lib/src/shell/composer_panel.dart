@@ -2730,6 +2730,7 @@ class _ComposerEditorState extends State<ComposerEditor> {
             composer: widget.composer,
             expands: widget.expands,
             blockRect: _blockRect,
+            emptyLineAt: _emptyLineAt,
             geometryChanges: _mediaLayoutRevision,
             editorScroll: () =>
                 _ancestorScroll ??
@@ -2738,6 +2739,33 @@ class _ComposerEditorState extends State<ComposerEditor> {
           )
         : _editorBody(),
   );
+
+  ComposerEmptyLine? _emptyLineAt(Offset? position) {
+    final editable = _renderEditable;
+    if (editable == null || !editable.hasSize) return null;
+    final text = widget.composer.text;
+    final offset = position == null
+        ? text.selection.extentOffset.clamp(0, text.text.length)
+        : editable.getPositionForPoint(position).offset;
+    final start = offset == 0 ? 0 : text.text.lastIndexOf('\n', offset - 1) + 1;
+    final next = text.text.indexOf('\n', offset);
+    var end = next < 0 ? text.text.length : next;
+    if (end > start && text.text[end - 1] == '\r') end--;
+    if (text.text.substring(start, end).trim().isNotEmpty ||
+        widget.composer.blocks.index.blocks.any(
+          (block) => block.start <= start && block.end > start,
+        )) {
+      return null;
+    }
+    final rect = editable
+        .getLocalRectForCaret(TextPosition(offset: start))
+        .shift(editable.localToGlobal(Offset.zero));
+    if (position != null &&
+        (position.dy < rect.top || position.dy > rect.bottom)) {
+      return null;
+    }
+    return (range: TextRange(start: start, end: end), rect: rect);
+  }
 
   Rect? _blockRect(ComposerBodyBlock block) {
     final editable = _renderEditable;
