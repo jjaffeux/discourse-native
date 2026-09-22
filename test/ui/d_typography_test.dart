@@ -62,19 +62,19 @@ void main() {
           text.bodyMedium!,
           text.bodyMedium!,
         ];
-        // Frozen shadcn Typography utilities, converted from a 16px root rem.
+        // Shared application type roles, independent of platform and palette.
         // tracking-tight is -0.025em of the rendered size.
         const metrics = [
-          (36.0, 40.0, FontWeight.w800, true),
-          (30.0, 36.0, FontWeight.w600, true),
-          (24.0, 32.0, FontWeight.w600, true),
-          (20.0, 28.0, FontWeight.w600, true),
-          (16.0, 28.0, FontWeight.w400, false),
-          (20.0, 28.0, FontWeight.w400, false),
-          (18.0, 28.0, FontWeight.w600, false),
-          (14.0, 14.0, FontWeight.w500, false),
-          (14.0, 20.0, FontWeight.w400, false),
-          (14.0, 20.0, FontWeight.w600, false),
+          (32.0, 40.0, FontWeight.w800, true),
+          (28.0, 35.0, FontWeight.w600, true),
+          (22.0, 27.5, FontWeight.w700, false),
+          (18.0, 25.2, FontWeight.w600, true),
+          (14.0, 23.1, FontWeight.w400, false),
+          (18.0, 25.2, FontWeight.w400, false),
+          (17.0, 25.5, FontWeight.w600, false),
+          (13.0, 19.5, FontWeight.w500, false),
+          (12.5, 18.75, FontWeight.w400, false),
+          (12.5, 18.75, FontWeight.w600, false),
         ];
         for (final (index, variant) in DTextVariant.values.indexed) {
           final paragraph = _paragraph(tester, variant.name);
@@ -82,7 +82,11 @@ void main() {
           final role = roles[index];
           final (size, leading, weight, tight) = metrics[index];
           expect(style.fontSize, size, reason: variant.name);
-          expect(style.height, leading / size, reason: variant.name);
+          expect(
+            style.height,
+            closeTo(leading / size, .000001),
+            reason: variant.name,
+          );
           expect(style.fontWeight, weight, reason: variant.name);
           expect(
             style.letterSpacing,
@@ -101,7 +105,7 @@ void main() {
           );
         }
         final emphasis = _paragraph(tester, 'Caller emphasis').text.style!;
-        expect(emphasis.fontSize, 20);
+        expect(emphasis.fontSize, 18);
         expect(emphasis.color, Colors.orange);
         expect(emphasis.fontWeight, FontWeight.w400);
         expect(tester.takeException(), isNull);
@@ -137,14 +141,14 @@ void main() {
       );
       expect(
         _paragraph(tester, 'Heading').text.style!.letterSpacing,
-        closeTo(-0.025 * scaler.scale(36), 0.000001),
+        closeTo(-0.025 * scaler.scale(32), 0.000001),
         reason: '$scaler',
       );
       final span =
           (_paragraph(tester, 'Span').text as TextSpan).children!.single;
       expect(
         span.style!.letterSpacing,
-        closeTo(-0.025 * scaler.scale(20), 0.000001),
+        closeTo(-0.025 * scaler.scale(18), 0.000001),
         reason: '$scaler',
       );
       expect(_paragraph(tester, 'Body').text.style!.letterSpacing, 0);

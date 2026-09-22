@@ -420,8 +420,8 @@ void main() {
     final text = tester.element(find.byKey(const Key('title')));
     final style = DefaultTextStyle.of(text).style;
     expect(style.fontSize, 14);
-    expect(style.height, 1.375);
-    expect(style.fontWeight, FontWeight.w500);
+    expect(style.height, 1.35);
+    expect(style.fontWeight, FontWeight.w600);
     expect(
       tester.getTopLeft(find.byType(DCardFooter)).dy,
       tester.getBottomLeft(find.byKey(const Key('content'))).dy,

@@ -134,7 +134,7 @@ class _DItemState extends State<DItem> {
     final radius = switch (widget.shape) {
       DItemShape.fullWidth => 0.0,
       DItemShape.card => DRadius.panel,
-      DItemShape.standard => 10.0,
+      DItemShape.standard => DRadius.popover,
     };
     final borderRadius = BorderRadius.circular(radius);
     final background = widget.selected && !outlineSelection
@@ -168,7 +168,7 @@ class _DItemState extends State<DItem> {
       child: DefaultTextStyle.merge(
         style: Theme.of(context).textTheme.bodyMedium!.copyWith(
           fontSize: DControlStyle.labelFontSize,
-          height: 20 / DControlStyle.labelFontSize,
+          height: DControlStyle.labelLineHeight / DControlStyle.labelFontSize,
           fontWeight: FontWeight.w400,
           letterSpacing: 0,
           color: tokens.foreground,
@@ -219,7 +219,7 @@ class _DItemState extends State<DItem> {
                       ? 8
                       : widget.size == DItemSize.sm
                       ? 10
-                      : 16,
+                      : 12,
                 ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -601,9 +601,9 @@ class DItemTitle extends StatelessWidget {
     return DefaultTextStyle(
       style: DefaultTextStyle.of(context).style.merge(
         const TextStyle(
-          fontSize: DControlStyle.labelFontSize,
-          height: 1.2,
-          fontWeight: FontWeight.w500,
+          fontSize: DiscourseTypography.rowTitle,
+          height: DiscourseTypography.lineHeightRowTitle,
+          fontWeight: FontWeight.w600,
           letterSpacing: 0,
         ),
       ),
@@ -621,7 +621,7 @@ class DItemDescription extends StatelessWidget {
     super.key,
     required this.child,
     this.maxLines = 2,
-    this.height = 1.2,
+    this.height = DiscourseTypography.lineHeightPreview,
   });
   final Widget child;
   final int? maxLines;
@@ -634,7 +634,7 @@ class DItemDescription extends StatelessWidget {
     return DefaultTextStyle(
       style: DefaultTextStyle.of(context).style.merge(
         TextStyle(
-          fontSize: DiscourseTypography.xs,
+          fontSize: DiscourseTypography.preview,
           height: height,
           fontWeight: FontWeight.w400,
           color: DTokens.of(context).mutedForeground,

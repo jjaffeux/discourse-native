@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:html/dom.dart' as dom;
 
 import '../../theme/d_icons.dart';
+import '../../theme/discourse_typography.dart';
 import '../cooked_dom.dart';
 import '../cooked_html.dart';
 import '../open_link.dart';
@@ -154,7 +155,7 @@ class TwitterOnebox extends StatelessWidget {
                           'Replying to a post',
                           style: TextStyle(
                             color: DTokens.of(context).mutedForeground,
-                            fontSize: 13,
+                            fontSize: DiscourseTypography.control,
                           ),
                         ),
                         const SizedBox(height: DSpacing.xs),
@@ -270,7 +271,7 @@ class _Author extends StatelessWidget {
                   softWrap: true,
                   maxLines: 3,
                   style: const TextStyle(
-                    fontSize: 15,
+                    fontSize: DiscourseTypography.base,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
@@ -373,7 +374,7 @@ class _QuotedPost extends StatelessWidget {
                   TextSpan(
                     text: data.name,
                     style: const TextStyle(
-                      fontSize: 15,
+                      fontSize: DiscourseTypography.base,
                       fontWeight: FontWeight.w700,
                     ),
                     children: [

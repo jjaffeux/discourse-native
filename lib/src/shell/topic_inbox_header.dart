@@ -241,9 +241,7 @@ class _TopicHeaderTitle extends StatelessWidget {
   Widget build(BuildContext context) {
     final topic = header.topic;
     final siteUrl = header.siteUrl;
-    final style = Theme.of(
-      context,
-    ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700);
+    final style = Theme.of(context).textTheme.headlineSmall;
     final Widget title;
     if (topic?.canEdit == true && siteUrl != null) {
       title = InlineTopicTitleEditor(

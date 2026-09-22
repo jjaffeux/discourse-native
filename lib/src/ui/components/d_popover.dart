@@ -20,7 +20,7 @@ enum DPopoverCollision { flip, shift, none }
 enum DPopoverInteraction { mouse, touch, pen, keyboard, imperative }
 
 /// Tailwind shadow recipes used by shadcn floating surfaces.
-enum DPopoverShadow { medium, large }
+enum DPopoverShadow { none, medium, large }
 
 enum DPopoverChangeReason {
   triggerPress,
@@ -922,7 +922,7 @@ class DPopoverContent extends StatelessWidget {
     this.semanticLabel,
     this.side = DPopoverSide.bottom,
     this.align = DPopoverAlign.center,
-    this.sideOffset = 4,
+    this.sideOffset = DSpacing.controlGap,
     this.alignOffset = 0,
     this.sideCollision = DPopoverCollision.flip,
     this.alignCollision = DPopoverCollision.shift,
@@ -932,7 +932,7 @@ class DPopoverContent extends StatelessWidget {
     this.constraints = const BoxConstraints(),
     this.padding = const EdgeInsets.all(10),
     this.scrollable = true,
-    this.shadow = DPopoverShadow.medium,
+    this.shadow = DPopoverShadow.none,
     this.placementResolver,
     this.sizeAnimationDuration,
     this.sizeAnimationCurve = Curves.easeOut,
@@ -984,12 +984,12 @@ class DPopoverContent extends StatelessWidget {
     final style = Theme.of(context).textTheme.bodyMedium!.copyWith(
       color: tokens.foreground,
       fontSize: DControlStyle.labelFontSize,
-      height: 20 / DControlStyle.labelFontSize,
+      height: DControlStyle.labelLineHeight / DControlStyle.labelFontSize,
       fontWeight: FontWeight.w400,
       letterSpacing: 0,
       decoration: TextDecoration.none,
     );
-    final radius = tokens.controlRadius;
+    const radius = DRadius.popover;
     final shadowColor = Colors.black.withValues(alpha: .125);
     final shadows = [
       BoxShadow(color: shadowColor, offset: const Offset(0, 3), blurRadius: 8),
@@ -1018,7 +1018,7 @@ class DPopoverContent extends StatelessWidget {
         decoration: BoxDecoration(
           color: tokens.surface,
           borderRadius: BorderRadius.circular(radius),
-          boxShadow: shadows,
+          boxShadow: shadow == DPopoverShadow.none ? const [] : shadows,
         ),
         child: content,
       ),

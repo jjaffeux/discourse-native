@@ -365,7 +365,7 @@ void main() {
       expect(tester.getRect(age).top, lessThan(tester.getRect(tags).top));
       expect(
         tester.getRect(age).right,
-        closeTo(tester.getRect(card).right - 28, 1),
+        closeTo(tester.getRect(card).right - 16, 1),
       );
       await shell.appSettings.setTopicListShowLastPoster(false);
       await shell.appSettings.setTopicListShowTags(false);
@@ -603,7 +603,7 @@ void main() {
       final parent = within(find.text('Discourse Native App'));
       final child = within(find.text('Features'));
       for (final label in [parent, child]) {
-        expect(tester.getSize(label).height, closeTo(20 * scale, .01));
+        expect(tester.getSize(label).height, closeTo(21 * scale, .01));
       }
       final chevron = within(
         find.byKey(const ValueKey(('topic-row-category-chevron', 1, 2))),

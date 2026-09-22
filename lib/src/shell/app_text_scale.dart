@@ -6,7 +6,6 @@ import 'package:flutter/widgets.dart';
 
 import '../theme/discourse_typography.dart';
 import 'app_settings_controller.dart';
-import 'platform.dart';
 
 /// Applies the app's text-size preference without replacing the platform's
 /// accessibility text scaler.
@@ -105,9 +104,6 @@ class _AppTextScaleRegionState extends State<AppTextScaleRegion> {
           textScaler: AppTextScaler(
             platformScaler: mediaQuery.textScaler,
             appScale: widget.controller.textScaleFactor,
-            baselineScale: usesMobileNavigation(defaultTargetPlatform)
-                ? DiscourseTypography.mobileScale
-                : 1,
           ),
         ),
         child: child!,
@@ -119,25 +115,19 @@ class _AppTextScaleRegionState extends State<AppTextScaleRegion> {
 
 @immutable
 final class AppTextScaler extends TextScaler {
-  const AppTextScaler({
-    required this.platformScaler,
-    required this.appScale,
-    this.baselineScale = 1,
-  }) : assert(appScale > 0),
-       assert(baselineScale > 0);
+  const AppTextScaler({required this.platformScaler, required this.appScale})
+    : assert(appScale > 0);
 
   final TextScaler platformScaler;
   final double appScale;
-  final double baselineScale;
 
   @override
-  double scale(double fontSize) =>
-      platformScaler.scale(fontSize * baselineScale) * appScale;
+  double scale(double fontSize) => platformScaler.scale(fontSize) * appScale;
 
   @override
   double get textScaleFactor {
     // flutter_widget_from_html_core still reads this compatibility value when
-    // laying out cooked posts. Anchor its linear estimate to the app's 16px
+    // laying out cooked posts. Anchor its linear estimate to the app's 14px
     // body text until it consumes TextScaler directly.
     return scale(DiscourseTypography.base) / DiscourseTypography.base;
   }
@@ -146,9 +136,8 @@ final class AppTextScaler extends TextScaler {
   bool operator ==(Object other) =>
       other is AppTextScaler &&
       other.platformScaler == platformScaler &&
-      other.appScale == appScale &&
-      other.baselineScale == baselineScale;
+      other.appScale == appScale;
 
   @override
-  int get hashCode => Object.hash(platformScaler, appScale, baselineScale);
+  int get hashCode => Object.hash(platformScaler, appScale);
 }

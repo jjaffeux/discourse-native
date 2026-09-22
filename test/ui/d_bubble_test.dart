@@ -209,7 +209,7 @@ void main() {
       surface.padding,
       const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
     );
-    expect(decoration.borderRadius, BorderRadius.circular(14));
+    expect(decoration.borderRadius, BorderRadius.circular(12));
     expect(decoration.border!.top.width, 1);
     final textStyle = DefaultTextStyle.of(
       tester.element(find.text('Natural action name')),

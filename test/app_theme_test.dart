@@ -312,9 +312,23 @@ void main() {
     });
 
     test('maps semantic roles to the shared size and leading pairs', () {
-      expect(DiscourseTypography.fontSizes, [12, 14, 16, 18, 20, 24, 30, 36]);
-      expect(DiscourseTypography.headingSizes, [30, 24, 20, 18, 16, 14]);
-      expect(DiscourseTypography.headingSize(0), 30);
+      expect(DiscourseTypography.fontSizes, [
+        11,
+        11.5,
+        12,
+        12.5,
+        13,
+        13.5,
+        14,
+        14.5,
+        17,
+        18,
+        22,
+        28,
+        32,
+      ]);
+      expect(DiscourseTypography.headingSizes, [28, 22, 18, 17, 14, 14]);
+      expect(DiscourseTypography.headingSize(0), 28);
       expect(DiscourseTypography.headingSize(7), 14);
 
       for (final theme in [
@@ -324,21 +338,21 @@ void main() {
       ]) {
         final text = theme.textTheme;
         for (final (style, size, lineHeight, weight) in [
-          (text.displayLarge!, 36, 40, FontWeight.w600),
-          (text.displayMedium!, 30, 36, FontWeight.w600),
-          (text.displaySmall!, 24, 32, FontWeight.w600),
-          (text.headlineLarge!, 36, 40, FontWeight.w600),
-          (text.headlineMedium!, 30, 36, FontWeight.w600),
-          (text.headlineSmall!, 24, 32, FontWeight.w600),
-          (text.titleLarge!, 20, 28, FontWeight.w600),
-          (text.titleMedium!, 18, 28, FontWeight.w600),
-          (text.titleSmall!, 16, 24, FontWeight.w500),
-          (text.bodyLarge!, 16, 24, FontWeight.normal),
-          (text.bodyMedium!, 14, 20, FontWeight.normal),
-          (text.bodySmall!, 12, 16, FontWeight.normal),
-          (text.labelLarge!, 14, 20, FontWeight.w500),
-          (text.labelMedium!, 14, 20, FontWeight.normal),
-          (text.labelSmall!, 12, 16, FontWeight.w500),
+          (text.displayLarge!, 32, 40, FontWeight.w600),
+          (text.displayMedium!, 28, 35, FontWeight.w600),
+          (text.displaySmall!, 22, 27.5, FontWeight.w600),
+          (text.headlineLarge!, 32, 40, FontWeight.w600),
+          (text.headlineMedium!, 28, 35, FontWeight.w600),
+          (text.headlineSmall!, 22, 27.5, FontWeight.w700),
+          (text.titleLarge!, 18, 25.2, FontWeight.w600),
+          (text.titleMedium!, 17, 25.5, FontWeight.w600),
+          (text.titleSmall!, 14.5, 19.575, FontWeight.w600),
+          (text.bodyLarge!, 14, 23.1, FontWeight.normal),
+          (text.bodyMedium!, 14, 21, FontWeight.normal),
+          (text.bodySmall!, 12, 18, FontWeight.normal),
+          (text.labelLarge!, 13, 19.5, FontWeight.w500),
+          (text.labelMedium!, 12.5, 18.75, FontWeight.normal),
+          (text.labelSmall!, 11.5, 17.25, FontWeight.w500),
         ]) {
           expect(style.fontSize, size);
           expect(style.fontSize! * style.height!, closeTo(lineHeight, 0.001));
@@ -403,7 +417,7 @@ void main() {
         expect(style.minimumSize?.resolve({}), const Size(0, 32));
         expect(
           style.padding?.resolve({}),
-          const EdgeInsets.symmetric(horizontal: 11.4, vertical: 9),
+          const EdgeInsets.symmetric(horizontal: 10.1, vertical: 8),
         );
         expect(style.visualDensity, VisualDensity.standard);
       }
@@ -567,7 +581,7 @@ void main() {
       expect(tooltip.margin, DTooltip.defaultMargin);
       expect(tooltip.verticalOffset, DTooltip.defaultVerticalOffset);
       expect(tooltip.textStyle?.fontSize, 12);
-      expect(tooltip.textStyle?.height, 16 / 12);
+      expect(tooltip.textStyle?.height, 1.5);
       expect(tooltip.textStyle?.color, theme.extension<DTokens>()!.background);
       expect(decoration.color, theme.colorScheme.onSurface);
       expect(decoration.border, isNull);

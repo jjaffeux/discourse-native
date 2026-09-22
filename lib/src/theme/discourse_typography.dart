@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 
-/// The app's unscaled type system, using Tailwind's size and leading pairs.
-///
-/// https://tailwindcss.com/docs/font-size
+/// The shared desktop/mobile type system from the local design reference.
+/// See docs/design/reference-rules.md for measured roles and native adaptations.
 /// Choose a semantic [TextTheme] role in widgets: bodyMedium for interface
 /// text, labelLarge for controls, bodyLarge for reading, bodySmall/labelSmall
 /// for metadata, titleSmall for row titles, titleMedium for section titles,
@@ -11,22 +10,30 @@ import 'package:flutter/material.dart';
 /// Sizes are logical pixels at 100%. Only the root AppTextScaleRegion applies
 /// zoom; styles must never multiply their font size by the user's scale.
 abstract final class DiscourseTypography {
-  /// Mobile's reading baseline, composed with accessibility and app zoom.
-  static const double mobileScale = 1.2;
-
+  static const double micro = 11;
+  static const double metadata = 11.5;
   static const double xs = 12;
+  static const double preview = 12.5;
+  static const double control = 13;
+  static const double compact = 13.5;
   static const double sm = 14;
-  static const double base = 16;
-  static const double lg = 18;
-  static const double xl = 20;
-  static const double xxl = 24;
-  static const double xxxl = 30;
-  static const double xxxxl = 36;
+  static const double base = sm;
+  static const double rowTitle = 14.5;
+  static const double lg = 17;
+  static const double xl = 18;
+  static const double xxl = 22;
+  static const double xxxl = 28;
+  static const double xxxxl = 32;
 
   static const List<double> fontSizes = [
+    micro,
+    metadata,
     xs,
-    sm,
+    preview,
+    control,
+    compact,
     base,
+    rowTitle,
     lg,
     xl,
     xxl,
@@ -34,15 +41,18 @@ abstract final class DiscourseTypography {
     xxxxl,
   ];
 
-  static const double lineHeightCaption = 16 / xs;
-  static const double lineHeightSmall = 20 / sm;
-  static const double lineHeightBody = 24 / base;
-  static const double lineHeightProse = 28 / base;
-  static const double lineHeightLarge = 28 / lg;
-  static const double lineHeightTitle = 28 / xl;
-  static const double lineHeightHeading = 32 / xxl;
-  static const double lineHeightDisplaySmall = 36 / xxxl;
-  static const double lineHeightDisplayLarge = 40 / xxxxl;
+  static const double lineHeightCaption = 1.5;
+  static const double lineHeightSmall = 1.5;
+  static const double lineHeightPreview = 1.45;
+  static const double lineHeightRowTitle = 1.35;
+  static const double lineHeightBody = 1.65;
+  static const double lineHeightProse = lineHeightBody;
+  static const double lineHeightContent = 1.6;
+  static const double lineHeightLarge = 1.5;
+  static const double lineHeightTitle = 1.4;
+  static const double lineHeightHeading = 1.25;
+  static const double lineHeightDisplaySmall = 1.25;
+  static const double lineHeightDisplayLarge = 1.25;
   static const double trackingTight = -0.025;
 
   /// Authored headings share the scale with the interface (h1 through h6).
@@ -113,7 +123,7 @@ abstract final class DiscourseTypography {
         platform.headlineSmall,
         xxl,
         lineHeightHeading,
-        FontWeight.w600,
+        FontWeight.w700,
       ),
       titleLarge: style(
         platform.titleLarge,
@@ -129,23 +139,23 @@ abstract final class DiscourseTypography {
       ),
       titleSmall: style(
         platform.titleSmall,
-        base,
-        lineHeightBody,
-        FontWeight.w500,
+        rowTitle,
+        lineHeightRowTitle,
+        FontWeight.w600,
       ),
       bodyLarge: style(platform.bodyLarge, base, lineHeightBody),
       bodyMedium: style(platform.bodyMedium, sm, lineHeightSmall),
       bodySmall: style(platform.bodySmall, xs, lineHeightCaption),
       labelLarge: style(
         platform.labelLarge,
-        sm,
+        control,
         lineHeightSmall,
         FontWeight.w500,
       ),
-      labelMedium: style(platform.labelMedium, sm, lineHeightSmall),
+      labelMedium: style(platform.labelMedium, preview, lineHeightSmall),
       labelSmall: style(
         platform.labelSmall,
-        xs,
+        metadata,
         lineHeightCaption,
         FontWeight.w500,
       ),

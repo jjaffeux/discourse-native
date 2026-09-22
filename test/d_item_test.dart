@@ -331,7 +331,7 @@ void main() {
         expect(
           (surface(0).decoration! as BoxDecoration).borderRadius,
           BorderRadius.circular(switch (shape) {
-            DItemShape.card => tokens.radius * 1.4,
+            DItemShape.card => DRadius.panel,
             DItemShape.fullWidth => 0,
             DItemShape.standard => 10,
           }),
@@ -453,9 +453,9 @@ void main() {
     'Linear sizes preserve border-box insets, type and media alignment',
     (tester) async {
       for (final (size, image, inset, gap, textSize, contentGap) in [
-        (DItemSize.standard, 40.0, 16.0, 12.0, 12.0, 4.0),
-        (DItemSize.sm, 32.0, 12.0, 12.0, 12.0, 4.0),
-        (DItemSize.xs, 24.0, 10.0, 8.0, 12.0, 0.0),
+        (DItemSize.standard, 40.0, 16.0, 12.0, 12.5, 4.0),
+        (DItemSize.sm, 32.0, 12.0, 12.0, 12.5, 4.0),
+        (DItemSize.xs, 24.0, 10.0, 8.0, 12.5, 0.0),
       ]) {
         await tester.pumpWidget(host(sample(size)));
         expect(tester.getSize(find.byKey(mediaKey)), Size.square(image));
@@ -467,7 +467,7 @@ void main() {
                   ? 8
                   : size == DItemSize.sm
                   ? 10
-                  : 16) +
+                  : 12) +
               2,
         );
         final title = tester.renderObject<RenderParagraph>(
@@ -476,10 +476,10 @@ void main() {
         final description = tester.renderObject<RenderParagraph>(
           find.byKey(descriptionKey),
         );
-        expect(title.text.style!.fontSize, 13);
-        expect(title.text.style!.height, 1.2);
+        expect(title.text.style!.fontSize, 14.5);
+        expect(title.text.style!.height, 1.35);
         expect(description.text.style!.fontSize, textSize);
-        expect(description.text.style!.height, 1.2);
+        expect(description.text.style!.height, 1.45);
         expect(
           tester.getTopLeft(find.byKey(descriptionKey)).dy -
               tester.getBottomLeft(find.byKey(titleKey)).dy,

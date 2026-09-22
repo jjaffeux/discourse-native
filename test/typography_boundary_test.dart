@@ -157,11 +157,15 @@ void main() {
           ]) {
             final paragraph = _paragraph(tester, label);
             final (fontSize, lineHeight) = switch (label) {
-              'Native small' => (12.0, 16.0),
+              'Native small' || 'Inline code' => (12.5, 18.75),
               'Native regular' ||
+              'Material action' ||
+              'Outlined action' ||
+              'Topic column' ||
+              'Replies column' ||
               'Latest topics' ||
-              'All categories' => (13.0, 20.0),
-              _ => (14.0, 20.0),
+              'All categories' => (13.0, 19.5),
+              _ => (14.0, 21.0),
             };
             expect(
               paragraph.text.style!.fontSize,
@@ -186,15 +190,15 @@ void main() {
           }
           expect(
             _paragraph(tester, 'Reading a discussion.').text.style!.fontSize,
-            16 * settings.textScaleFactor,
+            14 * settings.textScaleFactor,
           );
-          expect(_paragraph(tester, 'Native reading').text.style!.fontSize, 16);
+          expect(_paragraph(tester, 'Native reading').text.style!.fontSize, 14);
           expect(
-            _paragraph(tester, 'Native reading').textScaler.scale(16),
-            16 * settings.textScaleFactor,
+            _paragraph(tester, 'Native reading').textScaler.scale(14),
+            14 * settings.textScaleFactor,
           );
-          expect(_paragraph(tester, 'Page title').text.style!.fontSize, 24);
-          expect(_paragraph(tester, 'Section title').text.style!.fontSize, 18);
+          expect(_paragraph(tester, 'Page title').text.style!.fontSize, 22);
+          expect(_paragraph(tester, 'Section title').text.style!.fontSize, 17);
           expect(_paragraph(tester, 'Metadata').text.style!.fontSize, 12);
           expect(tester.takeException(), isNull, reason: '$zoom');
         }
@@ -261,8 +265,8 @@ void main() {
       find.byKey(const ValueKey('forum-tabs-bar')),
     );
     final labelRect = tester.getRect(find.text('Latest'));
-    expect(label.text.style!.fontSize, 14);
-    expect(label.textScaler.scale(14), 36);
+    expect(label.text.style!.fontSize, 12.5);
+    expect(label.textScaler.scale(12.5), 33);
     expect(barRect.height, greaterThan(ForumTabsBar.height));
     expect(barRect.contains(labelRect.topLeft), isTrue);
     expect(barRect.contains(labelRect.bottomRight), isTrue);

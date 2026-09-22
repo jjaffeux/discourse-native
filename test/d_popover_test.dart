@@ -493,7 +493,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('bottom start geometry uses 4px gap and logical RTL alignment', (
+  testWidgets('bottom start geometry uses 6px gap and logical RTL alignment', (
     tester,
   ) async {
     Future<void> verify(TextDirection direction) async {
@@ -513,7 +513,7 @@ void main() {
       await tester.pumpAndSettle();
       final trigger = tester.getRect(find.widgetWithText(DButton, 'Open'));
       final popup = tester.getRect(find.byType(DPopoverContent));
-      expect(popup.top, closeTo(trigger.bottom + 4, 0.1));
+      expect(popup.top, closeTo(trigger.bottom + 6, 0.1));
       if (direction == TextDirection.ltr) {
         expect(popup.left, closeTo(trigger.left, 0.1));
       } else {
@@ -642,7 +642,9 @@ void main() {
     final semantics = tester.getSemantics(find.byType(DPopoverContent));
     expect(semantics.label, contains('Test popover'));
     expect(find.byType(TextField), findsOneWidget);
-    final light = _surfaceDecoration(tester).color;
+    final surface = _surfaceDecoration(tester);
+    expect(surface.boxShadow, isEmpty);
+    final light = surface.color;
 
     dark.value = true;
     await tester.pumpAndSettle();
@@ -683,7 +685,9 @@ BoxDecoration _surfaceDecoration(WidgetTester tester) => tester
     )
     .map((widget) => widget.decoration)
     .whereType<BoxDecoration>()
-    .firstWhere((decoration) => decoration.boxShadow?.isNotEmpty == true);
+    .firstWhere(
+      (decoration) => decoration.borderRadius == BorderRadius.circular(10),
+    );
 
 Widget _app(Widget child, {Size size = const Size(800, 600)}) => MaterialApp(
   theme: AppTheme.light,

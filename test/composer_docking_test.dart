@@ -670,7 +670,7 @@ void main() {
       expect(find.bySemanticsLabel('Separate window'), findsNothing);
       expect(find.byIcon(Icons.open_in_new), findsNothing);
       expect(find.text('Save and close'), findsNothing);
-      expect(find.text('Discard'), findsOneWidget);
+      expect(find.byTooltip('Discard'), findsOneWidget);
       for (final placement in ComposerPlacement.values) {
         expect(find.byTooltip(placement.label), findsOneWidget);
       }
@@ -849,6 +849,11 @@ void main() {
       await tester.pumpAndSettle();
       final viewport = find.byKey(const ValueKey('composer-mobile-scroll'));
       final title = find.byKey(const ValueKey('composer-topic-title'));
+      final titleField = tester.widget<EditableText>(
+        find.descendant(of: title, matching: find.byType(EditableText)),
+      );
+      expect(titleField.style.fontSize, 17);
+      expect(titleField.style.height, 1.5);
       final close = find.byKey(const ValueKey('composer-close'));
       final submit = find.byKey(const ValueKey('composer-submit'));
       final footer = find.byKey(const ValueKey('composer-footer'));

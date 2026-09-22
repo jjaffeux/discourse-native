@@ -14,7 +14,7 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   for (final brightness in Brightness.values) {
     testWidgets(
-      'mobile baseline reaches reading, controls and overlays in $brightness',
+      'shared scale reaches titles, reading, controls and overlays in $brightness',
       (tester) async {
         tester.view.physicalSize = const Size(320, 900);
         tester.view.devicePixelRatio = 1;
@@ -52,6 +52,7 @@ void main() {
                     ),
                     onTap: () {},
                   ),
+                  const DText('Page title', variant: DTextVariant.h3),
                   const DText('Native reading'),
                   const CookedHtml(html: '<p>Cooked reading</p>'),
                   for (final size in DButtonSize.values)
@@ -79,23 +80,31 @@ void main() {
           await tester.pumpAndSettle();
           final native = _paragraph(tester, 'Native reading');
           final cooked = _paragraph(tester, 'Cooked reading');
-          expect(
-            native.textScaler.scale(16),
-            closeTo(19.2 * zoom.factor, .001),
+          final page = _paragraph(tester, 'Page title');
+          final title = _paragraph(
+            tester,
+            'Conference Days Single Source of Truth-Seville',
           );
+          expect(native.text.style!.fontSize, 14);
+          expect(page.text.style!.fontSize, 22);
+          expect(page.text.style!.height! * 22, 27.5);
+          expect(title.text.style!.fontSize, 14.5);
+          expect(title.text.style!.height! * 14.5, closeTo(19.575, .001));
+          expect(native.textScaler.scale(14), closeTo(14 * zoom.factor, .001));
           expect(
             cooked.textScaler.scale(cooked.text.style!.fontSize!),
-            closeTo(native.textScaler.scale(16), .001),
+            closeTo(native.textScaler.scale(14), .001),
           );
           for (final (size, base) in [
-            ('small', 14),
-            ('regular', 15),
-            ('large', 16),
+            ('small', 12.5),
+            ('regular', 13.0),
+            ('large', 14.0),
           ]) {
             final label = _paragraph(tester, size);
+            expect(label.text.style!.fontSize, base);
             expect(
               label.textScaler.scale(base.toDouble()),
-              closeTo(base * 1.2 * zoom.factor, .001),
+              closeTo(base * zoom.factor, .001),
             );
             expect(label.didExceedMaxLines, isFalse);
           }
@@ -105,16 +114,18 @@ void main() {
         await tester.tap(find.text('Latest'));
         await tester.pumpAndSettle();
         final option = _paragraph(tester, 'New');
-        expect(option.textScaler.scale(15), closeTo(36, .001));
+        expect(option.text.style!.fontSize, 13);
+        expect(option.textScaler.scale(13), closeTo(26, .001));
         expect(option.didExceedMaxLines, isFalse);
         await tester.tap(find.text('New').last);
         await tester.pumpAndSettle();
         await settings.resetTextScale();
         await tester.pumpAndSettle();
-        expect(_paragraph(tester, 'Native reading').textScaler.scale(16), 19.2);
+        expect(_paragraph(tester, 'Native reading').textScaler.scale(14), 14);
         expect(tester.takeException(), isNull);
       },
       variant: const TargetPlatformVariant({
+        TargetPlatform.macOS,
         TargetPlatform.iOS,
         TargetPlatform.android,
       }),

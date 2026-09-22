@@ -79,9 +79,6 @@ class DDropdownMenu extends StatelessWidget {
         width: content.width,
         constraints: content.constraints,
         padding: EdgeInsets.zero,
-        shadow: content.isSubmenu
-            ? DPopoverShadow.large
-            : DPopoverShadow.medium,
         // The menu adds a popup-local viewport only when its rows overflow.
         scrollable: false,
         child: DPopoverClose(
@@ -154,7 +151,7 @@ class DDropdownMenuContent extends StatefulWidget {
     this.semanticLabel,
     this.side = DPopoverSide.bottom,
     this.align = DPopoverAlign.start,
-    this.sideOffset = 4,
+    this.sideOffset = DSpacing.controlGap,
     this.alignOffset = 0,
     this.sideCollision = DPopoverCollision.flip,
     this.alignCollision = DPopoverCollision.shift,
@@ -514,7 +511,7 @@ class _DDropdownMenuContentState extends State<DDropdownMenuContent> {
     final textStyle = Theme.of(context).textTheme.bodyMedium!.copyWith(
       color: tokens.foreground,
       fontSize: DControlStyle.labelFontSize,
-      height: 20 / DControlStyle.labelFontSize,
+      height: DControlStyle.labelLineHeight / DControlStyle.labelFontSize,
       fontWeight: FontWeight.w400,
       letterSpacing: 0,
       decoration: TextDecoration.none,
@@ -539,7 +536,7 @@ class _DDropdownMenuContentState extends State<DDropdownMenuContent> {
                 data: IconThemeData(color: tokens.foreground, size: 16),
                 child: _DropdownMenuOverflowViewport(
                   controller: _scrollController,
-                  padding: const EdgeInsets.all(4),
+                  padding: DInsets.menu,
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -821,8 +818,8 @@ class DDropdownMenuSeparator extends StatelessWidget {
           clipBehavior: Clip.none,
           children: [
             PositionedDirectional(
-              start: -4,
-              end: -4,
+              start: -DInsets.menu.left,
+              end: -DInsets.menu.right,
               top: 4,
               height: 1,
               child: ColoredBox(color: color),
@@ -1303,7 +1300,7 @@ class _DropdownMenuItemSurfaceState extends State<_DropdownMenuItemSurface> {
     // next row animates in briefly presents two highlighted menu choices.
     final row = interactiveRowSurface(
       constraints: BoxConstraints(minHeight: visualHeight),
-      padding: EdgeInsetsDirectional.fromSTEB(startPadding, 4, endPadding, 4),
+      padding: EdgeInsetsDirectional.fromSTEB(startPadding, 7, endPadding, 7),
       decoration: BoxDecoration(
         color: background,
         borderRadius: BorderRadius.circular(DControlStyle.rowRadius),

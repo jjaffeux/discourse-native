@@ -149,11 +149,7 @@ class _ConversationTopicCard extends StatelessWidget {
           child: DItem(
             key: ValueKey('topic-card-${topic.id}'),
             shape: DItemShape.fullWidth,
-            padding:
-                row.contentPadding ??
-                (mobile
-                    ? const EdgeInsets.symmetric(horizontal: 28, vertical: 20)
-                    : const EdgeInsets.symmetric(horizontal: 16, vertical: 12)),
+            padding: row.contentPadding ?? DInsets.listRow,
             link: true,
             onPressed: row.onTap,
             selected: selected,
@@ -161,7 +157,7 @@ class _ConversationTopicCard extends StatelessWidget {
             showSelectionIndicator: false,
             children: [
               DItemContent(
-                spacing: mobile ? DSpacing.md : 6,
+                spacing: DSpacing.controlGap,
                 alignment: CrossAxisAlignment.stretch,
                 children: [
                   if (mobile && topic.pinned)
@@ -198,11 +194,11 @@ class _ConversationTopicCard extends StatelessWidget {
                       overflow: largeText
                           ? TextOverflow.clip
                           : TextOverflow.ellipsis,
-                      style:
-                          (mobile
-                                  ? Theme.of(context).textTheme.bodyMedium
-                                  : Theme.of(context).textTheme.bodySmall)
-                              ?.copyWith(color: muted, height: 1.5),
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        fontSize: DiscourseTypography.preview,
+                        color: muted,
+                        height: DiscourseTypography.lineHeightPreview,
+                      ),
                     ),
                   if (mobile)
                     _MobileTopicDetails(
