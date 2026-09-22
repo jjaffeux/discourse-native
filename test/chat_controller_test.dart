@@ -8,6 +8,7 @@ import 'package:discourse_native/src/data/site_lifecycle.dart';
 import 'package:discourse_native/src/data/site_tracker.dart';
 import 'package:discourse_native/src/data/store.dart';
 import 'package:discourse_native/src/models/bookmark.dart';
+import 'package:discourse_native/src/models/chat_channel_list_preferences.dart';
 import 'package:discourse_native/src/models/composer_upload.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/post_flag.dart';
@@ -29,6 +30,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
+import 'support/counting_thread_overview.dart';
 import 'support/fakes.dart';
 import 'support/manual_scheduler.dart';
 
@@ -1177,6 +1179,147 @@ void main() {
         expect(membership.muted, isFalse);
         expect(membership.starred, isTrue);
         expect(subject.chat.starredChannels(site).map((item) => item.id), [9]);
+      },
+    );
+
+    test(
+      'sidebar unread totals do not scan thread activity to sort DMs',
+      () async {
+        final overview = CountingThreadOverview({
+          for (var i = 0; i < 32; i++) i: DateTime.utc(2026, 8, 9),
+        });
+        final subject = build(
+          channels: {
+            site: ChatChannels(
+              direct: [
+                for (var i = 1; i <= 64; i++)
+                  channel(
+                    i,
+                    kind: ChatChannelKind.directMessage,
+                    lastViewedAt: DateTime.utc(2026, 8, 8),
+                    unreadThreadOverview: overview,
+                    lastMessageId: i,
+                    lastMessageAt: DateTime.utc(2026, 8, 9, 0, i),
+                  ),
+              ],
+            ),
+          },
+        );
+        addTearDown(subject.chat.dispose);
+        await subject.chat.loadChannels(site);
+        overview.visits = 0;
+        expect(
+          subject.chat.unreadMessageCount(
+            site,
+            section: ChatChannelListSection.directMessages,
+          ),
+          0,
+        );
+        expect(overview.visits, 0);
+      },
+    );
+
+    for (final kind in ['public', 'starred', 'direct']) {
+      test('$kind activity sorting visits each thread at most twice', () async {
+        final overview = CountingThreadOverview({
+          for (var i = 0; i < 32; i++) i: DateTime.utc(2026, 8, 9),
+        });
+        final channels = [
+          for (var i = 1; i <= 64; i++)
+            channel(
+              i,
+              kind: kind == 'direct'
+                  ? ChatChannelKind.directMessage
+                  : ChatChannelKind.category,
+              starred: kind == 'starred',
+              lastViewedAt: DateTime.utc(2026, 8, 8),
+              unreadThreadOverview: overview,
+              lastMessageId: i,
+              lastMessageAt: DateTime.utc(2026, 8, 9, 0, (i * 17) % 64),
+            ),
+        ];
+        final subject = build(
+          channels: {
+            site: ChatChannels(
+              public: kind == 'direct' ? [] : channels,
+              direct: kind == 'direct' ? channels : [],
+            ),
+          },
+        );
+        addTearDown(subject.chat.dispose);
+        await subject.chat.loadChannels(site);
+        overview.visits = 0;
+        final result = switch (kind) {
+          'public' => subject.chat.activitySortedPublicChannels(site),
+          'starred' => subject.chat.activitySortedStarredChannels(site),
+          _ => subject.chat.activitySortedDirectChannels(site),
+        };
+        expect(result, hasLength(64));
+        // Direct-message ordering reads both the count and oldest thread date.
+        expect(
+          overview.visits,
+          lessThanOrEqualTo(64 * 32 * (kind == 'direct' ? 2 : 1)),
+        );
+      });
+    }
+
+    test(
+      'sidebar totals preserve membership and message-count semantics',
+      () async {
+        final subject = build(
+          channels: {
+            site: ChatChannels(
+              public: [
+                channel(
+                  1,
+                  unread: 2,
+                  watchedThreads: 3,
+                  mentions: 2,
+                  unreadThreads: 10,
+                ),
+                channel(2, unread: 5, starred: true),
+              ],
+              direct: [
+                channel(
+                  3,
+                  kind: ChatChannelKind.directMessage,
+                  unread: 7,
+                  muted: true,
+                ),
+                channel(
+                  4,
+                  kind: ChatChannelKind.directMessage,
+                  unread: 11,
+                  starred: true,
+                ),
+              ],
+            ),
+          },
+        );
+        addTearDown(subject.chat.dispose);
+        await subject.chat.loadChannels(site);
+        expect(subject.chat.unreadMessageCount(site), 28);
+        expect(
+          subject.chat.unreadMessageCount(
+            site,
+            section: ChatChannelListSection.starred,
+          ),
+          16,
+        );
+        expect(
+          subject.chat.unreadMessageCount(
+            site,
+            section: ChatChannelListSection.channels,
+          ),
+          5,
+        );
+        expect(
+          subject.chat.unreadMessageCount(
+            site,
+            section: ChatChannelListSection.directMessages,
+          ),
+          7,
+        );
       },
     );
 

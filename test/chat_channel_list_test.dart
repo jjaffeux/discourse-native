@@ -3,6 +3,8 @@ import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel_list.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'support/counting_thread_overview.dart';
+
 final _now = DateTime.utc(2026, 9, 16, 12);
 
 ChatChannel _channel(
@@ -38,6 +40,37 @@ ChatChannel _channel(
 );
 
 void main() {
+  test('priority projection visits each thread at most once per call', () {
+    final overview = CountingThreadOverview({
+      for (var i = 0; i < 32; i++) i: _now,
+    });
+    final channels = [
+      for (var i = 0; i < 64; i++)
+        ChatChannel(
+          id: i,
+          title: 'Channel $i',
+          kind: ChatChannelKind.category,
+          membership: ChatMembership(lastViewedAt: _now),
+          threadingEnabled: true,
+          unreadThreadOverview: overview,
+          lastMessageId: i + 1,
+          lastMessageAt: _now.subtract(Duration(minutes: (i * 17) % 64)),
+        ),
+    ];
+    List<ChatChannel> project() => projectChatChannelList(
+      channels,
+      filter: ChatChannelListFilter.unread,
+      sort: ChatChannelListSort.priority,
+      section: ChatChannelListSection.channels,
+      now: _now,
+    );
+    expect(project(), hasLength(64));
+    expect(overview.visits, lessThanOrEqualTo(64 * 32));
+    // The memo belongs to one projection, never to a retained channel or site.
+    overview.clear();
+    expect(project(), isEmpty);
+  });
+
   final channels = [
     _channel(1, 'alpha', days: 31),
     _channel(2, 'beta', unread: 1, days: 3),

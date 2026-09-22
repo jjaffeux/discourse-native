@@ -1,0 +1,704 @@
+{
+  "sourceCommit": "3661cd6ef",
+  "purpose": "Topic-layout candidate investigation; no topic code changes",
+  "environment": {
+    "flutter": "3.47.4",
+    "dart": "3.13.3",
+    "mode": "profile",
+    "platform": "macOS arm64",
+    "renderer": "Skia",
+    "refreshRate": 120,
+    "logicalViewport": [
+      2560,
+      1049
+    ],
+    "devicePixelRatio": 2
+  },
+  "captures": [
+    {
+      "pass": "topic-scroll-candidate-audit-first-pass",
+      "capture": {
+        "status": "stopped",
+        "startedAtUtc": "2026-09-22T00:22:07.471648Z",
+        "endedAtUtc": "2026-09-22T00:22:13.284353Z",
+        "durationUs": 5812705,
+        "stopReason": "manual",
+        "memoryOnly": true,
+        "maximumEvents": 12000,
+        "maximumDurationMs": 120000,
+        "accessibility": {
+          "frameworkEnabledAtStart": true,
+          "frameworkEnabledAtEnd": true,
+          "platformEnabledAtStart": true,
+          "stateChanges": 0
+        }
+      },
+      "summary": {
+        "eventCount": 5322,
+        "topicEventCount": 4780,
+        "frameCount": 542,
+        "slowBuildFrameCount": 0,
+        "slowRasterFrameCount": 3,
+        "displayRefreshRate": 120.0,
+        "slowFrameThresholdUs": 8333,
+        "maximumBuildUs": 8069,
+        "maximumRasterUs": 19047,
+        "maximumTotalSpanUs": 22926
+      },
+      "analysis": {
+        "allFrames": {
+          "count": 542,
+          "overBudget": 3,
+          "slowBuilds": 0,
+          "slowRasters": 3,
+          "buildUs": {
+            "count": 542,
+            "total": 458891,
+            "p50": 596,
+            "p95": 2384,
+            "p99": 5267,
+            "max": 8069
+          },
+          "rasterUs": {
+            "count": 542,
+            "total": 1088299,
+            "p50": 1999,
+            "p95": 3286,
+            "p99": 4965,
+            "max": 19047
+          },
+          "vsyncOverheadUs": {
+            "count": 542,
+            "total": 90299,
+            "p50": 88,
+            "p95": 279,
+            "p99": 1445,
+            "max": 18196
+          },
+          "totalSpanUs": {
+            "count": 542,
+            "total": 1698136,
+            "p50": 2936,
+            "p95": 5830,
+            "p99": 8793,
+            "max": 22926
+          }
+        },
+        "topicFrames": {
+          "count": 484,
+          "overBudget": 3,
+          "slowBuilds": 0,
+          "slowRasters": 3,
+          "buildUs": {
+            "count": 484,
+            "total": 440298,
+            "p50": 638,
+            "p95": 2627,
+            "p99": 5410,
+            "max": 8069
+          },
+          "rasterUs": {
+            "count": 484,
+            "total": 959503,
+            "p50": 1988,
+            "p95": 3259,
+            "p99": 4098,
+            "max": 19047
+          },
+          "vsyncOverheadUs": {
+            "count": 484,
+            "total": 62181,
+            "p50": 87,
+            "p95": 221,
+            "p99": 1289,
+            "max": 4324
+          },
+          "totalSpanUs": {
+            "count": 484,
+            "total": 1514466,
+            "p50": 2969,
+            "p95": 5836,
+            "p99": 8793,
+            "max": 22926
+          }
+        },
+        "viewportWorkUs": {
+          "count": 484,
+          "total": 31476,
+          "p50": 57,
+          "p95": 143,
+          "p99": 242,
+          "max": 316
+        },
+        "postLayoutUs": {
+          "count": 50,
+          "total": 42087,
+          "p50": 646,
+          "p95": 2284,
+          "p99": 3268,
+          "max": 3268
+        },
+        "activityCounts": {
+          "topic.capture.context": 1,
+          "scroll.notification": 2400,
+          "sliver.layout.changed": 480,
+          "viewport.work": 484,
+          "viewport.inspected": 484,
+          "scroll.metricsChanged": 480,
+          "sliver.separator.built": 98,
+          "sliver.child.built": 48,
+          "sliver.post.attached": 36,
+          "post.layout": 50,
+          "topic.progress.changed": 92,
+          "viewport.anchor.saved": 92,
+          "paging.newer.scheduled": 2,
+          "paging.newer.dispatched": 1,
+          "paging.newer.retryArmed": 1,
+          "topic.window.changed": 1,
+          "topic.view.built": 1,
+          "sliver.childIndex.resolved": 12,
+          "paging.newer.cancelled": 1,
+          "sliver.post.detached": 16
+        },
+        "worstFrames": [
+          {
+            "frameNumber": 14,
+            "vsyncStartUs": 284919997934,
+            "buildStartUs": 284919998360,
+            "rasterStartUs": 284919999468,
+            "buildUs": 1027,
+            "rasterUs": 19047,
+            "vsyncOverheadUs": 426,
+            "totalSpanUs": 20581,
+            "layerCacheCount": 0,
+            "layerCacheBytes": 0,
+            "pictureCacheCount": 2,
+            "pictureCacheBytes": 4272944,
+            "topicActivity": {
+              "sliver.layout.changed": 1,
+              "viewport.work": 1,
+              "viewport.inspected": 1
+            },
+            "measuredWorkUs": {
+              "topicList.row.build": 0,
+              "topicList.row.layout": 0,
+              "post.layout": 0,
+              "viewport.work": 62,
+              "chat.row.layout": 0,
+              "chat.viewport.work": 0,
+              "chat.dayExtents.scanned": 0
+            },
+            "rendering": {
+              "frameNumber": 14,
+              "outsidePhaseMarkersUs": 18315,
+              "phases": [
+                {
+                  "name": "CompositorContext::ScopedFrame::Raster",
+                  "durationUs": 731
+                },
+                {
+                  "name": "LayerTree::Paint",
+                  "durationUs": 653
+                },
+                {
+                  "name": "LayerTree::Preroll",
+                  "durationUs": 74
+                },
+                {
+                  "name": "SurfaceFrame::Encode",
+                  "durationUs": 1
+                },
+                {
+                  "name": "SurfaceFrame::Submit",
+                  "durationUs": 1
+                }
+              ]
+            }
+          },
+          {
+            "frameNumber": 35,
+            "vsyncStartUs": 284920172913,
+            "buildStartUs": 284920173041,
+            "rasterStartUs": 284920173418,
+            "buildUs": 281,
+            "rasterUs": 12249,
+            "vsyncOverheadUs": 128,
+            "totalSpanUs": 12754,
+            "layerCacheCount": 0,
+            "layerCacheBytes": 0,
+            "pictureCacheCount": 3,
+            "pictureCacheBytes": 42999880,
+            "topicActivity": {
+              "sliver.layout.changed": 1,
+              "topic.progress.changed": 1,
+              "viewport.anchor.saved": 1,
+              "viewport.work": 1,
+              "viewport.inspected": 1
+            },
+            "measuredWorkUs": {
+              "topicList.row.build": 0,
+              "topicList.row.layout": 0,
+              "post.layout": 0,
+              "viewport.work": 14,
+              "chat.row.layout": 0,
+              "chat.viewport.work": 0,
+              "chat.dayExtents.scanned": 0
+            },
+            "rendering": {
+              "frameNumber": 35,
+              "outsidePhaseMarkersUs": 11948,
+              "phases": [
+                {
+                  "name": "CompositorContext::ScopedFrame::Raster",
+                  "durationUs": 300
+                },
+                {
+                  "name": "LayerTree::Paint",
+                  "durationUs": 267
+                },
+                {
+                  "name": "LayerTree::Preroll",
+                  "durationUs": 32
+                },
+                {
+                  "name": "SurfaceFrame::Submit",
+                  "durationUs": 1
+                }
+              ]
+            }
+          },
+          {
+            "frameNumber": 15,
+            "vsyncStartUs": 284920006249,
+            "buildStartUs": 284920006400,
+            "rasterStartUs": 284920018593,
+            "buildUs": 2627,
+            "rasterUs": 10582,
+            "vsyncOverheadUs": 151,
+            "totalSpanUs": 22926,
+            "layerCacheCount": 0,
+            "layerCacheBytes": 0,
+            "pictureCacheCount": 1,
+            "pictureCacheBytes": 16408,
+            "topicActivity": {
+              "sliver.layout.changed": 1,
+              "viewport.work": 1,
+              "viewport.inspected": 1
+            },
+            "measuredWorkUs": {
+              "topicList.row.build": 0,
+              "topicList.row.layout": 0,
+              "post.layout": 0,
+              "viewport.work": 51,
+              "chat.row.layout": 0,
+              "chat.viewport.work": 0,
+              "chat.dayExtents.scanned": 0
+            },
+            "rendering": {
+              "frameNumber": 15,
+              "outsidePhaseMarkersUs": 10253,
+              "phases": [
+                {
+                  "name": "CompositorContext::ScopedFrame::Raster",
+                  "durationUs": 327
+                },
+                {
+                  "name": "LayerTree::Paint",
+                  "durationUs": 261
+                },
+                {
+                  "name": "LayerTree::Preroll",
+                  "durationUs": 62
+                },
+                {
+                  "name": "SurfaceFrame::Submit",
+                  "durationUs": 2
+                }
+              ]
+            }
+          },
+          {
+            "frameNumber": 252,
+            "vsyncStartUs": 284922006236,
+            "buildStartUs": 284922006307,
+            "rasterStartUs": 284922014423,
+            "buildUs": 8069,
+            "rasterUs": 1938,
+            "vsyncOverheadUs": 71,
+            "totalSpanUs": 10125,
+            "layerCacheCount": 1,
+            "layerCacheBytes": 41464,
+            "pictureCacheCount": 4,
+            "pictureCacheBytes": 686064,
+            "topicActivity": {
+              "sliver.separator.built": 1,
+              "sliver.child.built": 1,
+              "sliver.post.attached": 1,
+              "post.layout": 1,
+              "sliver.layout.changed": 1,
+              "viewport.work": 1,
+              "viewport.inspected": 1
+            },
+            "measuredWorkUs": {
+              "topicList.row.build": 0,
+              "topicList.row.layout": 0,
+              "post.layout": 3268,
+              "viewport.work": 62,
+              "chat.row.layout": 0,
+              "chat.viewport.work": 0,
+              "chat.dayExtents.scanned": 0
+            }
+          },
+          {
+            "frameNumber": 51,
+            "vsyncStartUs": 284920306246,
+            "buildStartUs": 284920306381,
+            "rasterStartUs": 284920312443,
+            "buildUs": 5976,
+            "rasterUs": 2370,
+            "vsyncOverheadUs": 135,
+            "totalSpanUs": 8567,
+            "layerCacheCount": 0,
+            "layerCacheBytes": 0,
+            "pictureCacheCount": 4,
+            "pictureCacheBytes": 43650400,
+            "topicActivity": {
+              "sliver.separator.built": 1,
+              "sliver.child.built": 1,
+              "sliver.post.attached": 1,
+              "post.layout": 1,
+              "sliver.layout.changed": 1,
+              "viewport.work": 1,
+              "viewport.inspected": 1
+            },
+            "measuredWorkUs": {
+              "topicList.row.build": 0,
+              "topicList.row.layout": 0,
+              "post.layout": 2470,
+              "viewport.work": 90,
+              "chat.row.layout": 0,
+              "chat.viewport.work": 0,
+              "chat.dayExtents.scanned": 0
+            }
+          }
+        ]
+      }
+    },
+    {
+      "pass": "topic-scroll-candidate-audit-return-pass",
+      "capture": {
+        "status": "stopped",
+        "startedAtUtc": "2026-09-22T00:22:14.133480Z",
+        "endedAtUtc": "2026-09-22T00:22:19.943557Z",
+        "durationUs": 5810077,
+        "stopReason": "manual",
+        "memoryOnly": true,
+        "maximumEvents": 12000,
+        "maximumDurationMs": 120000,
+        "accessibility": {
+          "frameworkEnabledAtStart": true,
+          "frameworkEnabledAtEnd": true,
+          "platformEnabledAtStart": true,
+          "stateChanges": 0
+        }
+      },
+      "summary": {
+        "eventCount": 5223,
+        "topicEventCount": 4679,
+        "frameCount": 544,
+        "slowBuildFrameCount": 1,
+        "slowRasterFrameCount": 0,
+        "displayRefreshRate": 120.0,
+        "slowFrameThresholdUs": 8333,
+        "maximumBuildUs": 8922,
+        "maximumRasterUs": 5811,
+        "maximumTotalSpanUs": 11495
+      },
+      "analysis": {
+        "allFrames": {
+          "count": 544,
+          "overBudget": 1,
+          "slowBuilds": 1,
+          "slowRasters": 0,
+          "buildUs": {
+            "count": 544,
+            "total": 416461,
+            "p50": 554,
+            "p95": 1923,
+            "p99": 4776,
+            "max": 8922
+          },
+          "rasterUs": {
+            "count": 544,
+            "total": 1092886,
+            "p50": 2081,
+            "p95": 3317,
+            "p99": 4551,
+            "max": 5811
+          },
+          "vsyncOverheadUs": {
+            "count": 544,
+            "total": 77756,
+            "p50": 98,
+            "p95": 343,
+            "p99": 882,
+            "max": 6184
+          },
+          "totalSpanUs": {
+            "count": 544,
+            "total": 1627016,
+            "p50": 2921,
+            "p95": 5455,
+            "p99": 7195,
+            "max": 11495
+          }
+        },
+        "topicFrames": {
+          "count": 484,
+          "overBudget": 1,
+          "slowBuilds": 1,
+          "slowRasters": 0,
+          "buildUs": {
+            "count": 484,
+            "total": 398892,
+            "p50": 608,
+            "p95": 2050,
+            "p99": 5302,
+            "max": 8922
+          },
+          "rasterUs": {
+            "count": 484,
+            "total": 985316,
+            "p50": 2106,
+            "p95": 3386,
+            "p99": 4551,
+            "max": 5811
+          },
+          "vsyncOverheadUs": {
+            "count": 484,
+            "total": 70225,
+            "p50": 97,
+            "p95": 337,
+            "p99": 883,
+            "max": 6184
+          },
+          "totalSpanUs": {
+            "count": 484,
+            "total": 1489367,
+            "p50": 2985,
+            "p95": 5511,
+            "p99": 7249,
+            "max": 11495
+          }
+        },
+        "viewportWorkUs": {
+          "count": 484,
+          "total": 39039,
+          "p50": 70,
+          "p95": 174,
+          "p99": 257,
+          "max": 369
+        },
+        "postLayoutUs": {
+          "count": 24,
+          "total": 24979,
+          "p50": 942,
+          "p95": 2633,
+          "p99": 3117,
+          "max": 3117
+        },
+        "activityCounts": {
+          "topic.capture.context": 1,
+          "scroll.notification": 2400,
+          "sliver.layout.changed": 480,
+          "viewport.work": 484,
+          "viewport.inspected": 484,
+          "scroll.metricsChanged": 480,
+          "sliver.separator.built": 94,
+          "topic.progress.changed": 92,
+          "viewport.anchor.saved": 92,
+          "post.layout": 24,
+          "sliver.child.built": 16,
+          "sliver.post.attached": 16,
+          "sliver.post.detached": 16
+        },
+        "worstFrames": [
+          {
+            "frameNumber": 1056,
+            "vsyncStartUs": 284931056178,
+            "buildStartUs": 284931056290,
+            "rasterStartUs": 284931065277,
+            "buildUs": 8922,
+            "rasterUs": 2396,
+            "vsyncOverheadUs": 112,
+            "totalSpanUs": 11495,
+            "layerCacheCount": 1,
+            "layerCacheBytes": 41464,
+            "pictureCacheCount": 4,
+            "pictureCacheBytes": 686064,
+            "topicActivity": {
+              "sliver.separator.built": 1,
+              "sliver.child.built": 1,
+              "sliver.post.attached": 1,
+              "post.layout": 1,
+              "sliver.layout.changed": 1,
+              "viewport.work": 1,
+              "viewport.inspected": 1
+            },
+            "measuredWorkUs": {
+              "topicList.row.build": 0,
+              "topicList.row.layout": 0,
+              "post.layout": 3117,
+              "viewport.work": 48,
+              "chat.row.layout": 0,
+              "chat.viewport.work": 0,
+              "chat.dayExtents.scanned": 0
+            }
+          },
+          {
+            "frameNumber": 923,
+            "vsyncStartUs": 284929922852,
+            "buildStartUs": 284929922975,
+            "rasterStartUs": 284929929160,
+            "buildUs": 6135,
+            "rasterUs": 2549,
+            "vsyncOverheadUs": 123,
+            "totalSpanUs": 8857,
+            "layerCacheCount": 0,
+            "layerCacheBytes": 0,
+            "pictureCacheCount": 4,
+            "pictureCacheBytes": 20297840,
+            "topicActivity": {
+              "sliver.separator.built": 1,
+              "sliver.child.built": 1,
+              "sliver.post.attached": 1,
+              "post.layout": 1,
+              "sliver.layout.changed": 1,
+              "viewport.work": 1,
+              "viewport.inspected": 1
+            },
+            "measuredWorkUs": {
+              "topicList.row.build": 0,
+              "topicList.row.layout": 0,
+              "post.layout": 2004,
+              "viewport.work": 57,
+              "chat.row.layout": 0,
+              "chat.viewport.work": 0,
+              "chat.dayExtents.scanned": 0
+            }
+          },
+          {
+            "frameNumber": 557,
+            "vsyncStartUs": 284926656214,
+            "buildStartUs": 284926656261,
+            "rasterStartUs": 284926656664,
+            "buildUs": 370,
+            "rasterUs": 5811,
+            "vsyncOverheadUs": 47,
+            "totalSpanUs": 6261,
+            "layerCacheCount": 0,
+            "layerCacheBytes": 0,
+            "pictureCacheCount": 4,
+            "pictureCacheBytes": 4292080,
+            "topicActivity": {
+              "sliver.layout.changed": 1,
+              "viewport.work": 1,
+              "viewport.inspected": 1
+            },
+            "measuredWorkUs": {
+              "topicList.row.build": 0,
+              "topicList.row.layout": 0,
+              "post.layout": 0,
+              "viewport.work": 28,
+              "chat.row.layout": 0,
+              "chat.viewport.work": 0,
+              "chat.dayExtents.scanned": 0
+            }
+          },
+          {
+            "frameNumber": 673,
+            "vsyncStartUs": 284927622866,
+            "buildStartUs": 284927623165,
+            "rasterStartUs": 284927628869,
+            "buildUs": 5637,
+            "rasterUs": 2525,
+            "vsyncOverheadUs": 299,
+            "totalSpanUs": 8528,
+            "layerCacheCount": 0,
+            "layerCacheBytes": 0,
+            "pictureCacheCount": 5,
+            "pictureCacheBytes": 20948360,
+            "topicActivity": {
+              "sliver.separator.built": 1,
+              "sliver.child.built": 1,
+              "sliver.post.attached": 1,
+              "post.layout": 1,
+              "sliver.layout.changed": 1,
+              "viewport.work": 1,
+              "viewport.inspected": 1
+            },
+            "measuredWorkUs": {
+              "topicList.row.build": 0,
+              "topicList.row.layout": 0,
+              "post.layout": 2540,
+              "viewport.work": 41,
+              "chat.row.layout": 0,
+              "chat.viewport.work": 0,
+              "chat.dayExtents.scanned": 0
+            }
+          },
+          {
+            "frameNumber": 935,
+            "vsyncStartUs": 284930022852,
+            "buildStartUs": 284930022938,
+            "rasterStartUs": 284930028300,
+            "buildUs": 5334,
+            "rasterUs": 1300,
+            "vsyncOverheadUs": 86,
+            "totalSpanUs": 6748,
+            "layerCacheCount": 0,
+            "layerCacheBytes": 0,
+            "pictureCacheCount": 5,
+            "pictureCacheBytes": 20948360,
+            "topicActivity": {
+              "sliver.separator.built": 1,
+              "sliver.child.built": 1,
+              "sliver.post.attached": 1,
+              "post.layout": 1,
+              "sliver.layout.changed": 1,
+              "viewport.work": 1,
+              "viewport.inspected": 1
+            },
+            "measuredWorkUs": {
+              "topicList.row.build": 0,
+              "topicList.row.layout": 0,
+              "post.layout": 2633,
+              "viewport.work": 60,
+              "chat.row.layout": 0,
+              "chat.viewport.work": 0,
+              "chat.dayExtents.scanned": 0
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "sidebarBenchmark": {
+    "baseline": {
+      "mode": "debug",
+      "channels": 175,
+      "threadsPerChannel": 32,
+      "destinations": 169,
+      "medianUs": 1836.1,
+      "p95Us": 1957.95
+    },
+    "fixed": {
+      "mode": "debug",
+      "channels": 175,
+      "threadsPerChannel": 32,
+      "destinations": 169,
+      "medianUs": 481.15,
+      "p95Us": 969.3
+    }
+  }
+}
