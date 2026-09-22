@@ -85,6 +85,8 @@ class _GroupsDirectoryView extends StatelessWidget {
         final query = coordinator.directoryQuery;
         final state = port.directoryState(owner, query);
         return GroupsPage(
+          key: ValueKey(owner),
+          loadMemberPreview: (group) => port.loadMemberPreview(owner, group),
           siteUrl: owner.siteUrl,
           data: GroupsPageData(
             groups: state.groups,

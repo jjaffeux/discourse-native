@@ -2,14 +2,13 @@ import 'dart:async';
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 
 import '../models/group.dart';
 import '../theme/d_icons.dart';
 import '../utils/pagination.dart';
-import 'choice_menu.dart';
+import 'avatar_image.dart';
 import 'content_reading_lane.dart';
-import 'group_flair.dart';
+import 'site_url.dart';
 
 @immutable
 final class GroupsPageData {
@@ -53,6 +52,7 @@ class GroupsPage extends StatefulWidget {
     this.onLoadMore,
     this.onOpenGroup,
     this.onCreateGroup,
+    this.loadMemberPreview,
   });
 
   final String siteUrl;
@@ -63,6 +63,7 @@ class GroupsPage extends StatefulWidget {
   final VoidCallback? onLoadMore;
   final ValueChanged<Group>? onOpenGroup;
   final VoidCallback? onCreateGroup;
+  final Future<List<GroupMember>> Function(Group group)? loadMemberPreview;
 
   @override
   State<GroupsPage> createState() => _GroupsPageState();
@@ -73,18 +74,30 @@ class _GroupsPageState extends State<GroupsPage> {
   final FocusNode _searchFocus = FocusNode();
   final ScrollController _scrollController = ScrollController();
   Timer? _searchDebounce;
+  bool _searchVisible = false;
+  final Map<int, Future<List<GroupMember>>> _memberPreviews = {};
 
   @override
   void initState() {
     super.initState();
     _searchController = TextEditingController(text: widget.data.query);
+    _searchVisible = widget.data.query.isNotEmpty;
   }
 
   @override
   void didUpdateWidget(GroupsPage oldWidget) {
     super.didUpdateWidget(oldWidget);
     final siteChanged = oldWidget.siteUrl != widget.siteUrl;
-    if (siteChanged) _searchDebounce?.cancel();
+    if (siteChanged) {
+      _searchDebounce?.cancel();
+      _memberPreviews.clear();
+      _searchVisible = widget.data.query.isNotEmpty;
+    } else if (widget.data.query.isNotEmpty) {
+      _searchVisible = true;
+    }
+    if (oldWidget.data.loading && !widget.data.loading) {
+      _memberPreviews.clear();
+    }
     if (siteChanged ||
         (!_searchFocus.hasFocus &&
             widget.data.query != _searchController.text)) {
@@ -129,8 +142,16 @@ class _GroupsPageState extends State<GroupsPage> {
     return false;
   }
 
-  Future<void> _refresh() async {
-    await widget.onRefresh?.call();
+  void _showSearch() {
+    setState(() => _searchVisible = true);
+    _searchFocus.requestFocus();
+  }
+
+  Future<List<GroupMember>>? _memberPreview(Group group) {
+    if (!group.canSeeMembers || group.userCount == 0) return null;
+    final load = widget.loadMemberPreview;
+    if (load == null) return null;
+    return _memberPreviews.putIfAbsent(group.id, () => load(group));
   }
 
   void _openGroup(Group group) {
@@ -142,126 +163,115 @@ class _GroupsPageState extends State<GroupsPage> {
     final data = widget.data;
     return ContentReadingLane(
       basePadding: const EdgeInsets.symmetric(horizontal: 16),
-      builder: (context, lane) => RefreshIndicator(
-        onRefresh: _refresh,
+      builder: (context, lane) => DPullToRefresh(
+        onRefresh: widget.onRefresh,
         child: NotificationListener<ScrollNotification>(
           onNotification: _onScroll,
-          child: CustomScrollView(
-            key: const PageStorageKey('groups-directory-scroll'),
+          child: DScrollBar(
             controller: _scrollController,
-            physics: const AlwaysScrollableScrollPhysics(),
-            slivers: [
-              SliverPadding(
-                padding: EdgeInsets.only(
-                  left: lane.leftInset,
-                  right: lane.rightInset,
-                ),
-                sliver: SliverMainAxisGroup(
-                  slivers: [
-                    SliverToBoxAdapter(
-                      child: Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
-                        child: _DirectoryControls(
-                          data: data,
-                          searchController: _searchController,
-                          searchFocus: _searchFocus,
-                          onSearchChanged: _search,
-                          onSearchSubmitted: _submitSearch,
-                          onTypeChanged: widget.onTypeChanged,
-                          onCreateGroup: widget.onCreateGroup,
-                        ),
-                      ),
-                    ),
-                    if (data.error != null &&
-                        (!data.pageError || data.groups.isEmpty))
+            child: CustomScrollView(
+              key: const PageStorageKey('groups-directory-scroll'),
+              controller: _scrollController,
+              physics: const AlwaysScrollableScrollPhysics(),
+              slivers: [
+                SliverPadding(
+                  padding: EdgeInsets.only(
+                    left: lane.leftInset,
+                    right: lane.rightInset,
+                  ),
+                  sliver: SliverMainAxisGroup(
+                    slivers: [
                       SliverToBoxAdapter(
-                        child: _DirectoryError(
-                          message: data.error!,
-                          onRetry: widget.onRefresh,
-                        ),
-                      ),
-                    if (!data.loaded && data.groups.isEmpty && data.loading)
-                      const SliverFillRemaining(
-                        hasScrollBody: false,
-                        child: Center(
-                          child: DSpinner(
-                            size: DSpacing.xl,
-                            key: ValueKey('groups-loading'),
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+                          child: _DirectoryControls(
+                            data: data,
+                            searchController: _searchController,
+                            searchFocus: _searchFocus,
+                            onSearchChanged: _search,
+                            onSearchSubmitted: _submitSearch,
+                            onTypeChanged: widget.onTypeChanged,
+                            onCreateGroup: widget.onCreateGroup,
+                            searchVisible: _searchVisible,
+                            onShowSearch: _showSearch,
                           ),
                         ),
-                      )
-                    else if (data.groups.isEmpty &&
-                        data.loaded &&
-                        data.error == null)
-                      const SliverFillRemaining(
-                        hasScrollBody: false,
-                        child: _EmptyDirectory(),
-                      )
-                    else
-                      SliverPadding(
-                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 28),
-                        sliver: SliverLayoutBuilder(
-                          builder: (context, constraints) {
-                            final width = ContentReadingLane.breakpointWidthOf(
-                              context,
-                              constraints.crossAxisExtent,
-                            );
-                            final columns = width >= 980
-                                ? 3
-                                : width >= 620
-                                ? 2
-                                : 1;
-                            return SliverMasonryGrid.count(
-                              crossAxisCount: columns,
-                              crossAxisSpacing: 12,
-                              mainAxisSpacing: 12,
-                              childCount: data.groups.length,
-                              itemBuilder: (context, index) {
-                                final group = data.groups[index];
-                                return _GroupDirectoryCard(
-                                  key: ValueKey('group-card-${group.name}'),
-                                  siteUrl: widget.siteUrl,
-                                  group: group,
-                                  onTap: () => _openGroup(group),
-                                );
-                              },
+                      ),
+                      if (data.error != null &&
+                          (!data.pageError || data.groups.isEmpty))
+                        SliverToBoxAdapter(
+                          child: _DirectoryError(
+                            message: data.error!,
+                            onRetry: widget.onRefresh,
+                          ),
+                        ),
+                      if (!data.loaded && data.groups.isEmpty && data.loading)
+                        const SliverFillRemaining(
+                          hasScrollBody: false,
+                          child: Center(
+                            child: DSpinner(
+                              size: DSpacing.xl,
+                              key: ValueKey('groups-loading'),
+                            ),
+                          ),
+                        )
+                      else if (data.groups.isEmpty &&
+                          data.loaded &&
+                          data.error == null)
+                        const SliverFillRemaining(
+                          hasScrollBody: false,
+                          child: _EmptyDirectory(),
+                        )
+                      else
+                        SliverList.separated(
+                          itemCount: data.groups.length,
+                          separatorBuilder: (context, index) =>
+                              const DSeparator(),
+                          itemBuilder: (context, index) {
+                            final group = data.groups[index];
+                            return _GroupDirectoryRow(
+                              key: ValueKey('group-row-${group.name}'),
+                              siteUrl: widget.siteUrl,
+                              group: group,
+                              memberPreview: _memberPreview(group),
+                              onTap: () => _openGroup(group),
                             );
                           },
                         ),
-                      ),
-                    if (data.loadingMore)
-                      const SliverToBoxAdapter(
-                        child: Padding(
-                          padding: EdgeInsets.only(bottom: 24),
-                          child: Center(child: DSpinner()),
+                      if (data.loadingMore)
+                        const SliverToBoxAdapter(
+                          child: Padding(
+                            padding: EdgeInsets.only(bottom: 24),
+                            child: Center(child: DSpinner()),
+                          ),
                         ),
-                      ),
-                    if (data.pageError && data.error != null)
-                      SliverToBoxAdapter(
-                        child: _DirectoryError(
-                          message: data.error!,
-                          onRetry: widget.onLoadMore,
+                      if (data.pageError && data.error != null)
+                        SliverToBoxAdapter(
+                          child: _DirectoryError(
+                            message: data.error!,
+                            onRetry: widget.onLoadMore,
+                          ),
                         ),
-                      ),
-                    if (data.hasMore &&
-                        !data.loadingMore &&
-                        data.groups.isNotEmpty)
-                      SliverToBoxAdapter(
-                        child: Padding(
-                          padding: const EdgeInsets.only(bottom: 32),
-                          child: Center(
-                            child: DButton(
-                              key: const ValueKey('groups-load-more'),
-                              label: const Text('Load more'),
-                              onPressed: widget.onLoadMore,
+                      if (data.hasMore &&
+                          !data.loadingMore &&
+                          data.groups.isNotEmpty)
+                        SliverToBoxAdapter(
+                          child: Padding(
+                            padding: const EdgeInsets.only(bottom: 32),
+                            child: Center(
+                              child: DButton(
+                                key: const ValueKey('groups-load-more'),
+                                label: const Text('Load more'),
+                                onPressed: widget.onLoadMore,
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -278,6 +288,8 @@ class _DirectoryControls extends StatelessWidget {
     required this.onSearchSubmitted,
     required this.onTypeChanged,
     required this.onCreateGroup,
+    required this.searchVisible,
+    required this.onShowSearch,
   });
 
   final GroupsPageData data;
@@ -287,171 +299,119 @@ class _DirectoryControls extends StatelessWidget {
   final ValueChanged<String> onSearchSubmitted;
   final ValueChanged<String?>? onTypeChanged;
   final VoidCallback? onCreateGroup;
+  final bool searchVisible;
+  final VoidCallback onShowSearch;
 
   @override
   Widget build(BuildContext context) {
     final types = <String>{...data.typeFilters};
     if (data.type case final selected?) types.add(selected);
-    final touch = switch (Theme.of(context).platform) {
-      TargetPlatform.iOS || TargetPlatform.android => true,
-      _ => false,
-    };
-    final search = ConstrainedBox(
-      constraints: BoxConstraints(minHeight: touch ? DSpacing.touchTarget : 0),
-      child: ValueListenableBuilder<TextEditingValue>(
-        valueListenable: searchController,
-        builder: (context, value, _) => TextField(
-          key: const ValueKey('groups-search'),
-          controller: searchController,
-          focusNode: searchFocus,
-          autofocus: true,
-          onChanged: onSearchChanged,
-          onSubmitted: onSearchSubmitted,
-          textInputAction: TextInputAction.search,
-          style: Theme.of(context).textTheme.labelLarge,
-          decoration: InputDecoration(
-            isDense: true,
-            hintText: 'Search groups',
-            prefixIcon: const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 12),
-              child: DIcon(DIcons.magnifyingGlass, size: 18),
-            ),
-            prefixIconConstraints: const BoxConstraints(
-              minWidth: 42,
-              minHeight: 37,
-            ),
-            suffixIcon: value.text.isEmpty
-                ? null
-                : DButton.iconOnly(
-                    onPressed: () {
-                      searchController.clear();
-                      onSearchSubmitted('');
-                    },
-                    variant: DButtonVariant.ghost,
-                    tooltip: 'Clear search',
-                    icon: const DIcon(DIcons.xmark),
-                  ),
-            suffixIconConstraints: const BoxConstraints(
-              minWidth: 42,
-              minHeight: 37,
-            ),
-            contentPadding: const EdgeInsets.symmetric(vertical: 9),
-            border: const OutlineInputBorder(),
-          ),
-        ),
-      ),
-    );
-    final typeFilter = _GroupTypeFilter(
-      types: types,
-      selected: data.type,
-      onChanged: onTypeChanged,
-    );
-    final createGroup = data.canCreateGroup
-        ? DButton(
-            key: const ValueKey('create-group'),
-            label: const Text('New Group'),
-            icon: const DIcon(DIcons.plus),
-            variant: DButtonVariant.outline,
-            onPressed: onCreateGroup,
-          )
-        : null;
-
     return FocusTraversalGroup(
       policy: WidgetOrderTraversalPolicy(),
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          if (ContentReadingLane.breakpointWidthOf(
-                context,
-                constraints.maxWidth,
-              ) <
-              600) {
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                search,
-                const SizedBox(height: 12),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  alignment: WrapAlignment.spaceBetween,
-                  children: [typeFilter, ?createGroup],
-                ),
-              ],
-            );
-          }
-          return Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Wrap(
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: DSpacing.md,
+            runSpacing: DSpacing.sm,
             children: [
-              Expanded(child: search),
-              const SizedBox(width: 12),
-              typeFilter,
-              if (createGroup != null) ...[
-                const SizedBox(width: 8),
-                createGroup,
-              ],
+              const DText('Groups', variant: DTextVariant.h3, headingLevel: 1),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                spacing: DSpacing.controlGap,
+                children: [
+                  DButton.iconOnly(
+                    key: const ValueKey('groups-show-search'),
+                    icon: const DIcon(DIcons.magnifyingGlass),
+                    tooltip: 'Search groups',
+                    variant: DButtonVariant.transparentBackground,
+                    onPressed: onShowSearch,
+                  ),
+                  if (data.canCreateGroup)
+                    DButton.iconOnly(
+                      key: const ValueKey('create-group'),
+                      icon: const DIcon(DIcons.plus),
+                      tooltip: 'New group',
+                      variant: DButtonVariant.outline,
+                      onPressed: onCreateGroup,
+                    ),
+                ],
+              ),
             ],
-          );
-        },
-      ),
-    );
-  }
-}
-
-const String _allGroupTypes = '__all_group_types__';
-
-class _GroupTypeFilter extends StatelessWidget {
-  const _GroupTypeFilter({
-    required this.types,
-    required this.selected,
-    required this.onChanged,
-  });
-
-  final Set<String> types;
-  final String? selected;
-  final ValueChanged<String?>? onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    final options = [
-      const ChoiceMenuOption(
-        value: _allGroupTypes,
-        title: 'All groups',
-        description: 'Show every visible group',
-      ),
-      for (final type in types.where((type) => type != _allGroupTypes))
-        ChoiceMenuOption(
-          value: type,
-          title: _groupTypeLabel(type),
-          description: _groupTypeDescription(type),
-        ),
-    ];
-    final value = selected ?? _allGroupTypes;
-
-    return ChoiceMenuAnchor<String>(
-      title: 'Filter by group type',
-      showPopoverTitle: false,
-      value: value,
-      options: options,
-      enabled: onChanged != null,
-      onSelected: (choice) =>
-          onChanged?.call(choice == _allGroupTypes ? null : choice),
-      builder: (context, openMenu) => DButton(
-        key: const ValueKey('groups-type-filter'),
-        label: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Flexible(
-              child: Text(
-                selected == null ? 'All groups' : _groupTypeLabel(selected!),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+          ),
+          const SizedBox(height: DSpacing.lg),
+          if (searchVisible) ...[
+            ValueListenableBuilder<TextEditingValue>(
+              valueListenable: searchController,
+              builder: (context, value, _) => DInput(
+                key: const ValueKey('groups-search'),
+                controller: searchController,
+                focusNode: searchFocus,
+                autofocus: true,
+                onChanged: onSearchChanged,
+                onSubmitted: onSearchSubmitted,
+                textInputAction: TextInputAction.search,
+                semanticLabel: 'Search groups',
+                hintText: 'Search groups',
+                prefix: const DIcon(DIcons.magnifyingGlass),
+                suffix: value.text.isEmpty
+                    ? null
+                    : DButton.iconOnly(
+                        onPressed: () {
+                          searchController.clear();
+                          onSearchSubmitted('');
+                        },
+                        variant: DButtonVariant.transparentBackground,
+                        tooltip: 'Clear search',
+                        icon: const DIcon(DIcons.xmark),
+                      ),
               ),
             ),
-            const SizedBox(width: 8),
-            const DIcon(DIcons.chevronDown, size: 14),
+            const SizedBox(height: DSpacing.md),
           ],
-        ),
-        tooltip: 'Filter by group type',
-        onPressed: openMenu,
+          Wrap(
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: DSpacing.md,
+            runSpacing: DSpacing.sm,
+            children: [
+              SizedBox(
+                width: 180,
+                child: DSelect<String>.controlled(
+                  key: const ValueKey('groups-type-filter'),
+                  value: data.type,
+                  semanticLabel: 'Filter by group type',
+                  entries: [
+                    const DSelectOption(
+                      value: null,
+                      label: 'All groups',
+                      child: Text('All groups'),
+                    ),
+                    for (final type in types)
+                      DSelectOption(
+                        value: type,
+                        label: _groupTypeLabel(type),
+                        child: Text(_groupTypeLabel(type)),
+                      ),
+                  ],
+                  onChanged: onTypeChanged,
+                ),
+              ),
+              if (data.loaded || data.groups.isNotEmpty)
+                Text(
+                  '${data.totalRows} ${data.totalRows == 1 ? 'group' : 'groups'}',
+                  key: const ValueKey('groups-count'),
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: DTokens.of(context).mutedForeground,
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: DSpacing.lg),
+          const DSeparator(),
+        ],
       ),
     );
   }
@@ -466,111 +426,187 @@ String _groupTypeLabel(String type) => switch (type) {
   _ => '${_humanize(type)} groups',
 };
 
-String _groupTypeDescription(String type) => switch (type) {
-  'my' => 'Groups you belong to',
-  'owner' => 'Groups you own',
-  'public' => 'Groups visible to everyone',
-  'close' || 'closed' => 'Groups with closed membership',
-  'automatic' => 'Groups managed automatically',
-  _ => 'Show ${_groupTypeLabel(type).toLowerCase()}',
-};
-
-class _GroupDirectoryCard extends StatelessWidget {
-  const _GroupDirectoryCard({
+class _GroupDirectoryRow extends StatelessWidget {
+  const _GroupDirectoryRow({
     super.key,
     required this.siteUrl,
     required this.group,
+    required this.memberPreview,
     required this.onTap,
   });
 
   final String siteUrl;
   final Group group;
+  final Future<List<GroupMember>>? memberPreview;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final tokens = DTokens.of(context);
     final bio = (group.plainBio ?? group.bioExcerpt)?.trim();
-    return DCard(
-      spacing: 0,
-      child: InkWell(
-        onTap: onTap,
-        mouseCursor: SystemMouseCursors.click,
-        child: Semantics(
-          button: true,
-          label: 'Open ${group.label}',
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
+    final badge = group.isGroupOwner
+        ? const _MembershipBadge(label: 'Owner')
+        : group.isGroupUser
+        ? const _MembershipBadge(label: 'Member')
+        : null;
+    return DItem(
+      shape: DItemShape.fullWidth,
+      selectionStyle: DItemSelectionStyle.leadingAccent,
+      link: true,
+      onPressed: onTap,
+      children: [
+        DItemContent(
+          spacing: DSpacing.md,
+          alignment: CrossAxisAlignment.stretch,
+          children: [
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final stackBadge =
+                    constraints.maxWidth /
+                        MediaQuery.textScalerOf(context).scale(1) <
+                    300;
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    GroupFlair(siteUrl: siteUrl, group: group, size: 38),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            group.label,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: theme.textTheme.titleSmall?.copyWith(
-                              fontWeight: FontWeight.w600,
-                            ),
+                    Row(
+                      children: [
+                        _GroupIdentityAvatar(siteUrl: siteUrl, group: group),
+                        const SizedBox(width: DSpacing.md),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                group.label,
+                                style: theme.textTheme.titleMedium?.copyWith(
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                              Text(
+                                '@${group.name}',
+                                style: theme.textTheme.bodyMedium?.copyWith(
+                                  color: tokens.mutedForeground,
+                                ),
+                              ),
+                            ],
                           ),
-                          Text(
-                            '@${group.name}',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: theme.colorScheme.onSurfaceVariant,
-                            ),
-                          ),
+                        ),
+                        if (!stackBadge && badge != null) ...[
+                          const SizedBox(width: DSpacing.md),
+                          badge,
                         ],
-                      ),
+                      ],
                     ),
+                    if (stackBadge && badge != null) ...[
+                      const SizedBox(height: DSpacing.sm),
+                      badge,
+                    ],
                   ],
+                );
+              },
+            ),
+            if (bio != null && bio.isNotEmpty)
+              Text(
+                bio,
+                maxLines: 5,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: tokens.mutedForeground,
                 ),
-                if (bio != null && bio.isNotEmpty) ...[
-                  const SizedBox(height: 12),
+              ),
+            FutureBuilder<List<GroupMember>>(
+              // A different future must not retain a previous account's avatars.
+              key: ObjectKey(memberPreview),
+              future: memberPreview,
+              builder: (context, snapshot) => Wrap(
+                spacing: DSpacing.sm,
+                runSpacing: DSpacing.sm,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  if (snapshot.data case final members? when members.isNotEmpty)
+                    DAvatarGroup(
+                      size: DAvatarSize.sm,
+                      children: [
+                        for (final member in members.take(4))
+                          DAvatar(
+                            semanticLabel: member.username,
+                            child: AvatarImage(
+                              url: member.avatarUrl,
+                              size: DAvatarSize.sm.dimension,
+                              fallback: DAvatarFallback(
+                                child: Text(
+                                  member.username.characters.firstOrNull
+                                          ?.toUpperCase() ??
+                                      '?',
+                                ),
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
                   Text(
-                    bio,
-                    maxLines: 5,
-                    overflow: TextOverflow.ellipsis,
+                    group.userCount == null
+                        ? 'Members hidden'
+                        : '${group.userCount} ${group.userCount == 1 ? 'member' : 'members'}',
                     style: theme.textTheme.bodyMedium?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
+                      color: tokens.mutedForeground,
                     ),
                   ),
                 ],
-                const SizedBox(height: 16),
-                Row(
-                  children: [
-                    const DIcon(DIcons.users, size: 14),
-                    const SizedBox(width: 6),
-                    Expanded(
-                      child: Text(
-                        group.userCount == null
-                            ? 'Members hidden'
-                            : '${group.userCount} members',
-                        style: theme.textTheme.bodySmall,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    if (group.isGroupOwner)
-                      const _MembershipBadge(label: 'Owner')
-                    else if (group.isGroupUser)
-                      const _MembershipBadge(label: 'Member'),
-                  ],
-                ),
-              ],
+              ),
             ),
-          ),
+          ],
         ),
-      ),
+      ],
     );
   }
+}
+
+class _GroupIdentityAvatar extends StatelessWidget {
+  const _GroupIdentityAvatar({required this.siteUrl, required this.group});
+
+  final String siteUrl;
+  final Group group;
+
+  @override
+  Widget build(BuildContext context) {
+    final flair = group.flairUrl?.trim();
+    final imageUrl = flair != null && flair.contains('/')
+        ? resolveSitePath(siteUrl, flair)
+        : null;
+    final icon = DIcons.byName[group.flairIcon?.trim()] ?? DIcons.byName[flair];
+    final fallback = DAvatarFallback(
+      backgroundColor: _flairColor(group.flairBackgroundColor),
+      foregroundColor: _flairColor(group.flairColor),
+      child: icon == null
+          ? Text(group.name.characters.firstOrNull?.toUpperCase() ?? '?')
+          : DIcon(icon),
+    );
+    return DAvatar(
+      size: DAvatarSize.lg,
+      decorative: true,
+      child: imageUrl == null
+          ? fallback
+          : AvatarImage(
+              url: imageUrl,
+              size: DAvatarSize.lg.dimension,
+              fit: BoxFit.contain,
+              fallback: fallback,
+            ),
+    );
+  }
+}
+
+Color? _flairColor(String? value) {
+  var hex = value?.trim().replaceFirst('#', '');
+  if (hex == null) return null;
+  if (hex.length == 3) {
+    hex = hex.split('').map((digit) => '$digit$digit').join();
+  }
+  if (hex.length != 6) return null;
+  final parsed = int.tryParse(hex, radix: 16);
+  return parsed == null ? null : Color(0xFF000000 | parsed);
 }
 
 class _MembershipBadge extends StatelessWidget {
@@ -580,7 +616,7 @@ class _MembershipBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) =>
-      DBadge(variant: DBadgeVariant.secondary, child: Text(label));
+      DBadge(variant: DBadgeVariant.outline, child: Text(label));
 }
 
 class _DirectoryError extends StatelessWidget {
@@ -592,7 +628,7 @@ class _DirectoryError extends StatelessWidget {
     padding: const EdgeInsets.all(16),
     child: DAlert(
       variant: DAlertVariant.destructive,
-      icon: const Icon(Icons.error_outline),
+      icon: const DIcon(DIcons.triangleExclamation),
       description: DAlertDescription(child: Text(message)),
       action: DAlertAction(
         child: DButton(
