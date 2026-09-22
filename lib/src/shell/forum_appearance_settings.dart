@@ -28,6 +28,7 @@ class _ForumAppearanceSettingsState extends State<ForumAppearanceSettings> {
   String _tab = 'library';
   String _query = '';
   ForumTheme? _draft;
+  Brightness? _editorBrightness;
   GlobalKey _editorKey = GlobalKey();
   bool _saving = false;
   String? _error;
@@ -85,20 +86,23 @@ class _ForumAppearanceSettingsState extends State<ForumAppearanceSettings> {
         AppThemeMode.light => Brightness.light,
         AppThemeMode.dark => Brightness.dark,
       };
+      final previewBrightness = _tab == 'custom'
+          ? _editorBrightness ?? brightness
+          : brightness;
       final selected = _tab == 'custom' ? _draft : preferences.selectedTheme;
       final palette =
           selected?.resolve(
-            brightness,
+            previewBrightness,
             forumPalette:
-                forum?.paletteForBrightness(brightness) ??
+                forum?.paletteForBrightness(previewBrightness) ??
                 forum?.base ??
                 forum?.alternate,
           ) ??
-          forum?.paletteForBrightness(brightness);
+          forum?.paletteForBrightness(previewBrightness);
       final previewTheme =
           (palette == null
                   ? AppTheme.forBrightness(
-                      brightness,
+                      previewBrightness,
                       fontFamily: preferences.font.family,
                     )
                   : AppTheme.fromPalette(
@@ -236,8 +240,8 @@ class _ForumAppearanceSettingsState extends State<ForumAppearanceSettings> {
                     _tab = value;
                     if (_tab == 'custom' && _draft == null) {
                       _draft =
-                          (preferences.selectedTheme ?? forumThemePresets.first)
-                              .forBrightness(brightness);
+                          preferences.selectedTheme ?? forumThemePresets.first;
+                      _editorBrightness = brightness;
                     }
                   });
                 },
@@ -271,6 +275,9 @@ class _ForumAppearanceSettingsState extends State<ForumAppearanceSettings> {
                   initialTheme: _draft ?? forumThemePresets.first,
                   customThemes: preferences.customThemes,
                   enabled: !_saving,
+                  initialBrightness: _editorBrightness ?? brightness,
+                  onBrightnessChanged: (value) =>
+                      setState(() => _editorBrightness = value),
                   onChanged: (value) => setState(() => _draft = value),
                   onSave: (value) => _save(preferences.save(value)),
                 ),
@@ -391,7 +398,8 @@ class _ForumAppearanceSettingsState extends State<ForumAppearanceSettings> {
                     onPressed: _saving
                         ? null
                         : () => setState(() {
-                            _draft = selected.forBrightness(brightness);
+                            _draft = selected;
+                            _editorBrightness = brightness;
                             _editorKey = GlobalKey();
                             _tab = 'custom';
                           }),
