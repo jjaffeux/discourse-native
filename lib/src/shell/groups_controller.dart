@@ -535,6 +535,36 @@ final class GroupsController extends FrameSafeNotifier {
     }
   }
 
+  /// A small directory preview, kept separate from paginated member lists.
+  Future<List<GroupMember>> loadMemberPreview(
+    DiscourseInstance instance,
+    Group group,
+  ) async {
+    if (isDisposed || !group.canSeeMembers || group.userCount == 0) {
+      return const [];
+    }
+    final token = _start(Object(), instance.url, groupName: group.name);
+    try {
+      final auth = await _credentialsFor(instance, token);
+      if (auth == null || !_current(token)) return const [];
+      final page = await api.members(
+        siteUrl: instance.url,
+        groupName: group.name,
+        apiKey: auth.apiKey,
+        clientId: auth.clientId,
+        limit: 4,
+      );
+      return _current(token)
+          ? List.unmodifiable(page.members.take(4))
+          : const [];
+    } catch (error, stackTrace) {
+      if (_current(token)) _report(error, stackTrace, 'groups.memberPreview');
+      return const [];
+    } finally {
+      _finish(token);
+    }
+  }
+
   Future<void> loadDetail(
     DiscourseInstance instance,
     String groupName, {
