@@ -61,3 +61,6 @@ Escape and reopening on the same empty line. Widget coverage additionally
 checks undo, whitespace-only lines, hover targeting, CRLF, images, code blocks,
 adjacent headings, RTL, 200% text, composition guards and 320px iOS-themed
 Arrange mode. These themed widget checks are not device testing.
+The empty-editor follow-up was also checked natively in both layouts: both
+controls appear before typing, + opens commands on line one, and Escape restores
+the empty controls. Monospace-font widget coverage checks their visible bounds.
