@@ -136,6 +136,40 @@ void main() {
     });
   }
 
+  for (final edit in [
+    (source: '/', replacement: ''),
+    (source: 'Before /', replacement: 'Hi'),
+  ]) {
+    testWidgets(
+      'shortening "${edit.source}" to "${edit.replacement}" during layout hides the slash hint',
+      (tester) async {
+        final composer = await pump(tester);
+        await type(tester, edit.source);
+        expect(find.text('Type to search'), findsOneWidget);
+
+        // Rebuild the editor's layout before the menu refreshes its cached
+        // query in the post-frame callback.
+        tester.testTextInput.updateEditingValue(
+          TextEditingValue(
+            text: edit.replacement,
+            selection: TextSelection.collapsed(offset: edit.replacement.length),
+          ),
+        );
+        addTearDown(tester.view.resetPhysicalSize);
+        tester.view.physicalSize =
+            const Size(340, 600) * tester.view.devicePixelRatio;
+        await tester.pump();
+
+        expect(tester.takeException(), isNull);
+        expect(find.text('Type to search'), findsNothing);
+        await tester.pumpAndSettle();
+        expect(find.text('Close menu'), findsNothing);
+        expect(composer.text.text, edit.replacement);
+        expect(composer.focus.hasFocus, isTrue);
+      },
+    );
+  }
+
   testWidgets('heading preserves the line and replaces its existing level', (
     tester,
   ) async {
