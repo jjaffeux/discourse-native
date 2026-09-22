@@ -12,6 +12,23 @@ List<ChatChannel> projectChatChannelList(
   int? limit,
   bool retainActiveAtLimit = false,
 }) {
+  // Filtering and priority comparisons share one calculation per channel.
+  // Keep this local so changed tracking and last-viewed times are read next time.
+  // Identity keys avoid hashing the channel's complete thread collection.
+  final unreadCounts = Map<ChatChannel, int>.identity();
+  int unread(ChatChannel channel) =>
+      unreadCounts.putIfAbsent(channel, () => _unread(channel));
+  final priorities = Map<ChatChannel, int>.identity();
+  int priority(ChatChannel channel) => priorities.putIfAbsent(
+    channel,
+    () => channel.membership.muted
+        ? 2
+        : _urgent(channel) > 0
+        ? 0
+        : unread(channel) > 0
+        ? 1
+        : 2,
+  );
   final cutoff = now.subtract(const Duration(days: 30));
   final result = channels.where((channel) {
     if (channel.id == activeChannelId) return true;
@@ -23,7 +40,7 @@ List<ChatChannel> projectChatChannelList(
             channel.lastMessageAt != null &&
             !channel.lastMessageAt!.isBefore(cutoff),
       ChatChannelListFilter.unread =>
-        !channel.membership.muted && _unread(channel) > 0,
+        !channel.membership.muted && unread(channel) > 0,
       ChatChannelListFilter.mentions =>
         !channel.membership.muted && _urgent(channel) > 0,
     };
@@ -37,8 +54,8 @@ List<ChatChannel> projectChatChannelList(
       return _alphabetical(a, b);
     }
     if (sort == ChatChannelListSort.priority) {
-      final priority = _priority(a).compareTo(_priority(b));
-      if (priority != 0) return priority;
+      final compared = priority(a).compareTo(priority(b));
+      if (compared != 0) return compared;
     }
     final recent = _recency(a, b);
     return recent != 0 ? recent : _alphabetical(a, b);
@@ -62,13 +79,6 @@ int _unread(ChatChannel channel) =>
     channel.tracking.unreadCount +
     _urgent(channel) +
     (channel.threadingEnabled ? channel.unreadThreadsCountSinceLastViewed : 0);
-int _priority(ChatChannel channel) => channel.membership.muted
-    ? 2
-    : _urgent(channel) > 0
-    ? 0
-    : _unread(channel) > 0
-    ? 1
-    : 2;
 
 int _alphabetical(ChatChannel a, ChatChannel b) {
   String name(ChatChannel channel) =>

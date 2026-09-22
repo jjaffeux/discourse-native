@@ -864,19 +864,29 @@ class ChatController extends FrameSafeNotifier {
   /// Unread messages across channels and DMs, including watched threads.
   /// Mentions overlap these counts; unread thread totals count threads, not messages.
   int unreadMessageCount(String siteUrl, {ChatChannelListSection? section}) {
+    // Totals need membership filtering, not the lists' activity sorting.
     final channels = switch (section) {
-      ChatChannelListSection.starred => starredChannels(siteUrl),
-      ChatChannelListSection.channels => unstarredPublicChannels(siteUrl),
-      ChatChannelListSection.directMessages => unstarredDirectChannels(siteUrl),
-      null => [...publicChannels(siteUrl), ...directChannels(siteUrl)],
+      ChatChannelListSection.channels => publicChannels(siteUrl),
+      ChatChannelListSection.directMessages => directChannels(siteUrl),
+      _ => [...publicChannels(siteUrl), ...directChannels(siteUrl)],
     };
-    return channels.fold(
-      0,
-      (count, channel) =>
-          count +
-          channel.tracking.unreadCount +
-          channel.tracking.watchedThreadsUnreadCount,
-    );
+    return channels
+        .where(
+          (channel) => switch (section) {
+            ChatChannelListSection.starred => channel.membership.starred,
+            ChatChannelListSection.channels => !channel.membership.starred,
+            ChatChannelListSection.directMessages =>
+              !channel.membership.starred,
+            null => true,
+          },
+        )
+        .fold(
+          0,
+          (count, channel) =>
+              count +
+              channel.tracking.unreadCount +
+              channel.tracking.watchedThreadsUnreadCount,
+        );
   }
 
   /// Public channels in the web drawer's unread-first activity order.
@@ -886,13 +896,17 @@ class ChatController extends FrameSafeNotifier {
     for (final channel in channels) {
       originalPositions[channel.id] = originalPositions.length;
     }
+    final unreadCounts = Map<ChatChannel, int>.identity();
+    int unread(ChatChannel channel) => unreadCounts.putIfAbsent(
+      channel,
+      () =>
+          channel.tracking.unreadCount +
+          channel.unreadThreadsCountSinceLastViewed,
+    );
     channels.sort((a, b) {
       int urgent(ChatChannel channel) =>
           channel.tracking.mentionCount +
           channel.tracking.watchedThreadsUnreadCount;
-      int unread(ChatChannel channel) =>
-          channel.tracking.unreadCount +
-          channel.unreadThreadsCountSinceLastViewed;
       int bySlug(ChatChannel first, ChatChannel second) {
         final compared = (first.slug ?? first.title).toLowerCase().compareTo(
           (second.slug ?? second.title).toLowerCase(),
@@ -1946,9 +1960,13 @@ class ChatController extends FrameSafeNotifier {
               channel.tracking.watchedThreadsUnreadCount
         : channel.tracking.mentionCount +
               channel.tracking.watchedThreadsUnreadCount;
-    int unread(ChatChannel channel) =>
-        channel.tracking.unreadCount +
-        channel.unreadThreadsCountSinceLastViewed;
+    final unreadCounts = Map<ChatChannel, int>.identity();
+    int unread(ChatChannel channel) => unreadCounts.putIfAbsent(
+      channel,
+      () =>
+          channel.tracking.unreadCount +
+          channel.unreadThreadsCountSinceLastViewed,
+    );
     int byActivity(ChatChannel a, ChatChannel b) {
       final compared = _newestActivityFirst(a, b);
       return compared != 0
@@ -1979,52 +1997,60 @@ class ChatController extends FrameSafeNotifier {
   }
 
   List<ChatChannel> _sortDirectMessageActivity(List<ChatChannel> channels) {
+    final unreadCounts = Map<ChatChannel, int>.identity();
+    int unreadThreads(ChatChannel channel) => unreadCounts.putIfAbsent(
+      channel,
+      () => channel.unreadThreadsCountSinceLastViewed,
+    );
+    final oldestThreads = Map<ChatChannel, DateTime?>.identity();
+    DateTime? oldestThread(ChatChannel channel) =>
+        oldestThreads.putIfAbsent(channel, () => channel.lastUnreadThreadAt);
+    // Mirrors core's activity ordering for unstarred direct messages.
+    int compare(ChatChannel a, ChatChannel b) {
+      final aHasMessage = a.lastMessageId != null && a.lastMessageAt != null;
+      final bHasMessage = b.lastMessageId != null && b.lastMessageAt != null;
+      if (aHasMessage != bHasMessage) return aHasMessage ? -1 : 1;
+
+      final aUrgent =
+          a.tracking.unreadCount +
+          a.tracking.mentionCount +
+          a.tracking.watchedThreadsUnreadCount;
+      final bUrgent =
+          b.tracking.unreadCount +
+          b.tracking.mentionCount +
+          b.tracking.watchedThreadsUnreadCount;
+      if (aUrgent > 0 && bUrgent > 0) {
+        return _newestActivityFirst(a, b);
+      }
+      if ((aUrgent > 0) != (bUrgent > 0)) return aUrgent > 0 ? -1 : 1;
+
+      final aThreads = unreadThreads(a);
+      final bThreads = unreadThreads(b);
+      if (aThreads > 0 && bThreads > 0) {
+        final aAt = oldestThread(a);
+        final bAt = oldestThread(b);
+        if (aAt != null && bAt != null) {
+          final byThreadDate = bAt.compareTo(aAt);
+          if (byThreadDate != 0) return byThreadDate;
+        }
+        return _newestActivityFirst(a, b);
+      }
+      if ((aThreads > 0) != (bThreads > 0)) return aThreads > 0 ? -1 : 1;
+
+      return _newestActivityFirst(a, b);
+    }
+
     final originalPositions = {
       for (var index = 0; index < channels.length; index++)
         channels[index].id: index,
     };
     channels.sort((a, b) {
-      final compared = _compareDirectMessageActivity(a, b);
+      final compared = compare(a, b);
       return compared != 0
           ? compared
           : originalPositions[a.id]!.compareTo(originalPositions[b.id]!);
     });
     return channels;
-  }
-
-  /// Mirrors core's activity ordering for unstarred direct messages.
-  static int _compareDirectMessageActivity(ChatChannel a, ChatChannel b) {
-    final aHasMessage = a.lastMessageId != null && a.lastMessageAt != null;
-    final bHasMessage = b.lastMessageId != null && b.lastMessageAt != null;
-    if (aHasMessage != bHasMessage) return aHasMessage ? -1 : 1;
-
-    final aUrgent =
-        a.tracking.unreadCount +
-        a.tracking.mentionCount +
-        a.tracking.watchedThreadsUnreadCount;
-    final bUrgent =
-        b.tracking.unreadCount +
-        b.tracking.mentionCount +
-        b.tracking.watchedThreadsUnreadCount;
-    if (aUrgent > 0 && bUrgent > 0) {
-      return _newestActivityFirst(a, b);
-    }
-    if ((aUrgent > 0) != (bUrgent > 0)) return aUrgent > 0 ? -1 : 1;
-
-    final aThreads = a.unreadThreadsCountSinceLastViewed;
-    final bThreads = b.unreadThreadsCountSinceLastViewed;
-    if (aThreads > 0 && bThreads > 0) {
-      final aAt = a.lastUnreadThreadAt;
-      final bAt = b.lastUnreadThreadAt;
-      if (aAt != null && bAt != null) {
-        final byThreadDate = bAt.compareTo(aAt);
-        if (byThreadDate != 0) return byThreadDate;
-      }
-      return _newestActivityFirst(a, b);
-    }
-    if ((aThreads > 0) != (bThreads > 0)) return aThreads > 0 ? -1 : 1;
-
-    return _newestActivityFirst(a, b);
   }
 
   static int _newestActivityFirst(ChatChannel a, ChatChannel b) {
