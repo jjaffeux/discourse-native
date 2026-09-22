@@ -24,11 +24,41 @@ class ProgressiveHtmlMode extends RenderMode {
       : _ProgressiveHtmlBody(children: children);
 }
 
-/// Lets the topic retain a known post height until every body block is mounted.
+/// Lets the topic track unfinished parsing and mounting of a post body.
 class HtmlBodyMountingNotification extends Notification {
   const HtmlBodyMountingNotification(this.completion);
 
   final Future<void> completion;
+}
+
+/// Tracks the HTML parser's placeholder using the same completion signal as
+/// progressive mounting, without changing its appearance.
+class HtmlBodyLoading extends StatefulWidget {
+  const HtmlBodyLoading({super.key, required this.child});
+
+  final Widget child;
+
+  @override
+  State<HtmlBodyLoading> createState() => _HtmlBodyLoadingState();
+}
+
+class _HtmlBodyLoadingState extends State<HtmlBodyLoading> {
+  final _completion = Completer<void>();
+
+  @override
+  void initState() {
+    super.initState();
+    HtmlBodyMountingNotification(_completion.future).dispatch(context);
+  }
+
+  @override
+  void dispose() {
+    _completion.complete();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
 }
 
 class _ProgressiveHtmlBody extends StatefulWidget {

@@ -9,7 +9,7 @@ through posts when a topic is open and through the list when no topic is open.
 | `G` then `J` / `G` then `K` | Open the next / previous topic from the source list, including while reading in a narrow layout. |
 | `Shift+J` / `Shift+K` | Highlight the next / previous topic in the visible list. Leave the open reader unchanged. |
 | `O` / `Enter` | Open the highlighted topic at its unread position. Both keys run the same command with the same focus rules. |
-| `J` / `K` | Select and reveal the next / previous post in the open topic. When no topic is open, highlight the next / previous topic in the visible list. |
+| `J` / `K` | Page down / up within the current post, then select and reveal the next / previous post. When no topic is open, highlight the next / previous topic in the visible list. |
 | `R` | Reply to the selected post. |
 | `Shift+R` | Reply to the topic. |
 | `B` | Bookmark the open topic or manage its existing bookmarks. |
@@ -43,6 +43,12 @@ Posts have their own selection outline. `R` uses that post as the reply target
 and opens the normal composer with the existing permission checks. Mouse or
 touch scrolling clears the post selection so an offscreen post does not
 remain an invisible reply target. `Shift+R` remains available for a topic reply.
+
+For posts taller than the reader, `J/K` scroll by 90% of the available viewport
+with a small overlap between pages. Selection stays on the current post until
+its bottom or top is visible. `K` enters a long previous post at its last page.
+Key repeats follow the same paging behavior, including at the first and last
+posts in the topic.
 
 The adjacent-topic arrows sit in a fixed bar below the source list. They and
 `G` then `J/K` open topics at the unread position without adding reader history

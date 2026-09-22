@@ -222,6 +222,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
     debugLabel: 'Topic post cursor',
   );
   Object? _keyboardPostLoad;
+  int? _keyboardPostEndTarget;
   int _boundaryJumpRevision = 0;
   String? _recommendationsSiteUrl;
   bool _sidebarCollapsed = false;
@@ -560,6 +561,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
         previousTabId != controller.activeTabId ||
         !identical(previousController, controller)) {
       _keyboardPost.value = null;
+      _keyboardPostEndTarget = null;
       _keyboardPostLoad = null;
     }
 
@@ -669,8 +671,13 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
     int direction,
   ) {
     if (_keyboardPostLoad != null) return true;
+    if (_keyboardPostEndTarget != null &&
+        _keyboardPostEndTarget == _keyboardPost.value) {
+      return true;
+    }
     final posts = snapshot.streamIds;
     final current = _keyboardPost.value ?? _visibleContextCurrentPostId;
+    if (current != null && _scrollWithinPost(current, direction)) return true;
     final currentIndex = current == null
         ? (_progressPosition ?? 1) - 1
         : posts.indexOf(current);
@@ -678,11 +685,13 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
     if (nextIndex < 0 || nextIndex >= posts.length) return false;
     final nextId = posts[nextIndex];
     _keyboardPost.value = nextId;
+    _keyboardPostEndTarget = direction < 0 ? nextId : null;
     _keyboardFocus.requestFocus();
     final loadedIndex = snapshot.postIds.indexOf(nextId);
     if (loadedIndex >= 0) {
       _visibleContextCurrentPostId = nextId;
       _jumpTo(loadedIndex + (snapshot.hasEarlier ? 1 : 0));
+      _scheduleLook();
     } else {
       final token = Object();
       _keyboardPostLoad = token;
@@ -692,13 +701,80 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
             nextIndex + 1,
           );
           if (!mounted || !identical(_keyboardPostLoad, token)) return;
-          if (!loaded) _keyboardPost.value = null;
+          if (!loaded) {
+            _keyboardPost.value = null;
+            _keyboardPostEndTarget = null;
+          }
         } finally {
           if (identical(_keyboardPostLoad, token)) _keyboardPostLoad = null;
         }
       }());
     }
     return true;
+  }
+
+  bool _scrollWithinPost(int postId, int direction) {
+    final scroll = _scroll;
+    final bounds = _postViewportBounds(postId);
+    if (scroll == null || !scroll.hasClients || bounds == null) return false;
+    final position = scroll.position;
+    final height = position.viewportDimension;
+    if (height <= 0 || bounds.bottom <= 0 || bounds.top >= height) return false;
+    if (_postContexts[postId] case StatefulElement(
+      state: _TopicPostItemState(bodyComplete: false),
+    )) {
+      _keyboardPost.value = postId;
+      _keyboardFocus.requestFocus();
+      return true;
+    }
+
+    // Keep a little context between pages, and stop at the post's edge before
+    // selecting its neighbor. The scroll viewport excludes the reader chrome.
+    final remaining = direction > 0 ? bounds.bottom - height : -bounds.top;
+    if (remaining <= 0.5) return false;
+    final delta = math.min(height * 0.9, remaining) * direction;
+    final target = (position.pixels + delta).clamp(
+      position.minScrollExtent,
+      position.maxScrollExtent,
+    );
+    if ((target - position.pixels).abs() <= 0.5) return false;
+    _keyboardPost.value = postId;
+    _keyboardFocus.requestFocus();
+    scroll.jumpTo(target);
+    return true;
+  }
+
+  bool _revealKeyboardPostEnd() {
+    final postId = _keyboardPostEndTarget;
+    if (postId == null) return false;
+    if (_keyboardPost.value != postId) {
+      _keyboardPostEndTarget = null;
+      return false;
+    }
+    if (!_restored || _restoring) return false;
+    // A newly loaded or virtualized post can still be mounting its HTML.
+    // Wait for its real height before landing on its last page.
+    if (_postContexts[postId] case StatefulElement(
+      state: _TopicPostItemState(:final bodyComplete),
+    ) when bodyComplete) {
+      final bounds = _postViewportBounds(postId);
+      final scroll = _scroll;
+      if (bounds == null || scroll == null || !scroll.hasClients) return false;
+      _keyboardPostEndTarget = null;
+      final position = scroll.position;
+      if (bounds.bottom - bounds.top <= position.viewportDimension) {
+        return false;
+      }
+      final target =
+          (position.pixels + bounds.bottom - position.viewportDimension).clamp(
+            position.minScrollExtent,
+            position.maxScrollExtent,
+          );
+      if ((target - position.pixels).abs() <= 0.5) return false;
+      scroll.jumpTo(target);
+      return true;
+    }
+    return false;
   }
 
   bool _replyToSelectedPost(ShellController controller) {
@@ -901,6 +977,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
   }) {
     final controller = _controller;
     if (controller == null) return;
+    if (_revealKeyboardPostEnd()) return;
     final timer = _isScrollCaptureRecording ? (Stopwatch()..start()) : null;
     _syncFloatingDay(snapshot);
     _noteWhatIsOnScreen(controller, snapshot, saveAnchor: saveAnchor);
@@ -2152,6 +2229,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
               controller.expandPostGap(anchorPostId: postId, before: false),
           onAttach: _registerPostContext,
           onDetach: _unregisterPostContext,
+          onBodyComplete: _scheduleLook,
           child: _StoredPost(
             keyboardSelection: _keyboardPost,
             siteUrl: siteUrl,
@@ -2185,6 +2263,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
               if (notification is UserScrollNotification &&
                   notification.direction != ScrollDirection.idle) {
                 _keyboardPost.value = null;
+                _keyboardPostEndTarget = null;
               }
               if (_isScrollCaptureRecording) {
                 _recordScrollNotification(notification);
@@ -3783,6 +3862,7 @@ class _TopicPostItem extends StatefulWidget {
     required this.expandGapAfter,
     required this.onAttach,
     required this.onDetach,
+    required this.onBodyComplete,
     required this.child,
   });
 
@@ -3805,6 +3885,7 @@ class _TopicPostItem extends StatefulWidget {
   final void Function(int postId, BuildContext context) onAttach;
   final void Function(int postId, BuildContext context, bool bodyComplete)
   onDetach;
+  final VoidCallback onBodyComplete;
   final Widget child;
 
   @override
@@ -3817,6 +3898,8 @@ class _TopicPostItemState extends State<_TopicPostItem>
   bool _releaseScheduled = false;
   bool _keepAliveUpdateScheduled = false;
   final _mountingBodies = <Future<void>>{};
+
+  bool get bodyComplete => _mountingBodies.isEmpty;
 
   @override
   bool get wantKeepAlive => widget.retention.contains(context);
@@ -3943,7 +4026,10 @@ class _TopicPostItemState extends State<_TopicPostItem>
         final completion = notification.completion;
         _mountingBodies.add(completion);
         unawaited(
-          completion.whenComplete(() => _mountingBodies.remove(completion)),
+          completion.whenComplete(() {
+            _mountingBodies.remove(completion);
+            if (mounted && bodyComplete) widget.onBodyComplete();
+          }),
         );
         return true;
       },

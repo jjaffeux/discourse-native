@@ -20,10 +20,179 @@ import 'package:super_sliver_list/super_sliver_list.dart';
 
 import 'support/fakes.dart';
 import 'support/shell_test_harness.dart';
+import 'support/topic_post_list.dart';
 
 const _unlistedTopic = Topic(id: 32, title: 'Unlisted topic', slug: 'unlisted');
 
 void main() {
+  for (final size in [desktop, laptop, phone]) {
+    testWidgets('J/K page through a long post in both directions at $size', (
+      tester,
+    ) async {
+      final setup = await _setup(tester, size: size, longPosts: {2});
+      setup.shell.openTopicFromList(setup.api.feeds['/latest.json']!.first);
+      await tester.pumpAndSettle();
+      final scroll = topicPostList(tester).controller!;
+      final post = find.byKey(const ValueKey('topic-post-keyboard-102'));
+      Rect viewport() => tester.getRect(topicPostListFinder());
+      expect(tester.getSize(post).height, greaterThan(viewport().height * 2));
+
+      var pages = 0;
+      while (tester.getRect(post).bottom > viewport().bottom + 0.5) {
+        final before = scroll.offset;
+        final pageHeight = viewport().height;
+        expect(await tester.sendKeyEvent(LogicalKeyboardKey.keyJ), isTrue);
+        await tester.pumpAndSettle();
+        expect(_selectedPosts(tester), [102]);
+        expect(scroll.offset - before, greaterThan(0));
+        expect(scroll.offset - before, lessThan(pageHeight));
+        expect(++pages, lessThan(20));
+      }
+      expect(pages, greaterThan(1));
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyJ);
+      await tester.pumpAndSettle();
+      expect(_selectedPosts(tester), [103]);
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyK);
+      await tester.pumpAndSettle();
+      expect(_selectedPosts(tester), [102]);
+      expect(tester.getRect(post).bottom, closeTo(viewport().bottom, 0.5));
+
+      pages = 0;
+      while (tester.getRect(post).top < viewport().top - 0.5) {
+        final before = scroll.offset;
+        final pageHeight = viewport().height;
+        expect(await tester.sendKeyEvent(LogicalKeyboardKey.keyK), isTrue);
+        await tester.pumpAndSettle();
+        expect(_selectedPosts(tester), [102]);
+        expect(before - scroll.offset, greaterThan(0));
+        expect(before - scroll.offset, lessThan(pageHeight));
+        expect(++pages, lessThan(20));
+      }
+      expect(pages, greaterThan(1));
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyK);
+      await tester.pumpAndSettle();
+      expect(_selectedPosts(tester), [101]);
+      expect(tester.takeException(), isNull);
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
+  }
+
+  testWidgets('repeating J pages within the selected reply target', (
+    tester,
+  ) async {
+    final setup = await _setup(tester, longPosts: {2});
+    setup.shell.openTopicFromList(setup.api.feeds['/latest.json']!.first);
+    await tester.pumpAndSettle();
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.keyJ);
+    await tester.pumpAndSettle();
+    final scroll = topicPostList(tester).controller!;
+    final before = scroll.offset;
+    await tester.sendKeyRepeatEvent(LogicalKeyboardKey.keyJ);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.keyJ);
+    await tester.pumpAndSettle();
+    expect(scroll.offset, greaterThan(before));
+    expect(_selectedPosts(tester), [102]);
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyR);
+    await tester.pumpAndSettle();
+    expect(setup.shell.visibleComposer?.target.replyToPostNumber, 2);
+  }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
+
+  testWidgets('short posts still change selection with one keypress', (
+    tester,
+  ) async {
+    final setup = await _setup(tester, longPosts: {});
+    setup.shell.openTopicFromList(setup.api.feeds['/latest.json']!.first);
+    await tester.pumpAndSettle();
+    final post = find.byKey(const ValueKey('topic-post-keyboard-102'));
+    expect(
+      tester.getSize(post).height,
+      lessThan(tester.getSize(topicPostListFinder()).height),
+    );
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyJ);
+    await tester.pumpAndSettle();
+    expect(_selectedPosts(tester), [103]);
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyK);
+    await tester.pumpAndSettle();
+    expect(_selectedPosts(tester), [102]);
+    expect(tester.takeException(), isNull);
+  }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
+
+  for (final postNumber in [1, 4]) {
+    testWidgets('J/K page inside boundary post $postNumber', (tester) async {
+      final setup = await _setup(tester, longPosts: {postNumber});
+      setup.shell.openTopicFromList(setup.api.feeds['/latest.json']!.first);
+      await tester.pumpAndSettle();
+      setup.shell.openCurrentTopicPost(postNumber);
+      await tester.pumpAndSettle();
+      final postId = 100 + postNumber;
+      final post = find.byKey(ValueKey('topic-post-keyboard-$postId'));
+      Rect viewport() => tester.getRect(topicPostListFinder());
+      var pages = 0;
+      while (tester.getRect(post).bottom > viewport().bottom + 0.5) {
+        expect(await tester.sendKeyEvent(LogicalKeyboardKey.keyJ), isTrue);
+        await tester.pumpAndSettle();
+        expect(_selectedPosts(tester), [postId]);
+        expect(++pages, lessThan(20));
+      }
+      expect(pages, greaterThan(1));
+      if (postNumber == 4) {
+        expect(await tester.sendKeyEvent(LogicalKeyboardKey.keyJ), isFalse);
+      }
+      pages = 0;
+      while (tester.getRect(post).top < viewport().top - 0.5) {
+        expect(await tester.sendKeyEvent(LogicalKeyboardKey.keyK), isTrue);
+        await tester.pumpAndSettle();
+        expect(_selectedPosts(tester), [postId]);
+        expect(++pages, lessThan(20));
+      }
+      expect(pages, greaterThan(1));
+      if (postNumber == 1) {
+        expect(await tester.sendKeyEvent(LogicalKeyboardKey.keyK), isFalse);
+      }
+      expect(tester.takeException(), isNull);
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
+  }
+
+  testWidgets('K enters the last page after a long post finishes rendering', (
+    tester,
+  ) async {
+    final setup = await _setup(tester, longPosts: {2}, longPostParagraphs: 450);
+    setup.shell.openTopic(
+      const Topic(
+        id: 1,
+        title: 'Keyboard topic 1',
+        slug: 'keyboard-1',
+        lastReadPostNumber: 2,
+        highestPostNumber: 4,
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyK);
+    await tester.pump();
+    final lastParagraph = renderedText('Paragraph 449.');
+    for (var i = 0; i < 100 && lastParagraph.evaluate().isEmpty; i++) {
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 10)),
+      );
+      await tester.pump();
+    }
+    await tester.pumpAndSettle();
+    expect(lastParagraph, findsOneWidget);
+    expect(_selectedPosts(tester), [102]);
+    final post = find.byKey(const ValueKey('topic-post-keyboard-102'));
+    expect(
+      tester.getRect(post).bottom,
+      closeTo(tester.getRect(topicPostListFinder()).bottom, 0.5),
+    );
+    final scroll = topicPostList(tester).controller!;
+    final before = scroll.offset;
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyK);
+    await tester.pumpAndSettle();
+    expect(scroll.offset, lessThan(before));
+    expect(_selectedPosts(tester), [102]);
+    expect(tester.takeException(), isNull);
+  }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
+
   for (final size in [desktop, laptop]) {
     testWidgets('mouse-opened topic loses its outline when closed at $size', (
       tester,
@@ -575,11 +744,11 @@ void main() {
           await tester.sendKeyEvent(LogicalKeyboardKey.keyJ);
           await tester.pumpAndSettle();
           final selectedPost = _selectedPosts(tester).single;
-          expect(selectedPost, 203);
+          expect(selectedPost, 202);
           expect(shell.currentContent?.topicId, 2);
           await tester.sendKeyEvent(LogicalKeyboardKey.keyR);
           await tester.pumpAndSettle();
-          expect(shell.visibleComposer?.target.replyToPostNumber, 3);
+          expect(shell.visibleComposer?.target.replyToPostNumber, 2);
           expect(shell.visibleComposer?.focus.hasFocus, isTrue);
 
           final editor = find.descendant(
@@ -595,7 +764,7 @@ void main() {
           await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
           await tester.pumpAndSettle();
           expect(setup.api.created.single['topicId'], 2);
-          expect(setup.api.created.single['replyToPostNumber'], 3);
+          expect(setup.api.created.single['replyToPostNumber'], 2);
           expect(shell.visibleComposer, isNull);
 
           expect(await tester.sendKeyEvent(LogicalKeyboardKey.keyU), isTrue);
@@ -888,7 +1057,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.sendKeyEvent(LogicalKeyboardKey.keyJ);
     await tester.pumpAndSettle();
-    expect(_selectedPosts(tester), [103]);
+    expect(_selectedPosts(tester), [102]);
     await tester.drag(find.byType(TopicView), const Offset(0, -150));
     await tester.pumpAndSettle();
     expect(_selectedPosts(tester), isEmpty);
@@ -983,6 +1152,8 @@ Future<({ShellController shell, FakeDiscourseApi api})> _setup(
   Size size = desktop,
   Completer<void>? nextPageGate,
   bool signedIn = true,
+  Set<int>? longPosts,
+  int longPostParagraphs = 60,
 }) async {
   final user = signedIn ? const DiscourseUser(id: 7, username: 'sam') : null;
   final site = instance('meta.example').copyWith(user: user);
@@ -1021,8 +1192,9 @@ Future<({ShellController shell, FakeDiscourseApi api})> _setup(
                 id: row.id * 100 + n,
                 postNumber: n,
                 username: 'sam',
-                cooked:
-                    '<p>Post $n</p><p>${List.filled(110, 'A readable topic with several posts.').join(' ')}</p>',
+                cooked: longPosts == null
+                    ? '<p>Post $n</p><p>${List.filled(110, 'A readable topic with several posts.').join(' ')}</p>'
+                    : '<p>Post $n</p>${List.generate(longPosts.contains(n) ? longPostParagraphs : 7, (i) => '<p>A readable topic with several posts. Paragraph $i.</p>').join()}',
               ),
           ],
         ),
@@ -1036,10 +1208,6 @@ Future<({ShellController shell, FakeDiscourseApi api})> _setup(
     authenticator: FakeAuthenticator()
       ..keys.addAll({if (signedIn) site.url: 'key'}),
   );
-  if (find.byKey(const ValueKey('mobile-bottom-bar')).evaluate().isNotEmpty) {
-    await tester.tap(sidebarDestination('Topics'));
-    await tester.pumpAndSettle();
-  }
   final shell = ShellScope.read(tester.element(find.byType(AdaptiveShell)));
   return (shell: shell, api: api);
 }

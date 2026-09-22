@@ -12,6 +12,7 @@ import '../data/site_image_repository.dart';
 import '../plugin_api/plugin_registry.dart';
 import '../theme/d_icons.dart';
 import 'image_decode.dart';
+import 'progressive_html_mode.dart';
 import 'shell_scope.dart';
 import 'site_url.dart';
 
@@ -565,9 +566,15 @@ final class SiteImageWidgetFactory extends WidgetFactory {
     BuildTree tree, [
     double? loadingProgress,
     dynamic data,
-  ]) => data is ImageSource && _isAvatar(tree)
-      ? _avatarFallback
-      : super.onLoadingBuilder(context, tree, loadingProgress, data);
+  ]) {
+    if (data is ImageSource && _isAvatar(tree)) return _avatarFallback;
+    final child = super.onLoadingBuilder(context, tree, loadingProgress, data);
+    return data == null &&
+            columnBodyMode is ProgressiveHtmlMode &&
+            child != null
+        ? HtmlBodyLoading(child: child)
+        : child;
+  }
 
   Widget? _buildImageContent(BuildTree tree, ImageSource src) {
     final uri = Uri.tryParse(src.url);
