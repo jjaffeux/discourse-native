@@ -247,7 +247,7 @@ class _MainContentBody extends StatelessWidget {
           backgroundColor: ForumWindowBackground.panelColor(context),
           identity: contentKey,
           hideHeaderOnScroll: route.isTopic,
-          framed: !context.isTouch && !pluginOwnsChrome,
+          framed: !context.isTouch,
           limitContentSize: ContentSettingsScope.limitContentSizeOf(context),
           tabs: forumTabsEnabled ? const TopicPanelTabs() : null,
           header:
