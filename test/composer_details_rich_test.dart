@@ -639,6 +639,7 @@ void main() {
           DropEventDetails(localPosition: position, globalPosition: position),
         );
         await tester.pump();
+        expect(find.byType(DDropIndicator), findsOneWidget);
         // Focusing the nested editor can scroll its parent to reveal the caret.
         position =
             tester.getRect(_editable(body)).topLeft + const Offset(12, 12);
@@ -659,6 +660,7 @@ void main() {
         );
         await tester.pump();
         expect(fixture.uploads, hasLength(1));
+        expect(find.byType(DDropIndicator), findsNothing);
         expect(
           parseComposerDetails(fixture.root.text.text).single.body,
           contains(fixture.root.uploadPlaceholders.values.single),
@@ -690,7 +692,7 @@ void main() {
     final caret = render.getLocalRectForCaret(
       TextPosition(offset: fixture.root.text.text.length),
     );
-    final position = render.localToGlobal(caret.center);
+    final position = render.localToGlobal(caret.bottomCenter);
     final target = tester
         .widgetList<DropTarget>(find.byType(DropTarget))
         .where((target) => target.enable)

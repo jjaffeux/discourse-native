@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:desktop_drop/desktop_drop.dart';
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/composer_upload.dart';
+import 'package:discourse_native/src/shell/composer_block_surface.dart';
 import 'package:discourse_native/src/shell/composer_controller.dart';
 import 'package:discourse_native/src/shell/composer_image.dart';
 import 'package:discourse_native/src/shell/composer_panel.dart';
@@ -47,6 +48,111 @@ void main() {
     expect(composer.hasActiveUploads, isFalse);
   });
 
+  for (final direction in TextDirection.values) {
+    for (final dark in [false, true]) {
+      testWidgets(
+        'file drop follows the block insertion line ($direction, $dark)',
+        (tester) async {
+          final request = Completer<ComposerUploadResult>();
+          final composer = ComposerController(
+            _target,
+            imageUploader:
+                (file, {required onProgress, required abortTrigger}) =>
+                    request.future,
+          );
+          addTearDown(composer.dispose);
+          composer.text.text = 'Before\n\nAfter';
+          await _pump(tester, composer, direction: direction, dark: dark);
+          final surface = tester.widget<ComposerBlockSurface>(
+            find.byType(ComposerBlockSurface),
+          );
+          final blocks = composer.blocks.index.blocks;
+          final before = surface.blockRect(blocks.first)!;
+          final after = surface.blockRect(blocks.last)!;
+          final middle = (before.bottom + after.top) / 2;
+          final dropTarget = tester.widget<DropTarget>(find.byType(DropTarget));
+          final editorRect = tester.getRect(find.byType(ComposerEditor));
+          final line = find.byType(DDropIndicator);
+          for (final y in [before.top, middle, after.bottom]) {
+            final position = Offset(before.center.dx, y);
+            dropTarget.onDragUpdated!(
+              DropEventDetails(
+                localPosition: position,
+                globalPosition: position,
+              ),
+            );
+            await tester.pump();
+            expect(line, findsOneWidget);
+            final rect = tester.getRect(line);
+            expect(rect.center.dy, closeTo(y, .01));
+            expect(rect.width, closeTo(editorRect.width - DSpacing.xxl, .01));
+            expect(
+              direction == TextDirection.ltr ? rect.right : rect.left,
+              closeTo(
+                direction == TextDirection.ltr
+                    ? editorRect.right
+                    : editorRect.left,
+                .01,
+              ),
+            );
+            expect(composer.raw, 'Before\n\nAfter');
+          }
+          final position = Offset(before.center.dx, middle);
+          dropTarget.onDragExited!(
+            DropEventDetails(localPosition: position, globalPosition: position),
+          );
+          await tester.pump();
+          expect(line, findsNothing);
+          dropTarget.onDragEntered!(
+            DropEventDetails(localPosition: position, globalPosition: position),
+          );
+          await tester.pump();
+          expect(tester.getCenter(line).dy, closeTo(middle, .01));
+          dropTarget.onDragDone!(
+            DropDoneDetails(
+              files: [
+                DropItemFile('/tmp/photo.png', bytes: Uint8List.fromList([1])),
+              ],
+              localPosition: position,
+              globalPosition: position,
+            ),
+          );
+          await tester.pump();
+          expect(line, findsNothing);
+          request.complete(_result);
+          await tester.pumpAndSettle();
+          final imageOffset = composer.raw.indexOf('upload://photo');
+          expect(imageOffset, greaterThan(composer.raw.indexOf('Before')));
+          expect(imageOffset, lessThan(composer.raw.indexOf('After')));
+          expect(tester.takeException(), isNull);
+        },
+        variant: const TargetPlatformVariant({TargetPlatform.macOS}),
+      );
+    }
+  }
+
+  testWidgets('empty composer shows and clears the file insertion line', (
+    tester,
+  ) async {
+    final composer = ComposerController(_target);
+    addTearDown(composer.dispose);
+    await _pump(tester, composer);
+    final dropTarget = tester.widget<DropTarget>(find.byType(DropTarget));
+    final position = tester.getCenter(find.byType(EditableText));
+    dropTarget.onDragEntered!(
+      DropEventDetails(localPosition: position, globalPosition: position),
+    );
+    await tester.pump();
+    expect(find.byType(DDropIndicator), findsOneWidget);
+    expect(composer.text.selection.extentOffset, 0);
+    dropTarget.onDragExited!(
+      DropEventDetails(localPosition: position, globalPosition: position),
+    );
+    await tester.pump();
+    expect(find.byType(DDropIndicator), findsNothing);
+    expect(composer.raw, isEmpty);
+  });
+
   for (final scrolled in [false, true]) {
     testWidgets('file drag keeps existing image rendered (scrolled: $scrolled)', (
       tester,
@@ -81,6 +187,7 @@ void main() {
       await tester.pump();
       expect(composer.text.isImageCollapsed(existing), isTrue);
       expect(composer.text.selection.extentOffset, existing.end);
+      expect(find.byType(DDropIndicator), findsOneWidget);
       expect(composer.text.text, source);
 
       for (final point in [rect.topLeft + const Offset(2, 2), rect.center]) {
@@ -89,7 +196,12 @@ void main() {
         );
         await tester.pump();
         expect(composer.text.isImageCollapsed(existing), isTrue);
-        expect(composer.text.selection.extentOffset, existing.end);
+        expect(
+          composer.text.selection.extentOffset,
+          point.dy < rect.center.dy
+              ? composer.blocks.index.blocks.first.end
+              : existing.end,
+        );
       }
       dropTarget.onDragExited!(
         DropEventDetails(localPosition: position, globalPosition: position),
@@ -97,6 +209,7 @@ void main() {
       await tester.pump();
       expect(composer.text.isImageCollapsed(existing), isTrue);
       expect(composer.text.text, source);
+      expect(find.byType(DDropIndicator), findsNothing);
 
       dropTarget.onDragEntered!(
         DropEventDetails(localPosition: position, globalPosition: position),
@@ -502,18 +615,22 @@ Future<void> _pump(
   WidgetTester tester,
   ComposerController composer, {
   bool dark = false,
+  TextDirection direction = TextDirection.ltr,
 }) async {
   await tester.pumpWidget(
     MaterialApp(
       theme: dark ? AppTheme.dark : AppTheme.light,
-      home: Scaffold(
-        body: Padding(
-          padding: const EdgeInsets.all(16),
-          child: ComposerEditor(
-            composer: composer,
-            hintText: 'Write a reply',
-            textStyle: const TextStyle(fontSize: 16, height: 1.5),
-            hintStyle: null,
+      home: Directionality(
+        textDirection: direction,
+        child: Scaffold(
+          body: Padding(
+            padding: const EdgeInsets.all(16),
+            child: ComposerEditor(
+              composer: composer,
+              hintText: 'Write a reply',
+              textStyle: const TextStyle(fontSize: 16, height: 1.5),
+              hintStyle: null,
+            ),
           ),
         ),
       ),
