@@ -1188,7 +1188,17 @@ class _DSidebarMenuButtonState extends State<DSidebarMenuButton> {
                 child: Container(
                   constraints: BoxConstraints(minHeight: minHeight),
                   padding: EdgeInsetsDirectional.only(
-                    start: collapsedLarge ? 0 : 8,
+                    start: collapsedLarge
+                        ? 0
+                        : !iconOnly && widget.icon != null
+                        ? math.min(
+                            8,
+                            math.max(
+                              verticalPadding,
+                              (minHeight - widget.iconSize) / 2,
+                            ),
+                          )
+                        : 8,
                     end: collapsedLarge ? 0 : 8,
                     top: verticalPadding,
                     bottom: verticalPadding,
