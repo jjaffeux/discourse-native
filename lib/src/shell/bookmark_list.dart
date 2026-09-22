@@ -18,11 +18,13 @@ class BookmarkSection extends StatelessWidget {
     super.key,
     required this.siteUrl,
     required this.onOpened,
+    this.page = false,
   });
 
   final String siteUrl;
 
   final VoidCallback onOpened;
+  final bool page;
 
   @override
   Widget build(BuildContext context) => AccountActivityLoader.bookmarks(
@@ -31,6 +33,7 @@ class BookmarkSection extends StatelessWidget {
       controller: controller,
       siteUrl: siteUrl,
       onOpened: onOpened,
+      page: page,
     ),
   );
 }
@@ -40,17 +43,66 @@ class _BookmarkSectionView extends StatefulWidget {
     required this.controller,
     required this.siteUrl,
     required this.onOpened,
+    this.page = false,
   });
 
   final ShellController controller;
   final String siteUrl;
   final VoidCallback onOpened;
+  final bool page;
 
   @override
   State<_BookmarkSectionView> createState() => _BookmarkSectionViewState();
 }
 
 class _BookmarkSectionViewState extends State<_BookmarkSectionView> {
+  String? _filter;
+
+  @override
+  void didUpdateWidget(_BookmarkSectionView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.siteUrl != widget.siteUrl ||
+        oldWidget.controller != widget.controller) {
+      _filter = null;
+    }
+  }
+
+  BookmarkPresentation _present(Bookmark bookmark) {
+    final controller = widget.controller;
+    for (final presenter
+        in controller.pluginSession.capabilities<PluginBookmarkPresenter>()) {
+      final presentation = presenter.presentBookmark(widget.siteUrl, bookmark);
+      if (presentation != null) return presentation;
+    }
+    final category = controller.categoryFor(
+      bookmark.categoryId,
+      siteUrl: widget.siteUrl,
+    );
+    final type = bookmark.coreTargetType;
+    return BookmarkPresentation(
+      title: bookmark.title.isEmpty ? 'Bookmark' : bookmark.title,
+      typeLabel: type == BookmarkTargetType.post
+          ? bookmark.postNumber == null
+                ? 'Post'
+                : 'Post #${bookmark.postNumber}'
+          : type == BookmarkTargetType.topic
+          ? 'Topic'
+          : 'Bookmark',
+      filterLabel: type == BookmarkTargetType.post
+          ? 'Posts'
+          : type == BookmarkTargetType.topic
+          ? 'Topics'
+          : 'Other bookmarks',
+      contextLabel: category?.name,
+      icon: type == BookmarkTargetType.post
+          ? DIcons.reply
+          : type == BookmarkTargetType.topic
+          ? DIcons.layerGroup
+          : DIcons.bookmark,
+      color: category == null ? null : Color(category.colorValue),
+    );
+  }
+
   Future<void> _open(String? path, {bool newTab = false}) async {
     if (path == null) return;
 
@@ -90,45 +142,133 @@ class _BookmarkSectionViewState extends State<_BookmarkSectionView> {
   Widget build(BuildContext context) {
     final controller = widget.controller;
     return ListenableBuilder(
-      listenable: controller.accountActivity.bookmarksListenable,
+      listenable: Listenable.merge([
+        controller.accountActivity.bookmarksListenable,
+        controller,
+      ]),
       builder: (context, _) {
         final feed = controller.bookmarksFor(widget.siteUrl);
+        final entries = [
+          for (final bookmark in feed.bookmarks)
+            (bookmark: bookmark, presentation: _present(bookmark)),
+        ];
+        final filters = <String>{
+          'Posts',
+          'Topics',
+          for (final presenter
+              in controller.pluginSession
+                  .capabilities<PluginBookmarkPresenter>())
+            presenter.bookmarkFilterLabel,
+          for (final entry in entries) entry.presentation.filterLabel,
+        };
+        final visibleEntries = entries
+            .where(
+              (entry) =>
+                  !widget.page ||
+                  _filter == null ||
+                  entry.presentation.filterLabel == _filter,
+            )
+            .toList();
+        final reminders = !widget.page || _filter == null
+            ? feed.reminders
+            : const <DiscourseNotification>[];
 
-        if (feed.error case final error?) {
-          return UserMenuMessage(
-            text: error,
-            onRetry: () => controller.loadBookmarks(widget.siteUrl),
+        Widget content() {
+          if (feed.error case final error?) {
+            return UserMenuMessage(
+              text: error,
+              onRetry: () => controller.loadBookmarks(widget.siteUrl),
+            );
+          }
+          if (!feed.loaded) {
+            return const UserMenuLoading(semanticsLabel: 'Loading bookmarks');
+          }
+          if (reminders.isEmpty && visibleEntries.isEmpty) {
+            return UserMenuMessage(
+              text: feed.isEmpty
+                  ? 'Nothing bookmarked yet.'
+                  : 'No bookmarks in this filter.',
+            );
+          }
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              for (final reminder in reminders) ...[
+                Builder(
+                  builder: (context) {
+                    final resolved = controller.plugins.registry
+                        .resolveNotification(reminder);
+                    return NotificationRow(
+                      notification: reminder,
+                      resolved: resolved,
+                      siteUrl: widget.siteUrl,
+                      onTap: () => _openReminder(reminder, resolved.path),
+                      onMiddleClick: () =>
+                          _openReminder(reminder, resolved.path, newTab: true),
+                    );
+                  },
+                ),
+                if (widget.page) const DSeparator(),
+              ],
+              for (final (index, entry) in visibleEntries.indexed) ...[
+                if (widget.page && index > 0) const DSeparator(),
+                BookmarkRow(
+                  bookmark: entry.bookmark,
+                  presentation: widget.page ? entry.presentation : null,
+                  onTap: () => _open(entry.bookmark.path),
+                ),
+              ],
+            ],
           );
         }
-        if (!feed.loaded) {
-          return const UserMenuLoading(semanticsLabel: 'Loading bookmarks');
-        }
-        if (feed.isEmpty) {
-          return const UserMenuMessage(text: 'Nothing bookmarked yet.');
-        }
 
+        if (!widget.page) return content();
         return Column(
-          mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            ...feed.reminders.map((reminder) {
-              final resolved = controller.plugins.registry.resolveNotification(
-                reminder,
-              );
-              return NotificationRow(
-                notification: reminder,
-                resolved: resolved,
-                siteUrl: widget.siteUrl,
-                onTap: () => _openReminder(reminder, resolved.path),
-                onMiddleClick: () =>
-                    _openReminder(reminder, resolved.path, newTab: true),
-              );
-            }),
-            for (final bookmark in feed.bookmarks)
-              BookmarkRow(
-                bookmark: bookmark,
-                onTap: () => _open(bookmark.path),
+            Padding(
+              padding: const EdgeInsets.all(DSpacing.lg),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Semantics(
+                    header: true,
+                    child: Text(
+                      'Bookmarks',
+                      style: Theme.of(context).textTheme.headlineSmall
+                          ?.copyWith(fontWeight: FontWeight.w700),
+                    ),
+                  ),
+                  const SizedBox(height: DSpacing.lg),
+                  Row(
+                    children: [
+                      DSelect<String>.controlled(
+                        semanticLabel: 'Filter bookmarks',
+                        value: _filter,
+                        entries: [
+                          const DSelectOption(
+                            value: null,
+                            label: 'All bookmarks',
+                            child: Text('All bookmarks'),
+                          ),
+                          for (final filter in filters)
+                            DSelectOption(
+                              value: filter,
+                              label: filter,
+                              child: Text(filter),
+                            ),
+                        ],
+                        onChanged: (value) => setState(() => _filter = value),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: DSpacing.lg),
+                  const DSeparator(),
+                ],
               ),
+            ),
+            content(),
           ],
         );
       },
@@ -137,74 +277,87 @@ class _BookmarkSectionViewState extends State<_BookmarkSectionView> {
 }
 
 class BookmarkRow extends StatelessWidget {
-  const BookmarkRow({super.key, required this.bookmark, required this.onTap});
+  const BookmarkRow({
+    super.key,
+    required this.bookmark,
+    required this.onTap,
+    this.presentation,
+  });
 
   final Bookmark bookmark;
   final VoidCallback onTap;
+  final BookmarkPresentation? presentation;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final tokens = DTokens.of(context);
+    final details = presentation;
     final label = [
-      ?bookmark.author,
-      if (bookmark.title.isNotEmpty) bookmark.title else 'Bookmark',
+      if (details == null) ?bookmark.author,
+      details?.title ?? (bookmark.title.isEmpty ? 'Bookmark' : bookmark.title),
+      if (details != null) details.subtitle,
       if (bookmark.name case final name?) 'Note: $name',
     ].join(', ');
-
-    final row = Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 1),
-      child: Semantics(
-        key: ValueKey('bookmark-row-${bookmark.id}'),
-        label: label,
-        button: true,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(6),
+    final color = details?.color ?? tokens.mutedForeground;
+    final row = DItem(
+      key: ValueKey('bookmark-row-${bookmark.id}'),
+      shape: details == null ? DItemShape.standard : DItemShape.fullWidth,
+      selectionStyle: DItemSelectionStyle.leadingAccent,
+      onPressed: onTap,
+      semanticLabel: label,
+      children: [
+        DItemMedia(
           child: ExcludeSemantics(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(minHeight: 44),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.only(top: 1),
-                      child: DIcon(
-                        bookmark.reminderAt == null
-                            ? DIcons.bookmark
-                            : DIcons.discourseBookmarkClock,
-                        size: 16,
-                        color: theme.colorScheme.onSurfaceVariant,
+            child: details == null
+                ? DIcon(
+                    bookmark.reminderAt == null
+                        ? DIcons.bookmark
+                        : DIcons.discourseBookmarkClock,
+                    size: 16,
+                    color: tokens.mutedForeground,
+                  )
+                : DAvatar(
+                    decorative: true,
+                    fallback: DAvatarFallback(
+                      backgroundColor: color.withValues(alpha: .2),
+                      foregroundColor: Color.lerp(
+                        color,
+                        tokens.foreground,
+                        .35,
                       ),
+                      child: DIcon(details.icon),
                     ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Text.rich(
-                        TextSpan(
-                          children: [
-                            if (bookmark.author case final author?)
-                              TextSpan(
-                                text: '$author ',
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            TextSpan(text: bookmark.title),
-                          ],
-                        ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.bodyMedium,
-                      ),
-                    ),
-                  ],
+                  ),
+          ),
+        ),
+        DItemContent(
+          spacing: DSpacing.xs,
+          children: [
+            ExcludeSemantics(
+              child: Text(
+                details?.title ?? [?bookmark.author, bookmark.title].join(' '),
+                maxLines: details == null ? 2 : null,
+                overflow: details == null
+                    ? TextOverflow.ellipsis
+                    : TextOverflow.clip,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  fontWeight: FontWeight.w600,
                 ),
               ),
             ),
-          ),
+            if (details != null)
+              ExcludeSemantics(
+                child: Text(
+                  details.subtitle,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: tokens.mutedForeground,
+                  ),
+                ),
+              ),
+          ],
         ),
-      ),
+      ],
     );
 
     final name = bookmark.name;

@@ -712,7 +712,7 @@ class _ContentViewport extends StatelessWidget {
     }
     if (route.id == 'user-bookmarks' && siteUrl != null && isConnected) {
       return SingleChildScrollView(
-        child: BookmarkSection(siteUrl: siteUrl!, onOpened: () {}),
+        child: BookmarkSection(siteUrl: siteUrl!, onOpened: () {}, page: true),
       );
     }
     if (route.isPreferences && siteUrl != null) {

@@ -1,3 +1,4 @@
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/bookmark.dart';
 import 'package:discourse_native/src/models/notification.dart';
 import 'package:discourse_native/src/shell/bookmark_list.dart';
@@ -73,7 +74,7 @@ void main() {
       );
 
       final row = find.byType(BookmarkRow);
-      final target = _target(row);
+      final target = find.descendant(of: row, matching: find.byType(DItem));
       final semanticsTarget = find.byKey(const ValueKey('bookmark-row-2'));
       expect(tester.getSize(target).height, greaterThanOrEqualTo(44));
       final semantics = tester.getSemantics(semanticsTarget);
@@ -82,6 +83,8 @@ void main() {
         isSemantics(
           label: 'alice, Saved topic, Note: Read this later',
           isButton: true,
+          hasEnabledState: true,
+          isEnabled: true,
           isFocusable: true,
           hasTapAction: true,
           hasFocusAction: true,
@@ -119,13 +122,10 @@ Future<void> _pumpRow(WidgetTester tester, Widget row) async {
   await tester.pumpAndSettle();
 }
 
-Finder _target(Finder row) =>
-    find.descendant(of: row, matching: find.byType(InkWell));
-
 FocusNode _focusTarget(WidgetTester tester, Finder target) {
   expect(target, findsOneWidget);
   final focusChild = find
-      .descendant(of: target, matching: find.byType(MouseRegion))
+      .descendant(of: target, matching: find.byType(GestureDetector))
       .first;
   final focus = Focus.of(tester.element(focusChild));
   focus.requestFocus();
