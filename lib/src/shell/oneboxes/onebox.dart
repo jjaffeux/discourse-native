@@ -14,6 +14,7 @@ import 'discourse/topic/block.dart';
 import 'discourse/user/block.dart';
 import 'markup.dart';
 import 'reddit.dart';
+import 'twitter.dart';
 
 class OneboxData {
   const OneboxData({
@@ -167,6 +168,7 @@ class OneboxEngine {
 }
 
 final List<OneboxEngine> _engines = [
+  twitterBlock,
   discourseTopicBlock,
   discourseUserBlock,
   discourseCategoryBlock,
