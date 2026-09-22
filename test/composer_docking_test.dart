@@ -1,3 +1,5 @@
+import 'dart:ui' show PointerDeviceKind;
+
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/data/composer_layout_store.dart';
 import 'package:discourse_native/src/models/composer_draft.dart';
@@ -402,6 +404,67 @@ void main() {
     }
   }
 
+  for (final direction in TextDirection.values) {
+    testWidgets('side dock leaves the reader scrollbar clickable: $direction', (
+      tester,
+    ) async {
+      final scroll = ScrollController();
+      addTearDown(scroll.dispose);
+      final harness = await _Harness.create(
+        tester,
+        direction: direction,
+        reader: DScrollBar(
+          controller: scroll,
+          child: ListView.builder(
+            controller: scroll,
+            itemCount: 100,
+            itemExtent: 40,
+            itemBuilder: (_, index) => Text('Message $index'),
+          ),
+        ),
+      );
+      final ltr = direction == TextDirection.ltr;
+      harness.presentation.dock(
+        ltr ? ComposerPlacement.right : ComposerPlacement.left,
+      );
+      await tester.pumpAndSettle();
+      final viewport = tester.getRect(find.byType(ListView));
+      final width = tester.getSize(find.byType(ComposerPanel)).width;
+      final thumb = Offset(
+        ltr ? viewport.right - 4 : viewport.left + 4,
+        viewport.top + 10,
+      );
+      final drag = await tester.startGesture(
+        thumb,
+        kind: PointerDeviceKind.mouse,
+      );
+      await drag.moveBy(const Offset(0, 60));
+      await drag.up();
+      await tester.pumpAndSettle();
+      expect(scroll.offset, greaterThan(0));
+      expect(tester.getSize(find.byType(ComposerPanel)).width, width);
+
+      // Clicking the track must page the stream without resizing either pane.
+      scroll.jumpTo(0);
+      await tester.pumpAndSettle();
+      await tester.tapAt(Offset(thumb.dx, viewport.center.dy));
+      await tester.pumpAndSettle();
+      expect(scroll.offset, greaterThan(0));
+      expect(tester.getSize(find.byType(ComposerPanel)).width, width);
+
+      await tester.drag(
+        find.byType(DResizableHandle),
+        Offset(ltr ? -40 : 40, 0),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        tester.getSize(find.byType(ComposerPanel)).width,
+        greaterThan(width),
+      );
+      expect(tester.takeException(), isNull);
+    });
+  }
+
   testWidgets('divider resizes and persists the composer width', (
     tester,
   ) async {
@@ -706,6 +769,7 @@ class _Harness {
     TextDirection direction = TextDirection.ltr,
     double textScale = 1,
     FocusNode? readerFocus,
+    Widget? reader,
   }) async {
     const user = DiscourseUser(id: 7, username: 'sam', canCreateTopic: true);
     final shell = ShellController(
@@ -751,10 +815,14 @@ class _Harness {
                   child: Focus(
                     focusNode: readerFocus,
                     autofocus: readerFocus != null,
-                    child: ListView(
-                      key: const ValueKey('reader-list'),
-                      children: [for (var i = 0; i < 100; i++) Text('Post $i')],
-                    ),
+                    child:
+                        reader ??
+                        ListView(
+                          key: const ValueKey('reader-list'),
+                          children: [
+                            for (var i = 0; i < 100; i++) Text('Post $i'),
+                          ],
+                        ),
                   ),
                 ),
               ),

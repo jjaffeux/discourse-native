@@ -618,6 +618,8 @@ class _ComposerDockState extends State<ComposerDock> {
                 readerPanel,
               DResizableHandle(
                 semanticLabel: 'Resize composer',
+                // Keep the side target inside the gutter, clear of scrollbars.
+                hitExtent: side && !mobile ? workspacePanelGap : 24,
                 withHandle: !mobile,
                 dividerThickness: mobile ? 1 : 0,
                 focusedDividerThickness: 3,
