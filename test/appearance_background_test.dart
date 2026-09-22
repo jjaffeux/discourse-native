@@ -27,11 +27,12 @@ void main() {
         Colors.pink,
         Colors.lime,
       ]) {
-        final custom = ForumTheme.fromJson({
-          ...authored,
-          'background': ForumBackground(color: color, strength: 1).toJson(),
-        }, id: 'custom');
         for (final mode in Brightness.values) {
+          final modeColors = source.forBrightness(mode).toJson();
+          final custom = ForumTheme.fromJson({
+            ...modeColors,
+            'background': ForumBackground(color: color, strength: 1).toJson(),
+          }, id: 'custom');
           final palette = custom.resolve(mode);
           for (final foreground in [palette.primary, palette.metadataColor]) {
             expect(
@@ -45,13 +46,12 @@ void main() {
             greaterThanOrEqualTo(minimumTextContrastRatio),
           );
           final zero = ForumTheme.fromJson({
-            ...authored,
+            ...modeColors,
             'background': ForumBackground(color: color, strength: 0).toJson(),
           }, id: 'zero').resolve(mode).toJson()..remove('background');
           expect(zero, source.resolve(mode).toJson());
+          expect(custom.toJson()['colors'], modeColors['colors']);
         }
-        expect(custom.toJson()['colors'], authored['colors']);
-        expect(custom.toJson()['alternate'], authored['alternate']);
       }
       expect(source.toJson(), authored);
     }
@@ -114,7 +114,7 @@ void main() {
           strength: strength,
         );
         final theme = ForumTheme.fromJson({
-          ...forumThemePresets.first.toJson(),
+          ...forumThemePresets.first.forBrightness(Brightness.light).toJson(),
           'background': background.toJson(),
         }, id: 'custom-background');
         expect(ForumTheme.fromJson(theme.toJson(), id: theme.id), theme);
@@ -278,7 +278,7 @@ void main() {
       double strength = .7,
     }) async {
       final theme = ForumTheme.fromJson({
-        ...forumThemePresets.first.toJson(),
+        ...forumThemePresets.first.forBrightness(Brightness.dark).toJson(),
         'background': ForumBackground(
           color: Colors.purple,
           strength: strength,
