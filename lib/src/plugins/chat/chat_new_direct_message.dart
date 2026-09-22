@@ -9,6 +9,7 @@ import 'chat_controller.dart';
 import 'chat_direct_message_search.dart';
 import 'chat_plugin_data.dart';
 import 'chat_shell_service.dart';
+import 'chat_shortcuts.dart';
 
 Future<void> showChatNewDirectMessageDialog({
   required BuildContext context,

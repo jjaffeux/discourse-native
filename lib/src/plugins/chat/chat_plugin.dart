@@ -29,6 +29,7 @@ import 'chat_route.dart';
 import 'chat_search_view.dart';
 import 'chat_services.dart';
 import 'chat_shell_service.dart';
+import 'chat_shortcuts.dart';
 import 'chat_stream_target.dart';
 import 'chat_thread_view.dart';
 import 'chat_transcript.dart';

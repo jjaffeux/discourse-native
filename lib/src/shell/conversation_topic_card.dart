@@ -21,7 +21,7 @@ class _ConversationTopicCard extends StatelessWidget {
     final shell = ShellScope.maybeRead(context);
     final registry =
         PluginScope.maybeOf(context)?.registry ?? PluginRegistry.empty;
-    final assignments = registry.compactTopicListMetadata(
+    final compactMetadata = registry.compactTopicListMetadata(
       context,
       row.siteUrl,
       topic,
@@ -225,12 +225,12 @@ class _ConversationTopicCard extends StatelessWidget {
                     ),
                   ] else
                     desktopDetails(),
-                  if (assignments.isNotEmpty)
+                  if (compactMetadata.isNotEmpty)
                     Wrap(
                       spacing: DSpacing.xs,
                       runSpacing: DSpacing.xs,
                       crossAxisAlignment: WrapCrossAlignment.center,
-                      children: assignments,
+                      children: compactMetadata,
                     ),
                   if (metadata.isNotEmpty)
                     Wrap(

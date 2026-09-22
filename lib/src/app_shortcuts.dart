@@ -39,13 +39,6 @@ SingleActivator searchShortcutForPlatform(
   includeRepeats: false,
 );
 
-SingleActivator newDirectMessageShortcutForPlatform(TargetPlatform platform) =>
-    primaryShortcutForPlatform(
-      platform,
-      LogicalKeyboardKey.keyK,
-      includeRepeats: false,
-    );
-
 const newTopicShortcut = SingleActivator(
   LogicalKeyboardKey.keyC,
   includeRepeats: false,

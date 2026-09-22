@@ -528,6 +528,7 @@ void main() {
         const tokens = {
           'chat_channel_list_',
           'chat_separate_sidebar_mode',
+          'newDirectMessageShortcutForPlatform',
           'ChatChannelListPreferences',
           'ChatSeparateSidebarPreference',
           'chat_search_enabled',

@@ -152,7 +152,8 @@ Chat and Reactions retain all endpoints, wire parsing, permissions, and state.
   notification `coreMenuSection` declarations keep Voice draft recognition,
   plugin block labels, Poll markup handling, and Reactions feed membership in
   their respective owners. Cooking profiles and plugin icon aliases follow
-  the same registration rule.
+  the same registration rule. Chat also owns its direct-message shortcut;
+  the public SDK exposes only the shared platform modifier helper.
 
 `plugin_extension_boundary_test.dart` exercises synthetic providers to prove
 these APIs work without any bundled feature identities. The dependency test

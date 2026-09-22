@@ -3,7 +3,7 @@ library;
 
 export 'package:discourse_cooking/discourse_cooking.dart';
 
-export 'src/app_shortcuts.dart' show newDirectMessageShortcutForPlatform;
+export 'src/app_shortcuts.dart' show primaryShortcutForPlatform;
 export 'src/data/app_release.dart';
 export 'src/data/discourse_api_contracts.dart'
     hide

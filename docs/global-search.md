@@ -87,6 +87,15 @@ site leases and request revisions reject stale completions. The application
 continues to use `ShellSearchController` for its existing shortcut, topic-context
 and recent-search integration.
 
+Optional features register `GlobalSearchContribution` values through the plugin
+SDK. Chat owns its scope, endpoint, response parser, filters and lookup behavior;
+Assign, Poll, Solved and Topic Voting own their additional forum filters and
+orders. Core retains only forum, user, category and combined search behavior.
+The registry validates ownership and snapshots contribution schemas before use.
+Only installed, available contributors receive the authenticated read callback;
+they never receive account credentials. Tests also install a synthetic provider
+to exercise the extension API without relying on a bundled feature identity.
+
 `ForumSearch` composes Native `DPopover`, `DPopoverAnchor` and `DInputGroup`.
 Popover's placement resolver aligns the replacement header with the existing
 input and retains collision/lifecycle ownership. Input Group's optional
