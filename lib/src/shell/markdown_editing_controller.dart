@@ -118,6 +118,12 @@ class MarkdownEditingController extends TextEditingController {
   @override
   set value(TextEditingValue newValue) {
     final current = super.value;
+    // Desktop text fields update selection on pointer-down, before an
+    // embedded editor can win the gesture. Its click must not select the
+    // enclosing document's hidden source or activate a whole block.
+    if (_preserveSyntaxPointerSelection && newValue.text == current.text) {
+      return;
+    }
     if (newValue.text != current.text ||
         !newValue.selection.isCollapsed ||
         newValue.selection.extentOffset != _boundaryCaretOffset) {
@@ -133,6 +139,7 @@ class MarkdownEditingController extends TextEditingController {
       if (_caretSuppressedSyntax case final syntax?) {
         if (!_stillContainsSyntax(newValue.text, syntax)) {
           _caretSuppressedSyntax = null;
+          _preserveSyntaxPointerSelection = false;
         }
       }
     } else if (_keyboardSelectedProjection != null &&
@@ -543,6 +550,7 @@ class MarkdownEditingController extends TextEditingController {
   List<ComposerSyntaxOccurrence> _syntaxBlocks = const [];
   Set<String> _collapsedSyntaxKeys = const {};
   ComposerSyntaxOccurrence? _caretSuppressedSyntax;
+  bool _preserveSyntaxPointerSelection = false;
   String? _hoveredSyntaxKey;
   final Map<String, GlobalKey> _syntaxPillKeys = {};
 
@@ -584,7 +592,11 @@ class MarkdownEditingController extends TextEditingController {
   int syntaxCaretAfter(ComposerSyntaxOccurrence block) =>
       block.projection.caretAfter(text);
 
-  void keepSyntaxCollapsedForPointerEdit(ComposerSyntaxOccurrence block) {
+  void keepSyntaxCollapsedForPointerEdit(
+    ComposerSyntaxOccurrence block, {
+    bool preserveSelection = false,
+  }) {
+    _preserveSyntaxPointerSelection = preserveSelection;
     if (_sameProjection(_caretSuppressedSyntax, block)) return;
     _caretSuppressedSyntax = block;
     artworkArrived();
@@ -592,6 +604,7 @@ class MarkdownEditingController extends TextEditingController {
 
   void releaseSyntaxPointerEdit(ComposerSyntaxOccurrence block) {
     if (!_sameProjection(_caretSuppressedSyntax, block)) return;
+    _preserveSyntaxPointerSelection = false;
     _caretSuppressedSyntax = null;
     artworkArrived();
   }

@@ -502,6 +502,70 @@ void main() {
     expect(composer.raw, _source.replaceFirst('Tea', 'Mouse edit'));
   }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 
+  for (final padding in [false, true]) {
+    testWidgets(
+      'held mouse clicks edit cells without selecting the table (padding: $padding)',
+      (tester) async {
+        final composer = await _pump(
+          tester,
+          source: _source.replaceFirst('Cake', ''),
+        );
+        for (final row in [0, 1, 2]) {
+          for (final column in [0, 1]) {
+            const selection = TextSelection.collapsed(offset: 2);
+            composer.text.selection = selection;
+            composer.requestFocus();
+            await tester.pumpAndSettle();
+            final input = _cell(row, column);
+            final cell = find
+                .ancestor(
+                  of: input,
+                  matching: find.byWidgetPredicate(
+                    (widget) => widget is DTableCell,
+                  ),
+                )
+                .first;
+            final point = padding
+                ? tester.getTopLeft(cell) + const Offset(2, 2)
+                : tester.getCenter(input);
+            final gesture = await tester.startGesture(
+              point,
+              kind: PointerDeviceKind.mouse,
+            );
+            // Pass the native tap-down deadline before releasing the button.
+            await tester.pump(const Duration(milliseconds: 150));
+            expect(composer.text.selection, selection);
+            expect(composer.text.keyboardSelectedProjection, isNull);
+            await gesture.up();
+            await tester.pumpAndSettle();
+            expect(composer.text.keyboardSelectedProjection, isNull);
+            expect(composer.text.selection, selection);
+            expect(
+              tester.widget<EditableText>(input).focusNode.hasPrimaryFocus,
+              isTrue,
+              reason: 'Cell $row, $column',
+            );
+            tester.testTextInput.enterText('Edited $row $column');
+            await tester.pump();
+            expect(
+              parseComposerTables(composer.raw).single.cell(row, column),
+              'Edited $row $column',
+            );
+          }
+        }
+        // Releasing the click also restores ordinary document selection.
+        composer.text.selection = const TextSelection.collapsed(offset: 1);
+        expect(composer.text.selection.extentOffset, 1);
+        expect(tester.takeException(), isNull);
+      },
+      variant: const TargetPlatformVariant({
+        TargetPlatform.macOS,
+        TargetPlatform.linux,
+        TargetPlatform.windows,
+      }),
+    );
+  }
+
   testWidgets('scrolling to an existing table preserves cell pointer ownership', (
     tester,
   ) async {
