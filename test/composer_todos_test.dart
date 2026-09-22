@@ -130,9 +130,9 @@ void main() {
     },
   );
 
-  test('an empty checked item remains a movable list, not unclosed BBCode', () {
+  test('an empty checked item remains a movable to-do, not unclosed BBCode', () {
     final blocks = ComposerBlockIndex.parse('[x] \n\nAfter');
-    expect(blocks.blocks.first.kind, ComposerBlockKind.list);
+    expect(blocks.blocks.first.kind, ComposerBlockKind.todo);
     expect(blocks.blocks.first.movable, isTrue);
   });
 

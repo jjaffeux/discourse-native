@@ -155,7 +155,110 @@ void main() {
     expect(composer.history.canUndo, isFalse);
   });
 
+  testWidgets('mobile arrangement exposes each to-do as a separate row', (
+    tester,
+  ) async {
+    composer.text.value = const TextEditingValue(
+      text: '[ ] First\n[x] Second\n[ ] ',
+      selection: TextSelection.collapsed(offset: 4),
+    );
+    composer.history.reset();
+    await mount(tester, mobile: true, textScale: 1.5);
+    await arrange(tester);
+    final blocks = composer.blocks.index.blocks;
+    expect(blocks, hasLength(3));
+    for (final block in blocks) {
+      expect(
+        find.byKey(ValueKey('composer-block-handle-${block.id}')),
+        findsOneWidget,
+      );
+    }
+    await tester.tap(
+      find.byKey(ValueKey('composer-block-handle-${blocks.first.id}')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Move down'));
+    await tester.pumpAndSettle();
+    expect(composer.text.text, '[x] Second\n[ ] First\n[ ] ');
+    composer.history.undo();
+    await tester.pumpAndSettle();
+    expect(composer.text.text, '[ ] First\n[x] Second\n[ ] ');
+    expect(tester.takeException(), isNull);
+  });
+
   for (final dark in [false, true]) {
+    testWidgets(
+      'each to-do has its own hover handle and drag boundary ($dark)',
+      (tester) async {
+        const source = '[ ] First\n[x] Second\n[ ] Third\n[ ] ';
+        composer.text.value = const TextEditingValue(
+          text: source,
+          selection: TextSelection.collapsed(offset: 16),
+        );
+        composer.history.reset();
+        await mount(tester, dark: dark);
+        final original = composer.text.value;
+        final blocks = composer.blocks.index.blocks;
+        expect(blocks, hasLength(4));
+        final surface = tester.widget<ComposerBlockSurface>(
+          find.byType(ComposerBlockSurface),
+        );
+        final rects = blocks.map((block) => surface.blockRect(block)!).toList();
+        final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+        await mouse.addPointer(location: Offset.zero);
+        addTearDown(mouse.removePointer);
+        for (var i = 0; i < blocks.length; i++) {
+          if (i > 0) {
+            expect(rects[i].top, greaterThanOrEqualTo(rects[i - 1].bottom));
+          }
+          await mouse.moveTo(rects[i].center);
+          await tester.pumpAndSettle();
+          expect(
+            find.byKey(ValueKey('composer-block-handle-${blocks[i].id}')),
+            findsOneWidget,
+          );
+        }
+        await mouse.moveTo(rects[1].center);
+        await tester.pumpAndSettle();
+        final handle = find.byKey(
+          ValueKey('composer-block-handle-${blocks[1].id}'),
+        );
+        final drag = await tester.startGesture(
+          tester.getCenter(handle),
+          kind: PointerDeviceKind.mouse,
+        );
+        await drag.moveBy(const Offset(0, 12));
+        await tester.pump();
+        final gap = (rects[2].bottom + rects[3].top) / 2;
+        await drag.moveTo(Offset(rects[2].center.dx, gap));
+        await tester.pumpAndSettle();
+        expect(
+          tester.getCenter(find.byType(DDropIndicator)).dy,
+          closeTo(gap, .01),
+        );
+        expect(composer.text.value, original);
+        await drag.up();
+        await tester.pumpAndSettle();
+        expect(composer.text.text, '[ ] First\n[ ] Third\n[x] Second\n[ ] ');
+        expect(composer.blocks.index.blocks[2].id, blocks[1].id);
+        expect(composer.text.selection.extentOffset, 26);
+        expect(composer.text.todos.map((todo) => todo.checked), [
+          false,
+          false,
+          true,
+          false,
+        ]);
+        composer.history.undo();
+        await tester.pumpAndSettle();
+        expect(composer.text.value, original);
+        expect(composer.history.canUndo, isFalse);
+        composer.history.redo();
+        await tester.pumpAndSettle();
+        expect(composer.text.text, '[ ] First\n[ ] Third\n[x] Second\n[ ] ');
+        expect(tester.takeException(), isNull);
+      },
+    );
+
     for (final direction in TextDirection.values) {
       testWidgets(
         'leading handle moves blocks with a centered insertion line ($dark, $direction)',

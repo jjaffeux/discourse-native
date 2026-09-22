@@ -63,6 +63,70 @@ void main() {
     expect(index.blocks.first.source, '> Quote\nlazy continuation\n> More');
   });
 
+  test('each standalone to-do is a block, including an empty final item', () {
+    final index = parse('Before\n[ ] First\n[x] Second\n[] \nAfter');
+    expect(index.blocks.map((block) => block.source), [
+      'Before',
+      '[ ] First',
+      '[x] Second',
+      '[] ',
+      'After',
+    ]);
+    expect(index.blocks.map((block) => block.kind), [
+      ComposerBlockKind.paragraph,
+      ComposerBlockKind.todo,
+      ComposerBlockKind.todo,
+      ComposerBlockKind.todo,
+      ComposerBlockKind.paragraph,
+    ]);
+    expect(index.blocks.every((block) => block.movable), isTrue);
+    expect(index.blocks[1].label, 'To-do');
+  });
+
+  test(
+    'nested checklists and literal markers keep their container boundaries',
+    () {
+      const nested = '- [ ] Parent\n  - [x] Child\n\n- Plain';
+      expect(parse(nested).blocks.single.source, nested);
+      expect(parse(nested).blocks.single.kind, ComposerBlockKind.list);
+      for (final source in [
+        '```\n[ ] Code\n[x] Code\n```',
+        '\\[ ] Escaped\n\\[x] Escaped',
+        '[x] Link\n\n[x]: https://example.com',
+        '> [ ] Quoted\n> [x] Quoted',
+      ]) {
+        expect(
+          parse(
+            source,
+          ).blocks.any((block) => block.kind == ComposerBlockKind.todo),
+          isFalse,
+        );
+      }
+    },
+  );
+
+  for (final newline in ['\n', '\r\n']) {
+    test('to-do moves preserve single row separators (${newline.length})', () {
+      final rows = ['[ ] First', '[x] Same', '[ ] Same', '[] '];
+      final index = parse(rows.join(newline));
+      final move = index.move(index.blocks[1].id, 4)!;
+      expect(
+        move.after.source,
+        [rows[0], rows[2], rows[3], rows[1]].join(newline),
+      );
+      expect(move.after.blocks.map((block) => block.id), [
+        index.blocks[0].id,
+        index.blocks[2].id,
+        index.blocks[3].id,
+        index.blocks[1].id,
+      ]);
+      expect(
+        move.mapOffset(index.blocks[1].start + 5),
+        move.after.blocks.last.start + 5,
+      );
+    });
+  }
+
   test(
     'inline BBCode spanning paragraphs remains one protected source block',
     () {
