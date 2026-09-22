@@ -385,6 +385,27 @@ class DiscourseApi
   );
 
   @override
+  Future<List<int>> dismissNewTopics({
+    required String siteUrl,
+    required String apiKey,
+    required bool dismissTopics,
+    required bool dismissPosts,
+    int? categoryId,
+    String? tagName,
+    List<int>? topicIds,
+    String? clientId,
+  }) => _topic.dismissNewTopics(
+    siteUrl: siteUrl,
+    apiKey: apiKey,
+    dismissTopics: dismissTopics,
+    dismissPosts: dismissPosts,
+    categoryId: categoryId,
+    tagName: tagName,
+    topicIds: topicIds,
+    clientId: clientId,
+  );
+
+  @override
   Future<TopicList> topicList({
     required String siteUrl,
     required String path,

@@ -4,6 +4,7 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
 import '../app_shortcuts.dart';
+import '../models/content_route.dart';
 import '../models/topic.dart';
 import '../theme/app_theme.dart';
 import '../theme/d_icons.dart';
@@ -117,25 +118,32 @@ class TopicListBottomBar extends StatelessWidget {
         padding: topicBottomBarPadding.add(
           EdgeInsetsDirectional.only(end: trailingInset),
         ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.start,
-          children: [
-            if (leading case final action?)
-              Expanded(
-                child: Align(
-                  alignment: AlignmentDirectional.centerStart,
-                  child: action,
-                ),
-              )
-            else
-              const Spacer(),
-            ShellSelector<bool>(
-              select: (shell) => shell.currentContent?.isTopic == true,
-              builder: (context, topicOpen, _) => topicOpen
-                  ? const TopicNavigationButtons()
-                  : const SizedBox.shrink(),
-            ),
-          ],
+        child: LayoutBuilder(
+          builder: (context, constraints) => Row(
+            mainAxisAlignment: MainAxisAlignment.start,
+            children: [
+              if (leading case final action?)
+                Expanded(
+                  child: Align(
+                    alignment: AlignmentDirectional.centerStart,
+                    child: action,
+                  ),
+                )
+              else
+                const Spacer(),
+              DismissNewTopicsButton(
+                compact:
+                    constraints.maxWidth <
+                    480 * MediaQuery.textScalerOf(context).scale(14) / 14,
+              ),
+              ShellSelector<bool>(
+                select: (shell) => shell.currentContent?.isTopic == true,
+                builder: (context, topicOpen, _) => topicOpen
+                    ? const TopicNavigationButtons()
+                    : const SizedBox.shrink(),
+              ),
+            ],
+          ),
         ),
       ),
     ),
@@ -201,5 +209,57 @@ class TopicNavigationButtons extends StatelessWidget {
         ],
       ),
     ),
+  );
+}
+
+class DismissNewTopicsButton extends StatelessWidget {
+  const DismissNewTopicsButton({super.key, this.compact = false});
+
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) => ListenableBuilder(
+    listenable: ShellScope.identityOf(context).topicFeeds,
+    builder: (context, _) {
+      final shell = ShellScope.of(context);
+      if (shell.currentTopicListMode != TopicListMode.newActivity &&
+              shell.currentTopicListMode != TopicListMode.newTopics &&
+              shell.currentTopicListMode != TopicListMode.newReplies ||
+          (!shell.canDismissNewTopics && !shell.dismissingNewTopics)) {
+        return const SizedBox.shrink();
+      }
+      final label = switch (shell.currentTopicListMode) {
+        TopicListMode.newTopics => 'Dismiss new topics',
+        TopicListMode.newReplies => 'Dismiss new replies',
+        _ => 'Dismiss New',
+      };
+      Future<void> dismiss() async {
+        final lease = shell.lifecycle.capture(shell.currentInstance!.url);
+        final error = await shell.dismissNewTopics();
+        if (context.mounted && lease.isCurrent && error != null) {
+          DToast.show(context, error, type: DToastType.error);
+        }
+      }
+
+      return Padding(
+        padding: const EdgeInsetsDirectional.only(end: DSpacing.controlGap),
+        child: compact
+            ? DButton.iconOnly(
+                key: const ValueKey('dismiss-new-topics'),
+                tooltip: label,
+                icon: const DIcon(DIcons.check),
+                loading: shell.dismissingNewTopics,
+                variant: DButtonVariant.outline,
+                onPressed: shell.dismissingNewTopics ? null : dismiss,
+              )
+            : DButton(
+                key: const ValueKey('dismiss-new-topics'),
+                label: Text(label),
+                loading: shell.dismissingNewTopics,
+                variant: DButtonVariant.outline,
+                onPressed: shell.dismissingNewTopics ? null : dismiss,
+              ),
+      );
+    },
   );
 }

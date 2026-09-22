@@ -20,6 +20,100 @@ const _site = 'https://meta.discourse.org';
 const _user = DiscourseUser(id: 7, username: 'reader', unifiedNewEnabled: true);
 
 void main() {
+  for (final mode in [
+    TopicListMode.newActivity,
+    TopicListMode.newTopics,
+    TopicListMode.newReplies,
+  ]) {
+    testWidgets('${mode.name} dismisses once and refreshes the source', (
+      tester,
+    ) async {
+      final (shell, api, _) = await _setup(tester, mode: mode);
+      final gate = Completer<void>();
+      api.dismissNewGate = gate;
+      api.dismissedNewIds = [1, 2, 3];
+      final button = find.byKey(const ValueKey('dismiss-new-topics'));
+      expect(button, findsOneWidget);
+      await tester.tap(button);
+      await tester.pump();
+      await shell.dismissNewTopics();
+      expect(api.dismissNewCalls, hasLength(1));
+      expect(
+        api.dismissNewCalls.single.topics,
+        mode != TopicListMode.newReplies,
+      );
+      expect(api.dismissNewCalls.single.posts, mode != TopicListMode.newTopics);
+      expect(api.dismissNewCalls.single.topicIds, isNull);
+      expect(shell.dismissingNewTopics, isTrue);
+      api.feeds[mode.feedPath!] = [];
+      gate.complete();
+      await tester.pumpAndSettle();
+      expect(shell.currentFeed!.topicIds, isEmpty);
+      expect(shell.dismissingNewTopics, isFalse);
+      expect(button, findsNothing);
+      if (mode != TopicListMode.newTopics) expect(shell.newReplyCount, 0);
+      expect(tester.takeException(), isNull);
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
+  }
+
+  testWidgets('failed dismissal preserves rows and can be retried', (
+    tester,
+  ) async {
+    final (shell, api, _) = await _setup(
+      tester,
+      mode: TopicListMode.newActivity,
+    );
+    api.dismissNewFailure = StateError('offline');
+    expect(await shell.dismissNewTopics(), contains('Could not dismiss'));
+    expect(shell.currentFeed!.topicIds, [1, 2, 3]);
+    expect(shell.dismissingNewTopics, isFalse);
+    api.dismissNewFailure = null;
+    expect(await shell.dismissNewTopics(), isNull);
+    expect(api.dismissNewCalls, hasLength(2));
+  }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
+
+  testWidgets('late dismissal stays with its source after navigation', (
+    tester,
+  ) async {
+    final (shell, api, _) = await _setup(
+      tester,
+      mode: TopicListMode.newActivity,
+    );
+    final gate = Completer<void>();
+    api.dismissNewGate = gate;
+    final request = shell.dismissNewTopics();
+    await tester.pump();
+    await shell.selectTopicListMode(TopicListMode.latest);
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('dismiss-new-topics')), findsNothing);
+    api.feeds['/new.json'] = [];
+    gate.complete();
+    await request;
+    expect(shell.currentTopicListMode, TopicListMode.latest);
+    expect(shell.currentFeed!.topicIds, [1, 2, 3]);
+    expect(shell.topicFeeds.feedFor(_site, 'new')!.topicIds, isEmpty);
+  }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
+
+  testWidgets('retired account ignores a late dismissal response', (
+    tester,
+  ) async {
+    final (shell, api, _) = await _setup(
+      tester,
+      mode: TopicListMode.newActivity,
+    );
+    final gate = Completer<void>();
+    api.dismissNewGate = gate;
+    api.dismissedNewIds = [1, 2, 3];
+    final request = shell.dismissNewTopics();
+    await tester.pump();
+    final reads = api.feedPaths.length;
+    shell.lifecycle.invalidate(_site);
+    gate.complete();
+    await request;
+    expect(api.feedPaths, hasLength(reads));
+    expect(shell.currentFeed!.topicIds, [1, 2, 3]);
+    expect(shell.newReplyCount, 3);
+  }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
   for (final mode in [TopicListMode.unread, TopicListMode.newReplies]) {
     testWidgets('${mode.name} removes fully read topics after moving on', (
       tester,

@@ -1009,6 +1009,17 @@ abstract interface class UserSummariesApi {
 }
 
 abstract interface class TopicFeedsApi {
+  Future<List<int>> dismissNewTopics({
+    required String siteUrl,
+    required String apiKey,
+    required bool dismissTopics,
+    required bool dismissPosts,
+    int? categoryId,
+    String? tagName,
+    List<int>? topicIds,
+    String? clientId,
+  });
+
   Future<TopicList> topicList({
     required String siteUrl,
     required String path,

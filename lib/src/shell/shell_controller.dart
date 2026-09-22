@@ -3367,6 +3367,110 @@ class ShellController extends FrameSafeNotifier
     unawaited(loadFeed(replacement.id));
   }
 
+  final Set<(String, Object)> _dismissingNew = {};
+
+  bool get dismissingNewTopics => _dismissingNew.contains((
+    currentInstance?.url ?? '',
+    lifecycle.capture(currentInstance?.url ?? '').session,
+  ));
+
+  bool get canDismissNewTopics =>
+      currentInstance?.isConnected == true &&
+      (currentTopicListMode == TopicListMode.newActivity ||
+          currentTopicListMode == TopicListMode.newTopics ||
+          currentTopicListMode == TopicListMode.newReplies) &&
+      currentFeed?.topicIds.isNotEmpty == true;
+
+  Future<String?> dismissNewTopics() async {
+    final instance = currentInstance;
+    final route = topicListContent;
+    final mode = currentTopicListMode;
+    if (instance == null ||
+        route == null ||
+        mode == null ||
+        !canDismissNewTopics ||
+        dismissingNewTopics) {
+      return null;
+    }
+    final siteUrl = instance.url;
+    final lease = lifecycle.capture(siteUrl);
+    final key = (siteUrl, lease.session);
+    _dismissingNew.add(key);
+    _notify();
+    final topics = mode != TopicListMode.newReplies;
+    final posts =
+        instance.user?.unifiedNewEnabled == true &&
+        mode != TopicListMode.newTopics;
+    try {
+      final credential = await _readSessionValue(
+        lease,
+        () => authenticator.apiKeyFor(siteUrl),
+      );
+      final identity = await _readSessionValue(lease, authenticator.clientId);
+      if (credential?.value == null || identity == null || !lease.isCurrent) {
+        return 'Reconnect to dismiss new topics.';
+      }
+      // Core accepts one tag. Resolve the full intersection before a bulk
+      // write when this app's list has multiple tags.
+      List<int>? topicIds;
+      if (route.tagNames.length > 1) {
+        topicIds = [];
+        String? path = route.feedPath;
+        final visited = <String>{};
+        while (path != null && visited.add(path)) {
+          final page = await api.topicFeeds.topicList(
+            siteUrl: siteUrl,
+            path: path,
+            apiKey: credential!.value,
+            clientId: identity.value,
+          );
+          if (!lease.isCurrent || isDisposed) return null;
+          topicIds.addAll(page.topics.map((topic) => topic.id));
+          path = page.nextPagePath;
+        }
+        if (path != null) {
+          throw StateError('Could not load all matching topics.');
+        }
+      }
+      if (!lease.isCurrent || isDisposed) return null;
+      final ids = await api.topicFeeds.dismissNewTopics(
+        siteUrl: siteUrl,
+        apiKey: credential!.value!,
+        clientId: identity.value,
+        dismissTopics: topics,
+        dismissPosts: posts,
+        categoryId: route.categoryId,
+        tagName: route.tagNames.firstOrNull,
+        topicIds: topicIds,
+      );
+      if (!lease.isCurrent || isDisposed) return null;
+      for (final type in [
+        if (topics) 'dismiss_new',
+        if (posts) 'dismiss_new_posts',
+      ]) {
+        _applyTopicTrackingMessage(siteUrl, {
+          'message_type': type,
+          'payload': {'topic_ids': ids},
+        });
+      }
+      await topicFeeds.load(
+        instance: instance,
+        destinationId: route.id,
+        path: route.feedPath!,
+        incoming: _trackers[siteUrl]?.incoming,
+        force: true,
+      );
+      return null;
+    } catch (error, stackTrace) {
+      if (!lease.isCurrent || isDisposed) return null;
+      _reportOperationalError(error, stackTrace, 'topics.dismissNew');
+      return 'Could not dismiss new topics. Please try again.';
+    } finally {
+      _dismissingNew.remove(key);
+      if (!isDisposed) _notify();
+    }
+  }
+
   Future<void> loadFeed(String destinationId, {bool force = false}) async {
     final instance = currentInstance;
     if (instance == null) return;
