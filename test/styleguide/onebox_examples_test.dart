@@ -75,6 +75,11 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('onebox-picker')), findsOneWidget);
     expect(find.byType(OneboxCard), findsOneWidget);
+    final picker = find.byKey(const ValueKey('onebox-picker'));
+    final pickerPosition = tester.getTopLeft(picker);
+    await tester.tap(find.byKey(const ValueKey('onebox-state-generic-2')));
+    await tester.pumpAndSettle();
+    expect(tester.getTopLeft(picker), pickerPosition);
   });
 
   testWidgets(

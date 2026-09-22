@@ -21,7 +21,8 @@ quotes, inline resolved/loading/unavailable links, YouTube and uploaded-video
 markup, Reddit posts and comments, and event attendance/saving/error states.
 Reddit uses the Native `DEmbed` through its production cooked-content renderer;
 switching states retires the previous web view. The gallery uses a 680px
-styleguide viewport with scrolling for longer previews.
+styleguide viewport with scrolling for longer previews. It aligns to the top
+so the picker and state controls stay in place when preview heights change.
 
 The 320px / 200% text checks exposed unbounded metadata rows in Discourse topic
 and category oneboxes. Their labels now wrap within the available width; the
@@ -32,6 +33,8 @@ Verification on 2026-09-22, Flutter 3.47.4:
 - Root `flutter analyze --no-pub`: no issues.
 - 235 focused tests passed with the command below, including the integrated
   Reddit embed, cooked-content and YouTube regressions.
+- After the top-alignment adjustment, all 27 gallery/styleguide tests passed,
+  root analysis remained clean, and the macOS styleguide rebuilt successfully.
 - Gallery checks cover provider search, empty results, keyboard selection,
   PR status rendering, selection reset, wrapping controls, local event RSVP
   and retry, Reddit post/comment switching and web-view retirement, and every
@@ -40,6 +43,10 @@ Verification on 2026-09-22, Flutter 3.47.4:
   was launched through CUA with only the permitted debug entitlements.
   Inspected the actual Onebox page, search results, keyboard selection,
   draft/merged PR cards, dark/light palettes and 360px viewport wrapping.
+- The integrated gallery loaded the live Reddit post and switched to its
+  comment preview on macOS. The Mac locked before comment loading and the
+  final top-alignment change could be visually rechecked. Widget coverage
+  verifies the picker stays in place when content height changes.
 
 These are macOS native and Flutter widget checks. Physical mobile devices and
 the full application test suite were not run.
