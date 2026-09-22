@@ -157,6 +157,27 @@ void main() {
     expect(draft!.background!.effect, ForumBackgroundEffect.noise);
     expect(draft!.background!.color, isNot(initial.tertiary));
     expect(draft!.background!.strength, closeTo(.51, .01));
+    final noise = find.byKey(const ValueKey('custom-theme-noise-intensity'));
+    final transparency = find.byKey(
+      const ValueKey('custom-theme-transparency'),
+    );
+    expect(tester.widget<DSlider>(noise).value, 20);
+    expect(tester.widget<DSlider>(transparency).value, 10);
+    await tester.ensureVisible(noise);
+    await tester.tap(noise);
+    await tester.sendKeyEvent(LogicalKeyboardKey.home);
+    await tester.pump();
+    expect(draft!.background!.noiseIntensity, 0);
+    expect(draft!.background!.transparency, .1);
+    await tester.ensureVisible(transparency);
+    await tester.tap(transparency);
+    await tester.sendKeyEvent(LogicalKeyboardKey.end);
+    await tester.pump();
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+    await tester.pump();
+    expect(draft!.background!.transparency, .2);
+    expect(draft!.background!.noiseIntensity, 0);
+    expect(draft!.background!.strength, closeTo(.51, .01));
     expect(find.text('Palette mode'), findsNothing);
     expect(draft!.darkerSidebars, isTrue);
     final save = find.byKey(const ValueKey('save-custom-theme'));
@@ -164,6 +185,8 @@ void main() {
     await tester.tap(save);
     expect(saved, draft);
     await tester.pumpWidget(editor(saved!));
+    expect(tester.widget<DSlider>(noise).value, 0);
+    expect(tester.widget<DSlider>(transparency).value, 20);
     expect(
       tester.widget<DSlider>(strength).value,
       saved!.background!.strength * 100,
@@ -283,6 +306,18 @@ void main() {
       await tester.ensureVisible(find.bySemanticsLabel('Noise background'));
       await tester.tap(find.bySemanticsLabel('Noise background'));
       await tester.pumpAndSettle();
+      final noise = find.byKey(const ValueKey('custom-theme-noise-intensity'));
+      final transparency = find.byKey(
+        const ValueKey('custom-theme-transparency'),
+      );
+      await tester.ensureVisible(noise);
+      await tester.tap(noise);
+      await tester.sendKeyEvent(LogicalKeyboardKey.home);
+      await tester.pump();
+      await tester.ensureVisible(transparency);
+      await tester.tap(transparency);
+      await tester.sendKeyEvent(LogicalKeyboardKey.end);
+      await tester.pump();
       final light = draft!.forBrightness(Brightness.light);
       await select(Brightness.dark);
       expect(accent(), ForumTheme.hex(initial.alternate!.tertiary));
@@ -304,6 +339,8 @@ void main() {
       expect(draft!.forBrightness(Brightness.light), light);
       await select(Brightness.light);
       expect(accent(), '#39845B');
+      expect(tester.widget<DSlider>(noise).value, 0);
+      expect(tester.widget<DSlider>(transparency).value, 20);
       expect(
         tester
             .widget<DToggleGroup<ForumBackgroundEffect>>(
@@ -321,7 +358,10 @@ void main() {
       final restored = ForumTheme.fromJson(saved!.toJson(), id: saved!.id);
       await tester.pumpWidget(editor(restored));
       expect(accent(), '#39845B');
+      expect(tester.widget<DSlider>(noise).value, 0);
+      expect(tester.widget<DSlider>(transparency).value, 20);
       await select(Brightness.dark);
+      expect(tester.widget<DSlider>(transparency).value, 10);
       expect(accent(), '#AA88DD');
       expect(draft!.name, 'Day and night');
       expect(draft!.alternate!.name, 'Day and night');

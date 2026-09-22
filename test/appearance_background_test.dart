@@ -77,9 +77,15 @@ void main() {
                   child: SingleChildScrollView(
                     child: DCard(
                       child: ForumThemeEditor(
-                        initialTheme: forumThemePresets.first.forBrightness(
-                          brightness,
-                        ),
+                        initialTheme: ForumTheme.fromJson({
+                          ...forumThemePresets.first
+                              .forBrightness(brightness)
+                              .toJson(),
+                          'background': const ForumBackground(
+                            color: Colors.purple,
+                            effect: ForumBackgroundEffect.noise,
+                          ).toJson(),
+                        }, id: 'custom-narrow'),
                         customThemes: const [],
                         onChanged: (_) {},
                         onSave: (_) async {},
@@ -112,6 +118,8 @@ void main() {
           color: const Color(0xff4714b2),
           effect: effect,
           strength: strength,
+          noiseIntensity: .73,
+          transparency: .17,
         );
         final theme = ForumTheme.fromJson({
           ...forumThemePresets.first.forBrightness(Brightness.light).toJson(),
@@ -157,6 +165,85 @@ void main() {
       throwsFormatException,
     );
   });
+
+  test('legacy backgrounds use subtle defaults and reject unsafe values', () {
+    const valid = ForumBackground(color: Colors.blue);
+    final legacy = valid.toJson()
+      ..remove('noiseIntensity')
+      ..remove('transparency');
+    expect(ForumBackground.fromJson(legacy).noiseIntensity, .2);
+    expect(ForumBackground.fromJson(legacy).transparency, .1);
+    for (final key in ['noiseIntensity', 'transparency']) {
+      for (final invalid in [
+        null,
+        -.1,
+        1.1,
+        double.nan,
+        double.infinity,
+        '20',
+      ]) {
+        expect(
+          () => ForumBackground.fromJson({...valid.toJson(), key: invalid}),
+          throwsFormatException,
+          reason: '$key: $invalid',
+        );
+      }
+    }
+    expect(
+      () => ForumBackground.fromJson({...valid.toJson(), 'transparency': .21}),
+      throwsFormatException,
+    );
+  });
+
+  testWidgets(
+    'panel transparency updates independently with opaque footers at zero',
+    (tester) async {
+      for (final brightness in Brightness.values) {
+        for (final transparency in [0.0, .1, .2]) {
+          final custom = ForumTheme.fromJson({
+            ...forumThemePresets.first.forBrightness(brightness).toJson(),
+            'background': ForumBackground(
+              color: Colors.purple,
+              effect: ForumBackgroundEffect.noise,
+              transparency: transparency,
+            ).toJson(),
+          }, id: 'custom-panels');
+          Color? panel;
+          Color? footer;
+          Color? nested;
+          await tester.pumpWidget(
+            MaterialApp(
+              theme: AppTheme.fromPalette(custom.resolve(brightness)),
+              home: ForumWindowBackground(
+                child: Builder(
+                  builder: (context) {
+                    panel = ForumWindowBackground.panelColor(context);
+                    footer = ForumWindowBackground.footerColor(
+                      context,
+                      Colors.blue,
+                    );
+                    return ForumWindowBackground(
+                      child: Builder(
+                        builder: (context) {
+                          nested = ForumWindowBackground.panelColor(context);
+                          return const SizedBox.expand();
+                        },
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ),
+          );
+          await tester.pumpAndSettle();
+          expect(panel!.a, closeTo(1 - transparency, .001));
+          expect(footer!.a, closeTo(1 - transparency * .25, .001));
+          expect(nested, panel);
+          expect(tester.takeException(), isNull);
+        }
+      }
+    },
+  );
 
   testWidgets(
     'inline palette accepts drag and keyboard, honors disabled and rejected edits',

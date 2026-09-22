@@ -558,6 +558,60 @@ class _ForumThemeEditorState extends State<ForumThemeEditor> {
               ),
             ],
           ),
+          if (_appearance.background.effect == ForumBackgroundEffect.noise)
+            DField(
+              children: [
+                DFieldLabel(
+                  child: Text(
+                    'Noise intensity · ${(_appearance.background.noiseIntensity * 100).round()}%',
+                  ),
+                ),
+                DSlider(
+                  key: const ValueKey('custom-theme-noise-intensity'),
+                  value: _appearance.background.noiseIntensity * 100,
+                  semanticLabel: 'Noise intensity',
+                  semanticFormatterCallback: (value) => '${value.round()}%',
+                  onChanged: enabled
+                      ? (value) => _changeBackground(
+                          _appearance.background.copyWith(
+                            noiseIntensity: value / 100,
+                          ),
+                        )
+                      : null,
+                ),
+                const DFieldDescription(
+                  child: Text('Set to 0% for a smooth background.'),
+                ),
+              ],
+            ),
+          DField(
+            children: [
+              DFieldLabel(
+                child: Text(
+                  'Panel transparency · ${(_appearance.background.transparency * 100).round()}%',
+                ),
+              ),
+              DSlider(
+                key: const ValueKey('custom-theme-transparency'),
+                value: _appearance.background.transparency * 100,
+                max: ForumBackground.maxTransparency * 100,
+                semanticLabel: 'Panel transparency',
+                semanticFormatterCallback: (value) => '${value.round()}%',
+                onChanged: enabled
+                    ? (value) => _changeBackground(
+                        _appearance.background.copyWith(
+                          transparency: value / 100,
+                        ),
+                      )
+                    : null,
+              ),
+              const DFieldDescription(
+                child: Text(
+                  'Let the background show through panels. Limited to 20% to keep text readable.',
+                ),
+              ),
+            ],
+          ),
         ],
       ),
     );

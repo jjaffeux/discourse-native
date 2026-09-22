@@ -26,18 +26,23 @@ class ForumWindowBackground extends StatefulWidget {
   /// Paint once at each panel boundary, without restarting the window effect.
   /// The slight foreground tint keeps flat backgrounds visibly framed too.
   static Color? panelColor(BuildContext context) {
-    if (!isContinuous(context)) return null;
+    final canvas = context.dependOnInheritedWidgetOfExactType<_ForumCanvas>();
+    if (canvas == null || !canvas.continuous) return null;
     final tokens = DTokens.of(context);
     return Color.lerp(
       tokens.background,
       tokens.foreground,
       .05,
-    )!.withValues(alpha: .6);
+    )!.withValues(alpha: 1 - canvas.transparency);
   }
 
   /// Footers retain a stronger surface so their fixed actions remain distinct.
-  static Color footerColor(BuildContext context, Color fallback) =>
-      isContinuous(context) ? fallback.withValues(alpha: .9) : fallback;
+  static Color footerColor(BuildContext context, Color fallback) {
+    final canvas = context.dependOnInheritedWidgetOfExactType<_ForumCanvas>();
+    return canvas != null && canvas.continuous
+        ? fallback.withValues(alpha: 1 - canvas.transparency * .25)
+        : fallback;
+  }
 
   @override
   State<ForumWindowBackground> createState() => _ForumWindowBackgroundState();
@@ -61,7 +66,7 @@ class _ForumWindowBackgroundState extends State<ForumWindowBackground>
         context.dependOnInheritedWidgetOfExactType<_ForumCanvas>() == null;
     if (ownsCanvas &&
         background?.effect == ForumBackgroundEffect.noise &&
-        background!.strength > 0) {
+        background!.noiseIntensity > 0) {
       _grain ??= _GrainTexture();
     }
     final animate =
@@ -94,8 +99,15 @@ class _ForumWindowBackgroundState extends State<ForumWindowBackground>
     final theme = Theme.of(context);
     final effects = theme.extension<ForumThemeEffects>();
     final background = effects?.background;
+    final paintEffect = switch (background?.effect) {
+      ForumBackgroundEffect.noise =>
+        background!.strength > 0 || background.noiseIntensity > 0,
+      ForumBackgroundEffect.lava => background!.strength > 0,
+      _ => false,
+    };
     return _ForumCanvas(
       continuous: background != null,
+      transparency: background?.transparency ?? 0,
       child: DecoratedBox(
         key: const ValueKey('forum-window-canvas'),
         decoration: BoxDecoration(
@@ -104,10 +116,7 @@ class _ForumWindowBackgroundState extends State<ForumWindowBackground>
               : theme.shell.content,
           gradient: background == null ? effects?.windowGradient : null,
         ),
-        child:
-            background == null ||
-                background.effect == ForumBackgroundEffect.normal ||
-                background.strength == 0
+        child: !paintEffect
             ? widget.child
             : Stack(
                 children: [
@@ -117,7 +126,7 @@ class _ForumWindowBackgroundState extends State<ForumWindowBackground>
                         child: CustomPaint(
                           key: const ValueKey('forum-window-effect'),
                           painter: _BackgroundPainter(
-                            background,
+                            background!,
                             _motion,
                             _grain?.shader,
                           ),
@@ -134,13 +143,19 @@ class _ForumWindowBackgroundState extends State<ForumWindowBackground>
 }
 
 class _ForumCanvas extends InheritedWidget {
-  const _ForumCanvas({required this.continuous, required super.child});
+  const _ForumCanvas({
+    required this.continuous,
+    this.transparency = 0,
+    required super.child,
+  });
 
   final bool continuous;
+  final double transparency;
 
   @override
   bool updateShouldNotify(_ForumCanvas oldWidget) =>
-      continuous != oldWidget.continuous;
+      continuous != oldWidget.continuous ||
+      transparency != oldWidget.transparency;
 }
 
 class _BackgroundPainter extends CustomPainter {
@@ -205,6 +220,8 @@ class _BackgroundPainter extends CustomPainter {
         ).createShader(rect),
     );
 
+    if (background.noiseIntensity == 0 || grain == null) return;
+
     // Like https://css-tricks.com/grainy-gradients/: contrast-boosted fractal
     // noise, a gradient mask, and blending restricted to the background. Using
     // monochrome grain keeps the selected hue instead of adding RGB confetti.
@@ -212,7 +229,9 @@ class _BackgroundPainter extends CustomPainter {
       rect,
       Paint()
         ..blendMode = BlendMode.softLight
-        ..color = Colors.white.withValues(alpha: background.strength * .85),
+        ..color = Colors.white.withValues(
+          alpha: background.noiseIntensity * .85,
+        ),
     );
     canvas.drawRect(rect, Paint()..shader = grain);
     canvas.drawRect(
