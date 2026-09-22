@@ -106,7 +106,7 @@ void main() {
       for (final effect in ForumBackgroundEffect.values) {
         for (final darkerSidebars in [false, true, false]) {
           final custom = ForumTheme.fromJson({
-            ...source.toJson(),
+            ...source.forBrightness(mode).toJson(),
             'darkerSidebars': darkerSidebars,
             'background': ForumBackground(
               color: Colors.purple,
@@ -153,13 +153,196 @@ void main() {
     }
   });
 
+  testWidgets(
+    'appearance tabs retain independent drafts through saving and reopening',
+    (tester) async {
+      final initial = forumThemePresets.first;
+      ForumTheme? saved;
+      ForumTheme? draft;
+      Widget editor(ForumTheme theme) => MaterialApp(
+        theme: AppTheme.light,
+        home: SingleChildScrollView(
+          child: DCard(
+            child: ForumThemeEditor(
+              key: ValueKey(theme),
+              initialTheme: theme,
+              customThemes: const [],
+              onChanged: (value) => draft = value,
+              onSave: (value) async => saved = value,
+            ),
+          ),
+        ),
+      );
+      Future<void> select(Brightness mode) async {
+        final tab = find.byKey(ValueKey('custom-theme-${mode.name}-tab'));
+        await tester.ensureVisible(tab);
+        await tester.tap(tab);
+        await tester.pumpAndSettle();
+      }
+
+      String accent() => tester
+          .widget<EditableText>(input('custom-theme-tertiary'))
+          .controller
+          .text;
+      await tester.pumpWidget(editor(initial));
+      expect(accent(), ForumTheme.hex(initial.tertiary));
+      await tester.enterText(input('custom-theme-tertiary'), '#39845B');
+      await tester.ensureVisible(find.bySemanticsLabel('Noise background'));
+      await tester.tap(find.bySemanticsLabel('Noise background'));
+      await tester.pumpAndSettle();
+      final light = draft!.forBrightness(Brightness.light);
+      await select(Brightness.dark);
+      expect(accent(), ForumTheme.hex(initial.alternate!.tertiary));
+      expect(
+        tester
+            .widget<DToggle>(
+              find.byKey(const ValueKey('custom-theme-darker-sidebars')),
+            )
+            .pressed,
+        isFalse,
+      );
+      await tester.enterText(input('custom-theme-tertiary'), '#AA88DD');
+      final darker = find.byKey(const ValueKey('custom-theme-darker-sidebars'));
+      await tester.ensureVisible(darker);
+      await tester.tap(darker);
+      await tester.pumpAndSettle();
+      expect(draft!.background, isNull);
+      expect(draft!.darkerSidebars, isTrue);
+      expect(draft!.forBrightness(Brightness.light), light);
+      await select(Brightness.light);
+      expect(accent(), '#39845B');
+      expect(
+        tester
+            .widget<DToggleGroup<ForumBackgroundEffect>>(
+              find.byKey(const ValueKey('custom-theme-background-effect')),
+            )
+            .values,
+        [ForumBackgroundEffect.noise],
+      );
+      await tester.enterText(input('custom-theme-name'), 'Day and night');
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(
+        find.byKey(const ValueKey('save-custom-theme')),
+      );
+      await tester.tap(find.byKey(const ValueKey('save-custom-theme')));
+      final restored = ForumTheme.fromJson(saved!.toJson(), id: saved!.id);
+      await tester.pumpWidget(editor(restored));
+      expect(accent(), '#39845B');
+      await select(Brightness.dark);
+      expect(accent(), '#AA88DD');
+      expect(draft!.name, 'Day and night');
+      expect(draft!.alternate!.name, 'Day and night');
+      expect(draft!.darkerSidebars, isTrue);
+      expect(draft!.background, isNull);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets('preset changes affect only the selected appearance', (
+    tester,
+  ) async {
+    ForumTheme? draft;
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light,
+        home: SingleChildScrollView(
+          child: DCard(
+            child: ForumThemeEditor(
+              initialTheme: forumThemePresets.first,
+              customThemes: const [],
+              onChanged: (value) => draft = value,
+              onSave: (_) async {},
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.enterText(input('custom-theme-tertiary'), '#39845B');
+    final light = draft!.forBrightness(Brightness.light);
+    final dark = find.byKey(const ValueKey('custom-theme-dark-tab'));
+    await tester.ensureVisible(dark);
+    await tester.tap(dark);
+    await tester.pumpAndSettle();
+    final presets = find.byType(DSelect<String>);
+    await tester.ensureVisible(presets);
+    await tester.tap(presets);
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Solarized'));
+    await tester.tap(find.text('Solarized'));
+    await tester.pumpAndSettle();
+    expect(draft!.tertiary, const Color(0xff1a97d5));
+    expect(draft!.forBrightness(Brightness.light), light);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+    'invalid inactive appearance prevents saving and retains its text',
+    (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light,
+          home: SingleChildScrollView(
+            child: DCard(
+              child: ForumThemeEditor(
+                initialTheme: forumThemePresets.first,
+                customThemes: const [],
+                onChanged: (_) {},
+                onSave: (_) async {},
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.enterText(input('custom-theme-tertiary'), '#12');
+      final dark = find.byKey(const ValueKey('custom-theme-dark-tab'));
+      await tester.ensureVisible(dark);
+      await tester.tap(dark);
+      await tester.pumpAndSettle();
+      expect(
+        tester
+            .widget<DButton>(find.byKey(const ValueKey('save-custom-theme')))
+            .onPressed,
+        isNull,
+      );
+      expect(
+        tester
+            .widget<DButton>(find.widgetWithText(DButton, 'Export'))
+            .onPressed,
+        isNull,
+      );
+      expect(
+        find.text('Enter a name and valid colors in both appearance tabs.'),
+        findsOneWidget,
+      );
+      // Arrow-key activation returns to the draft without losing invalid input.
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pumpAndSettle();
+      expect(
+        tester
+            .widget<EditableText>(input('custom-theme-tertiary'))
+            .controller
+            .text,
+        '#12',
+      );
+      await tester.enterText(input('custom-theme-tertiary'), '#123456');
+      await tester.pumpAndSettle();
+      expect(
+        tester
+            .widget<DButton>(find.byKey(const ValueKey('save-custom-theme')))
+            .onPressed,
+        isNotNull,
+      );
+    },
+  );
+
   testWidgets('preview scopes dark navigation and paints the window gradient', (
     tester,
   ) async {
     for (final mode in Brightness.values) {
       final source = forumThemePresets.first;
       final themed = ForumTheme.fromJson({
-        ...source.toJson(),
+        ...source.forBrightness(mode).toJson(),
         'windowGradient': true,
         'darkerSidebars': true,
       }, id: 'custom-effects');
@@ -311,12 +494,14 @@ void main() {
       await tester.pumpAndSettle();
       final id = draft!.id;
       final before = draft!.tertiary;
+      final otherAppearance = draft!.alternate;
       await tester.ensureVisible(find.text('Surprise me'));
       await tester.tap(find.text('Surprise me'));
       await tester.pumpAndSettle();
       expect(draft!.name, 'My garden');
       expect(draft!.id, id);
       expect(draft!.tertiary, isNot(before));
+      expect(draft!.alternate, otherAppearance);
       expect(saved, isNull);
       final firstAccent = draft!.tertiary;
       await tester.tap(find.text('Surprise me'));
@@ -361,6 +546,7 @@ void main() {
       ...forumThemePresets
           .firstWhere((theme) => theme.id == 'dracula')
           .toJson(),
+      'alternate': forumThemePresets.first.toJson()..remove('alternate'),
       'name': 'Imported night',
       'windowGradient': true,
       'darkerSidebars': true,
@@ -375,6 +561,7 @@ void main() {
       forumThemePresets.firstWhere((theme) => theme.id == 'dracula').tertiary,
     );
     expect(draft?.id, startsWith('custom-'));
+    expect(draft!.alternate!.tertiary, forumThemePresets.first.tertiary);
     final imported = draft;
     files.contents = null;
     await tester.tap(find.text('Import'));
@@ -444,6 +631,8 @@ void main() {
     expect(exported.name, 'Dracula custom');
     expect(exported.background!.effect, ForumBackgroundEffect.noise);
     expect(exported.darkerSidebars, isTrue);
+    expect(exported.alternate!.background, isNull);
+    expect(exported.alternate!.darkerSidebars, isFalse);
     expect(
       exported.tertiary,
       forumThemePresets.firstWhere((theme) => theme.id == 'dracula').tertiary,
@@ -551,6 +740,28 @@ void main() {
           ?.tertiary,
       const Color(0xffbd93f9),
     );
+    final savedMode = controller.forumSettings.themeModeFor(
+      'https://a.example',
+    );
+    final darkTab = find.byKey(const ValueKey('custom-theme-dark-tab'));
+    await tester.ensureVisible(darkTab);
+    await tester.tap(darkTab);
+    await tester.pumpAndSettle();
+    expect(Theme.of(tester.element(preview)).brightness, Brightness.dark);
+    expect(
+      Theme.of(tester.element(preview)).colorScheme.primary,
+      const Color(0xffbd93f9),
+    );
+    await tester.enterText(input('custom-theme-tertiary'), '#AA88DD');
+    final lightTab = find.byKey(const ValueKey('custom-theme-light-tab'));
+    await tester.ensureVisible(lightTab);
+    await tester.tap(lightTab);
+    await tester.pumpAndSettle();
+    expect(Theme.of(tester.element(preview)).brightness, Brightness.light);
+    expect(
+      controller.forumSettings.themeModeFor('https://a.example'),
+      savedMode,
+    );
     await tester.enterText(input('custom-theme-tertiary'), '#39');
     await tester.pumpAndSettle();
     tester.view.physicalSize = const Size(390, 844);
@@ -594,6 +805,23 @@ void main() {
     expect(
       controller.forumSettings.themesFor('https://a.example').selectedId,
       startsWith('custom-'),
+    );
+    await tester.ensureVisible(find.text('Edit theme'));
+    await tester.tap(find.text('Edit theme'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(darkTab);
+    await tester.tap(darkTab);
+    await tester.pumpAndSettle();
+    expect(
+      tester
+          .widget<EditableText>(input('custom-theme-tertiary'))
+          .controller
+          .text,
+      '#AA88DD',
+    );
+    expect(
+      Theme.of(tester.element(preview)).colorScheme.primary,
+      const Color(0xffaa88dd),
     );
     await tester.ensureVisible(
       find.byKey(const ValueKey('forum-default-theme')),

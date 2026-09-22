@@ -134,9 +134,9 @@ final class ForumTheme {
     return ForumTheme(
       id: id,
       name: name,
-      background: background,
-      windowGradient: windowGradient,
-      darkerSidebars: darkerSidebars,
+      background: source.background,
+      windowGradient: source.windowGradient,
+      darkerSidebars: source.darkerSidebars,
       brightness: target,
       primary: source.brightness == target ? source.primary : source.secondary,
       secondary: source.brightness == target
