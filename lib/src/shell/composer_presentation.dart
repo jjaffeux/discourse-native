@@ -478,11 +478,13 @@ class _ComposerDockState extends State<ComposerDock> {
             children: [
               Offstage(offstage: true, child: readerViewport()),
               Positioned.fill(
-                child: owner._surface(
-                  entry,
-                  placement: placement,
-                  mobile: mobile,
-                  size: Size(constraints.maxWidth, constraints.maxHeight),
+                child: WorkspacePanel(
+                  child: owner._surface(
+                    entry,
+                    placement: placement,
+                    mobile: mobile,
+                    size: Size(constraints.maxWidth, constraints.maxHeight),
+                  ),
                 ),
               ),
             ],
