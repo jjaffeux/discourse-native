@@ -22,6 +22,7 @@ class ComposerHeader extends StatelessWidget {
     this.onRestore,
     this.placement = ComposerPlacement.right,
     this.onPlacementChanged,
+    this.onExitFullScreen,
     this.mobileSubmit,
     this.onDiscard,
   });
@@ -38,6 +39,7 @@ class ComposerHeader extends StatelessWidget {
   final VoidCallback? onRestore;
   final ComposerPlacement placement;
   final ValueChanged<ComposerPlacement>? onPlacementChanged;
+  final VoidCallback? onExitFullScreen;
 
   @override
   Widget build(BuildContext context) =>
@@ -355,7 +357,14 @@ class ComposerHeader extends StatelessWidget {
               values: [placement == ComposerPlacement.fullScreen],
               allowEmptySelection: false,
               onItemActivated: (fullScreen) {
-                if (!fullScreen) trigger.toggle();
+                if (!fullScreen) {
+                  if (placement == ComposerPlacement.fullScreen &&
+                      onExitFullScreen != null) {
+                    onExitFullScreen!();
+                  } else {
+                    trigger.toggle();
+                  }
+                }
               },
               onChanged: (values) {
                 if (values.single) {
