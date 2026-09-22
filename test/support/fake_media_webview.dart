@@ -11,6 +11,7 @@ enum MediaWebViewConfigurationStage {
 final class FakeMediaWebViewPlatform extends WebViewPlatform {
   final controllers = <FakeMediaWebViewController>[];
   (MediaWebViewConfigurationStage, Future<void>)? nextGate;
+  Widget view = const SizedBox.expand();
 
   @override
   PlatformWebViewController createPlatformWebViewController(
@@ -30,7 +31,7 @@ final class FakeMediaWebViewPlatform extends WebViewPlatform {
   @override
   PlatformWebViewWidget createPlatformWebViewWidget(
     PlatformWebViewWidgetCreationParams params,
-  ) => _FakeMediaWebViewWidget(params);
+  ) => _FakeMediaWebViewWidget(params, child: view);
 }
 
 final class FakeMediaWebViewController extends PlatformWebViewController {
@@ -107,6 +108,7 @@ final class FakeMediaNavigationDelegate extends PlatformNavigationDelegate {
   NavigationRequestCallback? onNavigationRequest;
   PageEventCallback? onPageFinished;
   WebResourceErrorCallback? onWebResourceError;
+  HttpResponseErrorCallback? onHttpError;
 
   @override
   Future<void> setOnNavigationRequest(
@@ -125,6 +127,11 @@ final class FakeMediaNavigationDelegate extends PlatformNavigationDelegate {
     onWebResourceError = callback;
   }
 
+  @override
+  Future<void> setOnHttpError(HttpResponseErrorCallback callback) async {
+    onHttpError = callback;
+  }
+
   Future<NavigationDecision> navigate(
     String url, {
     bool isMainFrame = true,
@@ -134,8 +141,11 @@ final class FakeMediaNavigationDelegate extends PlatformNavigationDelegate {
 }
 
 final class _FakeMediaWebViewWidget extends PlatformWebViewWidget {
-  _FakeMediaWebViewWidget(super.params) : super.implementation();
+  _FakeMediaWebViewWidget(super.params, {required this.child})
+    : super.implementation();
+
+  final Widget child;
 
   @override
-  Widget build(BuildContext context) => const SizedBox.expand();
+  Widget build(BuildContext context) => child;
 }
