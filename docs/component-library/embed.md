@@ -4,8 +4,10 @@
 adapter uses it for Discourse's `iframe.reddit-onebox` markup; generic
 `aside.onebox` rendering remains available for older cooked cards.
 
-The provider supplies the iframe content. Native supplies the card, loading
-indicator, retry action and external link. The adapter validates Reddit's
+The provider supplies the iframe content. Native supplies the card and loading
+indicator. Loaded embeds have no footer and meet the card's bottom edge without
+extra spacing. Failed embeds show retry and external-link actions alongside the
+error message. The adapter validates Reddit's
 embed origins and post/comment identity, preserves comment query parameters,
 and accepts canonical title-slug redirects. The host document validates both
 origin and source window before forwarding `resize.embed` messages. Heights
@@ -23,7 +25,7 @@ unavailable example. Neither requires a Reddit account or network access.
 
 ## Verification — 2026-09-22
 
-- 229 tests passed using the command below. Coverage includes cooked post and
+- Initial integration: 229 tests passed using the command below. Coverage includes cooked post and
   comment rendering, malformed URLs, canonical redirects, bounded resizing,
   external-link keyboard activation, failures/retry, asynchronous disposal,
   narrow layouts at 200% text size, macOS pointer clipping and wheel routing,
@@ -42,6 +44,11 @@ unavailable example. Neither requires a Reddit account or network access.
   Reddit's unsupported-comment response. Its comment path and context
   parameters are covered by automated tests. Android, iOS and Linux device
   testing was not performed.
+- Footer follow-up: all 23 embed and Reddit tests passed after removing the
+  footer and using the card's trailing slot. Assertions verify that the web
+  view's bottom edge equals the card's bottom edge after resizing, including
+  the macOS overlay. Static analysis passed, and the live macOS fixture was
+  inspected at normal width and in a narrow dark layout with no bottom gap.
 
 ```sh
 flutter test --no-pub test/ui/d_embed_test.dart test/oneboxes \

@@ -6,14 +6,16 @@ import 'package:flutter/material.dart';
 import '../styleguide_example.dart';
 
 final embedExamples = ComponentExamples(
-  description: 'Embedded web content with loading, retry and a browser link.',
+  description: 'Embedded web content with loading and failure recovery.',
   status: ComponentStatus.implemented,
   notes:
       'These examples use self-contained HTML and make no network requests. '
       'The embedded provider owns its content and appearance; Native owns the '
-      'card, loading indicator and controls. Trusted resize messages adjust the '
-      'viewport between 120 and 2000 pixels. Unsupported platforms keep the '
-      'browser action. The application validates remote provider URLs.',
+      'card and loading indicator. Loaded content meets the bottom edge without '
+      'a footer; retry and browser actions appear only on failure. Trusted '
+      'resize messages adjust the viewport between 120 and 2000 pixels. '
+      'Unsupported platforms keep the browser action. The application validates '
+      'remote provider URLs.',
   examples: [
     StyleguideExample(
       title: 'Embedded content',
