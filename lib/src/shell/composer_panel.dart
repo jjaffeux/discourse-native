@@ -2814,14 +2814,26 @@ class _ComposerEditorState extends State<ComposerEditor> {
         )) {
       return null;
     }
-    final rect = editable
-        .getLocalRectForCaret(TextPosition(offset: start))
-        .shift(editable.localToGlobal(Offset.zero));
+    final rect = _lineRect(
+      editable,
+      start,
+    ).shift(editable.localToGlobal(Offset.zero));
     if (position != null &&
         (position.dy < rect.top || position.dy > rect.bottom)) {
       return null;
     }
     return (range: TextRange(start: start, end: end), rect: rect);
+  }
+
+  Rect _lineRect(RenderEditable editable, int offset) {
+    final caret = editable.getLocalRectForCaret(TextPosition(offset: offset));
+    // Apple carets extend beyond the line. Keep that overhang out of the
+    // block geometry, especially above the editor's first line.
+    return Rect.fromCenter(
+      center: caret.center,
+      width: caret.width,
+      height: editable.preferredLineHeight,
+    );
   }
 
   Rect? _blockRect(ComposerBodyBlock block) {
@@ -2864,6 +2876,9 @@ class _ComposerEditorState extends State<ComposerEditor> {
     for (final box in boxes.skip(1)) {
       rect = rect.expandToInclude(box.toRect());
     }
+    // Empty lines use the caret's line box. Include the same leading for a
+    // populated block so typing its first character does not move the controls.
+    rect = rect.expandToInclude(_lineRect(editable, block.start));
     return rect.shift(editable.localToGlobal(Offset.zero));
   }
 
