@@ -53,6 +53,7 @@ void main() {
     bool dark = false,
     double textScale = 1,
     TextDirection direction = TextDirection.ltr,
+    TextStyle? textStyle,
   }) async {
     tester.view.reset();
     tester.view.physicalSize = Size(mobile ? 320 : 800, 720);
@@ -66,7 +67,7 @@ void main() {
       composer: composer,
       hintText: 'Write a reply…',
       hintStyle: theme.textTheme.bodyLarge,
-      textStyle: theme.textTheme.bodyLarge,
+      textStyle: textStyle ?? theme.textTheme.bodyLarge,
       expands: !mobile,
       autofocus: false,
     );
@@ -173,6 +174,7 @@ void main() {
         selection: TextSelection.collapsed(offset: offset),
       );
       await mount(tester);
+      expect(find.byTooltip('Empty paragraph actions'), findsOneWidget);
       await tester.tap(find.byTooltip('Add block'));
       await tester.pumpAndSettle();
       expect(
@@ -188,6 +190,51 @@ void main() {
       await tester.tap(find.byTooltip('Add block'));
       await tester.pumpAndSettle();
       expect(find.text('Close menu'), findsOneWidget);
+    });
+  }
+
+  for (final dark in [false, true]) {
+    testWidgets('empty editor keeps both controls before typing ($dark)', (
+      tester,
+    ) async {
+      await (FontLoader(
+            'EmptyEditorMono',
+          )..addFont(rootBundle.load('assets/fonts/JetBrainsMono-Regular.ttf')))
+          .load();
+      composer.text.value = TextEditingValue.empty;
+      await mount(
+        tester,
+        dark: dark,
+        textStyle: const TextStyle(fontFamily: 'EmptyEditorMono', fontSize: 16),
+      );
+      final add = find.byTooltip('Add block');
+      final handle = find.byTooltip('Empty paragraph actions');
+      expect(add, findsOneWidget);
+      expect(handle, findsOneWidget);
+      expect(composer.focus.hasFocus, isFalse);
+      expect(tester.getRect(add).right, lessThan(tester.getRect(handle).left));
+
+      final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      await mouse.addPointer();
+      addTearDown(mouse.removePointer);
+      final editor = tester.getRect(find.byType(ComposerEditor));
+      expect(tester.getRect(handle).top, greaterThanOrEqualTo(editor.top));
+      await mouse.moveTo(editor.bottomRight - const Offset(20, 20));
+      await tester.pumpAndSettle();
+      expect(add, findsOneWidget);
+      expect(handle, findsOneWidget);
+      expect(composer.text.text, isEmpty);
+
+      await tester.tap(add);
+      await tester.pumpAndSettle();
+      expect(composer.text.text, '/');
+      expect(composer.text.selection.extentOffset, 1);
+      expect(find.text('Close menu'), findsOneWidget);
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+      expect(composer.text.text, isEmpty);
+      expect(handle, findsOneWidget);
+      expect(tester.takeException(), isNull);
     });
   }
 
