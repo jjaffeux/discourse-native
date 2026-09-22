@@ -4,6 +4,11 @@ import 'styleguide_example.dart';
 /// component reference catalogue.
 const applicationComponentCatalogue = <ComponentReference>[
   ComponentReference(
+    id: 'onebox',
+    name: 'Onebox',
+    sections: ['Browse oneboxes'],
+  ),
+  ComponentReference(
     id: 'drag',
     name: 'Drag',
     sections: ['Drag and tap', 'Disabled'],
