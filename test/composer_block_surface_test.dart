@@ -66,7 +66,7 @@ void main() {
     final editor = ComposerEditor(
       composer: composer,
       hintText: 'Write a reply…',
-      hintStyle: theme.textTheme.bodyLarge,
+      hintStyle: textStyle ?? theme.textTheme.bodyLarge,
       textStyle: textStyle ?? theme.textTheme.bodyLarge,
       expands: !mobile,
       autofocus: false,
@@ -260,6 +260,83 @@ void main() {
       expect(handle, findsOneWidget);
       expect(tester.takeException(), isNull);
     });
+  }
+
+  for (final textScale in [1.0, 1.5]) {
+    for (final source in ['', '\n\n', 'First paragraph\n\n']) {
+      testWidgets(
+        'typing keeps paragraph geometry stable at $textScale scale in "$source"',
+        (tester) async {
+          await (FontLoader('StableEditorMono')..addFont(
+                rootBundle.load('assets/fonts/JetBrainsMono-Regular.ttf'),
+              ))
+              .load();
+          composer.text.value = TextEditingValue(
+            text: source,
+            selection: TextSelection.collapsed(offset: source.length),
+          );
+          await mount(
+            tester,
+            textScale: textScale,
+            textStyle: const TextStyle(
+              fontFamily: 'StableEditorMono',
+              fontSize: 16,
+              height: 1.5,
+            ),
+          );
+          final editable = tester
+              .state<EditableTextState>(find.byType(EditableText))
+              .renderEditable;
+          final hint = source.isEmpty
+              ? tester.renderObject<RenderBox>(find.text('Write a reply…'))
+              : null;
+          final hintBaseline = hint?.getDryBaseline(
+            hint.constraints,
+            TextBaseline.alphabetic,
+          );
+          final add = tester.getRect(find.byTooltip('Add block'));
+          final handle = tester.getRect(
+            find.byTooltip('Empty paragraph actions'),
+          );
+          final caretPosition = TextPosition(offset: source.length);
+          final caret = editable.getLocalRectForCaret(caretPosition);
+          final editorBounds = tester.getRect(find.byType(ComposerEditor));
+
+          await tester.enterText(find.byType(EditableText), '${source}d');
+          await tester.pumpAndSettle();
+          expect(tester.getRect(find.byTooltip('Add block')), add);
+          expect(
+            tester.getRect(
+              find.byTooltip('Drag to move or click to open menu'),
+            ),
+            handle,
+          );
+          expect(editable.getLocalRectForCaret(caretPosition), caret);
+          expect(tester.getRect(find.byType(ComposerEditor)), editorBounds);
+          if (hintBaseline != null) {
+            expect(
+              editable.getDryBaseline(
+                editable.constraints,
+                TextBaseline.alphabetic,
+              ),
+              closeTo(hintBaseline, .001),
+            );
+          }
+          await tester.sendKeyEvent(LogicalKeyboardKey.backspace);
+          await tester.pumpAndSettle();
+          expect(composer.text.text, source);
+          expect(tester.getRect(find.byTooltip('Add block')), add);
+          expect(
+            tester.getRect(find.byTooltip('Empty paragraph actions')),
+            handle,
+          );
+          expect(tester.getRect(find.byType(ComposerEditor)), editorBounds);
+          expect(tester.takeException(), isNull);
+          await tester.pumpWidget(const SizedBox.shrink());
+        },
+        variant: TargetPlatformVariant.only(TargetPlatform.macOS),
+      );
+    }
   }
 
   testWidgets('hovering an empty line targets it independently of the caret', (
