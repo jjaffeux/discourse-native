@@ -26,11 +26,18 @@ typedef _AccountAvatarSnapshot = ({
 });
 
 class UserMenuButton extends StatefulWidget {
-  const UserMenuButton({super.key, this.size = 30, this.ringColor});
+  const UserMenuButton({
+    super.key,
+    this.size = 30,
+    this.ringColor,
+    this.compact = false,
+  });
 
   final double size;
 
   final Color? ringColor;
+
+  final bool compact;
 
   static const Key bellKey = ValueKey('user-menu-bell');
 
@@ -119,7 +126,7 @@ class _UserMenuButtonState extends State<UserMenuButton> {
               : theme.discourse.notificationIndicator;
           return Row(
             mainAxisSize: MainAxisSize.min,
-            spacing: DSpacing.sm,
+            spacing: widget.compact ? DSpacing.controlGap : DSpacing.sm,
             children: [
               _AccountMenuPopover(
                 view: UserMenuView.notifications,
@@ -134,6 +141,7 @@ class _UserMenuButtonState extends State<UserMenuButton> {
                 notificationColor: notificationColor,
                 notificationSurface: widget.ringColor ?? theme.shell.content,
                 icon: const DIcon(DIcons.bell, size: 20),
+                compact: widget.compact,
               ),
               _AccountMenuPopover(
                 view: UserMenuView.profile,
@@ -168,6 +176,7 @@ class _UserMenuButtonState extends State<UserMenuButton> {
                       ),
                   ],
                 ),
+                compact: widget.compact,
               ),
             ],
           );
@@ -186,6 +195,7 @@ class _AccountMenuPopover extends StatelessWidget {
     required this.tooltip,
     required this.semanticLabel,
     required this.icon,
+    required this.compact,
     this.notificationCount = 0,
     this.notificationColor,
     this.notificationSurface,
@@ -198,6 +208,7 @@ class _AccountMenuPopover extends StatelessWidget {
   final String tooltip;
   final String semanticLabel;
   final Widget icon;
+  final bool compact;
   final int notificationCount;
   final Color? notificationColor;
   final Color? notificationSurface;
@@ -241,7 +252,7 @@ class _AccountMenuPopover extends StatelessWidget {
         variant: view == UserMenuView.notifications
             ? DButtonVariant.transparentBackground
             : DButtonVariant.ghost,
-        size: DButtonSize.large,
+        size: compact ? DButtonSize.regular : DButtonSize.large,
         hasPopup: true,
         expanded: trigger.open,
         focusNode: trigger.focusNode,
