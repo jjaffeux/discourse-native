@@ -49,6 +49,14 @@ void main() {
         // and pill contextual actions, through Native's existing shape API.
         'lib/src/shell/mobile_shell.dart': {'shape': 4, 'backgroundColor': 2},
         'lib/src/shell/message_create_button.dart': {'shape': 2},
+        // X embeds retain provider identity and the reference's pill reply link,
+        // using Native buttons for sizing, focus, hover and activation.
+        'lib/src/shell/oneboxes/twitter.dart': {
+          'foregroundColor': 4,
+          'backgroundColor': 1,
+          'borderColor': 1,
+          'shape': 1,
+        },
         // Category identity uses the same tint on both halves of the control.
         'lib/src/shell/topic_inbox_header.dart': {
           'backgroundColor': 2,

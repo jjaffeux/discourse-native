@@ -201,11 +201,14 @@ final oneboxSamples = <OneboxSample>[
     id: 'twitter',
     name: 'Twitter / X',
     description:
-        'The generic card recognizes the provider’s avatar-style thumbnail.',
-    keywords: 'twitter x social tweet status avatar fallback',
+        'X-style posts with author identity, quoted posts and actions in light or dark mode.',
+    keywords: 'twitter x social tweet status avatar quote reply',
     states: [
       _cooked('Text', _twitter()),
       _cooked('Avatar', _twitter(avatar: true)),
+      _cooked('Quoted post', _twitter(avatar: true, quoted: true)),
+      _cooked('Reply', _twitter(reply: true)),
+      _cooked('Minimal', _twitter(minimal: true)),
     ],
   ),
   OneboxSample(
@@ -430,12 +433,32 @@ String _file({int start = 1}) => _box(
   siteName: 'github.com/discourse/discourse',
 );
 
-String _twitter({bool avatar = false}) => _box(
+String _twitter({
+  bool avatar = false,
+  bool quoted = false,
+  bool reply = false,
+  bool minimal = false,
+}) => _box(
   'twitterstatus',
-  'https://x.com/discourse',
+  'https://x.com/discourse/status/2101937724252967330',
   '''${avatar ? '<img class="onebox-avatar" src="$_avatar" width="120" height="120">' : ''}
-<h3><a href="https://x.com/discourse">Discourse (@discourse)</a></h3>
-<p>Good conversations deserve a place to grow. What is your community building today?</p>''',
+<h4><a href="https://x.com/discourse/status/2101937724252967330">Discourse</a></h4>
+<div class="twitter-screen-name"><a href="https://x.com/discourse">@discourse</a></div>
+<div class="tweet">
+  ${reply ? '<span class="is-reply"></span>' : ''}
+  <span class="tweet-description">Good conversations deserve a place to grow. What is your community building today?</span>
+  ${quoted ? '''<div class="quoted">
+    <a class="quoted-link" href="https://x.com/codinghorror/status/1056641824733855744">
+      <p class="quoted-title">Jeff Atwood <span>@codinghorror</span></p>
+    </a>
+    <div>Building a place for thoughtful conversation, together.</div>
+  </div>''' : ''}
+</div>
+${minimal ? '' : '''<div class="date">
+  <a class="timestamp" href="https://x.com/discourse/status/2101937724252967330">9:33 AM · Sep 21, 2026</a>
+  <span class="like">12K</span>
+  ${reply ? '<span class="retweet">24</span>' : ''}
+</div>'''}''',
   siteName: 'X / Twitter',
 );
 

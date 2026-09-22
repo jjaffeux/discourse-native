@@ -11,6 +11,7 @@ import 'package:discourse_native/src/shell/oneboxes/discourse/category/block.dar
 import 'package:discourse_native/src/shell/oneboxes/discourse/topic/block.dart';
 import 'package:discourse_native/src/shell/oneboxes/discourse/user/block.dart';
 import 'package:discourse_native/src/shell/oneboxes/onebox.dart';
+import 'package:discourse_native/src/shell/oneboxes/twitter.dart';
 import 'package:discourse_native/src/shell/quote.dart';
 import 'package:discourse_native/src/shell/youtube_video.dart';
 import 'package:discourse_native/src/styleguide/examples/onebox_examples.dart';
@@ -35,7 +36,7 @@ const _renderers = <String, Type>{
   'github-commit': GithubCommitOnebox,
   'github-file': CodeBlock,
   'reddit': DEmbed,
-  'twitter': OneboxCard,
+  'twitter': TwitterOnebox,
   'inline': CookedHtml,
   'github-pr-inline': CookedHtml,
   'youtube': YoutubeVideo,
