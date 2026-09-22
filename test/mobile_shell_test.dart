@@ -258,6 +258,40 @@ void main() {
           findsOneWidget,
         );
       }
+      final menu = tester.getRect(
+        find.byKey(const ValueKey('mobile-menu-button')),
+      );
+      final identity = tester.getRect(
+        find.byKey(const ValueKey('forum-identity-button')),
+      );
+      final search = tester.getRect(
+        find.byKey(const ValueKey('mobile-search-button')),
+      );
+      final bell = tester.getRect(find.byKey(UserMenuButton.bellKey));
+      final avatar = tester.getRect(find.byKey(UserMenuButton.avatarKey));
+      expect(identity.left - menu.right, DSpacing.controlGap);
+      expect(bell.left - search.right, DSpacing.controlGap);
+      expect(avatar.left - bell.right, DSpacing.controlGap);
+      final menuIcon = tester.getRect(
+        find.descendant(
+          of: find.byKey(const ValueKey('mobile-menu-button')),
+          matching: find.byIcon(Icons.menu),
+        ),
+      );
+      final logo = tester.getRect(
+        find.byKey(const ValueKey('forum-identity-logo')),
+      );
+      expect(logo.left - menuIcon.right, lessThanOrEqualTo(20));
+      expect(
+        tester.widget<DButton>(
+          find.byKey(const ValueKey('forum-identity-button')),
+        ).size,
+        DButtonSize.regular,
+      );
+      expect(
+        tester.widget<DButton>(find.byKey(UserMenuButton.avatarKey)).size,
+        DButtonSize.regular,
+      );
       expect(tester.takeException(), isNull);
     },
   );
