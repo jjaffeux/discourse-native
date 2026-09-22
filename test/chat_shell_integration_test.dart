@@ -651,6 +651,13 @@ void _registerChatShellTests() {
     });
 
     group('in the header', () {
+      Future<void> openChatShortcut(WidgetTester tester) async {
+        final shell = ShellScope.read(tester.element(find.byType(MainContent)));
+        await shell.pluginSession
+            .require(chatShellService)
+            .openShortcut(drawerAvailable: true);
+      }
+
       final shortcut = find.byKey(ChatHeaderButton.buttonKey);
       final dot = find.byKey(ChatHeaderButton.unreadDotKey);
       final urgent = find.byKey(ChatHeaderButton.urgentBadgeKey);
@@ -666,7 +673,7 @@ void _registerChatShellTests() {
 
         await pumpChat(tester, user: chatUser(hasChatEnabled: false));
         expect(shortcut, findsNothing);
-      }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
+      }, variant: TargetPlatformVariant.only(TargetPlatform.fuchsia));
 
       testWidgets('is hidden on Aggregate', (tester) async {
         await pumpChat(tester);
@@ -684,7 +691,7 @@ void _registerChatShellTests() {
         await tester.pump();
 
         expect(shortcut, findsOneWidget);
-      }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
+      }, variant: TargetPlatformVariant.only(TargetPlatform.fuchsia));
 
       testWidgets('draws a quiet dot for ordinary public activity', (
         tester,
@@ -697,7 +704,7 @@ void _registerChatShellTests() {
           find.descendant(of: shortcut, matching: find.text('42')),
           findsNothing,
         );
-      }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
+      }, variant: TargetPlatformVariant.only(TargetPlatform.fuchsia));
 
       testWidgets('draws the aggregate urgent count and caps it at 99+', (
         tester,
@@ -711,7 +718,7 @@ void _registerChatShellTests() {
         expect(urgent, findsOneWidget);
         expect(find.text('99+'), findsOneWidget);
         expect(dot, findsNothing);
-      }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
+      }, variant: TargetPlatformVariant.only(TargetPlatform.fuchsia));
 
       testWidgets('honours the account’s indicator preference', (tester) async {
         await pumpChat(
@@ -726,7 +733,7 @@ void _registerChatShellTests() {
         expect(shortcut, findsOneWidget);
         expect(dot, findsNothing);
         expect(urgent, findsNothing);
-      }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
+      }, variant: TargetPlatformVariant.only(TargetPlatform.fuchsia));
 
       testWidgets('suppresses every indicator during Do Not Disturb', (
         tester,
@@ -744,7 +751,7 @@ void _registerChatShellTests() {
         expect(shortcut, findsOneWidget);
         expect(dot, findsNothing);
         expect(urgent, findsNothing);
-      }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
+      }, variant: TargetPlatformVariant.only(TargetPlatform.fuchsia));
 
       testWidgets('restores waiting activity when Do Not Disturb expires', (
         tester,
@@ -764,7 +771,7 @@ void _registerChatShellTests() {
 
         expect(urgent, findsOneWidget);
         expect(tester.widget<Text>(urgent).data, '3');
-      }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
+      }, variant: TargetPlatformVariant.only(TargetPlatform.fuchsia));
 
       testWidgets('opens the server’s last chat channel', (tester) async {
         await pumpChat(
@@ -783,7 +790,7 @@ void _registerChatShellTests() {
         );
         expect(shell.currentContent?.id, ChatChannel.routeId(9));
         expect(shell.chat.channel(site, 9)?.membership.lastViewedAt, isNotNull);
-      }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
+      }, variant: TargetPlatformVariant.only(TargetPlatform.fuchsia));
 
       testWidgets(
         'opens a modeless desktop drawer without replacing the forum route',
@@ -811,7 +818,7 @@ void _registerChatShellTests() {
           );
           final forumRoute = shell.currentContent?.id;
 
-          await tester.tap(shortcut);
+          await openChatShortcut(tester);
           await tester.pumpAndSettle();
 
           expect(find.byKey(ChatDrawerOverlay.drawerKey), findsOneWidget);
@@ -828,7 +835,7 @@ void _registerChatShellTests() {
             findsNothing,
           );
           expect(shell.currentContent?.id, forumRoute);
-          expect(shortcut, findsOneWidget);
+          expect(shortcut, findsNothing);
           expect(
             find.byKey(const ValueKey('chat-drawer-channel-9')),
             findsOneWidget,
@@ -903,7 +910,7 @@ void _registerChatShellTests() {
             user: chatUser(canDirectMessage: true),
             preferredDisplayMode: ChatPreferredDisplayMode.drawer,
           );
-          await tester.tap(shortcut);
+          await openChatShortcut(tester);
           await tester.pumpAndSettle();
 
           final header = find.byKey(ChatDrawerOverlay.headerKey);
@@ -996,7 +1003,7 @@ void _registerChatShellTests() {
             config: chatConfig(searchEnabled: true),
             preferredDisplayMode: ChatPreferredDisplayMode.drawer,
           );
-          await tester.tap(shortcut);
+          await openChatShortcut(tester);
           await tester.pumpAndSettle();
           expect(tester.takeException(), isNull);
           final shell = ShellScope.read(
@@ -1045,7 +1052,7 @@ void _registerChatShellTests() {
             },
             preferredDisplayMode: ChatPreferredDisplayMode.drawer,
           );
-          await tester.tap(shortcut);
+          await openChatShortcut(tester);
           await tester.pumpAndSettle();
           final shell = ShellScope.read(
             tester.element(find.byType(MainContent)),
@@ -1121,7 +1128,7 @@ void _registerChatShellTests() {
             preferredDisplayMode: ChatPreferredDisplayMode.drawer,
           );
 
-          await tester.tap(shortcut);
+          await openChatShortcut(tester);
           await tester.pumpAndSettle();
 
           final header = find.byKey(ChatDrawerOverlay.headerKey);
@@ -1183,7 +1190,7 @@ void _registerChatShellTests() {
           );
           final chatShell = shell.pluginSession.require(chatShellService);
 
-          await tester.tap(shortcut);
+          await openChatShortcut(tester);
           await tester.pumpAndSettle();
 
           final row = find.byKey(const ValueKey('chat-drawer-channel-9'));
@@ -1254,7 +1261,7 @@ void _registerChatShellTests() {
             config: chatConfig(searchEnabled: true),
             preferredDisplayMode: ChatPreferredDisplayMode.drawer,
           );
-          await tester.tap(shortcut);
+          await openChatShortcut(tester);
           await tester.pumpAndSettle();
           await tester.tap(find.byKey(const ValueKey('chat-drawer-channel-9')));
           await tester.pumpAndSettle();
@@ -1348,7 +1355,7 @@ void _registerChatShellTests() {
         expect(sidebarDestination('Topics'), findsOneWidget);
         expect(sidebarDestination('Bugs'), findsNothing);
 
-        await tester.tap(shortcut);
+        await openChatShortcut(tester);
         await tester.pumpAndSettle();
 
         expect(find.byKey(ChatDrawerOverlay.drawerKey), findsOneWidget);
@@ -1371,7 +1378,7 @@ void _registerChatShellTests() {
           messages: {key(9): page(const [])},
           preferredDisplayMode: ChatPreferredDisplayMode.drawer,
         );
-        await tester.tap(shortcut);
+        await openChatShortcut(tester);
         await tester.pumpAndSettle();
 
         final close = find.byKey(ChatDrawerOverlay.closeButtonKey);
@@ -1390,7 +1397,7 @@ void _registerChatShellTests() {
         expect(find.text('Close', skipOffstage: false), findsNothing);
 
         await mouse.moveTo(const Offset(5, 5));
-        await tester.tap(shortcut);
+        await openChatShortcut(tester);
         await tester.pumpAndSettle();
         expect(find.byKey(ChatDrawerOverlay.drawerKey), findsOneWidget);
         expect(find.text('Close'), findsNothing);
@@ -1421,7 +1428,7 @@ void _registerChatShellTests() {
           await selectChatSidebar(tester);
           expect(sidebarLabelStyle().fontWeight, FontWeight.w400);
 
-          await tester.tap(shortcut);
+          await openChatShortcut(tester);
           await tester.pumpAndSettle();
           await tester.tap(find.byKey(const ValueKey('chat-drawer-channel-9')));
           await tester.pumpAndSettle();
@@ -1479,7 +1486,7 @@ void _registerChatShellTests() {
         );
         final shell = ShellScope.read(tester.element(find.byType(MainContent)));
         final chatShell = shell.pluginSession.require(chatShellService);
-        await tester.tap(shortcut);
+        await openChatShortcut(tester);
         await tester.pumpAndSettle();
         await tester.tap(find.byKey(const ValueKey('chat-drawer-channel-9')));
         await tester.pumpAndSettle();
@@ -1530,7 +1537,7 @@ void _registerChatShellTests() {
         );
         final shell = ShellScope.read(tester.element(find.byType(MainContent)));
         final chatShell = shell.pluginSession.require(chatShellService);
-        await tester.tap(shortcut);
+        await openChatShortcut(tester);
         await tester.pumpAndSettle();
         await tester.tap(find.byKey(const ValueKey('chat-drawer-channel-9')));
         await tester.pumpAndSettle();
@@ -1572,7 +1579,7 @@ void _registerChatShellTests() {
         );
         final shell = ShellScope.read(tester.element(find.byType(MainContent)));
         final chatShell = shell.pluginSession.require(chatShellService);
-        await tester.tap(shortcut);
+        await openChatShortcut(tester);
         await tester.pumpAndSettle();
         await tester.tap(find.byKey(const ValueKey('chat-drawer-channel-9')));
         await tester.pumpAndSettle();
@@ -1612,7 +1619,7 @@ void _registerChatShellTests() {
           );
           final chatShell = shell.pluginSession.require(chatShellService);
 
-          await tester.tap(shortcut);
+          await openChatShortcut(tester);
           await tester.pumpAndSettle();
 
           expect(chatShell.openChannel(9), isTrue);
@@ -1772,7 +1779,7 @@ void _registerChatShellTests() {
             config: config,
             preferredDisplayMode: ChatPreferredDisplayMode.drawer,
           );
-          await tester.tap(shortcut);
+          await openChatShortcut(tester);
           await tester.pumpAndSettle();
           final shell = ShellScope.read(
             tester.element(find.byType(MainContent)),
@@ -1845,7 +1852,7 @@ void _registerChatShellTests() {
 
         final shell = ShellScope.read(tester.element(find.byType(MainContent)));
         final chatShell = shell.pluginSession.require(chatShellService);
-        await tester.tap(shortcut);
+        await openChatShortcut(tester);
         await tester.pumpAndSettle();
         expect(
           chatShell.drawerCurrentContent?.id,
@@ -1873,7 +1880,7 @@ void _registerChatShellTests() {
           messages: {key(9): page(const [])},
           preferredDisplayMode: ChatPreferredDisplayMode.drawer,
         );
-        await tester.tap(shortcut);
+        await openChatShortcut(tester);
         await tester.pumpAndSettle();
         await tester.tap(find.byKey(const ValueKey('chat-drawer-channel-9')));
         await tester.pumpAndSettle();
@@ -1919,7 +1926,7 @@ void _registerChatShellTests() {
         await tester.pumpAndSettle();
         expect(find.byKey(ChatDrawerOverlay.drawerKey), findsNothing);
 
-        await tester.tap(shortcut);
+        await openChatShortcut(tester);
         await tester.pumpAndSettle();
         expect(find.byType(ChatChannelView), findsOneWidget);
 
@@ -1975,7 +1982,7 @@ void _registerChatShellTests() {
               tester.element(find.byType(MainContent)),
             );
             final chatShell = shell.pluginSession.require(chatShellService);
-            await tester.tap(shortcut);
+            await openChatShortcut(tester);
             await tester.pumpAndSettle();
             if (inThread) {
               chatShell.openThread(siteUrl: site, channelId: 9, threadId: 3);
@@ -2048,7 +2055,7 @@ void _registerChatShellTests() {
           },
           preferredDisplayMode: ChatPreferredDisplayMode.drawer,
         );
-        await tester.tap(shortcut);
+        await openChatShortcut(tester);
         await tester.pumpAndSettle();
         await tester.tap(find.byKey(const ValueKey('chat-drawer-channel-9')));
         await tester.pumpAndSettle();
@@ -2080,7 +2087,7 @@ void _registerChatShellTests() {
 
         await tester.tap(find.byKey(ChatDrawerOverlay.closeButtonKey));
         await tester.pumpAndSettle();
-        await tester.tap(shortcut);
+        await openChatShortcut(tester);
         await tester.pumpAndSettle();
 
         expect(
@@ -2099,7 +2106,7 @@ void _registerChatShellTests() {
           public: [channel(9)],
           preferredDisplayMode: ChatPreferredDisplayMode.drawer,
         );
-        await tester.tap(shortcut);
+        await openChatShortcut(tester);
         await tester.pumpAndSettle();
 
         unawaited(
@@ -2139,7 +2146,7 @@ void _registerChatShellTests() {
           );
           final chatShell = shell.pluginSession.require(chatShellService);
 
-          await tester.tap(shortcut);
+          await openChatShortcut(tester);
           await tester.pumpAndSettle();
           expect(chatShell.drawerCurrentContent?.id, ChatPlugin.starredRouteId);
           expect(
@@ -2215,7 +2222,7 @@ void _registerChatShellTests() {
           );
           final forumRoute = shell.currentContent?.id;
 
-          await tester.tap(shortcut);
+          await openChatShortcut(tester);
           await tester.pumpAndSettle();
           await tester.tap(find.byKey(const ValueKey('chat-drawer-channel-9')));
           await tester.pumpAndSettle();
@@ -2332,7 +2339,7 @@ void _registerChatShellTests() {
           );
           final chatShell = shell.pluginSession.require(chatShellService);
 
-          await tester.tap(shortcut);
+          await openChatShortcut(tester);
           await tester.pumpAndSettle();
           await tester.tap(find.byKey(const ValueKey('chat-drawer-channel-9')));
           await tester.pumpAndSettle();
@@ -2369,7 +2376,7 @@ void _registerChatShellTests() {
           preferredDisplayMode: ChatPreferredDisplayMode.drawer,
         );
         final shell = ShellScope.read(tester.element(find.byType(MainContent)));
-        await tester.tap(shortcut);
+        await openChatShortcut(tester);
         await tester.pumpAndSettle();
         await tester.tap(find.byKey(const ValueKey('chat-drawer-channel-9')));
         await tester.pumpAndSettle();
@@ -2436,7 +2443,7 @@ void _registerChatShellTests() {
           messages: {key(9): page(const [])},
           preferredDisplayMode: ChatPreferredDisplayMode.drawer,
         );
-        await tester.tap(shortcut);
+        await openChatShortcut(tester);
         await tester.pumpAndSettle();
         await tester.tap(find.byKey(const ValueKey('chat-drawer-channel-9')));
         await tester.pumpAndSettle();
@@ -2481,7 +2488,7 @@ void _registerChatShellTests() {
           public: [channel(9)],
           preferredDisplayMode: ChatPreferredDisplayMode.drawer,
         );
-        await tester.tap(shortcut);
+        await openChatShortcut(tester);
         await tester.pumpAndSettle();
 
         final drawer = find.byKey(ChatDrawerOverlay.expandedKey);
@@ -2523,7 +2530,7 @@ void _registerChatShellTests() {
           public: [channel(9)],
           preferredDisplayMode: ChatPreferredDisplayMode.drawer,
         );
-        await tester.tap(shortcut);
+        await openChatShortcut(tester);
         await tester.pumpAndSettle();
 
         final overlay = find.byKey(ChatDrawerOverlay.drawerKey);
@@ -2598,7 +2605,7 @@ void _registerChatShellTests() {
         final shell = ShellScope.read(tester.element(find.byType(MainContent)));
         final chatShell = shell.pluginSession.require(chatShellService);
 
-        await tester.tap(shortcut);
+        await openChatShortcut(tester);
         await tester.pumpAndSettle();
         chatShell.openThread(siteUrl: site, channelId: 9, threadId: 3);
         await tester.pumpAndSettle();
@@ -2675,7 +2682,7 @@ void _registerChatShellTests() {
           );
           final chatShell = shell.pluginSession.require(chatShellService);
 
-          await tester.tap(shortcut);
+          await openChatShortcut(tester);
           await tester.pumpAndSettle();
           chatShell.openThread(siteUrl: site, channelId: 9, threadId: 3);
           await tester.pumpAndSettle();
@@ -2739,7 +2746,7 @@ void _registerChatShellTests() {
           preferredDisplayMode: ChatPreferredDisplayMode.drawer,
         );
         final shell = ShellScope.read(tester.element(find.byType(MainContent)));
-        await tester.tap(shortcut);
+        await openChatShortcut(tester);
         await tester.pumpAndSettle();
 
         await shell.openNewTopic();
@@ -3060,7 +3067,7 @@ void _registerChatShellTests() {
               await tester.pumpAndSettle();
               expect(shell.currentContent?.id, ChatPlugin.searchRouteId);
               expect(sidebarDestination('Topics'), findsNothing);
-              expect(find.byTooltip('Exit chat'), findsOneWidget);
+              expect(find.byTooltip('Exit chat'), findsNothing);
 
               final chatTab = shell.activeTab!;
               await switchPane(tester, 'main');
@@ -3081,7 +3088,7 @@ void _registerChatShellTests() {
               expect(shell.currentContent?.id, ChatPlugin.searchRouteId);
               expect(sidebarDestination('Topics'), findsNothing);
               expect(sidebarDestination('Search'), findsNothing);
-              expect(find.byTooltip('Exit chat'), findsOneWidget);
+              expect(find.byTooltip('Exit chat'), findsNothing);
               expect(shell.tabsForCurrentForum, hasLength(initialTabCount + 3));
 
               shell.selectTab(forumTab.id);
