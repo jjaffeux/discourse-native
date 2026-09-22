@@ -10,8 +10,13 @@ import 'package:discourse_native/src/shell/forum_settings_dialog.dart';
 import 'package:discourse_native/src/shell/forum_theme_editor.dart';
 import 'package:discourse_native/src/shell/forum_theme_preview.dart';
 import 'package:discourse_native/src/shell/forum_theme_surfaces.dart';
+import 'package:discourse_native/src/shell/instance_sidebar.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
+import 'package:discourse_native/src/shell/topic_create_button.dart';
+import 'package:discourse_native/src/shell/topic_list_bottom_bar.dart';
+import 'package:discourse_native/src/shell/topic_list_filter_bar.dart';
+import 'package:discourse_native/src/shell/topic_list_navigation.dart';
 import 'package:discourse_native/src/shell/topic_list_view.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:file_selector_platform_interface/file_selector_platform_interface.dart';
@@ -102,7 +107,9 @@ void main() {
         'windowGradient': true,
         'darkerSidebars': true,
       }, id: 'custom-effects');
-      final theme = AppTheme.fromPalette(themed.resolve(mode));
+      final theme = AppTheme.fromPalette(
+        themed.resolve(mode),
+      ).copyWith(platform: TargetPlatform.macOS);
       await tester.pumpWidget(
         MaterialApp(
           home: SingleChildScrollView(
@@ -117,7 +124,7 @@ void main() {
       final sidebarContext = tester.element(
         find.byKey(const ValueKey('theme-preview-sidebar')),
       );
-      final contentContext = tester.element(find.text('Latest topics'));
+      final contentContext = tester.element(find.byType(TopicFeedMenu));
       final navigation = Theme.of(sidebarContext);
       expect(navigation.brightness, Brightness.dark);
       expect(Theme.of(contentContext).colorScheme, theme.colorScheme);
@@ -154,7 +161,9 @@ void main() {
         MaterialApp(
           home: SingleChildScrollView(
             child: ForumThemePreview(
-              theme: AppTheme.fromPalette(source.resolve(mode)),
+              theme: AppTheme.fromPalette(
+                source.resolve(mode),
+              ).copyWith(platform: TargetPlatform.macOS),
               siteUrl: 'https://example.com',
             ),
           ),
@@ -428,7 +437,11 @@ void main() {
     await tester.tap(find.text('Open'));
     await tester.pumpAndSettle();
     expect(find.byType(DSidebar), findsNWidgets(2));
-    expect(find.byKey(const ValueKey('theme-preview-search')), findsOneWidget);
+    expect(find.byType(ForumIdentityHeader), findsOneWidget);
+    expect(find.byType(TopicFeedMenu), findsOneWidget);
+    expect(find.byType(TopicListFilterBar), findsOneWidget);
+    expect(find.byType(TopicCreateAction), findsOneWidget);
+    expect(find.text('Normal'), findsNothing);
     expect(find.byKey(const ValueKey('theme-preview-sidebar')), findsOneWidget);
     expect(find.byType(ForumThemePreview), findsOneWidget);
     expect(find.byType(TopicListRow), findsNWidgets(2));
@@ -438,20 +451,16 @@ void main() {
       find.descendant(of: palette, matching: find.byType(Semantics)),
       findsNWidgets(7),
     );
-    final previewBounds = tester.getRect(
-      find.byKey(const ValueKey('forum-theme-preview')),
-    );
-    final newTopicBounds = tester.getRect(
-      find.widgetWithText(DButton, 'New topic'),
-    );
     expect(
-      newTopicBounds.left - previewBounds.left,
-      greaterThanOrEqualTo(DSpacing.lg),
+      tester.getSize(find.byType(TopicListRow).first).width,
+      greaterThan(600),
     );
-    expect(
-      previewBounds.bottom - newTopicBounds.bottom,
-      greaterThanOrEqualTo(DSpacing.lg),
+    final footer = find.descendant(
+      of: find.byType(TopicListFooter),
+      matching: find.byType(DCardFooter),
     );
+    expect(tester.widget<DCardFooter>(footer).rounded, isTrue);
+    expect(tester.getSize(footer).height, 44);
     final lato = find.byKey(const ValueKey('appearance-font-lato'));
     await tester.ensureVisible(lato);
     await tester.tap(lato);
@@ -544,7 +553,7 @@ void main() {
       isNull,
     );
     expect(tester.takeException(), isNull);
-  });
+  }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 }
 
 final class _ThemeFiles extends FileSelectorPlatform {

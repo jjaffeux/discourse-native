@@ -63,21 +63,9 @@ class _TopicCreateControl extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final mainButton = DButton(
-      key: TopicCreateButton.buttonKey,
-      label: Text(
-        'New topic',
-        softWrap: true,
-        maxLines: 2,
-        style: compact ? const TextStyle(fontWeight: FontWeight.w500) : null,
-      ),
-      icon: DIcon(DIcons.plus, size: compact ? 14 : 18),
-      tooltip: 'New topic',
-      shortcut: const DShortcut(newTopicShortcut),
-      semanticLabel: 'New topic',
+    final mainButton = TopicCreateAction(
+      compact: compact,
       onPressed: onPressed,
-      variant: DButtonVariant.primary,
-      size: DButtonSize.regular,
     );
     final instance = draftsInstance;
     if (instance == null) return mainButton;
@@ -203,4 +191,34 @@ class _TopicCreateControl extends StatelessWidget {
       ],
     );
   }
+}
+
+/// Topic creation control without draft-loading state.
+class TopicCreateAction extends StatelessWidget {
+  const TopicCreateAction({
+    super.key,
+    required this.onPressed,
+    this.compact = false,
+  });
+
+  final VoidCallback onPressed;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) => DButton(
+    key: TopicCreateButton.buttonKey,
+    label: Text(
+      'New topic',
+      softWrap: true,
+      maxLines: 2,
+      style: compact ? const TextStyle(fontWeight: FontWeight.w500) : null,
+    ),
+    icon: DIcon(DIcons.plus, size: compact ? 14 : 18),
+    tooltip: 'New topic',
+    shortcut: const DShortcut(newTopicShortcut),
+    semanticLabel: 'New topic',
+    onPressed: onPressed,
+    variant: DButtonVariant.primary,
+    size: DButtonSize.regular,
+  );
 }
