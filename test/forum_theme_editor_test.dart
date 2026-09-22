@@ -118,7 +118,9 @@ void main() {
               effect: effect,
             ).toJson(),
           }, id: 'custom-background');
-          final theme = AppTheme.fromPalette(custom.resolve(mode));
+          final theme = AppTheme.fromPalette(
+            custom.resolve(mode),
+          ).copyWith(platform: TargetPlatform.macOS);
           await tester.pumpWidget(
             MaterialApp(
               home: SingleChildScrollView(
@@ -140,7 +142,7 @@ void main() {
           expect(ForumWindowBackground.isContinuous(context), !darkerSidebars);
           expect(
             tester.widget<DSidebar>(sidebar).backgroundColor,
-            darkerSidebars ? isNull : Colors.transparent,
+            darkerSidebars ? DTokens.of(context).muted : Colors.transparent,
           );
           if (darkerSidebars) {
             expect(
@@ -149,7 +151,7 @@ void main() {
             );
           }
           expect(
-            Theme.of(tester.element(find.text('Latest topics'))).colorScheme,
+            Theme.of(tester.element(find.byType(TopicFeedMenu))).colorScheme,
             theme.colorScheme,
           );
           expect(tester.takeException(), isNull);
