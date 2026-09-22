@@ -837,7 +837,7 @@ class _DPopoverTriggerWidgetState extends State<DPopoverTrigger> {
   Widget build(BuildContext context) {
     final root = _PopoverRootScope.of(context);
     return _PopoverAnchorTracker(
-      onTransformChanged: root._anchorMoved,
+      onTransformChanged: root._open ? root._anchorMoved : null,
       child: Listener(
         behavior: HitTestBehavior.translucent,
         onPointerDown: (event) =>
@@ -897,7 +897,7 @@ class _DPopoverAnchorState extends State<DPopoverAnchor> {
 
   @override
   Widget build(BuildContext context) => _PopoverAnchorTracker(
-    onTransformChanged: _root!._anchorMoved,
+    onTransformChanged: _root!._open ? _root!._anchorMoved : null,
     child: widget.child,
   );
 
@@ -1173,7 +1173,7 @@ class _PopoverAnchorTracker extends SingleChildRenderObjectWidget {
     required super.child,
   });
 
-  final VoidCallback onTransformChanged;
+  final VoidCallback? onTransformChanged;
 
   @override
   RenderObject createRenderObject(BuildContext context) =>
@@ -1189,15 +1189,24 @@ class _PopoverAnchorTracker extends SingleChildRenderObjectWidget {
 class _RenderPopoverAnchorTracker extends RenderProxyBox {
   _RenderPopoverAnchorTracker(this.onTransformChanged);
 
-  VoidCallback onTransformChanged;
+  VoidCallback? onTransformChanged;
   Offset? _lastOrigin;
   Size? _lastSize;
 
   @override
   void paint(PaintingContext context, Offset offset) {
+    // Closed popovers cannot reposition content. Avoid walking the render
+    // ancestors for every trigger on every paint while they are closed.
+    final onChanged = onTransformChanged;
+    if (onChanged == null) {
+      _lastOrigin = null;
+      _lastSize = null;
+      super.paint(context, offset);
+      return;
+    }
     final origin = localToGlobal(Offset.zero);
     if (_lastOrigin != null && (_lastOrigin != origin || _lastSize != size)) {
-      onTransformChanged();
+      onChanged();
     }
     _lastOrigin = origin;
     _lastSize = size;

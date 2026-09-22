@@ -601,6 +601,28 @@ void main() {
     expect(after.left, greaterThan(before.left + 100));
   });
 
+  testWidgets('reopening uses an anchor moved while the popover was closed', (
+    tester,
+  ) async {
+    await tester.pumpWidget(_app(const _MovingAnchorTest()));
+    final state = tester.state<_MovingAnchorTestState>(
+      find.byType(_MovingAnchorTest),
+    );
+    state._controller.open();
+    await tester.pumpAndSettle();
+    final before = tester.getRect(find.byType(DPopoverContent));
+    state._controller.close();
+    await tester.pumpAndSettle();
+    state.moveRight();
+    await tester.pumpAndSettle();
+    expect(find.byType(DPopoverContent), findsNothing);
+    state._controller.open();
+    await tester.pumpAndSettle();
+    final after = tester.getRect(find.byType(DPopoverContent));
+    expect(after.left, greaterThan(before.left + 100));
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('surface keeps independent semantics and reads live theme', (
     tester,
   ) async {
@@ -905,6 +927,8 @@ class _MovingAnchorTestState extends State<_MovingAnchorTest> {
   bool _right = false;
   final _controller = DPopoverController();
 
+  void moveRight() => setState(() => _right = true);
+
   @override
   Widget build(BuildContext context) => SizedBox(
     width: 600,
@@ -919,10 +943,7 @@ class _MovingAnchorTestState extends State<_MovingAnchorTest> {
           mainAxisSize: MainAxisSize.min,
           children: [
             const Text('Moving content'),
-            DButton(
-              label: const Text('Move'),
-              onPressed: () => setState(() => _right = true),
-            ),
+            DButton(label: const Text('Move'), onPressed: moveRight),
           ],
         ),
       ),
