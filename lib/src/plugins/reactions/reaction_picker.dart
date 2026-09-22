@@ -9,7 +9,6 @@ import '../../plugin_api/plugin_scope.dart';
 import '../../shell/emoji.dart';
 import '../../shell/emoji_picker.dart';
 import '../../shell/hover_panel.dart';
-import '../../shell/reaction_presentation.dart';
 import '../../shell/shell_sheet.dart';
 import '../../theme/d_icons.dart';
 import 'reaction.dart';
@@ -166,20 +165,21 @@ class _PostReactionButtonState extends State<PostReactionButton> {
               key: _panel,
               enabled: enabled,
               preferAbove: true,
-              maxWidth: ReactionGrid.cell * 8 + 26,
+              maxWidth: ReactionGrid.maxWidth,
               panelBuilder: (context) => FocusTraversalOrder(
                 order: const NumericFocusOrder(1),
-                child: ReactionUsersPanel(
-                  child: SingleChildScrollView(
-                    child: ReactionGrid._withSession(
-                      controller.beginPicker(widget.siteUrl, widget.post),
-                      buttonContext,
-                      controller: controller,
-                      siteUrl: widget.siteUrl,
-                      post: widget.post,
-                      onPicked: () => _panel.currentState?.close(),
-                      onMore: () => unawaited(_openEmojiPicker(buttonContext)),
-                    ),
+                child: DPopoverContent(
+                  semanticLabel: 'Choose a reaction',
+                  width: ReactionGrid.maxWidth,
+                  padding: const EdgeInsets.all(DSpacing.xs),
+                  child: ReactionGrid._withSession(
+                    controller.beginPicker(widget.siteUrl, widget.post),
+                    buttonContext,
+                    controller: controller,
+                    siteUrl: widget.siteUrl,
+                    post: widget.post,
+                    onPicked: () => _panel.currentState?.close(),
+                    onMore: () => unawaited(_openEmojiPicker(buttonContext)),
                   ),
                 ),
               ),
@@ -344,8 +344,10 @@ class ReactionGrid extends StatelessWidget {
     this.onMore,
   });
 
-  static const int columns = 6;
-  static const double cell = 44;
+  static double get maxWidth =>
+      DToggle.visualDimensionFor(DToggleSize.large) * 8 +
+      DSpacing.controlGap * 7 +
+      DSpacing.xs * 2;
 
   final ReactionsController controller;
   final BuildContext? _ownerContext;
@@ -386,6 +388,8 @@ class ReactionGrid extends StatelessWidget {
     }
 
     final grid = Wrap(
+      spacing: DSpacing.controlGap,
+      runSpacing: DSpacing.controlGap,
       children: [
         for (final id in settings.offeredReactions)
           _ReactionCell(
@@ -417,14 +421,12 @@ class ReactionGrid extends StatelessWidget {
                   },
           ),
         if (more != null)
-          SizedBox.square(
-            dimension: cell,
-            child: DButton.iconOnly(
-              onPressed: enabled ? more : null,
-              variant: DButtonVariant.ghost,
-              tooltip: 'More emojis',
-              icon: const DIcon(DIcons.farFaceSmile),
-            ),
+          DButton.iconOnly(
+            onPressed: enabled ? more : null,
+            size: DButtonSize.large,
+            variant: DButtonVariant.ghost,
+            tooltip: 'More emojis',
+            icon: const DIcon(DIcons.farFaceSmile),
           ),
       ],
     );
@@ -484,40 +486,22 @@ class _ReactionCell extends StatelessWidget {
   final VoidCallback? onTap;
 
   @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return Semantics(
-      button: true,
-      selected: held,
-      label: id,
-      child: InkWell(
-        onTap: onTap,
-        mouseCursor: onTap != null
-            ? SystemMouseCursors.click
-            : SystemMouseCursors.basic,
-        borderRadius: BorderRadius.circular(8),
-        child: ExcludeSemantics(
-          child: Container(
-            width: ReactionGrid.cell,
-            height: ReactionGrid.cell,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(
-                color: held ? theme.colorScheme.primary : Colors.transparent,
-              ),
-            ),
-            child: Center(
-              child: EmojiImage(
-                url: url,
-                size: 22,
-                alt: ':$id:',
-                style: theme.textTheme.labelSmall,
-              ),
-            ),
-          ),
+  Widget build(BuildContext context) => DToggle.iconOnly(
+    semanticLabel: id,
+    pressed: held,
+    enabled: onTap != null,
+    size: DToggleSize.large,
+    onPressedChanged: (_) => onTap?.call(),
+    icon: Builder(
+      builder: (context) => SizedBox.square(
+        dimension: IconTheme.of(context).size!,
+        child: EmojiImage(
+          url: url,
+          size: IconTheme.of(context).size!,
+          alt: ':$id:',
+          style: Theme.of(context).textTheme.labelSmall,
         ),
       ),
-    );
-  }
+    ),
+  );
 }

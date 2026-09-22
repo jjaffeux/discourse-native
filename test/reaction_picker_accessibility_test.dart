@@ -1,3 +1,4 @@
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/site_config.dart';
@@ -100,11 +101,17 @@ void main() {
       expect(find.text(':clap:'), findsOneWidget);
       final target = find.bySemanticsLabel('clap');
       expect(target, findsOneWidget);
-      expect(tester.getSize(target), const Size.square(ReactionGrid.cell));
+      expect(
+        tester.getSize(target),
+        Size.square(DToggle.visualDimensionFor(DToggleSize.large)),
+      );
       expect(
         tester
-            .widget<InkWell>(
-              find.descendant(of: target, matching: find.byType(InkWell)),
+            .widget<FocusableActionDetector>(
+              find.descendant(
+                of: target,
+                matching: find.byType(FocusableActionDetector),
+              ),
             )
             .mouseCursor,
         SystemMouseCursors.click,
@@ -114,8 +121,10 @@ void main() {
         isSemantics(
           label: 'clap',
           isButton: true,
-          hasSelectedState: true,
-          isSelected: true,
+          hasToggledState: true,
+          isToggled: true,
+          hasEnabledState: true,
+          isEnabled: true,
           isFocusable: true,
           hasTapAction: true,
           hasFocusAction: true,
