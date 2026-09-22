@@ -1102,6 +1102,7 @@ class ComposerRichBodyEditor extends StatelessWidget {
             expands: false,
             showSelectionToolbar: enclosing?.showSelectionToolbar ?? true,
             enableDropTarget: enclosing?.enableDropTarget ?? true,
+            enableBlockReordering: enclosing?.enableBlockReordering ?? true,
             pickFiles: enclosing?.pickFiles ?? pickComposerFiles,
             pickImages: enclosing?.pickImages ?? pickComposerImages,
             readClipboardFiles:
@@ -1123,6 +1124,7 @@ class ComposerEditor extends StatefulWidget {
     required this.hintStyle,
     this.autofocus = true,
     this.enableDropTarget = true,
+    this.enableBlockReordering = true,
     this.showSelectionToolbar = true,
     this.expands = true,
     this.pickFiles = pickComposerFiles,
@@ -1138,6 +1140,9 @@ class ComposerEditor extends StatefulWidget {
   final TextStyle? hintStyle;
   final bool autofocus;
   final bool enableDropTarget;
+
+  /// Enables block movement controls and Alt+Shift+Up/Down shortcuts.
+  final bool enableBlockReordering;
 
   /// Topic composers expose persistent Native formatting actions instead.
   final bool showSelectionToolbar;
@@ -2089,7 +2094,8 @@ class _ComposerEditorState extends State<ComposerEditor> {
       }
       return KeyEventResult.handled;
     }
-    if (event is KeyDownEvent &&
+    if (widget.enableBlockReordering &&
+        event is KeyDownEvent &&
         keyboard.isAltPressed &&
         keyboard.isShiftPressed &&
         (event.logicalKey == LogicalKeyboardKey.arrowUp ||
@@ -2695,7 +2701,7 @@ class _ComposerEditorState extends State<ComposerEditor> {
   @override
   Widget build(BuildContext context) => ComposerHistoryScope(
     composer: widget.composer,
-    child: _parentEditor == null
+    child: widget.enableBlockReordering && _parentEditor == null
         ? ComposerBlockSurface(
             composer: widget.composer,
             expands: widget.expands,

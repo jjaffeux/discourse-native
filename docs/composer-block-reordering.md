@@ -2,6 +2,9 @@
 
 Implemented September 21, 2026 in the existing topic/post composer.
 
+Chat composers disable block reordering, including the leading gutter handles
+and Alt+Shift+Up/Down shortcuts, in both channels and threads.
+
 ## Using it
 
 On desktop, hover a paragraph, heading or component to reveal its leading
