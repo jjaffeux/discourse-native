@@ -437,7 +437,7 @@ class _ComposerBlockSurfaceState extends State<ComposerBlockSurface> {
         builder: (context, trigger) => DDragHandle<_BlockDrag>(
           key: ValueKey('composer-block-handle-${block.id}'),
           data: drag,
-          label: '${block.label} actions',
+          label: 'Drag to move or click to open menu',
           enabled:
               composer.blocks.enabled &&
               block.movable &&
