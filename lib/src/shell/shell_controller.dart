@@ -898,7 +898,7 @@ class ShellController extends FrameSafeNotifier
       _endPostWrite(siteUrl, postId);
 
   bool pluginPostWriteInFlight(String siteUrl, int postId) =>
-      _postWritesInFlight.contains(_postKey(siteUrl, postId));
+      _postWritesInFlight.containsKey(_postKey(siteUrl, postId));
 
   Future<void> refreshPluginPost(
     String siteUrl,
@@ -3903,7 +3903,7 @@ class ShellController extends FrameSafeNotifier
     for (final id in postIds) {
       final key = _postKey(siteUrl, id);
       if (store.read<Post>(siteUrl, id) == null) continue;
-      if (_postWritesInFlight.contains(key)) {
+      if (_postWritesInFlight.containsKey(key)) {
         // A poll/reaction echo received during a write is useful, but not yet:
         // the pre-write personalized post could land over the write response.
         // Remember it and re-read as soon as the post lease is released.
@@ -9728,7 +9728,7 @@ class ShellController extends FrameSafeNotifier
     if (!post.canDelete) return null;
     final siteUrl = currentInstance?.url;
     if (siteUrl != null &&
-        _postWritesInFlight.contains(_postKey(siteUrl, post.id))) {
+        _postWritesInFlight.containsKey(_postKey(siteUrl, post.id))) {
       return null;
     }
     final editing = _composer?.target.editingPostId == post.id
@@ -9929,7 +9929,7 @@ class ShellController extends FrameSafeNotifier
     if (!post.canRecover) return null;
     final siteUrl = currentInstance?.url;
     if (siteUrl != null &&
-        _postWritesInFlight.contains(_postKey(siteUrl, post.id))) {
+        _postWritesInFlight.containsKey(_postKey(siteUrl, post.id))) {
       return null;
     }
     return _mutatePost(
@@ -10281,7 +10281,8 @@ class ShellController extends FrameSafeNotifier
       active.toggle(post, target, checked);
       return null;
     }
-    if (postWriteInFlight(post.id, siteUrl: siteUrl)) {
+    if (postWriteInFlight(post.id, siteUrl: siteUrl) &&
+        !_postBookmarkWritesInFlight.contains(key)) {
       return 'Another post action is still finishing.';
     }
     final lease = lifecycle.capture(siteUrl);
@@ -10448,10 +10449,11 @@ class ShellController extends FrameSafeNotifier
   bool postWriteInFlight(int postId, {String? siteUrl}) {
     final targetSite = siteUrl ?? currentInstance?.url;
     return targetSite != null &&
-        _postWritesInFlight.contains(_postKey(targetSite, postId));
+        _postWritesInFlight.containsKey(_postKey(targetSite, postId));
   }
 
-  final Set<String> _postWritesInFlight = {};
+  final Map<String, int> _postWritesInFlight = {};
+  final Set<String> _postBookmarkWritesInFlight = {};
   final Map<String, Set<int>> _topicPostSelections = {};
   final Set<String> _topicPostSelectionWrites = {};
   final Set<String> _topicFlagWrites = {};
@@ -10548,7 +10550,7 @@ class ShellController extends FrameSafeNotifier
     required int targetId,
   }) {
     if (targetType == BookmarkTargetType.post) {
-      return _postWritesInFlight.contains(_postKey(siteUrl, targetId));
+      return _postBookmarkWriteInFlight(_postKey(siteUrl, targetId));
     }
     if (targetType == BookmarkTargetType.topic) {
       if (context case _TopicBookmarkWriteContext(:final topicId)) {
@@ -10562,6 +10564,11 @@ class ShellController extends FrameSafeNotifier
       _pluginBookmarkKey(siteUrl, targetType, targetId),
     );
   }
+
+  bool _postBookmarkWriteInFlight(String key) =>
+      _postBookmarkWritesInFlight.contains(key) ||
+      (_postWritesInFlight.containsKey(key) &&
+          _postChecklistWrites[key]?.isCurrent() != true);
 
   PluginBookmarkTargetStrategy? _pluginBookmarkStrategy(
     BookmarkTargetType targetType,
@@ -10618,7 +10625,7 @@ class ShellController extends FrameSafeNotifier
   final Map<String, int> _postRefreshTopics = {};
 
   bool _beginPostWrite(String key) {
-    if (_postWritesInFlight.contains(key)) return false;
+    if (_postWritesInFlight.containsKey(key)) return false;
     _holdPostWrite(key);
     _notify();
     return true;
@@ -10628,7 +10635,9 @@ class ShellController extends FrameSafeNotifier
   /// must not land over the optimistic write or the write's own re-read, so
   /// its request is disowned here and replayed when the write ends.
   void _holdPostWrite(String key) {
-    _postWritesInFlight.add(key);
+    // Bookmark and checklist writes can overlap. Keep refreshes deferred until
+    // both finish, while other post mutations still require exclusive access.
+    _postWritesInFlight.update(key, (count) => count + 1, ifAbsent: () => 1);
     if (_postRefreshRequests.remove(key) != null) {
       _postRefreshPending.add(key);
     }
@@ -10636,6 +10645,12 @@ class ShellController extends FrameSafeNotifier
 
   void _endPostWrite(String siteUrl, int postId, {bool notify = true}) {
     final key = _postKey(siteUrl, postId);
+    final count = _postWritesInFlight[key] ?? 0;
+    if (count > 1) {
+      _postWritesInFlight[key] = count - 1;
+      if (notify) _notify();
+      return;
+    }
     _postWritesInFlight.remove(key);
     if (notify) _notify();
     if (!_postRefreshPending.remove(key)) return;
@@ -11061,13 +11076,14 @@ class ShellController extends FrameSafeNotifier
         const <int>{};
     final postKeys = {for (final postId in postIds) _postKey(siteUrl, postId)};
     if (_topicBookmarkWritesInFlight.contains(key) ||
-        postKeys.any(_postWritesInFlight.contains)) {
+        postKeys.any(_postBookmarkWriteInFlight)) {
       return const BookmarkWriteResult.refused(
         'Another bookmark action is still finishing.',
       );
     }
     final lease = lifecycle.capture(siteUrl);
     _topicBookmarkWritesInFlight.add(key);
+    _postBookmarkWritesInFlight.addAll(postKeys);
     postKeys.forEach(_holdPostWrite);
     _notify();
     try {
@@ -11110,6 +11126,7 @@ class ShellController extends FrameSafeNotifier
       lease.commit(() {
         _topicBookmarkWritesInFlight.remove(key);
         for (final postId in postIds) {
+          _postBookmarkWritesInFlight.remove(_postKey(siteUrl, postId));
           _endPostWrite(siteUrl, postId, notify: false);
         }
         _notify();
@@ -11124,7 +11141,12 @@ class ShellController extends FrameSafeNotifier
     int targetId,
   ) {
     if (targetType == BookmarkTargetType.post) {
-      return _beginPostWrite(_postKey(siteUrl, targetId));
+      final key = _postKey(siteUrl, targetId);
+      if (_postBookmarkWriteInFlight(key)) return false;
+      _postBookmarkWritesInFlight.add(key);
+      _holdPostWrite(key);
+      _notify();
+      return true;
     }
     if (targetType == BookmarkTargetType.topic) {
       final topicId = (context as _TopicBookmarkWriteContext).topicId;
@@ -11149,6 +11171,7 @@ class ShellController extends FrameSafeNotifier
     int targetId,
   ) {
     if (targetType == BookmarkTargetType.post) {
+      _postBookmarkWritesInFlight.remove(_postKey(siteUrl, targetId));
       _endPostWrite(siteUrl, targetId);
       return;
     }
@@ -11277,15 +11300,70 @@ class ShellController extends FrameSafeNotifier
       final route = currentContent;
       final row = store.read<Topic>(instance.url, topicId);
       unawaited(
-        _refetchTopic(
+        _refreshTopicBookmarks(
           instance.url,
           topicId,
           route?.topicId == topicId ? route?.slug ?? '' : row?.slug ?? '',
+          lease,
         ),
       );
     }
     if (isDisposed || !lease.isCurrent) return;
     unawaited(accountActivity.loadBookmarks(instance, force: true));
+  }
+
+  Future<void> _refreshTopicBookmarks(
+    String siteUrl,
+    int topicId,
+    String slug,
+    SiteLease lease,
+  ) async {
+    // Reconciliation owns bookmark metadata only. A full topic replacement
+    // could erase a checklist's optimistic state or its newer saved content.
+    _advanceBookmarkVersion(siteUrl, topicId);
+    final version = _bookmarkVersion(siteUrl, topicId);
+    try {
+      final credential = await _readSessionValue(
+        lease,
+        () => authenticator.apiKeyFor(siteUrl),
+      );
+      if (credential == null || !lease.isCurrent) return;
+      final payload = await api.topicContent.topic(
+        siteUrl: siteUrl,
+        slug: slug,
+        id: topicId,
+        apiKey: credential.value,
+      );
+      lease.commit(() {
+        if (version != _bookmarkVersion(siteUrl, topicId)) return;
+        for (final incoming in payload.posts) {
+          store.update<Post>(
+            siteUrl,
+            incoming.id,
+            (held) => held.withBookmarkOf(incoming),
+          );
+        }
+        store.update<TopicDetail>(
+          siteUrl,
+          topicId,
+          (held) => held.withBookmarksOf(payload.detail),
+        );
+        store.update<Topic>(
+          siteUrl,
+          topicId,
+          (held) => held.copyWith(bookmarked: payload.detail.hasBookmarks),
+        );
+        _notify();
+      });
+    } catch (error, stackTrace) {
+      if (isDisposed || !lease.isCurrent) return;
+      _reportOperationalError(
+        error,
+        stackTrace,
+        'bookmark.refreshAfterWrite',
+        severity: DiagnosticSeverity.warning,
+      );
+    }
   }
 
   static String _postKey(String siteUrl, int postId) => '$siteUrl~$postId';
@@ -11453,7 +11531,7 @@ class ShellController extends FrameSafeNotifier
     final topicKey = _topicKey(siteUrl, topicId);
     final postKeys = [for (final post in posts) _postKey(siteUrl, post.id)];
     if (_topicPostSelectionWrites.contains(topicKey) ||
-        postKeys.any(_postWritesInFlight.contains)) {
+        postKeys.any(_postWritesInFlight.containsKey)) {
       return null;
     }
     final lease = lifecycle.capture(siteUrl);
@@ -13641,7 +13719,10 @@ class ShellController extends FrameSafeNotifier
     _likersErrors.removeWhere((key, _) => key.startsWith('$siteUrl~'));
     _userCardsLoading.removeWhere((key) => key.startsWith('$siteUrl@'));
     _userCardErrors.removeWhere((key, _) => key.startsWith('$siteUrl@'));
-    _postWritesInFlight.removeWhere((key) => key.startsWith('$siteUrl~'));
+    _postWritesInFlight.removeWhere((key, _) => key.startsWith('$siteUrl~'));
+    _postBookmarkWritesInFlight.removeWhere(
+      (key) => key.startsWith('$siteUrl~'),
+    );
     _postChecklistWrites.removeWhere((key, _) => key.startsWith('$siteUrl~'));
     _topicPostSelections.removeWhere((key, _) => key.startsWith('$siteUrl#'));
     _topicPostSelectionWrites.removeWhere((key) => key.startsWith('$siteUrl#'));
