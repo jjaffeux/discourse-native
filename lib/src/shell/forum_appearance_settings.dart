@@ -374,7 +374,9 @@ class _ForumAppearanceSettingsState extends State<ForumAppearanceSettings> {
                             unawaited(_save(preferences.select(theme.id))),
                         children: [
                           ThemeThumbnail(
-                            theme: theme.forBrightness(brightness),
+                            theme: AppTheme.fromPalette(
+                              theme.resolve(brightness),
+                            ),
                           ),
                           DItemContent(
                             children: [
@@ -423,7 +425,7 @@ class _ForumAppearanceSettingsState extends State<ForumAppearanceSettings> {
 /// Decorative miniature, not an interactive replacement for a Native control.
 class ThemeThumbnail extends StatelessWidget {
   const ThemeThumbnail({super.key, required this.theme});
-  final ForumTheme theme;
+  final ThemeData theme;
 
   @override
   Widget build(BuildContext context) => ExcludeSemantics(
@@ -433,7 +435,7 @@ class ThemeThumbnail extends StatelessWidget {
       child: ClipRRect(
         borderRadius: BorderRadius.circular(DTokens.of(context).radius),
         child: ColoredBox(
-          color: theme.secondary,
+          color: theme.shell.content,
           child: Padding(
             padding: const EdgeInsets.all(4),
             child: Row(
@@ -442,7 +444,11 @@ class ThemeThumbnail extends StatelessWidget {
                 SizedBox(
                   width: 9,
                   child: ColoredBox(
-                    color: Color.lerp(theme.secondary, theme.tertiary, .2)!,
+                    color:
+                        (theme.extension<ForumThemeEffects>()?.sidebarTheme ??
+                                theme)
+                            .shell
+                            .sidebar,
                   ),
                 ),
                 const SizedBox(width: 3),
@@ -459,8 +465,10 @@ class ThemeThumbnail extends StatelessWidget {
                             height: 3,
                             child: ColoredBox(
                               color: i == 0
-                                  ? theme.tertiary
-                                  : theme.primary.withValues(alpha: .24),
+                                  ? theme.colorScheme.primary
+                                  : theme.colorScheme.onSurface.withValues(
+                                      alpha: .24,
+                                    ),
                             ),
                           ),
                         ),

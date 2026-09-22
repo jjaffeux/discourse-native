@@ -1,5 +1,23 @@
 # Forum themes — 2026-09-19
 
+## Custom theme thumbnail colors — 2026-09-22
+
+Theme-library thumbnails now use the resolved application palette, including
+the custom background tint, readable foreground and optional darker sidebar.
+Each thumbnail resolves its own saved theme for the selected color mode, so
+its colors match the full preview and update when the custom theme is saved.
+
+Verification: static analysis with fatal infos and 52 focused editor, preview,
+theme, AppTheme and control-adoption tests passed. The new library regression
+compares the miniature with the production preview in both brightness modes,
+with independently authored background tints and after saving darker sidebars.
+The macOS debug build passed. Native inspection used the existing in-memory
+`tool/continuous_background_review_main.dart` fixture in the isolated
+`org.discourse.native.review.thumbnail0e93` bundle: custom library thumbnails,
+dark/light switching, and editing/saving darker sidebars all matched the preview.
+No mobile-device run was performed; the existing preview layout tests include
+an iOS platform override.
+
 ## Darker sidebar toggle restored — 2026-09-22
 
 The custom editor always exposes the existing Native `DToggle` for darker
