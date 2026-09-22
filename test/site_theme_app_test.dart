@@ -131,6 +131,20 @@ void main() {
           expect(theme.shell.content, expected);
           expect(paintedBox(find.byType(ShellTitleBar)), Colors.transparent);
           expect(paintedBox(find.byType(InstanceRail)), Colors.transparent);
+          final navigation = DTokens.of(tester.element(find.byType(DSidebar)));
+          final sidebarColor = tester
+              .widget<DSidebar>(find.byType(DSidebar))
+              .backgroundColor!;
+          expect(
+            sidebarColor,
+            darkerSidebars ? navigation.muted : Colors.transparent,
+          );
+          if (darkerSidebars) {
+            expect(
+              sidebarColor.computeLuminance(),
+              lessThan(theme.shell.sidebar.computeLuminance()),
+            );
+          }
           final panels = [
             find
                 .ancestor(
@@ -231,7 +245,9 @@ void main() {
               (const Offset(80, 44), expected),
               (
                 sidebar.bottomRight - const Offset(24, 90),
-                Color.alphaBlend(panelColors[0], expected),
+                darkerSidebars
+                    ? sidebarColor
+                    : Color.alphaBlend(panelColors[0], expected),
               ),
               (
                 list.bottomCenter - const Offset(0, 90),
@@ -285,7 +301,13 @@ void main() {
                   }
                 }
                 totalChangedPixels += changedPixels;
-                if (effect == ForumBackgroundEffect.noise) {
+                if (darkerSidebars && sidebar.contains(point)) {
+                  expect(
+                    changedPixels,
+                    0,
+                    reason: 'Dark navigation retains its opaque surface.',
+                  );
+                } else if (effect == ForumBackgroundEffect.noise) {
                   expect(
                     changedPixels,
                     greaterThan(0),

@@ -195,13 +195,13 @@ class ForumSidebarTheme extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (ForumWindowBackground.isContinuous(context)) return child;
     final theme = Theme.of(context);
     final sidebar = theme.extension<ForumThemeEffects>()?.sidebarTheme;
     if (sidebar == null) return child;
     return Theme(
       data: sidebar.copyWith(platform: theme.platform),
-      child: child,
+      // Dark navigation needs its own opaque surface over a custom canvas.
+      child: _ForumCanvas(continuous: false, child: child),
     );
   }
 }
