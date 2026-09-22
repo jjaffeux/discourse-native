@@ -54,6 +54,23 @@ class ForumTabItem {
   final String? emojiUrl;
   final String? emojiName;
   final SidebarBadge badge;
+
+  Object get _presentation => (
+    id,
+    title,
+    siteUrl,
+    icon,
+    color,
+    parentColor,
+    iconColor,
+    avatarUrl,
+    prefixBuilder,
+    labelSuffixBuilder,
+    semanticDescription,
+    emojiUrl,
+    emojiName,
+    badge,
+  );
 }
 
 class ForumTabsBar extends StatefulWidget {
@@ -107,9 +124,47 @@ class ForumTabsBar extends StatefulWidget {
 class _ForumTabsBarState extends State<ForumTabsBar> {
   static const _tabGap = 4.0;
   static const _switcherGap = 4.0;
+  Widget? _contents;
+
+  static bool _sameItems(List<ForumTabItem> a, List<ForumTabItem> b) {
+    if (a.length != b.length) return false;
+    for (var index = 0; index < a.length; index++) {
+      if (a[index]._presentation != b[index]._presentation) return false;
+    }
+    return true;
+  }
 
   @override
-  Widget build(BuildContext context) {
+  void didUpdateWidget(ForumTabsBar oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Reading anchors and plugin notifications can replace the input models
+    // without changing any tab. Keep their control trees mounted and clean.
+    // Callbacks below delegate through `widget` so they always stay current.
+    if (widget.forumName != oldWidget.forumName ||
+        widget.selectedId != oldWidget.selectedId ||
+        widget.showAdd != oldWidget.showAdd ||
+        (widget.onAdd == null) != (oldWidget.onAdd == null) ||
+        (widget.onReopen == null) != (oldWidget.onReopen == null) ||
+        (widget.onRename == null) != (oldWidget.onRename == null) ||
+        !_sameItems(widget.items, oldWidget.items) ||
+        !_sameItems(
+          widget.recentlyClosedItems,
+          oldWidget.recentlyClosedItems,
+        )) {
+      _contents = null;
+    }
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _contents = null;
+  }
+
+  @override
+  Widget build(BuildContext context) => _contents ??= _buildContents(context);
+
+  Widget _buildContents(BuildContext context) {
     return Container(
       key: const ValueKey('forum-tabs-bar'),
       width: double.infinity,
@@ -128,9 +183,11 @@ class _ForumTabsBarState extends State<ForumTabsBar> {
                     items: widget.items,
                     selectedId: widget.selectedId,
                     recentlyClosedItems: widget.recentlyClosedItems,
-                    onSelect: widget.onSelect,
-                    onClose: widget.onClose,
-                    onReopen: widget.onReopen,
+                    onSelect: (id) => widget.onSelect(id),
+                    onClose: (id) => widget.onClose(id),
+                    onReopen: widget.onReopen == null
+                        ? null
+                        : (id) => widget.onReopen!(id),
                   ),
                   const SizedBox(width: _switcherGap),
                   Expanded(
@@ -201,7 +258,8 @@ class _ForumTabsBarState extends State<ForumTabsBar> {
                                           onClose: () => widget.onClose(
                                             widget.items[index].id,
                                           ),
-                                          onReorder: widget.onReorder,
+                                          onReorder: (id, index) =>
+                                              widget.onReorder(id, index),
                                           onCloseOthers:
                                               widget.items.length == 1
                                               ? null
@@ -225,7 +283,11 @@ class _ForumTabsBarState extends State<ForumTabsBar> {
                             ),
                             if (widget.showAdd) ...[
                               const SizedBox(width: 4),
-                              _NewTabButton(onPressed: widget.onAdd),
+                              _NewTabButton(
+                                onPressed: widget.onAdd == null
+                                    ? null
+                                    : () => widget.onAdd!(),
+                              ),
                             ],
                           ],
                         );

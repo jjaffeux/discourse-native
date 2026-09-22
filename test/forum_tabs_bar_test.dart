@@ -45,6 +45,81 @@ void main() {
   );
 
   group('tab presentation', () {
+    testWidgets(
+      'unchanged presentation keeps controls clean and callbacks fresh',
+      (tester) async {
+        var selected = '';
+        var items = <ForumTabItem>[first, second];
+        var selectedId = first.id;
+        ValueChanged<String> onSelect = (id) => selected = 'old:$id';
+        late StateSetter update;
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: AppTheme.light,
+            home: Scaffold(
+              body: SizedBox(
+                width: 500,
+                child: StatefulBuilder(
+                  builder: (context, setState) {
+                    update = setState;
+                    return ForumTabsBar(
+                      forumName: 'Forum',
+                      items: items,
+                      selectedId: selectedId,
+                      onSelect: onSelect,
+                      onAdd: () {},
+                      onClose: (_) {},
+                      onReorder: (_, _) {},
+                      onCloseOthers: (_) {},
+                    );
+                  },
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        final held = tester.elementList(find.byType(DDocumentTab)).toSet();
+        expect(held, hasLength(2));
+        var rebuilds = 0;
+        final previous = debugOnRebuildDirtyWidget;
+        debugOnRebuildDirtyWidget = (element, builtOnce) {
+          previous?.call(element, builtOnce);
+          if (held.contains(element)) rebuilds++;
+        };
+        addTearDown(() => debugOnRebuildDirtyWidget = previous);
+
+        update(() {
+          items = [
+            ForumTabItem(id: first.id, title: first.title, icon: first.icon),
+            ForumTabItem(id: second.id, title: second.title, icon: second.icon),
+          ];
+          onSelect = (id) => selected = 'new:$id';
+        });
+        await tester.pumpAndSettle();
+        expect(rebuilds, 0);
+        await tester.tap(find.text(second.title));
+        expect(selected, 'new:${second.id}');
+
+        update(() {
+          items = const [
+            first,
+            ForumTabItem(
+              id: 'chat-2',
+              title: 'Renamed chat',
+              icon: DIcons.comments,
+              badge: SidebarBadge.count(3),
+            ),
+          ];
+          selectedId = second.id;
+        });
+        await tester.pumpAndSettle();
+        expect(find.text('Renamed chat'), findsOneWidget);
+        expect(find.text('3'), findsOneWidget);
+        expect(rebuilds, greaterThan(0));
+      },
+    );
+
     testWidgets('renders title shortcodes as site emoji', (tester) async {
       final controller = ShellController(
         instanceStore: FakeInstanceStore([instance('meta.example')]),
