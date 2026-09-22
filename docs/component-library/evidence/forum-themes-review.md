@@ -24,6 +24,38 @@ background by disabling and saving. The fixture built, passed strict signing
 verification, launched, and was closed after inspection. Mobile coverage is
 widget testing with an iOS platform override, not device testing.
 
+## Grainy custom backgrounds — 2026-09-22
+
+Noise now follows the layered texture approach in
+[Grainy Gradients](https://css-tricks.com/grainy-gradients/): a shaded gradient
+of the selected color, dense three-octave Perlin grain with boosted contrast,
+and a gradient mask blended into the background. Monochrome soft-light blending
+keeps the chosen hue. The existing strength control scales both shading and
+grain, with no effect at zero. Normal and Lava retain their existing rendering.
+
+A seamless 256px tile is generated once per owning window/preview canvas and
+reused through an image shader. Logical-pixel grain size stays fixed on resize;
+there is no area-dependent dot cap or animation. The owner disposes its image
+and shader when removed. Existing Native controls and panel APIs are unchanged.
+
+Verification: 53 focused checks passed across noise rendering, appearance,
+editor, model, AppTheme and the desktop/mobile shared-canvas regressions. Pixel
+checks cover light/dark gradients, dense texture, strength, zero, deterministic
+repaints and density at 256px versus 1600px. Full static analysis and the macOS
+debug build passed. Nine broader site-theme tests fail on obsolete rail/settings
+finders; all nine failures were reproduced with the unchanged renderer at
+`4f36742a8`. The affected desktop and iOS-layout background tests pass; the latter
+is a widget test, not a device run.
+
+Native inspection used `tool/continuous_background_review_main.dart` in the
+isolated `org.discourse.native.review.grain6373` app, with in-memory forum data.
+Inspected the theme preview, full topic list and split reader, light/dark modes,
+and the live preview strength change from 80% to 40%. The texture continues
+behind framed panels while controls and footers retain their fills. The review
+app was quit and the shared desktop lease released. Integration with the newer
+darker-sidebar change preserved its opaque navigation surface; the combined
+editor and painted workspace tests and full static analysis passed again.
+
 ## Panel surfaces restored over the shared canvas — 2026-09-22
 
 The continuous-canvas follow-up removed too much panel styling. Sidebar,
