@@ -1782,19 +1782,24 @@ class _ComposerEditorState extends State<ComposerEditor> {
     return _mediaDropOffset(globalPosition);
   }
 
-  ComposerDropGeometry get _dropGeometry =>
-      ComposerDropGeometry(widget.composer.blocks.index.blocks, _blockRect);
-
-  int? _mediaDropGapAt(Offset position) =>
-      widget.composer.text.text.trim().isEmpty
-      ? 0
-      : _dropGeometry.gapAt(position);
+  ComposerDropGeometry get _dropGeometry => ComposerDropGeometry(
+    widget.composer.blocks.index,
+    _blockRect,
+    emptyLineAt: _emptyLineAt,
+  );
 
   int? _mediaDropOffset(Offset position) {
-    final gap = widget.composer.isEditing ? _mediaDropGapAt(position) : null;
-    _mediaDropPosition.value = gap == null ? null : position;
+    final target = widget.composer.isEditing
+        ? _dropGeometry.targetAt(position)
+        : null;
+    final offset = target == null
+        ? (widget.composer.isEditing && widget.composer.text.text.trim().isEmpty
+              ? 0
+              : null)
+        : target.offset ?? _dropGeometry.offsetAt(target.gap);
+    _mediaDropPosition.value = offset == null ? null : position;
     _mediaDropIndicatorTop = _mediaDropTop();
-    return gap == null ? null : _dropGeometry.offsetAt(gap);
+    return offset;
   }
 
   void _clearMediaDropIndicator() {
@@ -1806,9 +1811,7 @@ class _ComposerEditorState extends State<ComposerEditor> {
     final position = _mediaDropPosition.value;
     final stack = _stackKey.currentContext?.findRenderObject();
     if (position == null || stack is! RenderBox || !stack.hasSize) return null;
-    final gap = _mediaDropGapAt(position);
-    if (gap == null) return null;
-    var y = _dropGeometry.gapY(gap);
+    var y = _dropGeometry.targetAt(position)?.y;
     if (y == null && widget.composer.text.text.trim().isEmpty) {
       final editable = _renderEditable;
       if (editable == null) return null;
