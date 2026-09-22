@@ -1,5 +1,4 @@
-import '../../data/plugin_transport.dart';
-import '../../models/json.dart';
+import 'package:discourse_native/discourse_plugin_sdk.dart';
 
 const aiProofreadingPath = '/discourse-ai/ai-helper/suggest';
 

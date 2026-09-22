@@ -25,6 +25,7 @@ import 'package:discourse_native/src/plugins/chat/chat_preferences.dart';
 import 'package:discourse_native/src/plugins/chat/chat_route.dart';
 import 'package:discourse_native/src/plugins/chat/chat_services.dart';
 import 'package:discourse_native/src/plugins/chat/chat_shell_service.dart';
+import 'package:discourse_native/src/plugins/chat/chat_user_preferences.dart';
 import 'package:discourse_native/src/plugins/discourse_events/event_composer.dart';
 import 'package:discourse_native/src/plugins/discourse_events/event_data.dart';
 import 'package:discourse_native/src/plugins/local_dates/local_date_composer_editor.dart';
@@ -46,6 +47,7 @@ import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
 import '../test/support/bundled_plugins.dart';
 import '../test/support/fakes.dart';
 import 'voice_review_fixture.dart';
@@ -155,7 +157,11 @@ class _ReviewState extends State<_Review> {
   bool _large = false;
   bool _editable = true;
   UserPreferences _preferences = const UserPreferences(
-    chatSeparateSidebarMode: ChatSeparateSidebarPreference.fullscreen,
+    pluginValues: {
+      'chat/preferences': ChatUserPreferences(
+        separateSidebarMode: ChatSeparateSidebarPreference.fullscreen,
+      ),
+    },
   );
   Future<void> _page(BuildContext context, String title, Widget child) =>
       Navigator.of(context).push<void>(
@@ -466,13 +472,13 @@ class _ReviewState extends State<_Review> {
                       ),
                       currentUserIsAdmin: false,
                       editable: _editable,
-                      onEdit: (edit) =>
+                      onEdit: (section, edit) =>
                           setState(() => _preferences = edit(_preferences)),
                     ),
                   )!.content,
                   const SizedBox(height: 16),
                   Text(
-                    'Accepted chat preference: ${_preferences.chatSeparateSidebarMode.name}',
+                    'Accepted chat preference: ${_preferences.chatPreferences.separateSidebarMode.name}',
                   ),
                 ],
               ),

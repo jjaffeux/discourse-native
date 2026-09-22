@@ -1,30 +1,13 @@
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
 
-import '../../data/discourse_api_contracts.dart' show WriteFailure;
-import '../../models/bookmark.dart';
-import '../../models/post_flag.dart';
-import '../../plugin_api/plugin_scope.dart';
-import '../../shell/cooked_html.dart';
-import '../../shell/emoji_picker.dart';
-import '../../shell/hover_action_toolbar.dart';
-import '../../shell/platform.dart';
-import '../../shell/post_flag_editor.dart';
-import '../../shell/reaction_presentation.dart';
-import '../../shell/relative_time.dart';
-import '../../shell/route_aware_selection_area.dart';
-import '../../shell/shell_sheet.dart';
-import '../../shell/site_emoji_text.dart';
-import '../../shell/user_card.dart';
-import '../../shell/user_status.dart';
-import '../../theme/app_theme.dart';
-import '../../theme/d_icons.dart';
 import 'chat_bookmark_ui.dart';
 import 'chat_channel.dart';
 import 'chat_controller.dart';

@@ -1,7 +1,4 @@
-import '../../models/notification.dart';
-import '../../plugin_api/notification_types.dart';
-import '../../plugin_api/plugin_icon_catalog.dart';
-import '../../theme/d_icon.dart';
+import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'event_data.dart';
 
 abstract final class EventIcons {

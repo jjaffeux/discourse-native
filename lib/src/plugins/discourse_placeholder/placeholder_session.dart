@@ -1,10 +1,8 @@
 import 'dart:async';
 
+import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:flutter/foundation.dart';
 
-import '../../data/store_diagnostics.dart';
-import '../../plugin_api/core_plugin_host.dart';
-import '../../plugin_api/plugin_manifest.dart';
 import 'placeholder_store.dart';
 
 const placeholderPluginId = PluginId('discourse-placeholder');

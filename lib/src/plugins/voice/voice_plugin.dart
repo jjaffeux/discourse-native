@@ -1,8 +1,6 @@
 import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:flutter/material.dart';
 
-import '../../models/user_card.dart';
-
 import 'voice_call_widget.dart';
 import 'voice_hashtag.dart';
 import 'voice_incoming_call.dart';
@@ -19,6 +17,7 @@ import 'voice_user_card.dart';
 final class VoicePlugin
     implements
         SitePlugin,
+        DraftPresentationPlugin,
         SidebarPlugin,
         SidebarPanelPlugin,
         SidebarPanelListenablePlugin,
@@ -31,6 +30,15 @@ final class VoicePlugin
         UserCardActionPlugin,
         PluginSiteFeature {
   const VoicePlugin();
+
+  @override
+  PluginDraftPresentation? draftPresentation(UserDraft draft) =>
+      draft.key.startsWith('new_topic_voice_')
+      ? const PluginDraftPresentation(
+          label: 'Call transcript draft',
+          icon: DIcons.closedCaptioning,
+        )
+      : null;
 
   static String routeId(int roomId) => 'voice-room-$roomId';
 

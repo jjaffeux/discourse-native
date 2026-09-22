@@ -1,4 +1,4 @@
-import '../../theme/d_icon.dart';
+import 'package:discourse_native/discourse_plugin_sdk.dart';
 
 abstract final class VoiceIcons {
   static const DIconData phone = DIconData(

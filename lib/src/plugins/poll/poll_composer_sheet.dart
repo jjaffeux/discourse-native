@@ -1,11 +1,9 @@
 import 'dart:async';
 
+import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
-import '../../shell/adaptive_dialog_action.dart';
-import '../../shell/shell_sheet.dart';
-import '../../theme/app_theme.dart';
 import 'poll_composer_editor.dart';
 import 'poll_composer_parser.dart';
 

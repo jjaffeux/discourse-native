@@ -1,9 +1,7 @@
+import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:flutter/material.dart';
 import 'package:html/dom.dart' as dom;
 
-import '../../../../foundation/uri_path.dart';
-import '../../../../theme/d_icon.dart';
-import '../../../../theme/discourse_typography.dart';
 import '../github.dart';
 
 class GithubPullRequestInlineOnebox {

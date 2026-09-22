@@ -1,5 +1,4 @@
-import '../../models/json.dart';
-import '../../plugin_api/site_plugin_api.dart';
+import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'alert_data.dart';
 
 const alertLinkSettingsKey = PluginDataKey<AlertLinkSettings>(

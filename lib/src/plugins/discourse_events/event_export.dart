@@ -1,12 +1,11 @@
 import 'dart:convert';
 
+import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:file_selector/file_selector.dart' as selector;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:share_plus/share_plus.dart' as sharing;
 
-import '../../data/plugin_transport.dart';
-import '../../plugin_api/core_plugin_host.dart' show PluginSiteLease;
 import 'event_controller.dart';
 
 /// One export's view and account lifetime, including native save continuations.

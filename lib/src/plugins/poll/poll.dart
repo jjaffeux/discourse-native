@@ -1,11 +1,8 @@
 import 'dart:convert';
 
+import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:flutter/foundation.dart';
 import 'package:html/parser.dart' as html;
-
-import '../../models/json.dart';
-import '../../models/post.dart';
-import '../../plugin_api/plugin_data.dart';
 
 const pollsDataKey = PluginDataKey<Polls>(owner: 'poll', name: 'post');
 

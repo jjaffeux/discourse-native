@@ -1,15 +1,10 @@
 import 'dart:async';
 
+import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../../data/discourse_api_contracts.dart'
-    show WriteException, WriteFailure;
-import '../../plugin_api/composer_syntax.dart';
-import '../../plugin_api/plugin_scope.dart';
-import '../../plugin_api/shell_extensions.dart';
-import '../../shell/adaptive_dialog_action.dart';
 import 'event_composer_parser.dart';
 import 'event_controller.dart';
 import 'event_data.dart';
@@ -18,6 +13,7 @@ import 'event_time.dart';
 const eventSyntaxKind = ComposerSyntaxKind(
   owner: eventsPluginId,
   name: 'event',
+  label: 'Event',
 );
 
 final class EventSyntaxPolicy implements ComposerSyntaxPolicy {

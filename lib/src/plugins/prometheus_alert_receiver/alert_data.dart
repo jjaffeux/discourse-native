@@ -1,7 +1,5 @@
+import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:flutter/foundation.dart';
-
-import '../../models/json.dart';
-import '../../plugin_api/site_plugin_api.dart';
 
 const prometheusAlertReceiverPluginId = PluginId(
   'discourse-prometheus-alert-receiver',

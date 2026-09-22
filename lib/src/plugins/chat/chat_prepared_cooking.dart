@@ -3,9 +3,7 @@
 import 'dart:async';
 import 'dart:convert';
 
-import 'package:discourse_cooking/discourse_cooking.dart';
-
-import '../../plugin_api/cooking_plugin.dart';
+import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'chat_cooking_coordinator.dart';
 
 /// Owns bounded, site-aware prepared drafts and urgent submission cooking.

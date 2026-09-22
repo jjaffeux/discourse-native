@@ -12,6 +12,7 @@ import 'package:discourse_native/src/plugin_api/plugin_registry.dart';
 import 'package:discourse_native/src/plugin_api/plugin_runtime.dart';
 import 'package:discourse_native/src/plugins/assign/assign_module.dart';
 import 'package:discourse_native/src/plugins/assign/assign_plugin.dart';
+import 'package:discourse_native/src/plugins/assign/assign_services.dart';
 import 'package:discourse_native/src/plugins/discourse_events/discourse_events_module.dart';
 import 'package:discourse_native/src/plugins/discourse_events/discourse_events_plugin.dart';
 import 'package:discourse_native/src/plugins/discourse_events/event_data.dart';
@@ -151,7 +152,10 @@ void main() {
     await tester.pumpAndSettle();
     expect(tag, findsNothing);
     expect(assignments, findsOneWidget);
-    await shell.appSettings.setTopicListShowAssignments(false);
+    await shell.pluginSession
+        .servicesFor(assignPluginId)
+        .require(assignTopicListPreferencesService)
+        .setShowAssignments(false);
     await tester.pumpAndSettle();
     expect(assignments, findsNothing);
     expect(
@@ -159,7 +163,10 @@ void main() {
       findsOneWidget,
     );
     await shell.appSettings.setTopicListShowTags(true);
-    await shell.appSettings.setTopicListShowAssignments(true);
+    await shell.pluginSession
+        .servicesFor(assignPluginId)
+        .require(assignTopicListPreferencesService)
+        .setShowAssignments(true);
     await tester.pumpAndSettle();
     expect(tag, findsOneWidget);
     expect(assignments, findsOneWidget);
@@ -308,7 +315,13 @@ void main() {
       }
       await tester.tap(find.text('Show assignments'));
       await tester.pumpAndSettle();
-      expect(shell.appSettings.topicListShowAssignments, isFalse);
+      expect(
+        shell.pluginSession
+            .servicesFor(assignPluginId)
+            .require(assignTopicListPreferencesService)
+            .showAssignments,
+        isFalse,
+      );
       expect(tester.takeException(), isNull);
     });
   }

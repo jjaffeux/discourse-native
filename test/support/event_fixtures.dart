@@ -1,8 +1,5 @@
 import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_plugin_test.dart';
-import 'package:discourse_native/src/foundation/timezone_environment.dart';
-import 'package:discourse_native/src/models/discourse_user.dart';
-import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/plugins/discourse_events/event_api.dart';
 import 'package:discourse_native/src/plugins/discourse_events/event_controller.dart';
 import 'package:discourse_native/src/plugins/discourse_events/event_data.dart';

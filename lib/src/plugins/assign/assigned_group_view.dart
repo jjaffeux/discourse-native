@@ -1,17 +1,9 @@
 import 'dart:async';
 
+import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
-import '../../models/topic.dart';
-import '../../plugin_api/plugin_scope.dart';
-import '../../shell/avatar_image.dart';
-import '../../shell/topic_list_actions.dart';
-import '../../shell/topic_list_footer.dart';
-import '../../shell/topic_list_view.dart';
-import '../../theme/app_theme.dart';
-import '../../theme/d_icons.dart';
-import '../../utils/pagination.dart';
 import 'assign_services.dart';
 import 'assign_shell_service.dart';
 import 'assigned_group.dart';

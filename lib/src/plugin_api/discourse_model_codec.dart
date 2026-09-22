@@ -10,6 +10,7 @@ import '../models/sidebar_tag.dart';
 import '../models/site_config.dart';
 import '../models/topic.dart';
 import '../models/user_card.dart';
+import '../models/user_preferences.dart';
 import '../models/user_status.dart';
 import 'notification_counters.dart';
 import 'plugin_data.dart';
@@ -35,6 +36,15 @@ final class DiscourseModelCodec {
       extensions is PluginNotificationCounterCodec
       ? extensions as PluginNotificationCounterCodec
       : const EmptyPluginNotificationCounterCodec();
+
+  UserPreferences userPreferences(
+    Map<String, dynamic> json, {
+    UserPreferences fallback = const UserPreferences(),
+  }) => UserPreferences.fromJson(
+    json,
+    fallback: fallback,
+    pluginValues: extensions.readUserPreferences(json, fallback),
+  );
 
   Post post(Map<String, dynamic> json, String siteUrl) =>
       Post.fromJson(json, siteUrl, extensions: extensions);

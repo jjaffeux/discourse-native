@@ -1,12 +1,11 @@
 import 'dart:async';
 
+import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:html/dom.dart' as dom;
 import 'package:html/parser.dart' as html_parser;
 
-import '../../shell/cooked_html.dart';
-import '../../theme/app_theme.dart';
 import 'poll.dart';
 
 typedef PollVoteCallback =

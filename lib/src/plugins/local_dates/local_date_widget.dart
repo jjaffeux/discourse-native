@@ -1,17 +1,12 @@
 import 'dart:async';
 
+import 'package:discourse_native/discourse_plugin_sdk.dart';
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_widget_from_html_core/flutter_widget_from_html_core.dart';
 import 'package:html/dom.dart' as dom;
 import 'package:timezone/timezone.dart' as tz;
 
-import '../../../discourse_ui.dart';
-import '../../plugin_api/plugin_scope.dart';
-import '../../shell/anchored_layout.dart';
-import '../../shell/platform.dart';
-import '../../shell/shell_sheet.dart';
-import '../../theme/app_theme.dart';
-import '../../theme/d_icons.dart';
 import 'local_date.dart';
 import 'local_dates_services.dart';
 import 'local_dates_settings.dart';

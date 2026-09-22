@@ -1,4 +1,4 @@
-import '../../data/plugin_transport.dart';
+import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'ai_summary.dart';
 
 final class AiSummaryApi {

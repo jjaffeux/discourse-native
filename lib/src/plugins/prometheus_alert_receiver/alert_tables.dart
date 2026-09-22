@@ -1,17 +1,11 @@
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
-import '../../shell/cooked_html.dart';
-import '../../shell/emoji.dart';
-import '../../shell/open_link.dart';
-import '../../shell/platform.dart';
-import '../../shell/route_aware_selection_area.dart';
-import '../../theme/app_theme.dart';
-import '../../theme/d_icons.dart';
 import 'alert_data.dart';
 import 'alert_links.dart';
 

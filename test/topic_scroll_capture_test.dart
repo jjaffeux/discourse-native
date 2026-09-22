@@ -61,7 +61,7 @@ void main() {
       final compact = await capture.buildPerformanceReport();
       expect(compact, contains('1000 loaded users'));
       expect(compact, contains('Users metric maxima'));
-      expect(compact, isNot(contains('No topic context was recorded')));
+      expect(compact, isNot(contains('No context was recorded')));
     },
   );
 
@@ -90,18 +90,32 @@ void main() {
     final report =
         jsonDecode(await capture.buildJsonReport()) as Map<String, Object?>;
     final analysis = report['analysis']! as Map<String, Object?>;
-    expect(analysis['chatContextCount'], 1);
-    expect((analysis['chatScrollWorkUs']! as Map)['total'], 15);
-    expect((analysis['chatViewportWorkUs']! as Map)['total'], 20);
-    expect((analysis['chatRowLayoutUs']! as Map)['total'], 30);
-    expect((analysis['chatDayExtentWorkUs']! as Map)['total'], 5);
+    expect(analysis['extensionContextCount'], 1);
+    expect(
+      ((analysis['timingsUs']! as Map)['chat.scroll.notification']!
+          as Map)['total'],
+      15,
+    );
+    expect(
+      ((analysis['timingsUs']! as Map)['chat.viewport.work']! as Map)['total'],
+      20,
+    );
+    expect(
+      ((analysis['timingsUs']! as Map)['chat.row.layout']! as Map)['total'],
+      30,
+    );
+    expect(
+      ((analysis['timingsUs']! as Map)['chat.dayExtents.scanned']!
+          as Map)['total'],
+      5,
+    );
     expect((analysis['activityCounts']! as Map)['chat.row.built'], 1);
     final compact = await capture.buildPerformanceReport();
-    expect(compact, contains('500 loaded messages'));
-    expect(compact, contains('Chat viewport bookkeeping'));
-    expect(compact, contains('Chat row layout'));
-    expect(compact, contains('Chat date extent scans'));
-    expect(compact, isNot(contains('No topic context was recorded')));
+    expect(compact, contains('"messageCount":500'));
+    expect(compact, contains('chat.viewport.work'));
+    expect(compact, contains('chat.row.layout'));
+    expect(compact, contains('chat.dayExtents.scanned'));
+    expect(compact, isNot(contains('No context was recorded')));
   });
 
   test(
@@ -145,7 +159,7 @@ void main() {
       expect(compact, contains('Topic-list scroll bookkeeping'));
       expect(compact, contains('Topic-list row build'));
       expect(compact, contains('Topic-list row layout'));
-      expect(compact, isNot(contains('No topic context was recorded')));
+      expect(compact, isNot(contains('No context was recorded')));
     },
   );
 
@@ -374,7 +388,7 @@ void main() {
     capture.start();
     capture.stop();
     final report = await capture.buildPerformanceReport();
-    expect(report, contains('No topic context was recorded'));
+    expect(report, contains('No context was recorded'));
     expect(report, contains('No frame timings were delivered'));
     expect(report, contains('no samples'));
     expect(report, isNot(contains('NaN')));

@@ -1,13 +1,9 @@
 import 'dart:async';
 
+import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
-import '../../data/discourse_api_contracts.dart';
-import '../../plugin_api/plugin_scope.dart';
-import '../../shell/avatar_image.dart';
-import '../../theme/app_theme.dart';
-import '../../theme/d_icons.dart';
 import 'assign_services.dart';
 import 'assignment.dart';
 

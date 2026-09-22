@@ -3,28 +3,14 @@
 import 'dart:async';
 import 'dart:collection';
 
-import 'package:discourse_cooking/discourse_cooking.dart';
+import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:flutter/foundation.dart';
 
-import '../../data/discourse_api_contracts.dart'
-    show SiteLookupException, SiteLookupFailure, WriteException, WriteFailure;
-import '../../data/store.dart';
-import '../../diagnostics/diagnostics_controller.dart';
-import '../../foundation/frame_safe_notifier.dart';
-import '../../models/bookmark.dart';
-import '../../models/chat_channel_list_preferences.dart';
-import '../../models/composer_upload.dart';
-import '../../models/discourse_user.dart';
-import '../../models/json.dart';
-import '../../models/post_flag.dart';
-import '../../models/site_config.dart';
-import '../../plugin_api/cooking_plugin.dart';
-import '../../plugin_api/core_plugin_host.dart';
-import '../../plugin_api/live_channels.dart';
 import 'chat_api.dart';
 import 'chat_channel.dart';
 import 'chat_channel_list.dart';
 import 'chat_channel_list_controller.dart';
+import 'chat_channel_list_preferences.dart';
 import 'chat_channel_refresh.dart';
 import 'chat_cooking_coordinator.dart';
 import 'chat_direct_message_search.dart';

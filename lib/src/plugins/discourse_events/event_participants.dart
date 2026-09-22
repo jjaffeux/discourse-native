@@ -1,13 +1,10 @@
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
-import '../../shell/adaptive_dialog_action.dart';
-import '../../shell/avatar_image.dart';
-import '../../shell/open_link.dart';
-import '../../shell/site_url.dart';
 import 'event_card.dart' show eventResponseLabel;
 import 'event_controller.dart';
 import 'event_data.dart';

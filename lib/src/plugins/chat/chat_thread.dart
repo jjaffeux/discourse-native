@@ -1,7 +1,6 @@
+import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:flutter/foundation.dart';
 
-import '../../data/store.dart';
-import '../../models/json.dart';
 import 'chat_channel.dart';
 import 'chat_message.dart';
 

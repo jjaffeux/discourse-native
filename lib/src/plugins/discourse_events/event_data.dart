@@ -1,9 +1,7 @@
 import 'dart:convert';
 
+import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:flutter/foundation.dart';
-
-import '../../plugin_api/preserved_json.dart';
-import '../../plugin_api/site_plugin_api.dart';
 
 const eventsPluginId = PluginId('discourse-events');
 const eventPostKey = PluginDataKey<EventPostData>(

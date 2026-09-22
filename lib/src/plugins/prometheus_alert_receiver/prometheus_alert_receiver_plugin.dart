@@ -1,12 +1,8 @@
 import 'dart:async';
 
+import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:flutter/material.dart';
 
-import '../../models/post.dart';
-import '../../plugin_api/core_plugin_host.dart';
-import '../../plugin_api/plugin_manifest.dart';
-import '../../plugin_api/plugin_scope.dart';
-import '../../plugin_api/site_plugin_api.dart';
 import 'alert_data.dart';
 import 'alert_links.dart';
 import 'alert_tables.dart';

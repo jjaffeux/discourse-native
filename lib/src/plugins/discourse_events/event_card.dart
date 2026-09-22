@@ -1,17 +1,12 @@
 import 'dart:async';
 
+import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:html/dom.dart' as dom;
 import 'package:html/parser.dart' as html;
 import 'package:intl/intl.dart';
 
-import '../../plugin_api/core_plugin_host.dart';
-import '../../shell/avatar_image.dart';
-import '../../shell/cooked_html.dart';
-import '../../shell/open_link.dart';
-import '../../shell/site_image.dart';
-import '../../shell/site_url.dart';
 import 'event_controller.dart';
 import 'event_cooked_visibility.dart';
 import 'event_data.dart';

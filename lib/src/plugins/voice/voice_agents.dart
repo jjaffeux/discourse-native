@@ -3,7 +3,6 @@
 
 import 'package:discourse_native/discourse_plugin_sdk.dart';
 
-import '../../foundation/frame_safe_notifier.dart';
 import 'voice_models.dart';
 
 /// Authenticated serializer data, never a client site setting or persisted grant.

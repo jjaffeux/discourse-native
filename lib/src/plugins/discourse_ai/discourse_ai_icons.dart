@@ -1,9 +1,12 @@
-import 'package:discourse_plugin_api/discourse_plugin_api.dart';
-
-import '../../plugin_api/plugin_icon_catalog.dart';
-import '../../theme/d_icon.dart';
+import 'package:discourse_native/discourse_plugin_sdk.dart';
 
 abstract final class DiscourseAiIcons {
+  static const DIconData ai = DIconData(
+    'discourse-ai',
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="currentColor"><path fill="#333" d="M96 32h320c35.35 0 64 28.65 64 64v320c0 35.35-28.65 64-64 64H96c-35.35 0-64-28.65-64-64V96c0-35.35 28.65-64 64-64Z"/><path fill="#fff" fill-rule="evenodd" d="M112 360l68-208h56l68 208h-52l-14-48h-61l-14 48h-51Zm78-92h35l-17-60-18 60Zm130-116h80v44h-16v120h16v44h-80v-44h16V196h-16v-44Z"/></svg>',
+    preserveColors: true,
+  );
+
   static const DIconData sparkles = DIconData(
     'discourse-sparkles',
     '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 563 541" fill="currentColor"><path d="M253.547 16.7474C262.26 -3.29796 290.689 -3.29797 299.402 16.7474L369.756 178.602C372.485 184.88 377.669 189.765 384.099 192.116L545.781 251.23C567.668 259.232 567.668 290.187 545.781 298.19L383.78 357.421C377.538 359.703 372.462 364.377 369.673 370.409L299.167 522.916C290.223 542.261 262.726 542.261 253.783 522.916L183.171 370.181C180.445 364.284 175.53 359.679 169.467 357.343L15.5462 298.038C-5.80267 289.812 -5.80262 259.607 15.5463 251.382L169.153 192.197C175.402 189.79 180.423 184.976 183.093 178.835L253.547 16.7474Z"/><path d="M76.9415 8.24704C81.0653 -1.54063 94.9348 -1.54061 99.0585 8.24706L116.93 50.6637C118.283 53.8752 120.965 56.3398 124.279 57.4169L167.883 71.5875C178.938 75.1802 178.938 90.8198 167.883 94.4125L124.279 108.583C120.965 109.66 118.283 112.125 116.93 115.336L99.0586 157.753C94.9348 167.541 81.0652 167.541 76.9415 157.753L59.0703 115.336C57.7172 112.125 55.0349 109.66 51.7206 108.583L8.11678 94.4125C-2.93804 90.8198 -2.93804 75.1802 8.11678 71.5875L51.7206 57.4169C55.0348 56.3398 57.7172 53.8752 59.0703 50.6637L76.9415 8.24704Z"/></svg>',
@@ -12,5 +15,8 @@ abstract final class DiscourseAiIcons {
 
 const discourseAiIconCatalog = PluginIconCatalog(
   owner: PluginId('discourse-ai'),
-  entries: {'discourse-sparkles': DiscourseAiIcons.sparkles},
+  entries: {
+    'discourse-sparkles': DiscourseAiIcons.sparkles,
+    'discourse-ai': DiscourseAiIcons.ai,
+  },
 );

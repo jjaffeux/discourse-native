@@ -1,11 +1,9 @@
+import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:flutter/foundation.dart';
 import 'package:html/dom.dart' as dom;
 import 'package:html/parser.dart' as html;
 import 'package:timezone/timezone.dart' as tz;
 
-import '../../plugin_api/preserved_json.dart';
-import '../../plugin_api/site_plugin_api.dart';
-import '../../plugin_api/timezone_host.dart';
 import 'event_data.dart';
 import 'event_time.dart';
 

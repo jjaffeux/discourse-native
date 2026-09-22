@@ -1,6 +1,7 @@
 import 'dart:ui' as ui;
 
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/src/plugins/discourse_ai/discourse_ai_icons.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:discourse_native/src/theme/d_native_icons.dart';
 import 'package:flutter/material.dart';
@@ -139,7 +140,7 @@ void main() {
               child: RepaintBoundary(
                 key: key,
                 child: DIcon(
-                  DIcons.discourseAi,
+                  DiscourseAiIcons.ai,
                   size: 128,
                   color: Color(0xFFFF0000),
                 ),
@@ -159,7 +160,7 @@ void main() {
           Colors.white,
           Colors.transparent,
         ]);
-        expect(DIcons.discourseAi.preserveColors, isTrue);
+        expect(DiscourseAiIcons.ai.preserveColors, isTrue);
         expect(
           tester.widget<SvgPicture>(find.byType(SvgPicture)).colorFilter,
           isNull,

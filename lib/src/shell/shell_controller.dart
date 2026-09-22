@@ -669,12 +669,6 @@ class ShellController extends FrameSafeNotifier
         _pluginDiagnosticsReporter,
       ),
       PluginHostPort<Object>(
-        corePluginTopicListPreferencesPort,
-        PluginTopicListPreferencesHost(
-          showAssignments: () => appSettings.topicListShowAssignments,
-        ),
-      ),
-      PluginHostPort<Object>(
         corePluginSiteStatePort,
         PluginSiteStateHost(
           currentUserFor: (siteUrl) => _instanceAt(siteUrl)?.user,
@@ -1006,6 +1000,7 @@ class ShellController extends FrameSafeNotifier
 
   late final AccountActivityController accountActivity =
       AccountActivityController(
+        likeNotificationTypes: plugins.registry.likeNotificationTypes,
         api: api.accountActivity,
         credentials: authenticator,
         lifecycle: lifecycle,
@@ -2688,7 +2683,7 @@ class ShellController extends FrameSafeNotifier
   int likeNotificationUnreadCount(String siteUrl) {
     final counts = _groupedUnreadNotificationCountsFor(siteUrl);
     if (counts == null) return 0;
-    final names = userMenuLikeNotificationTypes.toSet();
+    final names = plugins.registry.likeNotificationTypes.toSet();
     return _registeredNotificationTypes
         .where((type) => names.contains(NotificationTypeName(type.wireName)))
         .fold(0, (total, type) => total + counts.count(type));
@@ -2750,6 +2745,7 @@ class ShellController extends FrameSafeNotifier
     Iterable<PluginUserMenuSection> pluginSections,
   ) => {
     ...userMenuDedicatedNotificationTypes,
+    ...plugins.registry.likeNotificationTypes,
     for (final section in pluginSections) ...section.notificationTypes,
   };
 

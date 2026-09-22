@@ -4,6 +4,11 @@ import 'dart:convert';
 import 'package:discourse_native/src/data/discourse_api.dart';
 import 'package:discourse_native/src/data/site_lifecycle.dart';
 import 'package:discourse_native/src/models/topic.dart';
+import 'package:discourse_native/src/plugins/assign/assign_global_search.dart';
+import 'package:discourse_native/src/plugins/chat/chat_global_search.dart';
+import 'package:discourse_native/src/plugins/poll/poll_global_search.dart';
+import 'package:discourse_native/src/plugins/solved/solved_global_search.dart';
+import 'package:discourse_native/src/plugins/topic_voting/topic_voting_global_search.dart';
 import 'package:discourse_native/src/shell/global_search_api.dart';
 import 'package:discourse_native/src/shell/global_search_controller.dart';
 import 'package:discourse_native/src/shell/global_search_filters.dart';
@@ -18,15 +23,24 @@ const _site = 'https://example.test';
 const _caps = GlobalSearchCapabilities(
   authenticated: true,
   username: 'mira',
-  chat: true,
   staff: true,
   admin: true,
-  solved: true,
-  assign: true,
-  poll: true,
-  voting: true,
   unlisted: true,
   whispers: true,
+  contributions: [
+    AssignGlobalSearch(),
+    ChatGlobalSearch(),
+    PollGlobalSearch(),
+    SolvedGlobalSearch(),
+    TopicVotingGlobalSearch(),
+  ],
+  enabledContributions: {
+    'chat',
+    'discourse-assign',
+    'discourse-solved',
+    'discourse-topic-voting',
+    'poll',
+  },
 );
 
 void main() {
@@ -45,13 +59,14 @@ void main() {
               siteUrl: _site,
               capabilities: const GlobalSearchCapabilities(
                 authenticated: true,
-                chatEligible: true,
+                contributions: [ChatGlobalSearch()],
+                enabledContributions: {},
               ),
             );
         addTearDown(search.dispose);
         search.setContext(
           const GlobalSearchContext(
-            scope: GlobalSearchScope.chat,
+            scope: chatSearchScope,
             condition: GlobalSearchCondition(
               filterId: 'chatChannel',
               value: ['12'],
@@ -66,7 +81,7 @@ void main() {
         expect(search.scope, switch (action) {
           'scope' => GlobalSearchScope.users,
           'recent' || 'close' => GlobalSearchScope.all,
-          _ => GlobalSearchScope.chat,
+          _ => chatSearchScope,
         });
         expect(
           search.conditions.map((c) => c.text),
@@ -109,23 +124,23 @@ void main() {
       );
       search.setQuery('design');
       const first = GlobalSearchContext(
-        scope: GlobalSearchScope.chat,
+        scope: chatSearchScope,
         condition: GlobalSearchCondition(filterId: 'chatChannel', value: ['9']),
         label: 'Design',
       );
       search.setContext(first);
       await tester.pump(const Duration(milliseconds: 10));
-      expect(search.scope, GlobalSearchScope.chat);
+      expect(search.scope, chatSearchScope);
       expect(api.requests.last.conditions.map((c) => c.text), ['mira', '9']);
       expect(search.choiceLabel('chatChannel', '9'), 'Design');
       search.removeCondition(1);
       search.setScope(GlobalSearchScope.users);
       search.setContext(first);
-      expect(search.scope, GlobalSearchScope.chat);
+      expect(search.scope, chatSearchScope);
       expect(search.conditions.map((c) => c.text), ['mira', '9']);
       search.setContext(
         const GlobalSearchContext(
-          scope: GlobalSearchScope.chat,
+          scope: chatSearchScope,
           condition: GlobalSearchCondition(
             filterId: 'chatChannel',
             value: ['12'],
@@ -145,7 +160,7 @@ void main() {
       );
       expect(search.conditions.single.text, '1038');
       expect(
-        search.conditionsFor(GlobalSearchScope.chat).single.filterId,
+        search.conditionsFor(chatSearchScope).single.filterId,
         'chatAuthor',
       );
       search.setContext(
@@ -164,7 +179,7 @@ void main() {
       siteUrl: _site,
       apiKey: 'key',
       request: const GlobalSearchRequest(
-        scope: GlobalSearchScope.chat,
+        scope: chatSearchScope,
         query: 'needle',
         capabilities: _caps,
         conditions: [
@@ -216,7 +231,7 @@ void main() {
         page.sections.first.error,
         'The search timed out. Please try again.',
       );
-      expect(page.sections.last.results.single.messageId, 9);
+      expect(page.sections.last.results.single.id, 'chat:9');
 
       transport.failures.clear();
       transport.responses['/search/query.json'] = {
@@ -234,7 +249,7 @@ void main() {
       );
       expect(retry.sections.where((section) => section.error != null), isEmpty);
       expect(retry.sections.first.results.single.title, 'Test result');
-      expect(retry.sections.last.results.single.messageId, 9);
+      expect(retry.sections.last.results.single.id, 'chat:9');
     },
   );
 
@@ -359,11 +374,7 @@ void main() {
   );
 
   test('chat text does not use forum single-letter shortcuts', () {
-    final parsed = parseGlobalSearchExpression(
-      'l f t',
-      GlobalSearchScope.chat,
-      _caps,
-    );
+    final parsed = parseGlobalSearchExpression('l f t', chatSearchScope, _caps);
     expect(parsed.query, 'l f t');
     expect(parsed.order, isNull);
     expect(parsed.conditions, isEmpty);
@@ -1059,7 +1070,7 @@ void main() {
         siteUrl: _site,
         apiKey: 'key',
         request: const GlobalSearchRequest(
-          scope: GlobalSearchScope.chat,
+          scope: chatSearchScope,
           query: 'design',
           capabilities: _caps,
         ),
@@ -1070,8 +1081,12 @@ void main() {
         '/chat/c/design/7/13',
         '/chat/c/design/7/14',
       ]);
-      expect(page.results.map((r) => r.threadId), [42, null, null, null]);
-      expect(page.results.map((r) => r.messageId), [11, 12, 13, 14]);
+      expect(page.results.map((r) => r.id), [
+        'chat:11',
+        'chat:12',
+        'chat:13',
+        'chat:14',
+      ]);
     },
   );
 
@@ -1182,7 +1197,7 @@ void main() {
         siteUrl: _site,
         apiKey: 'key',
         request: const GlobalSearchRequest(
-          scope: GlobalSearchScope.chat,
+          scope: chatSearchScope,
           query: '',
           capabilities: _caps,
           conditions: [threads],
@@ -1193,7 +1208,7 @@ void main() {
         siteUrl: _site,
         apiKey: 'key',
         request: const GlobalSearchRequest(
-          scope: GlobalSearchScope.chat,
+          scope: chatSearchScope,
           query: 'design',
           capabilities: _caps,
           order: 'latest',
@@ -1234,10 +1249,11 @@ void main() {
         apiKey: 'key',
         base: const GlobalSearchCapabilities(
           authenticated: true,
-          chatEligible: true,
+          contributions: [ChatGlobalSearch()],
+          enabledContributions: {},
         ),
       );
-      expect(caps.chat, isFalse);
+      expect(caps.enabledContributions.contains('chat'), isFalse);
       transport.responses['/session/current.json'] = {
         'current_user': {'can_chat': true, 'has_chat_enabled': true},
       };
@@ -1246,10 +1262,11 @@ void main() {
         apiKey: 'key',
         base: const GlobalSearchCapabilities(
           authenticated: true,
-          chatEligible: true,
+          contributions: [ChatGlobalSearch()],
+          enabledContributions: {},
         ),
       );
-      expect(caps.chat, isTrue);
+      expect(caps.enabledContributions.contains('chat'), isTrue);
     },
   );
 }
@@ -1309,6 +1326,7 @@ class _EngineApi extends GlobalSearchApi {
 
   @override
   Future<List<GlobalSearchFilterChoice>> lookupChoices({
+    GlobalSearchCapabilities capabilities = const GlobalSearchCapabilities(),
     required String siteUrl,
     required String? apiKey,
     String? clientId,

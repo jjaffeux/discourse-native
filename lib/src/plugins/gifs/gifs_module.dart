@@ -1,5 +1,4 @@
-import '../../plugin_api/core_plugin_host.dart';
-import '../../plugin_api/plugin_manifest.dart';
+import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'gif_picker_session_impl.dart';
 import 'gifs_api.dart';
 import 'gifs_api_client.dart';

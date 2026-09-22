@@ -19,7 +19,6 @@ final class AppSettingsController extends FrameSafeNotifier {
   bool get topicListLargerText => _settings.topicListLargerText;
   bool get topicListShowTags => _settings.topicListShowTags;
   bool get topicListShowLastPoster => _settings.topicListShowLastPoster;
-  bool get topicListShowAssignments => _settings.topicListShowAssignments;
   TopicListDisplayMode get topicListMode => _settings.topicListMode;
   double get textScaleFactor => textScale.factor;
 
@@ -33,7 +32,6 @@ final class AppSettingsController extends FrameSafeNotifier {
   bool? _selectedTopicListLargerText;
   bool? _selectedTopicListShowTags;
   bool? _selectedTopicListShowLastPoster;
-  bool? _selectedTopicListShowAssignments;
   TopicListDisplayMode? _selectedTopicListMode;
   Future<void>? _loadTask;
 
@@ -63,7 +61,6 @@ final class AppSettingsController extends FrameSafeNotifier {
       topicListLargerText: _selectedTopicListLargerText,
       topicListShowTags: _selectedTopicListShowTags,
       topicListShowLastPoster: _selectedTopicListShowLastPoster,
-      topicListShowAssignments: _selectedTopicListShowAssignments,
       topicListMode: _selectedTopicListMode,
     );
     _loaded = true;
@@ -165,20 +162,6 @@ final class AppSettingsController extends FrameSafeNotifier {
     _selectedTopicListShowLastPoster = value;
     _settings = _settings.copyWith(topicListShowLastPoster: value);
     final saving = store.update(topicListShowLastPoster: value);
-    unawaited(load());
-    notifySafely();
-    return saving;
-  }
-
-  Future<void> setTopicListShowAssignments(bool value) {
-    if (isDisposed ||
-        ((_loaded || _selectedTopicListShowAssignments != null) &&
-            value == topicListShowAssignments)) {
-      return Future<void>.value();
-    }
-    _selectedTopicListShowAssignments = value;
-    _settings = _settings.copyWith(topicListShowAssignments: value);
-    final saving = store.update(topicListShowAssignments: value);
     unawaited(load());
     notifySafely();
     return saving;

@@ -1,10 +1,7 @@
+import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:flutter/foundation.dart';
 
-import '../../models/chat_channel_list_preferences.dart';
-import '../../models/discourse_user.dart';
-import '../../models/json.dart';
-import '../../models/site_config.dart';
-import '../../plugin_api/plugin_data.dart';
+import 'chat_channel_list_preferences.dart';
 
 const PluginDataKey<ChatSettings> chatSettingsDataKey = PluginDataKey(
   owner: 'chat',

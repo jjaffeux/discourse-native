@@ -4,16 +4,49 @@ import '../models/discourse_user.dart';
 import '../models/search_results.dart';
 import '../models/site_config.dart';
 import '../models/topic.dart';
+import '../plugin_api/global_search.dart';
 
-enum GlobalSearchScope {
-  all('All'),
-  forum('Topics & posts'),
-  users('Users'),
-  groups('Groups'),
-  chat('Chat');
-
-  const GlobalSearchScope(this.label);
-  final String label;
+@immutable
+final class GlobalSearchScope {
+  const GlobalSearchScope.plugin({
+    required this.owner,
+    required this.name,
+    required this.label,
+    this.showAvatar = false,
+    this.singletonFilters = false,
+    this.displayProperties = const {GlobalSearchDisplayProperty.excerpt},
+  });
+  const GlobalSearchScope._core(
+    this.name,
+    this.label, {
+    this.showAvatar = false,
+    this.singletonFilters = false,
+  }) : owner = 'core',
+       displayProperties = const {GlobalSearchDisplayProperty.excerpt};
+  static const all = GlobalSearchScope._core('all', 'All');
+  static const forum = GlobalSearchScope._core('forum', 'Topics & posts');
+  static const users = GlobalSearchScope._core(
+    'users',
+    'Users',
+    showAvatar: true,
+    singletonFilters: true,
+  );
+  static const groups = GlobalSearchScope._core(
+    'groups',
+    'Groups',
+    singletonFilters: true,
+  );
+  static const values = [all, forum, users, groups];
+  final String owner, name, label;
+  final bool showAvatar, singletonFilters;
+  final Set<GlobalSearchDisplayProperty> displayProperties;
+  bool get isCore => owner == 'core';
+  String get keyName => isCore ? name : '$owner/$name';
+  @override
+  bool operator ==(Object other) =>
+      other is GlobalSearchScope && other.owner == owner && other.name == name;
+  @override
+  int get hashCode => Object.hash(owner, name);
 }
 
 enum GlobalSearchPhase { idle, tooShort, loading, results, empty, failed }
@@ -42,10 +75,10 @@ class GlobalSearchContext {
 @immutable
 class GlobalSearchCapabilities {
   const GlobalSearchCapabilities({
+    this.contributions = const [],
+    this.enabledContributions = const {},
     this.authenticated = false,
     this.username,
-    this.chat = false,
-    this.chatEligible = false,
     this.tagging = true,
     this.userDirectory = true,
     this.groupDirectory = true,
@@ -53,10 +86,6 @@ class GlobalSearchCapabilities {
     this.admin = false,
     this.whispers = false,
     this.unlisted = false,
-    this.solved = false,
-    this.assign = false,
-    this.poll = false,
-    this.voting = false,
     this.minimumLength = 3,
     this.logSearchQueries = true,
     this.userOrders = const ['username'],
@@ -65,14 +94,11 @@ class GlobalSearchCapabilities {
   factory GlobalSearchCapabilities.fromSite(
     SiteConfig config,
     DiscourseUser? user, {
-    bool chat = false,
-    Set<String> enabledPlugins = const {},
-    bool canAssign = false,
+    List<GlobalSearchContribution> contributions = const [],
   }) => GlobalSearchCapabilities(
+    contributions: contributions,
     authenticated: user != null,
     username: user?.username,
-    chat: false,
-    chatEligible: chat && user != null,
     tagging: config.taggingEnabled,
     userDirectory: config.userDirectoryEnabled,
     groupDirectory:
@@ -83,16 +109,10 @@ class GlobalSearchCapabilities {
     admin: user?.admin == true,
     whispers: user?.whisperer == true,
     unlisted: user?.staff == true || user?.admin == true,
-    solved: enabledPlugins.contains('solved'),
-    assign: enabledPlugins.contains('assign') && canAssign,
-    poll: enabledPlugins.contains('poll'),
-    voting: enabledPlugins.contains('voting'),
     minimumLength: config.minSearchTermLength,
     logSearchQueries: config.logSearchQueries,
   );
   final bool authenticated,
-      chat,
-      chatEligible,
       tagging,
       userDirectory,
       groupDirectory,
@@ -100,20 +120,29 @@ class GlobalSearchCapabilities {
       admin,
       whispers,
       unlisted,
-      solved,
-      assign,
-      poll,
-      voting,
       logSearchQueries,
       groupMemberOrder;
+  final List<GlobalSearchContribution> contributions;
+  final Set<String> enabledContributions;
+  List<GlobalSearchScope> get scopes => [
+    ...GlobalSearchScope.values,
+    for (final contribution in contributions)
+      if (enabledContributions.contains(contribution.owner))
+        ...contribution.scopes,
+  ];
+  List<GlobalSearchFilter> get contributedFilters => [
+    for (final contribution in contributions) ...contribution.filters,
+  ];
+  bool eligible(GlobalSearchScope scope) =>
+      contributions.any((c) => c.scopes.contains(scope));
   final String? username;
   final int minimumLength;
   final List<String> userOrders;
   String get fingerprint => [
+    ...contributions.map((c) => c.owner),
+    ...(enabledContributions.toList()..sort()),
     authenticated,
     username,
-    chat,
-    chatEligible,
     tagging,
     userDirectory,
     groupDirectory,
@@ -121,29 +150,21 @@ class GlobalSearchCapabilities {
     admin,
     whispers,
     unlisted,
-    solved,
-    assign,
-    poll,
-    voting,
     minimumLength,
     logSearchQueries,
     ...userOrders,
     groupMemberOrder,
   ].join('|');
   GlobalSearchCapabilities copyWith({
-    bool? chat,
-    bool? solved,
-    bool? assign,
-    bool? poll,
-    bool? voting,
+    Set<String>? enabledContributions,
     bool? unlisted,
     List<String>? userOrders,
     bool? groupMemberOrder,
   }) => GlobalSearchCapabilities(
+    contributions: contributions,
+    enabledContributions: enabledContributions ?? this.enabledContributions,
     authenticated: authenticated,
     username: username,
-    chat: chat ?? this.chat,
-    chatEligible: chatEligible,
     tagging: tagging,
     userDirectory: userDirectory,
     groupDirectory: groupDirectory,
@@ -151,10 +172,6 @@ class GlobalSearchCapabilities {
     admin: admin,
     whispers: whispers,
     unlisted: unlisted ?? this.unlisted,
-    solved: solved ?? this.solved,
-    assign: assign ?? this.assign,
-    poll: poll ?? this.poll,
-    voting: voting ?? this.voting,
     minimumLength: minimumLength,
     logSearchQueries: logSearchQueries,
     userOrders: userOrders ?? this.userOrders,
@@ -213,7 +230,12 @@ class GlobalSearchFilter {
     this.placeholder = '',
     this.help = '',
     this.optional,
+    this.lookup = GlobalSearchLookup.none,
+    this.singleIdentifier = false,
+    this.rejectQuotes = false,
   });
+  final GlobalSearchLookup lookup;
+  final bool singleIdentifier, rejectQuotes;
   final String id, label, icon, group, placeholder, help;
   final GlobalSearchScope scope;
   final GlobalSearchFilterKind kind;
@@ -258,10 +280,7 @@ class GlobalSearchResult {
     this.replies,
     this.memberCount,
     this.source,
-    this.channelId,
-    this.messageId,
-    this.threadId,
-    this.channelTitle,
+    this.contextLabel,
     this.searchLogId,
     this.privateMessage = false,
     this.closed = false,
@@ -269,15 +288,8 @@ class GlobalSearchResult {
   });
   final String id, title, path, excerpt;
   final GlobalSearchScope scope;
-  final String? username, avatarUrl, channelTitle;
-  final int? categoryId,
-      likes,
-      replies,
-      memberCount,
-      channelId,
-      messageId,
-      threadId,
-      searchLogId;
+  final String? username, avatarUrl, contextLabel;
+  final int? categoryId, likes, replies, memberCount, searchLogId;
   final List<String> tags;
   final DateTime? createdAt;
   final SearchResult? source;

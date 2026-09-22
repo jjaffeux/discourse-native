@@ -1,9 +1,8 @@
 import 'dart:developer' as developer;
 
+import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/widgets.dart';
-
-import '../../diagnostics/topic_scroll_capture.dart';
 
 /// Reports actual row layouts without subscribing to capture state.
 class ChatScrollLayoutObserver extends SingleChildRenderObjectWidget {

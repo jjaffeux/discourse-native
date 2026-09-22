@@ -3,15 +3,9 @@
 import 'dart:async';
 import 'dart:collection';
 
+import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:flutter/foundation.dart';
 
-import '../../data/discourse_api_contracts.dart'
-    show WriteException, WriteFailure;
-import '../../data/origin_cooldown.dart';
-import '../../diagnostics/diagnostics_controller.dart';
-import '../../models/discourse_user.dart';
-import '../../plugin_api/core_plugin_host.dart';
-import '../../plugin_api/live_channels.dart';
 import 'chat_api.dart';
 import 'chat_message.dart';
 import 'chat_preview.dart';

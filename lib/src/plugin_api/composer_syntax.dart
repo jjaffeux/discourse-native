@@ -8,10 +8,15 @@ import 'plugin_data.dart';
 
 @immutable
 final class ComposerSyntaxKind {
-  const ComposerSyntaxKind({required this.owner, required this.name});
+  const ComposerSyntaxKind({
+    required this.owner,
+    required this.name,
+    this.label = 'Block',
+  });
 
   final PluginId owner;
   final String name;
+  final String label;
 
   String get id => '${owner.value}/$name';
 

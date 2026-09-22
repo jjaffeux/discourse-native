@@ -86,15 +86,15 @@ class GlobalSearchController extends ChangeNotifier {
   String get query => _query;
   GlobalSearchScope get scope => _scope;
   GlobalSearchCapabilities get capabilities => _capabilities;
-  List<GlobalSearchScope> get scopes => List.unmodifiable([
-    for (final value in GlobalSearchScope.values)
-      if (value != GlobalSearchScope.chat || capabilities.chat) value,
-  ]);
+  List<GlobalSearchScope> get scopes => List.unmodifiable(capabilities.scopes);
   List<GlobalSearchCondition> conditionsFor(GlobalSearchScope value) =>
       value == GlobalSearchScope.all ? const [] : _banks[value] ?? const [];
   List<GlobalSearchCondition> get conditions => conditionsFor(scope);
   List<GlobalSearchFilter> get availableFilters => List.unmodifiable([
-    for (final filter in globalSearchFilters)
+    for (final filter in [
+      ...globalSearchFilters,
+      ...capabilities.contributedFilters,
+    ])
       if ((scope == GlobalSearchScope.all || filter.scope == scope) &&
           globalSearchFilterAvailable(filter, capabilities))
         filter,
@@ -208,13 +208,13 @@ class GlobalSearchController extends ChangeNotifier {
         ),
       );
     }
-    for (final value in GlobalSearchScope.values) {
+    for (final value in scopes) {
       final allowed = globalSearchOrders(value, capabilities);
       if (!allowed.any((item) => item.value == _orders[value])) {
         _orders.remove(value);
       }
     }
-    if (scope == GlobalSearchScope.chat && !capabilities.chat) {
+    if (!scopes.contains(scope)) {
       _scope = GlobalSearchScope.all;
     }
   }
@@ -245,7 +245,7 @@ class GlobalSearchController extends ChangeNotifier {
     _pendingContext = null;
     final validation = validateGlobalSearchCondition(condition, capabilities);
     if (validation != null) throw FormatException(validation);
-    final filter = globalSearchFilter(condition.filterId)!;
+    final filter = globalSearchFilter(condition.filterId, capabilities)!;
     final next = conditionsFor(filter.scope).toList();
     final copy = GlobalSearchCondition(
       filterId: condition.filterId,
@@ -254,6 +254,7 @@ class GlobalSearchController extends ChangeNotifier {
     );
     final token = globalSearchConditionToken(
       copy,
+      capabilities: capabilities,
       username: capabilities.username,
     );
     if (index != null && scope == filter.scope && index < next.length) {
@@ -261,7 +262,11 @@ class GlobalSearchController extends ChangeNotifier {
     } else {
       final duplicate = next.indexWhere(
         (item) =>
-            globalSearchConditionToken(item, username: capabilities.username) ==
+            globalSearchConditionToken(
+              item,
+              capabilities: capabilities,
+              username: capabilities.username,
+            ) ==
             token,
       );
       if (duplicate >= 0) {
@@ -272,20 +277,17 @@ class GlobalSearchController extends ChangeNotifier {
     }
     // Normalize after inserting or editing: changing an exclusion into a
     // singleton must remove the old singleton too. Exclusions remain additive.
-    if ([
-      GlobalSearchScope.users,
-      GlobalSearchScope.groups,
-      GlobalSearchScope.chat,
-    ].contains(filter.scope)) {
+    if (filter.scope.singletonFilters) {
       final key = token.split('=').first;
       next.removeWhere((item) {
         if (identical(item, copy)) return false;
-        if (filter.scope == GlobalSearchScope.chat) {
+        if (!filter.scope.isCore) {
           return item.filterId == copy.filterId;
         }
         if (['exclude_groups', 'exclude_usernames'].contains(key)) return false;
         return globalSearchConditionToken(
               item,
+              capabilities: capabilities,
               username: capabilities.username,
             ).split('=').first ==
             key;
@@ -329,8 +331,7 @@ class GlobalSearchController extends ChangeNotifier {
     _context = context;
     _pendingContext = null;
     if (context != null && !scopes.contains(context.scope)) {
-      if (context.scope == GlobalSearchScope.chat &&
-          capabilities.chatEligible) {
+      if (capabilities.eligible(context.scope)) {
         _pendingContext = context;
       }
       context = null;
@@ -349,8 +350,11 @@ class GlobalSearchController extends ChangeNotifier {
           )
           .toList();
       if (context?.scope == bank && condition != null) next.add(condition);
-      String token(GlobalSearchCondition item) =>
-          globalSearchConditionToken(item, username: capabilities.username);
+      String token(GlobalSearchCondition item) => globalSearchConditionToken(
+        item,
+        capabilities: capabilities,
+        username: capabilities.username,
+      );
       if (!listEquals(held.map(token).toList(), next.map(token).toList())) {
         _banks[bank] = List.unmodifiable(next);
         changed = true;
@@ -405,12 +409,14 @@ class GlobalSearchController extends ChangeNotifier {
         for (final condition in expression.conditions) {
           final token = globalSearchConditionToken(
             condition,
+            capabilities: capabilities,
             username: capabilities.username,
           );
           if (!next.any(
             (item) =>
                 globalSearchConditionToken(
                   item,
+                  capabilities: capabilities,
                   username: capabilities.username,
                 ) ==
                 token,
@@ -533,6 +539,7 @@ class GlobalSearchController extends ChangeNotifier {
     final client = await credentials.clientId();
     if (!current()) return const [];
     final values = await api.lookupChoices(
+      capabilities: capabilities,
       siteUrl: site,
       apiKey: key,
       clientId: client,

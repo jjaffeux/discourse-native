@@ -1,6 +1,6 @@
+import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:html/dom.dart' as dom;
 
-import '../../shell/cooked_dom.dart';
 import 'local_date.dart';
 import 'local_dates_contract.dart';
 

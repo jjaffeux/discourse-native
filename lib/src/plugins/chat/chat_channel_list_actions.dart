@@ -1,11 +1,11 @@
 import 'dart:async';
 
+import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/widgets.dart';
 
-import '../../models/chat_channel_list_preferences.dart';
-import '../../theme/d_icons.dart';
 import 'chat_channel_list_controller.dart';
+import 'chat_channel_list_preferences.dart';
 
 class ChatChannelListActions extends StatelessWidget {
   const ChatChannelListActions({

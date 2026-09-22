@@ -1,9 +1,6 @@
+import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:flutter/widgets.dart';
 
-import '../../plugin_api/notification_feed_host.dart';
-import '../../plugin_api/plugin_manifest.dart';
-import '../../plugin_api/plugin_scope.dart';
-import '../../shell/notification_list.dart';
 import 'chat_services.dart';
 
 const chatNotificationFeed = PluginNotificationFeedSource(

@@ -76,7 +76,7 @@ final class DiscourseAccountApi {
       apiKey: apiKey,
       clientId: clientId,
     );
-    return UserPreferences.fromJson(jsonObject(body['user']));
+    return _models.userPreferences(jsonObject(body['user']));
   }
 
   Future<UserPreferences> updateUserPreferences({
@@ -98,7 +98,7 @@ final class DiscourseAccountApi {
       clientId: clientId,
       body: values,
     );
-    return UserPreferences.fromJson(
+    return _models.userPreferences(
       jsonObject(body['user']),
       fallback: fallback,
     );
@@ -666,26 +666,11 @@ final class DiscourseAccountApi {
     clientId: clientId,
   );
 
-  static const Set<String> _userPreferenceFields = {
-    'timezone',
-    'like_notification_frequency',
-    'notify_on_linked_posts',
-    'new_topic_duration_minutes',
-    'auto_track_topics_after_msecs',
-    'notification_level_when_replying',
-    'bookmark_auto_delete_preference',
-    'chat_separate_sidebar_mode',
-    'chat_channel_list_filter',
-    'chat_channel_list_filter_starred',
-    'chat_channel_list_filter_dms',
-    'chat_channel_list_sort',
-    'chat_channel_list_sort_starred',
-    'chat_channel_list_sort_dms',
-  };
-
-  static void _validateUserPreferenceValues(Map<String, Object?> values) {
+  void _validateUserPreferenceValues(Map<String, Object?> values) {
     final unsupported = values.keys.where(
-      (key) => !_userPreferenceFields.contains(key),
+      (key) =>
+          !UserPreferences.coreFields.contains(key) &&
+          !_models.extensions.userPreferenceFields.contains(key),
     );
     if (unsupported.isNotEmpty) {
       throw ArgumentError.value(

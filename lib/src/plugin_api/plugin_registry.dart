@@ -6,16 +6,18 @@ import '../diagnostics/diagnostics_controller.dart';
 import '../models/content_route.dart';
 import '../models/discourse_user.dart';
 import '../models/forum_workspace.dart';
+import '../models/notification.dart';
 import '../models/post.dart';
 import '../models/sidebar.dart';
 import '../models/topic.dart';
 import '../models/user_card.dart';
+import '../models/user_draft.dart';
 import '../models/user_preferences.dart';
 import '../shell/composer_controller.dart';
-import '../shell/global_search_models.dart';
 import '../shell/post_action.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
+import 'global_search.dart';
 import 'plugin_scope.dart';
 import 'site_plugin_api.dart';
 
@@ -103,11 +105,16 @@ final class PluginRegistry
         TopicRecommendationSourceDecoder,
         TopicRecommendationSourceMigrationRegistry,
         PluginNotificationCounterCodec {
-  const PluginRegistry(this.plugins) : _notificationFeedDeclarations = null;
+  const PluginRegistry(this.plugins)
+    : _notificationFeedDeclarations = null,
+      _preferenceDeclarations = null,
+      _searchDeclarations = null;
 
   const PluginRegistry._validated(
     this.plugins,
     this._notificationFeedDeclarations,
+    this._preferenceDeclarations,
+    this._searchDeclarations,
   );
 
   static const PluginRegistry empty = PluginRegistry([]);
@@ -126,6 +133,22 @@ final class PluginRegistry
     final registry = PluginRegistry._validated(
       installed,
       notificationFeedDeclarations,
+      List.unmodifiable([
+        for (final plugin in installed.whereType<UserPreferencesPlugin>())
+          for (final codec in plugin.userPreferenceCodecs)
+            (
+              owner: (plugin as SitePlugin).name,
+              codec: _InstalledPreferenceCodec(codec),
+            ),
+      ]),
+      List.unmodifiable([
+        for (final plugin in installed.whereType<GlobalSearchPlugin>())
+          for (final contribution in plugin.searchContributions)
+            (
+              owner: (plugin as SitePlugin).name,
+              contribution: InstalledGlobalSearchContribution(contribution),
+            ),
+      ]),
     );
     registry._validateRecordOwners();
     registry._validateComposerTargetOwners();
@@ -350,6 +373,7 @@ final class PluginRegistry
           )
         : null,
     semanticDescription: destination.semanticDescription,
+    mobileNavigationLabel: destination.mobileNavigationLabel,
     iconColor: destination.iconColor,
     routeColor: destination.routeColor,
     prefixBadgeIcon: destination.prefixBadgeIcon,
@@ -550,7 +574,130 @@ final class PluginRegistry
     PluginNotificationCounterId id,
   ) => notificationCounters.where((counter) => counter.id == id).firstOrNull;
 
+  List<Widget> topicListDisplayActions(BuildContext context) => [
+    for (final plugin in plugins.whereType<TopicListPresentationPlugin>())
+      for (final action in plugin.topicListDisplayActions(
+        _uiContext(context, plugin),
+      ))
+        _owned(plugin, action),
+  ];
+  List<Listenable> topicListPresentationListenables(BuildContext context) => [
+    for (final plugin in plugins.whereType<TopicListPresentationPlugin>())
+      ?plugin.topicListPresentationListenable(_uiContext(context, plugin)),
+  ];
+
+  bool compactEmojiAncestor(dom.Element element) => plugins
+      .whereType<CompactEmojiPlugin>()
+      .any((plugin) => plugin.compactEmojiAncestor(element));
+
+  PluginDraftPresentation? draftPresentation(UserDraft draft) {
+    final matches = [
+      for (final plugin in plugins.whereType<DraftPresentationPlugin>())
+        ?plugin.draftPresentation(draft),
+    ];
+    if (matches.length > 1) {
+      throw StateError('Multiple plugins claim draft ${draft.key}');
+    }
+    return matches.firstOrNull;
+  }
+
+  List<NotificationTypeName> get likeNotificationTypes => List.unmodifiable({
+    ...userMenuLikeNotificationTypes,
+    for (final type in notificationTypes)
+      if (type.coreMenuSection == CoreNotificationMenuSection.likes)
+        NotificationTypeName(type.wireType.wireName),
+  });
+
+  final List<({String owner, UserPreferenceCodec codec})>?
+  _preferenceDeclarations;
+  final List<({String owner, GlobalSearchContribution contribution})>?
+  _searchDeclarations;
+
+  List<({String owner, UserPreferenceCodec codec})> get _preferences =>
+      _preferenceDeclarations ??
+      [
+        for (final plugin in plugins.whereType<UserPreferencesPlugin>())
+          for (final codec in plugin.userPreferenceCodecs)
+            (owner: (plugin as SitePlugin).name, codec: codec),
+      ];
+  List<({String owner, GlobalSearchContribution contribution})> get _search =>
+      _searchDeclarations ??
+      [
+        for (final plugin in plugins.whereType<GlobalSearchPlugin>())
+          for (final contribution in plugin.searchContributions)
+            (owner: (plugin as SitePlugin).name, contribution: contribution),
+      ];
+  List<GlobalSearchContribution> get searchContributions =>
+      List.unmodifiable([for (final entry in _search) entry.contribution]);
+
+  @override
+  Set<String> get userPreferenceFields => Set.unmodifiable({
+    for (final entry in _preferences) ...entry.codec.fields,
+  });
+
+  @override
+  Map<String, UserPreferenceValues> readUserPreferences(
+    Map<String, dynamic> json,
+    UserPreferences fallback,
+  ) => Map.unmodifiable({
+    for (final entry in _preferences)
+      entry.codec.section.id: entry.codec.decode(
+        json,
+        fallback.pluginValues[entry.codec.section.id],
+      ),
+  });
+
   void _validateRecordOwners() {
+    final searchOwners = <String>{};
+    final searchScopes = <GlobalSearchScope>{...GlobalSearchScope.values};
+    final searchFilters = <String>{for (final f in globalSearchFilters) f.id};
+    for (final entry in _search) {
+      final contribution = entry.contribution;
+      final owner = entry.owner;
+      if (contribution.owner != owner ||
+          !searchOwners.add(contribution.owner)) {
+        throw ArgumentError('Invalid search contributor ${contribution.owner}');
+      }
+      for (final scope in contribution.scopes) {
+        if (scope.owner != owner ||
+            scope.isCore ||
+            scope.name.trim().isEmpty ||
+            scope.label.trim().isEmpty ||
+            !searchScopes.add(scope)) {
+          throw ArgumentError('Invalid search scope ${scope.name}');
+        }
+      }
+      for (final filter in contribution.filters) {
+        if (filter.id.trim().isEmpty ||
+            (filter.scope.isCore &&
+                !GlobalSearchScope.values.contains(filter.scope)) ||
+            (!filter.scope.isCore &&
+                !contribution.scopes.contains(filter.scope)) ||
+            !searchFilters.add(filter.id)) {
+          throw ArgumentError('Invalid search filter ${filter.id}');
+        }
+      }
+    }
+    final preferenceSections = <PreferenceSection>{};
+    final preferenceFields = <String>{...UserPreferences.coreFields};
+    for (final entry in _preferences) {
+      final codec = entry.codec;
+      final owner = entry.owner;
+      if (codec.section.owner != owner ||
+          codec.section.owner == 'core' ||
+          codec.section.name.trim().isEmpty ||
+          !preferenceSections.add(codec.section)) {
+        throw ArgumentError(
+          'Invalid or duplicate preference section ${codec.section.id} for $owner',
+        );
+      }
+      for (final field in codec.fields) {
+        if (field.trim().isEmpty || !preferenceFields.add(field)) {
+          throw ArgumentError('Invalid or duplicate preference field $field');
+        }
+      }
+    }
+
     final owners = <PluginDataKey<Object>, String>{};
     for (final plugin in plugins) {
       if (plugin is PluginRecord<Object>) {
@@ -1636,14 +1783,48 @@ final class PluginRegistry
     for (final plugin in plugins.whereType<UserPreferenceSectionPlugin>()) {
       final section = plugin.userPreferenceSection(
         _uiContext(context, plugin),
-        preferences,
+        PluginUserPreferenceContext(
+          siteUrl: preferences.siteUrl,
+          preferences: preferences.preferences,
+          siteSettings: preferences.siteSettings,
+          currentUserData: preferences.currentUserData,
+          currentUserIsAdmin: preferences.currentUserIsAdmin,
+          editable: preferences.editable,
+          onEdit: (section, change) {
+            if (section.owner != _ownerOf(plugin) || section.owner == 'core') {
+              throw StateError(
+                'Cannot edit foreign preference section ${section.id}',
+              );
+            }
+            final codec = _preferences
+                .where((entry) => entry.codec.section == section)
+                .firstOrNull
+                ?.codec;
+            if (codec == null) {
+              throw StateError('Unregistered preference section ${section.id}');
+            }
+            preferences.onEdit(section, (current) {
+              final next = change(current);
+              final value = next.pluginValues[section.id];
+              if (value != null) _validatePreferenceValue(codec, value);
+              return current.withSectionFrom(section, next);
+            });
+          },
+        ),
       );
       if (section == null) continue;
       final owner = _ownerOf(plugin);
-      if (section.section != PreferenceSection.chat) {
+      if (section.section.owner != owner || section.section.owner == 'core') {
         throw StateError(
           '$owner cannot replace core preference section '
           '${section.section.name}.',
+        );
+      }
+      if (!_preferences.any(
+        (entry) => entry.codec.section == section.section,
+      )) {
+        throw StateError(
+          'Unregistered preference section ${section.section.id}',
         );
       }
       if (section.title.trim().isEmpty) {
@@ -1912,4 +2093,40 @@ bool _isRelativeForumPath(String value) {
   }
   final uri = Uri.tryParse(value);
   return uri != null && !uri.hasScheme && !uri.hasAuthority;
+}
+
+void _validatePreferenceValue(
+  UserPreferenceCodec codec,
+  UserPreferenceValues value,
+) {
+  if (value.payload.keys.any((key) => !codec.fields.contains(key))) {
+    throw StateError(
+      'Preference section ${codec.section.id} returned undeclared fields',
+    );
+  }
+}
+
+final class _InstalledPreferenceCodec implements UserPreferenceCodec {
+  _InstalledPreferenceCodec(UserPreferenceCodec source)
+    : section = source.section,
+      fields = Set.unmodifiable(source.fields),
+      _decode = source.decode;
+  @override
+  final PreferenceSection section;
+  @override
+  final Set<String> fields;
+  final UserPreferenceValues Function(
+    Map<String, dynamic>,
+    UserPreferenceValues?,
+  )
+  _decode;
+  @override
+  UserPreferenceValues decode(
+    Map<String, dynamic> json,
+    UserPreferenceValues? fallback,
+  ) {
+    final value = _decode(json, fallback);
+    _validatePreferenceValue(this, value);
+    return value;
+  }
 }

@@ -1,8 +1,8 @@
+import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:flutter/material.dart';
 import 'package:kalender/kalender.dart' as kalender;
 import 'package:timezone/timezone.dart' as tz;
 
-import '../../plugin_api/timezone_host.dart';
 import 'event_data.dart';
 import 'event_time.dart';
 

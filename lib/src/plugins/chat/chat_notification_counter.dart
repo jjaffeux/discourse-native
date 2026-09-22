@@ -1,5 +1,4 @@
-import '../../models/notification_totals.dart';
-import '../../plugin_api/notification_counters.dart';
+import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'chat_services.dart';
 
 const chatNotificationCounter = PluginNotificationCounter(

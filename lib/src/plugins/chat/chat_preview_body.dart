@@ -1,16 +1,9 @@
 import 'dart:math' as math;
 
+import 'package:discourse_native/discourse_plugin_sdk.dart';
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
-import '../../../discourse_ui.dart';
-
-import '../../foundation/diagnostic_errors.dart';
-import '../../shell/code_block.dart';
-import '../../shell/image_decode.dart';
-import '../../shell/inline_code.dart';
-import '../../shell/site_image.dart';
-import '../../shell/syntax.dart';
-import '../../theme/app_theme.dart';
 import 'chat_preview.dart';
 
 /// Renders only provisional typed nodes; canonical server HTML always wins.

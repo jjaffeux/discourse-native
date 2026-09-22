@@ -1,18 +1,10 @@
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
-import '../../foundation/diagnostic_errors.dart';
-import '../../shell/image_decode.dart';
-import '../../shell/inline_video.dart';
-import '../../shell/lightbox.dart';
-import '../../shell/open_link.dart';
-import '../../shell/site_image.dart';
-import '../../shell/site_url.dart';
-import '../../theme/app_theme.dart';
-import '../../theme/d_icons.dart';
 import 'chat_message.dart';
 
 /// Chat attachments exist only in the `uploads` array, not cooked HTML.

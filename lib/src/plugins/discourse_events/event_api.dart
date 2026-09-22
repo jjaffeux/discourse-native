@@ -1,7 +1,4 @@
-import '../../data/discourse_api_contracts.dart'
-    show WriteException, WriteFailure;
-import '../../data/plugin_transport.dart';
-import '../../plugin_api/core_plugin_host.dart' show PluginRequestCredentials;
+import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'event_data.dart';
 
 final class EventApi {

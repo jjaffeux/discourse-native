@@ -1,9 +1,7 @@
 import 'dart:collection';
 
-import 'package:discourse_plugin_api/discourse_plugin_api.dart';
+import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:flutter/widgets.dart';
-
-import '../../models/site_config.dart';
 
 /// Lets independent features conservatively claim provisional source without
 /// adding their document vocabulary to core Chat.

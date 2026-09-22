@@ -1,8 +1,7 @@
+import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/widgets.dart';
 
-import '../../plugin_api/plugin_scope.dart';
-import '../../plugin_api/site_plugin_api.dart';
 import 'ai_proofreading_controller.dart';
 import 'ai_proofreading_data.dart';
 import 'discourse_ai_services.dart';

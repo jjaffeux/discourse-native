@@ -5,12 +5,18 @@ import '../data/plugin_transport.dart';
 import '../models/json.dart';
 import '../models/search_results.dart';
 import '../models/topic.dart';
-import 'global_search_filters.dart';
-import 'global_search_models.dart';
+import '../plugin_api/global_search.dart';
 
 /// Requests retain the transport's same-origin, credential and payload bounds.
 class GlobalSearchApi {
   const GlobalSearchApi({required this.transport});
+
+  GlobalSearchReadContext _context(String site, String? key, String? client) =>
+      GlobalSearchReadContext(
+        siteUrl: site,
+        authenticated: key != null,
+        get: (path) => _get(site, path, key, client),
+      );
   final PluginApiTransport transport;
 
   /// Keep recoverable failures actionable without displaying raw URLs or
@@ -83,19 +89,10 @@ class GlobalSearchApi {
     final settings = data[0], user = jsonObject(data[1]?['current_user']);
     if (settings != null) {
       next = base.copyWith(
-        chat:
-            (base.chatEligible || base.chat) &&
-            settings['chat_enabled'] == true &&
-            settings['chat_search_enabled'] == true &&
-            apiKey != null &&
-            user['has_chat_enabled'] == true &&
-            user['can_chat'] == true,
-        solved: settings['solved_enabled'] == true,
-        assign:
-            settings['assign_enabled'] == true &&
-            user['can_assign_globally'] == true,
-        poll: settings['poll_enabled'] == true,
-        voting: settings['topic_voting_enabled'] == true,
+        enabledContributions: {
+          for (final p in base.contributions)
+            if (p.available(settings, user, apiKey != null)) p.owner,
+        },
         unlisted: base.unlisted || jsonInt(user['trust_level']) >= 4,
       );
     }
@@ -122,11 +119,14 @@ class GlobalSearchApi {
     required GlobalSearchRequest request,
   }) async {
     final r = request, c = r.capabilities;
+    if (!c.scopes.contains(r.scope)) {
+      throw const FormatException('Search is unavailable.');
+    }
     if (r.query.length > 2048 || r.conditions.length > 30) {
       throw const FormatException('Search is too long.');
     }
     for (final condition in r.conditions) {
-      if (globalSearchFilter(condition.filterId)?.scope != r.scope) {
+      if (globalSearchFilter(condition.filterId, c)?.scope != r.scope) {
         throw const FormatException(
           'Use a filter from the selected search type.',
         );
@@ -173,39 +173,53 @@ class GlobalSearchApi {
             );
           }
         })(),
-        if (c.chat && r.query.trim().isNotEmpty)
-          (() async {
-            try {
-              final page = await _chat(
-                siteUrl,
-                apiKey,
-                clientId,
-                GlobalSearchRequest(
-                  scope: GlobalSearchScope.chat,
-                  query: r.query,
-                  capabilities: c,
-                ),
-              );
-              sections.addAll(page.sections);
-            } catch (error) {
-              sections.add(
-                GlobalSearchSection(
-                  scope: GlobalSearchScope.chat,
-                  error: failureMessage(
-                    error,
-                    fallback: 'Chat search could not load.',
-                  ),
-                ),
-              );
-            }
-          })(),
+        for (final contribution in c.contributions)
+          if (c.enabledContributions.contains(contribution.owner) &&
+              r.query.trim().isNotEmpty)
+            for (final scope in contribution.scopes)
+              (() async {
+                try {
+                  final page = await contribution.search(
+                    _context(siteUrl, apiKey, clientId),
+                    GlobalSearchRequest(
+                      scope: scope,
+                      query: r.query,
+                      capabilities: c,
+                    ),
+                  );
+                  sections.addAll(page.sections);
+                } catch (error) {
+                  sections.add(
+                    GlobalSearchSection(
+                      scope: scope,
+                      error: failureMessage(
+                        error,
+                        fallback: '${scope.label} search could not load.',
+                      ),
+                    ),
+                  );
+                }
+              })(),
       ];
       await Future.wait(tasks);
-      sections.sort((a, b) => a.scope.index.compareTo(b.scope.index));
+      sections.sort(
+        (a, b) =>
+            c.scopes.indexOf(a.scope).compareTo(c.scopes.indexOf(b.scope)),
+      );
       return GlobalSearchPage(sections: List.unmodifiable(sections));
     }
-    if (r.scope == GlobalSearchScope.chat) {
-      return _chat(siteUrl, apiKey, clientId, r);
+    if (!r.scope.isCore) {
+      final provider = c.contributions
+          .where(
+            (p) =>
+                c.enabledContributions.contains(p.owner) &&
+                p.scopes.contains(r.scope),
+          )
+          .firstOrNull;
+      if (provider == null) {
+        throw const FormatException('Search is unavailable.');
+      }
+      return provider.search(_context(siteUrl, apiKey, clientId), r);
     }
     if (r.scope == GlobalSearchScope.forum) {
       final body = await _get(
@@ -246,7 +260,11 @@ class GlobalSearchApi {
       if (!users || r.ascending) 'asc': '${r.ascending}',
     };
     for (final f in r.conditions) {
-      final token = globalSearchConditionToken(f, username: c.username),
+      final token = globalSearchConditionToken(
+            f,
+            username: c.username,
+            capabilities: c,
+          ),
           i = token.indexOf('=');
       if (i < 0) continue;
       final key = token.substring(0, i);
@@ -325,111 +343,6 @@ class GlobalSearchApi {
       groupMemberOrder: users
           ? null
           : records.isNotEmpty && records.every((r) => r['user_count'] != null),
-    );
-  }
-
-  Future<GlobalSearchPage> _chat(
-    String site,
-    String? key,
-    String? client,
-    GlobalSearchRequest r,
-  ) async {
-    if (!r.capabilities.chat || key == null) {
-      throw const FormatException('Chat search is unavailable.');
-    }
-    final channelId = r.conditions
-        .where((f) => f.filterId == 'chatChannel')
-        .map((f) => int.tryParse(f.text))
-        .whereType<int>()
-        .where((id) => id > 0)
-        .firstOrNull;
-    final terms = [
-      r.query,
-      for (final f in r.conditions)
-        if (f.filterId != 'chatThreads' &&
-            !(f.filterId == 'chatChannel' && channelId != null))
-          globalSearchConditionToken(f, username: r.capabilities.username),
-    ].where((x) => x.trim().isNotEmpty).join(' ');
-    if (terms.isEmpty) {
-      return const GlobalSearchPage(
-        sections: [GlobalSearchSection(scope: GlobalSearchScope.chat)],
-      );
-    }
-    final params = {
-      'query': terms,
-      'sort': r.order,
-      'offset': '${r.offset}',
-      'limit': '20',
-      if (channelId != null) 'channel_id': '$channelId',
-    };
-    for (final f in r.conditions) {
-      if (f.filterId == 'chatThreads') {
-        params['exclude_threads'] = '${f.text == 'exclude'}';
-      }
-    }
-    final body = await _get(
-      site,
-      _path('/chat/api/search.json', params),
-      key,
-      client,
-    );
-    final records = jsonObjects(body['messages']).take(40).toList(),
-        results = <GlobalSearchResult>[];
-    for (final row in records) {
-      final channel = jsonObject(row['channel']),
-          user = jsonObject(row['user']);
-      final id = jsonIntOrNull(row['id']),
-          channelId = jsonIntOrNull(channel['id']);
-      if (id == null ||
-          id <= 0 ||
-          channelId == null ||
-          channelId <= 0 ||
-          jsonInt(row['chat_channel_id']) != channelId) {
-        continue;
-      }
-      final username =
-              jsonText(user['username']) ?? jsonText(row['username']) ?? '',
-          threadId = switch (jsonIntOrNull(row['thread_id'])) {
-            final id? when id > 0 => id,
-            _ => null,
-          };
-      final threadSegment = threadId == null ? '' : '/t/$threadId';
-      results.add(
-        GlobalSearchResult(
-          id: 'chat:$id',
-          scope: GlobalSearchScope.chat,
-          title: jsonText(user['name']) ?? username,
-          path:
-              '/chat/c/${Uri.encodeComponent(jsonText(channel['slug']) ?? '-')}/$channelId$threadSegment/$id',
-          excerpt: SearchExcerpt.fromHtml(
-            jsonText(row['excerpt']) ??
-                jsonText(row['cooked']) ??
-                jsonString(row['message']),
-          ).plainText,
-          username: username,
-          avatarUrl: resolveAvatarUrl(jsonText(user['avatar_template']), site),
-          createdAt: jsonDate(row['created_at']),
-          channelId: channelId,
-          messageId: id,
-          threadId: threadId,
-          channelTitle:
-              jsonText(channel['title']) ??
-              jsonText(channel['name']) ??
-              jsonText(channel['slug']),
-        ),
-      );
-    }
-    final more = jsonObject(body['meta'])['has_more'] == true;
-    return GlobalSearchPage(
-      sections: [
-        GlobalSearchSection(
-          scope: GlobalSearchScope.chat,
-          results: List.unmodifiable(results),
-          hasMore: more,
-        ),
-      ],
-      hasMore: more,
-      consumedCount: records.length,
     );
   }
 
@@ -562,10 +475,26 @@ class GlobalSearchApi {
     String? clientId,
     required GlobalSearchFilter filter,
     required String term,
+    GlobalSearchCapabilities capabilities = const GlobalSearchCapabilities(),
   }) async {
     if (filter.choices.isNotEmpty) return filter.choices;
     if (filter.id == 'tags') term = term.trim();
     if (term.length > 255) return const [];
+    if (filter.lookup == GlobalSearchLookup.contributed) {
+      final provider = capabilities.contributions
+          .where(
+            (p) =>
+                capabilities.enabledContributions.contains(p.owner) &&
+                p.filters.any((f) => f.id == filter.id),
+          )
+          .firstOrNull;
+      return provider?.lookup(
+            _context(siteUrl, apiKey, clientId),
+            filter,
+            term,
+          ) ??
+          const [];
+    }
     String path, key;
     if (filter.id == 'category') {
       return (await lookupCategoryChoices(
@@ -579,29 +508,14 @@ class GlobalSearchApi {
       // larger limits. Let it choose the page size, including for an empty query.
       path = _path('/tags/filter/search.json', {'q': term.trim()});
       key = 'results';
-    } else if ([
-      'authorGroup',
-      'groupInbox',
-      'userGroup',
-      'assignee',
-    ].contains(filter.id)) {
+    } else if (filter.lookup == GlobalSearchLookup.groups) {
       path = _path('/groups.json', {
         'filter': term,
         'order': 'name',
         'asc': 'true',
       });
       key = 'groups';
-    } else if (filter.id == 'chatChannel') {
-      path = _path('/chat/api/channels.json', {'filter': term, 'limit': '20'});
-      key = 'channels';
-    } else if ([
-      'author',
-      'topicAuthor',
-      'chatAuthor',
-      'userName',
-      'groupMember',
-      'adminUserMessages',
-    ].contains(filter.id)) {
+    } else if (filter.lookup == GlobalSearchLookup.users) {
       path = _path('/u/search/users.json', {'term': term, 'limit': '20'});
       key = 'users';
     } else {

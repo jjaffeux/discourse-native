@@ -4,6 +4,7 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/theme/discourse_typography.dart';
 import 'package:flutter/material.dart';
 
+import '../plugin_api/global_search.dart' show GlobalSearchLookup;
 import '../theme/d_icons.dart';
 import 'avatar_image.dart';
 import 'category_icon.dart';
@@ -14,8 +15,8 @@ import 'global_search_models.dart';
 import 'shell_scope.dart';
 import 'site_emoji_text.dart';
 
-part 'global_search_filter_picker.dart';
 part 'global_search_category_editor.dart';
+part 'global_search_filter_picker.dart';
 
 final RegExp _whitespace = RegExp(r'\s+');
 
@@ -108,7 +109,7 @@ class _GlobalSearchPanelState extends State<GlobalSearchPanel> {
                                 for (final scope in controller.scopes)
                                   DToggle(
                                     key: ValueKey(
-                                      'global-search-scope-${scope.name}',
+                                      'global-search-scope-${scope.keyName}',
                                     ),
                                     pressed: controller.scope == scope,
                                     onPressedChanged: (_) =>
@@ -437,8 +438,7 @@ class _GlobalSearchPanelState extends State<GlobalSearchPanel> {
       if (properties.contains(GlobalSearchDisplayProperty.author) &&
           result.username?.isNotEmpty == true)
         Text('@${result.username}'),
-      if (result.channelTitle?.isNotEmpty == true)
-        Text('# ${result.channelTitle}'),
+      if (result.contextLabel?.isNotEmpty == true) Text(result.contextLabel!),
       if (properties.contains(GlobalSearchDisplayProperty.category) &&
           category != null)
         Row(
@@ -486,9 +486,7 @@ class _GlobalSearchPanelState extends State<GlobalSearchPanel> {
           showSelectionIndicator: false,
           children: [
             DItemMedia(
-              child:
-                  result.scope == GlobalSearchScope.users ||
-                      result.scope == GlobalSearchScope.chat
+              child: result.scope.showAvatar
                   ? DAvatar(
                       size: DAvatarSize.standard,
                       decorative: true,
@@ -655,9 +653,7 @@ class _GlobalSearchDisplay extends StatelessWidget {
                   (property) =>
                       controller.scope == GlobalSearchScope.all ||
                       controller.scope == GlobalSearchScope.forum ||
-                      property == GlobalSearchDisplayProperty.excerpt ||
-                      (controller.scope == GlobalSearchScope.chat &&
-                          property == GlobalSearchDisplayProperty.likes),
+                      controller.scope.displayProperties.contains(property),
                 ))
                   DCheckbox(
                     key: ValueKey('global-search-property-${property.name}'),

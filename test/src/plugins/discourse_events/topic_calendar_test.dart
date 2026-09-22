@@ -1,7 +1,6 @@
 import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_plugin_test.dart';
 import 'package:discourse_native/discourse_ui.dart';
-import 'package:discourse_native/src/plugin_api/discourse_model_codec.dart';
 import 'package:discourse_native/src/plugins/discourse_events/discourse_events_module.dart';
 import 'package:discourse_native/src/plugins/discourse_events/topic_calendar.dart';
 import 'package:discourse_native/src/plugins/discourse_events/topic_calendar_data.dart';

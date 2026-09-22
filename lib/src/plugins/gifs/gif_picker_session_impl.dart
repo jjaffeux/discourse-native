@@ -1,6 +1,6 @@
+import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:flutter/widgets.dart';
 
-import '../../plugin_api/core_plugin_host.dart';
 import 'gif.dart';
 import 'gif_picker.dart';
 import 'gif_picker_session.dart';

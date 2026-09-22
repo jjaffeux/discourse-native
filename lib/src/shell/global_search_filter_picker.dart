@@ -40,7 +40,10 @@ class _GlobalSearchFilterPickerState extends State<_GlobalSearchFilterPicker> {
     final condition = _condition;
     final definition = condition == null
         ? null
-        : globalSearchFilter(condition.filterId);
+        : globalSearchFilter(
+            condition.filterId,
+            widget.controller.capabilities,
+          );
     final editor = _editing ?? definition;
     return DPopover(
       controller: _popover,
@@ -216,7 +219,9 @@ class _GlobalSearchFilterPickerState extends State<_GlobalSearchFilterPicker> {
     }
     return DCommand<String>(
       semanticLabel: 'Search filters',
-      onSelected: (id) => setState(() => _editing = globalSearchFilter(id)),
+      onSelected: (id) => setState(
+        () => _editing = globalSearchFilter(id, widget.controller.capabilities),
+      ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -296,19 +301,7 @@ class _GlobalSearchConditionEditorState
       _multiple ||
       _choicesOnly ||
       widget.filter.choices.isNotEmpty ||
-      const [
-        'author',
-        'topicAuthor',
-        'authorGroup',
-        'groupInbox',
-        'chatAuthor',
-        'chatChannel',
-        'adminUserMessages',
-        'assignee',
-        'groupMember',
-        'userName',
-        'userGroup',
-      ].contains(widget.filter.id);
+      widget.filter.lookup != GlobalSearchLookup.none;
 
   @override
   void initState() {

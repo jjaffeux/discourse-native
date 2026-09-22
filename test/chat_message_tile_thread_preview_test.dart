@@ -18,6 +18,7 @@ import 'package:discourse_native/src/plugins/chat/chat_message_tile.dart';
 import 'package:discourse_native/src/plugins/chat/chat_preview.dart';
 import 'package:discourse_native/src/plugins/chat/chat_services.dart';
 import 'package:discourse_native/src/plugins/chat/chat_user_avatar.dart';
+import 'package:discourse_native/src/plugins/discourse_ai/discourse_ai_icons.dart';
 import 'package:discourse_native/src/shell/cooked_html.dart';
 import 'package:discourse_native/src/shell/emoji.dart';
 import 'package:discourse_native/src/shell/emoji_picker.dart';
@@ -136,7 +137,7 @@ void main() {
                   ),
                 )
                 .icon,
-            DIcons.discourseAi,
+            DiscourseAiIcons.ai,
           );
           expect(
             find.bySemanticsLabel(

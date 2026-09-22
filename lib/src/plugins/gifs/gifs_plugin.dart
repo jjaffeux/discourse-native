@@ -1,10 +1,9 @@
 import 'dart:async';
 
+import 'package:discourse_native/discourse_plugin_sdk.dart';
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
-import '../../plugin_api/plugin_scope.dart';
-import '../../plugin_api/site_plugin_api.dart';
-import '../../ui/components/d_toast.dart';
 import 'gifs_icons.dart';
 import 'gifs_services.dart';
 import 'gifs_settings.dart';

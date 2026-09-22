@@ -1,8 +1,5 @@
+import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:flutter/foundation.dart';
-
-import '../../models/json.dart';
-import '../../models/site_config.dart';
-import '../../plugin_api/plugin_data.dart';
 
 const gifsSettingsDataKey = PluginDataKey<GifsSettings>(
   owner: 'gifs',

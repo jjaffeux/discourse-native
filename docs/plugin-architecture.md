@@ -107,15 +107,56 @@ UI code cannot walk the session graph.
 ## Dependency rule
 
 Shared host layers never import or export a feature implementation under
-`lib/src/plugins`. Dependencies point in one direction: plugins may use core
-and the stable `lib/src/plugin_api` surface, while core discovers optional
+`lib/src/plugins`. Dependencies point in one direction: plugins import the public
+`package:discourse_native/discourse_plugin_sdk.dart` API and
+`package:discourse_native/discourse_ui.dart` component library, while core discovers optional
 behavior through registries, session capabilities, services, and host ports.
 The root bundled manifest is the deliberate composition boundary and includes
 the complete feature set, including Voice. Every bundled feature owns a
 production module and its service keys under
 `lib/src/plugins/<feature>/`; the bundled manifest imports only those module
 entrypoints. `plugin_dependency_boundary_test.dart` and
-`build_profile_packaging_test.dart` enforce these rules.
+`build_profile_packaging_test.dart` enforce these rules. Bundled plugins may
+not import private core files, and the SDK may not re-export plugin contracts.
+A cross-plugin consumer imports its dependency's public contract explicitly.
+
+The boundary covers behavior and wire schemas as well as imports. Core must
+not recognize optional feature fields, routes, settings, mobile destinations,
+draft-key prefixes, or search scopes. Shared utilities and presentation
+adapters remain in core when they contain no feature schema or dispatch. For
+example, `foundation/calendar_day.dart` groups ordinary topic posts using
+`post.createdAt`; the Events plugin owns event dates and its calendar UI.
+Shared reaction presentation consumes small user/page interfaces and callbacks;
+Chat and Reactions retain all endpoints, wire parsing, permissions, and state.
+
+## Open feature extensions
+
+- `UserPreferencesPlugin` registers namespaced `PreferenceSection` codecs and
+  their exact write fields. Core stores opaque `UserPreferenceValues` and
+  validates account writes against installed codecs. Registration rejects
+  foreign owners, core-field overrides, and duplicate sections or fields.
+  The registry snapshots each schema and restricts editor callbacks to their
+  registered section. Chat owns its sidebar mode and channel-list preferences.
+- `GlobalSearchPlugin` contributes scopes, filters, orders, availability checks,
+  and search/lookup implementations. Providers receive a bounded authenticated
+  read callback. An absent or unavailable provider cannot issue requests or
+  expose controls. Chat owns message search; Assign, Poll, Solved, and Topic
+  Voting own their forum-search extensions, including the latter two's modules.
+- Mobile navigation renders registered sidebar panels and destinations that
+  provide a `mobileNavigationLabel`. Identity and animation order derive from
+  those contributions; core contains no Chat or Events tab cases.
+- `TopicListPresentationPlugin` adds display actions and a presentation
+  listenable. Assign owns its visibility store, including the legacy storage
+  key, so an app without Assign never reads or writes that preference.
+- `DraftPresentationPlugin`, composer syntax labels, `CompactEmojiPlugin`, and
+  notification `coreMenuSection` declarations keep Voice draft recognition,
+  plugin block labels, Poll markup handling, and Reactions feed membership in
+  their respective owners. Cooking profiles and plugin icon aliases follow
+  the same registration rule.
+
+`plugin_extension_boundary_test.dart` exercises synthetic providers to prove
+these APIs work without any bundled feature identities. The dependency test
+also rejects private core imports and known optional schemas in core.
 
 ## Data and APIs
 

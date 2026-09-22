@@ -54,17 +54,21 @@ final class ResolvedNotification {
 typedef NotificationTypeDecoder =
     ResolvedNotification? Function(DiscourseNotification notification);
 
+enum CoreNotificationMenuSection { likes }
+
 @immutable
 final class PluginNotificationType {
   const PluginNotificationType({
     required this.id,
     required this.wireType,
     required this.decode,
+    this.coreMenuSection,
   });
 
   final PluginNotificationTypeId id;
   final NotificationWireType wireType;
   final NotificationTypeDecoder decode;
+  final CoreNotificationMenuSection? coreMenuSection;
 }
 
 const coreNotificationTypes = <PluginNotificationType>[

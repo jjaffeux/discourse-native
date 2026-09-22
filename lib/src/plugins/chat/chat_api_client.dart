@@ -1,7 +1,4 @@
-import '../../data/discourse_api_contracts.dart'
-    show WriteException, WriteFailure;
-import '../../data/plugin_transport.dart';
-import '../../models/json.dart';
+import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'chat_api.dart';
 import 'chat_channel.dart';
 import 'chat_direct_message_search.dart';

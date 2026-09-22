@@ -1,36 +1,22 @@
 import 'dart:async';
 
-import 'package:discourse_cooking/discourse_cooking.dart';
-
+import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:html/dom.dart' as dom;
 
-import '../../app_shortcuts.dart';
-import '../../models/chat_channel_list_preferences.dart';
-import '../../models/composer_upload.dart';
-import '../../models/content_route.dart';
-import '../../models/forum_workspace.dart';
-import '../../models/sidebar.dart';
-import '../../models/user_card.dart';
-import '../../plugin_api/cooking_plugin.dart';
-import '../../plugin_api/plugin_scope.dart';
-import '../../plugin_api/site_plugin_api.dart';
-import '../../shell/composer_controller.dart';
-import '../../shell/global_search_models.dart';
-import '../../shell/user_status.dart';
-import '../../theme/app_theme.dart';
-import '../../theme/d_icons.dart';
 import 'chat_browse_channels_view.dart';
 import 'chat_channel.dart';
 import 'chat_channel_actions.dart';
 import 'chat_channel_info_view.dart';
 import 'chat_channel_list_actions.dart';
+import 'chat_channel_list_preferences.dart';
 import 'chat_channel_star_button.dart';
 import 'chat_channel_threads_view.dart';
 import 'chat_channel_view.dart';
 import 'chat_drawer.dart';
 import 'chat_emoji_usage.dart';
+import 'chat_global_search.dart';
 import 'chat_header_button.dart';
 import 'chat_mobile_sidebar.dart';
 import 'chat_my_threads_view.dart';
@@ -49,10 +35,14 @@ import 'chat_transcript.dart';
 import 'chat_user_avatar.dart';
 import 'chat_user_card.dart';
 import 'chat_user_menu.dart';
+import 'chat_user_preferences.dart';
 
 const chatIconCatalog = PluginIconCatalog(
   owner: PluginId('chat'),
-  entries: {'d-chat': DIcons.comment},
+  entries: {
+    'd-chat': DIcons.comment,
+    'notification.chat_quoted': DIcons.quoteRight,
+  },
 );
 
 /// Notification totals gate channel fetches; fetched channels gate rendering.
@@ -60,6 +50,7 @@ const chatIconCatalog = PluginIconCatalog(
 class ChatPlugin
     implements
         SitePlugin,
+        GlobalSearchPlugin,
         CookingPlugin,
         IconCatalogPlugin,
         SidebarPlugin,
@@ -86,8 +77,19 @@ class ChatPlugin
         SiteSettingsPlugin<ChatSettings>,
         CurrentUserPlugin<ChatCurrentUser>,
         UserPreferenceSectionPlugin,
+        UserPreferencesPlugin,
         PluginCurrentUserFeature {
   const ChatPlugin();
+
+  @override
+  List<GlobalSearchContribution> get searchContributions => const [
+    ChatGlobalSearch(),
+  ];
+
+  @override
+  List<UserPreferenceCodec> get userPreferenceCodecs => const [
+    ChatUserPreferenceCodec(),
+  ];
 
   static const ComposerTargetKind messageComposerTarget = ComposerTargetKind(
     owner: PluginId('chat'),
@@ -129,7 +131,7 @@ class ChatPlugin
           channelIdFromThreadsRoute(routeId) != null);
 
   @override
-  List<CookingProfile> get cookingProfiles => const [];
+  List<CookingProfile> get cookingProfiles => const [CookingProfile.chat];
   @override
   List<CookingModule> get cookingModules => [
     CookingModule(
@@ -649,7 +651,7 @@ class ChatPlugin
         ? null
         : ChatRoute.parse(route.id)?.channelId;
     return GlobalSearchContext(
-      scope: GlobalSearchScope.chat,
+      scope: chatSearchScope,
       condition: channelId == null
           ? null
           : GlobalSearchCondition(

@@ -7,8 +7,7 @@ import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart' as rtc;
 
-import '../../foundation/frame_safe_notifier.dart';
-import '../../models/live_refresh_id.dart';
+import '../chat/chat_contract.dart';
 import 'voice_agents.dart';
 import 'voice_api.dart';
 import 'voice_callkit.dart';

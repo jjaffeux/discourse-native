@@ -1,9 +1,5 @@
+import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:flutter/foundation.dart';
-
-import '../../models/discourse_user.dart';
-import '../../models/json.dart';
-import '../../models/site_config.dart';
-import '../../plugin_api/site_plugin_api.dart';
 
 const assignSettingsDataKey = PluginDataKey<AssignSettings>(
   owner: 'discourse-assign',

@@ -25,6 +25,7 @@ import 'package:discourse_native/src/plugins/chat/chat_channel_view.dart';
 import 'package:discourse_native/src/plugins/chat/chat_composer.dart';
 import 'package:discourse_native/src/plugins/chat/chat_drawer.dart';
 import 'package:discourse_native/src/plugins/chat/chat_drawer_preferences_store.dart';
+import 'package:discourse_native/src/plugins/chat/chat_global_search.dart';
 import 'package:discourse_native/src/plugins/chat/chat_header_button.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message_tile.dart';
@@ -270,7 +271,7 @@ void _registerChatShellTests() {
     setUp(() => startOnChatSidebar = false);
 
     Future<void> selectChatSidebar(WidgetTester tester) async {
-      final mobileTab = find.byKey(const ValueKey('mobile-mode-chat'));
+      final mobileTab = find.byKey(const ValueKey('mobile-mode-panel/chat'));
       final tab = mobileTab.evaluate().isNotEmpty
           ? mobileTab
           : find.byKey(const ValueKey('sidebar-panel-switch-chat'));
@@ -547,7 +548,7 @@ void _registerChatShellTests() {
                 await open();
                 expect(
                   shell.globalSearch.scope,
-                  keyboard ? GlobalSearchScope.chat : GlobalSearchScope.all,
+                  keyboard ? chatSearchScope : GlobalSearchScope.all,
                 );
                 expect(
                   shell.globalSearch.conditions.map(
@@ -638,7 +639,7 @@ void _registerChatShellTests() {
                   keyboard ? GlobalSearchScope.forum : GlobalSearchScope.all,
                 );
                 expect(
-                  shell.globalSearch.conditionsFor(GlobalSearchScope.chat),
+                  shell.globalSearch.conditionsFor(chatSearchScope),
                   isEmpty,
                 );
                 expect(tester.takeException(), isNull);
@@ -2791,7 +2792,7 @@ void _registerChatShellTests() {
             messages: {key(9): page(const [])},
           );
           expect(
-            find.byKey(const ValueKey('mobile-mode-chat')),
+            find.byKey(const ValueKey('mobile-mode-panel/chat')),
             findsOneWidget,
           );
 
@@ -2801,7 +2802,10 @@ void _registerChatShellTests() {
 
           expect(find.byType(ChatChannelView), findsOneWidget);
           expect(shortcut, findsNothing);
-          expect(find.byKey(const ValueKey('mobile-mode-chat')), findsNothing);
+          expect(
+            find.byKey(const ValueKey('mobile-mode-panel/chat')),
+            findsNothing,
+          );
         },
       );
     });

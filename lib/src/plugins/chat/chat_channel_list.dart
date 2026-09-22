@@ -1,5 +1,5 @@
-import '../../models/chat_channel_list_preferences.dart';
 import 'chat_channel.dart';
+import 'chat_channel_list_preferences.dart';
 
 /// Core's preference ordering, shared by sidebar, drawer and full-page lists.
 List<ChatChannel> projectChatChannelList(

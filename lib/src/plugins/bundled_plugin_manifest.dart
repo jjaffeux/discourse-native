@@ -13,10 +13,14 @@ import 'local_dates/local_dates_module.dart';
 import 'poll/poll_module.dart';
 import 'prometheus_alert_receiver/prometheus_alert_receiver_module.dart';
 import 'reactions/reactions_module.dart';
+import 'solved/solved_module.dart';
+import 'topic_voting/topic_voting_module.dart';
 import 'voice/voice_module.dart';
 
 final PluginManifest bundledPluginManifest = PluginManifest([
   cookingModule,
+  solvedModule,
+  topicVotingModule,
   localDatesModule,
   discourseGithubModule,
   discourseLazyVideosModule,
@@ -35,6 +39,8 @@ final PluginManifest bundledPluginManifest = PluginManifest([
 
 final PluginManifest bundledPluginManifestWithoutDiagnostics = PluginManifest([
   cookingModule,
+  solvedModule,
+  topicVotingModule,
   localDatesModule,
   discourseGithubModule,
   discourseLazyVideosModule,

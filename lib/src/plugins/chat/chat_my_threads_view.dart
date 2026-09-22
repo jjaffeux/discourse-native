@@ -1,16 +1,9 @@
 import 'dart:async';
 
+import 'package:discourse_native/discourse_plugin_sdk.dart';
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
-import '../../../discourse_ui.dart';
-import '../../models/user_status.dart';
-import '../../plugin_api/plugin_scope.dart';
-import '../../shell/content_reading_lane.dart';
-import '../../shell/relative_time.dart';
-import '../../shell/user_status.dart';
-import '../../theme/app_theme.dart';
-import '../../theme/d_icons.dart';
-import '../../utils/pagination.dart';
 import 'chat_controller.dart';
 import 'chat_message.dart';
 import 'chat_services.dart';

@@ -1,5 +1,4 @@
-import '../../data/plugin_transport.dart';
-import '../../models/json.dart';
+import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'assignment.dart';
 
 final class AssignApi {

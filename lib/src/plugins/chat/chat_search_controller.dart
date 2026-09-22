@@ -2,12 +2,9 @@
 
 import 'dart:async';
 
+import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:flutter/foundation.dart';
 
-import '../../data/store.dart';
-import '../../diagnostics/diagnostics_controller.dart';
-import '../../foundation/frame_safe_notifier.dart';
-import '../../plugin_api/core_plugin_host.dart';
 import 'chat_api.dart';
 import 'chat_search.dart';
 

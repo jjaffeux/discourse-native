@@ -1,10 +1,7 @@
+import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
-import '../../models/user_flair.dart';
-import '../../plugin_api/plugin_scope.dart';
-import '../../shell/avatar_image.dart';
-import '../../shell/group_flair.dart';
 import 'chat_services.dart';
 
 /// Uses DAvatar's core-compatible ring without moving message gutters.

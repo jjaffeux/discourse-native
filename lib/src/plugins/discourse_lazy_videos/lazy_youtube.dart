@@ -1,7 +1,6 @@
+import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:flutter/widgets.dart';
 import 'package:html/dom.dart' as dom;
-
-import '../../shell/youtube_video.dart';
 
 YoutubeVideoData? parseLazyYoutubeVideo(dom.Element element) {
   if (element.localName != 'div' ||

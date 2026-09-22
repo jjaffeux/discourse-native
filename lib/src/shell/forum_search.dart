@@ -113,9 +113,6 @@ class _ForumSearchState extends State<ForumSearch> {
     final shell = _shell!;
     final site = _search.siteUrl;
     final instance = site == null ? null : shell.instanceFor(site);
-    final chatInstalled = shell.plugins.registry.plugins.any(
-      (plugin) => plugin.name == 'chat',
-    );
     _global.configure(
       siteUrl: site,
       capabilities: site == null
@@ -123,7 +120,7 @@ class _ForumSearchState extends State<ForumSearch> {
           : GlobalSearchCapabilities.fromSite(
               shell.siteConfigFor(site),
               instance?.user,
-              chat: chatInstalled && instance?.isConnected == true,
+              contributions: shell.plugins.registry.searchContributions,
             ),
     );
   }

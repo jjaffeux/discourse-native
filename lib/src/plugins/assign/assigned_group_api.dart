@@ -1,6 +1,4 @@
-import '../../data/plugin_transport.dart';
-import '../../models/topic.dart';
-import '../../plugin_api/discourse_model_codec.dart';
+import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'assigned_group.dart';
 
 abstract interface class AssignedGroupApi {

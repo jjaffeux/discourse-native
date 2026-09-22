@@ -1,16 +1,11 @@
 import 'dart:async';
 
+import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
-import '../../models/json.dart';
-import '../../models/post.dart';
-import '../../models/topic.dart';
-import '../../plugin_api/plugin_scope.dart';
-import '../../plugin_api/site_plugin_api.dart';
-import '../../shell/post_action.dart';
-import '../../theme/d_icons.dart';
 import 'assign_data.dart';
+import 'assign_global_search.dart';
 import 'assign_group_data.dart';
 import 'assign_icons.dart';
 import 'assign_notifications.dart';
@@ -30,6 +25,8 @@ export 'assign_data.dart';
 final class AssignPlugin
     implements
         SitePlugin,
+        TopicListPresentationPlugin,
+        GlobalSearchPlugin,
         IconCatalogPlugin,
         SiteSettingsPlugin<AssignSettings>,
         CurrentUserPlugin<AssignCurrentUser>,
@@ -49,6 +46,31 @@ final class AssignPlugin
         NotificationFeedPlugin,
         NotificationTypePlugin,
         PostSmallActionPlugin {
+  @override
+  List<GlobalSearchContribution> get searchContributions => const [
+    AssignGlobalSearch(),
+  ];
+
+  @override
+  Listenable? topicListPresentationListenable(BuildContext context) =>
+      PluginUiScope.maybe(context, assignTopicListPreferencesService);
+
+  @override
+  List<Widget> topicListDisplayActions(BuildContext context) {
+    final preferences = PluginUiScope.maybe(
+      context,
+      assignTopicListPreferencesService,
+    );
+    if (preferences == null) return const [];
+    return [
+      DDropdownMenuCheckboxItem(
+        checked: preferences.showAssignments,
+        onChanged: preferences.setShowAssignments,
+        child: const Text('Show assignments'),
+      ),
+    ];
+  }
+
   const AssignPlugin();
 
   static const String assignmentChannel = '/staff/topic-assignment';
@@ -184,7 +206,7 @@ final class AssignPlugin
     if (PluginUiScope.maybe(
           context,
           assignTopicListPreferencesService,
-        )?.showAssignments() ==
+        )?.showAssignments ==
         false) {
       return const [];
     }
@@ -255,7 +277,7 @@ final class AssignPlugin
     if (PluginUiScope.maybe(
           context,
           assignTopicListPreferencesService,
-        )?.showAssignments() ==
+        )?.showAssignments ==
         false) {
       return const [];
     }

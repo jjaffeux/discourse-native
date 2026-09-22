@@ -2,14 +2,7 @@
 
 import 'dart:async';
 
-import '../../data/discourse_api_contracts.dart';
-import '../../data/store.dart';
-import '../../diagnostics/diagnostics_controller.dart';
-import '../../foundation/frame_safe_notifier.dart';
-import '../../models/post.dart';
-import '../../models/site_config.dart';
-import '../../models/site_emoji.dart';
-import '../../plugin_api/core_plugin_host.dart';
+import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'post_reactors.dart';
 import 'reaction.dart';
 import 'reactions_api.dart';

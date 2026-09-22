@@ -1,4 +1,4 @@
-import '../../plugin_api/plugin_manifest.dart';
+import 'package:discourse_native/discourse_plugin_sdk.dart';
 import '../local_dates/local_dates_contract.dart';
 
 const discourseGithubPluginId = PluginId('discourse-github');

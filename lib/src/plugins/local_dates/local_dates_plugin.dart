@@ -1,18 +1,13 @@
 import 'dart:async';
 
-import 'package:discourse_cooking/discourse_cooking.dart';
-
+import 'package:discourse_native/discourse_plugin_sdk.dart';
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:html/dom.dart' as dom;
 import 'package:timezone/timezone.dart' as tz;
 
-import '../../plugin_api/cooking_plugin.dart';
-import '../../plugin_api/site_plugin_api.dart';
-import '../../shell/markdown_highlight.dart';
-import '../../theme/d_icons.dart';
-import '../../ui/components/d_toast.dart';
 import '../chat/chat_preview_contract.dart';
 import 'local_date.dart';
 import 'local_date_composer_component.dart';
@@ -28,6 +23,7 @@ export 'local_dates_settings.dart';
 const localDateComposerSyntaxKind = ComposerSyntaxKind(
   owner: PluginId('discourse-local-dates'),
   name: 'local-date',
+  label: 'Local date',
 );
 
 class LocalDatesPlugin

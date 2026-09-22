@@ -90,7 +90,9 @@ void main() {
         );
         final mobile = controller.mobileNavigationEnabled;
         final upcoming = mobile
-            ? find.byKey(const ValueKey('mobile-mode-events'))
+            ? find.byKey(
+                const ValueKey('mobile-mode-destination/events-upcoming'),
+              )
             : sidebarDestination('Upcoming events');
         expect(upcoming, findsOneWidget);
         expect(sidebarDestination('My events'), findsNothing);
@@ -145,7 +147,9 @@ void main() {
           controller.handleBack(canReturnToSidebar: true);
           await tester.pumpAndSettle();
           expect(
-            find.byKey(const ValueKey('mobile-mode-events')),
+            find.byKey(
+              const ValueKey('mobile-mode-destination/events-upcoming'),
+            ),
             findsOneWidget,
           );
         }

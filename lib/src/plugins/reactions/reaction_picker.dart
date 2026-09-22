@@ -1,16 +1,9 @@
 import 'dart:async';
 
+import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
-import '../../models/post.dart';
-import '../../plugin_api/core_plugin_host.dart';
-import '../../plugin_api/plugin_scope.dart';
-import '../../shell/emoji.dart';
-import '../../shell/emoji_picker.dart';
-import '../../shell/hover_panel.dart';
-import '../../shell/shell_sheet.dart';
-import '../../theme/d_icons.dart';
 import 'reaction.dart';
 import 'reactions_controller.dart';
 import 'reactions_emoji_usage.dart';

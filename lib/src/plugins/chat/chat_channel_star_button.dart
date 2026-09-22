@@ -1,10 +1,9 @@
 import 'dart:async';
 
+import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
-import '../../plugin_api/plugin_scope.dart';
-import '../../theme/d_icons.dart';
 import 'chat_channel.dart';
 import 'chat_controller.dart';
 import 'chat_services.dart';

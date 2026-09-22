@@ -20,6 +20,8 @@ import 'package:discourse_native/src/plugins/poll/polls_api.dart';
 import 'package:discourse_native/src/plugins/prometheus_alert_receiver/prometheus_alert_receiver_module.dart';
 import 'package:discourse_native/src/plugins/reactions/reactions_api.dart';
 import 'package:discourse_native/src/plugins/reactions/reactions_module.dart';
+import 'package:discourse_native/src/plugins/solved/solved_module.dart';
+import 'package:discourse_native/src/plugins/topic_voting/topic_voting_module.dart';
 
 ChatApi _chatApi(PluginApiTransport transport) => transport as ChatApi;
 
@@ -34,6 +36,8 @@ PollsApi _pollsApi(PluginApiTransport transport) => transport as PollsApi;
 
 final PluginManifest _testBundledPluginManifest = PluginManifest([
   cookingModule,
+  solvedModule,
+  topicVotingModule,
   localDatesModule,
   discourseGithubModule,
   discourseLazyVideosModule,

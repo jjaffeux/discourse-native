@@ -1,7 +1,4 @@
-import 'package:discourse_cooking/discourse_cooking.dart';
-
-import '../../plugin_api/cooking_plugin.dart';
-import '../../plugin_api/plugin_manifest.dart';
+import 'package:discourse_native/discourse_plugin_sdk.dart';
 
 const cookingModule = CookingModulePlugin();
 

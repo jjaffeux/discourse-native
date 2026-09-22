@@ -47,11 +47,7 @@ class ComposerBlockController extends ChangeNotifier {
     atoms: [
       for (final block in text.syntaxBlocks)
         if (block.projection is ComposerBlockSyntaxProjection)
-          ComposerBlockAtom(
-            block.start,
-            block.end,
-            label: _componentLabel(block.kind.name),
-          ),
+          ComposerBlockAtom(block.start, block.end, label: block.kind.label),
       for (final block in text.quoteBlocks)
         ComposerBlockAtom(block.start, block.end, label: 'Quote'),
       for (final block in text.galleryBlocks)
@@ -60,15 +56,6 @@ class ComposerBlockController extends ChangeNotifier {
         ComposerBlockAtom(block.start, block.end, label: 'Image'),
     ],
   );
-
-  static String _componentLabel(String name) => switch (name) {
-    'poll' => 'Poll',
-    'table' => 'Table',
-    'details' => 'Details',
-    'upload' => 'Upload',
-    'mermaid' => 'Diagram',
-    _ => 'Block',
-  };
 
   void _remember(ComposerBlockIndex index) {
     _snapshots.remove(index.source);

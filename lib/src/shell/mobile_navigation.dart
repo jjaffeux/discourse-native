@@ -1,7 +1,25 @@
 import '../models/forum_workspace.dart';
 
 /// The visual order of the mobile navigation buttons, including optional tabs.
-enum MobileTab { topics, chat, messages, users, events, more }
+final class MobileTab {
+  const MobileTab._(this.name) : panelOwner = null;
+  const MobileTab.panel(String owner)
+    : name = 'panel/$owner',
+      panelOwner = owner;
+  const MobileTab.destination(String id)
+    : name = 'destination/$id',
+      panelOwner = null;
+  static const topics = MobileTab._('topics');
+  static const messages = MobileTab._('messages');
+  static const users = MobileTab._('users');
+  static const more = MobileTab._('more');
+  final String name;
+  final String? panelOwner;
+  @override
+  bool operator ==(Object other) => other is MobileTab && other.name == name;
+  @override
+  int get hashCode => name.hashCode;
+}
 
 /// A mobile visit history starts at a tab root, independently of desktop tabs.
 /// Entries contain shared route metadata, never widgets or feature data. The
@@ -97,13 +115,13 @@ final class MobileNavigation {
   void selectPanel(String? owner) {
     if (_panelOwner == owner) return;
     _panelOwner = owner;
-    _tab = owner == 'chat' ? MobileTab.chat : MobileTab.topics;
+    _tab = owner == null ? MobileTab.topics : MobileTab.panel(owner);
     _resetHistory();
   }
 
   void selectTab(MobileTab tab) {
     _tab = tab;
-    _panelOwner = tab == MobileTab.chat ? 'chat' : null;
+    _panelOwner = tab.panelOwner;
     _resetHistory();
   }
 

@@ -40,6 +40,7 @@ final class AccountActivityController extends FrameSafeNotifier {
     required this.api,
     required this.credentials,
     required this.lifecycle,
+    this.likeNotificationTypes = userMenuLikeNotificationTypes,
     this.onTotalsLoaded,
     this.onTotalsChanged,
     this.onGroupedUnreadAuthorityAdvanced,
@@ -51,6 +52,7 @@ final class AccountActivityController extends FrameSafeNotifier {
   final AccountActivityApi api;
   final SiteApiKeyReader credentials;
   final SiteLifecycle lifecycle;
+  final List<NotificationTypeName> likeNotificationTypes;
   final TotalsLoaded? onTotalsLoaded;
   final TotalsChanged? onTotalsChanged;
   final GroupedUnreadAuthorityAdvanced? onGroupedUnreadAuthorityAdvanced;
@@ -390,7 +392,7 @@ final class AccountActivityController extends FrameSafeNotifier {
           fetch: (apiKey, _) => api.notifications(
             siteUrl: instance.url,
             apiKey: apiKey,
-            filterByTypes: userMenuLikeNotificationTypes,
+            filterByTypes: likeNotificationTypes,
           ),
           reconnectMessage: 'Reconnect to ${instance.host} to see likes.',
           failureMessage: "Couldn't load likes from ${instance.host}.",

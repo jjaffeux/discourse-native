@@ -1,7 +1,6 @@
+import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:flutter/widgets.dart';
 
-import '../../diagnostics/diagnostics_controller.dart';
-import '../../shell/markdown_highlight.dart';
 import 'chat_preview_contract.dart';
 
 export 'chat_preview_contract.dart';

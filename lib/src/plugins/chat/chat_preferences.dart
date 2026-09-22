@@ -1,10 +1,9 @@
+import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
-import '../../models/user_preferences.dart';
-import '../../plugin_api/site_plugin_api.dart';
-import '../../theme/d_icons.dart';
 import 'chat_plugin_data.dart';
+import 'chat_user_preferences.dart';
 
 PluginUserPreferenceSection? chatUserPreferenceSection(
   PluginUserPreferenceContext context,
@@ -17,17 +16,19 @@ PluginUserPreferenceSection? chatUserPreferenceSection(
   }
 
   return PluginUserPreferenceSection(
-    section: PreferenceSection.chat,
+    section: chatPreferenceSection,
     title: 'Chat',
     icon: DIcons.comment,
     content: _ChatPreferenceForm(
       selectedMode: _effectiveMode(
-        context.preferences.chatSeparateSidebarMode,
+        context.preferences.chatPreferences.separateSidebarMode,
         settings.separateSidebarMode,
       ),
       enabled: context.editable,
       onChanged: (preference) => context.onEdit(
-        (current) => current.copyWith(chatSeparateSidebarMode: preference),
+        chatPreferenceSection,
+        (current) =>
+            current.withChatPreferences(separateSidebarMode: preference),
       ),
     ),
   );

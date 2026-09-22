@@ -1,12 +1,6 @@
+import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:flutter/foundation.dart';
 
-import '../../data/discourse_api_contracts.dart' show WriteException;
-import '../../data/store.dart';
-import '../../models/bookmark.dart';
-import '../../models/composer_upload.dart';
-import '../../models/json.dart';
-import '../../models/user_flair.dart';
-import '../../models/user_status.dart';
 import 'chat_bookmark.dart';
 import 'chat_preview.dart';
 

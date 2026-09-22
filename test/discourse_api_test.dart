@@ -3,7 +3,6 @@ import 'dart:convert';
 
 import 'package:discourse_native/src/data/discourse_api.dart';
 import 'package:discourse_native/src/models/bookmark.dart';
-import 'package:discourse_native/src/models/chat_channel_list_preferences.dart';
 import 'package:discourse_native/src/models/composer_draft.dart';
 import 'package:discourse_native/src/models/composer_upload.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
@@ -16,7 +15,9 @@ import 'package:discourse_native/src/models/sidebar_tag.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/models/user_preferences.dart';
 import 'package:discourse_native/src/plugin_api/discourse_model_codec.dart';
+import 'package:discourse_native/src/plugins/chat/chat_channel_list_preferences.dart';
 import 'package:discourse_native/src/plugins/chat/chat_plugin_data.dart';
+import 'package:discourse_native/src/plugins/chat/chat_user_preferences.dart';
 import 'package:discourse_native/src/plugins/discourse_ai/ai_summary_plugin.dart';
 import 'package:discourse_native/src/plugins/reactions/reactions_settings.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
@@ -90,9 +91,13 @@ void main() {
         for (final entry in values.entries) {
           final fallback = UserPreferences(
             username: 'Reader',
-            channelListPreferences: ChatChannelListPreferences.read({
-              entry.key: entry.value,
-            }),
+            pluginValues: {
+              'chat/preferences': ChatUserPreferences(
+                channelList: ChatChannelListPreferences.read({
+                  entry.key: entry.value,
+                }),
+              ),
+            },
           );
           final result = await api.updateUserPreferences(
             siteUrl: 'https://forum.example/community',
@@ -175,9 +180,13 @@ void main() {
           notificationLevelWhenReplying: 3,
           bookmarkAutoDeletePreference:
               BookmarkAutoDeletePreference.whenReminderSent,
-          chatSeparateSidebarMode: ChatSeparateSidebarPreference.fullscreen,
           canEdit: true,
           canChangeTrackingPreferences: true,
+          pluginValues: {
+            'chat/preferences': ChatUserPreferences(
+              separateSidebarMode: ChatSeparateSidebarPreference.fullscreen,
+            ),
+          },
         ),
       );
     });
@@ -245,8 +254,12 @@ void main() {
       );
       const fallback = UserPreferences(
         username: 'Sam Name',
-        chatSeparateSidebarMode: ChatSeparateSidebarPreference.fullscreen,
         canEdit: true,
+        pluginValues: {
+          'chat/preferences': ChatUserPreferences(
+            separateSidebarMode: ChatSeparateSidebarPreference.fullscreen,
+          ),
+        },
       );
 
       final result = await api.updateUserPreferences(
@@ -261,7 +274,7 @@ void main() {
       expect(sent.url.toString(), 'https://forum.example/u/sam%20name.json');
       expect(jsonDecode(sent.body), {'chat_separate_sidebar_mode': 'always'});
       expect(
-        result.chatSeparateSidebarMode,
+        result.chatPreferences.separateSidebarMode,
         ChatSeparateSidebarPreference.always,
       );
     });

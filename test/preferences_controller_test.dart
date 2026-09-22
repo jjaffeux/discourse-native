@@ -7,6 +7,7 @@ import 'package:discourse_native/src/models/bookmark.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/user_preferences.dart';
+import 'package:discourse_native/src/plugins/chat/chat_user_preferences.dart';
 import 'package:discourse_native/src/shell/preferences_controller.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -202,13 +203,16 @@ void main() {
     test(
       'forwards each supported section as one flat partial payload',
       () async {
-        expect(PreferenceSection.values, [
-          PreferenceSection.profile,
-          PreferenceSection.notifications,
-          PreferenceSection.tracking,
-          PreferenceSection.interface,
-          PreferenceSection.chat,
-        ]);
+        expect(
+          [...PreferenceSection.values, chatPreferenceSection],
+          [
+            PreferenceSection.profile,
+            PreferenceSection.notifications,
+            PreferenceSection.tracking,
+            PreferenceSection.interface,
+            chatPreferenceSection,
+          ],
+        );
 
         final cases =
             <
@@ -251,10 +255,9 @@ void main() {
                 ),
                 payload: const {'bookmark_auto_delete_preference': 2},
               ),
-              PreferenceSection.chat: (
-                change: (current) => current.copyWith(
-                  chatSeparateSidebarMode:
-                      ChatSeparateSidebarPreference.fullscreen,
+              chatPreferenceSection: (
+                change: (current) => current.withChatPreferences(
+                  separateSidebarMode: ChatSeparateSidebarPreference.fullscreen,
                 ),
                 payload: const {'chat_separate_sidebar_mode': 'fullscreen'},
               ),

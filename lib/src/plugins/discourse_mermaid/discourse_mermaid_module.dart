@@ -1,4 +1,4 @@
-import '../../plugin_api/plugin_manifest.dart';
+import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'discourse_mermaid_plugin.dart';
 
 const discourseMermaidPluginId = PluginId('discourse-mermaid');

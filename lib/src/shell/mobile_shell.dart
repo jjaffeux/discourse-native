@@ -67,19 +67,18 @@ class _MobileForumRootState extends State<MobileForumRoot> {
             });
           }
         }
-        final chat = registry
+        final panels = registry
             .sidebarPanels(context)
-            .where(
-              (entry) => entry.owner.value == 'chat' && entry.panel.showSwitch,
-            )
-            .firstOrNull;
-        final events = registry
+            .where((entry) => entry.panel.showSwitch)
+            .toList();
+        final shortcuts = registry
             .communitySidebarDestinations(context)
             .where(
               (destination) =>
-                  destination.id == 'events-upcoming' && destination.enabled,
+                  destination.mobileNavigationLabel != null &&
+                  destination.enabled,
             )
-            .firstOrNull;
+            .toList();
         final destinations = instance.sections
             .expand(
               (section) => [
@@ -91,8 +90,20 @@ class _MobileForumRootState extends State<MobileForumRoot> {
         SidebarDestination? destination(String id) =>
             destinations.where((entry) => entry.id == id).firstOrNull;
         final selected = shell.mobileNavigation.tab;
-        if ((selected == MobileTab.chat && chat == null) ||
-            (selected == MobileTab.events && events == null) ||
+        final tabOrder = [
+          MobileTab.topics,
+          for (final entry in panels) MobileTab.panel(entry.owner.value),
+          if (destination('messages') != null) MobileTab.messages,
+          if (destination('users') != null) MobileTab.users,
+          for (final shortcut in shortcuts) MobileTab.destination(shortcut.id),
+          MobileTab.more,
+        ];
+        if ((selected.panelOwner != null &&
+                !panels.any((p) => p.owner.value == selected.panelOwner)) ||
+            (selected.name.startsWith('destination/') &&
+                !shortcuts.any(
+                  (d) => MobileTab.destination(d.id) == selected,
+                )) ||
             (selected == MobileTab.messages &&
                 destination('messages') == null) ||
             (selected == MobileTab.users && destination('users') == null)) {
@@ -105,11 +116,11 @@ class _MobileForumRootState extends State<MobileForumRoot> {
             }
           });
         }
-        final chatRoot =
-            !widget.boundary &&
-            selected == MobileTab.chat &&
-            shell.mobileNavigation.atRoot &&
-            chat != null;
+        final panel = panels
+            .where((p) => p.owner.value == selected.panelOwner)
+            .firstOrNull;
+        final panelRoot =
+            !widget.boundary && shell.mobileNavigation.atRoot && panel != null;
         final buttons = <Widget>[
           _tabButton(
             context,
@@ -121,18 +132,18 @@ class _MobileForumRootState extends State<MobileForumRoot> {
               instance.defaultDestination,
             ),
           ),
-          if (chat != null)
+          for (final entry in panels)
             Stack(
               clipBehavior: Clip.none,
               children: [
                 _tabButton(
                   context,
-                  MobileTab.chat,
-                  'Chat',
-                  chat.panel.icon,
-                  () => shell.selectMobilePanel(chat.owner.value),
+                  MobileTab.panel(entry.owner.value),
+                  entry.panel.label,
+                  entry.panel.icon,
+                  () => shell.selectMobilePanel(entry.owner.value),
                 ),
-                if (chat.panel.badge case final badge?)
+                if (entry.panel.badge case final badge?)
                   PositionedDirectional(
                     bottom: 0,
                     end: 0,
@@ -156,13 +167,16 @@ class _MobileForumRootState extends State<MobileForumRoot> {
               DIcons.user,
               () => shell.selectMobileDestination(MobileTab.users, users),
             ),
-          if (events != null)
+          for (final shortcut in shortcuts)
             _tabButton(
               context,
-              MobileTab.events,
-              'Events',
-              events.icon,
-              () => shell.selectMobileDestination(MobileTab.events, events),
+              MobileTab.destination(shortcut.id),
+              shortcut.mobileNavigationLabel!,
+              shortcut.icon,
+              () => shell.selectMobileDestination(
+                MobileTab.destination(shortcut.id),
+                shortcut,
+              ),
             ),
           DDropdownMenu(
             content: DDropdownMenuContent(
@@ -336,25 +350,32 @@ class _MobileForumRootState extends State<MobileForumRoot> {
                   key: const ValueKey('mobile-content-panel'),
                   backgroundColor: ForumWindowBackground.panelColor(context),
                   child: MobileHistoryGestures(
+                    tabIndex: tabOrder.indexOf(selected),
                     child: Stack(
                       fit: StackFit.expand,
                       children: [
-                        if (chat != null)
+                        for (final entry in panels)
                           Offstage(
-                            offstage: !chatRoot,
+                            offstage:
+                                !(panelRoot && panel.owner == entry.owner),
                             child: TickerMode(
-                              enabled: chatRoot,
+                              enabled: panelRoot && panel.owner == entry.owner,
                               child: ExcludeFocus(
-                                excluding: !chatRoot,
+                                excluding:
+                                    !(panelRoot && panel.owner == entry.owner),
                                 child: InstanceSidebar(
-                                  key: ValueKey(('mobile-chat', owner)),
+                                  key: ValueKey((
+                                    'mobile-panel',
+                                    entry.owner.value,
+                                    owner,
+                                  )),
                                   mobile: true,
-                                  panelOwner: chat.owner.value,
+                                  panelOwner: entry.owner.value,
                                 ),
                               ),
                             ),
                           ),
-                        if (!chatRoot) widget.content,
+                        if (!panelRoot) widget.content,
                       ],
                     ),
                   ),
@@ -491,8 +512,13 @@ class _MobileForumRootState extends State<MobileForumRoot> {
 
 /// Adapts mobile visit history to the Native interactive transition.
 class MobileHistoryGestures extends StatelessWidget {
-  const MobileHistoryGestures({super.key, required this.child});
+  const MobileHistoryGestures({
+    super.key,
+    required this.child,
+    required this.tabIndex,
+  });
   final Widget child;
+  final int tabIndex;
 
   @override
   Widget build(BuildContext context) {
@@ -500,7 +526,7 @@ class MobileHistoryGestures extends StatelessWidget {
     final navigation = shell.mobileNavigation;
     return DHistoryTransition(
       history: navigation.historyId,
-      tabIndex: navigation.tab.index,
+      tabIndex: tabIndex,
       tabOwner: (shell.currentInstance?.url, shell.currentAccountIdentity),
       entry: navigation.entryId,
       previousEntry: navigation.previousEntryId,

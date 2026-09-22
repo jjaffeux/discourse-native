@@ -593,7 +593,10 @@ void _registerConnectionSessionTests() {
       await openLikes(tester);
 
       expect(api.likeNotificationCalls, 1);
-      expect(api.notificationFilters.single, userMenuLikeNotificationTypes);
+      expect(
+        api.notificationFilters.single,
+        pluginRegistry.likeNotificationTypes,
+      );
       expect(
         find.textContaining('david liked your post in Merge CVSS'),
         findsOneWidget,

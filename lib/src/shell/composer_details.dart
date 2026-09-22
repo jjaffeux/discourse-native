@@ -15,6 +15,7 @@ import 'composer_panel.dart';
 const composerDetailsSyntaxKind = ComposerSyntaxKind(
   owner: PluginId('core'),
   name: 'details',
+  label: 'Details',
 );
 
 void insertComposerDetails(ComposerController composer) {
