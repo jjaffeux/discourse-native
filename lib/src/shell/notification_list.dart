@@ -550,7 +550,7 @@ class NotificationRow extends StatelessWidget {
           color: notification.isUnread
               ? tokens.primary.withValues(alpha: 0.12)
               : null,
-          borderRadius: tokens.borderRadius,
+          borderRadius: BorderRadius.circular(DRadius.panel),
         ),
         child: DItem(
           key: ValueKey('notification-row-${notification.id}'),

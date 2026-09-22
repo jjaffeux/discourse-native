@@ -574,7 +574,7 @@ void main() {
   }
 
   testWidgets(
-    'configured radii and extreme text keep reference curvature without clipping',
+    'theme radii and extreme text keep fixed pill curvature without clipping',
     (tester) async {
       for (final radius in [0.0, 1.0, 4.0, 12.0]) {
         final theme = AppTheme.light.copyWith(
@@ -591,7 +591,7 @@ void main() {
         );
         expect(
           _decoration(tester).borderRadius,
-          BorderRadius.circular(radius * 2.6),
+          BorderRadius.circular(DRadius.pill),
         );
         expect(
           tester

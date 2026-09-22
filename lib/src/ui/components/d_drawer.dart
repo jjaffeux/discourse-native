@@ -1571,12 +1571,16 @@ class DDrawerContent extends StatelessWidget {
             minHeight: availableHeight,
             maxHeight: availableHeight,
           );
-    final radius = Radius.circular(tokens.radius * 1.4);
+    const radius = Radius.circular(DRadius.panel);
     final borderRadius = switch (direction) {
-      DDrawerSwipeDirection.down => BorderRadius.vertical(top: radius),
-      DDrawerSwipeDirection.up => BorderRadius.vertical(bottom: radius),
-      DDrawerSwipeDirection.right => BorderRadius.horizontal(left: radius),
-      DDrawerSwipeDirection.left => BorderRadius.horizontal(right: radius),
+      DDrawerSwipeDirection.down => const BorderRadius.vertical(top: radius),
+      DDrawerSwipeDirection.up => const BorderRadius.vertical(bottom: radius),
+      DDrawerSwipeDirection.right => const BorderRadius.horizontal(
+        left: radius,
+      ),
+      DDrawerSwipeDirection.left => const BorderRadius.horizontal(
+        right: radius,
+      ),
       _ => BorderRadius.zero,
     };
     final border = switch (direction) {

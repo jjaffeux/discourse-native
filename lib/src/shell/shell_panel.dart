@@ -16,7 +16,7 @@ import 'shell_metrics.dart';
 class ShellPanel extends StatelessWidget {
   const ShellPanel({super.key, required this.child});
 
-  static const double cornerRadius = 12;
+  static const double cornerRadius = DRadius.panel;
 
   final Widget child;
 
@@ -117,7 +117,7 @@ class WorkspacePanelCorner extends InheritedWidget {
       return null;
     }
     return BorderRadius.circular(
-      DTokens.of(context).radius * 1.4,
+      DRadius.panel,
     ).copyWith(bottomRight: Radius.circular(radius));
   }
 

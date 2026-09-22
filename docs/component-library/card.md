@@ -13,15 +13,15 @@ Registry inspected: https://ui.shadcn.com/r/styles/base-nova/card.json
 
 Official theme CSS (`/_next/static/immutable/chunks/17udeju1vgrir.css`)
 SHA256 `19dd8fe80f1fb07e156ed3ceaaaacb7a600a3444e97c3baf6483c4363a15668d`
-confirms `--radius-xl: calc(var(--radius) * 1.4)`, consistent with the existing
-Skeleton mapping.
+confirms `--radius-xl: calc(var(--radius) * 1.4)`. The application uses a fixed
+14px panel radius instead of the site radius scale.
 
 At a 16px root and 100% native text scale, CSS pixels map to logical pixels:
 
 | Reference | Flutter |
 | --- | --- |
 | `bg-card`, `text-card-foreground` | live `DTokens.background`, `foreground` |
-| `rounded-xl` | configured large radius × 1.4 |
+| `rounded-xl` | fixed 14px panel radius |
 | `ring-1 ring-foreground/10` | outside 1px spread, no blur/offset, semantic border color; no Material elevation/tint |
 | `--card-spacing: --spacing(4)` / small `--spacing(3)` | 16px normal / 12px small; finite nonnegative `spacing` overrides both |
 | root gap and vertical padding | shared spacing; leading image removes top inset, footer/trailing removes bottom inset |

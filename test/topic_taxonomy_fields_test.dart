@@ -1,3 +1,4 @@
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/shell/topic_category_path.dart';
 import 'package:discourse_native/src/shell/topic_taxonomy_fields.dart';
@@ -159,7 +160,7 @@ void main() {
     final firstToken = find.byKey(const ValueKey('sea2'));
     final material = tester.widget<Material>(firstToken);
     final shape = material.shape! as RoundedRectangleBorder;
-    expect(shape.borderRadius, BorderRadius.circular(5));
+    expect(shape.borderRadius, BorderRadius.circular(DRadius.pill));
     expect(
       material.color,
       AppTheme.dark.colorScheme.surfaceContainerHigh.withValues(alpha: 0.72),

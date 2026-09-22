@@ -326,7 +326,7 @@ extension DiscourseButtonThemeAccess on ThemeData {
       extension<DiscourseButtonTheme>() ??
       DiscourseButtonTheme.fromColors(
         colorScheme,
-        borderRadius: 4,
+        borderRadius: DRadius.control,
         hover: colorScheme.surfaceContainerHigh,
         success: const Color(0xFF009900),
       );
@@ -451,7 +451,7 @@ class DButton extends StatelessWidget {
   final bool autofocus;
   final AlignmentGeometry alignment;
 
-  /// Defaults to the theme’s control radius; pill is an explicit geometry override.
+  /// Primary actions default to a pill; other buttons use the control radius.
   final DButtonShape shape;
 
   /// Overrides the button's state and shape transition duration.
@@ -606,9 +606,9 @@ class DButton extends StatelessWidget {
     final baseRadius =
         borderRadius ??
         BorderRadius.circular(
-          shape == DButtonShape.pill
-              ? visualDimension / 2
-              : tokens.buttonTheme.radius,
+          shape == DButtonShape.pill || variant == DButtonVariant.primary
+              ? DRadius.pill
+              : DRadius.control,
         );
     final direction = Directionality.of(context);
     final joined = DJoinedControlScope.maybeOf(context);

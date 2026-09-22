@@ -218,69 +218,99 @@ void main() {
     }
   });
 
-  testWidgets('flat icon buttons use the theme radius and standard sizes', (
-    tester,
-  ) async {
-    for (final (radius, size) in [
-      (0.0, DButtonSize.small),
-      (13.0, DButtonSize.regular),
-      (0.0, DButtonSize.large),
-    ]) {
-      final base = AppTheme.light.copyWith(platform: TargetPlatform.macOS);
-      final theme = base.copyWith(
-        extensions: [
-          ...base.extensions.values.where((value) => value is! DTokens),
-          DTokens.fromTheme(base).copyWith(radius: radius),
-        ],
-      );
-
-      await tester.pumpWidget(
-        MaterialApp(
-          theme: theme,
-          themeAnimationDuration: Duration.zero,
-          home: Scaffold(
-            body: Center(
-              child: DButton.iconOnly(
-                tooltip: 'Action',
+  testWidgets(
+    'primary actions use the pill radius and ordinary buttons use 8px',
+    (tester) async {
+      for (final (variant, expected) in [
+        (DButtonVariant.primary, DRadius.pill),
+        (DButtonVariant.outline, DRadius.control),
+      ]) {
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: AppTheme.light,
+            home: Scaffold(
+              body: DButton(
+                label: const Text('Action'),
+                variant: variant,
                 onPressed: _noop,
-                variant: DButtonVariant.flat,
-                size: size,
-                icon: const Icon(Icons.add),
               ),
             ),
           ),
-        ),
-      );
+        );
+        final button = tester.widget<FilledButton>(find.byType(FilledButton));
+        final shape =
+            button.style!.shape!.resolve({})! as RoundedRectangleBorder;
+        expect(shape.borderRadius, BorderRadius.circular(expected));
+      }
+    },
+  );
 
-      final rendered = find.byType(FilledButton);
-      final surface = find.descendant(
-        of: rendered,
-        matching: find.byType(Material),
-      );
-      final style = tester.widget<FilledButton>(rendered).style!;
-      final shape = style.shape!.resolve({WidgetState.hovered});
-      final targetDimension = DButton.iconOnlyDimensionFor(size);
+  testWidgets(
+    'flat icon buttons use the fixed control radius and standard sizes',
+    (tester) async {
+      for (final (radius, size) in [
+        (0.0, DButtonSize.small),
+        (13.0, DButtonSize.regular),
+        (0.0, DButtonSize.large),
+      ]) {
+        final base = AppTheme.light.copyWith(platform: TargetPlatform.macOS);
+        final theme = base.copyWith(
+          extensions: [
+            ...base.extensions.values.where((value) => value is! DTokens),
+            DTokens.fromTheme(base).copyWith(radius: radius),
+          ],
+        );
 
-      expect(tester.getSize(rendered), Size.square(targetDimension));
-      expect(surface, findsOneWidget);
-      expect(tester.getSize(surface), Size.square(targetDimension));
-      expect(shape, isA<RoundedRectangleBorder>());
-      expect(
-        (shape! as RoundedRectangleBorder).borderRadius,
-        BorderRadius.circular(radius),
-      );
-      expect(buttonSurface(tester).color, Colors.transparent);
-      final pointer = await tester.createGesture(kind: PointerDeviceKind.mouse);
-      await pointer.addPointer(location: Offset.zero);
-      await pointer.moveTo(tester.getCenter(surface));
-      await tester.pump();
-      expect(
-        buttonSurface(tester).color,
-        DTokens.of(tester.element(rendered)).buttonTheme.accent.hover,
-      );
-      await pointer.removePointer();
-    }
-  });
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: theme,
+            themeAnimationDuration: Duration.zero,
+            home: Scaffold(
+              body: Center(
+                child: DButton.iconOnly(
+                  tooltip: 'Action',
+                  onPressed: _noop,
+                  variant: DButtonVariant.flat,
+                  size: size,
+                  icon: const Icon(Icons.add),
+                ),
+              ),
+            ),
+          ),
+        );
+
+        final rendered = find.byType(FilledButton);
+        final surface = find.descendant(
+          of: rendered,
+          matching: find.byType(Material),
+        );
+        final style = tester.widget<FilledButton>(rendered).style!;
+        final shape = style.shape!.resolve({WidgetState.hovered});
+        final targetDimension = DButton.iconOnlyDimensionFor(size);
+
+        expect(tester.getSize(rendered), Size.square(targetDimension));
+        expect(surface, findsOneWidget);
+        expect(tester.getSize(surface), Size.square(targetDimension));
+        expect(shape, isA<RoundedRectangleBorder>());
+        expect(
+          (shape! as RoundedRectangleBorder).borderRadius,
+          BorderRadius.circular(DRadius.control),
+        );
+        expect(buttonSurface(tester).color, Colors.transparent);
+        final pointer = await tester.createGesture(
+          kind: PointerDeviceKind.mouse,
+        );
+        await pointer.addPointer(location: Offset.zero);
+        await pointer.moveTo(tester.getCenter(surface));
+        await tester.pump();
+        expect(
+          buttonSurface(tester).color,
+          DTokens.of(tester.element(rendered)).buttonTheme.accent.hover,
+        );
+        await pointer.removePointer();
+      }
+    },
+  );
 
   testWidgets('touch target outside the compact surface remains interactive', (
     tester,

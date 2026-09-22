@@ -33,7 +33,7 @@ class DEmpty extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tokens = DTokens.of(context);
-    final radius = tokens.radius * 1.4;
+    const radius = DRadius.panel;
     final resolvedPadding =
         _usesDefaultPadding && MediaQuery.sizeOf(context).width >= 768
         ? const EdgeInsets.all(48)

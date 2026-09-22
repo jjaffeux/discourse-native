@@ -4,13 +4,12 @@ import 'package:flutter/material.dart';
 
 import '../theme/app_theme.dart';
 import '../theme/d_icon.dart';
+import '../ui/foundation/tokens.dart';
 
 const double pillScale = 0.93;
 
 const double pillPadX = 0.34;
 const double pillPadY = 0.2;
-
-const double pillRadius = 0.6;
 
 const double pillSquare = 0.72;
 const double pillSquareInset = 0.1;
@@ -83,7 +82,7 @@ class _PillState extends State<Pill> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final size = Pill.fontSizeFor(widget.baseStyle);
-    final radius = BorderRadius.circular(size * pillRadius);
+    final radius = BorderRadius.circular(DRadius.pill);
     final fill = widget.backgroundColor ?? theme.shell.mention;
     final background = _hovered || widget.hovered || _focused
         ? Color.alphaBlend(

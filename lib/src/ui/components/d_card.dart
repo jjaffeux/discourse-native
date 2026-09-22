@@ -41,7 +41,7 @@ class DCard extends StatelessWidget {
   final Color? backgroundColor;
 
   /// Overrides the outline and clip together, for surfaces adjoining a window.
-  /// Null retains the theme radius (or the capsule variant's rounded ends).
+  /// Null uses the panel radius (or the capsule variant's rounded ends).
   final BorderRadiusGeometry? borderRadius;
   final Widget? leading;
   final Widget? trailing;
@@ -61,7 +61,7 @@ class DCard extends StatelessWidget {
     final parts = <Widget>[?leading, ?child, ...children, ?footer, ?trailing];
     final radius =
         borderRadius?.resolve(Directionality.of(context)) ??
-        BorderRadius.circular(capsule ? 999 : tokens.radius * 1.4);
+        BorderRadius.circular(capsule ? DRadius.pill : DRadius.panel);
     return _CardScope(
       spacing: inset,
       size: size,
@@ -305,7 +305,7 @@ class DCardFooter extends StatelessWidget {
   Widget build(BuildContext context) {
     final tokens = DTokens.of(context);
     final radius = rounded
-        ? BorderRadius.vertical(top: Radius.circular(tokens.radius * 1.4))
+        ? const BorderRadius.vertical(top: Radius.circular(DRadius.panel))
         : BorderRadius.zero;
     return DecoratedBox(
       position: DecorationPosition.foreground,

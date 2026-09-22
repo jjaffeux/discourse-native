@@ -606,7 +606,6 @@ abstract final class AppTheme {
       discourse,
       fontFamily: fontFamily,
       colorScheme: colorScheme,
-      borderRadius: palette.borderRadius,
       avatarBorderRadius: palette.avatarBorderRadius,
     );
     if (!palette.windowGradient &&
@@ -679,14 +678,13 @@ abstract final class AppTheme {
     DiscourseColors discourse, {
     String? fontFamily,
     ColorScheme? colorScheme,
-    double borderRadius = defaultDiscourseBorderRadius,
     AvatarBorderRadius avatarBorderRadius = defaultDiscourseAvatarBorderRadius,
   }) {
     final resolvedColorScheme =
         colorScheme ?? _fallbackColorScheme(brightness, shell, discourse);
 
     final modalShape = RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(borderRadius),
+      borderRadius: BorderRadius.circular(DRadius.panel),
     );
     final textTheme = DiscourseTypography.textTheme(
       ThemeData(
@@ -695,7 +693,7 @@ abstract final class AppTheme {
       ).textTheme,
     );
     final buttonShape = RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(borderRadius),
+      borderRadius: BorderRadius.circular(DRadius.control),
     );
     final buttonGeometry = ButtonStyle(
       minimumSize: const WidgetStatePropertyAll(Size(0, 32)),
@@ -721,7 +719,7 @@ abstract final class AppTheme {
       alpha: brightness == Brightness.dark ? 1 : 0.6,
     );
     final menuShape = RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(DRadius.control),
       side: BorderSide(color: shell.divider),
     );
     final menuStyle = MenuStyle(
@@ -732,7 +730,9 @@ abstract final class AppTheme {
       padding: const WidgetStatePropertyAll(EdgeInsets.all(6)),
       side: WidgetStatePropertyAll(BorderSide(color: shell.divider)),
       shape: WidgetStatePropertyAll(
-        RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(DRadius.control),
+        ),
       ),
     );
     final menuItemHoverColor = Color.alphaBlend(
@@ -792,11 +792,11 @@ abstract final class AppTheme {
           selected: shell.selected,
           selectedForeground: shell.selectedForeground,
           successColor: discourse.success,
-          radius: borderRadius,
+          radius: DRadius.control,
           controls: DControlTheme.linear(
             resolvedColorScheme,
             shell.content,
-            radius: borderRadius,
+            radius: DRadius.control,
           ),
         ),
         shell,
@@ -805,7 +805,7 @@ abstract final class AppTheme {
         DiscourseAvatarTheme(borderRadius: avatarBorderRadius),
         DiscourseButtonTheme.fromColors(
           resolvedColorScheme,
-          borderRadius: borderRadius,
+          borderRadius: DRadius.control,
           hover: shell.hover,
           success: discourse.success,
         ),
@@ -828,7 +828,7 @@ abstract final class AppTheme {
       ),
       cardTheme: CardThemeData(
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(borderRadius),
+          borderRadius: BorderRadius.circular(DRadius.panel),
         ),
       ),
       popupMenuTheme: PopupMenuThemeData(
@@ -851,7 +851,9 @@ abstract final class AppTheme {
             EdgeInsets.symmetric(horizontal: 10, vertical: 8),
           ),
           shape: WidgetStatePropertyAll(
-            RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(DRadius.control),
+            ),
           ),
           backgroundColor: WidgetStateProperty.resolveWith((states) {
             if (states.contains(WidgetState.hovered) ||
@@ -904,7 +906,7 @@ abstract final class AppTheme {
         verticalOffset: DTooltip.defaultVerticalOffset,
         decoration: BoxDecoration(
           color: resolvedColorScheme.onSurface,
-          borderRadius: BorderRadius.circular(borderRadius * 0.8),
+          borderRadius: BorderRadius.circular(DRadius.control),
         ),
         textStyle: textTheme.bodySmall?.copyWith(
           color: shell.content,
@@ -945,9 +947,9 @@ abstract final class AppTheme {
         modalElevation: 24,
         shadowColor: modalShadow,
         surfaceTintColor: Colors.transparent,
-        shape: RoundedRectangleBorder(
+        shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(
-            top: Radius.circular(borderRadius),
+            top: Radius.circular(DRadius.panel),
           ),
         ),
         clipBehavior: Clip.antiAlias,

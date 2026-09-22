@@ -133,7 +133,7 @@ class _DItemState extends State<DItem> {
         widget.selectionStyle == DItemSelectionStyle.leadingAccent;
     final radius = switch (widget.shape) {
       DItemShape.fullWidth => 0.0,
-      DItemShape.card => tokens.radius * 1.4,
+      DItemShape.card => DRadius.panel,
       DItemShape.standard => 10.0,
     };
     final borderRadius = BorderRadius.circular(radius);

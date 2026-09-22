@@ -399,7 +399,7 @@ class DSheetContent extends StatelessWidget {
             _ => throw StateError('Sheet side was not resolved.'),
           };
     final radius = inset
-        ? BorderRadius.circular(tokens.radius * 1.4)
+        ? BorderRadius.circular(DRadius.panel)
         : BorderRadius.zero;
     Widget surface = DecoratedBox(
       decoration: BoxDecoration(

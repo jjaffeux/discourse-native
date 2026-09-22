@@ -532,7 +532,7 @@ class DTabList<T> extends StatelessWidget {
                             decoration: BoxDecoration(
                               color: tokens.muted,
                               borderRadius: BorderRadius.circular(
-                                tokens.radius * 1.4,
+                                DRadius.panel,
                               ),
                             ),
                           ),
@@ -605,7 +605,7 @@ class DTabList<T> extends StatelessWidget {
           ? tokens.muted
           : Colors.transparent,
       borderRadius: variant == DTabListVariant.defaultStyle
-          ? BorderRadius.circular(tokens.radius)
+          ? BorderRadius.circular(DRadius.panel)
           : BorderRadius.zero,
     );
     final scope = _DTabListScope<T>(
@@ -881,9 +881,7 @@ class _DTabTriggerState<T> extends State<DTabTrigger<T>> {
     final plain = list.variant == DTabListVariant.plain;
     final navigation = list.variant == DTabListVariant.navigation;
     final flat = pill || plain || navigation;
-    final radius = flat
-        ? DControlStyle.radius(tokens, size)
-        : tokens.radius * .8;
+    final radius = selected ? DRadius.panel : DRadius.pill;
     final selectedBackground = pill
         ? tokens.foreground.withValues(alpha: .08)
         : dark
@@ -1325,7 +1323,9 @@ class _DDocumentTabState extends State<DDocumentTab> {
     Color mix(double amount) =>
         Color.lerp(tokens.background, tokens.foreground, amount)!;
     final foreground = widget.selected || _hovered ? mix(.9) : mix(.5);
-    final radius = BorderRadius.circular(tokens.buttonTheme.radius);
+    final radius = BorderRadius.circular(
+      widget.selected ? DRadius.panel : DRadius.pill,
+    );
     return MouseRegion(
       key: widget.pointerKey,
       cursor: SystemMouseCursors.click,

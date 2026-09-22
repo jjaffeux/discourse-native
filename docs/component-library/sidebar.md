@@ -41,7 +41,7 @@ Mobile coverage came from widget tests, not a device run.
 | --- | --- |
 | 16rem / 18rem / 3rem widths | 256 / 288 / 48 logical pixels, configurable |
 | md breakpoint | Provider's bounded available width <768; configurable, docs use900 |
-| sidebar / floating / inset | DSidebarVariant; floating 8px padding, border, small shadow and base radius (`rounded-lg`); inset content radius ×1.4 |
+| sidebar / floating / inset | DSidebarVariant; floating 8px padding, border, small shadow and fixed 14px panel radius; inset content uses 14px |
 | offcanvas / icon / none | Zero inline width / icon width / always inline; mobile modal for collapsible modes |
 | physical left/right | Physical panel side; directional text, padding and submenu border |
 | 200ms transition | Linear desktop width; mobile presentation uses the accepted Sheet transition; zero with reduced motion |

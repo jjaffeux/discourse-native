@@ -440,9 +440,7 @@ class _DToggleGroupState<T extends Object> extends State<DToggleGroup<T>> {
       final variant = item.variant ?? widget.variant;
       final size = item.size ?? widget.size;
       final baseStyle = item.visualStyle;
-      final groupRadius = BorderRadius.circular(
-        _toggleGroupRadius(context, size),
-      );
+      final groupRadius = BorderRadius.circular(DRadius.control);
       final joinedRadius = !connected
           ? baseStyle?.borderRadius
           : widget.orientation == Axis.horizontal
@@ -656,11 +654,4 @@ class _RenderFocusOrderedFlex extends RenderFlex {
     final parentData = child.parentData! as FlexParentData;
     context.paintChild(child, offset + parentData.offset);
   }
-}
-
-double _toggleGroupRadius(BuildContext context, DToggleSize size) {
-  // Connected items use the group's rounded-lg outer corners at every size;
-  // the small group's own wrapper is rounded min(radius-md, 10px).
-  final radius = DTokens.of(context).radius;
-  return size == DToggleSize.small ? (radius * .8).clamp(0, 10) : radius;
 }

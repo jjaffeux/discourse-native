@@ -446,7 +446,7 @@ class _TopicTagPill extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final shape = RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(5),
+      borderRadius: BorderRadius.circular(DRadius.pill),
     );
     final content = Padding(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
@@ -472,7 +472,7 @@ class _TopicTagPill extends StatelessWidget {
           ? content
           : InlineAction(
               onTap: onTap!,
-              borderRadius: BorderRadius.circular(999),
+              borderRadius: BorderRadius.circular(DRadius.pill),
               child: content,
             ),
     );
@@ -483,7 +483,7 @@ class _TopicTagPill extends StatelessWidget {
             onTap: onTap!,
             semanticLabel: semanticLabel,
             excludeChildSemantics: true,
-            borderRadius: BorderRadius.circular(5),
+            borderRadius: BorderRadius.circular(DRadius.pill),
             child: ConstrainedBox(
               constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
               child: Align(widthFactor: 1, heightFactor: 1, child: pill),
