@@ -65,13 +65,17 @@ void main() {
   }
 
   testWidgets(
-    'recent chats are ordered by activity and Enter opens without a write',
+    'group creation comes first, followed by recent chats ordered by activity',
     (tester) async {
       await pump(tester);
       final command = tester
           .widget<DCommand<String>>(find.byType(DCommand<String>))
           .controller!;
-      expect(command.value, 'c-55');
+      expect(command.value, 'new-group');
+      expect(
+        tester.getBottomLeft(startGroup).dy,
+        lessThan(tester.getTopLeft(find.text('Recent conversations')).dy),
+      );
       expect(
         tester
             .widget<EditableText>(find.byType(EditableText))
@@ -79,6 +83,9 @@ void main() {
             .hasFocus,
         isTrue,
       );
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.pump();
+      expect(command.value, 'c-55');
       await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
       await tester.pump();
       expect(command.value, 'c-56');
@@ -183,9 +190,9 @@ void main() {
     'group members clear search, enforce limits, and can be removed',
     (tester) async {
       await pump(tester);
-      await tester.ensureVisible(startGroup);
-      await tester.tap(startGroup);
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
       await tester.pumpAndSettle();
+      expect(find.text('New group chat'), findsOneWidget);
       expect(tester.widget<DButton>(createGroup).onPressed, isNull);
       await query(tester, 'design');
       await tester.sendKeyEvent(LogicalKeyboardKey.enter);
