@@ -1028,6 +1028,24 @@ class _WideShell extends StatefulWidget {
 class _WideShellState extends State<_WideShell> {
   bool? _sidebarExpanded;
 
+  // Window constraints change on every resize tick, but the fixed-width rail
+  // only needs new configuration when the sidebar opens or closes. Its own
+  // selectors and inherited dependencies still update it normally.
+  late final _expandedRail = _buildRail(true);
+  late final _collapsedRail = _buildRail(false);
+
+  Widget _buildRail(bool sidebarExpanded) => ShellSelector<bool>(
+    select: (controller) =>
+        controller.hasInstances && controller.rootMode == ShellRootMode.forum,
+    builder: (context, available, _) => InstanceRail(
+      showSidebarToggle: true,
+      sidebarExpanded: available && sidebarExpanded,
+      onToggleSidebar: available
+          ? () => setState(() => _sidebarExpanded = !sidebarExpanded)
+          : null,
+    ),
+  );
+
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
@@ -1045,19 +1063,7 @@ class _WideShellState extends State<_WideShell> {
           children: [
             SizedBox(
               width: AdaptiveShell.railWidth,
-              child: ShellSelector<bool>(
-                select: (controller) =>
-                    controller.hasInstances &&
-                    controller.rootMode == ShellRootMode.forum,
-                builder: (context, available, _) => InstanceRail(
-                  showSidebarToggle: true,
-                  sidebarExpanded: available && sidebarExpanded,
-                  onToggleSidebar: available
-                      ? () =>
-                            setState(() => _sidebarExpanded = !sidebarExpanded)
-                      : null,
-                ),
-              ),
+              child: sidebarExpanded ? _expandedRail : _collapsedRail,
             ),
             Expanded(
               child: ShellWorkspace(

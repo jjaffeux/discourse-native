@@ -385,6 +385,40 @@ void main() {
     expect(_sidebarWidth(tester), 640.0);
   }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 
+  testWidgets('viewport resizing preserves the rail until navigation changes', (
+    tester,
+  ) async {
+    final controller = await _controller();
+    await _pumpShell(tester, controller, const Size(1400, 800));
+    final rail = tester.element(find.byType(InstanceRail));
+    final rebuilt = <Element>{};
+    final previous = debugOnRebuildDirtyWidget;
+    debugOnRebuildDirtyWidget = (element, builtOnce) {
+      rebuilt.add(element);
+      previous?.call(element, builtOnce);
+    };
+    addTearDown(() => debugOnRebuildDirtyWidget = previous);
+
+    for (final width in [1500.0, 1250.0, 1150.0]) {
+      rebuilt.clear();
+      tester.view.physicalSize = Size(width, 800);
+      await tester.pumpAndSettle();
+      expect(rebuilt, isNot(contains(rail)));
+    }
+
+    final toggle = find.byKey(const ValueKey('rail-sidebar-toggle'));
+    tester.view.physicalSize = const Size(1000, 800);
+    await tester.pumpAndSettle();
+    expect(tester.widget<DButton>(toggle).tooltip, 'Expand sidebar');
+    await tester.tap(toggle);
+    await tester.pumpAndSettle();
+    expect(tester.widget<DButton>(toggle).tooltip, 'Collapse sidebar');
+
+    controller.selectAggregate();
+    await tester.pumpAndSettle();
+    expect(tester.widget<DButton>(toggle).onPressed, isNull);
+  }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
+
   testWidgets('live drag leaves the shell and pane content unrebuilt', (
     tester,
   ) async {
