@@ -16,6 +16,11 @@ abstract interface class GroupPagesPort implements GroupPagesCoordinatorPort {
     GroupPagesDirectoryQuery query,
   );
 
+  Future<List<GroupMember>> loadMemberPreview(
+    GroupPagesOwner owner,
+    Group group,
+  );
+
   GroupPageData groupData(
     GroupPagesOwner owner,
     GroupRoute route,

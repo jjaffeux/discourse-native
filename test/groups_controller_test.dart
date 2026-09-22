@@ -26,7 +26,84 @@ Completer<T> _completed<T>(T value) => Completer<T>()..complete(value);
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
+  const previewGroup = Group(
+    id: 1,
+    name: 'support',
+    userCount: 12,
+    canSeeMembers: true,
+  );
+
+  test(
+    'directory member preview requests four members without filling member pagination',
+    () async {
+      final transport = _ControlledGroupTransport()
+        ..objects.add(
+          _completed({
+            'members': [
+              for (var id = 1; id <= 5; id++) {'id': id, 'username': 'user$id'},
+            ],
+            'meta': {'total': 12, 'limit': 4, 'offset': 0},
+          }),
+        );
+      final controller = _controller(transport);
+      addTearDown(controller.dispose);
+      final members = await controller.loadMemberPreview(
+        _instance,
+        previewGroup,
+      );
+      expect(
+        Uri.parse(transport.gets.single.path).queryParameters['limit'],
+        '4',
+      );
+      expect(members.map((member) => member.username), [
+        'user1',
+        'user2',
+        'user3',
+        'user4',
+      ]);
+      expect(controller.membersState(_site, 'support').loaded, isFalse);
+    },
+  );
+
+  test('directory member preview skips hidden and empty groups', () async {
+    final transport = _ControlledGroupTransport();
+    final controller = _controller(transport);
+    addTearDown(controller.dispose);
+    for (final group in [
+      const Group(id: 1, name: 'hidden', userCount: 3),
+      const Group(id: 2, name: 'empty', userCount: 0, canSeeMembers: true),
+    ]) {
+      expect(await controller.loadMemberPreview(_instance, group), isEmpty);
+    }
+    expect(transport.gets, isEmpty);
+  });
+
+  test(
+    'directory member preview discards a forgotten account response',
+    () async {
+      final pending = Completer<Map<String, dynamic>>();
+      final started = Completer<void>();
+      final transport = _ControlledGroupTransport()
+        ..objects.add(pending)
+        ..onGet = (_) => started.complete();
+      final controller = _controller(transport);
+      addTearDown(controller.dispose);
+      final loading = controller.loadMemberPreview(_instance, previewGroup);
+      await started.future;
+      controller.forget(_site);
+      pending.complete({
+        'members': [
+          {'id': 1, 'username': 'old-account-member'},
+        ],
+      });
+      expect(await loading, isEmpty);
+    },
+  );
+
   final publicReads = <String, Future<void> Function(GroupsController)>{
+    'member preview': (controller) async {
+      await controller.loadMemberPreview(_instance, previewGroup);
+    },
     'directory': (controller) =>
         controller.loadDirectory(_instance, const GroupDirectoryQuery()),
     'detail': (controller) => controller.loadDetail(_instance, 'support'),

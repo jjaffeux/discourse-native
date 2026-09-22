@@ -68,6 +68,17 @@ final class ShellGroupPagesPort implements GroupPagesPort {
   }
 
   @override
+  Future<List<GroupMember>> loadMemberPreview(
+    GroupPagesOwner owner,
+    Group group,
+  ) async {
+    final instance = _instance(owner);
+    if (instance == null) return const [];
+    final members = await _shell.groups.loadMemberPreview(instance, group);
+    return isCurrent(owner) ? members : const [];
+  }
+
+  @override
   Future<void> loadDetail(
     GroupPagesOwner owner,
     GroupRoute route, {
