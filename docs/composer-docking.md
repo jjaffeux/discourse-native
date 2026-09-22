@@ -6,9 +6,10 @@ scope.
 
 ## Behavior
 
-- The inset Native toggle offers **Dock side** and **Full screen**. Dock side
-  opens a popup with left,
-  bottom, and right icons. Each has a tooltip, accessible name, and selected
+- The inset Native toggle offers **Dock side** and **Full screen**. From full
+  screen, Dock side immediately restores the previous dock position. When
+  already docked, it opens a popup with left, bottom, and right icons.
+  Each has a tooltip, accessible name, and selected
   state. The popup contains only placement choices. Save/close, minimize, and
   restore remain in the header; closing an unsaved edit retains its confirmation.
 - Desktop defaults to the right at 420 logical pixels. Side docking keeps a

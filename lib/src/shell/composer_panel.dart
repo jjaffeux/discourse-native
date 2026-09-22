@@ -162,6 +162,7 @@ class ComposerPanel extends StatelessWidget {
           onRestore: minimized ? onRestore : null,
           placement: placement,
           onPlacementChanged: onPlacementChanged,
+          onExitFullScreen: onExitFullScreen,
           mobileSubmit: mobile && !minimized
               ? DButton.iconOnly(
                   key: const ValueKey('composer-submit'),
