@@ -246,6 +246,7 @@ class ComposerSlashMenuState extends State<ComposerSlashMenu> {
   @override
   Widget build(BuildContext context) {
     final query = _query;
+    final text = widget.composer.text.text;
     final open = query != null && _caret != null;
     // The dropdown stays mounted during its exit animation. Keep its anchor
     // and contents stable after the live query closes, until the next opening.
@@ -337,11 +338,12 @@ class ComposerSlashMenuState extends State<ComposerSlashMenu> {
               child: SizedBox(width: 1, height: caret?.height ?? 1),
             ),
           ),
+          // Layout can rebuild before the cached query catches up with edits.
           if (query != null &&
               query.query.isEmpty &&
               caret != null &&
-              (query.end == widget.composer.text.text.length ||
-                  widget.composer.text.text[query.end] == '\n'))
+              (query.end == text.length ||
+                  (query.end < text.length && text[query.end] == '\n')))
             Positioned(
               left: caret.right + 2,
               top: caret.top,
