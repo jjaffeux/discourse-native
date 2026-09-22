@@ -28,6 +28,28 @@ Widget _list({ScrollController? controller}) => ListView.builder(
 );
 
 void main() {
+  testWidgets('framed pages pass corner geometry to the Native card', (
+    tester,
+  ) async {
+    const radius = BorderRadius.only(bottomRight: Radius.circular(10));
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: DPageSurface(borderRadius: radius, child: Text('Page')),
+      ),
+    );
+    expect(tester.widget<DCard>(find.byType(DCard)).borderRadius, radius);
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: DPageSurface(
+          framed: false,
+          borderRadius: radius,
+          child: Text('Page'),
+        ),
+      ),
+    );
+    expect(find.byType(DCard), findsNothing);
+  });
+
   testWidgets('custom page fill retains its frame and descendant theme', (
     tester,
   ) async {

@@ -17,6 +17,25 @@ final cardExamples = ComponentExamples(
       'the header action moves below its text to keep both readable.',
   examples: [
     StyleguideExample(
+      title: 'Window corner',
+      description:
+          'An outer panel can follow its window corner. The Card applies the '
+          'same per-corner geometry to its border, background and content clip.',
+      code: '''DCard(
+  borderRadius: BorderRadius.circular(DTokens.of(context).radius * 1.4)
+      .copyWith(bottomRight: const Radius.circular(10)),
+  children: [DCardContent(child: Text('At the window edge'))],
+)''',
+      builder: (context) => _Frame(
+        child: DCard(
+          borderRadius: BorderRadius.circular(
+            DTokens.of(context).radius * 1.4,
+          ).copyWith(bottomRight: const Radius.circular(10)),
+          children: const [DCardContent(child: Text('At the window edge'))],
+        ),
+      ),
+    ),
+    StyleguideExample(
       title: 'Translucent surface',
       description:
           'A custom fill exposes the backdrop while retaining the Card outline '

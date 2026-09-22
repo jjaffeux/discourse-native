@@ -18,6 +18,7 @@ class DPageSurface extends StatefulWidget {
     this.footer,
     this.framed = true,
     this.backgroundColor,
+    this.borderRadius,
     this.hideHeaderOnScroll = false,
     this.limitContentSize,
     required this.child,
@@ -42,6 +43,9 @@ class DPageSurface extends StatefulWidget {
 
   /// Optional fill for the enclosing Card. Ignored when [framed] is false.
   final Color? backgroundColor;
+
+  /// Optional outline and clip for the enclosing Card; ignored when unframed.
+  final BorderRadiusGeometry? borderRadius;
 
   /// Constrains reading-lane content to 825px without narrowing its viewport.
   /// Null inherits the enclosing page policy; the default is full width.
@@ -218,6 +222,7 @@ class _DPageSurfaceState extends State<DPageSurface> {
           ? DCard(
               spacing: 0,
               backgroundColor: widget.backgroundColor,
+              borderRadius: widget.borderRadius,
               child: Expanded(child: page),
             )
           : page,

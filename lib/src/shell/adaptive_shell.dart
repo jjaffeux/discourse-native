@@ -529,7 +529,12 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
             final layout = ShellLayout.forWidth(constraints.maxWidth);
             final shell = mobile
                 ? const _MobileShell()
-                : _WideShell(layout: layout, sidebarWidth: _sidebarWidth);
+                : _WideShell(
+                    layout: layout,
+                    sidebarWidth: _sidebarWidth,
+                    atWindowEdge:
+                        !diagnosticsOpen || layout != ShellLayout.expanded,
+                  );
 
             Widget framedShell(Widget body) => Stack(
               children: [
@@ -959,10 +964,15 @@ class _MobileShell extends StatelessWidget {
 }
 
 class _WideShell extends StatefulWidget {
-  const _WideShell({required this.layout, required this.sidebarWidth});
+  const _WideShell({
+    required this.layout,
+    required this.sidebarWidth,
+    required this.atWindowEdge,
+  });
 
   final ShellLayout layout;
   final PanelWidthController sidebarWidth;
+  final bool atWindowEdge;
 
   @override
   State<_WideShell> createState() => _WideShellState();
@@ -1010,6 +1020,7 @@ class _WideShellState extends State<_WideShell> {
             ),
             Expanded(
               child: ShellWorkspace(
+                atWindowEdge: widget.atWindowEdge,
                 child:
                     ShellSelector<
                       ({
@@ -1049,6 +1060,7 @@ class _WideShellState extends State<_WideShell> {
                                       ? 2
                                       : workspacePanelGap,
                                   child: const WorkspacePanel(
+                                    atRightEdge: false,
                                     child: InstanceSidebar(),
                                   ),
                                 ),

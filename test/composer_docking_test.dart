@@ -22,6 +22,62 @@ import 'support/fakes.dart';
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
+  testWidgets('the bottom-right window corner moves with the composer', (
+    tester,
+  ) async {
+    final harness = await _Harness.create(
+      tester,
+      windowCorner: 10,
+      reader: Builder(
+        builder: (context) => DPageSurface(
+          key: const ValueKey('corner-reader'),
+          borderRadius: WorkspacePanelCorner.borderRadiusOf(context),
+          child: const SizedBox.expand(),
+        ),
+      ),
+    );
+    DCard readerCard() => tester.widget<DCard>(
+      find.descendant(
+        of: find.byKey(const ValueKey('corner-reader')),
+        matching: find.byType(DCard),
+      ),
+    );
+    DCard composerCard() => tester.widget<DCard>(
+      find.descendant(
+        of: find.byType(WorkspacePanel),
+        matching: find.byType(DCard),
+      ),
+    );
+    bool hasCorner(DCard card) =>
+        (card.borderRadius as BorderRadius?)?.bottomRight ==
+        const Radius.circular(10);
+
+    for (final placement in [
+      ComposerPlacement.right,
+      ComposerPlacement.left,
+      ComposerPlacement.bottom,
+      ComposerPlacement.right,
+    ]) {
+      harness.presentation.dock(placement);
+      await tester.pumpAndSettle();
+      expect(hasCorner(readerCard()), placement == ComposerPlacement.left);
+      expect(hasCorner(composerCard()), placement != ComposerPlacement.left);
+    }
+    await tester.tap(find.byTooltip('Full screen'));
+    await tester.pumpAndSettle();
+    expect(hasCorner(composerCard()), isTrue);
+    await tester.tap(find.byKey(const ValueKey('composer-minimize')));
+    await tester.pumpAndSettle();
+    expect(hasCorner(composerCard()), isTrue);
+    expect(hasCorner(readerCard()), isFalse);
+    await tester.tap(find.byKey(const ValueKey('composer-restore')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Save and close'));
+    await tester.pumpAndSettle();
+    expect(hasCorner(readerCard()), isTrue);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets(
     'full screen retains draft and reader and restores the chosen dock',
     (tester) async {
@@ -770,6 +826,7 @@ class _Harness {
     double textScale = 1,
     FocusNode? readerFocus,
     Widget? reader,
+    double? windowCorner,
   }) async {
     const user = DiscourseUser(id: 7, username: 'sam', canCreateTopic: true);
     final shell = ShellController(
@@ -811,18 +868,21 @@ class _Harness {
               textDirection: direction,
               child: ComposerPresentationHost(
                 controller: presentation,
-                child: ComposerDock(
-                  child: Focus(
-                    focusNode: readerFocus,
-                    autofocus: readerFocus != null,
-                    child:
-                        reader ??
-                        ListView(
-                          key: const ValueKey('reader-list'),
-                          children: [
-                            for (var i = 0; i < 100; i++) Text('Post $i'),
-                          ],
-                        ),
+                child: WorkspacePanelCorner(
+                  radius: windowCorner,
+                  child: ComposerDock(
+                    child: Focus(
+                      focusNode: readerFocus,
+                      autofocus: readerFocus != null,
+                      child:
+                          reader ??
+                          ListView(
+                            key: const ValueKey('reader-list'),
+                            children: [
+                              for (var i = 0; i < 100; i++) Text('Post $i'),
+                            ],
+                          ),
+                    ),
                   ),
                 ),
               ),

@@ -42,6 +42,7 @@ import 'preferences_page.dart';
 import 'resizable_pane.dart';
 import 'shell_controller.dart';
 import 'shell_metrics.dart';
+import 'shell_panel.dart';
 import 'shell_scope.dart';
 import 'tags_page.dart';
 import 'title_bar.dart';
@@ -242,6 +243,7 @@ class _MainContentBody extends StatelessWidget {
       child: SafeArea(
         left: false,
         child: DPageSurface(
+          borderRadius: WorkspacePanelCorner.borderRadiusOf(context),
           backgroundColor: ForumWindowBackground.panelColor(context),
           identity: contentKey,
           hideHeaderOnScroll: route.isTopic,
@@ -535,6 +537,14 @@ class _TopicInboxWorkspaceState extends State<_TopicInboxWorkspace> {
                         )),
                         hidden: topicOpen && !split,
                         child: DPageSurface(
+                          borderRadius: WorkspacePanelCorner.borderRadiusOf(
+                            context,
+                            atRightEdge:
+                                !split ||
+                                readerOnLeft ==
+                                    (Directionality.of(context) ==
+                                        TextDirection.ltr),
+                          ),
                           backgroundColor: ForumWindowBackground.panelColor(
                             context,
                           ),
@@ -596,6 +606,14 @@ class _TopicInboxWorkspaceState extends State<_TopicInboxWorkspace> {
                       top: 0,
                       bottom: 0,
                       child: DPageSurface(
+                        borderRadius: WorkspacePanelCorner.borderRadiusOf(
+                          context,
+                          atRightEdge:
+                              !split ||
+                              readerOnLeft ==
+                                  (Directionality.of(context) ==
+                                      TextDirection.rtl),
+                        ),
                         backgroundColor: ForumWindowBackground.panelColor(
                           context,
                         ),
