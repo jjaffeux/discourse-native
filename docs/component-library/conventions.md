@@ -108,6 +108,13 @@ in the September HTML reference. There is no shadow. Touch footers retain their
 opaque background and top divider. Ordinary card footers retain their shared
 spacing and square upper edge.
 
+`DCard.backgroundColor` and `DPageSurface.backgroundColor` can supply a
+translucent surface fill without changing descendant tokens, outlines or
+clipping. Page Surface applies the fill only when framed. Custom forum
+backgrounds use this option at panel boundaries so a single window effect
+continues behind the sidebar, list and reader. Inner content stays transparent;
+the fixed footers retain their own stronger fill and top border.
+
 ### Adjacent control spacing
 
 Use `DSpacing.controlGap` (4 logical pixels) between separate adjacent buttons,

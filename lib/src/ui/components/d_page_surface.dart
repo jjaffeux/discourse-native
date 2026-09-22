@@ -17,6 +17,7 @@ class DPageSurface extends StatefulWidget {
     this.tabs,
     this.footer,
     this.framed = true,
+    this.backgroundColor,
     this.hideHeaderOnScroll = false,
     this.limitContentSize,
     required this.child,
@@ -38,6 +39,9 @@ class DPageSurface extends StatefulWidget {
 
   /// Disable when composed inside an already framed page or a touch shell.
   final bool framed;
+
+  /// Optional fill for the enclosing Card. Ignored when [framed] is false.
+  final Color? backgroundColor;
 
   /// Constrains reading-lane content to 825px without narrowing its viewport.
   /// Null inherits the enclosing page policy; the default is full width.
@@ -211,7 +215,11 @@ class _DPageSurfaceState extends State<DPageSurface> {
       limitContentSize:
           widget.limitContentSize ?? DPageContentSettings.limitOf(context),
       child: widget.framed
-          ? DCard(spacing: 0, child: Expanded(child: page))
+          ? DCard(
+              spacing: 0,
+              backgroundColor: widget.backgroundColor,
+              child: Expanded(child: page),
+            )
           : page,
     );
   }

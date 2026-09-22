@@ -242,12 +242,10 @@ class _MainContentBody extends StatelessWidget {
       child: SafeArea(
         left: false,
         child: DPageSurface(
+          backgroundColor: ForumWindowBackground.panelColor(context),
           identity: contentKey,
           hideHeaderOnScroll: route.isTopic,
-          framed:
-              !ForumWindowBackground.isContinuous(context) &&
-              !context.isTouch &&
-              !pluginOwnsChrome,
+          framed: !context.isTouch && !pluginOwnsChrome,
           limitContentSize: ContentSettingsScope.limitContentSizeOf(context),
           tabs: forumTabsEnabled ? const TopicPanelTabs() : null,
           header:
@@ -537,9 +535,10 @@ class _TopicInboxWorkspaceState extends State<_TopicInboxWorkspace> {
                         )),
                         hidden: topicOpen && !split,
                         child: DPageSurface(
-                          framed:
-                              !ForumWindowBackground.isContinuous(context) &&
-                              !context.isTouch,
+                          backgroundColor: ForumWindowBackground.panelColor(
+                            context,
+                          ),
+                          framed: !context.isTouch,
                           limitContentSize:
                               ContentSettingsScope.limitContentSizeOf(context),
                           tabs: !topicOpen || split
@@ -597,9 +596,10 @@ class _TopicInboxWorkspaceState extends State<_TopicInboxWorkspace> {
                       top: 0,
                       bottom: 0,
                       child: DPageSurface(
-                        framed:
-                            !ForumWindowBackground.isContinuous(context) &&
-                            !context.isTouch,
+                        backgroundColor: ForumWindowBackground.panelColor(
+                          context,
+                        ),
+                        framed: !context.isTouch,
                         limitContentSize:
                             ContentSettingsScope.limitContentSizeOf(context),
                         tabs: TopicPanelTabs(

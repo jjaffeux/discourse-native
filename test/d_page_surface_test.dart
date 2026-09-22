@@ -28,6 +28,39 @@ Widget _list({ScrollController? controller}) => ListView.builder(
 );
 
 void main() {
+  testWidgets('custom page fill retains its frame and descendant theme', (
+    tester,
+  ) async {
+    const fill = Color(0x664488cc);
+    Color? descendantBackground;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: DPageSurface(
+          backgroundColor: fill,
+          child: Builder(
+            builder: (context) {
+              descendantBackground = DTokens.of(context).background;
+              return const Text('Page content');
+            },
+          ),
+        ),
+      ),
+    );
+    final card = find.byType(DCard);
+    final material = tester.widget<Material>(
+      find.descendant(of: card, matching: find.byType(Material)).first,
+    );
+    expect(material.color, fill);
+    expect(material.clipBehavior, Clip.antiAlias);
+    expect(descendantBackground!.a, 1);
+    final frame = tester.widget<DecoratedBox>(
+      find.descendant(of: card, matching: find.byType(DecoratedBox)).first,
+    );
+    expect((frame.decoration as BoxDecoration).border, isNotNull);
+    expect(frame.position, DecorationPosition.foreground);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets(
     'page owns width, fixed tabs and footer while retaining the body',
     (tester) async {

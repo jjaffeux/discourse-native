@@ -2427,12 +2427,12 @@ class _TopicBottomBar extends StatelessWidget {
         controller.instanceFor(siteUrl!)?.user?.canSendPrivateMessages == true;
     return DCardFooter(
       key: const ValueKey('topic-bottom-bar'),
-      backgroundColor: ForumWindowBackground.isContinuous(context)
-          ? Colors.transparent
-          : context.isTouch
+      backgroundColor: context.isTouch
           ? (topic == null ? theme.shell.panel : theme.shell.content)
-          : DTokens.of(context).footerBackground,
-      border: !ForumWindowBackground.isContinuous(context),
+          : ForumWindowBackground.footerColor(
+              context,
+              DTokens.of(context).footerBackground,
+            ),
       borderColor: context.isTouch ? null : DTokens.of(context).footerBorder,
       rounded: !context.isTouch,
       padding: EdgeInsets.zero,

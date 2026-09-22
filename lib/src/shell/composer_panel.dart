@@ -3917,14 +3917,15 @@ class ComposerUploadQueue extends StatelessWidget {
 }
 
 Color _composerFooterColor(BuildContext context) =>
-    ForumWindowBackground.isContinuous(context)
-    ? Colors.transparent
-    : Color.alphaBlend(
+    ForumWindowBackground.footerColor(
+      context,
+      Color.alphaBlend(
         DTokens.of(
           context,
         ).foreground.withValues(alpha: context.isTouch ? 0.04 : 0.025),
         Theme.of(context).shell.content,
-      );
+      ),
+    );
 
 class _Footer extends StatelessWidget {
   const _Footer({

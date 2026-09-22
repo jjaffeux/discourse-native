@@ -22,6 +22,7 @@ class DCard extends StatelessWidget {
     this.size = DCardSize.normal,
     this.variant = DCardVariant.standard,
     this.spacing,
+    this.backgroundColor,
     this.leading,
     this.trailing,
     this.footer,
@@ -33,6 +34,10 @@ class DCard extends StatelessWidget {
   final DCardSize size;
   final DCardVariant variant;
   final double? spacing;
+
+  /// Overrides only the surface fill, retaining the outline, clipping and
+  /// descendant theme. Supports translucent fills over a shared backdrop.
+  final Color? backgroundColor;
   final Widget? leading;
   final Widget? trailing;
   final DCardFooter? footer;
@@ -65,12 +70,14 @@ class DCard extends StatelessWidget {
           ),
           child: Material(
             animationDuration: Duration.zero,
-            color: capsule
-                ? Color.alphaBlend(
-                    tokens.foreground.withValues(alpha: 0.04),
-                    tokens.background,
-                  )
-                : tokens.background,
+            color:
+                backgroundColor ??
+                (capsule
+                    ? Color.alphaBlend(
+                        tokens.foreground.withValues(alpha: 0.04),
+                        tokens.background,
+                      )
+                    : tokens.background),
             borderRadius: radius,
             clipBehavior: Clip.antiAlias,
             textStyle: Theme.of(context).textTheme.bodyMedium!.copyWith(
