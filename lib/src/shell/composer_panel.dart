@@ -1128,6 +1128,7 @@ class ComposerEditor extends StatefulWidget {
     this.readClipboardFiles = readComposerClipboardFiles,
     this.onSuggestionAction,
     this.slashActions,
+    this.onKeyEvent,
   });
 
   final ComposerController composer;
@@ -1149,6 +1150,9 @@ class ComposerEditor extends StatefulWidget {
   final bool expands;
   final ComposerSuggestionActionHandler? onSuggestionAction;
   final ComposerSlashActions? slashActions;
+
+  /// Application shortcuts, after menu selection and before editor commands.
+  final KeyEventResult Function(KeyEvent)? onKeyEvent;
 
   @override
   State<ComposerEditor> createState() => _ComposerEditorState();
@@ -2121,6 +2125,12 @@ class _ComposerEditorState extends State<ComposerEditor> {
     if (!widget.composer.focus.hasPrimaryFocus) return KeyEventResult.ignored;
     if (!widget.composer.isEditing) return KeyEventResult.ignored;
     final keyboard = HardwareKeyboard.instance;
+    if ((!widget.composer.autocomplete.isOpen ||
+            keyboard.isMetaPressed ||
+            keyboard.isControlPressed) &&
+        widget.onKeyEvent?.call(event) == KeyEventResult.handled) {
+      return KeyEventResult.handled;
+    }
     final isEnter =
         event.logicalKey == LogicalKeyboardKey.enter ||
         event.logicalKey == LogicalKeyboardKey.numpadEnter;

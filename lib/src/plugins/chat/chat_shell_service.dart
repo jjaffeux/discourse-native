@@ -594,6 +594,7 @@ final class ChatShellService
     if (section != chatPreferenceSection) return user;
     final held = user.chatCurrentUser ?? const ChatCurrentUser();
     final updated = ChatCurrentUser(
+      sendShortcut: held.sendShortcut,
       hasChatEnabled: held.hasChatEnabled,
       canChat: held.canChat,
       canDirectMessage: held.canDirectMessage,

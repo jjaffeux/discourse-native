@@ -199,11 +199,23 @@ enum ChatHeaderIndicatorPreference {
   }
 }
 
+enum ChatSendShortcut {
+  enter('enter'),
+  metaEnter('meta_enter');
+
+  const ChatSendShortcut(this.wireValue);
+  final String wireValue;
+
+  static ChatSendShortcut read(Object? value) =>
+      value == 'meta_enter' ? metaEnter : enter;
+}
+
 /// Nullable capabilities represent only legacy warm-start records; fresh
 /// session responses resolve absent keys to false.
 @immutable
 final class ChatCurrentUser {
   const ChatCurrentUser({
+    this.sendShortcut = ChatSendShortcut.enter,
     this.hasChatEnabled,
     this.canChat,
     this.canDirectMessage,
@@ -218,6 +230,9 @@ final class ChatCurrentUser {
     final userOption = jsonObjectFields(json['user_option']) ?? const {};
     final customFields = jsonObjectFields(json['custom_fields']) ?? const {};
     return ChatCurrentUser(
+      sendShortcut: ChatSendShortcut.read(
+        userOption['send_shortcut'] ?? userOption['chat_send_shortcut'],
+      ),
       hasChatEnabled: json['has_chat_enabled'] == true,
       canChat: json['can_chat'] == true,
       canDirectMessage: json['can_direct_message'] == true,
@@ -235,6 +250,7 @@ final class ChatCurrentUser {
 
   factory ChatCurrentUser.fromStored(Map<String, dynamic> json) =>
       ChatCurrentUser(
+        sendShortcut: ChatSendShortcut.read(json['sendShortcut']),
         hasChatEnabled: switch (json['hasChatEnabled']) {
           final bool value => value,
           _ => null,
@@ -260,6 +276,7 @@ final class ChatCurrentUser {
         ),
       );
 
+  final ChatSendShortcut sendShortcut;
   final bool? hasChatEnabled;
   final bool? canChat;
   final bool? canDirectMessage;
@@ -273,6 +290,7 @@ final class ChatCurrentUser {
   ChatCurrentUser withChannelListPreferences(
     ChatChannelListPreferences value,
   ) => ChatCurrentUser(
+    sendShortcut: sendShortcut,
     hasChatEnabled: hasChatEnabled,
     canChat: canChat,
     canDirectMessage: canDirectMessage,
@@ -284,6 +302,7 @@ final class ChatCurrentUser {
   );
 
   Map<String, Object?> toStored() => {
+    'sendShortcut': sendShortcut.wireValue,
     'hasChatEnabled': hasChatEnabled,
     if (canChat != null) 'canChat': canChat,
     if (canDirectMessage != null) 'canDirectMessage': canDirectMessage,
@@ -298,6 +317,7 @@ final class ChatCurrentUser {
   @override
   bool operator ==(Object other) =>
       other is ChatCurrentUser &&
+      other.sendShortcut == sendShortcut &&
       other.hasChatEnabled == hasChatEnabled &&
       other.canChat == canChat &&
       other.canDirectMessage == canDirectMessage &&
@@ -309,6 +329,7 @@ final class ChatCurrentUser {
 
   @override
   int get hashCode => Object.hash(
+    sendShortcut,
     hasChatEnabled,
     canChat,
     canDirectMessage,
@@ -391,6 +412,7 @@ final class ChatCurrentUserPersistenceCodec
     }
 
     return ChatCurrentUser(
+      sendShortcut: decoded?.sendShortcut ?? ChatSendShortcut.enter,
       hasChatEnabled: decoded?.hasChatEnabled,
       canChat: decoded?.canChat,
       canDirectMessage: decoded?.canDirectMessage,

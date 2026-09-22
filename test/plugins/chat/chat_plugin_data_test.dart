@@ -13,6 +13,47 @@ const _registry = PluginRegistry([ChatPlugin()]);
 
 void main() {
   test(
+    'send shortcut decodes both server names and survives storage and copies',
+    () {
+      for (final field in ['chat_send_shortcut', 'send_shortcut']) {
+        final value = ChatCurrentUser.fromCurrentUser({
+          'user_option': {field: 'meta_enter'},
+        });
+        expect(value.sendShortcut, ChatSendShortcut.metaEnter);
+        expect(
+          ChatCurrentUser.fromStored(
+            Map<String, dynamic>.from(value.toStored()),
+          ),
+          value,
+        );
+        expect(
+          value
+              .withChannelListPreferences(const ChatChannelListPreferences())
+              .sendShortcut,
+          ChatSendShortcut.metaEnter,
+        );
+      }
+      expect(
+        ChatCurrentUser.fromCurrentUser(const {}).sendShortcut,
+        ChatSendShortcut.enter,
+      );
+      expect(
+        ChatCurrentUser.fromStored(const {}).sendShortcut,
+        ChatSendShortcut.enter,
+      );
+      expect(
+        ChatCurrentUser.fromCurrentUser(const {
+          'user_option': {
+            'send_shortcut': 'enter',
+            'chat_send_shortcut': 'meta_enter',
+          },
+        }).sendShortcut,
+        ChatSendShortcut.enter,
+      );
+    },
+  );
+
+  test(
     'channel-list options survive warm storage without inventing server capabilities',
     () {
       final options = {
@@ -304,6 +345,7 @@ void main() {
       expect(storedUser, isNot(contains('lastChatChannelId')));
       expect(storedUser['plugins'], {
         chatCurrentUserDataKey.id: {
+          'sendShortcut': 'enter',
           'hasChatEnabled': true,
           'canChat': true,
           'canDirectMessage': true,
@@ -431,6 +473,7 @@ void main() {
       expect(stored, isNot(contains('ignoredUsernames')));
       expect(stored['plugins'], {
         chatCurrentUserDataKey.id: {
+          'sendShortcut': 'enter',
           'hasChatEnabled': true,
           'headerIndicatorPreference': 'only_mentions',
           'separateSidebarMode': 'default',
