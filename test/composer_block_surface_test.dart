@@ -461,6 +461,106 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('empty-line drop indicator follows a steady downward drag', (
+    tester,
+  ) async {
+    const source = 'First paragraph\n\n\n\n\n## A heading\n\nLast paragraph';
+    composer.text.value = const TextEditingValue(
+      text: source,
+      selection: TextSelection.collapsed(offset: source.length),
+    );
+    composer.history.reset();
+    await mount(tester, textStyle: const TextStyle(fontSize: 16, height: 1.8));
+    final original = composer.text.value;
+    final editable = tester
+        .state<EditableTextState>(find.byType(EditableText))
+        .renderEditable;
+    Rect lineAt(int offset) => editable
+        .getLocalRectForCaret(TextPosition(offset: offset))
+        .shift(editable.localToGlobal(Offset.zero));
+    final first = lineAt('First paragraph\n'.length);
+    final last = lineAt(source.indexOf('##') - 1);
+    final id = composer.blocks.index.blocks.last.id;
+    final gesture = await tester.startGesture(
+      tester.getCenter(find.byKey(ValueKey('composer-block-handle-$id'))),
+      kind: PointerDeviceKind.mouse,
+    );
+    await gesture.moveBy(const Offset(0, 16));
+    await tester.pump();
+    final x = tester.getCenter(find.byType(EditableText)).dx;
+    double? previous;
+    for (var y = first.top + 1; y < last.bottom; y += 1) {
+      await gesture.moveTo(Offset(x, y));
+      await tester.pump();
+      await tester.pump();
+      final current = tester.getCenter(find.byType(DDropIndicator)).dy;
+      if (previous != null) {
+        expect(
+          current,
+          greaterThanOrEqualTo(previous - .01),
+          reason: 'The line moved backward at pointer y=$y',
+        );
+      }
+      previous = current;
+    }
+    expect(composer.text.value, original);
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await gesture.up();
+    await tester.pumpAndSettle();
+  });
+
+  testWidgets('drop indicator holds its destination through pointer jitter', (
+    tester,
+  ) async {
+    await mount(tester);
+    final original = composer.text.value;
+    final blocks = composer.blocks.index.blocks;
+    final surface = tester.widget<ComposerBlockSurface>(
+      find.byType(ComposerBlockSurface),
+    );
+    final before = surface.blockRect(blocks[1])!;
+    final last = surface.blockRect(blocks.last)!;
+    final gap = (before.bottom + last.top) / 2;
+    final gesture = await tester.startGesture(
+      tester.getCenter(
+        find.byKey(ValueKey('composer-block-handle-${blocks.first.id}')),
+      ),
+      kind: PointerDeviceKind.mouse,
+    );
+    await gesture.moveBy(const Offset(0, 16));
+    await tester.pump();
+
+    Future<void> move(double y, double expected) async {
+      await gesture.moveTo(Offset(last.center.dx, y));
+      await tester.pump();
+      await tester.pump();
+      expect(
+        tester.getCenter(find.byType(DDropIndicator)).dy,
+        closeTo(expected, .01),
+      );
+      expect(composer.text.value, original);
+    }
+
+    await move(last.center.dy - 10, gap);
+    for (final delta in [-1.0, 1.0, -2.0, 2.0]) {
+      await move(last.center.dy + delta, gap);
+    }
+    await move(last.center.dy + 10, last.bottom);
+    for (final delta in [1.0, -1.0, 2.0, -2.0]) {
+      await move(last.center.dy + delta, last.bottom);
+    }
+    await gesture.up();
+    await tester.pumpAndSettle();
+    expect(
+      composer.text.text,
+      '## A heading\n\nLast paragraph\n\nFirst paragraph',
+    );
+    composer.history.undo();
+    await tester.pumpAndSettle();
+    expect(composer.text.value, original);
+    expect(composer.history.canUndo, isFalse);
+  });
+
   for (final direction in TextDirection.values) {
     for (final leading in [false, true]) {
       testWidgets(
@@ -505,6 +605,15 @@ void main() {
               tester.getCenter(find.byType(DDropIndicator)).dy,
               closeTo(after ? line.bottom : line.top, .01),
             );
+            for (final delta in [1.0, -1.0, .5, -.5]) {
+              await gesture.moveTo(Offset(x, line.center.dy + delta));
+              await tester.pump();
+              await tester.pump();
+              expect(
+                tester.getCenter(find.byType(DDropIndicator)).dy,
+                closeTo(after ? line.bottom : line.top, .01),
+              );
+            }
             expect(composer.text.value, original);
           }
           await gesture.up();
