@@ -5,8 +5,10 @@ adapter uses it for Discourse's `iframe.reddit-onebox` markup; generic
 `aside.onebox` rendering remains available for older cooked cards.
 
 The provider supplies the iframe content. Native supplies the card and loading
-indicator. Loaded embeds have no footer and meet the card's bottom edge without
-extra spacing. Failed embeds show retry and external-link actions alongside the
+indicator. Loaded embeds have no footer and meet the inside of the card's
+one-pixel border without extra spacing. The platform view is inset only by that
+border and clips its bottom corners, preserving the outline on macOS too.
+Failed embeds show retry and external-link actions alongside the
 error message. The adapter validates Reddit's
 embed origins and post/comment identity, preserves comment query parameters,
 and accepts canonical title-slug redirects. The host document validates both
@@ -46,9 +48,15 @@ unavailable example. Neither requires a Reddit account or network access.
   testing was not performed.
 - Footer follow-up: all 23 embed and Reddit tests passed after removing the
   footer and using the card's trailing slot. Assertions verify that the web
-  view's bottom edge equals the card's bottom edge after resizing, including
+  view meets the card's bottom border after resizing, including
   the macOS overlay. Static analysis passed, and the live macOS fixture was
   inspected at normal width and in a narrow dark layout with no bottom gap.
+- Border follow-up: 29 embed, Reddit and Onebox gallery tests passed, together
+  with static analysis and a macOS debug build. Native inspection verified the
+  outline and rounded bottom corners on offline and live content, including an
+  expanded Reddit post in dark mode. Pointer links, expansion and wheel
+  scrolling still worked. The provider's reported content height is preserved;
+  only the one-pixel card border is reserved outside it.
 
 ```sh
 flutter test --no-pub test/ui/d_embed_test.dart test/oneboxes \
