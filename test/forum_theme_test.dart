@@ -3,6 +3,7 @@ import 'dart:ui';
 
 import 'package:discourse_native/src/data/forum_settings_store.dart';
 import 'package:discourse_native/src/data/scalar_preference_repository.dart';
+import 'package:discourse_native/src/models/forum_background.dart';
 import 'package:discourse_native/src/models/forum_font.dart';
 import 'package:discourse_native/src/models/forum_theme.dart';
 import 'package:discourse_native/src/models/forum_theme_preferences.dart';
@@ -20,6 +21,45 @@ void main() {
     'name': 'My night',
   }, id: 'custom-night');
 
+  test('paired appearances resolve and persist their own surface settings', () {
+    final source = forumThemePresets.first;
+    const lightBackground = ForumBackground(
+      color: Color(0xff558844),
+      strength: .3,
+    );
+    const darkBackground = ForumBackground(
+      color: Color(0xffaa88dd),
+      strength: .7,
+      effect: ForumBackgroundEffect.noise,
+    );
+    final paired = ForumTheme.fromJson({
+      ...source.toJson(),
+      'background': lightBackground.toJson(),
+      'alternate': {
+        ...source.alternate!.toJson(),
+        'background': darkBackground.toJson(),
+        'windowGradient': true,
+        'darkerSidebars': true,
+      },
+    }, id: 'custom-pair');
+    final restored = ForumThemePreferences.fromJson(
+      ForumThemePreferences().save(paired).toJson(),
+    ).selectedTheme!;
+    expect(restored, paired);
+    for (final mode in Brightness.values) {
+      final authored = mode == Brightness.light ? paired : paired.alternate!;
+      final standalone = restored.forBrightness(mode);
+      final resolved = restored.resolve(mode);
+      expect(standalone.background, authored.background);
+      expect(standalone.windowGradient, authored.windowGradient);
+      expect(standalone.darkerSidebars, authored.darkerSidebars);
+      expect(resolved.background, authored.background);
+      expect(resolved.windowGradient, authored.windowGradient);
+      expect(resolved.darkerSidebars, authored.darkerSidebars);
+      expect(resolved, standalone.resolve(mode));
+    }
+  });
+
   test('surface effects remain independent for every preset and mode', () {
     for (final source in forumThemePresets) {
       for (final mode in Brightness.values) {
@@ -27,7 +67,7 @@ void main() {
         for (final gradient in [false, true]) {
           for (final darker in [false, true]) {
             final custom = ForumTheme.fromJson({
-              ...source.toJson(),
+              ...source.forBrightness(mode).toJson(),
               'windowGradient': gradient,
               'darkerSidebars': darker,
             }, id: 'custom-effects');

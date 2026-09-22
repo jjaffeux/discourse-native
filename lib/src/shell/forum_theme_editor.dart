@@ -19,6 +19,8 @@ class ForumThemeEditor extends StatefulWidget {
     required this.onChanged,
     required this.onSave,
     this.enabled = true,
+    this.initialBrightness,
+    this.onBrightnessChanged,
   });
 
   final ForumTheme initialTheme;
@@ -26,6 +28,8 @@ class ForumThemeEditor extends StatefulWidget {
   final ValueChanged<ForumTheme> onChanged;
   final Future<void> Function(ForumTheme) onSave;
   final bool enabled;
+  final Brightness? initialBrightness;
+  final ValueChanged<Brightness>? onBrightnessChanged;
 
   @override
   State<ForumThemeEditor> createState() => _ForumThemeEditorState();
@@ -43,13 +47,9 @@ class _ForumThemeEditorState extends State<ForumThemeEditor> {
   };
   late String _id;
   late final TextEditingController _name;
-  late final Map<String, TextEditingController> _colors;
   late Brightness _brightness;
-  late bool _windowGradient;
-  late ForumBackground _background;
-  bool _backgroundEdited = false;
-  late bool _darkerSidebars;
-  late final Map<String, Color> _lastColors;
+  late final Map<Brightness, _AppearanceDraft> _appearances;
+  _AppearanceDraft get _appearance => _appearances[_brightness]!;
   String? _notice;
   bool _transferring = false;
   static const _jsonTypes = [
@@ -60,7 +60,6 @@ class _ForumThemeEditorState extends State<ForumThemeEditor> {
       uniformTypeIdentifiers: ['public.json'],
     ),
   ];
-  String? _baseId;
   final _random = Random();
 
   String _newId() => 'custom-${DateTime.now().microsecondsSinceEpoch}';
@@ -75,30 +74,18 @@ class _ForumThemeEditorState extends State<ForumThemeEditor> {
           ? theme.name
           : '${theme.name} custom',
     );
-    _baseId = theme.id;
-    _brightness = theme.brightness;
-    _windowGradient = theme.windowGradient;
-    _background = theme.background ?? ForumBackground(color: theme.tertiary);
-    _backgroundEdited = theme.background != null;
-    _darkerSidebars = theme.darkerSidebars;
-    final colors = theme.toJson()['colors'] as Map<String, String>;
-    _lastColors = {
-      for (final key in _roles.keys)
-        key: Color(
-          0xff000000 | int.parse(colors[key]!.substring(1), radix: 16),
-        ),
-    };
-    _colors = {
-      for (final key in _roles.keys)
-        key: TextEditingController(text: colors[key]),
+    _brightness = widget.initialBrightness ?? theme.brightness;
+    _appearances = {
+      for (final mode in Brightness.values)
+        mode: _AppearanceDraft(theme.forBrightness(mode), _roles.keys),
     };
   }
 
   @override
   void dispose() {
     _name.dispose();
-    for (final controller in _colors.values) {
-      controller.dispose();
+    for (final appearance in _appearances.values) {
+      appearance.dispose();
     }
     super.dispose();
   }
@@ -106,25 +93,31 @@ class _ForumThemeEditorState extends State<ForumThemeEditor> {
   ForumTheme? get _theme {
     try {
       return ForumTheme.fromJson({
-        'version': 1,
-        if (_backgroundEdited) 'background': _background.toJson(),
-        'windowGradient': _windowGradient,
-        'darkerSidebars': _darkerSidebars,
-        'name': _name.text,
-        'mode': _brightness.name,
-        'colors': {
-          for (final entry in _colors.entries) entry.key: entry.value.text,
-        },
+        ..._appearance.toJson(_name.text, _brightness),
+        'alternate': _appearances[_otherBrightness]!.toJson(
+          _name.text,
+          _otherBrightness,
+        ),
       }, id: _id);
     } on FormatException {
       return null;
     }
   }
 
+  Brightness get _otherBrightness =>
+      _brightness == Brightness.light ? Brightness.dark : Brightness.light;
+
+  void _changeBrightness(Brightness? brightness) {
+    if (brightness == null || brightness == _brightness) return;
+    _brightness = brightness;
+    _changed('');
+    widget.onBrightnessChanged?.call(brightness);
+  }
+
   void _changed(String _) {
-    for (final entry in _colors.entries) {
+    for (final entry in _appearance.colors.entries) {
       final color = ForumTheme.parseHex(entry.value.text);
-      if (color != null) _lastColors[entry.key] = color;
+      if (color != null) _appearance.lastColors[entry.key] = color;
     }
     setState(() => _notice = null);
     final theme = _theme;
@@ -132,20 +125,16 @@ class _ForumThemeEditorState extends State<ForumThemeEditor> {
   }
 
   void _usePalette(ForumTheme theme, {bool imported = false}) {
-    if (!imported) theme = theme.forBrightness(_brightness);
-    _baseId = imported ? null : theme.id;
     if (imported) {
       _id = _newId();
       _name.text = theme.name;
-    }
-    _brightness = theme.brightness;
-    _windowGradient = theme.windowGradient;
-    _background = theme.background ?? ForumBackground(color: theme.tertiary);
-    _backgroundEdited = theme.background != null;
-    _darkerSidebars = theme.darkerSidebars;
-    final colors = theme.toJson()['colors'] as Map<String, String>;
-    for (final entry in _colors.entries) {
-      entry.value.text = colors[entry.key]!;
+      _brightness = theme.brightness;
+      for (final mode in Brightness.values) {
+        _appearances[mode]!.load(theme.forBrightness(mode), baseId: null);
+      }
+      widget.onBrightnessChanged?.call(_brightness);
+    } else {
+      _appearance.load(theme.forBrightness(_brightness), baseId: theme.id);
     }
     _changed('');
   }
@@ -154,15 +143,19 @@ class _ForumThemeEditorState extends State<ForumThemeEditor> {
     final base = forumThemePresets[_random.nextInt(forumThemePresets.length)]
         .forBrightness(_brightness);
     final accents = ['#47798B', '#9772A5', '#C28B45', '#4E8E7D', '#AB6674']
-        .where((color) => color != _colors['tertiary']!.text.toUpperCase())
+        .where(
+          (color) =>
+              color != _appearance.colors['tertiary']!.text.toUpperCase(),
+        )
         .toList();
-    _baseId = base.id;
+    _appearance.baseId = base.id;
     _brightness = base.brightness;
     final colors = base.toJson()['colors'] as Map<String, String>;
-    for (final entry in _colors.entries) {
+    for (final entry in _appearance.colors.entries) {
       entry.value.text = colors[entry.key]!;
     }
-    _colors['tertiary']!.text = accents[_random.nextInt(accents.length)];
+    _appearance.colors['tertiary']!.text =
+        accents[_random.nextInt(accents.length)];
     _changed('');
   }
 
@@ -253,12 +246,10 @@ class _ForumThemeEditorState extends State<ForumThemeEditor> {
     final theme = _theme;
     final valid = theme != null;
     final enabled = widget.enabled && !_transferring;
-    final presets = [...forumThemePresets, ...widget.customThemes];
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       spacing: DSpacing.md,
       children: [
-        _backgroundControls(enabled),
         DInput(
           key: const ValueKey('custom-theme-name'),
           labelText: 'Name',
@@ -268,96 +259,39 @@ class _ForumThemeEditorState extends State<ForumThemeEditor> {
           errorText: _name.text.trim().isEmpty ? 'Enter a name.' : null,
           onChanged: _changed,
         ),
-        DSelect<String>.controlled(
-          semanticLabel: 'Start from',
-          value: presets.any((p) => p.id == _baseId) ? _baseId : null,
-          label: const Text('Start from'),
-          isExpanded: true,
-          entries: [
-            for (final preset in presets)
-              DSelectOption(
-                value: preset.id,
-                label: preset.name,
-                child: Text(preset.name),
-              ),
-          ],
-          onChanged: enabled
-              ? (id) {
-                  if (id != null) {
-                    _usePalette(presets.firstWhere((p) => p.id == id));
-                  }
-                }
-              : null,
-        ),
-        LayoutBuilder(
-          builder: (context, constraints) {
-            final columns =
-                constraints.maxWidth >= 300 &&
-                    MediaQuery.textScalerOf(context).scale(14) < 21
-                ? 2
-                : 1;
-            return Wrap(
-              spacing: DSpacing.md,
-              runSpacing: DSpacing.md,
+        DTabs<Brightness>.controlled(
+          value: _brightness,
+          enabled: enabled,
+          onChanged: _changeBrightness,
+          children: [
+            const DTabList<Brightness>(
+              variant: DTabListVariant.line,
               children: [
-                for (final entry in _colors.entries)
-                  SizedBox(
-                    width:
-                        (constraints.maxWidth - DSpacing.md * (columns - 1)) /
-                        columns,
-                    child: DInput(
-                      key: ValueKey('custom-theme-${entry.key}'),
-                      controller: entry.value,
-                      labelText: _roles[entry.key],
-                      semanticLabel: '${_roles[entry.key]} color',
-                      prefix: DColorPicker(
-                        semanticLabel:
-                            'Choose ${_roles[entry.key]!.toLowerCase()} color',
-                        value:
-                            ForumTheme.parseHex(entry.value.text) ??
-                            _lastColors[entry.key]!,
-                        onChanged: enabled
-                            ? (color) {
-                                entry.value.text = ForumTheme.hex(color);
-                                _changed('');
-                              }
-                            : null,
-                      ),
-                      textDirection: TextDirection.ltr,
-                      enabled: enabled,
-                      autocorrect: false,
-                      maxLength: 7,
-                      errorText: ForumTheme.parseHex(entry.value.text) == null
-                          ? 'Use #RRGGBB.'
-                          : null,
-                      onChanged: _changed,
-                    ),
-                  ),
+                DTabTrigger(
+                  key: ValueKey('custom-theme-light-tab'),
+                  value: Brightness.light,
+                  child: Text('Light'),
+                ),
+                DTabTrigger(
+                  key: ValueKey('custom-theme-dark-tab'),
+                  value: Brightness.dark,
+                  child: Text('Dark'),
+                ),
               ],
-            );
-          },
-        ),
-        if (!_backgroundEdited) ...[
-          Align(
-            alignment: AlignmentDirectional.centerStart,
-            child: DToggle(
-              key: const ValueKey('custom-theme-darker-sidebars'),
-              pressed: _darkerSidebars,
-              enabled: enabled,
-              variant: DToggleVariant.outline,
-              onPressedChanged: (value) {
-                _darkerSidebars = value;
-                _changed('');
-              },
-              child: const Text('Darker sidebars'),
             ),
-          ),
-          const Text('Use darker backgrounds for forum and chat navigation.'),
-        ],
-        if (theme != null && _contrast(theme) < 4.5)
+            DTabPanel(
+              key: ValueKey(_brightness),
+              value: _brightness,
+              child: _appearanceControls(enabled, theme),
+            ),
+          ],
+        ),
+        if (!valid)
           const DAlert(
             description: DAlertDescription(
-              child: Text('Text contrast is below 4.5:1.'),
+              child: Text(
+                'Enter a name and valid colors in both appearance tabs.',
+              ),
             ),
           ),
         OverflowBar(
@@ -401,17 +335,122 @@ class _ForumThemeEditorState extends State<ForumThemeEditor> {
     );
   }
 
+  Widget _appearanceControls(bool enabled, ForumTheme? theme) {
+    final presets = [...forumThemePresets, ...widget.customThemes];
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      spacing: DSpacing.md,
+      children: [
+        _backgroundControls(enabled),
+        DSelect<String>.controlled(
+          semanticLabel: 'Start from',
+          value: presets.any((p) => p.id == _appearance.baseId)
+              ? _appearance.baseId
+              : null,
+          label: const Text('Start from'),
+          isExpanded: true,
+          entries: [
+            for (final preset in presets)
+              DSelectOption(
+                value: preset.id,
+                label: preset.name,
+                child: Text(preset.name),
+              ),
+          ],
+          onChanged: enabled
+              ? (id) {
+                  if (id != null) {
+                    _usePalette(presets.firstWhere((p) => p.id == id));
+                  }
+                }
+              : null,
+        ),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final columns =
+                constraints.maxWidth >= 300 &&
+                    MediaQuery.textScalerOf(context).scale(14) < 21
+                ? 2
+                : 1;
+            return Wrap(
+              spacing: DSpacing.md,
+              runSpacing: DSpacing.md,
+              children: [
+                for (final entry in _appearance.colors.entries)
+                  SizedBox(
+                    width:
+                        (constraints.maxWidth - DSpacing.md * (columns - 1)) /
+                        columns,
+                    child: DInput(
+                      key: ValueKey('custom-theme-${entry.key}'),
+                      controller: entry.value,
+                      labelText: _roles[entry.key],
+                      semanticLabel: '${_roles[entry.key]} color',
+                      prefix: DColorPicker(
+                        semanticLabel:
+                            'Choose ${_roles[entry.key]!.toLowerCase()} color',
+                        value:
+                            ForumTheme.parseHex(entry.value.text) ??
+                            _appearance.lastColors[entry.key]!,
+                        onChanged: enabled
+                            ? (color) {
+                                entry.value.text = ForumTheme.hex(color);
+                                _changed('');
+                              }
+                            : null,
+                      ),
+                      textDirection: TextDirection.ltr,
+                      enabled: enabled,
+                      autocorrect: false,
+                      maxLength: 7,
+                      errorText: ForumTheme.parseHex(entry.value.text) == null
+                          ? 'Use #RRGGBB.'
+                          : null,
+                      onChanged: _changed,
+                    ),
+                  ),
+              ],
+            );
+          },
+        ),
+        if (!_appearance.backgroundEdited) ...[
+          Align(
+            alignment: AlignmentDirectional.centerStart,
+            child: DToggle(
+              key: const ValueKey('custom-theme-darker-sidebars'),
+              pressed: _appearance.darkerSidebars,
+              enabled: enabled,
+              variant: DToggleVariant.outline,
+              onPressedChanged: (value) {
+                _appearance.darkerSidebars = value;
+                _changed('');
+              },
+              child: const Text('Darker sidebars'),
+            ),
+          ),
+          const Text('Use darker backgrounds for forum and chat navigation.'),
+        ],
+        if (theme != null && _contrast(theme) < 4.5)
+          const DAlert(
+            description: DAlertDescription(
+              child: Text('Text contrast is below 4.5:1.'),
+            ),
+          ),
+      ],
+    );
+  }
+
   void _changeBackground(ForumBackground background) {
-    _background = background;
-    _backgroundEdited = true;
-    _windowGradient = false;
+    _appearance.background = background;
+    _appearance.backgroundEdited = true;
+    _appearance.windowGradient = false;
     _changed('');
   }
 
   Widget _backgroundControls(bool enabled) {
     final theme = Theme.of(context);
     final tokens = DTokens.of(context);
-    final hsl = HSLColor.fromColor(_background.color);
+    final hsl = HSLColor.fromColor(_appearance.background.color);
     final accent = hsl
         .withLightness(
           theme.brightness == Brightness.dark
@@ -441,17 +480,19 @@ class _ForumThemeEditorState extends State<ForumThemeEditor> {
                       key: const ValueKey('custom-theme-strength'),
                       variant: DSliderVariant.filled,
                       orientation: Axis.vertical,
-                      value: _background.strength * 100,
+                      value: _appearance.background.strength * 100,
                       semanticLabel: 'Background strength',
                       semanticFormatterCallback: (value) => '${value.round()}%',
                       onChanged: enabled
                           ? (value) => _changeBackground(
-                              _background.copyWith(strength: value / 100),
+                              _appearance.background.copyWith(
+                                strength: value / 100,
+                              ),
                             )
                           : null,
                     ),
                   ),
-                  Text('${(_background.strength * 100).round()}%'),
+                  Text('${(_appearance.background.strength * 100).round()}%'),
                 ],
               ),
               Expanded(
@@ -460,16 +501,16 @@ class _ForumThemeEditorState extends State<ForumThemeEditor> {
                   spacing: DSpacing.sm,
                   children: [
                     DColorPicker.inline(
-                      value: _background.color,
+                      value: _appearance.background.color,
                       semanticLabel: 'Background color palette',
                       onChanged: enabled
                           ? (color) => _changeBackground(
-                              _background.copyWith(color: color),
+                              _appearance.background.copyWith(color: color),
                             )
                           : null,
                     ),
                     Text(
-                      ForumTheme.hex(_background.color),
+                      ForumTheme.hex(_appearance.background.color),
                       textAlign: TextAlign.center,
                     ),
                   ],
@@ -481,7 +522,7 @@ class _ForumThemeEditorState extends State<ForumThemeEditor> {
                   key: const ValueKey('custom-theme-background-effect'),
                   orientation: Axis.vertical,
                   variant: DToggleVariant.outline,
-                  values: [_background.effect],
+                  values: [_appearance.background.effect],
                   allowEmptySelection: false,
                   enabled: enabled,
                   items: const [
@@ -505,11 +546,14 @@ class _ForumThemeEditorState extends State<ForumThemeEditor> {
                     ),
                   ],
                   onChanged: (values) => _changeBackground(
-                    _background.copyWith(effect: values.single),
+                    _appearance.background.copyWith(effect: values.single),
                   ),
                   onItemActivated: (effect) {
-                    if (effect == _background.effect && !_backgroundEdited) {
-                      _changeBackground(_background.copyWith(effect: effect));
+                    if (effect == _appearance.background.effect &&
+                        !_appearance.backgroundEdited) {
+                      _changeBackground(
+                        _appearance.background.copyWith(effect: effect),
+                      );
                     }
                   },
                 ),
@@ -525,5 +569,55 @@ class _ForumThemeEditorState extends State<ForumThemeEditor> {
     final a = theme.primary.computeLuminance();
     final b = theme.secondary.computeLuminance();
     return ((a > b ? a : b) + .05) / ((a < b ? a : b) + .05);
+  }
+}
+
+class _AppearanceDraft {
+  _AppearanceDraft(ForumTheme theme, Iterable<String> roles) {
+    final values = theme.toJson()['colors'] as Map<String, String>;
+    colors = {
+      for (final role in roles) role: TextEditingController(text: values[role]),
+    };
+    lastColors = {
+      for (final role in roles) role: ForumTheme.parseHex(values[role]!)!,
+    };
+    load(theme, baseId: theme.id);
+  }
+
+  late final Map<String, TextEditingController> colors;
+  late final Map<String, Color> lastColors;
+  late ForumBackground background;
+  late bool backgroundEdited;
+  late bool windowGradient;
+  late bool darkerSidebars;
+  String? baseId;
+
+  void load(ForumTheme theme, {required String? baseId}) {
+    this.baseId = baseId;
+    background = theme.background ?? ForumBackground(color: theme.tertiary);
+    backgroundEdited = theme.background != null;
+    windowGradient = theme.windowGradient;
+    darkerSidebars = theme.darkerSidebars;
+    final values = theme.toJson()['colors'] as Map<String, String>;
+    for (final entry in colors.entries) {
+      entry.value.text = values[entry.key]!;
+      lastColors[entry.key] = ForumTheme.parseHex(values[entry.key]!)!;
+    }
+  }
+
+  Map<String, dynamic> toJson(String name, Brightness brightness) => {
+    'version': 1,
+    'name': name,
+    'mode': brightness.name,
+    if (backgroundEdited) 'background': background.toJson(),
+    'windowGradient': windowGradient,
+    'darkerSidebars': darkerSidebars,
+    'colors': {for (final entry in colors.entries) entry.key: entry.value.text},
+  };
+
+  void dispose() {
+    for (final controller in colors.values) {
+      controller.dispose();
+    }
   }
 }
