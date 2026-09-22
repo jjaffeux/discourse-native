@@ -228,7 +228,7 @@ void main() {
           );
           expect(controller.documents.single.html, contains('resize.embed'));
           expect(find.byType(DEmbed), findsOneWidget);
-          expect(tester.getSize(find.byType(WebViewWidget)), Size(640, height));
+          expect(tester.getSize(find.byType(WebViewWidget)), Size(638, height));
           controller.channels['NativeEmbed']!.onMessageReceived(
             const JavaScriptMessage(message: 'loaded'),
           );
@@ -236,7 +236,11 @@ void main() {
           expect(find.text('Open on Reddit'), findsNothing);
           expect(
             tester.getBottomLeft(find.byType(WebViewWidget)),
-            tester.getBottomLeft(find.byType(DCard)),
+            tester.getBottomLeft(find.byType(DCard)) + const Offset(1, -1),
+          );
+          expect(
+            tester.getBottomRight(find.byType(WebViewWidget)),
+            tester.getBottomRight(find.byType(DCard)) + const Offset(-1, -1),
           );
           final link = parse(markup)!.linkUri.toString();
           expect(
@@ -275,7 +279,7 @@ void main() {
           ),
         );
         await tester.pump();
-        expect(tester.getSize(find.byType(WebViewWidget)).width, 280);
+        expect(tester.getSize(find.byType(WebViewWidget)).width, 278);
         platform.controllers.last.channels['NativeEmbed']!.onMessageReceived(
           const JavaScriptMessage(message: 'loaded'),
         );

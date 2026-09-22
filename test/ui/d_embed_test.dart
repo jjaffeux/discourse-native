@@ -76,7 +76,7 @@ void main() {
   );
 
   testWidgets(
-    'loads inline and stays flush with the card bottom after bounded resizes',
+    'loads inline and stays inside the card border after bounded resizes',
     (tester) async {
       await tester.pumpWidget(host());
       await tester.pump();
@@ -95,7 +95,11 @@ void main() {
       expect(find.text('Open in browser'), findsNothing);
       expect(
         tester.getBottomLeft(find.byType(WebViewWidget)),
-        tester.getBottomLeft(find.byType(DCard)),
+        tester.getBottomLeft(find.byType(DCard)) + const Offset(1, -1),
+      );
+      expect(
+        tester.getBottomRight(find.byType(WebViewWidget)),
+        tester.getBottomRight(find.byType(DCard)) + const Offset(-1, -1),
       );
       for (final bad in [
         'bad',
@@ -116,7 +120,7 @@ void main() {
       expect(tester.getSize(find.byType(WebViewWidget)).height, 120);
       expect(
         tester.getBottomLeft(find.byType(WebViewWidget)),
-        tester.getBottomLeft(find.byType(DCard)),
+        tester.getBottomLeft(find.byType(DCard)) + const Offset(1, -1),
       );
       await tester.pumpWidget(const SizedBox.shrink());
       expect(controller.channels, isEmpty);
@@ -219,6 +223,8 @@ void main() {
       expect(taps, 1);
       await tester.tapAt(const Offset(200, 320));
       expect(taps, 1);
+      await tester.tapAt(const Offset(0.5, 250));
+      expect(taps, 1);
 
       Future<void> wheel(Offset point) =>
           tester.binding.defaultBinaryMessenger.handlePlatformMessage(
@@ -245,7 +251,7 @@ void main() {
       expect(tester.getSize(find.byType(WebViewWidget)).height, 420);
       expect(
         tester.getBottomLeft(find.byType(WebViewWidget)),
-        tester.getBottomLeft(find.byType(DCard)),
+        tester.getBottomLeft(find.byType(DCard)) + const Offset(1, -1),
       );
       expect(platform.controllers, hasLength(1));
       await tester.pumpWidget(const SizedBox.shrink());
