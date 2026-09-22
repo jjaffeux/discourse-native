@@ -223,6 +223,20 @@ void main() {
     await tester.pumpAndSettle();
     await tester.sendKeyEvent(LogicalKeyboardKey.enter);
     await tester.pumpAndSettle();
+    final going = find.descendant(
+      of: find.byType(EventCard),
+      matching: find.text('Going'),
+    );
+    await tester.ensureVisible(going);
+    await tester.tap(going);
+    await tester.pumpAndSettle();
+    expect(
+      tester.widget<EventCard>(find.byType(EventCard)).event.watching?.status,
+      'going',
+    );
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('onebox-state-event-4')),
+    );
     await tester.tap(find.byKey(const ValueKey('onebox-state-event-4')));
     await tester.pumpAndSettle();
     expect(tester.widget<EventCard>(find.byType(EventCard)).error, isNotNull);
