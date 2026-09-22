@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/foundation.dart' show listEquals, visibleForTesting;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -21,6 +22,7 @@ import 'composer_pills.dart';
 import 'composer_quotes.dart';
 import 'composer_source_projection.dart';
 import 'composer_text_scaling.dart';
+import 'composer_todos.dart';
 import 'emoji.dart';
 import 'hashtag.dart';
 import 'markdown_highlight.dart';
@@ -43,6 +45,7 @@ class MarkdownEditingController extends TextEditingController {
     this.maxImageWidth = 690,
     this.maxImageHeight = 500,
     this.enableImageGalleries = true,
+    this.enableTodos = true,
     @visibleForTesting
     SyntaxHighlightBatcher backgroundSyntaxHighlighterForTesting =
         highlightLinesBatchInBackground,
@@ -70,6 +73,28 @@ class MarkdownEditingController extends TextEditingController {
   final int maxImageHeight;
 
   final bool enableImageGalleries;
+  final bool enableTodos;
+  ValueChanged<TextEditingValue>? onTodoChanged;
+  String? _todoSource;
+  List<ComposerTodo> _todos = const [];
+  List<ComposerTodo> get todos {
+    if (!enableTodos) return const [];
+    if (_todoSource != text) {
+      _todoSource = text;
+      _todos = List.unmodifiable(
+        composerTodos(text, codeRanges: _codeRangesFor(text)),
+      );
+    }
+    return _todos;
+  }
+
+  bool _todosReadOnly = false;
+  set todosReadOnly(bool value) {
+    if (_todosReadOnly == value) return;
+    _todosReadOnly = value;
+    _cachedSpan = null;
+  }
+
   final SyntaxHighlightBatcher _backgroundSyntaxHighlighter;
 
   void updateMarkdownLinkify({
@@ -974,6 +999,7 @@ class MarkdownEditingController extends TextEditingController {
         : null;
 
     final runs = _runsFor(source);
+    final todos = this.todos;
 
     final collapsedQuotes = _quoteBlocksFor(source);
     _collapsedQuoteStarts = {for (final block in collapsedQuotes) block.start};
@@ -1134,8 +1160,17 @@ class MarkdownEditingController extends TextEditingController {
     final renderedEmojiRanges = <TextRange>{};
 
     final children = <InlineSpan>[];
+    final completedTodos = todos
+        .where((todo) => todo.checked)
+        .toList(growable: false);
 
-    void appendRun(MarkdownRun run) {
+    void appendStyledRun(MarkdownRun run, bool completed) {
+      final runBase = completed
+          ? base.copyWith(
+              color: DTokens.of(context).mutedForeground,
+              decoration: TextDecoration.lineThrough,
+            )
+          : base;
       // A run the IME is still deciding about is never substituted: the
       // artwork path skips [_splitAt] entirely, so a placeholder over a
       // composing range would take its underline away and paint the
@@ -1143,7 +1178,7 @@ class MarkdownEditingController extends TextEditingController {
       final artwork =
           run.start == revealed || _overlapsComposing(run, composing)
           ? null
-          : _artworkFor(run, base, theme, unresolvedRefs, unresolvedNames);
+          : _artworkFor(run, runBase, theme, unresolvedRefs, unresolvedNames);
       if (artwork != null) {
         if (run.has(Md.emoji)) {
           renderedEmojiRanges.add(TextRange(start: run.start, end: run.end));
@@ -1155,8 +1190,34 @@ class MarkdownEditingController extends TextEditingController {
         children.add(
           TextSpan(
             text: source.substring(piece.start, piece.end),
-            style: _styleFor(piece, base, theme, composing),
+            style: _styleFor(piece, runBase, theme, composing),
           ),
+        );
+      }
+    }
+
+    void appendRun(MarkdownRun run) {
+      if (completedTodos.isEmpty) {
+        appendStyledRun(run, false);
+        return;
+      }
+      final cuts = <int>{run.start, run.end};
+      for (final todo in completedTodos) {
+        if (todo.contentStart > run.start && todo.contentStart < run.end) {
+          cuts.add(todo.contentStart);
+        }
+        if (todo.end > run.start && todo.end < run.end) cuts.add(todo.end);
+      }
+      final offsets = cuts.toList()..sort();
+      for (var index = 0; index < offsets.length - 1; index++) {
+        final start = offsets[index];
+        final end = offsets[index + 1];
+        final completed = completedTodos.any(
+          (todo) => start >= todo.contentStart && end <= todo.end,
+        );
+        appendStyledRun(
+          MarkdownRun(start, end, run.mask, run.detail, run.token),
+          completed,
         );
       }
     }
@@ -1184,6 +1245,63 @@ class MarkdownEditingController extends TextEditingController {
     }
 
     final projections = <_SpanProjection>[
+      for (final todo in todos)
+        if (composing == null ||
+            composing.end <= todo.start ||
+            composing.start >= todo.contentStart)
+          _SpanProjection(
+            todo.start,
+            todo.contentStart,
+            () => [
+              TextSpan(
+                text: source.substring(todo.start, todo.contentStart - 1),
+                style: _hidden,
+                semanticsLabel: '',
+              ),
+              WidgetSpan(
+                alignment: PlaceholderAlignment.middle,
+                child: ComposerTodoMarker(
+                  checked: todo.checked,
+                  label: source.substring(todo.contentStart, todo.end),
+                  style: base,
+                  onChanged: _todosReadOnly
+                      ? null
+                      : () {
+                          if (_todosReadOnly ||
+                              text != source ||
+                              !value.composing.isCollapsed) {
+                            return;
+                          }
+                          final markerEnd =
+                              source.indexOf(']', todo.markerStart) + 1;
+                          final marker = todo.checked ? '[ ]' : '[x]';
+                          final delta =
+                              marker.length - (markerEnd - todo.markerStart);
+                          int move(int offset) =>
+                              offset >= markerEnd ? offset + delta : offset;
+                          final next = value.copyWith(
+                            text: source.replaceRange(
+                              todo.markerStart,
+                              markerEnd,
+                              marker,
+                            ),
+                            selection: TextSelection(
+                              baseOffset: move(selection.baseOffset),
+                              extentOffset: move(selection.extentOffset),
+                            ),
+                            composing: TextRange.empty,
+                          );
+                          if (onTodoChanged case final change?) {
+                            change(next);
+                          } else {
+                            value = next;
+                          }
+                        },
+                ),
+              ),
+            ],
+            normalizeSource: false,
+          ),
       for (final prefix in composerBlockquotePrefixes(
         source,
         knownCodeRanges: CodeRanges.of(runs),

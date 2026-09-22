@@ -59,6 +59,7 @@
     "plugins/discourse-events/assets/javascripts/discourse/lib/discourse-markdown/livestream-preview.js": "9d60a168e8e501fbdbf7d223d33f6d59d09a8bf8ab907281e90b70e6ab4082e4",
     "plugins/discourse-events/assets/javascripts/discourse/initializers/livestream-chat-overrides.js": "ef08eb5fae5030a45320eb7710da24c9530cff90073c92db4489612a13b7e349",
     "plugins/poll/spec/lib/pretty_text_spec.rb": "1aedfefe4115191cdd3fbcf5130dcb33a1419ab239b411fa474b8ef6cde9ac94",
-    "plugins/discourse-details/spec/components/pretty_text_spec.rb": "e36d7befa4541d75663da28b23893bf1105ba86706db874318384a9190d41c1a"
+    "plugins/discourse-details/spec/components/pretty_text_spec.rb": "e36d7befa4541d75663da28b23893bf1105ba86706db874318384a9190d41c1a",
+    "plugins/checklist/assets/javascripts/lib/discourse-markdown/checklist.js": "330da3d7285186ba79b75e10b7de81315b72f30632b953c1fbe1ba0292328830"
   }
 }

@@ -1,5 +1,7 @@
 import 'package:discourse_native/discourse_plugin_sdk.dart';
 
+import 'cooking_settings.dart';
+
 const cookingModule = CookingModulePlugin();
 
 final class CookingModulePlugin implements PluginModule {
@@ -12,7 +14,8 @@ final class CookingModulePlugin implements PluginModule {
       registrar.addCapability(const _CookingPlugin());
 }
 
-final class _CookingPlugin implements CookingPlugin {
+final class _CookingPlugin
+    implements SitePlugin, CookingPlugin, SiteSettingsPlugin<CookingSettings> {
   const _CookingPlugin();
   @override
   String get name => 'cooking';
@@ -20,6 +23,13 @@ final class _CookingPlugin implements CookingPlugin {
   List<CookingModule> get cookingModules => [
     CookingModule.spoiler,
     CookingModule.missingUploads,
+    CookingModule(
+      id: 'checklist',
+      owner: 'cooking',
+      version: '1',
+      profiles: const ['post'],
+      enabledSetting: 'checklist_enabled',
+    ),
     for (final id in ['details', 'd-wrap'])
       CookingModule(
         id: id,
@@ -38,6 +48,19 @@ final class _CookingPlugin implements CookingPlugin {
   @override
   List<CookingProfile> get cookingProfiles => const [];
   @override
-  Map<String, Object?> projectCookingContext(CookingPluginData data) =>
-      const {};
+  Map<String, Object?> projectCookingContext(CookingPluginData data) => {
+    'settings': {
+      'checklist_enabled':
+          (data.read(cookingSettingsKey) ?? const CookingSettings())
+              .checklistEnabled,
+    },
+  };
+
+  @override
+  PluginDataPersistenceCodec<CookingSettings> get siteSettingsCodec =>
+      const CookingSettingsCodec();
+
+  @override
+  CookingSettings readSiteSettings(Map<String, dynamic> json, String siteUrl) =>
+      CookingSettings(checklistEnabled: json['checklist_enabled'] != false);
 }

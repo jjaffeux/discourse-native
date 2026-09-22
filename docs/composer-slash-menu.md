@@ -23,13 +23,18 @@ guards; insertion after an unclosed code fence is disabled.
 The shared editor supplies Bold, Italic, Inline code, Link and Heading 1–4. Headings show their Markdown markers
 and can be found with `/heading` or `/h1`–`/h4`; choosing one formats the
 current line, preserving its text and replacing any existing heading level. Topic insertion
-includes Table, Details, enabled uploads and emoji, plus applicable plugin
+includes To-do list, Table, Details, enabled uploads and emoji, plus applicable plugin
 contributions (GIFs, polls, dates, events and diagrams). Chat supplies its upload,
 emoji and GIF handlers and applicable plugin contributions. Availability comes
 from the current composer and site settings. `reaction` is an alias for Emoji;
 this inserts an emoji in the draft and does not react to another message.
 Chat GIF selection retains the existing picker behavior of sending a separate
 GIF message.
+
+To-do list is searchable with `/todo`, `/to-do`, `/task`, `/checklist` or
+`/checkbox`. It converts the current line while retaining its text. Checklist
+items use Discourse's `[ ]` / `[x]` source; see [to-do lists](composer-todos.md)
+for editing and rendering behavior.
 
 The adapter refreshes plugin callbacks after removing the slash query, so
 callbacks that capture document positions receive current offsets. Menu

@@ -305,5 +305,13 @@
     "source": "livestream-visibility.js",
     "stage": "document",
     "policy": {}
+  },
+  {
+    "id": "checklist",
+    "owner": "cooking",
+    "version": "1",
+    "source": "checklist.js",
+    "stage": "syntax",
+    "policy": {}
   }
 ]

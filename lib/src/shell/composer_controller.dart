@@ -347,6 +347,7 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
          maxImageWidth: maxImageWidth,
          maxImageHeight: maxImageHeight,
          enableImageGalleries: !_target.isPlugin,
+         enableTodos: !_target.isPlugin,
        ),
        autocomplete = ComposerAutocomplete(search: search),
        _typing = TypingClock(now: now),
@@ -372,6 +373,9 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
       beforeRestore: text.clearKeyboardPillSelection,
       deferUntilSession: true,
     );
+    text.onTodoChanged = (value) {
+      if (isEditing) history.transact(() => text.value = value);
+    };
     blocks = ComposerBlockController(
       text: text,
       history: history,

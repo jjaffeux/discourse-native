@@ -44,11 +44,13 @@ import 'composer_slash_menu.dart';
 import 'composer_suggestions.dart';
 import 'composer_table.dart';
 import 'composer_tag_removal_notice.dart';
+import 'composer_todos.dart';
 import 'composer_upload_attachment.dart';
 import 'composer_upload_picker.dart';
 import 'emoji_composer.dart';
 import 'emoji_picker.dart';
 import 'forum_theme_surfaces.dart';
+import 'markdown_editing_controller.dart';
 import 'markdown_highlight.dart';
 import 'platform.dart';
 import 'shell_metrics.dart';
@@ -1199,11 +1201,11 @@ class _ComposerEditorState extends State<ComposerEditor> {
   int? _blockquoteFieldGeneration;
   late final _ComposerPasteAction _pasteAction;
   late final _quoteLineStartAction =
-      _ComposerQuoteLineStartAction<ExtendSelectionToLineBreakIntent>(
+      _ComposerLineStartAction<ExtendSelectionToLineBreakIntent>(
         () => _editableTextState,
       );
   late final _quoteExpandLineStartAction =
-      _ComposerQuoteLineStartAction<ExpandSelectionToLineBreakIntent>(
+      _ComposerLineStartAction<ExpandSelectionToLineBreakIntent>(
         () => _editableTextState,
       );
 
@@ -1512,6 +1514,18 @@ class _ComposerEditorState extends State<ComposerEditor> {
         ),
       if (!composer.target.isPlugin) ...[
         ComposerSlashAction(
+          label: 'To-do list',
+          icon: DIcons.list,
+          keywords: const ['todo', 'to-do', 'task', 'checklist', 'checkbox'],
+          onInvoke: () {
+            if (composer.isEditing) {
+              composer.history.transact(() {
+                composer.text.value = insertComposerTodo(composer.text.value);
+              });
+            }
+          },
+        ),
+        ComposerSlashAction(
           label: 'Table',
           icon: DIcons.list,
           onInvoke: () => insertComposerTable(composer),
@@ -1660,7 +1674,8 @@ class _ComposerEditorState extends State<ComposerEditor> {
                       // New documents also get a fresh native input session.
                       // ComposerController resets the shared source history.
                       key: ValueKey(widget.composer.fieldGeneration),
-                      controller: widget.composer.text,
+                      controller: widget.composer.text
+                        ..todosReadOnly = !widget.composer.isEditing,
                       readOnly: !widget.composer.isEditing,
                       scrollController: _scroll,
                       focusNode: widget.composer.focus,
@@ -1678,6 +1693,8 @@ class _ComposerEditorState extends State<ComposerEditor> {
                         const ComposerQuoteInputFormatter(),
                         ...widget.composer.text.syntaxInputFormatters,
                         _blockquoteInputFormatter,
+                        if (widget.composer.text.enableTodos)
+                          const ComposerTodoInputFormatter(),
                       ],
                       contextMenuBuilder: _contextMenu,
                       showCursor:
@@ -2319,7 +2336,13 @@ class _ComposerEditorState extends State<ComposerEditor> {
         !keyboard.isControlPressed &&
         !keyboard.isAltPressed &&
         value.composing.isCollapsed &&
-        _blockquoteInputFormatter.isInQuote(value)) {
+        (_blockquoteInputFormatter.isInQuote(value) ||
+            widget.composer.text.todos.any(
+              (todo) =>
+                  selection.isCollapsed &&
+                  selection.start >= todo.contentStart &&
+                  selection.start <= todo.end,
+            ))) {
       final editable = _editableTextState;
       if (editable == null) return KeyEventResult.ignored;
       editable.userUpdateTextEditingValue(
@@ -2345,6 +2368,19 @@ class _ComposerEditorState extends State<ComposerEditor> {
             event.logicalKey == LogicalKeyboardKey.arrowRight);
     if (isPlainHorizontalArrow) {
       final moveLeft = event.logicalKey == LogicalKeyboardKey.arrowLeft;
+      for (final todo in text.todos) {
+        final inPrefix = moveLeft
+            ? caret >= todo.start && caret <= todo.contentStart
+            : caret >= todo.start - 1 && caret < todo.contentStart;
+        if (inPrefix) {
+          text.selection = TextSelection.collapsed(
+            offset: moveLeft && todo.start > 0
+                ? todo.start - 1
+                : todo.contentStart,
+          );
+          return KeyEventResult.handled;
+        }
+      }
       final quoteOffset = composerBlockquoteArrowOffset(
         value,
         forward: !moveLeft,
@@ -3079,9 +3115,9 @@ final class _ComposerSelectionOverlay {
   }
 }
 
-class _ComposerQuoteLineStartAction<T extends DirectionalCaretMovementIntent>
+class _ComposerLineStartAction<T extends DirectionalCaretMovementIntent>
     extends Action<T> {
-  _ComposerQuoteLineStartAction(this._editable);
+  _ComposerLineStartAction(this._editable);
 
   final EditableTextState? Function() _editable;
 
@@ -3094,7 +3130,15 @@ class _ComposerQuoteLineStartAction<T extends DirectionalCaretMovementIntent>
     final result = callingAction?.invoke(intent);
     if (editable == null || before == null) return result;
     final after = editable.widget.controller.value;
-    final selection = composerBlockquoteLineStartSelection(before, after);
+    var selection = composerBlockquoteLineStartSelection(before, after);
+    if (editable.widget.controller case MarkdownEditingController(
+      enableTodos: true,
+    )) {
+      selection = composerTodoLineStartSelection(
+        before,
+        after.copyWith(selection: selection),
+      );
+    }
     if (selection != after.selection) {
       editable.bringIntoView(selection.extent);
       editable.userUpdateTextEditingValue(
