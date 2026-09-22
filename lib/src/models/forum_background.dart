@@ -4,7 +4,7 @@ import 'package:flutter/foundation.dart';
 
 enum ForumBackgroundEffect { normal, lava, noise }
 
-/// Portable, optional window background treatment for a custom forum theme.
+/// Portable background color and window effects for a custom forum theme.
 @immutable
 class ForumBackground {
   const ForumBackground({

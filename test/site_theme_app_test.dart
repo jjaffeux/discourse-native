@@ -9,6 +9,8 @@ import 'package:discourse_native/src/models/app_settings.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
+import 'package:discourse_native/src/models/forum_background.dart';
+import 'package:discourse_native/src/models/forum_theme.dart';
 import 'package:discourse_native/src/models/forum_theme_preferences.dart';
 import 'package:discourse_native/src/models/forum_theme_presets.dart';
 import 'package:discourse_native/src/models/notification_totals.dart';
@@ -16,9 +18,12 @@ import 'package:discourse_native/src/models/site_appearance.dart';
 import 'package:discourse_native/src/shell/adaptive_shell.dart';
 import 'package:discourse_native/src/shell/avatar_image.dart';
 import 'package:discourse_native/src/shell/forum_settings_dialog.dart';
+import 'package:discourse_native/src/shell/forum_theme_surfaces.dart';
 import 'package:discourse_native/src/shell/instance_rail.dart';
+import 'package:discourse_native/src/shell/main_content.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
+import 'package:discourse_native/src/shell/title_bar.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:discourse_native/src/theme/color_contrast.dart';
 import 'package:flutter/gestures.dart';
@@ -35,6 +40,130 @@ import 'support/site_appearance_fixtures.dart';
 void main() {
   const siteA = 'https://a.example';
   const siteB = 'https://b.example';
+
+  testWidgets('custom background reaches painted desktop surfaces', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1200, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await _pumpApp(
+      tester,
+      store: FakeInstanceStore([
+        const DiscourseInstance(url: siteA, title: 'A'),
+      ]),
+      api: FakeDiscourseApi(feeds: const {'/latest.json': []}),
+      appSettingsStore: AppSettingsStore(
+        persistence: MemoryAppSettingsPersistence(),
+      ),
+    );
+    final controller = _controller(tester);
+    final original = _activeTheme(tester).shell.content;
+    final source = forumThemePresets.firstWhere((t) => t.id == 'dracula');
+    Color paintedBox(Finder parent) => tester
+        .widget<ColoredBox>(
+          find.descendant(of: parent, matching: find.byType(ColoredBox)).first,
+        )
+        .color;
+
+    for (final mode in [AppThemeMode.dark, AppThemeMode.light]) {
+      await controller.forumSettings.setThemeMode(siteA, mode);
+      for (final effect in ForumBackgroundEffect.values) {
+        for (final darkerSidebars in [false, true]) {
+          final custom = ForumTheme.fromJson({
+            ...source.toJson(),
+            'darkerSidebars': darkerSidebars,
+            'background': ForumBackground(
+              color: const Color(0xffdc63ae),
+              strength: .8,
+              effect: effect,
+            ).toJson(),
+          }, id: 'custom-pink');
+          await controller.forumSettings.setThemes(
+            siteA,
+            ForumThemePreferences().save(custom),
+          );
+          // Lava keeps ticking; allow the inherited theme to finish changing.
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 300));
+          final theme = _activeTheme(tester);
+          final expected = Color(
+            Color.lerp(
+              source.forBrightness(theme.brightness).secondary,
+              const Color(0xffdc63ae),
+              .8 * .45,
+            )!.toARGB32(),
+          );
+          expect(theme.shell.content, expected);
+          expect(
+            paintedBox(find.byType(ShellTitleBar)),
+            theme.scaffoldBackgroundColor,
+          );
+          final sidebarTheme =
+              theme.extension<ForumThemeEffects>()?.sidebarTheme ?? theme;
+          expect(paintedBox(find.byType(InstanceRail)), theme.shell.rail);
+          final sidebarPanel = tester.widget<Container>(
+            find
+                .descendant(
+                  of: find.byType(DSidebar),
+                  matching: find.byWidgetPredicate(
+                    (widget) =>
+                        widget is Container &&
+                        widget.decoration is BoxDecoration &&
+                        (widget.decoration! as BoxDecoration).color != null,
+                  ),
+                )
+                .first,
+          );
+          expect(
+            (sidebarPanel.decoration! as BoxDecoration).color,
+            sidebarTheme.extension<DTokens>()!.muted,
+          );
+          final card = find
+              .descendant(
+                of: find.byType(MainContent),
+                matching: find.byType(DCard),
+              )
+              .first;
+          expect(
+            tester
+                .widget<Material>(
+                  find
+                      .descendant(of: card, matching: find.byType(Material))
+                      .first,
+                )
+                .color,
+            expected,
+          );
+          expect(
+            paintedBox(find.byKey(const ValueKey('topic-list-bottom-bar'))),
+            theme.extension<DTokens>()!.footerBackground,
+          );
+          final canvas = tester.widget<DecoratedBox>(
+            find
+                .descendant(
+                  of: find.byType(ForumWindowBackground),
+                  matching: find.byType(DecoratedBox),
+                )
+                .first,
+          );
+          expect(
+            (canvas.decoration as BoxDecoration).color,
+            theme.scaffoldBackgroundColor,
+            reason: 'The shared canvas must not apply the tint twice.',
+          );
+          expect(tester.takeException(), isNull);
+        }
+      }
+    }
+    await controller.forumSettings.setThemes(
+      siteA,
+      ForumThemePreferences.defaults,
+    );
+    await controller.forumSettings.setThemeMode(siteA, AppThemeMode.system);
+    await tester.pumpAndSettle();
+    expect(_activeTheme(tester).shell.content, original);
+  }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 
   testWidgets('Escape closes forum Settings after changing appearance', (
     tester,

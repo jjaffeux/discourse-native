@@ -7,11 +7,56 @@ import 'package:discourse_native/src/models/site_appearance.dart';
 import 'package:discourse_native/src/shell/forum_theme_editor.dart';
 import 'package:discourse_native/src/shell/forum_theme_surfaces.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
+import 'package:discourse_native/src/theme/color_contrast.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test('tinted palettes keep readable text and preserve authored colors', () {
+    double contrast(Color a, Color b) {
+      final luminances = [a.computeLuminance(), b.computeLuminance()]..sort();
+      return (luminances.last + .05) / (luminances.first + .05);
+    }
+
+    for (final source in forumThemePresets) {
+      final authored = source.toJson();
+      for (final color in [
+        Colors.white,
+        Colors.black,
+        Colors.pink,
+        Colors.lime,
+      ]) {
+        final custom = ForumTheme.fromJson({
+          ...authored,
+          'background': ForumBackground(color: color, strength: 1).toJson(),
+        }, id: 'custom');
+        for (final mode in Brightness.values) {
+          final palette = custom.resolve(mode);
+          for (final foreground in [palette.primary, palette.metadataColor]) {
+            expect(
+              contrast(foreground, palette.secondary),
+              greaterThanOrEqualTo(minimumTextContrastRatio),
+              reason: '${source.id} $mode $color',
+            );
+          }
+          expect(
+            contrast(palette.selectedForeground, palette.selected),
+            greaterThanOrEqualTo(minimumTextContrastRatio),
+          );
+          final zero = ForumTheme.fromJson({
+            ...authored,
+            'background': ForumBackground(color: color, strength: 0).toJson(),
+          }, id: 'zero').resolve(mode).toJson()..remove('background');
+          expect(zero, source.resolve(mode).toJson());
+        }
+        expect(custom.toJson()['colors'], authored['colors']);
+        expect(custom.toJson()['alternate'], authored['alternate']);
+      }
+      expect(source.toJson(), authored);
+    }
+  });
+
   testWidgets(
     'custom controls fit narrow RTL and large text in both palettes',
     (tester) async {

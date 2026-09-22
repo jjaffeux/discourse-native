@@ -2,6 +2,7 @@ import 'dart:ui';
 
 import 'package:flutter/foundation.dart';
 
+import '../theme/color_contrast.dart';
 import 'forum_background.dart';
 import 'site_appearance.dart';
 
@@ -157,10 +158,31 @@ final class ForumTheme {
     if (alternate?.brightness == target) {
       return forBrightness(target).resolve(target, forumPalette: forumPalette);
     }
-    final foreground = target == brightness ? primary : secondary;
-    final background = target == brightness ? secondary : primary;
+    final originalForeground = target == brightness ? primary : secondary;
+    final originalBackground = target == brightness ? secondary : primary;
+    // Tint the shared base before deriving panel and control surfaces. Applying
+    // it only to the window canvas leaves opaque Native surfaces unchanged.
+    final treatment = this.background;
+    final tinted = treatment != null && treatment.strength > 0;
+    final background = tinted
+        ? Color.lerp(
+            originalBackground,
+            treatment.color,
+            treatment.strength * .45,
+          )!
+        : originalBackground;
+    Color readable(Color color, {Color? surface}) => tinted
+        ? contrastSafeForeground(
+            background: surface ?? background,
+            backdrop: background,
+            preferred: [color, originalForeground],
+          )
+        : color;
+    final foreground = readable(originalForeground);
     Color mix(Color color, double amount) =>
         Color.lerp(background, color, amount)!;
+    final selected = mix(tertiary, .20);
+    final metadata = readable(mix(foreground, .70));
     return ResolvedSitePalette.fromJson({
       'brightness': target.name,
       if (this.background != null) 'background': this.background!.toJson(),
@@ -180,20 +202,20 @@ final class ForumTheme {
       'notificationIndicator': tertiary.toARGB32(),
       'headerBackground': mix(foreground, .05).toARGB32(),
       'headerPrimary': foreground.toARGB32(),
-      'metadataColor': mix(foreground, .70).toARGB32(),
+      'metadataColor': metadata.toARGB32(),
       'contentBorderColor': mix(foreground, .12).toARGB32(),
       'highlight': quaternary.toARGB32(),
       'danger': danger.toARGB32(),
       'success': success.toARGB32(),
       'love': love.toARGB32(),
-      'selected': mix(tertiary, .20).toARGB32(),
-      'selectedForeground': foreground.toARGB32(),
+      'selected': selected.toARGB32(),
+      'selectedForeground': readable(foreground, surface: selected).toARGB32(),
       'hover': mix(foreground, .08).toARGB32(),
       'primaryVeryLow': mix(foreground, .03).toARGB32(),
       'primaryLow': mix(foreground, .12).toARGB32(),
       'primaryLowMid': mix(foreground, .22).toARGB32(),
       'primaryMedium': mix(foreground, .50).toARGB32(),
-      'primaryHigh': mix(foreground, .70).toARGB32(),
+      'primaryHigh': metadata.toARGB32(),
       'primaryVeryHigh': mix(foreground, .90).toARGB32(),
       'secondaryVeryHigh': mix(foreground, .10).toARGB32(),
       'tertiaryLow': mix(tertiary, .18).toARGB32(),
@@ -206,10 +228,10 @@ final class ForumTheme {
       'inlineCodeBackground': mix(foreground, .08).toARGB32(),
       'codeKeyword': tertiary.toARGB32(),
       'codeString': success.toARGB32(),
-      'codeComment': mix(foreground, .62).toARGB32(),
+      'codeComment': readable(mix(foreground, .62)).toARGB32(),
       'codeNumber': quaternary.toARGB32(),
       'codeName': tertiary.toARGB32(),
-      'codeMeta': mix(foreground, .70).toARGB32(),
+      'codeMeta': metadata.toARGB32(),
     });
   }
 

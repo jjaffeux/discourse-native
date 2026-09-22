@@ -166,3 +166,30 @@ applied light/dark previews. Inspected the filled Slider styleguide and inline
 Color Picker in full and 360px preview widths, including dragging and keyboard
 input. The standalone review caught and fixed a loose-constraint width issue.
 No external forum data or release configuration was changed.
+
+
+## Background surface coverage correction — 2026-09-22
+
+The custom background color now enters the resolved forum palette before Native
+panel, sidebar, header, footer and control colors are derived. This corrects the
+canvas-only tint that left the original theme showing across opaque surfaces.
+The window canvas consumes the resolved color once; authored palette colors and
+zero-strength behavior remain unchanged. Normal, Lava lamp and Noise share the
+same resolved base, with the existing effects still painted on the window canvas.
+Text and metadata contrast are re-evaluated for the tinted background.
+
+Verification: 80 focused appearance, editor, model, AppTheme and site-palette
+tests passed, plus a desktop app regression covering the painted title bar,
+instance rail, sidebar, content card, footer and window canvas across both modes,
+all three effects and the darker-sidebar option. The regression also restores
+forum defaults. The color matrix checks text/metadata/selected-row contrast for
+all preset families with white, black, pink and lime backgrounds, including
+preservation of authored colors and exact zero-strength behavior. Static analysis
+passed with no issues.
+
+A macOS debug build and native review used a temporary in-memory fixture mounting
+the production app with a populated topic list and a pink custom background.
+Inspected the full shell, forum settings and the applied Light/Dark switch in an
+isolated ad-hoc `org.discourse.native.review.backgroundsurfaces` bundle. Header,
+rail, sidebar, topic list and footer all carry the chosen color. No external forum
+data or release configuration changed.
