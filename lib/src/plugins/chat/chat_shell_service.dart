@@ -32,6 +32,7 @@ import 'chat_plugin_data.dart';
 import 'chat_route.dart';
 import 'chat_services.dart';
 import 'chat_stream_target.dart';
+import 'chat_wire.dart';
 
 const chatShellService = PluginServiceKey<ChatShellService>(
   owner: chatPluginId,
@@ -49,6 +50,7 @@ final class ChatShellService
         PluginTrackerAttachment,
         PluginUserPreferenceMirror,
         PluginCurrentUserObserver,
+        PluginBookmarkPresenter,
         PluginBookmarkTargetStrategy {
   ChatShellService({
     required this.chat,
@@ -628,6 +630,45 @@ final class ChatShellService
 
   @override
   BookmarkTargetType get pluginBookmarkTarget => chatMessageBookmarkTarget;
+
+  @override
+  String get bookmarkFilterLabel => 'Chat';
+
+  @override
+  BookmarkPresentation? presentBookmark(String siteUrl, Bookmark bookmark) {
+    if (bookmark.bookmarkableType != chatMessageBookmarkTarget.wireName &&
+        bookmark.bookmarkableType != chatMessagePolymorphicWireType) {
+      return null;
+    }
+    final link = ChatLink.parse(bookmark.path ?? '', siteUrl: siteUrl);
+    final channel = link == null
+        ? null
+        : chat.channel(siteUrl, link.route.channelId);
+    final title = channel?.title ?? bookmark.title;
+    final username = _host.instances
+        .where((instance) => instance.url == siteUrl)
+        .firstOrNull
+        ?.user
+        ?.username;
+    final author =
+        bookmark.author != null &&
+            bookmark.author!.toLowerCase() == username?.toLowerCase()
+        ? 'you'
+        : bookmark.author;
+    final channelLabel = channel?.isDirectMessage == true
+        ? title
+        : '#${title.replaceFirst(RegExp(r'^#'), '')}';
+    return BookmarkPresentation(
+      title: title.isEmpty
+          ? '${author ?? 'Someone'} in chat'
+          : '${author ?? 'Someone'} in $channelLabel',
+      typeLabel: 'Chat',
+      filterLabel: bookmarkFilterLabel,
+      contextLabel: title.isEmpty ? null : title,
+      icon: DIcons.comment,
+      color: channel?.categoryColor,
+    );
+  }
 
   @override
   void putPluginBookmark(String siteUrl, int targetId, Bookmark bookmark) =>

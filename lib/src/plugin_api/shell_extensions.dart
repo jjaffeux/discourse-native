@@ -1,5 +1,5 @@
 import 'dart:async';
-import 'dart:ui' show Rect;
+import 'dart:ui' show Color, Rect;
 
 import 'package:flutter/foundation.dart';
 
@@ -11,6 +11,7 @@ import '../models/discourse_user.dart';
 import '../models/notification_totals.dart';
 import '../models/sidebar.dart';
 import '../models/user_preferences.dart';
+import '../theme/d_icon.dart';
 import 'composer_syntax.dart';
 import 'live_channels.dart';
 import 'plugin_manifest.dart';
@@ -213,4 +214,32 @@ abstract interface class PluginBookmarkTargetStrategy
   void putPluginBookmark(String siteUrl, int targetId, Bookmark bookmark);
   void removePluginBookmark(String siteUrl, int targetId);
   FutureOr<void> reconcilePluginBookmark(String siteUrl, int targetId);
+}
+
+/// Presentation supplied by the owner of a bookmark's target type.
+@immutable
+final class BookmarkPresentation {
+  const BookmarkPresentation({
+    required this.title,
+    required this.typeLabel,
+    required this.filterLabel,
+    required this.icon,
+    this.contextLabel,
+    this.color,
+  });
+
+  final String title;
+  final String typeLabel;
+  final String filterLabel;
+  final DIconData icon;
+  final String? contextLabel;
+  final Color? color;
+
+  String get subtitle => [typeLabel, ?contextLabel].join(' · ');
+}
+
+abstract interface class PluginBookmarkPresenter
+    implements PluginSessionCapability {
+  String get bookmarkFilterLabel;
+  BookmarkPresentation? presentBookmark(String siteUrl, Bookmark bookmark);
 }
