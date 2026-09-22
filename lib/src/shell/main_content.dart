@@ -470,13 +470,8 @@ class _TopicInboxWorkspaceState extends State<_TopicInboxWorkspace> {
                           child: SizedBox(
                             width: lane.width,
                             child: Padding(
-                              padding: EdgeInsetsDirectional.only(
-                                start: context.isTouch
-                                    ? topicListHorizontalPadding
-                                    : 16,
-                                end: context.isTouch
-                                    ? topicListHorizontalPadding
-                                    : 16,
+                              padding: const EdgeInsetsDirectional.symmetric(
+                                horizontal: 16,
                               ),
                               child: heading(navigation),
                             ),
@@ -489,14 +484,7 @@ class _TopicInboxWorkspaceState extends State<_TopicInboxWorkspace> {
               ),
             ),
           );
-          return Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              toolbar,
-              if (context.isTouch)
-                const DSeparator(key: ValueKey('topic-list-heading-separator')),
-            ],
-          );
+          return toolbar;
         }
 
         return Column(
@@ -564,7 +552,8 @@ class _TopicInboxWorkspaceState extends State<_TopicInboxWorkspace> {
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
                                       Flexible(child: createAction),
-                                      if (state.isConnected &&
+                                      if (context.isTouch &&
+                                          state.isConnected &&
                                           state.siteUrl != null &&
                                           sourceRoute.categoryId != null) ...[
                                         const SizedBox(width: DSpacing.sm),
@@ -1122,7 +1111,10 @@ class _ContentHeader extends StatelessWidget {
                 const SizedBox(width: 4),
               ],
               if (!searchOnly) ...contentHeader,
-              if (isConnected && siteUrl != null && route.categoryId != null)
+              if (isConnected &&
+                  siteUrl != null &&
+                  route.categoryId != null &&
+                  !route.isTopicListFilter)
                 CategoryNotificationLevelButton(
                   siteUrl: siteUrl!,
                   categoryId: route.categoryId!,

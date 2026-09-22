@@ -13,11 +13,13 @@ class CategoryNotificationLevelButton extends StatelessWidget {
     required this.siteUrl,
     required this.categoryId,
     this.showLabel = false,
+    this.showChevron = false,
   });
 
   final String siteUrl;
   final int categoryId;
   final bool showLabel;
+  final bool showChevron;
 
   static const _options = [
     DNotificationLevelOption(
@@ -71,9 +73,10 @@ class CategoryNotificationLevelButton extends StatelessWidget {
               key: ValueKey((controller, siteUrl, categoryId, lease.session)),
               semanticLabel: 'Category notifications',
               buttonKey: const ValueKey('category-notification-level-button'),
-              size: DButtonSize.regular,
+              size: showChevron ? DButtonSize.large : DButtonSize.regular,
               variant: DButtonVariant.outline,
               showLabel: showLabel,
+              showChevron: showChevron,
               value: level,
               options: _options,
               onChanged: (selected) {

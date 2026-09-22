@@ -59,6 +59,23 @@ const DNotificationLevelOption(
       builder: (_) => const _NotificationExample(initialValue: 3),
     ),
     StyleguideExample(
+      title: 'Bell with disclosure',
+      description: 'A compact outlined trigger for topic-list toolbars.',
+      states: const ['Bell', 'Chevron', 'Outline', 'Selection'],
+      code: '''DNotificationLevelMenu<int>(
+  value: level, options: topicOptions,
+  semanticLabel: 'Topic notifications',
+  showChevron: true,
+  size: DButtonSize.small,
+  variant: DButtonVariant.outline,
+  onChanged: (value) => setState(() => level = value),
+)''',
+      builder: (_) => const _NotificationExample(
+        showChevron: true,
+        variant: DButtonVariant.outline,
+      ),
+    ),
+    StyleguideExample(
       title: 'Category notifications',
       description: 'Category choices also include Watching First Post.',
       states: const ['Five levels', 'Icon only'],
@@ -124,6 +141,7 @@ DNotificationLevelMenu<int>(
 class _NotificationExample extends StatefulWidget {
   const _NotificationExample({
     this.showLabel = false,
+    this.showChevron = false,
     this.category = false,
     this.thread = false,
     this.disabled = false,
@@ -133,6 +151,7 @@ class _NotificationExample extends StatefulWidget {
   });
 
   final bool showLabel;
+  final bool showChevron;
   final bool category;
   final bool thread;
   final bool disabled;
@@ -205,6 +224,7 @@ class _NotificationExampleState extends State<_NotificationExample> {
           ? 'Thread notifications'
           : 'Topic notifications',
       showLabel: widget.showLabel,
+      showChevron: widget.showChevron,
       variant: widget.customColors ? DButtonVariant.outline : widget.variant,
       backgroundColor: widget.customColors ? tokens.surface : null,
       borderColor: widget.customColors

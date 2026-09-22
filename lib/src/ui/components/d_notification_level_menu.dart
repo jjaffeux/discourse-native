@@ -34,7 +34,8 @@ class DNotificationLevelOption<T> {
 ///
 /// [value] must match exactly one option. The caller owns selection and saving.
 /// A null [onChanged] disables the trigger and choices. [showLabel] adds the
-/// selected level's name.
+/// selected level's name; [showChevron] adds a disclosure icon beside the bell
+/// when the name is hidden.
 ///
 /// Dropdown Menu owns keyboard navigation, scrolling, collision handling,
 /// dismissal, and focus restoration. Change this widget's key when its target
@@ -47,6 +48,7 @@ class DNotificationLevelMenu<T> extends StatelessWidget {
     required this.onChanged,
     required this.semanticLabel,
     this.showLabel = false,
+    this.showChevron = false,
     this.size = DButtonSize.small,
     this.variant,
     this.backgroundColor,
@@ -60,6 +62,7 @@ class DNotificationLevelMenu<T> extends StatelessWidget {
   final ValueChanged<T>? onChanged;
   final String semanticLabel;
   final bool showLabel;
+  final bool showChevron;
   final DButtonSize size;
 
   /// Overrides the trigger style for compositions such as an outlined group.
@@ -118,17 +121,19 @@ class DNotificationLevelMenu<T> extends StatelessWidget {
         ],
       ),
       child: DDropdownMenuTrigger(
-        builder: (context, state) => showLabel
+        builder: (context, state) => showLabel || showChevron
             ? DButton(
                 key: buttonKey,
-                label: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(selected.label),
-                    const SizedBox(width: 6),
-                    const DIcon(DNativeIcons.chevronDown),
-                  ],
-                ),
+                label: showLabel
+                    ? Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(selected.label),
+                          const SizedBox(width: 6),
+                          const DIcon(DNativeIcons.chevronDown),
+                        ],
+                      )
+                    : const DIcon(DNativeIcons.chevronDown),
                 icon: selected.icon,
                 tooltip: label,
                 semanticLabel: label,

@@ -47,6 +47,11 @@ void main() {
       final options = find.byKey(const ValueKey('topic-view-options'));
       final title = find.byKey(const ValueKey('topic-list-title'));
       final filters = find.byKey(const ValueKey('topic-list-feed-row'));
+      final separator = find.byKey(
+        const ValueKey('topic-list-heading-separator'),
+      );
+      final filterAction = find.byKey(const ValueKey('topic-list-filter'));
+      final displayAction = find.byKey(const ValueKey('topic-list-display'));
       expect(tester.widget<Text>(title).data, 'Latest topics');
       expect(
         find.descendant(of: tabs, matching: find.byType(DSeparator)),
@@ -61,9 +66,25 @@ void main() {
         tester.getRect(filters).top,
         greaterThan(tester.getRect(title).bottom),
       );
+      expect(separator, findsOneWidget);
       expect(
-        find.byKey(const ValueKey('topic-list-heading-separator')),
-        findsNothing,
+        tester.getRect(separator).top,
+        greaterThan(tester.getRect(filters).bottom),
+      );
+      expect(tester.getRect(separator).left, tester.getRect(filters).left);
+      expect(tester.getRect(separator).right, tester.getRect(filters).right);
+      expect(
+        tester.getCenter(filterAction).dy,
+        tester.getCenter(displayAction).dy,
+      );
+      expect(tester.getCenter(filterAction).dy, tester.getCenter(title).dy);
+      expect(
+        tester.widget<DButton>(filterAction).variant,
+        DButtonVariant.transparentBackground,
+      );
+      expect(
+        tester.widget<DButton>(displayAction).variant,
+        DButtonVariant.transparentBackground,
       );
 
       h.shell.openTopicFromList(h.topics.first);
@@ -130,6 +151,58 @@ void main() {
     },
     variant: TargetPlatformVariant.only(TargetPlatform.macOS),
   );
+
+  testWidgets('narrow topic header separates controls from the list', (
+    tester,
+  ) async {
+    await _setup(tester, size: const Size(390, 844));
+    final title = tester.getRect(
+      find.byKey(const ValueKey('topic-list-title')),
+    );
+    final controls = tester.getRect(
+      find.byKey(const ValueKey('topic-list-feed-row')),
+    );
+    final separator = tester.getRect(
+      find.byKey(const ValueKey('topic-list-heading-separator')),
+    );
+    expect(controls.left, title.left);
+    expect(controls.top, greaterThan(title.bottom));
+    expect(separator.top, greaterThan(controls.bottom));
+    expect(separator.left, controls.left);
+    expect(separator.right, controls.right);
+    expect(
+      find.byKey(const ValueKey('topic-list-tracking-button')),
+      findsOneWidget,
+    );
+    expect(tester.takeException(), isNull);
+  }, variant: TargetPlatformVariant.only(TargetPlatform.iOS));
+
+  testWidgets('Latest topics bell saves automatic tracking', (tester) async {
+    final h = await _setup(tester, size: const Size(1800, 1000));
+    final bell = find.byKey(const ValueKey('topic-list-tracking-button'));
+    expect(bell, findsOneWidget);
+    final menu = find.ancestor(
+      of: bell,
+      matching: find.byType(DNotificationLevelMenu<int>),
+    );
+    expect(
+      tester.widget<DNotificationLevelMenu<int>>(menu).showChevron,
+      isTrue,
+    );
+    await tester.tap(bell);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('After 1 minute'));
+    await tester.pumpAndSettle();
+    expect(
+      h.api.userPreferenceUpdates.last.values['auto_track_topics_after_msecs'],
+      60000,
+    );
+    expect(
+      find.byTooltip('Automatic topic tracking: After 1 minute'),
+      findsOneWidget,
+    );
+    expect(tester.takeException(), isNull);
+  }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 
   testWidgets(
     'beside-list cards preserve the saved mode across presentation changes',

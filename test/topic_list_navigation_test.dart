@@ -483,8 +483,8 @@ void main() {
         final feedRect = tester.getRect(
           find.byKey(const ValueKey('topic-list-feed-menu')),
         );
-        expect(parentRect.center.dy, feedRect.center.dy);
-        expect(parentRect.left, greaterThan(feedRect.right));
+        expect(parentRect.top, greaterThanOrEqualTo(feedRect.top));
+        expect(parentRect.overlaps(feedRect), isFalse);
         expect(childRect.top, greaterThanOrEqualTo(parentRect.bottom));
         expect(tagRect.overlaps(parentRect), isFalse);
         expect(tagRect.overlaps(childRect), isFalse);
@@ -2204,7 +2204,7 @@ void main() {
       ShellScope(
         controller: controller,
         child: MaterialApp(
-          theme: AppTheme.light,
+          theme: AppTheme.light.copyWith(platform: TargetPlatform.macOS),
           home: const Scaffold(body: MainContent(layout: ShellLayout.expanded)),
         ),
       ),
@@ -2232,6 +2232,14 @@ void main() {
       expect(
         find.byKey(const ValueKey('topic-list-feed-menu')),
         findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('category-notification-level-button')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('topic-list-tracking-button')),
+        findsNothing,
       );
     }
 
