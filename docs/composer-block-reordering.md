@@ -21,6 +21,10 @@ block's bottom and following block's top, spans the text area beside the gutter,
 and does not shift the text. At the beginning or end it marks the outer block edge.
 The original position also shows an insertion line; dropping there leaves the
 source and undo history unchanged.
+The line keeps its current destination through small pointer movements around a
+midpoint. Moving farther crosses to the next destination immediately, with a
+smaller tolerance between closely spaced empty lines. Geometry refreshes and
+the completed drop use that same destination.
 Runs of empty lines expose individual insertion boundaries, including before the
 first content block and after the last. A block can move within these lines
 without changing the order of the content blocks. The move preserves the other
@@ -147,6 +151,14 @@ analysis. Its four desktop gesture regressions fail on the original source.
 The macOS block-add fixture was inspected at 720px in dark mode and 360px in light
 mode: paragraph and heading drops reached internal, leading and trailing empty
 lines, and the arrangement Undo action restored the original spacing.
+
+The destination-stability follow-up adds midpoint-jitter checks for blocks and
+individual empty lines in LTR and RTL. All five fail without the tolerance;
+348 focused tests and root `dart analyze` pass after integration with the stable
+composer line layout. The isolated macOS block-add fixture at `f62acb0fe` verified
+block moves, blank-line drops and Undo at 720px dark and 360px light. Exact
+one-pixel pointer jitter is covered by widget gestures; native review used
+completed mouse drags. Existing Native drag components are unchanged.
 
 ## Notion reference
 
