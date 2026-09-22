@@ -327,7 +327,7 @@ void main() {
   }
 
   for (final width in [320.0, 390.0]) {
-    testWidgets('mobile cards separate taxonomy and activity at $width', (
+    testWidgets('mobile cards place age above wrapping footer at $width', (
       tester,
     ) async {
       final shell = await _setup(tester, width: width, enableEvents: true);
@@ -338,10 +338,15 @@ void main() {
         find.text('Topic 1: a conversation about improving our community'),
       );
       final date = within(find.byKey(const ValueKey('event-schedule-trigger')));
-      final author = within(find.text('sam'));
-      final replies = within(find.text('24 replies'));
+      final author = within(find.textContaining('Last post by sam'));
+      final replies = within(find.textContaining('24 replies'));
       final age = within(find.byKey(const ValueKey('inbox-row-time-1')));
       final tags = within(find.text('mobile'));
+      final avatar = within(
+        find.byWidgetPredicate(
+          (widget) => widget is DAvatar && widget.dimension == 22,
+        ),
+      );
       expect(find.byKey(const ValueKey('event-calendar-stamp')), findsNothing);
       expect(
         tester.getRect(date).top,
@@ -349,24 +354,25 @@ void main() {
       );
       expect(find.text('Wed, Oct 14 · 20:00'), findsOneWidget);
       expect(
-        tester.getRect(author).top,
+        tester.getRect(avatar).top,
         greaterThan(tester.getRect(tags).bottom),
       );
       expect(
         tester.getRect(replies).top,
-        closeTo(tester.getRect(author).top, 3),
+        greaterThanOrEqualTo(tester.getRect(author).top),
       );
-      expect(tester.getRect(age).top, closeTo(tester.getRect(replies).top, 1));
+      expect(tester.getRect(age).top, closeTo(tester.getRect(title).top, 1));
+      expect(tester.getRect(age).top, lessThan(tester.getRect(tags).top));
       expect(
         tester.getRect(age).right,
-        closeTo(tester.getRect(card).right - 16, 1),
+        closeTo(tester.getRect(card).right - 28, 1),
       );
       await shell.appSettings.setTopicListShowLastPoster(false);
       await shell.appSettings.setTopicListShowTags(false);
       await tester.pumpAndSettle();
       expect(author, findsNothing);
       expect(tags, findsNothing);
-      expect(replies, findsOneWidget);
+      expect(within(find.text('24 replies')), findsOneWidget);
       await tester.tap(date);
       await tester.pumpAndSettle();
       expect(find.text('Event schedule').hitTestable(), findsOneWidget);
@@ -376,6 +382,41 @@ void main() {
       await tester.tap(title);
       await tester.pumpAndSettle();
       expect(shell.currentContent?.topicId, 1);
+      expect(tester.takeException(), isNull);
+    });
+  }
+
+  for (final (width, sharesLine) in [(390.0, false), (590.0, true)]) {
+    testWidgets('mobile footer follows available width at $width', (
+      tester,
+    ) async {
+      final shell = await _setup(
+        tester,
+        width: width,
+        enableAssignments: false,
+      );
+      final site = shell.currentInstance!.url;
+      final topic = shell.store.read<Topic>(site, 1)!;
+      shell.store.put(site, topic.copyWith(tags: const []));
+      await tester.pumpAndSettle();
+      final card = find.byKey(const ValueKey('topic-card-1'));
+      final category = find.descendant(
+        of: card,
+        matching: find.text('Community'),
+      );
+      final avatar = find.descendant(
+        of: card,
+        matching: find.byWidgetPredicate(
+          (widget) => widget is DAvatar && widget.dimension == 22,
+        ),
+      );
+      final categoryRect = tester.getRect(category);
+      final avatarRect = tester.getRect(avatar);
+      if (sharesLine) {
+        expect(avatarRect.center.dy, closeTo(categoryRect.center.dy, 8));
+      } else {
+        expect(avatarRect.top, greaterThan(categoryRect.bottom));
+      }
       expect(tester.takeException(), isNull);
     });
   }

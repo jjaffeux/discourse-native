@@ -151,7 +151,9 @@ class _ConversationTopicCard extends StatelessWidget {
             shape: DItemShape.fullWidth,
             padding:
                 row.contentPadding ??
-                const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                (mobile
+                    ? const EdgeInsets.symmetric(horizontal: 28, vertical: 20)
+                    : const EdgeInsets.symmetric(horizontal: 16, vertical: 12)),
             link: true,
             onPressed: row.onTap,
             selected: selected,
@@ -159,7 +161,7 @@ class _ConversationTopicCard extends StatelessWidget {
             showSelectionIndicator: false,
             children: [
               DItemContent(
-                spacing: mobile ? DSpacing.sm : 6,
+                spacing: mobile ? DSpacing.md : 6,
                 alignment: CrossAxisAlignment.stretch,
                 children: [
                   if (mobile && topic.pinned)
@@ -170,32 +172,24 @@ class _ConversationTopicCard extends StatelessWidget {
                         Text('Pinned', style: textStyle),
                       ],
                     ),
-                  if (mobile)
-                    registry.decorateTopicListTitle(
-                      context,
-                      row.siteUrl,
-                      topic,
-                      _TopicListTitle(row: row, mobile: true),
-                    )
-                  else
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(
-                          child: registry.decorateTopicListTitle(
-                            context,
-                            row.siteUrl,
-                            topic,
-                            _TopicListTitle(row: row),
-                          ),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: registry.decorateTopicListTitle(
+                          context,
+                          row.siteUrl,
+                          topic,
+                          _TopicListTitle(row: row, mobile: mobile),
                         ),
-                        const SizedBox(width: DSpacing.sm),
-                        KeyedSubtree(
-                          key: ValueKey('inbox-row-time-${topic.id}'),
-                          child: field(age, 'activity'),
-                        ),
-                      ],
-                    ),
+                      ),
+                      const SizedBox(width: DSpacing.sm),
+                      KeyedSubtree(
+                        key: ValueKey('inbox-row-time-${topic.id}'),
+                        child: field(age, 'activity'),
+                      ),
+                    ],
+                  ),
                   if (topic.excerpt case final excerpt? when excerpt.isNotEmpty)
                     SiteEmojiText.plain(
                       excerpt,
@@ -204,26 +198,20 @@ class _ConversationTopicCard extends StatelessWidget {
                       overflow: largeText
                           ? TextOverflow.clip
                           : TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: muted,
-                        height: 1.5,
-                      ),
+                      style:
+                          (mobile
+                                  ? Theme.of(context).textTheme.bodyMedium
+                                  : Theme.of(context).textTheme.bodySmall)
+                              ?.copyWith(color: muted, height: 1.5),
                     ),
-                  if (mobile) ...[
-                    if (taxonomyItems.isNotEmpty)
-                      Wrap(
-                        spacing: DSpacing.xs,
-                        runSpacing: DSpacing.xs,
-                        crossAxisAlignment: WrapCrossAlignment.center,
-                        children: taxonomyItems,
-                      ),
-                    _MobileTopicActivity(
+                  if (mobile)
+                    _MobileTopicDetails(
                       row: row,
-                      age: age,
+                      taxonomyItems: taxonomyItems,
                       showLastPoster:
                           shell?.appSettings.topicListShowLastPoster != false,
-                    ),
-                  ] else
+                    )
+                  else
                     desktopDetails(),
                   if (compactMetadata.isNotEmpty)
                     Wrap(
@@ -248,15 +236,15 @@ class _ConversationTopicCard extends StatelessWidget {
   }
 }
 
-class _MobileTopicActivity extends StatelessWidget {
-  const _MobileTopicActivity({
+class _MobileTopicDetails extends StatelessWidget {
+  const _MobileTopicDetails({
     required this.row,
-    required this.age,
+    required this.taxonomyItems,
     required this.showLastPoster,
   });
 
   final _TopicRowBody row;
-  final String age;
+  final List<Widget> taxonomyItems;
   final bool showLastPoster;
 
   @override
@@ -266,68 +254,80 @@ class _MobileTopicActivity extends StatelessWidget {
       color: DTokens.of(context).mutedForeground,
     );
     final username = showLastPoster ? topic.lastPosterUsername : null;
-    final activity = Wrap(
-      spacing: DSpacing.xs,
-      runSpacing: DSpacing.xs,
-      children: [
-        Text('${topic.replyCount} replies', style: style),
-        if (row.showViews) Text('· ${topic.views} views', style: style),
-        Text(
-          '· $age',
-          key: ValueKey('inbox-row-time-${topic.id}'),
-          style: style,
-        ),
-      ],
-    );
-    final author = username == null
+    final replies = '${topic.replyCount} replies';
+    final activityText = 'Last post by $username · $replies';
+    final avatar = username == null
         ? null
-        : Row(
-            spacing: DSpacing.xs,
-            children: [
-              DAvatar(
-                dimension: 22,
-                decorative: true,
-                child: AvatarImage(
-                  url: topic.lastPosterAvatarUrl,
-                  size: 22,
-                  fallback: DAvatarFallback(
-                    child: Text(
-                      username.characters.firstOrNull?.toUpperCase() ?? '',
-                    ),
-                  ),
-                ),
-              ),
-              Flexible(
+        : DAvatar(
+            dimension: 22,
+            decorative: true,
+            child: AvatarImage(
+              url: topic.lastPosterAvatarUrl,
+              size: 22,
+              fallback: DAvatarFallback(
                 child: Text(
-                  username,
-                  semanticsLabel: 'Last post by $username',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: style,
+                  username.characters.firstOrNull?.toUpperCase() ?? '',
                 ),
               ),
-            ],
+            ),
           );
-    // Keep metadata readable when scaling leaves too little room for one row.
-    if (MediaQuery.textScalerOf(context).scale(14) > 21 || row.showViews) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        spacing: DSpacing.xs,
-        children: [?author, activity],
-      );
-    }
-    return Row(
-      spacing: DSpacing.sm,
-      children: [
-        Expanded(child: author ?? const SizedBox.shrink()),
-        Expanded(
-          flex: 2,
-          child: Align(
-            alignment: AlignmentDirectional.centerEnd,
-            child: activity,
-          ),
-        ),
-      ],
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final painter = TextPainter(
+          text: TextSpan(text: activityText, style: style),
+          textDirection: Directionality.of(context),
+          textScaler: MediaQuery.textScalerOf(context),
+          maxLines: 1,
+        )..layout();
+        final activityFits =
+            avatar != null &&
+            painter.width + 22 + DSpacing.xs <= constraints.maxWidth;
+        painter.dispose();
+        final activity = avatar == null
+            ? Text(replies, style: style)
+            : activityFits
+            ? Row(
+                mainAxisSize: MainAxisSize.min,
+                spacing: DSpacing.xs,
+                children: [
+                  avatar,
+                  Text(activityText, style: style),
+                ],
+              )
+            : Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                spacing: DSpacing.xs,
+                children: [
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    spacing: DSpacing.xs,
+                    children: [
+                      avatar,
+                      Flexible(
+                        child: Text(
+                          'Last post by $username',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: style,
+                        ),
+                      ),
+                    ],
+                  ),
+                  Text(replies, style: style),
+                ],
+              );
+        return Wrap(
+          spacing: DSpacing.md,
+          runSpacing: DSpacing.sm,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            ...taxonomyItems,
+            activity,
+            if (row.showViews) Text('· ${topic.views} views', style: style),
+          ],
+        );
+      },
     );
   }
 }
