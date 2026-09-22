@@ -2004,7 +2004,7 @@ void main() {
         DropEventDetails(localPosition: position, globalPosition: position),
       );
       await tester.pump();
-      expect(find.text('Drop images into this gallery'), findsOneWidget);
+      expect(find.text('Drop images into this gallery'), findsNothing);
       expect(find.byType(DDropIndicator), findsNothing);
 
       dropTarget.onDragDone!(

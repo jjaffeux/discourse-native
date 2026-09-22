@@ -2645,34 +2645,6 @@ class _ComposerEditorState extends State<ComposerEditor> {
                 onDismiss: _media.dismissGallery,
               ),
             ),
-          if (state.dragging)
-            Positioned.fill(
-              child: IgnorePointer(
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    color: Theme.of(
-                      context,
-                    ).colorScheme.primary.withValues(alpha: 0.06),
-                    border: Border.all(
-                      color: Theme.of(context).colorScheme.primary,
-                      width: 2,
-                    ),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Align(
-                    alignment: Alignment.topCenter,
-                    child: Padding(
-                      padding: const EdgeInsets.all(8),
-                      child: Text(
-                        state.dropGallery == null
-                            ? 'Drop files to upload'
-                            : 'Drop images into this gallery',
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
           if (dropTop != null)
             Positioned(
               left: 0,
