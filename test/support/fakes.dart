@@ -1630,6 +1630,43 @@ class FakeDiscourseApi
     revoked.add(siteUrl);
   }
 
+  final dismissNewCalls =
+      <
+        ({
+          bool topics,
+          bool posts,
+          int? categoryId,
+          String? tagName,
+          List<int>? topicIds,
+        })
+      >[];
+  Completer<void>? dismissNewGate;
+  Object? dismissNewFailure;
+  List<int> dismissedNewIds = [];
+
+  @override
+  Future<List<int>> dismissNewTopics({
+    required String siteUrl,
+    required String apiKey,
+    required bool dismissTopics,
+    required bool dismissPosts,
+    int? categoryId,
+    String? tagName,
+    List<int>? topicIds,
+    String? clientId,
+  }) async {
+    dismissNewCalls.add((
+      topics: dismissTopics,
+      posts: dismissPosts,
+      categoryId: categoryId,
+      tagName: tagName,
+      topicIds: topicIds,
+    ));
+    await dismissNewGate?.future;
+    if (dismissNewFailure case final error?) throw error;
+    return dismissedNewIds;
+  }
+
   @override
   Future<TopicList> topicList({
     required String siteUrl,

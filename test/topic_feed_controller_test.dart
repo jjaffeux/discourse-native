@@ -19,7 +19,7 @@ final class _PendingFeed {
   final Completer<TopicList> response = Completer();
 }
 
-final class _ControlledTopicFeedsApi implements TopicFeedsApi {
+final class _ControlledTopicFeedsApi extends FakeDiscourseApi {
   final List<_PendingFeed> requests = [];
 
   @override

@@ -6,6 +6,40 @@ final class DiscourseTopicApi {
   final DiscourseTransport _transport;
   final DiscourseModelCodec _models;
 
+  Future<List<int>> dismissNewTopics({
+    required String siteUrl,
+    required String apiKey,
+    required bool dismissTopics,
+    required bool dismissPosts,
+    int? categoryId,
+    String? tagName,
+    List<int>? topicIds,
+    String? clientId,
+  }) async {
+    if (topicIds != null && topicIds.isEmpty) return [];
+    final result = await _write(
+      Uri.parse('$siteUrl/topics/reset-new'),
+      siteUrl: siteUrl,
+      method: 'PUT',
+      apiKey: apiKey,
+      clientId: clientId,
+      body: {
+        'tracked': false,
+        if (dismissTopics) 'dismiss_topics': true,
+        if (dismissPosts) 'dismiss_posts': true,
+        if (categoryId != null) ...{
+          'category_id': categoryId,
+          'include_subcategories': true,
+        },
+        'tag_name': ?tagName,
+        'topic_ids': ?topicIds,
+      },
+    );
+    return [
+      for (final id in jsonArray(result['topic_ids'])) ?jsonIntOrNull(id),
+    ];
+  }
+
   Future<TopicList> topicList({
     required String siteUrl,
     required String path,
