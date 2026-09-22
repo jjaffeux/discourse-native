@@ -26,6 +26,7 @@ import 'content_reading_lane.dart';
 import 'desktop_topic_page.dart';
 import 'draft_list.dart';
 import 'forum_search.dart';
+import 'forum_theme_surfaces.dart';
 import 'group_pages_coordinator.dart';
 import 'group_pages_host.dart';
 import 'group_pages_port.dart';
@@ -156,7 +157,11 @@ class _MainContentBody extends StatelessWidget {
     final forumTabsEnabled = ShellScope.read(context).forumTabsEnabled;
 
     final route = state.route;
-    if (route == null) return ColoredBox(color: theme.shell.content);
+    if (route == null) {
+      return ColoredBox(
+        color: ForumWindowBackground.surfaceColor(context, theme.shell.content),
+      );
+    }
     final pluginContent = registry.content(context, route);
     final pluginOwnsChrome = registry.ownsContentChrome(context, route);
     final sourceRoute = state.sourceRoute;
@@ -165,8 +170,12 @@ class _MainContentBody extends StatelessWidget {
         sourceRoute != null &&
         (!sourceRoute.isMessages || state.isConnected)) {
       return Material(
-        type: context.isTouch ? MaterialType.canvas : MaterialType.transparency,
-        color: context.isTouch ? theme.shell.content : null,
+        type: context.isTouch && !ForumWindowBackground.isContinuous(context)
+            ? MaterialType.canvas
+            : MaterialType.transparency,
+        color: context.isTouch && !ForumWindowBackground.isContinuous(context)
+            ? theme.shell.content
+            : null,
         child: SafeArea(
           left: false,
           child: Column(
@@ -224,14 +233,21 @@ class _MainContentBody extends StatelessWidget {
     }
 
     return Material(
-      type: context.isTouch ? MaterialType.canvas : MaterialType.transparency,
-      color: context.isTouch ? theme.shell.content : null,
+      type: context.isTouch && !ForumWindowBackground.isContinuous(context)
+          ? MaterialType.canvas
+          : MaterialType.transparency,
+      color: context.isTouch && !ForumWindowBackground.isContinuous(context)
+          ? theme.shell.content
+          : null,
       child: SafeArea(
         left: false,
         child: DPageSurface(
           identity: contentKey,
           hideHeaderOnScroll: route.isTopic,
-          framed: !context.isTouch && !pluginOwnsChrome,
+          framed:
+              !ForumWindowBackground.isContinuous(context) &&
+              !context.isTouch &&
+              !pluginOwnsChrome,
           limitContentSize: ContentSettingsScope.limitContentSizeOf(context),
           tabs: forumTabsEnabled ? const TopicPanelTabs() : null,
           header:
@@ -521,7 +537,9 @@ class _TopicInboxWorkspaceState extends State<_TopicInboxWorkspace> {
                         )),
                         hidden: topicOpen && !split,
                         child: DPageSurface(
-                          framed: !context.isTouch,
+                          framed:
+                              !ForumWindowBackground.isContinuous(context) &&
+                              !context.isTouch,
                           limitContentSize:
                               ContentSettingsScope.limitContentSizeOf(context),
                           tabs: !topicOpen || split
@@ -579,7 +597,9 @@ class _TopicInboxWorkspaceState extends State<_TopicInboxWorkspace> {
                       top: 0,
                       bottom: 0,
                       child: DPageSurface(
-                        framed: !context.isTouch,
+                        framed:
+                            !ForumWindowBackground.isContinuous(context) &&
+                            !context.isTouch,
                         limitContentSize:
                             ContentSettingsScope.limitContentSizeOf(context),
                         tabs: TopicPanelTabs(

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui' as ui;
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/app.dart';
@@ -14,7 +15,9 @@ import 'package:discourse_native/src/models/forum_theme.dart';
 import 'package:discourse_native/src/models/forum_theme_preferences.dart';
 import 'package:discourse_native/src/models/forum_theme_presets.dart';
 import 'package:discourse_native/src/models/notification_totals.dart';
+import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/site_appearance.dart';
+import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/shell/adaptive_shell.dart';
 import 'package:discourse_native/src/shell/avatar_image.dart';
 import 'package:discourse_native/src/shell/forum_settings_dialog.dart';
@@ -28,6 +31,7 @@ import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:discourse_native/src/theme/color_contrast.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
@@ -41,23 +45,53 @@ void main() {
   const siteA = 'https://a.example';
   const siteB = 'https://b.example';
 
-  testWidgets('custom background reaches painted desktop surfaces', (
+  testWidgets('custom background is one continuous desktop canvas', (
     tester,
   ) async {
     tester.view.physicalSize = const Size(1200, 800);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
+    const topic = Topic(
+      id: 1,
+      title: 'Continuous background',
+      slug: 'background',
+    );
     await _pumpApp(
       tester,
+      capture: true,
       store: FakeInstanceStore([
         const DiscourseInstance(url: siteA, title: 'A'),
       ]),
-      api: FakeDiscourseApi(feeds: const {'/latest.json': []}),
+      api: FakeDiscourseApi(
+        feeds: const {
+          '/latest.json': [topic],
+        },
+        topics: const {
+          1: (
+            detail: TopicDetail(
+              id: 1,
+              title: 'Continuous background',
+              stream: [11],
+              postsCount: 1,
+            ),
+            posts: [
+              Post(
+                id: 11,
+                postNumber: 1,
+                username: 'reviewer',
+                cooked: '<p>A topic on the shared canvas.</p>',
+              ),
+            ],
+          ),
+        },
+      ),
       appSettingsStore: AppSettingsStore(
         persistence: MemoryAppSettingsPersistence(),
       ),
     );
     final controller = _controller(tester);
+    controller.openTopicFromList(topic);
+    await tester.pumpAndSettle();
     final original = _activeTheme(tester).shell.content;
     final source = forumThemePresets.firstWhere((t) => t.id == 'dracula');
     Color paintedBox(Finder parent) => tester
@@ -95,13 +129,8 @@ void main() {
             )!.toARGB32(),
           );
           expect(theme.shell.content, expected);
-          expect(
-            paintedBox(find.byType(ShellTitleBar)),
-            theme.scaffoldBackgroundColor,
-          );
-          final sidebarTheme =
-              theme.extension<ForumThemeEffects>()?.sidebarTheme ?? theme;
-          expect(paintedBox(find.byType(InstanceRail)), theme.shell.rail);
+          expect(paintedBox(find.byType(ShellTitleBar)), Colors.transparent);
+          expect(paintedBox(find.byType(InstanceRail)), Colors.transparent);
           final sidebarPanel = tester.widget<Container>(
             find
                 .descendant(
@@ -117,28 +146,20 @@ void main() {
           );
           expect(
             (sidebarPanel.decoration! as BoxDecoration).color,
-            sidebarTheme.extension<DTokens>()!.muted,
-          );
-          final card = find
-              .descendant(
-                of: find.byType(MainContent),
-                matching: find.byType(DCard),
-              )
-              .first;
-          expect(
-            tester
-                .widget<Material>(
-                  find
-                      .descendant(of: card, matching: find.byType(Material))
-                      .first,
-                )
-                .color,
-            expected,
+            Colors.transparent,
           );
           expect(
-            paintedBox(find.byKey(const ValueKey('topic-list-bottom-bar'))),
-            theme.extension<DTokens>()!.footerBackground,
+            find.descendant(
+              of: find.byType(MainContent),
+              matching: find.byType(DCard),
+            ),
+            findsNothing,
           );
+          for (final key in ['topic-list-bottom-bar', 'topic-bottom-bar']) {
+            final footer = find.byKey(ValueKey(key));
+            expect(paintedBox(footer), Colors.transparent);
+            expect(tester.widget<DCardFooter>(footer).border, isFalse);
+          }
           final canvas = tester.widget<DecoratedBox>(
             find
                 .descendant(
@@ -149,9 +170,55 @@ void main() {
           );
           expect(
             (canvas.decoration as BoxDecoration).color,
-            theme.scaffoldBackgroundColor,
-            reason: 'The shared canvas must not apply the tint twice.',
+            expected,
+            reason: 'Only the root canvas paints the base color.',
           );
+          if (effect == ForumBackgroundEffect.normal) {
+            final boundary = tester.renderObject<RenderRepaintBoundary>(
+              find.byKey(const ValueKey('app-paint-boundary')),
+            );
+            final pixels = (await tester.runAsync(() async {
+              final image = await boundary.toImage();
+              final bytes = (await image.toByteData(
+                format: ui.ImageByteFormat.rawRgba,
+              ))!;
+              final width = image.width;
+              image.dispose();
+              return (bytes: bytes, width: width);
+            }))!;
+            final bytes = pixels.bytes;
+            final sidebar = tester.getRect(find.byType(DSidebar));
+            final list = tester.getRect(
+              find.byKey(const ValueKey('inbox-topic-list-pane')),
+            );
+            final reader = tester.getRect(
+              find.byKey(const ValueKey('inbox-topic-reader-pane')),
+            );
+            for (final point in [
+              const Offset(16, 400),
+              const Offset(80, 44),
+              sidebar.bottomRight - const Offset(24, 90),
+              list.bottomCenter - const Offset(0, 90),
+              reader.bottomCenter - const Offset(0, 90),
+              tester
+                  .getRect(find.byKey(const ValueKey('topic-list-bottom-bar')))
+                  .center,
+            ]) {
+              final index =
+                  (point.dy.floor() * pixels.width + point.dx.floor()) * 4;
+              final painted = Color.fromARGB(
+                bytes.getUint8(index + 3),
+                bytes.getUint8(index),
+                bytes.getUint8(index + 1),
+                bytes.getUint8(index + 2),
+              );
+              expect(
+                painted,
+                expected,
+                reason: 'One uninterrupted background at $point in $mode',
+              );
+            }
+          }
           expect(tester.takeException(), isNull);
         }
       }
@@ -164,6 +231,62 @@ void main() {
     await tester.pumpAndSettle();
     expect(_activeTheme(tester).shell.content, original);
   }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
+
+  testWidgets('mobile pages share one custom background painter', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final forums = ForumSettingsStore.memory();
+    final custom = ForumTheme.fromJson({
+      ...forumThemePresets.first.toJson(),
+      'background': const ForumBackground(
+        color: Colors.purple,
+        effect: ForumBackgroundEffect.noise,
+      ).toJson(),
+    }, id: 'custom-mobile');
+    await forums.writeThemes(siteA, ForumThemePreferences().save(custom));
+    tester.view.physicalSize = const Size(390, 844);
+    await _pumpApp(
+      tester,
+      store: FakeInstanceStore([
+        const DiscourseInstance(url: siteA, title: 'A'),
+      ]),
+      api: FakeDiscourseApi(feeds: const {'/latest.json': []}),
+      forumSettingsStore: forums,
+      appSettingsStore: AppSettingsStore(
+        persistence: MemoryAppSettingsPersistence(),
+      ),
+    );
+    for (final width in [390.0, 1200.0]) {
+      tester.view.physicalSize = Size(width, 844);
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('forum-window-canvas')), findsOneWidget);
+      expect(find.byKey(const ValueKey('forum-window-effect')), findsOneWidget);
+      expect(
+        tester
+            .widget<DPageSurface>(
+              find.byKey(const ValueKey('mobile-content-panel')),
+            )
+            .framed,
+        isFalse,
+      );
+      expect(tester.takeException(), isNull);
+    }
+    await _controller(
+      tester,
+    ).forumSettings.setThemes(siteA, ForumThemePreferences.defaults);
+    await tester.pumpAndSettle();
+    expect(
+      tester
+          .widget<DPageSurface>(
+            find.byKey(const ValueKey('mobile-content-panel')),
+          )
+          .framed,
+      isTrue,
+    );
+    expect(find.byKey(const ValueKey('forum-window-effect')), findsNothing);
+  }, variant: TargetPlatformVariant.only(TargetPlatform.iOS));
 
   testWidgets('Escape closes forum Settings after changing appearance', (
     tester,
@@ -1077,21 +1200,26 @@ Future<void> _pumpApp(
   AppSettingsStore? appSettingsStore,
   ForumSettingsStore? forumSettingsStore,
   bool settle = true,
+  bool capture = false,
 }) async {
+  final app = DiscourseApp(
+    store: store,
+    api: api,
+    authenticator: authenticator ?? FakeAuthenticator(),
+    appSettingsStore: appSettingsStore,
+    forumSettingsStore: forumSettingsStore ?? ForumSettingsStore.memory(),
+    drafts: FakeDraftStore(),
+    forumTabs: FakeForumTabStore(),
+    trackers: FakeSiteTracker.reset(),
+    updater: FakeUpdater(),
+    updateStore: FakeUpdateStore(),
+    initialRootMode: ShellRootMode.forum,
+    notificationOpenUrls: capture ? const Stream<String>.empty() : null,
+  );
   await tester.pumpWidget(
-    DiscourseApp(
-      store: store,
-      api: api,
-      authenticator: authenticator ?? FakeAuthenticator(),
-      appSettingsStore: appSettingsStore,
-      forumSettingsStore: forumSettingsStore ?? ForumSettingsStore.memory(),
-      drafts: FakeDraftStore(),
-      forumTabs: FakeForumTabStore(),
-      trackers: FakeSiteTracker.reset(),
-      updater: FakeUpdater(),
-      updateStore: FakeUpdateStore(),
-      initialRootMode: ShellRootMode.forum,
-    ),
+    capture
+        ? RepaintBoundary(key: const ValueKey('app-paint-boundary'), child: app)
+        : app,
   );
   if (settle) await tester.pumpAndSettle();
 }

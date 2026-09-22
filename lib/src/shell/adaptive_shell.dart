@@ -697,7 +697,7 @@ class _PrivateForumSignIn extends StatelessWidget {
 
     return ColoredBox(
       key: const ValueKey('private-forum-gate'),
-      color: theme.shell.content,
+      color: ForumWindowBackground.surfaceColor(context, theme.shell.content),
       child: SafeArea(
         child: Center(
           child: SingleChildScrollView(
@@ -794,7 +794,7 @@ class _UnavailableForum extends StatelessWidget {
 
     return ColoredBox(
       key: const ValueKey('unavailable-forum-gate'),
-      color: theme.shell.content,
+      color: ForumWindowBackground.surfaceColor(context, theme.shell.content),
       child: SafeArea(
         child: Center(
           child: SingleChildScrollView(
@@ -1095,7 +1095,10 @@ class _ShellLoadProgress extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => ColoredBox(
-    color: Theme.of(context).shell.content,
+    color: ForumWindowBackground.surfaceColor(
+      context,
+      Theme.of(context).shell.content,
+    ),
     child: const Center(child: DSpinner(size: DSpacing.xl)),
   );
 }
@@ -1108,7 +1111,7 @@ class _ShellLoadFailure extends StatelessWidget {
     final theme = Theme.of(context);
 
     return ColoredBox(
-      color: theme.shell.content,
+      color: ForumWindowBackground.surfaceColor(context, theme.shell.content),
       child: SafeArea(
         child: Center(
           child: ConstrainedBox(

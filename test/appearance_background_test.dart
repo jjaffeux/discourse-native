@@ -290,7 +290,9 @@ void main() {
           theme: AppTheme.fromPalette(theme.resolve(Brightness.dark)),
           home: MediaQuery(
             data: MediaQueryData(disableAnimations: reduced),
-            child: const ForumWindowBackground(child: SizedBox.expand()),
+            child: const ForumWindowBackground(
+              child: ForumWindowBackground(child: SizedBox.expand()),
+            ),
           ),
         ),
       );
@@ -298,6 +300,13 @@ void main() {
     }
 
     await show(ForumBackgroundEffect.lava);
+    expect(
+      find.byWidgetPredicate(
+        (widget) => widget is CustomPaint && widget.painter != null,
+      ),
+      findsOneWidget,
+      reason: 'Nested mobile shells must share one effect painter.',
+    );
     expect(tester.binding.hasScheduledFrame, isTrue);
     await show(ForumBackgroundEffect.lava, reduced: true);
     await tester.pumpAndSettle();

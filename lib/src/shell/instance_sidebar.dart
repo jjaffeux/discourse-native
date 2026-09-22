@@ -214,7 +214,12 @@ class InstanceSidebar extends StatelessWidget {
       },
       builder: (context, sidebar, _) {
         if (sidebar.siteUrl == null) {
-          return ColoredBox(color: DTokens.of(context).muted);
+          return ColoredBox(
+            color: ForumWindowBackground.surfaceColor(
+              context,
+              DTokens.of(context).muted,
+            ),
+          );
         }
         return LayoutBuilder(
           builder: (context, constraints) => DSidebarProvider(
@@ -360,6 +365,10 @@ class _SidebarPanelBodyState extends State<_SidebarPanelBody> {
     ];
 
     return DSidebar(
+      backgroundColor: ForumWindowBackground.surfaceColor(
+        context,
+        DTokens.of(context).muted,
+      ),
       width: width,
       collapsible: DSidebarCollapsible.none,
       semanticLabel: '${activePanel?.panel.label ?? 'Forum'} navigation',

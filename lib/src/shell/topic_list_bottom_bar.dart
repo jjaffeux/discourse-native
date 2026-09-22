@@ -8,6 +8,7 @@ import '../models/content_route.dart';
 import '../models/topic.dart';
 import '../theme/app_theme.dart';
 import '../theme/d_icons.dart';
+import 'forum_theme_surfaces.dart';
 import 'keyboard_navigation.dart';
 import 'platform.dart';
 import 'shell_controller.dart';
@@ -106,9 +107,12 @@ class TopicListBottomBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) => DCardFooter(
     key: const ValueKey('topic-list-bottom-bar'),
-    backgroundColor: context.isTouch
+    backgroundColor: ForumWindowBackground.isContinuous(context)
+        ? Colors.transparent
+        : context.isTouch
         ? Theme.of(context).shell.content
         : DTokens.of(context).footerBackground,
+    border: !ForumWindowBackground.isContinuous(context),
     borderColor: context.isTouch ? null : DTokens.of(context).footerBorder,
     rounded: !context.isTouch,
     padding: EdgeInsets.zero,

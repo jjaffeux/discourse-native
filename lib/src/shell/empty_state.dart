@@ -4,13 +4,17 @@ import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 import '../theme/d_icons.dart';
 import 'add_instance_sheet.dart';
+import 'forum_theme_surfaces.dart';
 
 class EmptyState extends StatelessWidget {
   const EmptyState({super.key});
 
   @override
   Widget build(BuildContext context) => ColoredBox(
-    color: Theme.of(context).shell.content,
+    color: ForumWindowBackground.surfaceColor(
+      context,
+      Theme.of(context).shell.content,
+    ),
     child: SafeArea(
       child: Center(
         child: SingleChildScrollView(
