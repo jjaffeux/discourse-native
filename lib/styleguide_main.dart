@@ -5,7 +5,8 @@ import 'src/macos_launch_screen.dart';
 import 'src/styleguide/styleguide_page.dart';
 import 'src/theme/app_theme.dart';
 
-/// Runs the component examples without credentials, networking, or app stores.
+/// Runs the component examples without credentials or app stores.
+/// Onebox samples may load public images or media after selection.
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
   MacOSLaunchScreen.dismissAfterFirstFlutterFrame();

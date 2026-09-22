@@ -898,7 +898,7 @@ class _StyleguideExamplePanelState extends State<_StyleguideExamplePanel> {
                                 'card' => 480,
                                 'context-menu' || 'dropdown-menu' => 680,
                                 'message-scroller' => 680,
-                                'mermaid' => 680,
+                                'mermaid' || 'onebox' => 680,
                                 'sidebar' => 500,
                                 _ => 400,
                               },
@@ -912,6 +912,9 @@ class _StyleguideExamplePanelState extends State<_StyleguideExamplePanel> {
                                 rtl: widget.rtl,
                                 reducedMotion: widget.reducedMotion,
                                 example: widget.example,
+                                alignment: widget.componentId == 'onebox'
+                                    ? AlignmentDirectional.topStart
+                                    : Alignment.center,
                               ),
                             ),
                           ),
@@ -990,6 +993,7 @@ class _ExampleViewport extends StatefulWidget {
     required this.rtl,
     required this.reducedMotion,
     required this.example,
+    required this.alignment,
     super.key,
   });
   final Key previewKey;
@@ -998,6 +1002,7 @@ class _ExampleViewport extends StatefulWidget {
   final bool rtl;
   final bool reducedMotion;
   final StyleguideExample example;
+  final AlignmentGeometry alignment;
 
   @override
   State<_ExampleViewport> createState() => _ExampleViewportState();
@@ -1030,7 +1035,10 @@ class _ExampleViewportState extends State<_ExampleViewport> {
                         constraints: BoxConstraints(
                           minHeight: math.max(0, constraints.maxHeight - 48),
                         ),
-                        child: Center(child: widget.example.builder(context)),
+                        child: Align(
+                          alignment: widget.alignment,
+                          child: widget.example.builder(context),
+                        ),
                       ),
                     ),
                   ),

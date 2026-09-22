@@ -6,12 +6,7 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/foundation.dart'
     show Factory, TargetPlatform, defaultTargetPlatform;
 import 'package:flutter/gestures.dart'
-    show
-        GestureBinding,
-        HitTestResult,
-        OneSequenceGestureRecognizer,
-        PointerDeviceKind,
-        PointerScrollEvent;
+    show HitTestResult, OneSequenceGestureRecognizer;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:html/dom.dart' as dom;
@@ -21,6 +16,7 @@ import 'package:webview_all_wkwebview/webview_all_wkwebview.dart';
 import '../diagnostics/diagnostics_controller.dart';
 import '../foundation/uri_path.dart';
 import '../theme/d_icons.dart';
+import '../ui/foundation/native_webview_scroll.dart';
 import 'external_link.dart';
 import 'media_webview.dart';
 import 'site_image.dart';
@@ -300,7 +296,7 @@ class _YoutubeVideoState extends State<YoutubeVideo>
     if (_playerOverlay.isShowing) return;
     _syncPlayerGeometry();
     _playerOverlay.show();
-    _MacOSYoutubeScrollBridge.register(this, _handleMacOSScroll);
+    NativeWebViewScrollBridge.register(this, _handleMacOSScroll);
   }
 
   Widget _buildOverlayPlayer(BuildContext context) => Positioned.fill(
@@ -417,7 +413,7 @@ class _YoutubeVideoState extends State<YoutubeVideo>
 
   void _releasePlayer() {
     _geometrySyncToken = null;
-    _MacOSYoutubeScrollBridge.unregister(this);
+    NativeWebViewScrollBridge.unregister(this);
     _playerViewport = null;
   }
 
@@ -497,57 +493,6 @@ class _PlayerViewportClipper extends CustomClipper<Rect> {
   @override
   bool shouldReclip(_PlayerViewportClipper oldClipper) =>
       oldClipper.viewport != viewport;
-}
-
-typedef _MacOSYoutubeScrollTarget =
-    bool Function(Offset globalPosition, double delta);
-
-final class _MacOSYoutubeScrollBridge {
-  static const _channel = MethodChannel('org.discourse.native/youtube_scroll');
-  static final Map<Object, _MacOSYoutubeScrollTarget> _targets = {};
-  static bool _listening = false;
-
-  static void register(Object owner, _MacOSYoutubeScrollTarget target) {
-    if (!_listening) {
-      _channel.setMethodCallHandler(_handleMethodCall);
-      _listening = true;
-    }
-    _targets[owner] = target;
-  }
-
-  static void unregister(Object owner) => _targets.remove(owner);
-
-  static Future<void> _handleMethodCall(MethodCall call) async {
-    if (call.method != 'scroll' || call.arguments is! Map) return;
-    final arguments = call.arguments as Map;
-    final x = arguments['x'];
-    final y = arguments['y'];
-    final deltaY = arguments['deltaY'];
-    if (x is! num || y is! num || deltaY is! num) return;
-    final position = Offset(x.toDouble(), y.toDouble());
-    final delta = deltaY.toDouble();
-    if (!position.dx.isFinite || !position.dy.isFinite || !delta.isFinite) {
-      return;
-    }
-
-    for (final target in _targets.values.toList().reversed) {
-      if (target(position, delta)) return;
-    }
-
-    // The native window consumed the wheel event before forwarding it here.
-    // Re-enter normal Flutter routing when a covering dialog or panel owns
-    // the hit, so its scrollable receives the gesture instead of the page.
-    final view = WidgetsBinding.instance.platformDispatcher.implicitView;
-    if (view == null) return;
-    GestureBinding.instance.handlePointerEvent(
-      PointerScrollEvent(
-        viewId: view.viewId,
-        kind: PointerDeviceKind.mouse,
-        position: position,
-        scrollDelta: Offset(0, delta),
-      ),
-    );
-  }
 }
 
 class _YoutubePoster extends StatelessWidget {
