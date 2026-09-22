@@ -269,6 +269,8 @@ class _ChatMessageActions extends StatefulWidget {
 class _ChatMessageActionsState extends State<_ChatMessageActions> {
   final _dropdown = DDropdownMenuController();
   final _sheet = DSheetController<void>();
+  // Hover/focus chrome changes independently of the selectable message body.
+  final _interaction = ValueNotifier(0);
   // Run after dismissal so focus restoration cannot steal focus from a picker
   // or the composer opened by the action.
   VoidCallback? _pendingSheetAction;
@@ -309,6 +311,8 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
     if (_scroll?.isScrollingNotifier.value == true) _hideHoverForScroll();
   }
 
+  void _refreshInteraction() => _interaction.value++;
+
   void _hideHoverForScroll() {
     _hoverSuppressed = true;
     _moreActionsOpen = false;
@@ -318,7 +322,7 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
     void refresh() {
       if (!mounted) return;
       _dropdown.close();
-      setState(() {});
+      _refreshInteraction();
     }
 
     // New viewport dimensions can start a scroll activity during layout.
@@ -335,20 +339,27 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
   void _pointerEntered() {
     _pointerInside = true;
     if (_hoverSuppressed || _hovered) return;
-    setState(() => _hovered = true);
+    _hovered = true;
+    _refreshInteraction();
   }
 
   void _pointerMoved() {
     _pointerInside = true;
     if (_scroll?.isScrollingNotifier.value == true) return;
     _hoverSuppressed = false;
-    if (!_hovered) setState(() => _hovered = true);
+    if (!_hovered) {
+      _hovered = true;
+      _refreshInteraction();
+    }
   }
 
   void _pointerExited() {
     _pointerInside = false;
     if (_moreActionsOpen) return;
-    if (_hovered) setState(() => _hovered = false);
+    if (_hovered) {
+      _hovered = false;
+      _refreshInteraction();
+    }
   }
 
   @override
@@ -356,6 +367,7 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
     _detachScroll();
     _dropdown.dispose();
     _sheet.dispose();
+    _interaction.dispose();
     super.dispose();
   }
 
@@ -510,36 +522,37 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
     });
   }
 
-  Widget _messageReaction({required bool enabled}) {
-    final visible =
-        enabled &&
-        (context.isTouch ||
-            _reactionPickerOpening ||
-            (!_hoverSuppressed && (_hovered || _focused)));
-    return Opacity(
-      opacity: visible ? 1 : 0,
-      child: IgnorePointer(
-        ignoring: !visible,
-        child: ExcludeSemantics(
-          excluding: !visible,
-          child: EmojiPickerAnchor(
-            child: Builder(
-              builder: (anchorContext) => DButton.iconOnly(
-                key: ValueKey('chat-message-react-${widget.message.id}'),
-                tooltip: 'Add reaction',
-                icon: const DIcon(DIcons.farFaceSmile),
-                size: DButtonSize.regular,
-                variant: DButtonVariant.transparentBackground,
-                onPressed: !enabled || _reactionPickerOpening
-                    ? null
-                    : () => unawaited(_pickReaction(anchorContext)),
-              ),
-            ),
-          ),
+  Widget _messageReaction({required bool enabled}) => ListenableBuilder(
+    listenable: _interaction,
+    child: EmojiPickerAnchor(
+      child: Builder(
+        builder: (anchorContext) => DButton.iconOnly(
+          key: ValueKey('chat-message-react-${widget.message.id}'),
+          tooltip: 'Add reaction',
+          icon: const DIcon(DIcons.farFaceSmile),
+          size: DButtonSize.regular,
+          variant: DButtonVariant.transparentBackground,
+          onPressed: !enabled || _reactionPickerOpening
+              ? null
+              : () => unawaited(_pickReaction(anchorContext)),
         ),
       ),
-    );
-  }
+    ),
+    builder: (context, child) {
+      final visible =
+          enabled &&
+          (context.isTouch ||
+              _reactionPickerOpening ||
+              (!_hoverSuppressed && (_hovered || _focused)));
+      return Opacity(
+        opacity: visible ? 1 : 0,
+        child: IgnorePointer(
+          ignoring: !visible,
+          child: ExcludeSemantics(excluding: !visible, child: child!),
+        ),
+      );
+    },
+  );
 
   Widget _messageActions({
     required Widget Function(Widget? trigger) childBuilder,
@@ -689,7 +702,10 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
     if (context.isTouch) {
       return DSheet<void>(
         controller: _sheet,
-        onOpenChanged: (details) => setState(() => _sheetOpen = details.open),
+        onOpenChanged: (details) {
+          _sheetOpen = details.open;
+          _refreshInteraction();
+        },
         onOpenChangeComplete: (open) {
           if (open) return;
           final action = _pendingSheetAction;
@@ -718,10 +734,9 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
     return DDropdownMenu(
       controller: _dropdown,
       onOpenChange: (open, _) {
-        setState(() {
-          _moreActionsOpen = open;
-          if (!open && !_pointerInside) _hovered = false;
-        });
+        _moreActionsOpen = open;
+        if (!open && !_pointerInside) _hovered = false;
+        _refreshInteraction();
       },
       content: DDropdownMenuContent(
         semanticLabel: 'Message actions',
@@ -733,36 +748,35 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
         EmojiPickerAnchor(
           key: _menuReactionAnchor,
           child: DDropdownMenuTrigger(
-            builder: (context, state) {
-              final visible =
-                  context.isTouch ||
-                  _moreActionsOpen ||
-                  (!_hoverSuppressed && (_hovered || _focused));
-              // Preserve the trailing slot and keyboard access while hidden;
-              // the trigger becomes visible when the message receives focus.
-              return Opacity(
-                opacity: visible ? 1 : 0,
-                child: IgnorePointer(
-                  ignoring: !visible,
-                  child: ExcludeSemantics(
-                    excluding: !visible,
-                    child: DButton.iconOnly(
-                      key: ValueKey(
-                        'chat-message-more-actions-${widget.message.id}',
-                      ),
-                      tooltip: 'More message actions',
-                      icon: const DIcon(DIcons.chevronDown),
-                      size: DButtonSize.small,
-                      variant: DButtonVariant.transparentBackground,
-                      focusNode: state.focusNode,
-                      hasPopup: true,
-                      expanded: state.open,
-                      onPressed: state.toggle,
-                    ),
+            builder: (context, state) => ListenableBuilder(
+              listenable: _interaction,
+              child: DButton.iconOnly(
+                key: ValueKey('chat-message-more-actions-${widget.message.id}'),
+                tooltip: 'More message actions',
+                icon: const DIcon(DIcons.chevronDown),
+                size: DButtonSize.small,
+                variant: DButtonVariant.transparentBackground,
+                focusNode: state.focusNode,
+                hasPopup: true,
+                expanded: state.open,
+                onPressed: state.toggle,
+              ),
+              builder: (context, child) {
+                final visible =
+                    context.isTouch ||
+                    _moreActionsOpen ||
+                    (!_hoverSuppressed && (_hovered || _focused));
+                // Preserve the trailing slot and keyboard access while hidden;
+                // the trigger becomes visible when the message receives focus.
+                return Opacity(
+                  opacity: visible ? 1 : 0,
+                  child: IgnorePointer(
+                    ignoring: !visible,
+                    child: ExcludeSemantics(excluding: !visible, child: child!),
                   ),
-                ),
-              );
-            },
+                );
+              },
+            ),
           ),
         ),
       ),
@@ -885,7 +899,8 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
           key: widget.focusKey,
           onFocusChange: (focused) {
             if (mounted && _focused != focused) {
-              setState(() => _focused = focused);
+              _focused = focused;
+              _refreshInteraction();
             }
           },
           child: Semantics(
@@ -927,9 +942,11 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
       canPin: canPin,
       canRebake: canRebake,
       flagTypes: flagTypes,
-      childBuilder: (trigger) => DMessageSurface(
-        hovered: _hovered || _sheetOpen,
+      childBuilder: (trigger) => ListenableBuilder(
+        listenable: _interaction,
         child: messageRow(trigger),
+        builder: (context, child) =>
+            DMessageSurface(hovered: _hovered || _sheetOpen, child: child!),
       ),
     );
   }
