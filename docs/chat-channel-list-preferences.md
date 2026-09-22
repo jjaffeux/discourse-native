@@ -54,8 +54,10 @@ alone. Bypass ends when the account's plugin session is forgotten.
 ## Ownership and concurrency
 
 `ChatChannelListPreferences` preserves wire values and per-field capability in
-both the current-user plugin record and the existing user-preferences API
-model. `ChatChannelListController` owns optimistic overrides, request progress,
+both the current-user plugin record and Chat's registered `ChatUserPreferences`
+value. Its model and codec live under `lib/src/plugins/chat/`; core stores the
+opaque value through `UserPreferencesPlugin` and does not recognize its wire
+fields. `ChatChannelListController` owns optimistic overrides, request progress,
 errors and bypass state per site/account. Independent field writes may overlap;
 the same field is disabled while saving, as in core. Responses merge only the
 field that was sent. Credential reads and completions check the account and
