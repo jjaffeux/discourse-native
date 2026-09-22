@@ -221,18 +221,24 @@ class _ComposerBlockSurfaceState extends State<ComposerBlockSurface> {
       position,
       previousTarget: _dropTarget,
     );
+    if (candidate == null) return null;
+    // The drag revision is unchanged, so a previously accepted destination
+    // needs only fresh geometry, not another parse of the entire draft.
+    if (candidate.gap == _dropTarget?.gap &&
+        candidate.offset == _dropTarget?.offset) {
+      return candidate;
+    }
     final source = composer.blocks.index.blocks.indexWhere(
       (block) => block.id == drag.id,
     );
-    return candidate != null &&
-            (candidate.gap == source ||
-                candidate.gap == source + 1 ||
-                composer.blocks.index.move(
-                      drag.id,
-                      candidate.gap,
-                      offset: candidate.offset,
-                    ) !=
-                    null)
+    return candidate.gap == source ||
+            candidate.gap == source + 1 ||
+            composer.blocks.index.move(
+                  drag.id,
+                  candidate.gap,
+                  offset: candidate.offset,
+                ) !=
+                null
         ? candidate
         : null;
   }
