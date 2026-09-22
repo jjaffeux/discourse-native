@@ -21,6 +21,10 @@ block's bottom and following block's top, spans the text area beside the gutter,
 and does not shift the text. At the beginning or end it marks the outer block edge.
 The original position also shows an insertion line; dropping there leaves the
 source and undo history unchanged.
+Runs of empty lines expose individual insertion boundaries, including before the
+first content block and after the last. A block can move within these lines
+without changing the order of the content blocks. The move preserves the other
+empty lines and adds only the separators needed to keep Markdown blocks distinct.
 The handle's action label stays in its hover tooltip rather than following the
 pointer in a card.
 
@@ -138,6 +142,12 @@ A follow-up cursor regression checks every pointer move before and after the
 next frame, including the cursor updates sent to the platform. A stationary,
 non-blocking window overlay retains the fist throughout a drag and is removed
 on drop or cancellation, even when scrolling has unmounted the source handle.
+
+The empty-line destination follow-up passed 383 focused tests and root static
+analysis. Its four desktop gesture regressions fail on the original source.
+The macOS block-add fixture was inspected at 720px in dark mode and 360px in light
+mode: paragraph and heading drops reached internal, leading and trailing empty
+lines, and the arrangement Undo action restored the original spacing.
 
 ## Notion reference
 

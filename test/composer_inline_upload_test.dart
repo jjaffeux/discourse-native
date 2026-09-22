@@ -166,6 +166,55 @@ void main() {
     expect(composer.raw, isEmpty);
   });
 
+  testWidgets('file drops use the boundary between individual empty lines', (
+    tester,
+  ) async {
+    final request = Completer<ComposerUploadResult>();
+    final composer = ComposerController(
+      _target,
+      imageUploader: (file, {required onProgress, required abortTrigger}) =>
+          request.future,
+    );
+    addTearDown(composer.dispose);
+    const source = 'Before\n\n\n\nAfter';
+    composer.text.text = source;
+    await _pump(tester, composer);
+    final editable = tester
+        .state<EditableTextState>(find.byType(EditableText))
+        .renderEditable;
+    final emptyLine = editable
+        .getLocalRectForCaret(const TextPosition(offset: 8))
+        .shift(editable.localToGlobal(Offset.zero));
+    final position = Offset(emptyLine.left + 60, emptyLine.bottom - 2);
+    final dropTarget = tester.widget<DropTarget>(find.byType(DropTarget));
+    dropTarget.onDragUpdated!(
+      DropEventDetails(localPosition: position, globalPosition: position),
+    );
+    await tester.pump();
+    expect(composer.text.selection.extentOffset, 9);
+    expect(
+      tester.getCenter(find.byType(DDropIndicator)).dy,
+      closeTo(emptyLine.bottom, .01),
+    );
+    expect(composer.text.text, source);
+    dropTarget.onDragDone!(
+      DropDoneDetails(
+        files: [
+          DropItemFile('/tmp/photo.png', bytes: Uint8List.fromList([1])),
+        ],
+        localPosition: position,
+        globalPosition: position,
+      ),
+    );
+    await tester.pump();
+    expect(find.byType(DDropIndicator), findsNothing);
+    request.complete(_result);
+    await tester.pumpAndSettle();
+    final image = composer.text.imageBlocks.single;
+    expect(composer.text.text.substring(0, image.start), 'Before\n\n\n');
+    expect(composer.text.text.substring(image.end), '\nAfter');
+  });
+
   for (final scrolled in [false, true]) {
     testWidgets('file drag keeps existing image rendered (scrolled: $scrolled)', (
       tester,

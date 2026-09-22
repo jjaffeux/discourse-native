@@ -437,6 +437,75 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  for (final direction in TextDirection.values) {
+    for (final leading in [false, true]) {
+      testWidgets(
+        'dragging between individual empty lines ($direction, leading: $leading)',
+        (tester) async {
+          const paragraph = 'Move this paragraph';
+          final source = leading ? '\n\n\n\n$paragraph' : '$paragraph\n\n\n\n';
+          composer.text.value = TextEditingValue(
+            text: source,
+            selection: TextSelection.collapsed(
+              offset: source.indexOf(paragraph) + 3,
+            ),
+          );
+          composer.history.reset();
+          await mount(tester, direction: direction, dark: leading);
+          final original = composer.text.value;
+          final editorState = tester.state<EditableTextState>(
+            find.byType(EditableText),
+          );
+          final editable = editorState.renderEditable;
+          final id = composer.blocks.index.blocks.single.id;
+          final handle = find.byKey(ValueKey('composer-block-handle-$id'));
+          final gesture = await tester.startGesture(
+            tester.getCenter(handle),
+            kind: PointerDeviceKind.mouse,
+          );
+          await gesture.moveBy(const Offset(0, 16));
+          await tester.pump();
+
+          final secondEmpty = leading ? 1 : paragraph.length + 2;
+          final line = editable
+              .getLocalRectForCaret(TextPosition(offset: secondEmpty))
+              .shift(editable.localToGlobal(Offset.zero));
+          final x = tester.getCenter(find.byType(EditableText)).dx;
+          for (final after in [false, true]) {
+            await gesture.moveTo(
+              Offset(x, line.top + line.height * (after ? .75 : .25)),
+            );
+            await tester.pump();
+            await tester.pump();
+            expect(
+              tester.getCenter(find.byType(DDropIndicator)).dy,
+              closeTo(after ? line.bottom : line.top, .01),
+            );
+            expect(composer.text.value, original);
+          }
+          await gesture.up();
+          await tester.pumpAndSettle();
+          expect(composer.text.text, '\n\n$paragraph\n\n');
+          expect(composer.text.selection.extentOffset, 5);
+          expect(composer.blocks.index.blocks.single.id, id);
+          expect(
+            tester.state<EditableTextState>(find.byType(EditableText)),
+            same(editorState),
+          );
+          expect(find.byType(DDropIndicator), findsNothing);
+          final moved = composer.text.value;
+          composer.history.undo();
+          await tester.pumpAndSettle();
+          expect(composer.text.value, original);
+          expect(composer.history.canUndo, isFalse);
+          composer.history.redo();
+          await tester.pumpAndSettle();
+          expect(composer.text.value, moved);
+        },
+      );
+    }
+  }
+
   for (final dark in [false, true]) {
     testWidgets(
       'each to-do has its own hover handle and drag boundary ($dark)',
