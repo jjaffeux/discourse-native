@@ -44,6 +44,15 @@ final class UserPreferences {
     'bookmark_auto_delete_preference',
   };
 
+  /// Core response identities are reserved even when they are not editable.
+  static const coreWireFields = {
+    ...coreFields,
+    'username',
+    'can_edit',
+    'can_change_tracking_preferences',
+    'user_option',
+  };
+
   const UserPreferences({
     this.username = '',
     this.timezone = '',

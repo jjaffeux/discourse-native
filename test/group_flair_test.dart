@@ -1,5 +1,8 @@
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/group.dart';
+import 'package:discourse_native/src/plugin_api/plugin_registry.dart';
+import 'package:discourse_native/src/plugin_api/plugin_scope.dart';
+import 'package:discourse_native/src/plugins/discourse_ai/ai_summary_plugin.dart';
 import 'package:discourse_native/src/shell/avatar_image.dart';
 import 'package:discourse_native/src/shell/group_flair.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
@@ -66,6 +69,10 @@ void main() {
             await tester.pumpWidget(
               MaterialApp(
                 theme: theme,
+                builder: (context, child) => PluginRegistryScope(
+                  registry: PluginRegistry.validated(const [AiSummaryPlugin()]),
+                  child: child!,
+                ),
                 home: Center(
                   child: RepaintBoundary(
                     key: key,

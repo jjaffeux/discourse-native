@@ -74,6 +74,7 @@ void main() {
       () async {
         final sent = <http.Request>[];
         final api = DiscourseApi(
+          models: installedPlugins.models,
           client: MockClient((request) async {
             sent.add(request);
             return http.Response(
@@ -129,6 +130,7 @@ void main() {
     test('loads the full user serializer for the encoded username', () async {
       late http.Request sent;
       final api = DiscourseApi(
+        models: installedPlugins.models,
         client: MockClient((request) async {
           sent = request;
           return http.Response(
@@ -240,6 +242,7 @@ void main() {
     test('puts the chat sidebar mode as a flat user option', () async {
       late http.Request sent;
       final api = DiscourseApi(
+        models: installedPlugins.models,
         client: MockClient((request) async {
           sent = request;
           return http.Response(

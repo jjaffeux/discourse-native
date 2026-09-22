@@ -5,6 +5,7 @@ import 'package:discourse_native/src/theme/discourse_typography.dart';
 import 'package:flutter/material.dart';
 
 import '../plugin_api/global_search.dart' show GlobalSearchLookup;
+import '../plugin_api/plugin_scope.dart';
 import '../theme/d_icons.dart';
 import 'avatar_image.dart';
 import 'category_icon.dart';

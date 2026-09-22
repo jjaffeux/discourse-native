@@ -4,6 +4,7 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
 import '../models/group.dart';
+import '../plugin_api/plugin_scope.dart';
 import '../theme/d_icons.dart';
 import '../utils/pagination.dart';
 import 'avatar_image.dart';
@@ -575,7 +576,9 @@ class _GroupIdentityAvatar extends StatelessWidget {
     final imageUrl = flair != null && flair.contains('/')
         ? resolveSitePath(siteUrl, flair)
         : null;
-    final icon = DIcons.byName[group.flairIcon?.trim()] ?? DIcons.byName[flair];
+    final icon =
+        pluginIconNamed(context, group.flairIcon?.trim()) ??
+        pluginIconNamed(context, flair);
     final fallback = DAvatarFallback(
       backgroundColor: _flairColor(group.flairBackgroundColor),
       foregroundColor: _flairColor(group.flairColor),

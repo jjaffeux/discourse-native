@@ -15,8 +15,11 @@ final class ComposerUploadPlaceholderPolicy implements ComposerSyntaxPolicy {
   final ComposerController composer;
 
   @override
-  ComposerSyntaxKind get kind =>
-      const ComposerSyntaxKind(owner: PluginId('core'), name: 'upload');
+  ComposerSyntaxKind get kind => const ComposerSyntaxKind(
+    owner: PluginId('core'),
+    name: 'upload',
+    label: 'Upload',
+  );
 
   @override
   Object? get projectionState => null;

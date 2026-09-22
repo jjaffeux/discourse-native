@@ -67,6 +67,7 @@ void main() {
             ),
           ),
           _Codec(fields: {'timezone'}),
+          _Codec(fields: {'username'}),
           _Codec(fields: {''}),
         ]) {
           expect(

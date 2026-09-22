@@ -244,7 +244,10 @@ class _GlobalSearchFilterPickerState extends State<_GlobalSearchFilterPicker> {
                         searchValue:
                             '${filter.label} ${filter.group} ${filter.scope.label}',
                         keywords: [filter.token ?? '', filter.help],
-                        leading: DIcon(_filterIcon(filter.icon), size: 15),
+                        leading: DIcon(
+                          _filterIcon(context, filter.icon),
+                          size: 15,
+                        ),
                         trailing: const DIcon(DIcons.chevronRight, size: 12),
                         child: Text(filter.label),
                       ),
@@ -849,14 +852,14 @@ class _GlobalSearchConditionEditorState
   }
 }
 
-DIconData _filterIcon(String name) => switch (name) {
+DIconData _filterIcon(BuildContext context, String name) => switch (name) {
   'search' => DIcons.magnifyingGlass,
   'mail' => DIcons.envelope,
   'hash' => DIcons.tag,
   'status' => DIcons.circleCheck,
   'topics' || 'post' => DIcons.comments,
-  'calendar' => DIcons.byName['calendar-days'] ?? DIcons.filter,
-  _ => DIcons.byName[name] ?? DIcons.filter,
+  'calendar' => pluginIconNamed(context, 'calendar-days') ?? DIcons.filter,
+  _ => pluginIconNamed(context, name) ?? DIcons.filter,
 };
 
 String _searchChoiceLabel(

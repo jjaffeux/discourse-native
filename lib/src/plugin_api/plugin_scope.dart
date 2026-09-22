@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 
+import '../theme/d_icon.dart';
 import 'plugin_registry.dart';
 import 'plugin_runtime.dart';
 
@@ -308,3 +309,10 @@ class _PluginServiceSelectorState<S extends Listenable, T>
     super.dispose();
   }
 }
+
+/// Resolves server and contributor icon names through the installed catalog.
+DIconData? pluginIconNamed(BuildContext context, String? name) =>
+    (PluginRegistryScope.maybeOf(context) ??
+            PluginScope.maybeOf(context)?.registry ??
+            PluginRegistry.empty)
+        .findIconNamed(name);

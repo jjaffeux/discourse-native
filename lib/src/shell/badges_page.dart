@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import '../models/badge.dart';
 import '../models/badge_route.dart';
 import '../models/content_route.dart';
+import '../plugin_api/plugin_scope.dart';
 import '../theme/app_theme.dart';
 import '../theme/d_icons.dart';
 import 'avatar_image.dart';
@@ -529,7 +530,7 @@ class BadgeSymbol extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final fallback = DIcon(
-      DIcons.byName[badge.icon] ?? DIcons.certificate,
+      pluginIconNamed(context, badge.icon) ?? DIcons.certificate,
       size: size,
       color: _tierColor(context, badge.tier),
     );

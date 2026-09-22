@@ -1,6 +1,7 @@
 import 'package:discourse_native/src/plugin_api/cooking_plugin.dart';
 import 'package:discourse_native/src/plugin_api/plugin_data.dart';
 import 'package:discourse_native/src/plugin_api/plugin_runtime.dart';
+import 'package:discourse_native/src/plugins/chat/chat_module.dart';
 import 'package:discourse_native/src/plugins/cooking/cooking_module.dart';
 import 'package:discourse_native/src/plugins/discourse_events/discourse_events_cooking.dart';
 import 'package:discourse_native/src/plugins/discourse_events/discourse_events_module.dart';
@@ -39,10 +40,7 @@ void main() {
       expect(module.version, '1');
       expect(module.profiles, ['post']);
     }
-    expect(configuration.profiles.map((profile) => profile.name), [
-      'post',
-      'chat',
-    ]);
+    expect(configuration.profiles.map((profile) => profile.name), ['post']);
     expect(
       configuration.modules
           .firstWhere((module) => module.id == 'poll')
@@ -72,6 +70,23 @@ void main() {
     );
     expect(visibility.dependencies, ['livestream-preview']);
     expect(visibility.order, 200);
+  });
+
+  test('Chat alone contributes its cooking profile when installed', () {
+    final installed = PluginInstaller.install(
+      const PluginManifest([chatModule]),
+    );
+    addTearDown(installed.close);
+    expect(
+      cookingConfiguration(
+        installed.cookingPlugins,
+      ).profiles.map((profile) => profile.name),
+      ['post', 'chat'],
+    );
+    expect(
+      cookingConfiguration(const []).profiles.map((profile) => profile.name),
+      ['post'],
+    );
   });
 
   test('removing an owner removes its cooking contributions', () {

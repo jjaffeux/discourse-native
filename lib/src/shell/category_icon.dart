@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../models/topic.dart';
+import '../plugin_api/plugin_scope.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'site_emoji_image.dart';
@@ -63,7 +64,7 @@ class CategoryIcon extends StatelessWidget {
     } else if (styleType == 'icon') {
       extent = size;
       art = DIcon(
-        DIcons.byName[icon] ?? DIcons.folder,
+        pluginIconNamed(context, icon) ?? DIcons.folder,
         size: size,
         color: color,
       );

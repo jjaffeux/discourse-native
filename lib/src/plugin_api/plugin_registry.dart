@@ -313,14 +313,17 @@ final class PluginRegistry
   ]);
 
   @override
-  DIconData iconNamed(String? name, {required DIconData fallback}) {
+  DIconData iconNamed(String? name, {required DIconData fallback}) =>
+      findIconNamed(name) ?? fallback;
+
+  DIconData? findIconNamed(String? name) {
     final core = name == null ? null : DIcons.byName[name];
     if (core != null) return core;
     for (final catalog in iconCatalogs) {
       final icon = catalog.iconNamed(name);
       if (icon != null) return icon;
     }
-    return fallback;
+    return null;
   }
 
   static PluginId _owner(Object plugin) =>
@@ -679,7 +682,7 @@ final class PluginRegistry
       }
     }
     final preferenceSections = <PreferenceSection>{};
-    final preferenceFields = <String>{...UserPreferences.coreFields};
+    final preferenceFields = <String>{...UserPreferences.coreWireFields};
     for (final entry in _preferences) {
       final codec = entry.codec;
       final owner = entry.owner;
