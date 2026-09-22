@@ -898,7 +898,7 @@ class _StyleguideExamplePanelState extends State<_StyleguideExamplePanel> {
                                 'card' => 480,
                                 'context-menu' || 'dropdown-menu' => 680,
                                 'message-scroller' => 680,
-                                'mermaid' => 680,
+                                'mermaid' || 'onebox' => 680,
                                 'sidebar' => 500,
                                 _ => 400,
                               },

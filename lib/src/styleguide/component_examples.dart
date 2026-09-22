@@ -48,6 +48,7 @@ import 'examples/message_scroller_examples.dart';
 import 'examples/navigation_menu_examples.dart';
 import 'examples/notification_dot_examples.dart';
 import 'examples/notification_level_menu_examples.dart';
+import 'examples/onebox_examples.dart';
 import 'examples/page_surface_examples.dart';
 import 'examples/pagination_examples.dart';
 import 'examples/popover_examples.dart';
@@ -78,6 +79,7 @@ import 'styleguide_example.dart';
 
 /// Each component task replaces its baseline or adds its own example file.
 final componentExamples = <String, ComponentExamples>{
+  'onebox': oneboxExamples,
   'drag': dragExamples,
   'history-transition': historyTransitionExamples,
   'color-picker': colorPickerExamples,

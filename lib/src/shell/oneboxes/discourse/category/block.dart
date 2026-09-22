@@ -66,10 +66,12 @@ class DiscourseCategoryOnebox extends StatelessWidget {
                             ),
                           ),
                           const SizedBox(width: 4),
-                          Text(
-                            subcategory.name,
-                            style: theme.textTheme.labelMedium?.copyWith(
-                              color: muted,
+                          Flexible(
+                            child: Text(
+                              subcategory.name,
+                              style: theme.textTheme.labelMedium?.copyWith(
+                                color: muted,
+                              ),
                             ),
                           ),
                         ],
