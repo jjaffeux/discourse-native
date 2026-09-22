@@ -9,6 +9,11 @@ const applicationComponentCatalogue = <ComponentReference>[
     sections: ['Embedded content', 'Unavailable embed'],
   ),
   ComponentReference(
+    id: 'onebox',
+    name: 'Onebox',
+    sections: ['Browse oneboxes'],
+  ),
+  ComponentReference(
     id: 'drag',
     name: 'Drag',
     sections: ['Drag and tap', 'Disabled'],
