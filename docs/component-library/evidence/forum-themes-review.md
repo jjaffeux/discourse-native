@@ -1,5 +1,29 @@
 # Forum themes — 2026-09-19
 
+## Darker sidebar toggle restored — 2026-09-22
+
+The custom editor always exposes the existing Native `DToggle` for darker
+sidebars, including themes with a saved background. Dark navigation uses its
+own opaque surface while the rest of the workspace keeps the shared custom
+canvas. The preview resolves that surface inside the navigation theme boundary.
+Existing theme storage and import/export retain the same `darkerSidebars` flag.
+
+Verification: full static analysis passed, along with 50 focused editor,
+background, theme, AppTheme and control-adoption tests and five application
+regressions. Coverage includes save/reopen and disabling the toggle, both
+brightness modes, all three background effects, and painted sidebar pixels.
+The existing narrow 200% RTL control checks also pass. The full
+`site_theme_app_test.dart` has nine unrelated rail/settings failures that also
+reproduce in an unchanged `f90f983e3` checkout; the five focused app tests pass.
+
+Native macOS review used `tool/continuous_background_review_main.dart` in the
+isolated `org.discourse.native.review.darkersidebar` debug bundle. Inspected
+the saved custom editor, immediate preview changes, saving and reopening,
+the applied darker sidebar, light and dark palettes, and restoring the shared
+background by disabling and saving. The fixture built, passed strict signing
+verification, launched, and was closed after inspection. Mobile coverage is
+widget testing with an iOS platform override, not device testing.
+
 ## Panel surfaces restored over the shared canvas — 2026-09-22
 
 The continuous-canvas follow-up removed too much panel styling. Sidebar,

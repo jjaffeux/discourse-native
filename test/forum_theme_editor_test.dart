@@ -48,12 +48,11 @@ void main() {
       ),
     );
     await tester.pumpWidget(editor(initial));
-    for (final key in ['darker-sidebars']) {
-      final toggle = find.byKey(ValueKey('custom-theme-$key'));
-      await tester.ensureVisible(toggle);
-      await tester.tap(toggle);
-      await tester.pumpAndSettle();
-    }
+    final toggle = find.byKey(const ValueKey('custom-theme-darker-sidebars'));
+    expect(tester.widget<DToggle>(toggle).pressed, isFalse);
+    await tester.ensureVisible(toggle);
+    await tester.tap(toggle);
+    await tester.pumpAndSettle();
     final strength = find.byKey(const ValueKey('custom-theme-strength'));
     await tester.ensureVisible(strength);
     await tester.tap(strength);
@@ -86,10 +85,72 @@ void main() {
           .values,
       [ForumBackgroundEffect.noise],
     );
-    expect(
-      find.byKey(const ValueKey('custom-theme-darker-sidebars')),
-      findsNothing,
-    );
+    expect(tester.widget<DToggle>(toggle).pressed, isTrue);
+    await tester.ensureVisible(toggle);
+    await tester.tap(toggle);
+    await tester.pump();
+    expect(draft!.darkerSidebars, isFalse);
+    expect(draft!.background, saved!.background);
+    await tester.ensureVisible(save);
+    await tester.tap(save);
+    expect(saved, draft);
+    await tester.pumpWidget(editor(saved!));
+    expect(tester.widget<DToggle>(toggle).pressed, isFalse);
+  });
+
+  testWidgets('custom background previews honor the darker sidebars toggle', (
+    tester,
+  ) async {
+    final source = forumThemePresets.first;
+    for (final mode in Brightness.values) {
+      for (final effect in ForumBackgroundEffect.values) {
+        for (final darkerSidebars in [false, true, false]) {
+          final custom = ForumTheme.fromJson({
+            ...source.toJson(),
+            'darkerSidebars': darkerSidebars,
+            'background': ForumBackground(
+              color: Colors.purple,
+              effect: effect,
+            ).toJson(),
+          }, id: 'custom-background');
+          final theme = AppTheme.fromPalette(custom.resolve(mode));
+          await tester.pumpWidget(
+            MaterialApp(
+              home: SingleChildScrollView(
+                child: ForumThemePreview(
+                  theme: theme,
+                  siteUrl: 'https://example.com',
+                ),
+              ),
+            ),
+          );
+          await tester.pump(const Duration(milliseconds: 300));
+          final sidebar = find.byKey(const ValueKey('theme-preview-sidebar'));
+          final context = tester.element(sidebar);
+          final navigation = Theme.of(context);
+          expect(
+            navigation.brightness,
+            darkerSidebars ? Brightness.dark : mode,
+          );
+          expect(ForumWindowBackground.isContinuous(context), !darkerSidebars);
+          expect(
+            tester.widget<DSidebar>(sidebar).backgroundColor,
+            darkerSidebars ? isNull : Colors.transparent,
+          );
+          if (darkerSidebars) {
+            expect(
+              navigation.shell.sidebar.computeLuminance(),
+              lessThan(theme.shell.sidebar.computeLuminance()),
+            );
+          }
+          expect(
+            Theme.of(tester.element(find.text('Latest topics'))).colorScheme,
+            theme.colorScheme,
+          );
+          expect(tester.takeException(), isNull);
+        }
+      }
+    }
   });
 
   testWidgets('preview scopes dark navigation and paints the window gradient', (
