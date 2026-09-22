@@ -162,6 +162,12 @@ class _ForumTabsBarState extends State<ForumTabsBar> {
   }
 
   @override
+  void reassemble() {
+    super.reassemble();
+    _contents = null;
+  }
+
+  @override
   Widget build(BuildContext context) => _contents ??= _buildContents(context);
 
   Widget _buildContents(BuildContext context) {
