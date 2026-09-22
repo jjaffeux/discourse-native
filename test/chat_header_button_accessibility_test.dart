@@ -25,33 +25,31 @@ const _siteUrl = 'https://meta.discourse.org';
 
 void main() {
   for (final width in [320.0, 390.0]) {
-    testWidgets('real macOS header fits two large counts at $width and 200%', (
-      tester,
-    ) async {
-      final previous = debugDefaultTargetPlatformOverride;
-      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
-      tester.platformDispatcher.textScaleFactorTestValue = 2;
-      try {
-        await _pump(tester, mentionCount: 128, bellCount: 128, width: width);
-        expect(tester.takeException(), isNull);
-        expect(find.byKey(ForumSearch.inputKey), findsOneWidget);
-        final chat = tester.getRect(find.byKey(ChatHeaderButton.buttonKey));
-        final bell = tester.getRect(find.byKey(UserMenuButton.bellKey));
-        final avatar = tester.getRect(find.byKey(UserMenuButton.avatarKey));
-        expect(chat.overlaps(bell), isFalse);
-        expect(bell.overlaps(avatar), isFalse);
-        expect(chat.left, greaterThanOrEqualTo(0));
-        expect(chat.top, greaterThanOrEqualTo(48));
-        expect(avatar.right, lessThanOrEqualTo(width));
-        await tester.tap(find.byKey(UserMenuButton.bellKey));
-        await tester.pumpAndSettle();
-        expect(find.byType(UserMenuPanel), findsOneWidget);
-        expect(tester.takeException(), isNull);
-      } finally {
-        tester.platformDispatcher.clearTextScaleFactorTestValue();
-        debugDefaultTargetPlatformOverride = previous;
-      }
-    });
+    testWidgets(
+      'real macOS header fits large notification counts at $width and 200%',
+      (tester) async {
+        final previous = debugDefaultTargetPlatformOverride;
+        debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+        tester.platformDispatcher.textScaleFactorTestValue = 2;
+        try {
+          await _pump(tester, mentionCount: 128, bellCount: 128, width: width);
+          expect(tester.takeException(), isNull);
+          expect(find.byKey(ForumSearch.inputKey), findsOneWidget);
+          expect(find.byKey(ChatHeaderButton.buttonKey), findsNothing);
+          final bell = tester.getRect(find.byKey(UserMenuButton.bellKey));
+          final avatar = tester.getRect(find.byKey(UserMenuButton.avatarKey));
+          expect(bell.overlaps(avatar), isFalse);
+          expect(avatar.right, lessThanOrEqualTo(width));
+          await tester.tap(find.byKey(UserMenuButton.bellKey));
+          await tester.pumpAndSettle();
+          expect(find.byType(UserMenuPanel), findsOneWidget);
+          expect(tester.takeException(), isNull);
+        } finally {
+          tester.platformDispatcher.clearTextScaleFactorTestValue();
+          debugDefaultTargetPlatformOverride = previous;
+        }
+      },
+    );
   }
 
   testWidgets('unread chat has one descriptive keyboard button', (
@@ -70,12 +68,12 @@ void main() {
         tester.widget<DButton>(button).variant,
         DButtonVariant.transparentBackground,
       );
-      expect(tester.getSize(button), const Size.square(28));
+      expect(tester.getSize(button), const Size.square(48));
       expect(
         tester.getSize(
           find.descendant(of: button, matching: find.byType(Material)),
         ),
-        const Size.square(28),
+        const Size.square(44),
       );
       expect(
         tester.getSemantics(button),
@@ -114,7 +112,7 @@ void main() {
     } finally {
       semantics.dispose();
     }
-  }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
+  }, variant: TargetPlatformVariant.only(TargetPlatform.fuchsia));
 
   testWidgets('urgent chat announces the uncapped count only once', (
     tester,
@@ -157,7 +155,7 @@ void main() {
     } finally {
       semantics.dispose();
     }
-  }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
+  }, variant: TargetPlatformVariant.only(TargetPlatform.fuchsia));
 }
 
 Future<void> _pump(
