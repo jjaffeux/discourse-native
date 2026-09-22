@@ -723,12 +723,19 @@ class _PostActionsState extends State<PostActions> {
   Widget _buildActions(BuildContext context) {
     final snapshot = _actions(context, ShellScope.read(context));
     if (snapshot.rebuildOn case final rebuildOn?) {
+      // Discovering the plugin's rebuild signal already constructed the menu.
+      // Reuse that snapshot for this builder's first call, then read fresh
+      // actions on notifications. A parent rebuild supplies a new snapshot.
+      List<PostAction>? initialActions = snapshot.actions;
       return ListenableBuilder(
         listenable: rebuildOn,
-        builder: (context, _) => _buildActionList(
-          context,
-          _actions(context, ShellScope.read(context)).actions,
-        ),
+        builder: (context, _) {
+          final actions =
+              initialActions ??
+              _actions(context, ShellScope.read(context)).actions;
+          initialActions = null;
+          return _buildActionList(context, actions);
+        },
       );
     }
     return _buildActionList(context, snapshot.actions);
