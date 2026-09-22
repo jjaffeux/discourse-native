@@ -1,3 +1,5 @@
+import 'dart:ui' show SemanticsAction;
+
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/shell/composer_block_surface.dart';
 import 'package:discourse_native/src/shell/composer_controller.dart';
@@ -139,6 +141,29 @@ void main() {
       'First paragraph\n\n## \n\n## A heading\n\nLast paragraph',
     );
   });
+
+  testWidgets(
+    'accessibility activation opens commands without keyboard input',
+    (tester) async {
+      final semantics = tester.ensureSemantics();
+      await mount(tester);
+      for (var attempt = 0; attempt < 2; attempt++) {
+        final button = tester.getSemantics(find.byTooltip('Add block'));
+        button.owner!.performAction(button.id, SemanticsAction.tap);
+        await tester.pumpAndSettle();
+        expect(find.text('Close menu'), findsOneWidget);
+        expect(find.text('Heading 2'), findsOneWidget);
+        expect(composer.focus.hasFocus, isTrue);
+        await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+        await tester.pumpAndSettle();
+      }
+      expect(
+        composer.text.text,
+        'First paragraph\n\n\n\n## A heading\n\nLast paragraph',
+      );
+      semantics.dispose();
+    },
+  );
 
   for (final source in ['', '  ', 'Before\n\n\nAfter', 'Before\n\n']) {
     testWidgets('add uses the current empty line in "$source"', (tester) async {
