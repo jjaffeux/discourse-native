@@ -19,7 +19,7 @@ final historyTransitionExamples = ComponentExamples(
     StyleguideExample(
       title: 'Ordered tabs',
       description:
-          'Select tabs in either direction. The destination pushes the previous page toward the opposite edge; the controls stay still.',
+          'Select tabs in either direction. The destination pushes the previous card toward the opposite edge, including its border and rounded corners; the controls stay still.',
       states: const ['Tab order', 'RTL', 'Reduced motion'],
       code:
           'DHistoryTransition(history: journeyId, entry: visitId, tabIndex: selectedIndex, tabOwner: accountId, child: currentPage)',

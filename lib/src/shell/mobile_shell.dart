@@ -357,11 +357,11 @@ class _MobileForumRootState extends State<MobileForumRoot> {
             Expanded(
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: DSpacing.xs),
-                child: DPageSurface(
-                  key: const ValueKey('mobile-content-panel'),
-                  backgroundColor: ForumWindowBackground.panelColor(context),
-                  child: MobileHistoryGestures(
-                    tabIndex: tabOrder.indexOf(selected),
+                child: MobileHistoryGestures(
+                  tabIndex: tabOrder.indexOf(selected),
+                  child: DPageSurface(
+                    key: const ValueKey('mobile-content-panel'),
+                    backgroundColor: ForumWindowBackground.panelColor(context),
                     child: Stack(
                       fit: StackFit.expand,
                       children: [

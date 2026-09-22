@@ -608,11 +608,12 @@ void main() {
   });
 
   _mobileTest(
-    'tab movement follows visual button order and keeps chrome still',
+    'tab movement carries the panel in visual order and keeps chrome still',
     (tester) async {
       await pumpMobileShellFixture(tester, events: true);
       final header = tester.getRect(_header);
       final bar = tester.getRect(_bar);
+      final panel = find.byKey(const ValueKey('mobile-content-panel'));
       for (final (from, to, direction) in [
         ('messages', 'panel/chat', -1),
         ('messages', 'users', 1),
@@ -620,6 +621,7 @@ void main() {
       ]) {
         await tester.tap(find.byKey(ValueKey('mobile-mode-$from')));
         await tester.pumpAndSettle();
+        final restingPanel = tester.getRect(panel);
         await tester.tap(find.byKey(ValueKey('mobile-mode-$to')));
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 80));
@@ -634,6 +636,10 @@ void main() {
           greaterThan(0),
         );
         expect(outgoing.transform.getTranslation().x * direction, lessThan(0));
+        expect(
+          (tester.getRect(panel).left - restingPanel.left) * direction,
+          greaterThan(0),
+        );
         expect(tester.getRect(_header), header);
         expect(tester.getRect(_bar), bar);
         expect(
@@ -641,6 +647,7 @@ void main() {
           lessThanOrEqualTo(1),
         );
         await tester.pumpAndSettle();
+        expect(tester.getRect(panel), restingPanel);
         expect(
           find.byKey(const ValueKey('history-incoming-tab')),
           findsNothing,

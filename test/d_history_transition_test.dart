@@ -1,7 +1,10 @@
+import 'dart:ui' as ui;
+
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/styleguide/component_examples.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 const _page = ValueKey('live-page');
@@ -12,6 +15,7 @@ Future<_HistoryHarnessState> _pump(
   TextDirection direction = TextDirection.ltr,
   bool reducedMotion = false,
   bool tabTransitions = false,
+  bool roundedPanel = false,
 }) async {
   await tester.binding.setSurfaceSize(const Size(400, 600));
   addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -22,7 +26,11 @@ Future<_HistoryHarnessState> _pump(
         data: MediaQuery.of(context).copyWith(disableAnimations: reducedMotion),
         child: Directionality(textDirection: direction, child: child!),
       ),
-      home: _HistoryHarness(key: key, tabTransitions: tabTransitions),
+      home: _HistoryHarness(
+        key: key,
+        tabTransitions: tabTransitions,
+        roundedPanel: roundedPanel,
+      ),
     ),
   );
   await tester.pumpAndSettle();
@@ -325,6 +333,35 @@ void main() {
     });
   }
 
+  testWidgets('rounded tab surfaces reveal the background at their seam', (
+    tester,
+  ) async {
+    final state = await _pump(tester, tabTransitions: true, roundedPanel: true);
+    state.selectTab(1);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 70));
+    final outgoing = tester
+        .widget<Transform>(find.byKey(const ValueKey('history-outgoing-tab')))
+        .transform
+        .getTranslation()
+        .x;
+    final seam = (400 + outgoing).round();
+    final boundary = tester.renderObject<RenderRepaintBoundary>(
+      find.byKey(const ValueKey('history-test-boundary')),
+    );
+    final image = boundary.toImageSync(pixelRatio: 1);
+    final pixels = await tester.runAsync(
+      () => image.toByteData(format: ui.ImageByteFormat.rawRgba),
+    );
+    expect(pixels, isNotNull);
+    final offset = seam * 4;
+    expect(pixels!.getUint8(offset), 0);
+    expect(pixels.getUint8(offset + 1), 255);
+    expect(pixels.getUint8(offset + 2), 0);
+    image.dispose();
+    await tester.pumpAndSettle();
+  });
+
   testWidgets('tab changes respect reduced motion and owner changes', (
     tester,
   ) async {
@@ -400,8 +437,13 @@ void main() {
 }
 
 class _HistoryHarness extends StatefulWidget {
-  const _HistoryHarness({super.key, this.tabTransitions = false});
+  const _HistoryHarness({
+    super.key,
+    this.tabTransitions = false,
+    this.roundedPanel = false,
+  });
   final bool tabTransitions;
+  final bool roundedPanel;
 
   @override
   State<_HistoryHarness> createState() => _HistoryHarnessState();
@@ -448,35 +490,47 @@ class _HistoryHarnessState extends State<_HistoryHarness> {
   }
 
   @override
-  Widget build(BuildContext context) => DHistoryTransition(
-    history: history,
-    tabIndex: tabIndex,
-    tabOwner: tabOwner,
-    entry: index,
-    previousEntry: index > 0 ? index - 1 : null,
-    nextEntry: index < furthest ? index + 1 : null,
-    onBack: index > 0
-        ? () {
-            swipes++;
-            visit(index - 1);
-          }
-        : null,
-    onForward: index < furthest
-        ? () {
-            swipes++;
-            visit(index + 1);
-          }
-        : null,
+  Widget build(BuildContext context) => RepaintBoundary(
+    key: const ValueKey('history-test-boundary'),
     child: ColoredBox(
-      key: _page,
-      color: DTokens.of(context).background,
-      child: ListView(
-        controller: scroll,
-        children: [
-          Text('Page $index'),
-          for (var row = 0; row < 40; row++)
-            SizedBox(height: 48, child: Text('Row $row')),
-        ],
+      color: const Color(0xFF00FF00),
+      child: DHistoryTransition(
+        history: history,
+        tabIndex: tabIndex,
+        tabOwner: tabOwner,
+        entry: index,
+        previousEntry: index > 0 ? index - 1 : null,
+        nextEntry: index < furthest ? index + 1 : null,
+        onBack: index > 0
+            ? () {
+                swipes++;
+                visit(index - 1);
+              }
+            : null,
+        onForward: index < furthest
+            ? () {
+                swipes++;
+                visit(index + 1);
+              }
+            : null,
+        child: widget.roundedPanel
+            ? const DPageSurface(
+                key: _page,
+                backgroundColor: Colors.red,
+                child: SizedBox.expand(),
+              )
+            : ColoredBox(
+                key: _page,
+                color: DTokens.of(context).background,
+                child: ListView(
+                  controller: scroll,
+                  children: [
+                    Text('Page $index'),
+                    for (var row = 0; row < 40; row++)
+                      SizedBox(height: 48, child: Text('Row $row')),
+                  ],
+                ),
+              ),
       ),
     ),
   );
