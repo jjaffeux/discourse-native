@@ -3556,13 +3556,29 @@ void _registerChatShellTests() {
         expect(sidebarDestination('Bugs'), findsOneWidget);
       }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
-      testWidgets('draws nothing while the channel list is still on its way', (
+      testWidgets('shows skeletons while the channel list is on its way', (
         tester,
       ) async {
+        startOnChatSidebar = false;
         final gate = Completer<void>();
         await pumpChat(tester, public: [channel(9)], channelGate: gate);
+        await tester.tap(
+          find.byKey(const ValueKey('sidebar-panel-switch-chat')),
+        );
+        await tester.pump();
 
         expect(find.widgetWithText(DSidebarMenuButton, 'Chat'), findsNothing);
+        final placeholder = find.byKey(
+          const ValueKey('sidebar-loading-skeleton'),
+        );
+        expect(placeholder, findsWidgets);
+        expect(
+          find.descendant(
+            of: placeholder,
+            matching: find.byType(DSidebarMenuSkeleton),
+          ),
+          findsWidgets,
+        );
 
         final shell = ShellScope.read(
           tester.element(find.byType(InstanceSidebar)),
@@ -3575,6 +3591,11 @@ void _registerChatShellTests() {
         gate.complete();
         await tester.pumpAndSettle();
 
+        expect(
+          find.byKey(const ValueKey('sidebar-loading-skeleton')),
+          findsNothing,
+        );
+        expect(sidebarDestination('Bugs'), findsOneWidget);
         expect(
           find.byKey(const ValueKey('sidebar-panel-switch-chat')),
           findsOneWidget,

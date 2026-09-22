@@ -962,15 +962,22 @@ class _RestoredSidebarSectionsState extends State<_RestoredSidebarSections> {
 }
 
 class _SidebarLoadingSkeleton extends StatelessWidget {
-  const _SidebarLoadingSkeleton();
+  const _SidebarLoadingSkeleton({
+    this.semanticsLabel = 'Loading navigation',
+    this.rowCount = 8,
+  });
+
+  final String semanticsLabel;
+  final int rowCount;
+
   @override
   Widget build(BuildContext context) => DSkeletonRegion(
     expand: true,
     key: const ValueKey('sidebar-loading-skeleton'),
-    semanticsLabel: 'Loading navigation',
+    semanticsLabel: semanticsLabel,
     child: DSidebarMenu(
       children: [
-        for (var row = 0; row < 8; row++)
+        for (var row = 0; row < rowCount; row++)
           DSidebarMenuSkeleton(
             showIcon: true,
             widthFactor: row.isEven ? .7 : .55,
@@ -1098,6 +1105,14 @@ class _SectionState extends State<_Section> {
   @override
   Widget build(BuildContext context) {
     final section = widget.section;
+    if (section.loading) {
+      return SliverToBoxAdapter(
+        child: _SidebarLoadingSkeleton(
+          semanticsLabel: 'Loading ${section.title}',
+          rowCount: 4,
+        ),
+      );
+    }
     final canReorder = ShellScope.read(
       context,
     ).canReorderSidebarLinks(widget.siteUrl, section);
@@ -1405,7 +1420,10 @@ class SidebarDestinationTile extends StatelessWidget {
       return SizedBox.square(
         key: ValueKey('sidebar-destination-loading-${destination.id}'),
         dimension: 16.0,
-        child: const DSpinner(),
+        child: DSkeletonRegion(
+          semanticsLabel: 'Loading ${destination.label}',
+          child: const DSkeleton.circle(diameter: 16),
+        ),
       );
     }
 
