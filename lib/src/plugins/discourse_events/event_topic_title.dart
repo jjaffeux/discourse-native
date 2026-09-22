@@ -1,10 +1,10 @@
-import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import 'event_controller.dart';
 import 'event_data.dart';
+import 'event_date_stamp.dart';
 import 'event_notifications.dart';
 import 'event_time.dart';
 
@@ -41,7 +41,6 @@ class EventTopicTitle extends StatelessWidget {
       if (!controller.settings(site).displayTopicDate || schedule == null) {
         return child;
       }
-      final theme = Theme.of(context);
       return Flex(
         direction: mobile ? Axis.vertical : Axis.horizontal,
         mainAxisSize: MainAxisSize.min,
@@ -50,44 +49,11 @@ class EventTopicTitle extends StatelessWidget {
         children: [
           if (!mobile)
             ExcludeSemantics(
-              child: IntrinsicWidth(
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(minWidth: 36),
-                  child: DCard(
-                    key: const ValueKey('event-calendar-stamp'),
-                    size: DCardSize.small,
-                    spacing: DSpacing.xs,
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: DSpacing.xs,
-                      ),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            DateFormat.MMM(
-                              schedule.locale,
-                            ).format(schedule.start).toUpperCase(),
-                            style: theme.textTheme.labelSmall?.copyWith(
-                              color: DTokens.of(context).mutedForeground,
-                              height: 1.2,
-                            ),
-                          ),
-                          Text(
-                            DateFormat.d(
-                              schedule.locale,
-                            ).format(schedule.start),
-                            style: theme.textTheme.titleMedium?.copyWith(
-                              fontSize: DiscourseTypography.lg,
-                              fontWeight: FontWeight.w600,
-                              height: 1.2,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
+              child: EventDateStamp(
+                key: const ValueKey('event-calendar-stamp'),
+                date: schedule.start,
+                locale: schedule.locale,
+                compact: true,
               ),
             ),
           Flexible(

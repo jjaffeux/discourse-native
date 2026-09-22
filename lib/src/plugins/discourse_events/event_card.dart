@@ -5,11 +5,11 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:html/dom.dart' as dom;
 import 'package:html/parser.dart' as html;
-import 'package:intl/intl.dart';
 
 import 'event_controller.dart';
 import 'event_cooked_visibility.dart';
 import 'event_data.dart';
+import 'event_date_stamp.dart';
 import 'event_export.dart';
 import 'event_navigation.dart';
 import 'event_participants.dart';
@@ -278,40 +278,7 @@ class _EventCardState extends State<EventCard> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       if (date != null) ...[
-                        SizedBox(
-                          width: MediaQuery.textScalerOf(context).scale(44),
-                          child: DCard(
-                            spacing: 0,
-                            child: ColoredBox(
-                              color: tokens.muted.withValues(alpha: .5),
-                              child: SizedBox(
-                                width: 44,
-                                child: Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                    vertical: 5,
-                                  ),
-                                  child: Column(
-                                    children: [
-                                      Text(
-                                        DateFormat.MMM()
-                                            .format(date)
-                                            .toUpperCase(),
-                                        style: theme.textTheme.labelSmall!
-                                            .copyWith(
-                                              color: tokens.mutedForeground,
-                                            ),
-                                      ),
-                                      Text(
-                                        '${date.day}',
-                                        style: theme.textTheme.headlineSmall,
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
+                        EventDateStamp(date: date),
                         const SizedBox(width: 12),
                       ],
                       Expanded(
@@ -627,9 +594,8 @@ class _EventDescriptionState extends State<_EventDescription> {
 
   @override
   Widget build(BuildContext context) {
-    final style = Theme.of(
-      context,
-    ).textTheme.bodySmall!.copyWith(color: DTokens.of(context).mutedForeground);
+    final style = Theme.of(context).textTheme.bodySmall!
+        .copyWith(color: DTokens.of(context).mutedForeground);
     final preview = _preview;
     final content = widget.isHtml
         ? CookedHtml(
