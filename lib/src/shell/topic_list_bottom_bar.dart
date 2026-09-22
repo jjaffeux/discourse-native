@@ -105,6 +105,50 @@ class TopicListBottomBar extends StatelessWidget {
   final double trailingInset;
 
   @override
+  Widget build(BuildContext context) => TopicListFooter(
+    trailingInset: trailingInset,
+    child: LayoutBuilder(
+      builder: (context, constraints) => Row(
+        mainAxisAlignment: MainAxisAlignment.start,
+        children: [
+          if (leading case final action?)
+            Expanded(
+              child: Align(
+                alignment: AlignmentDirectional.centerStart,
+                child: action,
+              ),
+            )
+          else
+            const Spacer(),
+          DismissNewTopicsButton(
+            compact:
+                constraints.maxWidth <
+                480 * MediaQuery.textScalerOf(context).scale(14) / 14,
+          ),
+          ShellSelector<bool>(
+            select: (shell) => shell.currentContent?.isTopic == true,
+            builder: (context, topicOpen, _) => topicOpen
+                ? const TopicNavigationButtons()
+                : const SizedBox.shrink(),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
+/// The production topic pane footer, also used by the appearance preview.
+class TopicListFooter extends StatelessWidget {
+  const TopicListFooter({
+    super.key,
+    required this.child,
+    this.trailingInset = 0,
+  });
+
+  final Widget child;
+  final double trailingInset;
+
+  @override
   Widget build(BuildContext context) => DCardFooter(
     key: const ValueKey('topic-list-bottom-bar'),
     backgroundColor: context.isTouch
@@ -122,33 +166,7 @@ class TopicListBottomBar extends StatelessWidget {
         padding: topicBottomBarPadding.add(
           EdgeInsetsDirectional.only(end: trailingInset),
         ),
-        child: LayoutBuilder(
-          builder: (context, constraints) => Row(
-            mainAxisAlignment: MainAxisAlignment.start,
-            children: [
-              if (leading case final action?)
-                Expanded(
-                  child: Align(
-                    alignment: AlignmentDirectional.centerStart,
-                    child: action,
-                  ),
-                )
-              else
-                const Spacer(),
-              DismissNewTopicsButton(
-                compact:
-                    constraints.maxWidth <
-                    480 * MediaQuery.textScalerOf(context).scale(14) / 14,
-              ),
-              ShellSelector<bool>(
-                select: (shell) => shell.currentContent?.isTopic == true,
-                builder: (context, topicOpen, _) => topicOpen
-                    ? const TopicNavigationButtons()
-                    : const SizedBox.shrink(),
-              ),
-            ],
-          ),
-        ),
+        child: child,
       ),
     ),
   );
