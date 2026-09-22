@@ -15,6 +15,8 @@ import '../foundation/tokens.dart';
 /// change the actual history only after a committed swipe finishes. Short drags
 /// spring back without invoking a callback. Null callbacks disable that edge.
 /// The covered page dims with overlap; the front page casts a soft edge shadow.
+/// Tab switches move the entire child surface, including its outline and
+/// transparent corners.
 ///
 /// Previews are in-memory snapshots, never additional live pages. Up to eight
 /// recently visited pages are retained, at most one million pixels each.
@@ -338,14 +340,9 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
                               0,
                             ),
                             child: ExcludeSemantics(
-                              child: ColoredBox(
-                                color: background,
-                                child: _preview == null
-                                    ? null
-                                    : RawImage(
-                                        image: _preview,
-                                        fit: BoxFit.fill,
-                                      ),
+                              child: RawImage(
+                                image: _preview,
+                                fit: BoxFit.fill,
                               ),
                             ),
                           ),
@@ -355,7 +352,7 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
                               _tabSign * _size.width * (1 - progress),
                               0,
                             ),
-                            child: ColoredBox(color: background, child: child),
+                            child: child,
                           ),
                         ],
                       ),
