@@ -5,10 +5,18 @@ preview controls switch layout, theme, language, and desktop/phone width. Clicki
 a badge opens its details; the split layout keeps details beside the list on wide
 screens and navigates to them on narrow screens.
 
-The HTML previews use sample data. The native app implements option A, grouped
-cards, with live forum data. Open **More → Badges** to browse them. Badge links and
-notifications open native details, including paginated recipients, award dates,
-and visible awarded posts. Recipient filters and badge tabs survive restoration.
+The HTML previews use sample data and preserve the original design study. The
+native directory follows the September 22 reference: full-width grouped rows on
+both mobile and desktop, circular badge artwork, tier and award count below the
+name, descriptions below the row header, and earned checks at the trailing edge.
+The header shows the catalog totals and a Native Select for all badges, earned
+status, or tier. Personal filters appear only when the server supplies earned
+state; empty groups are omitted after filtering. Large text and narrow widths
+stack the filter and totals.
+
+Open **More → Badges** to browse live forum data. Badge links and notifications
+open native details, including paginated recipients, award dates, and visible
+awarded posts. Recipient filters and badge tabs survive restoration.
 
 The native page uses the existing reading lane, site theme, typography, HTML
 renderer, and image transport. Disabled forums hide the destination; loading,
@@ -41,8 +49,8 @@ or display the server-provided badge image.
 - `lib/src/shell/adaptive_shell.dart`: 48px site rail and 208px default sidebar.
 - `lib/src/shell/forum_tabs_bar.dart` and `shell_metrics.dart`: 38px forum tabs and
   52px content header.
-- `lib/src/shell/groups_page.dart`: 12px grid spacing, 16px card padding, and
-  responsive column changes around 620px and 980px of content width.
+- The directory composes Native Item, Avatar, Select, and Separator components;
+  Item owns hover, focus, link semantics, and keyboard activation.
 - `lib/src/models/site_appearance.dart`: the 4px default border radius.
 
 ## Core reference and implementation contract

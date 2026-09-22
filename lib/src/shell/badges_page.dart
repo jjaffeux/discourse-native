@@ -38,7 +38,9 @@ class BadgesPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => ContentReadingLane(
-    basePadding: const EdgeInsets.all(16),
+    basePadding: route.isDirectory
+        ? const EdgeInsets.symmetric(vertical: 16)
+        : const EdgeInsets.all(16),
     builder: (context, lane) => RefreshIndicator(
       onRefresh: onRefresh,
       child: CustomScrollView(
@@ -77,7 +79,12 @@ class BadgesPage extends StatelessWidget {
                     ),
                   )
                 else if (route.isDirectory && state.catalog != null)
-                  ..._catalog(context, state.catalog!)
+                  _BadgeDirectory(
+                    key: ValueKey((siteUrl, currentUsername)),
+                    catalog: state.catalog!,
+                    siteUrl: siteUrl,
+                    onOpenBadge: onOpenBadge,
+                  )
                 else if (state.badge != null)
                   ..._detail(context, state.badge!),
               ],
@@ -85,95 +92,6 @@ class BadgesPage extends StatelessWidget {
           ),
         ],
       ),
-    ),
-  );
-
-  List<Widget> _catalog(BuildContext context, BadgeCatalog catalog) => [
-    SliverToBoxAdapter(
-      child: Padding(
-        padding: const EdgeInsets.only(bottom: 8),
-        child: Text(
-          '${_number(catalog.total)} ${catalog.total == 1 ? 'badge' : 'badges'}${catalog.hasPersonalState ? ' · ${_number(catalog.earned)} earned' : ''}',
-          style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-            color: Theme.of(context).shell.marker,
-          ),
-        ),
-      ),
-    ),
-    if (catalog.total == 0)
-      const SliverFillRemaining(
-        hasScrollBody: false,
-        child: Center(
-          child: SingleChildScrollView(
-            child: DEmpty(
-              children: [
-                DEmptyHeader(children: [DEmptyTitle('No badges to display.')]),
-              ],
-            ),
-          ),
-        ),
-      ),
-    for (final group in catalog.groups) ...[
-      SliverToBoxAdapter(
-        child: Padding(
-          padding: const EdgeInsets.only(top: 16, bottom: 12),
-          child: Semantics(
-            header: true,
-            child: Text(
-              group.name,
-              style: Theme.of(
-                context,
-              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
-            ),
-          ),
-        ),
-      ),
-      SliverPadding(
-        padding: const EdgeInsets.only(bottom: 12),
-        sliver: SliverLayoutBuilder(
-          builder: (context, constraints) {
-            final textScale =
-                MediaQuery.textScalerOf(
-                  context,
-                ).scale(DiscourseTypography.base) /
-                DiscourseTypography.base;
-            final width = constraints.crossAxisExtent / textScale;
-            final columns = width >= 980
-                ? 3
-                : width >= 620
-                ? 2
-                : 1;
-            return SliverList.separated(
-              itemCount: (group.badges.length / columns).ceil(),
-              separatorBuilder: (context, index) => const SizedBox(height: 12),
-              itemBuilder: (context, row) => Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  for (var column = 0; column < columns; column++) ...[
-                    if (column > 0) const SizedBox(width: 12),
-                    Expanded(
-                      child: row * columns + column < group.badges.length
-                          ? _card(group.badges[row * columns + column])
-                          : const SizedBox.shrink(),
-                    ),
-                  ],
-                ],
-              ),
-            );
-          },
-        ),
-      ),
-    ],
-  ];
-
-  Widget _card(DiscourseBadge badge) => LinkTarget.content(
-    content: ContentRoute.badges(badge.route, title: badge.name),
-    siteUrl: siteUrl,
-    child: BadgeCard(
-      key: ValueKey('badge-card-${badge.id}'),
-      badge: badge,
-      siteUrl: siteUrl,
-      onTap: () => onOpenBadge(badge),
     ),
   );
 
@@ -329,8 +247,201 @@ class BadgesPage extends StatelessWidget {
   }
 }
 
-class BadgeCard extends StatelessWidget {
-  const BadgeCard({
+enum _BadgeFilter {
+  all('All badges'),
+  earned('Earned'),
+  unearned('Not earned'),
+  bronze('Bronze'),
+  silver('Silver'),
+  gold('Gold');
+
+  const _BadgeFilter(this.label);
+  final String label;
+
+  bool get personal => this == earned || this == unearned;
+
+  bool includes(DiscourseBadge badge) => switch (this) {
+    all => true,
+    earned => badge.hasBadge == true,
+    unearned => badge.hasBadge == false,
+    bronze => badge.tier == BadgeTier.bronze,
+    silver => badge.tier == BadgeTier.silver,
+    gold => badge.tier == BadgeTier.gold,
+  };
+}
+
+class _BadgeDirectory extends StatefulWidget {
+  const _BadgeDirectory({
+    super.key,
+    required this.catalog,
+    required this.siteUrl,
+    required this.onOpenBadge,
+  });
+
+  final BadgeCatalog catalog;
+  final String siteUrl;
+  final ValueChanged<DiscourseBadge> onOpenBadge;
+
+  @override
+  State<_BadgeDirectory> createState() => _BadgeDirectoryState();
+}
+
+class _BadgeDirectoryState extends State<_BadgeDirectory> {
+  _BadgeFilter _filter = _BadgeFilter.all;
+
+  @override
+  void didUpdateWidget(_BadgeDirectory oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!widget.catalog.hasPersonalState && _filter.personal) {
+      _filter = _BadgeFilter.all;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final catalog = widget.catalog;
+    final groups = [
+      for (final group in catalog.groups)
+        (
+          name: group.name,
+          badges: group.badges.where(_filter.includes).toList(),
+        ),
+    ].where((group) => group.badges.isNotEmpty).toList();
+    return SliverMainAxisGroup(
+      slivers: [
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Semantics(
+                  header: true,
+                  child: Text('Badges', style: theme.textTheme.headlineSmall),
+                ),
+                const SizedBox(height: 16),
+                LayoutBuilder(
+                  builder: (context, constraints) {
+                    final scale =
+                        MediaQuery.textScalerOf(
+                          context,
+                        ).scale(DiscourseTypography.sm) /
+                        DiscourseTypography.sm;
+                    final stacked = constraints.maxWidth / scale < 300;
+                    final filter = DSelect<_BadgeFilter>.controlled(
+                      key: const ValueKey('badge-filter'),
+                      value: _filter,
+                      semanticLabel: 'Filter badges',
+                      width: 128,
+                      isExpanded: stacked,
+                      entries: [
+                        for (final filter in _BadgeFilter.values)
+                          if (!filter.personal || catalog.hasPersonalState)
+                            DSelectItem(
+                              value: filter,
+                              textValue: filter.label,
+                              child: Text(filter.label),
+                            ),
+                      ],
+                      onChanged: (value) {
+                        if (value != null) setState(() => _filter = value);
+                      },
+                    );
+                    final summary = Text(
+                      '${_number(catalog.total)} ${catalog.total == 1 ? 'badge' : 'badges'}${catalog.hasPersonalState ? ' · ${_number(catalog.earned)} earned' : ''}',
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: theme.shell.marker,
+                      ),
+                    );
+                    if (stacked) {
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [filter, const SizedBox(height: 8), summary],
+                      );
+                    }
+                    return Row(
+                      children: [
+                        filter,
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: Align(
+                            alignment: AlignmentDirectional.centerEnd,
+                            child: summary,
+                          ),
+                        ),
+                      ],
+                    );
+                  },
+                ),
+                const SizedBox(height: 16),
+                DSeparator(color: theme.shell.divider),
+              ],
+            ),
+          ),
+        ),
+        if (groups.isEmpty)
+          SliverFillRemaining(
+            hasScrollBody: false,
+            child: Center(
+              child: SingleChildScrollView(
+                child: DEmpty(
+                  children: [
+                    DEmptyHeader(
+                      children: [
+                        DEmptyTitle(
+                          catalog.total == 0
+                              ? 'No badges to display.'
+                              : 'No badges match this filter.',
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        for (final group in groups) ...[
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 24, 16, 8),
+              child: Semantics(
+                header: true,
+                child: Text(
+                  group.name,
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ),
+          ),
+          SliverList.separated(
+            itemCount: group.badges.length,
+            separatorBuilder: (context, index) =>
+                DSeparator(color: theme.shell.divider),
+            itemBuilder: (context, index) {
+              final badge = group.badges[index];
+              return LinkTarget.content(
+                content: ContentRoute.badges(badge.route, title: badge.name),
+                siteUrl: widget.siteUrl,
+                child: BadgeRow(
+                  key: ValueKey('badge-row-${badge.id}'),
+                  badge: badge,
+                  siteUrl: widget.siteUrl,
+                  onTap: () => widget.onOpenBadge(badge),
+                ),
+              );
+            },
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class BadgeRow extends StatelessWidget {
+  const BadgeRow({
     super.key,
     required this.badge,
     required this.siteUrl,
@@ -344,88 +455,62 @@ class BadgeCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return DCard(
-      spacing: 0,
-      child: InkWell(
-        onTap: onTap,
-        hoverColor: theme.shell.hover,
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(minHeight: 166),
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        SizedBox(
-                          width: 36,
-                          height: 38,
-                          child: Center(
-                            child: BadgeSymbol(
-                              badge: badge,
-                              siteUrl: siteUrl,
-                              size: 30,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Padding(
-                            padding: const EdgeInsets.only(top: 5),
-                            child: Text(
-                              badge.name,
-                              style: Theme.of(context).textTheme.titleSmall
-                                  ?.copyWith(fontWeight: FontWeight.w600),
-                            ),
-                          ),
-                        ),
-                        if (badge.hasBadge == true) ...[
-                          const SizedBox(width: 8),
-                          const _EarnedBadge(),
-                        ],
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    CookedHtml(
-                      html: badge.description,
-                      siteUrl: siteUrl,
-                      compactParagraphs: true,
-                      textStyle: Theme.of(context).textTheme.bodyLarge
-                          ?.copyWith(color: theme.discourse.primaryHigh),
-                    ),
-                  ],
+    return DItem(
+      shape: DItemShape.fullWidth,
+      link: true,
+      onPressed: onTap,
+      footer: badge.description.isEmpty
+          ? null
+          : DItemFooter(
+              child: CookedHtml(
+                html: badge.description,
+                siteUrl: siteUrl,
+                compactParagraphs: true,
+                textStyle: theme.textTheme.bodyMedium?.copyWith(
+                  color: theme.shell.marker,
                 ),
-                Padding(
-                  padding: const EdgeInsets.only(top: 16),
-                  child: SizedBox(
-                    width: double.infinity,
-                    child: Wrap(
-                      alignment: WrapAlignment.spaceBetween,
-                      spacing: 16,
-                      runSpacing: 6,
-                      children: [
-                        if (badge.grantCount > 0)
-                          Text(
-                            _awarded(badge.grantCount),
-                            style: Theme.of(context).textTheme.bodyMedium
-                                ?.copyWith(color: theme.shell.marker),
-                          ),
-                        _BadgeTierLabel(tier: badge.tier),
-                      ],
-                    ),
+              ),
+            ),
+      children: [
+        DItemMedia(
+          variant: DItemMediaVariant.avatar,
+          child: DAvatar(
+            size: DAvatarSize.lg,
+            decorative: true,
+            fallback: DAvatarFallback(
+              backgroundColor: _tierColor(
+                context,
+                badge.tier,
+              ).withValues(alpha: .22),
+              child: BadgeSymbol(badge: badge, siteUrl: siteUrl, size: 20),
+            ),
+          ),
+        ),
+        DItemContent(
+          spacing: 0,
+          children: [
+            Text(
+              badge.name,
+              style: theme.textTheme.titleSmall?.copyWith(
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            Wrap(
+              spacing: 4,
+              children: [
+                _BadgeTierLabel(tier: badge.tier),
+                Text(
+                  '· ${_awarded(badge.grantCount)}',
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: theme.shell.marker,
                   ),
                 ),
               ],
             ),
-          ),
+          ],
         ),
-      ),
+        if (badge.hasBadge == true) const _EarnedBadge(),
+      ],
     );
   }
 }
@@ -600,7 +685,7 @@ class _BadgeRecipient extends StatelessWidget {
 
 Color _tierColor(BuildContext context, BadgeTier tier) =>
     switch ((Theme.of(context).brightness, tier)) {
-      (Brightness.dark, BadgeTier.bronze) => const Color(0xffcd7f32),
+      (Brightness.dark, BadgeTier.bronze) => const Color(0xffedc48d),
       (Brightness.dark, BadgeTier.silver) => const Color(0xffc0c0c0),
       (Brightness.dark, BadgeTier.gold) => const Color(0xffe7c300),
       (Brightness.light, BadgeTier.bronze) => const Color(0xffa9601f),
