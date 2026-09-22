@@ -185,7 +185,7 @@ void _registerShellNavigationTests() {
       expect(find.byKey(ForumSearch.inputKey), findsNothing);
       expect(searchTarget, findsOneWidget);
       expect(tester.getSize(searchTarget).width, greaterThanOrEqualTo(44));
-      expect(find.byType(InstanceSidebar), findsOneWidget);
+      expect(find.byType(InstanceSidebar), findsNothing);
 
       await tester.tap(searchTarget);
       await tester.pumpAndSettle();
@@ -300,56 +300,44 @@ void _registerShellNavigationTests() {
   });
 
   group('compact shell layout', () {
-    testWidgets('shows the rail and the sidebar, but no main content', (
+    testWidgets('starts on topics and opens navigation with the hamburger', (
       tester,
     ) async {
       await pumpShell(tester, phone);
-
+      expect(find.byType(MainContent), findsOneWidget);
+      expect(find.byType(InstanceRail), findsNothing);
+      await tester.tap(find.byKey(const ValueKey('mobile-menu-button')));
+      await tester.pumpAndSettle();
       expect(find.byType(InstanceRail), findsOneWidget);
       expect(find.byType(InstanceSidebar), findsOneWidget);
-      expect(find.byType(MainContent), findsNothing);
+      await _systemBack(tester);
+      await tester.pumpAndSettle();
+      expect(find.byType(InstanceRail), findsNothing);
+      expect(find.byType(MainContent), findsOneWidget);
     });
 
-    testWidgets('selecting a destination replaces the sidebar with content', (
+    testWidgets('tab destinations keep header and navigation visible', (
       tester,
     ) async {
       await pumpShell(tester, phone);
-
-      final topics = sidebarDestination('Topics');
-      final target = find
-          .ancestor(of: topics, matching: find.byType(DSidebarMenuButton))
-          .first;
-      expect(tester.getSize(target).height, closeTo(48, 0.01));
-      expect(tester.getSize(target).width, greaterThanOrEqualTo(44));
-
-      await tester.tap(target);
+      final button = find.byKey(const ValueKey('mobile-mode-users'));
+      expect(tester.getSize(button).height, greaterThanOrEqualTo(48));
+      await tester.tap(button);
       await tester.pumpAndSettle();
-
       expect(find.byType(MainContent), findsOneWidget);
       expect(find.byType(InstanceSidebar), findsNothing);
-      expect(find.byType(InstanceRail), findsNothing);
+      expect(find.byKey(const ValueKey('mobile-bottom-bar')), findsOneWidget);
+      expect(userMenu, findsOneWidget);
     });
 
-    testWidgets('back returns from content to the sidebar', (tester) async {
-      await pumpShell(tester, phone);
-
-      await tester.tap(find.text('Topics'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.dIcon(DIcons.arrowLeft));
-      await tester.pumpAndSettle();
-
-      expect(find.byType(InstanceSidebar), findsOneWidget);
-      expect(find.byType(MainContent), findsNothing);
-    });
-
-    testWidgets('back unwinds the content stack before the sidebar', (
+    testWidgets('back unwinds the content stack to the current tab root', (
       tester,
     ) async {
       await pumpShell(tester, phone);
-
-      await tester.tap(find.text('Topics'));
-      await tester.pumpAndSettle();
-      ShellScope.read(tester.element(find.byType(MainContent))).pushContent(
+      final controller = ShellScope.read(
+        tester.element(find.byType(MainContent)),
+      );
+      controller.pushContent(
         const ContentRoute(
           id: 'topic-placeholder',
           title: 'Topic 1',
@@ -357,62 +345,34 @@ void _registerShellNavigationTests() {
         ),
       );
       await tester.pumpAndSettle();
-
       expect(find.text('Topic 1'), findsOneWidget);
-
-      await tester.tap(find.dIcon(DIcons.arrowLeft));
+      await tester.tap(find.byTooltip('Back'));
       await tester.pumpAndSettle();
-
+      expect(controller.currentContent?.id, 'latest');
+      expect(controller.canPopContent, isFalse);
       expect(find.byType(MainContent), findsOneWidget);
-      expect(find.byType(InstanceSidebar), findsNothing);
     });
 
-    testWidgets('a system back at the root hands the gesture to the platform', (
-      tester,
-    ) async {
-      final exits = _watchAppExits(tester);
-      await pumpShell(tester, phone);
-
-      await tester.tap(find.text('Topics'));
-      await tester.pumpAndSettle();
-
-      await _systemBack(tester);
-      await tester.pumpAndSettle();
-      expect(find.byType(InstanceSidebar), findsOneWidget);
-      expect(exits, isEmpty);
-
-      // Nothing left to unwind. The shell's own PopScope swallowed the event,
-      // so leaving the app has to be an explicit request to the platform.
-      await _systemBack(tester);
-      await tester.pumpAndSettle();
-      expect(exits, hasLength(1));
-    });
+    testWidgets(
+      'system Back closes the drawer before leaving at the tab root',
+      (tester) async {
+        final exits = _watchAppExits(tester);
+        await pumpShell(tester, phone, revealMobileNavigation: true);
+        await _systemBack(tester);
+        await tester.pumpAndSettle();
+        expect(find.byType(InstanceSidebar), findsNothing);
+        expect(exits, isEmpty);
+        await _systemBack(tester);
+        await tester.pumpAndSettle();
+        expect(exits, hasLength(1));
+      },
+    );
 
     testWidgets('mouse side buttons navigate mobile visit history', (
       tester,
     ) async {
       await pumpShell(tester, phone);
-      await tester.tap(find.text('Topics'));
-      await tester.pumpAndSettle();
       final shell = ShellScope.read(tester.element(find.byType(MainContent)));
-
-      Future<void> tapMouseButton(int button) async {
-        await tester.tap(
-          find.byType(MainContent).evaluate().isEmpty
-              ? find.byType(InstanceSidebar)
-              : find.byType(MainContent),
-          buttons: button,
-          kind: PointerDeviceKind.mouse,
-        );
-        await tester.pumpAndSettle();
-      }
-
-      await tapMouseButton(kBackMouseButton);
-      expect(find.byType(MainContent), findsNothing);
-      expect(find.byType(InstanceSidebar), findsOneWidget);
-      await tapMouseButton(kForwardMouseButton);
-      expect(shell.currentContent?.id, 'latest');
-
       shell.pushContent(
         const ContentRoute(
           id: 'compact-mouse-history',
@@ -421,37 +381,34 @@ void _registerShellNavigationTests() {
         ),
       );
       await tester.pumpAndSettle();
-
-      await tapMouseButton(kBackMouseButton);
-      expect(find.byType(MainContent), findsOneWidget);
+      await tester.tap(
+        find.byType(MainContent),
+        buttons: kBackMouseButton,
+        kind: PointerDeviceKind.mouse,
+      );
+      await tester.pumpAndSettle();
       expect(shell.currentContent?.id, 'latest');
-
-      await tapMouseButton(kForwardMouseButton);
+      await tester.tap(
+        find.byType(MainContent),
+        buttons: kForwardMouseButton,
+        kind: PointerDeviceKind.mouse,
+      );
+      await tester.pumpAndSettle();
       expect(shell.currentContent?.id, 'compact-mouse-history');
     });
 
-    testWidgets('the avatar is visible only on the mobile root', (
+    testWidgets('the avatar stays in the header across tab navigation', (
       tester,
     ) async {
       await pumpShell(tester, phone);
-      expect(userMenu, findsOneWidget);
       final initial = tester.getRect(userMenu);
-      expect(
-        tester
-            .getRect(find.byKey(const ValueKey('mobile-header')))
-            .contains(initial.center),
-        isTrue,
-      );
-      await tester.tap(find.text('Topics'));
+      await tester.tap(find.byKey(const ValueKey('mobile-mode-users')));
       await tester.pumpAndSettle();
-      expect(userMenu, findsNothing);
+      expect(tester.getRect(userMenu), initial);
       expect(
         find.descendant(of: find.byType(MainContent), matching: userMenu),
         findsNothing,
       );
-      await tester.tap(find.byTooltip('Back'));
-      await tester.pumpAndSettle();
-      expect(tester.getRect(userMenu), initial);
     });
   });
 
@@ -1097,7 +1054,7 @@ void _registerShellNavigationTests() {
 
     await pumpShell(
       tester,
-      const Size(1000, 400),
+      const Size(1440, 400),
       instances: [site],
       api: api,
       authenticator: auth,
@@ -1119,7 +1076,7 @@ void _registerShellNavigationTests() {
 
     expect(position.maxScrollExtent, closeTo(initialMax, 0.001));
     expect(position.pixels, closeTo(initialMax, 0.001));
-  });
+  }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
   testWidgets('hides the scrollbar in the sidebar', (tester) async {
     final previous = debugDefaultTargetPlatformOverride;
@@ -1140,7 +1097,7 @@ void _registerShellNavigationTests() {
     } finally {
       debugDefaultTargetPlatformOverride = previous;
     }
-  });
+  }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
   testWidgets('builds only sidebar destinations near the viewport', (
     tester,
@@ -1178,7 +1135,7 @@ void _registerShellNavigationTests() {
 
     await pumpShell(
       tester,
-      const Size(1000, 400),
+      const Size(1440, 400),
       instances: [site],
       api: api,
       authenticator: auth,
@@ -1209,7 +1166,7 @@ void _registerShellNavigationTests() {
 
     expect(row(199), findsOneWidget);
     expect(mountedRows.evaluate().length, lessThan(destinations.length ~/ 2));
-  });
+  }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
   testWidgets('shows preferred categories and opens their native lists', (
     tester,
@@ -2367,7 +2324,12 @@ void _registerShellNavigationTests() {
         final community = instance('community.example', title: 'Community');
         final support = instance('support.example', title: 'Support');
         final store = FakeInstanceStore([...twoSites, community, support]);
-        await pumpShell(tester, desktop, store: store);
+        await pumpShell(
+          tester,
+          desktop,
+          store: store,
+          revealMobileNavigation: true,
+        );
 
         final meta = railItem('meta.discourse.org');
         final team = railItem('team.discourse.org');
@@ -2483,6 +2445,7 @@ void _registerShellNavigationTests() {
           desktop,
           store: store,
           key: const ValueKey('restarted-after-reorder'),
+          revealMobileNavigation: true,
         );
 
         expect(
@@ -2505,7 +2468,12 @@ void _registerShellNavigationTests() {
           ...twoSites,
           instance('community.example', title: 'Community'),
         ]);
-        await pumpShell(tester, desktop, store: store);
+        await pumpShell(
+          tester,
+          desktop,
+          store: store,
+          revealMobileNavigation: true,
+        );
 
         final meta = railItem('meta.discourse.org');
         final team = railItem('team.discourse.org');
@@ -2553,7 +2521,12 @@ void _registerShellNavigationTests() {
         await onPlatform(platform, () async {
           final sites = overflowingSites();
           final store = FakeInstanceStore(sites);
-          await pumpShell(tester, phone, store: store);
+          await pumpShell(
+            tester,
+            phone,
+            store: store,
+            revealMobileNavigation: true,
+          );
 
           final scrollable = find.descendant(
             of: find.byType(InstanceRail),
@@ -2597,7 +2570,12 @@ void _registerShellNavigationTests() {
     ) async {
       await onPlatform(TargetPlatform.android, () async {
         final store = FakeInstanceStore(twoSites);
-        await pumpShell(tester, phone, store: store);
+        await pumpShell(
+          tester,
+          phone,
+          store: store,
+          revealMobileNavigation: true,
+        );
 
         final meta = railItem('meta.discourse.org');
         final team = railItem('team.discourse.org');
@@ -2649,7 +2627,12 @@ void _registerShellNavigationTests() {
       tester,
     ) async {
       final store = FakeInstanceStore(twoSites);
-      await pumpShell(tester, phone, store: store);
+      await pumpShell(
+        tester,
+        phone,
+        store: store,
+        revealMobileNavigation: true,
+      );
 
       final meta = railItem('meta.discourse.org');
       final teamRect = tester.getRect(railItem('team.discourse.org'));
@@ -2683,7 +2666,12 @@ void _registerShellNavigationTests() {
       tester,
     ) async {
       final store = FakeInstanceStore(twoSites);
-      await pumpShell(tester, phone, store: store);
+      await pumpShell(
+        tester,
+        phone,
+        store: store,
+        revealMobileNavigation: true,
+      );
 
       final meta = railItem('meta.discourse.org');
       final railRect = tester.getRect(find.byType(InstanceRail));
@@ -2719,7 +2707,12 @@ void _registerShellNavigationTests() {
       (tester) async {
         final sites = overflowingSites();
         final store = FakeInstanceStore(sites);
-        await pumpShell(tester, phone, store: store);
+        await pumpShell(
+          tester,
+          phone,
+          store: store,
+          revealMobileNavigation: true,
+        );
 
         Finder item(int index) =>
             find.byKey(ValueKey<String>(sites[index].url));
@@ -2795,7 +2788,12 @@ void _registerShellNavigationTests() {
       await onPlatform(TargetPlatform.iOS, () async {
         final sites = overflowingSites();
         final store = FakeInstanceStore(sites);
-        await pumpShell(tester, phone, store: store);
+        await pumpShell(
+          tester,
+          phone,
+          store: store,
+          revealMobileNavigation: true,
+        );
 
         Finder item(int index) =>
             find.byKey(ValueKey<String>(sites[index].url));
@@ -2871,7 +2869,12 @@ void _registerShellNavigationTests() {
     ) async {
       final sites = overflowingSites();
       final store = FakeInstanceStore(sites);
-      await pumpShell(tester, phone, store: store);
+      await pumpShell(
+        tester,
+        phone,
+        store: store,
+        revealMobileNavigation: true,
+      );
 
       final scrollable = find.descendant(
         of: find.byType(InstanceRail),
@@ -2908,7 +2911,12 @@ void _registerShellNavigationTests() {
       tester,
     ) async {
       final store = FakeInstanceStore(twoSites);
-      await pumpShell(tester, phone, store: store);
+      await pumpShell(
+        tester,
+        phone,
+        store: store,
+        revealMobileNavigation: true,
+      );
 
       final meta = railItem('meta.discourse.org');
       final center = tester.getCenter(meta);
@@ -2948,7 +2956,12 @@ void _registerShellNavigationTests() {
     testWidgets('one forum keeps its stationary touch actions', (tester) async {
       final only = instance('only.example', title: 'Only Forum');
       final store = FakeInstanceStore([only]);
-      await pumpShell(tester, phone, store: store);
+      await pumpShell(
+        tester,
+        phone,
+        store: store,
+        revealMobileNavigation: true,
+      );
 
       await tester.longPress(railItem('only.example'));
       await tester.pumpAndSettle();
@@ -2969,7 +2982,12 @@ void _registerShellNavigationTests() {
       tester,
     ) async {
       final store = FakeInstanceStore(twoSites);
-      await pumpShell(tester, phone, store: store);
+      await pumpShell(
+        tester,
+        phone,
+        store: store,
+        revealMobileNavigation: true,
+      );
 
       final meta = railItem('meta.discourse.org');
       final team = railItem('team.discourse.org');
@@ -3014,7 +3032,12 @@ void _registerShellNavigationTests() {
       tester,
     ) async {
       final store = FakeInstanceStore(twoSites);
-      await pumpShell(tester, phone, store: store);
+      await pumpShell(
+        tester,
+        phone,
+        store: store,
+        revealMobileNavigation: true,
+      );
 
       await tester.longPress(meta);
       await tester.pumpAndSettle();
@@ -3032,7 +3055,12 @@ void _registerShellNavigationTests() {
       final previous = debugDefaultTargetPlatformOverride;
       debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
       try {
-        await pumpShell(tester, desktop, key: const ValueKey('macos'));
+        await pumpShell(
+          tester,
+          desktop,
+          key: const ValueKey('macos'),
+          revealMobileNavigation: true,
+        );
 
         await tester.tap(meta, buttons: kSecondaryButton);
         await tester.pumpAndSettle();
@@ -3047,7 +3075,7 @@ void _registerShellNavigationTests() {
     testWidgets('holding a site does not pop its tooltip as well', (
       tester,
     ) async {
-      await pumpShell(tester, phone);
+      await pumpShell(tester, phone, revealMobileNavigation: true);
 
       final metaTooltip = find.descendant(
         of: meta,
@@ -3077,7 +3105,12 @@ void _registerShellNavigationTests() {
       tester,
     ) async {
       final store = FakeInstanceStore(twoSites);
-      await pumpShell(tester, phone, store: store);
+      await pumpShell(
+        tester,
+        phone,
+        store: store,
+        revealMobileNavigation: true,
+      );
 
       await tester.longPress(meta);
       await tester.pumpAndSettle();
@@ -3108,6 +3141,7 @@ void _registerShellNavigationTests() {
         store: store,
         api: api,
         authenticator: auth,
+        revealMobileNavigation: true,
       );
 
       await tester.longPress(meta);
@@ -3119,6 +3153,8 @@ void _registerShellNavigationTests() {
       await tester.tap(find.text('Remove'));
       await tester.pumpAndSettle();
 
+      await tester.tap(find.byKey(const ValueKey('mobile-menu-button')));
+      await tester.pumpAndSettle();
       expect(meta, findsNothing);
       expect(railItem('team.discourse.org'), findsOneWidget);
       expect(
@@ -3142,7 +3178,13 @@ void _registerShellNavigationTests() {
         ),
       );
 
-      await pumpShell(tester, phone, store: store, authenticator: auth);
+      await pumpShell(
+        tester,
+        phone,
+        store: store,
+        authenticator: auth,
+        revealMobileNavigation: true,
+      );
 
       await tester.longPress(meta);
       await tester.pumpAndSettle();
@@ -3166,7 +3208,12 @@ void _registerShellNavigationTests() {
         instance('meta.discourse.org', title: 'Discourse Meta'),
       ]);
 
-      await pumpShell(tester, desktop, store: store);
+      await pumpShell(
+        tester,
+        desktop,
+        store: store,
+        revealMobileNavigation: true,
+      );
 
       await tester.longPress(meta);
       await tester.pumpAndSettle();
@@ -3206,7 +3253,7 @@ void _registerShellNavigationTests() {
         },
       );
 
-      await pumpShell(tester, desktop, api: api);
+      await pumpShell(tester, desktop, api: api, revealMobileNavigation: true);
       await tester.tap(find.text('A real topic'));
       await tester.pumpAndSettle();
 
@@ -3240,6 +3287,7 @@ void _registerShellUpdateTests() {
         await pumpShell(
           tester,
           size,
+          revealMobileNavigation: true,
           updater: FakeUpdater(isSupported: true),
           updateStore: FakeUpdateStore(lastChecked: DateTime.now()),
         );

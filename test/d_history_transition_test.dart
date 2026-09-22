@@ -11,6 +11,7 @@ Future<_HistoryHarnessState> _pump(
   WidgetTester tester, {
   TextDirection direction = TextDirection.ltr,
   bool reducedMotion = false,
+  bool tabTransitions = false,
 }) async {
   await tester.binding.setSurfaceSize(const Size(400, 600));
   addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -21,7 +22,7 @@ Future<_HistoryHarnessState> _pump(
         data: MediaQuery.of(context).copyWith(disableAnimations: reducedMotion),
         child: Directionality(textDirection: direction, child: child!),
       ),
-      home: _HistoryHarness(key: key),
+      home: _HistoryHarness(key: key, tabTransitions: tabTransitions),
     ),
   );
   await tester.pumpAndSettle();
@@ -284,6 +285,92 @@ void main() {
     expect(find.byType(RawImage), findsNothing);
   });
 
+  for (final direction in TextDirection.values) {
+    testWidgets('ordered tabs push both pages in $direction', (tester) async {
+      final state = await _pump(
+        tester,
+        direction: direction,
+        tabTransitions: true,
+      );
+      final mirror = direction == TextDirection.rtl ? -1 : 1;
+      for (final (tab, sign) in [(3, 1), (1, -1), (4, 1)]) {
+        state.selectTab(tab);
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 70));
+        final incoming = tester
+            .widget<Transform>(
+              find.byKey(const ValueKey('history-incoming-tab')),
+            )
+            .transform
+            .getTranslation()
+            .x;
+        final outgoing = tester
+            .widget<Transform>(
+              find.byKey(const ValueKey('history-outgoing-tab')),
+            )
+            .transform
+            .getTranslation()
+            .x;
+        expect(incoming * sign * mirror, greaterThan(0));
+        expect(outgoing * sign * mirror, lessThan(0));
+        expect((incoming - outgoing).abs(), 400);
+        expect(find.byKey(_page), findsOneWidget);
+        expect(find.byType(RawImage), findsOneWidget);
+        expect(find.text('Page $tab'), findsOneWidget);
+        await tester.pumpAndSettle();
+        expect(tester.getTopLeft(_live).dx, 0);
+        expect(find.byType(RawImage), findsNothing);
+      }
+      expect(tester.takeException(), isNull);
+    });
+  }
+
+  testWidgets('tab changes respect reduced motion and owner changes', (
+    tester,
+  ) async {
+    final state = await _pump(
+      tester,
+      reducedMotion: true,
+      tabTransitions: true,
+    );
+    state.selectTab(2);
+    await tester.pumpAndSettle();
+    expect(tester.getTopLeft(_live).dx, 0);
+    expect(find.byType(RawImage), findsNothing);
+    await tester.pumpWidget(const SizedBox.shrink());
+    final animated = await _pump(tester, tabTransitions: true);
+    animated.selectTab(2);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+    expect(find.byType(RawImage), findsOneWidget);
+    animated.changeOwner();
+    await tester.pump();
+    expect(find.byType(RawImage), findsNothing);
+    expect(tester.getTopLeft(_live).dx, 0);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('rapid tab changes, resizing and disposal release previews', (
+    tester,
+  ) async {
+    final state = await _pump(tester, tabTransitions: true);
+    state.selectTab(3);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+    state.selectTab(1);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+    expect(find.byType(RawImage), findsOneWidget);
+    await tester.binding.setSurfaceSize(const Size(450, 600));
+    await tester.pumpAndSettle();
+    expect(find.byType(RawImage), findsNothing);
+    state.selectTab(4);
+    await tester.pump();
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('history-transition examples use the working component', (
     tester,
   ) async {
@@ -295,6 +382,13 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
+      if (example.title == 'Ordered tabs') {
+        await tester.tap(find.text('Messages'));
+        await tester.pumpAndSettle();
+        expect(find.text('Messages page'), findsOneWidget);
+        await tester.pumpWidget(const SizedBox.shrink());
+        continue;
+      }
       await tester.tap(find.text('Open Topics'));
       await tester.pumpAndSettle();
       expect(find.text('1 completed navigations'), findsOneWidget);
@@ -306,7 +400,8 @@ void main() {
 }
 
 class _HistoryHarness extends StatefulWidget {
-  const _HistoryHarness({super.key});
+  const _HistoryHarness({super.key, this.tabTransitions = false});
+  final bool tabTransitions;
 
   @override
   State<_HistoryHarness> createState() => _HistoryHarnessState();
@@ -318,6 +413,22 @@ class _HistoryHarnessState extends State<_HistoryHarness> {
   int index = 0;
   int furthest = 0;
   int swipes = 0;
+  late int? tabIndex = widget.tabTransitions ? 0 : null;
+  Object tabOwner = Object();
+
+  void selectTab(int tab) => setState(() {
+    history = Object();
+    tabIndex = tab;
+    index = tab;
+    furthest = tab;
+  });
+
+  void changeOwner() => setState(() {
+    tabOwner = Object();
+    history = Object();
+    tabIndex = 0;
+    index = 0;
+  });
 
   void visit(int page) => setState(() {
     index = page;
@@ -339,6 +450,8 @@ class _HistoryHarnessState extends State<_HistoryHarness> {
   @override
   Widget build(BuildContext context) => DHistoryTransition(
     history: history,
+    tabIndex: tabIndex,
+    tabOwner: tabOwner,
     entry: index,
     previousEntry: index > 0 ? index - 1 : null,
     nextEntry: index < furthest ? index + 1 : null,

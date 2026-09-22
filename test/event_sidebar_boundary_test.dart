@@ -8,8 +8,9 @@ import 'package:discourse_native/src/plugin_api/plugin_runtime.dart';
 import 'package:discourse_native/src/plugins/discourse_events/discourse_events_module.dart';
 import 'package:discourse_native/src/plugins/discourse_events/event_directory.dart';
 import 'package:discourse_native/src/shell/instance_sidebar.dart';
+import 'package:discourse_native/src/shell/main_content.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
-import 'package:flutter/foundation.dart' show TargetPlatform;
+import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -35,106 +36,124 @@ void main() {
     ('desktop account', desktop, const DiscourseUser(id: 2, username: 'lee')),
     ('anonymous phone', phone, null),
   ]) {
-    testWidgets('$label loads events from a server requiring ISO date bounds', (
-      tester,
-    ) async {
-      final site = instance(
-        'forum.example',
-      ).copyWith(user: user, config: _config());
-      final requests = <http.Request>[];
-      final eventApi = DiscourseApi(
-        client: MockClient((request) async {
-          requests.add(request);
-          // Older EventsController versions call String#to_datetime while
-          // expanding nonempty results, even though Finder accepts "now".
-          if (DateTime.tryParse(request.url.queryParameters['after'] ?? '') ==
-              null) {
-            return http.Response('{"errors":["invalid date"]}', 500);
-          }
-          return http.Response(
-            jsonEncode({
-              'events': [
-                eventJson(
-                  overrides: {
-                    'occurrences': [
-                      {
-                        'starts_at': '2026-09-08T23:00:00+02:00',
-                        'ends_at': '2026-09-09T00:00:00+02:00',
-                      },
-                    ],
-                  },
-                ),
-              ],
-            }),
-            200,
-            headers: {'content-type': 'application/json'},
+    testWidgets(
+      '$label loads events from a server requiring ISO date bounds',
+      (tester) async {
+        final site = instance(
+          'forum.example',
+        ).copyWith(user: user, config: _config());
+        final requests = <http.Request>[];
+        final eventApi = DiscourseApi(
+          client: MockClient((request) async {
+            requests.add(request);
+            // Older EventsController versions call String#to_datetime while
+            // expanding nonempty results, even though Finder accepts "now".
+            if (DateTime.tryParse(request.url.queryParameters['after'] ?? '') ==
+                null) {
+              return http.Response('{"errors":["invalid date"]}', 500);
+            }
+            return http.Response(
+              jsonEncode({
+                'events': [
+                  eventJson(
+                    overrides: {
+                      'occurrences': [
+                        {
+                          'starts_at': '2026-09-08T23:00:00+02:00',
+                          'ends_at': '2026-09-09T00:00:00+02:00',
+                        },
+                      ],
+                    },
+                  ),
+                ],
+              }),
+              200,
+              headers: {'content-type': 'application/json'},
+            );
+          }),
+        );
+        addTearDown(eventApi.close);
+        final api = _EventListApi(
+          events: eventApi,
+          user: user,
+          siteConfigs: {site.url: site.config},
+        );
+        await pumpShell(
+          tester,
+          size,
+          instances: [site],
+          api: api,
+          pluginManifest: _manifest,
+        );
+        final controller = ShellScope.read(
+          tester.element(find.byType(MainContent)),
+        );
+        final mobile = controller.mobileNavigationEnabled;
+        final upcoming = mobile
+            ? find.byKey(const ValueKey('mobile-mode-events'))
+            : sidebarDestination('Upcoming events');
+        expect(upcoming, findsOneWidget);
+        expect(sidebarDestination('My events'), findsNothing);
+        if (!mobile) {
+          expect(
+            tester.getTopLeft(upcoming).dy,
+            lessThan(tester.getTopLeft(sidebarDestination('More')).dy),
           );
-        }),
-      );
-      addTearDown(eventApi.close);
-      final api = _EventListApi(
-        events: eventApi,
-        user: user,
-        siteConfigs: {site.url: site.config},
-      );
-      await pumpShell(
-        tester,
-        size,
-        instances: [site],
-        api: api,
-        pluginManifest: _manifest,
-      );
-      final controller = ShellScope.read(
-        tester.element(find.byType(InstanceSidebar)),
-      );
-      final upcoming = sidebarDestination('Upcoming events');
-      expect(upcoming, findsOneWidget);
-      expect(sidebarDestination('My events'), findsNothing);
-      expect(
-        tester.getTopLeft(upcoming).dy,
-        lessThan(tester.getTopLeft(sidebarDestination('More')).dy),
-      );
+        }
 
-      await tester.tap(upcoming);
-      await tester.pumpAndSettle();
-
-      expect(controller.currentContent?.id, 'events-upcoming');
-      expect(controller.destinationId, 'events-upcoming');
-      expect(find.byType(EventDirectory), findsOneWidget);
-      expect(
-        find.textContaining('Engineering Managers Call', findRichText: true),
-        findsOneWidget,
-      );
-      expect(requests.map((request) => (request.method, request.url.path)), [
-        ('GET', _eventsPath),
-      ]);
-      expect(requests.single.url.queryParameters, _query());
-
-      if (user != null) {
-        await tester.tap(contentText('My events'));
+        await tester.tap(upcoming);
         await tester.pumpAndSettle();
 
-        expect(controller.currentContent?.id, startsWith('events-mine/month/'));
+        expect(controller.currentContent?.id, 'events-upcoming');
         expect(controller.destinationId, 'events-upcoming');
+        expect(find.byType(EventDirectory), findsOneWidget);
         expect(
           find.textContaining('Engineering Managers Call', findRichText: true),
           findsOneWidget,
         );
         expect(requests.map((request) => (request.method, request.url.path)), [
           ('GET', _eventsPath),
-          ('GET', _eventsPath),
         ]);
-        expect(requests.last.url.queryParameters, _query(mine: true));
-      } else {
-        expect(find.byType(InstanceSidebar), findsNothing);
-        while (controller.canPopContent) {
-          controller.handleBack(canReturnToSidebar: false);
+        expect(requests.single.url.queryParameters, _query());
+
+        if (user != null) {
+          await tester.tap(contentText('My events'));
+          await tester.pumpAndSettle();
+
+          expect(
+            controller.currentContent?.id,
+            startsWith('events-mine/month/'),
+          );
+          expect(controller.destinationId, 'events-upcoming');
+          expect(
+            find.textContaining(
+              'Engineering Managers Call',
+              findRichText: true,
+            ),
+            findsOneWidget,
+          );
+          expect(
+            requests.map((request) => (request.method, request.url.path)),
+            [('GET', _eventsPath), ('GET', _eventsPath)],
+          );
+          expect(requests.last.url.queryParameters, _query(mine: true));
+        } else {
+          expect(find.byType(InstanceSidebar), findsNothing);
+          while (controller.canPopContent) {
+            controller.handleBack(canReturnToSidebar: false);
+          }
+          controller.handleBack(canReturnToSidebar: true);
+          await tester.pumpAndSettle();
+          expect(
+            find.byKey(const ValueKey('mobile-mode-events')),
+            findsOneWidget,
+          );
         }
-        controller.handleBack(canReturnToSidebar: true);
-        await tester.pumpAndSettle();
-        expect(sidebarDestination('Upcoming events'), findsOneWidget);
-      }
-    });
+      },
+      variant: TargetPlatformVariant.only(
+        user == null ? TargetPlatform.iOS : TargetPlatform.linux,
+      ),
+    );
   }
 
   testWidgets('site switches hide unavailable or disabled event links', (

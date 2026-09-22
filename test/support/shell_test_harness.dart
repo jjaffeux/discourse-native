@@ -72,6 +72,7 @@ Future<void> pumpShell(
   Future<void> Function()? beforeSettle,
   http.Client? mediaClient,
   PluginManifest? pluginManifest,
+  bool revealMobileNavigation = false,
 }) async {
   tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1.0;
@@ -102,6 +103,13 @@ Future<void> pumpShell(
     await beforeSettle();
   }
   await tester.pumpAndSettle();
+  if (revealMobileNavigation) {
+    final menu = find.byKey(const ValueKey('mobile-menu-button'));
+    if (menu.evaluate().isNotEmpty) {
+      await tester.tap(menu);
+      await tester.pumpAndSettle();
+    }
+  }
 }
 
 /// HtmlWidget renders into a bare RichText, which find.text and

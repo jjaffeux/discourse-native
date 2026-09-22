@@ -1,6 +1,9 @@
 import '../models/forum_workspace.dart';
 
-/// A mobile visit history starts at the sidebar, independently of desktop tabs.
+/// The visual order of the mobile navigation buttons, including optional tabs.
+enum MobileTab { topics, chat, messages, users, events, more }
+
+/// A mobile visit history starts at a tab root, independently of desktop tabs.
 /// Entries contain shared route metadata, never widgets or feature data. The
 /// shell projects only the current entry into the shared content renderer.
 final class MobileNavigation {
@@ -13,6 +16,9 @@ final class MobileNavigation {
   Object _historyId = Object();
   int _index = 0;
   String? _panelOwner;
+  MobileTab _tab = MobileTab.topics;
+
+  MobileTab get tab => _tab;
 
   String? get panelOwner => _panelOwner;
   ForumTabLocation? get location => _entries[_index].content;
@@ -33,12 +39,18 @@ final class MobileNavigation {
     required Object? owner,
     required ForumTabLocation? location,
     bool aggregate = false,
+    bool contentRoot = false,
   }) {
     if (_owner != owner) {
       _owner = owner;
       reset();
     }
     final content = aggregate ? null : location;
+    if (contentRoot && atRoot && _panelOwner == null && content != null) {
+      _entries = [(id: entryId, content: content, aggregate: false)];
+      _index = 0;
+      return;
+    }
     if (aggregate == _entries[_index].aggregate &&
         _sameDestination(content, _entries[_index].content)) {
       // Retain refreshed titles and other non-identity route metadata.
@@ -58,7 +70,7 @@ final class MobileNavigation {
   }
 
   /// Filter and explicit replacement commands update the current visit.
-  /// Replacing from Home still opens the first page during synchronization.
+  /// A sidebar root opens its first page during synchronization.
   void replaceCurrent(ForumTabLocation location) {
     if (atRoot) return;
     _entries = [
@@ -85,12 +97,20 @@ final class MobileNavigation {
   void selectPanel(String? owner) {
     if (_panelOwner == owner) return;
     _panelOwner = owner;
+    _tab = owner == 'chat' ? MobileTab.chat : MobileTab.topics;
+    _resetHistory();
+  }
+
+  void selectTab(MobileTab tab) {
+    _tab = tab;
+    _panelOwner = tab == MobileTab.chat ? 'chat' : null;
     _resetHistory();
   }
 
   void reset() {
     _resetHistory();
     _panelOwner = null;
+    _tab = MobileTab.topics;
   }
 
   void _resetHistory() {

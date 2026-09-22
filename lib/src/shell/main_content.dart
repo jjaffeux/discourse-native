@@ -18,6 +18,7 @@ import '../theme/app_theme.dart';
 import '../theme/d_icons.dart';
 import 'adaptive_shell.dart';
 import 'badges_host.dart';
+import 'bookmark_list.dart';
 import 'categories_page.dart';
 import 'category_icon.dart';
 import 'category_notifications.dart';
@@ -243,7 +244,9 @@ class _MainContentBody extends StatelessWidget {
                   siteUrl: state.siteUrl,
                   canPop: state.canPop,
                   showCreateTopicAction:
-                      pluginContent == null && !usesTopicToolbar,
+                      pluginContent == null &&
+                      !usesTopicToolbar &&
+                      !ShellScope.read(context).mobileNavigationEnabled,
                   searchOnly: usesTopicToolbar,
                   isConnected: state.isConnected,
                   registry: registry,
@@ -372,7 +375,9 @@ class _TopicInboxWorkspaceState extends State<_TopicInboxWorkspace> {
         Widget heading(Widget? navigation) => Row(
           key: const ValueKey('topic-list-heading'),
           children: [
-            if (layout.isCompact)
+            if (layout.isCompact &&
+                (!controller.mobileNavigationEnabled ||
+                    controller.canPopContent))
               DButton.iconOnly(
                 icon: const DIcon(DIcons.arrowLeft),
                 tooltip: 'Back',
@@ -525,33 +530,36 @@ class _TopicInboxWorkspaceState extends State<_TopicInboxWorkspace> {
                                   split: split,
                                 )
                               : null,
-                          footer: TopicListBottomBar(
-                            leading: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Flexible(child: createAction),
-                                if (state.isConnected &&
-                                    state.siteUrl != null &&
-                                    sourceRoute.categoryId != null) ...[
-                                  const SizedBox(width: DSpacing.sm),
-                                  CategoryNotificationLevelButton(
-                                    siteUrl: state.siteUrl!,
-                                    categoryId: sourceRoute.categoryId!,
-                                    showLabel:
-                                        listWidth >= 440 * buttonTextScale,
+                          footer: controller.mobileNavigationEnabled
+                              ? null
+                              : TopicListBottomBar(
+                                  leading: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Flexible(child: createAction),
+                                      if (state.isConnected &&
+                                          state.siteUrl != null &&
+                                          sourceRoute.categoryId != null) ...[
+                                        const SizedBox(width: DSpacing.sm),
+                                        CategoryNotificationLevelButton(
+                                          siteUrl: state.siteUrl!,
+                                          categoryId: sourceRoute.categoryId!,
+                                          showLabel:
+                                              listWidth >=
+                                              440 * buttonTextScale,
+                                        ),
+                                      ],
+                                    ],
                                   ),
-                                ],
-                              ],
-                            ),
-                            // The footer padding already clears the desktop handle.
-                            trailingInset: split
-                                ? DResizableHandle.resolveHitExtent(
-                                        context,
-                                        8,
-                                      ) -
-                                      topicBottomBarPadding.horizontal / 2
-                                : 0,
-                          ),
+                                  // The footer padding already clears the desktop handle.
+                                  trailingInset: split
+                                      ? DResizableHandle.resolveHitExtent(
+                                              context,
+                                              8,
+                                            ) -
+                                            topicBottomBarPadding.horizontal / 2
+                                      : 0,
+                                ),
                           child: _FeedBackedContent(
                             route: sourceRoute,
                             siteUrl: state.siteUrl,
@@ -701,6 +709,11 @@ class _ContentViewport extends StatelessWidget {
     }
     if (!route.isTopic && route.id == 'summary' && siteUrl != null) {
       return UserSummaryView(siteUrl: siteUrl!);
+    }
+    if (route.id == 'user-bookmarks' && siteUrl != null && isConnected) {
+      return SingleChildScrollView(
+        child: BookmarkSection(siteUrl: siteUrl!, onOpened: () {}),
+      );
     }
     if (route.isPreferences && siteUrl != null) {
       return PreferencesPage(siteUrl: siteUrl!);
@@ -864,11 +877,14 @@ class _ContentHeader extends StatelessWidget {
       route,
     );
     final groupBackIntent = groupPages.page.isOwned
-        ? groupPages.backIntent(canReturnToSidebar: layout.isCompact)
+        ? groupPages.backIntent(
+            canReturnToSidebar:
+                layout.isCompact && !controller.mobileNavigationEnabled,
+          )
         : null;
     final showBack = groupBackIntent != null
         ? groupBackIntent != GroupPagesBackIntent.none
-        : layout.isCompact || canPop;
+        : (!controller.mobileNavigationEnabled && layout.isCompact) || canPop;
 
     return Container(
       height: shellHeaderHeight,
@@ -899,7 +915,9 @@ class _ContentHeader extends StatelessWidget {
                   onPressed: () {
                     if (groupBackIntent != null) {
                       groupPages.handleBack(
-                        canReturnToSidebar: layout.isCompact,
+                        canReturnToSidebar:
+                            layout.isCompact &&
+                            !controller.mobileNavigationEnabled,
                       );
                     } else {
                       controller.handleBack(

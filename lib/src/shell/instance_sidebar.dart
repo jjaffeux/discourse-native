@@ -19,6 +19,7 @@ import 'forum_search.dart';
 import 'forum_settings_dialog.dart';
 import 'forum_theme_surfaces.dart';
 import 'instance_actions.dart';
+import 'mobile_navigation.dart';
 import 'open_link.dart';
 import 'platform.dart';
 import 'shell_metrics.dart';
@@ -151,6 +152,7 @@ class InstanceSidebar extends StatelessWidget {
     this.sectionStore,
     this.mobile = false,
     this.panelOwner,
+    this.onNavigate,
   });
 
   final bool showUserMenu;
@@ -159,6 +161,7 @@ class InstanceSidebar extends StatelessWidget {
   /// Mobile roots own their header and select sidebar modes in the bottom bar.
   final bool mobile;
   final String? panelOwner;
+  final VoidCallback? onNavigate;
 
   @override
   Widget build(BuildContext context) => ForumSidebarTheme(
@@ -227,6 +230,7 @@ class InstanceSidebar extends StatelessWidget {
                 showUserMenu: showUserMenu,
                 mobile: mobile,
                 panelOwner: panelOwner,
+                onNavigate: onNavigate,
                 sectionStore:
                     sectionStore ?? ShellScope.read(context).sidebarSections,
               ),
@@ -246,6 +250,7 @@ class _SidebarPanelBody extends StatefulWidget {
     required this.sectionStore,
     required this.mobile,
     required this.panelOwner,
+    required this.onNavigate,
   });
 
   final _SidebarSnapshot sidebar;
@@ -254,6 +259,7 @@ class _SidebarPanelBody extends StatefulWidget {
   final SidebarSectionStore sectionStore;
   final bool mobile;
   final String? panelOwner;
+  final VoidCallback? onNavigate;
 
   @override
   State<_SidebarPanelBody> createState() => _SidebarPanelBodyState();
@@ -267,6 +273,8 @@ class _SidebarPanelBodyState extends State<_SidebarPanelBody> {
   SidebarSectionStore get sectionStore => widget.sectionStore;
   bool get showUserMenu => widget.showUserMenu;
   double get width => widget.width;
+
+  bool _shortcuts = false;
 
   @override
   Widget build(BuildContext context) {
@@ -332,12 +340,47 @@ class _SidebarPanelBodyState extends State<_SidebarPanelBody> {
       return !panels.any((candidate) => candidate.includesOwner(owner));
     }
 
+    final customSections = [
+      for (final section in sidebar.sections)
+        if (section.id.startsWith('custom-')) section,
+      for (final section in sidebar.sections)
+        if (section.id == 'community' &&
+            section.moreDestinations.any(
+              (destination) => destination.url != null,
+            ))
+          SidebarSection(
+            id: 'mobile-shortcuts',
+            title: 'Shortcuts',
+            showHeader: false,
+            collapsible: false,
+            destinations: section.moreDestinations
+                .where((destination) => destination.url != null)
+                .toList(),
+          ),
+    ];
+
     return DSidebar(
       width: width,
       collapsible: DSidebarCollapsible.none,
       semanticLabel: '${activePanel?.panel.label ?? 'Forum'} navigation',
       header: widget.mobile
-          ? null
+          ? showCoreSections
+                ? DSidebarHeader(
+                    child: DTabs<bool>.controlled(
+                      value: _shortcuts,
+                      onChanged: (value) =>
+                          setState(() => _shortcuts = value ?? false),
+                      children: const [
+                        DTabList<bool>(
+                          children: [
+                            DTabTrigger(value: false, child: Text('Forum')),
+                            DTabTrigger(value: true, child: Text('Shortcuts')),
+                          ],
+                        ),
+                      ],
+                    ),
+                  )
+                : null
           : Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
@@ -388,9 +431,18 @@ class _SidebarPanelBodyState extends State<_SidebarPanelBody> {
                           builder: (context, _) => SliverMainAxisGroup(
                             slivers: [
                               for (final (sections, loading) in [
-                                (sidebar.sections, false),
                                 (
-                                  sidebar.navigationSections,
+                                  widget.mobile
+                                      ? (_shortcuts
+                                            ? customSections
+                                            : <SidebarSection>[])
+                                      : sidebar.sections,
+                                  false,
+                                ),
+                                (
+                                  widget.mobile && _shortcuts
+                                      ? <SidebarSection>[]
+                                      : sidebar.navigationSections,
                                   sidebar.navigationLoading,
                                 ),
                               ])
@@ -442,6 +494,7 @@ class _SidebarPanelBodyState extends State<_SidebarPanelBody> {
                                               : null,
                                           insertAfterDestinationId: 'messages',
                                           onSelect: (destination) {
+                                            widget.onNavigate?.call();
                                             if (destination.id ==
                                                 _newTopicDestinationId) {
                                               unawaited(
@@ -463,9 +516,17 @@ class _SidebarPanelBodyState extends State<_SidebarPanelBody> {
                                             }
                                             final url = destination.url;
                                             if (url == null) {
-                                              controller.selectDestination(
-                                                destination,
-                                              );
+                                              if (widget.mobile) {
+                                                controller
+                                                    .selectMobileDestination(
+                                                      MobileTab.topics,
+                                                      destination,
+                                                    );
+                                              } else {
+                                                controller.selectDestination(
+                                                  destination,
+                                                );
+                                              }
                                             } else {
                                               unawaited(
                                                 openLink(
@@ -484,47 +545,48 @@ class _SidebarPanelBodyState extends State<_SidebarPanelBody> {
                             ],
                           ),
                         ),
-                      ListenableBuilder(
-                        listenable: Listenable.merge(
-                          registry.sidebarListenables(
-                            context,
-                            includeOwner: includePluginOwner,
-                          ),
-                        ),
-                        builder: (context, _) {
-                          final sections = registry.sidebarSections(
-                            context,
-                            includeOwner: includePluginOwner,
-                          );
-                          return _RestoredSidebarSections(
-                            siteUrl: sidebar.siteUrl!,
-                            sections: sections,
-                            store: sectionStore,
-                            child: SliverMainAxisGroup(
-                              slivers: [
-                                for (final section in sections)
-                                  _Section(
-                                    key: ValueKey((
-                                      sidebar.siteUrl,
-                                      section.id,
-                                    )),
-                                    siteUrl: sidebar.siteUrl!,
-                                    section: section,
-                                    store: sectionStore,
-                                    selectedId: widget.mobile
-                                        ? null
-                                        : selectedPanel
-                                                  ?.panel
-                                                  .selectedDestinationId ??
-                                              sidebar.destinationId,
-                                    badgeFor: controller.sidebarBadgeFor,
-                                    onSelect: controller.selectDestination,
-                                  ),
-                              ],
+                      if (!widget.mobile || !showCoreSections)
+                        ListenableBuilder(
+                          listenable: Listenable.merge(
+                            registry.sidebarListenables(
+                              context,
+                              includeOwner: includePluginOwner,
                             ),
-                          );
-                        },
-                      ),
+                          ),
+                          builder: (context, _) {
+                            final sections = registry.sidebarSections(
+                              context,
+                              includeOwner: includePluginOwner,
+                            );
+                            return _RestoredSidebarSections(
+                              siteUrl: sidebar.siteUrl!,
+                              sections: sections,
+                              store: sectionStore,
+                              child: SliverMainAxisGroup(
+                                slivers: [
+                                  for (final section in sections)
+                                    _Section(
+                                      key: ValueKey((
+                                        sidebar.siteUrl,
+                                        section.id,
+                                      )),
+                                      siteUrl: sidebar.siteUrl!,
+                                      section: section,
+                                      store: sectionStore,
+                                      selectedId: widget.mobile
+                                          ? null
+                                          : selectedPanel
+                                                    ?.panel
+                                                    .selectedDestinationId ??
+                                                sidebar.destinationId,
+                                      badgeFor: controller.sidebarBadgeFor,
+                                      onSelect: controller.selectDestination,
+                                    ),
+                                ],
+                              ),
+                            );
+                          },
+                        ),
                     ],
                   ),
                 ),
@@ -646,6 +708,7 @@ class ForumIdentityHeader extends StatelessWidget {
     required this.monogram,
     required this.accentColor,
     this.compact = false,
+    this.showName = false,
   });
   final String siteUrl;
   final String name;
@@ -653,6 +716,7 @@ class ForumIdentityHeader extends StatelessWidget {
   final String monogram;
   final Color accentColor;
   final bool compact;
+  final bool showName;
 
   @override
   Widget build(BuildContext context) {
@@ -709,7 +773,33 @@ class ForumIdentityHeader extends StatelessWidget {
         ],
       ),
       child: DDropdownMenuTrigger(
-        builder: (context, menu) => compact
+        builder: (context, menu) => compact && showName
+            ? DButton(
+                key: const ValueKey('forum-identity-button'),
+                icon: logo,
+                label: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Flexible(
+                      child: Text(
+                        name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    const DIcon(DIcons.chevronDown),
+                  ],
+                ),
+                tooltip: name,
+                semanticLabel: '$name, forum menu',
+                variant: DButtonVariant.ghost,
+                size: DButtonSize.large,
+                focusNode: menu.focusNode,
+                hasPopup: true,
+                expanded: menu.open,
+                onPressed: menu.toggle,
+              )
+            : compact
             ? DButton.iconOnly(
                 key: const ValueKey('forum-identity-button'),
                 icon: logo,

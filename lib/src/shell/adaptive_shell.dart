@@ -651,36 +651,8 @@ class _ForumBoundaryShell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (ShellScope.read(context).mobileNavigationEnabled) {
-      final shell = ShellScope.of(context);
-      return ColoredBox(
-        color: Theme.of(context).shell.content,
-        child: SafeArea(
-          child: MobileHistoryGestures(
-            child: shell.mobilePane == MobilePane.sidebar
-                ? MobileForumRoot(content: child)
-                : PopScope(
-                    canPop: false,
-                    onPopInvokedWithResult: (didPop, _) {
-                      if (!didPop) shell.handleBack();
-                    },
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Align(
-                          alignment: AlignmentDirectional.centerStart,
-                          child: DButton.iconOnly(
-                            icon: const DIcon(DIcons.arrowLeft),
-                            tooltip: 'Back',
-                            variant: DButtonVariant.ghost,
-                            onPressed: () => shell.handleBack(),
-                          ),
-                        ),
-                        Expanded(child: child),
-                      ],
-                    ),
-                  ),
-          ),
-        ),
+      return ForumWindowBackground(
+        child: SafeArea(child: MobileForumRoot(content: child, boundary: true)),
       );
     }
     return Column(
@@ -923,93 +895,64 @@ class _MobileShell extends StatelessWidget {
         unawaited(SystemNavigator.pop());
       }
     },
-    child: ColoredBox(
-      color: Theme.of(context).shell.content,
+    child: ForumWindowBackground(
       child: SafeArea(
-        child: MobileHistoryGestures(
-          child:
-              ShellSelector<
-                ({
-                  InstanceLoadStatus loadStatus,
-                  bool hasInstances,
-                  MobilePane pane,
-                  ShellRootMode rootMode,
-                })
-              >(
-                select: (shell) => (
-                  loadStatus: shell.loadStatus,
-                  hasInstances: shell.hasInstances,
-                  pane: shell.mobilePane,
-                  rootMode: shell.rootMode,
-                ),
-                builder: (context, state, _) {
-                  Widget homeStatus(Widget child) => Row(
-                    children: [
-                      const SizedBox(width: 48, child: InstanceRail()),
-                      Expanded(child: child),
-                    ],
-                  );
-                  if (state.loadStatus == InstanceLoadStatus.loading) {
-                    return homeStatus(const _ShellLoadProgress());
-                  }
-                  if (state.loadStatus == InstanceLoadStatus.failed) {
-                    return homeStatus(const _ShellLoadFailure());
-                  }
-                  if (!state.hasInstances) {
-                    return homeStatus(const EmptyState());
-                  }
-                  final root =
-                      state.pane == MobilePane.sidebar &&
-                      state.rootMode == ShellRootMode.forum;
-                  return _PageComposerDock(
-                    child: Stack(
-                      fit: StackFit.expand,
-                      children: [
-                        // Keep sidebar scroll positions and Chat's Channels/DMs
-                        // selection while a content page is open. Only one shared
-                        // content renderer is mounted, so hidden pages never bind
-                        // themselves to a different current route or mark it read.
-                        Offstage(
-                          offstage: !root,
-                          child: TickerMode(
-                            enabled: root,
-                            child: ExcludeFocus(
-                              excluding: !root,
-                              child: const MobileForumRoot(),
-                            ),
-                          ),
-                        ),
-                        if (!root)
-                          if (state.rootMode == ShellRootMode.aggregate)
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                              children: [
-                                Align(
-                                  alignment: AlignmentDirectional.centerStart,
-                                  child: DButton.iconOnly(
-                                    icon: const DIcon(DIcons.arrowLeft),
-                                    tooltip: 'Back',
-                                    variant: DButtonVariant.ghost,
-                                    onPressed: () =>
-                                        ShellScope.read(context).handleBack(),
-                                  ),
-                                ),
-                                const Expanded(child: AggregateView()),
-                              ],
-                            )
-                          else
-                            MainContent(
-                              key: ComposerPresentationHost.contentKeyOf(
-                                context,
-                              ),
-                              layout: ShellLayout.compact,
-                            ),
-                      ],
-                    ),
-                  );
-                },
+        child:
+            ShellSelector<
+              ({
+                InstanceLoadStatus loadStatus,
+                bool hasInstances,
+                ShellRootMode rootMode,
+              })
+            >(
+              select: (shell) => (
+                loadStatus: shell.loadStatus,
+                hasInstances: shell.hasInstances,
+                rootMode: shell.rootMode,
               ),
-        ),
+              builder: (context, state, _) {
+                Widget homeStatus(Widget child) => Row(
+                  children: [
+                    const SizedBox(width: 48, child: InstanceRail()),
+                    Expanded(child: child),
+                  ],
+                );
+                if (state.loadStatus == InstanceLoadStatus.loading) {
+                  return homeStatus(const _ShellLoadProgress());
+                }
+                if (state.loadStatus == InstanceLoadStatus.failed) {
+                  return homeStatus(const _ShellLoadFailure());
+                }
+                if (!state.hasInstances) {
+                  return homeStatus(const EmptyState());
+                }
+                return _PageComposerDock(
+                  child: MobileForumRoot(
+                    content: state.rootMode == ShellRootMode.aggregate
+                        ? Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              Align(
+                                alignment: AlignmentDirectional.centerStart,
+                                child: DButton.iconOnly(
+                                  icon: const DIcon(DIcons.arrowLeft),
+                                  tooltip: 'Back',
+                                  variant: DButtonVariant.ghost,
+                                  onPressed: () =>
+                                      ShellScope.read(context).handleBack(),
+                                ),
+                              ),
+                              const Expanded(child: AggregateView()),
+                            ],
+                          )
+                        : MainContent(
+                            key: ComposerPresentationHost.contentKeyOf(context),
+                            layout: ShellLayout.compact,
+                          ),
+                  ),
+                );
+              },
+            ),
       ),
     ),
   );
