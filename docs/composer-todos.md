@@ -10,8 +10,8 @@ for copying, drafts and submission.
 Click a checkbox or focus it and press Space to change its state. Completed
 text is muted and crossed out; an empty item shows a “To-do” hint. Toggle and
 insert commands have separate undo entries. Return starts an unchecked item,
-Return on an empty item exits the list and inserts a line break, leaving a
-blank line after the previous item. Shift+Return inserts a plain line break,
+Return on an empty item exits the list on the existing line without adding
+an extra line break. Shift+Return inserts a plain line break,
 and Backspace at the beginning of the item removes its checklist prefix.
 Horizontal arrows and line-start commands skip the hidden marker. Code,
 escaped markers and reference links retain their literal editing behavior.

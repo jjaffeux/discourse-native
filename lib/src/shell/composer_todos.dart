@@ -131,8 +131,8 @@ class ComposerTodoInputFormatter extends TextInputFormatter {
       if (HardwareKeyboard.instance.isShiftPressed) return newValue;
       if (oldValue.text.substring(todo.contentStart, todo.end).trim().isEmpty) {
         return TextEditingValue(
-          text: oldValue.text.replaceRange(todo.start, todo.end, '\n'),
-          selection: TextSelection.collapsed(offset: todo.start + 1),
+          text: oldValue.text.replaceRange(todo.start, todo.end, ''),
+          selection: TextSelection.collapsed(offset: todo.start),
         );
       }
       final prefix =
