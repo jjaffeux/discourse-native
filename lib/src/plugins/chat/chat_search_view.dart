@@ -109,7 +109,7 @@ class _ChatSearchViewState extends State<ChatSearchView> {
     if (state.hits.isEmpty &&
         (state.phase == ChatSearchPhase.waiting ||
             state.phase == ChatSearchPhase.loading)) {
-      return const Center(child: DSpinner(size: DSpacing.xl));
+      return const SizedBox.shrink();
     }
     if (state.phase == ChatSearchPhase.empty) {
       return const _SearchMessage(
@@ -137,10 +137,7 @@ class _ChatSearchViewState extends State<ChatSearchView> {
         itemBuilder: (context, index) {
           if (index == state.hits.length) {
             if (state.loadingMore) {
-              return const Padding(
-                padding: EdgeInsets.all(20),
-                child: Center(child: DSpinner(size: DSpacing.xl)),
-              );
+              return const SizedBox.shrink();
             }
             return Padding(
               padding: const EdgeInsets.all(12),

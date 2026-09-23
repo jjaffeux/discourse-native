@@ -25,7 +25,7 @@ const _siteUrl = 'https://meta.example';
 
 void main() {
   for (final empty in [false, true]) {
-    testWidgets('pull refreshes activity and recovers errors, empty: $empty', (
+    testWidgets('pull does not refresh activity, empty: $empty', (
       tester,
     ) async {
       const topic = UserActivityItem(
@@ -44,33 +44,12 @@ void main() {
         _section(controller, const UserActivityView(siteUrl: _siteUrl)),
       );
       await tester.pumpAndSettle();
-      final refresh = find.byType(DPullToRefresh);
-      final refreshState = tester.state(refresh);
-      api.activityResponse = Completer<UserActivityPage>();
-      await tester.drag(refresh, const Offset(0, 500));
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 300));
-      expect(api.userActivitySites, [_siteUrl, _siteUrl]);
-      expect(find.bySemanticsLabel('Refreshing'), findsOneWidget);
-      api.activityResponse!.completeError(Exception('offline'));
+      expect(find.byType(DPullToRefresh), findsNothing);
+      await tester.drag(find.byType(Scrollable).last, const Offset(0, 500));
       await tester.pumpAndSettle();
-      expect(tester.state(refresh), same(refreshState));
-      expect(
-        controller.accountActivity.userActivityFor(_siteUrl).error,
-        isNotNull,
-      );
+      expect(api.userActivitySites, [_siteUrl]);
       if (!empty) expect(find.text(topic.title), findsOneWidget);
-      api.activityResponse = Completer<UserActivityPage>();
-      await tester.drag(refresh, const Offset(0, 500));
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 300));
-      expect(api.userActivitySites, [_siteUrl, _siteUrl, _siteUrl]);
-      api.activityResponse!.complete(
-        const UserActivityPage(items: [topic], rawItemCount: 1),
-      );
-      await tester.pumpAndSettle();
-      expect(find.text(topic.title), findsOneWidget);
-      expect(find.bySemanticsLabel('Refreshing'), findsNothing);
+      expect(find.byType(DSpinner), findsNothing);
       expect(tester.takeException(), isNull);
     });
   }

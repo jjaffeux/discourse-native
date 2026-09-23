@@ -23,7 +23,7 @@ class UserMenuMessage extends StatelessWidget {
       constraints: BoxConstraints(minHeight: height),
       child: Center(
         child: message == null
-            ? const SizedBox(width: 22, height: 22, child: DSpinner())
+            ? const SizedBox.shrink()
             : Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: Column(

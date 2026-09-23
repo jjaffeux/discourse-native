@@ -75,8 +75,7 @@ class ContentNavigationControls extends StatelessWidget {
                 ),
                 variant: DButtonVariant.ghost,
                 size: DButtonSize.large,
-                loading: state.refreshing,
-                onPressed: state.refresh
+                onPressed: state.refresh && !state.refreshing
                     ? () => unawaited(controller.refreshCurrentTab())
                     : null,
               ),

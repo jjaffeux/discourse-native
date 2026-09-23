@@ -251,7 +251,7 @@ void main() {
       expect(_offsets(api), [0, 2, 2]);
     });
 
-    testWidgets('can pull to refresh an exhausted empty filtered result', (
+    testWidgets('pull does not refresh an exhausted empty filtered result', (
       tester,
     ) async {
       final api = _BrowseApi(
@@ -272,9 +272,9 @@ void main() {
       await tester.drag(find.byType(ListView), const Offset(0, 350));
       await tester.pumpAndSettle();
 
-      expect(_card(2), findsOneWidget);
-      expect(find.text(_emptyMessage), findsNothing);
-      expect(_offsets(api), [0, 0]);
+      expect(_card(2), findsNothing);
+      expect(find.text(_emptyMessage), findsOneWidget);
+      expect(_offsets(api), [0]);
     });
 
     testWidgets('retries an initial failure from offset zero', (tester) async {
@@ -317,7 +317,7 @@ void main() {
       await tester.drag(find.byType(ListView), const Offset(0, -100));
       await tester.pump();
 
-      expect(find.byType(DSpinner), findsOneWidget);
+      expect(find.byType(DSpinner), findsNothing);
       expect(find.text('Load more'), findsNothing);
       expect(_offsets(api), [0, 1]);
 

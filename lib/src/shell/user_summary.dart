@@ -182,66 +182,60 @@ class _SummaryContentState extends State<_SummaryContent> {
   }
 
   @override
-  Widget build(BuildContext context) => RefreshIndicator(
-    onRefresh: widget.onRefresh,
-    child: _SummaryLayout(
-      profile: _ProfileCard(instance: widget.instance, summary: widget.summary),
-      content: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          if (widget.error case final error?)
-            _SummaryErrorBanner(
-              error: error,
-              refreshing: widget.refreshing,
-              onRetry: widget.onRefresh,
-            ),
-          DTabs<_SummaryTab>.controlled(
-            value: _tab,
-            onChanged: _selectTab,
-            children: [
-              const DTabList<_SummaryTab>(
-                variant: DTabListVariant.line,
-                children: [
-                  DTabTrigger(
-                    value: _SummaryTab.highlights,
-                    child: Text('Highlights'),
-                  ),
-                  DTabTrigger(
-                    value: _SummaryTab.connections,
-                    child: Text('Connections'),
-                  ),
-                  DTabTrigger(
-                    value: _SummaryTab.reading,
-                    child: Text('Reading'),
-                  ),
-                ],
-              ),
-              const SizedBox(height: DSpacing.sm),
-              DTabPanel(
-                value: _SummaryTab.highlights,
-                child: _Highlights(
-                  instance: widget.instance,
-                  summary: widget.summary,
-                ),
-              ),
-              DTabPanel(
-                value: _SummaryTab.connections,
-                child: _Connections(
-                  siteUrl: widget.instance.url,
-                  summary: widget.summary,
-                ),
-              ),
-              DTabPanel(
-                value: _SummaryTab.reading,
-                child: _Reading(
-                  instance: widget.instance,
-                  summary: widget.summary,
-                ),
-              ),
-            ],
+  Widget build(BuildContext context) => _SummaryLayout(
+    profile: _ProfileCard(instance: widget.instance, summary: widget.summary),
+    content: Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (widget.error case final error?)
+          _SummaryErrorBanner(
+            error: error,
+            refreshing: widget.refreshing,
+            onRetry: widget.onRefresh,
           ),
-        ],
-      ),
+        DTabs<_SummaryTab>.controlled(
+          value: _tab,
+          onChanged: _selectTab,
+          children: [
+            const DTabList<_SummaryTab>(
+              variant: DTabListVariant.line,
+              children: [
+                DTabTrigger(
+                  value: _SummaryTab.highlights,
+                  child: Text('Highlights'),
+                ),
+                DTabTrigger(
+                  value: _SummaryTab.connections,
+                  child: Text('Connections'),
+                ),
+                DTabTrigger(value: _SummaryTab.reading, child: Text('Reading')),
+              ],
+            ),
+            const SizedBox(height: DSpacing.sm),
+            DTabPanel(
+              value: _SummaryTab.highlights,
+              child: _Highlights(
+                instance: widget.instance,
+                summary: widget.summary,
+              ),
+            ),
+            DTabPanel(
+              value: _SummaryTab.connections,
+              child: _Connections(
+                siteUrl: widget.instance.url,
+                summary: widget.summary,
+              ),
+            ),
+            DTabPanel(
+              value: _SummaryTab.reading,
+              child: _Reading(
+                instance: widget.instance,
+                summary: widget.summary,
+              ),
+            ),
+          ],
+        ),
+      ],
     ),
   );
 }
@@ -1272,10 +1266,8 @@ class _SummaryErrorBanner extends StatelessWidget {
       action: DAlertAction(
         child: DButton(
           label: const Text('Retry'),
-          onPressed: () => unawaited(onRetry()),
+          onPressed: refreshing ? null : () => unawaited(onRetry()),
           variant: DButtonVariant.link,
-          loading: refreshing,
-          loadingLabel: const Text('Refreshing…'),
         ),
       ),
     ),

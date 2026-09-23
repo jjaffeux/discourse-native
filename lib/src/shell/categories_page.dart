@@ -107,7 +107,7 @@ class _CategoriesPageState extends State<CategoriesPage> {
   Widget build(BuildContext context) {
     final feed = widget.feed;
     if (!feed.loaded && feed.categoryIds.isEmpty) {
-      return const Center(child: DSpinner(size: DSpacing.xl));
+      return const SizedBox.shrink();
     }
     if (feed.error != null && feed.categoryIds.isEmpty) {
       return _CategoryPageState(
@@ -145,16 +145,6 @@ class _CategoriesPageState extends State<CategoriesPage> {
                 padding: lane.padding,
                 sliver: SliverMainAxisGroup(
                   slivers: [
-                    if (feed.loading)
-                      const SliverToBoxAdapter(
-                        child: Padding(
-                          padding: EdgeInsets.only(bottom: 12),
-                          child: DProgress(
-                            semanticsLabel: 'Refreshing categories',
-                            track: DProgressTrack(height: 2),
-                          ),
-                        ),
-                      ),
                     if (!feed.pageError && feed.error != null)
                       SliverToBoxAdapter(
                         child: _CategoryErrorBanner(
@@ -170,17 +160,7 @@ class _CategoriesPageState extends State<CategoriesPage> {
                       gap: gap,
                     ),
                     if (feed.loadingMore)
-                      const SliverToBoxAdapter(
-                        child: Padding(
-                          padding: EdgeInsets.only(top: 20),
-                          child: Center(
-                            child: SizedBox.square(
-                              dimension: 22,
-                              child: DSpinner(),
-                            ),
-                          ),
-                        ),
-                      ),
+                      const SliverToBoxAdapter(child: SizedBox.shrink()),
                     if (feed.pageError && feed.error != null)
                       SliverToBoxAdapter(
                         child: Padding(

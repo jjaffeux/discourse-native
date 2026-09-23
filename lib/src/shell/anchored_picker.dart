@@ -293,17 +293,7 @@ class AnchoredPickerProgress extends StatelessWidget {
   const AnchoredPickerProgress({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    final compact = !context.isTouch;
-    return Padding(
-      padding: EdgeInsets.all(compact ? 8 : 24),
-      child: Center(
-        child: compact
-            ? const SizedBox.square(dimension: 20, child: DSpinner())
-            : const DSpinner(size: DSpacing.xl),
-      ),
-    );
-  }
+  Widget build(BuildContext context) => const SizedBox.shrink();
 }
 
 class AnchoredPickerMessage extends StatelessWidget {

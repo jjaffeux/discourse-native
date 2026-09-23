@@ -456,9 +456,7 @@ class _EmojiPickerState extends State<EmojiPicker> {
       );
     }
     if (controller.loading && controller.catalog == null) {
-      return const Center(
-        child: SizedBox.square(dimension: 24, child: DSpinner()),
-      );
+      return const SizedBox.shrink();
     }
     final catalog = controller.catalog;
     if (catalog == null || catalog.isEmpty) {
@@ -482,9 +480,7 @@ class _EmojiPickerState extends State<EmojiPicker> {
     final controller = widget.controller;
     if ((controller.searchPending || controller.aliasesLoading) &&
         controller.searchResults.isEmpty) {
-      return const Center(
-        child: SizedBox.square(dimension: 24, child: DSpinner()),
-      );
+      return const SizedBox.shrink();
     }
     if (controller.searchResults.isEmpty) {
       return const _PickerMessage(

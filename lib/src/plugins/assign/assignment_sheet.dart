@@ -576,10 +576,7 @@ class _AssignmentEditorState extends State<AssignmentEditor> {
 
   Widget _assignees() {
     if (_loadingSuggestions) {
-      return const Padding(
-        padding: EdgeInsets.all(DSpacing.lg),
-        child: Center(child: DSpinner(semanticLabel: 'Loading assignees')),
-      );
+      return const SizedBox.shrink();
     }
     if (_suggestions == null) return const SizedBox.shrink();
     final selected = _selected;
@@ -596,8 +593,6 @@ class _AssignmentEditorState extends State<AssignmentEditor> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       spacing: DSpacing.sm,
       children: [
-        if (_searching)
-          const DProgress(semanticsLabel: 'Searching assignments'),
         DFieldDescription(
           child: Text(
             _searchController.text.trim().isEmpty

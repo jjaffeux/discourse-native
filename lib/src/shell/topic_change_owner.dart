@@ -158,7 +158,7 @@ class _TopicChangeOwnerDialogState extends State<_TopicChangeOwnerDialog> {
             const SizedBox(height: 8),
             Expanded(
               child: _searching
-                  ? const Center(child: DSpinner(size: DSpacing.xl))
+                  ? const SizedBox.shrink()
                   : _users.isEmpty
                   ? Center(
                       child: Text(

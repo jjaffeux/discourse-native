@@ -210,10 +210,10 @@ class _VoiceAgentInviteDialogState extends State<VoiceAgentInviteDialog> {
                         ),
                       DButton(
                         label: const Text('Refresh agents'),
-                        loading: state.loading,
-                        loadingSemanticLabel: 'Loading agents',
                         variant: DButtonVariant.outline,
-                        onPressed: enabled ? () => state.refresh() : null,
+                        onPressed: enabled && !state.loading
+                            ? () => state.refresh()
+                            : null,
                       ),
                     ],
                   ),

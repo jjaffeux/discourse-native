@@ -1148,7 +1148,7 @@ void main() {
     },
   );
 
-  testWidgets('directory shows inline loading feedback while retaining rows', (
+  testWidgets('directory retains rows without loading indicators', (
     tester,
   ) async {
     await _pump(
@@ -1163,7 +1163,7 @@ void main() {
         ),
       ),
     );
-    expect(find.byType(DProgress), findsOneWidget);
+    expect(find.byType(DProgress), findsNothing);
     expect(find.byKey(const ValueKey('user-row-sam')), findsOneWidget);
     expect(find.byKey(const ValueKey('users-refresh')), findsNothing);
     expect(tester.takeException(), isNull);

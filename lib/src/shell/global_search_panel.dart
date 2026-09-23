@@ -219,7 +219,7 @@ class _GlobalSearchPanelState extends State<GlobalSearchPanel> {
       );
     }
     if (phase == GlobalSearchPhase.loading && controller.results.isEmpty) {
-      return const Center(child: DSpinner(semanticLabel: 'Searching'));
+      return const SizedBox.shrink();
     }
     if (phase == GlobalSearchPhase.failed && controller.results.isEmpty) {
       return _status(
@@ -236,11 +236,6 @@ class _GlobalSearchPanelState extends State<GlobalSearchPanel> {
       );
     }
     final children = <Widget>[
-      if (phase == GlobalSearchPhase.loading)
-        const Padding(
-          padding: EdgeInsets.all(12),
-          child: DSpinner(size: 16, semanticLabel: 'Updating search'),
-        ),
       for (final section in controller.sections.where(
         (section) =>
             controller.scope != GlobalSearchScope.all ||

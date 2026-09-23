@@ -289,12 +289,7 @@ class _TopicTagSelectorState extends State<TopicTagSelector> {
           ),
         ),
         if (_loading)
-          const DComboboxStatus(
-            child: Padding(
-              padding: EdgeInsets.all(8),
-              child: DSpinner(semanticLabel: 'Loading tags'),
-            ),
-          )
+          const DComboboxStatus(child: SizedBox.shrink())
         else if (_result.explanation != null ||
             _visibleResults.isEmpty && newTag == null)
           DComboboxStatus(

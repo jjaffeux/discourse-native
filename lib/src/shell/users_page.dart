@@ -734,10 +734,7 @@ class _UsersPageState extends State<UsersPage> {
                         ],
                       ),
                       const SizedBox(height: DSpacing.md),
-                      if (data.loading && data.items.isNotEmpty)
-                        const DProgress(semanticsLabel: 'Refreshing users')
-                      else
-                        const DSeparator(),
+                      const DSeparator(),
                     ],
                   ),
                 ),
@@ -760,7 +757,6 @@ class _UsersPageState extends State<UsersPage> {
                             icon: DIcons.users,
                             title: 'Loading users',
                             detail: 'Loading the user directory…',
-                            progress: true,
                           )
                         : DDataTable<UserDirectoryItem>(
                             key: ValueKey((
@@ -844,7 +840,6 @@ class _TableState extends StatelessWidget {
     required this.icon,
     required this.title,
     required this.detail,
-    this.progress = false,
     this.onRetry,
   });
 
@@ -852,7 +847,6 @@ class _TableState extends StatelessWidget {
   final DIconData icon;
   final String title;
   final String detail;
-  final bool progress;
 
   @override
   Widget build(BuildContext context) => Center(
@@ -870,15 +864,6 @@ class _TableState extends StatelessWidget {
             DEmptyContent(
               children: [
                 DButton(label: const Text('Retry'), onPressed: onRetry),
-              ],
-            ),
-          if (progress)
-            const DEmptyContent(
-              children: [
-                SizedBox(
-                  width: 110,
-                  child: DProgress(semanticsLabel: 'Loading users'),
-                ),
               ],
             ),
         ],

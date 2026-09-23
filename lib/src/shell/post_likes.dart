@@ -274,12 +274,7 @@ class _LikersViewState extends State<_LikersView> {
     if (likers == null) {
       final error = snapshot.error;
       if (error == null) {
-        return const Padding(
-          padding: EdgeInsets.symmetric(vertical: 16),
-          child: Center(
-            child: SizedBox(width: 18, height: 18, child: DSpinner()),
-          ),
-        );
+        return const SizedBox.shrink();
       }
       return Padding(
         padding: const EdgeInsets.symmetric(vertical: 12),
