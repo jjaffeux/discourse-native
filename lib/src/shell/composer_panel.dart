@@ -381,7 +381,7 @@ class ComposerPanel extends StatelessWidget {
                                         Padding(
                                           padding:
                                               EdgeInsetsDirectional.fromSTEB(
-                                                16,
+                                                mobile ? 16 : 4,
                                                 2,
                                                 mobile
                                                     ? 16
