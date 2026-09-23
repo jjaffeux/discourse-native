@@ -612,6 +612,10 @@ class ComposerListBodyController extends ComposerController {
             (selection.end == text.text.length &&
                 event.logicalKey == LogicalKeyboardKey.arrowRight))) {
       final moveLeft = event.logicalKey == LogicalKeyboardKey.arrowLeft;
+      // Keep focus here when there is no following block to navigate to.
+      if (!moveLeft && _item.end >= parent.text.text.length) {
+        return KeyEventResult.handled;
+      }
       final source = parent.text.text;
       var offset = moveLeft
           ? (_item.start - 1).clamp(0, source.length)

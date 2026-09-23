@@ -134,6 +134,68 @@ void main() {
     }
   }
 
+  for (final source in [
+    '- [ ] ',
+    '- [ ] Task',
+    '- [ ] Task\n  - [ ] Nested',
+    '- [ ] Task\n\n  Paragraph',
+    '- [ ] Task\n  - Bullet',
+  ]) {
+    testWidgets('Arrow Right stays in final text block: $source', (
+      tester,
+    ) async {
+      final root = await pumpEditor(
+        tester,
+        source,
+        platform: TargetPlatform.macOS,
+      );
+      final body = bodies(tester).last;
+      body.text.selection = TextSelection.collapsed(
+        offset: body.text.text.length,
+      );
+      body.requestFocus();
+      await tester.pumpAndSettle();
+      final before = body.text.value;
+      final focusChanges = <bool>[];
+      body.focus.addListener(
+        () => focusChanges.add(body.focus.hasPrimaryFocus),
+      );
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.arrowRight);
+      await tester.pump();
+      expect(body.focus.hasPrimaryFocus, isTrue);
+      expect(focusChanges, isEmpty);
+      expect(body.text.value, before);
+      await tester.sendKeyRepeatEvent(LogicalKeyboardKey.arrowRight);
+      await tester.pumpAndSettle();
+      expect(focusChanges, isEmpty);
+      expect(body.text.value, before);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.arrowRight);
+      expect(root.text.text, source);
+    });
+  }
+
+  testWidgets('Arrow Right moves from a task to the following paragraph', (
+    tester,
+  ) async {
+    const source = '- [ ] Task\n\nFollowing';
+    final root = await pumpEditor(
+      tester,
+      source,
+      platform: TargetPlatform.macOS,
+    );
+    final body = bodies(tester).single;
+    body.text.selection = TextSelection.collapsed(
+      offset: body.text.text.length,
+    );
+    body.requestFocus();
+    await tester.pumpAndSettle();
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+    await tester.pumpAndSettle();
+    expect(root.focus.hasPrimaryFocus, isTrue);
+    expect(root.text.selection.extentOffset, source.indexOf('Following'));
+    expect(root.text.text, source);
+  });
+
   for (final platform in [TargetPlatform.macOS, TargetPlatform.android]) {
     for (final scale in [1.0, 1.5, 2.0]) {
       for (final prefix in ['', 'Before\n\n']) {
