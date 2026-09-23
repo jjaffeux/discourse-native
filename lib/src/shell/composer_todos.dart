@@ -162,37 +162,42 @@ class ComposerTodoMarker extends StatelessWidget {
   final TextStyle style;
 
   @override
-  Widget build(BuildContext context) => TextFieldTapRegion(
-    child: Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        DCheckbox(
-          alignment: AlignmentDirectional.centerStart,
-          value: checked,
-          semanticLabel: label.isEmpty ? 'To-do' : label,
-          readOnly: onChanged == null,
-          onChanged: (_) => onChanged?.call(),
-        ),
-        if (label.isEmpty)
-          SizedBox(
-            width: 0,
-            child: OverflowBox(
-              fit: OverflowBoxFit.deferToChild,
-              alignment: AlignmentDirectional.centerStart,
-              minWidth: 0,
-              maxWidth: double.infinity,
-              child: IgnorePointer(
-                child: Text(
-                  'To-do',
-                  maxLines: 1,
-                  style: style.copyWith(
-                    color: DTokens.of(context).mutedForeground,
+  Widget build(BuildContext context) => FocusScope(
+    // Inline controls must not make EditableText think it still owns focus.
+    // Otherwise tapping the text leaves Space routed to the last checkbox.
+    parentNode: FocusScope.of(context),
+    child: TextFieldTapRegion(
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          DCheckbox(
+            alignment: AlignmentDirectional.centerStart,
+            value: checked,
+            semanticLabel: label.isEmpty ? 'To-do' : label,
+            readOnly: onChanged == null,
+            onChanged: (_) => onChanged?.call(),
+          ),
+          if (label.isEmpty)
+            SizedBox(
+              width: 0,
+              child: OverflowBox(
+                fit: OverflowBoxFit.deferToChild,
+                alignment: AlignmentDirectional.centerStart,
+                minWidth: 0,
+                maxWidth: double.infinity,
+                child: IgnorePointer(
+                  child: Text(
+                    'To-do',
+                    maxLines: 1,
+                    style: style.copyWith(
+                      color: DTokens.of(context).mutedForeground,
+                    ),
                   ),
                 ),
               ),
             ),
-          ),
-      ],
+        ],
+      ),
     ),
   );
 }
