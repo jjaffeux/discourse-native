@@ -8,6 +8,7 @@ import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/forum_workspace.dart';
 import 'package:discourse_native/src/models/topic.dart';
+import 'package:discourse_native/src/shell/desktop_panels.dart';
 import 'package:discourse_native/src/shell/forum_search.dart';
 import 'package:discourse_native/src/shell/forum_tabs_bar.dart';
 import 'package:discourse_native/src/shell/instance_sidebar.dart';
@@ -33,7 +34,7 @@ void main() {
   setUp(binding.exitRequests.clear);
 
   testWidgets(
-    'middle-click opens a sidebar destination in a background tab',
+    'middle-click opens a sidebar destination in the secondary panel',
     (tester) => _withPlatform(TargetPlatform.macOS, () async {
       await _pumpShell(tester);
       final controller = ShellScope.read(
@@ -51,7 +52,8 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(controller.activeTab, original);
+      expect(controller.selectedTabIn(ForumPanel.main), original);
+      expect(controller.activeTab?.panel, ForumPanel.secondary);
       expect(controller.tabsForCurrentForum, hasLength(2));
       final opened = controller.tabsForCurrentForum.last;
       expect(opened.currentContent.id, 'latest');
@@ -60,7 +62,7 @@ void main() {
   );
 
   testWidgets(
-    'middle-click opens a topic row in a background tab',
+    'middle-click opens topic rows and tags in the secondary panel',
     (tester) => _withPlatform(TargetPlatform.macOS, () async {
       const topic = Topic(
         id: 42,
@@ -88,19 +90,23 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(controller.activeTab, original);
+      expect(controller.selectedTabIn(ForumPanel.main), original);
+      expect(controller.activeTab?.panel, ForumPanel.secondary);
       expect(controller.tabsForCurrentForum, hasLength(2));
       final opened = controller.tabsForCurrentForum.last;
       expect(opened.currentContent.topicId, topic.id);
       expect(opened.currentContent.title, topic.title);
 
+      controller.selectTab(original!.id);
+      await tester.pumpAndSettle();
       await tester.tap(
         find.text('flutter'),
         kind: PointerDeviceKind.mouse,
         buttons: kMiddleMouseButton,
       );
       await tester.pumpAndSettle();
-      expect(controller.activeTab, original);
+      expect(controller.selectedTabIn(ForumPanel.main), original);
+      expect(controller.activeTab?.panel, ForumPanel.secondary);
       expect(controller.tabsForCurrentForum, hasLength(3));
       expect(
         controller.tabsForCurrentForum.last.currentContent.feedPath,
@@ -581,8 +587,6 @@ void main() {
       final controller = ShellScope.read(
         tester.element(find.byType(MainContent)),
       );
-      await tester.tap(find.byTooltip('Keep topic tabs with the list'));
-      await tester.pumpAndSettle();
       final originalId = controller.activeTabId!;
 
       expect(find.byType(ForumTabsBar), findsOneWidget);
@@ -592,7 +596,8 @@ void main() {
 
       controller.pushContent(ContentRoute.topicList(TopicListMode.topYearly));
       await tester.pumpAndSettle();
-      expect(_bar(tester).items.single.title, 'Top - year');
+      expect(_bar(tester).items.last.title, 'Top - year');
+      expect(_bar(tester).items, hasLength(2));
 
       controller.pushContent(
         ContentRoute.filteredTopicList(
@@ -601,14 +606,15 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      expect(_bar(tester).items.single.title, 'Top - month');
+      expect(_bar(tester).items.last.title, 'Top - month');
+      expect(_bar(tester).items, hasLength(3));
 
       await tester.tap(find.byKey(const ValueKey('forum-tabs-add')));
       await tester.pumpAndSettle();
 
       final newId = controller.activeTabId!;
       expect(newId, isNot(originalId));
-      expect(_bar(tester).items, hasLength(2));
+      expect(_bar(tester).items, hasLength(4));
       expect(_bar(tester).selectedId, newId);
 
       const color = Color(0xFF0088CC);
@@ -622,10 +628,12 @@ void main() {
       );
       await tester.pumpAndSettle();
 
+      final topicId = controller.activeTabId!;
+      expect(controller.activeTab?.panel, ForumPanel.secondary);
       final ForumTabItem routedItem = tester
           .widgetList<ForumTabsBar>(find.byType(ForumTabsBar))
           .expand((bar) => bar.items)
-          .singleWhere((item) => item.id == newId);
+          .singleWhere((item) => item.id == topicId);
       expect(routedItem.title, 'Native tabs');
       expect(routedItem.icon, DNativeIcons.topic);
       expect(routedItem.color, color);
@@ -635,7 +643,7 @@ void main() {
       expect(controller.activeTabId, originalId);
       expect(_bar(tester).selectedId, originalId);
 
-      await tester.tap(find.byKey(const ValueKey('forum-tabs-switcher')));
+      await tester.tap(find.byKey(const ValueKey('forum-tabs-switcher')).first);
       await tester.pumpAndSettle();
       await tester.tap(
         find.descendant(
@@ -644,18 +652,16 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      expect(controller.tabsForCurrentForum, hasLength(2));
+      expect(controller.tabsForCurrentForum, hasLength(4));
       expect(
         controller.tabsForCurrentForum.where(
           (tab) => !tab.currentContent.isTopic,
         ),
-        hasLength(1),
+        hasLength(3),
       );
       expect(_bar(tester).items.map((item) => item.id), contains(newId));
-      expect(_bar(tester).selectedId, newId);
+      expect(_bar(tester).selectedId, isNot(originalId));
       expect(_bar(tester).recentlyClosedItems.single.id, originalId);
-      await tester.tap(find.byKey(const ValueKey('forum-tabs-switcher')));
-      await tester.pumpAndSettle();
       await tester.tap(
         find.byKey(const ValueKey('forum-tabs-switcher-history')),
       );
@@ -667,7 +673,7 @@ void main() {
 
       expect(controller.activeTabId, originalId);
       expect(_bar(tester).selectedId, originalId);
-      expect(_bar(tester).items, hasLength(3));
+      expect(_bar(tester).items, hasLength(4));
       expect(_bar(tester).recentlyClosedItems, isEmpty);
     }),
   );
@@ -849,7 +855,7 @@ void main() {
 
       expect(_inSidebar(find.byType(ForumTabsBar)), findsNothing);
       expect(_inSidebar(find.text('OPEN')), findsNothing);
-      expect(_inMainContent(find.byType(ForumTabsBar)), findsOneWidget);
+      expect(_inWorkspace(find.byType(ForumTabsBar)), findsOneWidget);
       expect(find.byType(ForumTabsBar), findsOneWidget);
     }),
   );
@@ -873,12 +879,12 @@ void main() {
           expect(_inSidebar(find.text('OPEN')), findsNothing);
 
           expect(find.byType(MainContent), findsOneWidget);
-          expect(_inMainContent(find.byType(ForumTabsBar)), findsOneWidget);
+          expect(_inWorkspace(find.byType(ForumTabsBar)), findsOneWidget);
           expect(
             tester.getRect(find.byType(ForumTabsBar)).top,
-            greaterThanOrEqualTo(tester.getRect(find.byType(MainContent)).top),
+            lessThanOrEqualTo(tester.getRect(find.byType(MainContent)).top),
           );
-          expect(find.byType(CurrentForumTabsBar), findsOneWidget);
+          expect(find.byType(CurrentForumTabsBar), findsNWidgets(2));
           expect(find.byKey(const ValueKey('forum-tabs-add')), findsOneWidget);
           expect(_bar(tester).items.single.title, 'Latest');
         }
@@ -930,8 +936,8 @@ Finder _inSidebar(Finder matching) => find.descendant(
   skipOffstage: false,
 );
 
-Finder _inMainContent(Finder matching) => find.descendant(
-  of: find.byType(MainContent),
+Finder _inWorkspace(Finder matching) => find.descendant(
+  of: find.byType(DesktopPanels),
   matching: matching,
   skipOffstage: false,
 );

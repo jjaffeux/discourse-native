@@ -294,6 +294,60 @@ void main() {
   });
 
   group('Chat navigation', () {
+    group('desktop panels', () {
+      setUp(() => shell.desktopTopicTabs = true);
+
+      test('channels stay in their panel and threads open in secondary', () {
+        final original = shell.activeTabId;
+        expect(shell.openChatChannel(9), isTrue);
+        final channel = shell.activeTab!;
+        expect(channel.panel, ForumPanel.main);
+        expect(channel.id, isNot(original));
+        expect(channel.currentContent.id, 'chat-c-9');
+
+        shell.openChatThread(siteUrl: _site, channelId: 9, threadId: 3);
+        expect(shell.activeTab?.panel, ForumPanel.secondary);
+        expect(shell.currentContent?.id, 'chat-c-9-t-3');
+        expect(shell.selectedTabIn(ForumPanel.main), channel);
+        expect(shell.tabsForCurrentForum, hasLength(3));
+
+        expect(shell.openChatChannel(9), isTrue);
+        expect(shell.activeTab?.panel, ForumPanel.secondary);
+        expect(shell.currentContent?.id, 'chat-c-9');
+        expect(shell.selectedTabIn(ForumPanel.main), channel);
+        expect(shell.tabsForCurrentForum, hasLength(4));
+      });
+
+      test('middle-click channel links open in secondary', () async {
+        final original = shell.activeTab;
+        final service = shell.pluginSession.require(chatShellService);
+        expect(
+          await service.openPluginUrl(
+            '$_site/chat/c/-/9',
+            origin: PluginLinkOrigin.secondaryPanel,
+          ),
+          isTrue,
+        );
+        expect(shell.activeTab?.panel, ForumPanel.secondary);
+        expect(shell.currentContent?.id, 'chat-c-9');
+        expect(shell.selectedTabIn(ForumPanel.main), original);
+        expect(service.drawerActive, isFalse);
+      });
+
+      test('channel thread lists open exactly one new tab', () {
+        shell.openChatChannel(9);
+        final channel = shell.activeTab;
+        final service = shell.pluginSession.require(chatShellService);
+        expect(
+          service.openChannelThreads(siteUrl: _site, channelId: 9),
+          isTrue,
+        );
+        expect(shell.tabsForCurrentForum, hasLength(3));
+        expect(shell.activeTab?.panel, ForumPanel.main);
+        expect(shell.currentWorkspace?.tabById(channel!.id), channel);
+      });
+    });
+
     group('plugin host integration', () {
       test(
         'opens a thread route and publishes its target message to the view handoff',

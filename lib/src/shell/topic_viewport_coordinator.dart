@@ -158,9 +158,11 @@ final class TopicViewportBinding {
 
   factory TopicViewportBinding.fromShell(
     ShellController controller,
-    TopicViewportSnapshot snapshot,
-  ) {
-    final tabId = controller.activeTabId;
+    TopicViewportSnapshot snapshot, {
+    String? tabId,
+  }) {
+    tabId ??= controller.activeTabId;
+    final ownerTabId = tabId;
     final identity = (
       siteUrl: snapshot.siteUrl!,
       topicId: snapshot.topicId!,
@@ -172,16 +174,22 @@ final class TopicViewportBinding {
       identity: identity,
       tabId: tabId,
       session: lease.session,
-      isCurrent: () =>
-          lease.isCurrent &&
-          controller.activeTabId == tabId &&
-          controller.currentInstance?.url == identity.siteUrl &&
-          controller.currentTopic?.id == identity.topicId &&
-          controller.topicNavigationRevision == identity.navigationRevision,
-      currentSnapshot: () => TopicViewportSnapshot.from(controller),
+      isCurrent: () => controller.readTab(
+        ownerTabId,
+        () =>
+            lease.isCurrent &&
+            controller.isTabVisible(ownerTabId) &&
+            controller.currentInstance?.url == identity.siteUrl &&
+            controller.currentTopic?.id == identity.topicId &&
+            controller.topicNavigationRevision == identity.navigationRevision,
+      ),
+      currentSnapshot: () => controller.readTab(
+        ownerTabId,
+        () => TopicViewportSnapshot.from(controller),
+      ),
       forumActive: () => controller.forumActive,
-      loadMore: controller.loadMorePosts,
-      loadEarlier: controller.loadEarlierPosts,
+      loadMore: () => controller.loadMorePosts(tabId: ownerTabId),
+      loadEarlier: () => controller.loadEarlierPosts(tabId: ownerTabId),
       markRead:
           ({
             required String siteUrl,
@@ -204,10 +212,13 @@ final class TopicViewportBinding {
             topicId,
             postNumber,
             viewportOffset: viewportOffset,
+            tabId: ownerTabId,
           ),
       flushAnchorPersist: controller.flushAnchorPersist,
-      savedPostNumber: () => controller.topicScrollPostNumber(identity.topicId),
-      savedPostOffset: () => controller.topicScrollPostOffset(identity.topicId),
+      savedPostNumber: () =>
+          controller.topicScrollPostNumber(identity.topicId, tabId: ownerTabId),
+      savedPostOffset: () =>
+          controller.topicScrollPostOffset(identity.topicId, tabId: ownerTabId),
       postNumberFor: (postId) =>
           controller.store.read<Post>(identity.siteUrl, postId)?.postNumber,
     );

@@ -103,17 +103,17 @@ class _TopicListViewState extends State<TopicListView> {
       )
         if (remaining.contains(previous[i])) previous[i],
     ];
-    final selected = controller.currentContent?.topicId;
+    final selected = controller.readingTopicId;
     final anchor = visible.contains(selected) ? selected : visible.firstOrNull;
     if (anchor == null) return;
     final anchorBox = _renderedRow(previous.indexOf(anchor));
     if (anchorBox == null) return;
     final top = anchorBox.localToGlobal(Offset.zero).dy;
-    final readingTopicId = controller.currentContent?.topicId;
+    final readingTopicId = controller.readingTopicId;
     void restore({bool correct = true}) {
       if (!_isCurrent(controller, identity) ||
           !identical(widget.feed.topicIds, next) ||
-          controller.currentContent?.topicId != readingTopicId ||
+          controller.readingTopicId != readingTopicId ||
           !identical(_list, list) ||
           !list.isAttached ||
           !scroll!.hasClients) {
@@ -199,10 +199,10 @@ class _TopicListViewState extends State<TopicListView> {
     final controller = _controller!;
     final identity = _feedIdentity!;
     final cursor = _cursor!.value!;
-    final topicId = controller.currentContent?.topicId;
+    final topicId = controller.readingTopicId;
     void reveal({bool correct = true}) {
       if (!_isCurrent(controller, identity) ||
-          controller.currentContent?.topicId != topicId ||
+          controller.readingTopicId != topicId ||
           _cursor?.value != cursor ||
           !TickerMode.valuesOf(context).enabled) {
         return;
@@ -229,7 +229,7 @@ class _TopicListViewState extends State<TopicListView> {
     if (!widget.inbox ||
         controller == null ||
         identity == null ||
-        controller.currentContent?.topicId != topicId ||
+        controller.readingTopicId != topicId ||
         !_isCurrent(controller, identity)) {
       return;
     }
@@ -262,7 +262,7 @@ class _TopicListViewState extends State<TopicListView> {
     if (_restored) return;
     _restored = true;
 
-    final row = controller.feedScrollRow(destination);
+    final row = controller.feedScrollRow(destination, tabId: feedIdentity.$3);
     if (row <= 0) return;
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -416,7 +416,11 @@ class _TopicListViewState extends State<TopicListView> {
   ) =>
       mounted &&
       _feedIdentity == feedIdentity &&
-      _currentFeedIdentity(controller) == feedIdentity;
+      controller.readTab(
+            feedIdentity.$3,
+            () => _currentFeedIdentity(controller),
+          ) ==
+          feedIdentity;
 
   static _TopicListIdentity _currentFeedIdentity(ShellController controller) {
     final siteUrl = controller.currentInstance?.url;
@@ -430,7 +434,7 @@ class _TopicListViewState extends State<TopicListView> {
   }
 
   void _rememberTopic(int topicId, {bool? keyboard}) {
-    final ids = _controller?.currentFeed?.topicIds ?? widget.feed.topicIds;
+    final ids = widget.feed.topicIds;
     final index = ids.indexOf(topicId);
     if (index < 0) return;
     // Mouse navigation remembers the position without leaving a keyboard
@@ -471,7 +475,7 @@ class _TopicListViewState extends State<TopicListView> {
     try {
       final ids = widget.feed.topicIds;
       final cursor = _cursor!.value;
-      final anchor = cursor?.topicId ?? controller.currentContent?.topicId;
+      final anchor = cursor?.topicId ?? controller.readingTopicId;
       final index = anchor == null ? -1 : ids.indexOf(anchor);
       var target = index >= 0
           ? index + direction
@@ -482,8 +486,7 @@ class _TopicListViewState extends State<TopicListView> {
         await controller.loadMoreFeed(identity.$4);
         if (!isCurrent()) return;
       }
-      final currentIds =
-          controller.currentFeed?.topicIds ?? widget.feed.topicIds;
+      final currentIds = widget.feed.topicIds;
       if (!isCurrent() || currentIds.isEmpty) return;
       target = target.clamp(0, currentIds.length - 1);
       _rememberTopic(currentIds[target], keyboard: true);
@@ -508,7 +511,7 @@ class _TopicListViewState extends State<TopicListView> {
     _rememberTopic(topic.id, keyboard: keyboard);
     if (keyboard) FocusManager.instance.primaryFocus?.unfocus();
     final controller = _controller!;
-    if (keyboard && controller.currentContent?.topicId == topic.id) return;
+    if (keyboard && controller.readingTopicId == topic.id) return;
     if (widget.inbox) {
       controller.openTopicFromList(topic, revealInList: keyboard);
     } else {
@@ -633,7 +636,7 @@ class _TopicListViewState extends State<TopicListView> {
       });
     }
     final readingTopicId = widget.inbox
-        ? controller.currentContent?.topicId
+        ? controller.readingTopicId
         : null;
     if (_readingTopicId != readingTopicId) {
       _readingTopicId = readingTopicId;
@@ -671,7 +674,11 @@ class _TopicListViewState extends State<TopicListView> {
                 if (_isCurrent(controller, feedIdentity) &&
                     _list?.isAttached == true) {
                   if (_list!.visibleRange case final range?) {
-                    controller.saveFeedScrollRow(destination, range.$1);
+                    controller.saveFeedScrollRow(
+                      destination,
+                      range.$1,
+                      tabId: feedIdentity.$3,
+                    );
                   }
                 }
                 if (notification.metrics.extentAfter <
@@ -846,7 +853,7 @@ class _TopicListLoadingSkeleton extends StatelessWidget {
     return DSkeletonRegion(
       expand: true,
       semanticsLabel: _semanticsLabel,
-      child: LayoutBuilder(
+      child: ForumTabLayoutBuilder(
         builder: (context, constraints) {
           final visibleRowCount = constraints.hasBoundedHeight
               ? (constraints.maxHeight / TopicListRow.minimumHeight).ceil()
@@ -1072,7 +1079,7 @@ class _TopicRowState extends State<_TopicRow> {
         reading: widget.inbox && controller.currentContent?.isTopic == true,
         selected:
             widget.inbox &&
-            controller.currentContent?.topicId == widget.topicId,
+            controller.readingTopicId == widget.topicId,
       ),
       builder: (context, state, _) {
         final siteUrl = state.siteUrl;
@@ -1252,7 +1259,7 @@ _TopicListSnapshot _topicListSnapshot(ShellController controller) {
     feedIdentity: _TopicListViewState._currentFeedIdentity(controller),
     destination: destination,
     incoming: controller.incomingCount(destination),
-    topicId: controller.currentContent?.topicId,
+    topicId: controller.readingTopicId,
   );
 }
 
@@ -1500,7 +1507,7 @@ class _Message extends StatelessWidget {
   final VoidCallback? onAction;
 
   @override
-  Widget build(BuildContext context) => LayoutBuilder(
+  Widget build(BuildContext context) => ForumTabLayoutBuilder(
     builder: (context, constraints) => SingleChildScrollView(
       physics: const AlwaysScrollableScrollPhysics(),
       child: ConstrainedBox(

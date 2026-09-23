@@ -49,6 +49,7 @@ class ChatThreadWorkspace extends StatelessWidget {
           builder: (context, constraints) {
             final expanded =
                 showHeader &&
+                !shell.desktopPanelsEnabled &&
                 ShellLayout.forWidth(MediaQuery.sizeOf(context).width) ==
                     ShellLayout.expanded &&
                 constraints.maxWidth >= _ChatThreadSplit.minimumTotalWidth;

@@ -2,6 +2,9 @@ import 'package:flutter/foundation.dart';
 
 import 'content_route.dart';
 
+/// Stable panel identity, independent of its visual position.
+enum ForumPanel { main, secondary }
+
 @immutable
 final class ForumTabAnchor {
   const ForumTabAnchor({
@@ -95,6 +98,7 @@ final class ForumTab {
   ForumTab({
     required this.id,
     required this.rootDestinationId,
+    this.panel = ForumPanel.main,
     required List<ContentRoute> contentStack,
     List<ContentRoute> forwardStack = const [],
     List<ForumTabLocation>? backHistory,
@@ -130,6 +134,7 @@ final class ForumTab {
   static const int maximumHistoryEntries = 50;
 
   final String id;
+  final ForumPanel panel;
   final String rootDestinationId;
   final List<ContentRoute> contentStack;
   // History is separate from the current page's parent routes. Replacing a
@@ -153,6 +158,7 @@ final class ForumTab {
   );
 
   ForumTab copyWith({
+    ForumPanel? panel,
     String? rootDestinationId,
     List<ContentRoute>? contentStack,
     List<ForumTabLocation>? backHistory,
@@ -160,6 +166,7 @@ final class ForumTab {
     Map<String, ForumTabAnchor>? anchors,
   }) => ForumTab(
     id: id,
+    panel: panel ?? this.panel,
     rootDestinationId: rootDestinationId ?? this.rootDestinationId,
     contentStack: contentStack ?? this.contentStack,
     backHistory: backHistory ?? this.backHistory,
@@ -296,6 +303,7 @@ final class ForumTab {
 
   Map<String, Object?> toJson() => {
     'id': id,
+    'panel': panel.name,
     'root_destination_id': rootDestinationId,
     'content_stack': [for (final route in contentStack) route.toJson()],
     'back_history': [for (final entry in backHistory) entry.toJson()],
@@ -360,6 +368,14 @@ final class ForumTab {
     }
     return ForumTab(
       id: id,
+      panel: switch (json['panel']) {
+        'main' => ForumPanel.main,
+        'secondary' => ForumPanel.secondary,
+        _ =>
+          stack.last.prefersSecondaryPanel
+              ? ForumPanel.secondary
+              : ForumPanel.main,
+      },
       rootDestinationId: root,
       contentStack: stack,
       backHistory: backHistory,
@@ -406,6 +422,7 @@ final class ForumTab {
   bool operator ==(Object other) =>
       other is ForumTab &&
       other.id == id &&
+      other.panel == panel &&
       other.rootDestinationId == rootDestinationId &&
       listEquals(other.contentStack, contentStack) &&
       listEquals(other.backHistory, backHistory) &&
@@ -415,6 +432,7 @@ final class ForumTab {
   @override
   int get hashCode => Object.hash(
     id,
+    panel,
     rootDestinationId,
     Object.hashAll(contentStack),
     Object.hashAll(backHistory),
@@ -435,6 +453,8 @@ final class ForumWorkspace {
     required this.accountIdentity,
     required List<ForumTab> tabs,
     required this.activeTabId,
+    this.mainTabId,
+    this.secondaryTabId,
   }) : assert(siteUrl.isNotEmpty),
        assert(accountIdentity.isNotEmpty),
        assert(tabs.isNotEmpty),
@@ -449,6 +469,20 @@ final class ForumWorkspace {
   final String accountIdentity;
   final List<ForumTab> tabs;
   final String activeTabId;
+  final String? mainTabId;
+  final String? secondaryTabId;
+
+  List<ForumTab> tabsIn(ForumPanel panel) =>
+      tabs.where((tab) => tab.panel == panel).toList();
+
+  ForumTab? selectedTabIn(ForumPanel panel) {
+    if (activeTab.panel == panel) return activeTab;
+    final id = panel == ForumPanel.main ? mainTabId : secondaryTabId;
+    final selected = id == null ? null : tabById(id);
+    return selected?.panel == panel
+        ? selected
+        : tabs.where((tab) => tab.panel == panel).firstOrNull;
+  }
 
   ForumTab get activeTab => tabs.firstWhere((tab) => tab.id == activeTabId);
 
@@ -459,18 +493,26 @@ final class ForumWorkspace {
     return null;
   }
 
-  ForumWorkspace copyWith({List<ForumTab>? tabs, String? activeTabId}) =>
-      ForumWorkspace(
-        siteUrl: siteUrl,
-        accountIdentity: accountIdentity,
-        tabs: tabs ?? this.tabs,
-        activeTabId: activeTabId ?? this.activeTabId,
-      );
+  ForumWorkspace copyWith({
+    List<ForumTab>? tabs,
+    String? activeTabId,
+    String? mainTabId,
+    String? secondaryTabId,
+  }) => ForumWorkspace(
+    siteUrl: siteUrl,
+    accountIdentity: accountIdentity,
+    tabs: tabs ?? this.tabs,
+    activeTabId: activeTabId ?? this.activeTabId,
+    mainTabId: mainTabId ?? selectedTabIn(ForumPanel.main)?.id,
+    secondaryTabId: secondaryTabId ?? selectedTabIn(ForumPanel.secondary)?.id,
+  );
 
   Map<String, Object?> toJson() => {
     'site_url': siteUrl,
     'account_identity': accountIdentity,
     'active_tab_id': activeTabId,
+    'main_tab_id': selectedTabIn(ForumPanel.main)?.id,
+    'secondary_tab_id': selectedTabIn(ForumPanel.secondary)?.id,
     'tabs': [for (final tab in tabs) tab.toJson()],
   };
 
@@ -518,6 +560,12 @@ final class ForumWorkspace {
       accountIdentity: accountIdentity,
       tabs: tabs,
       activeTabId: activeTabId,
+      mainTabId: json['main_tab_id'] is String
+          ? json['main_tab_id'] as String
+          : null,
+      secondaryTabId: json['secondary_tab_id'] is String
+          ? json['secondary_tab_id'] as String
+          : null,
     );
   }
 
@@ -527,9 +575,19 @@ final class ForumWorkspace {
       other.siteUrl == siteUrl &&
       other.accountIdentity == accountIdentity &&
       other.activeTabId == activeTabId &&
+      other.selectedTabIn(ForumPanel.main)?.id ==
+          selectedTabIn(ForumPanel.main)?.id &&
+      other.selectedTabIn(ForumPanel.secondary)?.id ==
+          selectedTabIn(ForumPanel.secondary)?.id &&
       listEquals(other.tabs, tabs);
 
   @override
-  int get hashCode =>
-      Object.hash(siteUrl, accountIdentity, activeTabId, Object.hashAll(tabs));
+  int get hashCode => Object.hash(
+    siteUrl,
+    accountIdentity,
+    activeTabId,
+    selectedTabIn(ForumPanel.main)?.id,
+    selectedTabIn(ForumPanel.secondary)?.id,
+    Object.hashAll(tabs),
+  );
 }

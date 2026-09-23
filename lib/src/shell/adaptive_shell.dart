@@ -20,6 +20,7 @@ import 'aggregate_view.dart';
 import 'bookmark_ui.dart';
 import 'composer_presentation.dart';
 import 'desktop_navigation.dart';
+import 'desktop_panels.dart';
 import 'diagnostics_panel.dart';
 import 'empty_state.dart';
 import 'forum_theme_surfaces.dart';
@@ -403,7 +404,10 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
         controller.activeAggregateTabId,
       ),
       ShellRootMode.forum => (
-        controller.tabsForCurrentForum.map((tab) => tab.id).toList(),
+        controller.tabsForCurrentForum
+            .where((tab) => tab.panel == controller.activeTab?.panel)
+            .map((tab) => tab.id)
+            .toList(),
         controller.activeTabId,
       ),
     };
@@ -1034,49 +1038,53 @@ class _WideShellState extends State<_WideShell> {
                         hasInstances: controller.hasInstances,
                         rootMode: controller.rootMode,
                       ),
-                      builder: (context, state, _) =>
-                          switch (state.loadStatus) {
-                            InstanceLoadStatus.loading =>
-                              const _ShellLoadProgress(),
-                            InstanceLoadStatus.failed =>
-                              const _ShellLoadFailure(),
-                            InstanceLoadStatus.ready
-                                when state.hasInstances &&
-                                    state.rootMode == ShellRootMode.aggregate =>
-                              const AggregateView(),
-                            InstanceLoadStatus.ready when state.hasInstances =>
-                              DesktopNavigation(
-                                compact: !sidebarExpanded,
-                                showTrigger: _sidebarExpanded == null,
-                                sidebar: ResizablePane(
-                                  controller: widget.sidebarWidth,
-                                  edge: ResizablePaneEdge.trailing,
-                                  resizeKey: 'sidebar',
-                                  semanticsLabel: 'Resize sidebar',
-                                  maximumWidth: windowMaximum,
-                                  dividerWidth: 1,
-                                  gap: context.isTouch ? 0 : workspacePanelGap,
-                                  handleWidth: context.isTouch
-                                      ? 2
-                                      : workspacePanelGap,
-                                  child: const WorkspacePanel(
-                                    atRightEdge: false,
-                                    child: InstanceSidebar(),
-                                  ),
-                                ),
-                                child: _PageComposerDock(
-                                  child: MainContent(
-                                    key: ComposerPresentationHost.contentKeyOf(
-                                      context,
-                                    ),
-                                    layout: context.isTouch
-                                        ? widget.layout
-                                        : ShellLayout.expanded,
-                                  ),
-                                ),
+                      builder: (context, state, _) => switch (state
+                          .loadStatus) {
+                        InstanceLoadStatus.loading =>
+                          const _ShellLoadProgress(),
+                        InstanceLoadStatus.failed => const _ShellLoadFailure(),
+                        InstanceLoadStatus.ready
+                            when state.hasInstances &&
+                                state.rootMode == ShellRootMode.aggregate =>
+                          const AggregateView(),
+                        InstanceLoadStatus.ready when state.hasInstances =>
+                          DesktopNavigation(
+                            compact: !sidebarExpanded,
+                            showTrigger: _sidebarExpanded == null,
+                            sidebar: ResizablePane(
+                              controller: widget.sidebarWidth,
+                              edge: ResizablePaneEdge.trailing,
+                              resizeKey: 'sidebar',
+                              semanticsLabel: 'Resize sidebar',
+                              maximumWidth: windowMaximum,
+                              dividerWidth: 1,
+                              gap: context.isTouch ? 0 : workspacePanelGap,
+                              handleWidth: context.isTouch
+                                  ? 2
+                                  : workspacePanelGap,
+                              child: const WorkspacePanel(
+                                atRightEdge: false,
+                                child: InstanceSidebar(),
                               ),
-                            InstanceLoadStatus.ready => const EmptyState(),
-                          },
+                            ),
+                            child: _PageComposerDock(
+                              child:
+                                  !context.isTouch &&
+                                      ShellScope.read(context).forumTabsEnabled
+                                  ? const DesktopPanels()
+                                  : MainContent(
+                                      key:
+                                          ComposerPresentationHost.contentKeyOf(
+                                            context,
+                                          ),
+                                      layout: context.isTouch
+                                          ? widget.layout
+                                          : ShellLayout.expanded,
+                                    ),
+                            ),
+                          ),
+                        InstanceLoadStatus.ready => const EmptyState(),
+                      },
                     ),
               ),
             ),

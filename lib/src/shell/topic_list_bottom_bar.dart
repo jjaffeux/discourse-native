@@ -19,7 +19,7 @@ typedef _AdjacentTopics = ({int? previous, int? next, bool more, bool busy});
 
 _AdjacentTopics _adjacentTopics(ShellController shell) {
   final ids = shell.currentFeed?.topicIds ?? const <int>[];
-  final topicId = shell.currentContent?.topicId;
+  final topicId = shell.readingTopicId;
   final index = ids.indexOf(topicId ?? -1);
   final fallback = topicId != null && index < 0 ? ids.firstOrNull : null;
   return (
@@ -105,11 +105,11 @@ class TopicListBottomBar extends StatelessWidget {
   final double trailingInset;
 
   @override
-  Widget build(BuildContext context) => ListenableBuilder(
+  Widget build(BuildContext context) => ForumTabListenableBuilder(
     listenable: ShellScope.identityOf(context).topicFeeds,
     builder: (context, _) {
       final shell = ShellScope.of(context);
-      final topicOpen = shell.currentContent?.isTopic == true;
+      final topicOpen = shell.readingTopicId != null;
       if (leading == null &&
           !topicOpen &&
           !DismissNewTopicsButton.isVisible(shell)) {
@@ -186,7 +186,7 @@ class TopicNavigationButtons extends StatelessWidget {
   final bool vertical;
 
   @override
-  Widget build(BuildContext context) => ListenableBuilder(
+  Widget build(BuildContext context) => ForumTabListenableBuilder(
     listenable: ShellScope.identityOf(context).topicFeeds,
     builder: (context, _) => ShellSelector<_AdjacentTopics>(
       select: _adjacentTopics,
@@ -253,7 +253,7 @@ class DismissNewTopicsButton extends StatelessWidget {
       (shell.canDismissNewTopics || shell.dismissingNewTopics);
 
   @override
-  Widget build(BuildContext context) => ListenableBuilder(
+  Widget build(BuildContext context) => ForumTabListenableBuilder(
     listenable: ShellScope.identityOf(context).topicFeeds,
     builder: (context, _) {
       final shell = ShellScope.of(context);

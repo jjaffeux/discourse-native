@@ -452,6 +452,8 @@ final class _Fixture {
 }
 
 final class _NavigationHost implements PluginNavigationHost {
+  @override
+  bool get desktopPanelsEnabled => false;
   _NavigationHost({required this.instance, required this.totals})
     : _contentStack = [
         ContentRoute.fromDestination(instance.defaultDestination),

@@ -107,6 +107,7 @@ final class ChatShellService
 
   String? get currentSiteUrl => _host.currentInstance?.url;
   bool get forumActive => _host.forumActive;
+  bool get desktopPanelsEnabled => _host.desktopPanelsEnabled;
   bool get showHeaderShortcut =>
       _host.forumActive && _host.currentInstance != null;
   DiscourseUser? get currentUser => _host.currentInstance?.user;
@@ -484,6 +485,7 @@ final class ChatShellService
       link.route,
       messageId: link.messageId,
       forceFullPage: origin == PluginLinkOrigin.direct,
+      secondaryPanel: origin == PluginLinkOrigin.secondaryPanel,
     );
   }
 
@@ -848,6 +850,17 @@ final class ChatShellService
     if (_host.currentInstance?.url != siteUrl) _host.selectInstance(index);
 
     final routeId = ChatPlugin.channelThreadsRouteId(channelId);
+    if (desktopPanelsEnabled) {
+      _host.pushContent(
+        ContentRoute(
+          id: routeId,
+          title: 'Threads',
+          subtitle: channel!.title,
+          icon: DIcons.comments,
+        ),
+      );
+      return true;
+    }
     if (_shouldNavigateDrawer) {
       _openDrawerRoute(
         ContentRoute(
@@ -1043,10 +1056,33 @@ final class ChatShellService
     int? messageId,
     bool focusComposer = false,
     bool forceFullPage = false,
+    bool secondaryPanel = false,
   }) {
     if (_host.currentInstance?.url != siteUrl) return false;
     final channel = chat.channel(siteUrl, route.channelId);
     if (channel == null) return false;
+    if (desktopPanelsEnabled) {
+      closeDrawer();
+      _host.pushContent(
+        ContentRoute(
+          id: route.routeId,
+          title: route.isThread ? 'Thread' : channel.title,
+          subtitle: route.isThread ? channel.title : null,
+          icon: route.isThread ? DIcons.comments : DIcons.comment,
+          openInSecondaryPanel: route.isThread || secondaryPanel,
+        ),
+      );
+      navigation.offer(
+        ChatNavigationTarget(
+          siteUrl: siteUrl,
+          route: route,
+          messageId: messageId,
+          focusComposer: focusComposer,
+        ),
+      );
+      _host.showPluginContent();
+      return true;
+    }
     if (route.isInfo) {
       return _openInfoRoute(
         siteUrl,

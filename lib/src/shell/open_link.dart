@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../models/content_route.dart';
+import '../models/forum_workspace.dart';
 import '../plugin_api/shell_extensions.dart';
 import '../ui/components/d_toast.dart';
 import 'external_link.dart';
@@ -23,14 +24,23 @@ Future<bool> openLink(
       resolveSiteUrl(url, siteUrl);
 
   if (newTab && controller != null) {
-    final result = controller.openLinkInNewTab(target, title: title);
+    final result = controller.openLinkInNewTab(
+      target,
+      title: title,
+      panel: ForumPanel.secondary,
+    );
     if (result != TabOpenResult.unsupported) {
       return _handleTabResult(context, result);
     }
   }
 
   if (showUserCardForUrl(context, target, siteUrl: siteUrl)) return true;
-  if (await controller?.openPluginUrl(target, origin: PluginLinkOrigin.inApp) ??
+  if (await controller?.openPluginUrl(
+        target,
+        origin: newTab
+            ? PluginLinkOrigin.secondaryPanel
+            : PluginLinkOrigin.inApp,
+      ) ??
       false) {
     return true;
   }
@@ -78,9 +88,11 @@ class LinkTarget extends StatelessWidget {
     onTertiaryTapUp: content != null
         ? (_) => _handleTabResult(
             context,
-            ShellScope.read(
-              context,
-            ).openContentInNewTab(content!, siteUrl: siteUrl),
+            ShellScope.read(context).openContentInNewTab(
+              content!,
+              siteUrl: siteUrl,
+              panel: ForumPanel.secondary,
+            ),
           )
         : url != null
         ? (_) => openLink(
