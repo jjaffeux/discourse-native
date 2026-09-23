@@ -10,6 +10,36 @@ bool _isCheckbox(dom.Node node) =>
     node.localName == 'span' &&
     node.classes.contains('chcklst-box');
 
+dom.Node? _firstContent(Iterable<dom.Node> nodes) => nodes
+    .where((node) => node is! dom.Text || node.text.trim().isNotEmpty)
+    .firstOrNull;
+
+/// Only the item's own leading marker makes it a task. A nested task must not
+/// remove the bullet from an ordinary parent item.
+dom.Element? cookedTodoListMarker(dom.Element element) {
+  if (element.localName != 'li') return null;
+  var first = _firstContent(element.nodes);
+  if (first is dom.Element && first.localName == 'p') {
+    first = _firstContent(first.nodes);
+  }
+  return first != null && _isCheckbox(first) ? first as dom.Element : null;
+}
+
+Map<String, String>? cookedTodoStyles(dom.Element element) {
+  if (cookedTodoListMarker(element) != null) {
+    return const {'list-style-type': 'none'};
+  }
+  if (element.localName == 'ul') {
+    final items = element.children.where((child) => child.localName == 'li');
+    if (items.isNotEmpty &&
+        items.every((item) => cookedTodoListMarker(item) != null)) {
+      // The Native checkbox supplies the marker gutter for a task list.
+      return const {'padding-inline-start': '0'};
+    }
+  }
+  return null;
+}
+
 /// Renders the Checklist plugin's cooked HTML through the Native UI kit.
 Widget? cookedTodoWidgetBuilder(
   dom.Element element, {
@@ -29,6 +59,7 @@ Widget? cookedTodoWidgetBuilder(
         : null;
     final interactive = target != null && !target.permanent && onToggle != null;
     return DCheckbox(
+      alignment: AlignmentDirectional.topStart,
       value: box.classes.contains('checked'),
       readOnly: !interactive,
       semanticLabel: label.isEmpty ? 'To-do' : label,
@@ -40,6 +71,49 @@ Widget? cookedTodoWidgetBuilder(
 
   if (_isCheckbox(element)) {
     return InlineCustomWidget(child: checkbox(element, 'To-do'));
+  }
+  if (cookedTodoListMarker(element) case final marker?) {
+    final copy = element.clone(true);
+    final copiedMarker = cookedTodoListMarker(copy)!;
+    final first = _firstContent(copy.nodes);
+    final label = first is dom.Element && first.localName == 'p'
+        ? first.text.trim()
+        : copy.nodes
+              .takeWhile(
+                (node) =>
+                    node is! dom.Element ||
+                    !const {
+                      'ul',
+                      'ol',
+                      'pre',
+                      'blockquote',
+                      'p',
+                      'details',
+                      'table',
+                    }.contains(node.localName),
+              )
+              .map((node) => node.text ?? '')
+              .join()
+              .trim();
+    copiedMarker.remove();
+    final fragment = dom.DocumentFragment();
+    for (final node in copy.nodes.toList()) {
+      fragment.append(node);
+    }
+    return Builder(
+      builder: (context) {
+        if (marker.classes.contains('checked')) {
+          _markCompletedText(fragment, DTokens.of(context).mutedForeground);
+        }
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            checkbox(marker, label),
+            Expanded(child: contentBuilder(fragment.outerHtml.trim(), style)),
+          ],
+        );
+      },
+    );
   }
   if (element.localName != 'p' && element.localName != 'li') return null;
   final lines = <List<dom.Node>>[[]];
@@ -83,7 +157,7 @@ Widget? cookedTodoWidgetBuilder(
             }
             final label = fragment.text?.trim() ?? '';
             return Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 checkbox(line.first as dom.Element, label),
                 Expanded(
@@ -104,4 +178,36 @@ Widget? cookedTodoWidgetBuilder(
         ),
     ],
   );
+}
+
+/// Completion belongs to this task's prose, not to code blocks or child tasks.
+void _markCompletedText(dom.DocumentFragment fragment, Color color) {
+  final cssColor = '#${color.toARGB32().toRadixString(16).substring(2)}';
+  final decoration = 'color:$cssColor;text-decoration:line-through';
+  dom.Element? run;
+  for (final node in fragment.nodes.toList()) {
+    if (node is dom.Element &&
+        const {
+          'p',
+          'ul',
+          'ol',
+          'pre',
+          'blockquote',
+          'details',
+          'table',
+          'div',
+        }.contains(node.localName)) {
+      run = null;
+      if (node.localName == 'p') {
+        node.attributes['style'] =
+            '${node.attributes['style'] ?? ''};$decoration';
+      }
+    } else {
+      if (run == null) {
+        run = dom.Element.tag('span')..attributes['style'] = decoration;
+        node.replaceWith(run);
+      }
+      run.append(node);
+    }
+  }
 }

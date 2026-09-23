@@ -24,6 +24,20 @@ final inputExamples = ComponentExamples(
       'text grows naturally.',
   examples: [
     StyleguideExample(
+      title: 'Growing inline editor',
+      description:
+          'A borderless multiline editor grows with its content. The composer uses the same Native input for rich task bodies.',
+      states: const ['Multiline', 'Text scaling', 'Borderless'],
+      code:
+          "DInput(borderless: true, maxLines: null, keyboardType: TextInputType.multiline, initialValue: 'First line\\nA continuation in the same item')",
+      builder: (_) => DInput(
+        borderless: true,
+        maxLines: null,
+        keyboardType: TextInputType.multiline,
+        initialValue: 'First line\nA continuation in the same item',
+      ),
+    ),
+    StyleguideExample(
       title: 'Borderless editing',
       description: 'Edit text in place without a field border or inset.',
       code:

@@ -1,3 +1,4 @@
+import 'composer_list_source.dart';
 import 'markdown_highlight.dart';
 
 /// A checklist line keeps its original Markdown as the editable source.
@@ -8,6 +9,9 @@ class ComposerTodo {
     required this.contentStart,
     required this.end,
     required this.checked,
+    this.itemEnd,
+    this.continuationIndent,
+    this.parentStart,
   });
 
   final int start;
@@ -15,24 +19,63 @@ class ComposerTodo {
   final int contentStart;
   final int end;
   final bool checked;
+  final int? itemEnd;
+  final String? continuationIndent;
+  final int? parentStart;
+  bool get isListItem => continuationIndent != null;
 }
 
 final _todoPrefix = RegExp(
-  r'^( {0,3}(?:[-+*][ \t]+)?)(\[[ xX]?\])(?:[ \t]+|(?=\r?$))',
+  r'^( {0,3})(\[[ xX]?\])(?:[ \t]+|(?=\r?$))',
   multiLine: true,
 );
 
-List<ComposerTodo> composerTodos(String source, {CodeRanges? codeRanges}) {
+List<ComposerTodo> composerTodos(
+  String source, {
+  CodeRanges? codeRanges,
+  Set<String> referenceMarkers = const {},
+}) {
   final matches = _todoPrefix.allMatches(source).toList();
-  if (matches.isEmpty) return const [];
+  final lists = composerListItems(source, referenceMarkers: referenceMarkers);
+  final structured = <ComposerTodo>[];
+  void visit(ComposerListItem item, int Function(int) map, int? parentStart) {
+    final mappedStart = map(item.start);
+    final start = mappedStart == 0
+        ? 0
+        : source.lastIndexOf('\n', mappedStart - 1) + 1;
+    if (item.isTask) {
+      final marker = map(item.taskMarkerStart!);
+      structured.add(
+        ComposerTodo(
+          start: start,
+          markerStart: marker,
+          contentStart: map(item.contentStart),
+          end: map(item.firstLineEnd),
+          checked: item.checked,
+          itemEnd: map(item.end),
+          continuationIndent: ' ' * (marker - start),
+          parentStart: parentStart,
+        ),
+      );
+    }
+    for (final child in item.children) {
+      visit(child, (offset) => map(item.body.sourceOffset(offset)), start);
+    }
+  }
+
+  for (final item in lists) {
+    visit(item, (offset) => offset, null);
+  }
+  if (matches.isEmpty) return structured;
   final code = codeRanges ?? CodeRanges.of(scanMarkdown(source));
-  final references = RegExp(
-    r'^ {0,3}\[([ xX]?)\]:[ \t]*\S',
-    multiLine: true,
-  ).allMatches(source).map((match) => '[${match[1]!.toLowerCase()}]').toSet();
+  final references = {...referenceMarkers, ...composerTaskReferences(source)};
   return [
+    ...structured,
     for (final match in matches)
       if (!code.overlaps(match.start, match.end) &&
+          !lists.any(
+            (item) => match.start >= item.start && match.start < item.end,
+          ) &&
           !references.contains(match[2]!.toLowerCase()))
         ComposerTodo(
           start: match.start,
@@ -41,7 +84,7 @@ List<ComposerTodo> composerTodos(String source, {CodeRanges? codeRanges}) {
           end: _lineEnd(source, match.end),
           checked: match[2]!.toLowerCase() == '[x]',
         ),
-  ];
+  ]..sort((a, b) => a.start.compareTo(b.start));
 }
 
 int _lineEnd(String source, int start) {

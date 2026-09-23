@@ -163,6 +163,10 @@ void main() {
         debugOnRebuildDirtyWidget = (element, builtOnce) {
           builds++;
           if (element.widget is DInput &&
+              element.widget.key is ValueKey<String> &&
+              (element.widget.key! as ValueKey<String>).value.startsWith(
+                'table-cell-',
+              ) &&
               element.widget.key != ValueKey('table-cell-$row-0')) {
             otherInputs++;
           }

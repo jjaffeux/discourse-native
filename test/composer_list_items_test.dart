@@ -1,0 +1,451 @@
+import 'dart:async';
+
+import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/src/models/composer_upload.dart';
+import 'package:discourse_native/src/shell/composer_blocks.dart';
+import 'package:discourse_native/src/shell/composer_controller.dart';
+import 'package:discourse_native/src/shell/composer_list_editor.dart';
+import 'package:discourse_native/src/shell/composer_list_source.dart';
+import 'package:discourse_native/src/shell/composer_panel.dart';
+import 'package:discourse_native/src/shell/composer_todos.dart';
+import 'package:discourse_native/src/shell/cooked_html.dart';
+import 'package:discourse_native/src/theme/app_theme.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_widget_from_html_core/flutter_widget_from_html_core.dart';
+
+const complexTask =
+    '- [ ] First line\n  Continued\n\n  Second paragraph\n\n  ```text\n  [ ] literal\n  ```\n\n  - [ ] Child\n    - [x] Grandchild';
+
+Finder editable(ComposerController composer) => find.byWidgetPredicate(
+  (widget) =>
+      widget is EditableText && identical(widget.controller, composer.text),
+);
+
+Future<ComposerController> pumpEditor(
+  WidgetTester tester,
+  String source, {
+  double scale = 1,
+}) async {
+  final composer = ComposerController(
+    const ComposerTarget(
+      siteUrl: 'https://example.test',
+      topicId: 1,
+      slug: 'topic',
+      topicTitle: 'Topic',
+    ),
+  );
+  composer.text.value = TextEditingValue(
+    text: source,
+    selection: TextSelection.collapsed(offset: source.length),
+  );
+  addTearDown(composer.dispose);
+  await tester.pumpWidget(
+    MaterialApp(
+      theme: AppTheme.light,
+      home: Scaffold(
+        body: MediaQuery(
+          data: MediaQueryData(textScaler: TextScaler.linear(scale)),
+          child: SizedBox(
+            width: 350,
+            height: 580,
+            child: ComposerEditor(
+              composer: composer,
+              hintText: 'Reply',
+              textStyle: const TextStyle(fontSize: 16, height: 1.5),
+              hintStyle: null,
+              showSelectionToolbar: false,
+            ),
+          ),
+        ),
+      ),
+    ),
+  );
+  await tester.pumpAndSettle();
+  return composer;
+}
+
+List<ComposerListBodyController> bodies(WidgetTester tester) => tester
+    .widgetList<ComposerRichBodyEditor>(find.byType(ComposerRichBodyEditor))
+    .map((widget) => widget.composer)
+    .whereType<ComposerListBodyController>()
+    .toList();
+
+void main() {
+  test(
+    'task subtrees include paragraphs and fences and retain nested ownership',
+    () {
+      const source = '$complexTask\n- [x] Second\n\nAfter';
+      final items = composerListItems(source);
+      expect(items.map((item) => item.source), [complexTask, '- [x] Second']);
+      expect(
+        items.first.body.text,
+        'First line\nContinued\n\nSecond paragraph\n\n```text\n[ ] literal\n```\n\n- [ ] Child\n  - [x] Grandchild',
+      );
+      final todos = composerTodos(source);
+      expect(
+        todos.map((todo) => source.substring(todo.contentStart, todo.end)),
+        ['First line', 'Child', 'Grandchild', 'Second'],
+      );
+      expect(todos.first.itemEnd, complexTask.length);
+      expect(todos[2].continuationIndent, '      ');
+    },
+  );
+
+  test('code, rules and reference links retain their literal source', () {
+    expect(
+      composerListItems('```md\n- [ ] example\n```\n\n    - [ ] code\n\n---'),
+      isEmpty,
+    );
+    expect(
+      composerTodos('- [x] Reference\n\n[x]: https://example.test'),
+      isEmpty,
+    );
+    expect(
+      composerListItems('- [ ] Unclosed\n\n  ```\n  body').single.closed,
+      isFalse,
+    );
+  });
+
+  for (final newline in ['\n', '\r\n']) {
+    test(
+      'body patches preserve untouched indentation and map offsets (${newline.length})',
+      () {
+        final source = [
+          '  * [x] Label',
+          '    continued',
+          '',
+          '     extra space',
+        ].join(newline);
+        final item = composerListItems(source).single;
+        expect(item.body.text, 'Label\ncontinued\n\n extra space');
+        expect(item.body.replace(item.body.text), source);
+        expect(
+          item.body.replace('Label\ncontinued!\n\n extra space'),
+          source.replaceFirst('continued', 'continued!'),
+        );
+        expect(
+          item.body.replace('Label\nnew\ncontinued\n\n extra space'),
+          source.replaceFirst('Label', 'Label$newline    new'),
+        );
+        for (var i = 0; i <= item.body.text.length; i++) {
+          expect(item.body.localOffset(item.body.sourceOffset(i)), i);
+        }
+      },
+    );
+  }
+
+  test('moving a task retains its descendants and exact source', () {
+    final index = ComposerBlockIndex.parse('$complexTask\n- [x] Second');
+    expect(index.blocks, hasLength(2));
+    expect(index.blocks.first.kind, ComposerBlockKind.todo);
+    final moved = index.move(index.blocks.first.id, 2)!;
+    expect(moved.after.source, '- [x] Second\n$complexTask');
+    expect(moved.after.blocks.last.source, complexTask);
+  });
+
+  test('uploads remain indented inside their task after completion', () async {
+    final upload = Completer<ComposerUploadResult>();
+    final root = ComposerController(
+      const ComposerTarget(
+        siteUrl: 'https://example.test',
+        topicId: 1,
+        slug: 'topic',
+        topicTitle: 'Topic',
+      ),
+      imageUploader: (file, {required onProgress, required abortTrigger}) =>
+          upload.future,
+    );
+    root.text.text = '- [ ] Parent\n  - [ ] Child';
+    final outer = ComposerListBodyController(
+      root,
+      composerListItems(root.text.text).single,
+    );
+    final child = ComposerListBodyController(
+      outer,
+      composerListItems(outer.text.text).single,
+    );
+    addTearDown(() {
+      child.dispose();
+      outer.dispose();
+      root.dispose();
+    });
+    child.addImages([
+      ComposerUploadFile(
+        name: 'photo.png',
+        length: () async => 1,
+        openRead: () => Stream.value([1]),
+      ),
+    ], child.text.text.length);
+    expect(root.hasActiveUploads, isTrue);
+    expect(
+      root.text.text,
+      contains('Child\n    ${root.uploadPlaceholders.values.single}'),
+    );
+    upload.complete(
+      const ComposerUploadResult(
+        id: 1,
+        originalFilename: 'photo.png',
+        shortUrl: 'upload://photo',
+        url: 'https://example.test/photo.png',
+        width: 100,
+        height: 80,
+      ),
+    );
+    await Future<void>.delayed(Duration.zero);
+    expect(
+      root.text.text,
+      contains('Child\n    ![photo|100x80](upload://photo)'),
+    );
+    expect(
+      composerListItems(root.text.text).single.children.single.body.text,
+      contains('![photo|100x80](upload://photo)'),
+    );
+    expect(root.hasActiveUploads, isFalse);
+  });
+
+  testWidgets('new tasks retain source and use a growing Native editor', (
+    tester,
+  ) async {
+    final root = await pumpEditor(tester, '- [ ] First');
+    expect(find.byType(DInput), findsNWidgets(2));
+    expect(find.byType(DCheckbox), findsOneWidget);
+    final body = bodies(tester).single;
+    expect(body.text.text, 'First');
+    expect(identical(body.history, root.history), isTrue);
+    await tester.enterText(editable(body), 'First changed');
+    await tester.pumpAndSettle();
+    expect(root.text.text, '- [ ] First changed');
+    root.history.undo();
+    await tester.pumpAndSettle();
+    expect(root.text.text, '- [ ] First');
+    expect(bodies(tester).single.text.text, 'First');
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+    'Return splits tasks and Shift Return stays in their content column',
+    (tester) async {
+      final root = await pumpEditor(tester, '- [x] First');
+      var body = bodies(tester).single;
+      body.text.selection = TextSelection.collapsed(
+        offset: body.text.text.length,
+      );
+      body.requestFocus();
+      await tester.pumpAndSettle();
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pumpAndSettle();
+      expect(root.text.text, '- [x] First\n- [ ] ');
+      body = bodies(tester).last;
+      expect(body.focus.hasPrimaryFocus, isTrue);
+      await tester.enterText(editable(body), 'Second');
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+      await tester.pumpAndSettle();
+      expect(root.text.text, '- [x] First\n- [ ] Second\n  ');
+      await tester.enterText(
+        editable(bodies(tester).last),
+        'Second\ncontinued',
+      );
+      await tester.pumpAndSettle();
+      expect(root.text.text, '- [x] First\n- [ ] Second\n  continued');
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'nested tasks remain independent and code stays editable at narrow widths',
+    (tester) async {
+      final root = await pumpEditor(tester, complexTask, scale: 2);
+      expect(find.byType(DCheckbox), findsNWidgets(3));
+      expect(bodies(tester), hasLength(3));
+      final child = bodies(tester)[1];
+      child.toggle();
+      await tester.pumpAndSettle();
+      expect(
+        root.text.text,
+        complexTask.replaceFirst('- [ ] Child', '- [x] Child'),
+      );
+      root.history.undo();
+      await tester.pumpAndSettle();
+      expect(root.text.text, complexTask);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'empty nested tasks outdent, and document selection copies canonical Markdown',
+    (tester) async {
+      String? copied;
+      final messenger =
+          TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+      messenger.setMockMethodCallHandler(SystemChannels.platform, (call) async {
+        if (call.method == 'Clipboard.setData') {
+          copied = (call.arguments as Map)['text'] as String;
+        }
+        return null;
+      });
+      addTearDown(
+        () => messenger.setMockMethodCallHandler(SystemChannels.platform, null),
+      );
+      final root = await pumpEditor(tester, '- [ ] Parent\n  - [ ] ');
+      final nested = bodies(tester).last;
+      nested.requestFocus();
+      await tester.pumpAndSettle();
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pumpAndSettle();
+      expect(root.text.text, '- [ ] Parent\n- [ ] ');
+      root.history.undo();
+      await tester.pumpAndSettle();
+      expect(root.text.text, '- [ ] Parent\n  - [ ] ');
+      bodies(tester).last.requestFocus();
+      await tester.pumpAndSettle();
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyA);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+      await tester.pumpAndSettle();
+      expect(
+        root.text.selection,
+        TextSelection(baseOffset: 0, extentOffset: root.text.text.length),
+      );
+      expect(root.focus.hasPrimaryFocus, isTrue);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyC);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+      await tester.pump();
+      expect(copied, root.text.text);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'composition remains mounted and committing preserves the task prefix',
+    (tester) async {
+      final root = await pumpEditor(tester, '- [ ] Task');
+      final body = bodies(tester).single;
+      body.requestFocus();
+      await tester.pumpAndSettle();
+      tester.testTextInput.updateEditingValue(
+        const TextEditingValue(
+          text: 'Task 文',
+          selection: TextSelection.collapsed(offset: 6),
+          composing: TextRange(start: 5, end: 6),
+        ),
+      );
+      await tester.pump();
+      expect(identical(bodies(tester).single, body), isTrue);
+      expect(root.text.text, '- [ ] Task 文');
+      expect(root.history.composing, isTrue);
+      final held = root.text.text;
+      body.toggle();
+      expect(root.text.text, held);
+      tester.testTextInput.updateEditingValue(
+        const TextEditingValue(
+          text: 'Task 文',
+          selection: TextSelection.collapsed(offset: 6),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(root.history.composing, isFalse);
+      expect(root.text.text, held);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'Return exits an empty top-level task and Backspace unwraps its whole body',
+    (tester) async {
+      final root = await pumpEditor(tester, '- [ ] ');
+      bodies(tester).single.requestFocus();
+      await tester.pumpAndSettle();
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pumpAndSettle();
+      expect(root.text.text, isEmpty);
+      root.text.text = '- [ ] First\n  Continued\n\n  Second paragraph';
+      await tester.pumpAndSettle();
+      final body = bodies(tester).single;
+      body.text.selection = const TextSelection.collapsed(offset: 0);
+      body.requestFocus();
+      await tester.pumpAndSettle();
+      await tester.sendKeyEvent(LogicalKeyboardKey.backspace);
+      await tester.pumpAndSettle();
+      expect(root.text.text, 'First\nContinued\n\nSecond paragraph');
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets('removed task hosts cannot toggle or commit a stale edit', (
+    tester,
+  ) async {
+    final root = await pumpEditor(tester, '- [ ] Task');
+    final body = bodies(tester).single;
+    root.text.text = 'Replacement';
+    expect(body.isCurrent, isFalse);
+    body.toggle();
+    body.text.text = 'Stale task';
+    expect(root.text.text, 'Replacement');
+    await tester.pumpAndSettle();
+    expect(find.byType(DCheckbox), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('nested reference links keep their document-level definitions', (
+    tester,
+  ) async {
+    const source =
+        '- [ ] Parent\n  - [x] Reference\n\n[x]: https://example.test';
+    final root = await pumpEditor(tester, source);
+    expect(find.byType(DCheckbox), findsOneWidget);
+    expect(composerTodos(source), hasLength(1));
+    expect(bodies(tester).single.text.todos, isEmpty);
+    expect(root.text.text, source);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('post tasks retain full content and mixed list bullets', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light,
+        home: const Scaffold(
+          body: SizedBox(
+            width: 350,
+            child: CookedHtml(
+              html:
+                  '<ul><li><p><span class="chcklst-box checked"></span> Parent<br>continuation</p>'
+                  '<p>Second paragraph</p><pre><code>sample code</code></pre>'
+                  '<ul><li><span class="chcklst-box"></span> Child</li></ul></li><li>Ordinary bullet</li></ul>',
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byType(DCheckbox), findsNWidgets(2));
+    expect(find.byType(HtmlListMarker), findsOneWidget);
+    final paragraphs = tester.renderObjectList<RenderParagraph>(
+      find.byType(RichText),
+    );
+    RenderParagraph paragraph(String text) =>
+        paragraphs.firstWhere((p) => p.text.toPlainText().contains(text));
+    final first = paragraph('Parent');
+    final second = paragraph('Second paragraph');
+    expect(
+      first.localToGlobal(Offset.zero).dx,
+      second.localToGlobal(Offset.zero).dx,
+    );
+    expect(
+      paragraph('Child').text.style?.decoration,
+      isNot(TextDecoration.lineThrough),
+    );
+    expect(
+      paragraph('sample code').text.style?.decoration,
+      isNot(TextDecoration.lineThrough),
+    );
+    expect(tester.takeException(), isNull);
+  });
+}
