@@ -246,6 +246,7 @@ class UserMenuPanel extends StatefulWidget {
   final VoidCallback onDismiss;
 
   static const double width = 500;
+  static const double mobileWidth = 320;
   static const double profileWidth = 280;
   static const double height = 460;
   static const double railWidth = 168;
@@ -336,6 +337,29 @@ class _UserMenuPanelState extends State<UserMenuPanel> {
               }
             },
           );
+          void selectSection(String id) {
+            final selected = sections.firstWhere(
+              (candidate) => candidate.id == id,
+            );
+            if (selected.isMessages) {
+              widget.onDismiss();
+              _openMessages(controller);
+              return;
+            }
+            final activePath = selected.plugin?.linkWhenActive;
+            if (id == _sectionId && activePath != null) {
+              widget.onDismiss();
+              unawaited(
+                _openPluginUserMenuLink(controller, siteUrl!, activePath),
+              );
+              return;
+            }
+            setState(() => _sectionId = id);
+          }
+
+          final notificationSections = sections
+              .where((section) => !section.isProfile)
+              .toList();
           return SizedBox(
             width: widget.view == UserMenuView.profile
                 ? UserMenuPanel.profileWidth
@@ -344,53 +368,75 @@ class _UserMenuPanelState extends State<UserMenuPanel> {
             child: widget.view == UserMenuView.profile
                 ? body
                 : LayoutBuilder(
-                    builder: (context, constraints) => Row(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        SizedBox(
-                          width: constraints.maxWidth < 440
-                              ? 52
-                              : UserMenuPanel.railWidth,
-                          child: _TabRail(
-                            sections: sections
-                                .where((section) => !section.isProfile)
-                                .toList(),
-                            selectedId: section.id,
-                            onSelect: (id) {
-                              final selected = sections.firstWhere(
-                                (candidate) => candidate.id == id,
-                              );
-                              if (selected.isMessages) {
-                                widget.onDismiss();
-                                _openMessages(controller);
-                                return;
-                              }
-                              final activePath =
-                                  selected.plugin?.linkWhenActive;
-                              if (id == _sectionId && activePath != null) {
-                                widget.onDismiss();
-                                unawaited(
-                                  _openPluginUserMenuLink(
-                                    controller,
-                                    siteUrl!,
-                                    activePath,
+                    builder: (context, constraints) {
+                      if (constraints.maxWidth < 440) {
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Padding(
+                              padding: const EdgeInsets.all(
+                                DSpacing.controlGap,
+                              ),
+                              child: DTabs<String>.controlled(
+                                value: section.id,
+                                onActivated: selectSection,
+                                children: [
+                                  DTabList<String>(
+                                    key: const ValueKey(
+                                      'user-menu-mobile-tabs',
+                                    ),
+                                    variant: DTabListVariant.outlinePill,
+                                    size: DControlSize.small,
+                                    children: [
+                                      for (final section
+                                          in notificationSections)
+                                        DTabTrigger<String>(
+                                          key: ValueKey(
+                                            'user-menu-tab-${section.id}',
+                                          ),
+                                          value: section.id,
+                                          semanticLabel: section.badge > 0
+                                              ? '${section.label}, ${section.badge} unread'
+                                              : section.label,
+                                          child: ExcludeSemantics(
+                                            child: Text(section.label),
+                                          ),
+                                        ),
+                                    ],
                                   ),
-                                );
-                                return;
-                              }
-                              setState(() => _sectionId = id);
-                            },
+                                ],
+                              ),
+                            ),
+                            DSeparator(
+                              space: 1,
+                              thickness: 1,
+                              color: _userMenuBorderColor(theme),
+                            ),
+                            Expanded(child: body),
+                          ],
+                        );
+                      }
+                      return Row(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          SizedBox(
+                            width: UserMenuPanel.railWidth,
+                            child: _TabRail(
+                              sections: notificationSections,
+                              selectedId: section.id,
+                              onSelect: selectSection,
+                            ),
                           ),
-                        ),
-                        DSeparator(
-                          orientation: Axis.vertical,
-                          space: 1,
-                          thickness: 1,
-                          color: _userMenuBorderColor(theme),
-                        ),
-                        Expanded(child: body),
-                      ],
-                    ),
+                          DSeparator(
+                            orientation: Axis.vertical,
+                            space: 1,
+                            thickness: 1,
+                            color: _userMenuBorderColor(theme),
+                          ),
+                          Expanded(child: body),
+                        ],
+                      );
+                    },
                   ),
           );
         },

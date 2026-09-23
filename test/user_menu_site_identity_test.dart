@@ -115,7 +115,7 @@ void main() {
     );
 
     testWidgets(
-      'keeps the nested mobile invite panel on its source site',
+      'reloads the mobile invite tab when the selected site changes',
       (tester) => _withMenu(tester, TargetPlatform.android, (fixture) async {
         final launched = _watchBrowser(tester);
         await _openNestedSection(tester, 'Invites');
@@ -124,14 +124,15 @@ void main() {
         );
         shell.selectInstance(1);
         await tester.pumpAndSettle();
-        expect(find.text('meta-invite@example.com'), findsOneWidget);
-        expect(find.text('team-invite@example.com'), findsNothing);
+        expect(find.text('meta-invite@example.com'), findsNothing);
+        expect(find.text('team-invite@example.com'), findsOneWidget);
         final manage = find.text('Manage invites in browser');
         await tester.ensureVisible(manage);
+        await tester.pumpAndSettle();
         await tester.tap(manage);
         await tester.pumpAndSettle();
-        expect(launched, ['$_metaUrl/u/meta-user/invited/pending']);
-        expect(fixture.api.inviteSites, [_metaUrl]);
+        expect(launched, ['$_teamUrl/u/team-user/invited/pending']);
+        expect(fixture.api.inviteSites, [_metaUrl, _teamUrl]);
       }),
     );
   });
@@ -387,7 +388,7 @@ void main() {
     );
 
     testWidgets(
-      'keeps nested notification actions on their source site',
+      'mobile notification actions follow the displayed site',
       (tester) => _withMenu(tester, TargetPlatform.android, (fixture) async {
         final launched = _watchBrowser(tester);
         final api = fixture.api;
@@ -399,23 +400,24 @@ void main() {
         shell.selectInstance(1);
         await tester.pumpAndSettle();
 
-        expect(find.textContaining('Meta Helper'), findsOneWidget);
-        expect(api.notificationSites, [_metaUrl]);
+        expect(find.textContaining('Team Helper'), findsOneWidget);
+        expect(api.notificationSites, [_metaUrl, _teamUrl]);
 
-        await tester.tap(find.textContaining('Meta Helper'));
+        await tester.tap(find.textContaining('Team Helper'));
         await tester.pumpAndSettle();
 
         expect(launched, isEmpty);
-        expect(shell.currentInstance?.url, _metaUrl);
-        expect(shell.currentContent?.badgeRoute?.badgeId, 11);
+        expect(shell.currentInstance?.url, _teamUrl);
+        expect(shell.currentContent?.badgeRoute?.badgeId, 22);
+        expect(find.byType(UserMenuPanel), findsNothing);
         expect(find.text('Recently awarded'), findsOneWidget);
-        expect(api.badgeSites, [_metaUrl, _metaUrl]);
-        expect(api.readSites, [(siteUrl: _metaUrl, id: 11)]);
+        expect(api.badgeSites, [_teamUrl, _teamUrl]);
+        expect(api.readSites, [(siteUrl: _teamUrl, id: 22)]);
       }),
     );
 
     testWidgets(
-      'keeps nested Replies content on its source site',
+      'reloads the mobile Replies tab when the selected site changes',
       (tester) => _withMenu(tester, TargetPlatform.android, (fixture) async {
         final api = fixture.api;
 
@@ -426,13 +428,13 @@ void main() {
         shell.selectInstance(1);
         await tester.pumpAndSettle();
 
-        expect(find.textContaining('Meta reply'), findsOneWidget);
-        expect(api.replySites, [_metaUrl]);
+        expect(find.textContaining('Team reply'), findsOneWidget);
+        expect(api.replySites, [_metaUrl, _teamUrl]);
       }),
     );
 
     testWidgets(
-      'keeps nested bookmark actions on their source site',
+      'mobile bookmark actions follow the displayed site',
       (tester) => _withMenu(tester, TargetPlatform.android, (fixture) async {
         final launched = _watchBrowser(tester);
         final api = fixture.api;
@@ -444,13 +446,13 @@ void main() {
         shell.selectInstance(1);
         await tester.pumpAndSettle();
 
-        expect(find.textContaining('Meta chat message'), findsOneWidget);
-        expect(api.bookmarkSites, [_metaUrl]);
+        expect(find.textContaining('Team chat message'), findsOneWidget);
+        expect(api.bookmarkSites, [_metaUrl, _teamUrl]);
 
-        await tester.tap(find.textContaining('Meta chat message'));
+        await tester.tap(find.textContaining('Team chat message'));
         await tester.pumpAndSettle();
 
-        expect(launched, ['$_metaUrl/chat/c/meta/1/31']);
+        expect(launched, ['$_teamUrl/chat/c/team/2/32']);
       }),
     );
   });
@@ -664,7 +666,10 @@ Future<void> _openNestedSection(WidgetTester tester, String label) async {
   final menu = panel.evaluate().isNotEmpty
       ? panel
       : find.byKey(const ValueKey('user-menu-sheet'));
-  await tester.tap(find.descendant(of: menu, matching: find.text(label)).last);
+  final tab = find.descendant(of: menu, matching: find.text(label)).last;
+  await tester.ensureVisible(tab);
+  await tester.pumpAndSettle();
+  await tester.tap(tab);
   await tester.pumpAndSettle();
 }
 
@@ -717,13 +722,17 @@ final class _SiteMenuApi extends FakeDiscourseApi {
     required String? apiKey,
     String? clientId,
   }) async {
-    if (path == '/badges/11.json') {
+    final badgeId = siteUrl == _metaUrl ? 11 : 22;
+    if (path == '/badges/$badgeId.json') {
       badgeSites.add(siteUrl);
-      return const {
-        'badge': {'id': 11, 'name': 'Meta Helper'},
+      return {
+        'badge': {
+          'id': badgeId,
+          'name': siteUrl == _metaUrl ? 'Meta Helper' : 'Team Helper',
+        },
       };
     }
-    if (path == '/user_badges.json?badge_id=11&offset=0') {
+    if (path == '/user_badges.json?badge_id=$badgeId&offset=0') {
       badgeSites.add(siteUrl);
       return const {
         'user_badge_info': {'user_badges': <Map<String, dynamic>>[]},

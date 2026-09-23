@@ -10,6 +10,7 @@ final tabsExamples = ComponentExamples(
   notes:
       'The default list is 32px high with 3px inset, 25px triggers, 6px horizontal padding, 14/20 medium text and the host lg/md radius scale. Horizontal line tabs use 20px gaps, content-width labels, a 2px active underline inside the trigger and a subtle full-width divider. Regular triggers are 42px high (at least 48px on touch), with semibold selection and muted regular inactive labels. Vertical line tabs retain their trailing rule. '
       'The pill variant uses the shared control size and radius, semibold labels, 4px gaps and an immediate neutral selected fill without a surrounding track, border or shadow. '
+      'The outlinePill variant keeps every tab capsule-shaped, with 6px gaps, outlined inactive tabs and the shared button accent fill on selection. Mobile notification menus use small, horizontally scrolling labels with full touch targets. '
       'DTabs owns local selection, DTabs.controlled follows application routing, and DTabController is a borrowed imperative option. DTabList supports manual or automatic activation and looping roving focus. Arrow direction follows orientation and RTL; Home/End jump to the boundary; Enter/Space activate in manual mode. Disabled and dynamically removed triggers are skipped. '
       'Pointer activation retains focus without an outline. Keyboard entry, arrow navigation, and Enter/Space activation show the focus ring by default. '
       'DTabPanel unmounts hidden content by default; maintainState retains it offstage without ticking or semantics. Focus in a disappearing panel returns to its trigger. Horizontal lists scroll at narrow widths and reveal keyboard-focused tabs. Touch platforms retain a 48px interaction height around the compact artwork. All colors, font family, radius and reduced motion update live from the preview.',
@@ -155,6 +156,44 @@ final tabsExamples = ComponentExamples(
               DTabTrigger(value: 'new', child: Text('New 3')),
               DTabTrigger(value: 'unread', child: Text('Unread 4')),
               DTabTrigger(value: 'top', child: Text('Top')),
+            ],
+          ),
+        ],
+      ),
+    ),
+    StyleguideExample(
+      title: 'Outlined pills',
+      description:
+          'Mobile notification categories scroll horizontally. Selection uses the forum accent, with outlined inactive tabs and full touch targets.',
+      states: const ['Outline', 'Accent', 'Scroll', 'Touch', 'Keyboard', 'RTL'],
+      code: '''DTabs<String>(
+  initialValue: 'all',
+  children: [
+    DTabList<String>(
+      variant: DTabListVariant.outlinePill,
+      size: DControlSize.small,
+      children: [
+        DTabTrigger(value: 'all', child: Text('Notifications')),
+        DTabTrigger(value: 'replies', child: Text('Replies')),
+        DTabTrigger(value: 'likes', child: Text('Likes')),
+        DTabTrigger(value: 'messages', child: Text('Messages')),
+        DTabTrigger(value: 'bookmarks', child: Text('Bookmarks')),
+      ],
+    ),
+  ],
+)''',
+      builder: (_) => const DTabs<String>(
+        initialValue: 'all',
+        children: [
+          DTabList<String>(
+            variant: DTabListVariant.outlinePill,
+            size: DControlSize.small,
+            children: [
+              DTabTrigger(value: 'all', child: Text('Notifications')),
+              DTabTrigger(value: 'replies', child: Text('Replies')),
+              DTabTrigger(value: 'likes', child: Text('Likes')),
+              DTabTrigger(value: 'messages', child: Text('Messages')),
+              DTabTrigger(value: 'bookmarks', child: Text('Bookmarks')),
             ],
           ),
         ],

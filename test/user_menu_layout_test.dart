@@ -85,7 +85,7 @@ void main() {
               of: surface,
               matching: find.byType(DBadge),
             );
-            expect(badges, findsWidgets);
+            expect(badges, width < 600 ? findsNothing : findsWidgets);
             final colors = Theme.of(tester.element(surface)).discourse;
             for (final badge in badges.evaluate()) {
               final badgeFinder = find.byWidget(badge.widget);
