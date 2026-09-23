@@ -182,14 +182,17 @@ class _ForumAppearanceSettingsState extends State<ForumAppearanceSettings> {
                   items: const [
                     DToggleGroupItem(
                       value: AppThemeMode.light,
+                      icon: Icon(Icons.light_mode_outlined),
                       child: Text('Light'),
                     ),
                     DToggleGroupItem(
                       value: AppThemeMode.dark,
+                      icon: Icon(Icons.dark_mode_outlined),
                       child: Text('Dark'),
                     ),
                     DToggleGroupItem(
                       value: AppThemeMode.system,
+                      icon: Icon(Icons.desktop_windows_outlined),
                       child: Text('System'),
                     ),
                   ],
