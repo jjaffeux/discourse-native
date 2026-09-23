@@ -26,6 +26,7 @@ void main() {
       const Radius.circular(10),
     );
     expect(cards.last.borderRadius, isNull);
+    expect(cards.every((card) => !card.border), isTrue);
   });
 
   testWidgets('window corner follows native radius and only the outer panel', (

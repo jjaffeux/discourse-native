@@ -115,6 +115,7 @@ class AggregateViewState extends State<AggregateView> {
             final state = controller.aggregate.state;
             final tabId = controller.activeAggregateTabId;
             return DPageSurface(
+              border: false,
               borderRadius: WorkspacePanelCorner.borderRadiusOf(context),
               identity: tabId,
               framed: !context.isTouch,

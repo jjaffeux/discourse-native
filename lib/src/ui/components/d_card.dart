@@ -23,6 +23,7 @@ class DCard extends StatelessWidget {
     this.variant = DCardVariant.standard,
     this.spacing,
     this.backgroundColor,
+    this.border = true,
     this.borderRadius,
     this.leading,
     this.trailing,
@@ -35,6 +36,9 @@ class DCard extends StatelessWidget {
   final DCardSize size;
   final DCardVariant variant;
   final double? spacing;
+
+  /// Whether to paint the outer outline. Clipping and fill remain unchanged.
+  final bool border;
 
   /// Overrides only the surface fill, retaining the outline, clipping and
   /// descendant theme. Supports translucent fills over a shared backdrop.
@@ -73,7 +77,7 @@ class DCard extends StatelessWidget {
           position: DecorationPosition.foreground,
           decoration: BoxDecoration(
             borderRadius: radius,
-            border: Border.all(color: tokens.border),
+            border: border ? Border.all(color: tokens.border) : null,
           ),
           child: Material(
             animationDuration: Duration.zero,

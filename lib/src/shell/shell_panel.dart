@@ -80,6 +80,7 @@ class WorkspacePanel extends StatelessWidget {
   Widget build(BuildContext context) => context.isTouch
       ? child
       : DCard(
+          border: false,
           spacing: 0,
           borderRadius: WorkspacePanelCorner.borderRadiusOf(
             context,

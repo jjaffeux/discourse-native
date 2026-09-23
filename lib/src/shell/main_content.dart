@@ -254,6 +254,7 @@ class _MainContentBody extends StatelessWidget {
       child: SafeArea(
         left: false,
         child: DPageSurface(
+          border: false,
           borderRadius: WorkspacePanelCorner.borderRadiusOf(context),
           backgroundColor: ForumWindowBackground.panelColor(context),
           identity: contentKey,
@@ -537,6 +538,7 @@ class _TopicInboxWorkspaceState extends State<_TopicInboxWorkspace> {
                         )),
                         hidden: topicOpen && !split,
                         child: DPageSurface(
+                          border: false,
                           borderRadius: WorkspacePanelCorner.borderRadiusOf(
                             context,
                             atRightEdge:
@@ -607,6 +609,7 @@ class _TopicInboxWorkspaceState extends State<_TopicInboxWorkspace> {
                       top: 0,
                       bottom: 0,
                       child: DPageSurface(
+                        border: false,
                         borderRadius: WorkspacePanelCorner.borderRadiusOf(
                           context,
                           atRightEdge:
