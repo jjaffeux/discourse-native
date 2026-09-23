@@ -229,6 +229,19 @@ DCheckbox.defaultValue(invalid: true, title: Text('Accept terms'))''',
         ],
       ),
     ),
+    StyleguideExample(
+      title: 'Start-aligned marker',
+      description:
+          'Align an unlabelled marker with surrounding content while keeping its full click target.',
+      code:
+          'DCheckbox.defaultValue(alignment: AlignmentDirectional.centerStart)',
+      builder: (_) => const Align(
+        alignment: AlignmentDirectional.centerStart,
+        child: DCheckbox.defaultValue(
+          alignment: AlignmentDirectional.centerStart,
+        ),
+      ),
+    ),
   ],
 );
 

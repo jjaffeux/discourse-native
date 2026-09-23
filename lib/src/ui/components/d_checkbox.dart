@@ -38,6 +38,7 @@ class DCheckbox extends StatefulWidget {
     this.showFocusRing = true,
     this.onShowFocusHighlight,
     this.contentPadding = EdgeInsets.zero,
+    this.alignment = AlignmentDirectional.center,
   }) : _controlled = true,
        assert(tristate || value != null);
 
@@ -58,6 +59,7 @@ class DCheckbox extends StatefulWidget {
     this.showFocusRing = true,
     this.onShowFocusHighlight,
     this.contentPadding = EdgeInsets.zero,
+    this.alignment = AlignmentDirectional.center,
   }) : value = defaultValue,
        _controlled = false,
        assert(tristate || defaultValue != null);
@@ -81,6 +83,10 @@ class DCheckbox extends StatefulWidget {
   final bool showFocusRing;
   final ValueChanged<bool>? onShowFocusHighlight;
   final EdgeInsetsGeometry contentPadding;
+
+  /// Positions an unlabelled checkbox within its unchanged click target.
+  /// Labelled checkboxes always align their artwork with the label row.
+  final AlignmentGeometry alignment;
   final bool _controlled;
 
   @override
@@ -190,7 +196,7 @@ class _DCheckboxState extends State<DCheckbox> {
         ? SizedBox(
             width: touch ? 48 : 40,
             height: touch ? 48 : 32,
-            child: Center(child: artwork),
+            child: Align(alignment: widget.alignment, child: artwork),
           )
         : ConstrainedBox(
             constraints: BoxConstraints(minHeight: touch ? 48 : 16),
