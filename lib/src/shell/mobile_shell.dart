@@ -240,6 +240,7 @@ class _MobileForumRootState extends State<MobileForumRoot> {
                 selected: selected == MobileTab.more,
                 child: DButton.iconOnly(
                   key: const ValueKey('mobile-mode-more'),
+                  density: DButtonDensity.mobileNavigation,
                   icon: const DIcon(DIcons.ellipsisVertical),
                   tooltip: 'More',
                   onPressed: state.toggle,
@@ -545,6 +546,7 @@ class _MobileForumRootState extends State<MobileForumRoot> {
       selected: selected,
       child: DButton.iconOnly(
         key: ValueKey('mobile-mode-${tab.name}'),
+        density: DButtonDensity.mobileNavigation,
         icon: DIcon(icon),
         tooltip: label,
         onPressed: onPressed,

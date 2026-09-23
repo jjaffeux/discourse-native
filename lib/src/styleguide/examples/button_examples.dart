@@ -72,6 +72,31 @@ final buttonExamples = ComponentExamples(
       ),
     ),
     StyleguideExample(
+      title: 'Mobile navigation',
+      description:
+          '44px surfaces with 18px icons and 48px targets, including desktop previews.',
+      code:
+          "DButton.iconOnly(density: DButtonDensity.mobileNavigation, shape: DButtonShape.pill, icon: DIcon(DIcons.layerGroup), tooltip: 'Topics', onPressed: openTopics)",
+      builder: (context) => Row(
+        spacing: DSpacing.controlGap,
+        children: [
+          for (final selected in [true, false])
+            DButton.iconOnly(
+              density: DButtonDensity.mobileNavigation,
+              shape: selected ? DButtonShape.rounded : DButtonShape.pill,
+              borderRadius: selected
+                  ? BorderRadius.circular(DRadius.panel)
+                  : null,
+              variant: selected ? DButtonVariant.primary : DButtonVariant.ghost,
+              backgroundColor: selected ? null : DTokens.of(context).muted,
+              icon: const DIcon(DIcons.layerGroup),
+              tooltip: selected ? 'Selected topics' : 'Topics',
+              onPressed: () {},
+            ),
+        ],
+      ),
+    ),
+    StyleguideExample(
       title: 'Variants',
       description: 'Activate a button, or use Tab and Enter to compare focus.',
       states: const [

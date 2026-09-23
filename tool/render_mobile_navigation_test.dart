@@ -90,7 +90,12 @@ void main() {
       await tester.tap(find.byTooltip('Close navigation'));
       await tester.pumpAndSettle();
       for (final tab in ['messages', 'chat', 'users', 'events']) {
-        await tester.tap(find.byKey(ValueKey('mobile-mode-$tab')));
+        final destination = switch (tab) {
+          'chat' => 'panel/chat',
+          'events' => 'destination/events-upcoming',
+          _ => tab,
+        };
+        await tester.tap(find.byKey(ValueKey('mobile-mode-$destination')));
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 90));
         if (tab == 'chat') await capture('$name-messages-to-chat');

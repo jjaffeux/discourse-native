@@ -66,6 +66,10 @@ Platform comes from the inherited theme, including mobile web; resizing a
 desktop window does not change its control density. Desktop small labels use
 12.5px text with 18.75px leading; regular labels use 13/19.5 and large
 labels use 14/21.
+Mobile tab buttons use the approved `DButtonDensity.mobileNavigation` preset:
+44px artwork and full 18px glyphs on every platform, including desktop previews.
+The preset removes DIcon’s ordinary optical inset within the button.
+It supersedes the size preset, grows with text scaling and retains a 48px target.
 Chat reaction chips use the explicitly approved `DToggleDensity.reaction`:
 28px artwork, 18px emoji, 12px counts with 16px leading, and symmetric 8px
 horizontal padding. This density supersedes the size preset, grows with text
