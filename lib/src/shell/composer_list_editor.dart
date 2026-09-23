@@ -607,8 +607,14 @@ class ComposerListBodyController extends ComposerController {
                 event.logicalKey == LogicalKeyboardKey.arrowLeft) ||
             (selection.end == text.text.length &&
                 event.logicalKey == LogicalKeyboardKey.arrowRight))) {
+      final moveLeft = event.logicalKey == LogicalKeyboardKey.arrowLeft;
+      // Staying in the final item avoids handing focus to the parent only for
+      // its source-to-body synchronization to move it straight back here.
+      if (!moveLeft && _item.end >= parent.text.text.length) {
+        return KeyEventResult.handled;
+      }
       parent.text.selection = TextSelection.collapsed(
-        offset: selection.start == 0
+        offset: moveLeft
             ? (_item.start - 1).clamp(0, parent.text.text.length)
             : (_item.end + _item.newline.length).clamp(
                 0,
