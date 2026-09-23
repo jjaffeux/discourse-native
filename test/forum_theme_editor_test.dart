@@ -258,11 +258,9 @@ void main() {
     addTearDown(shell.dispose);
     await pumpSettings(tester, shell);
     await preset(tester, 'Solarized');
-    final font = find.byKey(const ValueKey('appearance-font-select'));
+    final font = find.byKey(const ValueKey('appearance-font-lato'));
     await tester.ensureVisible(font);
     await tester.tap(font);
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Lato').last);
     await tester.pumpAndSettle();
     expect(shell.forumSettings.themesFor(_site).font, ForumFont.lato);
     await openLibrary(tester);
