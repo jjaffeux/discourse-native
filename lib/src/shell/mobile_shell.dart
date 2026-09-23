@@ -240,6 +240,7 @@ class _MobileForumRootState extends State<MobileForumRoot> {
                 selected: selected == MobileTab.more,
                 child: DButton.iconOnly(
                   key: const ValueKey('mobile-mode-more'),
+                  animationDuration: const Duration(milliseconds: 240),
                   density: DButtonDensity.mobileNavigation,
                   icon: const DIcon(DIcons.ellipsisVertical),
                   tooltip: 'More',

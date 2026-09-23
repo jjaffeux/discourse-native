@@ -74,27 +74,10 @@ final buttonExamples = ComponentExamples(
     StyleguideExample(
       title: 'Mobile navigation',
       description:
-          '44px surfaces with 18px icons and 48px targets, including desktop previews.',
+          'Switch tabs to see the 240ms circle-to-rounded-square transition. 44px surfaces, 18px icons and 48px targets.',
       code:
           "DButton.iconOnly(density: DButtonDensity.mobileNavigation, shape: DButtonShape.pill, icon: DIcon(DIcons.layerGroup), tooltip: 'Topics', onPressed: openTopics)",
-      builder: (context) => Row(
-        spacing: DSpacing.controlGap,
-        children: [
-          for (final selected in [true, false])
-            DButton.iconOnly(
-              density: DButtonDensity.mobileNavigation,
-              shape: selected ? DButtonShape.rounded : DButtonShape.pill,
-              borderRadius: selected
-                  ? BorderRadius.circular(DRadius.panel)
-                  : null,
-              variant: selected ? DButtonVariant.primary : DButtonVariant.ghost,
-              backgroundColor: selected ? null : DTokens.of(context).muted,
-              icon: const DIcon(DIcons.layerGroup),
-              tooltip: selected ? 'Selected topics' : 'Topics',
-              onPressed: () {},
-            ),
-        ],
-      ),
+      builder: (_) => const _MobileNavigationExample(),
     ),
     StyleguideExample(
       title: 'Variants',
@@ -1043,3 +1026,38 @@ void _buttonFeedback(BuildContext context) => DToast.show(
   'Button activated',
   duration: const Duration(seconds: 1),
 );
+
+class _MobileNavigationExample extends StatefulWidget {
+  const _MobileNavigationExample();
+
+  @override
+  State<_MobileNavigationExample> createState() =>
+      _MobileNavigationExampleState();
+}
+
+class _MobileNavigationExampleState extends State<_MobileNavigationExample> {
+  int selected = 0;
+
+  @override
+  Widget build(BuildContext context) => Row(
+    spacing: DSpacing.controlGap,
+    children: [
+      for (var index = 0; index < 2; index++)
+        DButton.iconOnly(
+          density: DButtonDensity.mobileNavigation,
+          shape: selected == index ? DButtonShape.rounded : DButtonShape.pill,
+          borderRadius: selected == index
+              ? BorderRadius.circular(DRadius.panel)
+              : null,
+          animationDuration: const Duration(milliseconds: 240),
+          variant: selected == index
+              ? DButtonVariant.primary
+              : DButtonVariant.ghost,
+          backgroundColor: selected == index ? null : DTokens.of(context).muted,
+          icon: DIcon(index == 0 ? DIcons.layerGroup : DIcons.user),
+          tooltip: index == 0 ? 'Topics' : 'Users',
+          onPressed: () => setState(() => selected = index),
+        ),
+    ],
+  );
+}

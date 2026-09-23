@@ -81,6 +81,16 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('mobile-mode-topics')));
       await tester.pumpAndSettle();
       await capture('$name-topics');
+      await tester.tap(find.byKey(const ValueKey('mobile-mode-panel/chat')));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 60));
+      await capture('$name-tab-shape-60ms');
+      await tester.pump(const Duration(milliseconds: 60));
+      await capture('$name-tab-shape-120ms');
+      await tester.pumpAndSettle();
+      await capture('$name-tab-shape-selected');
+      await tester.tap(find.byKey(const ValueKey('mobile-mode-topics')));
+      await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('mobile-menu-button')));
       await tester.pumpAndSettle();
       await capture('$name-forum');

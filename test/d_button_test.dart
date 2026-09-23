@@ -8,6 +8,74 @@ import 'package:flutter_test/flutter_test.dart';
 import 'support/button_surface.dart';
 
 void main() {
+  for (final reducedMotion in [false, true]) {
+    testWidgets(
+      'icon shape retargets smoothly with reduced motion $reducedMotion',
+      (tester) async {
+        var selected = false;
+        late StateSetter update;
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: AppTheme.dark.copyWith(platform: TargetPlatform.iOS),
+            home: MediaQuery(
+              data: MediaQueryData(disableAnimations: reducedMotion),
+              child: StatefulBuilder(
+                builder: (context, setState) {
+                  update = setState;
+                  return Center(
+                    child: DButton.iconOnly(
+                      density: DButtonDensity.mobileNavigation,
+                      shape: selected
+                          ? DButtonShape.rounded
+                          : DButtonShape.pill,
+                      borderRadius: selected ? BorderRadius.circular(14) : null,
+                      variant: DButtonVariant.ghost,
+                      animationDuration: const Duration(milliseconds: 240),
+                      icon: const Icon(Icons.forum),
+                      tooltip: 'Topics',
+                      onPressed: () {},
+                    ),
+                  );
+                },
+              ),
+            ),
+          ),
+        );
+        final painted = find.byWidgetPredicate(
+          (widget) =>
+              widget is DecoratedBox && widget.decoration is DButtonDecoration,
+        );
+        double radius() =>
+            (tester.widget<DecoratedBox>(painted).decoration
+                    as DButtonDecoration)
+                .borderRadius
+                .topLeft
+                .x;
+        expect(radius(), 22);
+        update(() => selected = true);
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 60));
+        if (reducedMotion) {
+          expect(radius(), 14);
+        } else {
+          expect(radius(), inExclusiveRange(14, 22));
+        }
+        final interruptedRadius = radius();
+        update(() => selected = false);
+        await tester.pump();
+        if (reducedMotion) {
+          expect(radius(), 22);
+        } else {
+          expect(radius(), closeTo(interruptedRadius, .001));
+          await tester.pump(const Duration(milliseconds: 60));
+          expect(radius(), inExclusiveRange(interruptedRadius, 22));
+        }
+        await tester.pumpAndSettle();
+        expect(radius(), 22);
+      },
+    );
+  }
+
   for (final platform in [
     TargetPlatform.iOS,
     TargetPlatform.android,
