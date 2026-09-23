@@ -22,6 +22,11 @@ headings, a timeline, times and category/creator metadata.
   months. Previous/Next/Today navigate schedule months; horizontal swiping
   remains available in the month grid.
 - Existing `DCalendar` date selection and embedded topic calendars are unchanged.
+- Loading and refreshing the Events directory show Native `DSkeletonRegion`
+  placeholders shaped for the selected agenda or grid view. The toolbar stays
+  available; stale events are hidden from interaction, focus and semantics.
+  Kalender stays mounted to preserve its controllers and scroll position.
+  Failed requests replace the skeleton with the existing Retry action.
 
 ## Verification
 
@@ -69,3 +74,11 @@ the upstream schedule-map race and recommended the bounded-month configuration.
 Implementation `d14520f63` was integrated with local main `2224baa3f` before
 the final 75-test run, root/full analysis, rebuild and native navigation pass.
 The newer main's font, button and surface changes are preserved.
+
+The loading-skeleton follow-up passed all 61 calendar, directory and export
+boundary tests, root static analysis and the three render-fixture tests.
+Pending-request tests cover initial loading, refresh, preserved Kalender state,
+failure and Retry. Skeleton renders cover both views in light and Dracula at
+320px with 100% and 200% text. The rebuilt isolated macOS fixture verified
+Month/Schedule loading, an available view picker, a single loading announcement
+and restoration of the scrolled Schedule when loading finishes.

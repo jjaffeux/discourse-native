@@ -10,6 +10,7 @@ import 'package:kalender/kalender.dart' as kalender;
 import 'package:timezone/timezone.dart' as tz;
 
 import 'event_calendar_data.dart';
+import 'event_calendar_skeleton.dart';
 import 'event_data.dart';
 
 /// Full-page Kalender presentation, independent of requests and shell state.
@@ -24,6 +25,7 @@ final class EventCalendar extends StatefulWidget {
     required this.mine,
     required this.onMineChanged,
     required this.actions,
+    this.loading = false,
     this.status,
     this.firstDay = 1,
     this.display = 'auto',
@@ -38,6 +40,7 @@ final class EventCalendar extends StatefulWidget {
   final bool mine;
   final ValueChanged<bool>? onMineChanged;
   final Widget actions;
+  final bool loading;
   final Widget? status;
   final int firstDay;
   final String display;
@@ -535,7 +538,26 @@ final class _EventCalendarState extends State<EventCalendar> {
                 compact ? 16 : 12,
                 12,
               ),
-              child: _buildCalendar(compact: compact),
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  // Retain Kalender's controllers and scroll position while
+                  // replacing stale content with the loading placeholders.
+                  ExcludeFocus(
+                    excluding: widget.loading,
+                    child: Visibility(
+                      visible: !widget.loading,
+                      maintainState: true,
+                      child: _buildCalendar(compact: compact),
+                    ),
+                  ),
+                  if (widget.loading)
+                    EventCalendarSkeleton(
+                      view: _view,
+                      dayCount: _days.duration.inDays,
+                    ),
+                ],
+              ),
             ),
           ),
         ],

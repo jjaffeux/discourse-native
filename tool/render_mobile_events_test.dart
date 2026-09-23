@@ -98,4 +98,48 @@ void main() {
     }
     tester.view.reset();
   });
+  testWidgets('render event loading skeletons', (tester) async {
+    final output = Directory('/tmp/mobile-events-review')
+      ..createSync(recursive: true);
+    for (final dark in [true, false]) {
+      for (final view in [
+        EventCalendarView.month,
+        EventCalendarView.schedule,
+      ]) {
+        for (final scale in [1.0, 2.0]) {
+          tester.view.devicePixelRatio = 1;
+          tester.view.physicalSize = const Size(320, 844);
+          final name = '${dark ? 'dark' : 'light'}-${view.name}-loading-$scale';
+          await tester.pumpWidget(
+            MobileEventsReviewApp(
+              key: ValueKey(name),
+              initialView: view,
+              dark: dark,
+              controls: false,
+              width: 320,
+              scale: scale,
+              loading: true,
+            ),
+          );
+          await tester.pump(const Duration(milliseconds: 32));
+          expect(find.bySemanticsLabel('Loading events'), findsOneWidget);
+          expect(tester.takeException(), isNull, reason: name);
+          await tester.runAsync(() async {
+            final layer =
+                tester.binding.renderViews.single.debugLayer! as OffsetLayer;
+            final image = await layer.toImage(
+              Offset.zero & tester.view.physicalSize,
+              pixelRatio: 2,
+            );
+            final data = await image.toByteData(format: ui.ImageByteFormat.png);
+            await File(
+              '${output.path}/$name.png',
+            ).writeAsBytes(data!.buffer.asUint8List());
+            image.dispose();
+          });
+        }
+      }
+    }
+    tester.view.reset();
+  });
 }
