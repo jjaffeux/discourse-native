@@ -436,6 +436,7 @@ final class _EventCalendarState extends State<EventCalendar> {
     ];
     final today = DButton(
       variant: DButtonVariant.outline,
+      density: DButtonDensity.compactToolbar,
       label: const Text('Today'),
       onPressed: _today,
     );
@@ -445,18 +446,11 @@ final class _EventCalendarState extends State<EventCalendar> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  'Events',
-                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-              widget.actions,
-            ],
+          Text(
+            'Events',
+            style: Theme.of(
+              context,
+            ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700),
           ),
           const SizedBox(height: 12),
           if (largeText || constraints.maxWidth < 360)
@@ -484,8 +478,8 @@ final class _EventCalendarState extends State<EventCalendar> {
             children: [
               DButton.iconOnly(
                 variant: DButtonVariant.outline,
-                size: DButtonSize.small,
-                icon: const Icon(Icons.chevron_left),
+                density: DButtonDensity.compactToolbar,
+                icon: const DIcon(DIcons.chevronLeft),
                 tooltip: 'Previous ${_schedule ? 'month' : _view.name}',
                 onPressed: widget.page.move(-1).date.year >= 1900
                     ? () => widget.onPageChanged(widget.page.move(-1))
@@ -495,7 +489,7 @@ final class _EventCalendarState extends State<EventCalendar> {
                 child: Semantics(
                   header: true,
                   child: Text(
-                    _period,
+                    toBeginningOfSentenceCase(_period, _locale),
                     textAlign: TextAlign.center,
                     style: Theme.of(context).textTheme.titleSmall?.copyWith(
                       fontWeight: FontWeight.w700,
@@ -505,8 +499,8 @@ final class _EventCalendarState extends State<EventCalendar> {
               ),
               DButton.iconOnly(
                 variant: DButtonVariant.outline,
-                size: DButtonSize.small,
-                icon: const Icon(Icons.chevron_right),
+                density: DButtonDensity.compactToolbar,
+                icon: const DIcon(DIcons.chevronRight),
                 tooltip: 'Next ${_schedule ? 'month' : _view.name}',
                 onPressed: widget.page.move(1).date.year < 2200
                     ? () => widget.onPageChanged(widget.page.move(1))
