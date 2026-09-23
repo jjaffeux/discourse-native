@@ -14,7 +14,7 @@ enum DBadgeSize {
   regular,
   compact,
 
-  /// Matches regular controls: 28px/13px on desktop, 44px/15px on mobile.
+  /// Matches the mockup taxonomy chips: 30.75px with 12.5px labels.
   control,
 }
 
@@ -203,12 +203,12 @@ class _DBadgeState extends State<DBadge> {
     final overlay = widget._overlay;
     final control = widget.size == DBadgeSize.control;
     final fontSize = control
-        ? DControlStyle.fontSize(DControlSize.regular, context: context)
+        ? DControlStyle.fontSize(DControlSize.filter, context: context)
         : overlay
         ? 10.0
         : DiscourseTypography.xs;
     final lineHeight = control
-        ? DControlStyle.lineHeight(DControlSize.regular, context: context) /
+        ? DControlStyle.lineHeight(DControlSize.filter, context: context) /
               fontSize
         : overlay
         ? 1.2
@@ -216,7 +216,7 @@ class _DBadgeState extends State<DBadge> {
         ? 14 / DiscourseTypography.xs
         : DiscourseTypography.lineHeightCaption;
     final artworkSize = control
-        ? DControlStyle.iconDimension(DControlSize.regular, context: context)
+        ? DControlStyle.iconDimension(DControlSize.filter, context: context)
         : 12.0;
     final dark = Theme.of(context).brightness == Brightness.dark;
     final active = _enabled && (_hovered || _pressed);
@@ -272,7 +272,7 @@ class _DBadgeState extends State<DBadge> {
           minWidth: overlay ? 14 : 0,
           minHeight: control
               ? DControlStyle.scaledHeight(
-                  DControlSize.regular,
+                  DControlSize.filter,
                   MediaQuery.textScalerOf(context),
                   context: context,
                 )
@@ -298,9 +298,17 @@ class _DBadgeState extends State<DBadge> {
         padding: overlay
             ? const EdgeInsets.symmetric(horizontal: 3, vertical: 1)
             : EdgeInsetsDirectional.fromSTEB(
-                compact ? 4 : (widget.leading == null ? 8 : 6),
+                control
+                    ? 11
+                    : compact
+                    ? 4
+                    : (widget.leading == null ? 8 : 6),
                 compact ? 0 : 1,
-                compact ? 4 : (widget.trailing == null ? 8 : 6),
+                control
+                    ? 11
+                    : compact
+                    ? 4
+                    : (widget.trailing == null ? 8 : 6),
                 compact ? 0 : 1,
               ),
         child: IconTheme.merge(
@@ -310,7 +318,11 @@ class _DBadgeState extends State<DBadge> {
                 .copyWith(
                   fontSize: fontSize,
                   height: lineHeight,
-                  fontWeight: overlay ? FontWeight.w600 : FontWeight.w500,
+                  fontWeight: overlay
+                      ? FontWeight.w600
+                      : control
+                      ? FontWeight.w400
+                      : FontWeight.w500,
                   fontFeatures: overlay
                       ? const [FontFeature.tabularFigures()]
                       : null,

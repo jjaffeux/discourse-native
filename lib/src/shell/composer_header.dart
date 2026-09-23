@@ -100,7 +100,7 @@ class ComposerHeader extends StatelessWidget {
             semanticLabel: 'Resume editing: $label',
             tooltip: 'Restore composer',
             variant: DButtonVariant.primary,
-            size: DButtonSize.large,
+            size: DButtonSize.toolbar,
             icon: DIcon(composer.whisper ? DIcons.farEyeSlash : DIcons.pen),
             label: Row(
               children: [
@@ -178,7 +178,7 @@ class ComposerHeader extends StatelessWidget {
                     ? 'Whisper options'
                     : 'Reply options',
                 variant: DButtonVariant.outline,
-                size: DButtonSize.regular,
+                size: DButtonSize.toolbar,
                 icon: DIcon(
                   composer.whisper ? DIcons.farEyeSlash : DIcons.reply,
                 ),
@@ -316,6 +316,7 @@ class ComposerHeader extends StatelessWidget {
                 children: [
                   const Expanded(child: Text('Dock side')),
                   DToggleGroup<ComposerPlacement>(
+                    size: DControlSize.segment,
                     inset: true,
                     semanticLabel: 'Dock side',
                     values: [placement],
@@ -351,6 +352,7 @@ class ComposerHeader extends StatelessWidget {
           ),
           child: DPopoverTrigger(
             builder: (context, trigger) => DToggleGroup<bool>(
+              size: DControlSize.segment,
               key: const ValueKey('composer-options'),
               inset: true,
               semanticLabel: 'Composer view',
@@ -396,7 +398,7 @@ class ComposerHeader extends StatelessWidget {
           icon: const DIcon(DIcons.expand),
           tooltip: 'Restore composer',
           variant: DButtonVariant.transparentBackground,
-          size: DButtonSize.regular,
+          size: DButtonSize.toolbar,
         )
       else if (onMinimize case final minimize?)
         DButton.iconOnly(
@@ -405,7 +407,7 @@ class ComposerHeader extends StatelessWidget {
           icon: const Icon(Icons.remove),
           tooltip: 'Minimize composer',
           variant: DButtonVariant.transparentBackground,
-          size: DButtonSize.regular,
+          size: DButtonSize.toolbar,
         ),
       if (!minimized)
         DButton.iconOnly(
@@ -414,7 +416,7 @@ class ComposerHeader extends StatelessWidget {
           icon: const DIcon(DIcons.xmark),
           tooltip: closeTooltip,
           variant: DButtonVariant.transparentBackground,
-          size: DButtonSize.regular,
+          size: DButtonSize.toolbar,
         ),
     ];
     final alignWithTabs =

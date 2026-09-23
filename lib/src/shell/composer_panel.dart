@@ -170,6 +170,7 @@ class ComposerPanel extends StatelessWidget {
           mobileSubmit: mobile && !minimized
               ? DButton.iconOnly(
                   key: const ValueKey('composer-submit'),
+                  size: DButtonSize.toolbar,
                   icon: const DIcon(DIcons.plus),
                   variant: DButtonVariant.primary,
                   tooltip: submitLabel,
@@ -852,6 +853,7 @@ class _TopicTaxonomy extends StatelessWidget {
                       ),
                       key: const ValueKey('composer-category-action'),
                       child: TopicCategorySelector(
+                        size: DButtonSize.toolbar,
                         key: ObjectKey(composer),
                         valueKey: const ValueKey('composer-category'),
                         siteUrl: composer.target.siteUrl,
@@ -883,6 +885,7 @@ class _TopicTaxonomy extends StatelessWidget {
                       ),
                       key: const ValueKey('composer-subcategory-action'),
                       child: TopicCategorySelector(
+                        size: DButtonSize.toolbar,
                         key: ValueKey((composer, rootCategory.id)),
                         keyPrefix: 'composer-subcategory',
                         valueKey: const ValueKey('composer-subcategory'),
@@ -913,6 +916,7 @@ class _TopicTaxonomy extends StatelessWidget {
                       ),
                       key: const ValueKey('composer-add-tag'),
                       child: TopicTagSelector(
+                        size: DButtonSize.toolbar,
                         key: ValueKey((composer, categoryId)),
                         valueKey: const ValueKey('composer-tags'),
                         selectedTags: composer.tags,
@@ -3953,7 +3957,7 @@ class _FormattingToolbar extends StatelessWidget {
                 variant: context.isTouch
                     ? DButtonVariant.transparentBackground
                     : DButtonVariant.outline,
-                size: DButtonSize.regular,
+                size: DButtonSize.toolbar,
                 icon: DIcon(icon),
                 onPressed: composer.isEditing && !composer.loadingBody
                     ? () {
@@ -3969,7 +3973,7 @@ class _FormattingToolbar extends StatelessWidget {
               variant: context.isTouch
                   ? DButtonVariant.transparentBackground
                   : DButtonVariant.outline,
-              size: DButtonSize.regular,
+              size: DButtonSize.toolbar,
               icon: const DIcon(DIcons.link),
               onPressed: composer.isEditing && !composer.loadingBody
                   ? () => unawaited(
@@ -4030,7 +4034,7 @@ class _Toolbar extends StatelessWidget {
                 variant: context.isTouch
                     ? DButtonVariant.transparentBackground
                     : DButtonVariant.outline,
-                size: DButtonSize.regular,
+                size: DButtonSize.toolbar,
                 onPressed: !composer.isEditing
                     ? null
                     : () => unawaited(
@@ -4088,7 +4092,7 @@ class _Toolbar extends StatelessWidget {
                 variant: context.isTouch
                     ? DButtonVariant.transparentBackground
                     : DButtonVariant.outline,
-                size: DButtonSize.regular,
+                size: DButtonSize.toolbar,
                 onPressed: composer.isEditing ? trigger.toggle : null,
                 icon: const DIcon(DIcons.plus),
               ),
@@ -4112,7 +4116,7 @@ class _Toolbar extends StatelessWidget {
                 variant: context.isTouch
                     ? DButtonVariant.transparentBackground
                     : DButtonVariant.outline,
-                size: DButtonSize.regular,
+                size: DButtonSize.toolbar,
                 onPressed: composer.isEditing ? trigger.toggle : null,
                 icon: const DIcon(DIcons.ellipsis),
               ),
@@ -4269,7 +4273,7 @@ class _ComposerToolbarScrollButton extends StatelessWidget {
         variant: context.isTouch
             ? DButtonVariant.transparentBackground
             : DButtonVariant.outline,
-        size: DButtonSize.regular,
+        size: DButtonSize.toolbar,
       ),
     );
   }
@@ -4343,7 +4347,7 @@ class _ComposerUploadButtonState extends State<_ComposerUploadButton> {
     variant: context.isTouch
         ? DButtonVariant.transparentBackground
         : DButtonVariant.outline,
-    size: DButtonSize.regular,
+    size: DButtonSize.toolbar,
   );
 }
 
@@ -4472,6 +4476,7 @@ class _Footer extends StatelessWidget {
                       child: compact
                           ? DButton.iconOnly(
                               key: const ValueKey('composer-submit'),
+                              size: DButtonSize.toolbar,
                               tooltip: label,
                               semanticLabel: label,
                               onPressed: busy ? null : onSubmit,
@@ -4488,6 +4493,7 @@ class _Footer extends StatelessWidget {
                             )
                           : DButton(
                               key: const ValueKey('composer-submit'),
+                              size: DButtonSize.toolbar,
                               onPressed: busy ? null : onSubmit,
                               loading: busy,
                               semanticLabel: label,

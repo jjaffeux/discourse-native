@@ -25,7 +25,7 @@ class TopicBookmarkButton extends StatelessWidget {
     required this.busy,
     this.showLabel = false,
     this.variant,
-    this.size = DButtonSize.small,
+    this.size = DButtonSize.chip,
     this.density = DButtonDensity.standard,
   });
 
@@ -47,7 +47,7 @@ class TopicBookmarkButton extends StatelessWidget {
                 ? DIcons.discourseBookmarkClock
                 : topic.hasBookmarks
                 ? DNativeIcons.bookmarkCheck
-                : DNativeIcons.bookmark,
+                : DIcons.bookmark,
           );
     final tooltip = topic.hasBookmarks
         ? 'Manage ${topic.bookmarks.length} topic bookmark${topic.bookmarks.length == 1 ? '' : 's'}'
@@ -460,9 +460,9 @@ class _TopicStatusButtonState extends State<TopicStatusButton> {
                   },
             loading: busy,
             variant: widget.variant,
-            size: DButtonSize.regular,
+            size: DButtonSize.chip,
             density: widget.density,
-            icon: const DIcon(DIcons.wrench),
+            icon: const DIcon(DIcons.wrench, size: 14),
           ),
         ),
       ),
@@ -478,7 +478,7 @@ class TopicNotificationLevelButton extends StatelessWidget {
     this.showLabel = false,
     this.showChevron = false,
     this.variant,
-    this.size = DButtonSize.small,
+    this.size = DButtonSize.chip,
     this.density = DButtonDensity.standard,
     this.backgroundColor,
     this.borderColor,
@@ -509,13 +509,13 @@ class TopicNotificationLevelButton extends StatelessWidget {
       emphasized: true,
       label: 'Tracking',
       description: 'Mentions, replies, and unread count',
-      icon: DIcon(DNativeIcons.bell),
+      icon: DIcon(DIcons.bell),
     ),
     DNotificationLevelOption(
       value: TopicNotificationLevel.normal,
       label: 'Normal',
       description: 'Mentions and replies only',
-      icon: DIcon(DNativeIcons.bell),
+      icon: DIcon(DIcons.bell),
     ),
     DNotificationLevelOption(
       value: TopicNotificationLevel.muted,

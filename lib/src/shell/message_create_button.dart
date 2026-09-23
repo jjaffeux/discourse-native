@@ -63,7 +63,7 @@ class MessageCreateButton extends StatelessWidget {
               icon: DIcon(pill ? DIcons.plus : DIcons.farPenToSquare),
               tooltip: 'New message',
               variant: DButtonVariant.primary,
-              size: DButtonSize.regular,
+              size: DButtonSize.action,
               onPressed: () => unawaited(_compose(context)),
             )
           : DButton.iconOnly(
@@ -72,7 +72,7 @@ class MessageCreateButton extends StatelessWidget {
               icon: DIcon(pill ? DIcons.plus : DIcons.farPenToSquare),
               tooltip: 'New message',
               variant: DButtonVariant.primary,
-              size: DButtonSize.regular,
+              size: DButtonSize.action,
               onPressed: () => unawaited(_compose(context)),
             );
       return button;

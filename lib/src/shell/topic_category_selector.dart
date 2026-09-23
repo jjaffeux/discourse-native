@@ -206,12 +206,15 @@ class _TopicCategorySelectorState extends State<TopicCategorySelector> {
             (context, trigger) => TopicTaxonomyButton(
               buttonKey: widget.valueKey,
               size: widget.size,
+              showChevron: true,
               label: label,
               categoryColor: selected == null
                   ? null
                   : Color(selected.colorValue),
               icon: selected == null
-                  ? null
+                  ? widget.size == DButtonSize.filter
+                        ? const CategorySquare(color: null, size: 10)
+                        : null
                   : CategoryIcon(
                       key: ValueKey(('$prefix-selected-icon', selected.id)),
                       category: selected,

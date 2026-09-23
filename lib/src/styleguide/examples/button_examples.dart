@@ -7,20 +7,29 @@ import '../styleguide_example.dart';
 import 'button_reference_icons.dart';
 import 'control_comparison_example.dart';
 import 'linear_controls_example.dart';
+import 'mockup_control_sizes_example.dart';
 
 final buttonExamples = ComponentExamples(
   topLevelExampleIndex: 0,
   description: 'Actions and links, with variants for emphasis and intent.',
   status: ComponentStatus.implemented,
   notes:
-      'Separate adjacent controls use DSpacing.controlGap (4px). '
+      'Separate adjacent controls use DSpacing.controlGap (6px). '
       'The redesign has three button families: colored, outlined and transparent. '
       'Colored actions use a 25% accent fill and accent-tinted foreground; '
       'outlined actions use a 1px palette border; transparent actions have no resting fill or border. '
-      'Buttons use the theme’s control radius and no shadows. Desktop controls use 24/28/32px surfaces; mobile uses 40/44/48px '
-      'with at least 48px touch targets. Hover and popup state remain visible, '
+      'Buttons use the theme’s control radius and no shadows. General desktop controls use 24/34/40px surfaces; mobile uses 40/44/48px '
+      'with at least 48px touch targets. Application presets retain the exact mockup artwork on every platform. Hover and popup state remain visible, '
       'with a separate keyboard focus ring. All colors follow the forum palette.',
   examples: [
+    StyleguideExample(
+      title: 'Application control sizes',
+      description:
+          'Mockup geometry on every platform: 30.75px filters, 35.5px search fields, 40.25px preferences and 24px chips. Touch targets remain at least 48px.',
+      code:
+          "DSelect(size: DControlSize.filter, entries: entries, onChanged: select)",
+      builder: (_) => const MockupControlSizesExample(),
+    ),
     StyleguideExample(
       title: 'Redesign button families',
       description:
@@ -613,6 +622,7 @@ class _ButtonSizes extends StatelessWidget {
                   DButtonSize.small => 'Small',
                   DButtonSize.regular => 'Default',
                   DButtonSize.large => 'Large',
+                  _ => size.name,
                 }),
                 size: size,
                 variant: DButtonVariant.outline,

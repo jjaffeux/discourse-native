@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../app_shortcuts.dart';
+import '../theme/d_icons.dart';
 import 'shell_controller.dart';
 import 'shell_scope.dart';
 
@@ -42,39 +43,42 @@ class ContentNavigationControls extends StatelessWidget {
             children: [
               DButton.iconOnly(
                 key: backKey,
-                icon: const Icon(Icons.arrow_back),
+                icon: const DIcon(DIcons.arrowLeft),
                 tooltip: 'Back (mouse back button)',
                 semanticLabel: 'Back',
                 shortcut: DShortcut(
                   contentBackShortcutForPlatform(defaultTargetPlatform),
                 ),
                 variant: DButtonVariant.ghost,
-                size: DButtonSize.large,
+                size: DButtonSize.chrome,
                 onPressed: state.back
                     ? () => controller.handleBack(canReturnToSidebar: false)
                     : null,
               ),
               DButton.iconOnly(
                 key: forwardKey,
-                icon: const Icon(Icons.arrow_forward),
+                icon: const RotatedBox(
+                  quarterTurns: 2,
+                  child: DIcon(DIcons.arrowLeft),
+                ),
                 tooltip: 'Forward (mouse forward button)',
                 semanticLabel: 'Forward',
                 shortcut: DShortcut(
                   contentForwardShortcutForPlatform(defaultTargetPlatform),
                 ),
                 variant: DButtonVariant.ghost,
-                size: DButtonSize.large,
+                size: DButtonSize.chrome,
                 onPressed: state.forward ? controller.handleForward : null,
               ),
               DButton.iconOnly(
                 key: refreshKey,
-                icon: const Icon(Icons.refresh),
+                icon: const DIcon(DIcons.arrowsRotate),
                 tooltip: 'Refresh current tab',
                 shortcut: DShortcut(
                   refreshTabShortcutForPlatform(defaultTargetPlatform),
                 ),
                 variant: DButtonVariant.ghost,
-                size: DButtonSize.large,
+                size: DButtonSize.chrome,
                 onPressed: state.refresh && !state.refreshing
                     ? () => unawaited(controller.refreshCurrentTab())
                     : null,

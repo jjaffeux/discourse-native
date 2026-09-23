@@ -627,6 +627,10 @@ class DButton extends StatelessWidget {
     final variantStyle = _referenceStyle(tokens, dark);
     final mobileNavigation = density == DButtonDensity.mobileNavigation;
     final compactToolbar = density == DButtonDensity.compactToolbar;
+    final intrinsicIcon =
+        _iconOnly &&
+        (size == DControlSize.chip || size == DControlSize.chrome) &&
+        density == DButtonDensity.standard;
     final composerBlock = _iconOnly && density == DButtonDensity.composerBlock;
     final effectiveSize = compactToolbar
         ? DButtonSize.small
@@ -663,7 +667,7 @@ class DButton extends StatelessWidget {
         ? composerBlockWidth(context)
         : touch && joined?.axis == Axis.horizontal
         ? visualDimension.clamp(48.0, double.infinity)
-        : compactToolbar
+        : compactToolbar || effectiveSize == DControlSize.chip
         ? visualDimension + 8
         : visualDimension;
     final surfaceHeight = touch && joined?.axis == Axis.vertical
@@ -742,22 +746,29 @@ class DButton extends StatelessWidget {
 
     final style = ButtonStyle(
       minimumSize: WidgetStatePropertyAll(
-        _iconOnly
+        _iconOnly && !intrinsicIcon
             ? iconOnlySurfaceSize
             : Size(
                 touch && joined?.axis == Axis.horizontal ? 48 : 0,
                 surfaceHeight,
               ),
       ),
-      fixedSize: _iconOnly ? WidgetStatePropertyAll(iconOnlySurfaceSize) : null,
-      maximumSize: _iconOnly
+      fixedSize: _iconOnly && !intrinsicIcon
+          ? WidgetStatePropertyAll(iconOnlySurfaceSize)
+          : null,
+      maximumSize: _iconOnly && !intrinsicIcon
           ? WidgetStatePropertyAll(iconOnlySurfaceSize)
           : const WidgetStatePropertyAll(Size.infinite),
       padding: WidgetStatePropertyAll(
-        (_iconOnly
+        (_iconOnly && !intrinsicIcon
             ? EdgeInsets.zero
             : variant == DButtonVariant.inline
             ? const EdgeInsets.symmetric(vertical: 1)
+            : DControlStyle.isApplicationSize(effectiveSize)
+            ? EdgeInsets.symmetric(
+                horizontal: DControlStyle.horizontalInset(effectiveSize),
+                vertical: 1,
+              )
             : EdgeInsetsDirectional.only(
                 start:
                     (icon != null || (loading && loadingLabel != null)) &&
@@ -888,8 +899,12 @@ class DButton extends StatelessWidget {
                     ],
                   ),
           );
-    if (mobileNavigation) {
-      child = DIconGlyphTheme(scale: 1, child: child);
+    if (mobileNavigation || DControlStyle.isApplicationSize(effectiveSize)) {
+      child = DIconGlyphTheme(
+        scale: 1,
+        naturalWidth: DControlStyle.isApplicationSize(effectiveSize),
+        child: child,
+      );
     }
     if (loading) {
       final labelChild = child;

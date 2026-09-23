@@ -82,7 +82,7 @@ class TopicListFilterBar extends StatelessWidget {
         keyPrefix: 'topic-list-category',
         includeAll: true,
         sheetOnMobile: true,
-        size: DButtonSize.large,
+        size: DButtonSize.filter,
         siteUrl: siteUrl,
         categories: rootCategories,
         selected: rootCategory,
@@ -96,7 +96,7 @@ class TopicListFilterBar extends StatelessWidget {
             keyPrefix: 'topic-list-subcategory',
             includeAll: true,
             sheetOnMobile: true,
-            size: DButtonSize.large,
+            size: DButtonSize.filter,
             placeholder: 'Subcategories',
             siteUrl: siteUrl,
             parent: rootCategory,
@@ -114,7 +114,7 @@ class TopicListFilterBar extends StatelessWidget {
           keyPrefix: 'topic-list-tag-filter',
           includeAll: true,
           sheetOnMobile: true,
-          size: DButtonSize.large,
+          size: DButtonSize.filter,
           multiple: onTagsSelected != null,
           knownTags: [
             for (final tag in knownTags)

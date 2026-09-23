@@ -9,6 +9,9 @@ void main() {
       (DControlSize.small, 24.0, 12.5),
       (DControlSize.regular, 34.0, 13.0),
       (DControlSize.large, 40.0, 14.0),
+      (DControlSize.filter, 30.75, 12.5),
+      (DControlSize.field, 35.5, 13.0),
+      (DControlSize.preference, 40.25, 13.5),
     ]) {
       final height = DControlStyle.scaledHeight(size, TextScaler.linear(scale));
       assert(scale != 1 || height == baseHeight);

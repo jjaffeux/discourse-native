@@ -305,6 +305,7 @@ class _BadgeDirectoryState extends State<_BadgeDirectory> {
                         DiscourseTypography.sm;
                     final stacked = constraints.maxWidth / scale < 300;
                     final filter = DSelect<_BadgeFilter>.controlled(
+                      size: DControlSize.filter,
                       key: const ValueKey('badge-filter'),
                       value: _filter,
                       semanticLabel: 'Filter badges',

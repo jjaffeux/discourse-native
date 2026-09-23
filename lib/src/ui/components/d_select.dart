@@ -8,6 +8,7 @@ import 'package:flutter/services.dart';
 
 import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
+import '../../theme/d_native_icons.dart';
 import '../../theme/discourse_typography.dart';
 import '../foundation/control_style.dart';
 import '../foundation/focus_highlight.dart';
@@ -1436,9 +1437,11 @@ class _DSelectBodyState<T> extends State<_DSelectBody<T>> {
       curve: Curves.ease,
       height: visualHeight,
       width: popupWidth,
-      padding: const EdgeInsetsDirectional.only(
-        start: 10,
-        end: 8,
+      padding: EdgeInsetsDirectional.only(
+        start: DControlStyle.horizontalInset(controlSize),
+        end: DControlStyle.isApplicationSize(controlSize)
+            ? DControlStyle.horizontalInset(controlSize)
+            : 8,
         top: 1,
         bottom: 1,
       ),
@@ -1475,15 +1478,20 @@ class _DSelectBodyState<T> extends State<_DSelectBody<T>> {
           IconTheme(
             data: IconThemeData(
               color: tokens.mutedForeground,
-              size: DControlStyle.iconDimension(controlSize, context: context),
+              size: DControlStyle.chevronDimension(controlSize),
             ),
             child:
                 widget.icon ??
-                DIcon(
-                  DIcons.chevronDown,
-                  size: DControlStyle.iconDimension(
-                    controlSize,
-                    context: context,
+                DIconGlyphTheme(
+                  naturalWidth: DControlStyle.isApplicationSize(controlSize),
+                  scale: DControlStyle.isApplicationSize(controlSize)
+                      ? 1
+                      : DIcon.glyphScale,
+                  child: DIcon(
+                    DControlStyle.isApplicationSize(controlSize)
+                        ? DNativeIcons.filterChevron
+                        : DIcons.chevronDown,
+                    size: DControlStyle.chevronDimension(controlSize),
                   ),
                 ),
           ),
@@ -1702,8 +1710,18 @@ class _DSelectOptionRowState<T> extends State<_DSelectOptionRow<T>> {
     // makes the previous and next options appear highlighted at the same time.
     Widget row = interactiveRowSurface(
       key: ValueKey(('d-select-item', widget.item.value)),
-      height: widget.height,
-      padding: DInsets.menuItem,
+      height: math.max(
+        DControlStyle.rowHeight,
+        MediaQuery.textScalerOf(context).scale(DControlStyle.labelFontSize) *
+                DiscourseTypography.lineHeightSmall +
+            DInsets.menuItem.vertical,
+      ),
+      padding: EdgeInsetsDirectional.fromSTEB(
+        8,
+        DControlStyle.menuVerticalInset(context),
+        8,
+        DControlStyle.menuVerticalInset(context),
+      ),
       decoration: BoxDecoration(
         color: highlighted
             ? DControlStyle.rowHover(tokens)
@@ -1755,7 +1773,12 @@ class _DSelectOptionRowState<T> extends State<_DSelectOptionRow<T>> {
       onTap: enabled && !widget.readOnly
           ? () => widget.onChoose(widget.item, DSelectChangeReason.itemPress)
           : null,
-      child: ExcludeSemantics(child: row),
+      child: ExcludeSemantics(
+        child: SizedBox(
+          height: widget.height,
+          child: Center(child: row),
+        ),
+      ),
     );
     return MouseRegion(
       onEnter: (_) {

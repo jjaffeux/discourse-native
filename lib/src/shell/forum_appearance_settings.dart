@@ -263,6 +263,7 @@ class _ForumAppearanceSettingsState extends State<ForumAppearanceSettings> {
                   ),
                 ),
                 DSwitchTile(
+                  size: DSwitchSize.preference,
                   title: const Text('Follow system appearance'),
                   value: mode == AppThemeMode.system,
                   onChanged: (value) => unawaited(

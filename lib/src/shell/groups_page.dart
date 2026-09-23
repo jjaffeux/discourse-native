@@ -333,6 +333,7 @@ class _DirectoryControls extends StatelessWidget {
               valueListenable: searchController,
               builder: (context, value, _) => DInput(
                 key: const ValueKey('groups-search'),
+                size: DControlSize.field,
                 controller: searchController,
                 focusNode: searchFocus,
                 autofocus: true,
@@ -367,6 +368,7 @@ class _DirectoryControls extends StatelessWidget {
                 width: 180,
                 child: DSelect<String>.controlled(
                   key: const ValueKey('groups-type-filter'),
+                  size: DControlSize.filter,
                   value: data.type,
                   semanticLabel: 'Filter by group type',
                   entries: [

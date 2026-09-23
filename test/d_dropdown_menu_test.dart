@@ -1277,7 +1277,7 @@ void main() {
       );
       final profile = tester.getRect(find.text('Profile').first);
       final billing = tester.getRect(find.text('Billing').first);
-      expect(billing.top - profile.top, closeTo(34, 0.1));
+      expect(billing.top - profile.top, closeTo(33.5, 0.1));
     } finally {
       debugDefaultTargetPlatformOverride = null;
     }

@@ -46,7 +46,7 @@ class TopicHeaderTags extends StatelessWidget {
                     icon: const DIcon(DIcons.tag),
                     tooltip: 'Add tag',
                     variant: DButtonVariant.outline,
-                    size: DButtonSize.regular,
+                    size: DButtonSize.filter,
                     focusNode: trigger.focusNode,
                     hasPopup: true,
                     expanded: trigger.open,
@@ -64,13 +64,13 @@ class TopicHeaderTags extends StatelessWidget {
         final theme = Theme.of(context);
         final style = theme.textTheme.bodySmall?.copyWith(
           fontSize: DControlStyle.fontSize(
-            DControlSize.regular,
+            DControlSize.filter,
             context: context,
           ),
           height:
-              DControlStyle.lineHeight(DControlSize.regular, context: context) /
-              DControlStyle.fontSize(DControlSize.regular, context: context),
-          fontWeight: FontWeight.w500,
+              DControlStyle.lineHeight(DControlSize.filter, context: context) /
+              DControlStyle.fontSize(DControlSize.filter, context: context),
+          fontWeight: FontWeight.w400,
           letterSpacing: 0,
         );
         const gap = 7.0;
@@ -81,7 +81,7 @@ class TopicHeaderTags extends StatelessWidget {
             textScaler: MediaQuery.textScalerOf(context),
             maxLines: 1,
           )..layout();
-          final width = painter.width.ceilToDouble() + 18;
+          final width = painter.width.ceilToDouble() + 24;
           painter.dispose();
           return width;
         }
@@ -92,7 +92,7 @@ class TopicHeaderTags extends StatelessWidget {
         final editWidth = context.isTouch
             ? 48.0
             : DControlStyle.scaledHeight(
-                DControlSize.regular,
+                DControlSize.filter,
                 MediaQuery.textScalerOf(context),
                 context: context,
               );
@@ -228,7 +228,7 @@ class TopicHeaderTags extends StatelessWidget {
                   loading: saving,
                   loadingSemanticLabel: 'Saving tags',
                   variant: DButtonVariant.ghost,
-                  size: DButtonSize.regular,
+                  size: DButtonSize.filter,
                 ),
               ),
             ],

@@ -548,7 +548,11 @@ class _InputSurface extends StatelessWidget {
                 context: context,
               ),
             ),
-            padding: const EdgeInsets.symmetric(horizontal: 10),
+            padding: EdgeInsets.symmetric(
+              horizontal: DControlStyle.isApplicationSize(size)
+                  ? DControlStyle.horizontalInset(size) - 1
+                  : 10,
+            ),
             decoration: _InputSurfaceDecoration(
               backgroundColor: filled
                   ? t.buttonTheme.outline.hover

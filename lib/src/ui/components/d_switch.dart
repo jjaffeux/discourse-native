@@ -8,7 +8,7 @@ import '../foundation/tokens.dart';
 import 'd_label.dart';
 
 /// Compact and standard Linear switch sizes, in logical pixels.
-enum DSwitchSize { standard, small }
+enum DSwitchSize { standard, small, preference }
 
 /// A switch with native focus, keyboard and accessibility interaction.
 ///
@@ -185,6 +185,7 @@ class _SwitchArtwork extends StatelessWidget {
   Widget build(BuildContext context) {
     final tokens = DTokens.of(context);
     final small = size == DSwitchSize.small;
+    final preference = size == DSwitchSize.preference;
     final ring = invalid ? tokens.destructive : tokens.focusRing;
     final duration = DMotion.duration(
       context,
@@ -193,9 +194,17 @@ class _SwitchArtwork extends StatelessWidget {
     return AnimatedContainer(
       duration: duration,
       curve: const Cubic(0.4, 0, 0.2, 1),
-      width: small ? 24 : 30,
-      height: small ? 16 : 20,
-      padding: const EdgeInsets.all(3),
+      width: preference
+          ? 38
+          : small
+          ? 24
+          : 30,
+      height: preference
+          ? 22
+          : small
+          ? 16
+          : 20,
+      padding: EdgeInsets.all(preference ? 2 : 3),
       decoration: BoxDecoration(
         color: checked
             ? (interactive
@@ -223,7 +232,11 @@ class _SwitchArtwork extends StatelessWidget {
             ? AlignmentDirectional.centerEnd
             : AlignmentDirectional.centerStart,
         child: SizedBox.square(
-          dimension: small ? 10 : 14,
+          dimension: preference
+              ? 18
+              : small
+              ? 10
+              : 14,
           child: const DecoratedBox(
             decoration: BoxDecoration(
               shape: BoxShape.circle,
