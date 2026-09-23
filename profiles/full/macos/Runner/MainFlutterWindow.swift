@@ -4,6 +4,7 @@ import WebKit
 import webview_all_wkwebview
 
 class MainFlutterWindow: NSWindow {
+  private var flutterController: FlutterViewController?
   private var windowChannel: FlutterMethodChannel?
   private var youtubeScrollChannel: FlutterMethodChannel?
   private var launchScreen: LaunchScreenView?
