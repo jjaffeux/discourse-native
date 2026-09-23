@@ -79,6 +79,63 @@ List<ComposerListBodyController> bodies(WidgetTester tester) => tester
     .toList();
 
 void main() {
+  testWidgets(
+    'vertical arrows keep editing the task after Return splits its text',
+    (tester) async {
+      final root = await pumpEditor(
+        tester,
+        'Before\n\n- [ ] FirstSecond\n  Continued\n\nAfter',
+        platform: TargetPlatform.macOS,
+      );
+      final first = bodies(tester).single;
+      first.text.selection = const TextSelection.collapsed(offset: 5);
+      first.requestFocus();
+      await tester.pumpAndSettle();
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pumpAndSettle();
+      const source =
+          'Before\n\n- [ ] First\n- [ ] Second\n  Continued\n\nAfter';
+      expect(root.text.text, source);
+      final second = bodies(tester).last;
+      expect(second.text.text, 'Second\nContinued');
+      expect(second.focus.hasPrimaryFocus, isTrue);
+      expect(second.text.selection.extentOffset, 0);
+
+      for (var repetition = 0; repetition < 2; repetition++) {
+        await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+        await tester.pumpAndSettle();
+        expect(tester.takeException(), isNull);
+        expect(second.text.selection, const TextSelection.collapsed(offset: 7));
+        expect(second.focus.hasPrimaryFocus, isTrue);
+        await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
+        await tester.pumpAndSettle();
+        expect(tester.takeException(), isNull);
+        expect(second.text.selection, const TextSelection.collapsed(offset: 0));
+        expect(second.focus.hasPrimaryFocus, isTrue);
+      }
+      for (final (down, up) in [
+        (LogicalKeyboardKey.arrowDown, LogicalKeyboardKey.arrowUp),
+        (LogicalKeyboardKey.pageDown, LogicalKeyboardKey.pageUp),
+      ]) {
+        await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+        await tester.sendKeyEvent(down);
+        await tester.pumpAndSettle();
+        expect(tester.takeException(), isNull);
+        expect(second.text.selection.baseOffset, 0);
+        expect(second.text.selection.extentOffset, 7);
+        expect(second.focus.hasPrimaryFocus, isTrue);
+        await tester.sendKeyEvent(up);
+        await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+        await tester.pumpAndSettle();
+        expect(tester.takeException(), isNull);
+        expect(second.text.selection, const TextSelection.collapsed(offset: 0));
+        expect(second.focus.hasPrimaryFocus, isTrue);
+      }
+      expect(root.text.text, source);
+    },
+    variant: TargetPlatformVariant.only(TargetPlatform.macOS),
+  );
+
   for (final newline in ['\n', '\r\n']) {
     for (final first in ['First', '']) {
       for (final nested in [false, true]) {
