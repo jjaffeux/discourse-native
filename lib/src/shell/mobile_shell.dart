@@ -172,10 +172,11 @@ class _MobileForumRootState extends State<MobileForumRoot> {
                   () => shell.selectMobilePanel(entry.owner.value),
                 ),
                 if (entry.panel.badge case final badge?)
-                  PositionedDirectional(
-                    bottom: 0,
-                    end: 0,
-                    child: IgnorePointer(child: badge),
+                  Positioned(
+                    bottom: DSpacing.xxs,
+                    left: 0,
+                    right: 0,
+                    child: Center(child: IgnorePointer(child: badge)),
                   ),
               ],
             ),

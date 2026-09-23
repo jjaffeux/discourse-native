@@ -48,7 +48,11 @@ void main() {
     }
   });
   testWidgets('render mobile navigation in light and Dracula', (tester) async {
-    final shell = await mobile.pumpMobileShellFixture(tester, events: true);
+    final shell = await mobile.pumpMobileShellFixture(
+      tester,
+      events: true,
+      chatUnreadCount: 32,
+    );
     final output = Directory('/tmp/mobile-navigation-review')
       ..createSync(recursive: true);
     Future<void> capture(String name) async {
