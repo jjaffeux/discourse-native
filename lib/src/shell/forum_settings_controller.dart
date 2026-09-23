@@ -2,9 +2,11 @@ import 'dart:ui';
 
 import '../data/forum_settings_store.dart';
 import '../data/preference_snapshots.dart';
+import '../data/serial_operation_queue.dart';
 import '../data/stored_forum_base.dart';
 import '../foundation/frame_safe_notifier.dart';
 import '../models/app_settings.dart';
+import '../models/forum_theme.dart';
 import '../models/forum_theme_preferences.dart';
 import '../models/site_appearance.dart';
 
@@ -15,6 +17,7 @@ final class ForumSettingsController extends FrameSafeNotifier {
   final _themeModes = PreferenceSnapshots<String, AppThemeMode>();
 
   final _themes = PreferenceSnapshots<String, ForumThemePreferences>();
+  final _themeImports = SerialOperationQueue();
 
   ForumThemePreferences themesFor(String siteUrl) =>
       _themes.peek(requireStoredForumBase(siteUrl)) ??
@@ -46,6 +49,22 @@ final class ForumSettingsController extends FrameSafeNotifier {
     if (isDisposed) return;
     _themes.remember(site, value);
     notifySafely();
+  }
+
+  /// Loads the destination library before importing, preserving its font and
+  /// other custom themes. Serial imports also retain simultaneous shares.
+  Future<ForumThemePreferences> importTheme(String siteUrl, ForumTheme theme) {
+    final site = requireStoredForumBase(siteUrl);
+    return _themeImports.run(
+      owner: this,
+      key: site,
+      operation: () async {
+        await _themes.ensure(site, () => store.loadThemes(site));
+        final previous = themesFor(site);
+        if (!isDisposed) await setThemes(site, previous.importTheme(theme));
+        return previous;
+      },
+    );
   }
 
   AppThemeMode themeModeFor(String siteUrl) =>

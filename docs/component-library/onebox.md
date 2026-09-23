@@ -1,6 +1,6 @@
 # Onebox gallery
 
-The Native styleguide's **Onebox** section searches 47 supported preview
+The Native styleguide's **Onebox** section searches 48 supported preview
 types with `DCombobox`. Each selection mounts its production renderer. The
 `DToggle` state buttons wrap onto additional lines and retain a required
 selection. Switching providers resets to the first state and disposes the old
@@ -30,6 +30,27 @@ gallery exercises this production behavior along with every sample state.
 
 The remaining core formats and their verification are recorded in
 [Core onebox coverage](core-onebox-coverage.md).
+
+## Custom themes
+
+Custom themes use the same compact card in posts and chat. A Native
+`DToggleGroup` with sun/moon icons, tooltips and accessible labels switches the
+thumbnail and palette between Light and Dark without
+changing forum settings. **Use theme** saves both variants in the destination
+forum's custom theme library and selects the theme, preserving its appearance
+mode and font. **Undo** restores the previous selection and keeps the saved theme.
+
+**Copy theme** is available for a selected saved custom theme and for valid
+editor drafts. The clipboard carries validated theme JSON in a
+`discourse-theme` Markdown code fence, including both appearances and their
+effects. This survives ordinary Discourse post/chat cooking without a server
+extension. Native renders the card; clients without this renderer show the code
+block. Invalid data shows an error without an apply action. Identical shares
+reuse an existing theme instead of duplicating it.
+
+The gallery's Custom theme sample uses an isolated in-memory library for preview,
+apply and undo. See [theme sharing verification](evidence/forum-theme-sharing-review.md)
+for the checked surfaces and limitations.
 
 ## Twitter / X
 

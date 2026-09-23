@@ -12,6 +12,7 @@ import 'package:discourse_native/src/shell/oneboxes/discourse/category/block.dar
 import 'package:discourse_native/src/shell/oneboxes/discourse/topic/block.dart';
 import 'package:discourse_native/src/shell/oneboxes/discourse/user/block.dart';
 import 'package:discourse_native/src/shell/oneboxes/embedded.dart';
+import 'package:discourse_native/src/shell/oneboxes/forum_theme.dart';
 import 'package:discourse_native/src/shell/oneboxes/onebox.dart';
 import 'package:discourse_native/src/shell/oneboxes/twitter.dart';
 import 'package:discourse_native/src/shell/quote.dart';
@@ -34,6 +35,7 @@ final _renderers = <String, Type>{
   for (final provider in oneboxProviderSamples.keys)
     'embed-$provider': EmbeddedOnebox,
   'generic': OneboxCard,
+  'forum-theme': ForumThemeOnebox,
   'discourse-topic': DiscourseTopicOnebox,
   'discourse-local-topic': QuoteBlock,
   'discourse-user': DiscourseUserOnebox,

@@ -10,6 +10,7 @@ import 'package:share_plus/share_plus.dart' as sharing;
 import '../models/forum_background.dart';
 import '../models/forum_theme.dart';
 import '../models/forum_theme_presets.dart';
+import 'forum_theme_clipboard.dart';
 
 class ForumThemeEditor extends StatefulWidget {
   const ForumThemeEditor({
@@ -316,6 +317,14 @@ class _ForumThemeEditorState extends State<ForumThemeEditor> {
                   variant: DButtonVariant.outline,
                   label: const Text('Export'),
                   onPressed: enabled && valid ? _export : null,
+                ),
+                DButton(
+                  key: const ValueKey('copy-custom-theme'),
+                  variant: DButtonVariant.outline,
+                  label: const Text('Copy theme'),
+                  onPressed: enabled && valid
+                      ? () => copyForumTheme(context, theme)
+                      : null,
                 ),
                 DButton(
                   variant: DButtonVariant.outline,

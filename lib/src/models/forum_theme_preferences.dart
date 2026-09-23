@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'forum_font.dart';
 import 'forum_theme.dart';
 import 'forum_theme_presets.dart';
+import 'forum_theme_share.dart';
 
 @immutable
 final class ForumThemePreferences {
@@ -69,6 +70,15 @@ final class ForumThemePreferences {
       theme,
     ],
   );
+
+  /// Reuses an identical theme already in the library, including the sender's
+  /// original saved theme when they use their own shared card.
+  ForumThemePreferences importTheme(ForumTheme theme) {
+    final existing = customThemes
+        .where((held) => ForumThemeShare.matches(held, theme))
+        .firstOrNull;
+    return existing == null ? save(theme) : select(existing.id);
+  }
 
   ForumThemePreferences remove(String id) => ForumThemePreferences(
     font: font,
