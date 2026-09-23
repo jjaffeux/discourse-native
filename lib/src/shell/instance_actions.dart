@@ -198,7 +198,7 @@ class _InstanceActionsState extends State<InstanceActions> {
         leading: const DIcon(DIcons.gear, size: 16),
         onPressed: () =>
             ShellScope.read(context).openForumSettings(widget.instance.url),
-        child: const Text('Settings'),
+        child: const Text('Theme'),
       ),
       const DContextMenuSeparator(),
       if (widget.onMoveUp != null)
