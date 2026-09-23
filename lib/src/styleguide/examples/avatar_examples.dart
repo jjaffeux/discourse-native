@@ -26,6 +26,7 @@ final avatarExamples = ComponentExamples(
       'Reference sm/default/lg diameters are 24/32/40px; initials 12/14/14px; '
       'groups overlap 8px and rings are 2px. Circles stay circular independent '
       'of the configured radius; forum adapters may explicitly use rounded squares. '
+      'Use border: false for forum artwork without the subtle image outline. '
       'The optional ring matches Discourse core: a 1px live success edge and '
       '1px live page-color gap inset the image without growing the avatar. '
       'Name its meaning with ringSemanticLabel so status is not color-only. '
