@@ -563,7 +563,7 @@ class _TopicListViewState extends State<TopicListView> {
             fit: StackFit.expand,
             children: [
               _body(controller, destination, feedIdentity),
-              if (state.incoming > 0)
+              if (state.incoming > 0 && !widget.feed.loadingIncoming)
                 Positioned(
                   top: 0,
                   left: 0,
@@ -571,7 +571,6 @@ class _TopicListViewState extends State<TopicListView> {
                   child: _IncomingBanner(
                     count: state.incoming,
                     destination: destination,
-                    loading: widget.feed.loadingIncoming,
                     onTap: () =>
                         _showIncoming(controller, destination, feedIdentity),
                   ),
@@ -939,13 +938,11 @@ class _IncomingBanner extends StatelessWidget {
   const _IncomingBanner({
     required this.count,
     required this.destination,
-    required this.loading,
     required this.onTap,
   });
 
   final int count;
   final String destination;
-  final bool loading;
   final VoidCallback onTap;
 
   String get _label {
@@ -976,7 +973,7 @@ class _IncomingBanner extends StatelessWidget {
               size: DButtonSize.small,
               icon: const DIcon(DIcons.arrowUp),
               label: label,
-              onPressed: loading ? null : onTap,
+              onPressed: onTap,
             ),
           ),
         ),

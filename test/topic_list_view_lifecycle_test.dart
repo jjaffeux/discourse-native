@@ -218,7 +218,7 @@ void main() {
   );
 
   testWidgets(
-    'incoming button keeps its label while loading and reveals updates',
+    'incoming button disappears immediately while loading and reveals updates',
     (tester) async {
       final api = _ControlledPagingApi();
       final controller = await _controlledShell(api, sites.first);
@@ -266,12 +266,9 @@ void main() {
       await tester.pump();
 
       expect(api.requests.last.path, '/latest.json?topic_ids=99');
-      expect(tester.widget<DButton>(button).loading, isFalse);
-      expect(tester.widget<DButton>(button).onPressed, isNull);
-      expect(find.text(label).hitTestable(), findsOneWidget);
-      expect(find.byType(DSpinner), findsNothing);
-      await tester.tap(button);
-      await tester.pump();
+      expect(controller.currentFeed!.loadingIncoming, isTrue);
+      expect(button, findsNothing);
+      expect(find.text(label), findsNothing);
       expect(api.requests, hasLength(2));
 
       FakeSiteTracker.built.single.deliver({
@@ -295,6 +292,43 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
+
+  testWidgets('incoming button returns after a failed request for retry', (
+    tester,
+  ) async {
+    final api = _ControlledPagingApi();
+    final controller = await _controlledShell(api, sites.first);
+    addTearDown(controller.dispose);
+    api.requests.single.response.complete(TopicList(topics: _topics(1, 40)));
+    await tester.pumpWidget(_LiveTestList(controller: controller));
+    await tester.pumpAndSettle();
+
+    FakeSiteTracker.built.single.deliver({
+      'topic_id': 99,
+      'message_type': 'new_topic',
+    });
+    await tester.pumpAndSettle();
+    final button = find.byKey(const ValueKey('incoming-topics-button'));
+    await tester.tap(button);
+    await tester.pump();
+    expect(button, findsNothing);
+    expect(api.requests.last.path, '/latest.json?topic_ids=99');
+
+    api.requests.last.response.completeError(StateError('Request failed'));
+    await tester.pumpAndSettle();
+    expect(button, findsOneWidget);
+    expect(find.text('See 1 new or updated topic'), findsOneWidget);
+
+    await tester.tap(button);
+    await tester.pump();
+    expect(button, findsNothing);
+    expect(api.requests, hasLength(3));
+    api.requests.last.response.complete(_page(99));
+    await tester.pumpAndSettle();
+    expect(find.text('Topic 99'), findsOneWidget);
+    expect(button, findsNothing);
+    expect(tester.takeException(), isNull);
+  });
 
   testWidgets(
     'incoming button wraps at large text in a narrow touch viewport',
@@ -330,9 +364,9 @@ void main() {
       expect(paragraph.size.height, greaterThan(40));
       await tester.tap(button);
       await tester.pump();
-      expect(tester.widget<DButton>(button).loading, isFalse);
-      expect(tester.widget<DButton>(button).onPressed, isNull);
-      expect(tester.getRect(button), bounds);
+      expect(button, findsNothing);
+      expect(controller.currentFeed!.loadingIncoming, isTrue);
+      expect(api.requests.last.path, '/latest.json?topic_ids=99,100');
       expect(tester.takeException(), isNull);
       api.requests.last.response.complete(TopicList(topics: _topics(99, 2)));
       await tester.pumpAndSettle();
