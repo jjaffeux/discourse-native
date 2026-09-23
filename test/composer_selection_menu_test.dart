@@ -172,6 +172,18 @@ void main() {
     expect(toolbar, findsOneWidget);
     await action(tester, 'Underline');
     expect(composer.text.text, '<ins>format</ins> me please');
+    final painted = tester
+        .state<EditableTextState>(find.byType(EditableText))
+        .renderEditable
+        .text!;
+    expect(painted.toPlainText(), 'format me please');
+    expect(
+      painted
+          .getSpanForPosition(const TextPosition(offset: 5))!
+          .style!
+          .decoration,
+      TextDecoration.underline,
+    );
     await action(tester, 'Strikethrough');
     expect(composer.text.text, '<ins>~~format~~</ins> me please');
     await action(tester, 'Clear formatting');

@@ -57,8 +57,11 @@ void main() {
   }
 
   for (final scale in [1.0, 2.0]) {
-    testWidgets('renders scripts and a keycap at ${scale}x', (tester) async {
-      const source = 'x<sup>ab</sup> H<sub>cd</sub> <kbd>Esc</kbd> after';
+    testWidgets('renders scripts, a keycap and underline at ${scale}x', (
+      tester,
+    ) async {
+      const source =
+          'x<sup>ab</sup> H<sub>cd</sub> <kbd>Esc</kbd> <ins>underlined</ins> after';
       await pump(
         tester,
         source,
@@ -71,7 +74,16 @@ void main() {
         painted(tester).toPlainText(includeSemanticsLabels: false).length,
         source.length,
       );
-      expect(visibleText(painted(tester)), 'x H  after');
+      expect(visibleText(painted(tester)), 'x H  underlined after');
+      expect(
+        painted(tester)
+            .getSpanForPosition(
+              TextPosition(offset: source.indexOf('underlined')),
+            )!
+            .style!
+            .decoration,
+        TextDecoration.underline,
+      );
       expect(find.byType(DKbd), findsOneWidget);
       final a = tester.widget<Text>(find.text('a'));
       expect(a.style!.fontSize, 15);
@@ -173,7 +185,9 @@ void main() {
   testWidgets('leaves escaped, incomplete and code tags literal', (
     tester,
   ) async {
-    const source = r'\<sup>x</sup> `<sub>y</sub>` <kbd>open';
+    const source =
+        r'\<sup>x</sup> `<sub>y</sub>` <kbd>open '
+        r'\<ins>escaped</ins> `<ins>code</ins>` <ins>open';
     await pump(tester, source);
     expect(visibleText(painted(tester)), source);
     expect(find.byType(DKbd), findsNothing);
@@ -227,26 +241,28 @@ void main() {
     },
   );
 
-  testWidgets(
-    'skips wrappers with arrow keys and removes whole formatting at a delete boundary',
-    (tester) async {
-      const source = 'x<sup>ab</sup> after';
-      await pump(tester, source);
-      await tester.showKeyboard(find.byType(EditableText));
-      controller.selection = const TextSelection.collapsed(offset: 1);
-      await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
-      expect(controller.selection.extentOffset, 6);
-      await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
-      expect(controller.selection.extentOffset, 7);
-      await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
-      expect(controller.selection.extentOffset, 8);
-      await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
-      expect(controller.selection.extentOffset, 14);
-      await tester.sendKeyEvent(LogicalKeyboardKey.backspace);
-      await tester.pump();
-      expect(controller.text, 'xab after');
-      expect(controller.selection.extentOffset, 3);
-      expect(tester.takeException(), isNull);
-    },
-  );
+  for (final tag in ['sup', 'ins']) {
+    testWidgets(
+      'skips $tag wrappers with arrow keys and removes whole formatting at a delete boundary',
+      (tester) async {
+        final source = 'x<$tag>ab</$tag> after';
+        await pump(tester, source);
+        await tester.showKeyboard(find.byType(EditableText));
+        controller.selection = const TextSelection.collapsed(offset: 1);
+        await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+        expect(controller.selection.extentOffset, 6);
+        await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+        expect(controller.selection.extentOffset, 7);
+        await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+        expect(controller.selection.extentOffset, 8);
+        await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+        expect(controller.selection.extentOffset, 14);
+        await tester.sendKeyEvent(LogicalKeyboardKey.backspace);
+        await tester.pump();
+        expect(controller.text, 'xab after');
+        expect(controller.selection.extentOffset, 3);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
 }

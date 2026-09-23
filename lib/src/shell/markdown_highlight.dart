@@ -31,7 +31,7 @@ abstract final class Md {
 
   static const int hashtag = 1 << 13;
 
-  /// Source-only wrappers around rendered superscripts, subscripts and keys.
+  /// Source-only wrappers around rendered scripts, keys and underlined text.
   static const int hiddenTag = 1 << 14;
 }
 
@@ -617,7 +617,7 @@ class _Scan {
       if (!_unescaped(start, open) || !_unescaped(close, end)) continue;
       final marker =
           Md.marker |
-          (const {'sup', 'sub', 'kbd'}.contains(tag) ? Md.hiddenTag : 0);
+          (const {'sup', 'sub', 'kbd', 'ins'}.contains(tag) ? Md.hiddenTag : 0);
       _mark(start, open, marker);
       _addTag(open, close, tag);
       _mark(close, end, marker);
