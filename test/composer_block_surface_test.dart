@@ -200,6 +200,66 @@ void main() {
     expect(find.byTooltip('Empty paragraph actions'), findsOneWidget);
   });
 
+  for (final scale in [1.0, 2.0]) {
+    for (final multiline in [false, true]) {
+      testWidgets(
+        'drop line splits the visible paragraph gap (scale: $scale, multiline: $multiline)',
+        (tester) async {
+          await (FontLoader(
+            'DropLineSans',
+          )..addFont(rootBundle.load('assets/fonts/OpenSans.ttf'))).load();
+          final paragraph = multiline
+              ? '${'A paragraph that wraps across the editor. ' * 5}\nA soft line break'
+              : 'dazdzad';
+          composer.text.value = TextEditingValue(
+            text: '$paragraph\n\ndzad azdz a\n\ndzadzad\n\ndazdazd',
+            selection: const TextSelection.collapsed(offset: 0),
+          );
+          await mount(
+            tester,
+            textScale: scale,
+            textStyle: AppTheme.light.textTheme.bodyLarge!.copyWith(
+              fontFamily: 'DropLineSans',
+            ),
+          );
+          await hoverSelection(tester);
+          final editable = tester
+              .state<EditableTextState>(find.byType(EditableText))
+              .renderEditable;
+          final blocks = composer.blocks.index.blocks;
+          final origin = editable.localToGlobal(Offset.zero);
+          final lineHeight = editable.preferredLineHeight;
+          final before = editable.getLocalRectForCaret(
+            TextPosition(offset: blocks[0].end - 1),
+          );
+          final after = editable.getLocalRectForCaret(
+            TextPosition(offset: blocks[1].start),
+          );
+          final bottom = origin.dy + before.center.dy + lineHeight / 2;
+          final top = origin.dy + after.center.dy - lineHeight / 2;
+          expect(top, greaterThan(bottom));
+          final middle = (bottom + top) / 2;
+          final gesture = await tester.startGesture(
+            tester.getCenter(
+              find.byKey(ValueKey('composer-block-handle-${blocks.first.id}')),
+            ),
+            kind: PointerDeviceKind.mouse,
+          );
+          await gesture.moveBy(const Offset(0, 20));
+          await tester.pump();
+          await gesture.moveTo(Offset(origin.dx + 20, middle));
+          await tester.pumpAndSettle();
+          final indicator = tester.getRect(find.byType(DDropIndicator));
+          expect(indicator.center.dy, closeTo(middle, .01));
+          expect(indicator.top - bottom, closeTo(top - indicator.bottom, .01));
+          await gesture.cancel();
+          await tester.pumpAndSettle();
+          expect(tester.takeException(), isNull);
+        },
+      );
+    }
+  }
+
   for (final scale in [1.0, 1.5]) {
     for (final prefix in ['', '[ ] First task\n[ ] Second task\n\n']) {
       testWidgets(
