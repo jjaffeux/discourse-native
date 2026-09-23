@@ -3331,8 +3331,12 @@ class ChatController extends FrameSafeNotifier {
       deleted: message.isDeleted,
       hasUploads: message.uploads.isNotEmpty,
     );
-    if (held.lastMessagePreview != preview) {
-      _putChannel(siteUrl, held.withLastMessagePreview(preview));
+    if (held.lastMessagePreview != preview ||
+        held.lastMessageUserId != message.author.id) {
+      _putChannel(
+        siteUrl,
+        held.withLastMessagePreview(preview, userId: message.author.id),
+      );
     }
   }
 
@@ -4833,6 +4837,7 @@ class ChatController extends FrameSafeNotifier {
         final updated = heldChannel.withNewMessage(
           canonical.id,
           sentAt,
+          userId: canonical.author.id,
           preview: chatMessageSummary(
             cooked: canonical.cooked,
             raw: canonical.raw,
