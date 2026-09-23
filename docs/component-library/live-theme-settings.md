@@ -33,6 +33,12 @@ The user explicitly approved adding the matching controls to Native.
   rendering stable; it is not a byte-identical random texture to the browser.
   Reduced motion freezes lava. macOS supplies a native blurred backdrop behind
   transparent Flutter surfaces in both application profiles.
+- Gradient restores the earlier lava effect as a fourth texture choice. It
+  reuses the four moving radial gradients and 24-second loop, coloured by the
+  live accent and controlled by Intensity. The live texture uses overlay
+  blending to preserve text, remains visible at zero tint and full panel opacity,
+  and freezes for reduced motion. Existing Lava lamp keeps the reference's
+  contour texture; legacy background blending remains unchanged.
 - Local preferences update synchronously; disk writes are serialized and
   coalesced during drags. A failed final write restores the last persisted
   palette and offers Retry. Effect changes preserve mounted form and reader
@@ -98,3 +104,20 @@ The implementation at `627e8a16d` was integrated with main's theme sharing at
   the surrounding workspace, the form uses three colour columns at reference
   width, and Copy theme displays its success notification. The isolated review
   app was closed after inspection.
+
+### Gradient follow-up — September 24, 2026
+
+`6b437ef9a` adds Gradient beside None, Noise and Lava lamp. The texture tile
+example includes the fourth choice. The original radial-gradient renderer is
+shared with legacy themes; only live texture compositing uses overlay blending.
+
+- 83 focused tests passed across gradient/noise rendering, appearance, editor,
+  app, model, sharing and Toggle Group suites. The final rendering run covered
+  intensity in both brightnesses, preservation of black/white foregrounds,
+  reduced motion, a single nested-window effect and legacy noise behavior.
+- Root and full-profile `dart analyze` passed. The macOS settings fixture built
+  successfully. Native inspection confirmed all four tiles fit the 412px page,
+  pointer and keyboard intensity changes work, the previous smooth animation
+  appears across the window, and mode changes retain the choice and intensity.
+  The final overlay blending was inspected at 100% intensity in both dark and
+  light modes. Only isolated fixture data was used, and the review app was quit.

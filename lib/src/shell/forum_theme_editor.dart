@@ -304,6 +304,11 @@ class _ForumThemeEditorState extends State<ForumThemeEditor> {
                     icon: ThemeIcon(ThemeIcons.lava),
                     child: Text('Lava lamp'),
                   ),
+                  DToggleGroupItem(
+                    value: ForumBackgroundEffect.gradient,
+                    icon: ThemeIcon(ThemeIcons.gradient),
+                    child: Text('Gradient'),
+                  ),
                 ],
                 onChanged: (values) => widget.onBackgroundChanged(
                   background.copyWith(effect: values.single),

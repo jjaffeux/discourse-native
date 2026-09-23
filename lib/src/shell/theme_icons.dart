@@ -1,8 +1,9 @@
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/widgets.dart';
 
-/// Artwork from the theme reference, rendered by the Native icon component.
-/// Font Awesome Free icons: https://fontawesome.com/license/free (CC BY 4.0).
+/// Theme form artwork rendered by the Native icon component.
+/// Section icons are Font Awesome Free (CC BY 4.0):
+/// https://fontawesome.com/license/free.
 abstract final class ThemeIcons {
   static const palette = DIconData(
     'theme-palette',
@@ -31,6 +32,10 @@ abstract final class ThemeIcons {
   static const none = DIconData(
     'theme-no-texture',
     '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"><rect x="6.5" y="6.5" width="11" height="11" rx="2.5" stroke="currentColor" stroke-width="2"/></svg>',
+  );
+  static const gradient = DIconData(
+    'theme-gradient',
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><rect x="5" y="5" width="14" height="3" rx="1"/><rect x="5" y="9" width="14" height="3" rx="1" opacity=".7"/><rect x="5" y="13" width="14" height="3" rx="1" opacity=".4"/><rect x="5" y="17" width="14" height="3" rx="1" opacity=".15"/></svg>',
   );
 }
 
