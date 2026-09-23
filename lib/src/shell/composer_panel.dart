@@ -36,6 +36,8 @@ import 'composer_header.dart';
 import 'composer_history_scope.dart';
 import 'composer_images.dart';
 import 'composer_link.dart';
+import 'composer_list_editor.dart';
+import 'composer_lists.dart';
 import 'composer_marks.dart';
 import 'composer_media_editing_coordinator.dart';
 import 'composer_quotes.dart';
@@ -1575,6 +1577,29 @@ class _ComposerEditorState extends State<ComposerEditor> {
           onInvoke: () => composer.setHeading(level),
         ),
       if (!composer.target.isPlugin) ...[
+        for (final ordered in [false, true])
+          ComposerSlashAction(
+            label: ordered ? 'Numbered list' : 'Bulleted list',
+            icon: ordered ? null : DIcons.list,
+            leadingText: ordered ? '1.' : null,
+            hint: ordered ? '1.' : '-',
+            keywords: ordered
+                ? const ['ordered', 'number', 'ol']
+                : const ['unordered', 'bullet', 'ul'],
+            onInvoke: () {
+              if (!composer.isEditing) return;
+              if (composer is ComposerListBodyController &&
+                  composer.setListKind(ordered: ordered)) {
+                return;
+              }
+              composer.history.transact(() {
+                composer.text.value = insertComposerList(
+                  composer.text.value,
+                  ordered: ordered,
+                );
+              });
+            },
+          ),
         ComposerSlashAction(
           label: 'To-do list',
           icon: DIcons.list,

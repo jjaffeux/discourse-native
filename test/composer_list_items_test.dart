@@ -736,7 +736,9 @@ void main() {
     final root = await pumpEditor(tester, source);
     expect(find.byType(DCheckbox), findsOneWidget);
     expect(composerTodos(source), hasLength(1));
-    expect(bodies(tester).single.text.todos, isEmpty);
+    expect(bodies(tester), hasLength(2));
+    expect(bodies(tester).last.text.text, '[x] Reference');
+    expect(bodies(tester).first.text.todos, isEmpty);
     expect(root.text.text, source);
     expect(tester.takeException(), isNull);
   });

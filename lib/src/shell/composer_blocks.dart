@@ -326,12 +326,13 @@ class ComposerBlockIndex {
   }
 }
 
-// Components and standalone to-dos have explicit boundaries. Consecutive
+// Projected list items, components and to-dos have explicit boundaries. Consecutive
 // rows of either type stay distinct with just one line break.
 int _minimumLineBreaks(ComposerBodyBlock before, ComposerBodyBlock after) =>
     before.kind == after.kind &&
         (before.kind == ComposerBlockKind.component ||
-            before.kind == ComposerBlockKind.todo)
+            before.kind == ComposerBlockKind.todo ||
+            before.kind == ComposerBlockKind.list)
     ? 1
     : 2;
 
@@ -401,8 +402,11 @@ class _BlockScanner {
   final String source;
   final List<ComposerBlockAtom> atoms;
   final List<_Line> lines = [];
+  late final _listItems = {
+    for (final item in composerListItems(source)) item.start: item,
+  };
   late final _todoItems = {
-    for (final item in composerListItems(source))
+    for (final item in _listItems.values)
       if (item.isTask) item.start: item,
   };
   late final _todoStarts = {
@@ -439,6 +443,7 @@ class _BlockScanner {
       final text = lines[i].text;
       final atom = _atomAt(lines[i].start);
       if (atom != null) {
+        final item = _listItems[lines[first].start];
         while (i + 1 < lines.length && lines[i + 1].start < atom.end) {
           i++;
         }
@@ -446,11 +451,13 @@ class _BlockScanner {
           _Span(
             lines[first].start,
             lines[i].end,
-            _todoItems.containsKey(lines[first].start)
+            item?.isTask == true
                 ? ComposerBlockKind.todo
+                : item != null
+                ? ComposerBlockKind.list
                 : ComposerBlockKind.component,
-            movable: _todoItems[lines[first].start]?.closed ?? true,
-            label: atom.label,
+            movable: item?.closed ?? true,
+            label: item?.label ?? atom.label,
           ),
         );
         i++;

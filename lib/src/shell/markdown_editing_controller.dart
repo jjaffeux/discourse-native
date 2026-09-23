@@ -82,6 +82,9 @@ class MarkdownEditingController extends TextEditingController {
   /// Embedded task fields use the same neutral paragraph height when empty
   /// as their populated rich text, so Native hints retain the text baseline.
   bool neutralEmptyParagraph = false;
+
+  /// A list body keeps a directly nested list beside its surrounding prose.
+  bool compactListSpacing = false;
   String? _separatorSource;
   List<TextRange> _separators = const [];
   List<TextRange> _blockGaps = const [];
@@ -137,9 +140,10 @@ class MarkdownEditingController extends TextEditingController {
         else if (text.startsWith('\n\n', block.end))
           TextRange(start: block.end, end: block.end + 2)
         else if (i + 1 < index.blocks.length &&
-            // Sibling to-dos are list rows, not separate paragraphs.
-            !(block.kind == ComposerBlockKind.todo &&
-                index.blocks[i + 1].kind == ComposerBlockKind.todo))
+            // Mixed list rows share the same compact rhythm. Inside a list
+            // item, a single newline before a child list is compact too.
+            !(_isListRow(index.blocks[i + 1]) &&
+                (_isListRow(block) || compactListSpacing)))
           if (text.startsWith('\r\n', block.end))
             TextRange(start: block.end, end: block.end + 2)
           else if (text.startsWith('\n', block.end))
@@ -167,6 +171,10 @@ class MarkdownEditingController extends TextEditingController {
 
   bool _isSingleLineBreak(TextRange range) =>
       range.end - range.start == (text.startsWith('\r\n', range.start) ? 2 : 1);
+
+  bool _isListRow(ComposerBodyBlock block) =>
+      block.kind == ComposerBlockKind.list ||
+      block.kind == ComposerBlockKind.todo;
 
   ValueChanged<TextEditingValue>? onTodoChanged;
   String? _todoSource;

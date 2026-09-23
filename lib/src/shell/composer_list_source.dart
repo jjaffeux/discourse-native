@@ -14,6 +14,7 @@ class ComposerListItem {
     this.taskMarkerStart,
     this.closed = true,
     this.referenceMarkers = const {},
+    this.number,
   });
 
   final String document;
@@ -23,10 +24,22 @@ class ComposerListItem {
   final int? taskMarkerStart;
   final bool closed;
   final Set<String> referenceMarkers;
+
+  /// The rendered ordinal, starting at the first marker in this list.
+  /// Later source markers remain untouched, as they do in Markdown rendering.
+  final int? number;
+  String get label => isTask
+      ? 'To-do'
+      : number == null
+      ? 'Bulleted list'
+      : 'Numbered list';
+  String get nextPrefix => number == null
+      ? itemPrefix
+      : '${' ' * indent}${number! + 1}${marker[marker.length - 1]} ';
   bool get isTask => taskMarker != null;
   bool get checked => taskMarker == '[x]' || taskMarker == '[X]';
   String get source => document.substring(start, end);
-  String get newline => source.contains('\r\n') ? '\r\n' : '\n';
+  String get newline => document.contains('\r\n') ? '\r\n' : '\n';
   String get continuationPrefix => ' ' * contentIndent;
   String get itemPrefix =>
       document.substring(start, taskMarkerStart ?? contentStart);
@@ -36,8 +49,6 @@ class ComposerListItem {
     body.text,
     referenceMarkers: referenceMarkers,
   );
-  bool get containsTasks =>
-      isTask || children.any((item) => item.containsTasks);
 }
 
 /// Maps editable body offsets to the original source, including lazy
@@ -220,6 +231,15 @@ List<ComposerListItem> composerListItems(
       blank = false;
       last = next++;
     }
+    final previous = result.lastOrNull;
+    final ordered = int.tryParse(
+      marker[2]!.substring(0, marker[2]!.length - 1),
+    );
+    final continuesNumbering =
+        ordered != null &&
+        previous?.number != null &&
+        previous!.marker.endsWith(marker[2]![marker[2]!.length - 1]) &&
+        source.substring(previous.end, line.start).trim().isEmpty;
     result.add(
       ComposerListItem(
         document: source,
@@ -234,6 +254,7 @@ List<ComposerListItem> composerListItems(
         taskMarkerStart: isTask ? line.start + contentCharacters : null,
         closed: itemFence == null,
         referenceMarkers: references,
+        number: continuesNumbering ? previous.number! + 1 : ordered,
       ),
     );
     i = last + 1;
