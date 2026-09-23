@@ -187,36 +187,117 @@ void main() {
     expect(root.raw, '- [ ] Task\n\n  $image');
   });
 
-  testWidgets('selecting a task image does not move the following item', (
+  for (final newline in ['\n', '\r\n']) {
+    for (final (label, suffix) in [
+      ('no whitespace', ''),
+      ('trailing spaces', '  '),
+      ('trailing tab', '\t'),
+      ('indented separator', '\n  '),
+    ]) {
+      testWidgets(
+        'task image spacing stays compact with $label and ${newline.length}-character line endings',
+        (tester) async {
+          final source =
+              ('- [ ] Task\n  ![photo|100x80](upload://photo)$suffix\n'
+                      '- [ ] Next\n  - Child')
+                  .replaceAll('\n', newline);
+          final root = await pumpEditor(
+            tester,
+            source,
+            platform: TargetPlatform.macOS,
+          );
+          final image = find.byType(ComposerImagePreview);
+          final imageBefore = tester.getRect(image);
+          final nextBefore = tester.getRect(find.byType(DCheckbox).last);
+          final body = bodies(tester).first;
+          final bodyBefore = tester.getRect(editable(body));
+          expect(nextBefore.top, closeTo(imageBefore.bottom, .1));
+
+          await tester.tap(image);
+          await tester.pumpAndSettle();
+
+          expect(body.text.keyboardSelectedImage, isNotNull);
+          expect(tester.getRect(image), imageBefore);
+          expect(tester.getRect(find.byType(DCheckbox).last), nextBefore);
+          expect(bodyBefore.bottom, closeTo(imageBefore.bottom, .1));
+
+          bodies(tester)[1].requestFocus();
+          await tester.pumpAndSettle();
+          expect(tester.getRect(find.byType(DCheckbox).last), nextBefore);
+          expect(root.raw, source);
+        },
+      );
+    }
+  }
+
+  testWidgets('extra blank lines after a task image remain visible', (
     tester,
   ) async {
-    const source =
-        '- [ ] Task\n  ![photo|100x80](upload://photo)\n'
-        '- [ ] Next\n  - Child';
-    final root = await pumpEditor(
-      tester,
-      source,
-      platform: TargetPlatform.macOS,
-    );
-    final image = find.byType(ComposerImagePreview);
-    final imageBefore = tester.getRect(image);
-    final nextBefore = tester.getRect(find.byType(DCheckbox).last);
-    final body = bodies(tester).first;
-    final bodyBefore = tester.getRect(editable(body));
-
-    await tester.tap(image);
+    const image = '![photo|100x80](upload://photo)';
+    final root = await pumpEditor(tester, '- [ ] Task\n  $image\n- [ ] Next');
+    double gap() =>
+        tester.getRect(find.byType(DCheckbox).last).top -
+        tester.getRect(find.byType(ComposerImagePreview)).bottom;
+    final compact = gap();
+    root.text.text = '- [ ] Task\n  $image\n  \n\n- [ ] Next';
     await tester.pumpAndSettle();
-
-    expect(body.text.keyboardSelectedImage, isNotNull);
-    expect(tester.getRect(image), imageBefore);
-    expect(tester.getRect(find.byType(DCheckbox).last), nextBefore);
-    expect(bodyBefore.bottom, closeTo(imageBefore.bottom, .1));
-
-    bodies(tester)[1].requestFocus();
-    await tester.pumpAndSettle();
-    expect(tester.getRect(find.byType(DCheckbox).last), nextBefore);
-    expect(root.raw, source);
+    expect(gap() - compact, closeTo(24, .1));
+    expect(root.raw, '- [ ] Task\n  $image\n  \n\n- [ ] Next');
   });
+
+  for (final prefix in ['- [x] ', '- ']) {
+    testWidgets(
+      'Return after an upload continues $prefix without an empty row',
+      (tester) async {
+        final root = await pumpEditor(
+          tester,
+          '${prefix}Task',
+          platform: TargetPlatform.macOS,
+          imageUploader:
+              (file, {required onProgress, required abortTrigger}) async =>
+                  const ComposerUploadResult(
+                    id: 1,
+                    originalFilename: 'photo.png',
+                    shortUrl: 'upload://photo',
+                    url: 'https://example.test/photo.png',
+                    width: 100,
+                    height: 80,
+                  ),
+        );
+        final body = bodies(tester).single;
+        body.text.selection = TextSelection.collapsed(
+          offset: body.text.text.length,
+        );
+        body.requestFocus();
+        body.addImages([
+          ComposerUploadFile(
+            name: 'photo.png',
+            length: () async => 1,
+            openRead: () => Stream.value([1]),
+          ),
+        ], body.text.text.length);
+        await tester.pumpAndSettle();
+        final beforeReturn = root.text.text;
+        await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+        await tester.pumpAndSettle();
+
+        final nextPrefix = prefix == '- [x] ' ? '- [ ] ' : prefix;
+        expect(
+          root.text.text,
+          '${prefix}Task\n  ![photo|100x80](upload://photo)\n$nextPrefix',
+        );
+        expect(
+          tester.getRect(editable(bodies(tester).last)).top -
+              tester.getRect(find.byType(ComposerImagePreview)).bottom,
+          lessThan(10),
+        );
+        root.history.undo();
+        await tester.pumpAndSettle();
+        expect(root.text.text, beforeReturn);
+        await tester.pumpWidget(const SizedBox());
+      },
+    );
+  }
 
   testWidgets(
     'vertical arrows keep editing the task after Return splits its text',

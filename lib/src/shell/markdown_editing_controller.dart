@@ -92,6 +92,13 @@ class MarkdownEditingController extends TextEditingController {
   final _componentGapStarts = <int>{};
   final _spaceBeforeComponents = <int>{};
   final _spaceAfterComponents = <int>{};
+  static final _paragraphBreak = RegExp(r'\r?\n[ \t]*\r?\n');
+  static final _lineEnd = RegExp(r'[ \t]*(?:[\r\n]|$)');
+
+  TextRange? _paragraphBreakAt(int offset) {
+    final match = _paragraphBreak.matchAsPrefix(text, offset);
+    return match == null ? null : TextRange(start: offset, end: match.end);
+  }
 
   /// Structural spacing between blocks, including single-newline boundaries.
   List<TextRange> get blockGaps {
@@ -129,17 +136,12 @@ class MarkdownEditingController extends TextEditingController {
         if (block.kind != ComposerBlockKind.component &&
             (i + 1 == index.blocks.length ||
                 index.blocks[i + 1].kind != ComposerBlockKind.component))
-          if (text.startsWith('\r\n\r\n', block.end))
-            TextRange(start: block.end, end: block.end + 4)
-          else if (text.startsWith('\n\n', block.end))
-            TextRange(start: block.end, end: block.end + 2),
+          ?_paragraphBreakAt(block.end),
     ];
     _blockGaps = [
       for (final (i, block) in index.blocks.indexed)
-        if (text.startsWith('\r\n\r\n', block.end))
-          TextRange(start: block.end, end: block.end + 4)
-        else if (text.startsWith('\n\n', block.end))
-          TextRange(start: block.end, end: block.end + 2)
+        if (_paragraphBreakAt(block.end) case final separator?)
+          separator
         else if (i + 1 < index.blocks.length &&
             !compactListSpacing &&
             // Mixed list rows share the same compact rhythm.
@@ -1516,8 +1518,11 @@ class MarkdownEditingController extends TextEditingController {
                     },
                   ),
                 ),
-                if (separator.end - separator.start == 4)
-                  const TextSpan(text: '\u200b\u200b', style: _hidden),
+                if (separator.end - separator.start > 2)
+                  TextSpan(
+                    text: '\u200b' * (separator.end - separator.start - 2),
+                    style: _hidden,
+                  ),
                 TextSpan(text: '\n', style: base),
               ],
             ],
@@ -1835,7 +1840,7 @@ class MarkdownEditingController extends TextEditingController {
         image.start,
         image.end,
         base,
-        trailingCaretLine: image.end < text.length,
+        trailingCaretLine: _lineEnd.matchAsPrefix(text, image.end) == null,
       ),
     ];
   }
@@ -1904,7 +1909,7 @@ class MarkdownEditingController extends TextEditingController {
         gallery.start,
         gallery.end,
         base,
-        trailingCaretLine: gallery.end < text.length,
+        trailingCaretLine: _lineEnd.matchAsPrefix(text, gallery.end) == null,
       ),
     ];
   }
