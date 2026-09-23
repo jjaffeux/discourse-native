@@ -590,11 +590,12 @@ void main() {
       tester,
       source:
           '[details="First"]\n![first|100x80](upload://first)\n[/details]\n\n'
-          '[details="Second"]\n![second|100x80](upload://second)\n[/details]',
+          '[details="Second"]\n![second|100x160](upload://second)\n[/details]',
     );
     await tester.tap(find.byType(ComposerImagePreview).first);
     await tester.pumpAndSettle();
-    // The first image's controls overlap the top of the second preview.
+    // Keep enough of the second image exposed below the first image's controls,
+    // including when the components use compact paragraph spacing.
     await tester.tapAt(
       tester.getBottomLeft(find.byType(ComposerImagePreview).last) +
           const Offset(12, -12),
@@ -611,7 +612,7 @@ void main() {
     expect(fixture.root.raw, contains('![first|100x80](upload://first)'));
     expect(
       fixture.root.raw,
-      contains('![Changed second image|100x80](upload://second)'),
+      contains('![Changed second image|100x160](upload://second)'),
     );
     expect(tester.takeException(), isNull);
   });

@@ -184,7 +184,7 @@ void main() {
       expect(find.text('A photo'), findsOneWidget);
       expect(
         tester.getSize(find.byType(ComposerImagePreview)),
-        const Size(190, 150.5),
+        const Size(190, 142.5),
       );
 
       resolution.complete(const {});

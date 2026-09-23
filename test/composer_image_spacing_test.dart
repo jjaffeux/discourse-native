@@ -1,8 +1,10 @@
 import 'dart:async';
+import 'dart:ui' as ui;
 
 import 'package:discourse_native/src/models/composer_upload.dart';
 import 'package:discourse_native/src/shell/composer_controller.dart';
 import 'package:discourse_native/src/shell/composer_image.dart';
+import 'package:discourse_native/src/shell/composer_image_gallery.dart';
 import 'package:discourse_native/src/shell/composer_panel.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/foundation.dart';
@@ -28,6 +30,96 @@ const _target = ComposerTarget(
 );
 
 void main() {
+  for (final newline in ['\n', '\r\n']) {
+    for (final separator in [newline, '$newline$newline']) {
+      for (final gallery in [false, true]) {
+        for (final scale in [1.0, 1.5]) {
+          testWidgets('${gallery ? 'gallery' : 'image'} gaps match paragraphs '
+              'with ${separator.length} separator units '
+              '(${newline.length == 1 ? 'LF' : 'CRLF'}) at $scale scale', (
+            tester,
+          ) async {
+            const image = '![image|80x40](upload://image.png)';
+            final media = gallery
+                ? '[grid]$newline$image$newline[/grid]'
+                : image;
+            final source =
+                'First$newline${newline}Second$separator$media'
+                '$separator$media${separator}Last';
+            final composer = ComposerController(_target);
+            addTearDown(composer.dispose);
+            composer.text.value = TextEditingValue(
+              text: source,
+              selection: const TextSelection.collapsed(offset: 0),
+            );
+            await _pumpEditor(tester, composer, textScale: scale);
+            final render = tester
+                .state<EditableTextState>(find.byType(EditableText))
+                .renderEditable;
+            render.selectionHeightStyle = ui.BoxHeightStyle.tight;
+            final previews = find.byType(
+              gallery ? ComposerImageGalleryPreview : ComposerImagePreview,
+            );
+            var previewIndex = 0;
+            final rects = composer.blocks.index.blocks.map((block) {
+              final component = gallery
+                  ? composer.text.galleryAtOffset(block.start)
+                  : composer.text.imageAtOffset(block.start);
+              if (component != null) {
+                final box = tester.renderObject<RenderBox>(
+                  previews.at(previewIndex++),
+                );
+                return Rect.fromPoints(
+                  box.localToGlobal(Offset.zero),
+                  box.localToGlobal(box.size.bottomRight(Offset.zero)),
+                );
+              }
+              return render
+                  .getBoxesForSelection(
+                    TextSelection(
+                      baseOffset: block.start,
+                      extentOffset: block.start + 1,
+                    ),
+                  )
+                  .single
+                  .toRect()
+                  .shift(render.localToGlobal(Offset.zero));
+            }).toList();
+            expect(rects, hasLength(5));
+            final paragraphGap = rects[1].top - rects[0].bottom;
+            for (var i = 2; i < rects.length; i++) {
+              expect(
+                rects[i].top - rects[i - 1].bottom,
+                closeTo(paragraphGap, 1),
+                reason: 'gap before block $i',
+              );
+            }
+            expect(composer.raw, source);
+            expect(render.plainText.length, source.length);
+            if (separator == '$newline$newline') {
+              final withEmptyLines = source.replaceFirst(
+                '$separator$media',
+                '$separator$newline$newline$media',
+              );
+              composer.text.value = TextEditingValue(
+                text: withEmptyLines,
+                selection: const TextSelection.collapsed(offset: 0),
+              );
+              await tester.pumpAndSettle();
+              expect(
+                tester.getTopLeft(previews.first).dy - rects[2].top,
+                closeTo(render.preferredLineHeight * 2, 1),
+              );
+              expect(composer.raw, withEmptyLines);
+              expect(render.plainText.length, withEmptyLines.length);
+            }
+            await tester.pumpWidget(const SizedBox.shrink());
+          });
+        }
+      }
+    }
+  }
+
   for (final gallery in [false, true]) {
     testWidgets(
       'a terminal ${gallery ? 'gallery' : 'image'} has no extra caret line',
@@ -210,18 +302,22 @@ void main() {
 
 Future<void> _pumpEditor(
   WidgetTester tester,
-  ComposerController composer,
-) async {
+  ComposerController composer, {
+  double textScale = 1,
+}) async {
   await tester.pumpWidget(
     MaterialApp(
       theme: AppTheme.light,
-      home: Scaffold(
-        body: ComposerEditor(
-          composer: composer,
-          hintText: 'Write a reply',
-          textStyle: const TextStyle(fontSize: 16, height: 1.5),
-          hintStyle: null,
-          readClipboardFiles: () async => [_file],
+      home: MediaQuery(
+        data: MediaQueryData(textScaler: TextScaler.linear(textScale)),
+        child: Scaffold(
+          body: ComposerEditor(
+            composer: composer,
+            hintText: 'Write a reply',
+            textStyle: const TextStyle(fontSize: 16, height: 1.5),
+            hintStyle: null,
+            readClipboardFiles: () async => [_file],
+          ),
         ),
       ),
     ),
