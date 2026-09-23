@@ -138,7 +138,7 @@ void main() {
     const formatter = ComposerTodoInputFormatter();
     for (final prefix in ['[ ] ', '[x] ', '[X] ', '[] ', '- [ ] ', '  [ ] ']) {
       for (final lead in ['', 'Before\n']) {
-        final source = '${lead}${prefix}Keep\n[ ] Next';
+        final source = '$lead${prefix}Keep\n[ ] Next';
         for (
           var offset = lead.length;
           offset < lead.length + prefix.length;
@@ -157,7 +157,7 @@ void main() {
             );
             expect(
               formatter.formatEditUpdate(old, next),
-              valueAt('${lead}|Keep\n[ ] Next'),
+              valueAt('$lead|Keep\n[ ] Next'),
               reason: '$prefix at $offset, backwards: $backwards',
             );
           }
@@ -246,6 +246,37 @@ void main() {
     await tester.tap(find.byType(DCheckbox).first);
     await tester.pump();
     expect(composer.text.text, 'Paragraph\n[x] Open\n[x] Done');
+  });
+
+  testWidgets('typing after clicking a todo returns keyboard focus to text', (
+    tester,
+  ) async {
+    final composer = await pump(tester);
+    await tester.enterText(find.byType(EditableText), '[ ] First\n[ ] Second');
+    await tester.pumpAndSettle();
+    await tester.tap(find.byType(DCheckbox).first);
+    await tester.pumpAndSettle();
+    expect(composer.text.text, '[x] First\n[ ] Second');
+
+    final editable = tester
+        .state<EditableTextState>(find.byType(EditableText))
+        .renderEditable;
+    await tester.tapAt(
+      editable.localToGlobal(
+        editable
+            .getLocalRectForCaret(
+              TextPosition(offset: composer.text.text.length),
+            )
+            .center,
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(composer.focus.hasPrimaryFocus, isTrue);
+    expect(await tester.sendKeyEvent(LogicalKeyboardKey.space), isFalse);
+    expect(composer.text.text, '[x] First\n[ ] Second');
+    tester.testTextInput.updateEditingValue(valueAt('[x] First\n[ ] Second |'));
+    await tester.pump();
+    expect(composer.text.value, valueAt('[x] First\n[ ] Second |'));
   });
 
   for (final query in ['todo', 'checklist', 'checkbox', 'task']) {
