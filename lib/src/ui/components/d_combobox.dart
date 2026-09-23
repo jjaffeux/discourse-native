@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 
 import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
+import '../../theme/d_native_icons.dart';
 import '../../theme/discourse_typography.dart';
 import '../foundation/control_style.dart';
 import '../foundation/focus_highlight.dart';
@@ -971,7 +972,14 @@ class DComboboxInput<T> extends StatelessWidget {
             child: DInputGroupButton.icon(
               size: size,
               tooltip: root.isOpen ? 'Close suggestions' : 'Open suggestions',
-              icon: const DIcon(DIcons.chevronDown, size: 16),
+              icon: DIcon(
+                DControlStyle.isApplicationSize(size)
+                    ? DNativeIcons.filterChevron
+                    : DIcons.chevronDown,
+                size: DControlStyle.isApplicationSize(size)
+                    ? DControlStyle.chevronDimension(size)
+                    : 16,
+              ),
               hasPopup: true,
               onPressed: () => root._requestOpen(
                 !root.isOpen,
@@ -1268,7 +1276,10 @@ class DComboboxItem<T> extends StatelessWidget {
             constraints: const BoxConstraints(
               minHeight: DControlStyle.rowHeight,
             ),
-            padding: DInsets.menuItem,
+            padding: EdgeInsets.symmetric(
+              horizontal: 8,
+              vertical: DControlStyle.menuVerticalInset(context),
+            ),
             decoration: BoxDecoration(
               color: highlighted
                   ? DControlStyle.rowHover(tokens)

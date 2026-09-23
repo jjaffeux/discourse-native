@@ -3389,7 +3389,7 @@ void _registerTopicReadingTests() {
             find.descendant(of: trigger, matching: find.byType(DIcon)).first,
           )
           .icon;
-      expect(triggerIcon(), DNativeIcons.bell);
+      expect(triggerIcon(), DIcons.bell);
 
       await tester.tap(trigger);
       await tester.pumpAndSettle();

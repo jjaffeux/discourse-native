@@ -11,7 +11,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   testWidgets(
-    'control badges match regular controls across platforms and text scales',
+    'control badges match filter controls across platforms and text scales',
     (tester) async {
       for (final platform in [
         TargetPlatform.linux,
@@ -36,6 +36,7 @@ void main() {
                           child: const Text('Tag'),
                         ),
                         DButton(
+                          size: DControlSize.filter,
                           label: const Text('Category'),
                           onPressed: () {},
                         ),
@@ -59,10 +60,12 @@ void main() {
                 matching: find.byType(AnimatedContainer),
               )
               .first;
-          final mobile = platform != TargetPlatform.linux;
           expect(
             tester.getSize(badge).height,
-            greaterThanOrEqualTo(mobile ? 44 : 28),
+            DControlStyle.scaledHeight(
+              DControlSize.filter,
+              TextScaler.linear(scale),
+            ),
           );
           await tester.tap(find.text('Tag'));
           expect(activated, isTrue);

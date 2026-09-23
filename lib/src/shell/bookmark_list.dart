@@ -244,6 +244,7 @@ class _BookmarkSectionViewState extends State<_BookmarkSectionView> {
                   Row(
                     children: [
                       DSelect<String>.controlled(
+                        size: DControlSize.filter,
                         semanticLabel: 'Filter bookmarks',
                         value: _filter,
                         entries: [

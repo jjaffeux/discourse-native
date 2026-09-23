@@ -24,7 +24,11 @@ class _ControlComparisonExampleState extends State<ControlComparisonExample> {
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        for (final size in DControlSize.values) ...[
+        for (final size in const [
+          DControlSize.small,
+          DControlSize.regular,
+          DControlSize.large,
+        ]) ...[
           Text(
             '${size.name} — ${DControlStyle.height(size, context: context).toInt()}px',
           ),

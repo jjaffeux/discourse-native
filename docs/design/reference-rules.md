@@ -154,13 +154,14 @@ must not acquire local height/padding wrappers.
 | Regular | 34 | 44 | 13 / 19.5 | 14 |
 | Large | 40 | 48 | 14 / 21 | 16 |
 
-All control families share this scale: Button, Toggle, Select, Input,
-Input Group, Combobox, Tabs and Menubar triggers. Text sizes are identical
-across platforms. The reference's regular action is 34px desktop / 44px
-mobile. Source filter buttons naturally compute to 30.75px and boxed fields
-to 35.5px; Native regular controls normalize those to one 34px desktop preset.
-Large 40px is the Native extension for stronger controls. Touch artwork and
-48px interaction bounds are deliberate native adaptations.
+The general scale remains available across Button, Toggle, Select, Input,
+Input Group, Combobox, Tabs and Menubar triggers. Application controls use the
+[measured mockup presets](control-size-parity.md): `filter` 30.75px, `field`
+35.5px, `preference` 40.25px, `chip` 24px, `toolbar` 34px, `segment` 28px,
+`chrome` 25px and `action` 34px desktop / 44px mobile. These supersede the earlier
+normalization of filters and fields to the regular size. Text scaling expands
+artwork; invisible touch targets remain at least 48px. Preference switches use
+`DSwitchSize.preference` (38×22px with an 18px thumb).
 
 - Primary actions use the muted accent fill, outline actions use a quiet
   neutral fill and 1px border, transparent actions reveal a fill on hover.
@@ -171,8 +172,9 @@ Large 40px is the Native extension for stronger controls. Touch artwork and
   explicitly use their text roles. Input geometry must grow for text scaling.
 - Buttons do not translate on hover/press. Native keyboard focus has a 1px
   ring with 2px separation. Disabled controls cannot activate.
-- Regular popup rows are at least 34px (13px × 1.5 + 14px inset, rounded up).
-  Touch popup rows are at least 48px. Text may increase the height further.
+- Regular popup artwork is 33.5px (13px × 1.5 + 14px inset). Native compensates
+  for Flutter paragraph rounding rather than rounding up the entire row.
+  Touch interaction bounds remain at least 48px. Text scaling grows both.
 - Popup corners are 10px, item highlights 7px, padding 6px, outline 1px.
   The default popup has no shadow. Explicit medium/large shadows remain
   available for components that deliberately request elevation.

@@ -1,5 +1,6 @@
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
+import '../theme/d_native_icons.dart';
 
 class TopicTaxonomyButton extends StatelessWidget {
   const TopicTaxonomyButton({
@@ -15,6 +16,7 @@ class TopicTaxonomyButton extends StatelessWidget {
     this.focusNode,
     this.expanded = false,
     this.categoryColor,
+    this.showChevron = false,
   });
 
   final DButtonSize size;
@@ -28,6 +30,7 @@ class TopicTaxonomyButton extends StatelessWidget {
   final FocusNode? focusNode;
   final bool expanded;
   final Color? categoryColor;
+  final bool showChevron;
 
   @override
   Widget build(BuildContext context) => IntrinsicWidth(
@@ -36,7 +39,21 @@ class TopicTaxonomyButton extends StatelessWidget {
       child: DButton(
         key: buttonKey,
         size: size,
-        label: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
+        label: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Flexible(
+              child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
+            ),
+            if (showChevron) ...[
+              SizedBox(width: DControlStyle.contentGap(size)),
+              DIcon(
+                DNativeIcons.filterChevron,
+                size: DControlStyle.chevronDimension(size),
+              ),
+            ],
+          ],
+        ),
         icon: icon,
         tooltip: tooltip,
         semanticLabel: semanticLabel,

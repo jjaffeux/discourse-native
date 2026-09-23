@@ -52,6 +52,7 @@ class _ChatPreferenceForm extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.all(20),
         child: DSelect<ChatSeparateSidebarPreference>.controlled(
+          size: DControlSize.preference,
           isExpanded: true,
           key: ValueKey(('chat-separate-sidebar-mode', selectedMode)),
           value: selectedMode,

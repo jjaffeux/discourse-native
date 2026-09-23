@@ -59,7 +59,10 @@ through focus, expanded state and activation.
 
 Use shared control geometry and paint from `foundation/control_style.dart`.
 Button-like controls must use the Button styleguide's shared `DControlSize`
-scale: desktop `small` (24px), `regular` (34px), and `large` (40px).
+scale: general desktop `small` (24px), `regular` (34px), and `large` (40px).
+Application surfaces use the [mockup presets](../design/control-size-parity.md)
+for filters, fields, preferences, chips, toolbars, segments, window navigation
+and footer actions. Do not normalize these to a general size.
 On iOS, Android and Fuchsia, the same sizes render at 40/44/48px with
 the same 12.5/13/14px labels and 12/14/16px icons as desktop. Touch targets remain at least 48px.
 Platform comes from the inherited theme, including mobile web; resizing a
@@ -75,19 +78,17 @@ Mobile notification categories use the September 23 approved
 state and 6px gaps. Use the small control size; Tabs owns horizontal scrolling,
 keyboard navigation, text scaling and the 48px touch targets. Labels retain
 unread counts in semantics while the compact strip displays category names.
-Mobile topic header actions use the September 23 approved
-`DButtonDensity.compactToolbar` preset: 24px-high surfaces, 32px-wide icon-only
-actions, 14px icons and small typography. Both Button constructors and
-`DNotificationLevelMenu` accept the density. It supersedes the size preset,
-grows with text scaling and retains at least 48px targets on every platform,
-so the compact artwork remains usable by touch. Header taxonomy chips keep
-their regular control size.
+Topic header actions use `DControlSize.chip`: 24px artwork with intrinsic icon
+width and the reference insets. Header taxonomy chips use `filter` (30.75px).
+These supersede the earlier `compactToolbar` migration for these surfaces.
+The density remains available to existing consumers with a deliberate fixed
+32px icon surface; avoid applying it over an application size preset.
 Chat reaction chips use the explicitly approved `DToggleDensity.reaction`:
 28px artwork, 18px emoji, 12px counts with 16px leading, and symmetric 8px
 horizontal padding. This density supersedes the size preset, grows with text
 scaling and retains the 48px touch target. Emoji adapters inherit the toggle's
 IconTheme so raster artwork follows the actual control metrics.
-Topic header tags opt into `DBadgeSize.control`, which uses the regular control
+Topic header tags opt into `DBadgeSize.control`, which uses the filter control
 height, label and artwork metrics on each platform. Other badges retain their
 regular or compact status/count geometry.
 
@@ -118,12 +119,13 @@ use the outlined hover fill and border. Other editable controls retain their exi
 `DTokens.controls` styling. Buttons and button-based popup triggers also use
 the theme’s control radius, independent of size. Keep the default
 `DButtonShape.rounded` in application code; explicit pill shapes belong only to
-documented design exceptions. Menu rows use 34px minimum height (48px on touch), 7px highlight corners,
+documented design exceptions. Menu rows use 33.5px artwork (at least 48px interaction bounds on touch), 7px highlight corners,
 7×8px item insets and 6px outer padding inside 10px popup corners. Keyboard focus uses a 1px ring separated by 2px. Hover, pressed and
 open fills change immediately, without translating the control. The `AppTheme`
 boundary derives colors from the current forum palette; category identity
-retains its own color. Standard topic filters, header triggers and bottom
-actions retain the regular size (34px desktop, 44px mobile), text scaling and 48px touch targets.
+retains its own color. Topic filters and header triggers use their application
+presets; bottom actions use `action` (34px desktop, 44px mobile). All retain text
+scaling and 48px touch targets.
 See [the reference measurements and verification](linear-controls.md), which
 supersede the earlier [contextual tint styling](contextual-tints.md).
 

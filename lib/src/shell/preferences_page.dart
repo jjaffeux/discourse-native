@@ -201,6 +201,7 @@ class _PreferencesPageState extends State<PreferencesPage> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 DSelect<PreferenceSection>.controlled(
+                  size: DControlSize.preference,
                   isExpanded: true,
                   key: ValueKey(('preferences-section', selected)),
                   value: selected,
@@ -537,6 +538,7 @@ class _NotificationsForm extends StatelessWidget {
     return _PreferenceCard(
       children: [
         DSelect<int>.controlled(
+          size: DControlSize.preference,
           isExpanded: true,
           key: ValueKey((
             'like-notification-frequency',
@@ -575,6 +577,7 @@ class _NotificationsForm extends StatelessWidget {
         ),
         const SizedBox(height: 20),
         DSwitchTile(
+          size: DSwitchSize.preference,
           key: const ValueKey('notify-on-linked-posts'),
           contentPadding: EdgeInsets.zero,
           title: DLabel(
@@ -612,6 +615,7 @@ class _TrackingForm extends StatelessWidget {
     return _PreferenceCard(
       children: [
         DSelect<int>.controlled(
+          size: DControlSize.preference,
           isExpanded: true,
           key: ValueKey((
             'new-topic-duration',
@@ -668,6 +672,7 @@ class _TrackingForm extends StatelessWidget {
         ),
         const SizedBox(height: 20),
         DSelect<int>.controlled(
+          size: DControlSize.preference,
           isExpanded: true,
           key: ValueKey((
             'auto-track-duration',
@@ -735,6 +740,7 @@ class _TrackingForm extends StatelessWidget {
         ),
         const SizedBox(height: 20),
         DSelect<int>.controlled(
+          size: DControlSize.preference,
           isExpanded: true,
           key: ValueKey((
             'reply-notification-level',
@@ -893,6 +899,7 @@ class _InterfaceForm extends StatelessWidget {
     return _PreferenceCard(
       children: [
         DSelect<BookmarkAutoDeletePreference>.controlled(
+          size: DControlSize.preference,
           isExpanded: true,
           key: ValueKey((
             'bookmark-auto-delete',

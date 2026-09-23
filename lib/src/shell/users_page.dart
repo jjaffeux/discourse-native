@@ -655,6 +655,7 @@ class _UsersPageState extends State<UsersPage> {
                                   ),
                             child: DDataTableFilterField(
                               key: const ValueKey('users-search'),
+                              size: DControlSize.field,
                               maxWidth: double.infinity,
                               value: _searchText,
                               hintText: 'Filter users',
@@ -672,6 +673,7 @@ class _UsersPageState extends State<UsersPage> {
                                 SizedBox(
                                   width: periodWidth,
                                   child: DSelect<UserDirectoryPeriod>(
+                                    size: DControlSize.filter,
                                     key: const ValueKey('users-period-filter'),
                                     width: periodWidth,
                                     value: data.query.period,
@@ -709,6 +711,7 @@ class _UsersPageState extends State<UsersPage> {
                                     key: const ValueKey('users-group-filter'),
                                     value: data.query.group ?? '__all_groups__',
                                     anchor: const DComboboxInput<String>(
+                                      size: DControlSize.filter,
                                       semanticLabel: 'Filter by group',
                                       placeholder: 'All groups',
                                     ),
@@ -757,6 +760,7 @@ class _UsersPageState extends State<UsersPage> {
                                 ),
                                 DDataTableColumnToggle<UserDirectoryItem>(
                                   key: const ValueKey('users-columns'),
+                                  size: DControlSize.filter,
                                   menuLabel: 'Columns',
                                   columns: columns,
                                   hiddenColumnIds: _hiddenColumnIds,

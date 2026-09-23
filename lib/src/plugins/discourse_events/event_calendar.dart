@@ -308,6 +308,7 @@ final class _EventCalendarState extends State<EventCalendar> {
         ),
         DButton(
           variant: DButtonVariant.outline,
+          size: DControlSize.chip,
           label: const Text('Today'),
           onPressed: _today,
         ),
@@ -378,6 +379,7 @@ final class _EventCalendarState extends State<EventCalendar> {
     T selected,
     ValueChanged<T>? onChanged,
   ) => DSelect<T>.controlled(
+    size: DControlSize.filter,
     value: selected,
     semanticLabel: label,
     enabled: onChanged != null,
@@ -393,6 +395,7 @@ final class _EventCalendarState extends State<EventCalendar> {
       if (value != null) onChanged?.call(value);
     },
     triggerBuilder: (context, state, _) => DButton(
+      size: DControlSize.filter,
       variant: DButtonVariant.outline,
       focusNode: state.focusNode,
       hasPopup: true,
@@ -436,7 +439,7 @@ final class _EventCalendarState extends State<EventCalendar> {
     ];
     final today = DButton(
       variant: DButtonVariant.outline,
-      density: DButtonDensity.compactToolbar,
+      size: DControlSize.chip,
       label: const Text('Today'),
       onPressed: _today,
     );
@@ -478,7 +481,7 @@ final class _EventCalendarState extends State<EventCalendar> {
             children: [
               DButton.iconOnly(
                 variant: DButtonVariant.outline,
-                density: DButtonDensity.compactToolbar,
+                size: DControlSize.chip,
                 icon: const DIcon(DIcons.chevronLeft),
                 tooltip: 'Previous ${_schedule ? 'month' : _view.name}',
                 onPressed: widget.page.move(-1).date.year >= 1900
@@ -499,7 +502,7 @@ final class _EventCalendarState extends State<EventCalendar> {
               ),
               DButton.iconOnly(
                 variant: DButtonVariant.outline,
-                density: DButtonDensity.compactToolbar,
+                size: DControlSize.chip,
                 icon: const DIcon(DIcons.chevronRight),
                 tooltip: 'Next ${_schedule ? 'month' : _view.name}',
                 onPressed: widget.page.move(1).date.year < 2200

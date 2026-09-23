@@ -196,7 +196,7 @@ void main() {
     final drafts = find.byKey(TopicCreateButton.draftsButtonKey);
     final createRect = tester.getRect(create);
     final draftRect = tester.getRect(drafts);
-    expect(createRect.height, 42);
+    expect(createRect.height, 53.5);
     expect(draftRect.height, createRect.height);
     expect(draftRect.top, createRect.top);
     final label = tester.getRect(find.text('New topic'));
@@ -413,7 +413,7 @@ void _expectRegularDButton(
 }) {
   final button = tester.widget<DButton>(target);
   final size = tester.getSize(target);
-  expect(button.size, DButtonSize.regular);
+  expect(button.size, DButtonSize.action);
   expect(button.variant, DButtonVariant.primary);
   const dimension = DControlStyle.regularHeight;
   expect(size.height, dimension);

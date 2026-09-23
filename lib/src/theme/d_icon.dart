@@ -70,12 +70,24 @@ class DIconData {
   String toString() => 'DIconData($name)';
 }
 
-/// Controls optical glyph insets without changing an icon's layout box.
-/// Navigation controls use full-size glyphs; ordinary controls retain the inset.
+/// Controls optical glyph insets and optional natural SVG layout widths.
+/// Reference controls use full-size glyphs; ordinary controls retain the inset.
 class DIconGlyphTheme extends InheritedWidget {
-  const DIconGlyphTheme({super.key, required this.scale, required super.child});
+  const DIconGlyphTheme({
+    super.key,
+    required this.scale,
+    this.naturalWidth = false,
+    required super.child,
+  });
 
   final double scale;
+  final bool naturalWidth;
+
+  static bool naturalWidthOf(BuildContext context) =>
+      context
+          .dependOnInheritedWidgetOfExactType<DIconGlyphTheme>()
+          ?.naturalWidth ??
+      false;
 
   static double scaleOf(BuildContext context) =>
       context.dependOnInheritedWidgetOfExactType<DIconGlyphTheme>()?.scale ??
@@ -83,7 +95,7 @@ class DIconGlyphTheme extends InheritedWidget {
 
   @override
   bool updateShouldNotify(DIconGlyphTheme oldWidget) =>
-      scale != oldWidget.scale;
+      scale != oldWidget.scale || naturalWidth != oldWidget.naturalWidth;
 }
 
 class DIcon extends StatelessWidget {
@@ -103,6 +115,10 @@ class DIcon extends StatelessWidget {
   final String? semanticLabel;
 
   static const double glyphScale = 0.875;
+
+  static final _viewBox = RegExp(
+    r'''viewBox=["']\s*([\d.]+)[ ,]+([\d.]+)[ ,]+([\d.]+)[ ,]+([\d.]+)\s*["']''',
+  );
 
   static final _colorVariable = RegExp(
     r'var\(\s*--([\w-]+)\s*(?:,\s*([^()]+))?\)',
@@ -135,18 +151,26 @@ class DIcon extends StatelessWidget {
     final iconTheme = IconTheme.of(context);
     final box = size ?? iconTheme.size ?? 24;
     final glyphScale = DIconGlyphTheme.scaleOf(context);
+    final viewBox = DIconGlyphTheme.naturalWidthOf(context)
+        ? _viewBox.firstMatch(icon.svg)
+        : null;
+    final width = viewBox == null
+        ? box
+        : (box * double.parse(viewBox[3]!) / double.parse(viewBox[4]!))
+              .roundToDouble();
     final tint = color ?? iconTheme.color ?? const Color(0xFF000000);
     final opacity = iconTheme.opacity ?? 1.0;
     final resolvedTint = opacity == 1.0
         ? tint
         : tint.withValues(alpha: tint.a * opacity);
 
-    return SizedBox.square(
-      dimension: box,
+    return SizedBox(
+      width: width,
+      height: box,
       child: Center(
         child: SvgPicture.string(
           _svg(context),
-          width: box * glyphScale,
+          width: width * glyphScale,
           height: box * glyphScale,
           fit: BoxFit.contain,
           theme: SvgTheme(

@@ -286,9 +286,11 @@ class _DInputGroupState extends State<DInputGroup> {
       _ => false,
     };
     final inputPadding = EdgeInsetsDirectional.only(
-      start: inlineStart.isEmpty ? 10 : 6,
+      start: inlineStart.isEmpty
+          ? DControlStyle.horizontalInset(widget.size)
+          : 6,
       top: blockEnd.isEmpty ? 1 : 12,
-      end: inlineEnd.isEmpty ? 10 : 6,
+      end: inlineEnd.isEmpty ? DControlStyle.horizontalInset(widget.size) : 6,
       bottom: blockStart.isEmpty ? 1 : 12,
     ).resolve(Directionality.of(context));
     return DInputGroupControlScope(

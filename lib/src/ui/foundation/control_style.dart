@@ -6,9 +6,37 @@ import 'package:flutter/material.dart';
 import '../../theme/discourse_typography.dart';
 import 'tokens.dart';
 
-/// Control artwork uses 24/34/40px on desktop and 40/44/48px on touch.
-/// Typography is shared; touch targets remain at least 48px.
-enum DControlSize { small, regular, large }
+/// General controls adapt to the platform. Application presets reproduce the
+/// mockup artwork on every platform, independently of the 48px touch target.
+enum DControlSize {
+  small,
+  regular,
+  large,
+
+  /// Outlined filter triggers: 12.5px text, 5px vertical padding and 1px border.
+  filter,
+
+  /// Search fields: 13px text, 7px vertical padding and 1px border.
+  field,
+
+  /// Preference fields: 13.5px text, 9px vertical padding and 1px border.
+  preference,
+
+  /// Compact calendar and topic actions.
+  chip,
+
+  /// Composer and desktop navigation actions.
+  toolbar,
+
+  /// The inner buttons in a compact segmented control.
+  segment,
+
+  /// Window navigation: 15px artwork with 5px vertical and 7px side insets.
+  chrome,
+
+  /// Footer actions: 34px on desktop, 44px on mobile, with 12px artwork.
+  action,
+}
 
 /// Shared geometry and outlined surfaces for action and selection controls.
 abstract final class DControlStyle {
@@ -22,10 +50,20 @@ abstract final class DControlStyle {
   static const labelFontSize = DiscourseTypography.control;
   static const labelLineHeight =
       labelFontSize * DiscourseTypography.lineHeightSmall;
-  static const rowHeight = 34.0;
+  static const rowHeight = 33.5;
   static const rowRadius = DRadius.menuItem;
   static const focusWidth = 1.0;
   static const focusOffset = 2.0;
+
+  /// Flutter rounds a paragraph's layout height up to whole logical pixels.
+  /// Balance that extra leading across the insets to retain the CSS row size.
+  static double menuVerticalInset(BuildContext context) {
+    final line =
+        MediaQuery.textScalerOf(context).scale(labelFontSize) *
+        DiscourseTypography.lineHeightSmall;
+    return 7 - (line.ceilToDouble() - line) / 2;
+  }
+
   static bool isTouch(BuildContext? context) =>
       context != null &&
       switch (Theme.of(context).platform) {
@@ -35,48 +73,93 @@ abstract final class DControlStyle {
         _ => false,
       };
 
+  static bool isApplicationSize(DControlSize size) => switch (size) {
+    DControlSize.small || DControlSize.regular || DControlSize.large => false,
+    _ => true,
+  };
+
   static double height(DControlSize size, {BuildContext? context}) =>
-      isTouch(context)
-      ? switch (size) {
-          DControlSize.small => 40,
-          DControlSize.regular => 44,
-          DControlSize.large => 48,
-        }
-      : switch (size) {
-          DControlSize.small => smallHeight,
-          DControlSize.regular => regularHeight,
-          DControlSize.large => largeHeight,
-        };
+      switch (size) {
+        DControlSize.small => isTouch(context) ? 40 : smallHeight,
+        DControlSize.regular => isTouch(context) ? 44 : regularHeight,
+        DControlSize.large => isTouch(context) ? 48 : largeHeight,
+        DControlSize.filter => 30.75,
+        DControlSize.field => 35.5,
+        DControlSize.preference => 40.25,
+        DControlSize.chip => 24,
+        DControlSize.toolbar => 34,
+        DControlSize.segment => 28,
+        DControlSize.chrome => 25,
+        DControlSize.action => isTouch(context) ? 44 : 34,
+      };
   static double fontSize(DControlSize size, {BuildContext? context}) =>
       switch (size) {
-        DControlSize.small => DiscourseTypography.preview,
-        DControlSize.regular => labelFontSize,
+        DControlSize.small ||
+        DControlSize.filter ||
+        DControlSize.chip => DiscourseTypography.preview,
+        DControlSize.regular ||
+        DControlSize.field ||
+        DControlSize.toolbar ||
+        DControlSize.segment ||
+        DControlSize.chrome ||
+        DControlSize.action => labelFontSize,
         DControlSize.large => DiscourseTypography.sm,
+        DControlSize.preference => DiscourseTypography.compact,
       };
   static double lineHeight(DControlSize size, {BuildContext? context}) =>
       fontSize(size) * DiscourseTypography.lineHeightSmall;
   static double iconDimension(DControlSize size, {BuildContext? context}) =>
       switch (size) {
-        DControlSize.small => 12,
-        DControlSize.regular => 14,
+        DControlSize.small ||
+        DControlSize.filter ||
+        DControlSize.chip ||
+        DControlSize.action => 12,
+        DControlSize.regular ||
+        DControlSize.field ||
+        DControlSize.toolbar => 14,
         DControlSize.large => iconSize,
+        DControlSize.preference || DControlSize.segment => 13,
+        DControlSize.chrome => 15,
       };
-  static double contentGap(DControlSize size) =>
-      size == DControlSize.large ? gap : 4;
+  static double contentGap(DControlSize size) => size == DControlSize.preference
+      ? 8
+      : size == DControlSize.large || isApplicationSize(size)
+      ? gap
+      : 4;
+
+  /// Insets include the CSS border, which Native paints inside the surface.
+  static double horizontalInset(DControlSize size) => switch (size) {
+    DControlSize.filter || DControlSize.chip => 10,
+    DControlSize.field => 11,
+    DControlSize.preference => 12,
+    DControlSize.chrome => 7,
+    DControlSize.action => 14,
+    _ => 10,
+  };
+
+  static double chevronDimension(DControlSize size) => switch (size) {
+    DControlSize.filter || DControlSize.chip => 10,
+    DControlSize.preference => 11,
+    _ => iconDimension(size),
+  };
 
   /// Text scaling expands every control consistently, including icon buttons.
   static double scaledHeight(
     DControlSize size,
     TextScaler scaler, {
     BuildContext? context,
-  }) => math.max(
-    height(size, context: context),
-    (scaler.scale(fontSize(size, context: context)) *
-                lineHeight(size, context: context) /
-                fontSize(size, context: context))
-            .ceilToDouble() +
-        2,
-  );
+  }) => isApplicationSize(size)
+      ? height(size, context: context) +
+            math.max(0, scaler.scale(fontSize(size)) - fontSize(size)) *
+                DiscourseTypography.lineHeightSmall
+      : math.max(
+          height(size, context: context),
+          (scaler.scale(fontSize(size, context: context)) *
+                      lineHeight(size, context: context) /
+                      fontSize(size, context: context))
+                  .ceilToDouble() +
+              2,
+        );
 
   static double radius(DTokens tokens, DControlSize size) =>
       tokens.controlRadius;

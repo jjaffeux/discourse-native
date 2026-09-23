@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
 
+import '../../theme/d_icon.dart';
 import '../foundation/control_style.dart';
 import '../foundation/tokens.dart';
 
@@ -162,6 +163,11 @@ class DToggle extends StatefulWidget {
     required bool hasIcon,
     required DToggleIconPosition iconPosition,
   }) {
+    if (DControlStyle.isApplicationSize(size)) {
+      return EdgeInsets.symmetric(
+        horizontal: DControlStyle.horizontalInset(size),
+      );
+    }
     if (!hasIcon) return const EdgeInsets.symmetric(horizontal: 10);
     final iconEdge = size == DToggleSize.small ? 6.0 : 8.0;
     return switch (iconPosition) {
@@ -364,6 +370,10 @@ class _DToggleState extends State<DToggle> {
       data: IconThemeData(size: iconDimension, color: foreground),
       child: content,
     );
+
+    if (DControlStyle.isApplicationSize(widget.size)) {
+      content = DIconGlyphTheme(scale: 1, naturalWidth: true, child: content);
+    }
 
     final artwork = AnimatedContainer(
       duration: Duration.zero,
