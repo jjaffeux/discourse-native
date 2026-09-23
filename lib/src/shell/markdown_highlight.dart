@@ -30,6 +30,9 @@ abstract final class Md {
   static const int htmlTag = 1 << 12;
 
   static const int hashtag = 1 << 13;
+
+  /// Source-only wrappers around rendered superscripts, subscripts and keys.
+  static const int hiddenTag = 1 << 14;
 }
 
 const Set<String> allowedInlineTags = {
@@ -612,9 +615,12 @@ class _Scan {
       // As with emphasis, only the tags themselves must be unclaimed.
       if (!_free(start, open) || !_free(close, end)) continue;
       if (!_unescaped(start, open) || !_unescaped(close, end)) continue;
-      _mark(start, open, Md.marker);
+      final marker =
+          Md.marker |
+          (const {'sup', 'sub', 'kbd'}.contains(tag) ? Md.hiddenTag : 0);
+      _mark(start, open, marker);
       _addTag(open, close, tag);
-      _mark(close, end, Md.marker);
+      _mark(close, end, marker);
       // Only the tags are spoken for; `<kbd>**x**</kbd>` is still bold.
       _close(start, open);
       _close(close, end);

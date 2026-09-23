@@ -19,6 +19,7 @@ import 'composer_galleries.dart';
 import 'composer_image.dart';
 import 'composer_image_gallery.dart';
 import 'composer_images.dart';
+import 'composer_inline_spans.dart';
 import 'composer_link.dart';
 import 'composer_pills.dart';
 import 'composer_quotes.dart';
@@ -269,6 +270,13 @@ class MarkdownEditingController extends TextEditingController {
   @override
   set value(TextEditingValue newValue) {
     final current = super.value;
+    if (current.text.contains('<')) {
+      newValue = normalizeComposerTagEdit(
+        current,
+        newValue,
+        _runsFor(current.text),
+      );
+    }
     if (current.selection.isValid &&
         current.selection.isCollapsed &&
         newValue.selection.isCollapsed &&
@@ -1328,6 +1336,20 @@ class MarkdownEditingController extends TextEditingController {
     // that changes what is drawn. Summarised rather than keyed on the
     // selection itself, so the ordinary caret move still costs nothing.
     final revealed = _revealedPill(runs, value.selection);
+    final collapsedKeys = [
+      for (final key in composerKeyboardRuns(runs))
+        if (!(selection.isValid &&
+                selection.isCollapsed &&
+                selection.start >= key.first.start &&
+                selection.start <= key.last.end) &&
+            (composing == null ||
+                composing.end <= key.first.start ||
+                composing.start >= key.last.end))
+          key,
+    ];
+    final keyboardProjection = Object.hashAll(
+      collapsedKeys.map((runs) => runs.first.start),
+    );
 
     // Moving the caret changes none of the rest, and returning the *same* span
     // rather than an equal one is what makes that free: `RenderEditable`'s
@@ -1345,6 +1367,7 @@ class MarkdownEditingController extends TextEditingController {
           syntaxProjection: syntaxProjection,
           imageProjection: imageProjection,
           galleryProjection: galleryProjection,
+          keyboardProjection: keyboardProjection,
         )) {
       return cached.span;
     }
@@ -1369,6 +1392,16 @@ class MarkdownEditingController extends TextEditingController {
               decoration: TextDecoration.lineThrough,
             )
           : base;
+      if (run.has(Md.hiddenTag) && !_overlapsComposing(run, composing)) {
+        children.add(
+          TextSpan(
+            text: source.substring(run.start, run.end),
+            style: hiddenComposerTagStyle,
+            semanticsLabel: '',
+          ),
+        );
+        return;
+      }
       // A run the IME is still deciding about is never substituted: the
       // artwork path skips [_splitAt] entirely, so a placeholder over a
       // composing range would take its underline away and paint the
@@ -1385,12 +1418,14 @@ class MarkdownEditingController extends TextEditingController {
         return;
       }
       for (final piece in _splitAt(run, composing)) {
-        children.add(
-          TextSpan(
-            text: source.substring(piece.start, piece.end),
-            style: _styleFor(piece, runBase, theme, composing),
-          ),
-        );
+        final text = source.substring(piece.start, piece.end);
+        final style = _styleFor(piece, runBase, theme, composing);
+        final scripts = composerScriptSpans(text, piece, style);
+        if (scripts != null) {
+          children.addAll(scripts);
+          continue;
+        }
+        children.add(TextSpan(text: text, style: style));
       }
     }
 
@@ -1447,6 +1482,12 @@ class MarkdownEditingController extends TextEditingController {
     }
 
     final projections = <_SpanProjection>[
+      for (final key in collapsedKeys)
+        _SpanProjection(
+          key.first.start,
+          key.last.end,
+          () => composerKeyboardSpans(source, key, base, theme),
+        ),
       for (final separator in blockGaps)
         if (!_componentGapStarts.contains(separator.start) &&
             (composing == null ||
@@ -1750,6 +1791,7 @@ class MarkdownEditingController extends TextEditingController {
       syntaxProjection: syntaxProjection,
       imageProjection: imageProjection,
       galleryProjection: galleryProjection,
+      keyboardProjection: keyboardProjection,
       span: span,
     );
     return span;
@@ -2270,6 +2312,7 @@ class _CachedMarkdownSpan {
     required this.syntaxProjection,
     required this.imageProjection,
     required this.galleryProjection,
+    required this.keyboardProjection,
     required this.span,
   });
 
@@ -2283,6 +2326,7 @@ class _CachedMarkdownSpan {
   final int syntaxProjection;
   final int imageProjection;
   final int galleryProjection;
+  final int keyboardProjection;
   final TextSpan span;
 
   bool matches({
@@ -2296,6 +2340,7 @@ class _CachedMarkdownSpan {
     required int syntaxProjection,
     required int imageProjection,
     required int galleryProjection,
+    required int keyboardProjection,
   }) =>
       this.source == source &&
       this.style == style &&
@@ -2306,7 +2351,8 @@ class _CachedMarkdownSpan {
       this.quoteProjection == quoteProjection &&
       this.syntaxProjection == syntaxProjection &&
       this.imageProjection == imageProjection &&
-      this.galleryProjection == galleryProjection;
+      this.galleryProjection == galleryProjection &&
+      this.keyboardProjection == keyboardProjection;
 }
 
 class _SpanProjection {

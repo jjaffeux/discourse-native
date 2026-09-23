@@ -209,18 +209,35 @@ void main() {
     expect(toolbar, findsNothing);
   });
 
-  testWidgets('more formatting preserves selection and applies superscript', (
-    tester,
-  ) async {
-    final composer = await pumpEditor(tester);
-    await action(tester, 'More formatting');
-    expect(find.text('Superscript'), findsOneWidget);
-    await tester.tap(find.text('Superscript'), kind: PointerDeviceKind.mouse);
-    await tester.pumpAndSettle();
-    expect(composer.text.text, '<sup>format</sup> me please');
-    expect(find.text('Superscript'), findsNothing);
-    expect(tester.takeException(), isNull);
-  });
+  for (final (label, tag) in const [
+    ('Superscript', 'sup'),
+    ('Subscript', 'sub'),
+    ('Keyboard key', 'kbd'),
+  ]) {
+    testWidgets('more formatting renders and undoes $label', (tester) async {
+      final composer = await pumpEditor(tester);
+      await action(tester, 'More formatting');
+      await tester.tap(find.text(label), kind: PointerDeviceKind.mouse);
+      await tester.pumpAndSettle();
+      expect(composer.text.text, '<$tag>format</$tag> me please');
+      expect(composer.text.selection.textInside(composer.text.text), 'format');
+      if (tag == 'kbd') {
+        expect(find.byType(DKbd), findsOneWidget);
+      } else {
+        expect(find.text('f'), findsOneWidget);
+        expect(
+          tester.widget<Text>(find.text('f')).style!.fontSize,
+          lessThan(14),
+        );
+      }
+      expect(find.text(label), findsNothing);
+      expect(composer.history.undo(), isTrue);
+      await tester.pumpAndSettle();
+      expect(composer.text.text, 'format me please');
+      expect(find.byType(DKbd), findsNothing);
+      expect(tester.takeException(), isNull);
+    });
+  }
 
   testWidgets(
     'link dialog retains selected text while the selection menu closes',
