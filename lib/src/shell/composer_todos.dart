@@ -98,7 +98,31 @@ class ComposerTodoInputFormatter extends TextInputFormatter {
         );
       }
     }
-    final todo = composerTodos(oldValue.text)
+    final todos = composerTodos(oldValue.text);
+    final deletedLength = oldValue.text.length - newValue.text.length;
+    final deletionStart = newValue.selection.extentOffset;
+    if (deletedLength > 0 &&
+        newValue.selection.isValid &&
+        newValue.selection.isCollapsed &&
+        (caret == deletionStart || caret == deletionStart + deletedLength)) {
+      for (final todo in todos) {
+        if (deletionStart >= todo.start &&
+            deletionStart + deletedLength <= todo.contentStart &&
+            newValue.text ==
+                oldValue.text.replaceRange(
+                  deletionStart,
+                  deletionStart + deletedLength,
+                  '',
+                )) {
+          // The rendered checkbox is one control, including its hidden source.
+          return TextEditingValue(
+            text: oldValue.text.replaceRange(todo.start, todo.contentStart, ''),
+            selection: TextSelection.collapsed(offset: todo.start),
+          );
+        }
+      }
+    }
+    final todo = todos
         .where((item) => caret >= item.contentStart && caret <= item.end)
         .firstOrNull;
     if (todo == null) return newValue;
@@ -116,14 +140,6 @@ class ComposerTodoInputFormatter extends TextInputFormatter {
       return TextEditingValue(
         text: oldValue.text.replaceRange(caret, caret, '\n$prefix'),
         selection: TextSelection.collapsed(offset: caret + 1 + prefix.length),
-      );
-    }
-    if (caret == todo.contentStart &&
-        newValue.text == oldValue.text.replaceRange(caret - 1, caret, '') &&
-        newValue.selection == TextSelection.collapsed(offset: caret - 1)) {
-      return TextEditingValue(
-        text: oldValue.text.replaceRange(todo.start, todo.contentStart, ''),
-        selection: TextSelection.collapsed(offset: todo.start),
       );
     }
     return newValue;
