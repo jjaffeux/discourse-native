@@ -369,11 +369,13 @@ class _UserStatusDialogState extends State<_UserStatusDialog> {
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          SiteEmojiImage(
-                            siteUrl: widget.siteUrl,
-                            name: _emoji,
-                            size: 17,
-                            alt: preview,
+                          Flexible(
+                            child: SiteEmojiImage(
+                              siteUrl: widget.siteUrl,
+                              name: _emoji,
+                              size: 17,
+                              alt: preview,
+                            ),
                           ),
                           const SizedBox(width: 5),
                           Flexible(

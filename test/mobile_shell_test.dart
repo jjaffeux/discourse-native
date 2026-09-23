@@ -8,7 +8,7 @@ import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/plugin_api/plugin_data.dart';
 import 'package:discourse_native/src/plugin_api/plugin_runtime.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
-import 'package:discourse_native/src/plugins/chat/chat_drawer.dart';
+import 'package:discourse_native/src/plugins/chat/chat_mobile_sidebar.dart';
 import 'package:discourse_native/src/plugins/chat/chat_notification_counter.dart';
 import 'package:discourse_native/src/plugins/chat/chat_plugin_data.dart';
 import 'package:discourse_native/src/plugins/discourse_events/event_data.dart';
@@ -44,6 +44,7 @@ const _site = 'https://meta.discourse.org';
 final _user = DiscourseUser(
   id: 7,
   username: 'reader',
+  hidePresence: false,
   canCreateTopic: true,
   canSendPrivateMessages: true,
   plugins: PluginData.none.withValue(
@@ -62,12 +63,18 @@ Future<ShellController> pumpMobileShellFixture(
   bool chat = true,
   int chatUnreadCount = 0,
   TopicPayload? topic,
+  ChatChannels? conversations,
 }) async {
   final config = SiteConfig(
+    userStatusEnabled: true,
     plugins: PluginData.none
         .withValue(
           chatSettingsDataKey,
-          ChatSettings(chatEnabled: chat, publicChannelsEnabled: true),
+          ChatSettings(
+            chatEnabled: chat,
+            publicChannelsEnabled: true,
+            threadsEnabled: true,
+          ),
         )
         .withValue(voiceSettingsDataKey, VoiceClientConfig(enabled: voice))
         .withValue(eventSettingsKey, EventSettings(enabled: events)),
@@ -88,6 +95,7 @@ Future<ShellController> pumpMobileShellFixture(
     authenticator: FakeAuthenticator()..keys[_site] = 'key',
     api: FakeDiscourseApi(
       user: _user,
+      doNotDisturbUntil: DateTime.now().add(const Duration(minutes: 30)),
       customSidebarSectionsBySite: const {
         _site: [
           SidebarSection(
@@ -141,26 +149,29 @@ Future<ShellController> pumpMobileShellFixture(
         ),
       },
       chatChannelsBySite: {
-        _site: ChatChannels(
-          public: [
-            ChatChannel(
-              id: 9,
-              title: 'General',
-              kind: ChatChannelKind.category,
-              membership: const ChatMembership(following: true),
-              tracking: ChatTracking(unreadCount: chatUnreadCount),
+        _site:
+            conversations ??
+            ChatChannels(
+              hasThreads: true,
+              public: [
+                ChatChannel(
+                  id: 9,
+                  title: 'General',
+                  kind: ChatChannelKind.category,
+                  membership: const ChatMembership(following: true),
+                  tracking: ChatTracking(unreadCount: chatUnreadCount),
+                ),
+              ],
+              direct: const [
+                ChatChannel(
+                  id: 10,
+                  title: 'sam',
+                  kind: ChatChannelKind.directMessage,
+                  users: [ChatUser(id: 2, username: 'sam')],
+                  membership: ChatMembership(following: true),
+                ),
+              ],
             ),
-          ],
-          direct: const [
-            ChatChannel(
-              id: 10,
-              title: 'sam',
-              kind: ChatChannelKind.directMessage,
-              users: [ChatUser(id: 2, username: 'sam')],
-              membership: ChatMembership(following: true),
-            ),
-          ],
-        ),
       },
     ),
   );
@@ -191,7 +202,189 @@ void _mobileTest(String name, WidgetTesterCallback callback) => testWidgets(
   }),
 );
 
+Future<void> _selectChatKind(WidgetTester tester, String label) async {
+  await tester.tap(find.byKey(const ValueKey('mobile-chat-kind-filter')));
+  await tester.pumpAndSettle();
+  await tester.tap(find.text(label).last);
+  await tester.pumpAndSettle();
+}
+
+Future<void> _selectChatActivity(WidgetTester tester, String label) async {
+  await tester.tap(find.byKey(const ValueKey('mobile-chat-activity-filter')));
+  await tester.pumpAndSettle();
+  await tester.tap(find.text(label).last);
+  await tester.pumpAndSettle();
+}
+
 void main() {
+  _mobileTest('chat filters the mixed recent list and live unread state', (
+    tester,
+  ) async {
+    final now = DateTime.now();
+    ChatChannel channel(
+      int id,
+      String title,
+      int minutes, {
+      bool dm = false,
+      int unread = 0,
+      bool starred = false,
+      bool muted = false,
+    }) => ChatChannel(
+      id: id,
+      title: title,
+      kind: dm ? ChatChannelKind.directMessage : ChatChannelKind.category,
+      membership: ChatMembership(
+        following: true,
+        starred: starred,
+        muted: muted,
+      ),
+      tracking: ChatTracking(unreadCount: unread),
+      lastMessageId: id * 10,
+      lastMessageAt: now.subtract(Duration(minutes: minutes)),
+      lastMessageUserId: dm ? 4 : 7,
+      lastMessagePreview: 'Will follow up in the morning.',
+    );
+    await pumpMobileShellFixture(
+      tester,
+      conversations: ChatChannels(
+        public: [
+          channel(1, 'general', 8),
+          channel(2, 'baking', 3, unread: 4, starred: true),
+          channel(3, 'muted', 6, unread: 9, muted: true),
+        ],
+        direct: [
+          channel(4, 'flourpower', 1, dm: true, unread: 3),
+          channel(5, 'verdant_vera', 4, dm: true, starred: true),
+        ],
+      ),
+    );
+    await tester.tap(find.byKey(const ValueKey('mobile-mode-panel/chat')));
+    await tester.pumpAndSettle();
+    Finder row(int id) => find.byKey(ValueKey('mobile-chat-channel-$id'));
+    final positions = [
+      4,
+      2,
+      5,
+      3,
+      1,
+    ].map((id) => tester.getTopLeft(row(id)).dy).toList();
+    expect(positions, orderedEquals([...positions]..sort()));
+    expect(find.text('4 new messages'), findsOneWidget);
+    expect(find.text('3 new messages'), findsOneWidget);
+    expect(find.text('9 new messages'), findsNothing);
+    expect(find.text('you: Will follow up in the morning.'), findsNWidgets(2));
+    await _selectChatActivity(tester, 'Unread');
+    expect(row(2), findsOneWidget);
+    expect(row(4), findsOneWidget);
+    for (final id in [1, 3, 5]) {
+      expect(row(id), findsNothing);
+    }
+    await _selectChatKind(tester, 'Channels');
+    expect(row(2), findsOneWidget);
+    expect(row(4), findsNothing);
+    await _selectChatKind(tester, 'Direct messages');
+    expect(row(2), findsNothing);
+    expect(row(4), findsOneWidget);
+    FakeSiteTracker.built
+        .singleWhere((tracker) => tracker.siteUrl == _site)
+        .deliverPluginMessage('/chat/user-tracking-state/7', {
+          'channel_id': 4,
+          'last_read_message_id': 40,
+          'unread_count': 0,
+          'mention_count': 0,
+          'watched_threads_unread_count': 0,
+        });
+    await tester.pumpAndSettle();
+    expect(row(4), findsNothing);
+    expect(find.text('No unread conversations.'), findsOneWidget);
+    await _selectChatActivity(tester, 'Recent');
+    expect(row(4), findsOneWidget);
+    expect(row(5), findsOneWidget);
+    await _selectChatKind(tester, 'All');
+    for (final id in [1, 2, 3, 4, 5]) {
+      expect(row(id), findsOneWidget);
+    }
+    expect(tester.takeException(), isNull);
+  });
+
+  _mobileTest(
+    'chat status menu edits status, toggles presence and pauses notifications',
+    (tester) async {
+      final shell = await pumpMobileShellFixture(tester);
+      await tester.tap(find.byKey(const ValueKey('mobile-mode-panel/chat')));
+      await tester.pumpAndSettle();
+      final trigger = find.byKey(const ValueKey('user-presence-menu'));
+      expect(
+        tester.widget<DButton>(trigger).density,
+        DButtonDensity.compactToolbar,
+      );
+      await tester.tap(trigger);
+      await tester.pumpAndSettle();
+      expect(find.text('Set a custom status'), findsOneWidget);
+      expect(find.text('Online'), findsOneWidget);
+      expect(find.text('Pause notifications'), findsOneWidget);
+      expect(find.text('Disconnect'), findsNothing);
+      await tester.tap(find.text('Online'));
+      await tester.pumpAndSettle();
+      expect(shell.hidePresenceFor(_site), isTrue);
+      expect(find.text('Offline'), findsOneWidget);
+      await tester.tap(find.text('Offline'));
+      await tester.pumpAndSettle();
+      expect(shell.hidePresenceFor(_site), isFalse);
+      await tester.tap(find.text('Pause notifications'));
+      await tester.pumpAndSettle();
+      expect(find.text('Pause notifications for…'), findsOneWidget);
+      await tester.tap(find.text('30 minutes'));
+      await tester.pumpAndSettle();
+      expect(
+        shell.doNotDisturb.stateFor(_site).isActiveAt(DateTime.now()),
+        isTrue,
+      );
+      await tester.tap(trigger);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Pause notifications'));
+      await tester.pumpAndSettle();
+      expect(
+        shell.doNotDisturb.stateFor(_site).isActiveAt(DateTime.now()),
+        isFalse,
+      );
+      await tester.tap(find.text('Set a custom status'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(EditableText).first, 'In the garden');
+      await tester.pump();
+      expect(tester.takeException(), isNull);
+      await tester.tap(find.text('Save'));
+      await tester.pumpAndSettle();
+      expect(shell.currentInstance?.user?.status?.description, 'In the garden');
+      await tester.tap(trigger);
+      await tester.pumpAndSettle();
+      expect(
+        find.descendant(
+          of: find.byKey(const ValueKey('user-menu-row-user-status')),
+          matching: find.text('In the garden'),
+        ),
+        findsWidgets,
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  _mobileTest('chat filters fit a narrow phone and enlarged text', (
+    tester,
+  ) async {
+    await pumpMobileShellFixture(tester, size: const Size(320, 740));
+    await tester.tap(find.byKey(const ValueKey('mobile-mode-panel/chat')));
+    await tester.pumpAndSettle();
+    await _selectChatKind(tester, 'Channels');
+    expect(tester.takeException(), isNull);
+    tester.platformDispatcher.textScaleFactorTestValue = 1.5;
+    addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+    await tester.pumpAndSettle();
+    await _selectChatActivity(tester, 'Unread');
+    expect(find.text('No unread conversations.'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   _mobileTest('topics startup keeps chat mounted but inactive until selected', (
     tester,
   ) async {
@@ -1008,9 +1201,7 @@ void main() {
     final shell = await pumpMobileShellFixture(tester);
     await tester.tap(find.byKey(const ValueKey('mobile-mode-panel/chat')));
     await tester.pumpAndSettle();
-    await tester.ensureVisible(find.text('DMs'));
-    await tester.tap(find.text('DMs'));
-    await tester.pumpAndSettle();
+    await _selectChatKind(tester, 'Direct messages');
     await tester.tap(find.text('sam').first);
     await tester.pumpAndSettle();
     final composer = tester
@@ -1041,80 +1232,63 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  _mobileTest('chat uses Channels and DMs and restores the chosen subtab', (
+  _mobileTest(
+    'chat mixes conversations and restores the selected type filter',
+    (tester) async {
+      final shell = await pumpMobileShellFixture(tester);
+      await tester.tap(find.byKey(const ValueKey('mobile-mode-panel/chat')));
+      await tester.pumpAndSettle();
+      expect(find.byType(InstanceRail), findsNothing);
+      expect(find.byType(ChatMobileSidebar), findsOneWidget);
+      expect(find.text('sam'), findsOneWidget);
+      expect(find.text('General'), findsOneWidget);
+      await _selectChatKind(tester, 'Direct messages');
+      expect(find.text('sam'), findsWidgets);
+      await tester.tap(find.text('sam').first);
+      await tester.pumpAndSettle();
+      _expectPage(focusedChat: true);
+      expect(shell.currentContent?.id, contains('10'));
+      shell.pushContent(
+        ContentRoute.topic(
+          topicId: 7,
+          slug: 'shared',
+          title: 'Shared topic card',
+        ),
+      );
+      await tester.pumpAndSettle();
+      _expectPage();
+      expect(shell.handleBack(), isTrue);
+      await tester.pumpAndSettle();
+      _expectPage(focusedChat: true);
+      expect(shell.currentContent?.id, contains('10'));
+      shell.handleBack();
+      await tester.pumpAndSettle();
+      expect(_bar, findsOneWidget);
+      expect(find.text('DMs'), findsOneWidget);
+      expect(find.text('General'), findsNothing);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  _mobileTest('chat retains Browse channels and My threads navigation', (
     tester,
   ) async {
     final shell = await pumpMobileShellFixture(tester);
     await tester.tap(find.byKey(const ValueKey('mobile-mode-panel/chat')));
     await tester.pumpAndSettle();
-    expect(find.byType(InstanceRail), findsNothing);
-    expect(find.byType(ChatDrawerChannelsView), findsOneWidget);
-    expect(find.text('General'), findsOneWidget);
-    await tester.ensureVisible(find.text('DMs'));
+    expect(find.text('Browse channels'), findsOneWidget);
+    expect(find.text('My threads'), findsOneWidget);
+    await tester.tap(find.text('Browse channels'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('DMs'));
-    await tester.pumpAndSettle();
-    expect(find.text('sam'), findsWidgets);
-    await tester.tap(find.text('sam').first);
-    await tester.pumpAndSettle();
-    _expectPage(focusedChat: true);
-    expect(shell.currentContent?.id, contains('10'));
-    shell.pushContent(
-      ContentRoute.topic(
-        topicId: 7,
-        slug: 'shared',
-        title: 'Shared topic card',
-      ),
-    );
-    await tester.pumpAndSettle();
-    _expectPage();
-    expect(shell.handleBack(), isTrue);
-    await tester.pumpAndSettle();
-    _expectPage(focusedChat: true);
-    expect(shell.currentContent?.id, contains('10'));
+    expect(shell.currentContent?.id, 'chat-browse');
     shell.handleBack();
     await tester.pumpAndSettle();
-    expect(_bar, findsOneWidget);
-    expect(
-      tester
-          .widget<ChatDrawerChannelsView>(find.byType(ChatDrawerChannelsView))
-          .kind,
-      ChatDrawerChannelListKind.directMessages,
-    );
-    expect(tester.takeException(), isNull);
-  });
-
-  _mobileTest('Start chatting opens a full page and returns to DMs', (
-    tester,
-  ) async {
-    final shell = await pumpMobileShellFixture(tester);
-    await tester.tap(find.byKey(const ValueKey('mobile-mode-panel/chat')));
+    await tester.tap(find.text('My threads'));
     await tester.pumpAndSettle();
-    await tester.ensureVisible(find.text('DMs'));
+    expect(shell.currentContent?.id, 'chat-my-threads');
+    shell.handleBack();
     await tester.pumpAndSettle();
-    await tester.tap(find.text('DMs'));
-    await tester.pumpAndSettle();
-    await tester.tap(
-      find.byKey(const ValueKey('chat-drawer-new-message-action')),
-    );
-    await tester.pumpAndSettle();
-    expect(find.text('Start chatting'), findsOneWidget);
-    await tester.tap(
-      find.byKey(const ValueKey('chat-new-direct-message-channel-10')),
-    );
-    await tester.pumpAndSettle();
-    _expectPage(focusedChat: true);
-    expect(shell.currentContent?.id, contains('10'));
-    expect(find.text('Start chatting'), findsNothing);
-    await tester.binding.handlePopRoute();
-    await tester.pumpAndSettle();
-    expect(_bar, findsOneWidget);
-    expect(
-      tester
-          .widget<ChatDrawerChannelsView>(find.byType(ChatDrawerChannelsView))
-          .kind,
-      ChatDrawerChannelListKind.directMessages,
-    );
+    expect(find.byType(ChatMobileSidebar), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -1186,14 +1360,8 @@ void main() {
     expect(shell.canPopContent, isFalse);
     await tester.tap(find.byKey(const ValueKey('mobile-mode-panel/chat')));
     await tester.pumpAndSettle();
-    await tester.ensureVisible(find.text('DMs'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('DMs'));
-    await tester.pumpAndSettle();
-    expect(
-      find.byKey(const ValueKey('chat-drawer-new-message-action')),
-      findsOneWidget,
-    );
+    await _selectChatKind(tester, 'Direct messages');
+    expect(find.byKey(const ValueKey('mobile-chat-browse')), findsOneWidget);
     expect(find.byKey(const ValueKey('mobile-forum-settings')), findsNothing);
     expect(find.byKey(const ValueKey('mobile-new-topic')), findsNothing);
     await tester.tap(find.byKey(const ValueKey('forum-identity-header')));
