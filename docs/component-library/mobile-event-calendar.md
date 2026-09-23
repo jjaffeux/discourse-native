@@ -51,9 +51,9 @@ RTL Schedule in the live app. It identified and corrected clipped timeline dots
 from inherited list density. Large-text month review also prompted the shared
 narrow weekday labels, subsequently inspected in both the production page and
 styleguide at 320px/200%/RTL. Both styleguide callbacks were exercised. The
-populated/empty schedule navigation fix has a passing regression; its final
-native follow-up remains part of pre-merge verification. No physical
-iOS/Android device testing is claimed.
+populated/empty schedule navigation fix passed its final native follow-up:
+Month → Schedule → empty October → Today restores September 23 with its
+events and no error. No physical iOS/Android device testing is claimed.
 
 Root and full-profile static analysis pass. The macOS debug build and local
 signature verification pass. Root and full-profile dependency resolution used
@@ -61,4 +61,9 @@ signature verification pass. Root and full-profile dependency resolution used
 
 Independent source review completed with no remaining actionable findings.
 The reviewer identified the async-loading regression and checked the final
-pending-data fix, timeline spacing and accessible weekday fallback.
+pending-data fix, timeline spacing and accessible weekday fallback, then traced
+the upstream schedule-map race and recommended the bounded-month configuration.
+
+Implementation `d14520f63` was integrated with local main `2224baa3f` before
+the final 75-test run, root/full analysis, rebuild and native navigation pass.
+The newer main's font, button and surface changes are preserved.
