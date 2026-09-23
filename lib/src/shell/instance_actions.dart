@@ -5,7 +5,6 @@ import 'package:flutter/semantics.dart';
 import '../models/discourse_instance.dart';
 import '../theme/d_icons.dart';
 import 'adaptive_dialog_action.dart';
-import 'forum_settings_dialog.dart';
 import 'platform.dart';
 import 'shell_scope.dart';
 import 'shell_sheet.dart';
@@ -197,11 +196,8 @@ class _InstanceActionsState extends State<InstanceActions> {
     return [
       DContextMenuItem(
         leading: const DIcon(DIcons.gear, size: 16),
-        onPressed: () => showForumSettingsDialog(
-          context,
-          siteUrl: widget.instance.url,
-          name: widget.instance.title,
-        ),
+        onPressed: () =>
+            ShellScope.read(context).openForumSettings(widget.instance.url),
         child: const Text('Settings'),
       ),
       const DContextMenuSeparator(),

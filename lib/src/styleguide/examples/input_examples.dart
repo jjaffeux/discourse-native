@@ -6,7 +6,7 @@ import 'package:flutter/material.dart';
 import '../styleguide_example.dart';
 
 final inputExamples = ComponentExamples(
-  topLevelExampleIndex: 8,
+  topLevelExampleIndex: 9,
   status: ComponentStatus.implemented,
   description: 'A text input for forms and everyday data entry.',
   notes:
@@ -59,6 +59,14 @@ final inputExamples = ComponentExamples(
       code: "DInput(hintText: 'Enter text')",
       builder: (_) => DInput(hintText: 'Enter text'),
       states: const ['Default', 'Focus', 'Selection', 'IME'],
+    ),
+    StyleguideExample(
+      title: 'Filled form field',
+      description: 'A stronger themed fill for outlined settings forms.',
+      code: "DInput(filled: true, labelText: 'Name', initialValue: 'My theme')",
+      builder: (_) =>
+          DInput(filled: true, labelText: 'Name', initialValue: 'My theme'),
+      states: const ['Filled', 'Focus', 'Live palette'],
     ),
     StyleguideExample(
       title: 'Field and states',

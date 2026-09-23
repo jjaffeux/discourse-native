@@ -9,6 +9,14 @@ final colorPickerExamples = ComponentExamples(
       'Live opaque color selection with a pointer plane and keyboard-accessible HSV sliders.',
   examples: [
     StyleguideExample(
+      title: 'Compact colour grid',
+      description:
+          'A 58px dotted hue and lightness grid with a colour glow, inset ring and compact popup swatch. Pointer and keyboard edits use 80% saturation.',
+      code:
+          'DColorPicker.inline(size: DColorPickerSize.compact, value: color, semanticLabel: "Accent", onChanged: updateColor)',
+      builder: (_) => const _Example(inline: true, compact: true),
+    ),
+    StyleguideExample(
       title: 'Presets and recent colors',
       description:
           'Choose a named text or background swatch. Recent choices and the selected color are controlled by the caller; Default clears the color.',
@@ -47,8 +55,9 @@ final colorPickerExamples = ComponentExamples(
 );
 
 class _Example extends StatefulWidget {
-  const _Example({this.inline = false});
+  const _Example({this.inline = false, this.compact = false});
   final bool inline;
+  final bool compact;
   @override
   State<_Example> createState() => _ExampleState();
 }
@@ -93,10 +102,26 @@ class _ExampleState extends State<_Example> {
   Color color = const Color(0xff39845b);
   @override
   Widget build(BuildContext context) => widget.inline
-      ? DColorPicker.inline(
-          value: color,
-          semanticLabel: "Background color",
-          onChanged: (value) => setState(() => color = value),
+      ? Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            DColorPicker.inline(
+              size: widget.compact
+                  ? DColorPickerSize.compact
+                  : DColorPickerSize.regular,
+              value: color,
+              semanticLabel: 'Background color',
+              onChanged: (value) => setState(() => color = value),
+            ),
+            if (widget.compact)
+              DColorPicker(
+                size: DColorPickerSize.compact,
+                value: color,
+                semanticLabel: 'Choose color',
+                onChanged: (value) => setState(() => color = value),
+              ),
+          ],
         )
       : Row(
           mainAxisSize: MainAxisSize.min,

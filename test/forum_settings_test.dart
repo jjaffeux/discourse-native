@@ -19,6 +19,35 @@ void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
   test(
+    'forum settings uses a content page and returns through navigation',
+    () async {
+      final shell = ShellController(
+        instanceStore: FakeInstanceStore(const [
+          DiscourseInstance(url: siteA, title: 'A'),
+          DiscourseInstance(url: siteB, title: 'B'),
+        ]),
+        api: FakeDiscourseApi(),
+        authenticator: FakeAuthenticator(),
+        drafts: FakeDraftStore(),
+        trackers: FakeSiteTracker.reset(),
+        updateStore: FakeUpdateStore(),
+      );
+      addTearDown(shell.dispose);
+      await shell.load();
+      final previous = shell.currentContent;
+      shell.openForumSettings(siteA);
+      expect(shell.currentContent!.isThemes, isTrue);
+      expect(shell.canCreateTopicHere, isFalse);
+      shell.openForumSettings(siteA);
+      shell.handleBack(canReturnToSidebar: true);
+      expect(shell.currentContent, previous);
+      shell.openForumSettings(siteB);
+      expect(shell.currentInstance!.url, siteB);
+      expect(shell.currentContent!.isThemes, isTrue);
+    },
+  );
+
+  test(
     'theme choices persist per forum, including subfolder identities',
     () async {
       final settings = ForumSettingsController(store: ForumSettingsStore());

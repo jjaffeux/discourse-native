@@ -233,6 +233,9 @@ class ContentRoute {
     icon: DIcons.gear,
   );
 
+  factory ContentRoute.themes() =>
+      const ContentRoute(id: 'themes', title: 'Themes', icon: DIcons.display);
+
   factory ContentRoute.group(
     GroupRoute route, {
     String? title,
@@ -437,6 +440,7 @@ class ContentRoute {
   bool get isTopic => topicId != null;
 
   bool get isPreferences => !isTopic && id == 'preferences';
+  bool get isThemes => !isTopic && id == 'themes';
 
   bool get isMessages =>
       !isTopic &&

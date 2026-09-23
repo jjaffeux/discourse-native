@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 
 import '../models/forum_background.dart';
 import '../theme/app_theme.dart';
+import 'forum_texture.dart';
 
 /// Paints one shared canvas behind the entire forum workspace.
 class ForumWindowBackground extends StatefulWidget {
@@ -32,15 +33,23 @@ class ForumWindowBackground extends StatefulWidget {
     return Color.lerp(
       tokens.background,
       tokens.foreground,
-      .05,
-    )!.withValues(alpha: 1 - canvas.transparency);
+      canvas.reference ? .03 : .05,
+    )!.withValues(
+      alpha:
+          1 -
+          (canvas.reference
+              ? (canvas.transparency * 100).round() / 100
+              : canvas.transparency),
+    );
   }
 
   /// Footers retain a stronger surface so their fixed actions remain distinct.
   static Color footerColor(BuildContext context, Color fallback) {
     final canvas = context.dependOnInheritedWidgetOfExactType<_ForumCanvas>();
     return canvas != null && canvas.continuous
-        ? fallback.withValues(alpha: 1 - canvas.transparency * .25)
+        ? fallback.withValues(
+            alpha: canvas.reference ? 1 : 1 - canvas.transparency * .25,
+          )
         : fallback;
   }
 
@@ -65,12 +74,14 @@ class _ForumWindowBackgroundState extends State<ForumWindowBackground>
     final ownsCanvas =
         context.dependOnInheritedWidgetOfExactType<_ForumCanvas>() == null;
     if (ownsCanvas &&
+        background?.useAccentTint != true &&
         background?.effect == ForumBackgroundEffect.noise &&
         background!.noiseIntensity > 0) {
       _grain ??= _GrainTexture();
     }
     final animate =
         ownsCanvas &&
+        background?.useAccentTint != true &&
         background?.effect == ForumBackgroundEffect.lava &&
         background!.strength > 0 &&
         !MediaQuery.disableAnimationsOf(context) &&
@@ -99,6 +110,8 @@ class _ForumWindowBackgroundState extends State<ForumWindowBackground>
     final theme = Theme.of(context);
     final effects = theme.extension<ForumThemeEffects>();
     final background = effects?.background;
+    final reference = background?.useAccentTint == true;
+    final tokens = DTokens.of(context);
     final paintEffect = switch (background?.effect) {
       ForumBackgroundEffect.noise =>
         background!.strength > 0 || background.noiseIntensity > 0,
@@ -107,22 +120,27 @@ class _ForumWindowBackgroundState extends State<ForumWindowBackground>
     };
     return _ForumCanvas(
       continuous: background != null,
+      reference: reference,
       transparency: background?.transparency ?? 0,
       child: DecoratedBox(
         key: const ValueKey('forum-window-canvas'),
         decoration: BoxDecoration(
-          color: background == null
+          color: reference
+              ? Color.lerp(tokens.background, Colors.black, .14)!.withValues(
+                  alpha: 1 - (background!.transparency / .3 * 38).round() / 100,
+                )
+              : background == null
               ? theme.scaffoldBackgroundColor
               : theme.shell.content,
           gradient: background == null ? effects?.windowGradient : null,
         ),
-        child: !paintEffect
-            ? widget.child
-            : Stack(
-                children: [
-                  Positioned.fill(
-                    child: IgnorePointer(
-                      child: RepaintBoundary(
+        child: Stack(
+          fit: StackFit.passthrough,
+          children: [
+            Positioned.fill(
+              child: IgnorePointer(
+                child: !reference && paintEffect
+                    ? RepaintBoundary(
                         child: CustomPaint(
                           key: const ValueKey('forum-window-effect'),
                           painter: _BackgroundPainter(
@@ -131,12 +149,21 @@ class _ForumWindowBackgroundState extends State<ForumWindowBackground>
                             _grain?.shader,
                           ),
                         ),
-                      ),
-                    ),
-                  ),
-                  widget.child,
-                ],
+                      )
+                    : const SizedBox.shrink(),
               ),
+            ),
+            widget.child,
+            Positioned.fill(
+              child: ForumTexture(
+                background: reference
+                    ? background!
+                    : const ForumBackground.appearance(),
+                accent: tokens.primary,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -146,15 +173,18 @@ class _ForumCanvas extends InheritedWidget {
   const _ForumCanvas({
     required this.continuous,
     this.transparency = 0,
+    this.reference = false,
     required super.child,
   });
 
   final bool continuous;
   final double transparency;
+  final bool reference;
 
   @override
   bool updateShouldNotify(_ForumCanvas oldWidget) =>
       continuous != oldWidget.continuous ||
+      reference != oldWidget.reference ||
       transparency != oldWidget.transparency;
 }
 

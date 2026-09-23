@@ -34,6 +34,7 @@ class DInput extends FormField<String> {
   DInput({
     super.key,
     this.borderless = false,
+    this.filled = false,
     this.size = DControlSize.regular,
     this.style,
     this.maxLines = 1,
@@ -97,6 +98,9 @@ class DInput extends FormField<String> {
 
   /// Removes the field surface and insets for editing text in place.
   final bool borderless;
+
+  /// A raised form surface using the theme foreground at ten percent.
+  final bool filled;
 
   /// Shared button and field size. Input groups supply their own size.
   final DControlSize size;
@@ -287,7 +291,9 @@ class _DInputState extends FormFieldState<String> {
           height: DControlStyle.lineHeight(size, context: context) / fontSize,
           fontWeight: FontWeight.w400,
           letterSpacing: 0,
-          color: t.foreground,
+          color: input.filled
+              ? Color.lerp(t.background, t.foreground, .9)
+              : t.foreground,
         );
     final group = _group;
     final enabled = input.enabled && (group?.enabled ?? true);
@@ -423,6 +429,7 @@ class _DInputState extends FormFieldState<String> {
             touch: touch,
             onTap: input.enabled ? _focus.requestFocus : null,
             child: _InputSurface(
+              filled: input.filled,
               size: size,
               enabled: input.enabled,
               invalid: isInvalid,
@@ -489,6 +496,7 @@ class _InputSurface extends StatelessWidget {
     this.omitLeadingBorder = false,
     this.size = DControlSize.regular,
     this.fadeDisabled = true,
+    this.filled = false,
   });
   final Widget child;
   final bool enabled, invalid, focused;
@@ -497,6 +505,7 @@ class _InputSurface extends StatelessWidget {
   final bool omitLeadingBorder;
   final DControlSize size;
   final bool fadeDisabled;
+  final bool filled;
   @override
   Widget build(BuildContext context) {
     final t = DTokens.of(context);
@@ -541,7 +550,9 @@ class _InputSurface extends StatelessWidget {
             ),
             padding: const EdgeInsets.symmetric(horizontal: 10),
             decoration: _InputSurfaceDecoration(
-              backgroundColor: t.buttonTheme.outline.background,
+              backgroundColor: filled
+                  ? t.buttonTheme.outline.hover
+                  : t.buttonTheme.outline.background,
               borderRadius:
                   borderRadius ?? BorderRadius.circular(t.buttonTheme.radius),
               borderColor: border,

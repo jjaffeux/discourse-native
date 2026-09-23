@@ -13,6 +13,8 @@ import 'd_slider.dart';
 
 enum DColorPresetAppearance { text, background }
 
+enum DColorPickerSize { regular, compact }
+
 /// A named opaque swatch. Appearance also distinguishes a text color from a
 /// background color when both appear in a recently-used group.
 @immutable
@@ -156,6 +158,7 @@ class DColorPicker extends StatefulWidget {
     required this.value,
     required this.onChanged,
     required this.semanticLabel,
+    this.size = DColorPickerSize.regular,
   }) : _inline = false;
 
   /// A persistent dotted hue/lightness palette. Arrow keys change hue and
@@ -165,9 +168,11 @@ class DColorPicker extends StatefulWidget {
     required this.value,
     required this.onChanged,
     required this.semanticLabel,
+    this.size = DColorPickerSize.regular,
   }) : _inline = true;
 
   final bool _inline;
+  final DColorPickerSize size;
   final Color value;
   final ValueChanged<Color>? onChanged;
   final String semanticLabel;
@@ -227,6 +232,7 @@ class _DColorPickerState extends State<DColorPicker> {
         value: widget.value,
         onChanged: widget.onChanged,
         label: widget.semanticLabel,
+        compact: widget.size == DColorPickerSize.compact,
       );
     }
     return DPopover(
@@ -300,11 +306,16 @@ class _DColorPickerState extends State<DColorPicker> {
           size: DButtonSize.small,
           onPressed: widget.onChanged == null ? null : state.toggle,
           icon: SizedBox.square(
-            dimension: 16,
+            dimension: widget.size == DColorPickerSize.compact ? 18 : 16,
             child: DecoratedBox(
               decoration: BoxDecoration(
                 color: widget.value,
-                border: Border.all(color: DTokens.of(context).border),
+                borderRadius: widget.size == DColorPickerSize.compact
+                    ? BorderRadius.circular(4)
+                    : null,
+                border: widget.size == DColorPickerSize.compact
+                    ? null
+                    : Border.all(color: DTokens.of(context).border),
               ),
             ),
           ),
@@ -370,10 +381,12 @@ class _InlineColorPalette extends StatefulWidget {
     required this.value,
     required this.onChanged,
     required this.label,
+    required this.compact,
   });
   final Color value;
   final ValueChanged<Color>? onChanged;
   final String label;
+  final bool compact;
 
   @override
   State<_InlineColorPalette> createState() => _InlineColorPaletteState();
@@ -398,7 +411,7 @@ class _InlineColorPaletteState extends State<_InlineColorPalette> {
 
   Color _proposedColor(double hue, double lightness) => _color
       .withHue(hue.clamp(0, 359.9))
-      .withSaturation(math.max(.55, _color.saturation))
+      .withSaturation(widget.compact ? .8 : math.max(.55, _color.saturation))
       .withLightness(lightness.clamp(.02, .98))
       .toColor();
 
@@ -465,8 +478,12 @@ class _InlineColorPaletteState extends State<_InlineColorPalette> {
               void pick(Offset position) {
                 _focus.requestFocus();
                 _change(
-                  (position.dx - 12) / math.max(1, width - 24) * 359.9,
-                  1 - (position.dy - 12) / 112,
+                  widget.compact
+                      ? (position.dx / math.max(1, width)).clamp(.02, .98) * 360
+                      : (position.dx - 12) / math.max(1, width - 24) * 359.9,
+                  widget.compact
+                      ? 1 - position.dy / 58
+                      : 1 - (position.dy - 12) / 112,
                 );
               }
 
@@ -481,13 +498,14 @@ class _InlineColorPaletteState extends State<_InlineColorPalette> {
                     : null,
                 child: SizedBox(
                   width: width,
-                  height: 136,
+                  height: widget.compact ? 58 : 136,
                   child: CustomPaint(
                     painter: _DottedColorPlane(
                       color: _color,
                       tokens: tokens,
                       focused: _focused && DFocusHighlight.visibleOf(context),
                       enabled: _enabled,
+                      compact: widget.compact,
                     ),
                   ),
                 ),
@@ -506,13 +524,19 @@ class _DottedColorPlane extends CustomPainter {
     required this.tokens,
     required this.focused,
     required this.enabled,
+    required this.compact,
   });
   final HSLColor color;
   final DTokens tokens;
   final bool focused, enabled;
+  final bool compact;
 
   @override
   void paint(Canvas canvas, Size size) {
+    if (compact) {
+      _paintCompact(canvas, size);
+      return;
+    }
     final rect = Offset.zero & size;
     final shape = RRect.fromRectAndRadius(
       rect.deflate(1),
@@ -578,8 +602,83 @@ class _DottedColorPlane extends CustomPainter {
     canvas.restore();
   }
 
+  void _paintCompact(Canvas canvas, Size size) {
+    final rect = Offset.zero & size;
+    final shape = RRect.fromRectAndRadius(
+      rect.deflate(.5),
+      const Radius.circular(10),
+    );
+    canvas.drawRRect(
+      shape,
+      Paint()..color = Color.lerp(tokens.background, Colors.black, .14)!,
+    );
+    canvas.save();
+    canvas.clipRRect(shape);
+    final x = color.hue / 360;
+    final y = 1 - color.lightness;
+    canvas.drawRect(
+      rect,
+      Paint()
+        ..shader =
+            RadialGradient(
+              colors: [
+                color.toColor().withValues(alpha: enabled ? .4 : .16),
+                color.toColor().withValues(alpha: 0),
+              ],
+              stops: const [0, .62],
+            ).createShader(
+              Rect.fromCircle(
+                center: Offset(x * size.width, y * size.height),
+                radius: 64,
+              ),
+            ),
+    );
+    final dot = Paint()
+      ..color = Color.lerp(
+        tokens.background,
+        tokens.foreground,
+        .4,
+      )!.withValues(alpha: .6);
+    final inset = rect.deflate(8);
+    for (
+      var dx = size.width / 2 - ((size.width / 2 - 8) / 9).floor() * 9;
+      dx < inset.right;
+      dx += 9
+    ) {
+      for (
+        var dy = size.height / 2 - ((size.height / 2 - 8) / 9).floor() * 9;
+        dy < inset.bottom;
+        dy += 9
+      ) {
+        canvas.drawCircle(Offset(dx, dy), 1.5, dot);
+      }
+    }
+    final selected = Offset(
+      10.5 + x * (size.width - 21),
+      10.5 + y * (size.height - 21),
+    );
+    canvas.drawCircle(selected, 6.5, Paint()..color = color.toColor());
+    canvas.drawCircle(
+      selected,
+      6.5,
+      Paint()
+        ..color = tokens.foreground
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2,
+    );
+    canvas.restore();
+    canvas.drawRRect(
+      shape,
+      Paint()
+        ..color = focused ? tokens.focusRing : tokens.border
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = focused ? 2 : 1,
+    );
+  }
+
   @override
   bool shouldRepaint(_DottedColorPlane oldDelegate) =>
+      oldDelegate.compact != compact ||
       color != oldDelegate.color ||
       tokens != oldDelegate.tokens ||
       focused != oldDelegate.focused ||

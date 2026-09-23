@@ -9,7 +9,23 @@ import 'package:flutter/services.dart';
 import '../foundation/tokens.dart';
 
 /// Filled uses a capsule track and a bar thumb with the same interactions.
-enum DSliderVariant { standard, filled }
+enum DSliderVariant { standard, filled, ramp }
+
+enum DSliderRampPattern { none, checkerboard, wave }
+
+/// A visual value ramp. The Slider owns its 26px capsule, ring, disabled and
+/// focus states. Gradients run from minimum to maximum, including RTL/vertical.
+@immutable
+class DSliderRamp {
+  const DSliderRamp({
+    this.startColor,
+    this.endColor,
+    this.pattern = DSliderRampPattern.none,
+  });
+  final Color? startColor;
+  final Color? endColor;
+  final DSliderRampPattern pattern;
+}
 
 /// Pointer collision policy for ordered thumbs. Keyboard movement always stops
 /// at neighbours to preserve each independently focused thumb's bounds.
@@ -29,6 +45,7 @@ enum DSliderThumbCollisionBehavior {
 /// (for example a live playback position); user input snaps to the step grid.
 /// The caller owns [focusNode]. Standard visuals use a 4px track and 12px thumb;
 /// [DSliderVariant.filled] uses a 40px capsule. Both retain a 48px hit area.
+/// [DSliderVariant.ramp] uses a 26px track, with 48px touch targets on mobile.
 class DSlider extends StatelessWidget {
   const DSlider({
     super.key,
@@ -43,6 +60,7 @@ class DSlider extends StatelessWidget {
     this.onChangeCancel,
     this.orientation = Axis.horizontal,
     this.variant = DSliderVariant.standard,
+    this.ramp = const DSliderRamp(),
     this.focusNode,
     this.autofocus = false,
     this.semanticLabel,
@@ -68,6 +86,7 @@ class DSlider extends StatelessWidget {
   final VoidCallback? onChangeCancel;
   final Axis orientation;
   final DSliderVariant variant;
+  final DSliderRamp ramp;
   final FocusNode? focusNode;
   final bool autofocus;
   final String? semanticLabel;
@@ -93,6 +112,7 @@ class DSlider extends StatelessWidget {
     onChangeCancel: onChangeCancel,
     orientation: orientation,
     variant: variant,
+    ramp: ramp,
     focusNodes: focusNode == null ? null : [focusNode!],
     autofocus: autofocus,
     semanticLabels: [semanticLabel ?? 'Value'],
@@ -130,6 +150,7 @@ class DMultiSlider extends StatefulWidget {
     this.onChangeCancel,
     this.orientation = Axis.horizontal,
     this.variant = DSliderVariant.standard,
+    this.ramp = const DSliderRamp(),
     this.focusNodes,
     this.autofocus = false,
     this.semanticLabels,
@@ -190,6 +211,7 @@ class DMultiSlider extends StatefulWidget {
   final VoidCallback? onChangeCancel;
   final Axis orientation;
   final DSliderVariant variant;
+  final DSliderRamp ramp;
   final List<FocusNode>? focusNodes;
   final bool autofocus;
   final List<String>? semanticLabels;
@@ -275,10 +297,21 @@ class _DMultiSliderState extends State<DMultiSlider> {
       : (value - widget.min) / (widget.max - widget.min);
   double _position(double value, double extent) {
     final f = _fraction(value);
+    if (widget.variant == DSliderVariant.ramp) {
+      final inset = math.min(13.0, extent / 2);
+      return ((_reverse ? 1 - f : f) * extent).clamp(inset, extent - inset);
+    }
     return 6 + (_reverse ? 1 - f : f) * math.max(0, extent - 12);
   }
 
   double _valueAt(Offset point, double extent) {
+    if (widget.variant == DSliderVariant.ramp) {
+      final f = ((_vertical ? point.dy : point.dx) / math.max(1, extent)).clamp(
+        0.0,
+        1.0,
+      );
+      return widget.min + (_reverse ? 1 - f : f) * (widget.max - widget.min);
+    }
     final f =
         (((_vertical ? point.dy : point.dx) - 6) / math.max(1, extent - 12))
             .clamp(0.0, 1.0);
@@ -492,6 +525,14 @@ class _DMultiSliderState extends State<DMultiSlider> {
   @override
   Widget build(BuildContext context) {
     final tokens = DTokens.of(context);
+    final touch = {
+      TargetPlatform.iOS,
+      TargetPlatform.android,
+      TargetPlatform.fuchsia,
+    }.contains(Theme.of(context).platform);
+    final crossExtent = widget.variant == DSliderVariant.ramp && !touch
+        ? 26.0
+        : 48.0;
     return Semantics(
       container: true,
       explicitChildNodes: true,
@@ -502,7 +543,9 @@ class _DMultiSliderState extends State<DMultiSlider> {
             final extent = _vertical
                 ? (constraints.hasBoundedHeight ? constraints.maxHeight : 160.0)
                 : (constraints.hasBoundedWidth ? constraints.maxWidth : 200.0);
-            final size = _vertical ? Size(48, extent) : Size(extent, 48);
+            final size = _vertical
+                ? Size(crossExtent, extent)
+                : Size(extent, crossExtent);
             String format(double value, int i) =>
                 widget.semanticFormatter?.call(value, i) ??
                 double.parse(value.toStringAsFixed(6)).toString();
@@ -554,44 +597,63 @@ class _DMultiSliderState extends State<DMultiSlider> {
                         children: [
                           Positioned.fill(
                             child: CustomPaint(
-                              painter: _SliderTrack(
-                                vertical: _vertical,
-                                filled: widget.variant == DSliderVariant.filled,
-                                start: _values.length == 1
-                                    ? (_reverse ? extent : 0)
-                                    : _position(_values.first, extent),
-                                end: _position(_values.last, extent),
-                                buffered: widget.secondaryTrackValue == null
-                                    ? null
-                                    : _position(
-                                        widget.secondaryTrackValue!.clamp(
-                                          widget.min,
-                                          widget.max,
-                                        ),
-                                        extent,
-                                      ),
-                                origin: _reverse ? extent : 0,
-                                muted: tokens.muted,
-                                primary: tokens.primary,
-                              ),
+                              painter: widget.variant == DSliderVariant.ramp
+                                  ? _RampTrack(
+                                      ramp: widget.ramp,
+                                      tokens: tokens,
+                                      vertical: _vertical,
+                                      reverse: _reverse,
+                                      fraction: _fraction(_values.last),
+                                    )
+                                  : _SliderTrack(
+                                      vertical: _vertical,
+                                      filled:
+                                          widget.variant ==
+                                          DSliderVariant.filled,
+                                      start: _values.length == 1
+                                          ? (_reverse ? extent : 0)
+                                          : _position(_values.first, extent),
+                                      end: _position(_values.last, extent),
+                                      buffered:
+                                          widget.secondaryTrackValue == null
+                                          ? null
+                                          : _position(
+                                              widget.secondaryTrackValue!.clamp(
+                                                widget.min,
+                                                widget.max,
+                                              ),
+                                              extent,
+                                            ),
+                                      origin: _reverse ? extent : 0,
+                                      muted: tokens.muted,
+                                      primary: tokens.primary,
+                                    ),
                             ),
                           ),
                           for (var i = 0; i < _values.length; i++)
                             Positioned(
                               left: _vertical
                                   ? 0
-                                  : (_position(_values[i], extent) - 24).clamp(
-                                      0,
-                                      math.max(0, extent - 48),
-                                    ),
+                                  : (_position(_values[i], extent) -
+                                            crossExtent / 2)
+                                        .clamp(
+                                          0,
+                                          math.max(0, extent - crossExtent),
+                                        ),
                               top: _vertical
-                                  ? (_position(_values[i], extent) - 24).clamp(
-                                      0,
-                                      math.max(0, extent - 48),
-                                    )
+                                  ? (_position(_values[i], extent) -
+                                            crossExtent / 2)
+                                        .clamp(
+                                          0,
+                                          math.max(0, extent - crossExtent),
+                                        )
                                   : 0,
-                              width: _vertical ? 48 : math.min(48, extent),
-                              height: _vertical ? math.min(48, extent) : 48,
+                              width: _vertical
+                                  ? crossExtent
+                                  : math.min(crossExtent, extent),
+                              height: _vertical
+                                  ? math.min(crossExtent, extent)
+                                  : crossExtent,
                               child: Semantics(
                                 container: true,
                                 sortKey: OrdinalSortKey(i.toDouble()),
@@ -629,6 +691,7 @@ class _DMultiSliderState extends State<DMultiSlider> {
                                       if (focused) _lastThumb = i;
                                     },
                                     child: _SliderThumb(
+                                      crossExtent: crossExtent,
                                       node: _node(i),
                                       active: _active == i,
                                       enabled: _enabled,
@@ -636,12 +699,18 @@ class _DMultiSliderState extends State<DMultiSlider> {
                                       filled:
                                           widget.variant ==
                                           DSliderVariant.filled,
+                                      ramp:
+                                          widget.variant == DSliderVariant.ramp,
                                       offset:
                                           _position(_values[i], extent) -
-                                          (_position(_values[i], extent) - 24)
+                                          (_position(_values[i], extent) -
+                                                  crossExtent / 2)
                                               .clamp(
                                                 0,
-                                                math.max(0, extent - 48),
+                                                math.max(
+                                                  0,
+                                                  extent - crossExtent,
+                                                ),
                                               ),
                                     ),
                                   ),
@@ -665,18 +734,22 @@ class _DMultiSliderState extends State<DMultiSlider> {
 class _SliderThumb extends StatefulWidget {
   const _SliderThumb({
     required this.node,
+    required this.crossExtent,
     required this.active,
     required this.enabled,
     required this.vertical,
     required this.offset,
     required this.filled,
+    required this.ramp,
   });
   final FocusNode node;
+  final double crossExtent;
   final bool active;
   final bool enabled;
   final bool vertical;
   final double offset;
   final bool filled;
+  final bool ramp;
   @override
   State<_SliderThumb> createState() => _SliderThumbState();
 }
@@ -699,8 +772,16 @@ class _SliderThumbState extends State<_SliderThumb> {
                   (widget.node.hasFocus &&
                       FocusManager.instance.highlightMode ==
                           FocusHighlightMode.traditional));
-          final width = widget.filled ? (widget.vertical ? 24.0 : 6.0) : 12.0;
-          final height = widget.filled ? (widget.vertical ? 6.0 : 24.0) : 12.0;
+          final width = widget.ramp
+              ? 18.0
+              : widget.filled
+              ? (widget.vertical ? 24.0 : 6.0)
+              : 12.0;
+          final height = widget.ramp
+              ? 18.0
+              : widget.filled
+              ? (widget.vertical ? 6.0 : 24.0)
+              : 12.0;
           final offset = widget.filled
               ? widget.offset.clamp(5.0, 43.0)
               : widget.offset;
@@ -708,8 +789,12 @@ class _SliderThumbState extends State<_SliderThumb> {
             clipBehavior: Clip.none,
             children: [
               Positioned(
-                left: widget.vertical ? (48 - width) / 2 : offset - width / 2,
-                top: widget.vertical ? offset - height / 2 : (48 - height) / 2,
+                left: widget.vertical
+                    ? (widget.crossExtent - width) / 2
+                    : offset - width / 2,
+                top: widget.vertical
+                    ? offset - height / 2
+                    : (widget.crossExtent - height) / 2,
                 child: AnimatedContainer(
                   duration: DMotion.duration(
                     context,
@@ -720,8 +805,13 @@ class _SliderThumbState extends State<_SliderThumb> {
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(999),
                     // base-nova explicitly uses bg-white in both color modes.
-                    color: Colors.white,
-                    border: Border.all(color: ring),
+                    color: widget.ramp ? Colors.transparent : Colors.white,
+                    border: Border.all(
+                      color: widget.ramp
+                          ? DTokens.of(context).foreground
+                          : ring,
+                      width: widget.ramp ? 2 : 1,
+                    ),
                     boxShadow: highlighted
                         ? [
                             BoxShadow(
@@ -739,6 +829,126 @@ class _SliderThumbState extends State<_SliderThumb> {
       ),
     );
   }
+}
+
+class _RampTrack extends CustomPainter {
+  const _RampTrack({
+    required this.ramp,
+    required this.tokens,
+    required this.vertical,
+    required this.reverse,
+    required this.fraction,
+  });
+  final DSliderRamp ramp;
+  final DTokens tokens;
+  final bool vertical, reverse;
+  final double fraction;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final rect = vertical
+        ? Rect.fromLTWH((size.width - 26) / 2, 0, 26, size.height)
+        : Rect.fromLTWH(0, (size.height - 26) / 2, size.width, 26);
+    final shape = RRect.fromRectAndRadius(
+      rect.deflate(.5),
+      const Radius.circular(999),
+    );
+    canvas.save();
+    canvas.clipRRect(shape);
+    canvas.drawRect(rect, Paint()..color = tokens.background);
+    if (ramp.pattern == DSliderRampPattern.checkerboard) {
+      final paint = Paint()..color = tokens.foreground.withValues(alpha: .16);
+      for (var x = 0.0; x < rect.width; x += 4) {
+        for (var y = 0.0; y < rect.height; y += 4) {
+          if (((x / 4).floor() + (y / 4).floor()).isEven) {
+            canvas.drawRect(
+              Rect.fromLTWH(rect.left + x, rect.top + y, 4, 4),
+              paint,
+            );
+          }
+        }
+      }
+    }
+    var begin = vertical ? Alignment.bottomCenter : Alignment.centerLeft;
+    var end = vertical ? Alignment.topCenter : Alignment.centerRight;
+    // Vertical sliders already increase upward. Only horizontal RTL reverses.
+    if (!vertical && reverse) {
+      final temp = begin;
+      begin = end;
+      end = temp;
+    }
+    canvas.drawRect(
+      rect,
+      Paint()
+        ..shader = LinearGradient(
+          begin: begin,
+          end: end,
+          colors: [
+            ramp.startColor ?? tokens.muted,
+            ramp.endColor ?? ramp.startColor ?? tokens.muted,
+          ],
+        ).createShader(rect),
+    );
+    if (ramp.pattern == DSliderRampPattern.wave) {
+      final path = Path();
+      for (var i = 0; i <= 260; i++) {
+        final t = i / 260;
+        final phase = 2 * math.pi * (1.1 * t + 10.4 * t * t / 2);
+        final wave = math.sin(phase) * (.7 + 8.3 * math.pow(t, 1.5));
+        final pos = reverse ? 1 - t : t;
+        final p = vertical
+            ? Offset(rect.center.dx + wave, rect.top + pos * rect.height)
+            : Offset(rect.left + pos * rect.width, rect.center.dy - wave);
+        if (i == 0) {
+          path.moveTo(p.dx, p.dy);
+        } else {
+          path.lineTo(p.dx, p.dy);
+        }
+      }
+      final paint = Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.5
+        ..color = Color.lerp(tokens.background, tokens.foreground, .4)!;
+      canvas.drawPath(path, paint);
+      final reached = vertical
+          ? Rect.fromLTRB(
+              rect.left,
+              rect.bottom - fraction * rect.height,
+              rect.right,
+              rect.bottom,
+            )
+          : reverse
+          ? Rect.fromLTRB(
+              rect.right - fraction * rect.width,
+              rect.top,
+              rect.right,
+              rect.bottom,
+            )
+          : Rect.fromLTRB(
+              rect.left,
+              rect.top,
+              rect.left + fraction * rect.width,
+              rect.bottom,
+            );
+      canvas.clipRect(reached);
+      canvas.drawPath(path, paint..color = tokens.primary);
+    }
+    canvas.restore();
+    canvas.drawRRect(
+      shape,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..color = tokens.border,
+    );
+  }
+
+  @override
+  bool shouldRepaint(_RampTrack oldDelegate) =>
+      ramp != oldDelegate.ramp ||
+      tokens != oldDelegate.tokens ||
+      vertical != oldDelegate.vertical ||
+      reverse != oldDelegate.reverse ||
+      fraction != oldDelegate.fraction;
 }
 
 class _SliderTrack extends CustomPainter {

@@ -26,6 +26,7 @@ import 'content_reading_lane.dart';
 import 'desktop_topic_page.dart';
 import 'draft_list.dart';
 import 'forum_search.dart';
+import 'forum_settings_page.dart';
 import 'forum_theme_surfaces.dart';
 import 'group_pages_coordinator.dart';
 import 'group_pages_host.dart';
@@ -208,7 +209,8 @@ class _MainContentBody extends StatelessWidget {
         state.siteUrl != null &&
         (pluginContent != null
             ? registry.ownsContentPageTitle(context, route)
-            : route.isGroups ||
+            : route.isThemes ||
+                  route.isGroups ||
                   route.isUsers ||
                   (route.isBadges && (route.badgeRoute?.isDirectory ?? true)) ||
                   (route.id == 'user-bookmarks' && state.isConnected));
@@ -791,6 +793,9 @@ class _ContentViewport extends StatelessWidget {
       return SingleChildScrollView(
         child: BookmarkSection(siteUrl: siteUrl!, onOpened: () {}, page: true),
       );
+    }
+    if (route.isThemes && siteUrl != null) {
+      return ForumSettingsPage(siteUrl: siteUrl!);
     }
     if (route.isPreferences && siteUrl != null) {
       return PreferencesPage(siteUrl: siteUrl!);

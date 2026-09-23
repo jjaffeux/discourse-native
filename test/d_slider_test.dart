@@ -7,6 +7,80 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  for (final platform in [TargetPlatform.macOS, TargetPlatform.iOS]) {
+    for (final direction in TextDirection.values) {
+      testWidgets('ramp endpoints and keyboard in $direction on $platform', (
+        tester,
+      ) async {
+        var value = .5;
+        var enabled = true;
+        late StateSetter update;
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: ThemeData(platform: platform),
+            home: Scaffold(
+              body: Directionality(
+                textDirection: direction,
+                child: Center(
+                  child: SizedBox(
+                    width: 300,
+                    child: StatefulBuilder(
+                      builder: (context, setState) {
+                        update = setState;
+                        return DSlider(
+                          value: value,
+                          max: 1,
+                          step: .01,
+                          variant: DSliderVariant.ramp,
+                          ramp: const DSliderRamp(
+                            pattern: DSliderRampPattern.checkerboard,
+                          ),
+                          semanticLabel: 'Ramp',
+                          onChanged: enabled
+                              ? (next) => setState(() => value = next)
+                              : null,
+                        );
+                      },
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+        final slider = find.byType(DSlider);
+        expect(
+          tester.getSize(slider).height,
+          platform == TargetPlatform.macOS ? 26 : 48,
+        );
+        final end = direction == TextDirection.ltr
+            ? tester.getTopRight(slider)
+            : tester.getTopLeft(slider);
+        await tester.tapAt(
+          end + Offset(direction == TextDirection.ltr ? -1 : 1, 13),
+        );
+        await tester.pump();
+        expect(value, 1);
+        await tester.sendKeyEvent(LogicalKeyboardKey.home);
+        await tester.pump();
+        expect(value, 0);
+        await tester.sendKeyEvent(
+          direction == TextDirection.ltr
+              ? LogicalKeyboardKey.arrowRight
+              : LogicalKeyboardKey.arrowLeft,
+        );
+        await tester.pump();
+        expect(value, .01);
+        update(() => enabled = false);
+        await tester.pump();
+        await tester.tap(slider);
+        await tester.sendKeyEvent(LogicalKeyboardKey.end);
+        expect(value, .01);
+        expect(tester.takeException(), isNull);
+      });
+    }
+  }
+
   Widget host(Widget child, {TextDirection direction = TextDirection.ltr}) =>
       MaterialApp(
         home: Scaffold(

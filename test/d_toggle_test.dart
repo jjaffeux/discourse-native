@@ -350,9 +350,9 @@ void main() {
     tester,
   ) async {
     for (final entry in const [
-      (DToggleSize.small, 24.0, 12.0),
-      (DToggleSize.regular, 28.0, 14.0),
-      (DToggleSize.large, 32.0, 16.0),
+      (DToggleSize.small, 24.0, 12.0, 40.0),
+      (DToggleSize.regular, 34.0, 14.0, 44.0),
+      (DToggleSize.large, 40.0, 16.0, 48.0),
     ]) {
       for (final platform in [TargetPlatform.macOS, TargetPlatform.iOS]) {
         await mount(
@@ -378,13 +378,11 @@ void main() {
               matching: find.byType(AnimatedContainer),
             ),
           ),
-          Size.square(
-            platform == TargetPlatform.iOS ? entry.$2 + 16 : entry.$2,
-          ),
+          Size.square(platform == TargetPlatform.iOS ? entry.$4 : entry.$2),
         );
         expect(
           tester.widget<IconTheme>(find.byType(IconTheme).last).data.size,
-          platform == TargetPlatform.iOS ? entry.$3 + 6 : entry.$3,
+          entry.$3,
         );
       }
     }

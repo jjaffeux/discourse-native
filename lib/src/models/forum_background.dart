@@ -13,6 +13,7 @@ class ForumBackground {
     this.effect = ForumBackgroundEffect.normal,
     this.noiseIntensity = defaultNoiseIntensity,
     this.transparency = defaultTransparency,
+    this.useAccentTint = false,
   }) : assert(strength >= 0 && strength <= 1),
        assert(noiseIntensity >= 0 && noiseIntensity <= 1),
        assert(transparency >= 0 && transparency <= maxTransparency);
@@ -20,8 +21,21 @@ class ForumBackground {
   static const defaultNoiseIntensity = .2;
   static const defaultTransparency = .1;
 
-  /// Keep content panels at least 80% opaque over the window effect.
-  static const maxTransparency = .2;
+  /// The reference keeps reading surfaces at least 70% opaque.
+  static const maxTransparency = .3;
+  static const maxTint = .22;
+  static const maxTextTint = .11;
+
+  const ForumBackground.appearance({
+    this.strength = 0,
+    this.effect = ForumBackgroundEffect.normal,
+    this.noiseIntensity = .14,
+    this.transparency = 0,
+  }) : color = const Color(0xff000000),
+       useAccentTint = true,
+       assert(strength >= 0 && strength <= 1),
+       assert(noiseIntensity >= 0 && noiseIntensity <= 1),
+       assert(transparency >= 0 && transparency <= maxTransparency);
 
   factory ForumBackground.fromJson(Object? value) {
     if (value is! Map<String, dynamic>) {
@@ -52,7 +66,9 @@ class ForumBackground {
         !transparency.isFinite ||
         transparency < 0 ||
         transparency > maxTransparency ||
-        effect == null) {
+        effect == null ||
+        (value.containsKey('useAccentTint') &&
+            value['useAccentTint'] is! bool)) {
       throw const FormatException('Invalid background.');
     }
     return ForumBackground(
@@ -61,6 +77,7 @@ class ForumBackground {
       effect: effect,
       noiseIntensity: noiseIntensity.toDouble(),
       transparency: transparency.toDouble(),
+      useAccentTint: value['useAccentTint'] == true,
     );
   }
 
@@ -74,18 +91,24 @@ class ForumBackground {
   /// How much of the window canvas shows through content panels.
   final double transparency;
 
+  /// New themes tint both background and text with their own accent. Older
+  /// exported themes retain their separately chosen background treatment.
+  final bool useAccentTint;
+
   ForumBackground copyWith({
     Color? color,
     double? strength,
     ForumBackgroundEffect? effect,
     double? noiseIntensity,
     double? transparency,
+    bool? useAccentTint,
   }) => ForumBackground(
     color: color ?? this.color,
     strength: strength ?? this.strength,
     effect: effect ?? this.effect,
     noiseIntensity: noiseIntensity ?? this.noiseIntensity,
     transparency: transparency ?? this.transparency,
+    useAccentTint: useAccentTint ?? this.useAccentTint,
   );
 
   Map<String, dynamic> toJson() => {
@@ -95,6 +118,7 @@ class ForumBackground {
     'effect': effect.name,
     'noiseIntensity': noiseIntensity,
     'transparency': transparency,
+    if (useAccentTint) 'useAccentTint': true,
   };
 
   @override
@@ -104,9 +128,16 @@ class ForumBackground {
       other.strength == strength &&
       other.effect == effect &&
       other.noiseIntensity == noiseIntensity &&
-      other.transparency == transparency;
+      other.transparency == transparency &&
+      other.useAccentTint == useAccentTint;
 
   @override
-  int get hashCode =>
-      Object.hash(color, strength, effect, noiseIntensity, transparency);
+  int get hashCode => Object.hash(
+    color,
+    strength,
+    effect,
+    noiseIntensity,
+    transparency,
+    useAccentTint,
+  );
 }
