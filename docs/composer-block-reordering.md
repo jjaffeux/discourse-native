@@ -135,6 +135,16 @@ Light/dark desktop and mobile editor layouts were rendered for visual inspection
 Physical-device IME, VoiceOver/TalkBack, and OS three-finger undo gestures still
 need device smoke testing; headless widget tests cannot certify those integrations.
 
+The September 23 block-spacing update passed static analysis and 519 focused
+composer tests after integration with the to-do text-alignment change. One
+unrelated heading-size assertion in `markdown_editing_controller_test.dart`
+also fails on the unchanged baseline and was excluded from that run. The
+production editor was inspected in an isolated macOS fixture in dark/wide and
+light/narrow layouts, with paragraph, heading, task and soft-line samples.
+Native Enter was exercised. Shift+Enter was verified with real modifier events
+in widget tests: the native automation emits Enter with `shift=false`, as
+confirmed by a temporary key-event trace, so it cannot verify that chord.
+
 The September 22 drag polish adds regression coverage for the leading gutter in LTR
 and RTL, exact insertion-line centering, the source highlight's bounds and
 cancellation, and cursor transitions over text even after the source unmounts.
