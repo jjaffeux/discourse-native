@@ -20,8 +20,14 @@ import 'd_table.dart';
 
 enum DDataTableSortDirection { ascending, descending }
 
-/// The default reference table or the softer presentation for authored content.
-enum DDataTableVariant { standard, softHeader }
+/// Table presentation, including an edge-to-edge composition inside page panels.
+enum DDataTableVariant {
+  standard,
+  softHeader,
+
+  /// Square, unframed table with inset cells and full-width row separators.
+  borderless,
+}
 
 enum DDataTableOperationMode {
   /// Filtering, sorting and pagination are derived from the complete [DDataTable.data].
@@ -596,7 +602,12 @@ class _DDataTableState<T> extends State<DDataTable<T>> {
             tokens.background,
           )
         : tokens.border;
-    final radius = _softHeader ? tokens.controlRadius : tokens.radius * .8;
+    final borderless = widget.variant == DDataTableVariant.borderless;
+    final radius = borderless
+        ? 0.0
+        : _softHeader
+        ? tokens.controlRadius
+        : tokens.radius * .8;
     final sourceState = _sourceState;
     final state = _normalized(sourceState);
     if (state != sourceState) _scheduleNormalization(state);
@@ -648,7 +659,7 @@ class _DDataTableState<T> extends State<DDataTable<T>> {
             ? DecorationPosition.foreground
             : DecorationPosition.background,
         decoration: BoxDecoration(
-          border: Border.all(color: frameColor),
+          border: borderless ? null : Border.all(color: frameColor),
           borderRadius: BorderRadius.circular(radius),
         ),
         child: DTable(
@@ -849,6 +860,8 @@ class _DDataTableState<T> extends State<DDataTable<T>> {
           column._headerPadding ??
           (_softHeader
               ? const EdgeInsets.symmetric(horizontal: 14)
+              : widget.variant == DDataTableVariant.borderless
+              ? const EdgeInsets.symmetric(horizontal: 16)
               : column.headerPadding),
       child: child,
     );
@@ -941,6 +954,8 @@ class _DDataTableState<T> extends State<DDataTable<T>> {
                 column._padding ??
                 (_softHeader
                     ? const EdgeInsets.symmetric(horizontal: 14, vertical: 11)
+                    : widget.variant == DDataTableVariant.borderless
+                    ? const EdgeInsets.symmetric(horizontal: 16, vertical: 7)
                     : column.padding),
             textStyle: _softHeader ? const TextStyle(height: 1.5) : null,
             child: column.cellBuilder(context, cell),

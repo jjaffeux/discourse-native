@@ -11,6 +11,7 @@ import 'package:discourse_native/src/shell/users_page.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/topic_scroll_capture.dart';
@@ -63,6 +64,24 @@ const _hawk = UserDirectoryItem(
 );
 
 void main() {
+  testWidgets('failed directory can be retried from its error state', (
+    tester,
+  ) async {
+    var retries = 0;
+    await _pump(
+      tester,
+      UsersPage(
+        siteUrl: 'https://example.com',
+        data: const UsersPageData(loaded: true, error: 'Offline'),
+        onRefresh: () async {
+          retries++;
+        },
+      ),
+    );
+    await tester.tap(find.text('Retry'));
+    expect(retries, 1);
+  });
+
   testWidgets(
     'scroll capture records users only while armed without rebuilding the page',
     (tester) async {
@@ -410,27 +429,28 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('directory hides the group filter when there are no choices', (
-    tester,
-  ) async {
-    await _pump(
-      tester,
-      UsersPage(
-        siteUrl: 'https://example.com',
-        data: const UsersPageData(
-          items: [_sam, _hawk],
-          columns: [_likes],
-          loaded: true,
+  testWidgets(
+    'directory keeps the all-groups filter when there are no choices',
+    (tester) async {
+      await _pump(
+        tester,
+        UsersPage(
+          siteUrl: 'https://example.com',
+          data: const UsersPageData(
+            items: [_sam, _hawk],
+            columns: [_likes],
+            loaded: true,
+          ),
+          onGroupChanged: (_) {},
         ),
-        onGroupChanged: (_) {},
-      ),
-    );
+      );
 
-    expect(find.byKey(const ValueKey('users-group-filter')), findsNothing);
-    expect(find.text('All groups'), findsNothing);
-    expect(find.byKey(const ValueKey('users-search')), findsOneWidget);
-    expect(find.byKey(const ValueKey('user-row-sam')), findsOneWidget);
-  });
+      expect(find.byKey(const ValueKey('users-group-filter')), findsOneWidget);
+      expect(find.text('All groups'), findsWidgets);
+      expect(find.byKey(const ValueKey('users-search')), findsOneWidget);
+      expect(find.byKey(const ValueKey('user-row-sam')), findsOneWidget);
+    },
+  );
 
   testWidgets('an active group can be cleared when discovery has no choices', (
     tester,
@@ -470,7 +490,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(query.group, isNull);
-    expect(filter, findsNothing);
+    expect(filter, findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -534,7 +554,6 @@ void main() {
       String? group;
       UserDirectoryPeriod? period;
       (String, bool)? sort;
-      var refreshes = 0;
 
       await _pump(
         tester,
@@ -554,7 +573,6 @@ void main() {
           onGroupChanged: (value) => group = value,
           onPeriodChanged: (value) => period = value,
           onSortChanged: (order, ascending) => sort = (order, ascending),
-          onRefresh: () async => refreshes++,
         ),
         size: const Size(1100, 820),
       );
@@ -573,9 +591,9 @@ void main() {
         find.byKey(const ValueKey('users-table')),
       );
       expect(pageRect, const Rect.fromLTWH(0, 0, 1100, 820));
-      expect(tableRect.left, 16);
-      expect(tableRect.right, 1084);
-      expect(tableRect.bottom, 804);
+      expect(tableRect.left, 0);
+      expect(tableRect.right, 1100);
+      expect(tableRect.bottom, 820);
 
       expect(find.byType(DDataTableFilterField), findsOneWidget);
       expect(
@@ -653,9 +671,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Replies posted'), findsNothing);
 
-      await tester.tap(find.byKey(const ValueKey('users-refresh')));
-      await tester.pump();
-      expect(refreshes, 1);
+      expect(find.byKey(const ValueKey('users-refresh')), findsNothing);
       expect(tester.takeException(), isNull);
     },
   );
@@ -1110,7 +1126,29 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('directory does not show a progress strip while rows update', (
+  testWidgets(
+    'pagination does not replace the header separator with progress',
+    (tester) async {
+      await _pump(
+        tester,
+        const UsersPage(
+          siteUrl: 'https://example.com',
+          data: UsersPageData(
+            items: [_sam],
+            columns: [_likes],
+            loadingMore: true,
+            loaded: true,
+          ),
+        ),
+      );
+
+      expect(find.byType(DProgress), findsNothing);
+      expect(find.byKey(const ValueKey('user-row-sam')), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets('directory shows inline loading feedback while retaining rows', (
     tester,
   ) async {
     await _pump(
@@ -1120,55 +1158,57 @@ void main() {
         data: UsersPageData(
           items: [_sam],
           columns: [_likes],
-          loadingMore: true,
-          loaded: true,
-        ),
-      ),
-    );
-
-    expect(
-      find.byKey(const ValueKey('users-directory-progress')),
-      findsNothing,
-    );
-    expect(find.byKey(const ValueKey('user-row-sam')), findsOneWidget);
-    expect(tester.takeException(), isNull);
-  });
-
-  testWidgets('refresh button owns the directory loading feedback', (
-    tester,
-  ) async {
-    var refreshes = 0;
-    await _pump(
-      tester,
-      UsersPage(
-        siteUrl: 'https://example.com',
-        data: const UsersPageData(
-          items: [_sam],
-          columns: [_likes],
           loading: true,
           loaded: true,
         ),
-        onRefresh: () async => refreshes++,
       ),
     );
-
-    final refresh = find.byKey(const ValueKey('users-refresh'));
-    final button = find.descendant(
-      of: refresh,
-      matching: find.byType(DButton),
-      matchRoot: true,
-    );
-    expect(tester.widget<DButton>(button).loading, isTrue);
-    expect(
-      find.descendant(of: refresh, matching: find.byType(DSpinner)),
-      findsOneWidget,
-    );
-
-    await tester.tap(refresh);
-    await tester.pump();
-    expect(refreshes, 0);
+    expect(find.byType(DProgress), findsOneWidget);
+    expect(find.byKey(const ValueKey('user-row-sam')), findsOneWidget);
+    expect(find.byKey(const ValueKey('users-refresh')), findsNothing);
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets(
+    'reference-width directory keeps filters on one line above the full-width table',
+    (tester) async {
+      await (FontLoader(
+        'Roboto',
+      )..addFont(rootBundle.load('assets/fonts/Lato-Regular.ttf'))).load();
+      await _pump(
+        tester,
+        UsersPage(
+          siteUrl: 'https://example.com',
+          data: const UsersPageData(
+            items: [_sam, _hawk],
+            columns: [_likes, _replies],
+            groupNames: ['staff'],
+            loaded: true,
+          ),
+          onPeriodChanged: (_) {},
+          onGroupChanged: (_) {},
+        ),
+        size: const Size(488, 850),
+        theme: AppTheme.dark.copyWith(platform: TargetPlatform.macOS),
+      );
+      final search = tester.getRect(find.byKey(const ValueKey('users-search')));
+      for (final key in [
+        'users-period-filter',
+        'users-group-filter',
+        'users-columns',
+      ]) {
+        expect(
+          tester.getRect(find.byKey(ValueKey(key))).center.dy,
+          closeTo(search.center.dy, 1),
+        );
+      }
+      expect(tester.getRect(find.text('Users')).bottom, lessThan(search.top));
+      final table = tester.getRect(find.byKey(const ValueKey('users-table')));
+      expect(table.left, 0);
+      expect(table.right, 488);
+      expect(tester.takeException(), isNull);
+    },
+  );
 }
 
 final _countedColumns = [

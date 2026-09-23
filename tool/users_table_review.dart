@@ -113,7 +113,7 @@ class _ReviewState extends State<_Review> {
                       onPressed: () => setState(() => _dark = !_dark),
                     ),
                     DButton(
-                      label: Text(_narrow ? '390px' : 'Wide'),
+                      label: Text(_narrow ? '488px' : 'Wide'),
                       onPressed: () => setState(() => _narrow = !_narrow),
                     ),
                     DButton(
@@ -152,7 +152,7 @@ class _ReviewState extends State<_Review> {
               Expanded(
                 child: Align(
                   child: SizedBox(
-                    width: _narrow ? 390 : double.infinity,
+                    width: _narrow ? 488 : double.infinity,
                     child: Builder(
                       builder: (context) => MediaQuery(
                         data: MediaQuery.of(context).copyWith(

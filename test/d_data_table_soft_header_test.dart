@@ -71,6 +71,38 @@ Future<void> _pump(
 void main() {
   for (final lazy in [false, true]) {
     testWidgets(
+      'borderless tables retain separators, sorting and inset cells (lazy=$lazy)',
+      (tester) async {
+        await _pump(tester, variant: DDataTableVariant.borderless, lazy: lazy);
+        final table = find.byType(DTable).first;
+        final frame = tester.widget<DecoratedBox>(
+          find.ancestor(of: table, matching: find.byType(DecoratedBox)).first,
+        );
+        expect((frame.decoration as BoxDecoration).border, isNull);
+        expect(
+          (frame.decoration as BoxDecoration).borderRadius,
+          BorderRadius.zero,
+        );
+        expect(tester.widget<DTable>(table).borderColor, isNotNull);
+        expect(
+          tester.getRect(find.text('Zara')).left - tester.getRect(table).left,
+          16,
+        );
+        await tester.tap(find.text('Name'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Sort ascending'));
+        await tester.pumpAndSettle();
+        expect(
+          tester.getTopLeft(find.text('Abe')).dy,
+          lessThan(tester.getTopLeft(find.text('Zara')).dy),
+        );
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
+  for (final lazy in [false, true]) {
+    testWidgets(
       'soft headers and separators stay visible across palettes (lazy=$lazy)',
       (tester) async {
         for (final dark in [true, false]) {

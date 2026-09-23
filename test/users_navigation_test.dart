@@ -61,7 +61,7 @@ void main() {
         of: find.byType(MainContent),
         matching: find.text('Users'),
       ),
-      findsNWidgets(2),
+      findsNWidgets(3),
     );
     expect(find.text('Community signal'), findsNothing);
     expect(find.byKey(const ValueKey('user-row-sam')), findsOneWidget);

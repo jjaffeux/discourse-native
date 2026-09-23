@@ -346,7 +346,7 @@ class _UsersPageState extends State<UsersPage> {
             child: ExcludeSemantics(
               child: DChartBar(
                 fraction: fraction,
-                color: DTokens.of(context).primary.withValues(alpha: 0.2),
+                color: DTokens.of(context).foreground.withValues(alpha: 0.08),
               ),
             ),
           ),
@@ -466,7 +466,7 @@ class _UsersPageState extends State<UsersPage> {
       label: 'User',
       hideable: false,
       resizable: true,
-      width: const FixedColumnWidth(180),
+      width: const FixedColumnWidth(186),
       minWidth: 120,
       maxWidth: 520,
       compare: widget.onSortChanged == null
@@ -489,8 +489,10 @@ class _UsersPageState extends State<UsersPage> {
                 child: AvatarImage(
                   url: cell.row.user.avatarUrl,
                   size: DAvatarSize.sm.dimension,
-                  fallback: const DAvatarFallback(
-                    child: DIcon(DIcons.user, size: 14),
+                  fallback: DAvatarFallback(
+                    child: Text(
+                      cell.row.user.username.characters.first.toUpperCase(),
+                    ),
                   ),
                 ),
               ),
@@ -505,7 +507,7 @@ class _UsersPageState extends State<UsersPage> {
       id: 'name',
       label: 'Name',
       resizable: true,
-      width: const FixedColumnWidth(200),
+      width: const FixedColumnWidth(186),
       minWidth: 120,
       maxWidth: 800,
       cellBuilder: (context, cell) => Text(cell.row.user.name ?? '—'),
@@ -547,6 +549,16 @@ class _UsersPageState extends State<UsersPage> {
   @override
   Widget build(BuildContext context) {
     final data = widget.data;
+    final textScale = math.max(
+      1.0,
+      MediaQuery.textScalerOf(context).scale(13) / 13,
+    );
+    final periodWidth =
+        (switch (data.query.period) {
+          UserDirectoryPeriod.weekly || UserDirectoryPeriod.yearly => 76.0,
+          _ => 96.0,
+        }) *
+        textScale;
     if (_recording) {
       _recordScrollEvent('users.view.built', {
         'rowCount': data.items.length,
@@ -567,7 +579,7 @@ class _UsersPageState extends State<UsersPage> {
       key: const ValueKey('users-page'),
       color: DTokens.of(context).background,
       child: ContentReadingLaneBox(
-        padding: const EdgeInsets.all(DSpacing.lg),
+        padding: EdgeInsets.zero,
         child: LayoutBuilder(
           builder: (context, constraints) {
             final visibleMetrics = data.columns.where(
@@ -575,13 +587,13 @@ class _UsersPageState extends State<UsersPage> {
                   !_hiddenColumnIds.contains(_metricColumnWidthKey(column)),
             );
             final fixedWidth =
-                (_columnWidths[_identityColumnWidthKey] ?? 180).clamp(
+                (_columnWidths[_identityColumnWidthKey] ?? 186).clamp(
                   120,
                   520,
                 ) +
                 (_hiddenColumnIds.contains('name')
                     ? 0
-                    : (_columnWidths['name'] ?? 200).clamp(120, 800));
+                    : (_columnWidths['name'] ?? 186).clamp(120, 800));
             final explicitWidth = visibleMetrics.fold<double>(
               fixedWidth.toDouble(),
               (total, column) =>
@@ -599,9 +611,9 @@ class _UsersPageState extends State<UsersPage> {
                 )
                 .length;
             final metricWidth = automaticCount == 0
-                ? 160.0
+                ? 132.0
                 : math.max(
-                    160.0,
+                    132.0,
                     (constraints.maxWidth - explicitWidth) / automaticCount,
                   );
             final columns = _columns(metricWidth);
@@ -609,102 +621,126 @@ class _UsersPageState extends State<UsersPage> {
               key: const ValueKey('users-directory-surface'),
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Wrap(
-                  key: const ValueKey('users-toolbar'),
-                  spacing: DSpacing.sm,
-                  runSpacing: DSpacing.sm,
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  children: [
-                    SizedBox(
-                      width: math.min(384, constraints.maxWidth),
-                      child: DDataTableFilterField(
-                        key: const ValueKey('users-search'),
-                        value: _searchText,
-                        hintText: 'Filter users…',
-                        onChanged: _search,
+                Padding(
+                  padding: const EdgeInsets.all(DSpacing.lg),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      const DText(
+                        'Users',
+                        variant: DTextVariant.h3,
+                        headingLevel: 1,
                       ),
-                    ),
-                    DSelect<UserDirectoryPeriod>(
-                      key: const ValueKey('users-period-filter'),
-                      value: data.query.period,
-                      semanticLabel: 'Activity period',
-                      enabled: widget.onPeriodChanged != null,
-                      onChanged: (value) {
-                        if (value != null) widget.onPeriodChanged?.call(value);
-                      },
-                      entries: [
-                        for (final period
-                            in UserDirectoryPeriod.values.reversed)
-                          DSelectItem(
-                            value: period,
-                            textValue: period.label,
-                            child: Text(period.label),
-                          ),
-                      ],
-                    ),
-                    if (data.groupNames.isNotEmpty || data.query.group != null)
-                      SizedBox(
-                        width: math.min(240, constraints.maxWidth),
-                        child: DCombobox<String>.controlled(
-                          key: const ValueKey('users-group-filter'),
-                          value: data.query.group ?? '__all_groups__',
-                          anchor: const DComboboxInput<String>(
-                            semanticLabel: 'Filter by group',
-                            placeholder: 'All groups',
-                          ),
-                          content: const DComboboxContent(
-                            children: [
-                              DComboboxEmpty<String>(
-                                child: Text('No groups found.'),
+                      const SizedBox(height: DSpacing.lg),
+                      Wrap(
+                        key: const ValueKey('users-toolbar'),
+                        spacing: DSpacing.controlGap,
+                        runSpacing: DSpacing.sm,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: [
+                          SizedBox(
+                            width: math.min(
+                              240,
+                              math.max(
+                                120,
+                                constraints.maxWidth - 278 - periodWidth,
                               ),
-                              DComboboxList<String>(),
+                            ),
+                            child: DDataTableFilterField(
+                              key: const ValueKey('users-search'),
+                              value: _searchText,
+                              hintText: 'Filter users',
+                              onChanged: _search,
+                            ),
+                          ),
+                          DSelect<UserDirectoryPeriod>(
+                            key: const ValueKey('users-period-filter'),
+                            width: periodWidth,
+                            value: data.query.period,
+                            semanticLabel: 'Activity period',
+                            enabled: widget.onPeriodChanged != null,
+                            onChanged: (value) {
+                              if (value != null) {
+                                widget.onPeriodChanged?.call(value);
+                              }
+                            },
+                            entries: [
+                              for (final period
+                                  in UserDirectoryPeriod.values.reversed)
+                                DSelectItem(
+                                  value: period,
+                                  textValue: period.label,
+                                  child: Text(period.label),
+                                ),
                             ],
                           ),
-                          enabled: widget.onGroupChanged != null,
-                          filter: (value, query, label) =>
-                              query == (data.query.group ?? 'All groups') ||
-                              label.toLowerCase().contains(query.toLowerCase()),
-                          onChanged: (value, reason) => widget.onGroupChanged
-                              ?.call(value == '__all_groups__' ? null : value),
-                          options: [
-                            const DComboboxOption(
-                              value: '__all_groups__',
-                              label: 'All groups',
+                          SizedBox(
+                            width: math.min(
+                              126 * textScale,
+                              constraints.maxWidth - 32,
                             ),
-                            for (final group
-                                in (<String>{
-                                  ...data.groupNames,
-                                  ?data.query.group,
-                                }.toList()..sort(
-                                  (a, b) => a.toLowerCase().compareTo(
-                                    b.toLowerCase(),
+                            child: DCombobox<String>.controlled(
+                              key: const ValueKey('users-group-filter'),
+                              value: data.query.group ?? '__all_groups__',
+                              anchor: const DComboboxInput<String>(
+                                semanticLabel: 'Filter by group',
+                                placeholder: 'All groups',
+                              ),
+                              content: const DComboboxContent(
+                                children: [
+                                  DComboboxEmpty<String>(
+                                    child: Text('No groups found.'),
                                   ),
-                                )))
-                              DComboboxOption(value: group, label: group),
-                          ],
-                        ),
+                                  DComboboxList<String>(),
+                                ],
+                              ),
+                              enabled: widget.onGroupChanged != null,
+                              filter: (value, query, label) =>
+                                  query == (data.query.group ?? 'All groups') ||
+                                  label.toLowerCase().contains(
+                                    query.toLowerCase(),
+                                  ),
+                              onChanged: (value, reason) =>
+                                  widget.onGroupChanged?.call(
+                                    value == '__all_groups__' ? null : value,
+                                  ),
+                              options: [
+                                const DComboboxOption(
+                                  value: '__all_groups__',
+                                  label: 'All groups',
+                                ),
+                                for (final group
+                                    in (<String>{
+                                      ...data.groupNames,
+                                      ?data.query.group,
+                                    }.toList()..sort(
+                                      (a, b) => a.toLowerCase().compareTo(
+                                        b.toLowerCase(),
+                                      ),
+                                    )))
+                                  DComboboxOption(value: group, label: group),
+                              ],
+                            ),
+                          ),
+                          DDataTableColumnToggle<UserDirectoryItem>(
+                            key: const ValueKey('users-columns'),
+                            menuLabel: 'Columns',
+                            columns: columns,
+                            hiddenColumnIds: _hiddenColumnIds,
+                            onChanged: (hidden) => setState(
+                              () => _hiddenColumnIds = Set.of(hidden),
+                            ),
+                          ),
+                        ],
                       ),
-                    DDataTableColumnToggle<UserDirectoryItem>(
-                      key: const ValueKey('users-columns'),
-                      menuLabel: 'Columns',
-                      columns: columns,
-                      hiddenColumnIds: _hiddenColumnIds,
-                      onChanged: (hidden) =>
-                          setState(() => _hiddenColumnIds = Set.of(hidden)),
-                    ),
-                    DButton.iconOnly(
-                      key: const ValueKey('users-refresh'),
-                      tooltip: 'Refresh directory',
-                      variant: DButtonVariant.outline,
-                      loading: data.loading,
-                      icon: const DIcon(DIcons.arrowsRotate),
-                      onPressed: widget.onRefresh == null
-                          ? null
-                          : () => unawaited(widget.onRefresh!()),
-                    ),
-                  ],
+                      const SizedBox(height: DSpacing.md),
+                      if (data.loading && data.items.isNotEmpty)
+                        const DProgress(semanticsLabel: 'Refreshing users')
+                      else
+                        const DSeparator(),
+                    ],
+                  ),
                 ),
-                const SizedBox(height: DSpacing.lg),
                 Expanded(
                   child: KeyedSubtree(
                     key: const ValueKey('users-table'),
@@ -714,6 +750,9 @@ class _UsersPageState extends State<UsersPage> {
                             icon: DIcons.triangleExclamation,
                             title: 'Directory unavailable',
                             detail: data.error!,
+                            onRetry: widget.onRefresh == null
+                                ? null
+                                : () => unawaited(widget.onRefresh!()),
                           )
                         : !data.loaded && data.items.isEmpty
                         ? const _TableState(
@@ -729,6 +768,7 @@ class _UsersPageState extends State<UsersPage> {
                               data.currentUsername,
                               data.query,
                             )),
+                            variant: DDataTableVariant.borderless,
                             semanticLabel: 'Users',
                             data: data.items,
                             columns: columns,
@@ -805,8 +845,10 @@ class _TableState extends StatelessWidget {
     required this.title,
     required this.detail,
     this.progress = false,
+    this.onRetry,
   });
 
+  final VoidCallback? onRetry;
   final DIconData icon;
   final String title;
   final String detail;
@@ -824,6 +866,12 @@ class _TableState extends StatelessWidget {
               DEmptyDescription(detail),
             ],
           ),
+          if (onRetry != null)
+            DEmptyContent(
+              children: [
+                DButton(label: const Text('Retry'), onPressed: onRetry),
+              ],
+            ),
           if (progress)
             const DEmptyContent(
               children: [
