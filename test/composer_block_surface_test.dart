@@ -160,7 +160,7 @@ void main() {
   }
 
   for (final newline in ['\n', '\r\n']) {
-    testWidgets('Enter creates a visible, atomic block gap ($newline)', (
+    testWidgets('Enter creates a compact, atomic block gap ($newline)', (
       tester,
     ) async {
       final before = newline == '\n' ? 'First' : 'Earlier\r\nsoft\r\n\r\nFirst';
@@ -191,7 +191,8 @@ void main() {
       final next = render.getLocalRectForCaret(TextPosition(offset: end));
       expect(
         next.top - first.top,
-        closeTo(render.preferredLineHeight * 2, .01),
+        // The paragraph line and caret each snap to physical pixels.
+        closeTo(render.preferredLineHeight * 1.5, 2),
       );
 
       await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
@@ -255,7 +256,7 @@ void main() {
         expect(
           render.getLocalRectForCaret(const TextPosition(offset: 7)).top -
               render.getLocalRectForCaret(const TextPosition(offset: 0)).top,
-          closeTo(render.preferredLineHeight * 2, .01),
+          closeTo(render.preferredLineHeight * 1.5, 2),
         );
       });
     }
@@ -277,6 +278,7 @@ void main() {
           expect(composer.text.text, 'First\n');
           expect(composer.blocks.index.blocks, hasLength(1));
           await tester.enterText(find.byType(EditableText), 'First\nsoft');
+          await tester.pumpAndSettle();
           final render = tester
               .state<EditableTextState>(find.byType(EditableText))
               .renderEditable;
@@ -297,7 +299,7 @@ void main() {
           );
           expect(
             empty.top - soft.top,
-            closeTo(render.preferredLineHeight * 2, .01),
+            closeTo(render.preferredLineHeight * 1.5, 2),
           );
           await tester.enterText(
             find.byType(EditableText),
@@ -311,7 +313,7 @@ void main() {
           final next = render.getLocalRectForCaret(
             const TextPosition(offset: 12),
           );
-          expect(next.top, closeTo(empty.top, .01));
+          expect(next.top, closeTo(empty.top, 1));
         },
       );
     }

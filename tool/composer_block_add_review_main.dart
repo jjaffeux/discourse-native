@@ -68,6 +68,19 @@ Future<void> main() async {
                           ),
                           DButton(label: const Text('Reset'), onPressed: reset),
                           DButton(
+                            label: const Text('Paragraph spacing'),
+                            onPressed: () {
+                              composer.text.value = const TextEditingValue(
+                                text:
+                                    'First paragraph\n\nSecond paragraph\n\n'
+                                    'A paragraph with\na soft line break\n\n'
+                                    'Last paragraph',
+                                selection: TextSelection.collapsed(offset: 0),
+                              );
+                              composer.history.reset();
+                            },
+                          ),
+                          DButton(
                             label: const Text('Empty line drops'),
                             onPressed: () {
                               composer.text.value = const TextEditingValue(
