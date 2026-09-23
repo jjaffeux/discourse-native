@@ -127,3 +127,6 @@ verified the full-page rail/sidebar, hidden tab bar, Forum/Shortcuts selection,
 opening a topic from a shortcut, and Escape returning to content. This was a
 local fixture with sample forums, not an iOS simulator or physical-device run.
 The final Escape change also passed all 58 mobile shell tests and root analysis.
+
+After integrating current main, all 102 focused mobile/history/sidebar/button
+adoption tests and root static analysis passed.
