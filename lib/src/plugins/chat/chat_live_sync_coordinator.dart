@@ -1450,6 +1450,7 @@ final class ChatLiveSyncCoordinator {
       messageId,
       createdAt,
       preview: chatMessageSummaryFromJson(payload),
+      userId: authorId,
       markRead: markRead,
       incrementUnread: incrementUnread,
       threadId: threadId,

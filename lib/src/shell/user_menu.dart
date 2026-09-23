@@ -735,24 +735,43 @@ class _SectionBody extends StatelessWidget {
 
 /// Profile actions composed inside the Native dropdown's interaction owner.
 class UserProfileMenuItems extends StatelessWidget {
-  const UserProfileMenuItems({super.key, required this.onDismiss});
+  const UserProfileMenuItems({
+    super.key,
+    required this.onDismiss,
+    this.siteUrl,
+    this.statusOnly = false,
+  });
 
   final VoidCallback onDismiss;
+  final String? siteUrl;
+  final bool statusOnly;
 
   @override
   Widget build(BuildContext context) => ShellSelector<_SectionListSnapshot>(
-    select: (controller) =>
-        _sectionListSnapshot(controller, controller.currentInstance?.url ?? ''),
+    select: (controller) => _sectionListSnapshot(
+      controller,
+      siteUrl ?? controller.currentInstance?.url ?? '',
+    ),
     builder: (context, state, _) {
       final siteUrl = state.siteUrl;
       final user = state.user;
       if (siteUrl == null || user == null) return const SizedBox.shrink();
       final controller = state.controller;
-      final rows = userMenuSections(
-        null,
-        user: user,
-        userStatusEnabled: state.userStatusEnabled,
-      ).firstWhere((section) => section.isProfile).rows;
+      final rows =
+          userMenuSections(
+                null,
+                user: user,
+                userStatusEnabled: state.userStatusEnabled,
+              )
+              .firstWhere((section) => section.isProfile)
+              .rows
+              .where(
+                (row) =>
+                    !statusOnly ||
+                    row.isUserStatus ||
+                    row.isHidePresence ||
+                    row.isDoNotDisturb,
+              );
       VoidCallback? action(UserMenuRow row) {
         if (row.isUserStatus) {
           return () {
@@ -815,21 +834,99 @@ class UserProfileMenuItems extends StatelessWidget {
                   child: Text(row.title),
                 ),
               ],
-            const DDropdownMenuSeparator(),
-            DDropdownMenuItem(
-              variant: DDropdownMenuItemVariant.destructive,
-              leading: const DIcon(DIcons.rightFromBracket, size: 16),
-              onPressed: () {
-                onDismiss();
-                controller.disconnectInstance(siteUrl).ignore();
-              },
-              child: const Text('Disconnect'),
-            ),
+            if (!statusOnly) ...[
+              const DDropdownMenuSeparator(),
+              DDropdownMenuItem(
+                variant: DDropdownMenuItemVariant.destructive,
+                leading: const DIcon(DIcons.rightFromBracket, size: 16),
+                onPressed: () {
+                  onDismiss();
+                  controller.disconnectInstance(siteUrl).ignore();
+                },
+                child: const Text('Disconnect'),
+              ),
+            ],
           ],
         ),
       );
     },
   );
+}
+
+/// Account status actions shared with feature headers through the plugin SDK.
+class UserPresenceMenu extends StatefulWidget {
+  const UserPresenceMenu({super.key, required this.siteUrl});
+
+  final String siteUrl;
+
+  @override
+  State<UserPresenceMenu> createState() => _UserPresenceMenuState();
+}
+
+class _UserPresenceMenuState extends State<UserPresenceMenu> {
+  final _menu = DDropdownMenuController();
+
+  @override
+  void dispose() {
+    _menu.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final shell = ShellScope.of(context);
+    return ListenableBuilder(
+      listenable: shell.doNotDisturb,
+      builder: (context, _) {
+        final hidden = shell.hidePresenceFor(widget.siteUrl);
+        final paused = shell.doNotDisturb
+            .stateFor(widget.siteUrl)
+            .isActiveAt(DateTime.now());
+        final label = paused
+            ? 'Notifications paused'
+            : hidden == true
+            ? 'Offline'
+            : hidden == false
+            ? 'Online'
+            : 'Presence unavailable';
+        return DDropdownMenu(
+          controller: _menu,
+          content: DDropdownMenuContent(
+            width: 208,
+            align: DPopoverAlign.end,
+            semanticLabel: 'Status and notifications',
+            children: [
+              UserProfileMenuItems(
+                siteUrl: widget.siteUrl,
+                statusOnly: true,
+                onDismiss: _menu.close,
+              ),
+            ],
+          ),
+          child: DDropdownMenuTrigger(
+            builder: (context, state) => DButton(
+              key: const ValueKey('user-presence-menu'),
+              variant: DButtonVariant.outline,
+              density: DButtonDensity.compactToolbar,
+              tooltip: 'Status and notifications',
+              semanticLabel: 'Status and notifications, $label',
+              focusNode: state.focusNode,
+              hasPopup: true,
+              expanded: state.open,
+              onPressed: state.toggle,
+              icon: DIcon(
+                paused ? DIcons.discourseBellSlash : DIcons.circle,
+                color: !paused && hidden == false
+                    ? DTokens.of(context).success
+                    : DTokens.of(context).mutedForeground,
+              ),
+              label: const DIcon(DIcons.chevronDown),
+            ),
+          ),
+        );
+      },
+    );
+  }
 }
 
 class _DoNotDisturbTile extends StatelessWidget {
@@ -1047,6 +1144,9 @@ class _HidePresenceTile extends StatelessWidget {
               leading: DIcon(
                 hidden == false ? DIcons.toggleOn : DIcons.toggleOff,
                 size: 16,
+                color: hidden == false
+                    ? DTokens.of(context).success
+                    : DTokens.of(context).mutedForeground,
               ),
               child: Text(title),
             ),
