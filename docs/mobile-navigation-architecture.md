@@ -31,7 +31,10 @@ to own their touch targets and text scaling. Category notification and dismiss
 controls remain available in the footer when relevant.
 
 The circular navigation buttons and pill creation actions are explicit design
-exceptions using Native's existing `DButtonShape` API. Menus, sheets, tabs,
+exceptions using Native's existing `DButtonShape` API. Tab buttons use
+`DButtonDensity.mobileNavigation`: 44px surfaces, full 18px glyphs and 48px
+touch targets. The preset also applies to More and desktop mobile previews;
+ordinary controls keep their shared size presets. Menus, sheets, tabs,
 buttons and the message-recipient dialog use `discourse_ui.dart`.
 
 ## Shared content and mobile history

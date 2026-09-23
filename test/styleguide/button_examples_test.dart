@@ -10,6 +10,7 @@ void main() {
     expect(buttonExamples.examples.map((example) => example.title), [
       'Redesign button families',
       'Pill toolbar action',
+      'Mobile navigation',
       'Variants',
       'Size',
       'With icon and rounded',

@@ -70,6 +70,22 @@ class DIconData {
   String toString() => 'DIconData($name)';
 }
 
+/// Controls optical glyph insets without changing an icon's layout box.
+/// Navigation controls use full-size glyphs; ordinary controls retain the inset.
+class DIconGlyphTheme extends InheritedWidget {
+  const DIconGlyphTheme({super.key, required this.scale, required super.child});
+
+  final double scale;
+
+  static double scaleOf(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<DIconGlyphTheme>()?.scale ??
+      DIcon.glyphScale;
+
+  @override
+  bool updateShouldNotify(DIconGlyphTheme oldWidget) =>
+      scale != oldWidget.scale;
+}
+
 class DIcon extends StatelessWidget {
   const DIcon(
     this.icon, {
@@ -118,6 +134,7 @@ class DIcon extends StatelessWidget {
   Widget build(BuildContext context) {
     final iconTheme = IconTheme.of(context);
     final box = size ?? iconTheme.size ?? 24;
+    final glyphScale = DIconGlyphTheme.scaleOf(context);
     final tint = color ?? iconTheme.color ?? const Color(0xFF000000);
     final opacity = iconTheme.opacity ?? 1.0;
     final resolvedTint = opacity == 1.0

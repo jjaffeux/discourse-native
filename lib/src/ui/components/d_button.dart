@@ -2,6 +2,7 @@ import 'dart:ui' show SemanticsValidationResult, lerpDouble;
 
 import 'package:flutter/material.dart';
 
+import '../../theme/d_icon.dart';
 import '../foundation/control_style.dart';
 import '../foundation/focus_highlight.dart';
 import '../foundation/joined_control.dart';
@@ -45,6 +46,9 @@ enum DButtonIconPosition { start, end }
 
 /// Pill also produces a circular surface for icon-only buttons.
 enum DButtonShape { rounded, pill }
+
+/// Mobile navigation keeps 44px artwork and 18px icons on every platform.
+enum DButtonDensity { standard, mobileNavigation }
 
 @immutable
 class DButtonStateStyle {
@@ -373,7 +377,8 @@ class DButton extends StatelessWidget {
     this.foregroundColor,
     this.borderColor,
     this.interactiveBackgroundColor,
-  }) : _iconOnly = false;
+  }) : density = DButtonDensity.standard,
+       _iconOnly = false;
 
   const DButton.iconOnly({
     super.key,
@@ -383,6 +388,7 @@ class DButton extends StatelessWidget {
     required this.onPressed,
     this.variant = DButtonVariant.primary,
     this.size = DButtonSize.regular,
+    this.density = DButtonDensity.standard,
     this.loading = false,
     this.loadingSemanticLabel = 'Loading',
     this.shortcut,
@@ -431,6 +437,10 @@ class DButton extends StatelessWidget {
   final bool isLink;
   final DButtonVariant variant;
   final DButtonSize size;
+
+  /// Mobile navigation supersedes [size] with a 44px surface, 18px icon and
+  /// regular typography. It retains a 48px target and grows with text scaling.
+  final DButtonDensity density;
 
   final bool loading;
 
@@ -593,15 +603,19 @@ class DButton extends StatelessWidget {
     final tokens = DTokens.of(context);
     final dark = theme.brightness == Brightness.dark;
     final variantStyle = _referenceStyle(tokens, dark);
-    final fontSize = DControlStyle.fontSize(size, context: context);
-    final spacingUnit = DControlStyle.iconDimension(size, context: context);
+    final mobileNavigation = density == DButtonDensity.mobileNavigation;
+    final effectiveSize = mobileNavigation ? DButtonSize.regular : size;
+    final fontSize = DControlStyle.fontSize(effectiveSize, context: context);
+    final spacingUnit = mobileNavigation
+        ? 18.0
+        : DControlStyle.iconDimension(size, context: context);
     final gap = DControlStyle.contentGap(size);
     final visualDimension = DControlStyle.scaledHeight(
-      size,
+      effectiveSize,
       MediaQuery.textScalerOf(context),
       context: context,
-    );
-    final touch = DControlStyle.isTouch(context);
+    ).clamp(mobileNavigation ? 44.0 : 0.0, double.infinity);
+    final touch = mobileNavigation || DControlStyle.isTouch(context);
     final enabled = onPressed != null && !loading;
     final baseRadius =
         borderRadius ??
@@ -714,7 +728,9 @@ class DButton extends StatelessWidget {
       textStyle: WidgetStateProperty.resolveWith(
         (states) => theme.textTheme.labelLarge!.copyWith(
           fontSize: fontSize,
-          height: DControlStyle.lineHeight(size, context: context) / fontSize,
+          height:
+              DControlStyle.lineHeight(effectiveSize, context: context) /
+              fontSize,
           fontWeight: _visualVariant == DButtonVariant.primary
               ? FontWeight.w600
               : FontWeight.w400,
@@ -824,6 +840,9 @@ class DButton extends StatelessWidget {
                     ],
                   ),
           );
+    if (mobileNavigation) {
+      child = DIconGlyphTheme(scale: 1, child: child);
+    }
     if (loading) {
       final labelChild = child;
       // The reference Spinner carries its own size-4 class, so it stays 16px

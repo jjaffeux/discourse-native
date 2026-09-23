@@ -47,7 +47,12 @@ void main() {
       {
         // Mobile navigation uses the requested independent circular buttons
         // and pill contextual actions, through Native's existing shape API.
-        'lib/src/shell/mobile_shell.dart': {'shape': 4, 'backgroundColor': 2},
+        'lib/src/shell/mobile_shell.dart': {
+          'shape': 4,
+          // Selected mobile tabs use the reference's 14px panel corners.
+          'borderRadius': 2,
+          'backgroundColor': 2,
+        },
         'lib/src/shell/message_create_button.dart': {'shape': 2},
         // X embeds retain provider identity and the reference's pill reply link,
         // using Native buttons for sizing, focus, hover and activation.

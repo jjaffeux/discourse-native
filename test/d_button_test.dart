@@ -8,6 +8,59 @@ import 'package:flutter_test/flutter_test.dart';
 import 'support/button_surface.dart';
 
 void main() {
+  for (final platform in [
+    TargetPlatform.iOS,
+    TargetPlatform.android,
+    TargetPlatform.macOS,
+  ]) {
+    testWidgets('mobile navigation geometry and activation on $platform', (
+      tester,
+    ) async {
+      var presses = 0;
+      Future<void> pump(double scale) => tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.dark.copyWith(platform: platform),
+          home: MediaQuery(
+            data: MediaQueryData(textScaler: TextScaler.linear(scale)),
+            child: Scaffold(
+              body: Center(
+                child: DButton.iconOnly(
+                  density: DButtonDensity.mobileNavigation,
+                  icon: const Icon(Icons.forum),
+                  tooltip: 'Topics',
+                  onPressed: () => presses++,
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await pump(1);
+      final surface = find.byWidgetPredicate(
+        (widget) =>
+            widget is AnimatedContainer &&
+            widget.decoration is DButtonDecoration,
+      );
+      expect(tester.getSize(surface), const Size(44, 44));
+      expect(tester.getSize(find.byIcon(Icons.forum)), const Size(18, 18));
+      expect(tester.getSize(find.byType(DButton)), const Size(48, 48));
+      // The padded target outside the painted surface must still activate.
+      await tester.tapAt(
+        tester.getTopLeft(find.byType(DButton)) + const Offset(1, 24),
+      );
+      await tester.pump();
+      expect(presses, 1);
+      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+      await tester.pump();
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pump();
+      expect(presses, 2);
+      await pump(3);
+      expect(tester.getSize(surface).height, greaterThan(44));
+      expect(tester.takeException(), isNull);
+    });
+  }
+
   for (final direction in TextDirection.values) {
     testWidgets('inline actions align with surrounding text in $direction', (
       tester,
@@ -182,9 +235,9 @@ void main() {
 
   testWidgets('Native text sizes retain compact surfaces', (tester) async {
     for (final (size, height, font, icon) in [
-      (DButtonSize.small, 24.0, 12.0, 12.0),
-      (DButtonSize.regular, 28.0, 13.0, 14.0),
-      (DButtonSize.large, 32.0, 14.0, 16.0),
+      (DButtonSize.small, 24.0, 12.5, 12.0),
+      (DButtonSize.regular, 34.0, 13.0, 14.0),
+      (DButtonSize.large, 40.0, 14.0, 16.0),
     ]) {
       await tester.pumpWidget(
         MaterialApp(
