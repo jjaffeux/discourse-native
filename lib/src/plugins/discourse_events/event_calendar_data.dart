@@ -17,7 +17,7 @@ final class EventCalendarPage {
   String routeId(bool mine) =>
       'events-${mine ? 'mine' : 'upcoming'}/${view.name}/${date.year}/${date.month}/${date.day}';
   String webPath(bool mine) =>
-      'upcoming-events${mine ? '/mine' : ''}/${view.name}/${date.year}/${date.month}/${date.day}';
+      'upcoming-events${mine ? '/mine' : ''}/${view == EventCalendarView.schedule ? 'listMonth' : view.name}/${date.year}/${date.month}/${date.day}';
 
   static ({bool mine, EventCalendarPage? page})? readRoute(String id) {
     final parts = id.split('/');
@@ -55,13 +55,15 @@ final class EventCalendarPage {
       EventCalendarView.week => date.subtract(
         Duration(days: (date.weekday % 7 - firstDay + 7) % 7),
       ),
-      EventCalendarView.month => DateTime.utc(date.year, date.month),
+      EventCalendarView.month ||
+      EventCalendarView.schedule => DateTime.utc(date.year, date.month),
       EventCalendarView.year => DateTime.utc(date.year),
     };
     final end = switch (view) {
       EventCalendarView.day => start.add(const Duration(days: 1)),
       EventCalendarView.week => start.add(const Duration(days: 7)),
-      EventCalendarView.month => DateTime.utc(date.year, date.month + 1),
+      EventCalendarView.month ||
+      EventCalendarView.schedule => DateTime.utc(date.year, date.month + 1),
       EventCalendarView.year => DateTime.utc(date.year + 1),
     };
     if (view != EventCalendarView.month) {
@@ -79,7 +81,7 @@ final class EventCalendarPage {
       EventCalendarPage(view, switch (view) {
         EventCalendarView.day => date.add(Duration(days: direction)),
         EventCalendarView.week => date.add(Duration(days: 7 * direction)),
-        EventCalendarView.month => DateTime.utc(
+        EventCalendarView.month || EventCalendarView.schedule => DateTime.utc(
           date.year,
           date.month + direction,
         ),
@@ -102,6 +104,7 @@ final class EventCalendarEntry extends kalender.KalenderEvent {
     required String timezone,
     required EventSettings settings,
     Color? categoryColor,
+    String? categoryName,
   }) {
     final location = zones.location(timezone);
     if (location == null) return null;
@@ -150,6 +153,10 @@ final class EventCalendarEntry extends kalender.KalenderEvent {
       location: location,
       title: title,
       color: _color(event, settings) ?? categoryColor,
+      categoryName:
+          categoryName ??
+          eventText(eventObject(event.fields['post'])?['category_name']) ??
+          eventText(eventObject(event.fields['post'])?['category_slug']),
       start: start,
       end: end,
       isAllDay: allDay,
@@ -162,6 +169,7 @@ final class EventCalendarEntry extends kalender.KalenderEvent {
     required this.location,
     required this.title,
     required this.color,
+    required this.categoryName,
     required super.start,
     required super.end,
     required super.isAllDay,
@@ -171,6 +179,15 @@ final class EventCalendarEntry extends kalender.KalenderEvent {
   final tz.Location location;
   final String title;
   final Color? color;
+  final String? categoryName;
+
+  String scheduleMetadata(DateTime day) => [
+    ?categoryName,
+    ?event.creator?.username ??
+        eventText(eventObject(event.fields['post'])?['username']),
+    if (spansDays)
+      'day ${day.difference(firstDay).inDays + 1} of ${lastDay.difference(firstDay).inDays + 1}',
+  ].join(' · ');
   late final localStart = tz.TZDateTime.from(start, location);
   late final localEnd = tz.TZDateTime.from(end, location);
   late final firstDay = DateTime.utc(
@@ -201,6 +218,7 @@ final class EventCalendarEntry extends kalender.KalenderEvent {
     location: location,
     title: title,
     color: color,
+    categoryName: categoryName,
     isAllDay: isAllDay,
     start: start,
     end: end,
@@ -218,13 +236,14 @@ final class EventCalendarEntry extends kalender.KalenderEvent {
       event == other.event &&
       title == other.title &&
       color == other.color &&
+      categoryName == other.categoryName &&
       location == other.location;
   @override
   bool operator ==(Object other) =>
       other is EventCalendarEntry && layoutEquals(other);
   @override
   int get hashCode =>
-      Object.hash(super.hashCode, event, title, color, location);
+      Object.hash(super.hashCode, event, title, color, categoryName, location);
 }
 
 bool _midnight(String? value) =>

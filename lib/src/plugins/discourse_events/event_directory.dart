@@ -251,6 +251,11 @@ class _EventDirectoryState extends State<EventDirectory> {
           zones: controller.zones,
           timezone: _timezone,
           settings: _settings,
+          categoryName: switch (eventInt(event.fields['category_id'])) {
+            final id? =>
+              controller.siteState.categoryFor?.call(widget.site, id)?.name,
+            _ => null,
+          },
           categoryColor: switch (eventInt(event.fields['category_id'])) {
             final id? => switch (controller.siteState.categoryFor?.call(
               widget.site,

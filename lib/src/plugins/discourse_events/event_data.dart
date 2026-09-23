@@ -398,6 +398,7 @@ enum EventCalendarView {
   day('Day'),
   week('Week'),
   month('Month'),
+  schedule('Schedule'),
   year('Year');
 
   const EventCalendarView(this.label);
@@ -407,6 +408,7 @@ enum EventCalendarView {
     'day' || 'agendaDay' || 'timeGridDay' => day,
     'week' || 'agendaWeek' || 'timeGridWeek' => week,
     'month' || 'dayGridMonth' => month,
+    'schedule' || 'listMonth' => schedule,
     'year' || 'listNextYear' || 'listYear' => year,
     _ => null,
   };

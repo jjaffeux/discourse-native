@@ -51,6 +51,38 @@ void main() {
     );
   });
 
+  test('schedule bounds and routes navigate by calendar month', () {
+    final page = EventCalendarPage(
+      EventCalendarView.schedule,
+      DateTime.utc(2026, 12, 31),
+    );
+    expect(
+      page.days(firstDay: 1),
+      DateTimeRange(start: DateTime.utc(2026, 12), end: DateTime.utc(2027)),
+    );
+    expect(page.move(1).date, DateTime.utc(2027));
+    expect(page.move(-1).date, DateTime.utc(2026, 11));
+    expect(EventCalendarPage.readRoute(page.routeId(false))!.page, page);
+    expect(page.webPath(false), 'upcoming-events/listMonth/2026/12/31');
+    expect(EventCalendarView.parse('listMonth'), EventCalendarView.schedule);
+  });
+
+  test('schedule continuation labels count civil days across DST', () {
+    final event = entry({
+      'all_day': true,
+      'starts_at': '2026-10-24',
+      'ends_at': '2026-10-26',
+    })!;
+    expect(
+      event.scheduleMetadata(DateTime.utc(2026, 10, 25)),
+      'sam · day 2 of 3',
+    );
+    expect(
+      event.scheduleMetadata(DateTime.utc(2026, 10, 26)),
+      'sam · day 3 of 3',
+    );
+  });
+
   test('all-day inclusive end stays on its dates across DST and timezones', () {
     for (final (start, end, hours) in [
       ('2026-03-29', '2026-03-29', 23),
