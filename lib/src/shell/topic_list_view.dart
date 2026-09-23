@@ -554,25 +554,36 @@ class _TopicListViewState extends State<TopicListView> {
 
     return Column(
       children: [
-        if (state.incoming > 0)
-          _IncomingBanner(
-            count: state.incoming,
-            destination: destination,
-            loading: widget.feed.loadingIncoming,
-            onTap: () => _showIncoming(controller, destination, feedIdentity),
-          ),
         if (widget.showHeader) const TopicListHeader(),
         Expanded(
-          child: DPullToRefresh(
-            key: ValueKey(('topic-list-refresh', controller, feedIdentity)),
-            onRefresh: () async {
-              if (!identical(_controller, controller) ||
-                  !_isCurrent(controller, feedIdentity)) {
-                return;
-              }
-              await controller.loadFeed(destination, force: true);
-            },
-            child: _body(controller, destination, feedIdentity),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              DPullToRefresh(
+                key: ValueKey(('topic-list-refresh', controller, feedIdentity)),
+                onRefresh: () async {
+                  if (!identical(_controller, controller) ||
+                      !_isCurrent(controller, feedIdentity)) {
+                    return;
+                  }
+                  await controller.loadFeed(destination, force: true);
+                },
+                child: _body(controller, destination, feedIdentity),
+              ),
+              if (state.incoming > 0)
+                Positioned(
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  child: _IncomingBanner(
+                    count: state.incoming,
+                    destination: destination,
+                    loading: widget.feed.loadingIncoming,
+                    onTap: () =>
+                        _showIncoming(controller, destination, feedIdentity),
+                  ),
+                ),
+            ],
           ),
         ),
       ],
