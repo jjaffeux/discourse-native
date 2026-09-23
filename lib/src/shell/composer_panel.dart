@@ -3220,6 +3220,19 @@ class _ComposerEditorState extends State<ComposerEditor> {
     for (final box in boxes.skip(1)) {
       rect = rect.expandToInclude(box.toRect());
     }
+    // Selection boxes include the spacer below a paragraph's final baseline.
+    // End the block at its text line so the insertion boundary shares the gap
+    // equally with the following block, including when this block wraps.
+    if (block.kind != ComposerBlockKind.todo &&
+        text.blockSeparators.any((gap) => gap.start == block.end)) {
+      final lastLine = _lineRect(editable, block.end - 1);
+      rect = Rect.fromLTRB(
+        rect.left,
+        rect.top,
+        rect.right,
+        math.min(rect.bottom, lastLine.bottom),
+      );
+    }
     // Empty lines use the caret's line box. Include the same leading for a
     // populated block so typing its first character does not move the controls.
     rect = rect.expandToInclude(_lineRect(editable, block.start));
