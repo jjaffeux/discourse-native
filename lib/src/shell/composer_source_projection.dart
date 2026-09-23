@@ -29,6 +29,12 @@ List<InlineSpan> normalizeCollapsedComponentSourceSpans({
   final normalizer = _CollapsedComponentSourceNormalizer(
     source: source,
     suppressSyntheticLineBreaks: suppressSyntheticLineBreaks,
+    hasTrailingSyntheticLineBreak:
+        !suppressSyntheticLineBreaks &&
+        !source.endsWith('\n') &&
+        TextSpan(
+          children: spans,
+        ).toPlainText(includeSemanticsLabels: false).endsWith('\n'),
     trailingWhitespaceStart: trailingWhitespaceStart,
     padding: padding,
   );
@@ -54,15 +60,18 @@ final class _CollapsedComponentSourceNormalizer {
   _CollapsedComponentSourceNormalizer({
     required this.source,
     required this.suppressSyntheticLineBreaks,
+    required this.hasTrailingSyntheticLineBreak,
     required this.trailingWhitespaceStart,
     required this.padding,
   });
 
   final String source;
   final bool suppressSyntheticLineBreaks;
+  final bool hasTrailingSyntheticLineBreak;
   final int trailingWhitespaceStart;
   final EdgeInsets padding;
   int offset = 0;
+  bool _movedTrailingLineBreak = false;
 
   List<InlineSpan> normalize(List<InlineSpan> spans) => [
     for (final span in spans) _normalizeSpan(span),
@@ -159,6 +168,24 @@ final class _CollapsedComponentSourceNormalizer {
       final matchesSource =
           sourceOffset < source.length &&
           source.codeUnitAt(sourceOffset) == codeUnit;
+      // An empty line after a terminal WidgetSpan can inherit that widget's
+      // full height. Borrow one hidden source unit for the break and leave a
+      // zero-width character on the caret line so it uses ordinary text metrics.
+      // Source length and the end caret's offset stay unchanged.
+      if (hasTrailingSyntheticLineBreak &&
+          sourceOffset == source.length - 2 &&
+          isLayoutNeutral &&
+          matchesSource) {
+        result ??= List<int>.of(text.codeUnits);
+        result[localOffset] = 0x0A;
+        _movedTrailingLineBreak = true;
+        continue;
+      }
+      if (_movedTrailingLineBreak && sourceOffset == source.length - 1) {
+        result ??= List<int>.of(text.codeUnits);
+        result[localOffset] = 0x200B;
+        continue;
+      }
       final isSyntheticCaretLine =
           suppressSyntheticLineBreaks && isLineEnding && !matchesSource;
       if (!isSyntheticCaretLine &&

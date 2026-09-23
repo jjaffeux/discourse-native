@@ -555,8 +555,12 @@ class MarkdownEditingController extends TextEditingController {
     // children, but omits it from their local-to-global transform. Account for
     // that difference only when querying projected-component geometry; moving
     // the child itself would apply the scroll twice on screen.
-    return (renderObject.localToGlobal(Offset.zero) - Offset(0, scrollOffset)) &
-        renderObject.size;
+    // WidgetSpan scales the entire component. Transform both corners so its
+    // hit targets and block bounds include the scaled width and height.
+    return Rect.fromPoints(
+      renderObject.localToGlobal(Offset.zero),
+      renderObject.localToGlobal(renderObject.size.bottomRight(Offset.zero)),
+    ).shift(Offset(0, -scrollOffset));
   }
 
   List<ComposerImageBlock> get imageBlocks =>
