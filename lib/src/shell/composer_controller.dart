@@ -348,6 +348,7 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
          maxImageHeight: maxImageHeight,
          enableImageGalleries: !_target.isPlugin,
          enableTodos: !_target.isPlugin,
+         enableBlockSeparators: !_target.isPlugin,
        ),
        autocomplete = ComposerAutocomplete(search: search),
        _typing = TypingClock(now: now),

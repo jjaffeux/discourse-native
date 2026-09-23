@@ -2807,6 +2807,11 @@ class _ComposerEditorState extends State<ComposerEditor> {
         ? text.selection.extentOffset.clamp(0, text.text.length)
         : editable.getPositionForPoint(position).offset;
     final start = offset == 0 ? 0 : text.text.lastIndexOf('\n', offset - 1) + 1;
+    if (text.blockSeparators.any(
+      (separator) => start > separator.start && start < separator.end,
+    )) {
+      return null;
+    }
     final next = text.text.indexOf('\n', offset);
     var end = next < 0 ? text.text.length : next;
     if (end > start && text.text[end - 1] == '\r') end--;
