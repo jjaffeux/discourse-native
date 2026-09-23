@@ -11,14 +11,15 @@ import 'composer_controller.dart';
 import 'composer_embedded_editor.dart';
 import 'composer_galleries.dart';
 import 'composer_list_source.dart';
+import 'composer_lists.dart';
 import 'composer_panel.dart';
 import 'composer_todos.dart';
 import 'markdown_highlight.dart';
 
 const composerListSyntaxKind = ComposerSyntaxKind(
   owner: PluginId('core'),
-  name: 'task-item',
-  label: 'To-do',
+  name: 'list-item',
+  label: 'List',
 );
 
 final class ComposerListPolicy implements ComposerSyntaxPolicy {
@@ -37,7 +38,10 @@ final class ComposerListPolicy implements ComposerSyntaxPolicy {
       source,
       referenceMarkers: composer.text.todoReferenceMarkers,
     ))
-      if (item.containsTasks) _ListProjection(composer, item),
+      // Wait for the separating space while a marker is being typed.
+      if (item.source.length >= 2 &&
+          item.contentStart > item.start + item.indent + item.marker.length)
+        _ListProjection(composer, item),
   ];
 }
 
@@ -63,7 +67,10 @@ final class _ListProjection
   bool needsRawSource(
     TextEditingValue document, {
     required bool suppressCollapsedCaret,
-  }) => false;
+  }) =>
+      !document.composing.isCollapsed &&
+      document.composing.start < item.contentStart &&
+      document.composing.end > item.start;
   @override
   int caretAfter(String document) =>
       end +
@@ -139,7 +146,7 @@ final class _ListProjection
 }
 
 /// The existing rich composer edits a source-mapped body beside a Native
-/// checkbox. Every descendant remains in the item's content column.
+/// checkbox or a text marker. Descendants remain in the item's content column.
 class ComposerListItemEditor extends StatefulWidget {
   const ComposerListItemEditor({
     super.key,
@@ -215,7 +222,7 @@ class _ComposerListItemEditorState extends State<ComposerListItemEditor> {
   Widget build(BuildContext context) => ComposerEmbeddedEditor(
     owner: widget.composer,
     scrollController: widget.scrollController,
-    semanticLabel: widget.item.isTask ? 'To-do item' : 'List item',
+    semanticLabel: '${widget.item.label} item',
     child: Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -233,16 +240,17 @@ class _ComposerListItemEditorState extends State<ComposerListItemEditor> {
           Padding(
             padding: const EdgeInsetsDirectional.only(end: DSpacing.md),
             child: Text(
-              RegExp(r'^\d').hasMatch(widget.item.marker)
-                  ? widget.item.marker
-                  : '•',
+              widget.item.number != null ? '${widget.item.number}.' : '•',
+              style: context
+                  .findAncestorWidgetOfExactType<ComposerEditor>()
+                  ?.textStyle,
             ),
           ),
         Expanded(
           child: ComposerRichBodyEditor(
             composer: body,
             label: 'List item content',
-            hintText: 'To-do',
+            hintText: widget.item.isTask ? 'To-do' : 'List',
             enableBlockReordering: false,
             onKeyEvent: body.handleKey,
             onExit: body.exit,
@@ -363,7 +371,7 @@ class ComposerListBodyController extends ComposerController {
       parent.text.text,
       referenceMarkers: parent.text.todoReferenceMarkers,
     ).where((item) => item.start == _item.start).firstOrNull;
-    if (next == null || !next.containsTasks) {
+    if (next == null) {
       _retired = true;
       return;
     }
@@ -450,6 +458,9 @@ class ComposerListBodyController extends ComposerController {
       selection: TextSelection.collapsed(offset: offset),
     );
     final newline = _item.newline;
+    final emptyBoundary = before.text.trim().isEmpty && _needsParagraphBoundary
+        ? newline
+        : '';
     final next = _item.isTask
         ? ComposerTodoInputFormatter(
             referenceMarkers: parent.text.todoReferenceMarkers,
@@ -462,14 +473,25 @@ class ComposerListBodyController extends ComposerController {
               ),
             ),
           )
+        : before.text.trim().isEmpty
+        ? TextEditingValue(
+            text: value.text.replaceRange(
+              _item.start,
+              _item.end,
+              emptyBoundary,
+            ),
+            selection: TextSelection.collapsed(
+              offset: _item.start + emptyBoundary.length,
+            ),
+          )
         : TextEditingValue(
             text: value.text.replaceRange(
               offset,
               offset,
-              '$newline${_item.itemPrefix}',
+              '$newline${_item.nextPrefix}',
             ),
             selection: TextSelection.collapsed(
-              offset: offset + newline.length + _item.itemPrefix.length,
+              offset: offset + newline.length + _item.nextPrefix.length,
             ),
           );
     _scheduleCommand(value.text, next);
@@ -485,6 +507,14 @@ class ComposerListBodyController extends ComposerController {
       parent.requestFocus();
     });
     WidgetsBinding.instance.ensureVisualUpdate();
+  }
+
+  bool get _needsParagraphBoundary {
+    final previous = composerListItems(
+      parent.text.text,
+    ).where((item) => item.end < _item.start).lastOrNull;
+    return previous != null &&
+        parent.text.text.substring(previous.end, _item.start) == _item.newline;
   }
 
   void toggle() {
@@ -514,6 +544,27 @@ class ComposerListBodyController extends ComposerController {
     if (!parent.isCurrent) return;
     parent.text.selection = TextSelection.collapsed(offset: _item.end);
     parent.requestFocus();
+  }
+
+  bool setListKind({required bool ordered}) {
+    if (!isEditing ||
+        !_matches ||
+        !text.selection.isValid ||
+        text.text.substring(0, text.selection.extentOffset).contains('\n')) {
+      return false;
+    }
+    _scheduleCommand(
+      parent.text.text,
+      insertComposerList(
+        parent.value.copyWith(
+          selection: TextSelection.collapsed(
+            offset: _item.body.sourceOffset(text.selection.extentOffset),
+          ),
+        ),
+        ordered: ordered,
+      ),
+    );
+    return true;
   }
 
   void outdent() {
@@ -554,6 +605,40 @@ class ComposerListBodyController extends ComposerController {
     WidgetsBinding.instance.ensureVisualUpdate();
   }
 
+  void indent() {
+    if (!isEditing || !_matches) return;
+    final siblings = composerListItems(parent.text.text);
+    final index = siblings.indexWhere((item) => item.start == _item.start);
+    if (index <= 0) return;
+    final previous = siblings[index - 1];
+    if (parent.text.text
+        .substring(previous.end, _item.start)
+        .trim()
+        .isNotEmpty) {
+      return;
+    }
+    final prefix = ' ' * (previous.contentIndent - _item.indent);
+    if (prefix.isEmpty) return;
+    final indented = _item.source
+        .split(RegExp(r'\r?\n'))
+        .map((line) => '$prefix$line')
+        .join(_item.newline);
+    final caret = text.selection.isValid ? text.selection.extentOffset : 0;
+    final sourceCaret = _item.body.sourceOffset(caret);
+    final linesBeforeCaret = '\n'
+        .allMatches(parent.text.text.substring(_item.start, sourceCaret))
+        .length;
+    _scheduleCommand(
+      parent.text.text,
+      TextEditingValue(
+        text: parent.text.text.replaceRange(_item.start, _item.end, indented),
+        selection: TextSelection.collapsed(
+          offset: sourceCaret + prefix.length * (linesBeforeCaret + 1),
+        ),
+      ),
+    );
+  }
+
   KeyEventResult handleKey(KeyEvent event) {
     final isHorizontalArrow =
         event.logicalKey == LogicalKeyboardKey.arrowLeft ||
@@ -590,19 +675,31 @@ class ComposerListBodyController extends ComposerController {
         keyboard.isAltPressed) {
       return KeyEventResult.ignored;
     }
+    if (!keyboard.isShiftPressed &&
+        event.logicalKey == LogicalKeyboardKey.tab) {
+      indent();
+      return KeyEventResult.handled;
+    }
     if (selection.isCollapsed &&
         selection.start == 0 &&
         event.logicalKey == LogicalKeyboardKey.backspace) {
+      if (parent is ComposerListBodyController) {
+        outdent();
+        return KeyEventResult.handled;
+      }
       final value = parent.value;
+      final boundary = _needsParagraphBoundary ? _item.newline : '';
       _scheduleCommand(
         value.text,
         TextEditingValue(
           text: value.text.replaceRange(
             _item.start,
             _item.end,
-            _item.body.text.replaceAll('\n', _item.newline),
+            '$boundary${_item.body.text.replaceAll('\n', _item.newline)}',
           ),
-          selection: TextSelection.collapsed(offset: _item.start),
+          selection: TextSelection.collapsed(
+            offset: _item.start + boundary.length,
+          ),
         ),
       );
       return KeyEventResult.handled;
