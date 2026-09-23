@@ -83,6 +83,11 @@ Future<void> main() async {
                 },
             ],
           }, index: 0)!,
+          SidebarSection.customFromJson({
+            'id': 10,
+            'title': 'Team links',
+            'links': <Map<String, dynamic>>[],
+          }, index: 1)!,
           for (final (id, title) in [
             ('one-to-one', '1:1'),
             ('assignments', 'Assignments'),

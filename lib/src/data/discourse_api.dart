@@ -223,6 +223,25 @@ class DiscourseApi
   );
 
   @override
+  Future<List<SidebarSection>> moveSidebarLink({
+    required String siteUrl,
+    required String apiKey,
+    required int sourceSectionId,
+    required int targetSectionId,
+    required int linkId,
+    required int position,
+    String? clientId,
+  }) => _account.moveSidebarLink(
+    siteUrl: siteUrl,
+    apiKey: apiKey,
+    sourceSectionId: sourceSectionId,
+    targetSectionId: targetSectionId,
+    linkId: linkId,
+    position: position,
+    clientId: clientId,
+  );
+
+  @override
   Future<SiteAppearance?> siteAppearance({
     required String siteUrl,
     String? username,

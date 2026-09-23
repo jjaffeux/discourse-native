@@ -123,7 +123,7 @@ class SidebarDestination {
 
   final String? feedPath;
 
-  /// Core SidebarUrl ID, used when persisting a custom section's link order.
+  /// Core SidebarUrl ID, used when reordering or moving custom section links.
   final int? linkId;
 }
 

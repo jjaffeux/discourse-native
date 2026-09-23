@@ -53,7 +53,155 @@ Widget _fixture({
   ),
 );
 
+Widget _transferFixture({
+  required ScrollController scroll,
+  required ValueChanged<DSidebarMove> onMove,
+  required ReorderCallback onReorder,
+  bool dark = false,
+}) => MaterialApp(
+  theme: ThemeData(
+    platform: TargetPlatform.macOS,
+    brightness: dark ? Brightness.dark : Brightness.light,
+  ),
+  home: Scaffold(
+    body: MediaQuery(
+      data: const MediaQueryData(textScaler: TextScaler.linear(2)),
+      child: SizedBox(
+        width: 260,
+        height: 220,
+        child: DSidebarProvider(
+          mobileBreakpoint: 0,
+          child: DSidebar(
+            collapsible: DSidebarCollapsible.none,
+            child: DSidebarReorderScope(
+              child: DSidebarContent.slivers(
+                controller: scroll,
+                slivers: [
+                  DSidebarReorderableMenu.sliverBuilder(
+                    sectionId: 'source',
+                    itemCount: 1,
+                    onReorder: onReorder,
+                    onMove: onMove,
+                    itemBuilder: (_, _) => DSidebarMenuButton(
+                      key: const ValueKey('source'),
+                      onPressed: () {},
+                      child: const Text('Source'),
+                    ),
+                  ),
+                  DSidebarReorderableMenu.sliverBuilder(
+                    sectionId: 'target',
+                    itemCount: 40,
+                    onReorder: onReorder,
+                    onMove: onMove,
+                    itemBuilder: (_, index) => DSidebarMenuButton(
+                      key: ValueKey(index),
+                      onPressed: () {},
+                      child: Text('Target $index'),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    ),
+  ),
+);
+
 void main() {
+  for (final dark in [false, true]) {
+    testWidgets(
+      'cross-section drag scrolls and paints a target at large text in ${dark ? 'dark' : 'light'}',
+      (tester) async {
+        final scroll = ScrollController();
+        addTearDown(scroll.dispose);
+        final moves = <DSidebarMove>[];
+        final reorders = <(int, int)>[];
+        await tester.pumpWidget(
+          _transferFixture(
+            scroll: scroll,
+            dark: dark,
+            onMove: moves.add,
+            onReorder: (from, to) => reorders.add((from, to)),
+          ),
+        );
+        final gesture = await tester.startGesture(
+          tester.getCenter(find.text('Source')),
+          kind: PointerDeviceKind.mouse,
+        );
+        await gesture.moveBy(const Offset(0, 10));
+        await tester.pump();
+        await gesture.moveTo(const Offset(100, 215));
+        for (var frame = 0; frame < 20; frame++) {
+          await tester.pump(const Duration(milliseconds: 50));
+        }
+        expect(scroll.offset, greaterThan(0));
+        final targets = find.byType(DSidebarDropTarget).evaluate().where((
+          element,
+        ) {
+          final target = element.widget as DSidebarDropTarget;
+          if (target.sectionId != 'target') return false;
+          final rect = tester.getRect(find.byWidget(target));
+          return rect.top >= 0 && rect.bottom < 210;
+        });
+        final target = targets.last.widget as DSidebarDropTarget;
+        await gesture.moveTo(tester.getCenter(find.byWidget(target)));
+        await tester.pump();
+        final decorations = tester.widgetList<DecoratedBox>(
+          find.descendant(
+            of: find.byWidget(target),
+            matching: find.byType(DecoratedBox),
+          ),
+        );
+        expect(
+          decorations.any(
+            (box) =>
+                box.position == DecorationPosition.foreground &&
+                (box.decoration as BoxDecoration).border != null,
+          ),
+          isTrue,
+        );
+        await gesture.up();
+        await tester.pumpAndSettle();
+        expect(moves.single.sourceId, 'source');
+        expect(moves.single.targetId, 'target');
+        expect(moves.single.newIndex, greaterThan(1));
+        expect(reorders, isEmpty);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
+  testWidgets('cancelling a cross-section drag does not move or reorder', (
+    tester,
+  ) async {
+    final scroll = ScrollController();
+    addTearDown(scroll.dispose);
+    final moves = <DSidebarMove>[];
+    final reorders = <(int, int)>[];
+    await tester.pumpWidget(
+      _transferFixture(
+        scroll: scroll,
+        onMove: moves.add,
+        onReorder: (from, to) => reorders.add((from, to)),
+      ),
+    );
+    final gesture = await tester.startGesture(
+      tester.getCenter(find.text('Source')),
+      kind: PointerDeviceKind.mouse,
+    );
+    await gesture.moveBy(const Offset(0, 10));
+    await tester.pump();
+    await gesture.moveTo(tester.getCenter(find.text('Target 0')));
+    await tester.pump();
+    await gesture.cancel();
+    await tester.pumpAndSettle();
+    expect(moves, isEmpty);
+    expect(reorders, isEmpty);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('keyboard reordering retains row focus and stops at boundaries', (
     tester,
   ) async {

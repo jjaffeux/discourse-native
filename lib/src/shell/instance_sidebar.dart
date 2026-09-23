@@ -281,6 +281,13 @@ class _SidebarPanelBodyState extends State<_SidebarPanelBody> {
   double get width => widget.width;
 
   bool _shortcuts = false;
+  final _linkEdit = _SidebarLinkEditController();
+
+  @override
+  void dispose() {
+    _linkEdit.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -421,186 +428,194 @@ class _SidebarPanelBodyState extends State<_SidebarPanelBody> {
         children: [
           if (showUserMenu && showCoreSections) const _SidebarSearchRow(),
           Expanded(
-            child: DSidebarContent.slivers(
-              slivers: [
-                DSidebarGroup.sliver(
-                  padding: const EdgeInsets.fromLTRB(8, 2, 8, 8),
-                  sliver: SliverMainAxisGroup(
-                    slivers: [
-                      if (showCoreSections)
-                        ListenableBuilder(
-                          listenable: Listenable.merge([
-                            controller.accountActivity.totalsListenable,
-                            controller.draftList,
-                            controller.topicFeeds,
-                            ...registry.communitySidebarListenables(
-                              context,
-                              includeOwner: includePluginOwner,
-                            ),
-                          ]),
-                          builder: (context, _) => SliverMainAxisGroup(
-                            slivers: [
-                              for (final (sections, loading) in [
-                                (
-                                  widget.mobile
-                                      ? (_shortcuts
-                                            ? customSections
-                                            : <SidebarSection>[])
-                                      : sidebar.sections,
-                                  false,
-                                ),
-                                (
-                                  widget.mobile && _shortcuts
-                                      ? <SidebarSection>[]
-                                      : sidebar.navigationSections,
-                                  sidebar.navigationLoading,
-                                ),
-                              ])
-                                _RestoredSidebarSections(
-                                  siteUrl: sidebar.siteUrl!,
-                                  sections: sections,
-                                  store: sectionStore,
-                                  loading: loading,
-                                  child: SliverMainAxisGroup(
-                                    slivers: [
-                                      for (final section in sections)
-                                        _Section(
-                                          key: ValueKey((
-                                            sidebar.siteUrl,
-                                            section.id,
-                                          )),
-                                          siteUrl: sidebar.siteUrl!,
-                                          section: section,
-                                          appendedDestinations:
-                                              section.id == 'community'
-                                              ? registry
-                                                    .communitySidebarDestinations(
-                                                      context,
-                                                      includeOwner:
-                                                          includePluginOwner,
+            child: DSidebarReorderScope(
+              key: ValueKey(sidebar.siteUrl),
+              child: DSidebarContent.slivers(
+                slivers: [
+                  DSidebarGroup.sliver(
+                    padding: const EdgeInsets.fromLTRB(8, 2, 8, 8),
+                    sliver: SliverMainAxisGroup(
+                      slivers: [
+                        if (showCoreSections)
+                          ListenableBuilder(
+                            listenable: Listenable.merge([
+                              _linkEdit,
+                              controller.accountActivity.totalsListenable,
+                              controller.draftList,
+                              controller.topicFeeds,
+                              ...registry.communitySidebarListenables(
+                                context,
+                                includeOwner: includePluginOwner,
+                              ),
+                            ]),
+                            builder: (context, _) => SliverMainAxisGroup(
+                              slivers: [
+                                for (final (sections, loading) in [
+                                  (
+                                    widget.mobile
+                                        ? (_shortcuts
+                                              ? customSections
+                                              : <SidebarSection>[])
+                                        : sidebar.sections,
+                                    false,
+                                  ),
+                                  (
+                                    widget.mobile && _shortcuts
+                                        ? <SidebarSection>[]
+                                        : sidebar.navigationSections,
+                                    sidebar.navigationLoading,
+                                  ),
+                                ])
+                                  _RestoredSidebarSections(
+                                    siteUrl: sidebar.siteUrl!,
+                                    sections: sections,
+                                    store: sectionStore,
+                                    loading: loading,
+                                    child: SliverMainAxisGroup(
+                                      slivers: [
+                                        for (final section in sections)
+                                          _Section(
+                                            key: ValueKey((
+                                              sidebar.siteUrl,
+                                              section.id,
+                                            )),
+                                            siteUrl: sidebar.siteUrl!,
+                                            section: section,
+                                            linkEdit: _linkEdit,
+                                            appendedDestinations:
+                                                section.id == 'community'
+                                                ? registry
+                                                      .communitySidebarDestinations(
+                                                        context,
+                                                        includeOwner:
+                                                            includePluginOwner,
+                                                      )
+                                                : const [],
+                                            store: sectionStore,
+                                            selectedId: sidebar.destinationId,
+                                            loadingDestinationId:
+                                                switch (controller
+                                                    .currentFeed) {
+                                                  final feed?
+                                                      when feed.loading &&
+                                                          feed
+                                                              .topicIds
+                                                              .isNotEmpty =>
+                                                    controller.currentFeedId,
+                                                  _ => null,
+                                                },
+                                            badgeFor:
+                                                controller.sidebarBadgeFor,
+                                            insertedDestination:
+                                                sidebar.canCreateTopic &&
+                                                    section.destinations.any(
+                                                      (destination) =>
+                                                          destination.id ==
+                                                          'messages',
                                                     )
-                                              : const [],
-                                          store: sectionStore,
-                                          selectedId: sidebar.destinationId,
-                                          loadingDestinationId:
-                                              switch (controller.currentFeed) {
-                                                final feed?
-                                                    when feed.loading &&
-                                                        feed
-                                                            .topicIds
-                                                            .isNotEmpty =>
-                                                  controller.currentFeedId,
-                                                _ => null,
-                                              },
-                                          badgeFor: controller.sidebarBadgeFor,
-                                          insertedDestination:
-                                              sidebar.canCreateTopic &&
-                                                  section.destinations.any(
-                                                    (destination) =>
-                                                        destination.id ==
-                                                        'messages',
-                                                  )
-                                              ? _newTopicDestination
-                                              : null,
-                                          insertAfterDestinationId: 'messages',
-                                          onSelect: (destination) {
-                                            widget.onNavigate?.call();
-                                            if (destination.id ==
-                                                _newTopicDestinationId) {
-                                              unawaited(
-                                                controller
-                                                    .openNewTopicFromSidebar(),
-                                              );
-                                              return;
-                                            }
-                                            if (destination.id == 'admin') {
-                                              unawaited(
-                                                openExternalLink(
-                                                  resolveSitePath(
-                                                    sidebar.siteUrl!,
-                                                    'admin',
+                                                ? _newTopicDestination
+                                                : null,
+                                            insertAfterDestinationId:
+                                                'messages',
+                                            onSelect: (destination) {
+                                              widget.onNavigate?.call();
+                                              if (destination.id ==
+                                                  _newTopicDestinationId) {
+                                                unawaited(
+                                                  controller
+                                                      .openNewTopicFromSidebar(),
+                                                );
+                                                return;
+                                              }
+                                              if (destination.id == 'admin') {
+                                                unawaited(
+                                                  openExternalLink(
+                                                    resolveSitePath(
+                                                      sidebar.siteUrl!,
+                                                      'admin',
+                                                    ),
                                                   ),
-                                                ),
-                                              );
-                                              return;
-                                            }
-                                            final url = destination.url;
-                                            if (url == null) {
-                                              if (widget.mobile) {
-                                                controller
-                                                    .selectMobileDestination(
-                                                      MobileTab.topics,
-                                                      destination,
-                                                    );
+                                                );
+                                                return;
+                                              }
+                                              final url = destination.url;
+                                              if (url == null) {
+                                                if (widget.mobile) {
+                                                  controller
+                                                      .selectMobileDestination(
+                                                        MobileTab.topics,
+                                                        destination,
+                                                      );
+                                                } else {
+                                                  controller.selectDestination(
+                                                    destination,
+                                                  );
+                                                }
                                               } else {
-                                                controller.selectDestination(
-                                                  destination,
+                                                unawaited(
+                                                  openLink(
+                                                    context,
+                                                    url,
+                                                    title: destination.label,
+                                                    siteUrl: sidebar.siteUrl,
+                                                  ),
                                                 );
                                               }
-                                            } else {
-                                              unawaited(
-                                                openLink(
-                                                  context,
-                                                  url,
-                                                  title: destination.label,
-                                                  siteUrl: sidebar.siteUrl,
-                                                ),
-                                              );
-                                            }
-                                          },
-                                        ),
-                                    ],
+                                            },
+                                          ),
+                                      ],
+                                    ),
                                   ),
-                                ),
-                            ],
-                          ),
-                        ),
-                      if (!widget.mobile || !showCoreSections)
-                        ListenableBuilder(
-                          listenable: Listenable.merge(
-                            registry.sidebarListenables(
-                              context,
-                              includeOwner: includePluginOwner,
+                              ],
                             ),
                           ),
-                          builder: (context, _) {
-                            final sections = registry.sidebarSections(
-                              context,
-                              includeOwner: includePluginOwner,
-                            );
-                            return _RestoredSidebarSections(
-                              siteUrl: sidebar.siteUrl!,
-                              sections: sections,
-                              store: sectionStore,
-                              child: SliverMainAxisGroup(
-                                slivers: [
-                                  for (final section in sections)
-                                    _Section(
-                                      key: ValueKey((
-                                        sidebar.siteUrl,
-                                        section.id,
-                                      )),
-                                      siteUrl: sidebar.siteUrl!,
-                                      section: section,
-                                      store: sectionStore,
-                                      selectedId: widget.mobile
-                                          ? null
-                                          : selectedPanel
-                                                    ?.panel
-                                                    .selectedDestinationId ??
-                                                sidebar.destinationId,
-                                      badgeFor: controller.sidebarBadgeFor,
-                                      onSelect: controller.selectDestination,
-                                    ),
-                                ],
+                        if (!widget.mobile || !showCoreSections)
+                          ListenableBuilder(
+                            listenable: Listenable.merge(
+                              registry.sidebarListenables(
+                                context,
+                                includeOwner: includePluginOwner,
                               ),
-                            );
-                          },
-                        ),
-                    ],
+                            ),
+                            builder: (context, _) {
+                              final sections = registry.sidebarSections(
+                                context,
+                                includeOwner: includePluginOwner,
+                              );
+                              return _RestoredSidebarSections(
+                                siteUrl: sidebar.siteUrl!,
+                                sections: sections,
+                                store: sectionStore,
+                                child: SliverMainAxisGroup(
+                                  slivers: [
+                                    for (final section in sections)
+                                      _Section(
+                                        key: ValueKey((
+                                          sidebar.siteUrl,
+                                          section.id,
+                                        )),
+                                        siteUrl: sidebar.siteUrl!,
+                                        section: section,
+                                        store: sectionStore,
+                                        selectedId: widget.mobile
+                                            ? null
+                                            : selectedPanel
+                                                      ?.panel
+                                                      .selectedDestinationId ??
+                                                  sidebar.destinationId,
+                                        badgeFor: controller.sidebarBadgeFor,
+                                        onSelect: controller.selectDestination,
+                                      ),
+                                  ],
+                                ),
+                              );
+                            },
+                          ),
+                      ],
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ],
@@ -868,6 +883,27 @@ class ForumIdentityHeader extends StatelessWidget {
   }
 }
 
+class _SidebarLinkEdit {
+  const _SidebarLinkEdit(this.siteUrl, this.destinations);
+  final String siteUrl;
+  final Map<SidebarSection, List<SidebarDestination>> destinations;
+}
+
+class _SidebarLinkEditController extends ValueNotifier<_SidebarLinkEdit?> {
+  _SidebarLinkEditController() : super(null);
+  bool _disposed = false;
+
+  void finish(_SidebarLinkEdit edit) {
+    if (!_disposed && identical(value, edit)) value = null;
+  }
+
+  @override
+  void dispose() {
+    _disposed = true;
+    super.dispose();
+  }
+}
+
 class _Section extends StatefulWidget {
   const _Section({
     super.key,
@@ -878,6 +914,7 @@ class _Section extends StatefulWidget {
     required this.badgeFor,
     required this.onSelect,
     this.loadingDestinationId,
+    this.linkEdit,
     this.insertedDestination,
     this.insertAfterDestinationId,
     this.appendedDestinations = const [],
@@ -885,6 +922,7 @@ class _Section extends StatefulWidget {
 
   final String siteUrl;
   final SidebarSection section;
+  final _SidebarLinkEditController? linkEdit;
   final SidebarSectionStore store;
   final String? selectedId;
   final String? loadingDestinationId;
@@ -994,6 +1032,76 @@ class _SectionState extends State<_Section> {
   bool _reordering = false;
   List<SidebarDestination>? _pendingDestinations;
 
+  bool get _busy =>
+      _reordering || widget.linkEdit?.value?.siteUrl == widget.siteUrl;
+
+  bool _canMove(DSidebarMove move) =>
+      !_busy &&
+      move.sourceId is SidebarSection &&
+      move.targetId == widget.section &&
+      ShellScope.read(context).canMoveSidebarLink(
+        siteUrl: widget.siteUrl,
+        source: move.sourceId as SidebarSection,
+        target: widget.section,
+        oldIndex: move.oldIndex,
+        newIndex: move.newIndex,
+      );
+
+  Future<void> _move(DSidebarMove move) async {
+    final edits = widget.linkEdit;
+    if (edits == null || !_canMove(move)) return;
+    final controller = ShellScope.read(context);
+    final source = move.sourceId as SidebarSection;
+    final target = widget.section;
+    final siteUrl = widget.siteUrl;
+    final sourceRows = source.destinations.toList();
+    final moved = sourceRows.removeAt(move.oldIndex);
+    final targetRows = target.destinations.toList()
+      ..insert(move.newIndex, moved);
+    final edit = _SidebarLinkEdit(siteUrl, {
+      source: sourceRows,
+      target: targetRows,
+    });
+    edits.value = edit;
+    try {
+      if (source.public || target.public) {
+        final confirmed = await showDiscourseAlertDialog<bool>(
+          context: context,
+          title: const Text('Move public link?'),
+          description: const Text(
+            'This changes a public sidebar section for everyone on this forum.',
+          ),
+          cancelLabel: const Text('Cancel'),
+          actionLabel: const Text('Move'),
+          actionResult: true,
+        );
+        if (confirmed != true) return;
+      }
+      if (!mounted ||
+          widget.siteUrl != siteUrl ||
+          !identical(widget.section, target)) {
+        return;
+      }
+      await controller.moveSidebarLink(
+        siteUrl: siteUrl,
+        source: source,
+        target: target,
+        oldIndex: move.oldIndex,
+        newIndex: move.newIndex,
+      );
+    } catch (_) {
+      if (mounted && widget.siteUrl == siteUrl) {
+        DToast.show(
+          context,
+          "Couldn't move link. Try again.",
+          type: DToastType.error,
+        );
+      }
+    } finally {
+      edits.finish(edit);
+    }
+  }
+
   void _selectDestination(SidebarDestination destination) {
     ComposerPresentationHost.redockForNavigation(context);
     final onTap = destination.onTap;
@@ -1005,13 +1113,15 @@ class _SectionState extends State<_Section> {
   }
 
   Future<void> _reorder(int oldIndex, int newIndex) async {
-    if (_reordering || newIndex == oldIndex || newIndex == oldIndex + 1) return;
+    if (_busy || newIndex == oldIndex || newIndex == oldIndex + 1) return;
     final controller = ShellScope.read(context);
     final section = widget.section;
     final siteUrl = widget.siteUrl;
     final destinations = section.destinations.toList();
     final moved = destinations.removeAt(oldIndex);
     destinations.insert(newIndex > oldIndex ? newIndex - 1 : newIndex, moved);
+    final edit = _SidebarLinkEdit(siteUrl, {section: destinations});
+    widget.linkEdit?.value = edit;
     // Keep the dropped order visible while confirming and saving. The
     // controller retains the saved order until the server accepts the change.
     setState(() {
@@ -1052,6 +1162,7 @@ class _SectionState extends State<_Section> {
         );
       }
     } finally {
+      widget.linkEdit?.finish(edit);
       if (mounted) {
         setState(() {
           _reordering = false;
@@ -1115,12 +1226,16 @@ class _SectionState extends State<_Section> {
         ),
       );
     }
-    final canReorder = ShellScope.read(
+    final canEdit = ShellScope.read(
       context,
-    ).canReorderSidebarLinks(widget.siteUrl, section);
+    ).canEditSidebarLinks(widget.siteUrl, section);
+    final preview = widget.linkEdit?.value;
+    final pending = preview?.siteUrl == widget.siteUrl
+        ? preview?.destinations[section]
+        : null;
     final destinations = <SidebarDestination>[
-      ...canReorder
-          ? _pendingDestinations ?? section.destinations
+      ...canEdit
+          ? pending ?? _pendingDestinations ?? section.destinations
           : section.destinations,
       ...widget.appendedDestinations,
       for (final destination in section.moreDestinations)
@@ -1189,7 +1304,7 @@ class _SectionState extends State<_Section> {
       final reorderable =
           runs.length == 1 &&
           rows.length == section.destinations.length &&
-          canReorder;
+          canEdit;
       final menu = submenu
           ? DSidebarMenuSub.sliverBuilder(
               itemCount: run.length,
@@ -1202,7 +1317,10 @@ class _SectionState extends State<_Section> {
               itemCount: run.length,
               itemBuilder: paddedRow,
               itemExtent: extent == null ? null : extent + _sidebarRowGap,
-              onReorder: _reordering ? null : _reorder,
+              onReorder: _busy ? null : _reorder,
+              sectionId: section,
+              onMove: _busy ? null : _move,
+              canMove: _canMove,
             )
           : DSidebarMenu.sliverBuilder(
               itemCount: run.length,
@@ -1222,6 +1340,11 @@ class _SectionState extends State<_Section> {
       );
     }
     final content = SliverMainAxisGroup(slivers: menus);
+    final header = _SectionHeader(
+      section: section,
+      collapsed: _collapsed,
+      onPressed: () => _setOpen(_collapsed),
+    );
     final group = SliverMainAxisGroup(
       slivers: [
         if (section.actionAboveHeader && section.onAction != null)
@@ -1245,11 +1368,16 @@ class _SectionState extends State<_Section> {
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.only(bottom: _sidebarRowGap),
-              child: _SectionHeader(
-                section: section,
-                collapsed: _collapsed,
-                onPressed: () => _setOpen(_collapsed),
-              ),
+              child: section.remoteId == null
+                  ? header
+                  : DSidebarDropTarget(
+                      sectionId: section,
+                      index: section.destinations.length,
+                      append: true,
+                      onMove: canEdit && !_busy ? _move : null,
+                      canMove: _canMove,
+                      child: header,
+                    ),
             ),
           ),
         if (section.collapsible)

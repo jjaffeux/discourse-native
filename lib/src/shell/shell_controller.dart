@@ -2407,12 +2407,14 @@ class ShellController extends FrameSafeNotifier
 
   final _sidebarReorders = <(String, int)>{};
 
-  bool canReorderSidebarLinks(String siteUrl, SidebarSection section) {
+  bool canReorderSidebarLinks(String siteUrl, SidebarSection section) =>
+      canEditSidebarLinks(siteUrl, section) && section.destinations.length > 1;
+
+  bool canEditSidebarLinks(String siteUrl, SidebarSection section) {
     final instance = _instanceAt(siteUrl);
     return !isDisposed &&
         instance?.isConnected == true &&
         section.remoteId != null &&
-        section.destinations.length > 1 &&
         (!section.public || instance?.user?.admin == true);
   }
 
@@ -2468,6 +2470,82 @@ class ShellController extends FrameSafeNotifier
       });
     } finally {
       _sidebarReorders.remove(operation);
+    }
+  }
+
+  bool canMoveSidebarLink({
+    required String siteUrl,
+    required SidebarSection source,
+    required SidebarSection target,
+    required int oldIndex,
+    required int newIndex,
+  }) =>
+      source != target &&
+      canEditSidebarLinks(siteUrl, source) &&
+      canEditSidebarLinks(siteUrl, target) &&
+      customSidebarSectionsFor(siteUrl).contains(source) &&
+      customSidebarSectionsFor(siteUrl).contains(target) &&
+      oldIndex >= 0 &&
+      oldIndex < source.destinations.length &&
+      newIndex >= 0 &&
+      newIndex <= target.destinations.length &&
+      target.destinations.length < SidebarSection.maximumCustomLinks;
+
+  Future<void> moveSidebarLink({
+    required String siteUrl,
+    required SidebarSection source,
+    required SidebarSection target,
+    required int oldIndex,
+    required int newIndex,
+  }) async {
+    bool allowed() => canMoveSidebarLink(
+      siteUrl: siteUrl,
+      source: source,
+      target: target,
+      oldIndex: oldIndex,
+      newIndex: newIndex,
+    );
+    if (!allowed()) return;
+    final operations = {
+      (siteUrl, source.remoteId!),
+      (siteUrl, target.remoteId!),
+    };
+    if (operations.any(_sidebarReorders.contains)) return;
+    _sidebarReorders.addAll(operations);
+    final lease = lifecycle.capture(siteUrl);
+    try {
+      final credential = await _readSessionValue(
+        lease,
+        () => authenticator.apiKeyFor(siteUrl),
+      );
+      if (credential == null) return;
+      if (credential.value == null) {
+        throw const WriteException(WriteFailure.forbidden);
+      }
+      final identity = await _readSessionValue(lease, authenticator.clientId);
+      if (identity == null || !allowed()) return;
+      final updated = await api.site.moveSidebarLink(
+        siteUrl: siteUrl,
+        apiKey: credential.value!,
+        clientId: identity.value,
+        sourceSectionId: source.remoteId!,
+        targetSectionId: target.remoteId!,
+        linkId: source.destinations[oldIndex].linkId!,
+        position: newIndex,
+      );
+      if (isDisposed) return;
+      lease.commit(() {
+        _customSidebarSections[siteUrl] = [
+          for (final existing in customSidebarSectionsFor(siteUrl))
+            updated
+                    .where((section) => section.remoteId == existing.remoteId)
+                    .firstOrNull ??
+                existing,
+        ];
+        _notify();
+      });
+    } finally {
+      _sidebarReorders.removeAll(operations);
     }
   }
 

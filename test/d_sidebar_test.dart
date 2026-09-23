@@ -846,7 +846,7 @@ void main() {
           ),
         ),
       );
-      expect(tester.getSize(find.byType(DSidebarMenuButton).first).height, 28);
+      expect(tester.getSize(find.byType(DSidebarMenuButton).first).height, 34);
       focus.requestFocus();
       await tester.pump();
       await tester.sendKeyEvent(LogicalKeyboardKey.space);

@@ -158,6 +158,45 @@ final class DiscourseAccountApi {
     return section;
   }
 
+  Future<List<SidebarSection>> moveSidebarLink({
+    required String siteUrl,
+    required String apiKey,
+    required int sourceSectionId,
+    required int targetSectionId,
+    required int linkId,
+    required int position,
+    String? clientId,
+  }) async {
+    final body = await _write(
+      Uri.parse('$siteUrl/sidebar_sections/$sourceSectionId/move_link.json'),
+      siteUrl: siteUrl,
+      method: 'PUT',
+      apiKey: apiKey,
+      clientId: clientId,
+      body: {
+        'link_id': linkId,
+        'target_section_id': targetSectionId,
+        'position': position,
+      },
+    );
+    final sections = await _sidebarIcons.load(
+      body['sidebar_sections'],
+      siteUrl,
+    );
+    if (sections.length != 2 ||
+        sections
+                .where((section) => section.remoteId == sourceSectionId)
+                .length !=
+            1 ||
+        sections
+                .where((section) => section.remoteId == targetSectionId)
+                .length !=
+            1) {
+      throw const WriteException(WriteFailure.unreachable);
+    }
+    return sections;
+  }
+
   Future<NotificationTotals> notificationTotals({
     required String siteUrl,
     required String apiKey,
