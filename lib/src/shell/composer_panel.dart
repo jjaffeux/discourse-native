@@ -2789,6 +2789,8 @@ class _ComposerEditorState extends State<ComposerEditor> {
             composer: widget.composer,
             expands: widget.expands,
             blockRect: _blockRect,
+            blockActionRect: _blockActionRect,
+            lineHeight: _minimumLineHeight(context),
             emptyLineAt: _emptyLineAt,
             geometryChanges: _mediaLayoutRevision,
             editorScroll: () =>
@@ -2841,6 +2843,37 @@ class _ComposerEditorState extends State<ComposerEditor> {
       width: caret.width,
       height: editable.preferredLineHeight,
     );
+  }
+
+  Rect? _blockActionRect(ComposerBodyBlock block) {
+    final editable = _renderEditable;
+    if (editable == null || !editable.hasSize) return null;
+    if (block.kind == ComposerBlockKind.paragraph ||
+        block.kind == ComposerBlockKind.list) {
+      return _lineRect(
+        editable,
+        block.start,
+      ).shift(editable.localToGlobal(Offset.zero));
+    }
+    if (block.kind == ComposerBlockKind.heading) {
+      final boxes = editable.getBoxesForSelection(
+        TextSelection(baseOffset: block.start, extentOffset: block.end),
+      );
+      if (boxes.isNotEmpty) {
+        // Headings use their own first rendered line's font size and leading,
+        // even when they wrap onto several lines.
+        return boxes.first.toRect().shift(editable.localToGlobal(Offset.zero));
+      }
+    }
+    final rect = _blockRect(block);
+    return rect == null
+        ? null
+        : Rect.fromLTWH(
+            rect.left,
+            rect.top,
+            rect.width,
+            _minimumLineHeight(context),
+          );
   }
 
   Rect? _blockRect(ComposerBodyBlock block) {

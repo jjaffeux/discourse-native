@@ -25,6 +25,8 @@ class ComposerBlockSurface extends StatefulWidget {
     required this.composer,
     required this.child,
     required this.blockRect,
+    required this.lineHeight,
+    required this.blockActionRect,
     required this.emptyLineAt,
     required this.editorScroll,
     required this.expands,
@@ -33,6 +35,8 @@ class ComposerBlockSurface extends StatefulWidget {
 
   final ComposerController composer;
   final Widget child;
+  final double lineHeight;
+  final Rect? Function(ComposerBodyBlock block) blockActionRect;
   final Rect? Function(ComposerBodyBlock block) blockRect;
   final ComposerEmptyLine? Function(Offset? position) emptyLineAt;
   final ScrollPosition? Function() editorScroll;
@@ -57,6 +61,7 @@ class _ComposerBlockSurfaceState extends State<ComposerBlockSurface> {
   bool _refreshScheduled = false;
   final _blockActionsKey = GlobalKey();
   Rect? _handleRect;
+  double? _actionCenter;
   double? _dropTop;
 
   ComposerController get composer => widget.composer;
@@ -123,15 +128,24 @@ class _ComposerBlockSurfaceState extends State<ComposerBlockSurface> {
               box.globalToLocal(rect.topLeft),
               box.globalToLocal(rect.bottomRight),
             );
+      final actionRect =
+          emptyLine?.rect ??
+          (block == null ? null : widget.blockActionRect(block));
+      final actionCenter =
+          actionRect == null || box is! RenderBox || !box.hasSize
+          ? null
+          : box.globalToLocal(actionRect.center).dy;
       final target = _pointer == null ? _dropTarget : _targetAt(_pointer!);
       final dropTop = _dropY(target);
       if (localRect != _handleRect ||
+          actionCenter != _actionCenter ||
           dropTop != _dropTop ||
           target != _dropTarget ||
           emptyLine?.range != _emptyLine) {
         setState(() {
           _emptyLine = emptyLine?.range;
           _handleRect = localRect;
+          _actionCenter = actionCenter;
           _dropTarget = target;
           _dropTop = dropTop;
         });
@@ -503,6 +517,16 @@ class _ComposerBlockSurfaceState extends State<ComposerBlockSurface> {
     final handleRect = _handleRect;
     final gutter =
         DButton.composerBlockWidth(context) * 2 + DSpacing.controlGap;
+    final actionHeight = DControlStyle.scaledHeight(
+      DControlSize.regular,
+      MediaQuery.textScalerOf(context),
+      context: context,
+    );
+    // Keep the entire first-line target inside the surface, even when the
+    // standard button is taller than the editor's body text.
+    final topInset = desktop
+        ? ((actionHeight - widget.lineHeight) / 2).clamp(0.0, double.infinity)
+        : 0.0;
     final line = _dropTop == null
         ? null
         : PositionedDirectional(
@@ -564,6 +588,7 @@ class _ComposerBlockSurfaceState extends State<ComposerBlockSurface> {
                 Padding(
                   padding: EdgeInsetsDirectional.only(
                     start: desktop ? gutter : 0,
+                    top: topInset,
                   ),
                   child: DLongPressDragRegion<_BlockDrag>(
                     enabled: !desktop && composer.blocks.enabled,
@@ -599,7 +624,8 @@ class _ComposerBlockSurfaceState extends State<ComposerBlockSurface> {
                   PositionedDirectional(
                     key: _blockActionsKey,
                     start: 0,
-                    top: handleRect.top < 0 ? 0 : handleRect.top,
+                    top: ((_actionCenter ?? handleRect.top) - actionHeight / 2)
+                        .clamp(0.0, double.infinity),
                     child: _blockActions(block, emptyLine: _emptyLine),
                   ),
                 ?line,
