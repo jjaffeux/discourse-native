@@ -15,6 +15,7 @@ import 'package:discourse_native/src/plugins/voice/voice_module.dart';
 import 'package:discourse_native/src/plugins/voice/voice_services.dart';
 import 'package:discourse_native/src/plugins/voice/voice_settings.dart';
 import 'package:discourse_native/src/shell/bookmark_list.dart';
+import 'package:discourse_native/src/shell/composer_panel.dart';
 import 'package:discourse_native/src/shell/forum_search.dart';
 import 'package:discourse_native/src/shell/forum_tabs_bar.dart';
 import 'package:discourse_native/src/shell/instance_rail.dart';
@@ -162,8 +163,8 @@ Future<ShellController> pumpMobileShellFixture(
   return shell;
 }
 
-void _expectPage() {
-  expect(_bar, findsOneWidget);
+void _expectPage({bool focusedChat = false}) {
+  expect(_bar, focusedChat ? findsNothing : findsOneWidget);
   expect(_header, findsOneWidget);
   expect(find.byType(InstanceRail), findsNothing);
   expect(find.byType(ShellTitleBar), findsNothing);
@@ -280,9 +281,11 @@ void main() {
       );
       expect(menuIcon.center.dx, menu.center.dx);
       expect(
-        tester.widget<DButton>(
-          find.byKey(const ValueKey('forum-identity-button')),
-        ).size,
+        tester
+            .widget<DButton>(
+              find.byKey(const ValueKey('forum-identity-button')),
+            )
+            .size,
         DButtonSize.regular,
       );
       expect(
@@ -798,6 +801,45 @@ void main() {
     },
   );
 
+  _mobileTest('chat focus collapses tabs and blur restores them', (
+    tester,
+  ) async {
+    final shell = await pumpMobileShellFixture(tester);
+    await tester.tap(find.byKey(const ValueKey('mobile-mode-panel/chat')));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('DMs'));
+    await tester.tap(find.text('DMs'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('sam').first);
+    await tester.pumpAndSettle();
+    final composer = tester
+        .widget<ComposerEditor>(find.byType(ComposerEditor))
+        .composer;
+    composer.focus.unfocus();
+    await tester.pumpAndSettle();
+    expect(_bar, findsOneWidget);
+    final panel = find.byKey(const ValueKey('mobile-content-panel'));
+    final initialHeight = tester.getSize(panel).height;
+    composer.focus.requestFocus();
+    await tester.pump();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 90));
+    expect(tester.getSize(panel).height, greaterThan(initialHeight));
+    await tester.pumpAndSettle();
+    expect(_bar, findsNothing);
+    expect(composer.focus.hasFocus, isTrue);
+    composer.focus.unfocus();
+    await tester.pumpAndSettle();
+    expect(_bar, findsOneWidget);
+    expect(tester.getSize(panel).height, initialHeight);
+    composer.focus.requestFocus();
+    await tester.pumpAndSettle();
+    shell.handleBack();
+    await tester.pumpAndSettle();
+    expect(_bar, findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   _mobileTest('chat uses Channels and DMs and restores the chosen subtab', (
     tester,
   ) async {
@@ -814,7 +856,7 @@ void main() {
     expect(find.text('sam'), findsWidgets);
     await tester.tap(find.text('sam').first);
     await tester.pumpAndSettle();
-    _expectPage();
+    _expectPage(focusedChat: true);
     expect(shell.currentContent?.id, contains('10'));
     shell.pushContent(
       ContentRoute.topic(
@@ -827,7 +869,7 @@ void main() {
     _expectPage();
     expect(shell.handleBack(), isTrue);
     await tester.pumpAndSettle();
-    _expectPage();
+    _expectPage(focusedChat: true);
     expect(shell.currentContent?.id, contains('10'));
     shell.handleBack();
     await tester.pumpAndSettle();
@@ -860,7 +902,7 @@ void main() {
       find.byKey(const ValueKey('chat-new-direct-message-channel-10')),
     );
     await tester.pumpAndSettle();
-    _expectPage();
+    _expectPage(focusedChat: true);
     expect(shell.currentContent?.id, contains('10'));
     expect(find.text('Start chatting'), findsNothing);
     await tester.binding.handlePopRoute();
