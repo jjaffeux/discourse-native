@@ -49,6 +49,8 @@ text line between text blocks. A zero-width spacer below the preceding baseline
 replaces the required blank line visually, preserving source offsets, the full
 text strut, and stable empty-paragraph carets. Additional blank lines remain
 editable at their normal height.
+Explicit blank lines after to-do rows retain their existing spacing, while
+converting a paragraph to a to-do keeps its text at the same position.
 Enter starts a separated paragraph; Shift+Enter keeps a soft line break inside
 the current paragraph. The on-screen keyboard follows the same paragraph rule.
 The gap has no empty-block controls and the caret skips it. Backspace joins

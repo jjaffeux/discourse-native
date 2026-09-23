@@ -1472,8 +1472,10 @@ class MarkdownEditingController extends TextEditingController {
                 ),
                 if (separator.end - separator.start > 1)
                   const TextSpan(text: '\u200b', style: _hidden),
-              ] else if (!blockSeparators.contains(separator))
-                // Embedded components retain their boundary caret layout.
+              ] else if (!blockSeparators.contains(separator) ||
+                  todos.any((todo) => todo.end == separator.start))
+                // Embedded components and to-do rows retain their boundary
+                // caret layout and explicit blank lines.
                 TextSpan(
                   text: source.substring(separator.start, separator.end),
                   style: base,
