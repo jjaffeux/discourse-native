@@ -93,7 +93,7 @@ TextEditingValue normalizeComposerTagEdit(
     return next;
   }
   for (final format in composerInlineFormats(previous.text)) {
-    if (!const {'sup', 'sub', 'kbd'}.contains(format.kind)) continue;
+    if (!const {'sup', 'sub', 'kbd', 'ins'}.contains(format.kind)) continue;
     final opening = offset >= format.start && offset < format.contentStart;
     final closing = offset >= format.contentEnd && offset < format.end;
     if (!opening && !closing) continue;

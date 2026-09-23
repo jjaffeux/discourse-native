@@ -39,7 +39,7 @@ Future<void> main() async {
   void reset() {
     composer.text.value = const TextEditingValue(
       text:
-          'Select text to format it.\n\nTry bold, italic, underline, links and inline code.\n\n'
+          'Select text to format it.\n\nTry bold, italic, <ins>underline</ins>, links and inline code.\n\n'
           'E = mc<sup>2</sup> and H<sub>2</sub>O\n\n'
           'Press <kbd>Ctrl</kbd> + <kbd>**Shift**</kbd> + <kbd>K</kbd>.',
       selection: TextSelection(baseOffset: 0, extentOffset: 11),
