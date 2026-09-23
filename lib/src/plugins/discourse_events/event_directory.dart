@@ -478,6 +478,7 @@ class _EventDirectoryState extends State<EventDirectory> {
     child: EventCalendar(
       page: _page,
       events: _events,
+      loading: _loading,
       location: _location,
       firstDay: _firstDay,
       display: _settings.calendarDisplay,
@@ -540,12 +541,6 @@ class _EventDirectoryState extends State<EventDirectory> {
                 textAlign: TextAlign.center,
               ),
             ),
-          SizedBox(
-            height: 2,
-            child: _loading
-                ? const DProgress(semanticsLabel: 'Loading events')
-                : null,
-          ),
         ],
       ),
     ),

@@ -25,12 +25,14 @@ class MobileEventsReviewApp extends StatefulWidget {
     this.controls = true,
     this.width = 390,
     this.scale = 1,
+    this.loading = false,
   });
   final EventCalendarView initialView;
   final bool dark;
   final bool controls;
   final double width;
   final double scale;
+  final bool loading;
 
   @override
   State<MobileEventsReviewApp> createState() => _MobileEventsReviewAppState();
@@ -45,6 +47,7 @@ class _MobileEventsReviewAppState extends State<MobileEventsReviewApp> {
   late var _dark = widget.dark;
   late var _width = widget.width;
   late var _scale = widget.scale;
+  late var _loading = widget.loading;
   var _mine = false;
   var _rtl = false;
   var _examples = false;
@@ -258,6 +261,12 @@ class _MobileEventsReviewAppState extends State<MobileEventsReviewApp> {
                         label: Text(_rtl ? 'RTL' : 'LTR'),
                         onPressed: () => setState(() => _rtl = !_rtl),
                       ),
+                      DToggle(
+                        pressed: _loading,
+                        onPressedChanged: (value) =>
+                            setState(() => _loading = value),
+                        child: const Text('Loading'),
+                      ),
                       DButton(
                         label: Text(
                           _examples ? 'Event page' : 'Styleguide examples',
@@ -298,6 +307,7 @@ class _MobileEventsReviewAppState extends State<MobileEventsReviewApp> {
                               : EventCalendar(
                                   page: _page,
                                   events: _events,
+                                  loading: _loading,
                                   location: _ports.zones.location('UTC')!,
                                   onPageChanged: (page) =>
                                       setState(() => _page = page),
