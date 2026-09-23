@@ -161,33 +161,36 @@ class _ForumWindowBackgroundState extends State<ForumWindowBackground>
                     : const SizedBox.shrink(),
               ),
             ),
-            widget.child,
-            Positioned.fill(
-              child: gradient
-                  ? IgnorePointer(
-                      child: RepaintBoundary(
-                        child: CustomPaint(
-                          key: const ValueKey('forum-gradient-texture'),
-                          painter: _BackgroundPainter(
-                            // Reuse the original lava renderer with the live
-                            // accent and the form's independent Intensity.
-                            background!.copyWith(
-                              color: tokens.primary,
-                              strength: background.noiseIntensity,
-                            ),
-                            _motion,
-                            null,
-                          ),
+            if (gradient)
+              Positioned.fill(
+                child: IgnorePointer(
+                  child: RepaintBoundary(
+                    child: CustomPaint(
+                      key: const ValueKey('forum-gradient-texture'),
+                      painter: _BackgroundPainter(
+                        background!.copyWith(
+                          color: tokens.primary,
+                          strength: background.noiseIntensity,
                         ),
+                        _motion,
+                        null,
                       ),
-                    )
-                  : ForumTexture(
-                      background: reference
-                          ? background!
-                          : const ForumBackground.appearance(),
-                      accent: tokens.primary,
                     ),
-            ),
+                  ),
+                ),
+              ),
+            // Keep moving gradients behind text, icons and reading surfaces.
+            // Blending above them modulates glyph edges every animation frame.
+            widget.child,
+            if (!gradient)
+              Positioned.fill(
+                child: ForumTexture(
+                  background: reference
+                      ? background!
+                      : const ForumBackground.appearance(),
+                  accent: tokens.primary,
+                ),
+              ),
           ],
         ),
       ),

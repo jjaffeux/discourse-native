@@ -201,6 +201,21 @@ All 23 editor, settings-page and appearance-background tests passed, including
 name validation, cancellation, both saved palettes and clipboard activation.
 Root static analysis passed.
 
+### Stable text under Gradient — September 24, 2026
+
+Gradient now paints behind the workspace content instead of overlay-blending
+above it. The moving overlay changed mid-tone glyphs and anti-aliased edges,
+creating a shimmer despite no layout movement. Opaque reading surfaces now
+shield their contents; the gradient shows on the window canvas and through
+translucent surfaces according to their opacity. Noise and Lava lamp are
+unchanged.
+
+A pixel regression with grey text on an opaque reading surface failed on the
+old rendering order and passes with the fix: the interior remains byte-identical
+four seconds into the animation. All 36 gradient, background and app integration
+tests passed, including visible canvas animation, intensity, reduced motion and
+nested-window handling. Root static analysis passed.
+
 ### Colour palette tabs — September 24, 2026
 
 The Light/Dark editor tabs now sit inside the Colours card, directly above the

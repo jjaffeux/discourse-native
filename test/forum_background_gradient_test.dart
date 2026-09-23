@@ -13,7 +13,7 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   for (final brightness in Brightness.values) {
     testWidgets(
-      'Gradient is visible with zero tint and opaque $brightness panels',
+      'Gradient is visible on the canvas with zero tint in $brightness',
       (tester) async {
         await _show(tester, brightness: brightness, intensity: 0);
         final plain = await _capture(tester);
@@ -31,6 +31,37 @@ void main() {
       },
     );
   }
+
+  testWidgets(
+    'animated Gradient leaves opaque reading surfaces and text unchanged',
+    (tester) async {
+      await _show(
+        tester,
+        reducedMotion: false,
+        content: const ColoredBox(
+          color: Color(0xff30343b),
+          child: Center(
+            child: Text(
+              'Steady text',
+              style: TextStyle(color: Color(0xffa5a5a5), fontSize: 24),
+            ),
+          ),
+        ),
+      );
+      final initial = await _capture(tester);
+      await tester.pump(const Duration(seconds: 4));
+      final later = await _capture(tester);
+      // Exclude the card's rounded outer corners, where the canvas is visible.
+      for (var y = 20; y < 236; y++) {
+        final start = (y * 256 + 20) * 4;
+        final end = (y * 256 + 236) * 4;
+        expect(
+          later.sublist(start, end),
+          orderedEquals(initial.sublist(start, end)),
+        );
+      }
+    },
+  );
 
   testWidgets('maximum Gradient intensity preserves black and white ink', (
     tester,
@@ -107,7 +138,7 @@ Future<void> _show(
                 child: ForumWindowBackground(
                   child: DPageSurface(
                     framed: true,
-                    backgroundColor: palette.secondary,
+                    backgroundColor: Colors.transparent,
                     child: content ?? const SizedBox.expand(),
                   ),
                 ),
