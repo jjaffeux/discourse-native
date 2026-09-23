@@ -6,6 +6,82 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   testWidgets(
+    'presets support recent colors, keyboard activation, reset and disabled state',
+    (tester) async {
+      const red = DColorPreset(color: Colors.red, label: 'Red text');
+      const green = DColorPreset(
+        color: Colors.green,
+        label: 'Green background',
+        appearance: DColorPresetAppearance.background,
+      );
+      DColorPreset? selected;
+      final recent = <DColorPreset>[];
+      var enabled = true;
+      late StateSetter update;
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.dark,
+          home: DCard(
+            child: StatefulBuilder(
+              builder: (context, setState) {
+                update = setState;
+                return DColorPickerPresets(
+                  semanticLabel: 'Text color',
+                  presets: const [red, green],
+                  selected: selected,
+                  recentColors: recent,
+                  onReset: () => setState(() => selected = null),
+                  onChanged: enabled
+                      ? (color) => setState(() {
+                          selected = color;
+                          recent.remove(color);
+                          recent.insert(0, color);
+                        })
+                      : null,
+                );
+              },
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.byTooltip('Red text'));
+      await tester.pumpAndSettle();
+      expect(selected, red);
+      expect(find.text('Recently used'), findsOneWidget);
+      expect(find.byTooltip('Red text'), findsNWidgets(2));
+      final greenButton = find.descendant(
+        of: find.byType(DColorPickerPresets),
+        matching: find.byWidgetPredicate(
+          (widget) =>
+              widget is DButton && widget.semanticLabel == 'Green background',
+        ),
+      );
+      Focus.of(
+        tester.element(
+          find
+              .descendant(of: greenButton, matching: find.byType(SizedBox))
+              .last,
+        ),
+      ).requestFocus();
+      await tester.pump();
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pumpAndSettle();
+      expect(selected, green);
+      expect(recent, [green, red]);
+      expect(find.byIcon(Icons.check), findsNWidgets(2));
+      await tester.tap(find.byTooltip('Text color: Default'));
+      await tester.pumpAndSettle();
+      expect(selected, isNull);
+      update(() => enabled = false);
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('Red text').last);
+      await tester.pumpAndSettle();
+      expect(selected, isNull);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
     'plane and keyboard update color; Escape closes only the picker',
     (tester) async {
       var color = const Color(0xff39845b);

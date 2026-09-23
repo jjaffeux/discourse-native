@@ -76,7 +76,11 @@ void main() {
         matching: find.byTooltip('Italic'),
       );
       expect(toolbar, findsOneWidget);
-      expect(tester.getSize(toolbar), const Size(96, 48));
+      expect(tester.getSize(toolbar).height, greaterThan(68));
+      expect(find.byTooltip('Underline'), findsOneWidget);
+      expect(find.byTooltip('Clear formatting'), findsOneWidget);
+      expect(find.byTooltip('Strikethrough'), findsOneWidget);
+      expect(find.byTooltip('Inline code'), findsOneWidget);
       expect(
         tester.getSize(bold),
         const Size.square(DControlStyle.regularHeight),
@@ -86,11 +90,14 @@ void main() {
         const Size.square(DControlStyle.regularHeight),
       );
       expect(
-        tester.getSemantics(bold),
+        tester.getSemantics(
+          find.descendant(of: bold, matching: find.byType(DToggle)),
+        ),
         isSemantics(
           label: 'Bold',
           isButton: true,
           hasEnabledState: true,
+          hasToggledState: true,
           isEnabled: true,
           isFocusable: true,
           hasTapAction: true,
@@ -102,7 +109,9 @@ void main() {
       await tester.pumpAndSettle();
       expect(boldFocus.hasPrimaryFocus, isTrue);
       expect(
-        tester.getSemantics(bold),
+        tester.getSemantics(
+          find.descendant(of: bold, matching: find.byType(DToggle)),
+        ),
         isSemantics(isFocusable: true, isFocused: true),
       );
 
@@ -128,15 +137,11 @@ void main() {
 }
 
 FocusNode _focusButton(WidgetTester tester, Finder tooltip) {
-  final button = find
-      .ancestor(of: tooltip, matching: find.byType(DButton))
-      .first;
-  final inkWell = find.descendant(of: button, matching: find.byType(InkWell));
-  expect(inkWell, findsOneWidget);
-  final focusChild = find
-      .descendant(of: inkWell, matching: find.byType(MouseRegion))
-      .first;
-  final focus = Focus.of(tester.element(focusChild));
+  final toggle = find.descendant(of: tooltip, matching: find.byType(DToggle));
+  final detector = tester.widget<FocusableActionDetector>(
+    find.descendant(of: toggle, matching: find.byType(FocusableActionDetector)),
+  );
+  final focus = detector.focusNode!;
   focus.requestFocus();
   return focus;
 }

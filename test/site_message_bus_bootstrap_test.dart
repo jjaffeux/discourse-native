@@ -6,6 +6,25 @@ import 'package:discourse_native/src/plugin_api/discourse_model_codec.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test('discovers server plugins only from loaded plugin assets', () async {
+    final source =
+        '''
+      <link rel="modulepreload" href="/assets/color.js" data-plugin-name="discourse-bbcode-color">
+      <script src="/assets/other.js" data-plugin-name="other-plugin"></script>
+      <div data-plugin-name="not-an-asset"></div>
+      ${_document({'currentUser': '{}'})}
+    ''';
+    final bootstrap = await SiteMessageBusBootstrap.fromHtml(
+      source,
+      siteUrl: 'https://example.com',
+      models: const DiscourseModelCodec.core(),
+    );
+    expect(bootstrap!.serverPluginNames, {
+      'discourse-bbcode-color',
+      'other-plugin',
+    });
+  });
+
   group('SiteMessageBusBootstrap', () {
     test('decodes snapshots and every channel position', () async {
       final document = _document({

@@ -20,7 +20,6 @@ import '../plugin_api/plugin_registry.dart';
 import '../plugin_api/plugin_scope.dart';
 import '../theme/app_theme.dart';
 import '../theme/d_icons.dart';
-import 'anchored_layout.dart';
 import 'composer_autocomplete.dart';
 import 'composer_block_surface.dart';
 import 'composer_blockquote.dart';
@@ -42,6 +41,7 @@ import 'composer_marks.dart';
 import 'composer_media_editing_coordinator.dart';
 import 'composer_quotes.dart';
 import 'composer_reply_context.dart';
+import 'composer_selection_menu.dart';
 import 'composer_slash_menu.dart';
 import 'composer_suggestions.dart';
 import 'composer_table.dart';
@@ -394,7 +394,6 @@ class ComposerPanel extends StatelessWidget {
                                               ),
                                           child: ComposerEditor(
                                             composer: composer,
-                                            showSelectionToolbar: false,
                                             expands: !mobile,
                                             pickImages: pickImages,
                                             readClipboardFiles:
@@ -1238,8 +1237,6 @@ class _ComposerEditorState extends State<ComposerEditor> {
   late final _verticalArrowAction = _ComposerVerticalArrowAction(
     _moveVertically,
   );
-  static const _menuWidth = DSpacing.touchTarget * 2;
-  static const _menuHeight = DSpacing.touchTarget;
   static const _menuGap = 4.0;
   static const _imageMenuPreferredWidth = 310.0;
   static const _galleryMenuButtonExtent = DSpacing.touchTarget;
@@ -1291,7 +1288,6 @@ class _ComposerEditorState extends State<ComposerEditor> {
     _selectionOverlay = _ComposerSelectionOverlay(
       composer: widget.composer,
       scroll: _scroll,
-      menuWidth: _menuWidth,
       showToolbar: () => widget.showSelectionToolbar,
       isMounted: () => mounted,
       renderEditable: () => _renderEditable,
@@ -3191,18 +3187,19 @@ class _ComposerEditorState extends State<ComposerEditor> {
         controller: _selectionOverlay.portal,
         overlayChildBuilder: (context) => ValueListenableBuilder<Rect?>(
           valueListenable: _selectionOverlay.anchor,
-          builder: (context, anchor, child) => CustomSingleChildLayout(
-            delegate: AnchoredLayout(
-              anchor: anchor,
-              maxWidth: _menuWidth,
-              gap: _menuGap,
-              preferAbove: true,
-            ),
-            child: child!,
-          ),
-          child: _SelectionFormattingMenu(
+          builder: (context, anchor, child) => anchor == null
+              ? const SizedBox.shrink()
+              : Positioned.fromRect(rect: anchor, child: child!),
+          child: ComposerSelectionMenu(
             composer: widget.composer,
             onFocusChange: _selectionOverlay.focusChanged,
+            onDismiss: _selectionOverlay.dismiss,
+            onLink: () => unawaited(
+              showComposerLinkDialog(
+                context: this.context,
+                composer: widget.composer,
+              ),
+            ),
           ),
         ),
         child: DropTarget(
@@ -3299,7 +3296,6 @@ final class _ComposerSelectionOverlay {
   _ComposerSelectionOverlay({
     required ComposerController composer,
     required this.scroll,
-    required this.menuWidth,
     required this.showToolbar,
     required this.isMounted,
     required this.renderEditable,
@@ -3311,7 +3307,6 @@ final class _ComposerSelectionOverlay {
 
   ComposerController _composer;
   final ScrollController scroll;
-  final double menuWidth;
   final bool Function() showToolbar;
   final bool Function() isMounted;
   final RenderEditable? Function() renderEditable;
@@ -3325,6 +3320,15 @@ final class _ComposerSelectionOverlay {
   bool _normalizingQuoteSelection = false;
   bool _disposed = false;
   TextSelection _lastQuoteSelection;
+  TextEditingValue? _dismissedValue;
+
+  void dismiss() {
+    if (_disposed) return;
+    _dismissedValue = _composer.value;
+    _syncToken = null;
+    anchor.value = null;
+    if (portal.isShowing) portal.hide();
+  }
 
   void _attach() {
     _composer.addListener(sync);
@@ -3352,6 +3356,7 @@ final class _ComposerSelectionOverlay {
     _lastQuoteSelection = composer.text.selection;
     _normalizingQuoteSelection = false;
     _toolbarFocused = false;
+    _dismissedValue = null;
     _syncToken = null;
     anchor.value = null;
     if (portal.isShowing) portal.hide();
@@ -3424,9 +3429,9 @@ final class _ComposerSelectionOverlay {
       final bottom = points.map((point) => point.dy).reduce(math.min);
       final lineHeight = editable.preferredLineHeight;
       anchor.value = Rect.fromLTWH(
-        (left + right) / 2 - menuWidth / 2,
+        left,
         bottom - lineHeight,
-        menuWidth,
+        math.max(1, right - left),
         lineHeight,
       );
       portal.show();
@@ -3439,6 +3444,7 @@ final class _ComposerSelectionOverlay {
 
   bool _canFormatSelection(TextSelection selection) =>
       _composer.isEditing &&
+      _composer.value != _dismissedValue &&
       selection.isValid &&
       !selection.isCollapsed &&
       _composer.text.keyboardSelectedProjection == null &&
@@ -3541,64 +3547,6 @@ class _ComposerPasteAction extends Action<PasteTextIntent> {
   @override
   bool consumesKey(PasteTextIntent intent) =>
       callingAction?.consumesKey(intent) ?? true;
-}
-
-class _SelectionFormattingMenu extends StatelessWidget {
-  const _SelectionFormattingMenu({
-    required this.composer,
-    required this.onFocusChange,
-  });
-
-  final ComposerController composer;
-  final ValueChanged<bool> onFocusChange;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Focus(
-      canRequestFocus: false,
-      skipTraversal: true,
-      onFocusChange: onFocusChange,
-      child: TextFieldTapRegion(
-        child: Material(
-          key: const ValueKey('composer-selection-toolbar'),
-          color: theme.shell.floating,
-          elevation: 8,
-          borderRadius: BorderRadius.circular(10),
-          clipBehavior: Clip.antiAlias,
-          child: Container(
-            width: _ComposerEditorState._menuWidth,
-            height: _ComposerEditorState._menuHeight,
-            foregroundDecoration: BoxDecoration(
-              border: Border.all(color: theme.shell.divider),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                for (final (mark, icon, label) in const [
-                  (ComposerMark.bold, DIcons.bold, 'Bold'),
-                  (ComposerMark.italic, DIcons.italic, 'Italic'),
-                ])
-                  DButton.iconOnly(
-                    onPressed: composer.isEditing
-                        ? () {
-                            if (!composer.isEditing) return;
-                            composer.toggleMark(mark);
-                            composer.focus.requestFocus();
-                          }
-                        : null,
-                    variant: DButtonVariant.ghost,
-                    tooltip: label,
-                    icon: DIcon(icon),
-                  ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
 }
 
 class _ImageComposerMenu extends StatelessWidget {

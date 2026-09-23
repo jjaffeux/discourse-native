@@ -463,6 +463,7 @@ class _Scan {
     _escapes();
     for (final block in blocks) {
       _htmlTags(block.text, block.offset);
+      _bbcodeColors(block.text, block.offset);
     }
     _links();
     _bareUrls();
@@ -567,6 +568,34 @@ class _Scan {
     '<(${allowedInlineTags.join('|')})>([\\s\\S]*?)</\\1>',
     caseSensitive: false,
   );
+
+  static final _colorPattern = RegExp(
+    r'\[(color|bgcolor)=(#[a-f0-9]{6}|#[a-f0-9]{3}|[a-z]+)\]([\s\S]*?)\[/\1\]',
+    caseSensitive: false,
+  );
+
+  void _bbcodeColors(String text, int offset) {
+    if (!text.contains('[/')) return;
+    for (final match in _colorPattern.allMatches(text)) {
+      final start = offset + match.start;
+      final end = offset + match.end;
+      final tag = match.group(1)!.toLowerCase();
+      final open = start + match.group(1)!.length + match.group(2)!.length + 3;
+      final close = end - tag.length - 3;
+      if (!_free(start, open) ||
+          !_free(close, end) ||
+          !_unescaped(start, open) ||
+          !_unescaped(close, end)) {
+        continue;
+      }
+      _mark(start, open, Md.marker);
+      _addTag(open, close, '$tag=${match.group(2)!.toLowerCase()}');
+      _mark(close, end, Md.marker);
+      _close(start, open);
+      _close(close, end);
+      _bbcodeColors(source.substring(open, close), open);
+    }
+  }
 
   void _htmlTags(String text, int offset) {
     // Every match needs a `</`, and the body between the tags is lazy with

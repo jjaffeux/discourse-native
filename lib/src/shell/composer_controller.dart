@@ -1435,6 +1435,16 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
     toggleMark(ComposerMark.inlineCode);
   }
 
+  void formatSelection(TextEditingValue Function(TextEditingValue) format) {
+    if (!isEditing ||
+        !text.selection.isValid ||
+        text.selection.isCollapsed ||
+        selectionTouchesComposerQuote(text.quoteBlocks, text.selection)) {
+      return;
+    }
+    history.transact(() => text.value = format(text.value));
+  }
+
   /// Applies an ATX heading to the caret's line, preserving its text.
   void setHeading(int level) {
     if (!isEditing || level < 1 || level > 4) return;

@@ -17,6 +17,7 @@ final class SiteMessageBusBootstrap {
     required this.topicTrackingState,
     required Map<String, int> topicTrackingLastIds,
     required this.notificationChannelPosition,
+    this.serverPluginNames = const {},
   }) : currentUserState = currentUserState == null
            ? null
            : Map.unmodifiable(currentUserState),
@@ -31,6 +32,7 @@ final class SiteMessageBusBootstrap {
   final TopicTrackingState? topicTrackingState;
   final Map<String, int> topicTrackingLastIds;
   final int? notificationChannelPosition;
+  final Set<String> serverPluginNames;
 
   bool hasCompleteTopicTrackingSnapshot(int userId) {
     if (topicTrackingState == null) return false;
@@ -109,6 +111,9 @@ final class SiteMessageBusBootstrap {
       currentUserState?['notification_channel_position'],
     );
     return SiteMessageBusBootstrap(
+      serverPluginNames: Set.unmodifiable(
+        (decoded['serverPluginNames'] as List).cast<String>(),
+      ),
       currentUser: currentUser,
       currentUserState: currentUserState,
       topicTrackingState: trackingState,
@@ -126,9 +131,10 @@ final class SiteMessageBusBootstrap {
 /// This top-level boundary runs in a worker isolate. Model construction stays
 /// with the caller because plugin codecs may retain isolate-local state.
 Map<String, Object?>? _decodePreloadedDocument(String source) {
-  final script = html
-      .parse(source)
-      .querySelector('script#data-preloaded[type="application/json"]');
+  final document = html.parse(source);
+  final script = document.querySelector(
+    'script#data-preloaded[type="application/json"]',
+  );
   if (script == null) return null;
 
   final Map<String, dynamic> preloaded;
@@ -140,6 +146,15 @@ Map<String, Object?>? _decodePreloadedDocument(String source) {
   if (preloaded.isEmpty) return null;
 
   return <String, Object?>{
+    // Core labels both classic scripts and modern module preloads.
+    'serverPluginNames': [
+      for (final asset in document.querySelectorAll(
+        'script[src][data-plugin-name], link[rel="modulepreload"][data-plugin-name]',
+      ))
+        if (asset.attributes['data-plugin-name']?.trim() case final name?
+            when name.isNotEmpty)
+          name,
+    ],
     'currentUser': _objectEntry(preloaded, 'currentUser'),
     'topicTrackingStates': _entry(preloaded, 'topicTrackingStates'),
     'topicTrackingStateMeta': _objectEntry(preloaded, 'topicTrackingStateMeta'),
