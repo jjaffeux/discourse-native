@@ -15238,6 +15238,10 @@ class ShellController extends FrameSafeNotifier
 
   bool handleBack({bool canReturnToSidebar = true}) {
     if (mobileNavigationEnabled) {
+      if (mobileNavigation.closeSidebar()) {
+        _notify();
+        return true;
+      }
       if (!mobileNavigation.goBack()) return false;
       _restoreMobileLocation();
       return true;
@@ -15311,6 +15315,16 @@ class ShellController extends FrameSafeNotifier
       _pendingTopicProperty = null;
     }
     notifySafely();
+  }
+
+  void toggleMobileSidebar() {
+    if (!mobileNavigationEnabled) return;
+    if (!mobileNavigation.closeSidebar()) mobileNavigation.openSidebar();
+    _notify();
+  }
+
+  void closeMobileSidebar() {
+    if (mobileNavigation.closeSidebar()) _notify();
   }
 
   void selectMobilePanel(String? owner) {
