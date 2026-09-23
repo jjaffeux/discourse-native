@@ -88,7 +88,25 @@ void main() {
       scroll.jumpTo(scroll.position.maxScrollExtent);
       await tester.pump();
       expect(scroll.offset, greaterThan(0));
+      final editable = tester
+          .state<EditableTextState>(find.byType(EditableText))
+          .renderEditable;
+      final lastCharacter = editable
+          .getBoxesForSelection(
+            TextSelection(
+              baseOffset: text.text.length - 1,
+              extentOffset: text.text.length,
+            ),
+          )
+          .single
+          .toRect()
+          .shift(editable.localToGlobal(Offset.zero));
+      expect(
+        lastCharacter.bottom,
+        lessThanOrEqualTo(tester.getRect(find.byType(DInput)).bottom),
+      );
       expect(tester.takeException(), isNull);
     },
+    variant: TargetPlatformVariant.all(),
   );
 }

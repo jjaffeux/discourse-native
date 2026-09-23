@@ -336,6 +336,12 @@ class _DInputState extends FormFieldState<String> {
                 decoration: InputDecoration(
                   isCollapsed: true,
                   isDense: true,
+                  // Compact density gives InputDecorator's child extra height
+                  // even with zero padding. A borderless editor must measure
+                  // its scroll viewport against its actual visible bounds.
+                  visualDensity: input.borderless
+                      ? VisualDensity.standard
+                      : null,
                   border: InputBorder.none,
                   enabledBorder: InputBorder.none,
                   focusedBorder: InputBorder.none,
