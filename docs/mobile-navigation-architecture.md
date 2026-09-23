@@ -16,7 +16,7 @@ visible and the bottom tab bar collapses while navigation is open:
 - **Forum** contains categories and tags.
 - **Shortcuts** contains custom sidebar sections and configured custom More links.
 
-Selecting a navigation destination closes the page. The hamburger and system
+Selecting a navigation destination closes the page. The hamburger, Escape and system
 Back also close it, preserving the current content visit. The existing content
 remains mounted offstage with focus and ticking disabled. Changing site or
 account closes navigation and discards the previous owner's history without
@@ -120,3 +120,10 @@ The additional transition, sidebar, adoption and shell regression run passed
 135 tests, with five unrelated failures reproduced on baseline `59a0b43d3`:
 the composer button styling inventory, macOS title-strip method calls, desktop
 custom-sidebar row height, community section height, and rail-tooltip leading.
+
+Interactive macOS review used the production mobile fixture with an iOS target
+platform override, in a narrow window and at its initial desktop width. It
+verified the full-page rail/sidebar, hidden tab bar, Forum/Shortcuts selection,
+opening a topic from a shortcut, and Escape returning to content. This was a
+local fixture with sample forums, not an iOS simulator or physical-device run.
+The final Escape change also passed all 58 mobile shell tests and root analysis.

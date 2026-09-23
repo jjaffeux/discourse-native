@@ -483,6 +483,13 @@ void main() {
         expect(navigation.bottom, greaterThan(content.bottom));
       }
     }
+    await tester.tap(menu);
+    await tester.pumpAndSettle();
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+    expect(shell.mobileNavigation.sidebarOpen, isFalse);
+    expect(shell.mobileNavigation.entryId, same(visit));
+    expect(tester.element(page), same(originalPage));
     expect(tester.takeException(), isNull);
   });
 

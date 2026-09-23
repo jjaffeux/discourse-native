@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../models/sidebar.dart';
 import '../plugin_api/plugin_scope.dart';
@@ -381,21 +382,36 @@ class _MobileForumRootState extends State<MobileForumRoot> {
                         ),
                       ),
                       if (sidebarOpen)
-                        Row(
-                          key: const ValueKey('mobile-navigation-page'),
-                          children: [
-                            const SizedBox(width: 48, child: InstanceRail()),
-                            Expanded(
-                              child: DPageSurface(
-                                border: false,
-                                child: InstanceSidebar(
-                                  key: ValueKey(('mobile-navigation', owner)),
-                                  mobile: true,
-                                  onNavigate: shell.closeMobileSidebar,
+                        CallbackShortcuts(
+                          bindings: {
+                            const SingleActivator(LogicalKeyboardKey.escape):
+                                shell.closeMobileSidebar,
+                          },
+                          child: Focus(
+                            autofocus: true,
+                            child: Row(
+                              key: const ValueKey('mobile-navigation-page'),
+                              children: [
+                                const SizedBox(
+                                  width: 48,
+                                  child: InstanceRail(),
                                 ),
-                              ),
+                                Expanded(
+                                  child: DPageSurface(
+                                    border: false,
+                                    child: InstanceSidebar(
+                                      key: ValueKey((
+                                        'mobile-navigation',
+                                        owner,
+                                      )),
+                                      mobile: true,
+                                      onNavigate: shell.closeMobileSidebar,
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
-                          ],
+                          ),
                         ),
                     ],
                   ),
