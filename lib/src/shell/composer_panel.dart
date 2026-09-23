@@ -694,7 +694,7 @@ class _MobileComposerViewportState extends State<_MobileComposerViewport> {
                       curve: Curves.easeOutCubic,
                       child: DButton.iconOnly(
                         key: const ValueKey('composer-scroll-down'),
-                        icon: const Icon(Icons.arrow_downward),
+                        icon: const DIcon(DIcons.chevronDown),
                         tooltip: 'Scroll to bottom',
                         semanticLabel: 'Scroll to bottom',
                         variant: DButtonVariant.secondary,
