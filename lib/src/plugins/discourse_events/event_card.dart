@@ -15,8 +15,7 @@ import 'event_navigation.dart';
 import 'event_participants.dart';
 import 'event_time.dart';
 
-/// Rendering is independently testable; no network or account state is read
-/// here. Only a hydrated, authorized owner supplies interactive callbacks.
+/// Only a hydrated, authorized owner supplies interactive callbacks.
 class EventCard extends StatefulWidget {
   const EventCard({
     super.key,
@@ -112,7 +111,7 @@ class _EventCardState extends State<EventCard> {
     final title = DefaultTextStyle(
       style: theme.textTheme.titleLarge!.copyWith(color: tokens.foreground),
       softWrap: true,
-      child: Text(event.title),
+      child: SiteEmojiText.plain(event.title, siteUrl: siteUrl),
     );
     final responseStatuses = settings.buttons.where(
       (status) => !event.flag('minimal') || status == 'interested',
