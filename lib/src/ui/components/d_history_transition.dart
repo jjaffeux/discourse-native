@@ -60,6 +60,9 @@ class DHistoryTransition extends StatefulWidget {
 
 class _DHistoryTransitionState extends State<DHistoryTransition>
     with SingleTickerProviderStateMixin, WidgetsBindingObserver {
+  static const _edgeWidth = 48.0;
+  static const _commitDistance = 64.0;
+
   final _boundary = GlobalKey();
   final _previews = <Object, ui.Image>{};
   final _pointers = <int>{};
@@ -189,12 +192,12 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
         _settling ||
         _switchingTab ||
         !_routeIsCurrent ||
-        _size.width <= 48) {
+        _size.width <= _edgeWidth * 2) {
       return false;
     }
     final x = event.localPosition.dx;
-    if (x > 24 && x < _size.width - 24) return false;
-    final back = _rtl ? x >= _size.width - 24 : x <= 24;
+    if (x > _edgeWidth && x < _size.width - _edgeWidth) return false;
+    final back = _rtl ? x >= _size.width - _edgeWidth : x <= _edgeWidth;
     return back
         ? widget.previousEntry != null && widget.onBack != null
         : widget.nextEntry != null && widget.onForward != null;
@@ -204,8 +207,8 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
     if (_pointers.length != 1 || !_routeIsCurrent) return;
     setState(() {
       _back = _rtl
-          ? details.localPosition.dx >= _size.width - 24
-          : details.localPosition.dx <= 24;
+          ? details.localPosition.dx >= _size.width - _edgeWidth
+          : details.localPosition.dx <= _edgeWidth;
       _dragging = true;
       _distance = 0;
       _preview = _previews[_target]?.clone();
@@ -230,7 +233,7 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
     final velocity = (details.primaryVelocity ?? 0) * _sign;
     final commit = velocity.abs() >= 650
         ? velocity > 0 && _progress.value > 0
-        : _progress.value >= .25;
+        : _distance >= _commitDistance;
     unawaited(_settle(commit));
   }
 

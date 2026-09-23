@@ -92,6 +92,36 @@ void main() {
     });
   }
 
+  for (final direction in TextDirection.values) {
+    for (final width in [400.0, 1000.0]) {
+      testWidgets('near-edge 70px swipes navigate at $width in $direction', (
+        tester,
+      ) async {
+        final state = await _pump(tester, direction: direction);
+        await tester.binding.setSurfaceSize(Size(width, 600));
+        state.visit(1);
+        await tester.pumpAndSettle();
+        final rtl = direction == TextDirection.rtl;
+        for (final inset in [5.0, 40.0]) {
+          for (final back in [true, false]) {
+            final fromRight = back ? rtl : !rtl;
+            final start = Offset(fromRight ? width - inset : inset, 250);
+            final gesture = await tester.startGesture(start);
+            await gesture.moveBy(
+              Offset(fromRight ? -70 : 70, 8),
+              timeStamp: const Duration(milliseconds: 300),
+            );
+            await tester.pump();
+            await gesture.up(timeStamp: const Duration(milliseconds: 500));
+            await tester.pumpAndSettle();
+            expect(state.index, back ? 0 : 1);
+            expect(state.swipes, (inset == 5 ? 0 : 2) + (back ? 1 : 2));
+          }
+        }
+      });
+    }
+  }
+
   testWidgets('short drags and pointer cancellation restore the live page', (
     tester,
   ) async {
@@ -168,6 +198,23 @@ void main() {
       expect(state.scroll.offset, greaterThan(0));
     },
   );
+
+  testWidgets('vertical scrolling inside the wider edges does not navigate', (
+    tester,
+  ) async {
+    final state = await _pump(tester);
+    state.visit(2);
+    state.visit(1);
+    await tester.pumpAndSettle();
+    for (final x in [40.0, 360.0]) {
+      final before = state.scroll.offset;
+      await tester.dragFrom(Offset(x, 250), const Offset(8, -120));
+      await tester.pumpAndSettle();
+      expect(state.scroll.offset, greaterThan(before));
+      expect(state.index, 1);
+      expect(state.swipes, 0);
+    }
+  });
 
   testWidgets('a second finger cancels navigation', (tester) async {
     final state = await _pump(tester);
