@@ -2,8 +2,10 @@ import 'dart:async';
 
 import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_plugin_test.dart';
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/plugins/discourse_events/event_calendar.dart';
 import 'package:discourse_native/src/plugins/discourse_events/event_calendar_data.dart';
+import 'package:discourse_native/src/plugins/discourse_events/event_data.dart';
 import 'package:discourse_native/src/plugins/discourse_events/event_directory.dart';
 import 'package:discourse_native/src/plugins/discourse_events/event_navigation.dart';
 import 'package:flutter/material.dart';
@@ -28,13 +30,20 @@ void main() {
   });
   tearDown(() => ports.close());
 
-  Future<void> pump(WidgetTester tester) async {
+  Future<void> pump(
+    WidgetTester tester, {
+    TargetPlatform platform = TargetPlatform.macOS,
+    Brightness brightness = Brightness.light,
+    EventCalendarPage? page,
+  }) async {
     await tester.pumpWidget(
       MaterialApp(
+        theme: ThemeData(platform: platform, brightness: brightness),
         home: Scaffold(
           body: EventDirectory(
             site: eventSite,
             mine: false,
+            page: page,
             controller: ports.controller,
             navigation: EventNavigation(
               host: _Routes(),
@@ -47,6 +56,75 @@ void main() {
     );
     await tester.pumpAndSettle();
   }
+
+  for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
+    testWidgets(
+      '${platform.name} defaults to Schedule and retains a selected view',
+      (tester) async {
+        tester.view.devicePixelRatio = 1;
+        tester.view.physicalSize = const Size(390, 844);
+        addTearDown(tester.view.reset);
+        transport.respond = (_) => {
+          'events': [current],
+        };
+        await pump(tester, platform: platform);
+        EventCalendarPage currentPage() =>
+            tester.widget<EventCalendar>(find.byType(EventCalendar)).page;
+        expect(currentPage().view, EventCalendarView.schedule);
+        expect(find.byType(DCalendarScheduleEntry), findsWidgets);
+        expect(transport.queries, hasLength(1));
+        expect(
+          transport.queries.single.queryParameters['after'],
+          '2026-08-31T22:00:00.000Z',
+        );
+        expect(
+          transport.queries.single.queryParameters['before'],
+          '2026-09-30T22:00:00.000Z',
+        );
+
+        await tester.tap(find.byType(DSelect<EventCalendarView>));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Month'));
+        await tester.pumpAndSettle();
+        expect(currentPage().view, EventCalendarView.month);
+        await pump(tester, platform: platform, brightness: Brightness.dark);
+        expect(currentPage().view, EventCalendarView.month);
+        expect(transport.queries, hasLength(2));
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
+  testWidgets('mobile preserves an explicit calendar route', (tester) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(390, 844);
+    addTearDown(tester.view.reset);
+    final page = EventCalendarPage(
+      EventCalendarView.month,
+      DateTime.utc(2026, 9, 8),
+    );
+    await pump(tester, platform: TargetPlatform.iOS, page: page);
+    expect(tester.widget<EventCalendar>(find.byType(EventCalendar)).page, page);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('desktop retains the configured default calendar view', (
+    tester,
+  ) async {
+    ports.settings = const EventSettings(
+      enabled: true,
+      calendarView: EventCalendarView.week,
+    );
+    transport.respond = (_) => {
+      'events': [current],
+    };
+    await pump(tester);
+    expect(
+      tester.widget<EventCalendar>(find.byType(EventCalendar)).page.view,
+      EventCalendarView.week,
+    );
+    expect(tester.takeException(), isNull);
+  });
 
   testWidgets(
     'directory repaints reader dates and refreshes on resume without mounted post cards',
