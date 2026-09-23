@@ -201,6 +201,18 @@ All 23 editor, settings-page and appearance-background tests passed, including
 name validation, cancellation, both saved palettes and clipboard activation.
 Root static analysis passed.
 
+### Preset-owned effects — September 24, 2026
+
+Selecting a preset now applies its authored background settings along with its
+palette and darker-sidebar flag. Missing background settings use the default
+appearance: zero tint, full opacity, no texture and the default intensity.
+Individual colour edits still preserve effects. Thumbnails use each preset's
+own background rather than the previously selected theme's background.
+
+All 26 editor, settings-page and background tests passed, covering authored
+effects, switching to a preset without effects, and reselecting the saved theme.
+Root static analysis passed.
+
 ### Remove redundant theme source toggle — September 24, 2026
 
 The Default forum theme / Custom theme toggle is removed. The editor is always

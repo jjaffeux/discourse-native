@@ -40,6 +40,62 @@ Future<void> mode(WidgetTester tester, String name) async {
 }
 
 void main() {
+  testWidgets(
+    'choosing a saved preset restores its authored background and sidebars',
+    (tester) async {
+      final shell = controller();
+      addTearDown(shell.dispose);
+      const background = ForumBackground.appearance(
+        strength: .4,
+        transparency: .2,
+        effect: ForumBackgroundEffect.noise,
+        noiseIntensity: .6,
+      );
+      final custom = ForumTheme.fromJson({
+        ...forumThemePresets.first.toJson(),
+        'name': 'Authored effects',
+        'background': background.toJson(),
+        'darkerSidebars': true,
+      }, id: 'custom-effects');
+      await shell.forumSettings.setThemes(
+        _site,
+        ForumThemePreferences(customThemes: [custom]),
+      );
+      await pumpSettings(tester, shell);
+      await preset(tester, 'Authored effects');
+      expect(shell.forumSettings.themesFor(_site).background, background);
+      expect(
+        shell.forumSettings
+            .themesFor(_site)
+            .themeFor(Brightness.light)!
+            .darkerSidebars,
+        isTrue,
+      );
+      await preset(tester, 'Solarized');
+      expect(
+        shell.forumSettings.themesFor(_site).background,
+        const ForumBackground.appearance(),
+      );
+      expect(
+        shell.forumSettings
+            .themesFor(_site)
+            .themeFor(Brightness.light)!
+            .darkerSidebars,
+        isFalse,
+      );
+      await preset(tester, 'Authored effects');
+      expect(shell.forumSettings.themesFor(_site).background, background);
+      expect(
+        shell.forumSettings
+            .themesFor(_site)
+            .themeFor(Brightness.light)!
+            .darkerSidebars,
+        isTrue,
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   testWidgets('darker sidebars updates live and persists per palette', (
     tester,
   ) async {
@@ -413,7 +469,7 @@ void main() {
   );
 
   testWidgets(
-    'tint opacity and texture intensity are independent and persist across presets',
+    'tint opacity and texture reset to defaults when absent from the next preset',
     (tester) async {
       final shell = controller();
       addTearDown(shell.dispose);
@@ -436,15 +492,27 @@ void main() {
       await tester.pumpAndSettle();
       expect(slider('intensity').onChanged, isNotNull);
       final before = shell.forumSettings.themesFor(_site).background!;
+      expect(before.effect, ForumBackgroundEffect.noise);
       await mode(tester, 'Dark');
       await preset(tester, 'Dracula');
-      expect(shell.forumSettings.themesFor(_site).background, before);
+      expect(
+        shell.forumSettings.themesFor(_site).background,
+        const ForumBackground.appearance(),
+      );
+      expect(
+        shell.forumSettings
+            .themesFor(_site)
+            .themeFor(Brightness.dark)!
+            .darkerSidebars,
+        isFalse,
+      );
+      await tester.ensureVisible(find.text('None'));
       await tester.tap(find.text('None'));
       await tester.pumpAndSettle();
       expect(slider('intensity').onChanged, isNull);
       expect(
         shell.forumSettings.themesFor(_site).background!.noiseIntensity,
-        before.noiseIntensity,
+        const ForumBackground.appearance().noiseIntensity,
       );
       expect(tester.takeException(), isNull);
     },
