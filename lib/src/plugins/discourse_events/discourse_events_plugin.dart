@@ -29,7 +29,8 @@ final class DiscourseEventsPlugin
         ComposerToolbarPlugin,
         NotificationTypePlugin,
         CommunitySidebarPlugin,
-        ContentPlugin {
+        ContentPlugin,
+        ContentPageTitlePlugin {
   const DiscourseEventsPlugin();
   @override
   String get name => 'discourse-events';
@@ -177,6 +178,10 @@ final class DiscourseEventsPlugin
       ),
     ];
   }
+
+  @override
+  bool ownsContentPageTitle(BuildContext context, ContentRoute route) =>
+      EventCalendarPage.readRoute(route.id) != null;
 
   @override
   Widget? content(BuildContext context, ContentRoute route) {

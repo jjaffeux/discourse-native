@@ -567,6 +567,36 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  _mobileTest('users and events keep their own page headings', (tester) async {
+    await pumpMobileShellFixture(tester, events: true);
+    for (final (tab, heading, duplicate) in [
+      ('users', 'Users', 'Users'),
+      ('destination/events-upcoming', 'Events', 'Upcoming events'),
+    ]) {
+      final button = find.byKey(ValueKey('mobile-mode-$tab'));
+      await tester.ensureVisible(button);
+      await tester.tap(button);
+      await tester.pumpAndSettle();
+      expect(
+        find.descendant(
+          of: find.byType(MainContent),
+          matching: find.text(heading),
+        ),
+        findsOneWidget,
+      );
+      if (duplicate != heading) {
+        expect(
+          find.descendant(
+            of: find.byType(MainContent),
+            matching: find.text(duplicate),
+          ),
+          findsNothing,
+        );
+      }
+      expect(tester.takeException(), isNull);
+    }
+  });
+
   _mobileTest('unavailable optional plugins have no navigation button', (
     tester,
   ) async {

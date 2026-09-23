@@ -757,6 +757,11 @@ abstract interface class ContentChromePlugin {
   bool ownsContentChrome(BuildContext context, ContentRoute route);
 }
 
+/// Content that supplies its own heading while retaining shell navigation.
+abstract interface class ContentPageTitlePlugin {
+  bool ownsContentPageTitle(BuildContext context, ContentRoute route);
+}
+
 abstract interface class ContentHeaderPlugin {
   List<Widget> contentHeaderActions(BuildContext context, ContentRoute route);
 }
