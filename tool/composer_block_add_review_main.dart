@@ -92,12 +92,14 @@ Future<void> main() async {
                       ),
                       const SizedBox(height: 24),
                       Expanded(
-                        child: ComposerEditor(
-                          composer: composer,
-                          hintText: 'Write a reply…',
-                          hintStyle: null,
-                          textStyle: const TextStyle(fontSize: 16),
-                          autofocus: false,
+                        child: Builder(
+                          builder: (context) => ComposerEditor(
+                            composer: composer,
+                            hintText: 'Write a reply…',
+                            hintStyle: Theme.of(context).textTheme.bodyLarge,
+                            textStyle: Theme.of(context).textTheme.bodyLarge,
+                            autofocus: false,
+                          ),
                         ),
                       ),
                     ],

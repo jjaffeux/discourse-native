@@ -107,6 +107,58 @@ void main() {
     await tester.pumpAndSettle();
   }
 
+  for (final scale in [1.0, 1.5]) {
+    for (final prefix in ['', '[ ] First task\n[ ] Second task\n\n']) {
+      testWidgets(
+        'paragraph actions align with production text after "$prefix" at $scale',
+        (tester) async {
+          await (FontLoader(
+            'AlignmentSans',
+          )..addFont(rootBundle.load('assets/fonts/OpenSans.ttf'))).load();
+          composer.text.value = TextEditingValue(
+            text: '${prefix}dzadzadza',
+            selection: TextSelection.collapsed(offset: prefix.length),
+          );
+          await mount(
+            tester,
+            textScale: scale,
+            textStyle: AppTheme.light.textTheme.bodyLarge!.copyWith(
+              fontFamily: 'AlignmentSans',
+            ),
+          );
+          final editable = tester
+              .state<EditableTextState>(
+                find.byWidgetPredicate(
+                  (widget) =>
+                      widget is EditableText &&
+                      identical(widget.controller, composer.text),
+                ),
+              )
+              .renderEditable;
+          final line = editable
+              .getBoxesForSelection(
+                TextSelection(
+                  baseOffset: prefix.length,
+                  extentOffset: composer.text.text.length,
+                ),
+              )
+              .first
+              .toRect()
+              .shift(editable.localToGlobal(Offset.zero));
+          final add = tester.getRect(find.byTooltip('Add block'));
+          final handle = tester.getRect(
+            find.byTooltip('Drag to move or click to open menu'),
+          );
+          // Allow pixel snapping and the real font's fractional leading.
+          expect(add.center.dy, closeTo(line.center.dy, 2));
+          expect(handle.center.dy, add.center.dy);
+          expect(tester.takeException(), isNull);
+        },
+        variant: TargetPlatformVariant.only(TargetPlatform.macOS),
+      );
+    }
+  }
+
   for (final newline in ['\n', '\r\n']) {
     testWidgets('Enter creates a visible, atomic block gap ($newline)', (
       tester,
