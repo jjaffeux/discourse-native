@@ -79,6 +79,12 @@ Topic header tags opt into `DBadgeSize.control`, which uses the regular control
 height, label and artwork metrics on each platform. Other badges retain their
 regular or compact status/count geometry.
 
+Desktop composer block actions use the approved `DButtonDensity.composerBlock`
+exception: 20px width, regular 34px height and unchanged 14px icons. The adjacent
+add and drag actions remain transparent and share a 46px gutter including the
+6px gap before text. `DDragHandle.density` passes this preset through to Button.
+The preset retains standard geometry and accessible targets on touch platforms.
+
 Extra-small controls have been removed; use small for compact actions. See
 [the compact sizing update](compact-control-sizing.md).
 Component size names are aliases of this enum. Do not introduce alternate
