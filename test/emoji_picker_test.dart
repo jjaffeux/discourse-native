@@ -94,7 +94,7 @@ void main() {
       find.byKey(const ValueKey('emoji-picker-desktop-popover')),
       findsOneWidget,
     );
-    final search = tester.widget<TextField>(
+    final search = tester.widget<DInput>(
       find.byKey(const ValueKey('emoji-picker-search')),
     );
     expect(search.focusNode, isNotNull);
@@ -196,6 +196,22 @@ void main() {
           const ValueKey('emoji-picker-category-nav-touch'),
         );
         expect(navigation, findsOneWidget);
+        expect(find.text('Skin tone'), findsNothing);
+        expect(find.byTooltip('Choose skin tone'), findsOneWidget);
+        final searchBounds = tester.getRect(find.byType(DInput));
+        final sheetBounds = tester.getRect(sheet);
+        expect(searchBounds.left - sheetBounds.left, 16);
+        expect(
+          tester.getRect(navigation).right,
+          lessThanOrEqualTo(sheetBounds.right),
+        );
+        expect(
+          tester
+              .widget<DButton>(find.byKey(const ValueKey('emoji-picker-close')))
+              .variant,
+          DButtonVariant.transparentBackground,
+        );
+
         expect(
           find.byKey(const ValueKey('emoji-picker-desktop-popover')),
           findsNothing,
@@ -300,6 +316,80 @@ void main() {
 
     await tester.tapAt(const Offset(890, 10));
     await tester.pumpAndSettle();
+  });
+
+  testWidgets('mobile category bar follows grid scrolling in both directions', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 600);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final catalog = SiteEmojiCatalog(
+      groups: [
+        for (var group = 0; group < 12; group++)
+          SiteEmojiGroup(
+            id: 'group-$group',
+            emojis: [
+              for (var index = 0; index < 24; index++)
+                SiteEmoji(
+                  name: 'emoji-$group-$index',
+                  url: 'https://emoji.example/$group-$index.png',
+                ),
+            ],
+          ),
+      ],
+    );
+    final controller = EmojiPickerController(
+      siteUrl: _siteUrl,
+      context: CoreEmojiUsageContexts.topic,
+      store: EmojiPickerStore(persistence: _MemoryPersistence()),
+      loadCatalog: ({refresh = false}) async => catalog,
+      loadSearchAliases: ({refresh = false}) async => const {},
+    );
+    addTearDown(controller.dispose);
+    await controller.load();
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.dark.copyWith(platform: TargetPlatform.iOS),
+        home: Scaffold(
+          body: EmojiPicker(
+            controller: controller,
+            touch: true,
+            onPicked: (_) {},
+            onDismiss: () {},
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final grid = tester.widget<CustomScrollView>(
+      find.byKey(const ValueKey('emoji-picker-groups')),
+    );
+    final navigation = find.byKey(
+      const ValueKey('emoji-picker-category-nav-touch'),
+    );
+    final bar = tester.state<ScrollableState>(
+      find.descendant(of: navigation, matching: find.byType(Scrollable)),
+    );
+    final search = tester.widget<DInput>(find.byType(DInput)).focusNode!;
+    expect(bar.position.pixels, 0);
+    for (final atEnd in [true, false]) {
+      grid.controller!.jumpTo(
+        atEnd ? grid.controller!.position.maxScrollExtent : 0,
+      );
+      await tester.pumpAndSettle();
+      final category = find.byKey(
+        ValueKey('emoji-picker-category-group-${atEnd ? 11 : 0}'),
+      );
+      expect(tester.widget<DToggle>(category).pressed, isTrue);
+      final bounds = tester.getRect(category);
+      final viewport = tester.getRect(navigation);
+      expect(bounds.left, greaterThanOrEqualTo(viewport.left));
+      expect(bounds.right, lessThanOrEqualTo(viewport.right));
+      expect(search.hasFocus, isTrue);
+      expect(tester.takeException(), isNull);
+    }
+    expect(bar.position.pixels, 0);
   });
 
   testWidgets('frequent history clears and keyboard selects from search', (
