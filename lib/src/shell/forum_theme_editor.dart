@@ -91,6 +91,9 @@ class _ForumThemeEditorState extends State<ForumThemeEditor> {
   }
 
   ForumTheme? get _theme {
+    if (_appearances.values.any((draft) => draft.backgroundHexColor == null)) {
+      return null;
+    }
     try {
       return ForumTheme.fromJson({
         ..._appearance.toJson(_name.text, _brightness),
@@ -438,7 +441,10 @@ class _ForumThemeEditorState extends State<ForumThemeEditor> {
     );
   }
 
-  void _changeBackground(ForumBackground background) {
+  void _changeBackground(ForumBackground background, {bool updateHex = true}) {
+    if (updateHex) {
+      _appearance.backgroundHex.text = ForumTheme.hex(background.color);
+    }
     _appearance.background = background;
     _appearance.backgroundEdited = true;
     _appearance.windowGradient = false;
@@ -507,9 +513,28 @@ class _ForumThemeEditorState extends State<ForumThemeEditor> {
                             )
                           : null,
                     ),
-                    Text(
-                      ForumTheme.hex(_appearance.background.color),
+                    DInput(
+                      key: const ValueKey('custom-theme-background-hex'),
+                      controller: _appearance.backgroundHex,
+                      semanticLabel: 'Background hex color',
+                      enabled: enabled,
                       textAlign: TextAlign.center,
+                      autocorrect: false,
+                      enableSuggestions: false,
+                      errorText: _appearance.backgroundHexColor == null
+                          ? 'Enter a six-digit hex color, such as #099DD7.'
+                          : null,
+                      onChanged: (_) {
+                        final color = _appearance.backgroundHexColor;
+                        if (color == null) {
+                          _changed('');
+                        } else {
+                          _changeBackground(
+                            _appearance.background.copyWith(color: color),
+                            updateHex: false,
+                          );
+                        }
+                      },
                     ),
                   ],
                 ),
@@ -630,6 +655,12 @@ class _AppearanceDraft {
 
   late final Map<String, TextEditingController> colors;
   late final Map<String, Color> lastColors;
+  final backgroundHex = TextEditingController();
+  Color? get backgroundHexColor {
+    final value = backgroundHex.text.trim();
+    return ForumTheme.parseHex(value.startsWith('#') ? value : '#$value');
+  }
+
   late ForumBackground background;
   late bool backgroundEdited;
   late bool windowGradient;
@@ -639,6 +670,7 @@ class _AppearanceDraft {
   void load(ForumTheme theme, {required String? baseId}) {
     this.baseId = baseId;
     background = theme.background ?? ForumBackground(color: theme.tertiary);
+    backgroundHex.text = ForumTheme.hex(background.color);
     backgroundEdited = theme.background != null;
     windowGradient = theme.windowGradient;
     darkerSidebars = theme.darkerSidebars;
@@ -660,6 +692,7 @@ class _AppearanceDraft {
   };
 
   void dispose() {
+    backgroundHex.dispose();
     for (final controller in colors.values) {
       controller.dispose();
     }
