@@ -1,6 +1,6 @@
 # Shared features, separate desktop and mobile navigation
 
-Updated September 22, 2026. iOS and Android use the mobile shell at phone and
+Updated September 23, 2026. iOS and Android use the mobile shell at phone and
 tablet widths. Desktop retains its workspace, tabs and sidebar behavior.
 
 ## Persistent mobile shell
@@ -8,13 +8,19 @@ tablet widths. Desktop retains its workspace, tabs and sidebar behavior.
 `MobileForumRoot` owns the header, content card and transparent footer. The
 header contains the hamburger, forum identity/menu, search, notifications and
 profile. These controls and the footer remain outside the content transition.
-The hamburger opens a Native `DSheet` with the instance rail and sidebar:
+The hamburger opens a full-width navigation page with the instance rail and
+sidebar. It uses the existing Native `DHistoryTransition` to enter from the
+leading edge and push the content aside, mirrored in RTL. The header stays
+visible and the bottom tab bar collapses while navigation is open:
 
 - **Forum** contains categories and tags.
 - **Shortcuts** contains custom sidebar sections and configured custom More links.
 
-Selecting a drawer destination closes it. Changing site or account closes an
-open drawer and discards the previous owner's navigation history.
+Selecting a navigation destination closes the page. The hamburger, Escape and system
+Back also close it, preserving the current content visit. The existing content
+remains mounted offstage with focus and ticking disabled. Changing site or
+account closes navigation and discards the previous owner's history without
+animating that owner's content.
 
 The footer uses independent Native buttons in this order: Topics, Chat,
 Messages, Users, Events, More. Chat and Events use the plugin registry's existing
@@ -89,15 +95,35 @@ flutter test --no-pub tool/render_mobile_navigation_test.dart
 ```
 
 The rendering fixture uses local macOS fonts and writes light/Dracula frames to
-`/tmp/mobile-navigation-review`, including drawer tabs, destinations, an
-intermediate push frame and a narrow layout at 200% text. These are offscreen
-Flutter renders, not interactive device screenshots.
+`/tmp/mobile-navigation-review`, including navigation tabs, destinations,
+intermediate sidebar/tab push frames and a narrow layout at 200% text. These
+are offscreen Flutter renders, not interactive device screenshots.
 
 Focused tests cover iOS/Android navigation, ordered transitions in LTR/RTL,
 rapid switching, reduced motion, site/account isolation, optional plugin
-availability, drawer contents, composers, Chat subtab restoration, history
-gestures, 320px/390px/600px footer layout, large text, tablet behavior and
+availability, navigation page contents, composers, Chat subtab restoration,
+history gestures, 320px/390px/600px footer layout, large text, tablet behavior and
 affected desktop navigation. Component adoption checks guard Native usage.
 Interactive simulator inspection was unavailable because the desktop UI tool
 could not open Simulator; build and widget checks do not claim a physical-device
 interaction pass.
+
+The September 23 sidebar-page checks cover push direction in both opening and
+closing transitions, hidden bottom tabs, unchanged header geometry, retained
+content elements and history, system Back precedence, navigation selection,
+forum changes, and full-width 320px/600px pages at 200% text. Light and Dracula
+navigation pages were inspected using the offscreen rendering fixture.
+
+
+Verification: the 66 mobile shell/history tests and root static analysis pass.
+The additional transition, sidebar, adoption and shell regression run passed
+135 tests, with five unrelated failures reproduced on baseline `59a0b43d3`:
+the composer button styling inventory, macOS title-strip method calls, desktop
+custom-sidebar row height, community section height, and rail-tooltip leading.
+
+Interactive macOS review used the production mobile fixture with an iOS target
+platform override, in a narrow window and at its initial desktop width. It
+verified the full-page rail/sidebar, hidden tab bar, Forum/Shortcuts selection,
+opening a topic from a shortcut, and Escape returning to content. This was a
+local fixture with sample forums, not an iOS simulator or physical-device run.
+The final Escape change also passed all 58 mobile shell tests and root analysis.
