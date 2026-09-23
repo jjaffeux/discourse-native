@@ -79,8 +79,8 @@ class ShellTitleBar extends StatelessWidget {
               ),
             if (showControls)
               Padding(
-                padding: EdgeInsets.symmetric(
-                  horizontal: stacked ? DSpacing.xs : DSpacing.sm,
+                padding: EdgeInsetsDirectional.only(
+                  end: stacked ? DSpacing.xs : DSpacing.sm,
                 ),
                 child: UserMenuButton(size: 26, ringColor: surface),
               ),
@@ -89,9 +89,9 @@ class ShellTitleBar extends StatelessWidget {
             height: stacked ? height * 2 : height,
             child: ColoredBox(
               color:
-                  Theme.of(
-                        context,
-                      ).extension<ForumThemeEffects>()?.windowGradient !=
+                  Theme.of(context)
+                          .extension<ForumThemeEffects>()
+                          ?.windowGradient !=
                       null
                   ? Colors.transparent
                   : ForumWindowBackground.surfaceColor(context, surface),
@@ -136,6 +136,7 @@ class ShellTitleBar extends StatelessWidget {
                             height: height,
                             child: Row(
                               mainAxisAlignment: MainAxisAlignment.end,
+                              spacing: DSpacing.controlGap,
                               children: actions,
                             ),
                           ),
@@ -146,8 +147,12 @@ class ShellTitleBar extends StatelessWidget {
                         children: [
                           SizedBox(width: _hasWindowChrome ? 88 : 8),
                           search,
-                          const SizedBox(width: 16),
-                          ...actions,
+                          const SizedBox(width: DSpacing.controlGap),
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            spacing: DSpacing.controlGap,
+                            children: actions,
+                          ),
                         ],
                       ),
                 ],

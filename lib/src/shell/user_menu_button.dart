@@ -126,7 +126,7 @@ class _UserMenuButtonState extends State<UserMenuButton> {
               : theme.discourse.notificationIndicator;
           return Row(
             mainAxisSize: MainAxisSize.min,
-            spacing: widget.compact ? DSpacing.controlGap : DSpacing.sm,
+            spacing: DSpacing.controlGap,
             children: [
               _AccountMenuPopover(
                 view: UserMenuView.notifications,
