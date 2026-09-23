@@ -29,7 +29,7 @@ void main() {
                       label: const DSidebarGroupLabel(child: Text('Channels')),
                       sliver: DSidebarMenu.sliverBuilder(
                         itemCount: 400,
-                        itemExtent: 32,
+                        itemExtent: 34,
                         itemBuilder: (context, index) {
                           built.add(index);
                           return DSidebarMenuItem(

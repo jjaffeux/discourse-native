@@ -288,6 +288,16 @@ abstract interface class ShellSiteApi {
     String? clientId,
   });
 
+  Future<List<SidebarSection>> moveSidebarLink({
+    required String siteUrl,
+    required String apiKey,
+    required int sourceSectionId,
+    required int targetSectionId,
+    required int linkId,
+    required int position,
+    String? clientId,
+  });
+
   Future<SiteAppearance?> siteAppearance({
     required String siteUrl,
     String? username,

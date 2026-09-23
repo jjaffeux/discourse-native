@@ -722,6 +722,64 @@ class FakeDiscourseApi
     );
   }
 
+  final sidebarMoves =
+      <({String siteUrl, int source, int target, int linkId, int position})>[];
+  Completer<void>? sidebarMoveGate;
+  Object? sidebarMoveFailure;
+
+  @override
+  Future<List<SidebarSection>> moveSidebarLink({
+    required String siteUrl,
+    required String apiKey,
+    required int sourceSectionId,
+    required int targetSectionId,
+    required int linkId,
+    required int position,
+    String? clientId,
+  }) async {
+    sidebarMoves.add((
+      siteUrl: siteUrl,
+      source: sourceSectionId,
+      target: targetSectionId,
+      linkId: linkId,
+      position: position,
+    ));
+    await sidebarMoveGate?.future;
+    if (sidebarMoveFailure case final error?) throw error;
+    final sections = customSidebarSectionsBySite[siteUrl]!;
+    final source = sections.firstWhere(
+      (section) => section.remoteId == sourceSectionId,
+    );
+    final target = sections.firstWhere(
+      (section) => section.remoteId == targetSectionId,
+    );
+    final moved = source.destinations.firstWhere(
+      (link) => link.linkId == linkId,
+    );
+    final updated = [
+      for (final section in [source, target])
+        SidebarSection(
+          id: section.id,
+          title: section.title,
+          remoteId: section.remoteId,
+          public: section.public,
+          destinations: section == source
+              ? section.destinations
+                    .where((link) => link.linkId != linkId)
+                    .toList()
+              : (section.destinations.toList()..insert(position, moved)),
+        ),
+    ];
+    customSidebarSectionsBySite[siteUrl] = [
+      for (final section in sections)
+        updated
+                .where((updated) => updated.remoteId == section.remoteId)
+                .firstOrNull ??
+            section,
+    ];
+    return updated;
+  }
+
   final Map<String, Map<String, dynamic>> pluginResponses;
   final Map<String, WriteException> pluginWriteFailures;
   final List<

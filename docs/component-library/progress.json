@@ -5048,6 +5048,25 @@
           "mergeCommit": "0f62ac016b00ebf3bc5ac30eb1471a61929aa1e0",
           "mergedAt": "2026-09-10T16:31:39.156468+00:00"
         }
+      },
+      "crossSectionDrag": {
+        "status": "verified",
+        "taskId": "01a0ce4e-0728-79f1-aa0a-18a7cfd777f8",
+        "branch": "codex/sidebar-cross-section-drag",
+        "dependencies": [
+          "sidebar"
+        ],
+        "acceptanceCriteria": [
+          "Preserve same-section reorder, touch long press, keyboard reorder, proxy and viewport scrolling.",
+          "Move custom links between editable sections, including empty and collapsed destinations, using Core move_link endpoint.",
+          "Preview both sections, restore on failed or cancelled saves, enforce permissions and discard stale account responses.",
+          "Verify focused widget/API tests, static analysis and isolated native fixture, then merge from main checkout."
+        ],
+        "verification": [
+          "97 focused sidebar tests passed; flutter analyze --no-pub clean; offline macOS build passed.",
+          "Native production transfers into empty/collapsed sections and styleguide dark 200% RTL transfers verified using isolated fake-account fixture.",
+          "Details and known unrelated control-adoption baseline failure: docs/sidebar-link-reordering.md."
+        ]
       }
     },
     {

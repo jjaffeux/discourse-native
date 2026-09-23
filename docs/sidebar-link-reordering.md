@@ -1,6 +1,8 @@
-# Custom sidebar link reordering
+# Custom sidebar link dragging
 
-Desktop users can drag links within a custom sidebar section. The Native
+Users can drag links within a custom sidebar section or into another editable
+custom section. Drop on either side of a destination row to choose its position,
+or on a section header to append, including empty and collapsed sections. The Native
 `DSidebarReorderableMenu.sliverBuilder` owns the drag proxy, insertion gap,
 shared-viewport auto-scroll, Alt+Up/Down shortcuts and Flutter's accessible
 reorder actions. Its caller supplies stable row keys and persists the order.
@@ -21,8 +23,24 @@ account's sidebar after sign-out.
 
 Only signed-in users can reorder. Public sections require an administrator and
 confirmation that the change affects everyone. Built-in sections and incomplete
-or truncated server sections cannot be reordered. Moving links across sections
-and dragging external links into the sidebar are outside this feature.
+or truncated server sections cannot be reordered. Dragging external links into the sidebar is outside this feature.
+
+Cross-section moves use `PUT /sidebar_sections/:id/move_link.json` with
+`link_id`, `target_section_id` and zero-based `position`. Both returned
+`sidebar_sections` replace the saved source and destination together. The UI
+previews both lists during confirmation and saving, restores them on cancellation
+or failure, and disables overlapping edits. Public source or destination sections
+require administrator rights and one confirmation. Full sections reject drops;
+site lifecycle leases discard late responses after sign-out.
+
+`DSidebarReorderScope` connects the menus in the same viewport.
+`DSidebarReorderableMenu.sectionId`, `onMove` and `canMove` opt into transfers;
+`DSidebarDropTarget` lets headers accept append drops. The Native kit paints a
+2px insertion line with the theme's primary color. Flutter retains ownership of
+pointer recognition, touch long press, the proxy, same-section reorder gaps,
+keyboard/accessibility reorder actions and edge scrolling. Rejected custom-section
+headers cancel a drop rather than rearranging the source. Application code owns
+permission checks, confirmation, optimistic state and API persistence.
 
 Core references inspected in `/Users/joffreyjaffeux/Code/pr-discourse`:
 
@@ -58,3 +76,27 @@ Core references inspected in `/Users/joffreyjaffeux/Code/pr-discourse`:
   changed. iOS behavior was checked with a widget-test platform override, not a
   physical device. The final disabled-state accessibility adjustment was checked
   by focused tests after the native review.
+
+## Cross-section verification — 2026-09-23
+
+- 97 focused tests passed across sidebar reorder, Native reorder, sidebar,
+  lazy sidebar, examples, active destination, section store, panel tabs and icons.
+  Coverage includes row gaps, empty/collapsed destinations, moving the last source
+  row, rejected public/full destinations, failed saves, cancellation, sign-out,
+  iOS/Android long press and shared-viewport scrolling with 200% light/dark text.
+- Updated the older drag helpers to use continuous pointer movement and open the
+  mobile Shortcuts page. Three existing layout expectations now match the current
+  34px regular / 40px large control scale. No control geometry was changed.
+- `flutter analyze --no-pub` and the offline macOS review build passed. Lockfiles
+  and the Flutter pin were unchanged.
+- Native inspection used the isolated, ad-hoc signed Sidebar Cross Section 4200
+  fixture (`org.discourse.sidebar-cross-section-4200`), with fake accounts and
+  responses. Observed same-section reordering, sequential transfers into Team
+  links, a drop into the collapsed destination, and the empty source header after
+  moving its final link. The actual styleguide example accepted transfers in both
+  directions and rendered dark 200% RTL without overflow. No real forum data was
+  changed. Physical iOS/Android devices and spoken screen-reader output were not
+  exercised.
+- The broader control-style adoption guard has a pre-existing, unrelated failure:
+  `composer_block_surface.dart` supplies `backgroundColor` but is absent from its
+  exception inventory. That source and guard were left unchanged.

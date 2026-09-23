@@ -125,17 +125,25 @@ final sidebarExamples = ComponentExamples(
     StyleguideExample(
       title: 'Reorderable links',
       description:
-          'Drag a desktop row to reorder links, or focus a row and use Alt+Up/Down. On touch, long-press a row to drag; quick swipes scroll and taps open links. The menu shares the sidebar scroll area and scrolls at its edges while dragging.',
-      code: '''DSidebarReorderableMenu.sliverBuilder(
-  itemCount: links.length,
-  itemBuilder: (context, index) => DSidebarMenuButton(
-    key: ValueKey(links[index]), onPressed: openLink,
-    child: Text(links[index])),
-  onReorder: (oldIndex, newIndex) => setState(() {
-    final link = links.removeAt(oldIndex);
-    links.insert(newIndex > oldIndex ? newIndex - 1 : newIndex, link);
-  }),
-)''',
+          'Drag links within a section or onto another section’s rows or header. Empty sections accept header drops. Focus a row and use Alt+Up/Down to reorder it. On touch, long-press to drag; quick swipes scroll and taps open links.',
+      code: """DSidebarReorderScope(
+  child: DSidebarContent.slivers(slivers: [
+    for (final section in sections.entries)
+      DSidebarGroup.sliver(
+        label: DSidebarDropTarget(
+          sectionId: section.key, index: section.value.length,
+          append: true, onMove: moveLink,
+          child: DSidebarGroupLabel(child: Text(section.key))),
+        sliver: DSidebarReorderableMenu.sliverBuilder(
+          sectionId: section.key, onMove: moveLink,
+          itemCount: section.value.length,
+          itemBuilder: (context, index) => DSidebarMenuButton(
+            key: ValueKey(section.value[index]), onPressed: openLink,
+            child: Text(section.value[index])),
+          onReorder: reorderLinks),
+      ),
+  ]),
+)""",
       builder: (_) => const _ReorderableSidebarDemo(),
     ),
   ],
@@ -825,8 +833,16 @@ class _ReorderableSidebarDemo extends StatefulWidget {
 }
 
 class _ReorderableSidebarDemoState extends State<_ReorderableSidebarDemo> {
-  final _links = ['Handbook', 'Roadmap', 'Support', 'Team', 'Release notes'];
+  final _sections = <String, List<String>>{
+    'Custom links': ['Handbook', 'Roadmap', 'Support'],
+    'Team links': [],
+  };
   String? _selected;
+
+  void _move(DSidebarMove move) => setState(() {
+    final link = _sections[move.sourceId]!.removeAt(move.oldIndex);
+    _sections[move.targetId]!.insert(move.newIndex, link);
+  });
 
   @override
   Widget build(BuildContext context) => SizedBox(
@@ -835,28 +851,40 @@ class _ReorderableSidebarDemoState extends State<_ReorderableSidebarDemo> {
       mobileBreakpoint: 0,
       child: DSidebar(
         collapsible: DSidebarCollapsible.none,
-        child: DSidebarContent.slivers(
-          slivers: [
-            DSidebarGroup.sliver(
-              label: const DSidebarGroupLabel(child: Text('Custom links')),
-              sliver: DSidebarReorderableMenu.sliverBuilder(
-                itemCount: _links.length,
-                itemBuilder: (context, index) => DSidebarMenuButton(
-                  key: ValueKey(_links[index]),
-                  isActive: _selected == _links[index],
-                  onPressed: () => setState(() => _selected = _links[index]),
-                  child: Text(_links[index]),
+        child: DSidebarReorderScope(
+          child: DSidebarContent.slivers(
+            slivers: [
+              for (final section in _sections.entries)
+                DSidebarGroup.sliver(
+                  label: DSidebarDropTarget(
+                    sectionId: section.key,
+                    index: section.value.length,
+                    append: true,
+                    onMove: _move,
+                    child: DSidebarGroupLabel(child: Text(section.key)),
+                  ),
+                  sliver: DSidebarReorderableMenu.sliverBuilder(
+                    sectionId: section.key,
+                    onMove: _move,
+                    itemCount: section.value.length,
+                    itemBuilder: (context, index) => DSidebarMenuButton(
+                      key: ValueKey(section.value[index]),
+                      isActive: _selected == section.value[index],
+                      onPressed: () =>
+                          setState(() => _selected = section.value[index]),
+                      child: Text(section.value[index]),
+                    ),
+                    onReorder: (oldIndex, newIndex) => setState(() {
+                      final link = section.value.removeAt(oldIndex);
+                      section.value.insert(
+                        newIndex > oldIndex ? newIndex - 1 : newIndex,
+                        link,
+                      );
+                    }),
+                  ),
                 ),
-                onReorder: (oldIndex, newIndex) => setState(() {
-                  final link = _links.removeAt(oldIndex);
-                  _links.insert(
-                    newIndex > oldIndex ? newIndex - 1 : newIndex,
-                    link,
-                  );
-                }),
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     ),

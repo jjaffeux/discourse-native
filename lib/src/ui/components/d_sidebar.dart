@@ -15,6 +15,8 @@ import 'd_sheet.dart';
 import 'd_skeleton.dart';
 import 'd_tooltip.dart';
 
+part 'd_sidebar_transfer.dart';
+
 bool _touchPlatform(BuildContext context) =>
     switch (Theme.of(context).platform) {
       TargetPlatform.iOS || TargetPlatform.android => true,
@@ -635,13 +637,16 @@ class DSidebarMenu extends StatelessWidget {
 /// original list; subtract one when moving down after removing the old row.
 /// The caller owns order and persistence. Null disables reordering. Touch
 /// platforms retain ordinary scrolling until a long press starts a drag.
-class DSidebarReorderableMenu extends StatelessWidget {
+class DSidebarReorderableMenu extends StatefulWidget {
   const DSidebarReorderableMenu.sliverBuilder({
     super.key,
     required this.itemCount,
     required this.itemBuilder,
     required this.onReorder,
     this.itemExtent,
+    this.sectionId,
+    this.onMove,
+    this.canMove,
   });
 
   final int itemCount;
@@ -649,9 +654,41 @@ class DSidebarReorderableMenu extends StatelessWidget {
   final ReorderCallback? onReorder;
   final double? itemExtent;
 
+  /// Participates in cross-section dragging inside [DSidebarReorderScope].
+  /// Use the same identity on the section's header [DSidebarDropTarget].
+  final Object? sectionId;
+  final ValueChanged<DSidebarMove>? onMove;
+  final bool Function(DSidebarMove move)? canMove;
+
+  @override
+  State<DSidebarReorderableMenu> createState() =>
+      _DSidebarReorderableMenuState();
+}
+
+class _DSidebarReorderableMenuState extends State<DSidebarReorderableMenu> {
+  final _listKey = GlobalKey<SliverReorderableListState>();
+  int? _pointer;
+  int? _dragIndex;
+  bool _transferred = false;
+
   @override
   Widget build(BuildContext context) {
-    final reorder = onReorder;
+    final reorder = widget.onReorder;
+    final itemCount = widget.itemCount;
+    final itemExtent = widget.itemExtent;
+    Widget itemBuilder(BuildContext context, int index) {
+      final child = widget.itemBuilder(context, index);
+      if (widget.sectionId == null || widget.onMove == null) return child;
+      return DSidebarDropTarget(
+        key: child.key,
+        sectionId: widget.sectionId!,
+        index: index,
+        onMove: widget.onMove,
+        canMove: widget.canMove,
+        child: child,
+      );
+    }
+
     if (reorder == null) {
       return DSidebarMenu.sliverBuilder(
         itemCount: itemCount,
@@ -661,10 +698,30 @@ class DSidebarReorderableMenu extends StatelessWidget {
     }
     return FocusTraversalGroup(
       child: SliverReorderableList(
+        key: _listKey,
         itemCount: itemCount,
         itemExtent: itemExtent,
+        onReorderStart: (index) {
+          _transferred = false;
+          _dragIndex = index;
+          if (widget.sectionId case final sectionId?) {
+            _SidebarReorderScope.of(context)?.begin(sectionId, index, _pointer);
+          }
+        },
+        onReorderEnd: (_) {
+          final complete = _SidebarReorderScope.of(
+            context,
+          )?.finish(widget.sectionId, _dragIndex);
+          if (complete == null) return;
+          _transferred = true;
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!mounted) return;
+            _listKey.currentState?.cancelReorder();
+            complete();
+          });
+        },
         onReorderItem: (oldIndex, newIndex) {
-          if (newIndex != oldIndex) {
+          if (!_transferred && newIndex != oldIndex) {
             reorder.call(
               oldIndex,
               newIndex > oldIndex ? newIndex + 1 : newIndex,
@@ -698,17 +755,14 @@ class DSidebarReorderableMenu extends StatelessWidget {
             },
             child: child,
           );
-          return _touchPlatform(context)
-              ? ReorderableDelayedDragStartListener(
-                  key: child.key,
-                  index: index,
-                  child: row,
-                )
-              : ReorderableDragStartListener(
-                  key: child.key,
-                  index: index,
-                  child: row,
-                );
+          final listener = _touchPlatform(context)
+              ? ReorderableDelayedDragStartListener(index: index, child: row)
+              : ReorderableDragStartListener(index: index, child: row);
+          return Listener(
+            key: child.key,
+            onPointerDown: (event) => _pointer = event.pointer,
+            child: listener,
+          );
         },
       ),
     );
