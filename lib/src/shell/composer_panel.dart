@@ -3110,6 +3110,52 @@ class _ComposerEditorState extends State<ComposerEditor> {
   Rect? _blockActionRect(ComposerBodyBlock block) {
     final editable = _renderEditable;
     if (editable == null || !editable.hasSize) return null;
+    if (block.kind == ComposerBlockKind.todo) {
+      for (final editor in _nestedEditors) {
+        final composer = editor.widget.composer;
+        final body = editor._renderEditable;
+        final bounds = editor._stackKey.currentContext?.findRenderObject();
+        if (composer is ComposerListBodyController &&
+            composer.isCurrent &&
+            composer.item.start == block.start &&
+            body != null &&
+            body.hasSize &&
+            bounds is RenderBox &&
+            bounds.hasSize) {
+          // Empty carets include extra strut leading. Shape a text line so
+          // the actions stay with both the placeholder and the typed text.
+          final painter = TextPainter(
+            text: TextSpan(
+              text: ' ',
+              style: editor._editableTextState!.widget.style,
+            ),
+            strutStyle: body.strutStyle,
+            textDirection: body.textDirection,
+            textScaler: body.textScaler,
+          )..layout();
+          final line = painter
+              .getBoxesForSelection(
+                const TextSelection(baseOffset: 0, extentOffset: 1),
+              )
+              .first
+              .toRect();
+          painter.dispose();
+          return Rect.fromPoints(
+            bounds.localToGlobal(line.topLeft),
+            bounds.localToGlobal(line.bottomRight),
+          );
+        }
+      }
+      final todo = widget.composer.text.todos
+          .where((todo) => todo.start == block.start)
+          .firstOrNull;
+      if (todo != null) {
+        return _lineRect(
+          editable,
+          todo.contentStart,
+        ).shift(editable.localToGlobal(Offset.zero));
+      }
+    }
     if (block.kind == ComposerBlockKind.paragraph ||
         block.kind == ComposerBlockKind.list) {
       return _lineRect(

@@ -41,14 +41,18 @@ void main() {
     );
   }
   testWidgets('table partial/all/none and form recovery work', (tester) async {
-    Future<void> show(int index) => tester.pumpWidget(
+    Future<void> show(String title) => tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
-          body: Builder(builder: checkboxExamples.examples[index].builder),
+          body: Builder(
+            builder: checkboxExamples.examples
+                .firstWhere((example) => example.title == title)
+                .builder,
+          ),
         ),
       ),
     );
-    await show(3);
+    await show('Table selection');
     expect(find.text('1 selected'), findsOneWidget);
     await tester.tap(
       find.byWidgetPredicate(
@@ -66,7 +70,7 @@ void main() {
     );
     await tester.pump();
     expect(find.text('0 selected'), findsOneWidget);
-    await show(4);
+    await show('Validation and recovery');
     await tester.tap(find.text('Save'));
     await tester.pump();
     expect(find.text('Please accept the terms.'), findsOneWidget);

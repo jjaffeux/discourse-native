@@ -7,6 +7,7 @@ import 'dart:ui'
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -29,6 +30,61 @@ Widget host(
 );
 
 void main() {
+  for (final platform in [TargetPlatform.macOS, TargetPlatform.iOS]) {
+    for (final direction in TextDirection.values) {
+      testWidgets(
+        'inline text alignment retains the full $platform $direction target',
+        (tester) async {
+          const style = TextStyle(fontSize: 14, height: 1.6);
+          var changes = 0;
+          await tester.pumpWidget(
+            host(
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  DCheckbox.defaultValue(
+                    inline: true,
+                    inlineTextStyle: style,
+                    onChanged: (_) => changes++,
+                  ),
+                  const Expanded(
+                    child: Text('First line\nSecond line', style: style),
+                  ),
+                ],
+              ),
+              platform: platform,
+              direction: direction,
+            ),
+          );
+          final target = tester.getRect(find.byType(DCheckbox));
+          final artwork = tester.getRect(find.byType(AnimatedContainer));
+          final text = tester.renderObject<RenderParagraph>(
+            find.text('First line\nSecond line'),
+          );
+          final line = text
+              .getBoxesForSelection(
+                const TextSelection(baseOffset: 0, extentOffset: 10),
+              )
+              .first
+              .toRect();
+          expect(
+            artwork.center.dy,
+            closeTo(text.localToGlobal(line.center).dy, .01),
+          );
+          expect(
+            target.size,
+            platform == TargetPlatform.iOS
+                ? const Size(48, 48)
+                : const Size(24, 32),
+          );
+          // Moving the artwork must not remove the bottom of the click target.
+          await tester.tapAt(Offset(target.center.dx, target.bottom - 1));
+          await tester.pump();
+          expect(changes, 1);
+        },
+      );
+    }
+  }
   for (final platform in [TargetPlatform.macOS, TargetPlatform.iOS]) {
     for (final direction in TextDirection.values) {
       testWidgets('start alignment preserves $platform $direction target', (

@@ -589,8 +589,17 @@ void main() {
         final caret = editable.getLocalRectForCaret(
           TextPosition(offset: block.start),
         );
-        final expectedCenter =
-            source.startsWith('[ ]') || source.startsWith('```')
+        final expectedCenter = source.startsWith('[ ]')
+            ? tester
+                  .getRect(
+                    find.descendant(
+                      of: find.byType(DCheckbox).first,
+                      matching: find.byType(AnimatedContainer),
+                    ),
+                  )
+                  .center
+                  .dy
+            : source.startsWith('```')
             ? blockRect.top + surface.lineHeight / 2
             : editable.localToGlobal(caret.center).dy;
         expect(add.center.dy, closeTo(expectedCenter, .01));

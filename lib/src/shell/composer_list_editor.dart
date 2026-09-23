@@ -233,6 +233,11 @@ class _ComposerListItemEditorState extends State<ComposerListItemEditor> {
         if (widget.item.isTask)
           DCheckbox(
             inline: true,
+            inlineTextStyle:
+                context
+                    .findAncestorWidgetOfExactType<ComposerEditor>()
+                    ?.textStyle ??
+                Theme.of(context).textTheme.bodyLarge,
             value: widget.item.checked,
             readOnly: !body.isEditing,
             semanticLabel: widget.item.body.text.split('\n').first.isEmpty
