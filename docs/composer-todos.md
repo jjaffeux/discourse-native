@@ -78,3 +78,9 @@ isolated macOS fixture also verified insertion in dark/wide and light/narrow
 layouts using the image fallback preview. The focused todo/list/image suites
 passed; five unrelated block-selection failures were reproduced on the unchanged
 base revision.
+
+Terminal images and galleries do not add a synthetic trailing caret line.
+Selecting or deselecting an image leaves the next task in place; explicit source
+line breaks remain intact. Regression tests cover this geometry and the image's
+same-line end caret. A macOS fixture verified selection in dark/wide and
+light/narrow layouts with the image fallback preview.
