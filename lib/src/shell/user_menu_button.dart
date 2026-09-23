@@ -217,7 +217,7 @@ class _AccountMenuPopover extends StatelessWidget {
   Widget build(BuildContext context) {
     void activate(BuildContext context, DPopoverTriggerState trigger) {
       onOpen();
-      if (context.isTouch) {
+      if (view == UserMenuView.profile && context.isTouch) {
         unawaited(showUserMenuSheet(context, view: view));
       } else {
         trigger.toggle();
@@ -280,7 +280,9 @@ class _AccountMenuPopover extends StatelessWidget {
         align: DPopoverAlign.end,
         sideOffset: 6,
         collisionPadding: UserMenuPanel.margin,
-        width: UserMenuPanel.width,
+        width: MediaQuery.sizeOf(context).width < 600
+            ? UserMenuPanel.mobileWidth
+            : UserMenuPanel.width,
         padding: EdgeInsets.zero,
         scrollable: false,
         child: UserMenuPanel(onDismiss: controller.close),

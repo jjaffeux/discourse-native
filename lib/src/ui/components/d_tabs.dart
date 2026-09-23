@@ -22,6 +22,10 @@ enum DTabListVariant {
   /// A transparent list with a rounded neutral fill on the selected trigger.
   pill,
 
+  /// Outlined capsule tabs with an accent-filled selected state. Uses the
+  /// shared control sizes and retains horizontal scrolling and touch targets.
+  outlinePill,
+
   /// Text-only selection without a background, border, shadow or indicator.
   plain,
 
@@ -624,7 +628,11 @@ class DTabList<T> extends StatelessWidget {
             if (i > 0 && variant != DTabListVariant.defaultStyle)
               SizedBox(
                 width: root.orientation == Axis.horizontal
-                    ? (horizontalLine ? 20 : 4)
+                    ? (horizontalLine
+                          ? 20
+                          : variant == DTabListVariant.outlinePill
+                          ? DSpacing.controlGap
+                          : 4)
                     : 0,
                 height: root.orientation == Axis.vertical ? 4 : 0,
               ),
@@ -878,18 +886,25 @@ class _DTabTriggerState<T> extends State<DTabTrigger<T>> {
     final line = list.variant == DTabListVariant.line;
     final horizontalLine = line && root.orientation == Axis.horizontal;
     final pill = list.variant == DTabListVariant.pill;
+    final outlinePill = list.variant == DTabListVariant.outlinePill;
     final plain = list.variant == DTabListVariant.plain;
     final navigation = list.variant == DTabListVariant.navigation;
-    final flat = pill || plain || navigation;
-    final radius = selected ? DRadius.panel : DRadius.pill;
-    final selectedBackground = pill
+    final flat = pill || outlinePill || plain || navigation;
+    final radius = selected && !outlinePill ? DRadius.panel : DRadius.pill;
+    final accent = tokens.buttonTheme.primary;
+    final outline = tokens.buttonTheme.outline;
+    final selectedBackground = outlinePill
+        ? (_hovered ? accent.hover : accent.background)
+        : pill
         ? tokens.foreground.withValues(alpha: .08)
         : dark
         ? tokens.colors.outlineVariant.withValues(
             alpha: tokens.colors.outlineVariant.a * .3,
           )
         : tokens.background;
-    final foreground = selected || _hovered
+    final foreground = outlinePill && selected
+        ? accent.foreground
+        : selected || _hovered
         ? tokens.foreground
         : flat || horizontalLine
         ? tokens.mutedForeground
@@ -930,17 +945,24 @@ class _DTabTriggerState<T> extends State<DTabTrigger<T>> {
       decoration: BoxDecoration(
         color: selected && !line && !plain && !navigation
             ? selectedBackground
+            : outlinePill && _hovered
+            ? outline.hover
             : Colors.transparent,
         borderRadius: BorderRadius.circular(radius),
         border: horizontalLine
             ? null
             : Border.all(
-                color:
-                    selected && !line && !plain && !pill && !navigation && dark
+                color: outlinePill
+                    ? (selected
+                          ? Colors.transparent
+                          : _hovered
+                          ? outline.hoverBorder
+                          : outline.border)
+                    : selected && !line && !flat && dark
                     ? tokens.colors.outlineVariant
                     : Colors.transparent,
               ),
-        boxShadow: selected && !line && !plain && !pill && !navigation
+        boxShadow: selected && !line && !flat
             ? const [
                 BoxShadow(
                   color: Color(0x1A000000),
