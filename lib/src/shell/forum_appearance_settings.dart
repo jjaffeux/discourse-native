@@ -194,33 +194,7 @@ class _ForumAppearanceSettingsState extends State<ForumAppearanceSettings> {
                       ).withBackground(background),
                     ),
                   ),
-                  onImport: (theme) {
-                    var updated = _seed(
-                      settings.themesFor(widget.siteUrl),
-                      brightness,
-                    );
-                    for (final b in Brightness.values) {
-                      updated = updated.withPalette(theme.forBrightness(b));
-                    }
-                    if (theme.background case final background?) {
-                      updated = updated.withBackground(background);
-                    }
-                    unawaited(_save(updated));
-                  },
                   onDelete: _removeTheme,
-                  onSave: (theme) async {
-                    final current = settings.themesFor(widget.siteUrl);
-                    await settings.setThemes(
-                      widget.siteUrl,
-                      ForumThemePreferences(
-                        selectedId: current.selectedId,
-                        customThemes: [...current.customThemes, theme],
-                        font: current.font,
-                        palettes: current.palettes,
-                        background: current.background,
-                      ),
-                    );
-                  },
                 ),
                 SettingsSection(
                   title: 'Font',

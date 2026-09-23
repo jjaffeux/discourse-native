@@ -1,14 +1,8 @@
-import 'dart:convert';
-
 import 'package:discourse_native/discourse_ui.dart';
-import 'package:file_selector/file_selector.dart' as selector;
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:share_plus/share_plus.dart' as sharing;
 
 import '../models/forum_background.dart';
 import '../models/forum_theme.dart';
-import 'forum_theme_clipboard.dart';
 import 'forum_theme_picker.dart';
 import 'settings_section.dart';
 import 'theme_icons.dart';
@@ -25,8 +19,6 @@ class ForumThemeEditor extends StatefulWidget {
     required this.onChanged,
     required this.onBackgroundChanged,
     required this.onBrightnessChanged,
-    required this.onImport,
-    required this.onSave,
     this.onDelete,
     this.forumPalettes = const {},
   });
@@ -39,8 +31,6 @@ class ForumThemeEditor extends StatefulWidget {
   final ValueChanged<ForumTheme> onChanged;
   final ValueChanged<ForumBackground> onBackgroundChanged;
   final ValueChanged<Brightness> onBrightnessChanged;
-  final ValueChanged<ForumTheme> onImport;
-  final Future<void> Function(ForumTheme) onSave;
   final ValueChanged<String>? onDelete;
 
   @override
@@ -48,136 +38,7 @@ class ForumThemeEditor extends StatefulWidget {
 }
 
 class _ForumThemeEditorState extends State<ForumThemeEditor> {
-  final _name = TextEditingController(text: 'My theme');
-  String? _notice;
-  bool _transferring = false;
-  static const _jsonTypes = [
-    selector.XTypeGroup(
-      label: 'JSON theme',
-      extensions: ['json'],
-      mimeTypes: ['application/json'],
-      uniformTypeIdentifiers: ['public.json'],
-    ),
-  ];
   ForumTheme get _palette => widget.palettes[widget.brightness]!;
-
-  @override
-  void dispose() {
-    _name.dispose();
-    super.dispose();
-  }
-
-  ForumTheme get _portable => ForumTheme.fromJson({
-    ...widget.palettes[Brightness.light]!.toJson(),
-    'name': _name.text.trim(),
-    'background': widget.background.toJson(),
-    'alternate': {
-      ...widget.palettes[Brightness.dark]!.toJson(),
-      'name': _name.text.trim(),
-      'background': widget.background.toJson(),
-    },
-  }, id: 'custom-${DateTime.now().microsecondsSinceEpoch}');
-
-  Future<void> _import() async {
-    setState(() {
-      _transferring = true;
-      _notice = null;
-    });
-    try {
-      final file = await selector.openFile(acceptedTypeGroups: _jsonTypes);
-      if (file == null || !mounted) return;
-      if (await file.length() > 65536) throw const FormatException();
-      final value = jsonDecode(await file.readAsString());
-      if (value is! Map<String, dynamic>) throw const FormatException();
-      final theme = ForumTheme.fromJson(
-        value,
-        id: 'custom-${DateTime.now().microsecondsSinceEpoch}',
-      );
-      if (!mounted) return;
-      _name.text = theme.name;
-      widget.onImport(theme);
-    } on FormatException {
-      if (mounted) setState(() => _notice = 'Choose a valid theme JSON file.');
-    } catch (_) {
-      if (mounted) setState(() => _notice = 'Could not read theme file.');
-    } finally {
-      if (mounted) setState(() => _transferring = false);
-    }
-  }
-
-  Future<void> _export() async {
-    final theme = _portable;
-    final box = context.findRenderObject() as RenderBox?;
-    final origin = box == null
-        ? null
-        : box.localToGlobal(Offset.zero) & box.size;
-    final stem = theme.name
-        .replaceAll(RegExp(r'[^a-zA-Z0-9_-]+'), '-')
-        .replaceAll(RegExp(r'^-+|-+$'), '');
-    final filename = '${stem.isEmpty ? 'theme' : stem}.json';
-    final bytes = Uint8List.fromList(
-      utf8.encode(
-        '${const JsonEncoder.withIndent('  ').convert(theme.toJson())}\n',
-      ),
-    );
-    setState(() {
-      _transferring = true;
-      _notice = null;
-    });
-    try {
-      if (!kIsWeb &&
-          {
-            TargetPlatform.macOS,
-            TargetPlatform.windows,
-            TargetPlatform.linux,
-          }.contains(defaultTargetPlatform)) {
-        final location = await selector.getSaveLocation(
-          suggestedName: filename,
-          acceptedTypeGroups: _jsonTypes,
-        );
-        if (location == null || !mounted) return;
-        await selector.XFile.fromData(
-          bytes,
-          name: filename,
-          mimeType: 'application/json',
-        ).saveTo(location.path);
-      } else {
-        await sharing.SharePlus.instance.share(
-          sharing.ShareParams(
-            files: [
-              sharing.XFile.fromData(
-                bytes,
-                name: filename,
-                mimeType: 'application/json',
-              ),
-            ],
-            fileNameOverrides: [filename],
-            sharePositionOrigin: origin,
-          ),
-        );
-      }
-      if (mounted) setState(() => _notice = 'Theme exported.');
-    } catch (_) {
-      if (mounted) setState(() => _notice = 'Could not export theme.');
-    } finally {
-      if (mounted) setState(() => _transferring = false);
-    }
-  }
-
-  Future<void> _save() async {
-    setState(() {
-      _transferring = true;
-      _notice = null;
-    });
-    try {
-      await widget.onSave(_portable);
-      if (mounted) setState(() => _notice = 'Theme saved.');
-    } catch (_) {
-      if (mounted) setState(() => _notice = 'Could not save theme. Try again.');
-    } finally {
-      if (mounted) setState(() => _transferring = false);
-    }
-  }
 
   Future<void> _delete(ForumTheme theme) async {
     final confirmed = await showDAlertDialog<bool>(
@@ -400,85 +261,6 @@ class _ForumThemeEditorState extends State<ForumThemeEditor> {
               );
             },
           ),
-        ),
-        DAccordion<String>(
-          children: [
-            DAccordionItem<String>(
-              value: 'library',
-              child: Column(
-                children: [
-                  const DAccordionTrigger(child: Text('Save and share')),
-                  DAccordionContent(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      spacing: 12,
-                      children: [
-                        for (final saved in widget.customThemes)
-                          Wrap(
-                            spacing: DSpacing.controlGap,
-                            runSpacing: DSpacing.controlGap,
-                            crossAxisAlignment: WrapCrossAlignment.center,
-                            children: [
-                              Text(saved.name),
-                              DButton(
-                                key: ValueKey(('copy-saved-theme', saved.id)),
-                                label: const Text('Copy theme'),
-                                variant: DButtonVariant.outline,
-                                onPressed: () => copyForumTheme(context, saved),
-                              ),
-                            ],
-                          ),
-                        DInput(
-                          filled: true,
-                          key: const ValueKey('theme-name'),
-                          labelText: 'Name',
-                          controller: _name,
-                          maxLength: 48,
-                          onChanged: (_) => setState(() {}),
-                        ),
-                        Wrap(
-                          spacing: DSpacing.controlGap,
-                          runSpacing: DSpacing.controlGap,
-                          children: [
-                            DButton(
-                              label: const Text('Save theme'),
-                              onPressed:
-                                  !_transferring && _name.text.trim().isNotEmpty
-                                  ? _save
-                                  : null,
-                            ),
-                            DButton(
-                              label: const Text('Export'),
-                              variant: DButtonVariant.outline,
-                              onPressed:
-                                  !_transferring && _name.text.trim().isNotEmpty
-                                  ? _export
-                                  : null,
-                            ),
-                            DButton(
-                              key: const ValueKey('copy-custom-theme'),
-                              label: const Text('Copy theme'),
-                              variant: DButtonVariant.outline,
-                              onPressed:
-                                  !_transferring && _name.text.trim().isNotEmpty
-                                  ? () => copyForumTheme(context, _portable)
-                                  : null,
-                            ),
-                            DButton(
-                              label: const Text('Import'),
-                              variant: DButtonVariant.outline,
-                              onPressed: !_transferring ? _import : null,
-                            ),
-                          ],
-                        ),
-                        if (_notice != null) Text(_notice!),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
         ),
       ],
     );

@@ -1,6 +1,3 @@
-import 'dart:convert';
-import 'dart:io';
-
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/forum_background.dart';
 import 'package:discourse_native/src/models/forum_font.dart';
@@ -9,7 +6,6 @@ import 'package:discourse_native/src/models/forum_theme_preferences.dart';
 import 'package:discourse_native/src/models/forum_theme_presets.dart';
 import 'package:discourse_native/src/shell/forum_settings_page.dart';
 import 'package:discourse_native/src/shell/forum_theme_thumbnail.dart';
-import 'package:file_selector_platform_interface/file_selector_platform_interface.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -35,13 +31,6 @@ Future<void> mode(WidgetTester tester, String name) async {
   final tabs = find.byKey(const ValueKey('appearance-theme-select'));
   await tester.ensureVisible(tabs);
   await tester.tap(find.descendant(of: tabs, matching: find.text(name)));
-  await tester.pumpAndSettle();
-}
-
-Future<void> openLibrary(WidgetTester tester) async {
-  final toggle = find.text('Save and share');
-  await tester.ensureVisible(toggle);
-  await tester.tap(toggle);
   await tester.pumpAndSettle();
 }
 
@@ -205,7 +194,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('Gradient updates live and survives saving and mode changes', (
+  testWidgets('Gradient updates live and survives mode changes', (
     tester,
   ) async {
     final shell = controller();
@@ -238,44 +227,6 @@ void main() {
     expect(
       shell.forumSettings.themesFor(_site).background!.effect,
       ForumBackgroundEffect.gradient,
-    );
-    await openLibrary(tester);
-    final save = find.widgetWithText(DButton, 'Save theme');
-    await tester.ensureVisible(save);
-    await tester.tap(save);
-    await tester.pumpAndSettle();
-    final saved = shell.forumSettings.themesFor(_site).customThemes.single;
-    for (final brightness in Brightness.values) {
-      expect(
-        saved.forBrightness(brightness).background!.effect,
-        ForumBackgroundEffect.gradient,
-      );
-    }
-    expect(tester.takeException(), isNull);
-  });
-
-  testWidgets('live appearance changes retain unsaved form state', (
-    tester,
-  ) async {
-    final shell = controller();
-    addTearDown(shell.dispose);
-    await pumpSettings(tester, shell);
-    await openLibrary(tester);
-    final name = find.descendant(
-      of: find.byKey(const ValueKey('theme-name')),
-      matching: find.byType(EditableText),
-    );
-    await tester.ensureVisible(name);
-    await tester.enterText(name, 'Work in progress');
-    await preset(tester, 'Solarized');
-    await tester.ensureVisible(find.text('Noise'));
-    await tester.tap(find.text('Noise'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('None'));
-    await tester.pumpAndSettle();
-    expect(
-      tester.widget<EditableText>(name).controller.text,
-      'Work in progress',
     );
     expect(tester.takeException(), isNull);
   });
@@ -416,6 +367,10 @@ void main() {
   ) async {
     final shell = controller();
     addTearDown(shell.dispose);
+    await shell.forumSettings.setThemes(
+      _site,
+      ForumThemePreferences(customThemes: [forumThemePresets.first]),
+    );
     await pumpSettings(tester, shell);
     await preset(tester, 'Solarized');
     final font = find.byKey(const ValueKey('appearance-font-lato'));
@@ -423,12 +378,6 @@ void main() {
     await tester.tap(font);
     await tester.pumpAndSettle();
     expect(shell.forumSettings.themesFor(_site).font, ForumFont.lato);
-    await openLibrary(tester);
-    final save = find.widgetWithText(DButton, 'Save theme');
-    await tester.ensureVisible(save);
-    await tester.tap(save);
-    await tester.pumpAndSettle();
-    expect(shell.forumSettings.themesFor(_site).customThemes, hasLength(1));
     final reset = find.text('Reset to forum theme');
     await tester.ensureVisible(reset);
     await tester.tap(reset);
@@ -443,80 +392,4 @@ void main() {
       ForumThemePreferences.defaults,
     );
   });
-
-  testWidgets(
-    'import validates before applying and export includes both palettes and effects',
-    (tester) async {
-      final files = _ThemeFiles();
-      final previous = FileSelectorPlatform.instance;
-      FileSelectorPlatform.instance = files;
-      addTearDown(() => FileSelectorPlatform.instance = previous);
-      final directory = Directory.systemTemp.createTempSync(
-        'live-theme-export-',
-      );
-      addTearDown(() => directory.deleteSync(recursive: true));
-      final shell = controller();
-      addTearDown(shell.dispose);
-      await pumpSettings(tester, shell);
-      await openLibrary(tester);
-      final import = find.widgetWithText(DButton, 'Import');
-      await tester.ensureVisible(import);
-      files.contents = '{broken';
-      await tester.tap(import);
-      await tester.pumpAndSettle();
-      expect(find.text('Choose a valid theme JSON file.'), findsOneWidget);
-      expect(shell.forumSettings.themesFor(_site).palettes, isEmpty);
-      final solarized = forumThemePresets.firstWhere(
-        (theme) => theme.id == 'solarized',
-      );
-      files.contents = jsonEncode(solarized.toJson());
-      await tester.tap(import);
-      await tester.pumpAndSettle();
-      expect(
-        shell.forumSettings
-            .themesFor(_site)
-            .themeFor(Brightness.light)!
-            .tertiary,
-        solarized.tertiary,
-      );
-      files.destination = '${directory.path}/theme.json';
-      await tester.tap(find.widgetWithText(DButton, 'Export'));
-      await tester.runAsync(() async {
-        await Future<void>.delayed(const Duration(milliseconds: 100));
-      });
-      await tester.pumpAndSettle();
-      final decoded =
-          jsonDecode(File(files.destination!).readAsStringSync())
-              as Map<String, dynamic>;
-      final exported = ForumTheme.fromJson(decoded, id: 'exported');
-      expect(
-        exported.forBrightness(Brightness.dark).tertiary,
-        solarized.alternate!.tertiary,
-      );
-      expect(exported.background!.useAccentTint, isTrue);
-      expect(tester.takeException(), isNull);
-    },
-    variant: TargetPlatformVariant.only(TargetPlatform.macOS),
-  );
-}
-
-final class _ThemeFiles extends FileSelectorPlatform {
-  String? contents;
-  String? destination;
-  @override
-  Future<XFile?> openFile({
-    List<XTypeGroup>? acceptedTypeGroups,
-    String? initialDirectory,
-    String? confirmButtonText,
-  }) async => contents == null
-      ? null
-      : XFile.fromData(
-          Uint8List.fromList(utf8.encode(contents!)),
-          name: 'theme.json',
-        );
-  @override
-  Future<FileSaveLocation?> getSaveLocation({
-    List<XTypeGroup>? acceptedTypeGroups,
-    SaveDialogOptions options = const SaveDialogOptions(),
-  }) async => destination == null ? null : FileSaveLocation(destination!);
 }

@@ -174,3 +174,15 @@ Narrow RTL layouts at 2× text are covered with macOS/iOS platform overrides.
   only refined selection decoration and preservation of inactive preferences,
   both covered by the passing regression tests. Only seeded in-memory fixture
   themes were used; the isolated review app was quit after inspection.
+
+### Remove Save and share — September 24, 2026
+
+At the user's request, the entire Save and share accordion is removed, including
+the saved-theme copy rows, name input and save/import/export/copy actions. The
+unused editor callbacks, file-transfer code and clipboard helper are removed too.
+Existing saved themes remain in the thumbnail picker with confirmed deletion;
+live palette/background editing and font samples continue to work.
+
+All 21 theme-editor, settings-page and appearance-background tests passed, and
+root `dart analyze` reported no issues. Tests for the removed controls were
+removed; the reset test now seeds an existing saved theme directly.
