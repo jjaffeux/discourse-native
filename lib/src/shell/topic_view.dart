@@ -253,6 +253,8 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
   late Size _viewportLogicalSize;
   late double _devicePixelRatio;
   GlobalKey _postSliverKey = GlobalKey();
+  bool _initialBodyChecked = false;
+  int? _openingPostId;
 
   ScrollController? get _scroll => _viewport.scrollController;
   ListController? get _list => _viewport.listController;
@@ -514,7 +516,10 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
       ),
       inspectViewport: _inspectViewport,
       controllersFactory: () => (
-        scroll: TopicPostScrollController(_initialPostOffset),
+        scroll: TopicPostScrollController(
+          _initialPostOffset,
+          anchorOffset: _heldPostOffset,
+        ),
         list: ListController(),
       ),
       listLayoutChanged: _onListLayoutChanged,
@@ -597,6 +602,8 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
     }
     if (identical(previousScroll, _scroll)) return;
     _postSliverKey = GlobalKey();
+    _initialBodyChecked = false;
+    _openingPostId = null;
     _laidOutDayStarts = const [];
     _dayJumpToken = null;
     _postIndexProjection = null;
@@ -626,6 +633,23 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
       position.itemIndex,
     );
     return offset == null ? null : offset - position.viewportOffset;
+  }
+
+  double? _heldPostOffset() {
+    final snapshot = _laidOutSnapshot;
+    final postId = _viewport.anchorRestorePostId;
+    if (snapshot == null || postId == null || _viewport.userDragging) {
+      return null;
+    }
+    final postIndex = snapshot.postIds.indexOf(postId);
+    if (postIndex < 0) return null;
+    final offset = TopicPostSliver.offsetToReveal(
+      _postSliverKey.currentContext,
+      postIndex + (snapshot.hasEarlier || snapshot.loadingEarlier ? 1 : 0),
+    );
+    return offset == null
+        ? null
+        : offset - _viewport.anchorRestoreViewportOffset;
   }
 
   void _jumpTo(int index, {double viewportOffset = 0}) {
@@ -1005,6 +1029,20 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
   }) {
     final controller = _controller;
     if (controller == null) return;
+    if (_openingPostId case final postId?) {
+      final element = _postContexts[postId];
+      if (element is! StatefulElement ||
+          element.state is! _TopicPostItemState ||
+          !(element.state as _TopicPostItemState).initialLayoutReady(
+            restoreWithinPost:
+                _viewport.initialPositionFor(snapshot)?.viewportOffset != 0,
+          )) {
+        return;
+      }
+      setState(() => _openingPostId = null);
+      _scheduleLook();
+      return;
+    }
     if (_revealKeyboardPostEnd()) return;
     final timer = _isScrollCaptureRecording ? (Stopwatch()..start()) : null;
     _syncFloatingDay(snapshot);
@@ -1857,7 +1895,9 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
     builder: (context, child) {
       final progressPosition = _progressPosition;
       final showProgress = progressPosition != null && totalPosts > 1;
-      if (!showProgress && !widget.canReply && !widget.inbox) {
+      // The progress control is resolved after layout. Reserve its footer on
+      // the first frame so it cannot shorten an already positioned viewport.
+      if (totalPosts <= 1 && !widget.canReply && !widget.inbox) {
         return const SizedBox.shrink();
       }
       return _TopicBottomBar(
@@ -2089,6 +2129,23 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
       ))
         gap.postIndex: gap.daysSince,
     };
+    if (!_initialBodyChecked) {
+      final position = _viewport.initialPositionFor(snapshot);
+      if (position != null) {
+        final index = position.itemIndex - (snapshot.hasEarlier ? 1 : 0);
+        if (index >= 0 && index < postIds.length) {
+          _initialBodyChecked = true;
+          final postId = postIds[index];
+          final post = controller.store.read<Post>(siteUrl, postId);
+          if ((position.itemIndex > 0 || position.viewportOffset != 0) &&
+              post != null &&
+              (CookedHtml.buildsAsynchronously(post.cooked) ||
+                  post.cooked.contains('<img'))) {
+            _openingPostId = postId;
+          }
+        }
+      }
+    }
     _viewport.restoreInitialPost(snapshot);
     _applyWindowChange(_viewport.updateWindow(snapshot, hasHeader: showHeader));
     if (_isScrollCaptureRecording) {
@@ -2379,7 +2436,18 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
                   child: Stack(
                     clipBehavior: Clip.hardEdge,
                     children: [
-                      Positioned.fill(child: buildPostStream(openingSlivers)),
+                      Positioned.fill(
+                        child: Offstage(
+                          offstage: _openingPostId != null,
+                          child: buildPostStream(openingSlivers),
+                        ),
+                      ),
+                      if (_openingPostId != null)
+                        const Positioned.fill(
+                          child: _TopicLoadingSkeleton(
+                            key: ValueKey('topic-loading-skeleton'),
+                          ),
+                        ),
                       _buildFloatingDayOverlay(readingLane.padding),
                       if (controller.mobileNavigationEnabled)
                         PositionedDirectional(
@@ -3967,8 +4035,12 @@ class _TopicPostItemState extends State<_TopicPostItem>
   bool _releaseScheduled = false;
   bool _keepAliveUpdateScheduled = false;
   final _mountingBodies = <Future<void>>{};
+  final _mountingLayouts = <Future<void>>{};
 
   bool get bodyComplete => _mountingBodies.isEmpty;
+
+  bool initialLayoutReady({required bool restoreWithinPost}) =>
+      restoreWithinPost ? bodyComplete : _mountingLayouts.isEmpty;
 
   @override
   bool get wantKeepAlive => widget.retention.contains(context);
@@ -4094,9 +4166,11 @@ class _TopicPostItemState extends State<_TopicPostItem>
       onNotification: (notification) {
         final completion = notification.completion;
         _mountingBodies.add(completion);
+        if (notification.layoutPending) _mountingLayouts.add(completion);
         unawaited(
           completion.whenComplete(() {
             _mountingBodies.remove(completion);
+            _mountingLayouts.remove(completion);
             if (mounted && bodyComplete) widget.onBodyComplete();
           }),
         );

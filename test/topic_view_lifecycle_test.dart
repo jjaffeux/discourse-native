@@ -144,89 +144,121 @@ void main() {
         expect(api.topicReadsRecorded, isEmpty);
       });
 
-      testWidgets(
-        'reapplies a saved long-post position after late media loads',
-        (tester) async {
-          final site = instance('meta.example');
-          final imageResponse = Completer<http.Response>();
-          final lifecycle = SiteLifecycle();
-          final authenticator = FakeAuthenticator()..keys[site.url] = 'key';
-          final siteImages = SiteImageRepository(
-            credentials: authenticator,
-            lifecycle: lifecycle,
-            client: MockClient((_) => imageResponse.future),
-          );
-          final controller = ShellController(
-            instanceStore: FakeInstanceStore([site]),
-            api: FakeDiscourseApi(feeds: const {'/latest.json': []}),
-            authenticator: authenticator,
-            drafts: FakeDraftStore(),
-            lifecycle: lifecycle,
-            siteImages: siteImages,
-            trackers: FakeSiteTracker.reset(),
-          );
-          addTearDown(controller.dispose);
-          await controller.load();
-          controller.store
-            ..put(
-              site.url,
-              const TopicDetail(
-                id: 1,
-                title: 'One',
-                stream: [1],
-                postsCount: 1,
-              ),
-            )
-            ..put(
-              site.url,
-              const Post(
-                id: 1,
-                postNumber: 1,
-                username: 'sam',
-                cooked:
-                    '<p>Before</p><img style="display:block" '
-                    'src="/uploads/tall.png" alt="Tall image"><p>After</p>',
+      for (final imageFails in [false, true]) {
+        testWidgets(
+          'positions late media before revealing the post (failure: $imageFails)',
+          (tester) async {
+            final site = instance('meta.example');
+            final imageResponse = Completer<http.Response>();
+            final lifecycle = SiteLifecycle();
+            final authenticator = FakeAuthenticator()..keys[site.url] = 'key';
+            final siteImages = SiteImageRepository(
+              credentials: authenticator,
+              lifecycle: lifecycle,
+              client: MockClient((_) => imageResponse.future),
+            );
+            final controller = ShellController(
+              instanceStore: FakeInstanceStore([site]),
+              api: FakeDiscourseApi(feeds: const {'/latest.json': []}),
+              authenticator: authenticator,
+              drafts: FakeDraftStore(),
+              lifecycle: lifecycle,
+              siteImages: siteImages,
+              trackers: FakeSiteTracker.reset(),
+            );
+            addTearDown(controller.dispose);
+            await controller.load();
+            controller.store
+              ..put(
+                site.url,
+                const TopicDetail(
+                  id: 1,
+                  title: 'One',
+                  stream: [1],
+                  postsCount: 1,
+                ),
+              )
+              ..put(
+                site.url,
+                const Post(
+                  id: 1,
+                  postNumber: 1,
+                  username: 'sam',
+                  cooked:
+                      '<p>Before</p><img style="display:block" '
+                      'src="/uploads/tall.png" alt="Tall image"><p>After</p>',
+                ),
+              );
+            controller.pushContent(
+              ContentRoute.topic(topicId: 1, slug: 'one', title: 'One'),
+            );
+            controller.saveTopicScrollPost(1, 1, viewportOffset: -600);
+
+            await tester.pumpWidget(_topicView(controller));
+            await tester.pump();
+            await tester.pump();
+            expect(find.byKey(const ValueKey(1)), findsNothing);
+            expect(
+              find.byKey(const ValueKey('topic-loading-skeleton')),
+              findsOneWidget,
+            );
+
+            final siteImage = tester.widget<SiteImage>(
+              find.byType(SiteImage, skipOffstage: false),
+            );
+            final ImageProvider<Object> imageProvider =
+                siteImage.cacheWidth == null
+                ? MemoryImage(_tallPng)
+                : ResizeImage(
+                    MemoryImage(_tallPng),
+                    width: siteImage.cacheWidth,
+                    policy: ResizeImagePolicy.fit,
+                  );
+            await tester.runAsync(
+              () => precacheImage(
+                imageProvider,
+                tester.element(find.byType(TopicView)),
               ),
             );
-          controller.pushContent(
-            ContentRoute.topic(topicId: 1, slug: 'one', title: 'One'),
-          );
-          controller.saveTopicScrollPost(1, 1, viewportOffset: -600);
-
-          await tester.pumpWidget(_topicView(controller));
-          await tester.pump();
-          await tester.pump();
-          final list = topicPostList(tester);
-          expect(list.controller!.position.pixels, 0);
-
-          final siteImage = tester.widget<SiteImage>(find.byType(SiteImage));
-          final ImageProvider<Object> imageProvider =
-              siteImage.cacheWidth == null
-              ? MemoryImage(_tallPng)
-              : ResizeImage(
-                  MemoryImage(_tallPng),
-                  width: siteImage.cacheWidth,
-                  policy: ResizeImagePolicy.fit,
+            imageResponse.complete(
+              imageFails
+                  ? http.Response('', 404)
+                  : http.Response.bytes(
+                      _tallPng,
+                      200,
+                      headers: const {'content-type': 'image/png'},
+                    ),
+            );
+            final post = find.byKey(const ValueKey(1));
+            var sawLoadedImage = false;
+            for (var frame = 0; frame < 8; frame++) {
+              await tester.pump(const Duration(milliseconds: 16));
+              if (post.evaluate().isEmpty) continue;
+              if (tester.getSize(post).height > 1000) {
+                sawLoadedImage = true;
+                expect(
+                  tester.getTopLeft(post).dy,
+                  closeTo(tester.getTopLeft(topicPostListFinder()).dy - 600, 1),
+                  reason: 'first loaded image frame must already be positioned',
                 );
-          await tester.runAsync(
-            () => precacheImage(
-              imageProvider,
-              tester.element(find.byType(TopicView)),
-            ),
-          );
-          imageResponse.complete(
-            http.Response.bytes(
-              _tallPng,
-              200,
-              headers: const {'content-type': 'image/png'},
-            ),
-          );
-          await tester.pumpAndSettle();
-          await tester.pump();
+              }
+            }
+            expect(sawLoadedImage, !imageFails);
+            expect(post, findsOneWidget);
+            expect(
+              find.byKey(const ValueKey('topic-loading-skeleton')),
+              findsNothing,
+            );
+            await tester.pumpAndSettle();
+            await tester.pump();
 
-          expect(list.controller!.position.pixels, closeTo(600, 1));
-        },
-      );
+            expect(
+              topicPostList(tester).controller!.position.pixels,
+              closeTo(imageFails ? 0 : 600, 1),
+            );
+          },
+        );
+      }
 
       testWidgets('leaves a glimpsed tall final post unread', (tester) async {
         final site = instance('meta.example');
@@ -981,83 +1013,129 @@ void main() {
         await diagnostics.close();
       });
 
-      testWidgets(
-        'keeps the latest target stable while an earlier long post builds',
-        (tester) async {
-          final site = instance('meta.example');
-          final controller = ShellController(
-            instanceStore: FakeInstanceStore([site]),
-            api: FakeDiscourseApi(feeds: const {'/latest.json': []}),
-            authenticator: FakeAuthenticator(),
-            drafts: FakeDraftStore(),
-            trackers: FakeSiteTracker.reset(),
-          );
-          final diagnostics = await DiagnosticsController.create(
-            topicScrollCapture: topicScrollCaptureWithoutVm(),
-            persistence: MemoryDiagnosticsPersistence(),
-            sessionId: 'topic-scroll-latest-long-post-test',
-          );
-          addTearDown(controller.dispose);
-          addTearDown(diagnostics.close);
-          await controller.load();
-          final posts = [
-            for (var number = 35; number <= 74; number++)
-              Post(
-                id: number,
-                postNumber: number,
-                username: 'sam',
-                cooked: number == 70
-                    ? List.filled(600, '<p>A very long earlier post</p>').join()
-                    : '<p>Post $number</p>',
-              ),
-          ];
-          controller.store
-            ..put(
-              site.url,
-              TopicDetail(
-                id: 1,
+      for (final longPost in [73, 74]) {
+        testWidgets(
+          'keeps the latest target stable while long post $longPost builds',
+          (tester) async {
+            final site = instance('meta.example');
+            final controller = ShellController(
+              instanceStore: FakeInstanceStore([site]),
+              api: FakeDiscourseApi(feeds: const {'/latest.json': []}),
+              authenticator: FakeAuthenticator(),
+              drafts: FakeDraftStore(),
+              trackers: FakeSiteTracker.reset(),
+            );
+            final diagnostics = await DiagnosticsController.create(
+              topicScrollCapture: topicScrollCaptureWithoutVm(),
+              persistence: MemoryDiagnosticsPersistence(),
+              sessionId: 'topic-scroll-latest-long-post-test',
+            );
+            addTearDown(controller.dispose);
+            addTearDown(diagnostics.close);
+            await controller.load();
+            final posts = [
+              for (var number = 35; number <= 74; number++)
+                Post(
+                  id: number,
+                  postNumber: number,
+                  username: 'sam',
+                  cooked: number == longPost
+                      ? List.filled(
+                          600,
+                          '<p>A very long earlier post</p>',
+                        ).join()
+                      : '<p>Post $number</p>',
+                ),
+            ];
+            controller.store
+              ..put(
+                site.url,
+                TopicDetail(
+                  id: 1,
+                  title: 'One',
+                  stream: [for (var number = 1; number <= 74; number++) number],
+                  postsCount: 74,
+                ),
+              )
+              ..putAll(site.url, posts);
+            controller.pushContent(
+              ContentRoute.topic(
+                topicId: 1,
+                slug: 'one',
                 title: 'One',
-                stream: [for (var number = 1; number <= 74; number++) number],
-                postsCount: 74,
+                postNumber: 74,
               ),
-            )
-            ..putAll(site.url, posts);
-          controller.pushContent(
-            ContentRoute.topic(
-              topicId: 1,
-              slug: 'one',
-              title: 'One',
-              postNumber: 74,
-            ),
-          );
-          diagnostics.topicScrollCapture.start();
+            );
+            diagnostics.topicScrollCapture.start();
 
-          await tester.pumpWidget(
-            _topicView(controller, diagnostics: diagnostics),
-          );
-          for (var frame = 0; frame < 120; frame++) {
-            await tester.pump(const Duration(milliseconds: 16));
-          }
+            await tester.pumpWidget(
+              _topicView(controller, diagnostics: diagnostics),
+            );
+            final target = find.byKey(const ValueKey(74));
+            double? firstTop;
+            if (longPost == 74) {
+              expect(target, findsNothing);
+              expect(
+                find.byKey(const ValueKey('topic-loading-skeleton')),
+                findsOneWidget,
+              );
+            } else {
+              expect(target, findsOneWidget);
+              firstTop = tester.getTopLeft(target).dy;
+            }
+            for (var frame = 0; frame < 120; frame++) {
+              await tester.runAsync(
+                () => Future<void>.delayed(const Duration(milliseconds: 10)),
+              );
+              await tester.pump(const Duration(milliseconds: 16));
+              if (target.evaluate().isEmpty && firstTop == null) continue;
+              expect(target, findsOneWidget, reason: 'frame $frame');
+              firstTop ??= tester.getTopLeft(target).dy;
+              expect(
+                tester.getTopLeft(target).dy,
+                closeTo(firstTop, 1),
+                reason: 'frame $frame',
+              );
+            }
+            expect(firstTop, isNotNull);
+            if (longPost == 74) {
+              expect(
+                firstTop,
+                closeTo(tester.getTopLeft(topicPostListFinder()).dy, 1),
+              );
+            }
 
-          expect(tester.takeException(), isNull);
-          final itemJumps = diagnostics.topicScrollCapture.events.where(
-            (event) => event.name == 'viewport.anchor.jumpToItem',
-          );
-          final progressChanges = diagnostics.topicScrollCapture.events
-              .where((event) => event.name == 'topic.progress.changed')
-              .length;
-          expect(
-            itemJumps.length,
-            lessThanOrEqualTo(2),
-            reason: '$progressChanges progress changes',
-          );
-          expect(find.textContaining('74 / 74'), findsOneWidget);
+            expect(
+              find.byWidgetPredicate(
+                (widget) =>
+                    widget is RichText &&
+                    widget.text.toPlainText().contains(
+                      'A very long earlier post',
+                    ),
+              ),
+              findsNWidgets(600),
+            );
 
-          diagnostics.topicScrollCapture.stop();
-          await tester.pumpWidget(const SizedBox.shrink());
-          await diagnostics.close();
-        },
-      );
+            expect(tester.takeException(), isNull);
+            final itemJumps = diagnostics.topicScrollCapture.events.where(
+              (event) => event.name == 'viewport.anchor.jumpToItem',
+            );
+            final progressChanges = diagnostics.topicScrollCapture.events
+                .where((event) => event.name == 'topic.progress.changed')
+                .length;
+            expect(
+              itemJumps.length,
+              lessThanOrEqualTo(2),
+              reason: '$progressChanges progress changes',
+            );
+            expect(find.textContaining('74 / 74'), findsOneWidget);
+
+            diagnostics.topicScrollCapture.stop();
+            await tester.pumpWidget(const SizedBox.shrink());
+            await diagnostics.close();
+          },
+        );
+      }
     });
 
     group('scroll attachment lifecycle', () {
