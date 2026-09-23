@@ -15,6 +15,24 @@ Future<void> focusLast(WidgetTester tester) async {
 }
 
 void main() {
+  testWidgets(
+    'nested and mixed rows add no spacing beyond text or control height',
+    (tester) async {
+      await pumpEditor(tester, '- Parent\n  - Child\n- [ ] Task\n- Sibling');
+      final items = bodies(tester);
+      expect(items, hasLength(4));
+      final tops = items
+          .map((item) => tester.getTopLeft(editable(item)).dy)
+          .toList();
+      for (var i = 1; i < tops.length; i++) {
+        final height = i == 3
+            ? tester.getSize(find.byType(DCheckbox)).height
+            : 24.0;
+        expect(tops[i] - tops[i - 1], closeTo(height, 1));
+      }
+      expect(tester.takeException(), isNull);
+    },
+  );
   test('numbering follows Markdown list boundaries without changing source', () {
     const source =
         '3. First\n1. Second\n\n1. Third\n\nParagraph\n\n7) New\n2) Next\n- Bullet\n2. Restart';

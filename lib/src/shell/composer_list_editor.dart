@@ -105,7 +105,11 @@ final class _ListProjection
         ),
       ),
       TextSpan(
-        text: '\n',
+        text:
+            composer is ComposerListBodyController &&
+                end == item.document.length
+            ? '\u200b'
+            : '\n',
         style: context.baseStyle.copyWith(color: Colors.transparent),
       ),
       TextSpan(
@@ -289,6 +293,7 @@ class ComposerListBodyController extends ComposerController {
         maxImageWidth: parent.text.maxImageWidth,
         maxImageHeight: parent.text.maxImageHeight,
       ) {
+    text.compactListSpacing = true;
     text.value = TextEditingValue(
       text: item.body.text,
       selection: const TextSelection.collapsed(offset: 0),
