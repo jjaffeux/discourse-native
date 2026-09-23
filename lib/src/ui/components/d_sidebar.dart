@@ -728,13 +728,16 @@ class _DSidebarReorderableMenuState extends State<DSidebarReorderableMenu> {
             );
           }
         },
-        proxyDecorator: (child, index, animation) => DecoratedBox(
-          decoration: BoxDecoration(
-            color: DTokens.of(context).background,
-            border: Border.all(color: DTokens.of(context).primary),
-            borderRadius: BorderRadius.circular(DTokens.of(context).radius),
+        proxyDecorator: (child, index, animation) => Opacity(
+          opacity: 0.25,
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: DTokens.of(context).background,
+              border: Border.all(color: DTokens.of(context).primary),
+              borderRadius: BorderRadius.circular(DTokens.of(context).radius),
+            ),
+            child: child,
           ),
-          child: child,
         ),
         itemBuilder: (context, index) {
           final child = itemBuilder(context, index);
