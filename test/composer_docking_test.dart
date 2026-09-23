@@ -718,9 +718,15 @@ void main() {
         tester.getRect(find.byKey(const ValueKey('composer-submit'))).bottom,
         lessThanOrEqualTo(470),
       );
+      final editable = tester.state<EditableTextState>(
+        find.descendant(
+          of: find.byType(ComposerEditor),
+          matching: find.byType(EditableText),
+        ),
+      );
       expect(
         tester.getSize(find.byType(ComposerEditor)).height,
-        greaterThan(30),
+        closeTo(editable.renderEditable.preferredLineHeight, 1),
       );
       expect(find.byTooltip('Dock side'), findsNothing);
       expect(find.text('Dock side'), findsNothing);
