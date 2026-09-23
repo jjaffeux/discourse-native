@@ -242,6 +242,19 @@ DCheckbox.defaultValue(invalid: true, title: Text('Accept terms'))''',
         ),
       ),
     ),
+    StyleguideExample(
+      title: 'Inline',
+      description:
+          'Standard label spacing on desktop; full targets on touch platforms.',
+      code: 'DCheckbox.defaultValue(inline: true, semanticLabel: "To-do")',
+      builder: (_) => const Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          DCheckbox.defaultValue(inline: true, semanticLabel: 'To-do'),
+          Text('To-do'),
+        ],
+      ),
+    ),
   ],
 );
 

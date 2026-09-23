@@ -77,6 +77,56 @@ void main() {
     }
   }
 
+  for (final platform in [TargetPlatform.macOS, TargetPlatform.iOS]) {
+    for (final direction in TextDirection.values) {
+      testWidgets(
+        'inline checkbox spacing and activation $platform $direction',
+        (tester) async {
+          var changes = 0;
+          await tester.pumpWidget(
+            host(
+              Center(
+                child: DCheckbox.defaultValue(
+                  inline: true,
+                  onChanged: (_) => changes++,
+                ),
+              ),
+              platform: platform,
+              direction: direction,
+            ),
+          );
+          final target = tester.getRect(find.byType(DCheckbox));
+          final artwork = tester.getRect(
+            find.descendant(
+              of: find.byType(DCheckbox),
+              matching: find.byType(AnimatedContainer),
+            ),
+          );
+          expect(
+            target.size,
+            platform == TargetPlatform.iOS
+                ? const Size(48, 48)
+                : const Size(24, 32),
+          );
+          expect(
+            direction == TextDirection.ltr ? artwork.left : artwork.right,
+            direction == TextDirection.ltr ? target.left : target.right,
+          );
+          await tester.tapAt(artwork.center);
+          await tester.pump();
+          expect(changes, 1);
+          expect(
+            tester
+                .widget<AnimatedContainer>(find.byType(AnimatedContainer))
+                .constraints!
+                .maxWidth,
+            16,
+          );
+        },
+      );
+    }
+  }
+
   test('binary controlled forms reject a mixed reset proposal', () {
     expect(
       () => DCheckboxFormField.controlled(

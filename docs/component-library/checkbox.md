@@ -207,3 +207,11 @@ Logs: `/private/tmp/checkbox-main-integration-tests.log`,
 `/private/tmp/checkbox-main-topic-final.log`,
 `/private/tmp/checkbox-main-integration-analysis-final.log`, and
 `/private/tmp/checkbox-main-integration-analysis-full-final.log`.
+
+## Inline composer spacing
+
+`DCheckbox(inline: true)` reserves 24×32px on desktop: 16px artwork and
+the standard `DSpacing.sm` (8px) label gap. It aligns artwork to the start
+for use before independently editable text. The composer uses this option
+for todo markers; ordinary checkboxes retain their existing layout. Touch
+platforms retain the 48×48px target. The option is ignored for titled controls.

@@ -18,7 +18,8 @@ import 'd_label.dart';
 /// [title] and [subtitle] form one accessible, clickable label. Keep links and
 /// other independently interactive content outside those slots. [secondary]
 /// remains outside the control's semantics and focus owner. Borrowed [focusNode]
-/// is never disposed. Pointer targets are 40×32, touch targets 48×48; the painted
+/// is never disposed. Default pointer targets are 40×32, inline targets 24×32,
+/// and touch targets 48×48; the painted
 /// control always remains 16×16 logical pixels.
 class DCheckbox extends StatefulWidget {
   const DCheckbox({
@@ -39,6 +40,7 @@ class DCheckbox extends StatefulWidget {
     this.onShowFocusHighlight,
     this.contentPadding = EdgeInsets.zero,
     this.alignment = AlignmentDirectional.center,
+    this.inline = false,
   }) : _controlled = true,
        assert(tristate || value != null);
 
@@ -60,6 +62,7 @@ class DCheckbox extends StatefulWidget {
     this.onShowFocusHighlight,
     this.contentPadding = EdgeInsets.zero,
     this.alignment = AlignmentDirectional.center,
+    this.inline = false,
   }) : value = defaultValue,
        _controlled = false,
        assert(tristate || defaultValue != null);
@@ -87,6 +90,11 @@ class DCheckbox extends StatefulWidget {
   /// Positions an unlabelled checkbox within its unchanged click target.
   /// Labelled checkboxes always align their artwork with the label row.
   final AlignmentGeometry alignment;
+
+  /// Uses artwork plus the standard 8px label gap for an unlabelled desktop
+  /// checkbox embedded before editable text. Artwork aligns to the start.
+  /// Touch platforms retain their full 48px target. Ignored when [title] is set.
+  final bool inline;
   final bool _controlled;
 
   @override
@@ -194,9 +202,18 @@ class _DCheckboxState extends State<DCheckbox> {
     );
     Widget content = widget.title == null
         ? SizedBox(
-            width: touch ? 48 : 40,
+            width: touch
+                ? 48
+                : widget.inline
+                ? 16 + DSpacing.sm
+                : 40,
             height: touch ? 48 : 32,
-            child: Align(alignment: widget.alignment, child: artwork),
+            child: Align(
+              alignment: widget.inline
+                  ? AlignmentDirectional.centerStart
+                  : widget.alignment,
+              child: artwork,
+            ),
           )
         : ConstrainedBox(
             constraints: BoxConstraints(minHeight: touch ? 48 : 16),
@@ -211,7 +228,7 @@ class _DCheckboxState extends State<DCheckbox> {
                   ),
                   child: artwork,
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: DSpacing.sm),
                 Expanded(
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
