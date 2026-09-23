@@ -35,6 +35,85 @@ Future<void> mode(WidgetTester tester, String name) async {
 }
 
 void main() {
+  testWidgets('save asks for a name and preserves both palettes', (
+    tester,
+  ) async {
+    final shell = controller();
+    addTearDown(shell.dispose);
+    await pumpSettings(tester, shell);
+    await preset(tester, 'Solarized');
+    final before = shell.forumSettings.themesFor(_site);
+    expect(find.byKey(const ValueKey('theme-name')), findsNothing);
+    expect(find.text('Import'), findsNothing);
+    expect(find.text('Export'), findsNothing);
+    expect(find.text('Save and share'), findsNothing);
+    final open = find.widgetWithText(DButton, 'Save theme');
+    await tester.ensureVisible(open);
+    await tester.tap(open);
+    await tester.pumpAndSettle();
+    expect(find.byType(DDialogContent), findsOneWidget);
+    final save = find.widgetWithText(DButton, 'Save');
+    final name = find.descendant(
+      of: find.byKey(const ValueKey('theme-name')),
+      matching: find.byType(EditableText),
+    );
+    expect(tester.widget<DButton>(save).onPressed, isNull);
+    await tester.enterText(name, '   ');
+    await tester.pump();
+    expect(tester.widget<DButton>(save).onPressed, isNull);
+    await tester.tap(find.widgetWithText(DButton, 'Cancel'));
+    await tester.pumpAndSettle();
+    expect(shell.forumSettings.themesFor(_site), before);
+    await tester.tap(open);
+    await tester.pumpAndSettle();
+    await tester.enterText(name, '  Evening  ');
+    await tester.pump();
+    await tester.tap(save);
+    await tester.pumpAndSettle();
+    expect(find.byType(DDialogContent), findsNothing);
+    final after = shell.forumSettings.themesFor(_site);
+    final saved = after.customThemes.single;
+    expect(saved.name, 'Evening');
+    expect(saved.alternate!.name, 'Evening');
+    for (final brightness in Brightness.values) {
+      expect(
+        saved.resolve(brightness),
+        before.themeFor(brightness)!.resolve(brightness),
+      );
+    }
+    expect(after.palettes, before.palettes);
+    expect(find.text('Evening'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('copy theme copies the live appearance without a name dialog', (
+    tester,
+  ) async {
+    String? copied;
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(SystemChannels.platform, (call) async {
+          if (call.method == 'Clipboard.setData') {
+            copied = (call.arguments as Map)['text'] as String;
+          }
+          return null;
+        });
+    addTearDown(
+      () => TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(SystemChannels.platform, null),
+    );
+    final shell = controller();
+    addTearDown(shell.dispose);
+    await pumpSettings(tester, shell);
+    await preset(tester, 'Solarized');
+    final copy = find.widgetWithText(DButton, 'Copy theme');
+    await tester.ensureVisible(copy);
+    await tester.tap(copy);
+    await tester.pumpAndSettle();
+    expect(copied, startsWith('```discourse-theme\n'));
+    expect(find.byType(DDialogContent), findsNothing);
+    expect(shell.forumSettings.themesFor(_site).customThemes, isEmpty);
+  });
+
   testWidgets('deleting an inactive theme keeps forum defaults unmodified', (
     tester,
   ) async {

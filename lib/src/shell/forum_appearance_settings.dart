@@ -195,6 +195,19 @@ class _ForumAppearanceSettingsState extends State<ForumAppearanceSettings> {
                     ),
                   ),
                   onDelete: _removeTheme,
+                  onSave: (theme) async {
+                    final current = settings.themesFor(widget.siteUrl);
+                    await settings.setThemes(
+                      widget.siteUrl,
+                      ForumThemePreferences(
+                        selectedId: current.selectedId,
+                        customThemes: [...current.customThemes, theme],
+                        font: current.font,
+                        palettes: current.palettes,
+                        background: current.background,
+                      ),
+                    );
+                  },
                 ),
                 SettingsSection(
                   title: 'Font',
