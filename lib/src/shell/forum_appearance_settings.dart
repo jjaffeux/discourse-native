@@ -187,6 +187,11 @@ class _ForumAppearanceSettingsState extends State<ForumAppearanceSettings> {
                                   softWrap: false,
                                   style: Theme.of(context).textTheme.bodyLarge!
                                       .copyWith(
+                                        fontFamilyFallback:
+                                            forumFontFamilyFallback(
+                                              font.family,
+                                            ) ??
+                                            const [],
                                         fontFamily:
                                             font.family ??
                                             ThemeData(

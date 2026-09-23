@@ -13,3 +13,8 @@ enum ForumFont {
   static ForumFont fromName(Object? name) =>
       values.firstWhere((font) => font.name == name, orElse: () => system);
 }
+
+/// Release runners register this app's fonts as dependency fonts, so support
+/// their package-qualified names as well as the root application's families.
+List<String>? forumFontFamilyFallback(String? family) =>
+    family == null ? null : ['packages/discourse_native/$family'];
