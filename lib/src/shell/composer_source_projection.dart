@@ -18,16 +18,19 @@ import 'package:flutter/material.dart';
 /// projections therefore receive the same baseline behavior.
 /// [suppressSyntheticLineBreaks] removes the virtual caret line when a real
 /// separator follows, or when a terminal component is selected.
+/// [padding] adds structural block spacing outside the component's own bounds.
 List<InlineSpan> normalizeCollapsedComponentSourceSpans({
   required String source,
   required List<InlineSpan> spans,
   bool suppressSyntheticLineBreaks = false,
+  EdgeInsets padding = EdgeInsets.zero,
 }) {
   final trailingWhitespaceStart = _trailingHorizontalWhitespaceStart(source);
   final normalizer = _CollapsedComponentSourceNormalizer(
     source: source,
     suppressSyntheticLineBreaks: suppressSyntheticLineBreaks,
     trailingWhitespaceStart: trailingWhitespaceStart,
+    padding: padding,
   );
   final normalized = normalizer.normalize(spans);
   assert(
@@ -52,11 +55,13 @@ final class _CollapsedComponentSourceNormalizer {
     required this.source,
     required this.suppressSyntheticLineBreaks,
     required this.trailingWhitespaceStart,
+    required this.padding,
   });
 
   final String source;
   final bool suppressSyntheticLineBreaks;
   final int trailingWhitespaceStart;
+  final EdgeInsets padding;
   int offset = 0;
 
   List<InlineSpan> normalize(List<InlineSpan> spans) => [
@@ -87,7 +92,9 @@ final class _CollapsedComponentSourceNormalizer {
                   double.infinity,
                 ),
               ),
-              child: span.child,
+              child: padding == EdgeInsets.zero
+                  ? span.child
+                  : Padding(padding: padding, child: span.child),
             );
           },
         ),

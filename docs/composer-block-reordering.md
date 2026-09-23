@@ -44,6 +44,16 @@ Text remains one continuous editor. A wrapped visual line is not a block. Normal
 text selection, scrolling, typing, existing slash commands and insertion controls
 keep their existing behavior. Topic titles remain outside the movable body.
 
+Blocks have a non-editable gap of approximately one text line between them.
+Enter starts a separated paragraph; Shift+Enter keeps a soft line break inside
+the current paragraph. The on-screen keyboard follows the same paragraph rule.
+The gap has no empty-block controls and the caret skips it. Backspace joins
+paragraphs or selects the preceding embedded component for deletion.
+Headings, standalone to-dos and embedded components also have this gap, even
+when their Markdown needs only one newline. Rendering retains the original
+source offsets without inserting empty blocks or rewriting existing Markdown.
+Continuation lines and content inside a block keep their normal line spacing.
+
 ## Supported boundaries
 
 - Paragraphs (including soft line breaks), ATX/setext headings and dividers.
@@ -58,8 +68,8 @@ keep their existing behavior. Topic titles remain outside the movable body.
 
 A whole Markdown list is the movement unit; standalone to-dos move row by row.
 Individual nested list-item/subtree moves, multi-block selection,
-heading-with-section moves, duplication, type conversion, and changing
-Enter/Shift+Enter semantics are separate future work.
+heading-with-section moves, duplication and type conversion are separate future
+work.
 
 ## Source and history
 
@@ -124,6 +134,16 @@ embedded-editor, draft and selection tests are also exercised.
 Light/dark desktop and mobile editor layouts were rendered for visual inspection.
 Physical-device IME, VoiceOver/TalkBack, and OS three-finger undo gestures still
 need device smoke testing; headless widget tests cannot certify those integrations.
+
+The September 23 block-spacing update passed static analysis and 519 focused
+composer tests after integration with the to-do text-alignment change. One
+unrelated heading-size assertion in `markdown_editing_controller_test.dart`
+also fails on the unchanged baseline and was excluded from that run. The
+production editor was inspected in an isolated macOS fixture in dark/wide and
+light/narrow layouts, with paragraph, heading, task and soft-line samples.
+Native Enter was exercised. Shift+Enter was verified with real modifier events
+in widget tests: the native automation emits Enter with `shift=false`, as
+confirmed by a temporary key-event trace, so it cannot verify that chord.
 
 The September 22 drag polish adds regression coverage for the leading gutter in LTR
 and RTL, exact insertion-line centering, the source highlight's bounds and

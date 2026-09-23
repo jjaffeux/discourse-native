@@ -5,6 +5,7 @@ import 'package:discourse_native/src/plugins/discourse_events/event_composer.dar
 import 'package:discourse_native/src/plugins/discourse_events/event_data.dart';
 import 'package:discourse_native/src/plugins/discourse_mermaid/mermaid_composer.dart';
 import 'package:discourse_native/src/plugins/poll/poll_plugin.dart';
+import 'package:discourse_native/src/shell/composer_block_surface.dart';
 import 'package:discourse_native/src/shell/composer_controller.dart';
 import 'package:discourse_native/src/shell/composer_panel.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
@@ -210,7 +211,7 @@ void main() {
   for (final first in _blocks.entries) {
     for (final second in _blocks.entries) {
       testWidgets(
-        '${first.key} followed by ${second.key} has one editable separator',
+        '${first.key} followed by ${second.key} has structural spacing',
         (tester) async {
           final composer = await _pump(
             tester,
@@ -229,16 +230,17 @@ void main() {
             first.value,
             second.value,
           ]);
-          expect(
-            '\n'.allMatches(painted.substring(0, first.value.length + 1)),
-            hasLength(1),
+          final surface = tester.widget<ComposerBlockSurface>(
+            find.byType(ComposerBlockSurface),
           );
+          final before = surface.blockRect(composer.blocks.index.blocks.first)!;
+          final after = surface.blockRect(composer.blocks.index.blocks.last)!;
           expect(
-            rendered
-                .getLineAtOffset(TextPosition(offset: first.value.length))
-                .start,
-            0,
+            after.top - before.bottom,
+            greaterThanOrEqualTo(rendered.preferredLineHeight * .9),
           );
+          expect(painted.length, composer.text.text.length);
+          expect(composer.text.text, '${first.value}\n${second.value}');
           expect(tester.takeException(), isNull);
         },
       );
@@ -324,12 +326,12 @@ void main() {
             await tester.pump();
             expect(
               composer.text.text,
-              source.replaceRange(offset, offset, '\n'),
+              source.replaceRange(offset, offset, '\n\n'),
             );
             expect(composer.text.keyboardSelectedProjection, isNull);
             expect(
               composer.text.selection,
-              TextSelection.collapsed(offset: before ? offset : offset + 1),
+              TextSelection.collapsed(offset: before ? offset : offset + 2),
             );
             expect(tester.takeException(), isNull);
           },
@@ -379,7 +381,7 @@ void main() {
     );
     for (final newline in ['\n', '\r\n']) {
       testWidgets(
-        '${entry.key} removes a visible separator before another component (${newline.length})',
+        '${entry.key} gap before another component cannot hold a caret (${newline.length})',
         (tester) async {
           const second = '![Second|100x100](upload://second)';
           final composer = await _pump(
@@ -403,14 +405,15 @@ void main() {
             offset: entry.value.length + newline.length,
           );
           await tester.pump();
-          await tester.sendKeyEvent(LogicalKeyboardKey.backspace);
-          await tester.pump();
-          expect(composer.text.text, '${entry.value}$newline$second');
-          expect(composer.text.keyboardSelectedProjection, isNotNull);
           expect(
-            secondTop(),
-            closeTo(before - rendered.preferredLineHeight, 0.01),
+            composer.text.selection.isCollapsed &&
+                composer.text.selection.extentOffset > entry.value.length &&
+                composer.text.selection.extentOffset <
+                    entry.value.length + newline.length * 2,
+            isFalse,
           );
+          expect(composer.text.text, '${entry.value}$newline$newline$second');
+          expect(secondTop(), closeTo(before, .01));
           composer.text.clearKeyboardPillSelection();
           composer.text.selection = TextSelection.collapsed(
             offset: composer.text.text.length,
@@ -423,7 +426,7 @@ void main() {
             '\n'.allMatches(
               painted.substring(0, composer.text.text.indexOf(second)),
             ),
-            hasLength(1),
+            hasLength(2),
           );
           expect(tester.takeException(), isNull);
         },
@@ -481,24 +484,19 @@ void main() {
           final source = 'Before\n\n${entry.value}${gap}After';
           final composer = await _pump(tester, source);
           composer.text.selection = TextSelection.collapsed(
-            offset: 8 + entry.value.length + 1,
+            offset: source.indexOf('After'),
           );
           await tester.pump();
           await tester.sendKeyEvent(LogicalKeyboardKey.backspace);
           await tester.pump();
-          expect(composer.raw, 'Before\n\n${entry.value}\nAfter');
+          expect(composer.raw, source);
           expect(composer.text.keyboardSelectedProjection, isNotNull);
           final painted = tester
               .state<EditableTextState>(_field(composer))
               .renderEditable
               .text!
               .toPlainText(includeSemanticsLabels: false);
-          expect(
-            '\n'.allMatches(
-              painted.substring(8, composer.text.text.indexOf('After')),
-            ),
-            hasLength(1),
-          );
+          expect(painted.length, source.length);
           expect(tester.takeException(), isNull);
         },
       );
@@ -564,7 +562,7 @@ void main() {
     });
   }
 
-  testWidgets('Backspace removes the visible blank line between two uploads', (
+  testWidgets('images keep their structural gap with one or two newlines', (
     tester,
   ) async {
     const first = '![First|100x100](upload://first)';
@@ -580,18 +578,18 @@ void main() {
             extentOffset: composer.text.imageBlocks.last.start + 1,
           ),
         )
-        .single
+        .last
         .top;
     final before = secondTop();
-    composer.text.selection = const TextSelection.collapsed(
-      offset: first.length + 1,
+    composer.text.value = const TextEditingValue(
+      text: '$first\n$second',
+      selection: TextSelection.collapsed(
+        offset: first.length + 1 + second.length,
+      ),
     );
     await tester.pump();
-    await tester.sendKeyEvent(LogicalKeyboardKey.backspace);
-    await tester.pump();
     expect(composer.text.text, '$first\n$second');
-    expect(composer.text.keyboardSelectedImage?.start, 0);
-    expect(secondTop(), closeTo(before - rendered.preferredLineHeight, 0.01));
+    expect(secondTop(), closeTo(before, 2));
     composer.text.clearKeyboardPillSelection();
     composer.text.selection = TextSelection.collapsed(
       offset: composer.text.text.length,
@@ -603,11 +601,8 @@ void main() {
         painted.substring(0, composer.text.imageBlocks.last.start),
       ),
       hasLength(1),
-      reason: 'Only the actual separator may occupy a line between uploads',
-    );
-    expect(
-      rendered.getLineAtOffset(const TextPosition(offset: first.length)).start,
-      0,
+      reason:
+          'The gap has geometry without inserting a newline into the source',
     );
   });
 
