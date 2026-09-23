@@ -48,12 +48,14 @@ void main() {
         // Mobile navigation uses the requested independent circular buttons
         // and pill contextual actions, through Native's existing shape API.
         'lib/src/shell/mobile_shell.dart': {
-          'shape': 4,
+          'shape': 5,
           // Selected mobile tabs use the reference's 14px panel corners.
           'borderRadius': 2,
           'backgroundColor': 2,
         },
         'lib/src/shell/message_create_button.dart': {'shape': 2},
+        // The mobile topic reader has a floating pill progress trigger.
+        'lib/src/shell/topic_progress.dart': {'shape': 1},
         // X embeds retain provider identity and the reference's pill reply link,
         // using Native buttons for sizing, focus, hover and activation.
         'lib/src/shell/oneboxes/twitter.dart': {

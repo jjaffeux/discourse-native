@@ -1,6 +1,7 @@
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
+import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/sidebar.dart';
 import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/models/topic.dart';
@@ -60,6 +61,7 @@ Future<ShellController> pumpMobileShellFixture(
   bool events = false,
   bool chat = true,
   int chatUnreadCount = 0,
+  TopicPayload? topic,
 }) async {
   final config = SiteConfig(
     plugins: PluginData.none
@@ -125,7 +127,11 @@ Future<ShellController> pumpMobileShellFixture(
           Topic(id: 7, title: 'Shared topic card', slug: 'shared'),
         ],
       },
-      topics: {7: topicPayload(id: 7, title: 'Shared topic card')},
+      topics: {7: topic ?? topicPayload(id: 7, title: 'Shared topic card')},
+      composerCapabilities: const TopicComposerCapabilities(canTagTopics: true),
+      topicTagSearches: const {
+        '': TopicTagSearch(tags: [TopicTag(id: 1, name: 'show-and-tell')]),
+      },
       chatMessagesByKey: {
         FakeDiscourseApi.chatMessagesKey(10): (
           messages: const [],

@@ -4,6 +4,7 @@ import 'dart:math' as math;
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
+import '../models/bookmark.dart';
 import '../models/content_route.dart';
 import '../models/post.dart';
 import '../models/topic.dart';
@@ -17,6 +18,7 @@ import 'avatar_image.dart';
 import 'category_icon.dart';
 import 'content_reading_lane.dart';
 import 'forum_theme_surfaces.dart';
+import 'message_archive_button.dart';
 import 'open_link.dart';
 import 'platform.dart';
 import 'relative_time.dart';
@@ -98,6 +100,15 @@ class TopicInboxHeader extends StatelessWidget {
                   keepTopicListOpen: keepTopicListOpen,
                   registry: registry,
                   showProperties: this.topic != null,
+                  mobileActions:
+                      ShellScope.read(context).mobileNavigationEnabled &&
+                          this.topic != null
+                      ? _MobileTopicHeaderActions(
+                          siteUrl: siteUrl,
+                          topic: topic,
+                          registry: registry,
+                        )
+                      : null,
                 ),
               ),
             ),
@@ -220,10 +231,11 @@ class _TopicHeaderToolbar extends StatelessWidget {
                     ),
                   ),
                 ),
-                ConstrainedBox(
-                  constraints: firstLineConstraints,
-                  child: _TopicHeaderActions(header: header),
-                ),
+                if (!ShellScope.read(context).mobileNavigationEnabled)
+                  ConstrainedBox(
+                    constraints: firstLineConstraints,
+                    child: _TopicHeaderActions(header: header),
+                  ),
               ],
             ),
           ),
@@ -322,6 +334,83 @@ class _TopicHeaderActions extends StatelessWidget {
           ),
         ],
         if (ShellTitleBar.columnsCarryUserMenu) const UserMenuButton(),
+      ],
+    );
+  }
+}
+
+class _MobileTopicHeaderActions extends StatelessWidget {
+  const _MobileTopicHeaderActions({
+    required this.siteUrl,
+    required this.topic,
+    required this.registry,
+  });
+
+  final String siteUrl;
+  final TopicDetail topic;
+  final PluginRegistry registry;
+
+  @override
+  Widget build(BuildContext context) {
+    final rebuildOn = registry.topicPropertiesRebuildOn(
+      context,
+      siteUrl,
+      topic,
+    );
+    return rebuildOn == null
+        ? _buildActions(context)
+        : ListenableBuilder(
+            listenable: rebuildOn,
+            builder: (context, _) => _buildActions(context),
+          );
+  }
+
+  Widget _buildActions(BuildContext context) {
+    final shell = ShellScope.of(context);
+    final instance = shell.instanceFor(siteUrl);
+    return Wrap(
+      key: const ValueKey('mobile-topic-header-actions'),
+      spacing: DSpacing.controlGap,
+      runSpacing: DSpacing.controlGap,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        if (instance?.user != null)
+          TopicBookmarkButton(
+            siteUrl: siteUrl,
+            topic: topic,
+            busy: shell.bookmarkWriteInFlight(
+              siteUrl: siteUrl,
+              topicId: topic.id,
+              targetType: BookmarkTargetType.topic,
+              targetId: topic.id,
+            ),
+            variant: DButtonVariant.outline,
+            size: DButtonSize.regular,
+          ),
+        if (instance?.isConnected == true)
+          TopicNotificationLevelButton(
+            siteUrl: siteUrl,
+            topic: topic,
+            variant: DButtonVariant.outline,
+            size: DButtonSize.regular,
+          ),
+        if (topic.privateMessage &&
+            instance?.isConnected == true &&
+            instance?.user?.canSendPrivateMessages == true)
+          MessageArchiveButton(siteUrl: siteUrl, topic: topic),
+        if (registry.topicProperties(context, siteUrl, topic).isNotEmpty)
+          _TopicHeaderProperties(
+            siteUrl: siteUrl,
+            topic: topic,
+            registry: registry,
+            compact: true,
+          ),
+        TopicStatusButton(
+          siteUrl: siteUrl,
+          topic: topic,
+          topicFlags: shell.availableTopicFlagTypes(siteUrl, topic),
+          variant: DButtonVariant.outline,
+        ),
       ],
     );
   }
@@ -503,12 +592,14 @@ class _TopicHeaderTaxonomy extends StatelessWidget {
     required this.keepTopicListOpen,
     required this.registry,
     this.showProperties = true,
+    this.mobileActions,
   });
   final String siteUrl;
   final TopicDetail topic;
   final bool keepTopicListOpen;
   final PluginRegistry registry;
   final bool showProperties;
+  final Widget? mobileActions;
 
   @override
   Widget build(BuildContext context) => ShellSelector<Object>(
@@ -531,17 +622,80 @@ class _TopicHeaderTaxonomy extends StatelessWidget {
       final hasTags = topic.tags.isNotEmpty || topic.canEditTags;
       return LayoutBuilder(
         builder: (context, constraints) {
+          final mobile = shell.mobileNavigationEnabled;
           final categoryWidth =
-              (constraints.maxWidth * (hasSubcategory ? .28 : .42)).clamp(
-                56.0,
-                200.0,
-              );
+              (constraints.maxWidth *
+                      (mobile
+                          ? .25
+                          : hasSubcategory
+                          ? .28
+                          : .42))
+                  .clamp(56.0, 200.0);
           // Reserve room for category artwork, the privacy lock, and saving.
           // Add the browse button and roomier padding only when each chip fits.
           final scale = MediaQuery.textScalerOf(context).scale(12) / 12;
           final compressed = categoryWidth < 140 * scale;
           final showBrowse =
               categoryWidth >= (context.isTouch ? 152 : 104) * scale;
+          final tags = TopicHeaderTags(
+            key: const ValueKey('topic-header-tags'),
+            siteUrl: siteUrl,
+            topic: topic,
+            editOnTap: mobile,
+            onTagNavigate: (tag, {newTab = false}) => shell.openTopicTag(
+              tag,
+              siteUrl: siteUrl,
+              privateMessage: topic.privateMessage,
+              newTab: newTab,
+            ),
+          );
+          if (mobile) {
+            return Wrap(
+              key: const ValueKey('topic-header-taxonomy'),
+              spacing: DSpacing.controlGap,
+              runSpacing: DSpacing.sm,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                if (hasCategories)
+                  ConstrainedBox(
+                    constraints: BoxConstraints(maxWidth: categoryWidth),
+                    child: _TopicCategoryControl(
+                      key: const ValueKey('topic-header-parent-category'),
+                      siteUrl: siteUrl,
+                      topic: topic,
+                      category: root,
+                      subcategory: false,
+                      keepTopicListOpen: keepTopicListOpen,
+                      compressed: compressed,
+                      showBrowseButton: false,
+                    ),
+                  ),
+                if (hasSubcategory)
+                  ConstrainedBox(
+                    constraints: BoxConstraints(maxWidth: categoryWidth),
+                    child: _TopicCategoryControl(
+                      key: const ValueKey('topic-header-category'),
+                      siteUrl: siteUrl,
+                      topic: topic,
+                      category: parent == null ? null : category,
+                      subcategory: true,
+                      parentCategoryId: root?.id,
+                      keepTopicListOpen: keepTopicListOpen,
+                      compressed: compressed,
+                      showBrowseButton: false,
+                    ),
+                  ),
+                if (hasTags)
+                  ConstrainedBox(
+                    constraints: BoxConstraints(
+                      maxWidth: math.min(148 * scale, constraints.maxWidth),
+                    ),
+                    child: tags,
+                  ),
+                ?mobileActions,
+              ],
+            );
+          }
           return Row(
             key: const ValueKey('topic-header-taxonomy'),
             children: [
@@ -584,20 +738,7 @@ class _TopicHeaderTaxonomy extends StatelessWidget {
                     length: 20,
                     space: 17,
                   ),
-                Flexible(
-                  child: TopicHeaderTags(
-                    key: const ValueKey('topic-header-tags'),
-                    siteUrl: siteUrl,
-                    topic: topic,
-                    onTagNavigate: (tag, {newTab = false}) =>
-                        shell.openTopicTag(
-                          tag,
-                          siteUrl: siteUrl,
-                          privateMessage: topic.privateMessage,
-                          newTab: newTab,
-                        ),
-                  ),
-                ),
+                Flexible(child: tags),
               ],
               if (showProperties)
                 _TopicHeaderProperties(

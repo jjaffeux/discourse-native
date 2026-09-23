@@ -14,6 +14,7 @@ class TopicProgressButton extends StatelessWidget {
     required this.onPressed,
     this.focusNode,
     this.expanded,
+    this.floating = false,
   });
 
   final int position;
@@ -21,6 +22,7 @@ class TopicProgressButton extends StatelessWidget {
   final VoidCallback onPressed;
   final FocusNode? focusNode;
   final bool? expanded;
+  final bool floating;
 
   @override
   Widget build(BuildContext context) {
@@ -35,6 +37,7 @@ class TopicProgressButton extends StatelessWidget {
       tooltip: 'Topic progress',
       semanticLabel: 'Topic progress, post $boundedPosition of $boundedTotal',
       variant: DButtonVariant.outline,
+      shape: floating ? DButtonShape.pill : DButtonShape.rounded,
       size: DButtonSize.regular,
       icon: const DIcon(DIcons.chevronDown),
       iconPosition: DButtonIconPosition.end,
@@ -58,11 +61,13 @@ class TopicProgressPopover extends StatefulWidget {
     required this.controller,
     required this.position,
     required this.total,
+    this.floating = false,
   });
 
   final ShellController controller;
   final int position;
   final int total;
+  final bool floating;
 
   @override
   State<TopicProgressPopover> createState() => _TopicProgressPopoverState();
@@ -104,6 +109,7 @@ class _TopicProgressPopoverState extends State<TopicProgressPopover> {
         position: widget.position,
         total: widget.total,
         onPressed: trigger.toggle,
+        floating: widget.floating,
         focusNode: trigger.focusNode,
         expanded: trigger.open,
       ),

@@ -265,6 +265,10 @@ class _MobileForumRootState extends State<MobileForumRoot> {
           ),
         ];
         final source = shell.topicListContent;
+        final showReply =
+            !widget.boundary &&
+            shell.currentContent?.isTopic == true &&
+            shell.canReplyHere;
         final showNewTopic =
             !widget.boundary &&
             selected == MobileTab.topics &&
@@ -444,7 +448,11 @@ class _MobileForumRootState extends State<MobileForumRoot> {
                           context,
                           constraints.maxWidth,
                           actions.length,
-                          showNewMessage ? 'New message' : 'New topic',
+                          showReply
+                              ? 'Reply'
+                              : showNewMessage
+                              ? 'New message'
+                              : 'New topic',
                         );
                         return Row(
                           key: const ValueKey('mobile-bottom-bar'),
@@ -459,7 +467,16 @@ class _MobileForumRootState extends State<MobileForumRoot> {
                                 ),
                               ),
                             ),
-                            if (showNewMessage)
+                            if (showReply)
+                              DButton(
+                                key: const ValueKey('mobile-topic-reply'),
+                                icon: const DIcon(DIcons.reply),
+                                label: const Text('Reply'),
+                                tooltip: 'Reply to this topic',
+                                shape: DButtonShape.pill,
+                                onPressed: shell.openReply,
+                              )
+                            else if (showNewMessage)
                               MessageCreateButton(
                                 showLabel: showLabel,
                                 pill: true,

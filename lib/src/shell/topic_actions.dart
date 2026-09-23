@@ -179,11 +179,13 @@ class TopicStatusButton extends StatefulWidget {
     required this.siteUrl,
     required this.topic,
     this.topicFlags = const [],
+    this.variant = DButtonVariant.transparentBackground,
   });
 
   final String siteUrl;
   final TopicDetail topic;
   final List<PostFlagType> topicFlags;
+  final DButtonVariant variant;
 
   @override
   State<TopicStatusButton> createState() => _TopicStatusButtonState();
@@ -451,7 +453,7 @@ class _TopicStatusButtonState extends State<TopicStatusButton> {
                     state.toggle();
                   },
             loading: busy,
-            variant: DButtonVariant.transparentBackground,
+            variant: widget.variant,
             size: DButtonSize.regular,
             icon: const DIcon(DIcons.wrench),
           ),

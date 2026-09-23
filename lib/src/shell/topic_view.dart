@@ -2295,6 +2295,18 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
             slivers: [
               ...openingSlivers,
               SliverPadding(padding: readingLane.padding, sliver: postList),
+              if (controller.mobileNavigationEnabled)
+                SliverPadding(
+                  padding: EdgeInsets.only(
+                    bottom:
+                        DControlStyle.scaledHeight(
+                          DControlSize.regular,
+                          MediaQuery.textScalerOf(context),
+                          context: context,
+                        ) +
+                        DSpacing.lg,
+                  ),
+                ),
             ],
           ),
         ),
@@ -2339,6 +2351,32 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
                     children: [
                       Positioned.fill(child: buildPostStream(openingSlivers)),
                       _buildFloatingDayOverlay(readingLane.padding),
+                      if (controller.mobileNavigationEnabled)
+                        PositionedDirectional(
+                          start: DSpacing.sm,
+                          end: DSpacing.sm,
+                          bottom: DSpacing.sm,
+                          child: Align(
+                            alignment: AlignmentDirectional.centerEnd,
+                            child: ListenableBuilder(
+                              listenable:
+                                  _viewportState.progressPositionListenable,
+                              builder: (context, _) {
+                                final position = _progressPosition;
+                                if (position == null ||
+                                    snapshot.streamIds.length <= 1) {
+                                  return const SizedBox.shrink();
+                                }
+                                return TopicProgressPopover(
+                                  controller: controller,
+                                  position: position,
+                                  total: snapshot.streamIds.length,
+                                  floating: true,
+                                );
+                              },
+                            ),
+                          ),
+                        ),
                       Positioned(
                         top: 0,
                         left: 0,
@@ -2355,11 +2393,12 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
                     ],
                   ),
                 ),
-                _buildTopicBottomBar(
-                  controller,
-                  snapshot.streamIds.length,
-                  snapshot,
-                ),
+                if (!controller.mobileNavigationEnabled)
+                  _buildTopicBottomBar(
+                    controller,
+                    snapshot.streamIds.length,
+                    snapshot,
+                  ),
               ],
             ),
           ),
