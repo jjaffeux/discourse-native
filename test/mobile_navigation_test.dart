@@ -148,8 +148,10 @@ void main() {
   test('site/account and sidebar-mode changes isolate history', () {
     final navigation = MobileNavigation();
     navigation.synchronize(owner: ('forum', 'one'), location: page('private'));
+    navigation.openSidebar();
     final privateHistoryId = navigation.historyId;
     navigation.synchronize(owner: ('forum', 'two'), location: null);
+    expect(navigation.sidebarOpen, isFalse);
     expect(navigation.historyId, isNot(privateHistoryId));
     expect(navigation.canGoForward, isFalse);
     expect(navigation.canGoBack, isFalse);

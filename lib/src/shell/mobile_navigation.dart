@@ -35,8 +35,18 @@ final class MobileNavigation {
   int _index = 0;
   String? _panelOwner;
   MobileTab _tab = MobileTab.topics;
+  bool _sidebarOpen = false;
 
   MobileTab get tab => _tab;
+  bool get sidebarOpen => _sidebarOpen;
+
+  void openSidebar() => _sidebarOpen = true;
+
+  bool closeSidebar() {
+    if (!_sidebarOpen) return false;
+    _sidebarOpen = false;
+    return true;
+  }
 
   String? get panelOwner => _panelOwner;
   ForumTabLocation? get location => _entries[_index].content;
@@ -75,6 +85,7 @@ final class MobileNavigation {
       _entries[_index] = (id: entryId, content: content, aggregate: aggregate);
       return;
     }
+    closeSidebar();
     if (content == null && !aggregate) {
       _index = 0;
       return;
@@ -113,6 +124,7 @@ final class MobileNavigation {
   }
 
   void selectPanel(String? owner) {
+    closeSidebar();
     if (_panelOwner == owner) return;
     _panelOwner = owner;
     _tab = owner == null ? MobileTab.topics : MobileTab.panel(owner);
@@ -120,12 +132,14 @@ final class MobileNavigation {
   }
 
   void selectTab(MobileTab tab) {
+    closeSidebar();
     _tab = tab;
     _panelOwner = tab.panelOwner;
     _resetHistory();
   }
 
   void reset() {
+    closeSidebar();
     _resetHistory();
     _panelOwner = null;
     _tab = MobileTab.topics;

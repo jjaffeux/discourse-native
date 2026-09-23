@@ -96,6 +96,9 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('mobile-mode-topics')));
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('mobile-menu-button')));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 90));
+      await capture('$name-navigation-push');
       await tester.pumpAndSettle();
       await capture('$name-forum');
       await tester.tap(find.text('Shortcuts'));
@@ -128,6 +131,9 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('mobile-mode-topics')));
     await tester.pumpAndSettle();
     await capture('dracula-320-text200');
+    await tester.tap(find.byKey(const ValueKey('mobile-menu-button')));
+    await tester.pumpAndSettle();
+    await capture('dracula-navigation-320-text200');
     expect(find.byType(DHistoryTransition), findsOneWidget);
   }, variant: TargetPlatformVariant.only(TargetPlatform.iOS));
 }

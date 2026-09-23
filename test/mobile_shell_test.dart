@@ -399,12 +399,16 @@ void main() {
   );
 
   _mobileTest(
-    'hamburger exposes only Forum categories/tags and custom Shortcuts',
+    'navigation page exposes Forum categories/tags and custom Shortcuts',
     (tester) async {
       final shell = await pumpMobileShellFixture(tester);
       await tester.tap(find.byKey(const ValueKey('mobile-menu-button')));
       await tester.pumpAndSettle();
       expect(find.byType(InstanceRail), findsOneWidget);
+      expect(find.byType(DSheetContent), findsNothing);
+      expect(_bar, findsNothing);
+      expect(_header, findsOneWidget);
+      expect(find.byKey(const ValueKey('mobile-content-panel')), findsNothing);
       expect(find.text('Forum'), findsOneWidget);
       expect(find.text('Shortcuts'), findsOneWidget);
       for (final label in ['Topics', 'Messages', 'Users', 'Handbook']) {
@@ -412,7 +416,7 @@ void main() {
       }
       expect(
         find.descendant(
-          of: find.byType(DSheetContent),
+          of: find.byKey(const ValueKey('mobile-navigation-page')),
           matching: find.text('Categories'),
         ),
         findsOneWidget,
@@ -422,7 +426,7 @@ void main() {
       expect(sidebarDestination('Handbook'), findsOneWidget);
       expect(
         find.descendant(
-          of: find.byType(DSheetContent),
+          of: find.byKey(const ValueKey('mobile-navigation-page')),
           matching: find.text('Categories'),
         ),
         findsNothing,
@@ -435,6 +439,95 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
+
+  _mobileTest('navigation pushes the content and restores the same page', (
+    tester,
+  ) async {
+    final shell = await pumpMobileShellFixture(tester);
+    final menu = find.byKey(const ValueKey('mobile-menu-button'));
+    final page = find.byType(MainContent, skipOffstage: false);
+    final originalPage = tester.element(page);
+    final visit = shell.mobileNavigation.entryId;
+    final header = tester.getRect(_header);
+    final content = tester.getRect(
+      find.byKey(const ValueKey('mobile-content-panel')),
+    );
+
+    for (final open in [true, false]) {
+      await tester.tap(menu);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 80));
+      final incoming = tester.widget<Transform>(
+        find.byKey(const ValueKey('history-incoming-tab')),
+      );
+      final outgoing = tester.widget<Transform>(
+        find.byKey(const ValueKey('history-outgoing-tab')),
+      );
+      final direction = open ? -1 : 1;
+      expect(incoming.transform.getTranslation().x * direction, greaterThan(0));
+      expect(outgoing.transform.getTranslation().x * direction, lessThan(0));
+      expect(tester.getRect(_header), header);
+      await tester.pumpAndSettle();
+      expect(shell.mobileNavigation.entryId, same(visit));
+      expect(tester.element(page), same(originalPage));
+      expect(shell.mobileNavigation.sidebarOpen, open);
+      expect(_bar, open ? findsNothing : findsOneWidget);
+      expect(find.byType(MainContent), open ? findsNothing : findsOneWidget);
+      if (open) {
+        final navigation = tester.getRect(
+          find.byKey(const ValueKey('mobile-navigation-page')),
+        );
+        expect(navigation.left, content.left);
+        expect(navigation.right, content.right);
+        expect(navigation.top, content.top);
+        expect(navigation.bottom, greaterThan(content.bottom));
+      }
+    }
+    expect(tester.takeException(), isNull);
+  });
+
+  _mobileTest('system Back closes navigation before leaving the topic', (
+    tester,
+  ) async {
+    final shell = await pumpMobileShellFixture(tester);
+    await tester.tap(find.byKey(const ValueKey('topic-card-7')));
+    await tester.pumpAndSettle();
+    final visit = shell.mobileNavigation.entryId;
+    expect(shell.currentContent?.topicId, 7);
+    expect(shell.canPopContent, isTrue);
+    await tester.tap(find.byKey(const ValueKey('mobile-menu-button')));
+    await tester.pumpAndSettle();
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(shell.mobileNavigation.sidebarOpen, isFalse);
+    expect(shell.mobileNavigation.entryId, same(visit));
+    expect(shell.currentContent?.topicId, 7);
+    expect(_bar, findsOneWidget);
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('topic-card-7')), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  for (final width in [320.0, 600.0]) {
+    _mobileTest('navigation uses the full $width viewport with large text', (
+      tester,
+    ) async {
+      await pumpMobileShellFixture(tester, size: Size(width, 844));
+      tester.platformDispatcher.textScaleFactorTestValue = 2;
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('mobile-menu-button')));
+      await tester.pumpAndSettle();
+      final navigation = tester.getRect(
+        find.byKey(const ValueKey('mobile-navigation-page')),
+      );
+      expect(navigation.width, width - 2 * DSpacing.xs);
+      expect(_bar, findsNothing);
+      expect(find.text('Shortcuts'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+  }
 
   _mobileTest('Forum destinations return from Chat to the Topics tab', (
     tester,
@@ -654,8 +747,12 @@ void main() {
       shell.mobileNavigation.tab,
       const MobileTab.destination('events-upcoming'),
     );
+    await tester.tap(find.byKey(const ValueKey('mobile-menu-button')));
+    await tester.pumpAndSettle();
     shell.selectInstance(1);
     await tester.pump();
+    expect(shell.mobileNavigation.sidebarOpen, isFalse);
+    expect(find.byKey(const ValueKey('mobile-navigation-page')), findsNothing);
     expect(find.byKey(const ValueKey('history-outgoing-tab')), findsNothing);
     await tester.pumpAndSettle();
     for (final tab in [

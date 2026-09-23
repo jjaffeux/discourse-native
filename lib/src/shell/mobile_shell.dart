@@ -34,8 +34,6 @@ class MobileForumRoot extends StatefulWidget {
 }
 
 class _MobileForumRootState extends State<MobileForumRoot> {
-  final _drawer = DSheetController<void>();
-  Object? _drawerLocation;
   bool _hideTabBar = false;
 
   @override
@@ -59,7 +57,6 @@ class _MobileForumRootState extends State<MobileForumRoot> {
   @override
   void dispose() {
     FocusManager.instance.removeListener(_focusChanged);
-    _drawer.dispose();
     super.dispose();
   }
 
@@ -79,15 +76,7 @@ class _MobileForumRootState extends State<MobileForumRoot> {
         final instance = shell.currentInstance;
         if (instance == null) return const SizedBox.shrink();
         final owner = (instance.url, shell.currentAccountIdentity);
-        final drawerLocation = (owner, shell.rootMode);
-        if (_drawerLocation != drawerLocation) {
-          _drawerLocation = drawerLocation;
-          if (_drawer.isOpen) {
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              if (mounted) _drawer.close();
-            });
-          }
-        }
+        final sidebarOpen = shell.mobileNavigation.sidebarOpen;
         final panels = registry
             .sidebarPanels(context)
             .where((entry) => entry.panel.showSwitch)
@@ -302,63 +291,18 @@ class _MobileForumRootState extends State<MobileForumRoot> {
                   builder: (context, constraints) => Row(
                     spacing: DSpacing.controlGap,
                     children: [
-                      DSheet<void>(
-                        controller: _drawer,
-                        content: DSheetContent(
-                          side: DSheetSide.start,
-                          sidePanelWidth: MediaQuery.sizeOf(context).width,
-                          sidePanelMaxWidth: 384,
-                          semanticLabel: 'Forum navigation',
-                          showCloseButton: false,
-                          scrollWholeSheet: false,
-                          children: [
-                            Expanded(
-                              child: Row(
-                                children: [
-                                  const SizedBox(
-                                    width: 48,
-                                    child: InstanceRail(),
-                                  ),
-                                  Expanded(
-                                    child: Column(
-                                      children: [
-                                        Align(
-                                          alignment:
-                                              AlignmentDirectional.centerEnd,
-                                          child: DButton.iconOnly(
-                                            icon: const Icon(Icons.close),
-                                            tooltip: 'Close navigation',
-                                            variant: DButtonVariant.ghost,
-                                            onPressed: _drawer.close,
-                                          ),
-                                        ),
-                                        Expanded(
-                                          child: InstanceSidebar(
-                                            key: ValueKey((
-                                              'mobile-drawer',
-                                              owner,
-                                            )),
-                                            mobile: true,
-                                            onNavigate: _drawer.close,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                        trigger: DSheetTrigger(
-                          builder: (context, open) => DButton.iconOnly(
-                            key: const ValueKey('mobile-menu-button'),
-                            icon: const Icon(Icons.menu, size: 20),
-                            tooltip: 'Open navigation',
-                            variant: DButtonVariant.ghost,
-                            onPressed: open,
-                          ),
-                        ),
+                      DButton.iconOnly(
+                        key: const ValueKey('mobile-menu-button'),
+                        icon: const Icon(Icons.menu, size: 20),
+                        tooltip: sidebarOpen
+                            ? 'Close navigation'
+                            : 'Open navigation',
+                        variant: DButtonVariant.ghost,
+                        expanded: sidebarOpen,
+                        onPressed: () {
+                          FocusManager.instance.primaryFocus?.unfocus();
+                          shell.toggleMobileSidebar();
+                        },
                       ),
                       Expanded(
                         child: Align(
@@ -386,44 +330,80 @@ class _MobileForumRootState extends State<MobileForumRoot> {
                 padding: const EdgeInsets.symmetric(horizontal: DSpacing.xs),
                 child: MobileHistoryGestures(
                   tabIndex: tabOrder.indexOf(selected),
-                  child: DPageSurface(
-                    key: const ValueKey('mobile-content-panel'),
-                    backgroundColor: ForumWindowBackground.panelColor(context),
-                    child: Stack(
-                      fit: StackFit.expand,
-                      children: [
-                        for (final entry in panels)
-                          Offstage(
-                            offstage:
-                                !(panelRoot && panelOwner == entry.owner.value),
-                            child: TickerMode(
-                              enabled:
-                                  panelRoot && panelOwner == entry.owner.value,
-                              child: ExcludeFocus(
-                                excluding:
-                                    !(panelRoot &&
-                                        panelOwner == entry.owner.value),
-                                child: InstanceSidebar(
-                                  key: ValueKey((
-                                    'mobile-panel',
-                                    entry.owner.value,
-                                    owner,
-                                  )),
-                                  mobile: true,
-                                  panelOwner: entry.owner.value,
-                                ),
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      Offstage(
+                        offstage: sidebarOpen,
+                        child: TickerMode(
+                          enabled: !sidebarOpen,
+                          child: ExcludeFocus(
+                            excluding: sidebarOpen,
+                            child: DPageSurface(
+                              key: const ValueKey('mobile-content-panel'),
+                              backgroundColor: ForumWindowBackground.panelColor(
+                                context,
+                              ),
+                              child: Stack(
+                                fit: StackFit.expand,
+                                children: [
+                                  for (final entry in panels)
+                                    Offstage(
+                                      offstage:
+                                          !(panelRoot &&
+                                              panelOwner == entry.owner.value),
+                                      child: TickerMode(
+                                        enabled:
+                                            panelRoot &&
+                                            panelOwner == entry.owner.value,
+                                        child: ExcludeFocus(
+                                          excluding:
+                                              !(panelRoot &&
+                                                  panelOwner ==
+                                                      entry.owner.value),
+                                          child: InstanceSidebar(
+                                            key: ValueKey((
+                                              'mobile-panel',
+                                              entry.owner.value,
+                                              owner,
+                                            )),
+                                            mobile: true,
+                                            panelOwner: entry.owner.value,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  if (!panelRoot) widget.content,
+                                ],
                               ),
                             ),
                           ),
-                        if (!panelRoot) widget.content,
-                      ],
-                    ),
+                        ),
+                      ),
+                      if (sidebarOpen)
+                        Row(
+                          key: const ValueKey('mobile-navigation-page'),
+                          children: [
+                            const SizedBox(width: 48, child: InstanceRail()),
+                            Expanded(
+                              child: DPageSurface(
+                                border: false,
+                                child: InstanceSidebar(
+                                  key: ValueKey(('mobile-navigation', owner)),
+                                  mobile: true,
+                                  onNavigate: shell.closeMobileSidebar,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                    ],
                   ),
                 ),
               ),
             ),
             DCollapsible(
-              open: !_hideTabBar,
+              open: !sidebarOpen && !_hideTabBar,
               child: DCollapsibleContent(
                 duration: DMotion.change,
                 curve: Curves.easeInOutCubic,
@@ -593,20 +573,23 @@ class MobileHistoryGestures extends StatelessWidget {
   Widget build(BuildContext context) {
     final shell = ShellScope.of(context);
     final navigation = shell.mobileNavigation;
+    final sidebarOpen = navigation.sidebarOpen;
     return DHistoryTransition(
       history: navigation.historyId,
-      tabIndex: tabIndex,
+      tabIndex: sidebarOpen ? -1 : tabIndex,
       tabOwner: (shell.currentInstance?.url, shell.currentAccountIdentity),
-      entry: navigation.entryId,
+      entry: sidebarOpen
+          ? (navigation.historyId, 'sidebar')
+          : navigation.entryId,
       previousEntry: navigation.previousEntryId,
       nextEntry: navigation.nextEntryId,
-      onBack: navigation.canGoBack
+      onBack: !sidebarOpen && navigation.canGoBack
           ? () {
               FocusManager.instance.primaryFocus?.unfocus();
               shell.handleBack();
             }
           : null,
-      onForward: navigation.canGoForward
+      onForward: !sidebarOpen && navigation.canGoForward
           ? () {
               FocusManager.instance.primaryFocus?.unfocus();
               shell.handleForward();
