@@ -52,10 +52,12 @@ class ComposerEmbeddedEditor extends StatelessWidget {
             _LocalTextAction<ExtendSelectionToNextParagraphBoundaryIntent>(),
         ExtendSelectionToLineBreakIntent:
             _LocalTextAction<ExtendSelectionToLineBreakIntent>(),
+        // Flutter shares an Action<DirectionalCaretMovementIntent> between
+        // line and page movement. Match it so callingAction's cast is valid.
         ExtendSelectionVerticallyToAdjacentLineIntent:
-            _LocalTextAction<ExtendSelectionVerticallyToAdjacentLineIntent>(),
+            _LocalTextAction<DirectionalCaretMovementIntent>(),
         ExtendSelectionVerticallyToAdjacentPageIntent:
-            _LocalTextAction<ExtendSelectionVerticallyToAdjacentPageIntent>(),
+            _LocalTextAction<DirectionalCaretMovementIntent>(),
         ExtendSelectionToNextParagraphBoundaryOrCaretLocationIntent:
             _LocalTextAction<
               ExtendSelectionToNextParagraphBoundaryOrCaretLocationIntent
