@@ -9,6 +9,14 @@ final colorPickerExamples = ComponentExamples(
       'Live opaque color selection with a pointer plane and keyboard-accessible HSV sliders.',
   examples: [
     StyleguideExample(
+      title: 'Presets and recent colors',
+      description:
+          'Choose a named text or background swatch. Recent choices and the selected color are controlled by the caller; Default clears the color.',
+      code:
+          'DColorPickerPresets(semanticLabel: "Text color", presets: colors, selected: selected, recentColors: recent, onChanged: pick, onReset: reset)',
+      builder: (_) => const _PresetExample(),
+    ),
+    StyleguideExample(
       title: 'Inline palette',
       description:
           'Drag to choose hue and lightness. Focus the palette and use arrow keys; screen readers offer Lighter and Darker actions.',
@@ -43,6 +51,42 @@ class _Example extends StatefulWidget {
   final bool inline;
   @override
   State<_Example> createState() => _ExampleState();
+}
+
+class _PresetExample extends StatefulWidget {
+  const _PresetExample();
+  @override
+  State<_PresetExample> createState() => _PresetExampleState();
+}
+
+class _PresetExampleState extends State<_PresetExample> {
+  static const colors = [
+    DColorPreset(color: Color(0xffd75c55), label: 'Red'),
+    DColorPreset(color: Color(0xff58a47a), label: 'Green'),
+    DColorPreset(color: Color(0xff4d94d5), label: 'Blue'),
+    DColorPreset(
+      color: Color(0xff244c39),
+      label: 'Green background',
+      appearance: DColorPresetAppearance.background,
+    ),
+  ];
+  DColorPreset? selected;
+  final recent = <DColorPreset>[];
+
+  @override
+  Widget build(BuildContext context) => DColorPickerPresets(
+    semanticLabel: 'Text color',
+    presets: colors,
+    selected: selected,
+    recentColors: recent,
+    onReset: () => setState(() => selected = null),
+    onChanged: (color) => setState(() {
+      selected = color;
+      recent.remove(color);
+      recent.insert(0, color);
+      if (recent.length > 3) recent.removeLast();
+    }),
+  );
 }
 
 class _ExampleState extends State<_Example> {

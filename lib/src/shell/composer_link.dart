@@ -552,9 +552,10 @@ Future<void> showComposerLinkDialog({
           capturedSelection.end,
         )
       : '';
-  final draft = await showDialog<_ComposerLinkDraft>(
+  final draft = await showDDialog<_ComposerLinkDraft>(
     context: context,
-    builder: (context) => _ComposerLinkDialog(
+    builder: (context, controller) => _ComposerLinkDialog(
+      controller: controller,
       initialAnchor: link?.anchor ?? selectedAnchor,
       initialUrl: link?.url ?? '',
     ),
@@ -594,8 +595,10 @@ class _ComposerLinkDialog extends StatefulWidget {
   const _ComposerLinkDialog({
     required this.initialAnchor,
     required this.initialUrl,
+    required this.controller,
   });
 
+  final DDialogController<_ComposerLinkDraft> controller;
   final String initialAnchor;
   final String initialUrl;
 
@@ -625,51 +628,49 @@ class _ComposerLinkDialogState extends State<_ComposerLinkDialog> {
 
   void _insert() {
     if (!_canInsert) return;
-    Navigator.of(
-      context,
-    ).pop(_ComposerLinkDraft(url: _url.text.trim(), anchor: _anchor.text));
+    widget.controller.close(
+      _ComposerLinkDraft(url: _url.text.trim(), anchor: _anchor.text),
+    );
   }
 
   @override
-  Widget build(BuildContext context) => AlertDialog(
+  Widget build(BuildContext context) => DDialogContent(
     key: const ValueKey('composer-link-dialog'),
-    title: const Text('Insert link'),
-    content: SizedBox(
-      width: 420,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
+    semanticLabel: 'Insert link',
+    maxWidth: 460,
+    children: [
+      const DDialogHeader(children: [DDialogTitle(child: Text('Insert link'))]),
+      DInput(
+        key: const ValueKey('composer-link-url'),
+        controller: _url,
+        autofocus: true,
+        keyboardType: TextInputType.url,
+        textInputAction: TextInputAction.next,
+        onChanged: (_) => setState(() {}),
+        onSubmitted: (_) => _insert(),
+        labelText: 'URL',
+      ),
+      DInput(
+        key: const ValueKey('composer-link-anchor'),
+        controller: _anchor,
+        textInputAction: TextInputAction.done,
+        onSubmitted: (_) => _insert(),
+        labelText: 'Text',
+      ),
+      DDialogFooter(
         children: [
-          DInput(
-            key: const ValueKey('composer-link-url'),
-            controller: _url,
-            autofocus: true,
-            keyboardType: TextInputType.url,
-            textInputAction: TextInputAction.next,
-            onChanged: (_) => setState(() {}),
-            onSubmitted: (_) => _insert(),
-            labelText: 'URL',
+          DButton(
+            label: const Text('Cancel'),
+            variant: DButtonVariant.outline,
+            onPressed: widget.controller.close,
           ),
-          const SizedBox(height: 16),
-          DInput(
-            key: const ValueKey('composer-link-anchor'),
-            controller: _anchor,
-            textInputAction: TextInputAction.done,
-            onSubmitted: (_) => _insert(),
-            labelText: 'Text',
+          DButton(
+            key: const ValueKey('composer-link-insert'),
+            label: const Text('Insert link'),
+            onPressed: _canInsert ? _insert : null,
+            variant: DButtonVariant.primary,
           ),
         ],
-      ),
-    ),
-    actions: [
-      DButton(
-        label: const Text('Cancel'),
-        onPressed: () => Navigator.of(context).pop(),
-      ),
-      DButton(
-        key: const ValueKey('composer-link-insert'),
-        label: const Text('Insert link'),
-        onPressed: _canInsert ? _insert : null,
-        variant: DButtonVariant.primary,
       ),
     ],
   );

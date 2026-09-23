@@ -71,6 +71,18 @@ void main() {
       expect(docked.overlaps(sidebarRect), isFalse);
       expect(docked.overlaps(railRect), isFalse);
       expect(find.byKey(const ValueKey('composer-drag-handle')), findsNothing);
+      final composer = controller.visibleComposer!;
+      composer.text.value = const TextEditingValue(
+        text: 'Selected topic text',
+        selection: TextSelection(baseOffset: 0, extentOffset: 8),
+      );
+      composer.focus.requestFocus();
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const ValueKey('composer-selection-toolbar')),
+        findsOneWidget,
+      );
+      await tester.pump(const Duration(seconds: 3));
       expect(tester.takeException(), isNull);
     },
   );

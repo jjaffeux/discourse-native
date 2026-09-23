@@ -11,6 +11,142 @@ import 'd_button.dart';
 import 'd_popover.dart';
 import 'd_slider.dart';
 
+enum DColorPresetAppearance { text, background }
+
+/// A named opaque swatch. Appearance also distinguishes a text color from a
+/// background color when both appear in a recently-used group.
+@immutable
+class DColorPreset {
+  const DColorPreset({
+    required this.color,
+    required this.label,
+    this.appearance = DColorPresetAppearance.text,
+  });
+
+  final Color color;
+  final String label;
+  final DColorPresetAppearance appearance;
+
+  @override
+  bool operator ==(Object other) =>
+      other is DColorPreset &&
+      color == other.color &&
+      appearance == other.appearance;
+
+  @override
+  int get hashCode => Object.hash(color, appearance);
+}
+
+/// A controlled preset palette for the Native color-picker family.
+///
+/// The caller owns recent choices and the selected value. A null [selected]
+/// represents the default color; [onReset] adds an explicit default swatch.
+/// Button owns keyboard activation, tooltips, focus and accessible targets.
+class DColorPickerPresets extends StatelessWidget {
+  const DColorPickerPresets({
+    super.key,
+    required this.semanticLabel,
+    required this.presets,
+    required this.onChanged,
+    this.selected,
+    this.recentColors = const [],
+    this.recentLabel = 'Recently used',
+    this.onReset,
+    this.resetLabel = 'Default',
+    this.appearance = DColorPresetAppearance.text,
+  });
+
+  final String semanticLabel;
+  final List<DColorPreset> presets;
+  final ValueChanged<DColorPreset>? onChanged;
+  final DColorPreset? selected;
+  final List<DColorPreset> recentColors;
+  final String recentLabel;
+  final VoidCallback? onReset;
+  final String resetLabel;
+  final DColorPresetAppearance appearance;
+
+  Widget _swatch(BuildContext context, DColorPreset? preset) {
+    final tokens = DTokens.of(context);
+    final chosen = selected == preset;
+    final fill =
+        (preset?.appearance ?? appearance) == DColorPresetAppearance.background;
+    final color = preset?.color ?? tokens.foreground;
+    final label = preset?.label ?? '$semanticLabel: $resetLabel';
+    return Semantics(
+      selected: chosen,
+      child: DButton.iconOnly(
+        tooltip: label,
+        semanticLabel: label,
+        variant: DButtonVariant.outline,
+        backgroundColor: fill && preset != null ? color : null,
+        foregroundColor: fill && preset != null
+            ? (color.computeLuminance() > .45 ? Colors.black : Colors.white)
+            : color,
+        borderColor: chosen ? tokens.foreground : color.withValues(alpha: .4),
+        icon: fill
+            ? (chosen ? const Icon(Icons.check) : const SizedBox.shrink())
+            : Builder(
+                builder: (context) => Text(
+                  'A',
+                  style: TextStyle(
+                    fontSize: IconTheme.of(context).size,
+                    fontWeight: FontWeight.w700,
+                    decoration: chosen ? TextDecoration.underline : null,
+                  ),
+                ),
+              ),
+        onPressed: onChanged == null
+            ? null
+            : preset == null
+            ? onReset
+            : () => onChanged!(preset),
+      ),
+    );
+  }
+
+  Widget _group(
+    BuildContext context,
+    String label,
+    List<DColorPreset> choices, {
+    bool reset = false,
+  }) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      Text(
+        label,
+        style: TextStyle(
+          color: DTokens.of(context).mutedForeground,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+      const SizedBox(height: DSpacing.sm),
+      Wrap(
+        spacing: DSpacing.controlGap,
+        runSpacing: DSpacing.controlGap,
+        children: [
+          if (reset) _swatch(context, null),
+          for (final preset in choices) _swatch(context, preset),
+        ],
+      ),
+    ],
+  );
+
+  @override
+  Widget build(BuildContext context) => Column(
+    mainAxisSize: MainAxisSize.min,
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      if (recentColors.isNotEmpty) ...[
+        _group(context, recentLabel, recentColors),
+        const SizedBox(height: DSpacing.lg),
+      ],
+      _group(context, semanticLabel, presets, reset: onReset != null),
+    ],
+  );
+}
+
 /// Opaque RGB color selection with a swatch/popover or an inline palette.
 /// The caller owns [value]. Null [onChanged] disables the trigger.
 /// Popover sliders provide keyboard and screen-reader access to every HSV axis.

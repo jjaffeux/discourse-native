@@ -446,6 +446,7 @@ void main() {
           '/destroy': 309,
         },
         notificationChannelPosition: 310,
+        serverPluginNames: const {'discourse-bbcode-color'},
       );
       final api = FakeDiscourseApi(
         user: bootstrapUser,
@@ -455,6 +456,9 @@ void main() {
       final shell = await _loadShell(api);
       addTearDown(shell.dispose);
       final tracker = FakeSiteTracker.built.single;
+
+      expect(shell.supportsComposerColors(_siteUrl), isTrue);
+      expect(shell.supportsComposerColors('https://another.example'), isFalse);
 
       expect(tracker.initialLastIds, {
         '/latest': 303,

@@ -4307,7 +4307,12 @@ class ShellController extends FrameSafeNotifier
         apiKey: apiKey,
         clientId: clientId,
       );
-      return !isDisposed && lease.isCurrent ? bootstrap : null;
+      if (isDisposed || !lease.isCurrent) return null;
+      if (bootstrap != null) {
+        _serverPluginNames[siteUrl] = bootstrap.serverPluginNames;
+        _notify();
+      }
+      return bootstrap;
     } catch (error, stackTrace) {
       if (!isDisposed && lease.isCurrent) {
         // The endpoint is the ordinary application document, so older and
@@ -4323,6 +4328,11 @@ class ShellController extends FrameSafeNotifier
       return null;
     }
   }
+
+  final Map<String, Set<String>> _serverPluginNames = {};
+
+  bool supportsComposerColors(String siteUrl) =>
+      _serverPluginNames[siteUrl]?.contains('discourse-bbcode-color') ?? false;
 
   Future<void> _loadTopicTrackingState({
     required String siteUrl,
