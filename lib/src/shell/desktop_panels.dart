@@ -167,7 +167,11 @@ class _DesktopPanel extends StatelessWidget {
           atRightEdge: true,
           child: Column(
             children: [
-              if (showHeader) TopicPanelTabs(panel: panel),
+              if (showHeader)
+                TopicPanelTabs(
+                  panel: panel,
+                  incomingTabId: candidates.firstOrNull,
+                ),
               Expanded(
                 child: Focus(
                   canRequestFocus: false,

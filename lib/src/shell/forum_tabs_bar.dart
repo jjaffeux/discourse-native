@@ -90,6 +90,8 @@ class ForumTabsBar extends StatefulWidget {
     this.showAdd = true,
     this.acceptsTab,
     this.onDropTab,
+    this.incomingTab,
+    this.itemForDrop,
   }) : assert(items.isNotEmpty),
        assert(items.any((item) => item.id == selectedId));
 
@@ -109,6 +111,8 @@ class ForumTabsBar extends StatefulWidget {
   final bool showAdd;
   final bool Function(String id)? acceptsTab;
   final void Function(String id, int index)? onDropTab;
+  final ForumTabItem? incomingTab;
+  final ForumTabItem? Function(String id)? itemForDrop;
   final String forumName;
   final List<ForumTabItem> items;
   final String selectedId;
@@ -129,6 +133,77 @@ class _ForumTabsBarState extends State<ForumTabsBar> {
   static const _tabGap = 4.0;
   static const _switcherGap = 4.0;
   Widget? _contents;
+  final _tabKeys = <String, GlobalKey>{};
+  ForumTabItem? _dropItem;
+  int _dropIndex = 0;
+  String? _geometryTabId;
+  List<double> _tabCenters = const [];
+
+  void _captureDropGeometry(String id) {
+    if (_geometryTabId == id) return;
+    _geometryTabId = id;
+    // Preserve the actual tab widths before the placeholder shifts them.
+    _tabCenters = [
+      for (final item in widget.items)
+        if (_tabKeys[item.id]?.currentContext?.findRenderObject()
+            case final RenderBox box)
+          box.localToGlobal(box.size.center(Offset.zero)).dx,
+    ];
+  }
+
+  void _scheduleGeometryReset() {
+    // Crossing a child DragTarget leaves and re-enters this target in one
+    // pointer event. Keep the original geometry through that transition.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && _dropItem == null && widget.incomingTab == null) {
+        _geometryTabId = null;
+        _tabCenters = const [];
+      }
+    });
+  }
+
+  int _indexAt(Offset position) {
+    final rtl = Directionality.of(context) == TextDirection.rtl;
+    for (var index = 0; index < _tabCenters.length; index++) {
+      if (rtl
+          ? position.dx > _tabCenters[index]
+          : position.dx < _tabCenters[index]) {
+        return index;
+      }
+    }
+    return widget.items.length;
+  }
+
+  bool _startDrop(DragTargetDetails<String> details) {
+    final item = widget.itemForDrop?.call(details.data);
+    if (item == null || widget.onDropTab == null) return false;
+    _captureDropGeometry(item.id);
+    setState(() {
+      _dropItem = item;
+      _dropIndex = _indexAt(details.offset);
+      _contents = null;
+    });
+    return true;
+  }
+
+  void _moveDrop(DragTargetDetails<String> details) {
+    if (_dropItem == null) return;
+    final index = _indexAt(details.offset);
+    if (index == _dropIndex) return;
+    setState(() {
+      _dropIndex = index;
+      _contents = null;
+    });
+  }
+
+  void _clearDrop() {
+    if (_dropItem == null) return;
+    setState(() {
+      _dropItem = null;
+      _contents = null;
+    });
+    _scheduleGeometryReset();
+  }
 
   static bool _sameItems(List<ForumTabItem> a, List<ForumTabItem> b) {
     if (a.length != b.length) return false;
@@ -141,12 +216,20 @@ class _ForumTabsBarState extends State<ForumTabsBar> {
   @override
   void didUpdateWidget(ForumTabsBar oldWidget) {
     super.didUpdateWidget(oldWidget);
+    _tabKeys.removeWhere((id, _) => !widget.items.any((tab) => tab.id == id));
+    if (widget.incomingTab case final item?) {
+      _captureDropGeometry(item.id);
+    } else if (oldWidget.incomingTab != null) {
+      _scheduleGeometryReset();
+    }
     // Reading anchors and plugin notifications can replace the input models
     // without changing any tab. Keep their control trees mounted and clean.
     // Callbacks below delegate through `widget` so they always stay current.
     if (widget.forumName != oldWidget.forumName ||
         widget.selectedId != oldWidget.selectedId ||
         widget.showAdd != oldWidget.showAdd ||
+        widget.incomingTab?._presentation !=
+            oldWidget.incomingTab?._presentation ||
         (widget.onDropTab == null) != (oldWidget.onDropTab == null) ||
         (widget.onAdd == null) != (oldWidget.onAdd == null) ||
         (widget.onReopen == null) != (oldWidget.onReopen == null) ||
@@ -173,9 +256,27 @@ class _ForumTabsBarState extends State<ForumTabsBar> {
   }
 
   @override
-  Widget build(BuildContext context) => _contents ??= _buildContents(context);
+  Widget build(BuildContext context) => DragTarget<String>(
+    onWillAcceptWithDetails: _startDrop,
+    onMove: _moveDrop,
+    onLeave: (_) => _clearDrop(),
+    onAcceptWithDetails: (details) {
+      final index = _indexAt(details.offset);
+      _clearDrop();
+      if (widget.itemForDrop?.call(details.data) != null) {
+        widget.onDropTab?.call(details.data, index);
+      }
+    },
+    builder: (context, candidates, rejected) =>
+        _contents ??= _buildContents(context),
+  );
 
   Widget _buildContents(BuildContext context) {
+    final incoming = _dropItem ?? widget.incomingTab;
+    final insertion = _dropItem == null
+        ? widget.items.length
+        : _dropIndex.clamp(0, widget.items.length);
+    final tabCount = widget.items.length + (incoming == null ? 0 : 1);
     return Container(
       key: const ValueKey('forum-tabs-bar'),
       width: double.infinity,
@@ -224,9 +325,9 @@ class _ForumTabsBarState extends State<ForumTabsBar> {
                           0.0,
                           (constraints.maxWidth -
                                   (widget.showAdd ? addWidth + 4 : 0) -
-                                  _tabGap * (widget.items.length - 1) -
+                                  _tabGap * (tabCount - 1) -
                                   selectedWidth) /
-                              widget.items.length,
+                              tabCount,
                         );
                         return Row(
                           children: [
@@ -244,8 +345,24 @@ class _ForumTabsBarState extends State<ForumTabsBar> {
                                       index < widget.items.length;
                                       index++
                                     ) ...[
+                                      if (incoming != null &&
+                                          insertion == index) ...[
+                                        SizedBox(
+                                          width: math.min(
+                                            ForumTabsBar.maximumTabWidth,
+                                            labelWidth,
+                                          ),
+                                          child: _ForumTabDropPlaceholder(
+                                            item: incoming,
+                                          ),
+                                        ),
+                                        const SizedBox(width: _tabGap),
+                                      ],
                                       ConstrainedBox(
-                                        key: ValueKey(widget.items[index].id),
+                                        key: _tabKeys.putIfAbsent(
+                                          widget.items[index].id,
+                                          () => GlobalKey(),
+                                        ),
                                         constraints: BoxConstraints(
                                           maxWidth: math.min(
                                             ForumTabsBar.maximumTabWidth,
@@ -260,7 +377,12 @@ class _ForumTabsBarState extends State<ForumTabsBar> {
                                           item: widget.items[index],
                                           index: index,
                                           itemCount: widget.items.length,
-                                          acceptsTab: widget.acceptsTab,
+                                          acceptsTab: (id) =>
+                                              widget.items.any(
+                                                (tab) => tab.id == id,
+                                              ) &&
+                                              (widget.acceptsTab?.call(id) ??
+                                                  true),
                                           onDropTab: widget.onDropTab == null
                                               ? null
                                               : (id, index) =>
@@ -295,6 +417,19 @@ class _ForumTabsBarState extends State<ForumTabsBar> {
                                       ),
                                       if (index != widget.items.length - 1)
                                         const SizedBox(width: _tabGap),
+                                    ],
+                                    if (incoming != null &&
+                                        insertion == widget.items.length) ...[
+                                      const SizedBox(width: _tabGap),
+                                      SizedBox(
+                                        width: math.min(
+                                          ForumTabsBar.maximumTabWidth,
+                                          labelWidth,
+                                        ),
+                                        child: _ForumTabDropPlaceholder(
+                                          item: incoming,
+                                        ),
+                                      ),
                                     ],
                                   ],
                                 ),
@@ -922,9 +1057,12 @@ class _ReorderableForumTab extends StatelessWidget {
           return Draggable<String>(
             data: item.id,
             axis: onDropTab == null ? Axis.horizontal : null,
-            dragAnchorStrategy: childDragAnchorStrategy,
-            feedback: Builder(
-              builder: (_) => _ForumTabDragFeedback(
+            // Target offsets follow the pointer. Keep the floating tab below
+            // it so the insertion placeholder remains visible in the strip.
+            dragAnchorStrategy: pointerDragAnchorStrategy,
+            feedback: Transform.translate(
+              offset: Offset(DSpacing.md, ForumTabsBar.heightFor(context) / 2),
+              child: _ForumTabDragFeedback(
                 item: item,
                 width: ForumTabsBar.maximumTabWidth,
               ),
@@ -936,6 +1074,41 @@ class _ReorderableForumTab extends StatelessWidget {
       ),
     );
   }
+}
+
+class _ForumTabDropPlaceholder extends StatelessWidget {
+  const _ForumTabDropPlaceholder({required this.item});
+
+  final ForumTabItem item;
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+    key: const ValueKey('forum-tab-drop-placeholder'),
+    role: SemanticsRole.tab,
+    selected: false,
+    enabled: false,
+    label: 'Drop ${item.title} here',
+    liveRegion: true,
+    child: ExcludeSemantics(
+      child: ExcludeFocus(
+        child: IgnorePointer(
+          child: DDocumentTab(
+            selected: false,
+            dropTarget: true,
+            closeOnlyWhenSelected: true,
+            onSelect: () {},
+            onClose: () {},
+            closeLabel: '',
+            child: Text(
+              item.title,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ),
+      ),
+    ),
+  );
 }
 
 class _ForumTabDragFeedback extends StatelessWidget {
@@ -1501,8 +1674,9 @@ final class _CurrentForumTabsSnapshot {
 }
 
 class CurrentForumTabsBar extends StatelessWidget {
-  const CurrentForumTabsBar({super.key, this.panel});
+  const CurrentForumTabsBar({super.key, this.panel, this.incomingTabId});
   final ForumPanel? panel;
+  final String? incomingTabId;
 
   @override
   Widget build(BuildContext context) =>
@@ -1536,20 +1710,6 @@ class CurrentForumTabsBar extends StatelessWidget {
           final tabs = state.tabs
               .where((tab) => (panel == null || tab.panel == panel))
               .toList();
-          if (tabs.isEmpty) {
-            return Align(
-              alignment: AlignmentDirectional.centerStart,
-              child: DButton.iconOnly(
-                key: ValueKey('add-empty-${panel?.name}'),
-                icon: const DIcon(DIcons.plus),
-                tooltip: 'Open a new tab',
-                variant: DButtonVariant.ghost,
-                onPressed: controller.canCreateTab
-                    ? () => controller.createTab(panel: panel)
-                    : null,
-              ),
-            );
-          }
           final selectedId = panel == null
               ? activeTabId
               : controller.selectedTabIn(panel!)?.id;
@@ -1597,10 +1757,47 @@ class CurrentForumTabsBar extends StatelessWidget {
                 );
               }
 
+              ForumTabItem? itemForDrop(String id) {
+                final tab = controller.currentWorkspace?.tabById(id);
+                return panel != null && tab != null && tab.panel != panel
+                    ? itemFor(tab)
+                    : null;
+              }
+
+              final incoming = incomingTabId == null
+                  ? null
+                  : itemForDrop(incomingTabId!);
+              if (tabs.isEmpty) {
+                return Row(
+                  children: [
+                    if (incoming != null) ...[
+                      Flexible(
+                        child: SizedBox(
+                          width: ForumTabsBar.maximumTabWidth,
+                          child: _ForumTabDropPlaceholder(item: incoming),
+                        ),
+                      ),
+                      const SizedBox(width: DSpacing.controlGap),
+                    ],
+                    DButton.iconOnly(
+                      key: ValueKey('add-empty-${panel?.name}'),
+                      icon: const DIcon(DIcons.plus),
+                      tooltip: 'Open a new tab',
+                      variant: DButtonVariant.ghost,
+                      onPressed: controller.canCreateTab
+                          ? () => controller.createTab(panel: panel)
+                          : null,
+                    ),
+                  ],
+                );
+              }
+
               return ForumTabsBar(
                 key: ValueKey(('forum-tabs', siteUrl, panel)),
                 forumName: forumName,
                 showAdd: true,
+                incomingTab: incoming,
+                itemForDrop: itemForDrop,
                 items: [for (final tab in tabs) itemFor(tab)],
                 recentlyClosedItems: [
                   for (final tab in state.recentlyClosedTabs)

@@ -339,6 +339,187 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('an empty panel previews its first tab and clears on drag exit', (
+    tester,
+  ) async {
+    await _pump(tester, shell);
+    final original = shell.currentWorkspace!;
+    final source = find.byKey(ValueKey('forum-tab-${shell.activeTabId}'));
+    final gesture = await tester.startGesture(
+      tester.getCenter(source),
+      kind: PointerDeviceKind.mouse,
+    );
+    await gesture.moveBy(const Offset(0, 20));
+    await tester.pump();
+    await gesture.moveTo(tester.getCenter(find.text('Secondary panel')));
+    await tester.pumpAndSettle();
+    final placeholder = find.byKey(
+      const ValueKey('forum-tab-drop-placeholder'),
+    );
+    expect(placeholder, findsOneWidget);
+    expect(tester.getRect(placeholder).bottom, lessThan(100));
+    expect(shell.currentWorkspace, original);
+
+    await gesture.moveTo(const Offset(-20, -20));
+    await tester.pumpAndSettle();
+    expect(placeholder, findsNothing);
+    await gesture.up();
+    await tester.pumpAndSettle();
+    expect(shell.currentWorkspace, original);
+    expect(tester.takeException(), isNull);
+  });
+
+  for (final direction in TextDirection.values) {
+    testWidgets('the placeholder matches the insertion position in $direction', (
+      tester,
+    ) async {
+      final initial = shell.activeTabId!;
+      shell.pushContent(
+        const ContentRoute(id: 'panel-a', title: 'A', icon: DIcons.tag),
+      );
+      final first = shell.activeTabId!;
+      shell.closeTab(initial);
+      shell.pushContent(
+        const ContentRoute(id: 'panel-b', title: 'B', icon: DIcons.tag),
+      );
+      final second = shell.activeTabId!;
+      shell.openTopic(_topic);
+      final incoming = shell.activeTabId!;
+      await _pump(tester, shell, direction: direction);
+      final source = find.byKey(ValueKey('forum-tab-$incoming'));
+      final target = find.byKey(ValueKey('forum-tab-$second'));
+      final barRect = tester.getRect(
+        find.ancestor(of: target, matching: find.byType(ForumTabsBar)),
+      );
+      final targetRect = tester.getRect(target);
+      final destination = Offset(
+        direction == TextDirection.ltr
+            ? targetRect.left + 2
+            : targetRect.right - 2,
+        targetRect.center.dy,
+      );
+      final gesture = await tester.startGesture(
+        tester.getCenter(source),
+        kind: PointerDeviceKind.mouse,
+      );
+      await gesture.moveBy(const Offset(0, 20));
+      await tester.pump();
+      await gesture.moveTo(destination);
+      await tester.pumpAndSettle();
+      final placeholder = find.byKey(
+        const ValueKey('forum-tab-drop-placeholder'),
+      );
+      expect(placeholder, findsOneWidget);
+      final previewRect = tester.getRect(placeholder);
+      final firstRect = tester.getRect(
+        find.byKey(ValueKey('forum-tab-$first')),
+      );
+      final secondRect = tester.getRect(target);
+      if (direction == TextDirection.ltr) {
+        expect(previewRect.left, greaterThan(firstRect.right));
+        expect(previewRect.right, lessThan(secondRect.left));
+      } else {
+        expect(previewRect.right, lessThan(firstRect.left));
+        expect(previewRect.left, greaterThan(secondRect.right));
+      }
+      // Moving within the same insertion region must not chase the shifted tabs.
+      await gesture.moveTo(destination + const Offset(1, 0));
+      await tester.pumpAndSettle();
+      expect(tester.getRect(placeholder), previewRect);
+
+      // Cross several child hit targets, then return to the original slot.
+      await gesture.moveTo(
+        Offset(
+          direction == TextDirection.ltr ? barRect.right - 2 : barRect.left + 2,
+          destination.dy,
+        ),
+      );
+      await tester.pumpAndSettle();
+      final appended = tester.getRect(placeholder);
+      final last = tester.getRect(target);
+      expect(
+        direction == TextDirection.ltr
+            ? appended.left > last.right
+            : appended.right < last.left,
+        isTrue,
+      );
+      await gesture.moveTo(
+        Offset(
+          direction == TextDirection.ltr ? barRect.left + 2 : barRect.right - 2,
+          destination.dy,
+        ),
+      );
+      await tester.pumpAndSettle();
+      final prepended = tester.getRect(placeholder);
+      final leading = tester.getRect(find.byKey(ValueKey('forum-tab-$first')));
+      expect(
+        direction == TextDirection.ltr
+            ? prepended.right < leading.left
+            : prepended.left > leading.right,
+        isTrue,
+      );
+      await gesture.moveTo(destination);
+      await tester.pumpAndSettle();
+      expect(tester.getRect(placeholder), previewRect);
+
+      await gesture.up();
+      await tester.pumpAndSettle();
+      expect(placeholder, findsNothing);
+      expect(
+        shell.currentWorkspace!.tabsIn(ForumPanel.main).map((tab) => tab.id),
+        [first, incoming, second],
+      );
+      expect(tester.takeException(), isNull);
+    });
+  }
+
+  testWidgets('dropping over panel content previews an appended tab', (
+    tester,
+  ) async {
+    final original = shell.activeTabId!;
+    shell.openTopic(_topic);
+    final incoming = shell.activeTabId!;
+    await _pump(tester, shell);
+    final source = find.byKey(ValueKey('forum-tab-$incoming'));
+    final gesture = await tester.startGesture(
+      tester.getCenter(source),
+      kind: PointerDeviceKind.mouse,
+    );
+    await gesture.moveBy(const Offset(0, 20));
+    await tester.pump();
+    await gesture.moveTo(tester.getCenter(find.byType(TopicListView)));
+    await tester.pumpAndSettle();
+    final placeholder = find.byKey(
+      const ValueKey('forum-tab-drop-placeholder'),
+    );
+    expect(placeholder, findsOneWidget);
+    expect(
+      tester.getRect(placeholder).left,
+      greaterThan(
+        tester.getRect(find.byKey(ValueKey('forum-tab-$original'))).right,
+      ),
+    );
+    final tabRect = tester.getRect(find.byKey(ValueKey('forum-tab-$original')));
+    await gesture.moveTo(Offset(tabRect.left + 2, tabRect.center.dy));
+    await tester.pumpAndSettle();
+    expect(
+      tester.getRect(placeholder).right,
+      lessThan(
+        tester.getRect(find.byKey(ValueKey('forum-tab-$original'))).left,
+      ),
+    );
+    await gesture.moveTo(tester.getCenter(find.byType(TopicListView)));
+    await tester.pumpAndSettle();
+    await gesture.up();
+    await tester.pumpAndSettle();
+    expect(placeholder, findsNothing);
+    expect(
+      shell.currentWorkspace!.tabsIn(ForumPanel.main).map((tab) => tab.id),
+      [original, incoming],
+    );
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('tabs select independently and move into an occupied strip', (
     tester,
   ) async {
@@ -386,11 +567,23 @@ void main() {
       expect(find.byType(TopicView), findsNothing);
       final source = find.byKey(ValueKey('forum-tab-$reader'));
       final target = find.byKey(ValueKey('forum-tab-$main'));
-      await tester.dragFrom(
+      final gesture = await tester.startGesture(
         tester.getCenter(source),
-        tester.getCenter(target) - tester.getCenter(source),
+        kind: PointerDeviceKind.mouse,
       );
+      await gesture.moveTo(tester.getCenter(target));
       await tester.pumpAndSettle();
+      final placeholder = find.byKey(
+        const ValueKey('forum-tab-drop-placeholder'),
+      );
+      expect(placeholder, findsOneWidget);
+      expect(
+        tester.getRect(placeholder).center.dy,
+        tester.getRect(target).center.dy,
+      );
+      await gesture.up();
+      await tester.pumpAndSettle();
+      expect(placeholder, findsNothing);
       expect(shell.activeTab?.panel, ForumPanel.main);
       expect(shell.activeTabId, reader);
       expect(find.byType(TopicView), findsOneWidget);
@@ -420,7 +613,11 @@ void main() {
   );
 }
 
-Future<void> _pump(WidgetTester tester, ShellController shell) async {
+Future<void> _pump(
+  WidgetTester tester,
+  ShellController shell, {
+  TextDirection direction = TextDirection.ltr,
+}) async {
   tester.view.physicalSize = const Size(1200, 850);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.resetPhysicalSize);
@@ -430,8 +627,11 @@ Future<void> _pump(WidgetTester tester, ShellController shell) async {
       controller: shell,
       child: MaterialApp(
         theme: AppTheme.light.copyWith(platform: TargetPlatform.macOS),
-        home: const TopicPresentationPreferences(
-          child: Scaffold(body: DesktopPanels()),
+        home: Directionality(
+          textDirection: direction,
+          child: const TopicPresentationPreferences(
+            child: Scaffold(body: DesktopPanels()),
+          ),
         ),
       ),
     ),

@@ -63,8 +63,9 @@ class TopicWorkspace extends StatelessWidget {
 
 /// The panel header scopes tab actions to the tabs actually shown in it.
 class TopicPanelTabs extends StatelessWidget {
-  const TopicPanelTabs({super.key, this.panel});
+  const TopicPanelTabs({super.key, this.panel, this.incomingTabId});
   final ForumPanel? panel;
+  final String? incomingTabId;
 
   @override
   Widget build(BuildContext context) {
@@ -85,7 +86,10 @@ class TopicPanelTabs extends StatelessWidget {
           children: [
             Expanded(
               child: shell.forumTabsEnabled
-                  ? CurrentForumTabsBar(panel: target)
+                  ? CurrentForumTabsBar(
+                      panel: target,
+                      incomingTabId: candidates.firstOrNull ?? incomingTabId,
+                    )
                   : const SizedBox.shrink(),
             ),
             if (preferences != null && target != null)

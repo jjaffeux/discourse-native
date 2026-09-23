@@ -12,6 +12,14 @@ panel, including an empty panel. Moving a tab preserves its ID, route history,
 and reading anchors. Close-other-tabs and adjacent-tab shortcuts operate within
 the relevant panel. The existing per-forum tab limit applies across both panels.
 
+Dragging between panels shows a Native document-tab placeholder at the insertion
+position. Hovering over the panel content previews an appended tab; an empty panel
+previews its first tab. The floating drag preview sits below the pointer so the
+placeholder stays visible. Insertion boundaries retain the tabs' rendered widths
+before the placeholder appeared, including across nested drag targets, so the
+preview does not jump as tabs shift. Leaving or cancelling the drag clears it
+without changing the workspace.
+
 `ForumTab.panel` and the selected tab in each panel are persisted in
 `ForumWorkspace`. Snapshots without panel metadata assign topic tabs to the
 secondary panel and other tabs to main. When space is insufficient for two
@@ -49,3 +57,15 @@ The passing run excluded 15 failures reproduced in the pre-refactor baselines:
 four tab appearance tests, two mobile tab-subtree expectations, one composer
 docking test, seven existing chat tests, and one compact creation-button height
 expectation. Those baseline failures were not changed as part of this refactor.
+
+The drag-placeholder follow-up passed 78 focused tests across desktop panels,
+tab controls, tab integration and rebuild isolation. This run excluded the six
+tab appearance/mobile subtree baseline failures listed above. It covers empty
+and occupied destinations, insertion before/between/after tabs in both text
+directions, movement between the strip and panel content, cancellation and the
+narrow desktop layout. Static analysis reported no issues. Offscreen Flutter
+renders at 1200×850 with macOS SFNS fonts verified the light/dark placeholder and
+floating preview. Native macOS fixture checks exercised insertion before and
+after an existing tab, moving back into an empty panel, and moving between the stacked
+tab strips in dark mode. The in-progress placeholder was inspected in the
+offscreen renders; native automation releases the pointer at the end of a drag.
