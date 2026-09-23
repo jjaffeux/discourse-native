@@ -1232,6 +1232,12 @@ class _ComposerEditorState extends State<ComposerEditor> {
   _ComposerEditorState? _parentEditor;
   _ComposerEditorState? _nativeDropEditor;
   final _nestedEditors = <_ComposerEditorState>{};
+  // Keep the desired column when a shorter line clamps the visible caret.
+  ({_ComposerEditorState editor, TextEditingValue value, double x})?
+  _verticalCaret;
+  late final _verticalArrowAction = _ComposerVerticalArrowAction(
+    _moveVertically,
+  );
   static const _menuWidth = DSpacing.touchTarget * 2;
   static const _menuHeight = DSpacing.touchTarget;
   static const _menuGap = 4.0;
@@ -1741,6 +1747,8 @@ class _ComposerEditorState extends State<ComposerEditor> {
               PasteTextIntent: _pasteAction,
               ExtendSelectionToLineBreakIntent: _quoteLineStartAction,
               ExpandSelectionToLineBreakIntent: _quoteExpandLineStartAction,
+              ExtendSelectionVerticallyToAdjacentLineIntent:
+                  _verticalArrowAction,
             },
             child: ListenableBuilder(
               listenable: Listenable.merge([
@@ -1834,6 +1842,141 @@ class _ComposerEditorState extends State<ComposerEditor> {
   }
 
   RenderEditable? get _renderEditable => _editableTextState?.renderEditable;
+
+  _ComposerEditorState get _listNavigationRoot {
+    var editor = this;
+    while (editor.widget.composer is ComposerListBodyController &&
+        editor._parentEditor != null) {
+      editor = editor._parentEditor!;
+    }
+    return editor;
+  }
+
+  Iterable<({_ComposerEditorState editor, int start, int end})>
+  _caretBlocks() sync* {
+    final text = widget.composer.text;
+    final sourceBlocks = widget.composer.blocks.index.blocks;
+    final blocks = [
+      for (final block in sourceBlocks) (start: block.start, end: block.end),
+      for (final line in RegExp(
+        r'^[ \t\r]*$',
+        multiLine: true,
+      ).allMatches(text.text))
+        if ((line.start == 0 || text.text[line.start - 1] == '\n') &&
+            !sourceBlocks.any(
+              (block) => line.start >= block.start && line.start <= block.end,
+            ) &&
+            !text.blockGaps.any(
+              (gap) => line.start > gap.start && line.start < gap.end,
+            ))
+          (
+            start: line.start,
+            end: line.end - (line.group(0)!.endsWith('\r') ? 1 : 0),
+          ),
+    ]..sort((a, b) => a.start.compareTo(b.start));
+    for (final block in blocks) {
+      final nested = _nestedEditors.where((editor) {
+        final composer = editor.widget.composer;
+        return composer is ComposerListBodyController &&
+            composer.isCurrent &&
+            composer.item.start == block.start;
+      }).firstOrNull;
+      if (nested != null) {
+        // Navigate the rendered body instead of its hidden Markdown markers.
+        yield* nested._caretBlocks();
+      } else {
+        yield (editor: this, start: block.start, end: block.end);
+      }
+    }
+  }
+
+  bool _moveVertically(bool forward) {
+    final composer = widget.composer;
+    final value = composer.value;
+    final render = _renderEditable;
+    if (!composer.focus.hasPrimaryFocus ||
+        !composer.isEditing ||
+        !value.composing.isCollapsed ||
+        !value.selection.isValid ||
+        !value.selection.isCollapsed ||
+        render == null) {
+      return false;
+    }
+    final root = _listNavigationRoot;
+    if (!root._nestedEditors.any(
+      (editor) => editor.widget.composer is ComposerListBodyController,
+    )) {
+      return false;
+    }
+    final blocks = root._caretBlocks().toList();
+    final caret = value.selection.extent;
+    final index = blocks.indexWhere(
+      (block) =>
+          identical(block.editor, this) &&
+          caret.offset >= block.start &&
+          caret.offset <= block.end,
+    );
+    if (index < 0) return false;
+    final previous = root._verticalCaret;
+    final x =
+        previous != null &&
+            identical(previous.editor, this) &&
+            previous.value == value
+        ? previous.x
+        : render.localToGlobal(render.getLocalRectForCaret(caret).center).dx;
+    var target = blocks[index];
+    final run = render.startVerticalCaretMovement(caret);
+    final moved = forward ? run.moveNext() : run.movePrevious();
+    TextPosition position;
+    if (moved &&
+        run.current.offset >= target.start &&
+        run.current.offset <= target.end) {
+      position = run.current;
+    } else {
+      final next = index + (forward ? 1 : -1);
+      if (next < 0 || next >= blocks.length) return false;
+      target = blocks[next];
+      position = TextPosition(
+        offset: forward ? target.start : target.end,
+        affinity: forward ? TextAffinity.downstream : TextAffinity.upstream,
+      );
+    }
+    final editor = target.editor;
+    final editable = editor._editableTextState;
+    if (editable == null) return false;
+    final component = editor._collapsedPillStartingAt(target.start);
+    if (component != null &&
+        editor.widget.composer.text.componentContentEnd(component) >=
+            target.end) {
+      editor._selectPillForKeyboard(component);
+      editor.widget.composer.requestFocus();
+      root._verticalCaret = null;
+      return true;
+    }
+    final destination = editable.renderEditable;
+    final y = destination
+        .localToGlobal(destination.getLocalRectForCaret(position).center)
+        .dy;
+    final hit = destination.getPositionForPoint(Offset(x, y));
+    final selection = TextSelection.fromPosition(
+      TextPosition(
+        offset: hit.offset.clamp(target.start, target.end),
+        affinity: hit.affinity,
+      ),
+    );
+    editable.userUpdateTextEditingValue(
+      editor.widget.composer.value.copyWith(selection: selection),
+      SelectionChangedCause.keyboard,
+    );
+    editor.widget.composer.requestFocus();
+    editable.bringIntoView(selection.extent);
+    root._verticalCaret = (
+      editor: editor,
+      value: editor.widget.composer.value,
+      x: x,
+    );
+    return true;
+  }
 
   EditableTextState? get _editableTextState {
     final root = _stackKey.currentContext;
@@ -1988,6 +2131,7 @@ class _ComposerEditorState extends State<ComposerEditor> {
       _pointerDownAfterBlockSyntax != null;
 
   void _onEditorPointerDown(PointerDownEvent event) {
+    _listNavigationRoot._verticalCaret = null;
     _blockquoteInputFormatter.reset();
     _gallerySelectedAtPointerDown = _media.value.selectedGallery;
     _clearKeyboardPillSelection();
@@ -2486,6 +2630,13 @@ class _ComposerEditorState extends State<ComposerEditor> {
     }
     if (value.isComposingRangeValid && !value.composing.isCollapsed) {
       return KeyEventResult.ignored;
+    }
+
+    if (!hasModifier &&
+        (event.logicalKey == LogicalKeyboardKey.arrowUp ||
+            event.logicalKey == LogicalKeyboardKey.arrowDown) &&
+        _moveVertically(event.logicalKey == LogicalKeyboardKey.arrowDown)) {
+      return KeyEventResult.handled;
     }
 
     final caret = selection.extentOffset;
@@ -3294,6 +3445,27 @@ final class _ComposerSelectionOverlay {
     _detach();
     anchor.dispose();
   }
+}
+
+class _ComposerVerticalArrowAction
+    extends Action<DirectionalCaretMovementIntent> {
+  _ComposerVerticalArrowAction(this.move);
+
+  final bool Function(bool forward) move;
+
+  @override
+  Object? invoke(DirectionalCaretMovementIntent intent) {
+    if (intent.collapseSelection && move(intent.forward)) return null;
+    return callingAction?.invoke(intent);
+  }
+
+  @override
+  bool isEnabled(DirectionalCaretMovementIntent intent) =>
+      callingAction?.isEnabled(intent) ?? false;
+
+  @override
+  bool consumesKey(DirectionalCaretMovementIntent intent) =>
+      callingAction?.consumesKey(intent) ?? false;
 }
 
 class _ComposerLineStartAction<T extends DirectionalCaretMovementIntent>
