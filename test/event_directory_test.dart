@@ -35,6 +35,7 @@ void main() {
     TargetPlatform platform = TargetPlatform.macOS,
     Brightness brightness = Brightness.light,
     EventCalendarPage? page,
+    bool settle = true,
   }) async {
     await tester.pumpWidget(
       MaterialApp(
@@ -54,8 +55,103 @@ void main() {
         ),
       ),
     );
-    await tester.pumpAndSettle();
+    if (settle) await tester.pumpAndSettle();
   }
+
+  for (final view in [EventCalendarView.schedule, EventCalendarView.month]) {
+    testWidgets(
+      '${view.name} uses skeletons until events load and on refresh',
+      (tester) async {
+        tester.view.devicePixelRatio = 1;
+        tester.view.physicalSize = const Size(390, 844);
+        addTearDown(tester.view.reset);
+        final request = Completer<Map<String, dynamic>>();
+        transport.respond = (_) => request.future;
+        await pump(
+          tester,
+          platform: TargetPlatform.iOS,
+          page: EventCalendarPage(view, DateTime.utc(2026, 9, 8)),
+          settle: false,
+        );
+        await tester.pump();
+        expect(find.bySemanticsLabel('Loading events'), findsOneWidget);
+        expect(find.byType(DSkeletonRegion), findsOneWidget);
+        expect(find.byType(DProgress), findsNothing);
+        expect(find.text('No events in this period.'), findsNothing);
+        final calendar = tester.state(
+          find.byType(kalender.KalenderView, skipOffstage: false),
+        );
+
+        request.complete({
+          'events': [current],
+        });
+        await tester.pumpAndSettle(const Duration(milliseconds: 16));
+        expect(find.byType(DSkeletonRegion), findsNothing);
+        expect(find.byType(kalender.KalenderView), findsOneWidget);
+        expect(
+          tester.state(find.byType(kalender.KalenderView)),
+          same(calendar),
+        );
+        if (view == EventCalendarView.schedule) {
+          expect(
+            find.text('Engineering Managers Call').hitTestable(),
+            findsOneWidget,
+          );
+        }
+
+        final refresh = Completer<Map<String, dynamic>>();
+        transport.respond = (_) => refresh.future;
+        await tester.tap(find.byTooltip('Calendar actions'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Refresh'));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 300));
+        expect(find.bySemanticsLabel('Loading events'), findsOneWidget);
+        expect(find.textContaining('Engineering Managers Call'), findsNothing);
+        expect(find.byType(DProgress), findsNothing);
+        expect(find.byTooltip('Next month').hitTestable(), findsOneWidget);
+
+        refresh.complete({
+          'events': [current],
+        });
+        await tester.pumpAndSettle(const Duration(milliseconds: 16));
+        expect(find.byType(DSkeletonRegion), findsNothing);
+        expect(
+          tester.state(find.byType(kalender.KalenderView)),
+          same(calendar),
+        );
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
+  testWidgets('failed event loading removes the skeleton and offers retry', (
+    tester,
+  ) async {
+    final request = Completer<Map<String, dynamic>>();
+    transport.respond = (_) => request.future;
+    await pump(tester, settle: false);
+    await tester.pump();
+    expect(find.byType(DSkeletonRegion), findsOneWidget);
+    request.completeError(StateError('offline'));
+    await tester.pumpAndSettle();
+    expect(find.byType(DSkeletonRegion), findsNothing);
+    expect(
+      find.text('Unable to load events. Try refreshing the calendar.'),
+      findsOneWidget,
+    );
+    transport.respond = (_) => {
+      'events': [current],
+    };
+    await tester.tap(find.text('Retry'));
+    await tester.pumpAndSettle();
+    expect(find.text('Retry'), findsNothing);
+    expect(
+      find.textContaining('Engineering Managers Call', findRichText: true),
+      findsOneWidget,
+    );
+    expect(tester.takeException(), isNull);
+  });
 
   for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
     testWidgets(
