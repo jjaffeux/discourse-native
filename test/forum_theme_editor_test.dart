@@ -8,7 +8,9 @@ import 'package:discourse_native/src/models/forum_theme.dart';
 import 'package:discourse_native/src/models/forum_theme_preferences.dart';
 import 'package:discourse_native/src/models/forum_theme_presets.dart';
 import 'package:discourse_native/src/shell/forum_settings_page.dart';
+import 'package:discourse_native/src/shell/forum_theme_thumbnail.dart';
 import 'package:file_selector_platform_interface/file_selector_platform_interface.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -23,10 +25,9 @@ Finder input(String role) => find.descendant(
 
 Future<void> preset(WidgetTester tester, String name) async {
   final picker = find.byKey(const ValueKey('theme-preset'));
-  await tester.ensureVisible(picker);
-  await tester.tap(picker);
-  await tester.pumpAndSettle();
-  await tester.tap(find.text(name).last);
+  final choice = find.descendant(of: picker, matching: find.text(name));
+  await tester.ensureVisible(choice);
+  await tester.tap(choice);
   await tester.pumpAndSettle();
 }
 
@@ -45,6 +46,165 @@ Future<void> openLibrary(WidgetTester tester) async {
 }
 
 void main() {
+  testWidgets('deleting an inactive theme keeps forum defaults unmodified', (
+    tester,
+  ) async {
+    final shell = controller();
+    addTearDown(shell.dispose);
+    final custom = ForumTheme.fromJson({
+      ...forumThemePresets.first.toJson(),
+      'name': 'Unused theme',
+    }, id: 'custom-unused');
+    await shell.forumSettings.setThemes(
+      _site,
+      ForumThemePreferences(customThemes: [custom]),
+    );
+    await pumpSettings(tester, shell);
+    final remove = find.byKey(ValueKey(('delete-theme', custom.id)));
+    await tester.ensureVisible(remove);
+    await tester.tap(remove);
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(DButton, 'Delete'));
+    await tester.pumpAndSettle();
+    expect(
+      shell.forumSettings.themesFor(_site),
+      ForumThemePreferences.defaults,
+    );
+    expect(find.text('Your themes'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  for (final platform in [TargetPlatform.macOS, TargetPlatform.iOS]) {
+    testWidgets(
+      'deleting a saved thumbnail requires confirmation on $platform',
+      (tester) async {
+        final shell = controller();
+        addTearDown(shell.dispose);
+        final custom = ForumTheme.fromJson({
+          ...forumThemePresets.first.toJson(),
+          'name': 'Moss',
+          'background': const ForumBackground.appearance(strength: .5).toJson(),
+        }, id: 'custom-moss');
+        final kept = ForumTheme.fromJson({
+          ...custom.toJson(),
+          'name': 'Keep me',
+        }, id: 'custom-kept');
+        final initial = ForumThemePreferences(
+          selectedId: custom.id,
+          customThemes: [custom, kept],
+          font: ForumFont.lato,
+        );
+        await shell.forumSettings.setThemes(_site, initial);
+        await shell.forumSettings.setThemes('https://b.example', initial);
+        await pumpSettings(
+          tester,
+          shell,
+          width: platform == TargetPlatform.iOS ? 360 : 960,
+          scale: platform == TargetPlatform.iOS ? 2 : 1,
+          platform: platform,
+          direction: TextDirection.rtl,
+        );
+        final remove = find.byKey(ValueKey(('delete-theme', custom.id)));
+        await tester.ensureVisible(remove);
+        final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+        addTearDown(mouse.removePointer);
+        await mouse.addPointer(location: const Offset(2, 2));
+        await mouse.moveTo(tester.getCenter(remove));
+        await tester.pump();
+        await tester.tap(remove);
+        await mouse.moveTo(const Offset(2, 2));
+        await tester.pumpAndSettle();
+        expect(find.text('Delete “Moss”?'), findsOneWidget);
+        expect(shell.forumSettings.themesFor(_site), initial);
+        await tester.tap(find.widgetWithText(DButton, 'Cancel'));
+        await tester.pumpAndSettle();
+        expect(shell.forumSettings.themesFor(_site), initial);
+        expect(remove, findsOneWidget);
+        await tester.tap(remove);
+        await tester.pumpAndSettle();
+        await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+        await tester.pumpAndSettle();
+        expect(find.byType(DAlertDialogContent), findsNothing);
+        expect(shell.forumSettings.themesFor(_site), initial);
+        await tester.tap(remove);
+        await tester.pumpAndSettle();
+        await tester.tap(find.widgetWithText(DButton, 'Delete'));
+        await tester.pumpAndSettle();
+        final after = shell.forumSettings.themesFor(_site);
+        expect(after.customThemes, [kept]);
+        expect(after.font, ForumFont.lato);
+        for (final mode in Brightness.values) {
+          expect(
+            after.themeFor(mode)!.resolve(mode),
+            initial.themeFor(mode)!.resolve(mode),
+          );
+        }
+        expect(find.byKey(ValueKey(('theme-preset', custom.id))), findsNothing);
+        expect(
+          find.byKey(const ValueKey(('delete-theme', 'neutral'))),
+          findsNothing,
+        );
+        expect(await shell.forumSettings.store.loadThemes(_site), after);
+        expect(shell.forumSettings.themesFor('https://b.example'), initial);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
+  testWidgets('saved theme thumbnails precede presets in both modes', (
+    tester,
+  ) async {
+    final shell = controller();
+    addTearDown(shell.dispose);
+    final custom = [
+      forumThemePresets.first.copyWith(id: 'custom-first', name: 'First theme'),
+      forumThemePresets
+          .firstWhere((theme) => theme.id == 'dracula')
+          .copyWith(id: 'custom-second', name: 'Second theme'),
+    ];
+    await shell.forumSettings.setThemes(
+      _site,
+      ForumThemePreferences(customThemes: custom),
+    );
+    await pumpSettings(tester, shell);
+    final picker = find.byKey(const ValueKey('theme-preset'));
+    for (final brightness in Brightness.values) {
+      await mode(tester, brightness == Brightness.light ? 'Light' : 'Dark');
+      final cards = tester.widgetList<DItem>(
+        find.descendant(of: picker, matching: find.byType(DItem)),
+      );
+      expect(cards.take(3).map((card) => card.key), [
+        const ValueKey(('theme-preset', 'custom-first')),
+        const ValueKey(('theme-preset', 'custom-second')),
+        const ValueKey(('theme-preset', 'forum')),
+      ]);
+      expect(
+        find.descendant(of: picker, matching: find.byType(ThemeThumbnail)),
+        findsNWidgets(cards.length),
+      );
+      expect(find.byType(DSelect<String>), findsNothing);
+      final second = find.byKey(
+        const ValueKey(('theme-preset', 'custom-second')),
+      );
+      final cardSize = tester.getSize(second);
+      await preset(tester, 'Second theme');
+      expect(tester.getSize(second), cardSize);
+      expect(
+        shell.forumSettings.themesFor(_site).themeFor(brightness)!.id,
+        'custom-second',
+      );
+      expect(
+        tester
+            .widget<DItem>(
+              find.byKey(const ValueKey(('theme-preset', 'custom-second'))),
+            )
+            .selected,
+        isTrue,
+      );
+    }
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('Gradient updates live and survives saving and mode changes', (
     tester,
   ) async {
