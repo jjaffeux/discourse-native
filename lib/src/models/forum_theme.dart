@@ -113,6 +113,7 @@ final class ForumTheme {
   );
 
   ForumTheme copyWith({
+    bool? darkerSidebars,
     String? id,
     String? name,
     Color? primary,
@@ -137,7 +138,7 @@ final class ForumTheme {
     alternate: alternate,
     background: background ?? this.background,
     windowGradient: windowGradient,
-    darkerSidebars: darkerSidebars,
+    darkerSidebars: darkerSidebars ?? this.darkerSidebars,
   );
 
   static String hex(Color color) =>

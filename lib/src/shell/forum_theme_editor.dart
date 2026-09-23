@@ -176,6 +176,14 @@ class _ForumThemeEditorState extends State<ForumThemeEditor> {
             ],
           ),
         ),
+        DSwitchTile(
+          key: const ValueKey('custom-theme-darker-sidebars'),
+          title: const Text('Darker sidebars'),
+          size: DSwitchSize.preference,
+          value: palette.darkerSidebars,
+          onChanged: (value) =>
+              widget.onChanged(palette.copyWith(darkerSidebars: value)),
+        ),
         SettingsSection(
           title: 'Texture',
           icon: const ThemeIcon(ThemeIcons.texture),

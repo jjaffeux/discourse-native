@@ -6,6 +6,7 @@ import 'package:discourse_native/src/models/forum_theme_preferences.dart';
 import 'package:discourse_native/src/models/forum_theme_presets.dart';
 import 'package:discourse_native/src/shell/forum_settings_page.dart';
 import 'package:discourse_native/src/shell/forum_theme_thumbnail.dart';
+import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -39,6 +40,48 @@ Future<void> mode(WidgetTester tester, String name) async {
 }
 
 void main() {
+  testWidgets('darker sidebars updates live and persists per palette', (
+    tester,
+  ) async {
+    final shell = controller();
+    addTearDown(shell.dispose);
+    await pumpSettings(tester, shell);
+    final toggle = find.byKey(const ValueKey('custom-theme-darker-sidebars'));
+    await tester.ensureVisible(toggle);
+    await tester.tap(toggle);
+    await tester.pumpAndSettle();
+    var preferences = shell.forumSettings.themesFor(_site);
+    expect(preferences.themeFor(Brightness.light)!.darkerSidebars, isTrue);
+    expect(
+      Theme.of(
+        tester.element(find.byType(ForumSettingsPage)),
+      ).extension<ForumThemeEffects>()!.sidebarTheme,
+      isNotNull,
+    );
+    expect(
+      ForumThemePreferences.fromJson(
+        preferences.toJson(),
+      ).themeFor(Brightness.light)!.darkerSidebars,
+      isTrue,
+    );
+    await mode(tester, 'Dark');
+    expect(tester.widget<DSwitchTile>(toggle).value, isFalse);
+    await mode(tester, 'Light');
+    expect(tester.widget<DSwitchTile>(toggle).value, isTrue);
+    await tester.ensureVisible(toggle);
+    await tester.tap(toggle);
+    await tester.pumpAndSettle();
+    preferences = shell.forumSettings.themesFor(_site);
+    expect(preferences.themeFor(Brightness.light)!.darkerSidebars, isFalse);
+    expect(
+      Theme.of(
+        tester.element(find.byType(ForumSettingsPage)),
+      ).extension<ForumThemeEffects>()?.sidebarTheme,
+      isNull,
+    );
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('save asks for a name and preserves both palettes', (
     tester,
   ) async {

@@ -228,3 +228,14 @@ and selecting Custom reveals it below the controls. Switching back and forth
 restored a chosen Midnight palette. Light changed the workspace immediately;
 the editor's Dark tab then retained Light appearance while showing dark palette
 values. The isolated fixture app was quit after review.
+
+### Restore darker sidebars — September 24, 2026
+
+The existing darker-sidebar rendering is again exposed through a Native
+preference switch after the Background controls. It edits the active palette,
+updates navigation immediately and retains separate light/dark values. Existing
+theme serialization carries the option through saved and copied themes.
+
+All 34 editor, model and settings-page tests passed, including live sidebar
+theme activation, toggling off, palette switching and preference round-tripping.
+Root static analysis passed.
