@@ -52,6 +52,7 @@ import 'package:super_sliver_list/super_sliver_list.dart';
 import 'support/fakes.dart';
 import 'support/finders.dart';
 import 'support/shell_test_harness.dart';
+import 'support/topic_post_list.dart';
 
 Rect _lastTitleLine(WidgetTester tester, String title) {
   final paragraph = tester.renderObject<RenderParagraph>(
@@ -2683,6 +2684,62 @@ void _registerTopicReadingTests() {
             ),
           ],
         );
+
+    for (final target in [12, 30]) {
+      testWidgets('a topic row opens directly at post $target after loading', (
+        tester,
+      ) async {
+        final gate = Completer<void>();
+        final row = Topic(
+          id: 7,
+          title: 'Resume reading',
+          slug: 'resume-reading',
+          highestPostNumber: 30,
+          lastReadPostNumber: target - 1,
+        );
+        final api = FakeDiscourseApi(
+          feeds: {
+            '/latest.json': [row],
+          },
+          topicGate: gate,
+          topics: {
+            7: topicPayload(
+              id: 7,
+              title: row.title,
+              posts: [
+                for (var number = 1; number <= 30; number++)
+                  post(number, number, 'Body of post $number'),
+              ],
+            ),
+          },
+        );
+        await pumpShell(tester, desktop, api: api);
+        await tester.tap(find.text(row.title));
+        await tester.pump();
+        expect(topicPostListFinder(), findsNothing);
+
+        gate.complete();
+        await tester.pump();
+        // Sidebar preferences can finish loading before the stream mounts.
+        for (var frame = 0; topicPostListFinder().evaluate().isEmpty; frame++) {
+          expect(frame, lessThan(5));
+          await tester.pump();
+        }
+        final targetPost = find.byKey(ValueKey(target));
+        expect(targetPost, findsOneWidget);
+        final firstTop = tester.getTopLeft(targetPost).dy;
+        final viewport = tester.getRect(topicPostListFinder());
+        expect(firstTop, inInclusiveRange(viewport.top, viewport.bottom));
+        if (target == 12) expect(firstTop, closeTo(viewport.top, 1));
+        for (var frame = 0; frame < 4; frame++) {
+          await tester.pump(const Duration(milliseconds: 16));
+          expect(tester.getTopLeft(targetPost).dy, closeTo(firstTop, 1));
+        }
+        await tester.pumpAndSettle();
+        expect(api.topicPostNumbersOpened, isNotEmpty);
+        expect(api.topicPostNumbersOpened, everyElement(target));
+      }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
+    }
 
     testWidgets('tapping a row opens its topic beside the retained list', (
       tester,

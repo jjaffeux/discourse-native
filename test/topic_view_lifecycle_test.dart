@@ -1365,46 +1365,51 @@ void main() {
         );
       }
 
-      testWidgets('reveals a numbered route target on first layout', (
-        tester,
-      ) async {
-        final site = instance('meta.example');
-        final controller = ShellController(
-          instanceStore: FakeInstanceStore([site]),
-          api: FakeDiscourseApi(feeds: const {'/latest.json': []}),
-          authenticator: FakeAuthenticator(),
-          drafts: FakeDraftStore(),
-          trackers: FakeSiteTracker.reset(),
-        );
-        addTearDown(controller.dispose);
-        await controller.load();
-        _storeFullTopic(controller, site.url, topicId: 1, firstPostId: 100);
-        controller.pushContent(
-          ContentRoute.topic(
-            topicId: 1,
-            slug: 'one',
-            title: 'One',
-            postNumber: 12,
-          ),
-        );
+      for (final inbox in [false, true]) {
+        for (final offset in [0.0, -40.0]) {
+          testWidgets('reveals a numbered route target on first layout '
+              '(inbox: $inbox, offset: $offset)', (tester) async {
+            final site = instance('meta.example');
+            final controller = ShellController(
+              instanceStore: FakeInstanceStore([site]),
+              api: FakeDiscourseApi(feeds: const {'/latest.json': []}),
+              authenticator: FakeAuthenticator(),
+              drafts: FakeDraftStore(),
+              trackers: FakeSiteTracker.reset(),
+            );
+            addTearDown(controller.dispose);
+            await controller.load();
+            _storeFullTopic(controller, site.url, topicId: 1, firstPostId: 100);
+            controller.pushContent(
+              ContentRoute.topic(
+                topicId: 1,
+                slug: 'one',
+                title: 'One',
+                postNumber: 12,
+              ),
+            );
+            controller.saveTopicScrollPost(1, 12, viewportOffset: offset);
 
-        await tester.pumpWidget(_topicView(controller));
-        await tester.pumpAndSettle();
+            await tester.pumpWidget(_topicView(controller, inbox: inbox));
+            final target = find.byKey(const ValueKey(111));
+            expect(target, findsOneWidget);
+            final viewport = tester.getRect(topicPostListFinder());
+            expect(
+              tester.getTopLeft(target).dy,
+              closeTo(viewport.top + offset, 1),
+            );
 
-        final vertical = find.byWidgetPredicate(
-          (widget) =>
-              widget is Scrollable &&
-              widget.axisDirection == AxisDirection.down,
-        );
-        expect(
-          tester.state<ScrollableState>(vertical.first).position.pixels,
-          greaterThan(0),
-        );
-        final list = topicPostList(tester);
-        final range = list.listController!.visibleRange!;
-        expect((range.$1 + 1) ~/ 2, lessThanOrEqualTo(11));
-        expect(range.$2 ~/ 2, greaterThanOrEqualTo(11));
-      });
+            for (var frame = 0; frame < 4; frame++) {
+              await tester.pump(const Duration(milliseconds: 16));
+              expect(
+                tester.getTopLeft(target).dy,
+                closeTo(viewport.top + offset, 1),
+              );
+            }
+            await tester.pumpAndSettle();
+          });
+        }
+      }
 
       testWidgets('replaces the saved viewport anchor from topic progress', (
         tester,

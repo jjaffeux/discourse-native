@@ -252,6 +252,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
   (String, int, int)? _reportedScrollCaptureTopic;
   late Size _viewportLogicalSize;
   late double _devicePixelRatio;
+  GlobalKey _postSliverKey = GlobalKey();
 
   ScrollController? get _scroll => _viewport.scrollController;
   ListController? get _list => _viewport.listController;
@@ -512,6 +513,10 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
         jumpToPixels: (pixels) => _scroll!.jumpTo(pixels),
       ),
       inspectViewport: _inspectViewport,
+      controllersFactory: () => (
+        scroll: TopicPostScrollController(_initialPostOffset),
+        list: ListController(),
+      ),
       listLayoutChanged: _onListLayoutChanged,
       diagnosticsEnabled: () => _isScrollCaptureRecording,
       recordDiagnostic: _recordTopicScrollEvent,
@@ -591,6 +596,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
       });
     }
     if (identical(previousScroll, _scroll)) return;
+    _postSliverKey = GlobalKey();
     _laidOutDayStarts = const [];
     _dayJumpToken = null;
     _postIndexProjection = null;
@@ -602,6 +608,24 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
     _laidOutPostWidth = 0;
     _extentGeneration = 0;
     _sidebarOverlayOpen = false;
+  }
+
+  double? _initialPostOffset() {
+    final snapshot = _laidOutSnapshot;
+    if (snapshot == null) return null;
+    final position = _viewport.initialPositionFor(snapshot);
+    if (position == null) return null;
+    if (widget.inbox &&
+        position.itemIndex == 0 &&
+        position.viewportOffset == 0 &&
+        !snapshot.hasEarlier) {
+      return 0;
+    }
+    final offset = TopicPostSliver.offsetToReveal(
+      _postSliverKey.currentContext,
+      position.itemIndex,
+    );
+    return offset == null ? null : offset - position.viewportOffset;
   }
 
   void _jumpTo(int index, {double viewportOffset = 0}) {
@@ -1771,6 +1795,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
         return;
       case TopicViewportExtentAction.replace:
         _extentGeneration++;
+        _postSliverKey = GlobalKey();
         if (_isScrollCaptureRecording) {
           _recordTopicScrollEvent('sliver.extentManager.replaced', {
             'extentGeneration': _extentGeneration,
@@ -2093,6 +2118,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
             ? 1
             : 0);
     final postList = TopicPostSliver(
+      key: _postSliverKey,
       listController: _list,
       extentEstimation: TopicView._estimateChildExtent,
       delayPopulatingCacheArea: true,

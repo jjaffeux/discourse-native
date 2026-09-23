@@ -8,6 +8,57 @@ import 'package:super_sliver_list/src/element.dart';
 import 'package:super_sliver_list/src/render_object.dart';
 import 'package:super_sliver_list/super_sliver_list.dart';
 
+/// Resolves a topic's initial position after measuring its slivers, before paint.
+class TopicPostScrollController extends ScrollController {
+  TopicPostScrollController(this._initialOffset);
+
+  double? Function()? _initialOffset;
+
+  @override
+  ScrollPosition createScrollPosition(
+    ScrollPhysics physics,
+    ScrollContext context,
+    ScrollPosition? oldPosition,
+  ) => _TopicPostScrollPosition(
+    physics: physics,
+    context: context,
+    oldPosition: oldPosition,
+    initialOffset: () => _initialOffset?.call(),
+    onPositioned: () => _initialOffset = null,
+  );
+}
+
+class _TopicPostScrollPosition extends ScrollPositionWithSingleContext {
+  _TopicPostScrollPosition({
+    required super.physics,
+    required super.context,
+    super.oldPosition,
+    required this.initialOffset,
+    required this.onPositioned,
+  });
+
+  final double? Function() initialOffset;
+  final VoidCallback onPositioned;
+
+  @override
+  bool applyContentDimensions(double minScrollExtent, double maxScrollExtent) {
+    if (!super.applyContentDimensions(minScrollExtent, maxScrollExtent)) {
+      return false;
+    }
+    final offset = initialOffset();
+    if (offset == null) return true;
+    final target = offset.clamp(minScrollExtent, maxScrollExtent);
+    if ((target - pixels).abs() > precisionErrorTolerance) {
+      // Repeat layout with the target visible. Its measured height and the
+      // surrounding estimates can change, so resolve again before accepting it.
+      correctPixels(target);
+      return false;
+    }
+    onPositioned();
+    return true;
+  }
+}
+
 /// Keeps moved topic rows lazy while their measured extents shift with post IDs.
 class TopicPostSliver extends SuperSliverList {
   TopicPostSliver({
@@ -21,6 +72,19 @@ class TopicPostSliver extends SuperSliverList {
     super.delayPopulatingCacheArea,
     super.layoutKeptAliveChildren,
   }) : super.separated();
+
+  static double? offsetToReveal(BuildContext? context, int itemIndex) {
+    final renderObject = context?.findRenderObject();
+    if (renderObject is! _TopicPostRenderSliver ||
+        renderObject.geometry == null) {
+      return null;
+    }
+    return renderObject.getOffsetToReveal(
+      itemIndex * 2,
+      0,
+      estimationOnly: true,
+    );
+  }
 
   @override
   SliverMultiBoxAdaptorElement createElement() => _TopicPostSliverElement(this);

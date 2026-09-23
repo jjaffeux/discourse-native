@@ -553,6 +553,30 @@ final class TopicViewportCoordinator extends FrameSafeNotifier
     _laidOutSnapshot = snapshot;
   }
 
+  ({int itemIndex, double viewportOffset})? initialPositionFor(
+    TopicViewportSnapshot snapshot,
+  ) {
+    final binding = _binding;
+    if (binding == null || snapshot.loading || snapshot.postIds.isEmpty) {
+      return null;
+    }
+    final target = binding.savedPostNumber();
+    final index = _initialIndexFor(snapshot, hasTarget: target != null);
+    if (index == null) {
+      return target == null ? (itemIndex: 0, viewportOffset: 0) : null;
+    }
+    final postIndex = index - (snapshot.hasEarlier ? 1 : 0);
+    final postId = postIndex >= 0 && postIndex < snapshot.postIds.length
+        ? snapshot.postIds[postIndex]
+        : null;
+    return (
+      itemIndex: index,
+      viewportOffset: postId != null && binding.postNumberFor(postId) == target
+          ? binding.savedPostOffset()
+          : 0,
+    );
+  }
+
   void restoreInitialPost(TopicViewportSnapshot snapshot) {
     final binding = _binding;
     if (binding == null || _restored || snapshot.loading) return;
@@ -580,22 +604,17 @@ final class TopicViewportCoordinator extends FrameSafeNotifier
     void jumpToTarget() {
       if (!_isGenerationCurrent(binding, generation)) return;
       final current = binding.currentSnapshot();
-      final currentIndex = _initialIndexFor(current, hasTarget: hasTarget);
-      if (currentIndex == null) return;
-      final postIndex = currentIndex - (current.hasEarlier ? 1 : 0);
-      final target = binding.savedPostNumber();
+      final position = initialPositionFor(current);
+      if (position == null) return;
+      final postIndex = position.itemIndex - (current.hasEarlier ? 1 : 0);
       final postId = postIndex >= 0 && postIndex < current.postIds.length
           ? current.postIds[postIndex]
           : null;
-      final viewportOffset =
-          postId != null && binding.postNumberFor(postId) == target
-          ? binding.savedPostOffset()
-          : 0.0;
-      _jumpTo(currentIndex, viewportOffset: viewportOffset);
+      _jumpTo(position.itemIndex, viewportOffset: position.viewportOffset);
       if (postId != null) {
         holdViewportAnchor(
           postId,
-          viewportOffset,
+          position.viewportOffset,
           token: _anchorRestoreToken ?? Object(),
         );
       }
