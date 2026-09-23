@@ -80,10 +80,6 @@ class MarkdownEditingController extends TextEditingController {
   final bool enableTodos;
   final bool enableBlockSeparators;
 
-  /// Embedded task fields use the same neutral paragraph height when empty
-  /// as their populated rich text, so Native hints retain the text baseline.
-  bool neutralEmptyParagraph = false;
-
   /// A list body keeps child blocks beside their surrounding prose without
   /// adding paragraph spacing to a single source newline.
   bool compactListSpacing = false;
@@ -1193,9 +1189,7 @@ class MarkdownEditingController extends TextEditingController {
       _cachedSpan = null;
       // Match the neutral paragraph defaults below. The field's strut owns
       // leading, including while its Native placeholder is visible.
-      return TextSpan(
-        style: neutralEmptyParagraph ? style?.copyWith(height: 1) : style,
-      );
+      return TextSpan(style: style?.copyWith(height: 1));
     }
 
     final theme = Theme.of(context);
