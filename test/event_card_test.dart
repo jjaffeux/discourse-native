@@ -1,11 +1,19 @@
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/src/models/site_emoji.dart';
 import 'package:discourse_native/src/plugins/discourse_events/event_card.dart';
 import 'package:discourse_native/src/plugins/discourse_events/event_data.dart';
+import 'package:discourse_native/src/shell/shell_controller.dart';
+import 'package:discourse_native/src/shell/shell_scope.dart';
+import 'package:discourse_native/src/shell/site_emoji_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:html/parser.dart' as html;
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 
 import 'support/event_fixtures.dart';
+import 'support/fakes.dart';
+import 'support/media_pipeline.dart';
 
 void main() {
   late EventTestPorts ports;
@@ -39,6 +47,86 @@ void main() {
       ),
     ),
   );
+
+  for (final linked in [false, true]) {
+    testWidgets(
+      'renders event title emoji with wrapping and semantics (linked: $linked)',
+      (tester) async {
+        installTestMediaPipeline(
+          client: MockClient((_) async => http.Response('', 404)),
+        );
+        final controller = ShellController(
+          instanceStore: FakeInstanceStore([instance('forum.example')]),
+          api: FakeDiscourseApi(
+            emojisBySite: {
+              eventSite: const [
+                SiteEmoji(
+                  name: 'pool_8_ball',
+                  url: '/images/emoji/pool_8_ball.png',
+                ),
+                SiteEmoji(name: 'partyparrot', url: '/uploads/parrot.png'),
+              ],
+            },
+          ),
+          authenticator: FakeAuthenticator(),
+          drafts: FakeDraftStore(),
+          trackers: FakeSiteTracker.reset(),
+        );
+        addTearDown(controller.dispose);
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+        tester.view.devicePixelRatio = 1;
+        const title =
+            'Billiards :pool_8_ball: tournament/game – 2026 (Wednesday) '
+            ':partyparrot: :unknown_event_emoji:';
+        var opened = 0;
+
+        for (final width in [320.0, 1100.0]) {
+          tester.view.physicalSize = Size(width, 1100);
+          await tester.pumpWidget(
+            ShellScope(
+              controller: controller,
+              child: MaterialApp(
+                home: Scaffold(
+                  body: SingleChildScrollView(
+                    child: EventCard(
+                      event: PostEvent.decode(
+                        eventJson(overrides: {'name': title}),
+                      )!,
+                      siteUrl: eventSite,
+                      zones: ports.zones,
+                      onOpen: linked ? () => opened++ : null,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          );
+          await tester.pumpAndSettle();
+
+          expect(
+            tester
+                .widgetList<SiteEmojiImage>(find.byType(SiteEmojiImage))
+                .map((emoji) => (emoji.name, emoji.siteUrl)),
+            [('pool_8_ball', eventSite), ('partyparrot', eventSite)],
+          );
+          final titleLabel = find.bySemanticsLabel(
+            RegExp(RegExp.escape(title)),
+          );
+          expect(titleLabel, findsOneWidget);
+          expect(
+            find.textContaining(':unknown_event_emoji:', findRichText: true),
+            findsOneWidget,
+          );
+          if (linked) {
+            await tester.tap(titleLabel);
+            expect(opened, width == 320 ? 1 : 2);
+          }
+          expect(tester.takeException(), isNull);
+        }
+      },
+    );
+  }
 
   for (final (username, initial) in [
     ('sam', 'S'),
