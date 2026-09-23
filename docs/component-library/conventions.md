@@ -151,6 +151,17 @@ layouts to the outermost panel. Other corners retain the forum's Card radius.
 
 ### Adjacent control spacing
 
+Theme settings use the approved mockup form recipe: `SettingsSection` composes
+a heading and outlined Native Card, with filled Native Input/Select fields.
+`filled: true` uses a 10% foreground fill and 90% text without changing field
+geometry. `DSliderVariant.ramp` owns the 26px gradient/checker/wave capsule and
+ring thumb, retaining a 48px touch target. `DColorPickerSize.compact` provides
+the 58px dotted colour grid and rounded popup swatch. `DToggleDensity.tile`
+places the icon above the label; `DToggleGroup(expanded: true, inset: true)`
+owns equal-width choices and their recessed frame. Ordinary variants retain
+their existing defaults. See [live theme settings](live-theme-settings.md)
+for the reference, persistence model and verification.
+
 Use `DSpacing.controlGap` (6 logical pixels) between separate adjacent buttons,
 toggles, toggle groups, selectors and menu triggers in action rows and toolbars.
 Use it with `Row(spacing: ...)`, `Wrap(spacing: ...)` or a `SizedBox` between

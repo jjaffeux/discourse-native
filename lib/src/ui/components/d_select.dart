@@ -155,6 +155,7 @@ class DSelect<T> extends FormField<T> {
     this.size = DSelectSize.regular,
     this.width = 180,
     this.isExpanded = false,
+    this.filled = false,
     this.invalid = false,
     this.readOnly = false,
     this.required = false,
@@ -211,6 +212,7 @@ class DSelect<T> extends FormField<T> {
     this.size = DSelectSize.regular,
     this.width = 180,
     this.isExpanded = false,
+    this.filled = false,
     this.invalid = false,
     this.readOnly = false,
     this.required = false,
@@ -262,6 +264,9 @@ class DSelect<T> extends FormField<T> {
   final DSelectSize size;
   final double width;
   final bool isExpanded;
+
+  /// A raised form surface using the theme foreground at ten percent.
+  final bool filled;
   final bool invalid;
   final bool readOnly;
   final bool required;
@@ -348,6 +353,7 @@ class _DSelectFormState<T> extends FormFieldState<T> {
     size: widget.size,
     width: widget.width,
     isExpanded: widget.isExpanded,
+    filled: widget.filled,
     enabled: widget.enabled,
     invalid: widget.invalid || hasError,
     readOnly: widget.readOnly,
@@ -387,6 +393,7 @@ class DSelectField<T> extends StatelessWidget {
     required this.onChanged,
     this.decoration = const InputDecoration(),
     this.isExpanded = false,
+    this.filled = false,
     this.enabled = true,
     this.readOnly = false,
     this.required = false,
@@ -403,6 +410,9 @@ class DSelectField<T> extends StatelessWidget {
   final ValueChanged<T?>? onChanged;
   final InputDecoration decoration;
   final bool isExpanded;
+
+  /// A raised form surface using the theme foreground at ten percent.
+  final bool filled;
   final bool enabled;
   final bool readOnly;
   final bool required;
@@ -426,6 +436,7 @@ class DSelectField<T> extends StatelessWidget {
     errorText: decoration.errorText,
     semanticLabel: decoration.labelText,
     isExpanded: isExpanded,
+    filled: filled,
     enabled: enabled && onChanged != null,
     readOnly: readOnly,
     required: required,
@@ -459,6 +470,7 @@ class DMultiSelect<T> extends FormField<List<T>> {
     this.size = DSelectSize.regular,
     this.width = 180,
     this.isExpanded = false,
+    this.filled = false,
     this.invalid = false,
     this.readOnly = false,
     this.required = false,
@@ -516,6 +528,7 @@ class DMultiSelect<T> extends FormField<List<T>> {
     this.size = DSelectSize.regular,
     this.width = 180,
     this.isExpanded = false,
+    this.filled = false,
     this.invalid = false,
     this.readOnly = false,
     this.required = false,
@@ -570,6 +583,9 @@ class DMultiSelect<T> extends FormField<List<T>> {
   final DSelectSize size;
   final double width;
   final bool isExpanded;
+
+  /// A raised form surface using the theme foreground at ten percent.
+  final bool filled;
   final bool invalid;
   final bool readOnly;
   final bool required;
@@ -664,6 +680,7 @@ class _DMultiSelectFormState<T> extends FormFieldState<List<T>> {
       size: widget.size,
       width: widget.width,
       isExpanded: widget.isExpanded,
+      filled: widget.filled,
       enabled: widget.enabled,
       invalid: widget.invalid || hasError,
       readOnly: widget.readOnly,
@@ -708,6 +725,7 @@ class _DSelectBody<T> extends StatefulWidget {
     required this.size,
     required this.width,
     required this.isExpanded,
+    required this.filled,
     required this.enabled,
     required this.invalid,
     required this.readOnly,
@@ -758,6 +776,9 @@ class _DSelectBody<T> extends StatefulWidget {
   final DSelectSize size;
   final double width;
   final bool isExpanded;
+
+  /// A raised form surface using the theme foreground at ten percent.
+  final bool filled;
   final bool enabled;
   final bool invalid;
   final bool readOnly;
@@ -1393,13 +1414,17 @@ class _DSelectBodyState<T> extends State<_DSelectBody<T>> {
         widget.values.any(
           (value) => _items.any((item) => widget.equals(item.value, value)),
         )
-        ? tokens.foreground
+        ? widget.filled
+              ? Color.lerp(tokens.background, tokens.foreground, .9)!
+              : tokens.foreground
         : tokens.mutedForeground;
     final dark = Theme.of(context).brightness == Brightness.dark;
     final interactive = widget.enabled && (_triggerHovered || trigger.open);
     final outline = tokens.buttonTheme.outline;
     final input = interactive ? outline.hoverBorder : outline.border;
-    final background = interactive ? outline.hover : outline.background;
+    final background = interactive || widget.filled
+        ? outline.hover
+        : outline.background;
     final border = invalid
         ? tokens.destructive.withValues(
             alpha: tokens.destructive.a * (dark ? 0.5 : 1),

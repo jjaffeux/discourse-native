@@ -9,7 +9,7 @@ import '../foundation/tokens.dart';
 enum DToggleVariant { standard, outline }
 
 /// Reaction chips keep compact artwork, including on touch platforms.
-enum DToggleDensity { standard, reaction }
+enum DToggleDensity { standard, reaction, tile }
 
 /// The shared button height scale.
 typedef DToggleSize = DControlSize;
@@ -227,19 +227,32 @@ class _DToggleState extends State<DToggle> {
     final dark = theme.brightness == Brightness.dark;
     final outlined = widget.variant == DToggleVariant.outline;
     final outline = tokens.buttonTheme.outline;
-    final foreground = outlined ? outline.foreground : tokens.foreground;
     final reaction = widget.density == DToggleDensity.reaction;
+    final tile = widget.density == DToggleDensity.tile;
+    final foreground = outlined
+        ? outline.foreground
+        : tile && !_current
+        ? tokens.mutedForeground
+        : tokens.foreground;
     final scaler = MediaQuery.textScalerOf(context);
-    final visualDimension = reaction
+    final visualDimension = tile
+        ? 54.0
+        : reaction
         ? (scaler.scale(12) * (16 / 12) + 10).clamp(28.0, double.infinity)
         : DControlStyle.scaledHeight(widget.size, scaler, context: context);
-    final iconDimension = reaction
+    final iconDimension = tile
+        ? 20.0
+        : reaction
         ? 18.0
         : DControlStyle.iconDimension(widget.size, context: context);
-    final fontSize = reaction
+    final fontSize = tile
+        ? 11.5
+        : reaction
         ? 12.0
         : DControlStyle.fontSize(widget.size, context: context);
-    final lineHeight = reaction
+    final lineHeight = tile
+        ? 17.0
+        : reaction
         ? 16.0
         : DControlStyle.lineHeight(widget.size, context: context);
     final touch = switch (theme.platform) {
@@ -302,7 +315,9 @@ class _DToggleState extends State<DToggle> {
               color: foreground,
               fontSize: fontSize,
               height: lineHeight / fontSize,
-              fontWeight: FontWeight.w500,
+              fontWeight: tile
+                  ? (_current ? FontWeight.w600 : FontWeight.w400)
+                  : FontWeight.w500,
               letterSpacing: 0,
             ),
             maxLines: 1,
@@ -312,6 +327,18 @@ class _DToggleState extends State<DToggle> {
                 ? ExcludeSemantics(
                     excluding: widget.semanticLabel != null,
                     child: widget.child,
+                  )
+                : tile
+                ? Column(
+                    mainAxisSize: MainAxisSize.min,
+                    spacing: 3,
+                    children: [
+                      ExcludeSemantics(child: effectiveIcon),
+                      ExcludeSemantics(
+                        excluding: widget.semanticLabel != null,
+                        child: widget.child,
+                      ),
+                    ],
                   )
                 : Row(
                     mainAxisSize: MainAxisSize.min,
@@ -347,6 +374,8 @@ class _DToggleState extends State<DToggle> {
       ),
       padding: (widget._iconOnly
           ? EdgeInsets.zero
+          : tile
+          ? const EdgeInsets.symmetric(horizontal: 4, vertical: 7)
           : reaction
           ? const EdgeInsets.symmetric(horizontal: 8)
           : DToggle._paddingFor(
@@ -358,7 +387,9 @@ class _DToggleState extends State<DToggle> {
         color: outlined
             ? (activeSurface ? outline.hover : outline.background)
             : activeSurface
-            ? DControlStyle.rowHover(tokens)
+            ? tile
+                  ? tokens.foreground.withValues(alpha: .13)
+                  : DControlStyle.rowHover(tokens)
             : Colors.transparent,
         borderRadius: radius,
         border: border,
@@ -371,7 +402,11 @@ class _DToggleState extends State<DToggle> {
         ringWidth: DControlStyle.focusWidth,
         ringOffset: DControlStyle.focusOffset,
       ),
-      child: Center(widthFactor: 1, heightFactor: 1, child: content),
+      child: Center(
+        widthFactor: tile ? null : 1,
+        heightFactor: 1,
+        child: content,
+      ),
     );
 
     final targetConstraints = BoxConstraints(

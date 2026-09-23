@@ -22,6 +22,14 @@ final sliderExamples = ComponentExamples(
       'onChangeCancel does not undo changes already delivered to onChanged.',
   examples: [
     StyleguideExample(
+      title: 'Appearance ramps',
+      description:
+          'Tint, opacity and texture intensity use a colour ramp, checkerboard or wave. The ring, keyboard steps and disabled state share Slider behavior.',
+      code:
+          'DSlider(value: value, max: 1, step: .01, variant: DSliderVariant.ramp, ramp: DSliderRamp(startColor: background, endColor: accent), onChanged: update)',
+      builder: (_) => const _AppearanceRamps(),
+    ),
+    StyleguideExample(
       title: 'Filled strength',
       description:
           'A filled vertical capsule for effect strength, with the same pointer, keyboard and screen-reader behavior.',
@@ -397,4 +405,44 @@ class _FilledStrengthState extends State<_FilledStrength> {
       onChanged: (value) => setState(() => strength = value),
     ),
   );
+}
+
+class _AppearanceRamps extends StatefulWidget {
+  const _AppearanceRamps();
+  @override
+  State<_AppearanceRamps> createState() => _AppearanceRampsState();
+}
+
+class _AppearanceRampsState extends State<_AppearanceRamps> {
+  double value = .3;
+  @override
+  Widget build(BuildContext context) {
+    final tokens = DTokens.of(context);
+    return Column(
+      spacing: 16,
+      children: [
+        for (final pattern in DSliderRampPattern.values)
+          DSlider(
+            value: value,
+            max: 1,
+            step: .01,
+            variant: DSliderVariant.ramp,
+            semanticLabel: pattern.name,
+            ramp: DSliderRamp(
+              pattern: pattern,
+              startColor: tokens.background.withValues(alpha: .7),
+              endColor: tokens.primary,
+            ),
+            onChanged: (next) => setState(() => value = next),
+          ),
+        DSlider(
+          value: value,
+          max: 1,
+          variant: DSliderVariant.ramp,
+          semanticLabel: 'Disabled ramp',
+          onChanged: null,
+        ),
+      ],
+    );
+  }
 }

@@ -10,6 +10,66 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  testWidgets('expanded tiles fill their slots and retain keyboard selection', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light.copyWith(platform: TargetPlatform.macOS),
+        home: const Scaffold(
+          body: Center(
+            child: SizedBox(
+              width: 360,
+              child: DToggleGroup<String>(
+                density: DToggleDensity.tile,
+                expanded: true,
+                inset: true,
+                allowEmptySelection: false,
+                initialValues: ['None'],
+                items: [
+                  DToggleGroupItem(
+                    value: 'None',
+                    icon: Icon(Icons.crop_square),
+                    child: Text('None'),
+                  ),
+                  DToggleGroupItem(
+                    value: 'Noise',
+                    icon: Icon(Icons.grain),
+                    child: Text('Noise'),
+                  ),
+                  DToggleGroupItem(
+                    value: 'Lava lamp',
+                    icon: Icon(Icons.apps),
+                    child: Text('Lava lamp'),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    final toggles = find.byType(DToggle);
+    for (var i = 0; i < 3; i++) {
+      final artwork = find.descendant(
+        of: toggles.at(i),
+        matching: find.byType(AnimatedContainer),
+      );
+      expect(
+        tester.getSize(artwork).width,
+        tester.getSize(toggles.at(i)).width,
+      );
+      expect(tester.getSize(artwork).height, greaterThanOrEqualTo(54));
+    }
+    await tester.tap(find.text('None'));
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+    await tester.sendKeyEvent(LogicalKeyboardKey.space);
+    await tester.pump();
+    expect(tester.widget<DToggle>(toggles.at(1)).pressed, isTrue);
+    expect(tester.widget<DToggle>(toggles.at(0)).pressed, isFalse);
+    expect(tester.takeException(), isNull);
+  });
+
   Future<void> mount(
     WidgetTester tester,
     Widget child, {
@@ -571,6 +631,7 @@ void main() {
     (tester) async {
       expect(componentExamples['toggle-group'], same(toggleGroupExamples));
       expect(toggleGroupExamples.examples.map((example) => example.title), [
+        'Texture tiles',
         'Inset layout selector',
         'Default and composition',
         'Outline',

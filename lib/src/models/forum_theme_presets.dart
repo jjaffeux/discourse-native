@@ -7,7 +7,7 @@ const forumThemePresets = <ForumTheme>[
   ForumTheme(
     alternate: ForumTheme(
       id: 'neutral',
-      name: 'Neutral',
+      name: 'Dark',
       brightness: Brightness.dark,
       primary: Color(0xFFDDDDDD),
       secondary: Color(0xFF222222),
@@ -78,7 +78,7 @@ const forumThemePresets = <ForumTheme>[
   ),
   ForumTheme(
     id: 'dark-rose',
-    name: 'Rose',
+    name: 'Dark Rose',
     brightness: Brightness.dark,
     primary: Color(0xFFCA9CB2),
     secondary: Color(0xFF3A2A37),
@@ -155,9 +155,9 @@ const forumThemePresets = <ForumTheme>[
     primary: Color(0xFFFFFFFF),
     secondary: Color(0xFF1A1A1A),
     tertiary: Color(0xFF39845B),
-    quaternary: Color(0xFFB85E48),
-    danger: Color(0xFFB85E48),
-    success: Color(0xFF518751),
+    quaternary: Color(0xFF39845B),
+    danger: Color(0xFF39845B),
+    success: Color(0xFF39845B),
     love: Color(0xFFFA6C8D),
   ),
 ];

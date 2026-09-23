@@ -10,8 +10,16 @@ class MainFlutterWindow: NSWindow {
 
   override func awakeFromNib() {
     let flutterViewController = FlutterViewController()
-    flutterViewController.backgroundColor = LaunchScreenView.backgroundStart
+    flutterViewController.backgroundColor = .clear
+    flutterController = flutterViewController
     self.contentViewController = flutterViewController
+    let backdrop = NSVisualEffectView(frame: flutterViewController.view.bounds)
+    backdrop.autoresizingMask = [.width, .height]
+    backdrop.material = .underWindowBackground
+    backdrop.blendingMode = .behindWindow
+    backdrop.state = .active
+    flutterViewController.view.addSubview(backdrop, positioned: .below, relativeTo: nil)
+    self.isOpaque = false
 
     // The shell wants room for rail + sidebar + content + details panel, so the
     // 800x600 Flutter default opens narrower than the layout was designed for.
@@ -25,7 +33,7 @@ class MainFlutterWindow: NSWindow {
     self.styleMask.insert(.fullSizeContentView)
     self.titlebarAppearsTransparent = true
     self.titleVisibility = .hidden
-    self.backgroundColor = LaunchScreenView.backgroundStart
+    self.backgroundColor = .clear
     // desktop_drop installs a transparent native view across this entire
     // content view. AppKit considers transparent views draggable window
     // background, which can make it consume a click instead of forwarding the
@@ -67,7 +75,7 @@ class MainFlutterWindow: NSWindow {
   private func forwardYoutubeScroll(_ event: NSEvent) -> Bool {
     guard event.type == .scrollWheel,
       let contentView,
-      let flutterView = contentViewController?.view,
+      let flutterView = flutterController?.view,
       let channel = youtubeScrollChannel
     else {
       return false
@@ -145,7 +153,7 @@ class MainFlutterWindow: NSWindow {
         }
       case "enableYoutubeFullscreen":
         guard let identifier = call.arguments as? Int64,
-          let registry = self.contentViewController as? FlutterViewController,
+          let registry = self.flutterController,
           let webView = WebviewAllWKWebViewExternalAPI.webView(
             forIdentifier: identifier, withPluginRegistry: registry
           )

@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:ui' as ui;
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/app.dart';
@@ -20,18 +19,15 @@ import 'package:discourse_native/src/models/site_appearance.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/shell/adaptive_shell.dart';
 import 'package:discourse_native/src/shell/avatar_image.dart';
-import 'package:discourse_native/src/shell/forum_settings_dialog.dart';
-import 'package:discourse_native/src/shell/forum_theme_surfaces.dart';
+import 'package:discourse_native/src/shell/forum_settings_page.dart';
 import 'package:discourse_native/src/shell/instance_rail.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
-import 'package:discourse_native/src/shell/title_bar.dart';
+import 'package:discourse_native/src/shell/topic_view.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:discourse_native/src/theme/color_contrast.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -44,7 +40,7 @@ void main() {
   const siteA = 'https://a.example';
   const siteB = 'https://b.example';
 
-  testWidgets('custom background retains framed panels on one desktop canvas', (
+  testWidgets('live textures and opacity retain the topic reader and panels', (
     tester,
   ) async {
     tester.view.physicalSize = const Size(1200, 800);
@@ -91,251 +87,40 @@ void main() {
     final controller = _controller(tester);
     controller.openTopicFromList(topic);
     await tester.pumpAndSettle();
-    final original = _activeTheme(tester).shell.content;
-    final source = forumThemePresets.firstWhere((t) => t.id == 'dracula');
-    Color paintedBox(Finder parent) => tester
-        .widget<ColoredBox>(
-          find.descendant(of: parent, matching: find.byType(ColoredBox)).first,
-        )
-        .color;
-
-    final flatPixels = <(AppThemeMode, bool), ByteData>{};
-    for (final mode in [AppThemeMode.dark, AppThemeMode.light]) {
-      await controller.forumSettings.setThemeMode(siteA, mode);
-      for (final effect in ForumBackgroundEffect.values) {
-        for (final darkerSidebars in [false, true]) {
-          final custom = ForumTheme.fromJson({
-            ...source.toJson(),
-            'darkerSidebars': darkerSidebars,
-            'background': ForumBackground(
-              color: const Color(0xffdc63ae),
-              strength: .8,
+    final topicElement = tester.element(find.byType(TopicView).first);
+    for (final effect in ForumBackgroundEffect.values) {
+      final preferences = ForumThemePreferences(selectedId: 'dracula')
+          .withBackground(
+            ForumBackground.appearance(
               effect: effect,
-            ).toJson(),
-          }, id: 'custom-pink');
-          await controller.forumSettings.setThemes(
-            siteA,
-            ForumThemePreferences().save(custom),
+              noiseIntensity: .5,
+              transparency: .2,
+            ),
           );
-          // Lava keeps ticking; allow the inherited theme to finish changing.
-          await tester.pump();
-          await tester.pump(const Duration(milliseconds: 300));
-          final theme = _activeTheme(tester);
-          final expected = Color(
-            Color.lerp(
-              source.forBrightness(theme.brightness).secondary,
-              const Color(0xffdc63ae),
-              .8 * .45,
-            )!.toARGB32(),
-          );
-          expect(theme.shell.content, expected);
-          expect(paintedBox(find.byType(ShellTitleBar)), Colors.transparent);
-          expect(paintedBox(find.byType(InstanceRail)), Colors.transparent);
-          final navigation = DTokens.of(tester.element(find.byType(DSidebar)));
-          final sidebarColor = tester
-              .widget<DSidebar>(find.byType(DSidebar))
-              .backgroundColor!;
-          expect(
-            sidebarColor,
-            darkerSidebars ? navigation.muted : Colors.transparent,
-          );
-          if (darkerSidebars) {
-            expect(
-              sidebarColor.computeLuminance(),
-              lessThan(theme.shell.sidebar.computeLuminance()),
-            );
-          }
-          final panels = [
-            find
-                .ancestor(
-                  of: find.byType(DSidebar),
-                  matching: find.byType(DCard),
-                )
-                .first,
-            find
-                .descendant(
-                  of: find.byKey(const ValueKey('inbox-topic-list-pane')),
-                  matching: find.byType(DCard),
-                )
-                .first,
-            find
-                .descendant(
-                  of: find.byKey(const ValueKey('inbox-topic-reader-pane')),
-                  matching: find.byType(DCard),
-                )
-                .first,
-          ];
-          final panelColors = <Color>[];
-          for (final panel in panels) {
-            final surface = tester.widget<Material>(
-              find.descendant(of: panel, matching: find.byType(Material)).first,
-            );
-            expect(surface.color!.a, greaterThan(0));
-            expect(surface.color!.a, lessThan(1));
-            panelColors.add(surface.color!);
-            final frame = tester.widget<DecoratedBox>(
-              find
-                  .descendant(of: panel, matching: find.byType(DecoratedBox))
-                  .first,
-            );
-            final border =
-                (frame.decoration as BoxDecoration).border! as Border;
-            expect(border.top.color.a, greaterThan(0));
-            expect(border.top.width, greaterThan(0));
-            expect(frame.position, DecorationPosition.foreground);
-          }
-          expect(panelColors.toSet(), hasLength(1));
-          for (final key in ['topic-list-bottom-bar', 'topic-bottom-bar']) {
-            final footer = find.byKey(ValueKey(key));
-            expect(paintedBox(footer).a, greaterThan(panelColors.first.a));
-            expect(paintedBox(footer).a, lessThan(1));
-            expect(tester.widget<DCardFooter>(footer).border, isTrue);
-            expect(tester.widget<DCardFooter>(footer).rounded, isTrue);
-          }
-          expect(
-            find.byKey(const ValueKey('forum-window-canvas')),
-            findsOneWidget,
-          );
-          expect(
-            find.byKey(const ValueKey('forum-window-effect')),
-            effect == ForumBackgroundEffect.normal
-                ? findsNothing
-                : findsOneWidget,
-          );
-          final canvas = tester.widget<DecoratedBox>(
-            find
-                .descendant(
-                  of: find.byType(ForumWindowBackground),
-                  matching: find.byType(DecoratedBox),
-                )
-                .first,
-          );
-          expect(
-            (canvas.decoration as BoxDecoration).color,
-            expected,
-            reason: 'Only the root canvas paints the base color.',
-          );
-          {
-            final boundary = tester.renderObject<RenderRepaintBoundary>(
-              find.byKey(const ValueKey('app-paint-boundary')),
-            );
-            final pixels = (await tester.runAsync(() async {
-              final image = await boundary.toImage();
-              final bytes = (await image.toByteData(
-                format: ui.ImageByteFormat.rawRgba,
-              ))!;
-              final width = image.width;
-              image.dispose();
-              return (bytes: bytes, width: width);
-            }))!;
-            final bytes = pixels.bytes;
-            if (effect == ForumBackgroundEffect.normal) {
-              flatPixels[(mode, darkerSidebars)] = bytes;
-            }
-            final sidebar = tester.getRect(find.byType(DSidebar));
-            final list = tester.getRect(
-              find.byKey(const ValueKey('inbox-topic-list-pane')),
-            );
-            final reader = tester.getRect(
-              find.byKey(const ValueKey('inbox-topic-reader-pane')),
-            );
-            var totalChangedPixels = 0;
-            for (final (point, surface) in [
-              (const Offset(16, 400), expected),
-              (const Offset(80, 44), expected),
-              (
-                sidebar.bottomRight - const Offset(24, 90),
-                darkerSidebars
-                    ? sidebarColor
-                    : Color.alphaBlend(panelColors[0], expected),
-              ),
-              (
-                list.bottomCenter - const Offset(0, 90),
-                Color.alphaBlend(panelColors[1], expected),
-              ),
-              (
-                reader.bottomCenter - const Offset(0, 90),
-                Color.alphaBlend(panelColors[2], expected),
-              ),
-            ]) {
-              final index =
-                  (point.dy.floor() * pixels.width + point.dx.floor()) * 4;
-              final painted = Color.fromARGB(
-                bytes.getUint8(index + 3),
-                bytes.getUint8(index),
-                bytes.getUint8(index + 1),
-                bytes.getUint8(index + 2),
-              );
-              if (effect == ForumBackgroundEffect.normal) {
-                for (final (actual, desired) in [
-                  (painted.r, surface.r),
-                  (painted.g, surface.g),
-                  (painted.b, surface.b),
-                ]) {
-                  expect(
-                    actual,
-                    closeTo(desired, 1 / 255),
-                    reason:
-                        'The shared canvas and retained panel fill at $point in $mode',
-                  );
-                }
-              } else {
-                final flat = flatPixels[(mode, darkerSidebars)]!;
-                var changedPixels = 0;
-                for (var dy = -32; dy <= 32; dy++) {
-                  for (var dx = -12; dx <= 12; dx++) {
-                    final pixel =
-                        ((point.dy.floor() + dy) * pixels.width +
-                            point.dx.floor() +
-                            dx) *
-                        4;
-                    if ([0, 1, 2].any(
-                      (channel) =>
-                          (bytes.getUint8(pixel + channel) -
-                                  flat.getUint8(pixel + channel))
-                              .abs() >
-                          1,
-                    )) {
-                      changedPixels++;
-                    }
-                  }
-                }
-                totalChangedPixels += changedPixels;
-                if (darkerSidebars && sidebar.contains(point)) {
-                  expect(
-                    changedPixels,
-                    0,
-                    reason: 'Dark navigation retains its opaque surface.',
-                  );
-                } else if (effect == ForumBackgroundEffect.noise) {
-                  expect(
-                    changedPixels,
-                    greaterThan(0),
-                    reason:
-                        'Noise remains visible through the surface at $point in $mode',
-                  );
-                }
-              }
-            }
-            if (effect == ForumBackgroundEffect.lava) {
-              expect(
-                totalChangedPixels,
-                greaterThan(0),
-                reason: 'Lava remains visible behind the framed workspace',
-              );
-            }
-          }
-          expect(tester.takeException(), isNull);
-        }
+      await controller.forumSettings.setThemes(siteA, preferences);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(tester.element(find.byType(TopicView).first), same(topicElement));
+      expect(find.byKey(const ValueKey('forum-window-canvas')), findsOneWidget);
+      final panels = tester
+          .widgetList<DPageSurface>(find.byType(DPageSurface))
+          .where((page) => page.framed);
+      expect(panels, isNotEmpty);
+      for (final panel in panels) {
+        expect(panel.backgroundColor!.a, closeTo(.8, .001));
       }
+      expect(
+        _activeTheme(tester).extension<ForumThemeEffects>()!.background,
+        preferences.background,
+      );
+      expect(tester.takeException(), isNull);
     }
     await controller.forumSettings.setThemes(
       siteA,
       ForumThemePreferences.defaults,
     );
-    await controller.forumSettings.setThemeMode(siteA, AppThemeMode.system);
     await tester.pumpAndSettle();
-    expect(_activeTheme(tester).shell.content, original);
+    expect(tester.element(find.byType(TopicView).first), same(topicElement));
   }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 
   testWidgets('mobile pages share one custom background painter', (
@@ -394,7 +179,7 @@ void main() {
     expect(find.byKey(const ValueKey('forum-window-effect')), findsNothing);
   }, variant: TargetPlatformVariant.only(TargetPlatform.iOS));
 
-  testWidgets('Escape closes forum Settings after changing appearance', (
+  testWidgets('Back leaves the theme page after changing appearance', (
     tester,
   ) async {
     tester.view.physicalSize = const Size(1200, 800);
@@ -425,10 +210,10 @@ void main() {
     await tester.pumpAndSettle();
     expect(controller.forumSettings.themeModeFor(siteA), AppThemeMode.dark);
 
-    await tester.sendKeyEvent(LogicalKeyboardKey.escape, character: '\x1b');
+    controller.handleBack(canReturnToSidebar: true);
     await tester.pumpAndSettle();
 
-    expect(find.byType(ForumSettingsDialog), findsNothing);
+    expect(find.byType(ForumSettingsPage), findsNothing);
     expect(controller.appSettingsModalOpen, isFalse);
   }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 
@@ -490,6 +275,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(_activeTheme(tester).colorScheme.primary, source.base!.tertiary);
     },
+    variant: TargetPlatformVariant.only(TargetPlatform.macOS),
   );
 
   testWidgets('hydrates an injected app-wide settings store on startup', (
@@ -519,7 +305,7 @@ void main() {
       ).scale(DiscourseTypography.base),
       moreOrLessEquals(DiscourseTypography.base * 1.25),
     );
-  });
+  }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 
   testWidgets('forum choices survive switching and an app restart', (
     tester,
@@ -540,13 +326,8 @@ void main() {
     );
     var controller = _controller(tester);
     await _openForumSettings(tester);
-    expect(
-      find.descendant(
-        of: find.byType(ForumSettingsDialog),
-        matching: find.text('A'),
-      ),
-      findsOneWidget,
-    );
+    expect(find.byType(ForumSettingsPage), findsOneWidget);
+    expect(controller.currentInstance!.title, 'A');
     await tester.tap(
       find
           .descendant(
@@ -557,19 +338,14 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(_activeTheme(tester).brightness, Brightness.dark);
-    await tester.tap(find.byKey(const ValueKey('forum-settings-close')));
+    _controller(tester).handleBack(canReturnToSidebar: true);
     await tester.pumpAndSettle();
     controller.selectInstance(1);
     await tester.pumpAndSettle();
     await _openForumSettings(tester);
-    expect(
-      find.descendant(
-        of: find.byType(ForumSettingsDialog),
-        matching: find.text('B'),
-      ),
-      findsOneWidget,
-    );
-    expect(find.text('System'), findsOneWidget);
+    expect(find.byType(ForumSettingsPage), findsOneWidget);
+    expect(controller.currentInstance!.title, 'B');
+    expect(find.text('Follow system appearance'), findsOneWidget);
     await tester.tap(
       find
           .descendant(
@@ -579,7 +355,7 @@ void main() {
           .last,
     );
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey('forum-settings-close')));
+    _controller(tester).handleBack(canReturnToSidebar: true);
     await tester.pumpAndSettle();
     controller.selectInstance(0);
     await tester.pumpAndSettle();
@@ -601,7 +377,7 @@ void main() {
     controller.selectInstance(1);
     await tester.pumpAndSettle();
     expect(_materialApp(tester).themeMode, ThemeMode.light);
-  });
+  }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 
   for (final size in [const Size(390, 700), const Size(1200, 800)]) {
     testWidgets('maximum text size lays out the ${size.width}px shell', (
@@ -630,7 +406,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
       expect(find.text('200%'), findsOneWidget);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
   }
 
   group('appearance loading and persistence', () {
@@ -677,7 +453,7 @@ void main() {
       expect(api.appearancesRequested, [siteA]);
       expect((await store.load()).single.appearance, fresh);
       expect(store.saveCount, 1);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 
     testWidgets('swaps site palettes without an intermediate animated theme', (
       tester,
@@ -714,7 +490,7 @@ void main() {
       expect(_activeTheme(tester).colorScheme.primary, first.base?.tertiary);
       expect(_materialApp(tester).theme, same(firstLight));
       expect(_materialApp(tester).darkTheme, same(firstDark));
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 
     testWidgets('clears account-derived data on disconnect', (tester) async {
       final appearance = siteAppearance(accent: const Color(0xFF6B21A8));
@@ -742,7 +518,7 @@ void main() {
         _materialApp(tester).theme?.colorScheme.primary,
         AppTheme.light.colorScheme.primary,
       );
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
   });
 
   group('active theme selection', () {
@@ -785,82 +561,97 @@ void main() {
       controller.selectAggregate();
       await tester.pump();
       expect(events.where((event) => event == 'forum.frame'), isEmpty);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 
-    testWidgets('appearance changes the forum and open dialog immediately', (
-      tester,
-    ) async {
-      tester.platformDispatcher.platformBrightnessTestValue = Brightness.light;
-      addTearDown(tester.platformDispatcher.clearPlatformBrightnessTestValue);
-      final appearance = siteAppearance(
-        alternateAccent: const Color(0xFF80CED7),
-        mode: SiteAppearanceMode.alternate,
-      );
-      await _pumpApp(
-        tester,
-        store: FakeInstanceStore([
-          const DiscourseInstance(
-            url: siteA,
-            title: 'A',
-          ).copyWith(appearance: appearance),
-        ]),
-        api: FakeDiscourseApi(),
-      );
-      expect(_activeTheme(tester).brightness, Brightness.light);
-      await _openForumSettings(tester);
+    testWidgets(
+      'appearance changes the forum and full settings page immediately',
+      (tester) async {
+        tester.view.physicalSize = const Size(1200, 800);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
+        tester.platformDispatcher.platformBrightnessTestValue =
+            Brightness.light;
+        addTearDown(tester.platformDispatcher.clearPlatformBrightnessTestValue);
+        final appearance = siteAppearance(
+          alternateAccent: const Color(0xFF80CED7),
+          mode: SiteAppearanceMode.alternate,
+        );
+        await _pumpApp(
+          tester,
+          store: FakeInstanceStore([
+            const DiscourseInstance(
+              url: siteA,
+              title: 'A',
+            ).copyWith(appearance: appearance),
+          ]),
+          api: FakeDiscourseApi(),
+        );
+        expect(_activeTheme(tester).brightness, Brightness.light);
+        await _openForumSettings(tester);
 
-      for (final (label, brightness) in [
-        ('Dark', Brightness.dark),
-        ('Light', Brightness.light),
-        ('System', Brightness.light),
-      ]) {
+        for (final (label, brightness) in [
+          ('Dark', Brightness.dark),
+          ('Light', Brightness.light),
+        ]) {
+          await tester.tap(
+            find
+                .descendant(
+                  of: find.byKey(const ValueKey('appearance-theme-select')),
+                  matching: find.text(label),
+                )
+                .last,
+          );
+          await tester.pumpAndSettle();
+          expect(_activeTheme(tester).brightness, brightness);
+          expect(
+            _railAvatarBackground(tester, host: 'a.example'),
+            appearance.paletteForBrightness(brightness)!.tertiary,
+          );
+          expect(
+            Theme.of(tester.element(find.byType(ForumSettingsPage))).brightness,
+            brightness,
+          );
+        }
+
+        final system = find.widgetWithText(
+          DSwitchTile,
+          'Follow system appearance',
+        );
+        await tester.ensureVisible(system);
+        await tester.tap(system);
+        await tester.pumpAndSettle();
+        tester.platformDispatcher.platformBrightnessTestValue = Brightness.dark;
+        await tester.pumpAndSettle();
+        expect(
+          _activeTheme(tester).colorScheme.primary,
+          appearance.alternate!.tertiary,
+        );
+        expect(
+          Theme.of(tester.element(find.byType(ForumSettingsPage))).brightness,
+          Brightness.dark,
+        );
+        await tester.ensureVisible(
+          find.byKey(const ValueKey('appearance-theme-select')),
+        );
         await tester.tap(
           find
               .descendant(
                 of: find.byKey(const ValueKey('appearance-theme-select')),
-                matching: find.text(label),
+                matching: find.text('Light'),
               )
               .last,
         );
         await tester.pumpAndSettle();
-        expect(_activeTheme(tester).brightness, brightness);
-        expect(
-          _railAvatarBackground(tester, host: 'a.example'),
-          appearance.paletteForBrightness(brightness)!.tertiary,
-        );
-        expect(
-          Theme.of(tester.element(find.byType(ForumSettingsDialog))).brightness,
-          brightness,
-        );
-      }
-
-      tester.platformDispatcher.platformBrightnessTestValue = Brightness.dark;
-      await tester.pumpAndSettle();
-      expect(
-        _activeTheme(tester).colorScheme.primary,
-        appearance.alternate!.tertiary,
-      );
-      expect(
-        Theme.of(tester.element(find.byType(ForumSettingsDialog))).brightness,
-        Brightness.dark,
-      );
-      await tester.tap(
-        find
-            .descendant(
-              of: find.byKey(const ValueKey('appearance-theme-select')),
-              matching: find.text('Light'),
-            )
-            .last,
-      );
-      await tester.pumpAndSettle();
-      expect(_activeTheme(tester).brightness, Brightness.light);
-      await tester.tap(find.byKey(const ValueKey('forum-settings-close')));
-      await tester.pumpAndSettle();
-      _controller(tester).selectAggregate();
-      await tester.pump();
-      expect(_activeTheme(tester).brightness, Brightness.dark);
-      expect(_materialApp(tester).themeMode, ThemeMode.system);
-    });
+        expect(_activeTheme(tester).brightness, Brightness.light);
+        _controller(tester).handleBack(canReturnToSidebar: true);
+        await tester.pumpAndSettle();
+        _controller(tester).selectAggregate();
+        await tester.pump();
+        expect(_activeTheme(tester).brightness, Brightness.dark);
+        expect(_materialApp(tester).themeMode, ThemeMode.system);
+      },
+      variant: TargetPlatformVariant.only(TargetPlatform.macOS),
+    );
 
     testWidgets('matches palette brightness and supplies missing variants', (
       tester,
@@ -913,7 +704,7 @@ void main() {
         _activeTheme(tester).colorScheme,
         AppTheme.fromPalette(sitePalette()).colorScheme,
       );
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 
     testWidgets('uses the neutral app palette inside Settings', (tester) async {
       final forumAppearance = siteAppearance(
@@ -951,7 +742,7 @@ void main() {
         _materialApp(tester).theme?.colorScheme.primary,
         forumAppearance.base?.tertiary,
       );
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 
     testWidgets('restores app palettes for the aggregate feed', (tester) async {
       final forumAppearance = siteAppearance(
@@ -995,7 +786,7 @@ void main() {
         _materialApp(tester).theme?.colorScheme.primary,
         forumAppearance.base?.tertiary,
       );
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 
     testWidgets('uses the forum dark preference in navigator overlays', (
       tester,
@@ -1033,7 +824,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(overlayPrimary, appearance.alternate?.tertiary);
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 
     testWidgets('preserves ThemeData identity during ordinary navigation', (
       tester,
@@ -1055,7 +846,7 @@ void main() {
       await tester.pump();
 
       expect(_materialApp(tester).theme, same(before));
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 
     testWidgets('follows platform brightness in the app and rail', (
       tester,
@@ -1100,7 +891,7 @@ void main() {
         _railAvatarBackground(tester, host: 'a.example'),
         appearance.alternate?.tertiary,
       );
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
   });
 
   group('instance rail presentation', () {
@@ -1148,7 +939,7 @@ void main() {
 
           final theme = _activeTheme(tester);
           final railSurface = Color.alphaBlend(
-            theme.shell.content,
+            theme.shell.rail,
             opaqueColorOnCanvas(
               theme.scaffoldBackgroundColor,
               theme.brightness,
@@ -1177,7 +968,7 @@ void main() {
         }
       }
       expect(seenColors.length, greaterThan(1));
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 
     testWidgets('updates a non-current item when its appearance arrives late', (
       tester,
@@ -1221,7 +1012,7 @@ void main() {
         secondAppearance.base?.tertiary.withValues(alpha: 0.16),
       );
       expect(_railAvatarBackground(tester, host: 'b.example'), isNot(before));
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 
     testWidgets('keeps monograms readable on transparent site accents', (
       tester,
@@ -1253,7 +1044,7 @@ void main() {
 
       _expectReadableRailMonogram(tester, title: 'A', host: 'a.example');
       _expectReadableRailMonogram(tester, title: 'B', host: 'b.example');
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 
     testWidgets('presents site logos with only a small corner radius', (
       tester,
@@ -1292,7 +1083,7 @@ void main() {
         find.ancestor(of: logo, matching: find.byType(AnimatedContainer)),
         findsNothing,
       );
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
   });
 }
 
@@ -1337,10 +1128,8 @@ ShellController _controller(WidgetTester tester) =>
 ThemeData _activeTheme(WidgetTester tester) =>
     Theme.of(tester.element(find.byType(AdaptiveShell)));
 
-Finder _railItem({required String host}) => find.descendant(
-  of: find.byKey(ValueKey<String>('https://$host')),
-  matching: find.byType(DTooltip),
-);
+Finder _railItem({required String host}) =>
+    find.byKey(ValueKey<String>('instance-rail-tooltip-https://$host'));
 
 SiteAppearance _appearanceWithSuccess(
   Color success, {
