@@ -219,6 +219,7 @@ class SiteTracker {
   );
 
   final List<SiteMessageBusSubscription> _topicSubscriptions = [];
+  final Set<String> _watchedTopicChannels = {};
   int? _watchedTopic;
   int _topicWatchRevision = 0;
 
@@ -231,9 +232,14 @@ class SiteTracker {
     Map<String, int?> lastIds = const {},
   }) {
     _ensureActive();
-    if (_watchedTopic == topicId) return;
+    if (_watchedTopic == topicId &&
+        _watchedTopicChannels.length == channels.toSet().length &&
+        channels.every(_watchedTopicChannels.contains)) {
+      return;
+    }
     unwatchTopic();
     _watchedTopic = topicId;
+    _watchedTopicChannels.addAll(channels);
     final revision = _topicWatchRevision;
     try {
       for (final channel in channels.toSet()) {
@@ -254,6 +260,7 @@ class SiteTracker {
     _topicWatchRevision += 1;
     final subscriptions = List.of(_topicSubscriptions);
     _topicSubscriptions.clear();
+    _watchedTopicChannels.clear();
     _watchedTopic = null;
     for (final subscription in subscriptions) {
       try {

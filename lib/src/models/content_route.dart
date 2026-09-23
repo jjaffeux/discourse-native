@@ -186,6 +186,7 @@ class ContentRoute {
     this.messageGroupName,
     this.groupRoute,
     this.badgeRoute,
+    this.openInSecondaryPanel = false,
   });
 
   factory ContentRoute.list(ListLink link, {String? title, Color? color}) {
@@ -385,7 +386,11 @@ class ContentRoute {
       feedPath = destination.feedPath,
       messageGroupName = null,
       groupRoute = null,
-      badgeRoute = null;
+      badgeRoute = null,
+      openInSecondaryPanel = false;
+
+  final bool openInSecondaryPanel;
+  bool get prefersSecondaryPanel => isTopic || openInSecondaryPanel;
 
   final String id;
   final String title;
@@ -647,6 +652,7 @@ class ContentRoute {
   /// Contains presentation only, never fetched content or credentials.
   Map<String, Object?> toJson() => {
     'id': id,
+    if (openInSecondaryPanel) 'open_in_secondary_panel': true,
     'title': title,
     'icon': icon.name,
     if (subtitle != null) 'subtitle': subtitle,
@@ -730,6 +736,7 @@ class ContentRoute {
     }
     final route = ContentRoute(
       id: id,
+      openInSecondaryPanel: json['open_in_secondary_panel'] == true,
       title: title,
       // Upgrade the speech bubble saved by older topic tabs without changing
       // the durable icon of routes that deliberately chose another glyph.

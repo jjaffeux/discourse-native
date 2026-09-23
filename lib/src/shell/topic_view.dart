@@ -552,7 +552,11 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
     final previousTabId = _viewport.binding?.tabId;
     final previousScroll = _scroll;
     final changed = _viewport.bind(
-      TopicViewportBinding.fromShell(controller, snapshot),
+      TopicViewportBinding.fromShell(
+        controller,
+        snapshot,
+        tabId: ForumTabScope.idOf(context),
+      ),
     );
     if (!changed) return;
 
@@ -1155,7 +1159,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
         identical(_dayJumpToken, token) && _isCurrent(controller, identity);
 
     while (isCurrent()) {
-      final snapshot = TopicViewportSnapshot.from(controller);
+      final snapshot = _viewport.binding!.currentSnapshot();
       if (!snapshot.hasEarlier || snapshot.postIds.isEmpty) break;
       final first = controller.store.read<Post>(
         snapshot.siteUrl!,
@@ -1166,7 +1170,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
       final before = List<int>.of(snapshot.postIds);
       await controller.loadEarlierPosts();
       if (!isCurrent()) return;
-      if (listEquals(before, TopicViewportSnapshot.from(controller).postIds)) {
+      if (listEquals(before, _viewport.binding!.currentSnapshot().postIds)) {
         // A refused page should still land on the earliest copy in hand rather
         // than retrying forever from one click.
         break;
@@ -1178,12 +1182,12 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
       if (!isCurrent()) return;
       _dayJumpToken = null;
       _viewport.finishRestoration(saveAnchor: true);
-      _viewport.scheduleLoadEarlier(TopicViewportSnapshot.from(controller));
+      _viewport.scheduleLoadEarlier(_viewport.binding!.currentSnapshot());
     }
 
     void jump() {
       if (!isCurrent()) return;
-      final snapshot = TopicViewportSnapshot.from(controller);
+      final snapshot = _viewport.binding!.currentSnapshot();
       final postIndex = snapshot.postIds.indexWhere((id) {
         final post = controller.store.read<Post>(snapshot.siteUrl!, id);
         return calendarDay(post?.createdAt) == day;
@@ -1789,7 +1793,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
     BuildContext context,
     TopicViewportSnapshot snapshot,
     Widget? child,
-  ) => LayoutBuilder(
+  ) => ForumTabLayoutBuilder(
     builder: (context, constraints) =>
         _buildForViewport(context, snapshot, constraints.maxWidth),
   );
@@ -2554,7 +2558,7 @@ class _TopicBottomBar extends StatelessWidget {
       borderColor: context.isTouch ? null : DTokens.of(context).footerBorder,
       rounded: !context.isTouch,
       padding: EdgeInsets.zero,
-      child: LayoutBuilder(
+      child: ForumTabLayoutBuilder(
         builder: (context, constraints) => ConstrainedBox(
           constraints: BoxConstraints(minHeight: topicBottomBarHeight(context)),
           child: Padding(
@@ -2900,7 +2904,7 @@ class _TopicLoadingSkeleton extends StatelessWidget {
     return DSkeletonRegion(
       expand: true,
       semanticsLabel: 'Loading topic',
-      child: LayoutBuilder(
+      child: ForumTabLayoutBuilder(
         builder: (context, constraints) {
           final patternCount = constraints.hasBoundedHeight
               ? (constraints.maxHeight / _patternHeight).ceil()
@@ -3093,7 +3097,7 @@ class _TopicViewHeader extends StatelessWidget {
     final topicFlags = topic == null || siteUrl == null
         ? const <PostFlagType>[]
         : controller.availableTopicFlagTypes(siteUrl, topic);
-    return LayoutBuilder(
+    return ForumTabLayoutBuilder(
       builder: (context, constraints) => Container(
         key: const ValueKey('topic-content-header'),
         height: shellHeaderHeight,
@@ -4135,7 +4139,7 @@ class _PostGapState extends State<_PostGap> {
     final theme = Theme.of(context);
     final label = _loading ? 'Loading…' : _label;
 
-    return LayoutBuilder(
+    return ForumTabLayoutBuilder(
       builder: (context, constraints) {
         final left =
             ContentReadingLane.breakpointWidthOf(
@@ -4917,7 +4921,7 @@ class _TopicMap extends StatelessWidget {
       decoration: BoxDecoration(
         border: Border(top: BorderSide(color: theme.shell.divider)),
       ),
-      child: LayoutBuilder(
+      child: ForumTabLayoutBuilder(
         builder: (context, constraints) {
           final breakpointWidth = ContentReadingLane.breakpointWidthOf(
             context,

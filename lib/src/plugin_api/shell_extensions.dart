@@ -90,6 +90,7 @@ abstract interface class PluginNavigationHost {
   List<DiscourseInstance> get instances;
   DiscourseInstance? get currentInstance;
   bool get forumActive;
+  bool get desktopPanelsEnabled;
   bool get isDisposed;
   ContentRoute? get currentContent;
   List<ContentRoute> get contentStack;
@@ -124,7 +125,7 @@ abstract interface class PluginPaneRoutePolicy
   bool separatesPluginPane(String routeId);
 }
 
-enum PluginLinkOrigin { direct, inApp }
+enum PluginLinkOrigin { direct, inApp, secondaryPanel }
 
 abstract interface class PluginLinkHandler implements PluginSessionCapability {
   Future<bool> openPluginUrl(

@@ -1,6 +1,7 @@
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
+import 'package:discourse_native/src/models/forum_workspace.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/shell/instance_sidebar.dart';
@@ -19,7 +20,7 @@ void main() {
 
   for (final source in ['Topics', 'Messages']) {
     testWidgets(
-      'sidebar follows the split list while a $source reader stays open',
+      'sidebar follows the focused panel while preserving the $source source',
       (tester) async {
         const site = 'https://meta.discourse.org';
         const user = DiscourseUser(id: 7, username: 'reader');
@@ -79,8 +80,13 @@ void main() {
         final other = source == 'Topics' ? 'Messages' : 'Topics';
         void expectActive(String label) {
           final topics = label == 'Topics';
-          if (shell.splitTopicPanels || shell.currentContent?.isTopic != true) {
-            final list = find.byType(TopicListView);
+          if (shell.currentContent?.isTopic != true) {
+            final list = find.descendant(
+              of: find.byKey(
+                ValueKey('desktop-panel-${shell.activeTab!.panel.name}'),
+              ),
+              matching: find.byType(TopicListView),
+            );
             expect(
               find.descendant(
                 of: list,
@@ -120,29 +126,36 @@ void main() {
         shell.openTopicFromList(topic);
         await tester.pumpAndSettle();
         final readerTab = shell.activeTabId!;
-        final readerState = tester.state(find.byType(TopicView));
         expectActive(source);
 
         await tester.tap(sidebarDestination(other));
         await tester.pumpAndSettle();
-        expect(shell.topicListContent?.isMessages, other == 'Messages');
-        expect(shell.activeTabId, readerTab);
-        expect(tester.state(find.byType(TopicView)), same(readerState));
+        final otherTab = shell.activeTabId!;
+        expect(shell.activeTab?.panel, ForumPanel.secondary);
+        expect(shell.selectedTabIn(ForumPanel.main)?.id, sourceList);
+        expect(
+          shell.currentWorkspace?.tabById(readerTab)?.currentContent.topicId,
+          topic.id,
+        );
         expectActive(other);
 
         if (other == 'Topics') {
+          final panel = find.byKey(const ValueKey('desktop-panel-secondary'));
           for (final mode in [TopicListMode.popular, TopicListMode.latest]) {
             await tester.tap(
-              find.byKey(const ValueKey('topic-list-feed-menu')),
+              find.descendant(
+                of: panel,
+                matching: find.byKey(const ValueKey('topic-list-feed-menu')),
+              ),
             );
             await tester.pumpAndSettle();
             await tester.tap(find.byKey(ValueKey('topic-list-${mode.name}')));
             await tester.pumpAndSettle();
             expect(shell.currentTopicListMode, mode);
-            expect(shell.activeTabId, readerTab);
+            expect(shell.activeTabId, otherTab);
             expect(
               find.descendant(
-                of: find.byType(TopicListView),
+                of: panel,
                 matching: find.text(
                   mode == TopicListMode.popular
                       ? trendingTopic.title
@@ -152,34 +165,24 @@ void main() {
               findsOneWidget,
             );
           }
-          expectActive(other);
         }
 
-        shell.createTab();
+        await tester.tap(find.byKey(ValueKey('forum-tab-$sourceList')));
         await tester.pumpAndSettle();
-        final newList = shell.listPanelTab!.id;
-        await tester.tap(sidebarDestination(source));
-        await tester.pumpAndSettle();
+        expect(shell.activeTabId, sourceList);
         expectActive(source);
-        for (final (id, label) in [(sourceList, other), (newList, source)]) {
-          await tester.tap(find.byKey(ValueKey('forum-tab-item-$id')));
-          await tester.pumpAndSettle();
-          expect(shell.activeTabId, readerTab);
-          expectActive(label);
-        }
+        expect(shell.selectedTabIn(ForumPanel.secondary)?.id, otherTab);
 
         await tester.tap(sidebarDestination(other));
         await tester.pumpAndSettle();
+        expect(shell.activeTab?.panel, ForumPanel.main);
+        expect(shell.activeTabId, isNot(sourceList));
         expectActive(other);
-        await tester.tap(find.byTooltip('Keep topic tabs with the list').first);
+
+        await tester.tap(find.byKey(ValueKey('forum-tab-$readerTab')));
         await tester.pumpAndSettle();
-        expect(shell.splitTopicPanels, isFalse);
-        expectActive(source);
-        await tester.tap(sidebarDestination(other));
-        await tester.pumpAndSettle();
-        expectActive(other);
-        await tester.tap(find.byKey(ValueKey('forum-tab-item-$readerTab')));
-        await tester.pumpAndSettle();
+        expect(shell.activeTabId, readerTab);
+        expect(find.byType(TopicView), findsOneWidget);
         expectActive(source);
         expect(tester.takeException(), isNull);
       },

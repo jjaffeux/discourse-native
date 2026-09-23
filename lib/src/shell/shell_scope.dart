@@ -1,5 +1,6 @@
 import 'package:flutter/widgets.dart';
 
+import '../models/forum_workspace.dart';
 import '../plugin_api/plugin_scope.dart';
 import 'shell_controller.dart';
 
@@ -65,33 +66,41 @@ class ShellSelector<T> extends StatefulWidget {
 class _ShellSelectorState<T> extends State<ShellSelector<T>> {
   ShellController? _controller;
   late T _value;
+  String? _tabId;
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     final controller = _ShellControllerIdentity.of(context);
-    if (identical(controller, _controller)) return;
+    final tabId = ForumTabScope.idOf(context);
+    if (identical(controller, _controller) && tabId == _tabId) return;
+    _tabId = tabId;
 
     _controller?.removeListener(_select);
     _controller = controller..addListener(_select);
-    _value = widget.select(controller);
+    _value = controller.readTab(_tabId, () => widget.select(controller));
   }
 
   @override
   void didUpdateWidget(ShellSelector<T> oldWidget) {
     super.didUpdateWidget(oldWidget);
-    _value = widget.select(_controller!);
+    _value = _controller!.readTab(_tabId, () => widget.select(_controller!));
   }
 
   void _select() {
-    final next = widget.select(_controller!);
+    final next = _controller!.readTab(
+      _tabId,
+      () => widget.select(_controller!),
+    );
     if (next == _value) return;
     setState(() => _value = next);
   }
 
   @override
-  Widget build(BuildContext context) =>
-      widget.builder(context, _value, widget.child);
+  Widget build(BuildContext context) => _controller!.readTab(
+    _tabId,
+    () => widget.builder(context, _value, widget.child),
+  );
 
   @override
   void dispose() {
@@ -118,4 +127,65 @@ class _ShellControllerIdentity extends InheritedWidget {
   @override
   bool updateShouldNotify(_ShellControllerIdentity oldWidget) =>
       !identical(controller, oldWidget.controller);
+}
+
+/// The visible document, independent of which panel currently has input focus.
+class ForumTabScope extends InheritedWidget {
+  const ForumTabScope({
+    super.key,
+    required this.tabId,
+    required this.panel,
+    required super.child,
+  });
+
+  final String? tabId;
+  final ForumPanel panel;
+
+  static String? idOf(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<ForumTabScope>()?.tabId;
+
+  static ForumPanel? panelOf(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<ForumTabScope>()?.panel;
+
+  static T read<T>(BuildContext context, T Function(ShellController) select) {
+    final shell = ShellScope.read(context);
+    return shell.readTab(idOf(context), () => select(shell));
+  }
+
+  @override
+  bool updateShouldNotify(ForumTabScope oldWidget) =>
+      tabId != oldWidget.tabId || panel != oldWidget.panel;
+}
+
+/// Layout callbacks run after their parent builds, so resolve the tab again.
+class ForumTabLayoutBuilder extends StatelessWidget {
+  const ForumTabLayoutBuilder({super.key, required this.builder});
+  final Widget Function(BuildContext context, BoxConstraints constraints)
+  builder;
+
+  @override
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, constraints) =>
+        ForumTabScope.read(context, (_) => builder(context, constraints)),
+  );
+}
+
+class ForumTabListenableBuilder extends StatelessWidget {
+  const ForumTabListenableBuilder({
+    super.key,
+    required this.listenable,
+    required this.builder,
+    this.child,
+  });
+  final Listenable listenable;
+  final TransitionBuilder builder;
+  final Widget? child;
+
+  @override
+  Widget build(BuildContext context) => ListenableBuilder(
+    listenable: listenable,
+    child: child,
+    builder: (context, child) =>
+        ForumTabScope.read(context, (_) => builder(context, child)),
+  );
 }

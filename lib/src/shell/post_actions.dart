@@ -727,7 +727,7 @@ class _PostActionsState extends State<PostActions> {
       // Reuse that snapshot for this builder's first call, then read fresh
       // actions on notifications. A parent rebuild supplies a new snapshot.
       List<PostAction>? initialActions = snapshot.actions;
-      return ListenableBuilder(
+      return ForumTabListenableBuilder(
         listenable: rebuildOn,
         builder: (context, _) {
           final actions =

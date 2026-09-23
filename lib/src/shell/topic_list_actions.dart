@@ -104,26 +104,33 @@ class _TopicListFilterMenuState extends State<TopicListFilterMenu> {
   bool _loading = false;
   int _presetRevision = 0;
   ShellController? _shell;
+  String? _tabId;
   Object? _owner;
   bool _retired = false;
 
-  Object _ownerOf(ShellController shell) => (
-    shell.currentInstance?.url,
-    shell.currentAccountIdentity,
-    shell.lifecycle.capture(widget.siteUrl).session,
-    shell.rootMode,
-    shell.activeTabId,
-    shell.topicListContent?.id,
-    shell.topicListContent?.feedPath,
+  Object _ownerOf(ShellController shell) => shell.readTab(
+    _tabId,
+    () => (
+      shell.currentInstance?.url,
+      shell.currentAccountIdentity,
+      shell.lifecycle.capture(widget.siteUrl).session,
+      shell.rootMode,
+      shell.activeTabId,
+      shell.topicListContent?.id,
+      shell.topicListContent?.feedPath,
+    ),
   );
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     final shell = ShellScope.identityOf(context);
-    if (identical(shell, _shell)) return;
+    final tabId = ForumTabScope.idOf(context);
+    if (identical(shell, _shell) && tabId == _tabId) return;
     _shell?.removeListener(_checkOwner);
     _shell = shell;
+    _tabId = tabId;
+    _retired = false;
     _owner = _ownerOf(shell);
     shell.addListener(_checkOwner);
   }
@@ -157,6 +164,9 @@ class _TopicListFilterMenuState extends State<TopicListFilterMenu> {
       return;
     }
     _popover.close();
+    if (_tabId case final tabId? when shell.activeTabId != tabId) {
+      shell.selectTab(tabId);
+    }
     await (widget.onSubmitted ?? shell.submitTopicFilter)(query);
   }
 

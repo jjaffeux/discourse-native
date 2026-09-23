@@ -93,7 +93,7 @@ class _MainContentState extends State<MainContent> {
       select: (shell) => _MainContentSnapshot.from(shell),
       builder: (context, state, _) {
         final shell = ShellScope.read(context);
-        final port = ShellGroupPagesPort(shell);
+        final port = ShellGroupPagesPort(shell, tabId: state.activeTabId);
         final route = state.route;
         _groupPages.bind(
           port,
@@ -153,9 +153,14 @@ class _MainContentBody extends StatelessWidget {
   final GroupPagesPort groupPagesPort;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) =>
+      ForumTabScope.read(context, (_) => _buildPanel(context));
+
+  Widget _buildPanel(BuildContext context) {
     final theme = Theme.of(context);
-    final forumTabsEnabled = ShellScope.read(context).forumTabsEnabled;
+    final panelScoped = ForumTabScope.panelOf(context) != null;
+    final forumTabsEnabled =
+        ShellScope.read(context).forumTabsEnabled && !panelScoped;
 
     final route = state.route;
     if (route == null) {
@@ -163,12 +168,16 @@ class _MainContentBody extends StatelessWidget {
         color: ForumWindowBackground.surfaceColor(context, theme.shell.content),
       );
     }
-    final pluginContent = registry.content(context, route);
+    final pluginContent = ForumTabScope.read(
+      context,
+      (_) => registry.content(context, route),
+    );
     final pluginOwnsChrome = registry.ownsContentChrome(context, route);
     final sourceRoute = state.sourceRoute;
     if (pluginContent == null &&
         !pluginOwnsChrome &&
         sourceRoute != null &&
+        (!panelScoped || !route.isTopic) &&
         (!sourceRoute.isMessages || state.isConnected)) {
       return Material(
         type: context.isTouch && !ForumWindowBackground.isContinuous(context)
@@ -361,7 +370,7 @@ class _TopicInboxWorkspaceState extends State<_TopicInboxWorkspace> {
     BuildContext context,
   ) => ValueListenableBuilder<double>(
     valueListenable: _listWidth,
-    builder: (context, _, _) => LayoutBuilder(
+    builder: (context, _, _) => ForumTabLayoutBuilder(
       builder: (context, constraints) {
         final controller = ShellScope.read(context);
         final layout = widget.layout;
@@ -378,13 +387,16 @@ class _TopicInboxWorkspaceState extends State<_TopicInboxWorkspace> {
             ? 520.0
             : TopicPresentationController.minimumReaderWidth;
         final split =
+            ForumTabScope.panelOf(context) == null &&
             topicOpen &&
             wantsSplit &&
             constraints.maxWidth >=
                 (context.isTouch
                     ? 880
                     : _listWidth.minimumWidth + minimumTopicWidth);
-        controller.topicPanelsVisible = split;
+        if (ForumTabScope.panelOf(context) == null) {
+          controller.topicPanelsVisible = split;
+        }
         final maximumListWidth = (constraints.maxWidth - minimumTopicWidth)
             .clamp(_listWidth.minimumWidth, _listWidth.maximumWidth);
         final listWidth = split
@@ -534,9 +546,7 @@ class _TopicInboxWorkspaceState extends State<_TopicInboxWorkspace> {
                         key: ValueKey((
                           state.siteUrl,
                           controller.currentAccountIdentity,
-                          controller.desktopTopicTabs
-                              ? controller.listPanelTab?.id
-                              : controller.activeTabId,
+                          state.activeTabId,
                         )),
                         hidden: topicOpen && !split,
                         child: DPageSurface(
@@ -555,11 +565,10 @@ class _TopicInboxWorkspaceState extends State<_TopicInboxWorkspace> {
                           framed: !context.isTouch,
                           limitContentSize:
                               ContentSettingsScope.limitContentSizeOf(context),
-                          tabs: !topicOpen || split
-                              ? TopicPanelTabs(
-                                  reading: split ? false : null,
-                                  split: split,
-                                )
+                          tabs:
+                              ForumTabScope.panelOf(context) == null &&
+                                  (!topicOpen || split)
+                              ? const TopicPanelTabs()
                               : null,
                           footer: controller.mobileNavigationEnabled
                               ? null
@@ -653,10 +662,7 @@ class _TopicInboxWorkspaceState extends State<_TopicInboxWorkspace> {
                         framed: !context.isTouch,
                         limitContentSize:
                             ContentSettingsScope.limitContentSizeOf(context),
-                        tabs: TopicPanelTabs(
-                          reading: split ? true : null,
-                          split: split,
-                        ),
+                        tabs: const TopicPanelTabs(),
                         child: DesktopTopicPage(
                           sourceListVisible: split,
                           child: TopicView(
@@ -712,7 +718,7 @@ class _RetainedTopicListPaneState extends State<_RetainedTopicListPane> {
   }
 
   @override
-  Widget build(BuildContext context) => LayoutBuilder(
+  Widget build(BuildContext context) => ForumTabLayoutBuilder(
     builder: (context, constraints) {
       if (!widget.hidden || _visibleChild == null) {
         _visibleSize = constraints.biggest;
@@ -874,7 +880,8 @@ class _FeedBackedContent extends StatelessWidget {
     final controller = ShellScope.read(context);
     return _TopicFeedSelector<TopicFeed?>(
       controller: controller,
-      select: (controller) => controller.currentFeed,
+      select: (controller) =>
+          ForumTabScope.read(context, (shell) => shell.currentFeed),
       builder: (context, feed, _) {
         final Widget content;
         if (route.isMessages) {
@@ -965,7 +972,7 @@ class _ContentHeader extends StatelessWidget {
       decoration: BoxDecoration(
         border: Border(bottom: BorderSide(color: theme.shell.divider)),
       ),
-      child: LayoutBuilder(
+      child: ForumTabLayoutBuilder(
         builder: (context, constraints) {
           final carriesSearch =
               !controller.mobileNavigationEnabled &&
@@ -1212,9 +1219,11 @@ class _TopicListHeadingTitle extends StatelessWidget {
 
     final categoryId = this.categoryId;
     if (categoryId == null) {
-      final mode = ShellScope.of(context).currentTopicListMode;
-      return title(
-        mode == null ? pageTitle : '${TopicFeedMenu.label(mode)} topics',
+      return ShellSelector<TopicListMode?>(
+        select: (shell) => shell.currentTopicListMode,
+        builder: (context, mode, _) => title(
+          mode == null ? pageTitle : '${TopicFeedMenu.label(mode)} topics',
+        ),
       );
     }
     final siteUrl = this.siteUrl;
@@ -1492,13 +1501,23 @@ class _TopicFeedSelector<T> extends StatefulWidget {
 
 class _TopicFeedSelectorState<T> extends State<_TopicFeedSelector<T>> {
   late T _value;
+  String? _tabId;
+
+  T _read() =>
+      widget.controller.readTab(_tabId, () => widget.select(widget.controller));
 
   @override
   void initState() {
     super.initState();
-    _value = widget.select(widget.controller);
     widget.controller.topicFeeds.addListener(_select);
     widget.controller.addListener(_select);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _tabId = ForumTabScope.idOf(context);
+    _value = _read();
   }
 
   @override
@@ -1510,18 +1529,20 @@ class _TopicFeedSelectorState<T> extends State<_TopicFeedSelector<T>> {
       widget.controller.topicFeeds.addListener(_select);
       widget.controller.addListener(_select);
     }
-    _value = widget.select(widget.controller);
+    _value = _read();
   }
 
   void _select() {
-    final next = widget.select(widget.controller);
+    final next = _read();
     if (next == _value) return;
     setState(() => _value = next);
   }
 
   @override
-  Widget build(BuildContext context) =>
-      widget.builder(context, _value, widget.child);
+  Widget build(BuildContext context) => ForumTabScope.read(
+    context,
+    (_) => widget.builder(context, _value, widget.child),
+  );
 
   @override
   void dispose() {
