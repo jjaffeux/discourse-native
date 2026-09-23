@@ -6,6 +6,7 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/composer_upload.dart';
 import 'package:discourse_native/src/shell/composer_blocks.dart';
 import 'package:discourse_native/src/shell/composer_controller.dart';
+import 'package:discourse_native/src/shell/composer_image.dart';
 import 'package:discourse_native/src/shell/composer_list_editor.dart';
 import 'package:discourse_native/src/shell/composer_list_source.dart';
 import 'package:discourse_native/src/shell/composer_panel.dart';
@@ -31,7 +32,9 @@ Future<ComposerController> pumpEditor(
   String source, {
   TextStyle? textStyle,
   double scale = 1,
+  double width = 350,
   TargetPlatform platform = TargetPlatform.android,
+  ComposerImageUploader? imageUploader,
 }) async {
   final composer = ComposerController(
     const ComposerTarget(
@@ -40,6 +43,7 @@ Future<ComposerController> pumpEditor(
       slug: 'topic',
       topicTitle: 'Topic',
     ),
+    imageUploader: imageUploader,
   );
   composer.text.value = TextEditingValue(
     text: source,
@@ -53,7 +57,7 @@ Future<ComposerController> pumpEditor(
         body: MediaQuery(
           data: MediaQueryData(textScaler: TextScaler.linear(scale)),
           child: SizedBox(
-            width: 350,
+            width: width,
             height: 580,
             child: ComposerEditor(
               composer: composer,
@@ -79,6 +83,110 @@ List<ComposerListBodyController> bodies(WidgetTester tester) => tester
     .toList();
 
 void main() {
+  for (final font in [
+    'assets/fonts/OpenSans.ttf',
+    if (Platform.isMacOS) '/System/Library/Fonts/SFNS.ttf',
+  ]) {
+    for (final platform in [TargetPlatform.macOS, TargetPlatform.android]) {
+      for (final scale in [1.0, 2.0]) {
+        testWidgets(
+          'uploading an image preserves task text position and line spacing '
+          'with $font on ${platform.name} at $scale',
+          (tester) async {
+            await (FontLoader(font)..addFont(
+                  font.startsWith('assets/')
+                      ? rootBundle.load(font)
+                      : Future.value(
+                          ByteData.sublistView(File(font).readAsBytesSync()),
+                        ),
+                ))
+                .load();
+            final upload = Completer<ComposerUploadResult>();
+            final root = await pumpEditor(
+              tester,
+              '- [ ] Task',
+              platform: platform,
+              scale: scale,
+              width: scale == 2 ? 600 : 350,
+              textStyle: AppTheme.light.textTheme.bodyLarge!.copyWith(
+                fontFamily: font,
+              ),
+              imageUploader:
+                  (file, {required onProgress, required abortTrigger}) =>
+                      upload.future,
+            );
+            Rect textRect() {
+              final render = tester
+                  .state<EditableTextState>(editable(bodies(tester).single))
+                  .renderEditable;
+              render.selectionHeightStyle = BoxHeightStyle.tight;
+              final box = render
+                  .getBoxesForSelection(
+                    const TextSelection(baseOffset: 0, extentOffset: 4),
+                  )
+                  .first
+                  .toRect();
+              return MatrixUtils.transformRect(
+                render.getTransformTo(null),
+                box,
+              );
+            }
+
+            final before = textRect();
+            final checkboxBefore = tester.getRect(find.byType(DCheckbox));
+            final body = bodies(tester).single;
+            body.addImages([
+              ComposerUploadFile(
+                name: 'photo.png',
+                length: () async => 1,
+                openRead: () => Stream.value([1]),
+              ),
+            ], body.text.text.length);
+            await tester.pump();
+            final pending = textRect();
+            upload.complete(
+              const ComposerUploadResult(
+                id: 1,
+                originalFilename: 'photo.png',
+                shortUrl: 'upload://photo',
+                url: 'https://example.test/photo.png',
+                width: 100,
+                height: 80,
+              ),
+            );
+            await tester.pumpAndSettle();
+            final after = textRect();
+            final image = tester.getRect(find.byType(ComposerImagePreview));
+            final checkboxAfter = tester.getRect(find.byType(DCheckbox));
+            await tester.pumpWidget(const SizedBox());
+            expect(pending.top, closeTo(before.top, .1));
+            expect(after.top, closeTo(before.top, .1));
+            expect(after.left, closeTo(before.left, .1));
+            expect(after.size, before.size);
+            expect(checkboxAfter, checkboxBefore);
+            expect(image.left, closeTo(after.left, .1));
+            expect(image.top, greaterThanOrEqualTo(after.bottom));
+            expect(image.top - after.top, lessThanOrEqualTo(24 * scale));
+            expect(root.raw, '- [ ] Task\n  ![photo|100x80](upload://photo)');
+          },
+        );
+      }
+    }
+  }
+
+  testWidgets('task images retain explicitly authored blank lines', (
+    tester,
+  ) async {
+    const image = '![photo|100x80](upload://photo)';
+    final root = await pumpEditor(tester, '- [ ] Task\n  $image');
+    final compact = tester.getRect(find.byType(ComposerImagePreview));
+    root.text.text = '- [ ] Task\n\n  $image';
+    await tester.pumpAndSettle();
+    final separated = tester.getRect(find.byType(ComposerImagePreview));
+    expect(separated.top - compact.top, closeTo(24, .1));
+    expect(root.raw, '- [ ] Task\n\n  $image');
+  });
+
   testWidgets(
     'vertical arrows keep editing the task after Return splits its text',
     (tester) async {

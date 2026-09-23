@@ -3027,7 +3027,13 @@ class _ComposerEditorState extends State<ComposerEditor> {
     // Empty paragraphs can include more strut leading than filled ones.
     // Reserve the empty line so a one-line draft does not move the toolbar.
     final painter = TextPainter(
-      text: TextSpan(style: style),
+      text: TextSpan(
+        // Match the embedded editor's paragraph defaults. Extra minimum
+        // height centers a short field, then disappears when an image is added.
+        style: widget.composer.text.neutralEmptyParagraph
+            ? style.copyWith(height: 1)
+            : style,
+      ),
       strutStyle: StrutStyle.fromTextStyle(style, forceStrutHeight: false),
       textDirection: DDirection.of(context),
       textScaler: MediaQuery.textScalerOf(context),
