@@ -1783,6 +1783,49 @@ void main() {
     );
   }
 
+  for (final signedIn in [false, true]) {
+    testWidgets('empty topic footer collapses (signed in: $signedIn)', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(1200, 850);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final setup = await _controller(user: signedIn ? _user : null);
+      addTearDown(setup.controller.dispose);
+      await tester.pumpWidget(
+        ShellScope(
+          controller: setup.controller,
+          child: MaterialApp(
+            theme: AppTheme.dark.copyWith(platform: TargetPlatform.macOS),
+            home: const Scaffold(
+              body: MainContent(layout: ShellLayout.expanded),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final footer = find.byKey(const ValueKey('topic-list-bottom-bar'));
+      expect(footer, findsNothing);
+      if (signedIn) {
+        await setup.controller.selectTopicListMode(TopicListMode.newActivity);
+        await tester.pumpAndSettle();
+        expect(footer, findsOneWidget);
+        expect(
+          find.byKey(const ValueKey('dismiss-new-topics')),
+          findsOneWidget,
+        );
+        await setup.controller.selectTopicListMode(TopicListMode.latest);
+        await tester.pumpAndSettle();
+        expect(footer, findsNothing);
+      }
+      setup.controller.openTopicFromList(_latestTopic);
+      await tester.pumpAndSettle();
+      expect(footer, findsOneWidget);
+      expect(find.byKey(const ValueKey('inbox-next-topic')), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+  }
+
   test('signed-out readers cannot select personal topic lists', () async {
     final setup = await _controller(user: null);
     addTearDown(setup.controller.dispose);
@@ -1894,6 +1937,10 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
+      expect(
+        find.byKey(const ValueKey('topic-list-bottom-bar')),
+        findsOneWidget,
+      );
       final card = tester.getRect(find.byKey(const ValueKey('topic-card-1')));
       final filters = tester.getRect(
         find.byKey(const ValueKey('topic-list-filter-bar')),

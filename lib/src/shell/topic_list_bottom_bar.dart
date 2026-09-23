@@ -105,35 +105,42 @@ class TopicListBottomBar extends StatelessWidget {
   final double trailingInset;
 
   @override
-  Widget build(BuildContext context) => TopicListFooter(
-    trailingInset: trailingInset,
-    child: LayoutBuilder(
-      builder: (context, constraints) => Row(
-        mainAxisAlignment: MainAxisAlignment.start,
-        children: [
-          if (leading case final action?)
-            Expanded(
-              child: Align(
-                alignment: AlignmentDirectional.centerStart,
-                child: action,
+  Widget build(BuildContext context) => ListenableBuilder(
+    listenable: ShellScope.identityOf(context).topicFeeds,
+    builder: (context, _) {
+      final shell = ShellScope.of(context);
+      final topicOpen = shell.currentContent?.isTopic == true;
+      if (leading == null &&
+          !topicOpen &&
+          !DismissNewTopicsButton.isVisible(shell)) {
+        return const SizedBox.shrink();
+      }
+      return TopicListFooter(
+        trailingInset: trailingInset,
+        child: LayoutBuilder(
+          builder: (context, constraints) => Row(
+            mainAxisAlignment: MainAxisAlignment.start,
+            children: [
+              if (leading case final action?)
+                Expanded(
+                  child: Align(
+                    alignment: AlignmentDirectional.centerStart,
+                    child: action,
+                  ),
+                )
+              else
+                const Spacer(),
+              DismissNewTopicsButton(
+                compact:
+                    constraints.maxWidth <
+                    480 * MediaQuery.textScalerOf(context).scale(14) / 14,
               ),
-            )
-          else
-            const Spacer(),
-          DismissNewTopicsButton(
-            compact:
-                constraints.maxWidth <
-                480 * MediaQuery.textScalerOf(context).scale(14) / 14,
+              if (topicOpen) const TopicNavigationButtons(),
+            ],
           ),
-          ShellSelector<bool>(
-            select: (shell) => shell.currentContent?.isTopic == true,
-            builder: (context, topicOpen, _) => topicOpen
-                ? const TopicNavigationButtons()
-                : const SizedBox.shrink(),
-          ),
-        ],
-      ),
-    ),
+        ),
+      );
+    },
   );
 }
 
@@ -239,15 +246,18 @@ class DismissNewTopicsButton extends StatelessWidget {
 
   final bool compact;
 
+  static bool isVisible(ShellController shell) =>
+      (shell.currentTopicListMode == TopicListMode.newActivity ||
+          shell.currentTopicListMode == TopicListMode.newTopics ||
+          shell.currentTopicListMode == TopicListMode.newReplies) &&
+      (shell.canDismissNewTopics || shell.dismissingNewTopics);
+
   @override
   Widget build(BuildContext context) => ListenableBuilder(
     listenable: ShellScope.identityOf(context).topicFeeds,
     builder: (context, _) {
       final shell = ShellScope.of(context);
-      if (shell.currentTopicListMode != TopicListMode.newActivity &&
-              shell.currentTopicListMode != TopicListMode.newTopics &&
-              shell.currentTopicListMode != TopicListMode.newReplies ||
-          (!shell.canDismissNewTopics && !shell.dismissingNewTopics)) {
+      if (!isVisible(shell)) {
         return const SizedBox.shrink();
       }
       final label = switch (shell.currentTopicListMode) {
