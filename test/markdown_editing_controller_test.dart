@@ -293,6 +293,7 @@ void main() {
       required String source,
       required Finder component,
       required int Function(MarkdownEditingController) componentEnd,
+      bool sameLine = false,
     }) async {
       final componentController = MarkdownEditingController(text: source);
       addTearDown(componentController.dispose);
@@ -330,10 +331,17 @@ void main() {
         TextPosition(offset: componentEnd(componentController)),
       );
       final globalCaret = caret.shift(render.localToGlobal(Offset.zero));
-      expect(
-        globalCaret.top - tester.getRect(component).bottom,
-        inInclusiveRange(-render.preferredLineHeight, 40),
-      );
+      final componentRect = tester.getRect(component);
+      if (sameLine) {
+        expect(globalCaret.left, closeTo(componentRect.right, 1));
+        expect(globalCaret.top, lessThanOrEqualTo(componentRect.bottom));
+        expect(globalCaret.bottom, greaterThanOrEqualTo(componentRect.top));
+      } else {
+        expect(
+          globalCaret.top - componentRect.bottom,
+          inInclusiveRange(-render.preferredLineHeight, 40),
+        );
+      }
       expect(render.plainText.length, source.length);
     }
 
@@ -341,6 +349,7 @@ void main() {
       source: '![alt|320x180](upload://image)',
       component: find.byType(ComposerImagePreview),
       componentEnd: (controller) => controller.imageBlocks.single.end,
+      sameLine: true,
     );
     await verify(
       source: '[quote="sam"]\nquoted\n[/quote]',

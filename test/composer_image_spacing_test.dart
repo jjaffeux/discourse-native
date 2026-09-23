@@ -28,6 +28,38 @@ const _target = ComposerTarget(
 );
 
 void main() {
+  for (final gallery in [false, true]) {
+    testWidgets(
+      'a terminal ${gallery ? 'gallery' : 'image'} has no extra caret line',
+      (tester) async {
+        final source = gallery ? '[grid]\n$_image\n[/grid]' : _image;
+        final composer = ComposerController(_target);
+        addTearDown(composer.dispose);
+        composer.text.value = TextEditingValue(
+          text: source,
+          selection: TextSelection.collapsed(offset: source.length),
+        );
+        await _pumpEditor(tester, composer);
+        final render = tester
+            .state<EditableTextState>(find.byType(EditableText))
+            .renderEditable;
+        final height = render.size.height;
+        expect(render.plainText, isNot(contains('\n')));
+        expect(render.plainText.length, source.length);
+
+        composer.text.selectPillForKeyboard(
+          gallery
+              ? composer.text.galleryBlocks.single
+              : composer.text.imageBlocks.single,
+        );
+        await tester.pumpAndSettle();
+        expect(render.size.height, height);
+        expect(composer.raw, source);
+        await tester.pumpWidget(const SizedBox.shrink());
+      },
+    );
+  }
+
   testWidgets(
     'pasting images between paragraphs saves the visible line breaks',
     (tester) async {

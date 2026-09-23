@@ -1831,7 +1831,12 @@ class MarkdownEditingController extends TextEditingController {
           ),
         ),
       ),
-      ..._buildCollapsedBlockSourceTail(image.start, image.end, base),
+      ..._buildCollapsedBlockSourceTail(
+        image.start,
+        image.end,
+        base,
+        trailingCaretLine: image.end < text.length,
+      ),
     ];
   }
 
@@ -1895,20 +1900,27 @@ class MarkdownEditingController extends TextEditingController {
           ),
         ),
       ),
-      ..._buildCollapsedBlockSourceTail(gallery.start, gallery.end, base),
+      ..._buildCollapsedBlockSourceTail(
+        gallery.start,
+        gallery.end,
+        base,
+        trailingCaretLine: gallery.end < text.length,
+      ),
     ];
   }
 
   List<InlineSpan> _buildCollapsedBlockSourceTail(
     int start,
     int end,
-    TextStyle base,
-  ) => [
+    TextStyle base, {
+    bool trailingCaretLine = true,
+  }) => [
     // End the WidgetSpan's intrinsic-height line with one source code unit.
+    // A terminal image needs no extra caret line, even when unselected.
     // The remaining Markdown stays offset-preserving but layout-neutral, so
     // source length can never enlarge the component's editor hit region.
     TextSpan(
-      text: '\n',
+      text: trailingCaretLine ? '\n' : '\u200b',
       style: base.copyWith(color: const Color(0x00000000)),
     ),
     TextSpan(text: text.substring(start + 2, end), style: _hidden),

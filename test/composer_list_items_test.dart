@@ -187,6 +187,37 @@ void main() {
     expect(root.raw, '- [ ] Task\n\n  $image');
   });
 
+  testWidgets('selecting a task image does not move the following item', (
+    tester,
+  ) async {
+    const source =
+        '- [ ] Task\n  ![photo|100x80](upload://photo)\n'
+        '- [ ] Next\n  - Child';
+    final root = await pumpEditor(
+      tester,
+      source,
+      platform: TargetPlatform.macOS,
+    );
+    final image = find.byType(ComposerImagePreview);
+    final imageBefore = tester.getRect(image);
+    final nextBefore = tester.getRect(find.byType(DCheckbox).last);
+    final body = bodies(tester).first;
+    final bodyBefore = tester.getRect(editable(body));
+
+    await tester.tap(image);
+    await tester.pumpAndSettle();
+
+    expect(body.text.keyboardSelectedImage, isNotNull);
+    expect(tester.getRect(image), imageBefore);
+    expect(tester.getRect(find.byType(DCheckbox).last), nextBefore);
+    expect(bodyBefore.bottom, closeTo(imageBefore.bottom, .1));
+
+    bodies(tester)[1].requestFocus();
+    await tester.pumpAndSettle();
+    expect(tester.getRect(find.byType(DCheckbox).last), nextBefore);
+    expect(root.raw, source);
+  });
+
   testWidgets(
     'vertical arrows keep editing the task after Return splits its text',
     (tester) async {
