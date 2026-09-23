@@ -161,7 +161,11 @@ class MarkdownEditingController extends TextEditingController {
       final next = i + 1 < index.blocks.length ? index.blocks[i + 1] : null;
       final end = next?.start ?? text.length;
       final gap = text.substring(block.end, end);
-      if (gap != '\n' && gap != '\r\n') continue;
+      if (gap != '\n' &&
+          gap != '\r\n' &&
+          _paragraphBreakAt(block.end) == null) {
+        continue;
+      }
       if (componentStarts.contains(block.start)) {
         _spaceAfterComponents.add(block.start);
       } else if (next != null && componentStarts.contains(next.start)) {
@@ -1481,6 +1485,23 @@ class MarkdownEditingController extends TextEditingController {
       }
     }
 
+    final linePainter = TextPainter(
+      text: TextSpan(text: ' ', style: base),
+      strutStyle: StrutStyle.fromTextStyle(base, forceStrutHeight: false),
+      textDirection: Directionality.of(context),
+    )..layout();
+    final paragraphLine = linePainter.computeLineMetrics().single;
+    final paragraphGap = paragraphLine.height * .5;
+    // A top-aligned widget receives the strut's leading above its artwork.
+    // Include that same leading below it so visible block edges stay even.
+    final componentTrailingLeading = linePainter
+        .getBoxesForSelection(
+          const TextSelection(baseOffset: 0, extentOffset: 1),
+        )
+        .single
+        .top;
+    linePainter.dispose();
+
     final projections = <_SpanProjection>[
       for (final key in collapsedKeys)
         _SpanProjection(
@@ -1489,15 +1510,24 @@ class MarkdownEditingController extends TextEditingController {
           () => composerKeyboardSpans(source, key, base, theme),
         ),
       for (final separator in blockGaps)
-        if (!_componentGapStarts.contains(separator.start) &&
-            (composing == null ||
-                composing.end <= separator.start ||
-                composing.start >= separator.end))
+        if (composing == null ||
+            composing.end <= separator.start ||
+            composing.start >= separator.end)
           _SpanProjection(
             separator.start,
             separator.end,
             () => [
-              if (_isSingleLineBreak(separator)) ...[
+              if (_componentGapStarts.contains(separator.start)) ...[
+                // The component's padding owns the gap. Keep one line break
+                // and hide only the required blank line, preserving offsets
+                // and any additional empty paragraphs.
+                TextSpan(text: '\n', style: base),
+                if (separator.end - separator.start > 1)
+                  TextSpan(
+                    text: '\u200b' * (separator.end - separator.start - 1),
+                    style: _hidden,
+                  ),
+              ] else if (_isSingleLineBreak(separator)) ...[
                 // A full-width, zero-height placeholder occupies one strut
                 // line between blocks without adding characters to Markdown.
                 WidgetSpan(
@@ -1540,23 +1570,9 @@ class MarkdownEditingController extends TextEditingController {
                   alignment: PlaceholderAlignment.belowBaseline,
                   baseline: TextBaseline.alphabetic,
                   style: base,
-                  child: Builder(
-                    builder: (context) {
-                      final painter = TextPainter(
-                        text: TextSpan(text: ' ', style: base),
-                        strutStyle: StrutStyle.fromTextStyle(
-                          base,
-                          forceStrutHeight: false,
-                        ),
-                        textDirection: Directionality.of(context),
-                      )..layout();
-                      final line = painter.computeLineMetrics().single;
-                      painter.dispose();
-                      return SizedBox(
-                        width: 0,
-                        height: line.descent + line.height * .5,
-                      );
-                    },
+                  child: SizedBox(
+                    width: 0,
+                    height: paragraphLine.descent + paragraphGap,
                   ),
                 ),
                 if (separator.end - separator.start > 2)
@@ -1720,10 +1736,10 @@ class MarkdownEditingController extends TextEditingController {
                 spans: projection.build(),
                 padding: EdgeInsets.only(
                   top: _spaceBeforeComponents.contains(projection.start)
-                      ? (base.fontSize ?? 14) * (base.height ?? 1)
+                      ? paragraphGap
                       : 0,
                   bottom: _spaceAfterComponents.contains(projection.start)
-                      ? (base.fontSize ?? 14) * (base.height ?? 1)
+                      ? paragraphGap + componentTrailingLeading
                       : 0,
                 ),
                 // Real separators end the component line. A selected component or
