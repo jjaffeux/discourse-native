@@ -134,6 +134,38 @@ void main() {
     },
   );
 
+  test('deleting any part of a rendered todo removes its whole prefix', () {
+    const formatter = ComposerTodoInputFormatter();
+    for (final prefix in ['[ ] ', '[x] ', '[X] ', '[] ', '- [ ] ', '  [ ] ']) {
+      for (final lead in ['', 'Before\n']) {
+        final source = '${lead}${prefix}Keep\n[ ] Next';
+        for (
+          var offset = lead.length;
+          offset < lead.length + prefix.length;
+          offset++
+        ) {
+          for (final backwards in [false, true]) {
+            final old = TextEditingValue(
+              text: source,
+              selection: TextSelection.collapsed(
+                offset: offset + (backwards ? 1 : 0),
+              ),
+            );
+            final next = TextEditingValue(
+              text: source.replaceRange(offset, offset + 1, ''),
+              selection: TextSelection.collapsed(offset: offset),
+            );
+            expect(
+              formatter.formatEditUpdate(old, next),
+              valueAt('${lead}|Keep\n[ ] Next'),
+              reason: '$prefix at $offset, backwards: $backwards',
+            );
+          }
+        }
+      }
+    }
+  });
+
   test(
     'an empty checked item remains a movable to-do, not unclosed BBCode',
     () {
@@ -331,6 +363,24 @@ void main() {
     await tester.pumpAndSettle();
     expect(composer.text.text, 'Keep');
   });
+
+  testWidgets(
+    'Delete before the checkbox removes the todo and preserves text',
+    (tester) async {
+      final composer = await pump(tester);
+      await tester.enterText(find.byType(EditableText), '[ ] Keep\n[x] Next');
+      composer.text.selection = const TextSelection.collapsed(offset: 3);
+      composer.history.flush();
+      await tester.sendKeyEvent(LogicalKeyboardKey.delete);
+      await tester.pumpAndSettle();
+      expect(composer.text.value, valueAt('|Keep\n[x] Next'));
+      expect(find.byType(DCheckbox), findsOneWidget);
+      composer.history.undo();
+      await tester.pumpAndSettle();
+      expect(composer.text.text, '[ ] Keep\n[x] Next');
+      expect(find.byType(DCheckbox), findsNWidgets(2));
+    },
+  );
 
   testWidgets(
     'keyboard checkbox toggles undo individually and arrows skip source',
