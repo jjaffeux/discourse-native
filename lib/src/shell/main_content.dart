@@ -561,34 +561,61 @@ class _TopicInboxWorkspaceState extends State<_TopicInboxWorkspace> {
                               : null,
                           footer: controller.mobileNavigationEnabled
                               ? null
-                              : TopicListBottomBar(
-                                  leading: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Flexible(child: createAction),
-                                      if (context.isTouch &&
-                                          state.isConnected &&
-                                          state.siteUrl != null &&
-                                          sourceRoute.categoryId != null) ...[
-                                        const SizedBox(width: DSpacing.sm),
-                                        CategoryNotificationLevelButton(
-                                          siteUrl: state.siteUrl!,
-                                          categoryId: sourceRoute.categoryId!,
-                                          showLabel:
-                                              listWidth >=
-                                              440 * buttonTextScale,
-                                        ),
-                                      ],
-                                    ],
-                                  ),
-                                  // The footer padding already clears the desktop handle.
-                                  trailingInset: split
-                                      ? DResizableHandle.resolveHitExtent(
-                                              context,
-                                              8,
-                                            ) -
-                                            topicBottomBarPadding.horizontal / 2
-                                      : 0,
+                              : ShellSelector<bool>(
+                                  select: (shell) {
+                                    final instance = shell.currentInstance;
+                                    final canCreate = messages
+                                        ? instance?.isConnected == true &&
+                                              instance
+                                                      ?.user
+                                                      ?.canSendPrivateMessages ==
+                                                  true
+                                        : shell.canCreateTopicFromList;
+                                    final canWatchCategory =
+                                        context.isTouch &&
+                                        instance?.isConnected == true &&
+                                        state.siteUrl != null &&
+                                        sourceRoute.categoryId != null;
+                                    return canCreate || canWatchCategory;
+                                  },
+                                  builder: (context, hasLeading, _) =>
+                                      TopicListBottomBar(
+                                        leading: !hasLeading
+                                            ? null
+                                            : Row(
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: [
+                                                  Flexible(child: createAction),
+                                                  if (context.isTouch &&
+                                                      state.isConnected &&
+                                                      state.siteUrl != null &&
+                                                      sourceRoute.categoryId !=
+                                                          null) ...[
+                                                    const SizedBox(
+                                                      width: DSpacing.sm,
+                                                    ),
+                                                    CategoryNotificationLevelButton(
+                                                      siteUrl: state.siteUrl!,
+                                                      categoryId: sourceRoute
+                                                          .categoryId!,
+                                                      showLabel:
+                                                          listWidth >=
+                                                          440 * buttonTextScale,
+                                                    ),
+                                                  ],
+                                                ],
+                                              ),
+                                        // The footer padding already clears the desktop handle.
+                                        trailingInset: split
+                                            ? DResizableHandle.resolveHitExtent(
+                                                    context,
+                                                    8,
+                                                  ) -
+                                                  topicBottomBarPadding
+                                                          .horizontal /
+                                                      2
+                                            : 0,
+                                      ),
                                 ),
                           child: _FeedBackedContent(
                             route: sourceRoute,

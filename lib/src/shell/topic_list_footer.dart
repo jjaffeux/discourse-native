@@ -21,7 +21,12 @@ class TopicSourceFooter extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final shell = ShellScope.maybeOf(context);
-    if (shell == null) return const SizedBox.shrink();
+    if (shell == null ||
+        (!chooseForum &&
+            !shell.canCreateTopicFromSidebar &&
+            shell.currentContent?.isTopic != true)) {
+      return const SizedBox.shrink();
+    }
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: Row(
