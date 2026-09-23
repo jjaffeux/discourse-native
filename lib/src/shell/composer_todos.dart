@@ -167,7 +167,7 @@ class ComposerTodoMarker extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         DCheckbox(
-          alignment: AlignmentDirectional.centerStart,
+          inline: true,
           value: checked,
           semanticLabel: label.isEmpty ? 'To-do' : label,
           readOnly: onChanged == null,

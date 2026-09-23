@@ -191,7 +191,9 @@ void main() {
     addTearDown(composer.dispose);
     await tester.pumpWidget(
       MaterialApp(
-        theme: dark ? AppTheme.dark : AppTheme.light,
+        theme: (dark ? AppTheme.dark : AppTheme.light).copyWith(
+          platform: TargetPlatform.macOS,
+        ),
         home: Scaffold(
           body: MediaQuery(
             data: MediaQueryData(textScaler: TextScaler.linear(scale)),
@@ -215,7 +217,7 @@ void main() {
     return composer;
   }
 
-  testWidgets('todo artwork aligns with ordinary composer text', (
+  testWidgets('todo artwork aligns with text and uses the standard label gap', (
     tester,
   ) async {
     final composer = await pump(tester);
@@ -243,6 +245,17 @@ void main() {
         closeTo(textStart, 0.1),
       );
     }
+    final firstArtwork = tester.getRect(artwork.first);
+    final contentStart = editable.localToGlobal(
+      editable
+          .getBoxesForSelection(
+            const TextSelection(baseOffset: 14, extentOffset: 15),
+          )
+          .first
+          .toRect()
+          .topLeft,
+    );
+    expect(contentStart.dx - firstArtwork.right, closeTo(8, 0.1));
     await tester.tap(find.byType(DCheckbox).first);
     await tester.pump();
     expect(composer.text.text, 'Paragraph\n[x] Open\n[x] Done');
