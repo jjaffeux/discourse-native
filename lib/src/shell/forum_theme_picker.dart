@@ -18,6 +18,8 @@ class ForumThemePicker extends StatelessWidget {
     required this.onChanged,
     this.forumPalette,
     this.onDelete,
+    this.onForumDefault,
+    this.isForumDefault = false,
   });
 
   final ForumTheme palette;
@@ -25,6 +27,8 @@ class ForumThemePicker extends StatelessWidget {
   final List<ForumTheme> customThemes;
   final ValueChanged<ForumTheme> onChanged;
   final ForumTheme? forumPalette;
+  final VoidCallback? onForumDefault;
+  final bool isForumDefault;
   final ValueChanged<ForumTheme>? onDelete;
 
   @override
@@ -82,10 +86,15 @@ class ForumThemePicker extends StatelessWidget {
                     variant: DItemVariant.outline,
                     shape: DItemShape.card,
                     size: DItemSize.sm,
-                    selected: palette.id == theme.id,
+                    selected: theme.id == forumPalette?.id
+                        ? isForumDefault
+                        : !isForumDefault && palette.id == theme.id,
                     selectionStyle: DItemSelectionStyle.outline,
                     showSelectionIndicator: false,
-                    onPressed: () => onChanged(theme),
+                    onPressed:
+                        theme.id == forumPalette?.id && onForumDefault != null
+                        ? onForumDefault
+                        : () => onChanged(theme),
                     cornerAction: owned && onDelete != null
                         ? DButton.iconOnly(
                             key: ValueKey(('delete-theme', theme.id)),

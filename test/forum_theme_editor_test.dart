@@ -183,7 +183,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(
       shell.forumSettings.themesFor(_site),
-      ForumThemePreferences(useCustomTheme: true),
+      ForumThemePreferences.defaults,
     );
     expect(find.text('Your themes'), findsNothing);
     expect(tester.takeException(), isNull);
@@ -505,7 +505,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(shell.forumSettings.themesFor(_site).font, ForumFont.lato);
     final before = shell.forumSettings.themesFor(_site);
-    final reset = find.text('Default forum theme');
+    final reset = find.text('Forum default');
     await tester.ensureVisible(reset);
     await tester.tap(reset);
     await tester.pumpAndSettle();
@@ -514,10 +514,12 @@ void main() {
     expect(preferences.palettes, before.palettes);
     expect(preferences.background, before.background);
     expect(preferences.effectiveFont, ForumFont.system);
-    expect(find.byKey(const ValueKey('appearance-theme-select')), findsNothing);
-    await tester.tap(find.text('Custom theme'));
-    await tester.pumpAndSettle();
-    expect(shell.forumSettings.themesFor(_site), before);
+    expect(
+      find.byKey(const ValueKey('appearance-theme-select')),
+      findsOneWidget,
+    );
+    await preset(tester, 'Solarized');
+    expect(shell.forumSettings.themesFor(_site).useCustomTheme, isTrue);
     expect(preferences.font, ForumFont.lato);
     expect(preferences.customThemes, hasLength(1));
     expect(

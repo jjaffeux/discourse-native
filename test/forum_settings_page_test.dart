@@ -7,26 +7,28 @@ import 'package:flutter_test/flutter_test.dart';
 import 'support/theme_settings.dart';
 
 void main() {
-  testWidgets('default theme hides editing and palette tabs keep System mode', (
+  testWidgets('default theme shows editing and palette tabs keep System mode', (
     tester,
   ) async {
     final shell = controller();
     addTearDown(shell.dispose);
-    await pumpSettings(tester, shell, customize: false);
+    await pumpSettings(tester, shell);
     expect(find.byKey(const ValueKey('appearance-mode')), findsOneWidget);
-    expect(find.byKey(const ValueKey('appearance-theme-select')), findsNothing);
-    expect(find.text('Font'), findsNothing);
+    expect(find.byKey(const ValueKey('theme-source')), findsNothing);
+    expect(find.text('Font'), findsOneWidget);
+    expect(
+      tester
+          .widget<DItem>(find.byKey(const ValueKey(('theme-preset', 'forum'))))
+          .selected,
+      isTrue,
+    );
     expect(find.text('Reset to forum theme'), findsNothing);
     expect(find.text('Follow system appearance'), findsNothing);
-    await tester.tap(find.text('Custom theme'));
-    await tester.pumpAndSettle();
     final tabs = find.byKey(const ValueKey('appearance-theme-select'));
     expect(tabs, findsOneWidget);
     expect(
       tester.getTopLeft(find.byKey(const ValueKey('appearance-mode'))).dy,
-      lessThan(
-        tester.getTopLeft(find.byKey(const ValueKey('theme-source'))).dy,
-      ),
+      lessThan(tester.getTopLeft(tabs).dy),
     );
     await tester.ensureVisible(tabs);
     await tester.tap(find.descendant(of: tabs, matching: find.text('Dark')));

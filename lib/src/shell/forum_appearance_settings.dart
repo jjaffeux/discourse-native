@@ -32,6 +32,9 @@ class _ForumAppearanceSettingsState extends State<ForumAppearanceSettings> {
       ShellScope.identityOf(context).forumSettings;
 
   Map<Brightness, ForumTheme> _palettes(ForumThemePreferences preferences) {
+    if (!preferences.useCustomTheme) {
+      preferences = ForumThemePreferences.defaults;
+    }
     final forum = ShellScope.identityOf(
       context,
     ).siteAppearanceFor(widget.siteUrl);
@@ -53,6 +56,7 @@ class _ForumAppearanceSettingsState extends State<ForumAppearanceSettings> {
     ForumThemePreferences preferences,
     Brightness mode,
   ) {
+    if (!preferences.useCustomTheme) return const ForumBackground.appearance();
     final background =
         preferences.background ?? preferences.themeFor(mode)?.background;
     if (background == null) return const ForumBackground.appearance();
@@ -85,7 +89,9 @@ class _ForumAppearanceSettingsState extends State<ForumAppearanceSettings> {
     ForumThemePreferences preferences,
     Brightness mode,
   ) {
-    var result = preferences;
+    var result = preferences.useCustomTheme
+        ? preferences
+        : ForumThemePreferences(customThemes: preferences.customThemes);
     for (final palette in _palettes(preferences).values) {
       result = result.withPalette(palette);
     }
@@ -94,7 +100,7 @@ class _ForumAppearanceSettingsState extends State<ForumAppearanceSettings> {
 
   void _removeTheme(String id) {
     var preferences = settings.themesFor(widget.siteUrl);
-    if (preferences.selectedId == id) {
+    if (preferences.useCustomTheme && preferences.selectedId == id) {
       for (final palette in _palettes(preferences).values) {
         preferences = preferences.withPalette(palette);
       }
@@ -194,119 +200,101 @@ class _ForumAppearanceSettingsState extends State<ForumAppearanceSettings> {
                     );
                   },
                 ),
-                DToggleGroup<bool>(
-                  key: const ValueKey('theme-source'),
-                  values: [preferences.useCustomTheme],
-                  allowEmptySelection: false,
-                  inset: true,
-                  expanded: true,
-                  semanticLabel: 'Theme',
-                  items: const [
-                    DToggleGroupItem(
-                      value: false,
-                      child: Text('Default forum theme'),
+                ForumThemeEditor(
+                  palettes: _palettes(preferences),
+                  isForumDefault: !preferences.useCustomTheme,
+                  onForumDefault: () =>
+                      unawaited(_save(preferences.withCustomTheme(false))),
+                  forumPalettes: _palettes(ForumThemePreferences.defaults),
+                  background: _background(preferences, brightness),
+                  brightness: brightness,
+                  customThemes: preferences.customThemes,
+                  onBrightnessChanged: (value) =>
+                      setState(() => _editingBrightness = value),
+                  onChanged: (palette) => unawaited(
+                    _save(
+                      _seed(
+                        settings.themesFor(widget.siteUrl),
+                        brightness,
+                      ).withPalette(palette),
                     ),
-                    DToggleGroupItem(value: true, child: Text('Custom theme')),
-                  ],
-                  onChanged: (values) => unawaited(
-                    _save(preferences.withCustomTheme(values.single)),
+                  ),
+                  onBackgroundChanged: (background) => unawaited(
+                    _save(
+                      _seed(
+                        settings.themesFor(widget.siteUrl),
+                        brightness,
+                      ).withBackground(background),
+                    ),
+                  ),
+                  onDelete: _removeTheme,
+                  onSave: (theme) async {
+                    final current = settings.themesFor(widget.siteUrl);
+                    await settings.setThemes(
+                      widget.siteUrl,
+                      ForumThemePreferences(
+                        useCustomTheme: current.useCustomTheme,
+                        selectedId: current.selectedId,
+                        customThemes: [...current.customThemes, theme],
+                        font: current.font,
+                        palettes: current.palettes,
+                        background: current.background,
+                      ),
+                    );
+                  },
+                ),
+                SettingsSection(
+                  title: 'Font',
+                  icon: const Icon(Icons.text_fields),
+                  child: DItemGroup(
+                    spacing: 0,
+                    children: [
+                      for (final font in ForumFont.values) ...[
+                        if (font != ForumFont.values.first)
+                          const DItemSeparator(),
+                        DItem(
+                          key: ValueKey('appearance-font-${font.name}'),
+                          selected: preferences.effectiveFont == font,
+                          shape: DItemShape.fullWidth,
+                          selectionStyle: DItemSelectionStyle.leadingAccent,
+                          onPressed: () => unawaited(
+                            _save(
+                              _seed(preferences, brightness).withFont(font),
+                            ),
+                          ),
+                          children: [
+                            DItemContent(
+                              children: [
+                                Text(
+                                  font.label,
+                                  style: Theme.of(context).textTheme.bodySmall,
+                                ),
+                                Text(
+                                  'The quick brown fox jumps over the lazy dog.',
+                                  style: Theme.of(context).textTheme.bodyLarge!
+                                      .copyWith(
+                                        fontFamily:
+                                            font.family ??
+                                            ThemeData(
+                                              platform: Theme.of(
+                                                context,
+                                              ).platform,
+                                            ).textTheme.bodyLarge!.fontFamily,
+                                        fontFamilyFallback:
+                                            forumFontFamilyFallback(
+                                              font.family,
+                                            ) ??
+                                            const [],
+                                      ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ],
+                    ],
                   ),
                 ),
-                if (preferences.useCustomTheme) ...[
-                  ForumThemeEditor(
-                    palettes: _palettes(preferences),
-                    forumPalettes: _palettes(ForumThemePreferences.defaults),
-                    background: _background(preferences, brightness),
-                    brightness: brightness,
-                    customThemes: preferences.customThemes,
-                    onBrightnessChanged: (value) =>
-                        setState(() => _editingBrightness = value),
-                    onChanged: (palette) => unawaited(
-                      _save(
-                        _seed(
-                          settings.themesFor(widget.siteUrl),
-                          brightness,
-                        ).withPalette(palette),
-                      ),
-                    ),
-                    onBackgroundChanged: (background) => unawaited(
-                      _save(
-                        _seed(
-                          settings.themesFor(widget.siteUrl),
-                          brightness,
-                        ).withBackground(background),
-                      ),
-                    ),
-                    onDelete: _removeTheme,
-                    onSave: (theme) async {
-                      final current = settings.themesFor(widget.siteUrl);
-                      await settings.setThemes(
-                        widget.siteUrl,
-                        ForumThemePreferences(
-                          useCustomTheme: current.useCustomTheme,
-                          selectedId: current.selectedId,
-                          customThemes: [...current.customThemes, theme],
-                          font: current.font,
-                          palettes: current.palettes,
-                          background: current.background,
-                        ),
-                      );
-                    },
-                  ),
-                  SettingsSection(
-                    title: 'Font',
-                    icon: const Icon(Icons.text_fields),
-                    child: DItemGroup(
-                      spacing: 0,
-                      children: [
-                        for (final font in ForumFont.values) ...[
-                          if (font != ForumFont.values.first)
-                            const DItemSeparator(),
-                          DItem(
-                            key: ValueKey('appearance-font-${font.name}'),
-                            selected: preferences.font == font,
-                            shape: DItemShape.fullWidth,
-                            selectionStyle: DItemSelectionStyle.leadingAccent,
-                            onPressed: () =>
-                                unawaited(_save(preferences.withFont(font))),
-                            children: [
-                              DItemContent(
-                                children: [
-                                  Text(
-                                    font.label,
-                                    style: Theme.of(
-                                      context,
-                                    ).textTheme.bodySmall,
-                                  ),
-                                  Text(
-                                    'The quick brown fox jumps over the lazy dog.',
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .bodyLarge!
-                                        .copyWith(
-                                          fontFamily:
-                                              font.family ??
-                                              ThemeData(
-                                                platform: Theme.of(
-                                                  context,
-                                                ).platform,
-                                              ).textTheme.bodyLarge!.fontFamily,
-                                          fontFamilyFallback:
-                                              forumFontFamilyFallback(
-                                                font.family,
-                                              ) ??
-                                              const [],
-                                        ),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-                ],
               ],
             ),
           ),

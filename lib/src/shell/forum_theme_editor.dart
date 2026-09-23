@@ -23,6 +23,8 @@ class ForumThemeEditor extends StatefulWidget {
     required this.onBackgroundChanged,
     required this.onBrightnessChanged,
     this.onDelete,
+    this.onForumDefault,
+    this.isForumDefault = false,
     this.forumPalettes = const {},
   });
 
@@ -36,6 +38,8 @@ class ForumThemeEditor extends StatefulWidget {
   final ValueChanged<ForumBackground> onBackgroundChanged;
   final ValueChanged<Brightness> onBrightnessChanged;
   final ValueChanged<String>? onDelete;
+  final VoidCallback? onForumDefault;
+  final bool isForumDefault;
 
   @override
   State<ForumThemeEditor> createState() => _ForumThemeEditorState();
@@ -117,6 +121,8 @@ class _ForumThemeEditorState extends State<ForumThemeEditor> {
           child: ForumThemePicker(
             key: const ValueKey('theme-preset'),
             palette: palette,
+            isForumDefault: widget.isForumDefault,
+            onForumDefault: widget.onForumDefault,
             background: background,
             forumPalette: widget.forumPalettes[widget.brightness],
             customThemes: widget.customThemes,

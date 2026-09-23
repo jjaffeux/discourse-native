@@ -24,7 +24,6 @@ ShellController controller() => ShellController(
 Future<void> pumpSettings(
   WidgetTester tester,
   ShellController shell, {
-  bool customize = true,
   double width = 960,
   double scale = 1,
   TargetPlatform platform = TargetPlatform.macOS,
@@ -77,8 +76,4 @@ Future<void> pumpSettings(
     ),
   );
   await tester.pumpAndSettle();
-  if (customize && !shell.forumSettings.themesFor(_site).useCustomTheme) {
-    await tester.tap(find.text('Custom theme'));
-    await tester.pumpAndSettle();
-  }
 }

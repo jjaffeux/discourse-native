@@ -201,6 +201,18 @@ All 23 editor, settings-page and appearance-background tests passed, including
 name validation, cancellation, both saved palettes and clipboard activation.
 Root static analysis passed.
 
+### Remove redundant theme source toggle — September 24, 2026
+
+The Default forum theme / Custom theme toggle is removed. The editor is always
+visible, and the Forum default thumbnail is selected when personal appearance
+is inactive. Selecting that thumbnail restores the actual forum appearance,
+including its font and background, without deleting saved themes. Editing from
+the default seeds current forum colours instead of restoring suspended edits.
+The appearance controls remain at the top and palette tabs remain in Colours.
+
+All 48 editor, settings-page, background and app-theme tests passed. Root static
+analysis passed.
+
 ### Stable text under Gradient — September 24, 2026
 
 Gradient now paints behind the workspace content instead of overlay-blending
