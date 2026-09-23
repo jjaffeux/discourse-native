@@ -196,11 +196,13 @@ class _MainContentBody extends StatelessWidget {
       );
     }
     final pageOwnsTitle =
-        pluginContent == null &&
         state.siteUrl != null &&
-        (route.isGroups ||
-            (route.isBadges && (route.badgeRoute?.isDirectory ?? true)) ||
-            (route.id == 'user-bookmarks' && state.isConnected));
+        (pluginContent != null
+            ? registry.ownsContentPageTitle(context, route)
+            : route.isGroups ||
+                  route.isUsers ||
+                  (route.isBadges && (route.badgeRoute?.isDirectory ?? true)) ||
+                  (route.id == 'user-bookmarks' && state.isConnected));
     final hideDirectoryHeader =
         pageOwnsTitle &&
         !state.canPop &&

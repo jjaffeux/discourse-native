@@ -1950,6 +1950,12 @@ final class PluginRegistry
             plugin.ownsContentChrome(_uiContext(context, plugin), route),
       );
 
+  bool ownsContentPageTitle(BuildContext context, ContentRoute route) =>
+      plugins.whereType<ContentPageTitlePlugin>().any(
+        (plugin) =>
+            plugin.ownsContentPageTitle(_uiContext(context, plugin), route),
+      );
+
   List<Widget> contentHeaderActions(BuildContext context, ContentRoute route) =>
       [
         for (final plugin in plugins.whereType<ContentHeaderPlugin>())
