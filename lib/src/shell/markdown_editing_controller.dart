@@ -80,11 +80,25 @@ class MarkdownEditingController extends TextEditingController {
   final bool enableBlockSeparators;
   String? _separatorSource;
   List<TextRange> _separators = const [];
+  List<TextRange> _blockGaps = const [];
+  final _componentGapStarts = <int>{};
+  final _spaceBeforeComponents = <int>{};
+  final _spaceAfterComponents = <int>{};
+
+  /// Structural spacing between blocks, including single-newline boundaries.
+  List<TextRange> get blockGaps {
+    _updateBlockGaps();
+    return _blockGaps;
+  }
 
   /// Required Markdown paragraph boundaries, excluding additional empty lines.
   List<TextRange> get blockSeparators {
-    if (!enableBlockSeparators) return const [];
-    if (_separatorSource == text) return _separators;
+    _updateBlockGaps();
+    return _separators;
+  }
+
+  void _updateBlockGaps() {
+    if (!enableBlockSeparators || _separatorSource == text) return;
     _separatorSource = text;
     final index = ComposerBlockIndex.parse(
       text,
@@ -111,8 +125,40 @@ class MarkdownEditingController extends TextEditingController {
           else if (text.startsWith('\n\n', block.end))
             TextRange(start: block.end, end: block.end + 2),
     ];
-    return _separators;
+    _blockGaps = [
+      for (final (i, block) in index.blocks.indexed)
+        if (text.startsWith('\r\n\r\n', block.end))
+          TextRange(start: block.end, end: block.end + 4)
+        else if (text.startsWith('\n\n', block.end))
+          TextRange(start: block.end, end: block.end + 2)
+        else if (i + 1 < index.blocks.length)
+          if (text.startsWith('\r\n', block.end))
+            TextRange(start: block.end, end: block.end + 2)
+          else if (text.startsWith('\n', block.end))
+            TextRange(start: block.end, end: block.end + 1),
+    ];
+    _componentGapStarts.clear();
+    _spaceBeforeComponents.clear();
+    _spaceAfterComponents.clear();
+    final componentStarts = index.atoms.map((atom) => atom.start).toSet();
+    for (final (i, block) in index.blocks.indexed) {
+      final next = i + 1 < index.blocks.length ? index.blocks[i + 1] : null;
+      final end = next?.start ?? text.length;
+      final gap = text.substring(block.end, end);
+      if (gap != '\n' && gap != '\r\n') continue;
+      if (componentStarts.contains(block.start)) {
+        _spaceAfterComponents.add(block.start);
+      } else if (next != null && componentStarts.contains(next.start)) {
+        _spaceBeforeComponents.add(next.start);
+      } else {
+        continue;
+      }
+      _componentGapStarts.add(block.end);
+    }
   }
+
+  bool _isSingleLineBreak(TextRange range) =>
+      range.end - range.start == (text.startsWith('\r\n', range.start) ? 2 : 1);
 
   ValueChanged<TextEditingValue>? onTodoChanged;
   String? _todoSource;
@@ -239,13 +285,27 @@ class MarkdownEditingController extends TextEditingController {
         newValue.selection.isCollapsed &&
         newValue.composing.isCollapsed) {
       final offset = newValue.selection.extentOffset;
-      for (final separator in blockSeparators) {
+      for (final separator in blockGaps) {
+        final gapWraps =
+            _isSingleLineBreak(separator) &&
+            !_componentGapStarts.contains(separator.start);
         if (offset > separator.start && offset < separator.end) {
+          final before = offset < current.selection.extentOffset;
           newValue = newValue.copyWith(
             selection: TextSelection.collapsed(
-              offset: offset < current.selection.extentOffset
-                  ? separator.start
-                  : separator.end,
+              offset: before ? separator.start : separator.end,
+              affinity: before && gapWraps
+                  ? TextAffinity.upstream
+                  : TextAffinity.downstream,
+            ),
+          );
+          break;
+        }
+        if (offset == separator.start && gapWraps) {
+          newValue = newValue.copyWith(
+            selection: TextSelection.collapsed(
+              offset: offset,
+              affinity: TextAffinity.upstream,
             ),
           );
           break;
@@ -393,9 +453,13 @@ class MarkdownEditingController extends TextEditingController {
       }
       if (caret <= contentEnd) continue;
       final gap = text.substring(contentEnd, caret);
+      final isBlockGap = blockGaps.any(
+        (range) => range.start == contentEnd && range.end == caret,
+      );
       if (gap.isNotEmpty &&
           gap != '\n' &&
           gap != '\r\n' &&
+          !isBlockGap &&
           !(caret == end && gap.trim().isEmpty)) {
         continue;
       }
@@ -406,7 +470,9 @@ class MarkdownEditingController extends TextEditingController {
       value = TextEditingValue(
         text: lineIsEmpty && gap.isNotEmpty
             ? text.replaceRange(
-                caret - (gap.endsWith('\r\n') ? 2 : 1),
+                isBlockGap
+                    ? contentEnd
+                    : caret - (gap.endsWith('\r\n') ? 2 : 1),
                 caret,
                 '',
               )
@@ -1358,20 +1424,48 @@ class MarkdownEditingController extends TextEditingController {
     }
 
     final projections = <_SpanProjection>[
-      for (final separator in blockSeparators)
-        if (composing == null ||
-            composing.end <= separator.start ||
-            composing.start >= separator.end)
+      for (final separator in blockGaps)
+        if (!_componentGapStarts.contains(separator.start) &&
+            (composing == null ||
+                composing.end <= separator.start ||
+                composing.start >= separator.end))
           _SpanProjection(
             separator.start,
             separator.end,
             () => [
-              // Keep source offsets stable and give the trailing empty
-              // paragraph the same metrics as its first typed character.
-              TextSpan(
-                text: '\n${'\u200b' * (separator.end - separator.start - 1)}',
-                style: base,
-              ),
+              if (_isSingleLineBreak(separator)) ...[
+                // A full-width, zero-height placeholder occupies one strut
+                // line between blocks without adding characters to Markdown.
+                WidgetSpan(
+                  alignment: PlaceholderAlignment.baseline,
+                  baseline: TextBaseline.alphabetic,
+                  style: base,
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      final caretMargin =
+                          (context
+                                  .findAncestorWidgetOfExactType<EditableText>()
+                                  ?.cursorWidth ??
+                              2) +
+                          1;
+                      return SizedBox(
+                        width: (constraints.maxWidth - caretMargin).clamp(
+                          0,
+                          double.infinity,
+                        ),
+                        height: 0,
+                      );
+                    },
+                  ),
+                ),
+                if (separator.end - separator.start > 1)
+                  const TextSpan(text: '\u200b', style: _hidden),
+              ] else
+                // The blank line is visible spacing, not an empty block.
+                TextSpan(
+                  text: source.substring(separator.start, separator.end),
+                  style: base,
+                ),
             ],
             normalizeSource: false,
           ),
@@ -1524,6 +1618,14 @@ class MarkdownEditingController extends TextEditingController {
             ? normalizeCollapsedComponentSourceSpans(
                 source: source.substring(projection.start, projection.end),
                 spans: projection.build(),
+                padding: EdgeInsets.only(
+                  top: _spaceBeforeComponents.contains(projection.start)
+                      ? (base.fontSize ?? 14) * (base.height ?? 1)
+                      : 0,
+                  bottom: _spaceAfterComponents.contains(projection.start)
+                      ? (base.fontSize ?? 14) * (base.height ?? 1)
+                      : 0,
+                ),
                 // Real separators end the component line. A selected component or
                 // an explicit boundary caret also needs no virtual trailing line.
                 suppressSyntheticLineBreaks:

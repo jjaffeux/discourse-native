@@ -140,7 +140,9 @@ void main() {
         'before blank line',
         'Before\n\nAfter',
         6,
-        'Before\n$block\nTyped\nAfter',
+        gallery
+            ? 'Before\n$block\n\nTypedAfter'
+            : 'Before\n$block\nTyped\nAfter',
       ),
     ]) {
       testWidgets('typing after ${gallery ? 'gallery' : 'image'} at $label', (

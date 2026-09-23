@@ -108,7 +108,7 @@ void main() {
   }
 
   for (final newline in ['\n', '\r\n']) {
-    testWidgets('Enter creates one compact, atomic boundary ($newline)', (
+    testWidgets('Enter creates a visible, atomic block gap ($newline)', (
       tester,
     ) async {
       final before = newline == '\n' ? 'First' : 'Earlier\r\nsoft\r\n\r\nFirst';
@@ -139,9 +139,8 @@ void main() {
       final next = render.getLocalRectForCaret(TextPosition(offset: end));
       expect(
         next.top - first.top,
-        greaterThanOrEqualTo(render.preferredLineHeight),
+        closeTo(render.preferredLineHeight * 2, .01),
       );
-      expect(next.top - first.top, lessThan(render.preferredLineHeight * 2));
 
       await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
       expect(composer.text.selection.extentOffset, before.length);
@@ -179,6 +178,140 @@ void main() {
     await tester.sendKeyEvent(LogicalKeyboardKey.delete);
     expect(composer.raw, 'FirstSecond');
   });
+
+  for (final mobile in [false, true]) {
+    if (mobile) {
+      testWidgets('on-screen Enter creates a paragraph gap', (tester) async {
+        composer.text.value = const TextEditingValue(
+          text: 'First',
+          selection: TextSelection.collapsed(offset: 5),
+        );
+        await mount(tester, mobile: mobile);
+        await tester.showKeyboard(find.byType(EditableText));
+        tester.testTextInput.updateEditingValue(
+          const TextEditingValue(
+            text: 'First\n',
+            selection: TextSelection.collapsed(offset: 6),
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(composer.text.text, 'First\n\n');
+        expect(composer.text.selection.extentOffset, 7);
+        final render = tester
+            .state<EditableTextState>(find.byType(EditableText))
+            .renderEditable;
+        expect(
+          render.getLocalRectForCaret(const TextPosition(offset: 7)).top -
+              render.getLocalRectForCaret(const TextPosition(offset: 0)).top,
+          closeTo(render.preferredLineHeight * 2, .01),
+        );
+      });
+    }
+    for (final textScale in [1.0, 2.0]) {
+      testWidgets(
+        'soft lines stay inside spaced blocks ($mobile, $textScale)',
+        (tester) async {
+          composer.text.value = const TextEditingValue(
+            text: 'First',
+            selection: TextSelection.collapsed(offset: 5),
+          );
+          await mount(tester, mobile: mobile, textScale: textScale);
+          composer.focus.requestFocus();
+          await tester.pump();
+          await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+          await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+          await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+          await tester.pumpAndSettle();
+          expect(composer.text.text, 'First\n');
+          expect(composer.blocks.index.blocks, hasLength(1));
+          await tester.enterText(find.byType(EditableText), 'First\nsoft');
+          final render = tester
+              .state<EditableTextState>(find.byType(EditableText))
+              .renderEditable;
+          final first = render.getLocalRectForCaret(
+            const TextPosition(offset: 0),
+          );
+          final soft = render.getLocalRectForCaret(
+            const TextPosition(offset: 6),
+          );
+          expect(
+            soft.top - first.top,
+            closeTo(render.preferredLineHeight, .01),
+          );
+          await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+          await tester.pumpAndSettle();
+          final empty = render.getLocalRectForCaret(
+            TextPosition(offset: composer.text.text.length),
+          );
+          expect(
+            empty.top - soft.top,
+            closeTo(render.preferredLineHeight * 2, .01),
+          );
+          await tester.enterText(
+            find.byType(EditableText),
+            'First\nsoft\n\nNext',
+          );
+          await tester.pumpAndSettle();
+          expect(composer.blocks.index.blocks.map((block) => block.source), [
+            'First\nsoft',
+            'Next',
+          ]);
+          final next = render.getLocalRectForCaret(
+            const TextPosition(offset: 12),
+          );
+          expect(next.top, closeTo(empty.top, .01));
+        },
+      );
+    }
+  }
+
+  for (final newline in ['\n', '\r\n']) {
+    testWidgets(
+      'single-newline blocks have a gap without changing Markdown ($newline)',
+      (tester) async {
+        final source =
+            'First$newline## Heading$newline[ ] Task$newline[ ] Another';
+        composer.text.value = TextEditingValue(
+          text: source,
+          selection: const TextSelection.collapsed(offset: 0),
+        );
+        await mount(tester);
+        final surface = tester.widget<ComposerBlockSurface>(
+          find.byType(ComposerBlockSurface),
+        );
+        final render = tester
+            .state<EditableTextState>(find.byType(EditableText))
+            .renderEditable;
+        final blocks = composer.blocks.index.blocks;
+        expect(blocks, hasLength(4));
+        for (var i = 1; i < blocks.length; i++) {
+          final before = surface.blockRect(blocks[i - 1])!;
+          final after = surface.blockRect(blocks[i])!;
+          expect(
+            after.top - before.bottom,
+            greaterThanOrEqualTo(render.preferredLineHeight * .9),
+          );
+          expect(
+            surface.emptyLineAt(
+              Offset(after.left, (before.bottom + after.top) / 2),
+            ),
+            isNull,
+          );
+        }
+        composer.focus.requestFocus();
+        composer.text.selection = TextSelection.collapsed(
+          offset: blocks[1].start,
+        );
+        await tester.pump();
+        await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+        expect(composer.text.selection.extentOffset, blocks.first.end);
+        expect(composer.text.selection.affinity, TextAffinity.upstream);
+        await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+        expect(composer.text.selection.extentOffset, blocks[1].start);
+        expect(composer.text.text, source);
+      },
+    );
+  }
 
   for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
     testWidgets('mobile long press moves a block on $platform', (tester) async {
