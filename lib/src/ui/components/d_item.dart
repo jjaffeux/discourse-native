@@ -46,6 +46,7 @@ class DItem extends StatefulWidget {
     this.autofocus = false,
     this.semanticLabel,
     this.padding,
+    this.cornerAction,
   });
 
   final List<Widget> children;
@@ -87,6 +88,12 @@ class DItem extends StatefulWidget {
   /// Explicit composition override, e.g. zero inside a menu-owned hit target.
   final EdgeInsetsGeometry? padding;
 
+  /// An independent control in the top trailing corner, usually a small Button.
+  /// Hover or focus within the item reveals it immediately. Touch platforms and
+  /// accessible navigation keep it visible. Its focus, semantics and state stay
+  /// mounted while hidden. Reserve this corner in the header's content.
+  final Widget? cornerAction;
+
   @override
   State<DItem> createState() => _DItemState();
 }
@@ -97,6 +104,7 @@ class _DItemState extends State<DItem> {
   bool _hover = false;
   bool _pressed = false;
   bool _focusVisible = false;
+  bool _focusWithin = false;
   bool get _active => widget.enabled && widget.onPressed != null;
 
   @override
@@ -258,7 +266,31 @@ class _DItemState extends State<DItem> {
         ),
       ),
     );
-    if (widget.onPressed != null || widget.link) {
+    if (widget.cornerAction case final action?) {
+      final showAction =
+          _hover ||
+          _focusWithin ||
+          DControlStyle.isTouch(context) ||
+          MediaQuery.accessibleNavigationOf(context);
+      result = Stack(
+        fit: StackFit.passthrough,
+        children: [
+          result,
+          PositionedDirectional(
+            top: DSpacing.sm,
+            end: DSpacing.sm,
+            child: Opacity(
+              opacity: showAction ? 1 : 0,
+              alwaysIncludeSemantics: true,
+              child: action,
+            ),
+          ),
+        ],
+      );
+    }
+    if (widget.onPressed != null ||
+        widget.link ||
+        widget.cornerAction != null) {
       // Pointer hover remains visible while the app suppresses keyboard focus
       // rings. FocusableActionDetector's hover highlight follows that policy.
       result = MouseRegion(
@@ -291,6 +323,9 @@ class _DItemState extends State<DItem> {
       );
       result = Focus(
         canRequestFocus: false,
+        onFocusChange: widget.cornerAction == null
+            ? null
+            : (value) => setState(() => _focusWithin = value),
         onKeyEvent: (_, event) {
           // Descendant controls own their keystrokes, including Space/Return.
           if (!_active || !_focus.hasPrimaryFocus) {
