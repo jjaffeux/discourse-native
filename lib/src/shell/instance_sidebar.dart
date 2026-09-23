@@ -736,6 +736,7 @@ class ForumIdentityHeader extends StatelessWidget {
         : Colors.black;
     final logo = DAvatar.frame(
       key: const ValueKey('forum-identity-logo'),
+      border: false,
       borderRadius: BorderRadius.circular(6),
       child: AvatarImage(
         url: iconUrl,
