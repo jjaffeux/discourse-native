@@ -5050,7 +5050,7 @@
         }
       },
       "crossSectionDrag": {
-        "status": "verified",
+        "status": "merged",
         "taskId": "01a0ce4e-0728-79f1-aa0a-18a7cfd777f8",
         "branch": "codex/sidebar-cross-section-drag",
         "dependencies": [
@@ -5065,8 +5065,11 @@
         "verification": [
           "97 focused sidebar tests passed; flutter analyze --no-pub clean; offline macOS build passed.",
           "Native production transfers into empty/collapsed sections and styleguide dark 200% RTL transfers verified using isolated fake-account fixture.",
-          "Details and known unrelated control-adoption baseline failure: docs/sidebar-link-reordering.md."
-        ]
+          "Details and known unrelated control-adoption baseline failure: docs/sidebar-link-reordering.md.",
+          "Merged main: all 32 drag tests passed again; flutter analyze --no-pub clean."
+        ],
+        "implementationCommit": "71f6aa200df63b1ae1da3e49dcfc6dd0d12e19d2",
+        "mergeCommit": "76d21dde5ac43d07c773ef6dbee6ee7be1d3d566"
       }
     },
     {
