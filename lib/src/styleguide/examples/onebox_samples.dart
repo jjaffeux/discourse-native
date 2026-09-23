@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/widgets.dart';
 
 import '../../plugin_api/plugin_registry.dart';
@@ -9,6 +11,7 @@ import '../../plugins/local_dates/local_date_environment.dart';
 import '../../plugins/local_dates/local_dates_cooked_time_parser.dart';
 import '../../shell/cooked_html.dart';
 import 'onebox_event_sample.dart';
+import 'onebox_provider_samples.dart';
 
 @immutable
 class OneboxSample {
@@ -294,6 +297,53 @@ final oneboxSamples = <OneboxSample>[
         OneboxSampleState(state.label, (_) => OneboxEventSample(state: state)),
     ],
   ),
+  OneboxSample(
+    id: 'audio',
+    name: 'Audio file',
+    keywords: 'mp3 ogg opus wav m4a sound',
+    description: 'Direct audio with Native playback and seek controls.',
+    states: [
+      _cooked(
+        'Audio',
+        '<audio controls title="Sample recording"><source src="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3"></audio>',
+      ),
+      _cooked(
+        'Unavailable',
+        '<audio controls title="Unavailable recording" src="https://example.invalid/missing.mp3"></audio>',
+      ),
+    ],
+  ),
+  OneboxSample(
+    id: 'asciinema',
+    name: 'Asciinema',
+    keywords: 'terminal recording cast script',
+    description: 'A terminal recording, translated to its provider iframe.',
+    states: [
+      _cooked(
+        'Recording',
+        '<script src="https://asciinema.org/a/8332.js" id="asciicast-8332" async></script>',
+      ),
+    ],
+  ),
+  for (final provider in oneboxProviderSamples.entries)
+    OneboxSample(
+      id: 'embed-${provider.key}',
+      name: provider.key,
+      keywords: 'embed iframe provider',
+      description:
+          'Core iframe markup with on-demand loading. Some sample IDs are illustrative and may show provider errors.',
+      states: [
+        if (provider.key == 'Vimeo' || provider.key == 'TikTok')
+          _cooked(
+            'Lazy video',
+            '<div class="${provider.key.toLowerCase()}-onebox lazy-video-container" data-provider-name="${provider.key.toLowerCase()}" data-video-id="${provider.key == 'Vimeo' ? '76979871' : '6718335390845095173'}" data-video-title="${provider.key}"></div>',
+          ),
+        _cooked(
+          'Embed',
+          '<iframe src="${htmlEscape.convert(provider.value)}" title="${provider.key}" width="640" height="400"></iframe>',
+        ),
+      ],
+    ),
 ];
 
 String _box(String classes, String url, String body, {String? siteName}) =>

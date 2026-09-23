@@ -9,9 +9,11 @@ import '../cooked_html.dart';
 import '../image_decode.dart';
 import '../open_link.dart';
 import '../site_image.dart';
+import 'audio.dart';
 import 'discourse/category/block.dart';
 import 'discourse/topic/block.dart';
 import 'discourse/user/block.dart';
+import 'embedded.dart';
 import 'markup.dart';
 import 'reddit.dart';
 import 'twitter.dart';
@@ -66,20 +68,39 @@ class OneboxData {
     final thumbImg = descendantWhere(article, _isThumbnail);
     final thumbnail = thumbImg == null ? null : OneboxThumbnail.from(thumbImg);
 
-    // Serialize the rest of the body rather than removing nodes from it: the
-    // document belongs to the caller's [HtmlWidget], not to us.
-    final claimed = {
-      if (titleEl != null) _topLevelAncestor(article, titleEl),
-      if (thumbImg != null) _topLevelAncestor(article, thumbImg),
-    };
-    final bodyHtml = article.nodes
-        .where((node) => !claimed.contains(node))
-        .map(_serialize)
-        .join()
-        .trim();
+    // Remove only the extracted nodes from a clone. Several core templates
+    // put the title, image and description in one shared wrapper.
+    final body = article.clone(true);
+    final originalElements = article.querySelectorAll('*');
+    final clonedElements = body.querySelectorAll('*');
+    for (final claimed in [titleEl, if (thumbnail != null) thumbImg]) {
+      if (claimed == null) continue;
+      final index = originalElements.indexOf(claimed);
+      if (index < 0) continue;
+      dom.Element node = clonedElements[index];
+      while (node.parent != body &&
+          node.parent is dom.Element &&
+          (node.parent!).children.length == 1 &&
+          node.parent!.nodes.whereType<dom.Text>().every(
+            (text) => text.text.trim().isEmpty,
+          )) {
+        node = node.parent!;
+      }
+      node.remove();
+    }
+    final metadata = aside.children.where(
+      (element) => element.classes.contains('onebox-metadata'),
+    );
+    final bodyHtml = [
+      body.innerHtml,
+      ...metadata.map((e) => e.outerHtml),
+    ].join().trim();
 
     return OneboxData(
-      url: aside.attributes['data-onebox-src'] ?? titleLink?.attributes['href'],
+      url:
+          aside.attributes['data-onebox-src'] ??
+          titleLink?.attributes['href'] ??
+          siteLink?.attributes['href'],
       siteIcon: iconImg?.attributes['src'],
       siteName: siteLink?.text.trim().nullIfEmpty,
       title: titleEl?.text.trim().nullIfEmpty,
@@ -92,27 +113,8 @@ class OneboxData {
   static bool _isThumbnail(dom.Element e) {
     if (e.localName != 'img') return false;
     if (e.classes.contains('thumbnail')) return true;
-    return !e.classes.any(
-      const {
-        'avatar',
-        'emoji',
-        'onebox-avatar-inline',
-        'site-icon',
-        'favicon',
-      }.contains,
-    );
+    return e.classes.contains('onebox-avatar');
   }
-
-  static dom.Node _topLevelAncestor(dom.Element root, dom.Element node) {
-    dom.Node current = node;
-    while (current.parent != null && current.parent != root) {
-      current = current.parent!;
-    }
-    return current;
-  }
-
-  static String _serialize(dom.Node node) =>
-      node is dom.Element ? node.outerHtml : (node.text ?? '');
 }
 
 class OneboxThumbnail {
@@ -175,8 +177,16 @@ final List<OneboxEngine> _engines = [
 ];
 
 Widget? oneboxWidgetBuilder(dom.Element element, {String? siteUrl}) {
+  final audio = audioOneboxWidgetBuilder(element, siteUrl: siteUrl);
+  if (audio != null) return audio;
   if (element.localName == 'iframe') {
-    return redditOneboxWidgetBuilder(element, siteUrl: siteUrl);
+    if (element.classes.contains('reddit-onebox')) {
+      return redditOneboxWidgetBuilder(element, siteUrl: siteUrl);
+    }
+    return embeddedOneboxWidgetBuilder(element, siteUrl: siteUrl);
+  }
+  if (element.localName == 'script') {
+    return embeddedOneboxWidgetBuilder(element, siteUrl: siteUrl);
   }
   if (element.localName != 'aside') return null;
   if (!element.classes.contains('onebox')) return null;

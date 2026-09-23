@@ -7,14 +7,17 @@ import 'package:discourse_native/src/plugins/discourse_github/oneboxes/pr/block.
 import 'package:discourse_native/src/shell/code_block.dart';
 import 'package:discourse_native/src/shell/cooked_html.dart';
 import 'package:discourse_native/src/shell/inline_video.dart';
+import 'package:discourse_native/src/shell/oneboxes/audio.dart';
 import 'package:discourse_native/src/shell/oneboxes/discourse/category/block.dart';
 import 'package:discourse_native/src/shell/oneboxes/discourse/topic/block.dart';
 import 'package:discourse_native/src/shell/oneboxes/discourse/user/block.dart';
+import 'package:discourse_native/src/shell/oneboxes/embedded.dart';
 import 'package:discourse_native/src/shell/oneboxes/onebox.dart';
 import 'package:discourse_native/src/shell/oneboxes/twitter.dart';
 import 'package:discourse_native/src/shell/quote.dart';
 import 'package:discourse_native/src/shell/youtube_video.dart';
 import 'package:discourse_native/src/styleguide/examples/onebox_examples.dart';
+import 'package:discourse_native/src/styleguide/examples/onebox_provider_samples.dart';
 import 'package:discourse_native/src/styleguide/examples/onebox_samples.dart';
 import 'package:discourse_native/src/styleguide/styleguide_page.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
@@ -25,7 +28,11 @@ import 'package:webview_all/webview_all.dart';
 
 import '../support/fake_media_webview.dart';
 
-const _renderers = <String, Type>{
+final _renderers = <String, Type>{
+  'audio': AudioOnebox,
+  'asciinema': EmbeddedOnebox,
+  for (final provider in oneboxProviderSamples.keys)
+    'embed-$provider': EmbeddedOnebox,
   'generic': OneboxCard,
   'discourse-topic': DiscourseTopicOnebox,
   'discourse-local-topic': QuoteBlock,

@@ -1,5 +1,5 @@
 import 'dart:async';
-import 'dart:convert' show htmlEscape;
+import 'dart:convert' show htmlEscape, jsonDecode;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -24,8 +24,10 @@ final class InlineVideoPlaybackRequest {
     required this.siteUrl,
     required this.credentials,
     required this.lifecycle,
+    this.audioOnly = false,
   });
 
+  final bool audioOnly;
   final Uri source;
   final String title;
   final String? posterUrl;
@@ -259,7 +261,9 @@ final class _NativeInlineVideoPlaybackSession
       InlineVideoPlaybackState(
         phase: InlineVideoPlaybackPhase.ready,
         aspectRatio: ratio,
-        playerBuilder: _controllerLease!.playerBuilder,
+        playerBuilder: request.audioOnly
+            ? null
+            : _controllerLease!.playerBuilder,
         isPlaying: value.isPlaying,
         isBuffering: value.isBuffering,
         position: value.position,
@@ -402,6 +406,10 @@ final class _WebViewInlineVideoPlaybackSession
       _videoBridgeName,
       onMessageReceived: (message) {
         if (!_isCurrent(controller)) return;
+        if (request.audioOnly && message.message.startsWith('{')) {
+          _audioState(message.message);
+          return;
+        }
         switch (message.message) {
           case 'play':
             _publishReady(isPlaying: true);
@@ -442,10 +450,18 @@ final class _WebViewInlineVideoPlaybackSession
     if (!_isCurrent(controller)) return;
     _publishReady(isPlaying: false);
     await controller.loadHtmlString(
-      buildInlineVideoHtml(source.url, posterUrl: request.posterUrl),
+      request.audioOnly
+          ? buildInlineAudioHtml(source.url)
+          : buildInlineVideoHtml(source.url, posterUrl: request.posterUrl),
       baseUrl: _originOf(source.url).toString(),
     );
-    if (!_isCurrent(controller)) unawaited(_pauseIgnoringErrors(controller));
+    if (!_isCurrent(controller)) {
+      unawaited(
+        request.audioOnly
+            ? _releaseAudioController(controller)
+            : _pauseIgnoringErrors(controller),
+      );
+    }
   }
 
   bool _isCurrent(WebViewController controller) =>
@@ -461,6 +477,9 @@ final class _WebViewInlineVideoPlaybackSession
         playerBuilder: _playerBuilder,
         isPlaying: isPlaying,
         isBuffering: _loadingDocument,
+        showAppControls: request.audioOnly,
+        position: state.position,
+        duration: state.duration,
       ),
     );
   }
@@ -470,7 +489,11 @@ final class _WebViewInlineVideoPlaybackSession
     final controller = _controller;
     if (controller == null || !_isCurrent(controller)) return;
     try {
-      await controller.runJavaScript(_playVideoScript);
+      await controller.runJavaScript(
+        request.audioOnly
+            ? "document.querySelector('audio')?.play().catch(() => DiscourseVideo.postMessage('error'));"
+            : _playVideoScript,
+      );
     } on Object catch (error, stackTrace) {
       _fail(error, stackTrace, 'video.webview.controls');
     }
@@ -485,7 +508,48 @@ final class _WebViewInlineVideoPlaybackSession
   }
 
   @override
-  Future<void> seekTo(Duration position) async {}
+  Future<void> seekTo(Duration position) async {
+    final controller = _controller;
+    if (!request.audioOnly || controller == null || !_isCurrent(controller)) {
+      return;
+    }
+    final seconds =
+        position.inMilliseconds.clamp(0, state.duration.inMilliseconds) / 1000;
+    try {
+      await controller.runJavaScript(
+        "document.querySelector('audio').currentTime = $seconds;",
+      );
+    } on Object catch (error, stackTrace) {
+      _fail(error, stackTrace, 'audio.webview.seek');
+    }
+  }
+
+  void _audioState(String message) {
+    if (message.length > 1024) return;
+    try {
+      final data = jsonDecode(message);
+      if (data is! Map<String, dynamic>) return;
+      Duration duration(Object? value) =>
+          value is num && value.isFinite && value >= 0
+          ? Duration(
+              milliseconds: (value.toDouble().clamp(0, 1e9) * 1000).round(),
+            )
+          : Duration.zero;
+      replaceState(
+        InlineVideoPlaybackState(
+          phase: InlineVideoPlaybackPhase.ready,
+          aspectRatio: 1,
+          playerBuilder: _playerBuilder,
+          showAppControls: true,
+          isPlaying: data['playing'] == true,
+          position: duration(data['position']),
+          duration: duration(data['duration']),
+        ),
+      );
+    } on FormatException {
+      /* Ignore non-state messages. */
+    }
+  }
 
   void _fail(Object error, StackTrace stackTrace, String operation) {
     if (isDisposed || state.phase == InlineVideoPlaybackPhase.failed) return;
@@ -494,9 +558,23 @@ final class _WebViewInlineVideoPlaybackSession
 
   Future<void> _pauseIgnoringErrors(WebViewController controller) async {
     try {
-      await controller.runJavaScript(_pauseVideoScript);
+      await controller.runJavaScript(
+        request.audioOnly
+            ? "document.querySelector('audio')?.pause();"
+            : _pauseVideoScript,
+      );
     } on Object {
       // The owned document may not exist yet during replacement or teardown.
+    }
+  }
+
+  Future<void> _releaseAudioController(WebViewController controller) async {
+    await _pauseIgnoringErrors(controller);
+    try {
+      await controller.removeJavaScriptChannel(_videoBridgeName);
+      await controller.loadHtmlString('<!doctype html><html></html>');
+    } on Object {
+      // The platform may already have retired this view.
     }
   }
 
@@ -509,7 +587,13 @@ final class _WebViewInlineVideoPlaybackSession
     final controller = _controller;
     _controller = null;
     _playerBuilder = null;
-    if (controller != null) unawaited(_pauseIgnoringErrors(controller));
+    if (controller != null) {
+      unawaited(
+        request.audioOnly
+            ? _releaseAudioController(controller)
+            : _pauseIgnoringErrors(controller),
+      );
+    }
   }
 }
 
@@ -575,6 +659,27 @@ video.addEventListener('play', () => notify('play'));
 video.addEventListener('error', () => notify('error'));
 </script>
 </body></html>''';
+}
+
+/// The hidden Linux transport exposes state to the Native audio controls.
+String buildInlineAudioHtml(Uri source) {
+  final safeSource = requireSafeHttpUrl(source);
+  final escaped = htmlEscape.convert(safeSource.toString());
+  final mediaSources =
+      'https: ${safeSource.scheme == 'http' ? safeSource.origin : ''}';
+  return '''<!doctype html><html><head>
+<meta name="referrer" content="no-referrer">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; media-src $mediaSources; script-src 'unsafe-inline'">
+</head><body><audio src="$escaped" preload="metadata"></audio>
+<script>
+const audio = document.querySelector('audio');
+const send = () => $_videoBridgeName.postMessage(JSON.stringify({
+  playing: !audio.paused, position: audio.currentTime,
+  duration: Number.isFinite(audio.duration) ? audio.duration : 0
+}));
+for (const event of ['loadedmetadata','durationchange','timeupdate','play','pause','ended']) audio.addEventListener(event, send);
+audio.addEventListener('error', () => $_videoBridgeName.postMessage('error'));
+</script></body></html>''';
 }
 
 const _videoBridgeName = 'DiscourseVideo';

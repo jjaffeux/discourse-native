@@ -1,0 +1,112 @@
+[
+  {
+    "template": "allowlistedgeneric",
+    "html": "<aside class=\"onebox allowlistedgeneric\" data-onebox-src=\"https://example.com/allowlistedgeneric\">\n  <header class=\"source\">\n\n      <a href=\"https://example.com/allowlistedgeneric\" target=\"_blank\" rel=\"noopener\">Example</a>\n  </header>\n\n  <article class=\"onebox-body\">\n    <img width=\"\" height=\"\" src=\"https://example.com/content.png\" class=\"thumbnail\" alt=\"\"/>\n\n<h3><a href=\"https://example.com/allowlistedgeneric\" target=\"_blank\" rel=\"noopener\">Example allowlistedgeneric</a></h3>\n\n  <p>Description for allowlistedgeneric</p>\n      <p>Average Rating: 4/5</p>\n\n  <p>\n    <span class=\"label1\">: 12</span>\n      <span class=\"label2\">: 34</span>\n  </p>\n\n  </article>\n\n  <div class=\"onebox-metadata\">\n    <span style=\"float: left;\">Price: $12</span>\n    \n  </div>\n\n  <div style=\"clear: both\"></div>\n</aside>\n",
+    "title": "Example allowlistedgeneric"
+  },
+  {
+    "template": "amazon",
+    "html": "<aside class=\"onebox amazon\" data-onebox-src=\"https://example.com/amazon\">\n  <header class=\"source\">\n\n      <a href=\"https://example.com/amazon\" target=\"_blank\" rel=\"noopener\">Example</a>\n  </header>\n\n  <article class=\"onebox-body\">\n    <img src=\"https://example.com/content.png\" class=\"thumbnail\">\n\n<h3><a href=\"https://example.com/amazon\" target=\"_blank\" rel=\"noopener\">Example amazon</a></h3>\n\n<b>Author</b>\n\n<p>Description for amazon</p>\n\n<p>\n  4/5\n  ISBN: 123, \n  Publisher, \n  2026\n  <strong>$12</strong>\n</p>\n\n  </article>\n\n  <div class=\"onebox-metadata\">\n    <span style=\"float: left;\">Price: $12</span>\n    \n  </div>\n\n  <div style=\"clear: both\"></div>\n</aside>\n",
+    "title": "Example amazon"
+  },
+  {
+    "template": "githubactions",
+    "html": "<aside class=\"onebox githubactions\" data-onebox-src=\"https://example.com/githubactions\">\n  <header class=\"source\">\n\n      <a href=\"https://example.com/githubactions\" target=\"_blank\" rel=\"noopener\">Example</a>\n  </header>\n\n  <article class=\"onebox-body\">\n    <div class=\"github-row\">\n  <div class=\"github-icon-container\" title=\"Commit\">\n      <svg width=\"24\" height=\"24\" class=\"github-icon github-icon-success\" viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path fill-rule=\"evenodd\" d=\"M1 12C1 5.925 5.925 1 12 1s11 4.925 11 11-4.925 11-11 11S1 18.075 1 12zm16.28-2.72a.75.75 0 00-1.06-1.06l-5.97 5.97-2.47-2.47a.75.75 0 00-1.06 1.06l3 3a.75.75 0 001.06 0l6.5-6.5z\"></path></svg>\n\n\n\n  </div>\n\n  <div class=\"github-info-container\">\n    <h4>\n      <a href=\"https://example.com/githubactions\" target=\"_blank\" rel=\"noopener\">Example githubactions</a>\n    </h4>\n\n      <div class=\"github-info\">\n        Build <span class=\"github-run-number\">#42</span>\n      </div>\n  </div>\n</div>\n\n  </article>\n\n  <div class=\"onebox-metadata\">\n    <span style=\"float: left;\">Price: $12</span>\n    \n  </div>\n\n  <div style=\"clear: both\"></div>\n</aside>\n",
+    "title": "Example githubactions"
+  },
+  {
+    "template": "githubblob",
+    "html": "<aside class=\"onebox githubblob\" data-onebox-src=\"https://example.com/githubblob\">\n  <header class=\"source\">\n\n      <a href=\"https://example.com/githubblob\" target=\"_blank\" rel=\"noopener\">Example</a>\n  </header>\n\n  <article class=\"onebox-body\">\n    <h4><a href=\"https://example.com/githubblob\" target=\"_blank\" rel=\"noopener\">Example githubblob</a></h4>\n\n<div class=\"git-blob-info\">\n  <a href=\"https://example.com/githubblob\" rel=\"noopener\"><code>abc1234</code></a>\n</div>\n\n\n      <pre><code class=\"dart\">print(&quot;hello&quot;);</code></pre>\n\n\n\n\n  </article>\n\n  <div class=\"onebox-metadata\">\n    <span style=\"float: left;\">Price: $12</span>\n    \n  </div>\n\n  <div style=\"clear: both\"></div>\n</aside>\n",
+    "title": "Example githubblob"
+  },
+  {
+    "template": "githubfolder",
+    "html": "<aside class=\"onebox githubfolder\" data-onebox-src=\"https://example.com/githubfolder\">\n  <header class=\"source\">\n\n      <a href=\"https://example.com/githubfolder\" target=\"_blank\" rel=\"noopener\">Example</a>\n  </header>\n\n  <article class=\"onebox-body\">\n    <h3><a href=\"https://example.com/githubfolder\" target=\"_blank\" rel=\"noopener\">Example githubfolder</a></h3>\n\n  <p><a href=\"https://example.com/githubfolder\" target=\"_blank\" rel=\"noopener\">src/main.dart</a></p>\n\n  <p><span class=\"label1\">Description for githubfolder</span></p>\n\n  </article>\n\n  <div class=\"onebox-metadata\">\n    <span style=\"float: left;\">Price: $12</span>\n    \n  </div>\n\n  <div style=\"clear: both\"></div>\n</aside>\n",
+    "title": "Example githubfolder"
+  },
+  {
+    "template": "githubgist",
+    "html": "<aside class=\"onebox githubgist\" data-onebox-src=\"https://example.com/githubgist\">\n  <header class=\"source\">\n\n      <a href=\"https://example.com/githubgist\" target=\"_blank\" rel=\"noopener\">Example</a>\n  </header>\n\n  <article class=\"onebox-body\">\n    <h4><a href=\"https://example.com/githubgist\" target=\"_blank\" rel=\"noopener\">https://example.com/githubgist</a></h4>\n\n  <h5>hello.dart</h5>\n  <pre><code class=\"dart\">print(&quot;hello&quot;);</code></pre>\n\n\n  </article>\n\n  <div class=\"onebox-metadata\">\n    <span style=\"float: left;\">Price: $12</span>\n    \n  </div>\n\n  <div style=\"clear: both\"></div>\n</aside>\n",
+    "title": "Example githubgist"
+  },
+  {
+    "template": "githubrepo",
+    "html": "<aside class=\"onebox githubrepo\" data-onebox-src=\"https://example.com/githubrepo\">\n  <header class=\"source\">\n\n      <a href=\"https://example.com/githubrepo\" target=\"_blank\" rel=\"noopener\">Example</a>\n  </header>\n\n  <article class=\"onebox-body\">\n    <div class=\"github-row\" data-github-private-repo=\"\">\n  <img width=\"695\" height=\"347\" src=\"https://example.com/thumb.png\" class=\"thumbnail\">\n\n  <h3><a href=\"https://example.com/githubrepo\" target=\"_blank\" rel=\"noopener ugc noopener\">Example githubrepo</a></h3>\n\n    <p><span class=\"github-repo-description\">Description for githubrepo</span></p>\n</div>\n\n  </article>\n\n  <div class=\"onebox-metadata\">\n    <span style=\"float: left;\">Price: $12</span>\n    \n  </div>\n\n  <div style=\"clear: both\"></div>\n</aside>\n",
+    "title": "Example githubrepo"
+  },
+  {
+    "template": "gitlabblob",
+    "html": "<aside class=\"onebox gitlabblob\" data-onebox-src=\"https://example.com/gitlabblob\">\n  <header class=\"source\">\n\n      <a href=\"https://example.com/gitlabblob\" target=\"_blank\" rel=\"noopener\">Example</a>\n  </header>\n\n  <article class=\"onebox-body\">\n    <h4><a href=\"https://example.com/gitlabblob\" target=\"_blank\" rel=\"noopener\">Example gitlabblob</a></h4>\n\n<div class=\"git-blob-info\">\n  <a href=\"https://example.com/gitlabblob\" rel=\"noopener\"><code>abc1234</code></a>\n</div>\n\n  <pre><code class=\"dart\">print(&quot;hello&quot;);</code></pre>\n\n\n\n  </article>\n\n  <div class=\"onebox-metadata\">\n    <span style=\"float: left;\">Price: $12</span>\n    \n  </div>\n\n  <div style=\"clear: both\"></div>\n</aside>\n",
+    "title": "Example gitlabblob"
+  },
+  {
+    "template": "googledocs",
+    "html": "<aside class=\"onebox googledocs\" data-onebox-src=\"https://example.com/googledocs\">\n  <header class=\"source\">\n\n      <a href=\"https://example.com/googledocs\" target=\"_blank\" rel=\"noopener\">Example</a>\n  </header>\n\n  <article class=\"onebox-body\">\n    <a href=\"https://example.com/googledocs\" target=\"_blank\" rel=\"noopener\"><span class=\"googledocs-onebox-logo g-document-logo\"></span></a>\n\n<h3><a href=\"https://example.com/googledocs\" target=\"_blank\" rel=\"noopener\">Example googledocs</a></h3>\n\n<p>Description for googledocs</p>\n\n  </article>\n\n  <div class=\"onebox-metadata\">\n    <span style=\"float: left;\">Price: $12</span>\n    \n  </div>\n\n  <div style=\"clear: both\"></div>\n</aside>\n",
+    "title": "Example googledocs"
+  },
+  {
+    "template": "googledrive",
+    "html": "<aside class=\"onebox googledrive\" data-onebox-src=\"https://example.com/googledrive\">\n  <header class=\"source\">\n\n      <a href=\"https://example.com/googledrive\" target=\"_blank\" rel=\"noopener\">Example</a>\n  </header>\n\n  <article class=\"onebox-body\">\n    \n<img src=\"https://example.com/content.png\" class=\"thumbnail\">\n\n<h3><a href=\"https://example.com/googledrive\" target=\"_blank\" rel=\"noopener\">Example googledrive</a></h3>\n\n<p>Description for googledrive</p>\n\n  </article>\n\n  <div class=\"onebox-metadata\">\n    <span style=\"float: left;\">Price: $12</span>\n    \n  </div>\n\n  <div style=\"clear: both\"></div>\n</aside>\n",
+    "title": "Example googledrive"
+  },
+  {
+    "template": "googlemeet",
+    "html": "<aside class=\"onebox googlemeet\" data-onebox-src=\"https://example.com/googlemeet\">\n  <header class=\"source\">\n\n      <a href=\"https://example.com/googlemeet\" target=\"_blank\" rel=\"noopener\">Example</a>\n  </header>\n\n  <article class=\"onebox-body\">\n    <div class=\"google-meet-onebox\">\n  <div class=\"google-meet-onebox__icon\">\n    <svg class=\"fa d-icon d-icon-video svg-icon svg-string\" xmlns=\"http://www.w3.org/2000/svg\" aria-hidden=\"true\">\n      <use href=\"#video\"></use>\n    </svg>\n  </div>\n\n  <div class=\"google-meet-onebox__content\">\n    <h3 class=\"google-meet-onebox__title\">\n      <a href=\"https://example.com/googlemeet\" target=\"_blank\" rel=\"noopener\">Example googlemeet</a>\n    </h3>\n\n\n      <p class=\"google-meet-onebox__description\">Description for googlemeet</p>\n\n    <a class=\"google-meet-onebox__join\" href=\"https://example.com/googlemeet\" target=\"_blank\" rel=\"noopener\"></a>\n  </div>\n</div>\n\n  </article>\n\n  <div class=\"onebox-metadata\">\n    <span style=\"float: left;\">Price: $12</span>\n    \n  </div>\n\n  <div style=\"clear: both\"></div>\n</aside>\n",
+    "title": "Example googlemeet"
+  },
+  {
+    "template": "googleplayapp",
+    "html": "<aside class=\"onebox googleplayapp\" data-onebox-src=\"https://example.com/googleplayapp\">\n  <header class=\"source\">\n\n      <a href=\"https://example.com/googleplayapp\" target=\"_blank\" rel=\"noopener\">Example</a>\n  </header>\n\n  <article class=\"onebox-body\">\n    <h3>Example googleplayapp</h3>\n\n<img src=\"https://example.com/content.png\" class=\"thumbnail\">\n<p>Description for googleplayapp</p>\n<em>$12</em>\n\n  </article>\n\n  <div class=\"onebox-metadata\">\n    <span style=\"float: left;\">Price: $12</span>\n    \n  </div>\n\n  <div style=\"clear: both\"></div>\n</aside>\n",
+    "title": "Example googleplayapp"
+  },
+  {
+    "template": "hackernews",
+    "html": "<aside class=\"onebox hackernews\" data-onebox-src=\"https://example.com/hackernews\">\n  <header class=\"source\">\n\n      <a href=\"https://example.com/hackernews\" target=\"_blank\" rel=\"noopener\">Example</a>\n  </header>\n\n  <article class=\"onebox-body\">\n    <h3><a href=\"https://example.com/hackernews\" target=\"_blank\" rel=\"noopener\">Example hackernews</a></h3>\n\n  <p>Description for hackernews</p>\n\n\n<p>\n  <span class=\"label1\">12 points</span> \u2014\n  <span class=\"label2\">34 comments</span> \u2014\n  <a href=\"https://news.ycombinator.com/user?id=author\" class=\"author\" target=\"_blank\" rel=\"noopener\">author</a> \u2014\n  <a href=\"https://example.com/hackernews\" class=\"timestamp\" target=\"_blank\" rel=\"noopener\">September 23, 2026</a>\n</p>\n\n\n  </article>\n\n  <div class=\"onebox-metadata\">\n    <span style=\"float: left;\">Price: $12</span>\n    \n  </div>\n\n  <div style=\"clear: both\"></div>\n</aside>\n",
+    "title": "Example hackernews"
+  },
+  {
+    "template": "instagram",
+    "html": "<aside class=\"onebox instagram\" data-onebox-src=\"https://example.com/instagram\">\n  <header class=\"source\">\n\n      <a href=\"https://example.com/instagram\" target=\"_blank\" rel=\"noopener\">Example</a>\n  </header>\n\n  <article class=\"onebox-body\">\n    <h3><a href=\"https://example.com/instagram\" target=\"_blank\" rel=\"noopener\">Example instagram</a></h3>\n\n  <div class=\"instagram-images\">\n    <a href=\"https://example.com/instagram\" target=\"_blank\" rel=\"noopener\">\n      <img class=\"instagram-image\" src=\"https://example.com/content.png\">\n    </a>\n  </div>\n\n  <div class=\"instagram-description\">Description for instagram</div>\n\n  </article>\n\n  <div class=\"onebox-metadata\">\n    <span style=\"float: left;\">Price: $12</span>\n    \n  </div>\n\n  <div style=\"clear: both\"></div>\n</aside>\n",
+    "title": "Example instagram"
+  },
+  {
+    "template": "pastebin",
+    "html": "<aside class=\"onebox pastebin\" data-onebox-src=\"https://example.com/pastebin\">\n  <header class=\"source\">\n\n      <a href=\"https://example.com/pastebin\" target=\"_blank\" rel=\"noopener\">Example</a>\n  </header>\n\n  <article class=\"onebox-body\">\n    <h4><a href=\"https://example.com/pastebin\" target=\"_blank\" rel=\"noopener\">https://example.com/pastebin</a></h4>\n\n<pre><code class=\"lang-auto\">print(&quot;hello&quot;);</code></pre>\n\n\n  </article>\n\n  <div class=\"onebox-metadata\">\n    <span style=\"float: left;\">Price: $12</span>\n    \n  </div>\n\n  <div style=\"clear: both\"></div>\n</aside>\n",
+    "title": "Example pastebin"
+  },
+  {
+    "template": "pdf",
+    "html": "<aside class=\"onebox pdf\" data-onebox-src=\"https://example.com/pdf\">\n  <header class=\"source\">\n\n      <a href=\"https://example.com/pdf\" target=\"_blank\" rel=\"noopener\">Example</a>\n  </header>\n\n  <article class=\"onebox-body\">\n    <a href=\"https://example.com/pdf\" target=\"_blank\" rel=\"noopener\"><span class=\"pdf-onebox-logo\"></span></a>\n\n<h3><a href=\"https://example.com/pdf\" target=\"_blank\" rel=\"noopener\">Example pdf</a></h3>\n\n  <p class=\"filesize\">12 KB</p>\n\n  </article>\n\n  <div class=\"onebox-metadata\">\n    <span style=\"float: left;\">Price: $12</span>\n    \n  </div>\n\n  <div style=\"clear: both\"></div>\n</aside>\n",
+    "title": "Example pdf"
+  },
+  {
+    "template": "pubmed",
+    "html": "<aside class=\"onebox pubmed\" data-onebox-src=\"https://example.com/pubmed\">\n  <header class=\"source\">\n\n      <a href=\"https://example.com/pubmed\" target=\"_blank\" rel=\"noopener\">Example</a>\n  </header>\n\n  <article class=\"onebox-body\">\n    <h4>\n  <a href=\"https://example.com/pubmed\" target=\"_blank\" rel=\"noopener\">Example pubmed</a>\n</h4>\n\n<div class=\"date\">\n  ,\n  <i></i>, September 23, 2026\n</div>\n\n<p class=\"pubmed-abstract\">\n  \n</p>\n\n  </article>\n\n  <div class=\"onebox-metadata\">\n    <span style=\"float: left;\">Price: $12</span>\n    \n  </div>\n\n  <div style=\"clear: both\"></div>\n</aside>\n",
+    "title": "Example pubmed"
+  },
+  {
+    "template": "stackexchange",
+    "html": "<aside class=\"onebox stackexchange\" data-onebox-src=\"https://example.com/stackexchange\">\n  <header class=\"source\">\n\n      <a href=\"https://example.com/stackexchange\" target=\"_blank\" rel=\"noopener\">Example</a>\n  </header>\n\n  <article class=\"onebox-body\">\n      <a href=\"https://example.com/author\" target=\"_blank\" rel=\"noopener\">\n    <img alt=\"Author\" src=\"https://example.com/avatar.png\" class=\"thumbnail onebox-avatar\">\n  </a>\n\n<h4>\n  <a href=\"https://example.com/stackexchange\" target=\"_blank\" rel=\"noopener\">Example stackexchange</a>\n</h4>\n\n<div class=\"tags\">\n  <strong>flutter dart</strong>\n</div>\n\n<div class=\"date\">\n  asked by\n  \n  <a href=\"https://example.com/author\" target=\"_blank\" rel=\"noopener\">\n    Author\n  </a>\n  on <a href=\"https://example.com/stackexchange\" target=\"_blank\" rel=\"noopener\">September 23, 2026</a>\n</div>\n\n  </article>\n\n  <div class=\"onebox-metadata\">\n    <span style=\"float: left;\">Price: $12</span>\n    \n  </div>\n\n  <div style=\"clear: both\"></div>\n</aside>\n",
+    "title": "Example stackexchange"
+  },
+  {
+    "template": "threadsstatus",
+    "html": "<aside class=\"onebox threadsstatus\" data-onebox-src=\"https://example.com/threadsstatus\">\n  <header class=\"source\">\n\n      <a href=\"https://example.com/threadsstatus\" target=\"_blank\" rel=\"noopener\">Example</a>\n  </header>\n\n  <article class=\"onebox-body\">\n    \n<h4><a href=\"https://example.com/threadsstatus\" target=\"_blank\" rel=\"noopener\">Example threadsstatus</a></h4>\n<div class=\"threads-screen-name\"><a href=\"https://example.com/threadsstatus\" target=\"_blank\" rel=\"noopener\">@author</a></div>\n\n<div class=\"thread-contents\">\n  <span class=\"thread-description\">Description for threadsstatus</span>\n    <div class=\"scale-images\"><img src=\"https://example.com/content.png\" alt=\"\"></div>\n</div>\n\n<div class=\"date\">\n    <span class=\"like\">\n      <svg viewBox=\"0 0 512 512\" width=\"14px\" height=\"16px\" aria-hidden=\"true\">\n        <path d=\"M462.3 62.6C407.5 15.9 326 24.3 275.7 76.2L256 96.5l-19.7-20.3C186.1 24.3 104.5 15.9 49.7 62.6c-62.8 53.6-66.1 149.8-9.9 207.9l193.5 199.8c12.5 12.9 32.8 12.9 45.3 0l193.5-199.8c56.3-58.1 53-154.3-9.8-207.9z\"></path>\n      </svg>\n      42\n    </span>\n\n    <span class=\"replies\">\n      <svg viewBox=\"0 0 640 512\" width=\"14px\" height=\"16px\" aria-hidden=\"true\">\n        <path d=\"M629.657 343.598L528.971 444.284c-9.373 9.372-24.568 9.372-33.941 0L394.343 343.598c-9.373-9.373-9.373-24.569 0-33.941l10.823-10.823c9.562-9.562 25.133-9.34 34.419.492L480 342.118V160H292.451a24.005 24.005 0 0 1-16.971-7.029l-16-16C244.361 121.851 255.069 96 276.451 96H520c13.255 0 24 10.745 24 24v222.118l40.416-42.792c9.285-9.831 24.856-10.054 34.419-.492l10.823 10.823c9.372 9.372 9.372 24.569-.001 33.941zm-265.138 15.431A23.999 23.999 0 0 0 347.548 352H160V169.881l40.416 42.792c9.286 9.831 24.856 10.054 34.419.491l10.822-10.822c9.373-9.373 9.373-24.569 0-33.941L144.971 67.716c-9.373-9.373-24.569-9.373-33.941 0L10.343 168.402c-9.373 9.373-9.373 24.569 0 33.941l10.822 10.822c9.562 9.562 25.133 9.34 34.419-.491L96 169.881V392c0 13.255 10.745 24 24 24h243.549c21.382 0 32.09-25.851 16.971-40.971l-16.001-16z\"></path>\n      </svg>\n      3\n    </span>\n</div>\n\n  </article>\n\n  <div class=\"onebox-metadata\">\n    <span style=\"float: left;\">Price: $12</span>\n    \n  </div>\n\n  <div style=\"clear: both\"></div>\n</aside>\n",
+    "title": "Example threadsstatus"
+  },
+  {
+    "template": "wikimedia",
+    "html": "<aside class=\"onebox wikimedia\" data-onebox-src=\"https://example.com/wikimedia\">\n  <header class=\"source\">\n\n      <a href=\"https://example.com/wikimedia\" target=\"_blank\" rel=\"noopener\">Example</a>\n  </header>\n\n  <article class=\"onebox-body\">\n    <img src=\"https://example.com/thumb.png\" class=\"thumbnail\">\n\n<h3><a href=\"https://example.com/wikimedia\" target=\"_blank\" rel=\"noopener\">Example wikimedia</a></h3>\n\n  </article>\n\n  <div class=\"onebox-metadata\">\n    <span style=\"float: left;\">Price: $12</span>\n    \n  </div>\n\n  <div style=\"clear: both\"></div>\n</aside>\n",
+    "title": "Example wikimedia"
+  },
+  {
+    "template": "wikipedia",
+    "html": "<aside class=\"onebox wikipedia\" data-onebox-src=\"https://example.com/wikipedia\">\n  <header class=\"source\">\n\n      <a href=\"https://example.com/wikipedia\" target=\"_blank\" rel=\"noopener\">Example</a>\n  </header>\n\n  <article class=\"onebox-body\">\n    <img src=\"https://example.com/content.png\" class=\"thumbnail\">\n\n<h3><a href=\"https://example.com/wikipedia\" target=\"_blank\" rel=\"noopener\">Example wikipedia</a></h3>\n\n<p>Description for wikipedia</p>\n\n  </article>\n\n  <div class=\"onebox-metadata\">\n    <span style=\"float: left;\">Price: $12</span>\n    \n  </div>\n\n  <div style=\"clear: both\"></div>\n</aside>\n",
+    "title": "Example wikipedia"
+  },
+  {
+    "template": "xkcd",
+    "html": "<aside class=\"onebox xkcd\" data-onebox-src=\"https://example.com/xkcd\">\n  <header class=\"source\">\n\n      <a href=\"https://example.com/xkcd\" target=\"_blank\" rel=\"noopener\">Example</a>\n  </header>\n\n  <article class=\"onebox-body\">\n    <h3><a href=\"https://example.com/xkcd\" target=\"_blank\" rel=\"noopener\">Example xkcd</a></h3>\n\n  <div class=\"xkcd-image\"><img src=\"https://example.com/content.png\"></div>\n\n<p>Description for xkcd</p>\n\n  </article>\n\n  <div class=\"onebox-metadata\">\n    <span style=\"float: left;\">Price: $12</span>\n    \n  </div>\n\n  <div style=\"clear: both\"></div>\n</aside>\n",
+    "title": "Example xkcd"
+  }
+]

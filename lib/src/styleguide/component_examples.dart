@@ -3,6 +3,7 @@ import 'examples/alert_dialog_examples.dart';
 import 'examples/alert_examples.dart';
 import 'examples/aspect_ratio_examples.dart';
 import 'examples/attachment_examples.dart';
+import 'examples/audio_player_examples.dart';
 import 'examples/avatar_examples.dart';
 import 'examples/badge_examples.dart';
 import 'examples/breadcrumb_examples.dart';
@@ -83,6 +84,7 @@ final componentExamples = <String, ComponentExamples>{
   'onebox': oneboxExamples,
   'drag': dragExamples,
   'embed': embedExamples,
+  'audio-player': audioPlayerExamples,
   'history-transition': historyTransitionExamples,
   'color-picker': colorPickerExamples,
   'pull-to-refresh': pullToRefreshExamples,
