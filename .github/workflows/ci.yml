@@ -47,7 +47,9 @@ jobs:
           (cd profiles/full && flutter analyze)
 
       - name: Test
-        run: flutter test --test-randomize-ordering-seed=random
+        run: |
+          flutter test --test-randomize-ordering-seed=random
+          (cd profiles/full && flutter test ../../test/bundled_fonts_test.dart)
 
   linux-bundle:
     # Keep the native plugin graph buildable between releases without turning

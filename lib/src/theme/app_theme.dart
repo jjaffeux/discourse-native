@@ -2,6 +2,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
 import '../models/forum_background.dart';
+import '../models/forum_font.dart';
 import '../models/forum_theme.dart';
 import '../models/site_appearance.dart';
 import '../ui/components/d_button.dart';
@@ -690,6 +691,7 @@ abstract final class AppTheme {
       ThemeData(
         colorScheme: resolvedColorScheme,
         fontFamily: fontFamily,
+        fontFamilyFallback: forumFontFamilyFallback(fontFamily),
       ).textTheme,
     );
     final buttonShape = RoundedRectangleBorder(
@@ -744,6 +746,7 @@ abstract final class AppTheme {
 
     return ThemeData(
       fontFamily: fontFamily,
+      fontFamilyFallback: forumFontFamilyFallback(fontFamily),
       colorScheme: resolvedColorScheme,
       textTheme: textTheme,
       // MaterialApp remains the common application shell, but Flutter's
