@@ -278,7 +278,7 @@ void main() {
           matching: find.byIcon(Icons.menu),
         ),
       );
-      expect(menuIcon.left - menu.left, lessThanOrEqualTo(4));
+      expect(menuIcon.center.dx, menu.center.dx);
       expect(
         tester.widget<DButton>(
           find.byKey(const ValueKey('forum-identity-button')),
