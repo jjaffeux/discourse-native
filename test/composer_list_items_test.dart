@@ -76,6 +76,64 @@ List<ComposerListBodyController> bodies(WidgetTester tester) => tester
     .toList();
 
 void main() {
+  for (final newline in ['\n', '\r\n']) {
+    for (final first in ['First', '']) {
+      for (final nested in [false, true]) {
+        testWidgets(
+          'Right Arrow enters the next task text '
+          '(newline ${newline.length}, empty ${first.isEmpty}, nested $nested)',
+          (tester) async {
+            final prefix = nested ? '- [ ] Parent$newline  ' : '';
+            final indent = nested ? '  ' : '';
+            final source = '$prefix- [ ] $first$newline$indent- [x] Second';
+            final root = await pumpEditor(tester, source);
+            final items = bodies(tester);
+            final from = items[items.length - 2];
+            final next = items.last;
+            from.text.selection = TextSelection.collapsed(offset: first.length);
+            from.requestFocus();
+            await tester.pumpAndSettle();
+
+            await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+            await tester.pumpAndSettle();
+            expect(next.focus.hasPrimaryFocus, isTrue);
+            expect(
+              next.text.selection,
+              const TextSelection.collapsed(offset: 0),
+            );
+            expect(root.text.text, source);
+
+            from.requestFocus();
+            from.text.selection = const TextSelection.collapsed(offset: 0);
+            await tester.pumpAndSettle();
+            await tester.sendKeyDownEvent(LogicalKeyboardKey.arrowRight);
+            await tester.pumpAndSettle();
+            for (var i = 0; i < first.length; i++) {
+              await tester.sendKeyRepeatEvent(LogicalKeyboardKey.arrowRight);
+              await tester.pumpAndSettle();
+            }
+            await tester.sendKeyUpEvent(LogicalKeyboardKey.arrowRight);
+            expect(next.focus.hasPrimaryFocus, isTrue);
+            expect(
+              next.text.selection,
+              const TextSelection.collapsed(offset: 0),
+            );
+
+            tester.testTextInput.updateEditingValue(
+              const TextEditingValue(
+                text: 'XSecond',
+                selection: TextSelection.collapsed(offset: 1),
+              ),
+            );
+            await tester.pumpAndSettle();
+            expect(root.text.text, source.replaceFirst('Second', 'XSecond'));
+            expect(tester.takeException(), isNull);
+          },
+        );
+      }
+    }
+  }
+
   for (final platform in [TargetPlatform.macOS, TargetPlatform.android]) {
     for (final scale in [1.0, 1.5, 2.0]) {
       for (final prefix in ['', 'Before\n\n']) {

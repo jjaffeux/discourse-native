@@ -553,7 +553,11 @@ class ComposerListBodyController extends ComposerController {
   }
 
   KeyEventResult handleKey(KeyEvent event) {
-    if (event is! KeyDownEvent ||
+    final isHorizontalArrow =
+        event.logicalKey == LogicalKeyboardKey.arrowLeft ||
+        event.logicalKey == LogicalKeyboardKey.arrowRight;
+    if ((event is! KeyDownEvent &&
+            !(event is KeyRepeatEvent && isHorizontalArrow)) ||
         !isEditing ||
         !text.value.composing.isCollapsed) {
       return KeyEventResult.ignored;
@@ -607,14 +611,26 @@ class ComposerListBodyController extends ComposerController {
                 event.logicalKey == LogicalKeyboardKey.arrowLeft) ||
             (selection.end == text.text.length &&
                 event.logicalKey == LogicalKeyboardKey.arrowRight))) {
-      parent.text.selection = TextSelection.collapsed(
-        offset: selection.start == 0
-            ? (_item.start - 1).clamp(0, parent.text.text.length)
-            : (_item.end + _item.newline.length).clamp(
-                0,
-                parent.text.text.length,
-              ),
-      );
+      final moveLeft = event.logicalKey == LogicalKeyboardKey.arrowLeft;
+      final source = parent.text.text;
+      var offset = moveLeft
+          ? (_item.start - 1).clamp(0, source.length)
+          : (_item.end + (source.startsWith('\r\n', _item.end) ? 2 : 1)).clamp(
+              0,
+              source.length,
+            );
+      if (!moveLeft) {
+        for (final item in composerListItems(
+          source,
+          referenceMarkers: parent.text.todoReferenceMarkers,
+        )) {
+          if (item.start == offset && item.containsTasks) {
+            offset = item.contentStart;
+            break;
+          }
+        }
+      }
+      parent.text.selection = TextSelection.collapsed(offset: offset);
       parent.requestFocus();
       return KeyEventResult.handled;
     }
