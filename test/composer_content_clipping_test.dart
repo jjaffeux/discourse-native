@@ -1,3 +1,4 @@
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/plugins/poll/poll_plugin.dart';
 import 'package:discourse_native/src/shell/composer_block_surface.dart';
 import 'package:discourse_native/src/shell/composer_controller.dart';
@@ -11,6 +12,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'support/fakes.dart';
 
+const _formerMember = r'\* - Former team member';
 const _lastParagraph =
     'And for those taking the train to Seville, here are the groups/departure '
     'times at Atocha station:';
@@ -70,8 +72,19 @@ void main() {
         await tester.pumpAndSettle();
         await _expectEndVisible(tester, composer);
         expect(composer.raw, '$source\n\n$_lastParagraph');
+        composer.text.value = TextEditingValue(
+          text: '$source\n\n$_formerMember',
+          selection: const TextSelection.collapsed(offset: 0),
+        );
+        await tester.pumpAndSettle();
+        await _expectEndVisible(tester, composer);
         await tester.pumpWidget(const SizedBox.shrink());
       },
+      // Theme.platform alone does not select the platform's default density.
+      variant: const TargetPlatformVariant({
+        TargetPlatform.macOS,
+        TargetPlatform.android,
+      }),
     );
   }
 
@@ -133,13 +146,23 @@ void main() {
       (tester) async {
         final harness = await _Harness.create(target: target);
         harness.composer.text.value = TextEditingValue(
-          text: '${'Travel plans\n\n' * 12}$_lastParagraph',
+          text: '$_table\n\n$_lastParagraph',
           selection: const TextSelection.collapsed(offset: 0),
         );
         await harness.mount(tester, height: 350, width: 420, scale: 1.5);
         await _expectEndVisible(tester, harness.composer);
+        harness.composer.text.value = TextEditingValue(
+          text: '$_table\n\n$_formerMember',
+          selection: const TextSelection.collapsed(offset: 0),
+        );
+        await harness.mount(tester, height: 350);
+        await _expectEndVisible(tester, harness.composer);
         await tester.pumpWidget(const SizedBox.shrink());
       },
+      variant: const TargetPlatformVariant({
+        TargetPlatform.macOS,
+        TargetPlatform.android,
+      }),
     );
   }
 }
@@ -161,7 +184,8 @@ Future<void> _expectEndVisible(
   final lastBlock = surface.blockRect(composer.blocks.index.blocks.last)!;
   expect(lastBlock.bottom, lessThanOrEqualTo(editor.bottom + 1));
   expect(lastBlock.bottom, greaterThan(editor.top));
-  if (composer.raw.endsWith(_lastParagraph)) {
+  if (composer.raw.endsWith(_lastParagraph) ||
+      composer.raw.endsWith(_formerMember)) {
     final editable = tester
         .state<EditableTextState>(
           find.byWidgetPredicate(
@@ -171,6 +195,16 @@ Future<void> _expectEndVisible(
           ),
         )
         .renderEditable;
+    final viewport = tester.getRect(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is DInput && identical(widget.controller, composer.text),
+      ),
+    );
+    expect(
+      editable.localToGlobal(editable.size.bottomRight(Offset.zero)).dy,
+      lessThanOrEqualTo(viewport.bottom + .01),
+    );
     final lastCharacter = editable
         .getBoxesForSelection(
           TextSelection(
