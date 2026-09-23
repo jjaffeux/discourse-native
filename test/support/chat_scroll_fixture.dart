@@ -40,6 +40,7 @@ MediaPipeline chatScrollMediaPipeline() => MediaPipeline(
 
 Future<ShellController> chatScrollController({
   int count = 500,
+  void Function(FakeDiscourseApi api)? configureApi,
   bool directMessage = false,
   bool group = false,
   bool rich = false,
@@ -52,6 +53,68 @@ Future<ShellController> chatScrollController({
               'packages/discourse_native/src/styleguide/assets/item/model-lg.jpg',
             )).buffer.asUint8List()
           : null);
+  final api = FakeDiscourseApi(
+    user: const DiscourseUser(id: 1, username: 'reader1'),
+    chatMessagesByKey: {
+      '9': (
+        messages: [
+          for (var id = 1; id <= count; id++)
+            ChatMessage(
+              id: id,
+              channelId: 9,
+              cooked: animatedBytes != null && id > count - 3
+                  ? '<p>Message $id</p><img src="$chatScrollSite/animated-$id.gif" width="100" height="100">'
+                  : rich
+                  ? richChatScrollHtml(id)
+                  : switch (id % 4) {
+                      0 =>
+                        '<p>Message $id with <strong>formatted text</strong> '
+                            'and a longer paragraph that wraps in a narrow channel. '
+                            'Reading history should keep the visible messages stable.</p>',
+                      1 =>
+                        '<p>Message $id</p><ul><li>First point</li>'
+                            '<li>Second point with <code>inline code</code></li></ul>',
+                      _ => '<p>Message $id: a short reply.</p>',
+                    },
+              reactions: rich
+                  ? const [
+                      ChatReaction(emoji: 'heart', count: 12, reacted: true),
+                      ChatReaction(emoji: '+1', count: 8),
+                      ChatReaction(emoji: 'laughing', count: 3),
+                      ChatReaction(emoji: 'tada', count: 2),
+                    ]
+                  : const [],
+              uploads: rich && id % 6 == 0
+                  ? [
+                      for (var image = 0; image < 2; image++)
+                        ChatUpload(
+                          id: id * 2 + image,
+                          url: '$chatScrollSite/upload-$id-$image.jpg',
+                          originalFilename: 'photo-$id-$image.jpg',
+                          kind: ChatUploadKind.image,
+                          width: 640,
+                          height: 427,
+                        ),
+                    ]
+                  : const [],
+              author: ChatMessageAuthor(
+                id: (id ~/ 3) % 4 + 1,
+                username: 'reader${(id ~/ 3) % 4 + 1}',
+              ),
+              createdAt: DateTime(
+                2026,
+                8,
+                1,
+              ).add(Duration(days: (id - 1) ~/ 12, minutes: id % 12)),
+            ),
+        ],
+        canLoadMorePast: false,
+        canLoadMoreFuture: false,
+        targetMessageId: null,
+      ),
+    },
+  );
+  configureApi?.call(api);
   final controller = ShellController(
     siteImages: imageBytes == null
         ? null
@@ -66,67 +129,7 @@ Future<ShellController> chatScrollController({
           ),
     plugins: installedPlugins,
     instanceStore: FakeInstanceStore([instance('scroll.example')]),
-    api: FakeDiscourseApi(
-      user: const DiscourseUser(id: 1, username: 'reader1'),
-      chatMessagesByKey: {
-        '9': (
-          messages: [
-            for (var id = 1; id <= count; id++)
-              ChatMessage(
-                id: id,
-                channelId: 9,
-                cooked: animatedBytes != null && id > count - 3
-                    ? '<p>Message $id</p><img src="$chatScrollSite/animated-$id.gif" width="100" height="100">'
-                    : rich
-                    ? richChatScrollHtml(id)
-                    : switch (id % 4) {
-                        0 =>
-                          '<p>Message $id with <strong>formatted text</strong> '
-                              'and a longer paragraph that wraps in a narrow channel. '
-                              'Reading history should keep the visible messages stable.</p>',
-                        1 =>
-                          '<p>Message $id</p><ul><li>First point</li>'
-                              '<li>Second point with <code>inline code</code></li></ul>',
-                        _ => '<p>Message $id: a short reply.</p>',
-                      },
-                reactions: rich
-                    ? const [
-                        ChatReaction(emoji: 'heart', count: 12, reacted: true),
-                        ChatReaction(emoji: '+1', count: 8),
-                        ChatReaction(emoji: 'laughing', count: 3),
-                        ChatReaction(emoji: 'tada', count: 2),
-                      ]
-                    : const [],
-                uploads: rich && id % 6 == 0
-                    ? [
-                        for (var image = 0; image < 2; image++)
-                          ChatUpload(
-                            id: id * 2 + image,
-                            url: '$chatScrollSite/upload-$id-$image.jpg',
-                            originalFilename: 'photo-$id-$image.jpg',
-                            kind: ChatUploadKind.image,
-                            width: 640,
-                            height: 427,
-                          ),
-                      ]
-                    : const [],
-                author: ChatMessageAuthor(
-                  id: (id ~/ 3) % 4 + 1,
-                  username: 'reader${(id ~/ 3) % 4 + 1}',
-                ),
-                createdAt: DateTime(
-                  2026,
-                  8,
-                  1,
-                ).add(Duration(days: (id - 1) ~/ 12, minutes: id % 12)),
-              ),
-          ],
-          canLoadMorePast: false,
-          canLoadMoreFuture: false,
-          targetMessageId: null,
-        ),
-      },
-    ),
+    api: api,
     authenticator: FakeAuthenticator()..keys[chatScrollSite] = 'fixture-key',
     drafts: FakeDraftStore(),
     forumTabs: FakeForumTabStore(),

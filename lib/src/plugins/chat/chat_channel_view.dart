@@ -703,6 +703,7 @@ class _StreamState extends State<ChatMessageStream>
     // A route/pane transition before the dwell completes is not a read. Clear
     // the old target rather than flushing it during teardown.
     if (changedStream) {
+      _dayJumpToken = null;
       _cancelReadDwell();
       _recheckVisibleRead = false;
       _seen = null;
@@ -1233,6 +1234,45 @@ class _StreamState extends State<ChatMessageStream>
     _floatingDayState.value = (day: day, offset: offset);
   }
 
+  Object? _dayJumpToken;
+
+  Future<void> _jumpToDayStart(DateTime day) async {
+    final chat = _chat;
+    if (chat == null) return;
+    final siteUrl = widget.siteUrl;
+    final target = widget.target;
+    final token = Object();
+    _dayJumpToken = token;
+    bool isCurrent() =>
+        mounted &&
+        identical(_dayJumpToken, token) &&
+        widget.siteUrl == siteUrl &&
+        widget.target == target;
+
+    while (isCurrent()) {
+      final stream = chat.streamFor(siteUrl, target);
+      final oldest = stream.oldestId;
+      if (!stream.canLoadMorePast ||
+          oldest == null ||
+          calendarDay(chat.messageRef(siteUrl, oldest).value?.createdAt) !=
+              day) {
+        break;
+      }
+      await chat.loadOlderFor(siteUrl, target);
+      if (!isCurrent()) return;
+      if (chat.streamFor(siteUrl, target).oldestId == oldest) break;
+      // Let the stream rebuild its rows before resolving the day's separator.
+      await WidgetsBinding.instance.endOfFrame;
+    }
+    if (!isCurrent()) return;
+    for (final entry in _daySeparatorRows()) {
+      if (entry.day == day) {
+        _landOn(entry.row, alignment: 1);
+        return;
+      }
+    }
+  }
+
   int? _rowOf(int messageId) {
     final items = widget.items;
     for (var index = 0; index < items.length; index++) {
@@ -1547,6 +1587,7 @@ class _StreamState extends State<ChatMessageStream>
                         key: ValueKey(('chat-floating-day', floating.day!)),
                         day: floating.day!,
                         floating: true,
+                        onTap: () => _jumpToDayStart(floating.day!),
                       ),
                     ),
             ),
