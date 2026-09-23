@@ -217,6 +217,31 @@ Future<void> _selectChatActivity(WidgetTester tester, String label) async {
 }
 
 void main() {
+  _mobileTest('Voice keeps the redesigned Chat inbox and its filters', (
+    tester,
+  ) async {
+    await pumpMobileShellFixture(tester, voice: true, chatUnreadCount: 4);
+    await tester.tap(find.byKey(const ValueKey('mobile-mode-panel/chat')));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(ChatMobileSidebar), findsOneWidget);
+    expect(find.text('Recent'), findsOneWidget);
+    expect(find.text('All'), findsOneWidget);
+    expect(find.byKey(const ValueKey('user-presence-menu')), findsOneWidget);
+    expect(find.text('Starred channels'), findsNothing);
+    expect(find.text('General'), findsOneWidget);
+    expect(find.text('sam'), findsOneWidget);
+
+    await _selectChatActivity(tester, 'Unread');
+    expect(find.text('General'), findsOneWidget);
+    expect(find.text('sam'), findsNothing);
+    await _selectChatKind(tester, 'Direct messages');
+    expect(find.text('No unread conversations.'), findsOneWidget);
+    await _selectChatActivity(tester, 'Recent');
+    expect(find.text('sam'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   _mobileTest('chat filters the mixed recent list and live unread state', (
     tester,
   ) async {
@@ -1052,21 +1077,31 @@ void main() {
   );
 
   _mobileTest(
-    'voice rooms share Chat and revoking Voice keeps Chat available',
+    'voice rooms remain in navigation without replacing the Chat inbox',
     (tester) async {
       final shell = await pumpMobileShellFixture(tester, voice: true);
       final voice = shell.pluginSession.require(voiceControllerService);
       expect(find.byKey(const ValueKey('mobile-mode-voice')), findsNothing);
       await tester.tap(find.byKey(const ValueKey('mobile-mode-panel/chat')));
       await tester.pumpAndSettle();
-      expect(find.text('Watercooler'), findsOneWidget);
+      expect(find.byType(ChatMobileSidebar), findsOneWidget);
+      expect(find.text('Watercooler'), findsNothing);
       expect(find.byType(InstanceRail), findsNothing);
       expect(voice.call, isNull);
+      await tester.tap(find.byKey(const ValueKey('mobile-menu-button')));
+      await tester.pumpAndSettle();
+      expect(find.text('Voice rooms'), findsOneWidget);
+      expect(find.text('Watercooler'), findsOneWidget);
+      expect(find.text('Starred channels'), findsNothing);
       voice.forget(_site);
       await tester.pumpAndSettle();
       expect(find.byKey(const ValueKey('mobile-mode-voice')), findsNothing);
+      expect(find.text('Voice rooms'), findsNothing);
       expect(find.text('Watercooler'), findsNothing);
+      await tester.tap(find.byTooltip('Close navigation'));
+      await tester.pumpAndSettle();
       expect(find.byType(InstanceRail), findsNothing);
+      expect(find.byType(ChatMobileSidebar), findsOneWidget);
       expect(shell.mobileNavigation.panelOwner, 'chat');
       expect(tester.takeException(), isNull);
     },
