@@ -12,6 +12,7 @@ import '../../plugins/local_dates/local_dates_cooked_time_parser.dart';
 import '../../shell/cooked_html.dart';
 import 'onebox_event_sample.dart';
 import 'onebox_provider_samples.dart';
+import 'onebox_theme_sample.dart';
 
 @immutable
 class OneboxSample {
@@ -89,6 +90,20 @@ final oneboxSamples = <OneboxSample>[
           'https://www.discourse.org',
           '<h3><a href="https://www.discourse.org">Discourse</a></h3>',
         ),
+      ),
+    ],
+  ),
+  OneboxSample(
+    id: 'forum-theme',
+    name: 'Custom theme',
+    description:
+        'A compact shared theme with light/dark preview, Use theme and Undo.',
+    keywords: 'appearance palette share colors native light dark',
+    states: [
+      OneboxSampleState('Paired theme', (_) => const OneboxThemeSample()),
+      OneboxSampleState(
+        'Long name',
+        (_) => const OneboxThemeSample(longName: true),
       ),
     ],
   ),

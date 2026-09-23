@@ -14,6 +14,7 @@ import 'discourse/category/block.dart';
 import 'discourse/topic/block.dart';
 import 'discourse/user/block.dart';
 import 'embedded.dart';
+import 'forum_theme.dart';
 import 'markup.dart';
 import 'reddit.dart';
 import 'twitter.dart';
@@ -177,6 +178,8 @@ final List<OneboxEngine> _engines = [
 ];
 
 Widget? oneboxWidgetBuilder(dom.Element element, {String? siteUrl}) {
+  final theme = forumThemeOneboxWidgetBuilder(element, siteUrl: siteUrl);
+  if (theme != null) return theme;
   final audio = audioOneboxWidgetBuilder(element, siteUrl: siteUrl);
   if (audio != null) return audio;
   if (element.localName == 'iframe') {

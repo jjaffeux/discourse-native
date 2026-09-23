@@ -11,6 +11,7 @@ import '../models/forum_theme_presets.dart';
 import '../theme/app_theme.dart';
 import '../theme/d_icons.dart';
 import 'forum_settings_controller.dart';
+import 'forum_theme_clipboard.dart';
 import 'forum_theme_editor.dart';
 import 'forum_theme_preview.dart';
 import 'shell_scope.dart';
@@ -410,6 +411,14 @@ class _ForumAppearanceSettingsState extends State<ForumAppearanceSettings> {
                             _editorKey = GlobalKey();
                             _tab = 'custom';
                           }),
+                  ),
+                  DButton(
+                    key: const ValueKey('copy-saved-theme'),
+                    variant: DButtonVariant.outline,
+                    label: const Text('Copy theme'),
+                    onPressed: _saving
+                        ? null
+                        : () => copyForumTheme(context, selected),
                   ),
                   DButton(
                     label: const Text('Delete theme'),
