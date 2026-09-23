@@ -201,6 +201,13 @@ All 23 editor, settings-page and appearance-background tests passed, including
 name validation, cancellation, both saved palettes and clipboard activation.
 Root static analysis passed.
 
+### Colour palette tabs — September 24, 2026
+
+The Light/Dark editor tabs now sit inside the Colours card, directly above the
+colour fields. They retain independent palettes and do not change the app's
+Light/Dark/System appearance setting. All 25 editor, settings-page and background
+tests passed after the move, and root static analysis passed.
+
 ### Appearance and theme source controls — September 24, 2026
 
 Native toggle groups now precede the editor: Light / Dark / System controls the
