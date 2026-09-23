@@ -14,7 +14,7 @@ import 'chat_channel_list_preferences.dart';
 import 'chat_channel_star_button.dart';
 import 'chat_channel_threads_view.dart';
 import 'chat_channel_view.dart';
-import 'chat_drawer.dart';
+import 'chat_channels_view.dart';
 import 'chat_emoji_usage.dart';
 import 'chat_global_search.dart';
 import 'chat_header_button.dart';
@@ -66,7 +66,6 @@ class ChatPlugin
         ContentHeaderTitlePlugin,
         ForumTabPlugin,
         ShellHeaderPlugin,
-        ShellOverlayPlugin,
         UserCardRecordPlugin<ChatUserCardData>,
         UserCardActionPlugin,
         CookedElementPlugin,
@@ -486,23 +485,9 @@ class ChatPlugin
       separateWhenActive: true,
       includeSectionsWhenInactive: false,
       showSwitch: true,
-      selectedDestinationId: shell.drawerExpanded
-          ? _drawerSidebarDestinationId(shell.drawerCurrentContent?.id)
-          : null,
       onOpen: () => unawaited(shell.openShortcut()),
       onClose: shell.closeSidebarPanel,
     );
-  }
-
-  static String? _drawerSidebarDestinationId(String? routeId) {
-    if (routeId == null) return null;
-    if (ChatRoute.parse(routeId) case final route?) {
-      return ChatRoute.channel(route.channelId).routeId;
-    }
-    if (channelIdFromThreadsRoute(routeId) case final channelId?) {
-      return ChatRoute.channel(channelId).routeId;
-    }
-    return routeId;
   }
 
   @override
@@ -537,13 +522,13 @@ class ChatPlugin
   @override
   Widget? content(BuildContext context, ContentRoute route) {
     final shell = PluginUiScope.require(context, chatShellService);
-    final drawerListKind = switch (route.id) {
-      channelsRouteId => ChatDrawerChannelListKind.channels,
-      starredRouteId => ChatDrawerChannelListKind.starred,
-      directMessagesRouteId => ChatDrawerChannelListKind.directMessages,
+    final listKind = switch (route.id) {
+      channelsRouteId => ChatChannelListKind.channels,
+      starredRouteId => ChatChannelListKind.starred,
+      directMessagesRouteId => ChatChannelListKind.directMessages,
       _ => null,
     };
-    if (drawerListKind != null) {
+    if (listKind != null) {
       final siteUrl = shell.currentSiteUrl;
       final available =
           siteUrl != null &&
@@ -554,10 +539,10 @@ class ChatPlugin
           ? const SizedBox.shrink()
           : !available
           ? const Center(child: Text('Chat channels are not available.'))
-          : ChatDrawerChannelsView(
-              key: ValueKey((siteUrl, drawerListKind)),
+          : ChatChannelsView(
+              key: ValueKey((siteUrl, listKind)),
               siteUrl: siteUrl,
-              kind: drawerListKind,
+              kind: listKind,
             );
     }
     if (route.id == browseRouteId) {
@@ -640,7 +625,6 @@ class ChatPlugin
         ? ChatThreadWorkspace(
             key: ValueKey((shell.currentSiteUrl, route.id)),
             route: chatRoute,
-            showHeader: !ChatDrawerScope.isDrawer(context),
           )
         : ChatChannelView(channelId: chatRoute.channelId);
   }
@@ -648,7 +632,7 @@ class ChatPlugin
   @override
   GlobalSearchContext? contentSearchContext(BuildContext context) {
     final shell = PluginUiScope.require(context, chatShellService);
-    if (!shell.drawerExpanded && !shell.fullPageChatActive) return null;
+    if (!shell.fullPageChatActive) return null;
     final siteUrl = shell.currentSiteUrl;
     final available =
         siteUrl != null &&
@@ -685,18 +669,8 @@ class ChatPlugin
     final chatRoute = ChatRoute.parse(route.id);
     final shell = PluginUiScope.require(context, chatShellService);
     final siteUrl = shell.currentSiteUrl;
-    final fullPageAction = shell.fullPageChatActive && shell.drawerAvailable
-        ? DButton.iconOnly(
-            key: const ValueKey('chat-close-full-page'),
-            tooltip: 'Close full-screen chat',
-            onPressed: () => unawaited(shell.openDrawerFromFullPage()),
-            variant: DButtonVariant.ghost,
-            size: DButtonSize.large,
-            icon: const DIcon(DIcons.discourseCompress),
-          )
-        : null;
     if (siteUrl == null || chatRoute == null) {
-      return fullPageAction == null ? const [] : [fullPageAction];
+      return const [];
     }
     if (chatRoute.isThread) {
       final target = ChatThreadTarget(
@@ -706,10 +680,9 @@ class ChatPlugin
       return [
         ChatThreadNotificationButton(siteUrl: siteUrl, target: target),
         ChatThreadSettingsButton(siteUrl: siteUrl, target: target),
-        ?fullPageAction,
       ];
     }
-    return [?fullPageAction];
+    return const [];
   }
 
   @override
@@ -787,25 +760,6 @@ class ChatPlugin
     ChatHeaderButton(
       hideWhenChatActive: surface == PluginHeaderSurface.content && compact,
       ringColor: ringColor,
-    ),
-  ];
-
-  @override
-  List<Widget> shellOverlays(BuildContext context) => [
-    ChatDrawerOverlay(
-      contentBuilder: (context, route) =>
-          content(context, route) ?? const SizedBox.shrink(),
-      headerActionsBuilder: contentHeaderActions,
-      headerLeadingBuilder: contentHeaderLeading,
-      headerTitleTrailingBuilder: contentHeaderTitleTrailing,
-      headerTitleActionBuilder: contentHeaderTitleAction,
-      showNavigationForRoute: (route) => const {
-        channelsRouteId,
-        starredRouteId,
-        directMessagesRouteId,
-        myThreadsRouteId,
-        searchRouteId,
-      }.contains(route.id),
     ),
   ];
 

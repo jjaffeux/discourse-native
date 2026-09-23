@@ -385,26 +385,26 @@ void main() {
             title: 'Support',
             data: {ChatPlugin.composerChannelId: 9},
           );
-          final drawerComposer = composerHost.buildComposer(request)!;
+          final firstComposer = composerHost.buildComposer(request)!;
           final fullPageComposer = composerHost.buildComposer(request)!;
           addTearDown(() {
-            if (!drawerComposer.isDisposed) drawerComposer.dispose();
+            if (!firstComposer.isDisposed) firstComposer.dispose();
             fullPageComposer.dispose();
           });
 
           expect(shell.visibleComposer, isNull);
-          drawerComposer.insertText('drawer draft');
+          firstComposer.insertText('first draft');
           fullPageComposer.insertText('full-page draft');
-          expect(drawerComposer.raw, 'drawer draft');
+          expect(firstComposer.raw, 'first draft');
           expect(fullPageComposer.raw, 'full-page draft');
-          expect(drawerComposer.isCurrent, isTrue);
+          expect(firstComposer.isCurrent, isTrue);
           expect(fullPageComposer.isCurrent, isTrue);
 
-          drawerComposer.dispose();
-          drawerComposer.insertText('late text');
+          firstComposer.dispose();
+          firstComposer.insertText('late text');
           fullPageComposer.insertText(' continues');
-          expect(drawerComposer.isEditing, isFalse);
-          expect(drawerComposer.raw, 'drawer draft');
+          expect(firstComposer.isEditing, isFalse);
+          expect(firstComposer.raw, 'first draft');
           expect(fullPageComposer.isEditing, isTrue);
           expect(fullPageComposer.raw, 'full-page draft continues');
         },
@@ -555,22 +555,15 @@ void main() {
     });
 
     group('native URL routing', () {
-      test(
-        'a direct Chat URL stays full-page when a drawer is available',
-        () async {
-          final chatShell = shell.pluginSession.require(chatShellService);
-          chatShell.updateDrawerAvailability(true);
-          expect(chatShell.drawerAvailable, isTrue);
+      test('a direct Chat URL opens full-page', () async {
+        final chatShell = shell.pluginSession.require(chatShellService);
 
-          expect(await shell.openChatUrl('$_site/chat/c/-/9/t/3/44'), isTrue);
+        expect(await shell.openChatUrl('$_site/chat/c/-/9/t/3/44'), isTrue);
 
-          expect(chatShell.drawerActive, isFalse);
-          expect(chatShell.fullPageChatActive, isTrue);
-          expect(chatShell.drawerContentStack, isEmpty);
-          expect(shell.currentContent?.id, 'chat-c-9-t-3');
-          expect(shell.chatNavigation.value?.messageId, 44);
-        },
-      );
+        expect(chatShell.fullPageChatActive, isTrue);
+        expect(shell.currentContent?.id, 'chat-c-9-t-3');
+        expect(shell.chatNavigation.value?.messageId, 44);
+      });
 
       test(
         'notification leaves Aggregate and reveals its chat thread',
@@ -836,31 +829,19 @@ void main() {
     });
 
     group('entry-point dispatch', () {
-      test(
-        'in-app Chat links use the drawer without replacing forum content',
-        () async {
-          final chatShell = shell.pluginSession.require(chatShellService);
-          chatShell.updateDrawerAvailability(true);
-          expect(chatShell.drawerAvailable, isTrue);
-          final underlyingRoutes = [
-            for (final route in shell.contentStack) route.id,
-          ];
-          final underlyingContentId = shell.currentContent?.id;
-          final opened = await shell.openPluginUrl(
-            '/chat/c/-/9/t/3/44',
-            origin: PluginLinkOrigin.inApp,
-          );
+      test('in-app Chat links open a full-page thread', () async {
+        final chatShell = shell.pluginSession.require(chatShellService);
+        final opened = await shell.openPluginUrl(
+          '/chat/c/-/9/t/3/44',
+          origin: PluginLinkOrigin.inApp,
+        );
 
-          expect(opened, isTrue);
-          expect(chatShell.drawerActive, isTrue);
-          expect(chatShell.drawerCurrentContent?.id, 'chat-c-9-t-3');
-          expect(chatShell.fullPageChatActive, isFalse);
-          expect(shell.currentContent?.id, underlyingContentId);
-          expect(shell.contentStack.map((route) => route.id), underlyingRoutes);
-          expect(shell.chatNavigation.value?.messageId, 44);
-          chatShell.closeDrawer();
-        },
-      );
+        expect(opened, isTrue);
+        expect(chatShell.currentContent?.id, 'chat-c-9-t-3');
+        expect(chatShell.fullPageChatActive, isTrue);
+        expect(shell.currentContent?.id, 'chat-c-9-t-3');
+        expect(shell.chatNavigation.value?.messageId, 44);
+      });
 
       test('routes plugin links to Chat before browser fallback', () async {
         final opened = await shell.openPluginUrl(
@@ -886,51 +867,20 @@ void main() {
       );
 
       test(
-        'a Chat notification opens its exact message in an available drawer',
+        'a Chat notification opens its exact message in full-page Chat',
         () async {
           final chatShell = shell.pluginSession.require(chatShellService);
-          chatShell.updateDrawerAvailability(true);
-          final underlyingRoutes = [
-            for (final route in shell.contentStack) route.id,
-          ];
-          final underlyingContentId = shell.currentContent?.id;
           expect(
             await shell.openNotificationUrl('$_site/chat/c/-/9/t/3/44'),
             isTrue,
           );
 
-          expect(chatShell.drawerActive, isTrue);
-          expect(chatShell.drawerCurrentContent?.id, 'chat-c-9-t-3');
-          expect(chatShell.fullPageChatActive, isFalse);
-          expect(shell.currentContent?.id, underlyingContentId);
-          expect(shell.contentStack.map((route) => route.id), underlyingRoutes);
+          expect(chatShell.currentContent?.id, 'chat-c-9-t-3');
+          expect(chatShell.fullPageChatActive, isTrue);
+          expect(shell.currentContent?.id, 'chat-c-9-t-3');
           expect(shell.chatNavigation.value?.messageId, 44);
-          chatShell.closeDrawer();
         },
       );
-    });
-
-    group('drawer route history', () {
-      test('keeps the 10 most recent routes after the history overflows', () {
-        final chatShell = shell.pluginSession.require(chatShellService);
-        chatShell.updateDrawerAvailability(true);
-        expect(chatShell.drawerAvailable, isTrue);
-
-        for (var threadId = 1; threadId <= 12; threadId++) {
-          shell.openChatThread(
-            siteUrl: _site,
-            channelId: 9,
-            threadId: threadId,
-          );
-        }
-
-        expect(chatShell.drawerActive, isTrue);
-        expect(chatShell.drawerContentStack, hasLength(10));
-        expect(chatShell.drawerContentStack.map((route) => route.id), [
-          for (var threadId = 3; threadId <= 12; threadId++)
-            ChatRoute.thread(channelId: 9, threadId: threadId).routeId,
-        ]);
-      });
     });
 
     group('sidebar workflows', () {

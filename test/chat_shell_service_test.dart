@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'dart:ui' show Rect;
 
 import 'package:discourse_native/src/data/store.dart';
@@ -14,7 +13,6 @@ import 'package:discourse_native/src/plugin_api/plugin_manifest.dart';
 import 'package:discourse_native/src/plugin_api/shell_extensions.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_controller.dart';
-import 'package:discourse_native/src/plugins/chat/chat_drawer_preferences_store.dart';
 import 'package:discourse_native/src/plugins/chat/chat_notification_counter.dart';
 import 'package:discourse_native/src/plugins/chat/chat_plugin.dart';
 import 'package:discourse_native/src/plugins/chat/chat_plugin_data.dart';
@@ -35,11 +33,8 @@ void main() {
     () async {
       final fixture = await _fixture(
         channels: ChatChannels(public: [_channel(9)]),
-        persistence: _PreferencesPersistence(),
       );
       addTearDown(fixture.dispose);
-      // Let the persisted display preference finish restoring first.
-      await Future<void>.delayed(Duration.zero);
       var changes = 0;
       fixture.shell.addListener(() => changes++);
 
@@ -66,268 +61,35 @@ void main() {
     },
   );
 
-  test(
-    'in-app links wait for and honor the restored full-page preference',
-    () async {
-      final persistence = _PreferencesPersistence.gated();
+  for (final origin in PluginLinkOrigin.values) {
+    test('$origin chat links open the full-page channel', () async {
       final fixture = await _fixture(
         channels: ChatChannels(public: [_channel(9)]),
-        persistence: persistence,
       );
       addTearDown(fixture.dispose);
-      fixture.shell.updateDrawerAvailability(true);
-
-      final opened = fixture.shell.openPluginUrl(
-        '$_site/chat/c/-/9',
-        origin: PluginLinkOrigin.inApp,
-      );
-      await Future<void>.delayed(Duration.zero);
-
-      expect(fixture.shell.drawerActive, isFalse);
-      expect(fixture.host.contentStack.map((route) => route.id), ['latest']);
-
-      persistence.completeDisplayModeRead('FULL_PAGE_CHAT');
-
-      expect(await opened, isTrue);
       expect(
-        fixture.shell.preferredDisplayMode,
-        ChatPreferredDisplayMode.fullPage,
+        await fixture.shell.openPluginUrl('$_site/chat/c/-/9', origin: origin),
+        isTrue,
       );
-      expect(fixture.shell.drawerActive, isFalse);
+      expect(fixture.shell.fullPageChatActive, isTrue);
       expect(fixture.host.currentContent?.id, ChatRoute.channel(9).routeId);
-    },
-  );
+    });
+  }
 
-  test(
-    'a late preference restore cannot overwrite a newer explicit choice',
-    () async {
-      final persistence = _PreferencesPersistence.gated();
-      final fixture = await _fixture(
-        channels: ChatChannels(public: [_channel(9)]),
-        persistence: persistence,
-      );
-      addTearDown(fixture.dispose);
-      fixture.shell.updateDrawerAvailability(true);
-      expect(fixture.shell.openChannel(9), isTrue);
-
-      final openedFullPage = fixture.shell.openFullPageFromDrawer();
-      expect(
-        fixture.shell.preferredDisplayMode,
-        ChatPreferredDisplayMode.fullPage,
-      );
-
-      persistence.completeDisplayModeRead('DRAWER_CHAT');
-      await openedFullPage;
-
-      expect(
-        fixture.shell.preferredDisplayMode,
-        ChatPreferredDisplayMode.fullPage,
-      );
-      expect(persistence.displayModeWrites, ['FULL_PAGE_CHAT']);
-    },
-  );
-
-  test('widening restores a drawer that a compact layout promoted', () async {
+  test('the Chat shortcut opens a channel in the main content', () async {
     final fixture = await _fixture(
       channels: ChatChannels(public: [_channel(9)]),
-      persistence: _PreferencesPersistence(displayMode: 'DRAWER_CHAT'),
     );
     addTearDown(fixture.dispose);
-    await fixture.shell.openShortcut(drawerAvailable: true);
-    expect(fixture.shell.openChannel(9), isTrue);
-    final forumRouteId = fixture.host.currentContent?.id;
-
-    fixture.shell.updateDrawerAvailability(false);
-    await Future<void>.delayed(Duration.zero);
-
-    expect(fixture.shell.drawerActive, isFalse);
+    await fixture.shell.openShortcut();
     expect(fixture.shell.fullPageChatActive, isTrue);
     expect(fixture.host.currentContent?.id, ChatRoute.channel(9).routeId);
-    expect(fixture.shell.preferredDisplayMode, ChatPreferredDisplayMode.drawer);
-
-    fixture.shell.updateDrawerAvailability(true);
-    await Future<void>.delayed(Duration.zero);
-
-    expect(fixture.shell.drawerActive, isTrue);
-    expect(
-      fixture.shell.drawerCurrentContent?.id,
-      ChatRoute.channel(9).routeId,
-    );
-    expect(fixture.shell.fullPageChatActive, isFalse);
-    expect(fixture.host.currentContent?.id, forumRouteId);
-    expect(fixture.persistence.displayModeWrites, isEmpty);
   });
 
-  test(
-    'a deep drawer route gains its channel parent in full-page Chat',
-    () async {
-      final fixture = await _fixture(
-        channels: ChatChannels(public: [_channel(9)]),
-        persistence: _PreferencesPersistence(displayMode: 'DRAWER_CHAT'),
-      );
-      addTearDown(fixture.dispose);
-      await fixture.shell.openShortcut(drawerAvailable: true);
-      fixture.shell.forget(_site);
-
-      fixture.shell.openThread(siteUrl: _site, channelId: 9, threadId: 44);
-      expect(fixture.shell.drawerContentStack.map((route) => route.id), [
-        ChatRoute.thread(channelId: 9, threadId: 44).routeId,
-      ]);
-
-      await fixture.shell.openFullPageFromDrawer();
-
-      expect(fixture.host.contentStack.map((route) => route.id), [
-        ChatRoute.channel(9).routeId,
-        ChatRoute.thread(channelId: 9, threadId: 44).routeId,
-      ]);
-    },
-  );
-
-  test(
-    'channel cycling follows sidebar order rather than drawer activity order',
-    () async {
-      final fixture = await _fixture(
-        channels: ChatChannels(
-          public: [
-            _channel(4, title: 'Alpha'),
-            _channel(
-              2,
-              title: 'Beta',
-              tracking: const ChatTracking(unreadCount: 1),
-            ),
-            _channel(
-              1,
-              title: 'Zulu',
-              tracking: const ChatTracking(mentionCount: 1),
-            ),
-            _channel(3, title: 'Starred', starred: true),
-          ],
-        ),
-        persistence: _PreferencesPersistence(displayMode: 'DRAWER_CHAT'),
-      );
-      addTearDown(fixture.dispose);
-      await fixture.shell.openShortcut(drawerAvailable: true);
-      expect(fixture.shell.openChannel(3), isTrue);
-
-      for (final expectedChannelId in [4, 2, 1, 3]) {
-        expect(fixture.shell.cycleDrawerChannel(forward: true), isTrue);
-        expect(
-          fixture.shell.drawerCurrentContent?.id,
-          ChatRoute.channel(expectedChannelId).routeId,
-        );
-      }
-    },
-  );
-
-  test(
-    'channel cycling limits unstarred direct messages after removing starred',
-    () async {
-      final fixture = await _fixture(
-        channels: ChatChannels(
-          direct: [
-            _directChannel(90, activityRank: -1, starred: true),
-            for (var index = 0; index <= 50; index++)
-              _directChannel(100 + index, activityRank: index),
-          ],
-        ),
-        persistence: _PreferencesPersistence(displayMode: 'DRAWER_CHAT'),
-      );
-      addTearDown(fixture.dispose);
-      await fixture.shell.openShortcut(drawerAvailable: true);
-      expect(fixture.shell.openChannel(149), isTrue);
-
-      expect(fixture.shell.cycleDrawerChannel(forward: true), isTrue);
-      expect(
-        fixture.shell.drawerCurrentContent?.id,
-        ChatRoute.channel(90).routeId,
-      );
-      expect(fixture.shell.cycleDrawerChannel(forward: true), isTrue);
-      expect(
-        fixture.shell.drawerCurrentContent?.id,
-        ChatRoute.channel(100).routeId,
-      );
-    },
-  );
-
-  test('unread-only cycling includes muted unread channels', () async {
-    final fixture = await _fixture(
-      channels: ChatChannels(
-        public: [
-          _channel(1, title: 'Alpha'),
-          _channel(
-            2,
-            title: 'Beta',
-            muted: true,
-            tracking: const ChatTracking(unreadCount: 1),
-          ),
-          _channel(
-            3,
-            title: 'Gamma',
-            tracking: const ChatTracking(unreadCount: 1),
-          ),
-        ],
-      ),
-      persistence: _PreferencesPersistence(displayMode: 'DRAWER_CHAT'),
-    );
+  test('the Chat shortcut opens browse when there are no channels', () async {
+    final fixture = await _fixture(channels: const ChatChannels());
     addTearDown(fixture.dispose);
-    await fixture.shell.openShortcut(drawerAvailable: true);
-    expect(fixture.shell.openChannel(1), isTrue);
-
-    expect(
-      fixture.shell.cycleDrawerChannel(forward: true, unreadOnly: true),
-      isTrue,
-    );
-    expect(
-      fixture.shell.drawerCurrentContent?.id,
-      ChatRoute.channel(2).routeId,
-    );
-  });
-
-  test(
-    'a shortcut that resolves after a site switch leaves the drawer closed',
-    () async {
-      final persistence = _PreferencesPersistence.gated();
-      final fixture = await _fixture(
-        channels: ChatChannels(public: [_channel(9)]),
-        persistence: persistence,
-      );
-      addTearDown(fixture.dispose);
-
-      final opened = fixture.shell.openShortcut(drawerAvailable: true);
-      await Future<void>.delayed(Duration.zero);
-      expect(fixture.shell.drawerActive, isFalse);
-
-      fixture.host.switchTo(
-        const DiscourseInstance(url: 'https://other.example', title: 'Other'),
-      );
-      persistence.completeDisplayModeRead('DRAWER_CHAT');
-      await opened;
-
-      expect(fixture.shell.drawerActive, isFalse);
-      expect(fixture.shell.drawerContentStack, isEmpty);
-    },
-  );
-
-  test('channel cycling works full page but not from an index route', () async {
-    final fixture = await _fixture(
-      channels: ChatChannels(
-        public: [
-          _channel(1, title: 'Alpha'),
-          _channel(2, title: 'Beta'),
-        ],
-      ),
-      persistence: _PreferencesPersistence(displayMode: 'FULL_PAGE_CHAT'),
-    );
-    addTearDown(fixture.dispose);
-    fixture.shell.updateDrawerAvailability(false);
-    expect(fixture.shell.openChannel(1), isTrue);
-
-    expect(fixture.shell.cycleDrawerChannel(forward: true), isTrue);
-    expect(fixture.host.currentContent?.id, ChatRoute.channel(2).routeId);
-
-    fixture.shell.openBrowseChannels();
-    expect(fixture.host.currentContent?.id, ChatPlugin.browseRouteId);
-    expect(fixture.shell.cycleDrawerChannel(forward: true), isFalse);
+    await fixture.shell.openShortcut();
     expect(fixture.host.currentContent?.id, ChatPlugin.browseRouteId);
   });
 }
@@ -348,27 +110,7 @@ ChatChannel _channel(
   threadingEnabled: true,
 );
 
-ChatChannel _directChannel(
-  int id, {
-  required int activityRank,
-  bool starred = false,
-}) => ChatChannel(
-  id: id,
-  title: 'Direct $id',
-  kind: ChatChannelKind.directMessage,
-  membership: ChatMembership(following: true, starred: starred),
-  lastMessageId: 1000 - activityRank,
-  lastMessageAt: DateTime.utc(
-    2026,
-    8,
-    1,
-  ).subtract(Duration(minutes: activityRank)),
-);
-
-Future<_Fixture> _fixture({
-  required ChatChannels channels,
-  required _PreferencesPersistence persistence,
-}) async {
+Future<_Fixture> _fixture({required ChatChannels channels}) async {
   final settings = SiteConfig(
     plugins: PluginData.none.withValue(
       chatSettingsDataKey,
@@ -417,14 +159,12 @@ Future<_Fixture> _fixture({
     ),
     store: store,
     postFlagCatalog: (_) => const [],
-    drawerPreferences: ChatDrawerPreferencesStore(persistence: persistence),
   );
   return _Fixture(
     chat: chat,
     host: host,
     shell: shell,
     settingsListenable: settingsListenable,
-    persistence: persistence,
   );
 }
 
@@ -434,14 +174,12 @@ final class _Fixture {
     required this.host,
     required this.shell,
     required this.settingsListenable,
-    required this.persistence,
   });
 
   final ChatController chat;
   final _NavigationHost host;
   final ChatShellService shell;
   final ValueNotifier<SiteConfig> settingsListenable;
-  final _PreferencesPersistence persistence;
 
   void dispose() {
     shell.dispose();
@@ -553,41 +291,4 @@ final class _NavigationHost implements PluginNavigationHost {
     _disposed = true;
     _changes.dispose();
   }
-}
-
-final class _PreferencesPersistence
-    implements ChatDrawerPreferencesPersistence {
-  _PreferencesPersistence({this.displayMode}) : _displayModeRead = null;
-
-  _PreferencesPersistence.gated() : _displayModeRead = Completer<String?>();
-
-  String? displayMode;
-  final Completer<String?>? _displayModeRead;
-  final List<String> displayModeWrites = [];
-
-  void completeDisplayModeRead(String? value) =>
-      _displayModeRead!.complete(value);
-
-  @override
-  Future<String?> readPreferredDisplayMode() async {
-    final pending = _displayModeRead;
-    return pending == null ? displayMode : await pending.future;
-  }
-
-  @override
-  Future<({double? width, double? height})> readDrawerSize() async =>
-      (width: null, height: null);
-
-  @override
-  Future<bool> writePreferredDisplayMode(String value) async {
-    displayMode = value;
-    displayModeWrites.add(value);
-    return true;
-  }
-
-  @override
-  Future<bool> writeDrawerSize({
-    required double width,
-    required double height,
-  }) async => true;
 }

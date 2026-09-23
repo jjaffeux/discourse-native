@@ -182,7 +182,7 @@ hover/focus; actions open a dropdown independently of row navigation.
 
 The remaining app owners are:
 
-- Chat drawer: channel/DM memberships, unread/mention counts, configurable
+- Chat channel lists: channel/DM memberships, unread/mention counts, configurable
   sections and thread navigation; retains its current domain rendering adapter.
 - Events and Voice contribute SidebarDestination/SidebarSection models to the
   preceding app owners; their permissions/room state are not generic widgets.

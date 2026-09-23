@@ -17,7 +17,6 @@ import 'package:discourse_native/src/plugin_api/plugin_scope.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel_view.dart';
 import 'package:discourse_native/src/plugins/chat/chat_composer.dart';
-import 'package:discourse_native/src/plugins/chat/chat_drawer.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message_tile.dart';
 import 'package:discourse_native/src/plugins/chat/chat_plugin.dart';
@@ -881,7 +880,7 @@ void main() {
       );
     });
 
-    testWidgets('a draft survives drawer collapse and expansion', (
+    testWidgets('a draft survives hiding and showing its composer', (
       tester,
     ) async {
       final fixture = await _fixture(
@@ -975,62 +974,63 @@ void main() {
       },
     );
 
-    testWidgets('closed drawers retain separate channel and thread drafts', (
-      tester,
-    ) async {
-      final fixture = await _fixture(pages: const {});
-      addTearDown(fixture.shell.dispose);
-      await tester.pumpWidget(
-        _ComposerVisibilityView(shell: fixture.shell, visible: true),
-      );
-      await tester.pumpAndSettle();
-      await tester.enterText(_composerField(), 'channel nine draft');
-      await tester.pump();
+    testWidgets(
+      'unmounted composers retain separate channel and thread drafts',
+      (tester) async {
+        final fixture = await _fixture(pages: const {});
+        addTearDown(fixture.shell.dispose);
+        await tester.pumpWidget(
+          _ComposerVisibilityView(shell: fixture.shell, visible: true),
+        );
+        await tester.pumpAndSettle();
+        await tester.enterText(_composerField(), 'channel nine draft');
+        await tester.pump();
 
-      await tester.pumpWidget(
-        _ComposerVisibilityView(shell: fixture.shell, visible: false),
-      );
-      await tester.pump();
-      await tester.pumpWidget(
-        _ComposerVisibilityView(
-          shell: fixture.shell,
-          visible: true,
-          threadId: 44,
-        ),
-      );
-      await tester.pumpAndSettle();
-      expect(_text(tester), isEmpty);
-      await tester.enterText(_composerField(), 'thread draft');
-      await tester.pump();
+        await tester.pumpWidget(
+          _ComposerVisibilityView(shell: fixture.shell, visible: false),
+        );
+        await tester.pump();
+        await tester.pumpWidget(
+          _ComposerVisibilityView(
+            shell: fixture.shell,
+            visible: true,
+            threadId: 44,
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(_text(tester), isEmpty);
+        await tester.enterText(_composerField(), 'thread draft');
+        await tester.pump();
 
-      await tester.pumpWidget(
-        _ComposerVisibilityView(shell: fixture.shell, visible: false),
-      );
-      await tester.pump();
-      await tester.pumpWidget(
-        _ComposerVisibilityView(shell: fixture.shell, visible: true),
-      );
-      await tester.pumpAndSettle();
+        await tester.pumpWidget(
+          _ComposerVisibilityView(shell: fixture.shell, visible: false),
+        );
+        await tester.pump();
+        await tester.pumpWidget(
+          _ComposerVisibilityView(shell: fixture.shell, visible: true),
+        );
+        await tester.pumpAndSettle();
 
-      expect(_text(tester), 'channel nine draft');
+        expect(_text(tester), 'channel nine draft');
 
-      await tester.pumpWidget(
-        _ComposerVisibilityView(shell: fixture.shell, visible: false),
-      );
-      await tester.pump();
-      await tester.pumpWidget(
-        _ComposerVisibilityView(
-          shell: fixture.shell,
-          visible: true,
-          threadId: 44,
-        ),
-      );
-      await tester.pumpAndSettle();
+        await tester.pumpWidget(
+          _ComposerVisibilityView(shell: fixture.shell, visible: false),
+        );
+        await tester.pump();
+        await tester.pumpWidget(
+          _ComposerVisibilityView(
+            shell: fixture.shell,
+            visible: true,
+            threadId: 44,
+          ),
+        );
+        await tester.pumpAndSettle();
 
-      expect(_text(tester), 'thread draft');
-    });
+        expect(_text(tester), 'thread draft');
+      },
+    );
 
-    testWidgets('a sent drawer message is not restored after reopening', (
+    testWidgets('a sent message is not restored after reopening', (
       tester,
     ) async {
       final fixture = await _fixture(
@@ -1060,7 +1060,7 @@ void main() {
       expect(_text(tester), isEmpty);
     });
 
-    testWidgets('live drawer and full-page composers stay synchronized', (
+    testWidgets('live composers for the same channel stay synchronized', (
       tester,
     ) async {
       const upload = ComposerUploadResult(
@@ -1086,19 +1086,19 @@ void main() {
       await tester.pumpWidget(_TwoComposerView(shell: fixture.shell));
       await tester.pumpAndSettle();
 
-      final drawerField = _composerFieldWithin(_drawerComposerKey);
+      final firstField = _composerFieldWithin(_firstComposerKey);
       final fullPageField = _composerFieldWithin(_fullPageComposerKey);
       expect(find.text('shared.png'), findsNWidgets(2));
-      await tester.enterText(drawerField, 'started in drawer');
+      await tester.enterText(firstField, 'started in first composer');
       await tester.pump();
 
-      expect(_textWithin(tester, fullPageField), 'started in drawer');
+      expect(_textWithin(tester, fullPageField), 'started in first composer');
       expect(find.text('shared.png'), findsNWidgets(2));
 
       await tester.enterText(fullPageField, 'finished full page');
       await tester.pump();
 
-      expect(_textWithin(tester, drawerField), 'finished full page');
+      expect(_textWithin(tester, firstField), 'finished full page');
 
       await tester.tap(
         find.descendant(
@@ -1110,7 +1110,7 @@ void main() {
 
       expect(fixture.api.chatMessagesSent, hasLength(1));
       expect(fixture.api.chatMessagesSent.single.uploadIds, [73]);
-      expect(_textWithin(tester, drawerField), isEmpty);
+      expect(_textWithin(tester, firstField), isEmpty);
       expect(_textWithin(tester, fullPageField), isEmpty);
     });
 
@@ -2141,7 +2141,7 @@ void main() {
   });
 
   group('emoji and GIF picker action handling', () {
-    testWidgets('puts GIF in the add menu in drawer and full-page modes', (
+    testWidgets('puts GIF in the add menu in both mounted composers', (
       tester,
     ) async {
       final fixture = await _fixture(
@@ -2160,7 +2160,7 @@ void main() {
       expect(find.byKey(const ValueKey('chat-composer-gif')), findsNothing);
 
       for (final composerKey in const [
-        _drawerComposerKey,
+        _firstComposerKey,
         _fullPageComposerKey,
       ]) {
         final composer = find.byKey(composerKey);
@@ -3273,7 +3273,7 @@ Future<void> _hoverReply(WidgetTester tester, int messageId) async {
   await tester.pumpAndSettle();
 }
 
-const _drawerComposerKey = ValueKey('drawer-chat-composer');
+const _firstComposerKey = ValueKey('first-chat-composer');
 const _fullPageComposerKey = ValueKey('full-page-chat-composer');
 
 Finder _composerFieldWithin(Key composerKey) => find.descendant(
@@ -3429,12 +3429,10 @@ final class _TwoComposerView extends StatelessWidget {
           body: Row(
             children: [
               Expanded(
-                child: ChatDrawerScope(
-                  child: ChatComposer(
-                    key: _drawerComposerKey,
-                    siteUrl: _site,
-                    channelId: 9,
-                  ),
+                child: ChatComposer(
+                  key: _firstComposerKey,
+                  siteUrl: _site,
+                  channelId: 9,
                 ),
               ),
               Expanded(

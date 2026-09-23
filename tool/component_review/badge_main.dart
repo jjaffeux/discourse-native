@@ -66,7 +66,7 @@ Future<void> main() async {
       StyleguideExample(
         title: 'Migration fixtures',
         description:
-            'Actual Groups, TopicUnreadBadge, UserCardTarget and Chat drawer widgets with local data. Open the staff profile to inspect its status and badge count. No real account data is used.',
+            'Actual Groups, TopicUnreadBadge, UserCardTarget and Chat channel list widgets with local data. Open the staff profile to inspect its status and badge count. No real account data is used.',
         code: 'BadgeMigrationFixtures(controller: inMemoryController)',
         builder: (_) => BadgeMigrationFixtures(controller: controller),
       ),

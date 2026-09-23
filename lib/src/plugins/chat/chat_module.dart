@@ -1,4 +1,5 @@
 import 'package:discourse_native/discourse_plugin_sdk.dart';
+
 import '../gifs/gifs_contract.dart';
 import 'chat_api.dart';
 import 'chat_api_client.dart';
@@ -173,7 +174,6 @@ final class _ChatSessionLifecycle extends PluginSessionLifecycle {
 
   @override
   void forget(String siteUrl) {
-    shell.forget(siteUrl);
     controller.forget(siteUrl);
     searchController.forget(siteUrl);
   }

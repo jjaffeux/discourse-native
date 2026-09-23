@@ -5,8 +5,6 @@ import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_header_button.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message.dart';
 import 'package:discourse_native/src/plugins/chat/chat_notification_counter.dart';
-import 'package:discourse_native/src/plugins/chat/chat_plugin.dart';
-import 'package:discourse_native/src/plugins/chat/chat_shell_service.dart';
 import 'package:discourse_native/src/shell/forum_search.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
@@ -100,15 +98,7 @@ void main() {
 
       await tester.sendKeyEvent(LogicalKeyboardKey.enter);
       await tester.pumpAndSettle();
-
-      expect(controller.currentContent?.id, 'latest');
-      expect(
-        controller.pluginSession
-            .require(chatShellService)
-            .drawerCurrentContent
-            ?.id,
-        ChatPlugin.channelsRouteId,
-      );
+      expect(controller.currentContent?.id, 'chat-c-9');
     } finally {
       semantics.dispose();
     }

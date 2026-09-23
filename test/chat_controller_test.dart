@@ -1358,7 +1358,7 @@ void main() {
       ]);
     });
 
-    test('sorts all drawer channels without excluding starred rows', () async {
+    test('sorts all list channels without excluding starred rows', () async {
       final subject = build(
         channels: {
           site: ChatChannels(

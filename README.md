@@ -1971,11 +1971,7 @@ channel pane hidden by compact thread navigation cannot read anything. Creating
 membership by replying or changing the thread notification level enables the
 thread path after detail reconciliation.
 
-Collapsing the Chat drawer suspends body and composer animation, live viewing,
-and read dwell while leaving the header usable. Closing the drawer, a compact
-layout, or a hidden parent surface also suspends its retained content. Routes,
-edits, drafts, and uploads survive; expanding resumes only the remaining visible
-read dwell, so time spent hidden cannot mark a message read.
+Chat opens in the full-page workspace on desktop and mobile.
 
 The stream is one flat list, oldest first, **contiguous** — that is the
 invariant paging depends on, since `loadOlder` pages before the first message

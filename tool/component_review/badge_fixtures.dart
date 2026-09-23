@@ -4,7 +4,7 @@ import 'package:discourse_native/src/models/group.dart';
 import 'package:discourse_native/src/models/user_card.dart';
 import 'package:discourse_native/src/plugin_api/plugin_scope.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
-import 'package:discourse_native/src/plugins/chat/chat_drawer.dart';
+import 'package:discourse_native/src/plugins/chat/chat_channels_view.dart';
 import 'package:discourse_native/src/plugins/chat/chat_notification_counter.dart';
 import 'package:discourse_native/src/plugins/chat/chat_services.dart';
 import 'package:discourse_native/src/shell/groups_page.dart';
@@ -128,9 +128,9 @@ class BadgeMigrationFixtures extends StatelessWidget {
           height: 280,
           child: PluginUiScope.own(
             chatPluginId,
-            const ChatDrawerChannelsView(
+            const ChatChannelsView(
               siteUrl: badgeFixtureSite,
-              kind: ChatDrawerChannelListKind.channels,
+              kind: ChatChannelListKind.channels,
             ),
           ),
         ),

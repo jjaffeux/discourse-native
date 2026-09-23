@@ -251,7 +251,7 @@ void main() {
   );
 
   test(
-    'sidebar replaces the last limited DM with the active channel; drawer slices',
+    'sidebar replaces the last limited DM with the active channel; full-page list slices',
     () {
       final dms = [
         for (var i = 1; i <= 55; i++)
