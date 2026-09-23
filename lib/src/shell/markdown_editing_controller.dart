@@ -132,7 +132,10 @@ class MarkdownEditingController extends TextEditingController {
           TextRange(start: block.end, end: block.end + 4)
         else if (text.startsWith('\n\n', block.end))
           TextRange(start: block.end, end: block.end + 2)
-        else if (i + 1 < index.blocks.length)
+        else if (i + 1 < index.blocks.length &&
+            // Sibling to-dos are list rows, not separate paragraphs.
+            !(block.kind == ComposerBlockKind.todo &&
+                index.blocks[i + 1].kind == ComposerBlockKind.todo))
           if (text.startsWith('\r\n', block.end))
             TextRange(start: block.end, end: block.end + 2)
           else if (text.startsWith('\n', block.end))

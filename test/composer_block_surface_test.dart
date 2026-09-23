@@ -206,6 +206,51 @@ void main() {
     });
   }
 
+  for (final newline in ['\n', '\r\n']) {
+    testWidgets('Enter continues compact todo rows ($newline)', (tester) async {
+      final source = '[ ] First$newline[x] Second';
+      composer.text.value = TextEditingValue(
+        text: source,
+        selection: TextSelection.collapsed(offset: source.length),
+      );
+      await mount(tester);
+      composer.focus.requestFocus();
+      await tester.pump();
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pumpAndSettle();
+      expect(composer.text.text, '$source$newline[ ] ');
+      final surface = tester.widget<ComposerBlockSurface>(
+        find.byType(ComposerBlockSurface),
+      );
+      final blocks = composer.blocks.index.blocks;
+      expect(blocks, hasLength(3));
+      for (var i = 1; i < blocks.length; i++) {
+        expect(
+          surface.blockRect(blocks[i])!.top -
+              surface.blockRect(blocks[i - 1])!.bottom,
+          closeTo(0, .01),
+        );
+      }
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
+      expect(
+        composer.text.selection.extentOffset,
+        inInclusiveRange(source.indexOf('Second'), source.length),
+      );
+      await tester.enterText(
+        find.byType(EditableText),
+        '[ ] First$newline$newline[ ] Second',
+      );
+      await tester.pumpAndSettle();
+      final spaced = composer.blocks.index.blocks;
+      expect(
+        surface.blockRect(spaced.last)!.top -
+            surface.blockRect(spaced.first)!.bottom,
+        greaterThan(0),
+      );
+      expect(tester.takeException(), isNull);
+    });
+  }
+
   testWidgets('required separator offers no empty block controls', (
     tester,
   ) async {
@@ -319,7 +364,7 @@ void main() {
 
   for (final newline in ['\n', '\r\n']) {
     testWidgets(
-      'single-newline blocks have a gap without changing Markdown ($newline)',
+      'block gaps keep sibling todos compact without changing Markdown ($newline)',
       (tester) async {
         final source =
             'First$newline## Heading$newline[ ] Task$newline[ ] Another';
@@ -341,7 +386,9 @@ void main() {
           final after = surface.blockRect(blocks[i])!;
           expect(
             after.top - before.bottom,
-            greaterThanOrEqualTo(render.preferredLineHeight * .9),
+            i == 3
+                ? closeTo(0, .01)
+                : greaterThanOrEqualTo(render.preferredLineHeight * .9),
           );
           expect(
             surface.emptyLineAt(
