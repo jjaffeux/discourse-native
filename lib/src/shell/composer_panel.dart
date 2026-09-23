@@ -3020,16 +3020,10 @@ class _ComposerEditorState extends State<ComposerEditor> {
 
   double _minimumLineHeight(BuildContext context) {
     final style = widget.textStyle ?? Theme.of(context).textTheme.bodyLarge!;
-    // Empty paragraphs can include more strut leading than filled ones.
-    // Reserve the empty line so a one-line draft does not move the toolbar.
+    // Match MarkdownEditingController: the strut owns leading for empty and
+    // populated paragraphs alike, so typing does not recenter the input.
     final painter = TextPainter(
-      text: TextSpan(
-        // Match the embedded editor's paragraph defaults. Extra minimum
-        // height centers a short field, then disappears when an image is added.
-        style: widget.composer.text.neutralEmptyParagraph
-            ? style.copyWith(height: 1)
-            : style,
-      ),
+      text: TextSpan(style: style.copyWith(height: 1)),
       strutStyle: StrutStyle.fromTextStyle(style, forceStrutHeight: false),
       textDirection: DDirection.of(context),
       textScaler: MediaQuery.textScalerOf(context),

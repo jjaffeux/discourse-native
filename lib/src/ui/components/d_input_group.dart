@@ -679,6 +679,9 @@ class _DInputGroupControlState extends State<DInputGroupControl> {
   Widget build(BuildContext context) {
     final enabled = widget.enabled && (_group?.enabled ?? true);
     _group?.report(_focus, enabled, widget.invalid);
+    final editor = Builder(
+      builder: (context) => widget.builder(context, _focus),
+    );
     return Padding(
       padding:
           _group?.inputPadding ??
@@ -690,7 +693,13 @@ class _DInputGroupControlState extends State<DInputGroupControl> {
         excluding: !enabled,
         child: IgnorePointer(
           ignoring: !enabled,
-          child: widget.builder(context, _focus),
+          child: switch (_group) {
+            final group? => DInputGroupControlScope.boundary(
+              parent: group,
+              child: editor,
+            ),
+            null => editor,
+          },
         ),
       ),
     );

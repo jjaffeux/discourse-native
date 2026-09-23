@@ -1475,6 +1475,69 @@ void main() {
       expect(field.focusNode!.hasFocus, isTrue);
     });
 
+    for (final kind in [
+      ChatChannelKind.category,
+      ChatChannelKind.directMessage,
+    ]) {
+      testWidgets(
+        'empty ${kind.name} caret aligns with the placeholder and typed text',
+        (tester) async {
+          final fixture = await _fixture(
+            pages: {FakeDiscourseApi.chatMessagesKey(9): _emptyPage},
+            channelKind: kind,
+          );
+          addTearDown(fixture.shell.dispose);
+          for (final dark in [false, true]) {
+            await tester.pumpWidget(
+              _TestView(shell: fixture.shell, dark: dark),
+            );
+            await tester.pumpAndSettle();
+            for (final zoom in AppTextScale.values) {
+              await fixture.shell.appSettings.setTextScale(zoom);
+              await tester.pumpAndSettle();
+              final render = tester
+                  .state<EditableTextState>(
+                    find.descendant(
+                      of: _composerField(),
+                      matching: find.byType(EditableText),
+                    ),
+                  )
+                  .renderEditable;
+              Rect caret() => render
+                  .getLocalRectForCaret(const TextPosition(offset: 0))
+                  .shift(render.localToGlobal(Offset.zero));
+              final emptyCaret = caret();
+              final hint = tester.getRect(
+                find.text(
+                  kind == ChatChannelKind.directMessage
+                      ? 'Message @design'
+                      : 'Message #design',
+                ),
+              );
+              expect(emptyCaret.left, closeTo(hint.left, 2));
+              expect(emptyCaret.center.dy, closeTo(hint.center.dy, 1));
+              expect(emptyCaret.height, closeTo(hint.height, 2));
+
+              await tester.enterText(_composerField(), 'Message');
+              await tester.pump();
+              final typedCaret = caret();
+              expect(emptyCaret.top, closeTo(typedCaret.top, 1));
+              expect(emptyCaret.height, closeTo(typedCaret.height, 1));
+              await tester.enterText(_composerField(), '');
+              await tester.pump();
+              expect(caret(), emptyCaret);
+              expect(tester.takeException(), isNull);
+            }
+          }
+        },
+        variant: const TargetPlatformVariant({
+          TargetPlatform.macOS,
+          TargetPlatform.iOS,
+          TargetPlatform.android,
+        }),
+      );
+    }
+
     testWidgets('one-line drafts keep their height at every zoom', (
       tester,
     ) async {
@@ -1495,9 +1558,17 @@ void main() {
         await tester.pump();
         expect(tester.getSize(bar).height, emptyHeight, reason: zoom.name);
         expect(_field(tester).style!.fontSize, DiscourseTypography.base);
+        final render = tester
+            .state<EditableTextState>(
+              find.descendant(
+                of: _composerField(),
+                matching: find.byType(EditableText),
+              ),
+            )
+            .renderEditable;
         expect(
           tester.getSize(_composerField()).height,
-          greaterThanOrEqualTo(24 * zoom.factor),
+          closeTo(render.preferredLineHeight, 1),
         );
 
         await tester.enterText(_composerField(), '');

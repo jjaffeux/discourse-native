@@ -303,7 +303,6 @@ class ComposerListBodyController extends ComposerController {
       text: item.body.text,
       selection: const TextSelection.collapsed(offset: 0),
     );
-    text.neutralEmptyParagraph = true;
     text.completedProse = item.checked;
     text.todoReferenceMarkers = item.referenceMarkers;
     text.addListener(_write);
