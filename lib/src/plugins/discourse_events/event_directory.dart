@@ -142,6 +142,7 @@ class _EventDirectoryState extends State<EventDirectory> {
   int _accountRevision = 0;
   int _foregroundRevision = 0;
   bool _loading = true;
+  bool _initialized = false;
   bool _searchVisible = false;
   EventExportOperation? _exportOperation;
   bool get _exporting => _exportOperation?.isCurrent ?? false;
@@ -163,17 +164,30 @@ class _EventDirectoryState extends State<EventDirectory> {
     _timezone = _readerTimezone;
     _firstDay = _siteFirstDay;
     _settings = widget.controller.settings(widget.site);
-    _page = widget.page ?? _defaultPage();
     _accountRevision = widget.controller.accountRevision(widget.site);
     _foregroundRevision = widget.controller.foregroundRevision;
     widget.controller.addListener(_changed);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_initialized) return;
+    _initialized = true;
+    // Read the inherited platform before choosing the first request's range.
+    _page = widget.page ?? _defaultPage();
     unawaited(_load());
   }
 
   EventCalendarPage _defaultPage() {
     final today = tz.TZDateTime.from(widget.controller.api.clock(), _location);
+    final view = switch (Theme.of(context).platform) {
+      TargetPlatform.iOS ||
+      TargetPlatform.android => EventCalendarView.schedule,
+      _ => _settings.calendarView,
+    };
     return EventCalendarPage(
-      _settings.calendarView,
+      view,
       DateTime.utc(today.year, today.month, today.day),
     );
   }
