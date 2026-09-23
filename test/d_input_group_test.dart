@@ -162,6 +162,64 @@ void main() {
     handle.dispose();
   });
 
+  testWidgets('adapted Native editors consume group padding only once', (
+    tester,
+  ) async {
+    final focus = FocusNode();
+    addTearDown(focus.dispose);
+    final semantics = tester.ensureSemantics();
+    const editorKey = ValueKey('adapted-editor');
+    await tester.pumpWidget(
+      host(
+        DInputGroup(
+          children: [
+            DInputGroupControl(
+              focusNode: focus,
+              invalid: true,
+              multiline: true,
+              builder: (context, node) => DInput(
+                key: editorKey,
+                borderless: true,
+                maxLines: null,
+                focusNode: node,
+              ),
+            ),
+            const DInputGroupAddon(
+              alignment: DInputGroupAddonAlignment.blockEnd,
+              child: Text('Focus editor'),
+            ),
+          ],
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(
+      tester.getRect(find.byType(EditableText)),
+      tester.getRect(find.byKey(editorKey)),
+    );
+    expect(
+      tester
+          .getSemantics(find.byType(DInputGroup))
+          .getSemanticsData()
+          .validationResult,
+      SemanticsValidationResult.invalid,
+    );
+    await tester.tap(find.text('Focus editor'));
+    await tester.pump();
+    expect(focus.hasFocus, isTrue);
+    await tester.enterText(find.byType(TextField), 'Draft');
+    await tester.pump();
+    expect(
+      tester
+          .getSemantics(find.byType(DInputGroup))
+          .getSemanticsData()
+          .validationResult,
+      SemanticsValidationResult.invalid,
+    );
+    semantics.dispose();
+  });
+
   testWidgets('touch keeps 48px hit bounds around mobile 44px artwork', (
     tester,
   ) async {
