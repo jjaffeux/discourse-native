@@ -111,6 +111,8 @@ class DToggleGroup<T extends Object> extends StatefulWidget {
     this.loopFocus = true,
     this.variant = DToggleVariant.standard,
     this.size = DToggleSize.regular,
+    this.density = DToggleDensity.standard,
+    this.expanded = false,
     this.spacing = 2,
     this.inset = false,
     this.semanticLabel,
@@ -144,6 +146,11 @@ class DToggleGroup<T extends Object> extends StatefulWidget {
   final bool loopFocus;
   final DToggleVariant variant;
   final DToggleSize size;
+  final DToggleDensity density;
+
+  /// Equal-width choices filling the available horizontal space. Disables
+  /// scrolling; callers must provide bounded width (or height when vertical).
+  final bool expanded;
 
   /// Number of 4px spacing units. The frozen default is 2 (8px).
   final double spacing;
@@ -470,7 +477,9 @@ class _DToggleGroupState<T extends Object> extends State<DToggleGroup<T>> {
           : baseStyle?.borderEdges ?? DToggleBorderEdges.all;
       final style = DToggleVisualStyle(
         borderRadius: widget.inset
-            ? BorderRadius.circular(6)
+            ? BorderRadius.circular(
+                widget.density == DToggleDensity.tile ? 8 : 6,
+              )
             : joinedRadius ?? baseStyle?.borderRadius,
         borderEdges: edges,
       );
@@ -491,6 +500,7 @@ class _DToggleGroupState<T extends Object> extends State<DToggleGroup<T>> {
               invalid: item.invalid,
               variant: variant,
               size: size,
+              density: widget.density,
               focusNode: _focusFor(item),
               autofocus: item.autofocus,
               onFocusChanged: (focused) =>
@@ -512,6 +522,7 @@ class _DToggleGroupState<T extends Object> extends State<DToggleGroup<T>> {
               invalid: item.invalid,
               variant: variant,
               size: size,
+              density: widget.density,
               focusNode: _focusFor(item),
               autofocus: item.autofocus,
               onFocusChanged: (focused) =>
@@ -522,7 +533,7 @@ class _DToggleGroupState<T extends Object> extends State<DToggleGroup<T>> {
       if (item.tooltip case final tooltip?) {
         toggle = DTooltip(message: tooltip, child: toggle);
       }
-      children.add(toggle);
+      children.add(widget.expanded ? Expanded(child: toggle) : toggle);
       if (index != widget.items.length - 1 && gap > 0) {
         children.add(
           SizedBox(
@@ -535,14 +546,14 @@ class _DToggleGroupState<T extends Object> extends State<DToggleGroup<T>> {
 
     Widget group = _FocusOrderedFlex(
       direction: widget.orientation,
-      mainAxisSize: MainAxisSize.min,
+      mainAxisSize: widget.expanded ? MainAxisSize.max : MainAxisSize.min,
       crossAxisAlignment: widget.orientation == Axis.vertical
           ? CrossAxisAlignment.stretch
           : CrossAxisAlignment.center,
       focusedChildIndex: connected ? _rovingIndex : null,
       children: children,
     );
-    if (widget.scrollable) {
+    if (widget.scrollable && !widget.expanded) {
       group = SingleChildScrollView(
         scrollDirection: widget.orientation,
         child: group,
@@ -552,9 +563,13 @@ class _DToggleGroupState<T extends Object> extends State<DToggleGroup<T>> {
       final tokens = DTokens.of(context);
       group = DecoratedBox(
         decoration: BoxDecoration(
-          color: tokens.background,
+          color: widget.density == DToggleDensity.tile
+              ? Color.lerp(tokens.background, Colors.black, .14)
+              : tokens.background,
           border: Border.all(color: tokens.border),
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(
+            widget.density == DToggleDensity.tile ? 10 : 8,
+          ),
         ),
         child: Padding(padding: const EdgeInsets.all(2), child: group),
       );

@@ -12,6 +12,37 @@ final toggleGroupExamples = ComponentExamples(
       'Accepted after independent rendered and native review. The frozen 2026-05-17 behavior uses 8px default spacing; spacing 0 joins edges, collapses inner outline borders and uses 8px horizontal padding. DToggle remains the visual and activation owner. Values may be parent-controlled, borrowed from a DToggleGroupController, or internally owned. Arrow keys follow orientation and RTL, Home/End move to edges, disabled items are skipped, and loopFocus controls wrapping. The documented 64px font-weight tiles compose the accepted DField label and description around the group without transferring control ownership.',
   examples: [
     StyleguideExample(
+      title: 'Texture tiles',
+      description:
+          'Equal-width inset choices place an icon above each label. The selected tile fills its whole slot; arrow keys move focus.',
+      code:
+          'DToggleGroup<String>(expanded: true, inset: true, density: DToggleDensity.tile, allowEmptySelection: false, initialValues: ["None"], items: items)',
+      builder: (_) => const DToggleGroup<String>(
+        expanded: true,
+        inset: true,
+        density: DToggleDensity.tile,
+        allowEmptySelection: false,
+        initialValues: ['None'],
+        items: [
+          DToggleGroupItem(
+            value: 'None',
+            icon: Icon(Icons.crop_square_rounded),
+            child: Text('None'),
+          ),
+          DToggleGroupItem(
+            value: 'Noise',
+            icon: Icon(Icons.grain),
+            child: Text('Noise'),
+          ),
+          DToggleGroupItem(
+            value: 'Lava lamp',
+            icon: Icon(Icons.apps),
+            child: Text('Lava lamp'),
+          ),
+        ],
+      ),
+    ),
+    StyleguideExample(
       title: 'Inset layout selector',
       description:
           'A recessed frame groups mutually exclusive layout choices. Arrow keys move between choices.',

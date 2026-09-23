@@ -16,6 +16,7 @@ void main() {
     expect(selectExamples.examples.map((example) => example.title), [
       'Size',
       'Default',
+      'Filled form field',
       'Align Item With Trigger',
       'Groups',
       'Scrollable',

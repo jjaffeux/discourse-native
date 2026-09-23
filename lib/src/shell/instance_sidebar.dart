@@ -17,7 +17,6 @@ import 'composer_presentation.dart';
 import 'emoji.dart';
 import 'external_link.dart';
 import 'forum_search.dart';
-import 'forum_settings_dialog.dart';
 import 'forum_theme_surfaces.dart';
 import 'instance_actions.dart';
 import 'mobile_navigation.dart';
@@ -795,7 +794,7 @@ class ForumIdentityHeader extends StatelessWidget {
             key: const ValueKey('forum-identity-settings'),
             leading: const DIcon(DIcons.gear, size: 16),
             onPressed: () =>
-                showForumSettingsDialog(context, siteUrl: siteUrl, name: name),
+                ShellScope.read(context).openForumSettings(siteUrl),
             child: const Text('Settings'),
           ),
           const DDropdownMenuSeparator(),

@@ -3,12 +3,12 @@ import 'package:flutter/material.dart';
 import 'package:html/dom.dart' as dom;
 
 import '../../models/forum_theme.dart';
+import '../../models/forum_theme_preferences.dart';
 import '../../models/forum_theme_share.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/d_icons.dart';
-import '../forum_appearance_settings.dart'
-    show ThemeThumbnail, ThemePaletteStrip;
 import '../forum_settings_controller.dart';
+import '../forum_theme_thumbnail.dart';
 import '../shell_scope.dart';
 
 Widget? forumThemeOneboxWidgetBuilder(dom.Element element, {String? siteUrl}) {
@@ -58,7 +58,7 @@ class ForumThemeOnebox extends StatefulWidget {
 class _ForumThemeOneboxState extends State<ForumThemeOnebox> {
   bool _busy = false;
   bool _canUndo = false;
-  String? _previousId;
+  ForumThemePreferences? _previous;
   String? _error;
   int _operation = 0;
   Brightness? _previewBrightness;
@@ -72,11 +72,16 @@ class _ForumThemeOneboxState extends State<ForumThemeOnebox> {
       _operation++;
       _busy = false;
       _canUndo = false;
-      _previousId = null;
+      _previous = null;
       _error = null;
       _previewBrightness = null;
     }
   }
+
+  bool _isApplied(ForumThemePreferences preferences) =>
+      preferences.palettes.isEmpty &&
+      preferences.background == null &&
+      ForumThemeShare.matches(preferences.selectedTheme, widget.theme);
 
   Future<void> _use(
     ForumSettingsController settings,
@@ -91,19 +96,28 @@ class _ForumThemeOneboxState extends State<ForumThemeOnebox> {
       _error = null;
     });
     try {
-      String? previousId;
+      ForumThemePreferences? previous;
       if (undo) {
         final current = settings.themesFor(site);
-        if (ForumThemeShare.matches(current.selectedTheme, theme)) {
-          await settings.setThemes(site, current.select(_previousId));
+        final previous = _previous;
+        if (_isApplied(current) && previous != null) {
+          await settings.setThemes(
+            site,
+            ForumThemePreferences(
+              selectedId: previous.selectedId,
+              palettes: previous.palettes,
+              background: previous.background,
+              customThemes: current.customThemes,
+              font: current.font,
+            ),
+          );
         }
       } else {
-        final previous = await settings.importTheme(site, theme);
-        previousId = previous.selectedId;
+        previous = await settings.importTheme(site, theme);
       }
       if (mounted && operation == _operation) {
         setState(() {
-          _previousId = previousId;
+          _previous = previous;
           _canUndo = !undo;
         });
       }
@@ -136,10 +150,7 @@ class _ForumThemeOneboxState extends State<ForumThemeOnebox> {
     final using =
         settings != null &&
         site != null &&
-        ForumThemeShare.matches(
-          settings.themesFor(site).selectedTheme,
-          widget.theme,
-        );
+        _isApplied(settings.themesFor(site));
     return Align(
       alignment: AlignmentDirectional.centerStart,
       widthFactor: 1,

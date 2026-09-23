@@ -54,6 +54,8 @@ void main() {
           'backgroundColor': 2,
         },
         'lib/src/shell/message_create_button.dart': {'shape': 2},
+        // Composer gutter actions retain the documented transparent surface.
+        'lib/src/shell/composer_block_surface.dart': {'backgroundColor': 1},
         // The mobile topic reader has a floating pill progress trigger.
         'lib/src/shell/topic_progress.dart': {'shape': 1},
         // X embeds retain provider identity and the reference's pill reply link,

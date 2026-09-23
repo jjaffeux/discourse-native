@@ -3238,6 +3238,7 @@ class ShellController extends FrameSafeNotifier
   bool get canCreateTopicHere {
     if (currentContent?.isTopic != false ||
         currentContent?.isPreferences == true ||
+        currentContent?.isThemes == true ||
         currentContent?.isMessages == true) {
       return false;
     }
@@ -15061,6 +15062,20 @@ class ShellController extends FrameSafeNotifier
       return;
     }
     pushContent(ContentRoute.preferences());
+  }
+
+  void openForumSettings(String siteUrl) {
+    final index = _instances.indexWhere((instance) => instance.url == siteUrl);
+    if (index < 0) return;
+    if (index != _instanceIndex || _rootMode != ShellRootMode.forum) {
+      selectInstance(index);
+    }
+    if (currentContent?.isThemes == true) {
+      _mobilePane = MobilePane.content;
+      _notify();
+      return;
+    }
+    pushContent(ContentRoute.themes());
   }
 
   void openUserActivity(String siteUrl) {

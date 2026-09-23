@@ -4,14 +4,15 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/data/forum_settings_store.dart';
 import 'package:discourse_native/src/data/scalar_preference_repository.dart';
 import 'package:discourse_native/src/models/app_settings.dart';
+import 'package:discourse_native/src/models/forum_background.dart';
 import 'package:discourse_native/src/models/forum_theme.dart';
 import 'package:discourse_native/src/models/forum_theme_preferences.dart';
 import 'package:discourse_native/src/models/forum_theme_presets.dart';
 import 'package:discourse_native/src/models/forum_theme_share.dart';
 import 'package:discourse_native/src/shell/code_block.dart';
 import 'package:discourse_native/src/shell/cooked_html.dart';
-import 'package:discourse_native/src/shell/forum_appearance_settings.dart';
 import 'package:discourse_native/src/shell/forum_settings_controller.dart';
+import 'package:discourse_native/src/shell/forum_theme_thumbnail.dart';
 import 'package:discourse_native/src/shell/oneboxes/forum_theme.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
@@ -63,7 +64,16 @@ void main() {
       addTearDown(settings.dispose);
       await settings.setThemes(
         _site,
-        ForumThemePreferences(selectedId: 'dracula'),
+        ForumThemePreferences(selectedId: 'dracula')
+            .withPalette(
+              forumThemePresets.first
+                  .forBrightness(Brightness.light)
+                  .copyWith(tertiary: const Color(0xff112233)),
+            )
+            .withPalette(forumThemePresets.last.forBrightness(Brightness.dark))
+            .withBackground(
+              const ForumBackground.appearance(strength: .6, transparency: .2),
+            ),
       );
       await settings.setThemeMode(_site, AppThemeMode.light);
       final before = settings.themesFor(_site);
@@ -102,6 +112,8 @@ void main() {
       await tester.tap(find.text('Undo'));
       await tester.pumpAndSettle();
       expect(settings.themesFor(_site).selectedId, 'dracula');
+      expect(settings.themesFor(_site).palettes, before.palettes);
+      expect(settings.themesFor(_site).background, before.background);
       expect(settings.themesFor(_site).customThemes, [_theme]);
       expect(find.text('Use theme'), findsOneWidget);
       expect(find.text('Undo'), findsNothing);
@@ -109,6 +121,41 @@ void main() {
       semantics.dispose();
     },
   );
+
+  testWidgets('live palette edits supersede an applied shared theme', (
+    tester,
+  ) async {
+    final settings = ForumSettingsController(
+      store: ForumSettingsStore.memory(),
+    );
+    addTearDown(settings.dispose);
+    await tester.pumpWidget(
+      _host(
+        ForumThemeOnebox(theme: _theme, siteUrl: _site, settings: settings),
+      ),
+    );
+    await tester.tap(find.text('Use theme'));
+    await tester.pumpAndSettle();
+    expect(find.text('Using theme'), findsOneWidget);
+    await settings.setThemes(
+      _site,
+      settings
+          .themesFor(_site)
+          .withPalette(
+            _theme
+                .forBrightness(Brightness.light)
+                .copyWith(tertiary: const Color(0xff112233)),
+          ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Use theme'), findsOneWidget);
+    expect(find.text('Using theme'), findsNothing);
+    expect(find.text('Undo'), findsNothing);
+    expect(
+      settings.themesFor(_site).themeFor(Brightness.light)!.tertiary,
+      const Color(0xff112233),
+    );
+  });
 
   for (final chat in [false, true]) {
     testWidgets(

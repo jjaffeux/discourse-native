@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:math';
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:file_selector/file_selector.dart' as selector;
@@ -11,46 +10,43 @@ import '../models/forum_background.dart';
 import '../models/forum_theme.dart';
 import '../models/forum_theme_presets.dart';
 import 'forum_theme_clipboard.dart';
+import 'settings_section.dart';
+import 'theme_icons.dart';
 
+/// Controlled, live theme fields. Light and dark retain separate raw palettes;
+/// tint, opacity and texture are shared window preferences.
 class ForumThemeEditor extends StatefulWidget {
   const ForumThemeEditor({
     super.key,
-    required this.initialTheme,
+    required this.palettes,
+    required this.background,
+    required this.brightness,
     required this.customThemes,
     required this.onChanged,
+    required this.onBackgroundChanged,
+    required this.onBrightnessChanged,
+    required this.onImport,
     required this.onSave,
-    this.enabled = true,
-    this.initialBrightness,
-    this.onBrightnessChanged,
+    this.onDelete,
   });
 
-  final ForumTheme initialTheme;
+  final Map<Brightness, ForumTheme> palettes;
+  final ForumBackground background;
+  final Brightness brightness;
   final List<ForumTheme> customThemes;
   final ValueChanged<ForumTheme> onChanged;
+  final ValueChanged<ForumBackground> onBackgroundChanged;
+  final ValueChanged<Brightness> onBrightnessChanged;
+  final ValueChanged<ForumTheme> onImport;
   final Future<void> Function(ForumTheme) onSave;
-  final bool enabled;
-  final Brightness? initialBrightness;
-  final ValueChanged<Brightness>? onBrightnessChanged;
+  final ValueChanged<String>? onDelete;
 
   @override
   State<ForumThemeEditor> createState() => _ForumThemeEditorState();
 }
 
 class _ForumThemeEditorState extends State<ForumThemeEditor> {
-  static const _roles = {
-    'secondary': 'Background',
-    'primary': 'Text',
-    'tertiary': 'Accent',
-    'quaternary': 'Highlight',
-    'success': 'Success',
-    'danger': 'Attention',
-    'love': 'Reactions',
-  };
-  late String _id;
-  late final TextEditingController _name;
-  late Brightness _brightness;
-  late final Map<Brightness, _AppearanceDraft> _appearances;
-  _AppearanceDraft get _appearance => _appearances[_brightness]!;
+  final _name = TextEditingController(text: 'My theme');
   String? _notice;
   bool _transferring = false;
   static const _jsonTypes = [
@@ -61,107 +57,24 @@ class _ForumThemeEditorState extends State<ForumThemeEditor> {
       uniformTypeIdentifiers: ['public.json'],
     ),
   ];
-  final _random = Random();
-
-  String _newId() => 'custom-${DateTime.now().microsecondsSinceEpoch}';
-
-  @override
-  void initState() {
-    super.initState();
-    final theme = widget.initialTheme;
-    _id = theme.id.startsWith('custom-') ? theme.id : _newId();
-    _name = TextEditingController(
-      text: theme.id.startsWith('custom-')
-          ? theme.name
-          : '${theme.name} custom',
-    );
-    _brightness = widget.initialBrightness ?? theme.brightness;
-    _appearances = {
-      for (final mode in Brightness.values)
-        mode: _AppearanceDraft(theme.forBrightness(mode), _roles.keys),
-    };
-  }
+  ForumTheme get _palette => widget.palettes[widget.brightness]!;
 
   @override
   void dispose() {
     _name.dispose();
-    for (final appearance in _appearances.values) {
-      appearance.dispose();
-    }
     super.dispose();
   }
 
-  ForumTheme? get _theme {
-    if (_appearances.values.any((draft) => draft.backgroundHexColor == null)) {
-      return null;
-    }
-    try {
-      return ForumTheme.fromJson({
-        ..._appearance.toJson(_name.text, _brightness),
-        'alternate': _appearances[_otherBrightness]!.toJson(
-          _name.text,
-          _otherBrightness,
-        ),
-      }, id: _id);
-    } on FormatException {
-      return null;
-    }
-  }
-
-  Brightness get _otherBrightness =>
-      _brightness == Brightness.light ? Brightness.dark : Brightness.light;
-
-  void _changeBrightness(Brightness? brightness) {
-    if (brightness == null || brightness == _brightness) return;
-    _brightness = brightness;
-    _changed('');
-    widget.onBrightnessChanged?.call(brightness);
-  }
-
-  void _changed(String _) {
-    for (final entry in _appearance.colors.entries) {
-      final color = ForumTheme.parseHex(entry.value.text);
-      if (color != null) _appearance.lastColors[entry.key] = color;
-    }
-    setState(() => _notice = null);
-    final theme = _theme;
-    if (theme != null) widget.onChanged(theme);
-  }
-
-  void _usePalette(ForumTheme theme, {bool imported = false}) {
-    if (imported) {
-      _id = _newId();
-      _name.text = theme.name;
-      _brightness = theme.brightness;
-      for (final mode in Brightness.values) {
-        _appearances[mode]!.load(theme.forBrightness(mode), baseId: null);
-      }
-      widget.onBrightnessChanged?.call(_brightness);
-    } else {
-      _appearance.load(theme.forBrightness(_brightness), baseId: theme.id);
-    }
-    _changed('');
-  }
-
-  void _surprise() {
-    final base = forumThemePresets[_random.nextInt(forumThemePresets.length)]
-        .forBrightness(_brightness);
-    final accents = ['#47798B', '#9772A5', '#C28B45', '#4E8E7D', '#AB6674']
-        .where(
-          (color) =>
-              color != _appearance.colors['tertiary']!.text.toUpperCase(),
-        )
-        .toList();
-    _appearance.baseId = base.id;
-    _brightness = base.brightness;
-    final colors = base.toJson()['colors'] as Map<String, String>;
-    for (final entry in _appearance.colors.entries) {
-      entry.value.text = colors[entry.key]!;
-    }
-    _appearance.colors['tertiary']!.text =
-        accents[_random.nextInt(accents.length)];
-    _changed('');
-  }
+  ForumTheme get _portable => ForumTheme.fromJson({
+    ...widget.palettes[Brightness.light]!.toJson(),
+    'name': _name.text.trim(),
+    'background': widget.background.toJson(),
+    'alternate': {
+      ...widget.palettes[Brightness.dark]!.toJson(),
+      'name': _name.text.trim(),
+      'background': widget.background.toJson(),
+    },
+  }, id: 'custom-${DateTime.now().microsecondsSinceEpoch}');
 
   Future<void> _import() async {
     setState(() {
@@ -174,8 +87,13 @@ class _ForumThemeEditorState extends State<ForumThemeEditor> {
       if (await file.length() > 65536) throw const FormatException();
       final value = jsonDecode(await file.readAsString());
       if (value is! Map<String, dynamic>) throw const FormatException();
-      final theme = ForumTheme.fromJson(value, id: 'import');
-      if (mounted) _usePalette(theme, imported: true);
+      final theme = ForumTheme.fromJson(
+        value,
+        id: 'custom-${DateTime.now().microsecondsSinceEpoch}',
+      );
+      if (!mounted) return;
+      _name.text = theme.name;
+      widget.onImport(theme);
     } on FormatException {
       if (mounted) setState(() => _notice = 'Choose a valid theme JSON file.');
     } catch (_) {
@@ -186,8 +104,7 @@ class _ForumThemeEditorState extends State<ForumThemeEditor> {
   }
 
   Future<void> _export() async {
-    final theme = _theme;
-    if (theme == null) return;
+    final theme = _portable;
     final box = context.findRenderObject() as RenderBox?;
     final origin = box == null
         ? null
@@ -222,7 +139,6 @@ class _ForumThemeEditorState extends State<ForumThemeEditor> {
           name: filename,
           mimeType: 'application/json',
         ).saveTo(location.path);
-        if (mounted) setState(() => _notice = 'Theme exported.');
       } else {
         await sharing.SharePlus.instance.share(
           sharing.ShareParams(
@@ -238,6 +154,7 @@ class _ForumThemeEditorState extends State<ForumThemeEditor> {
           ),
         );
       }
+      if (mounted) setState(() => _notice = 'Theme exported.');
     } catch (_) {
       if (mounted) setState(() => _notice = 'Could not export theme.');
     } finally {
@@ -245,465 +162,442 @@ class _ForumThemeEditorState extends State<ForumThemeEditor> {
     }
   }
 
+  Future<void> _save() async {
+    setState(() {
+      _transferring = true;
+      _notice = null;
+    });
+    try {
+      await widget.onSave(_portable);
+      if (mounted) setState(() => _notice = 'Theme saved.');
+    } catch (_) {
+      if (mounted) setState(() => _notice = 'Could not save theme. Try again.');
+    } finally {
+      if (mounted) setState(() => _transferring = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    final theme = _theme;
-    final valid = theme != null;
-    final enabled = widget.enabled && !_transferring;
+    final palette = _palette;
+    final background = widget.background;
+    final presets = [
+      for (final theme in [...forumThemePresets, ...widget.customThemes])
+        if (theme.brightness == widget.brightness ||
+            theme.alternate?.brightness == widget.brightness)
+          theme.forBrightness(widget.brightness),
+    ];
+    if (!presets.any((theme) => theme.id == palette.id)) {
+      presets.insert(0, palette);
+    }
+    final textureEnabled = background.effect != ForumBackgroundEffect.normal;
+    final tokens = DTokens.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
-      spacing: DSpacing.md,
+      spacing: 18,
       children: [
-        DInput(
-          key: const ValueKey('custom-theme-name'),
-          labelText: 'Name',
-          controller: _name,
-          maxLength: 48,
-          enabled: enabled,
-          errorText: _name.text.trim().isEmpty ? 'Enter a name.' : null,
-          onChanged: _changed,
-        ),
         DTabs<Brightness>.controlled(
-          value: _brightness,
-          enabled: enabled,
-          onChanged: _changeBrightness,
-          children: [
-            const DTabList<Brightness>(
+          key: const ValueKey('appearance-theme-select'),
+          value: widget.brightness,
+          onActivated: widget.onBrightnessChanged,
+          children: const [
+            DTabList<Brightness>(
               variant: DTabListVariant.line,
               children: [
-                DTabTrigger(
-                  key: ValueKey('custom-theme-light-tab'),
-                  value: Brightness.light,
-                  child: Text('Light'),
-                ),
-                DTabTrigger(
-                  key: ValueKey('custom-theme-dark-tab'),
-                  value: Brightness.dark,
-                  child: Text('Dark'),
-                ),
+                DTabTrigger(value: Brightness.light, child: Text('Light')),
+                DTabTrigger(value: Brightness.dark, child: Text('Dark')),
               ],
-            ),
-            DTabPanel(
-              key: ValueKey(_brightness),
-              value: _brightness,
-              child: _appearanceControls(enabled, theme),
             ),
           ],
         ),
-        if (!valid)
-          const DAlert(
-            description: DAlertDescription(
-              child: Text(
-                'Enter a name and valid colors in both appearance tabs.',
-              ),
-            ),
-          ),
-        OverflowBar(
-          alignment: MainAxisAlignment.spaceBetween,
-          overflowAlignment: OverflowBarAlignment.end,
-          spacing: DSpacing.controlGap,
-          overflowSpacing: DSpacing.sm,
-          children: [
-            Wrap(
-              spacing: DSpacing.controlGap,
-              runSpacing: DSpacing.sm,
-              children: [
-                DButton(
-                  variant: DButtonVariant.outline,
-                  label: const Text('Import'),
-                  onPressed: enabled ? _import : null,
+        SettingsSection(
+          title: 'Preset',
+          icon: const ThemeIcon(ThemeIcons.preset),
+          child: DSelect<String>.controlled(
+            filled: true,
+            key: const ValueKey('theme-preset'),
+            value: palette.id,
+            semanticLabel: 'Preset',
+            isExpanded: true,
+            size: DSelectSize.large,
+            entries: [
+              for (final preset in presets)
+                DSelectOption(
+                  value: preset.id,
+                  label: preset.name,
+                  child: Text(preset.name),
                 ),
-                DButton(
-                  variant: DButtonVariant.outline,
-                  label: const Text('Export'),
-                  onPressed: enabled && valid ? _export : null,
-                ),
-                DButton(
-                  key: const ValueKey('copy-custom-theme'),
-                  variant: DButtonVariant.outline,
-                  label: const Text('Copy theme'),
-                  onPressed: enabled && valid
-                      ? () => copyForumTheme(context, theme)
-                      : null,
-                ),
-                DButton(
-                  variant: DButtonVariant.outline,
-                  label: const Text('Surprise me'),
-                  onPressed: enabled ? _surprise : null,
-                ),
-              ],
-            ),
-            DButton(
-              key: const ValueKey('save-custom-theme'),
-              variant: DButtonVariant.primary,
-              label: const Text('Save theme'),
-              onPressed: enabled && valid ? () => widget.onSave(theme) : null,
-            ),
-          ],
-        ),
-        if (_notice != null)
-          Text(_notice!, style: Theme.of(context).textTheme.bodySmall),
-      ],
-    );
-  }
-
-  Widget _appearanceControls(bool enabled, ForumTheme? theme) {
-    final presets = [...forumThemePresets, ...widget.customThemes];
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      spacing: DSpacing.md,
-      children: [
-        _backgroundControls(enabled),
-        DSelect<String>.controlled(
-          semanticLabel: 'Start from',
-          value: presets.any((p) => p.id == _appearance.baseId)
-              ? _appearance.baseId
-              : null,
-          label: const Text('Start from'),
-          isExpanded: true,
-          entries: [
-            for (final preset in presets)
-              DSelectOption(
-                value: preset.id,
-                label: preset.name,
-                child: Text(preset.name),
-              ),
-          ],
-          onChanged: enabled
-              ? (id) {
-                  if (id != null) {
-                    _usePalette(presets.firstWhere((p) => p.id == id));
-                  }
-                }
-              : null,
-        ),
-        LayoutBuilder(
-          builder: (context, constraints) {
-            final columns =
-                constraints.maxWidth >= 300 &&
-                    MediaQuery.textScalerOf(context).scale(14) < 21
-                ? 2
-                : 1;
-            return Wrap(
-              spacing: DSpacing.md,
-              runSpacing: DSpacing.md,
-              children: [
-                for (final entry in _appearance.colors.entries)
-                  SizedBox(
-                    width:
-                        (constraints.maxWidth - DSpacing.md * (columns - 1)) /
-                        columns,
-                    child: DInput(
-                      key: ValueKey('custom-theme-${entry.key}'),
-                      controller: entry.value,
-                      labelText: _roles[entry.key],
-                      semanticLabel: '${_roles[entry.key]} color',
-                      prefix: DColorPicker(
-                        semanticLabel:
-                            'Choose ${_roles[entry.key]!.toLowerCase()} color',
-                        value:
-                            ForumTheme.parseHex(entry.value.text) ??
-                            _appearance.lastColors[entry.key]!,
-                        onChanged: enabled
-                            ? (color) {
-                                entry.value.text = ForumTheme.hex(color);
-                                _changed('');
-                              }
-                            : null,
-                      ),
-                      textDirection: TextDirection.ltr,
-                      enabled: enabled,
-                      autocorrect: false,
-                      maxLength: 7,
-                      errorText: ForumTheme.parseHex(entry.value.text) == null
-                          ? 'Use #RRGGBB.'
-                          : null,
-                      onChanged: _changed,
-                    ),
-                  ),
-              ],
-            );
-          },
-        ),
-        Align(
-          alignment: AlignmentDirectional.centerStart,
-          child: DToggle(
-            key: const ValueKey('custom-theme-darker-sidebars'),
-            pressed: _appearance.darkerSidebars,
-            enabled: enabled,
-            variant: DToggleVariant.outline,
-            onPressedChanged: (value) {
-              _appearance.darkerSidebars = value;
-              _changed('');
+            ],
+            onChanged: (id) {
+              if (id != null) {
+                widget.onChanged(presets.firstWhere((p) => p.id == id));
+              }
             },
-            child: const Text('Darker sidebars'),
           ),
         ),
-        const Text('Use darker backgrounds for forum and chat navigation.'),
-        if (theme != null && _contrast(theme) < 4.5)
-          const DAlert(
-            description: DAlertDescription(
-              child: Text('Text contrast is below 4.5:1.'),
-            ),
-          ),
-      ],
-    );
-  }
-
-  void _changeBackground(ForumBackground background, {bool updateHex = true}) {
-    if (updateHex) {
-      _appearance.backgroundHex.text = ForumTheme.hex(background.color);
-    }
-    _appearance.background = background;
-    _appearance.backgroundEdited = true;
-    _appearance.windowGradient = false;
-    _changed('');
-  }
-
-  Widget _backgroundControls(bool enabled) {
-    final theme = Theme.of(context);
-    final tokens = DTokens.of(context);
-    final hsl = HSLColor.fromColor(_appearance.background.color);
-    final accent = hsl
-        .withLightness(
-          theme.brightness == Brightness.dark
-              ? max(.6, hsl.lightness)
-              : min(.42, hsl.lightness),
-        )
-        .toColor();
-    return Theme(
-      data: theme.copyWith(
-        extensions: [
-          ...theme.extensions.values,
-          tokens.copyWith(colors: tokens.colors.copyWith(primary: accent)),
-        ],
-      ),
-      child: DField(
-        children: [
-          const DFieldLabel(child: Text('Background')),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            spacing: DSpacing.sm,
+        SettingsSection(
+          title: 'Background',
+          icon: const ThemeIcon(ThemeIcons.background),
+          child: Column(
+            spacing: 16,
             children: [
-              Column(
-                children: [
-                  SizedBox(
-                    height: 136,
-                    child: DSlider(
-                      key: const ValueKey('custom-theme-strength'),
-                      variant: DSliderVariant.filled,
-                      orientation: Axis.vertical,
-                      value: _appearance.background.strength * 100,
-                      semanticLabel: 'Background strength',
-                      semanticFormatterCallback: (value) => '${value.round()}%',
-                      onChanged: enabled
-                          ? (value) => _changeBackground(
-                              _appearance.background.copyWith(
-                                strength: value / 100,
-                              ),
-                            )
-                          : null,
-                    ),
+              _RampField(
+                label: 'Tint',
+                value: background.strength,
+                readout: '${(background.strength * 22).round()}%',
+                ramp: DSliderRamp(
+                  startColor: palette.secondary,
+                  endColor: Color.lerp(
+                    palette.secondary,
+                    palette.tertiary,
+                    .22,
                   ),
-                  Text('${(_appearance.background.strength * 100).round()}%'),
-                ],
-              ),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  spacing: DSpacing.sm,
-                  children: [
-                    DColorPicker.inline(
-                      value: _appearance.background.color,
-                      semanticLabel: 'Background color palette',
-                      onChanged: enabled
-                          ? (color) => _changeBackground(
-                              _appearance.background.copyWith(color: color),
-                            )
-                          : null,
-                    ),
-                    DInput(
-                      key: const ValueKey('custom-theme-background-hex'),
-                      controller: _appearance.backgroundHex,
-                      semanticLabel: 'Background hex color',
-                      enabled: enabled,
-                      textAlign: TextAlign.center,
-                      autocorrect: false,
-                      enableSuggestions: false,
-                      errorText: _appearance.backgroundHexColor == null
-                          ? 'Enter a six-digit hex color, such as #099DD7.'
-                          : null,
-                      onChanged: (_) {
-                        final color = _appearance.backgroundHexColor;
-                        if (color == null) {
-                          _changed('');
-                        } else {
-                          _changeBackground(
-                            _appearance.background.copyWith(color: color),
-                            updateHex: false,
-                          );
-                        }
-                      },
-                    ),
-                  ],
+                ),
+                onChanged: (v) => widget.onBackgroundChanged(
+                  background.copyWith(strength: v),
                 ),
               ),
-              IntrinsicWidth(
-                child: DToggleGroup<ForumBackgroundEffect>(
-                  scrollable: false,
-                  key: const ValueKey('custom-theme-background-effect'),
-                  orientation: Axis.vertical,
-                  variant: DToggleVariant.outline,
-                  values: [_appearance.background.effect],
-                  allowEmptySelection: false,
-                  enabled: enabled,
-                  items: const [
-                    DToggleGroupItem.iconOnly(
-                      value: ForumBackgroundEffect.normal,
-                      icon: Icon(Icons.crop_square_rounded),
-                      semanticLabel: 'Normal background',
-                      tooltip: 'Normal',
-                    ),
-                    DToggleGroupItem.iconOnly(
-                      value: ForumBackgroundEffect.lava,
-                      icon: Icon(Icons.blur_on_rounded),
-                      semanticLabel: 'Lava lamp background',
-                      tooltip: 'Lava lamp',
-                    ),
-                    DToggleGroupItem.iconOnly(
-                      value: ForumBackgroundEffect.noise,
-                      icon: Icon(Icons.grain_rounded),
-                      semanticLabel: 'Noise background',
-                      tooltip: 'Noise',
-                    ),
-                  ],
-                  onChanged: (values) => _changeBackground(
-                    _appearance.background.copyWith(effect: values.single),
-                  ),
-                  onItemActivated: (effect) {
-                    if (effect == _appearance.background.effect &&
-                        !_appearance.backgroundEdited) {
-                      _changeBackground(
-                        _appearance.background.copyWith(effect: effect),
-                      );
-                    }
-                  },
+              _RampField(
+                label: 'Opacity',
+                value: 1 - background.transparency / .3,
+                readout: '${((1 - background.transparency) * 100).round()}%',
+                ramp: DSliderRamp(
+                  startColor: palette.secondary.withValues(alpha: .7),
+                  endColor: palette.secondary,
+                  pattern: DSliderRampPattern.checkerboard,
+                ),
+                onChanged: (v) => widget.onBackgroundChanged(
+                  background.copyWith(transparency: (1 - v) * .3),
                 ),
               ),
             ],
           ),
-          if (_appearance.background.effect == ForumBackgroundEffect.noise)
-            DField(
-              children: [
-                DFieldLabel(
-                  child: Text(
-                    'Noise intensity · ${(_appearance.background.noiseIntensity * 100).round()}%',
-                  ),
-                ),
-                DSlider(
-                  key: const ValueKey('custom-theme-noise-intensity'),
-                  value: _appearance.background.noiseIntensity * 100,
-                  semanticLabel: 'Noise intensity',
-                  semanticFormatterCallback: (value) => '${value.round()}%',
-                  onChanged: enabled
-                      ? (value) => _changeBackground(
-                          _appearance.background.copyWith(
-                            noiseIntensity: value / 100,
-                          ),
-                        )
-                      : null,
-                ),
-              ],
-            ),
-          DField(
+        ),
+        SettingsSection(
+          title: 'Texture',
+          icon: const ThemeIcon(ThemeIcons.texture),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            spacing: 16,
             children: [
-              DFieldLabel(
-                child: Text(
-                  'Panel transparency · ${(_appearance.background.transparency * 100).round()}%',
+              DToggleGroup<ForumBackgroundEffect>(
+                key: const ValueKey('theme-texture'),
+                values: [background.effect],
+                allowEmptySelection: false,
+                inset: true,
+                expanded: true,
+                density: DToggleDensity.tile,
+                semanticLabel: 'Texture',
+                items: const [
+                  DToggleGroupItem(
+                    value: ForumBackgroundEffect.normal,
+                    icon: ThemeIcon(ThemeIcons.none),
+                    child: Text('None'),
+                  ),
+                  DToggleGroupItem(
+                    value: ForumBackgroundEffect.noise,
+                    icon: ThemeIcon(ThemeIcons.noise),
+                    child: Text('Noise'),
+                  ),
+                  DToggleGroupItem(
+                    value: ForumBackgroundEffect.lava,
+                    icon: ThemeIcon(ThemeIcons.lava),
+                    child: Text('Lava lamp'),
+                  ),
+                ],
+                onChanged: (values) => widget.onBackgroundChanged(
+                  background.copyWith(effect: values.single),
                 ),
               ),
-              DSlider(
-                key: const ValueKey('custom-theme-transparency'),
-                value: _appearance.background.transparency * 100,
-                max: ForumBackground.maxTransparency * 100,
-                semanticLabel: 'Panel transparency',
-                semanticFormatterCallback: (value) => '${value.round()}%',
-                onChanged: enabled
-                    ? (value) => _changeBackground(
-                        _appearance.background.copyWith(
-                          transparency: value / 100,
-                        ),
+              _RampField(
+                label: 'Intensity',
+                value: background.noiseIntensity,
+                ramp: DSliderRamp(
+                  startColor: Color.lerp(tokens.background, Colors.black, .14),
+                  pattern: DSliderRampPattern.wave,
+                ),
+                onChanged: textureEnabled
+                    ? (v) => widget.onBackgroundChanged(
+                        background.copyWith(noiseIntensity: v),
                       )
                     : null,
               ),
             ],
           ),
-        ],
-      ),
+        ),
+        SettingsSection(
+          title: 'Colours',
+          icon: const ThemeIcon(ThemeIcons.palette),
+          child: LayoutBuilder(
+            builder: (context, bounds) {
+              final minimum =
+                  150 * MediaQuery.textScalerOf(context).scale(13) / 13;
+              final columns = ((bounds.maxWidth + 14) / (minimum + 14))
+                  .floor()
+                  .clamp(1, 3);
+              final fields = <(String, Color, ValueChanged<Color>)>[
+                (
+                  'Background',
+                  palette.secondary,
+                  (c) => widget.onChanged(palette.copyWith(secondary: c)),
+                ),
+                (
+                  'Text',
+                  palette.primary,
+                  (c) => widget.onChanged(palette.copyWith(primary: c)),
+                ),
+                (
+                  'Accent',
+                  palette.tertiary,
+                  (c) => widget.onChanged(palette.copyWith(tertiary: c)),
+                ),
+                (
+                  'Highlight',
+                  palette.quaternary,
+                  (c) => widget.onChanged(palette.copyWith(quaternary: c)),
+                ),
+                (
+                  'Success',
+                  palette.success,
+                  (c) => widget.onChanged(palette.copyWith(success: c)),
+                ),
+                (
+                  'Attention',
+                  palette.danger,
+                  (c) => widget.onChanged(palette.copyWith(danger: c)),
+                ),
+              ];
+              return Wrap(
+                spacing: 14,
+                runSpacing: 14,
+                children: [
+                  for (final field in fields)
+                    SizedBox(
+                      width: (bounds.maxWidth - 14 * (columns - 1)) / columns,
+                      child: _ColorField(
+                        key: ValueKey((widget.brightness, field.$1)),
+                        label: field.$1,
+                        color: field.$2,
+                        onChanged: field.$3,
+                      ),
+                    ),
+                ],
+              );
+            },
+          ),
+        ),
+        DAccordion<String>(
+          children: [
+            DAccordionItem<String>(
+              value: 'library',
+              child: Column(
+                children: [
+                  const DAccordionTrigger(child: Text('Save and share')),
+                  DAccordionContent(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      spacing: 12,
+                      children: [
+                        for (final saved in widget.customThemes)
+                          Wrap(
+                            spacing: DSpacing.controlGap,
+                            runSpacing: DSpacing.controlGap,
+                            crossAxisAlignment: WrapCrossAlignment.center,
+                            children: [
+                              Text(saved.name),
+                              DButton(
+                                key: ValueKey(('copy-saved-theme', saved.id)),
+                                label: const Text('Copy theme'),
+                                variant: DButtonVariant.outline,
+                                onPressed: () => copyForumTheme(context, saved),
+                              ),
+                              DButton.iconOnly(
+                                icon: const Icon(Icons.delete_outline),
+                                tooltip: 'Delete ${saved.name}',
+                                variant: DButtonVariant.transparentBackground,
+                                onPressed: widget.onDelete == null
+                                    ? null
+                                    : () => widget.onDelete!(saved.id),
+                              ),
+                            ],
+                          ),
+                        DInput(
+                          filled: true,
+                          key: const ValueKey('theme-name'),
+                          labelText: 'Name',
+                          controller: _name,
+                          maxLength: 48,
+                          onChanged: (_) => setState(() {}),
+                        ),
+                        Wrap(
+                          spacing: DSpacing.controlGap,
+                          runSpacing: DSpacing.controlGap,
+                          children: [
+                            DButton(
+                              label: const Text('Save theme'),
+                              onPressed:
+                                  !_transferring && _name.text.trim().isNotEmpty
+                                  ? _save
+                                  : null,
+                            ),
+                            DButton(
+                              label: const Text('Export'),
+                              variant: DButtonVariant.outline,
+                              onPressed:
+                                  !_transferring && _name.text.trim().isNotEmpty
+                                  ? _export
+                                  : null,
+                            ),
+                            DButton(
+                              key: const ValueKey('copy-custom-theme'),
+                              label: const Text('Copy theme'),
+                              variant: DButtonVariant.outline,
+                              onPressed:
+                                  !_transferring && _name.text.trim().isNotEmpty
+                                  ? () => copyForumTheme(context, _portable)
+                                  : null,
+                            ),
+                            DButton(
+                              label: const Text('Import'),
+                              variant: DButtonVariant.outline,
+                              onPressed: !_transferring ? _import : null,
+                            ),
+                          ],
+                        ),
+                        if (_notice != null) Text(_notice!),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ],
     );
-  }
-
-  double _contrast(ForumTheme theme) {
-    final a = theme.primary.computeLuminance();
-    final b = theme.secondary.computeLuminance();
-    return ((a > b ? a : b) + .05) / ((a < b ? a : b) + .05);
   }
 }
 
-class _AppearanceDraft {
-  _AppearanceDraft(ForumTheme theme, Iterable<String> roles) {
-    final values = theme.toJson()['colors'] as Map<String, String>;
-    colors = {
-      for (final role in roles) role: TextEditingController(text: values[role]),
-    };
-    lastColors = {
-      for (final role in roles) role: ForumTheme.parseHex(values[role]!)!,
-    };
-    load(theme, baseId: theme.id);
-  }
+class _RampField extends StatelessWidget {
+  const _RampField({
+    required this.label,
+    required this.value,
+    required this.ramp,
+    required this.onChanged,
+    this.readout,
+  });
+  final String label;
+  final double value;
+  final DSliderRamp ramp;
+  final ValueChanged<double>? onChanged;
+  final String? readout;
 
-  late final Map<String, TextEditingController> colors;
-  late final Map<String, Color> lastColors;
-  final backgroundHex = TextEditingController();
-  Color? get backgroundHexColor {
-    final value = backgroundHex.text.trim();
-    return ForumTheme.parseHex(value.startsWith('#') ? value : '#$value');
-  }
+  @override
+  Widget build(BuildContext context) => DField(
+    children: [
+      Opacity(
+        opacity: onChanged == null ? .4 : 1,
+        child: Row(
+          children: [
+            Expanded(child: DFieldLabel(child: Text(label))),
+            Text(
+              readout ?? '${(value * 100).round()}%',
+              style: TextStyle(
+                color: DTokens.of(context).mutedForeground,
+                fontSize: 12.5,
+                fontWeight: FontWeight.w600,
+                fontFeatures: const [FontFeature.tabularFigures()],
+              ),
+            ),
+          ],
+        ),
+      ),
+      DSlider(
+        key: ValueKey('theme-${label.toLowerCase()}'),
+        value: value * 100,
+        variant: DSliderVariant.ramp,
+        ramp: ramp,
+        semanticLabel: label,
+        semanticFormatterCallback: (_) =>
+            readout ?? '${(value * 100).round()}%',
+        onChanged: onChanged == null ? null : (v) => onChanged!(v / 100),
+      ),
+    ],
+  );
+}
 
-  late ForumBackground background;
-  late bool backgroundEdited;
-  late bool windowGradient;
-  late bool darkerSidebars;
-  String? baseId;
+class _ColorField extends StatefulWidget {
+  const _ColorField({
+    super.key,
+    required this.label,
+    required this.color,
+    required this.onChanged,
+  });
+  final String label;
+  final Color color;
+  final ValueChanged<Color> onChanged;
+  @override
+  State<_ColorField> createState() => _ColorFieldState();
+}
 
-  void load(ForumTheme theme, {required String? baseId}) {
-    this.baseId = baseId;
-    background = theme.background ?? ForumBackground(color: theme.tertiary);
-    backgroundHex.text = ForumTheme.hex(background.color);
-    backgroundEdited = theme.background != null;
-    windowGradient = theme.windowGradient;
-    darkerSidebars = theme.darkerSidebars;
-    final values = theme.toJson()['colors'] as Map<String, String>;
-    for (final entry in colors.entries) {
-      entry.value.text = values[entry.key]!;
-      lastColors[entry.key] = ForumTheme.parseHex(values[entry.key]!)!;
-    }
-  }
-
-  Map<String, dynamic> toJson(String name, Brightness brightness) => {
-    'version': 1,
-    'name': name,
-    'mode': brightness.name,
-    if (backgroundEdited) 'background': background.toJson(),
-    'windowGradient': windowGradient,
-    'darkerSidebars': darkerSidebars,
-    'colors': {for (final entry in colors.entries) entry.key: entry.value.text},
-  };
-
+class _ColorFieldState extends State<_ColorField> {
+  late final _text = TextEditingController(text: ForumTheme.hex(widget.color));
+  bool _invalid = false;
+  @override
   void dispose() {
-    backgroundHex.dispose();
-    for (final controller in colors.values) {
-      controller.dispose();
+    _text.dispose();
+    super.dispose();
+  }
+
+  @override
+  void didUpdateWidget(_ColorField oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.color != widget.color) {
+      _text.text = ForumTheme.hex(widget.color);
+      _invalid = false;
     }
   }
+
+  void _pick(Color color) {
+    setState(() {
+      _invalid = false;
+      _text.text = ForumTheme.hex(color);
+    });
+    widget.onChanged(color);
+  }
+
+  @override
+  Widget build(BuildContext context) => DField(
+    children: [
+      DFieldLabel(child: Text(widget.label)),
+      DColorPicker.inline(
+        size: DColorPickerSize.compact,
+        value: widget.color,
+        semanticLabel: '${widget.label} colour palette',
+        onChanged: _pick,
+      ),
+      DInput(
+        filled: true,
+        key: ValueKey('theme-color-${widget.label.toLowerCase()}'),
+        controller: _text,
+        semanticLabel: '${widget.label} hex colour',
+        prefix: DColorPicker(
+          size: DColorPickerSize.compact,
+          value: widget.color,
+          semanticLabel: 'Choose ${widget.label.toLowerCase()} colour',
+          onChanged: _pick,
+        ),
+        textDirection: TextDirection.ltr,
+        autocorrect: false,
+        enableSuggestions: false,
+        maxLength: 7,
+        errorText: _invalid ? 'Use #RRGGBB.' : null,
+        onChanged: (value) {
+          final parsed = ForumTheme.parseHex(value.trim());
+          setState(() => _invalid = parsed == null);
+          if (parsed != null) widget.onChanged(parsed);
+        },
+      ),
+    ],
+  );
 }

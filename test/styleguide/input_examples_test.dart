@@ -9,7 +9,7 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   test('Input registers actual runnable reference examples', () {
     expect(componentExamples['input'], same(inputExamples));
-    expect(inputExamples.examples, hasLength(11));
+    expect(inputExamples.examples, hasLength(12));
   });
   for (final palette in [
     StyleguideTheme.light,

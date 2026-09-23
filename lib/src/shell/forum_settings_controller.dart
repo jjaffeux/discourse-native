@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:ui';
 
 import '../data/forum_settings_store.dart';
@@ -18,6 +19,7 @@ final class ForumSettingsController extends FrameSafeNotifier {
 
   final _themes = PreferenceSnapshots<String, ForumThemePreferences>();
   final _themeImports = SerialOperationQueue();
+  final _themeWrites = <String, _ThemeWrite>{};
 
   ForumThemePreferences themesFor(String siteUrl) =>
       _themes.peek(requireStoredForumBase(siteUrl)) ??
@@ -27,28 +29,65 @@ final class ForumSettingsController extends FrameSafeNotifier {
     String siteUrl,
     SiteAppearance? forumAppearance,
   ) {
-    final selected = themesFor(siteUrl).selectedTheme;
-    if (selected == null) return forumAppearance;
-    ResolvedSitePalette palette(Brightness brightness) => selected.resolve(
-      brightness,
-      forumPalette:
-          forumAppearance?.paletteForBrightness(brightness) ??
-          forumAppearance?.base ??
-          forumAppearance?.alternate,
-    );
+    final preferences = themesFor(siteUrl);
+    if (preferences.selectedTheme == null && preferences.palettes.isEmpty) {
+      return forumAppearance;
+    }
+    ResolvedSitePalette? palette(Brightness brightness) =>
+        preferences
+            .themeFor(brightness)
+            ?.resolve(
+              brightness,
+              forumPalette:
+                  forumAppearance?.paletteForBrightness(brightness) ??
+                  forumAppearance?.base ??
+                  forumAppearance?.alternate,
+            ) ??
+        forumAppearance?.paletteForBrightness(brightness);
     return SiteAppearance(
       base: palette(Brightness.light),
       alternate: palette(Brightness.dark),
     );
   }
 
-  Future<void> setThemes(String siteUrl, ForumThemePreferences value) async {
+  Future<void> setThemes(String siteUrl, ForumThemePreferences value) {
     final site = requireStoredForumBase(siteUrl);
-    if (isDisposed || _themes.peek(site) == value) return;
-    await store.writeThemes(site, value);
-    if (isDisposed) return;
+    if (isDisposed) return Future.value();
+    if (_themes.peek(site) == value) {
+      return _themeWrites[site]?.completion.future ?? Future.value();
+    }
+    final existing = _themeWrites[site];
+    final write = existing ?? _ThemeWrite(themesFor(site));
+    _themeWrites[site] = write;
+    write.pending = value;
     _themes.remember(site, value);
     notifySafely();
+    if (existing == null) unawaited(_persistThemes(site, write));
+    return write.completion.future;
+  }
+
+  Future<void> _persistThemes(String site, _ThemeWrite write) async {
+    while (write.pending != null) {
+      final value = write.pending!;
+      write.pending = null;
+      try {
+        await store.writeThemes(site, value);
+        write.saved = value;
+      } catch (error, stack) {
+        // A newer live edit supersedes an obsolete failed write. Try that
+        // latest value before reporting a failure or reverting the app.
+        if (write.pending != null) continue;
+        _themeWrites.remove(site);
+        if (!isDisposed) {
+          _themes.remember(site, write.saved);
+          notifySafely();
+        }
+        write.completion.completeError(error, stack);
+        return;
+      }
+    }
+    _themeWrites.remove(site);
+    write.completion.complete();
   }
 
   /// Loads the destination library before importing, preserving its font and
@@ -96,4 +135,11 @@ final class ForumSettingsController extends FrameSafeNotifier {
     notifySafely();
     return saving;
   }
+}
+
+final class _ThemeWrite {
+  _ThemeWrite(this.saved);
+  ForumThemePreferences saved;
+  ForumThemePreferences? pending;
+  final completion = Completer<void>();
 }
