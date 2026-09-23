@@ -219,8 +219,7 @@ class _LoadMoreRow extends StatelessWidget {
       child: DButton(
         key: const ValueKey('group-load-more'),
         label: const Text('Load more'),
-        loading: loading,
-        onPressed: onPressed,
+        onPressed: loading ? null : onPressed,
       ),
     ),
   );

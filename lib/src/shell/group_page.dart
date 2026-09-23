@@ -164,9 +164,7 @@ class _GroupPageState extends State<GroupPage> {
           onAction: widget.onRefresh,
         );
       }
-      return const Center(
-        child: DSpinner(size: DSpacing.xl, key: ValueKey('group-loading')),
-      );
+      return const SizedBox.shrink(key: ValueKey('group-loading'));
     }
 
     final group = detail.group;

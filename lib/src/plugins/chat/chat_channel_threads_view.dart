@@ -113,7 +113,7 @@ class _ChatChannelThreadsViewState extends State<ChatChannelThreadsView> {
       final threads = _chat.channelThreads(widget.siteUrl, widget.channelId);
       final error = _chat.channelThreadsError(widget.siteUrl, widget.channelId);
       if (_chat.channelThreadsLoading(widget.siteUrl, widget.channelId)) {
-        return const Center(child: DSpinner(size: DSpacing.xl));
+        return const SizedBox.shrink();
       }
       if (threads.isEmpty && error != null) {
         return ChatThreadListMessage(
@@ -143,63 +143,53 @@ class _ChatChannelThreadsViewState extends State<ChatChannelThreadsView> {
           _chat.channelThreadsHaveMore(widget.siteUrl, widget.channelId);
       return ContentReadingLane(
         basePadding: const EdgeInsets.symmetric(vertical: 8),
-        builder: (context, lane) => RefreshIndicator.adaptive(
-          onRefresh: () => _chat.loadChannelThreads(
-            widget.siteUrl,
-            widget.channelId,
-            force: true,
+        builder: (context, lane) => ListView.separated(
+          key: PageStorageKey<String>(
+            'chat-channel-${widget.channelId}-threads',
           ),
-          child: ListView.separated(
-            key: PageStorageKey<String>(
-              'chat-channel-${widget.channelId}-threads',
-            ),
-            controller: _scroll,
-            physics: const AlwaysScrollableScrollPhysics(),
-            padding: lane.padding,
-            itemCount: threads.length + (hasFooter ? 1 : 0),
-            separatorBuilder: (_, _) => const DSeparator(space: 1),
-            itemBuilder: (context, index) {
-              if (index < threads.length) {
-                return ChatThreadListRow(
-                  siteUrl: widget.siteUrl,
-                  thread: threads[index],
-                  showChannel: false,
-                  keyPrefix: 'chat-channel-thread',
-                );
-              }
-              if (_chat.channelThreadsLoadingMore(
-                widget.siteUrl,
-                widget.channelId,
-              )) {
-                return const Padding(
-                  padding: EdgeInsets.all(20),
-                  child: Center(child: DSpinner(size: DSpacing.xl)),
-                );
-              }
-              return Padding(
-                padding: const EdgeInsets.all(12),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (error case final message?) ...[
-                      Text(message, textAlign: TextAlign.center),
-                      const SizedBox(height: 8),
-                    ],
-                    DButton(
-                      label: Text(error == null ? 'Load more' : 'Try again'),
-                      onPressed: () => unawaited(
-                        _chat.loadChannelThreads(
-                          widget.siteUrl,
-                          widget.channelId,
-                          more: true,
-                        ),
+          controller: _scroll,
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: lane.padding,
+          itemCount: threads.length + (hasFooter ? 1 : 0),
+          separatorBuilder: (_, _) => const DSeparator(space: 1),
+          itemBuilder: (context, index) {
+            if (index < threads.length) {
+              return ChatThreadListRow(
+                siteUrl: widget.siteUrl,
+                thread: threads[index],
+                showChannel: false,
+                keyPrefix: 'chat-channel-thread',
+              );
+            }
+            if (_chat.channelThreadsLoadingMore(
+              widget.siteUrl,
+              widget.channelId,
+            )) {
+              return const SizedBox.shrink();
+            }
+            return Padding(
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (error case final message?) ...[
+                    Text(message, textAlign: TextAlign.center),
+                    const SizedBox(height: 8),
+                  ],
+                  DButton(
+                    label: Text(error == null ? 'Load more' : 'Try again'),
+                    onPressed: () => unawaited(
+                      _chat.loadChannelThreads(
+                        widget.siteUrl,
+                        widget.channelId,
+                        more: true,
                       ),
                     ),
-                  ],
-                ),
-              );
-            },
-          ),
+                  ),
+                ],
+              ),
+            );
+          },
         ),
       );
     },

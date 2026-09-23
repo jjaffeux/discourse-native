@@ -221,6 +221,7 @@ void main() {
 
         tester.view.viewInsets = const FakeViewPadding(bottom: 300);
         await tester.enterText(input, 'smile');
+        await tester.pump(const Duration(milliseconds: 300));
         await tester.pumpAndSettle();
         await tester.tap(find.bySemanticsLabel('Insert :smile:'));
         await tester.pumpAndSettle();
@@ -362,7 +363,7 @@ void main() {
     expect(dismissed, isTrue);
   });
 
-  testWidgets('search loading uses only the results spinner', (tester) async {
+  testWidgets('search loads without spinners', (tester) async {
     final controller = EmojiPickerController(
       siteUrl: _siteUrl,
       context: CoreEmojiUsageContexts.topic,
@@ -401,7 +402,7 @@ void main() {
       find.descendant(of: search, matching: find.byType(DSpinner)),
       findsNothing,
     );
-    expect(find.byType(DSpinner), findsOneWidget);
+    expect(find.byType(DSpinner), findsNothing);
     expect(
       find.byKey(const ValueKey('emoji-picker-clear-search')),
       findsOneWidget,

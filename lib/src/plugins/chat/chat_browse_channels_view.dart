@@ -215,7 +215,7 @@ class _ChatBrowseChannelsViewState extends State<ChatBrowseChannelsView> {
 
   Widget _buildResults(BuildContext context) {
     if (_loading) {
-      return const Center(child: DSpinner(size: DSpacing.xl));
+      return const SizedBox.shrink();
     }
     final channels = _visibleChannels;
     if (channels.isEmpty && !_hasMore && _error != null) {
@@ -230,54 +230,48 @@ class _ChatBrowseChannelsViewState extends State<ChatBrowseChannelsView> {
     final hasFooter = _loadingMore || _error != null || _hasMore;
     return ContentReadingLane(
       basePadding: const EdgeInsets.fromLTRB(12, 4, 12, 16),
-      builder: (context, lane) => RefreshIndicator.adaptive(
-        onRefresh: () => _load(reset: true),
-        child: ListView.builder(
-          key: const PageStorageKey('chat-browse-channels'),
-          controller: _scrollController,
-          physics: const AlwaysScrollableScrollPhysics(),
-          padding: lane.padding,
-          itemCount: resultCount + (hasFooter ? 1 : 0),
-          itemBuilder: (context, index) {
-            if (channels.isEmpty && index == 0) {
-              return _BrowseMessage(
-                icon: DIcons.magnifyingGlass,
-                message: _hasMore
-                    ? 'No matching channels loaded yet.'
-                    : 'No channels match these filters.',
-              );
-            }
-            if (index < channels.length) {
-              return _ChannelCard(
-                siteUrl: widget.siteUrl,
-                channel: channels[index],
-                chat: _chat,
-                onChanged: _replaceChannel,
-              );
-            }
-            if (_loadingMore) {
-              return const Padding(
-                padding: EdgeInsets.all(20),
-                child: Center(child: DSpinner(size: DSpacing.xl)),
-              );
-            }
-            return Padding(
-              padding: const EdgeInsets.symmetric(vertical: 12),
-              child: Column(
-                children: [
-                  if (_error case final error?) ...[
-                    Text(error, textAlign: TextAlign.center),
-                    const SizedBox(height: 8),
-                  ],
-                  DButton(
-                    label: Text(_error == null ? 'Load more' : 'Try again'),
-                    onPressed: () => unawaited(_load(reset: false)),
-                  ),
-                ],
-              ),
+      builder: (context, lane) => ListView.builder(
+        key: const PageStorageKey('chat-browse-channels'),
+        controller: _scrollController,
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: lane.padding,
+        itemCount: resultCount + (hasFooter ? 1 : 0),
+        itemBuilder: (context, index) {
+          if (channels.isEmpty && index == 0) {
+            return _BrowseMessage(
+              icon: DIcons.magnifyingGlass,
+              message: _hasMore
+                  ? 'No matching channels loaded yet.'
+                  : 'No channels match these filters.',
             );
-          },
-        ),
+          }
+          if (index < channels.length) {
+            return _ChannelCard(
+              siteUrl: widget.siteUrl,
+              channel: channels[index],
+              chat: _chat,
+              onChanged: _replaceChannel,
+            );
+          }
+          if (_loadingMore) {
+            return const SizedBox.shrink();
+          }
+          return Padding(
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            child: Column(
+              children: [
+                if (_error case final error?) ...[
+                  Text(error, textAlign: TextAlign.center),
+                  const SizedBox(height: 8),
+                ],
+                DButton(
+                  label: Text(_error == null ? 'Load more' : 'Try again'),
+                  onPressed: () => unawaited(_load(reset: false)),
+                ),
+              ],
+            ),
+          );
+        },
       ),
     );
   }

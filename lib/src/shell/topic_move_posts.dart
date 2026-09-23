@@ -308,7 +308,7 @@ class _TopicMovePostsDialogState extends State<_TopicMovePostsDialog> {
       const SizedBox(height: 8),
       Expanded(
         child: _searching
-            ? const Center(child: DSpinner(size: DSpacing.xl))
+            ? const SizedBox.shrink()
             : _destinations.isEmpty
             ? Center(
                 child: Text(

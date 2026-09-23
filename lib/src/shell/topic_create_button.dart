@@ -155,7 +155,6 @@ class _TopicCreateControl extends StatelessWidget {
         if (feed.loading && drafts.isEmpty)
           const DDropdownMenuItem(
             key: ValueKey('recent-drafts-loading'),
-            leading: DSpinner(size: 16, semanticLabel: null),
             child: Text('Loading drafts…'),
           )
         else if (feed.error != null && drafts.isEmpty)

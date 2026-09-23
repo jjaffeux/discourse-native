@@ -157,68 +157,60 @@ class AggregateViewState extends State<AggregateView> {
                   horizontal: topicListHorizontalPadding,
                   vertical: 8,
                 ),
-                builder: (context, lane) => DPullToRefresh(
-                  key: ValueKey(('aggregate-refresh', controller, tabId)),
-                  onRefresh: controller.refreshAggregate,
-                  child: CustomScrollView(
-                    physics: const AlwaysScrollableScrollPhysics(),
-                    key: PageStorageKey(('aggregate-topic-list', tabId)),
-                    controller: _scrollFor(tabId),
-                    slivers: [
-                      if (state.loading && state.topics.isEmpty)
-                        const SliverToBoxAdapter(
-                          child: Center(child: DSpinner()),
-                        )
-                      else if (state.isEmpty)
+                builder: (context, lane) => CustomScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  key: PageStorageKey(('aggregate-topic-list', tabId)),
+                  controller: _scrollFor(tabId),
+                  slivers: [
+                    if (state.loading && state.topics.isEmpty)
+                      const SliverToBoxAdapter(child: SizedBox.shrink())
+                    else if (state.isEmpty)
+                      SliverToBoxAdapter(
+                        child: _AggregateEmptyState(
+                          icon: DIcons.inbox,
+                          title: state.includedForums == 0
+                              ? 'No forums selected'
+                              : 'No matching topics',
+                          message: '',
+                          actionLabel: state.includedForums == 0
+                              ? 'Choose forums'
+                              : 'Refresh',
+                          onAction: state.includedForums == 0
+                              ? () => controller.aggregate.setFiltersCollapsed(
+                                  false,
+                                )
+                              : () => unawaited(controller.refreshAggregate()),
+                        ),
+                      )
+                    else ...[
+                      if (state.failures.isNotEmpty)
                         SliverToBoxAdapter(
-                          child: _AggregateEmptyState(
-                            icon: DIcons.inbox,
-                            title: state.includedForums == 0
-                                ? 'No forums selected'
-                                : 'No matching topics',
-                            message: '',
-                            actionLabel: state.includedForums == 0
-                                ? 'Choose forums'
-                                : 'Refresh',
-                            onAction: state.includedForums == 0
-                                ? () => controller.aggregate
-                                      .setFiltersCollapsed(false)
-                                : () =>
-                                      unawaited(controller.refreshAggregate()),
-                          ),
-                        )
-                      else ...[
-                        if (state.failures.isNotEmpty)
-                          SliverToBoxAdapter(
-                            child: _PartialFailureBanner(
-                              failed: state.failures.length,
-                              onRetry: () =>
-                                  unawaited(controller.refreshAggregate()),
-                            ),
-                          ),
-                        SliverPadding(
-                          padding: lane.padding.copyWith(top: 0),
-                          sliver: SliverList.separated(
-                            itemCount: state.topics.length,
-                            separatorBuilder: (_, _) => const DSeparator(),
-                            itemBuilder: (_, index) {
-                              final reference = state.topics[index];
-                              return _AggregateTopicRow(
-                                key: ValueKey(
-                                  'aggregate-topic-card-${reference.siteUrl}-${reference.topicId}',
-                                ),
-                                reference: reference,
-                              );
-                            },
+                          child: _PartialFailureBanner(
+                            failed: state.failures.length,
+                            onRetry: () =>
+                                unawaited(controller.refreshAggregate()),
                           ),
                         ),
-                        if (state.loadingMore)
-                          const SliverToBoxAdapter(
-                            child: Center(child: DSpinner()),
-                          ),
-                      ],
+                      SliverPadding(
+                        padding: lane.padding.copyWith(top: 0),
+                        sliver: SliverList.separated(
+                          itemCount: state.topics.length,
+                          separatorBuilder: (_, _) => const DSeparator(),
+                          itemBuilder: (_, index) {
+                            final reference = state.topics[index];
+                            return _AggregateTopicRow(
+                              key: ValueKey(
+                                'aggregate-topic-card-${reference.siteUrl}-${reference.topicId}',
+                              ),
+                              reference: reference,
+                            );
+                          },
+                        ),
+                      ),
+                      if (state.loadingMore)
+                        const SliverToBoxAdapter(child: SizedBox.shrink()),
                     ],
-                  ),
+                  ],
                 ),
               ),
             );

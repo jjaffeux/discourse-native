@@ -436,7 +436,7 @@ class _ChatThreadViewState extends State<ChatThreadView> {
         onSelectionChanged: _setMessageSelected,
       );
     } else if (stream.loading) {
-      content = const Center(child: DSpinner(size: DSpacing.xl));
+      content = const SizedBox.shrink();
     } else if (stream.error case final error?) {
       content = _ThreadStateMessage(
         icon: DIcons.triangleExclamation,

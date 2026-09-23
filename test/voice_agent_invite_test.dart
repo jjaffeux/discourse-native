@@ -258,13 +258,13 @@ void main() {
           return dispatch.future;
         },
       );
-      // The spinner intentionally does not settle while the controlled read is pending.
+      // Hold the catalogue request while checking disabled actions.
       await openDialog(tester, invitation, settle: false);
       expect(
         tester
             .widget<DButton>(find.widgetWithText(DButton, 'Refresh agents'))
             .loading,
-        isTrue,
+        isFalse,
       );
       expect(
         tester

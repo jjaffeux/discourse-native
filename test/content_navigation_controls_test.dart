@@ -178,7 +178,7 @@ void main() {
         expect(shell.refreshingCurrentTab, isTrue);
         expect(
           _button(tester, ContentNavigationControls.refreshKey).loading,
-          isTrue,
+          isFalse,
         );
         await _press(tester, refresh, modifier: macOS ? modifier : null);
         await tester.pump();

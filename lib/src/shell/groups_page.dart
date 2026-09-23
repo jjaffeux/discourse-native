@@ -164,115 +164,100 @@ class _GroupsPageState extends State<GroupsPage> {
     final data = widget.data;
     return ContentReadingLane(
       basePadding: const EdgeInsets.symmetric(horizontal: 16),
-      builder: (context, lane) => DPullToRefresh(
-        onRefresh: widget.onRefresh,
-        child: NotificationListener<ScrollNotification>(
-          onNotification: _onScroll,
-          child: DScrollBar(
+      builder: (context, lane) => NotificationListener<ScrollNotification>(
+        onNotification: _onScroll,
+        child: DScrollBar(
+          controller: _scrollController,
+          child: CustomScrollView(
+            key: const PageStorageKey('groups-directory-scroll'),
             controller: _scrollController,
-            child: CustomScrollView(
-              key: const PageStorageKey('groups-directory-scroll'),
-              controller: _scrollController,
-              physics: const AlwaysScrollableScrollPhysics(),
-              slivers: [
-                SliverPadding(
-                  padding: EdgeInsets.only(
-                    left: lane.leftInset,
-                    right: lane.rightInset,
-                  ),
-                  sliver: SliverMainAxisGroup(
-                    slivers: [
+            physics: const AlwaysScrollableScrollPhysics(),
+            slivers: [
+              SliverPadding(
+                padding: EdgeInsets.only(
+                  left: lane.leftInset,
+                  right: lane.rightInset,
+                ),
+                sliver: SliverMainAxisGroup(
+                  slivers: [
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+                        child: _DirectoryControls(
+                          data: data,
+                          searchController: _searchController,
+                          searchFocus: _searchFocus,
+                          onSearchChanged: _search,
+                          onSearchSubmitted: _submitSearch,
+                          onTypeChanged: widget.onTypeChanged,
+                          onCreateGroup: widget.onCreateGroup,
+                          searchVisible: _searchVisible,
+                          onShowSearch: _showSearch,
+                        ),
+                      ),
+                    ),
+                    if (data.error != null &&
+                        (!data.pageError || data.groups.isEmpty))
+                      SliverToBoxAdapter(
+                        child: _DirectoryError(
+                          message: data.error!,
+                          onRetry: widget.onRefresh,
+                        ),
+                      ),
+                    if (!data.loaded && data.groups.isEmpty && data.loading)
+                      const SliverFillRemaining(
+                        hasScrollBody: false,
+                        child: SizedBox.shrink(key: ValueKey('groups-loading')),
+                      )
+                    else if (data.groups.isEmpty &&
+                        data.loaded &&
+                        data.error == null)
+                      const SliverFillRemaining(
+                        hasScrollBody: false,
+                        child: _EmptyDirectory(),
+                      )
+                    else
+                      SliverList.separated(
+                        itemCount: data.groups.length,
+                        separatorBuilder: (context, index) =>
+                            const DSeparator(),
+                        itemBuilder: (context, index) {
+                          final group = data.groups[index];
+                          return _GroupDirectoryRow(
+                            key: ValueKey('group-row-${group.name}'),
+                            siteUrl: widget.siteUrl,
+                            group: group,
+                            memberPreview: _memberPreview(group),
+                            onTap: () => _openGroup(group),
+                          );
+                        },
+                      ),
+                    if (data.pageError && data.error != null)
+                      SliverToBoxAdapter(
+                        child: _DirectoryError(
+                          message: data.error!,
+                          onRetry: widget.onLoadMore,
+                        ),
+                      ),
+                    if (data.hasMore &&
+                        !data.loadingMore &&
+                        data.groups.isNotEmpty)
                       SliverToBoxAdapter(
                         child: Padding(
-                          padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
-                          child: _DirectoryControls(
-                            data: data,
-                            searchController: _searchController,
-                            searchFocus: _searchFocus,
-                            onSearchChanged: _search,
-                            onSearchSubmitted: _submitSearch,
-                            onTypeChanged: widget.onTypeChanged,
-                            onCreateGroup: widget.onCreateGroup,
-                            searchVisible: _searchVisible,
-                            onShowSearch: _showSearch,
+                          padding: const EdgeInsets.only(bottom: 32),
+                          child: Center(
+                            child: DButton(
+                              key: const ValueKey('groups-load-more'),
+                              label: const Text('Load more'),
+                              onPressed: widget.onLoadMore,
+                            ),
                           ),
                         ),
                       ),
-                      if (data.error != null &&
-                          (!data.pageError || data.groups.isEmpty))
-                        SliverToBoxAdapter(
-                          child: _DirectoryError(
-                            message: data.error!,
-                            onRetry: widget.onRefresh,
-                          ),
-                        ),
-                      if (!data.loaded && data.groups.isEmpty && data.loading)
-                        const SliverFillRemaining(
-                          hasScrollBody: false,
-                          child: Center(
-                            child: DSpinner(
-                              size: DSpacing.xl,
-                              key: ValueKey('groups-loading'),
-                            ),
-                          ),
-                        )
-                      else if (data.groups.isEmpty &&
-                          data.loaded &&
-                          data.error == null)
-                        const SliverFillRemaining(
-                          hasScrollBody: false,
-                          child: _EmptyDirectory(),
-                        )
-                      else
-                        SliverList.separated(
-                          itemCount: data.groups.length,
-                          separatorBuilder: (context, index) =>
-                              const DSeparator(),
-                          itemBuilder: (context, index) {
-                            final group = data.groups[index];
-                            return _GroupDirectoryRow(
-                              key: ValueKey('group-row-${group.name}'),
-                              siteUrl: widget.siteUrl,
-                              group: group,
-                              memberPreview: _memberPreview(group),
-                              onTap: () => _openGroup(group),
-                            );
-                          },
-                        ),
-                      if (data.loadingMore)
-                        const SliverToBoxAdapter(
-                          child: Padding(
-                            padding: EdgeInsets.only(bottom: 24),
-                            child: Center(child: DSpinner()),
-                          ),
-                        ),
-                      if (data.pageError && data.error != null)
-                        SliverToBoxAdapter(
-                          child: _DirectoryError(
-                            message: data.error!,
-                            onRetry: widget.onLoadMore,
-                          ),
-                        ),
-                      if (data.hasMore &&
-                          !data.loadingMore &&
-                          data.groups.isNotEmpty)
-                        SliverToBoxAdapter(
-                          child: Padding(
-                            padding: const EdgeInsets.only(bottom: 32),
-                            child: Center(
-                              child: DButton(
-                                key: const ValueKey('groups-load-more'),
-                                label: const Text('Load more'),
-                                onPressed: widget.onLoadMore,
-                              ),
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
+                  ],
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),

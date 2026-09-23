@@ -559,17 +559,7 @@ class _TopicListViewState extends State<TopicListView> {
           child: Stack(
             fit: StackFit.expand,
             children: [
-              DPullToRefresh(
-                key: ValueKey(('topic-list-refresh', controller, feedIdentity)),
-                onRefresh: () async {
-                  if (!identical(_controller, controller) ||
-                      !_isCurrent(controller, feedIdentity)) {
-                    return;
-                  }
-                  await controller.loadFeed(destination, force: true);
-                },
-                child: _body(controller, destination, feedIdentity),
-              ),
+              _body(controller, destination, feedIdentity),
               if (state.incoming > 0)
                 Positioned(
                   top: 0,
@@ -981,9 +971,7 @@ class _IncomingBanner extends StatelessWidget {
               size: DButtonSize.small,
               icon: const DIcon(DIcons.arrowUp),
               label: label,
-              loading: loading,
-              loadingLabel: label,
-              onPressed: onTap,
+              onPressed: loading ? null : onTap,
             ),
           ),
         ),
@@ -996,10 +984,7 @@ class _LoadingMoreRow extends StatelessWidget {
   const _LoadingMoreRow();
 
   @override
-  Widget build(BuildContext context) => const Padding(
-    padding: EdgeInsets.symmetric(vertical: 20),
-    child: Center(child: SizedBox(width: 20, height: 20, child: DSpinner())),
-  );
+  Widget build(BuildContext context) => const SizedBox.shrink();
 }
 
 class _LoadMoreErrorRow extends StatelessWidget {

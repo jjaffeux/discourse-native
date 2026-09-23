@@ -251,11 +251,6 @@ class _GlobalSearchCategoryEditorState
                             ? null
                             : Text(choice.parentLabel!),
                       ),
-                    if (_loading)
-                      const Padding(
-                        padding: EdgeInsets.all(20),
-                        child: Center(child: DSpinner(size: 16)),
-                      ),
                     if (_loadError != null)
                       Padding(
                         padding: const EdgeInsets.symmetric(vertical: 12),

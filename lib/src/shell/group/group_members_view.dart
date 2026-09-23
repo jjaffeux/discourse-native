@@ -171,7 +171,7 @@ class _MembersSectionState extends State<_MembersSection> {
           title: widget.error!,
         );
       }
-      return const Center(child: DSpinner(size: DSpacing.xl));
+      return const SizedBox.shrink();
     }
     if (page.members.isEmpty && !widget.loading) {
       return _GroupState(
@@ -256,16 +256,7 @@ class _MembersLoadingMoreRow extends StatelessWidget {
   Widget build(BuildContext context) => Semantics(
     liveRegion: true,
     label: 'Loading more members',
-    child: const Padding(
-      padding: EdgeInsets.all(20),
-      child: Center(
-        child: SizedBox.square(
-          key: ValueKey('group-members-loading-more'),
-          dimension: 22,
-          child: DSpinner(),
-        ),
-      ),
-    ),
+    child: const SizedBox.shrink(key: ValueKey('group-members-loading-more')),
   );
 }
 

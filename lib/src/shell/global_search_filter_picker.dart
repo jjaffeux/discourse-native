@@ -718,11 +718,7 @@ class _GlobalSearchConditionEditorState
                 child: Padding(
                   padding: EdgeInsets.all(8),
                   child: Row(
-                    children: [
-                      DSpinner(size: 16),
-                      SizedBox(width: 8),
-                      Expanded(child: Text('Finding tags…')),
-                    ],
+                    children: [Expanded(child: Text('Finding tags…'))],
                   ),
                 ),
               ),
@@ -815,13 +811,7 @@ class _GlobalSearchConditionEditorState
                   forceMount: true,
                   child: Text('Use “${query.trim()}”'),
                 ),
-              if (_loading)
-                const DCommandLoading(
-                  child: Padding(
-                    padding: EdgeInsets.all(8),
-                    child: DSpinner(size: 16),
-                  ),
-                ),
+              if (_loading) const DCommandLoading(child: SizedBox.shrink()),
               if (!_loading && _lookupError == null)
                 const DCommandEmpty(child: Text('No matching options.')),
             ],

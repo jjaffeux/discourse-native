@@ -66,7 +66,7 @@ void main() {
       await tester.pump();
 
       expect(find.text(_memberError), findsNothing);
-      expect(find.byType(DSpinner), findsOneWidget);
+      expect(find.byType(DSpinner), findsNothing);
       expect(_requests(api), [('', 0), ('', 20), ('', 20)]);
       gate.complete();
       await tester.pumpAndSettle();
@@ -153,7 +153,7 @@ void main() {
       expect(_requests(api), [('', 0), ('', 20)]);
       expect(_visibleMembers(tester), _names(1, 20));
       expect(find.text('Load more'), findsNothing);
-      expect(find.byType(DSpinner), findsOneWidget);
+      expect(find.byType(DSpinner), findsNothing);
 
       gate.complete();
       await tester.pumpAndSettle();

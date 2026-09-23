@@ -76,11 +76,7 @@ class _UserActivityBody extends StatelessWidget {
     }
 
     final feed = controller.accountActivity.userActivityFor(siteUrl);
-    return DPullToRefresh(
-      key: ValueKey((controller, siteUrl, instance!.user!.username)),
-      onRefresh: _refresh,
-      child: _body(feed),
-    );
+    return _body(feed);
   }
 
   Widget _body(UserActivityFeed feed) {
@@ -184,12 +180,7 @@ class _ActivityList extends StatelessWidget {
             return Semantics(
               liveRegion: true,
               label: 'Loading more activity',
-              child: const Padding(
-                padding: EdgeInsets.all(20),
-                child: Center(
-                  child: SizedBox.square(dimension: 22, child: DSpinner()),
-                ),
-              ),
+              child: const SizedBox.shrink(),
             );
           },
         ),

@@ -516,7 +516,7 @@ void main() {
         await tester.pump();
 
         expect(find.text('alpha-tag'), findsNothing);
-        expect(find.byType(DSpinner), findsOneWidget);
+        expect(find.byType(DSpinner), findsNothing);
         await tester.testTextInput.receiveAction(TextInputAction.done);
         await tester.pump();
         expect(selected, isEmpty);
@@ -577,7 +577,7 @@ void main() {
         expect(selected, isEmpty);
         expect(query, findsOneWidget);
         expect(find.text('alpha-tag'), findsNothing);
-        expect(find.byType(DSpinner), findsOneWidget);
+        expect(find.byType(DSpinner), findsNothing);
         if (!duringRequest) {
           await tester.pump(const Duration(milliseconds: 250));
         }
@@ -624,7 +624,7 @@ void main() {
     alpha.complete(const [TopicFilterLookupValue(name: 'alpha-tag')]);
     await tester.pump();
     expect(started, ['', 'alpha']);
-    expect(find.byType(DSpinner), findsOneWidget);
+    expect(find.byType(DSpinner), findsNothing);
 
     await tester.pump(const Duration(milliseconds: 200));
     await tester.enterText(query, 'delta');

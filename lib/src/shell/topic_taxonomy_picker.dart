@@ -192,8 +192,5 @@ class TopicTaxonomyPickerProgress extends StatelessWidget {
   const TopicTaxonomyPickerProgress({super.key});
 
   @override
-  Widget build(BuildContext context) => const Padding(
-    padding: EdgeInsets.all(20),
-    child: Center(child: DSpinner(semanticLabel: 'Loading choices')),
-  );
+  Widget build(BuildContext context) => const SizedBox.shrink();
 }

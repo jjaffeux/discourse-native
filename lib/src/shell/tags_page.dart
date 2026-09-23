@@ -54,7 +54,7 @@ class _TagsPageState extends State<TagsPage> {
         );
       }
       if (!feed.loaded && feed.tags.isEmpty) {
-        return const Center(child: DSpinner(size: DSpacing.xl));
+        return const SizedBox.shrink();
       }
       if (feed.isEmpty) {
         return const _TagPageState(icon: DIcons.tag, title: 'No tags yet');
@@ -62,44 +62,28 @@ class _TagsPageState extends State<TagsPage> {
 
       return ContentReadingLane(
         basePadding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-        builder: (context, lane) => RefreshIndicator.adaptive(
-          onRefresh: () =>
-              ShellScope.read(context).loadTags(widget.siteUrl, force: true),
-          child: ListView.separated(
-            physics: const AlwaysScrollableScrollPhysics(),
-            padding: lane.padding,
-            itemCount:
-                feed.tags.length +
-                (feed.loading ? 1 : 0) +
-                (feed.error == null ? 0 : 1),
-            separatorBuilder: (_, _) => const SizedBox(height: 8),
-            itemBuilder: (context, index) {
-              var tagIndex = index;
-              if (feed.loading) {
-                if (tagIndex == 0) {
-                  return const DProgress(
-                    semanticsLabel: 'Refreshing tags',
-                    track: DProgressTrack(height: 2),
-                  );
-                }
-                tagIndex--;
+        builder: (context, lane) => ListView.separated(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: lane.padding,
+          itemCount: feed.tags.length + (feed.error == null ? 0 : 1),
+          separatorBuilder: (_, _) => const SizedBox(height: 8),
+          itemBuilder: (context, index) {
+            var tagIndex = index;
+            if (feed.error case final message?) {
+              if (tagIndex == 0) {
+                return _TagErrorBanner(
+                  message: message,
+                  onRetry: () => _request(force: true),
+                );
               }
-              if (feed.error case final message?) {
-                if (tagIndex == 0) {
-                  return _TagErrorBanner(
-                    message: message,
-                    onRetry: () => _request(force: true),
-                  );
-                }
-                tagIndex--;
-              }
-              final tag = feed.tags[tagIndex];
-              return TagDirectoryRow(
-                tag: tag,
-                onTap: () => ShellScope.read(context).openTag(tag),
-              );
-            },
-          ),
+              tagIndex--;
+            }
+            final tag = feed.tags[tagIndex];
+            return TagDirectoryRow(
+              tag: tag,
+              onTap: () => ShellScope.read(context).openTag(tag),
+            );
+          },
         ),
       );
     },

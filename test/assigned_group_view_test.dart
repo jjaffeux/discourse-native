@@ -105,73 +105,31 @@ void main() {
   });
 
   group('AssignedGroupView', () {
-    testWidgets('changing assignment filters resets a pending pull', (
-      tester,
-    ) async {
-      final presentation = _FakeAssignedGroupPresentation(
-        _state(feed: const TopicFeed(loaded: true)),
-      );
-      await _pumpView(tester, presentation);
-      final first = Completer<void>();
-      presentation.refreshResponse = first;
-      final refresh = find.byType(DPullToRefresh);
-      await tester.drag(refresh, const Offset(0, 600));
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 300));
-      expect(presentation.loads, [false, true]);
-      presentation.show(
-        _state(
-          filter: const AssignedGroupFilter.directGroup(),
-          feed: const TopicFeed(loaded: true),
-        ),
-      );
-      await tester.pumpAndSettle();
-      expect(find.bySemanticsLabel('Refreshing'), findsNothing);
-      final second = Completer<void>();
-      presentation.refreshResponse = second;
-      await tester.drag(refresh, const Offset(0, 600));
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 300));
-      expect(presentation.loads, [false, true, true]);
-      first.complete();
-      await tester.pump();
-      expect(find.bySemanticsLabel('Refreshing'), findsOneWidget);
-      second.complete();
-      await tester.pumpAndSettle();
-      expect(find.bySemanticsLabel('Refreshing'), findsNothing);
-      expect(tester.takeException(), isNull);
-    });
-
     for (final width in [390.0, 1200.0]) {
       for (final empty in [false, true]) {
-        testWidgets('pull refreshes assignments at $width, empty: $empty', (
-          tester,
-        ) async {
-          final presentation = _FakeAssignedGroupPresentation(
-            _state(
-              feed: TopicFeed(loaded: true, topicIds: empty ? [] : [42]),
-              topics: empty ? [] : [_topic],
-            ),
-          );
-          await _pumpView(tester, presentation);
-          await tester.binding.setSurfaceSize(Size(width, 900));
-          await tester.pumpAndSettle();
-          final response = Completer<void>();
-          presentation.refreshResponse = response;
-          final refresh = find.byType(DPullToRefresh);
-          await tester.drag(refresh, const Offset(0, 600));
-          await tester.pump();
-          await tester.pump(const Duration(milliseconds: 300));
-          expect(presentation.loads, [false, true]);
-          expect(find.bySemanticsLabel('Refreshing'), findsOneWidget);
-          await tester.drag(refresh, const Offset(0, 600));
-          await tester.pump(const Duration(milliseconds: 300));
-          expect(presentation.loads, [false, true]);
-          response.complete();
-          await tester.pumpAndSettle();
-          expect(find.bySemanticsLabel('Refreshing'), findsNothing);
-          expect(tester.takeException(), isNull);
-        });
+        testWidgets(
+          'pull does not refresh assignments at $width, empty: $empty',
+          (tester) async {
+            final presentation = _FakeAssignedGroupPresentation(
+              _state(
+                feed: TopicFeed(loaded: true, topicIds: empty ? [] : [42]),
+                topics: empty ? [] : [_topic],
+              ),
+            );
+            await _pumpView(tester, presentation);
+            await tester.binding.setSurfaceSize(Size(width, 900));
+            await tester.pumpAndSettle();
+            expect(find.byType(DPullToRefresh), findsNothing);
+            await tester.drag(
+              find.byType(CustomScrollView).last,
+              const Offset(0, 600),
+            );
+            await tester.pumpAndSettle();
+            expect(presentation.loads, [false]);
+            expect(find.byType(DSpinner), findsNothing);
+            expect(tester.takeException(), isNull);
+          },
+        );
       }
     }
 
@@ -211,7 +169,7 @@ void main() {
       );
       await _pumpView(tester, presentation);
 
-      expect(find.byType(DSpinner), findsOneWidget);
+      expect(find.byType(DSpinner), findsNothing);
       expect(
         find.text('No active assignments match this filter.'),
         findsNothing,
@@ -566,7 +524,7 @@ void main() {
       final loadMore = tester.widget<DButton>(
         find.byKey(const ValueKey('assigned-load-more-topics')),
       );
-      expect(loadMore.loading, isTrue);
+      expect(loadMore.loading, isFalse);
       expect(loadMore.onPressed, isNull);
     });
 

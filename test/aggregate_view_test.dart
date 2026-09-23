@@ -42,29 +42,19 @@ void main() {
 
   for (final empty in [false, true]) {
     testWidgets(
-      'pull refreshes ${empty ? 'empty' : 'short'} aggregate topics',
+      'pull does not refresh ${empty ? 'empty' : 'short'} aggregate topics',
       (tester) async {
         final fixture = await _pumpMixedAggregateView(tester, empty: empty);
         final api = fixture.api;
         final before = api.feedPaths.length;
-        final response = Completer<void>();
-        api.feedGates[_defaultAggregatePath] = response;
-        final refresh = find.byType(DPullToRefresh);
-        await tester.drag(refresh, const Offset(0, 500));
-        await tester.pump();
-        await tester.pump(const Duration(milliseconds: 300));
-        expect(api.feedPaths.length, before + 2);
-        expect(find.bySemanticsLabel('Refreshing'), findsOneWidget);
-        await tester.drag(refresh, const Offset(0, 500));
-        await tester.pump(const Duration(milliseconds: 300));
-        expect(api.feedPaths.length, before + 2);
-        api.feeds[_defaultAggregatePath] = const [
-          Topic(id: 99, title: 'Refreshed aggregate topic', slug: 'refreshed'),
-        ];
-        response.complete();
+        expect(find.byType(DPullToRefresh), findsNothing);
+        await tester.drag(
+          find.byType(CustomScrollView).last,
+          const Offset(0, 500),
+        );
         await tester.pumpAndSettle();
-        expect(find.text('Refreshed aggregate topic'), findsNWidgets(2));
-        expect(find.bySemanticsLabel('Refreshing'), findsNothing);
+        expect(api.feedPaths.length, before);
+        expect(find.byType(DSpinner), findsNothing);
         expect(tester.takeException(), isNull);
       },
     );

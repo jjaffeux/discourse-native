@@ -652,10 +652,7 @@ class _ChatNewDirectMessageDialogState
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             spacing: DSpacing.sm,
-            children: [
-              const DSpinner(size: 16),
-              Text(_opening ? 'Opening conversation…' : 'Searching…'),
-            ],
+            children: [Text(_opening ? 'Opening conversation…' : 'Searching…')],
           ),
         ),
         DCommandEmpty(

@@ -111,15 +111,7 @@ class InstanceRail extends StatelessWidget {
                   ],
                   Expanded(
                     child: switch (state.loadStatus) {
-                      InstanceLoadStatus.loading => Center(
-                        child: SizedBox.square(
-                          dimension: 24,
-                          child: DSpinner(
-                            color: theme.shell.railForeground,
-                            size: 24,
-                          ),
-                        ),
-                      ),
+                      InstanceLoadStatus.loading => const SizedBox.shrink(),
                       InstanceLoadStatus.failed => const _RailLoadFailure(),
                       InstanceLoadStatus.ready => _InstanceRailList(
                         state: state,

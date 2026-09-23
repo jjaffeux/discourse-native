@@ -280,12 +280,7 @@ class _TopicCategorySelectorState extends State<TopicCategorySelector> {
             ),
           ),
           if (_loading)
-            const DComboboxStatus(
-              child: Padding(
-                padding: EdgeInsets.all(8),
-                child: DSpinner(semanticLabel: 'Loading categories'),
-              ),
-            )
+            const DComboboxStatus(child: SizedBox.shrink())
           else if (_error != null || matches.isEmpty)
             DComboboxStatus(
               child: Padding(

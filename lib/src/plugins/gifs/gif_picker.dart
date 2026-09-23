@@ -195,10 +195,7 @@ class _GifPickerState extends State<GifPicker> {
   Widget? _searchSuffix() {
     final controller = widget.controller;
     if (controller.searching || controller.searchPending) {
-      return const Padding(
-        padding: EdgeInsets.zero,
-        child: SizedBox.square(dimension: 18, child: DSpinner()),
-      );
+      return null;
     }
     if (_search.text.isEmpty) return null;
     return DButton.iconOnly(
@@ -243,10 +240,7 @@ class _GifPickerState extends State<GifPicker> {
           if (controller.loadingMore || controller.canLoadMore)
             Center(
               child: controller.loadingMore
-                  ? const Padding(
-                      padding: EdgeInsets.all(10),
-                      child: SizedBox.square(dimension: 22, child: DSpinner()),
-                    )
+                  ? const SizedBox.shrink()
                   : DButton(
                       key: const ValueKey('gif-picker-load-more'),
                       label: const Text('Load more'),
@@ -316,7 +310,7 @@ class _GifPickerState extends State<GifPicker> {
     }
 
     if (controller.isBusy || controller.searchPending) {
-      return const Center(child: DSpinner(size: DSpacing.xl));
+      return const SizedBox.shrink();
     }
 
     if (!controller.hasActiveSearch) {

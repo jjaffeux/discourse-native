@@ -42,57 +42,36 @@ class BadgesPage extends StatelessWidget {
     basePadding: route.isDirectory
         ? const EdgeInsets.symmetric(vertical: 16)
         : const EdgeInsets.all(16),
-    builder: (context, lane) => RefreshIndicator(
-      onRefresh: onRefresh,
-      child: CustomScrollView(
-        key: PageStorageKey('badges-$siteUrl-${route.id}'),
-        physics: const AlwaysScrollableScrollPhysics(),
-        slivers: [
-          SliverPadding(
-            padding: lane.padding,
-            sliver: SliverMainAxisGroup(
-              slivers: [
-                if (state.loading &&
-                    (state.catalog != null || state.badge != null))
-                  const SliverToBoxAdapter(
-                    child: DProgress(
-                      semanticsLabel: 'Refreshing badges',
-                      track: DProgressTrack(height: 2),
-                    ),
-                  ),
-                if (state.error != null)
-                  SliverToBoxAdapter(
-                    child: _BadgeError(
-                      message: state.error!,
-                      onRetry: onRefresh,
-                    ),
-                  ),
-                if (state.loading &&
-                    state.catalog == null &&
-                    state.badge == null)
-                  const SliverFillRemaining(
-                    hasScrollBody: false,
-                    child: Center(
-                      child: DSpinner(
-                        size: DSpacing.xl,
-                        key: ValueKey('badges-loading'),
-                      ),
-                    ),
-                  )
-                else if (route.isDirectory && state.catalog != null)
-                  _BadgeDirectory(
-                    key: ValueKey((siteUrl, currentUsername)),
-                    catalog: state.catalog!,
-                    siteUrl: siteUrl,
-                    onOpenBadge: onOpenBadge,
-                  )
-                else if (state.badge != null)
-                  ..._detail(context, state.badge!),
-              ],
-            ),
+    builder: (context, lane) => CustomScrollView(
+      key: PageStorageKey('badges-$siteUrl-${route.id}'),
+      physics: const AlwaysScrollableScrollPhysics(),
+      slivers: [
+        SliverPadding(
+          padding: lane.padding,
+          sliver: SliverMainAxisGroup(
+            slivers: [
+              if (state.error != null)
+                SliverToBoxAdapter(
+                  child: _BadgeError(message: state.error!, onRetry: onRefresh),
+                ),
+              if (state.loading && state.catalog == null && state.badge == null)
+                const SliverFillRemaining(
+                  hasScrollBody: false,
+                  child: SizedBox.shrink(key: ValueKey('badges-loading')),
+                )
+              else if (route.isDirectory && state.catalog != null)
+                _BadgeDirectory(
+                  key: ValueKey((siteUrl, currentUsername)),
+                  catalog: state.catalog!,
+                  siteUrl: siteUrl,
+                  onOpenBadge: onOpenBadge,
+                )
+              else if (state.badge != null)
+                ..._detail(context, state.badge!),
+            ],
           ),
-        ],
-      ),
+        ),
+      ],
     ),
   );
 
@@ -225,12 +204,7 @@ class BadgesPage extends StatelessWidget {
           ),
         ),
       if (state.loadingMore)
-        const SliverToBoxAdapter(
-          child: Padding(
-            padding: EdgeInsets.all(24),
-            child: Center(child: DSpinner(size: DSpacing.xl)),
-          ),
-        )
+        const SliverToBoxAdapter(child: SizedBox.shrink())
       else if (state.hasMore && state.recipientsError == null)
         SliverToBoxAdapter(
           child: Padding(

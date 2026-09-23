@@ -290,75 +290,70 @@ class AssignedGroupPresentationView extends StatelessWidget {
   }) {
     final feed = state.feed;
     final topics = state.topics;
-    return DPullToRefresh(
-      key: ValueKey((siteUrl, state.groupName, state.filter, state.query)),
-      onRefresh: onRefresh,
-      child: CustomScrollView(
-        key: PageStorageKey(
-          'assigned-${state.groupName}-${state.filter.routeSegment(state.groupName)}',
-        ),
-        physics: const AlwaysScrollableScrollPhysics(),
-        slivers: [
-          SliverPadding(
-            padding: insets,
-            sliver: SliverMainAxisGroup(
-              slivers: [
-                if (people != null) SliverToBoxAdapter(child: people),
-                if (feed.error case final error?)
-                  SliverToBoxAdapter(
-                    child: _AssignedError(message: error, onRetry: onRefresh),
-                  ),
-                if (!feed.loaded && feed.loading)
-                  const SliverFillRemaining(
-                    hasScrollBody: false,
-                    child: Center(child: DSpinner(size: DSpacing.xl)),
-                  )
-                else if (topics.isEmpty && feed.error == null)
-                  const SliverFillRemaining(
-                    hasScrollBody: false,
-                    child: _AssignedEmpty(),
-                  )
-                else
-                  SliverPadding(
-                    padding: EdgeInsets.fromLTRB(
-                      horizontalPadding,
-                      4,
-                      horizontalPadding,
-                      28,
-                    ),
-                    sliver: SliverList.separated(
-                      itemCount: topics.length,
-                      separatorBuilder: (context, _) => const DSeparator(),
-                      itemBuilder: (context, index) => TopicListRow(
-                        topic: topics[index],
-                        showViews: true,
-                        onSort: _sortTopics,
-                        order: state.query.order?.wireName,
-                        ascending: state.query.ascending,
-                        siteUrl: siteUrl,
-                        onTap: () => onOpenTopic(topics[index]),
-                      ),
-                    ),
-                  ),
-                if (feed.hasMore || feed.loadingMore)
-                  SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.only(bottom: 28),
-                      child: Center(
-                        child: DButton(
-                          key: const ValueKey('assigned-load-more-topics'),
-                          label: const Text('Load more assignments'),
-                          loading: feed.loadingMore,
-                          onPressed: feed.loadingMore ? null : onLoadMoreTopics,
-                        ),
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-          ),
-        ],
+    return CustomScrollView(
+      key: PageStorageKey(
+        'assigned-${state.groupName}-${state.filter.routeSegment(state.groupName)}',
       ),
+      physics: const AlwaysScrollableScrollPhysics(),
+      slivers: [
+        SliverPadding(
+          padding: insets,
+          sliver: SliverMainAxisGroup(
+            slivers: [
+              if (people != null) SliverToBoxAdapter(child: people),
+              if (feed.error case final error?)
+                SliverToBoxAdapter(
+                  child: _AssignedError(message: error, onRetry: onRefresh),
+                ),
+              if (!feed.loaded && feed.loading)
+                const SliverFillRemaining(
+                  hasScrollBody: false,
+                  child: SizedBox.shrink(),
+                )
+              else if (topics.isEmpty && feed.error == null)
+                const SliverFillRemaining(
+                  hasScrollBody: false,
+                  child: _AssignedEmpty(),
+                )
+              else
+                SliverPadding(
+                  padding: EdgeInsets.fromLTRB(
+                    horizontalPadding,
+                    4,
+                    horizontalPadding,
+                    28,
+                  ),
+                  sliver: SliverList.separated(
+                    itemCount: topics.length,
+                    separatorBuilder: (context, _) => const DSeparator(),
+                    itemBuilder: (context, index) => TopicListRow(
+                      topic: topics[index],
+                      showViews: true,
+                      onSort: _sortTopics,
+                      order: state.query.order?.wireName,
+                      ascending: state.query.ascending,
+                      siteUrl: siteUrl,
+                      onTap: () => onOpenTopic(topics[index]),
+                    ),
+                  ),
+                ),
+              if (feed.hasMore || feed.loadingMore)
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.only(bottom: 28),
+                    child: Center(
+                      child: DButton(
+                        key: const ValueKey('assigned-load-more-topics'),
+                        label: const Text('Load more assignments'),
+                        onPressed: feed.loadingMore ? null : onLoadMoreTopics,
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }
@@ -477,19 +472,12 @@ class _AssignedPeoplePanelState extends State<_AssignedPeoplePanel> {
             ),
           )
         : null;
-    final loading = widget.members.loading || widget.members.loadingMore
-        ? const DProgress(
-            semanticsLabel: 'Loading group members',
-            track: DProgressTrack(height: 2),
-          )
-        : null;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         header,
         ?search,
-        ?loading,
         Expanded(
           child: DScrollBar(
             key: const ValueKey('assigned-people-scrollbar'),

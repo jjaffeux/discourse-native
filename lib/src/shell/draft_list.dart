@@ -133,11 +133,7 @@ class _DraftListViewState extends State<DraftListView> {
 
         final feed = controller.draftList.feedFor(widget.siteUrl);
         if (!feed.loading && !feed.loaded) _scheduleRequest();
-        return DPullToRefresh(
-          key: ValueKey((controller, widget.siteUrl, instance!.user!.username)),
-          onRefresh: _refresh,
-          child: _body(controller, instance, feed),
-        );
+        return _body(controller, instance!, feed);
       },
     );
   }
@@ -434,9 +430,11 @@ class _Drafts extends StatelessWidget {
                         padding: const EdgeInsets.only(top: 16),
                         child: DButton(
                           label: const Text('Load more'),
-                          onPressed: () =>
-                              unawaited(controller.draftList.load(instance)),
-                          loading: feed.loading,
+                          onPressed: feed.loading
+                              ? null
+                              : () => unawaited(
+                                  controller.draftList.load(instance),
+                                ),
                         ),
                       ),
                     ),

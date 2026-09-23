@@ -72,34 +72,15 @@ void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
   for (final empty in [false, true]) {
-    testWidgets('pull refreshes drafts and recovers errors, empty: $empty', (
-      tester,
-    ) async {
+    testWidgets('pull does not refresh drafts, empty: $empty', (tester) async {
       final api = _RefreshDraftsApi(empty ? [] : [_draft]);
       final fixture = await _pumpList(tester, api: api);
-      final refresh = find.byType(DPullToRefresh);
-      final refreshState = tester.state(refresh);
-      api.response = Completer<UserDraftPage>();
-      await tester.drag(refresh, const Offset(0, 450));
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 300));
-      expect(api.userDraftRequests, hasLength(2));
-      expect(find.bySemanticsLabel('Refreshing'), findsOneWidget);
-      api.response!.completeError(Exception('offline'));
+      expect(find.byType(DPullToRefresh), findsNothing);
+      await tester.drag(find.byType(Scrollable).last, const Offset(0, 450));
       await tester.pumpAndSettle();
-      expect(tester.state(refresh), same(refreshState));
-      expect(fixture.controller.draftList.feedFor(_siteUrl).error, isNotNull);
-      api.response = Completer<UserDraftPage>();
-      await tester.drag(refresh, const Offset(0, 450));
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 300));
-      expect(api.userDraftRequests, hasLength(3));
-      api.response!.complete(
-        const UserDraftPage(drafts: [_draft], rawItemCount: 1),
-      );
-      await tester.pumpAndSettle();
-      expect(find.byKey(const ValueKey('new_topic')), findsOneWidget);
-      expect(find.bySemanticsLabel('Refreshing'), findsNothing);
+      expect(api.userDraftRequests, hasLength(1));
+      expect(fixture.controller.draftList.feedFor(_siteUrl).error, isNull);
+      expect(find.byType(DSpinner), findsNothing);
       expect(tester.takeException(), isNull);
     });
   }

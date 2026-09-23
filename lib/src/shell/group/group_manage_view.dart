@@ -616,7 +616,7 @@ class _GroupLogs extends StatelessWidget {
     if (page == null) {
       body = error != null
           ? _GroupState(icon: DIcons.triangleExclamation, title: error!)
-          : const Center(child: DSpinner(size: DSpacing.xl));
+          : const SizedBox.shrink();
     } else if (page!.logs.isEmpty && !loading) {
       body = const _GroupState(
         icon: DIcons.farClock,
