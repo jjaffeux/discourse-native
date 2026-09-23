@@ -44,12 +44,18 @@ Text remains one continuous editor. A wrapped visual line is not a block. Normal
 text selection, scrolling, typing, existing slash commands and insertion controls
 keep their existing behavior. Topic titles remain outside the movable body.
 
-Blocks have a non-editable gap of approximately one text line between them.
+Markdown paragraph separators have a non-editable gap of approximately half a
+text line between text blocks. A zero-width spacer below the preceding baseline
+replaces the required blank line visually, preserving source offsets, the full
+text strut, and stable empty-paragraph carets. Additional blank lines remain
+editable at their normal height.
+Explicit blank lines after to-do rows retain their existing spacing, while
+converting a paragraph to a to-do keeps its text at the same position.
 Enter starts a separated paragraph; Shift+Enter keeps a soft line break inside
 the current paragraph. The on-screen keyboard follows the same paragraph rule.
 The gap has no empty-block controls and the caret skips it. Backspace joins
 paragraphs or selects the preceding embedded component for deletion.
-Headings, standalone to-dos and embedded components also have this gap, even
+Headings, standalone to-dos and embedded components also have structural spacing
 when their Markdown needs only one newline. Rendering retains the original
 source offsets without inserting empty blocks or rewriting existing Markdown.
 Continuation lines and content inside a block keep their normal line spacing.
@@ -144,6 +150,21 @@ light/narrow layouts, with paragraph, heading, task and soft-line samples.
 Native Enter was exercised. Shift+Enter was verified with real modifier events
 in widget tests: the native automation emits Enter with `shift=false`, as
 confirmed by a temporary key-event trace, so it cannot verify that chord.
+
+The compact paragraph-spacing follow-up passed root `dart analyze` and 340
+focused tests covering block controls, movement, selection, image spacing,
+details and to-dos. The isolated macOS block-add fixture was inspected at 720px
+in dark mode and 360px in light mode with consecutive paragraphs and a soft
+line break. Native Enter and subsequent typing retained the compact spacing.
+Widget checks cover LF/CRLF, mobile keyboard input and 200% text scaling;
+these are not physical-device checks.
+
+Integration with main's subsequent list changes retained explicit blank lines
+after to-dos and passed the paragraph-to-task conversion checks. On main
+`18e7e7d74`, root analysis passes and 434 of 439 focused tests pass. The remaining
+five failures reproduce on unchanged main: four poll-to-component projection
+checks and the following focus-cleanup assertion. The paragraph rendering
+inspected above is unchanged by this integration.
 
 The September 22 drag polish adds regression coverage for the leading gutter in LTR
 and RTL, exact insertion-line centering, the source highlight's bounds and
