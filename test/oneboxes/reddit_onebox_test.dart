@@ -161,7 +161,7 @@ void main() {
         '<iframe class="reddit-onebox" src="$url"></iframe>',
     ]) {
       expect(
-        oneboxWidgetBuilder(html.parseFragment(source).children.first),
+        redditOneboxWidgetBuilder(html.parseFragment(source).children.first),
         isNull,
         reason: source,
       );

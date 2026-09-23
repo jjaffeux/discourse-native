@@ -163,6 +163,7 @@ export 'src/shell/markdown_highlight.dart'
         markdownPairs,
         scanMarkdown;
 export 'src/shell/notification_list.dart' show PluginNotificationsSection;
+export 'src/shell/oneboxes/embedded.dart' show embeddedOneboxWidgetBuilder;
 export 'src/shell/oneboxes/markup.dart' show digitsIn, oneLineText;
 export 'src/shell/oneboxes/onebox.dart' show OneboxCard, OneboxData;
 export 'src/shell/open_link.dart' show LinkTarget, openLink;

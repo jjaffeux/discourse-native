@@ -1,6 +1,6 @@
 # Onebox gallery
 
-The Native styleguide's **Onebox** section searches 16 supported preview
+The Native styleguide's **Onebox** section searches 47 supported preview
 types with `DCombobox`. Each selection mounts its production renderer. The
 `DToggle` state buttons wrap onto additional lines and retain a required
 selection. Switching providers resets to the first state and disposes the old
@@ -27,6 +27,9 @@ so the picker and state controls stay in place when preview heights change.
 The 320px / 200% text checks exposed unbounded metadata rows in Discourse topic
 and category oneboxes. Their labels now wrap within the available width; the
 gallery exercises this production behavior along with every sample state.
+
+The remaining core formats and their verification are recorded in
+[Core onebox coverage](core-onebox-coverage.md).
 
 ## Twitter / X
 

@@ -20,6 +20,59 @@ void main() {
 
   tearDown(() => WebViewPlatform.instance = previousPlatform);
 
+  testWidgets(
+    'Linux audio transport publishes time, seeks and pauses without browser controls',
+    (tester) async {
+      final session = createInlineVideoPlaybackSession(
+        InlineVideoPlaybackRequest(
+          source: Uri.parse('https://example.com/audio.mp3?a=1&b=2'),
+          title: 'Audio',
+          posterUrl: null,
+          aspectRatio: 1,
+          siteUrl: null,
+          credentials: null,
+          lifecycle: null,
+          audioOnly: true,
+        ),
+        platform: TargetPlatform.linux,
+      );
+      addTearDown(session.dispose);
+      await session.start();
+      final controller = platform.controllers.single;
+      final document = html_parser.parse(controller.documents.single.html);
+      expect(document.querySelector('video'), isNull);
+      expect(
+        document.querySelector('audio')!.attributes['src'],
+        'https://example.com/audio.mp3?a=1&b=2',
+      );
+      expect(
+        document.querySelector('audio')!.attributes.containsKey('controls'),
+        isFalse,
+      );
+      controller.channels['DiscourseVideo']!.onMessageReceived(
+        const JavaScriptMessage(
+          message: '{"playing":true,"position":12.5,"duration":60}',
+        ),
+      );
+      expect(session.state.isPlaying, isTrue);
+      expect(session.state.position, const Duration(milliseconds: 12500));
+      expect(session.state.duration, const Duration(seconds: 60));
+      await session.seekTo(const Duration(seconds: 30));
+      expect(controller.scripts.last, contains('currentTime = 30.0'));
+      await session.pause();
+      expect(
+        controller.scripts.last,
+        contains("querySelector('audio')?.pause()"),
+      );
+      expect(session.state.isPlaying, isFalse);
+      session.dispose();
+      controller.channels['DiscourseVideo']?.onMessageReceived(
+        const JavaScriptMessage(message: '{"playing":true}'),
+      );
+      expect(session.state.isPlaying, isFalse);
+    },
+  );
+
   for (final mediaElement in [false, true]) {
     testWidgets(
       '${mediaElement ? 'media' : 'document'} failure during native setup prevents loading a retired player',

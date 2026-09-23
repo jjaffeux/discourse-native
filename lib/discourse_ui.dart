@@ -11,6 +11,7 @@ export 'src/ui/components/d_alert.dart';
 export 'src/ui/components/d_alert_dialog.dart';
 export 'src/ui/components/d_aspect_ratio.dart';
 export 'src/ui/components/d_attachment.dart';
+export 'src/ui/components/d_audio_player.dart';
 export 'src/ui/components/d_avatar.dart';
 export 'src/ui/components/d_badge.dart';
 export 'src/ui/components/d_breadcrumb.dart';

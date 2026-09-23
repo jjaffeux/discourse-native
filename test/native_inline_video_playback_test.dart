@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:discourse_native/discourse_ui.dart'
     show DButton, DSlider, DSpinner;
 import 'package:discourse_native/src/shell/inline_video.dart';
+import 'package:discourse_native/src/shell/oneboxes/audio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -20,6 +21,40 @@ void main() {
       await platform.close();
       VideoPlayerPlatform.instance = previous;
     });
+  });
+
+  testWidgets('native audio plays and seeks without creating a video surface', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData(platform: TargetPlatform.macOS),
+        home: AudioOnebox(
+          data: AudioOneboxData(
+            source: Uri.parse('https://example.com/audio.mp3'),
+            title: 'Audio',
+          ),
+          sessionFactory: (request) => createInlineVideoPlaybackSession(
+            request,
+            platform: TargetPlatform.macOS,
+          ),
+        ),
+      ),
+    );
+    expect(platform.plays, isEmpty);
+    await tester.tap(find.text('Play audio'));
+    await tester.pumpAndSettle();
+    expect(platform.plays, [0]);
+    expect(find.byType(VideoPlayer), findsNothing);
+    expect(find.text('Pause audio'), findsOneWidget);
+    tester.widget<DSlider>(find.byType(DSlider)).onChanged!(30000);
+    await tester.pump();
+    expect(platform.position, const Duration(seconds: 30));
+    await tester.tap(find.text('Pause audio'));
+    await tester.pump();
+    expect(platform.pauses, contains(0));
+    await tester.pumpWidget(const SizedBox());
+    await platform.disposed(0);
   });
 
   for (final fullscreen in [false, true]) {

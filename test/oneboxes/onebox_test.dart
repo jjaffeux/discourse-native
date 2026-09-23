@@ -48,6 +48,35 @@ OneboxData parse(String source) => OneboxData.from(aside(source));
 
 void main() {
   group('OneboxData', () {
+    test('nested title and thumbnail retain siblings and metadata', () {
+      const source =
+          '<aside class="onebox githubrepo"><article class="onebox-body">'
+          '<div class="github-row"><img class="thumbnail" src="https://example.com/image.png">'
+          '<h3><a href="https://example.com/repo">Repository</a></h3>'
+          '<p>Repository description</p><a href="https://example.com/author">Author</a></div>'
+          '</article><div class="onebox-metadata">Price: 42</div></aside>';
+      final element = aside(source);
+      final before = element.outerHtml;
+      final data = OneboxData.from(element);
+      expect(data.bodyHtml, contains('Repository description'));
+      expect(data.bodyHtml, contains('https://example.com/author'));
+      expect(data.bodyHtml, contains('Price: 42'));
+      expect(data.bodyHtml, isNot(contains('<h3')));
+      expect(element.outerHtml, before);
+    });
+
+    test('full-size content and video fallback images remain in the body', () {
+      final data = parse(
+        '<aside class="onebox"><article class="onebox-body">'
+        '<h3>XKCD</h3><div class="xkcd-image"><img src="comic.png"></div>'
+        '<video src="movie.mp4"><img src="fallback.png"></video>'
+        '</article></aside>',
+      );
+      expect(data.thumbnail, isNull);
+      expect(data.bodyHtml, contains('comic.png'));
+      expect(data.bodyHtml, contains('<video'));
+    });
+
     test('reads the envelope every engine shares', () {
       final data = parse(genericOnebox);
 
@@ -218,7 +247,10 @@ void main() {
       final labels = tester.widgetList<Text>(find.text('AduForum')).toList();
       expect(
         labels.map((label) => label.style?.fontSize),
-        containsAll([DiscourseTypography.sm, DiscourseTypography.base]),
+        containsAll([
+          AppTheme.light.textTheme.titleSmall!.fontSize,
+          AppTheme.light.textTheme.bodyMedium!.fontSize,
+        ]),
       );
       expect(
         labels.map((label) => label.style?.color),
