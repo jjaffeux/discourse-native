@@ -7,6 +7,7 @@ import '../models/sidebar.dart';
 import '../plugin_api/plugin_scope.dart';
 import '../theme/d_icons.dart';
 import 'category_notifications.dart';
+import 'composer_panel.dart';
 import 'forum_search.dart';
 import 'forum_theme_surfaces.dart';
 import 'instance_rail.dart';
@@ -35,9 +36,29 @@ class MobileForumRoot extends StatefulWidget {
 class _MobileForumRootState extends State<MobileForumRoot> {
   final _drawer = DSheetController<void>();
   Object? _drawerLocation;
+  bool _hideTabBar = false;
+
+  @override
+  void initState() {
+    super.initState();
+    FocusManager.instance.addListener(_focusChanged);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _focusChanged();
+    });
+  }
+
+  // Resolve the editor after focus settles, not while a shell rebuild may be
+  // deactivating the previously focused route.
+  void _focusChanged() {
+    final editor = FocusManager.instance.primaryFocus?.context
+        ?.findAncestorWidgetOfExactType<ComposerEditor>();
+    final hide = editor?.composer.target.policy?.kind.owner.value == 'chat';
+    if (_hideTabBar != hide) setState(() => _hideTabBar = hide);
+  }
 
   @override
   void dispose() {
+    FocusManager.instance.removeListener(_focusChanged);
     _drawer.dispose();
     super.dispose();
   }
@@ -394,65 +415,78 @@ class _MobileForumRootState extends State<MobileForumRoot> {
                 ),
               ),
             ),
-            ForumSidebarTheme(
-              child: Padding(
-                padding: const EdgeInsets.all(DSpacing.xs),
-                child: LayoutBuilder(
-                  builder: (context, constraints) {
-                    final actions = [
-                      ...buttons,
-                      if (showDismiss)
-                        const DismissNewTopicsButton(compact: true),
-                      if (showCategoryNotifications)
-                        CategoryNotificationLevelButton(
-                          siteUrl: instance.url,
-                          categoryId: source!.categoryId!,
-                          showLabel: false,
-                        ),
-                    ];
-                    final showLabel = _creationLabelFits(
-                      context,
-                      constraints.maxWidth,
-                      actions.length,
-                      showNewMessage ? 'New message' : 'New topic',
-                    );
-                    return Row(
-                      key: const ValueKey('mobile-bottom-bar'),
-                      spacing: DSpacing.controlGap,
-                      children: [
-                        Expanded(
-                          child: SingleChildScrollView(
-                            scrollDirection: Axis.horizontal,
-                            child: Row(
-                              spacing: DSpacing.controlGap,
-                              children: actions,
+            DCollapsible(
+              open: !_hideTabBar,
+              child: DCollapsibleContent(
+                duration: DMotion.change,
+                curve: Curves.easeInOutCubic,
+                keepMounted: true,
+                child: ForumSidebarTheme(
+                  child: Padding(
+                    padding: const EdgeInsets.all(DSpacing.xs),
+                    child: LayoutBuilder(
+                      builder: (context, constraints) {
+                        final actions = [
+                          ...buttons,
+                          if (showDismiss)
+                            const DismissNewTopicsButton(compact: true),
+                          if (showCategoryNotifications)
+                            CategoryNotificationLevelButton(
+                              siteUrl: instance.url,
+                              categoryId: source!.categoryId!,
+                              showLabel: false,
                             ),
-                          ),
-                        ),
-                        if (showNewMessage)
-                          MessageCreateButton(showLabel: showLabel, pill: true)
-                        else if (showNewTopic)
-                          if (showLabel)
-                            DButton(
-                              key: const ValueKey('mobile-new-topic'),
-                              icon: const DIcon(DIcons.plus),
-                              label: const Text('New topic'),
-                              shape: DButtonShape.pill,
-                              onPressed: () =>
-                                  unawaited(shell.openNewTopicFromSidebar()),
-                            )
-                          else
-                            DButton.iconOnly(
-                              key: const ValueKey('mobile-new-topic'),
-                              icon: const DIcon(DIcons.plus),
-                              tooltip: 'New topic',
-                              shape: DButtonShape.pill,
-                              onPressed: () =>
-                                  unawaited(shell.openNewTopicFromSidebar()),
+                        ];
+                        final showLabel = _creationLabelFits(
+                          context,
+                          constraints.maxWidth,
+                          actions.length,
+                          showNewMessage ? 'New message' : 'New topic',
+                        );
+                        return Row(
+                          key: const ValueKey('mobile-bottom-bar'),
+                          spacing: DSpacing.controlGap,
+                          children: [
+                            Expanded(
+                              child: SingleChildScrollView(
+                                scrollDirection: Axis.horizontal,
+                                child: Row(
+                                  spacing: DSpacing.controlGap,
+                                  children: actions,
+                                ),
+                              ),
                             ),
-                      ],
-                    );
-                  },
+                            if (showNewMessage)
+                              MessageCreateButton(
+                                showLabel: showLabel,
+                                pill: true,
+                              )
+                            else if (showNewTopic)
+                              if (showLabel)
+                                DButton(
+                                  key: const ValueKey('mobile-new-topic'),
+                                  icon: const DIcon(DIcons.plus),
+                                  label: const Text('New topic'),
+                                  shape: DButtonShape.pill,
+                                  onPressed: () => unawaited(
+                                    shell.openNewTopicFromSidebar(),
+                                  ),
+                                )
+                              else
+                                DButton.iconOnly(
+                                  key: const ValueKey('mobile-new-topic'),
+                                  icon: const DIcon(DIcons.plus),
+                                  tooltip: 'New topic',
+                                  shape: DButtonShape.pill,
+                                  onPressed: () => unawaited(
+                                    shell.openNewTopicFromSidebar(),
+                                  ),
+                                ),
+                          ],
+                        );
+                      },
+                    ),
+                  ),
                 ),
               ),
             ),
