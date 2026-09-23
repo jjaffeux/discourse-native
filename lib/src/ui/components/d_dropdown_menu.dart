@@ -209,6 +209,7 @@ class _DDropdownMenuContentState extends State<DDropdownMenuContent> {
   bool _autofocused = false;
   bool _autofocusScheduled = false;
   bool _pointerHighlight = false;
+  bool _keyboardHighlight = false;
 
   void register(Object owner, _MenuRegistration registration) {
     _items[owner] = registration;
@@ -234,7 +235,12 @@ class _DDropdownMenuContentState extends State<DDropdownMenuContent> {
     if (identical(_pendingHover, owner)) _cancelPendingHover();
   }
 
-  bool get showFocusHighlight => !_pointerHighlight && _activeSubmenu == null;
+  // Mobile menus retain keyboard focus without painting the first action as
+  // active before the user has navigated with a keyboard.
+  bool get showFocusHighlight =>
+      !_pointerHighlight &&
+      _activeSubmenu == null &&
+      (!DControlStyle.isTouch(context) || _keyboardHighlight);
 
   void _usePointerHighlight() {
     _parentContent?._usePointerHighlight();
@@ -245,7 +251,8 @@ class _DDropdownMenuContentState extends State<DDropdownMenuContent> {
 
   void useKeyboardHighlight() {
     cancelPointerIntent();
-    if (_pointerHighlight) {
+    if (_pointerHighlight || !_keyboardHighlight) {
+      _keyboardHighlight = true;
       _pointerHighlight = false;
       _hoveredItem = null;
       _refreshItemHighlights();
