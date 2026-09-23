@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui' show BoxHeightStyle;
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/composer_upload.dart';
@@ -28,6 +29,7 @@ Future<ComposerController> pumpEditor(
   WidgetTester tester,
   String source, {
   double scale = 1,
+  TargetPlatform platform = TargetPlatform.android,
 }) async {
   final composer = ComposerController(
     const ComposerTarget(
@@ -44,7 +46,7 @@ Future<ComposerController> pumpEditor(
   addTearDown(composer.dispose);
   await tester.pumpWidget(
     MaterialApp(
-      theme: AppTheme.light,
+      theme: AppTheme.light.copyWith(platform: platform),
       home: Scaffold(
         body: MediaQuery(
           data: MediaQueryData(textScaler: TextScaler.linear(scale)),
@@ -74,6 +76,73 @@ List<ComposerListBodyController> bodies(WidgetTester tester) => tester
     .toList();
 
 void main() {
+  for (final platform in [TargetPlatform.macOS, TargetPlatform.android]) {
+    for (final scale in [1.0, 1.5, 2.0]) {
+      for (final prefix in ['', 'Before\n\n']) {
+        testWidgets(
+          'converting ${prefix.isEmpty ? "first" : "later"} line to a task '
+          'preserves text metrics on ${platform.name} at $scale',
+          (tester) async {
+            const label = 'Task';
+            final root = await pumpEditor(
+              tester,
+              '$prefix$label',
+              scale: scale,
+              platform: platform,
+            );
+            Rect textRect(ComposerController composer, int start, int length) {
+              final render = tester
+                  .state<EditableTextState>(editable(composer))
+                  .renderEditable;
+              // EditableText's selection boxes include different leading at
+              // paragraph boundaries. Compare the actual glyph bounds.
+              final selectionHeightStyle = render.selectionHeightStyle;
+              render.selectionHeightStyle = BoxHeightStyle.tight;
+              final box = render
+                  .getBoxesForSelection(
+                    TextSelection(
+                      baseOffset: start,
+                      extentOffset: start + length,
+                    ),
+                  )
+                  .first
+                  .toRect();
+              render.selectionHeightStyle = selectionHeightStyle;
+              return MatrixUtils.transformRect(
+                render.getTransformTo(null),
+                box,
+              );
+            }
+
+            final before = textRect(root, prefix.length, label.length);
+            Rect precedingCaret() => tester
+                .state<EditableTextState>(editable(root))
+                .renderEditable
+                .getLocalRectForCaret(const TextPosition(offset: 0));
+            final preceding = prefix.isEmpty ? null : precedingCaret();
+            root.text.value = insertComposerTodo(root.value);
+            await tester.pumpAndSettle();
+            final after = textRect(bodies(tester).single, 0, label.length);
+            final precedingAfter = prefix.isEmpty ? null : precedingCaret();
+            final checkboxWidth = tester.getSize(find.byType(DCheckbox)).width;
+            await tester.pumpWidget(const SizedBox());
+            await tester.pumpAndSettle();
+
+            expect(after.width, closeTo(before.width, .1));
+            expect(after.height, closeTo(before.height, .1));
+            expect(after.top, closeTo(before.top, .1));
+            expect(
+              after.left - before.left,
+              closeTo(checkboxWidth * scale, .1),
+            );
+            expect(precedingAfter, preceding);
+            expect(tester.takeException(), isNull);
+          },
+        );
+      }
+    }
+  }
+
   test(
     'task subtrees include paragraphs and fences and retain nested ownership',
     () {

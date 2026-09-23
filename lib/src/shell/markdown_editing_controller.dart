@@ -90,7 +90,8 @@ class MarkdownEditingController extends TextEditingController {
       text,
       atoms: [
         for (final block in syntaxBlocks)
-          if (block.projection is ComposerBlockSyntaxProjection)
+          if (block.projection is ComposerBlockSyntaxProjection &&
+              block.projection is! ComposerParagraphSpacingProjection)
             ComposerBlockAtom(block.start, block.end),
         for (final block in quoteBlocks)
           ComposerBlockAtom(block.start, block.end),
@@ -1546,8 +1547,19 @@ class MarkdownEditingController extends TextEditingController {
     _renderedEmojiDocument = source;
     _renderedEmojiRanges = Set.unmodifiable(renderedEmojiRanges);
 
+    // Keep paragraph defaults neutral: an embedded editor already includes its
+    // own leading. Text runs retain the complete authoring style, including
+    // line height, without adding that leading around a WidgetSpan as well.
+    final content = TextSpan(style: base, children: children);
     final span =
-        normalizeComposerTextScaling(TextSpan(style: base, children: children))
+        normalizeComposerTextScaling(
+              (base.height ?? 1) > 1
+                  ? TextSpan(
+                      style: base.copyWith(height: 1),
+                      children: [content],
+                    )
+                  : content,
+            )
             as TextSpan;
     // Length, not contents: projected widgets flatten to `0xFFFC`, and image
     // tokens also lend some of their hidden characters to transparent line
