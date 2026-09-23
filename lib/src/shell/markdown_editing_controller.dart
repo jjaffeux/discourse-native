@@ -13,6 +13,7 @@ import '../plugin_api/hashtag_kind.dart';
 import '../theme/discourse_typography.dart';
 import 'composer_block_selection.dart';
 import 'composer_blockquote.dart';
+import 'composer_blocks.dart';
 import 'composer_galleries.dart';
 import 'composer_image.dart';
 import 'composer_image_gallery.dart';
@@ -46,6 +47,7 @@ class MarkdownEditingController extends TextEditingController {
     this.maxImageHeight = 500,
     this.enableImageGalleries = true,
     this.enableTodos = true,
+    this.enableBlockSeparators = false,
     @visibleForTesting
     SyntaxHighlightBatcher backgroundSyntaxHighlighterForTesting =
         highlightLinesBatchInBackground,
@@ -74,6 +76,43 @@ class MarkdownEditingController extends TextEditingController {
 
   final bool enableImageGalleries;
   final bool enableTodos;
+  final bool enableBlockSeparators;
+  String? _separatorSource;
+  List<TextRange> _separators = const [];
+
+  /// Required Markdown paragraph boundaries, excluding additional empty lines.
+  List<TextRange> get blockSeparators {
+    if (!enableBlockSeparators) return const [];
+    if (_separatorSource == text) return _separators;
+    _separatorSource = text;
+    final index = ComposerBlockIndex.parse(
+      text,
+      atoms: [
+        for (final block in syntaxBlocks)
+          if (block.projection is ComposerBlockSyntaxProjection)
+            ComposerBlockAtom(block.start, block.end),
+        for (final block in quoteBlocks)
+          ComposerBlockAtom(block.start, block.end),
+        for (final block in galleryBlocks)
+          ComposerBlockAtom(block.start, block.end),
+        for (final block in imageBlocks)
+          ComposerBlockAtom(block.start, block.end),
+      ],
+    );
+    _separators = [
+      for (final (i, block) in index.blocks.indexed)
+        // Embedded components own their projected boundary carets and deletion.
+        if (block.kind != ComposerBlockKind.component &&
+            (i + 1 == index.blocks.length ||
+                index.blocks[i + 1].kind != ComposerBlockKind.component))
+          if (text.startsWith('\r\n\r\n', block.end))
+            TextRange(start: block.end, end: block.end + 4)
+          else if (text.startsWith('\n\n', block.end))
+            TextRange(start: block.end, end: block.end + 2),
+    ];
+    return _separators;
+  }
+
   ValueChanged<TextEditingValue>? onTodoChanged;
   String? _todoSource;
   List<ComposerTodo> _todos = const [];
@@ -143,6 +182,54 @@ class MarkdownEditingController extends TextEditingController {
   @override
   set value(TextEditingValue newValue) {
     final current = super.value;
+    if (current.selection.isValid &&
+        current.selection.isCollapsed &&
+        newValue.selection.isCollapsed &&
+        current.composing.isCollapsed &&
+        newValue.composing.isCollapsed &&
+        current.text.length > newValue.text.length) {
+      final caret = current.selection.extentOffset;
+      final removedLength = current.text.length - newValue.text.length;
+      for (final separator in blockSeparators) {
+        final deleted = caret == separator.end
+            ? caret - removedLength
+            : caret == separator.start
+            ? caret
+            : -1;
+        if (deleted >= separator.start &&
+            deleted + removedLength <= separator.end &&
+            newValue.text ==
+                current.text.replaceRange(
+                  deleted,
+                  deleted + removedLength,
+                  '',
+                )) {
+          newValue = newValue.copyWith(
+            text: current.text.replaceRange(separator.start, separator.end, ''),
+            selection: TextSelection.collapsed(offset: separator.start),
+          );
+          break;
+        }
+      }
+    }
+    if (newValue.text == current.text &&
+        newValue.selection.isValid &&
+        newValue.selection.isCollapsed &&
+        newValue.composing.isCollapsed) {
+      final offset = newValue.selection.extentOffset;
+      for (final separator in blockSeparators) {
+        if (offset > separator.start && offset < separator.end) {
+          newValue = newValue.copyWith(
+            selection: TextSelection.collapsed(
+              offset: offset < current.selection.extentOffset
+                  ? separator.start
+                  : separator.end,
+            ),
+          );
+          break;
+        }
+      }
+    }
     // Desktop text fields update selection on pointer-down, before an
     // embedded editor can win the gesture. Its click must not select the
     // enclosing document's hidden source or activate a whole block.
@@ -1245,6 +1332,23 @@ class MarkdownEditingController extends TextEditingController {
     }
 
     final projections = <_SpanProjection>[
+      for (final separator in blockSeparators)
+        if (composing == null ||
+            composing.end <= separator.start ||
+            composing.start >= separator.end)
+          _SpanProjection(
+            separator.start,
+            separator.end,
+            () => [
+              // Keep source offsets stable and give the trailing empty
+              // paragraph the same metrics as its first typed character.
+              TextSpan(
+                text: '\n${'\u200b' * (separator.end - separator.start - 1)}',
+                style: base,
+              ),
+            ],
+            normalizeSource: false,
+          ),
       for (final todo in todos)
         if (composing == null ||
             composing.end <= todo.start ||

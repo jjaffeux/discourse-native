@@ -587,8 +587,8 @@ class _ComposerBlockSurfaceState extends State<ComposerBlockSurface> {
                   Positioned(
                     left: 0,
                     right: 0,
-                    top: handleRect.top - DSpacing.xs,
-                    height: handleRect.height + DSpacing.xs * 2,
+                    top: handleRect.top,
+                    height: handleRect.height,
                     child: const DDragHighlight(),
                   ),
                 if (desktop &&

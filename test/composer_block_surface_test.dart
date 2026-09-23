@@ -107,6 +107,79 @@ void main() {
     await tester.pumpAndSettle();
   }
 
+  for (final newline in ['\n', '\r\n']) {
+    testWidgets('Enter creates one compact, atomic boundary ($newline)', (
+      tester,
+    ) async {
+      final before = newline == '\n' ? 'First' : 'Earlier\r\nsoft\r\n\r\nFirst';
+      composer.text.value = TextEditingValue(
+        text: before,
+        selection: TextSelection.collapsed(offset: before.length),
+      );
+      await mount(tester);
+      composer.focus.requestFocus();
+      await tester.pump();
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pumpAndSettle();
+      final end = before.length + newline.length * 2;
+      expect(composer.text.text, '$before$newline$newline');
+      expect(composer.text.selection.extentOffset, end);
+      final surface = tester.widget<ComposerBlockSurface>(
+        find.byType(ComposerBlockSurface),
+      );
+      expect(surface.emptyLineAt(null)?.range.start, end);
+
+      final editable = tester.state<EditableTextState>(
+        find.byType(EditableText),
+      );
+      final render = editable.renderEditable;
+      final first = render.getLocalRectForCaret(
+        TextPosition(offset: before.length),
+      );
+      final next = render.getLocalRectForCaret(TextPosition(offset: end));
+      expect(
+        next.top - first.top,
+        greaterThanOrEqualTo(render.preferredLineHeight),
+      );
+      expect(next.top - first.top, lessThan(render.preferredLineHeight * 2));
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+      expect(composer.text.selection.extentOffset, before.length);
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+      expect(composer.text.selection.extentOffset, end);
+      await tester.sendKeyEvent(LogicalKeyboardKey.backspace);
+      expect(composer.raw, before);
+      expect(composer.text.selection.extentOffset, before.length);
+      composer.history.undo();
+      expect(composer.text.text, '$before$newline$newline');
+    });
+  }
+
+  testWidgets('required separator offers no empty block controls', (
+    tester,
+  ) async {
+    composer.text.value = const TextEditingValue(
+      text: 'First\n\nSecond',
+      selection: TextSelection.collapsed(offset: 0),
+    );
+    await mount(tester);
+    final surface = tester.widget<ComposerBlockSurface>(
+      find.byType(ComposerBlockSurface),
+    );
+    final render = tester
+        .state<EditableTextState>(find.byType(EditableText))
+        .renderEditable;
+    final rect = render.getLocalRectForCaret(const TextPosition(offset: 6));
+    expect(surface.emptyLineAt(render.localToGlobal(rect.center)), isNull);
+    composer.text.selection = const TextSelection.collapsed(offset: 6);
+    expect(composer.text.selection.extentOffset, 7);
+    composer.text.selection = const TextSelection.collapsed(offset: 5);
+    composer.focus.requestFocus();
+    await tester.pump();
+    await tester.sendKeyEvent(LogicalKeyboardKey.delete);
+    expect(composer.raw, 'FirstSecond');
+  });
+
   for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
     testWidgets('mobile long press moves a block on $platform', (tester) async {
       await mount(tester, mobile: true, platform: platform);
@@ -331,7 +404,7 @@ void main() {
 
   for (final source in ['', '  ', 'Before\n\n\nAfter', 'Before\n\n']) {
     testWidgets('add uses the current empty line in "$source"', (tester) async {
-      final offset = source.startsWith('Before') ? 'Before\n'.length : 0;
+      final offset = source.startsWith('Before') ? 'Before\n\n'.length : 0;
       composer.text.value = TextEditingValue(
         text: source,
         selection: TextSelection.collapsed(offset: offset),
@@ -489,7 +562,7 @@ void main() {
     final editable = tester
         .state<EditableTextState>(find.byType(EditableText))
         .renderEditable;
-    final blank = editable.getLocalRectForCaret(const TextPosition(offset: 6));
+    final blank = editable.getLocalRectForCaret(const TextPosition(offset: 7));
     final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
     await mouse.addPointer();
     addTearDown(mouse.removePointer);
@@ -501,7 +574,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('Add block'));
     await tester.pumpAndSettle();
-    expect(composer.text.text, 'First\n/\n\nLast');
+    expect(composer.text.text, 'First\n\n/\nLast');
     expect(find.text('Type to search'), findsOneWidget);
   });
 
@@ -649,7 +722,7 @@ void main() {
     Rect lineAt(int offset) => editable
         .getLocalRectForCaret(TextPosition(offset: offset))
         .shift(editable.localToGlobal(Offset.zero));
-    final first = lineAt('First paragraph\n'.length);
+    final first = lineAt('First paragraph\n\n'.length);
     final last = lineAt(source.indexOf('##') - 1);
     final id = composer.blocks.index.blocks.last.id;
     final gesture = await tester.startGesture(
@@ -928,7 +1001,12 @@ void main() {
           final sourceTint = tester.getRect(highlight);
           expect(sourceTint.top, lessThanOrEqualTo(first.top));
           expect(sourceTint.bottom, greaterThanOrEqualTo(first.bottom));
-          expect(sourceTint.bottom, lessThan(before.top));
+          expect(
+            sourceTint.bottom,
+            lessThanOrEqualTo(before.top + 1),
+            reason:
+                'Compact adjacent line boxes can overlap by a fractional pixel',
+          );
           final gapCenter = (before.bottom + after.top) / 2;
           await gesture.moveTo(Offset(first.center.dx, gapCenter));
           await tester.pump();
