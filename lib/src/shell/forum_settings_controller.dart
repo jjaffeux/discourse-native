@@ -30,7 +30,8 @@ final class ForumSettingsController extends FrameSafeNotifier {
     SiteAppearance? forumAppearance,
   ) {
     final preferences = themesFor(siteUrl);
-    if (preferences.selectedTheme == null && preferences.palettes.isEmpty) {
+    if (!preferences.useCustomTheme ||
+        (preferences.selectedTheme == null && preferences.palettes.isEmpty)) {
       return forumAppearance;
     }
     ResolvedSitePalette? palette(Brightness brightness) =>

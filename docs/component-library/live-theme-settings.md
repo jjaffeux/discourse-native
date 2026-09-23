@@ -200,3 +200,31 @@ export, the inline name field and the old Save and share accordion remain remove
 All 23 editor, settings-page and appearance-background tests passed, including
 name validation, cancellation, both saved palettes and clipboard activation.
 Root static analysis passed.
+
+### Appearance and theme source controls — September 24, 2026
+
+Native toggle groups now precede the editor: Light / Dark / System controls the
+forum's appearance, then Default forum theme / Custom theme chooses its source.
+Only Custom theme reveals the palette tabs, theme controls, save/copy actions
+and font samples. The old system switch and reset button are removed.
+
+The editor's Light/Dark tabs select a palette independently of the appearance
+mode, so editing the dark palette does not disable System mode. Switching to the
+forum default suspends personal colours, effects and font without deleting
+them. Switching back restores them. This choice persists per forum; existing
+preferences infer the source from their previously active custom settings.
+Shared theme cards activate custom mode and no longer appear applied while
+the default forum theme is active.
+
+All 63 focused tests passed across the editor, settings page, preference model,
+app integration and theme onebox. The 17 model tests passed again after covering
+System font selection retaining custom mode. Root and full-profile analysis are
+clean. Tests cover default-only rendering, independent editor tabs, retained
+custom settings, persistence/migration, narrow RTL layouts and enlarged text.
+
+The final macOS fixture built successfully. Native review confirmed the two
+toggle groups fit the 412px panel, the default state hides the entire editor,
+and selecting Custom reveals it below the controls. Switching back and forth
+restored a chosen Midnight palette. Light changed the workspace immediately;
+the editor's Dark tab then retained Light appearance while showing dark palette
+values. The isolated fixture app was quit after review.

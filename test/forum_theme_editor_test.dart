@@ -28,6 +28,10 @@ Future<void> preset(WidgetTester tester, String name) async {
 }
 
 Future<void> mode(WidgetTester tester, String name) async {
+  final appearance = find.byKey(const ValueKey('appearance-mode'));
+  await tester.ensureVisible(appearance);
+  await tester.tap(find.descendant(of: appearance, matching: find.text(name)));
+  await tester.pumpAndSettle();
   final tabs = find.byKey(const ValueKey('appearance-theme-select'));
   await tester.ensureVisible(tabs);
   await tester.tap(find.descendant(of: tabs, matching: find.text(name)));
@@ -136,7 +140,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(
       shell.forumSettings.themesFor(_site),
-      ForumThemePreferences.defaults,
+      ForumThemePreferences(useCustomTheme: true),
     );
     expect(find.text('Your themes'), findsNothing);
     expect(tester.takeException(), isNull);
@@ -441,7 +445,7 @@ void main() {
     },
   );
 
-  testWidgets('font and reset keep the saved library and per-forum isolation', (
+  testWidgets('default theme keeps custom settings and per-forum isolation', (
     tester,
   ) async {
     final shell = controller();
@@ -457,13 +461,20 @@ void main() {
     await tester.tap(font);
     await tester.pumpAndSettle();
     expect(shell.forumSettings.themesFor(_site).font, ForumFont.lato);
-    final reset = find.text('Reset to forum theme');
+    final before = shell.forumSettings.themesFor(_site);
+    final reset = find.text('Default forum theme');
     await tester.ensureVisible(reset);
     await tester.tap(reset);
     await tester.pumpAndSettle();
     final preferences = shell.forumSettings.themesFor(_site);
-    expect(preferences.palettes, isEmpty);
-    expect(preferences.background, isNull);
+    expect(preferences.useCustomTheme, isFalse);
+    expect(preferences.palettes, before.palettes);
+    expect(preferences.background, before.background);
+    expect(preferences.effectiveFont, ForumFont.system);
+    expect(find.byKey(const ValueKey('appearance-theme-select')), findsNothing);
+    await tester.tap(find.text('Custom theme'));
+    await tester.pumpAndSettle();
+    expect(shell.forumSettings.themesFor(_site), before);
     expect(preferences.font, ForumFont.lato);
     expect(preferences.customThemes, hasLength(1));
     expect(

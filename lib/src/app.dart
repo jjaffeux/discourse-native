@@ -546,7 +546,7 @@ class _DiscourseAppState extends State<DiscourseApp>
                     ? null
                     : _controller.forumSettings
                           .themesFor(selection.siteUrl!)
-                          .font
+                          .effectiveFont
                           .family;
                 final lightTheme = _themeFor(
                   appearance,
