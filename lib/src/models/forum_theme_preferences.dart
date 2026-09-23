@@ -10,11 +10,18 @@ import 'forum_theme_share.dart';
 final class ForumThemePreferences {
   ForumThemePreferences({
     String? selectedId,
+    bool? useCustomTheme,
     this.font = ForumFont.system,
     List<ForumTheme> customThemes = const [],
     Map<Brightness, ForumTheme> palettes = const {},
     this.background,
-  }) : selectedId = canonicalForumThemeId(selectedId),
+  }) : useCustomTheme =
+           useCustomTheme ??
+           (selectedId != null ||
+               palettes.isNotEmpty ||
+               background != null ||
+               font != ForumFont.system),
+       selectedId = canonicalForumThemeId(selectedId),
        customThemes = List.unmodifiable(customThemes),
        palettes = Map.unmodifiable(palettes);
 
@@ -65,6 +72,9 @@ final class ForumThemePreferences {
       selectedId: [...forumThemePresets, ...customs].any((t) => t.id == id)
           ? id
           : null,
+      useCustomTheme: json['useCustomTheme'] is bool
+          ? json['useCustomTheme'] as bool
+          : null,
       customThemes: customs,
       font: ForumFont.fromName(json['font']),
       palettes: palettes,
@@ -73,6 +83,7 @@ final class ForumThemePreferences {
   }
 
   static final defaults = ForumThemePreferences();
+  final bool useCustomTheme;
   final String? selectedId;
   final ForumFont font;
   final List<ForumTheme> customThemes;
@@ -80,6 +91,7 @@ final class ForumThemePreferences {
   final ForumBackground? background;
 
   ForumTheme? themeFor(Brightness mode) {
+    if (!useCustomTheme) return null;
     final theme = palettes[mode] ?? selectedTheme?.forBrightness(mode);
     return background == null ? theme : theme?.copyWith(background: background);
   }
@@ -134,6 +146,7 @@ final class ForumThemePreferences {
   }
 
   ForumThemePreferences remove(String id) => ForumThemePreferences(
+    useCustomTheme: useCustomTheme,
     font: font,
     palettes: palettes,
     background: background,
@@ -142,6 +155,7 @@ final class ForumThemePreferences {
   );
 
   ForumThemePreferences withFont(ForumFont value) => ForumThemePreferences(
+    useCustomTheme: true,
     selectedId: selectedId,
     customThemes: customThemes,
     font: value,
@@ -149,8 +163,20 @@ final class ForumThemePreferences {
     background: background,
   );
 
+  ForumFont get effectiveFont => useCustomTheme ? font : ForumFont.system;
+
+  ForumThemePreferences withCustomTheme(bool enabled) => ForumThemePreferences(
+    useCustomTheme: enabled,
+    selectedId: selectedId,
+    customThemes: customThemes,
+    font: font,
+    palettes: palettes,
+    background: background,
+  );
+
   Map<String, dynamic> toJson() => {
     'version': 1,
+    'useCustomTheme': useCustomTheme,
     'font': font.name,
     'selectedId': selectedId,
     if (background != null) 'background': background!.toJson(),
@@ -167,6 +193,7 @@ final class ForumThemePreferences {
   @override
   bool operator ==(Object other) =>
       other is ForumThemePreferences &&
+      other.useCustomTheme == useCustomTheme &&
       other.selectedId == selectedId &&
       other.font == font &&
       other.background == background &&
@@ -175,6 +202,7 @@ final class ForumThemePreferences {
 
   @override
   int get hashCode => Object.hash(
+    useCustomTheme,
     selectedId,
     font,
     Object.hashAll(customThemes),

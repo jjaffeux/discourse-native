@@ -21,6 +21,34 @@ void main() {
     'name': 'My night',
   }, id: 'custom-night');
 
+  test(
+    'default mode persists custom edits and migrates existing preferences',
+    () {
+      final original = ForumThemePreferences(selectedId: 'dracula')
+          .withFont(ForumFont.lato)
+          .withBackground(const ForumBackground.appearance(strength: .5));
+      final disabled = ForumThemePreferences.fromJson(
+        original.withCustomTheme(false).toJson(),
+      );
+      expect(disabled.useCustomTheme, isFalse);
+      expect(disabled.themeFor(Brightness.dark), isNull);
+      expect(disabled.effectiveFont, ForumFont.system);
+      expect(disabled.withCustomTheme(true), original);
+      expect(
+        ForumThemePreferences(
+          useCustomTheme: true,
+        ).withFont(ForumFont.system).useCustomTheme,
+        isTrue,
+      );
+      final legacy = original.toJson()..remove('useCustomTheme');
+      expect(ForumThemePreferences.fromJson(legacy).useCustomTheme, isTrue);
+      expect(
+        ForumThemePreferences.fromJson(const {'version': 1}).useCustomTheme,
+        isFalse,
+      );
+    },
+  );
+
   test('light and dark presets and edits persist independently', () {
     final solarized = forumThemePresets.firstWhere((t) => t.id == 'solarized');
     const background = ForumBackground.appearance(

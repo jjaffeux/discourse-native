@@ -201,7 +201,7 @@ void main() {
     await tester.tap(
       find
           .descendant(
-            of: find.byKey(const ValueKey('appearance-theme-select')),
+            of: find.byKey(const ValueKey('appearance-mode')),
             matching: find.text('Dark'),
           )
           .last,
@@ -331,7 +331,7 @@ void main() {
     await tester.tap(
       find
           .descendant(
-            of: find.byKey(const ValueKey('appearance-theme-select')),
+            of: find.byKey(const ValueKey('appearance-mode')),
             matching: find.text('Dark'),
           )
           .last,
@@ -345,11 +345,11 @@ void main() {
     await _openForumSettings(tester);
     expect(find.byType(ForumSettingsPage), findsOneWidget);
     expect(controller.currentInstance!.title, 'B');
-    expect(find.text('Follow system appearance'), findsOneWidget);
+    expect(find.text('System'), findsOneWidget);
     await tester.tap(
       find
           .descendant(
-            of: find.byKey(const ValueKey('appearance-theme-select')),
+            of: find.byKey(const ValueKey('appearance-mode')),
             matching: find.text('Light'),
           )
           .last,
@@ -596,7 +596,7 @@ void main() {
           await tester.tap(
             find
                 .descendant(
-                  of: find.byKey(const ValueKey('appearance-theme-select')),
+                  of: find.byKey(const ValueKey('appearance-mode')),
                   matching: find.text(label),
                 )
                 .last,
@@ -613,10 +613,7 @@ void main() {
           );
         }
 
-        final system = find.widgetWithText(
-          DSwitchTile,
-          'Follow system appearance',
-        );
+        final system = find.text('System');
         await tester.ensureVisible(system);
         await tester.tap(system);
         await tester.pumpAndSettle();
@@ -631,12 +628,12 @@ void main() {
           Brightness.dark,
         );
         await tester.ensureVisible(
-          find.byKey(const ValueKey('appearance-theme-select')),
+          find.byKey(const ValueKey('appearance-mode')),
         );
         await tester.tap(
           find
               .descendant(
-                of: find.byKey(const ValueKey('appearance-theme-select')),
+                of: find.byKey(const ValueKey('appearance-mode')),
                 matching: find.text('Light'),
               )
               .last,

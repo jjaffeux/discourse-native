@@ -79,6 +79,7 @@ class _ForumThemeOneboxState extends State<ForumThemeOnebox> {
   }
 
   bool _isApplied(ForumThemePreferences preferences) =>
+      preferences.useCustomTheme &&
       preferences.palettes.isEmpty &&
       preferences.background == null &&
       ForumThemeShare.matches(preferences.selectedTheme, widget.theme);
