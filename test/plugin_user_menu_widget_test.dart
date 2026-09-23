@@ -226,6 +226,41 @@ void main() {
     expect(dismissals, 1);
   });
 
+  testWidgets('mobile plugin tabs remain selected when the panel widens', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(320, 720));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    var dismissals = 0;
+    await _pumpUserMenu(
+      tester,
+      const PluginManifest([
+        _MenuModule(
+          'alpha',
+          'Alpha activity',
+          _alphaBodyKey,
+          linkWhenActive: '/latest',
+        ),
+      ]),
+      onDismiss: () => dismissals += 1,
+    );
+    final tab = find.byKey(_alphaTabKey);
+    await tester.ensureVisible(tab);
+    await tester.pumpAndSettle();
+    await tester.tap(tab);
+    await tester.pumpAndSettle();
+    expect(find.byKey(_alphaBodyKey), findsOneWidget);
+    expect(dismissals, 0);
+
+    await tester.binding.setSurfaceSize(const Size(900, 720));
+    await tester.pumpAndSettle();
+    expect(find.byKey(_alphaBodyKey), findsOneWidget);
+    await tester.tap(tab);
+    await tester.pumpAndSettle();
+    expect(dismissals, 1);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('an open touch section rebuilds from live totals', (
     tester,
   ) async {

@@ -70,6 +70,11 @@ Mobile tab buttons use the approved `DButtonDensity.mobileNavigation` preset:
 44px artwork and full 18px glyphs on every platform, including desktop previews.
 The preset removes DIcon’s ordinary optical inset within the button.
 It supersedes the size preset, grows with text scaling and retains a 48px target.
+Mobile notification categories use the September 23 approved
+`DTabListVariant.outlinePill`: outlined capsule tabs, an accent-filled selected
+state and 6px gaps. Use the small control size; Tabs owns horizontal scrolling,
+keyboard navigation, text scaling and the 48px touch targets. Labels retain
+unread counts in semantics while the compact strip displays category names.
 Mobile topic header actions use the September 23 approved
 `DButtonDensity.compactToolbar` preset: 24px-high surfaces, 32px-wide icon-only
 actions, 14px icons and small typography. Both Button constructors and
