@@ -85,7 +85,7 @@ void main() {
   );
 
   test(
-    'Return continues items, splits text, and exits empty items with a line break',
+    'Return continues items, splits text, and exits empty items on the same line',
     () {
       const formatter = ComposerTodoInputFormatter();
       for (final (before, after) in [
@@ -93,11 +93,11 @@ void main() {
         ('[x] First|', '[x] First\n[ ] |'),
         ('[ ] First| part', '[ ] First\n[ ] | part'),
         ('- [x] First|', '- [x] First\n- [ ] |'),
-        ('[ ] First\n[ ] |', '[ ] First\n\n|'),
-        ('[x] |', '\n|'),
-        ('- [x] First\n- [ ] |', '- [x] First\n\n|'),
-        ('[ ] First\n[ ]  \t|', '[ ] First\n\n|'),
-        ('[ ] First\n[ ] |\nAfter', '[ ] First\n\n|\nAfter'),
+        ('[ ] First\n[ ] |', '[ ] First\n|'),
+        ('[x] |', '|'),
+        ('- [x] First\n- [ ] |', '- [x] First\n|'),
+        ('[ ] First\n[ ]  \t|', '[ ] First\n|'),
+        ('[ ] First\n[ ] |\nAfter', '[ ] First\n|\nAfter'),
       ]) {
         final old = valueAt(before);
         final caret = old.selection.end;
@@ -365,7 +365,7 @@ void main() {
     expect(composer.text.text, '[ ] First');
   });
 
-  testWidgets('double Return exits with a blank line before subsequent text', (
+  testWidgets('double Return exits without adding an extra blank line', (
     tester,
   ) async {
     final composer = await pump(tester);
@@ -377,11 +377,11 @@ void main() {
     expect(find.byType(DCheckbox), findsNWidgets(2));
     await tester.sendKeyEvent(LogicalKeyboardKey.enter);
     await tester.pumpAndSettle();
-    expect(composer.text.value, valueAt('[x] First\n\n|'));
+    expect(composer.text.value, valueAt('[x] First\n|'));
     expect(find.byType(DCheckbox), findsOneWidget);
-    tester.testTextInput.updateEditingValue(valueAt('[x] First\n\nAfter|'));
+    tester.testTextInput.updateEditingValue(valueAt('[x] First\nAfter|'));
     await tester.pumpAndSettle();
-    expect(composer.text.value, valueAt('[x] First\n\nAfter|'));
+    expect(composer.text.value, valueAt('[x] First\nAfter|'));
     expect(find.byType(DCheckbox), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
