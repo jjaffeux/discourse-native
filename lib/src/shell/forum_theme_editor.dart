@@ -3,7 +3,9 @@ import 'package:flutter/material.dart';
 
 import '../models/forum_background.dart';
 import '../models/forum_theme.dart';
+import 'forum_theme_clipboard.dart';
 import 'forum_theme_picker.dart';
+import 'forum_theme_save_dialog.dart';
 import 'settings_section.dart';
 import 'theme_icons.dart';
 
@@ -17,6 +19,7 @@ class ForumThemeEditor extends StatefulWidget {
     required this.brightness,
     required this.customThemes,
     required this.onChanged,
+    required this.onSave,
     required this.onBackgroundChanged,
     required this.onBrightnessChanged,
     this.onDelete,
@@ -29,6 +32,7 @@ class ForumThemeEditor extends StatefulWidget {
   final List<ForumTheme> customThemes;
   final Map<Brightness, ForumTheme> forumPalettes;
   final ValueChanged<ForumTheme> onChanged;
+  final Future<void> Function(ForumTheme) onSave;
   final ValueChanged<ForumBackground> onBackgroundChanged;
   final ValueChanged<Brightness> onBrightnessChanged;
   final ValueChanged<String>? onDelete;
@@ -39,6 +43,34 @@ class ForumThemeEditor extends StatefulWidget {
 
 class _ForumThemeEditorState extends State<ForumThemeEditor> {
   ForumTheme get _palette => widget.palettes[widget.brightness]!;
+
+  ForumTheme _portable(String name) => ForumTheme.fromJson({
+    ...widget.palettes[Brightness.light]!.toJson(),
+    'name': name,
+    'background': widget.background.toJson(),
+    'alternate': {
+      ...widget.palettes[Brightness.dark]!.toJson(),
+      'name': name,
+      'background': widget.background.toJson(),
+    },
+  }, id: 'custom-${DateTime.now().microsecondsSinceEpoch}');
+
+  Future<void> _save() async {
+    final snapshot = _portable('My theme');
+    await showDDialog<void>(
+      context: context,
+      builder: (context, controller) => ForumThemeSaveDialog(
+        controller: controller,
+        onSave: (name) => widget.onSave(
+          ForumTheme.fromJson({
+            ...snapshot.toJson(),
+            'name': name,
+            'alternate': {...snapshot.alternate!.toJson(), 'name': name},
+          }, id: snapshot.id),
+        ),
+      ),
+    );
+  }
 
   Future<void> _delete(ForumTheme theme) async {
     final confirmed = await showDAlertDialog<bool>(
@@ -261,6 +293,18 @@ class _ForumThemeEditorState extends State<ForumThemeEditor> {
               );
             },
           ),
+        ),
+        Wrap(
+          spacing: DSpacing.controlGap,
+          runSpacing: DSpacing.controlGap,
+          children: [
+            DButton(label: const Text('Save theme'), onPressed: _save),
+            DButton(
+              label: const Text('Copy theme'),
+              variant: DButtonVariant.outline,
+              onPressed: () => copyForumTheme(context, _portable('My theme')),
+            ),
+          ],
         ),
       ],
     );

@@ -186,3 +186,17 @@ live palette/background editing and font samples continue to work.
 All 21 theme-editor, settings-page and appearance-background tests passed, and
 root `dart analyze` reported no issues. Tests for the removed controls were
 removed; the reset test now seeds an existing saved theme directly.
+
+### Save name dialog — September 24, 2026
+
+The user clarified that Save theme and Copy theme should remain as direct actions.
+Save theme now opens a Native Dialog with an initially empty, focused Name field.
+Blank names disable Save; Cancel leaves the library unchanged. Saving captures
+both current palettes and the shared background, trims the name and adds a saved
+thumbnail. Persistence errors retain the dialog and entered name for retry.
+Copy theme copies the live appearance with the default name My theme. Import,
+export, the inline name field and the old Save and share accordion remain removed.
+
+All 23 editor, settings-page and appearance-background tests passed, including
+name validation, cancellation, both saved palettes and clipboard activation.
+Root static analysis passed.
