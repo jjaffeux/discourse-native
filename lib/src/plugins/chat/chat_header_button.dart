@@ -75,13 +75,7 @@ class ChatHeaderButton extends StatelessWidget {
             ? 'Chat, unread messages'
             : 'Chat';
 
-        void openChat() => unawaited(
-          shell.openShortcut(
-            drawerAvailable:
-                ShellLayout.forWidth(MediaQuery.sizeOf(context).width) !=
-                ShellLayout.compact,
-          ),
-        );
+        void openChat() => unawaited(shell.openShortcut());
         final theme = Theme.of(context);
         if (urgentCount != null) {
           return headerNotificationButton(

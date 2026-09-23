@@ -1,7 +1,7 @@
 import 'chat_channel.dart';
 import 'chat_channel_list_preferences.dart';
 
-/// Core's preference ordering, shared by sidebar, drawer and full-page lists.
+/// Core's preference ordering, shared by sidebar and full-page lists.
 List<ChatChannel> projectChatChannelList(
   Iterable<ChatChannel> channels, {
   required ChatChannelListFilter filter,

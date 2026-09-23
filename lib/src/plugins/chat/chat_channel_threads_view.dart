@@ -5,7 +5,6 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
 import 'chat_controller.dart';
-import 'chat_drawer.dart';
 import 'chat_my_threads_view.dart';
 import 'chat_services.dart';
 import 'chat_shell_service.dart';
@@ -32,13 +31,9 @@ class _ChatChannelThreadsViewState extends State<ChatChannelThreadsView> {
   bool _viewStartScheduled = false;
   bool _ready = false;
   bool _tickerEnabled = true;
-  bool _drawerSurface = false;
 
   bool get _viewerActive =>
-      _ready &&
-      _tickerEnabled &&
-      !_drawerSurface &&
-      (_shell?.forumActive ?? false);
+      _ready && _tickerEnabled && (_shell?.forumActive ?? false);
 
   @override
   void initState() {
@@ -76,7 +71,6 @@ class _ChatChannelThreadsViewState extends State<ChatChannelThreadsView> {
       _shell = shell..addListener(_handleShellChanged);
     }
     _tickerEnabled = TickerMode.valuesOf(context).enabled;
-    _drawerSurface = ChatDrawerScope.isDrawer(context);
     if (!_ready) {
       _chat = PluginUiScope.require(context, chatControllerService);
       _ready = true;

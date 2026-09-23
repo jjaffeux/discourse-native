@@ -3,7 +3,7 @@ import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/plugin_api/plugin_data.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel_list_preferences.dart';
-import 'package:discourse_native/src/plugins/chat/chat_drawer.dart';
+import 'package:discourse_native/src/plugins/chat/chat_channels_view.dart';
 import 'package:discourse_native/src/plugins/chat/chat_notification_counter.dart';
 import 'package:discourse_native/src/plugins/chat/chat_plugin_data.dart';
 import 'package:discourse_native/src/plugins/chat/chat_services.dart';
@@ -104,7 +104,7 @@ Finder _sidebar(Finder finder) =>
 
 void main() {
   testWidgets(
-    'sidebar saves are isolated and show-all is shared with the drawer without writes',
+    'sidebar saves are isolated and show-all is shared with the channel list without writes',
     (tester) async {
       final api = await _pump(tester);
       final shell = ShellScope.read(tester.element(find.byType(MainContent)));
@@ -162,22 +162,22 @@ void main() {
 
       navigation.openChannels();
       await tester.pumpAndSettle();
-      final drawer = find.byType(ChatDrawerChannelsView);
-      expect(drawer, findsOneWidget);
+      final channelList = find.byType(ChatChannelsView);
+      expect(channelList, findsOneWidget);
       expect(
-        find.descendant(of: drawer, matching: find.text('Alpha')),
+        find.descendant(of: channelList, matching: find.text('Alpha')),
         findsOneWidget,
       );
       await tester.tap(
         find.descendant(
-          of: drawer,
+          of: channelList,
           matching: find.byKey(const ValueKey('chat-filter-toggle-channels')),
         ),
       );
       await tester.pumpAndSettle();
       expect(
         find.descendant(
-          of: drawer,
+          of: channelList,
           matching: find.text('No channels match this filter.'),
         ),
         findsOneWidget,

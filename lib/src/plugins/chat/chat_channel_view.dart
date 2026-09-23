@@ -11,7 +11,6 @@ import 'package:super_sliver_list/super_sliver_list.dart';
 import 'chat_channel.dart';
 import 'chat_composer.dart';
 import 'chat_controller.dart';
-import 'chat_drawer.dart';
 import 'chat_message.dart';
 import 'chat_message_tile.dart';
 import 'chat_pinned_bar.dart';
@@ -78,7 +77,6 @@ class _ChatChannelBodyState extends State<_ChatChannelBody> {
   Object? _viewToken;
   bool _viewStartScheduled = false;
   bool _tickerEnabled = true;
-  bool _drawerSurface = false;
   ChatShellService? _shell;
   Listenable? _navigation;
   bool _opened = false;
@@ -100,15 +98,6 @@ class _ChatChannelBodyState extends State<_ChatChannelBody> {
   bool get _viewerActive => _tickerEnabled && (_shell?.forumActive ?? false);
 
   void _handleShellChanged() {
-    final shell = _shell;
-    if (_drawerSurface && shell?.drawerActive != true) {
-      if (_selectingMessages || _selectedMessageIds.isNotEmpty) {
-        setState(() {
-          _selectingMessages = false;
-          _selectedMessageIds.clear();
-        });
-      }
-    }
     _syncViewing();
   }
 
@@ -151,7 +140,6 @@ class _ChatChannelBodyState extends State<_ChatChannelBody> {
       _shell = shell..addListener(_handleShellChanged);
     }
     _tickerEnabled = TickerMode.valuesOf(context).enabled;
-    _drawerSurface = ChatDrawerScope.isDrawer(context);
     _syncViewing();
 
     final navigation = shell.navigation;
@@ -169,7 +157,7 @@ class _ChatChannelBodyState extends State<_ChatChannelBody> {
   bool _consumeNavigation() {
     if (!mounted) return false;
     final shell = PluginUiScope.require(context, chatShellService);
-    if (!_tickerEnabled || (_drawerSurface && !shell.drawerActive)) {
+    if (!_tickerEnabled) {
       return false;
     }
     final pending = shell.navigation.take(

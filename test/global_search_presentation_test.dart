@@ -1,7 +1,5 @@
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/content_route.dart';
-import 'package:discourse_native/src/plugins/chat/chat_drawer.dart';
-import 'package:discourse_native/src/plugins/chat/chat_drawer_preferences_store.dart';
 import 'package:discourse_native/src/plugins/chat/chat_global_search.dart';
 import 'package:discourse_native/src/plugins/chat/chat_shell_service.dart';
 import 'package:discourse_native/src/shell/forum_search.dart';
@@ -35,44 +33,28 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  for (final mode in ChatPreferredDisplayMode.values) {
-    _testPresentation(
-      'chat results from a forum open in the saved ${mode.name} mode',
-      (tester) async {
-        await const ChatDrawerPreferencesStore().writePreferredDisplayMode(
-          mode,
-        );
-        final shell = await _pumpSearch(tester);
-        final chat = shell.pluginSession.require(chatShellService);
-        final underlying = shell.currentContent;
-        expect(chat.chatActive, isFalse);
-        await tester.tap(find.byKey(ForumSearch.inputKey));
-        await tester.pumpAndSettle();
-        await tester.tap(
-          find.byKey(const ValueKey('global-search-scope-chat/chat')),
-        );
-        await tester.enterText(find.byKey(ForumSearch.inputKey), 'design');
-        await _finishSearch(tester);
-        await tester.tap(
-          _panelText('The search design is ready for a keyboard review.'),
-        );
-        await tester.pumpAndSettle();
-        expect(chat.drawerActive, mode == ChatPreferredDisplayMode.drawer);
-        expect(chat.currentContent?.id, 'chat-c-2');
-        expect(find.byKey(ForumSearch.panelKey), findsNothing);
-        expect(
-          find.byKey(ChatDrawerOverlay.drawerKey),
-          mode == ChatPreferredDisplayMode.drawer
-              ? findsOneWidget
-              : findsNothing,
-        );
-        if (mode == ChatPreferredDisplayMode.drawer) {
-          expect(shell.currentContent, underlying);
-        }
-        expect(tester.takeException(), isNull);
-      },
+  _testPresentation('chat results from a forum open in full-page Chat', (
+    tester,
+  ) async {
+    final shell = await _pumpSearch(tester);
+    final chat = shell.pluginSession.require(chatShellService);
+    expect(chat.chatActive, isFalse);
+    await tester.tap(find.byKey(ForumSearch.inputKey));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const ValueKey('global-search-scope-chat/chat')),
     );
-  }
+    await tester.enterText(find.byKey(ForumSearch.inputKey), 'design');
+    await _finishSearch(tester);
+    await tester.tap(
+      _panelText('The search design is ready for a keyboard review.'),
+    );
+    await tester.pumpAndSettle();
+    expect(chat.fullPageChatActive, isTrue);
+    expect(chat.currentContent?.id, 'chat-c-2');
+    expect(find.byKey(ForumSearch.panelKey), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
 
   for (final keyboard in [false, true]) {
     _testPresentation(
@@ -441,7 +423,7 @@ void main() {
   );
 
   for (final platform in [TargetPlatform.macOS, TargetPlatform.linux]) {
-    for (final context in ['topic', 'list', 'chat drawer']) {
+    for (final context in ['topic', 'list', 'chat']) {
       _testPresentation(
         '${platform.name} search shortcuts switch global and $context context',
         (tester) async {
@@ -456,7 +438,7 @@ void main() {
               ),
             );
           }
-          if (context == 'chat drawer') {
+          if (context == 'chat') {
             shell.pluginSession.require(chatShellService).openChannel(2);
           }
           await tester.pumpAndSettle();
@@ -493,15 +475,13 @@ void main() {
             await shortcut(contextual: true);
             expect(
               search.scope,
-              context == 'chat drawer'
-                  ? chatSearchScope
-                  : GlobalSearchScope.forum,
+              context == 'chat' ? chatSearchScope : GlobalSearchScope.forum,
             );
             expect(
               search.conditions.map((condition) => condition.filterId),
               switch (context) {
                 'topic' => ['topicId'],
-                'chat drawer' => ['chatChannel'],
+                'chat' => ['chatChannel'],
                 _ => <String>[],
               },
             );
@@ -509,7 +489,7 @@ void main() {
               search.conditions.map((condition) => condition.text),
               switch (context) {
                 'topic' => ['1038'],
-                'chat drawer' => ['2'],
+                'chat' => ['2'],
                 _ => <String>[],
               },
             );

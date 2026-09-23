@@ -8,7 +8,6 @@ import 'chat_channel_star_button.dart';
 import 'chat_channel_view.dart';
 import 'chat_composer.dart';
 import 'chat_controller.dart';
-import 'chat_drawer.dart';
 import 'chat_header_button.dart';
 import 'chat_message.dart';
 import 'chat_route.dart';
@@ -25,12 +24,10 @@ class ChatThreadWorkspace extends StatelessWidget {
     super.key,
     required this.route,
     this.panelWidthStore,
-    this.showHeader = true,
   });
 
   final ChatRoute route;
   final ChatThreadPanelWidthStore? panelWidthStore;
-  final bool showHeader;
 
   @override
   Widget build(BuildContext context) {
@@ -48,19 +45,17 @@ class ChatThreadWorkspace extends StatelessWidget {
         return LayoutBuilder(
           builder: (context, constraints) {
             final expanded =
-                showHeader &&
                 ShellLayout.forWidth(MediaQuery.sizeOf(context).width) ==
                     ShellLayout.expanded &&
                 constraints.maxWidth >= _ChatThreadSplit.minimumTotalWidth;
             if (!expanded) {
               return Column(
                 children: [
-                  if (showHeader)
-                    _ThreadHeader(
-                      siteUrl: siteUrl,
-                      target: target,
-                      leading: _HeaderAction.back,
-                    ),
+                  _ThreadHeader(
+                    siteUrl: siteUrl,
+                    target: target,
+                    leading: _HeaderAction.back,
+                  ),
                   Expanded(
                     child: ChatThreadView(
                       siteUrl: siteUrl,
@@ -175,7 +170,6 @@ class _ChatThreadSplitState extends State<_ChatThreadSplit> {
                         siteUrl: widget.siteUrl,
                         target: widget.target,
                         leading: _HeaderAction.none,
-                        showFullPageClose: false,
                         showClose: true,
                       ),
                       Expanded(
@@ -270,7 +264,6 @@ class ChatThreadView extends StatefulWidget {
 class _ChatThreadViewState extends State<ChatThreadView> {
   Object? _viewToken;
   bool _tickerEnabled = true;
-  bool _drawerSurface = false;
   ChatShellService? _shell;
   Listenable? _navigation;
   bool _opened = false;
@@ -294,15 +287,6 @@ class _ChatThreadViewState extends State<ChatThreadView> {
   bool get _viewerActive => _tickerEnabled && (_shell?.forumActive ?? false);
 
   void _handleShellChanged() {
-    final shell = _shell;
-    if (_drawerSurface && shell?.drawerActive != true) {
-      if (_selectingMessages || _selectedMessageIds.isNotEmpty) {
-        setState(() {
-          _selectingMessages = false;
-          _selectedMessageIds.clear();
-        });
-      }
-    }
     _syncViewing();
   }
 
@@ -341,7 +325,6 @@ class _ChatThreadViewState extends State<ChatThreadView> {
       _shell = shell..addListener(_handleShellChanged);
     }
     _tickerEnabled = TickerMode.valuesOf(context).enabled;
-    _drawerSurface = ChatDrawerScope.isDrawer(context);
     _syncViewing();
 
     final navigation = shell.navigation;
@@ -358,9 +341,7 @@ class _ChatThreadViewState extends State<ChatThreadView> {
 
   bool _consumeNavigation() {
     final shell = PluginUiScope.require(context, chatShellService);
-    if (!mounted ||
-        !_tickerEnabled ||
-        (_drawerSurface && !shell.drawerActive)) {
+    if (!mounted || !_tickerEnabled) {
       return false;
     }
     final pending = shell.navigation.take(
@@ -626,7 +607,6 @@ class _ChannelPaneHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final shell = PluginUiScope.require(context, chatShellService);
     final chat = PluginUiScope.require(context, chatControllerService);
     return ValueListenableBuilder(
       valueListenable: chat.channelRef(siteUrl, channelId),
@@ -674,8 +654,6 @@ class _ChannelPaneHeader extends StatelessWidget {
                   ),
                   const SizedBox(width: 4),
                 ],
-                if (shell.fullPageChatActive && shell.drawerAvailable)
-                  _FullPageCloseButton(shell: shell),
                 if (ShellTitleBar.columnsCarryUserMenu) ...[
                   ChatHeaderButton(ringColor: theme.shell.content),
                   UserMenuButton(ringColor: theme.shell.content),
@@ -694,14 +672,12 @@ class _ThreadHeader extends StatelessWidget {
     required this.siteUrl,
     required this.target,
     required this.leading,
-    this.showFullPageClose = true,
     this.showClose = false,
   });
 
   final String siteUrl;
   final ChatThreadTarget target;
   final _HeaderAction leading;
-  final bool showFullPageClose;
   final bool showClose;
 
   @override
@@ -740,10 +716,6 @@ class _ThreadHeader extends StatelessWidget {
               thread: thread,
             ),
             ChatThreadSettingsButton(siteUrl: siteUrl, target: target),
-            if (showFullPageClose &&
-                shell.fullPageChatActive &&
-                shell.drawerAvailable)
-              _FullPageCloseButton(shell: shell),
             if (showClose)
               DButton.iconOnly(
                 tooltip: 'Close thread',
@@ -755,23 +727,6 @@ class _ThreadHeader extends StatelessWidget {
           ],
         ),
       ),
-    );
-  }
-}
-
-class _FullPageCloseButton extends StatelessWidget {
-  const _FullPageCloseButton({required this.shell});
-
-  final ChatShellService shell;
-
-  @override
-  Widget build(BuildContext context) {
-    return DButton.iconOnly(
-      key: const ValueKey('chat-close-full-page'),
-      tooltip: 'Close full-screen chat',
-      onPressed: () => unawaited(shell.openDrawerFromFullPage()),
-      icon: const DIcon(DIcons.discourseCompress),
-      variant: DButtonVariant.ghost,
     );
   }
 }
@@ -832,14 +787,12 @@ class _NotificationLevelButton extends StatelessWidget {
               unawaited(
                 chat.updateThreadNotificationLevel(siteUrl, target, level),
               );
-              ChatDrawerOverflowActionScope.maybeCloseOf(context)?.call();
             },
     );
   }
 }
 
-class ChatThreadNotificationButton extends StatelessWidget
-    implements ChatDrawerNestedMenuAction {
+class ChatThreadNotificationButton extends StatelessWidget {
   const ChatThreadNotificationButton({
     super.key,
     required this.siteUrl,

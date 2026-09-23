@@ -38,8 +38,7 @@ typedef _ChatReactorsKey = ({
 typedef ChatNotificationsDelta = void Function(String siteUrl, int delta);
 
 /// The part of an unsent Chat message that can safely survive its composer
-/// widget being unmounted. Drawer collapse and close both remove the composer
-/// from the tree, while the Chat session itself remains alive.
+/// widget being unmounted while the Chat session itself remains alive.
 @immutable
 class ChatComposerDraft {
   ChatComposerDraft({
@@ -570,7 +569,7 @@ class ChatController extends FrameSafeNotifier {
   DiscourseUser? currentUserFor(String siteUrl) => _currentUserFor(siteUrl);
   SiteConfig siteConfigFor(String siteUrl) => _siteConfigFor(siteUrl);
 
-  /// Shared by drawer and full-page composers; unchanged locales do no work.
+  /// Shared by Chat composers; unchanged locales do no work.
   void setCookingLocale(String siteUrl, String locale) {
     if (isDisposed || (_cookingLocales[siteUrl] ?? 'en') == locale) return;
     _cookingLocales[siteUrl] = locale;
@@ -875,7 +874,7 @@ class ChatController extends FrameSafeNotifier {
         );
   }
 
-  /// Public channels in the web drawer's unread-first activity order.
+  /// Public channels in the unread-first activity order.
   List<ChatChannel> activitySortedPublicChannels(String siteUrl) {
     final channels = [...publicChannels(siteUrl)];
     final originalPositions = <int, int>{};
@@ -927,8 +926,8 @@ class ChatController extends FrameSafeNotifier {
   ) => _composerDraftRefs[_targetKey(siteUrl, target)]?.value;
 
   /// A target-scoped draft signal shared by every mounted presentation of the
-  /// same channel or thread. The drawer and full-page route can coexist while
-  /// one is offstage, so a snapshot-only lookup would leave one composer stale.
+  /// same channel or thread. A snapshot-only lookup would leave other mounted
+  /// composers stale.
   ValueListenable<ChatComposerDraft?> composerDraftListenableFor(
     String siteUrl,
     ChatStreamTarget target,
@@ -942,7 +941,7 @@ class ChatController extends FrameSafeNotifier {
     );
   }
 
-  /// Retains local-only drafts while their drawer or full-page view is absent.
+  /// Retains local-only drafts while their view is absent.
   /// Empty documents are removed so a successfully sent message cannot return
   /// when the composer is mounted again.
   void retainComposerDraft(
@@ -1925,13 +1924,13 @@ class ChatController extends FrameSafeNotifier {
   }
 
   /// All direct-message channels in the same activity order used by the web
-  /// drawer, before its 50-row display limit is applied.
+  /// channel list, before its 50-row display limit is applied.
   List<ChatChannel> activitySortedDirectChannels(String siteUrl) =>
       List.unmodifiable(
         _sortDirectMessageActivity([...directChannels(siteUrl)]),
       );
 
-  /// Starred drawer rows follow web's four buckets—active public, active DMs,
+  /// Starred channel rows follow web's four buckets—active public, active DMs,
   /// read public, read DMs—with urgency and last activity inside each bucket.
   List<ChatChannel> activitySortedStarredChannels(String siteUrl) {
     final channels = [...starredChannels(siteUrl)];

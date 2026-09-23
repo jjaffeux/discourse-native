@@ -90,25 +90,25 @@ void main() {
     expect(composer.raw, contains('[chat]second[/chat]'));
   });
 
-  test('opens a topic draft from a modeless drawer channel', () async {
+  test('opens a topic draft after navigating with the Chat shortcut', () async {
     final controller = await shell(openChannel: false);
     addTearDown(controller.dispose);
     final chatShell = controller.pluginSession.require(chatShellService);
 
-    await chatShell.openShortcut(drawerAvailable: true);
+    await chatShell.openShortcut();
     expect(chatShell.openChannel(9), isTrue);
-    expect(chatShell.drawerActive, isTrue);
-    expect(chatShell.drawerCurrentContent?.id, 'chat-c-9');
-    expect(controller.currentContent?.id, 'latest');
+    expect(chatShell.fullPageChatActive, isTrue);
+    expect(chatShell.currentContent?.id, 'chat-c-9');
+    expect(controller.currentContent?.id, 'chat-c-9');
 
     expect(
       await controller.openChatQuote(
         _siteUrl,
         9,
-        '[chat channel="Support chat"]\nDrawer quote\n[/chat]',
+        '[chat channel="Support chat"]\nChat quote\n[/chat]',
       ),
       isNull,
     );
-    expect(controller.visibleComposer?.raw, contains('Drawer quote'));
+    expect(controller.visibleComposer?.raw, contains('Chat quote'));
   });
 }

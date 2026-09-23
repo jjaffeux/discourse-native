@@ -20,10 +20,9 @@ so a removed control cannot leave the list invisibly filtered. Other filters
 and tab-history anchors are retained.
 
 Contextual search from a chat channel or thread selects Chat and adds the parent
-channel's filter. An expanded chat drawer supplies this context ahead of the
-forum page behind it. Channel filters use stable IDs, including direct messages,
-and display the channel's title. Closing the drawer or returning to a forum page
-clears that opening context the next time search opens. The header search icons
+channel's filter. Channel filters use stable IDs, including direct messages,
+and display the channel's title. Returning to a forum page clears that opening
+context the next time search opens. The header search icons
 and inline channel search bar, result counter, and previous/next controls are
 removed. Cmd/Ctrl+F searches across the forum even when Chat is open.
 
@@ -187,14 +186,14 @@ with widget tests; no authenticated server or physical mobile device was used.
 ### Search shortcuts follow-up
 
 Cmd/Ctrl+F now selects All and clears retained conditions. Cmd/Ctrl+Shift+F
-applies the current topic, list or chat context, including drawer precedence,
+applies the current topic, list or chat context,
 even while search is open. Clicks preserve manual scope and filter edits while
 the panel remains open. The search footer and keyboard-shortcuts help display
 both bindings from the same platform-aware shortcut definitions.
 
 Focused verification covers global/contextual switching on macOS and Linux
 target-platform overrides, retained text and caret, topic/list/channel context,
-chat drawers and direct messages, dismissal, scrolling to results, and footer
+chat channels and direct messages, dismissal, scrolling to results, and footer
 keycaps. Native macOS inspection used the offline fixture in dark/wide and
 light/390px layouts, including 200% text. The footer wrapped without clipping.
 Native automation sent F without modifier flags, confirmed with a temporary
