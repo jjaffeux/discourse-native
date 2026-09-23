@@ -111,20 +111,6 @@ class _ForumThemeEditorState extends State<ForumThemeEditor> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       spacing: 18,
       children: [
-        DTabs<Brightness>.controlled(
-          key: const ValueKey('appearance-theme-select'),
-          value: widget.brightness,
-          onActivated: widget.onBrightnessChanged,
-          children: const [
-            DTabList<Brightness>(
-              variant: DTabListVariant.line,
-              children: [
-                DTabTrigger(value: Brightness.light, child: Text('Light')),
-                DTabTrigger(value: Brightness.dark, child: Text('Dark')),
-              ],
-            ),
-          ],
-        ),
         SettingsSection(
           title: 'Preset',
           icon: const ThemeIcon(ThemeIcons.preset),
@@ -244,62 +230,86 @@ class _ForumThemeEditorState extends State<ForumThemeEditor> {
         SettingsSection(
           title: 'Colours',
           icon: const ThemeIcon(ThemeIcons.palette),
-          child: LayoutBuilder(
-            builder: (context, bounds) {
-              final minimum =
-                  150 * MediaQuery.textScalerOf(context).scale(13) / 13;
-              final columns = ((bounds.maxWidth + 14) / (minimum + 14))
-                  .floor()
-                  .clamp(1, 3);
-              final fields = <(String, Color, ValueChanged<Color>)>[
-                (
-                  'Background',
-                  palette.secondary,
-                  (c) => widget.onChanged(palette.copyWith(secondary: c)),
-                ),
-                (
-                  'Text',
-                  palette.primary,
-                  (c) => widget.onChanged(palette.copyWith(primary: c)),
-                ),
-                (
-                  'Accent',
-                  palette.tertiary,
-                  (c) => widget.onChanged(palette.copyWith(tertiary: c)),
-                ),
-                (
-                  'Highlight',
-                  palette.quaternary,
-                  (c) => widget.onChanged(palette.copyWith(quaternary: c)),
-                ),
-                (
-                  'Success',
-                  palette.success,
-                  (c) => widget.onChanged(palette.copyWith(success: c)),
-                ),
-                (
-                  'Attention',
-                  palette.danger,
-                  (c) => widget.onChanged(palette.copyWith(danger: c)),
-                ),
-              ];
-              return Wrap(
-                spacing: 14,
-                runSpacing: 14,
-                children: [
-                  for (final field in fields)
-                    SizedBox(
-                      width: (bounds.maxWidth - 14 * (columns - 1)) / columns,
-                      child: _ColorField(
-                        key: ValueKey((widget.brightness, field.$1)),
-                        label: field.$1,
-                        color: field.$2,
-                        onChanged: field.$3,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            spacing: 16,
+            children: [
+              DTabs<Brightness>.controlled(
+                key: const ValueKey('appearance-theme-select'),
+                value: widget.brightness,
+                onActivated: widget.onBrightnessChanged,
+                children: const [
+                  DTabList<Brightness>(
+                    variant: DTabListVariant.line,
+                    children: [
+                      DTabTrigger(
+                        value: Brightness.light,
+                        child: Text('Light'),
                       ),
-                    ),
+                      DTabTrigger(value: Brightness.dark, child: Text('Dark')),
+                    ],
+                  ),
                 ],
-              );
-            },
+              ),
+              LayoutBuilder(
+                builder: (context, bounds) {
+                  final minimum =
+                      150 * MediaQuery.textScalerOf(context).scale(13) / 13;
+                  final columns = ((bounds.maxWidth + 14) / (minimum + 14))
+                      .floor()
+                      .clamp(1, 3);
+                  final fields = <(String, Color, ValueChanged<Color>)>[
+                    (
+                      'Background',
+                      palette.secondary,
+                      (c) => widget.onChanged(palette.copyWith(secondary: c)),
+                    ),
+                    (
+                      'Text',
+                      palette.primary,
+                      (c) => widget.onChanged(palette.copyWith(primary: c)),
+                    ),
+                    (
+                      'Accent',
+                      palette.tertiary,
+                      (c) => widget.onChanged(palette.copyWith(tertiary: c)),
+                    ),
+                    (
+                      'Highlight',
+                      palette.quaternary,
+                      (c) => widget.onChanged(palette.copyWith(quaternary: c)),
+                    ),
+                    (
+                      'Success',
+                      palette.success,
+                      (c) => widget.onChanged(palette.copyWith(success: c)),
+                    ),
+                    (
+                      'Attention',
+                      palette.danger,
+                      (c) => widget.onChanged(palette.copyWith(danger: c)),
+                    ),
+                  ];
+                  return Wrap(
+                    spacing: 14,
+                    runSpacing: 14,
+                    children: [
+                      for (final field in fields)
+                        SizedBox(
+                          width:
+                              (bounds.maxWidth - 14 * (columns - 1)) / columns,
+                          child: _ColorField(
+                            key: ValueKey((widget.brightness, field.$1)),
+                            label: field.$1,
+                            color: field.$2,
+                            onChanged: field.$3,
+                          ),
+                        ),
+                    ],
+                  );
+                },
+              ),
+            ],
           ),
         ),
         Wrap(

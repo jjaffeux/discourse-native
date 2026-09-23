@@ -28,6 +28,7 @@ void main() {
         tester.getTopLeft(find.byKey(const ValueKey('theme-source'))).dy,
       ),
     );
+    await tester.ensureVisible(tabs);
     await tester.tap(find.descendant(of: tabs, matching: find.text('Dark')));
     await tester.pumpAndSettle();
     expect(
