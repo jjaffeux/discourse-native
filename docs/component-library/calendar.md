@@ -1,7 +1,7 @@
 # Calendar
 
 Calendar is the inline, date-only selection primitive. It is backed by the
-repository's pinned `kalender: 0.29.1`; `DKalenderTheme` also gives existing
+repository's pinned `kalender: 0.31.3`; `DKalenderTheme` also gives existing
 Kalender event views the same live Discourse tokens without replacing their
 event layout, recurrence, timezone, or navigation ownership.
 
@@ -54,9 +54,25 @@ real event calendars. `DKalenderTheme` is the shared Kalender adapter for month,
 week, day, schedule, timeline, overlay, and event surfaces. Later Date Picker
 owns input parsing and popover lifecycle; Calendar deliberately does not.
 
+`DKalenderCompactMonthBody` presents read-only event summaries inside a Kalender
+month view. It uses Kalender's controller, page calculator and public layout
+frames, accepts an event-color callback and layout strategy, and opens a day
+through `onDayPressed`. Weeks grow to fit up to four thin event lanes and a
+per-day `+N` count. Whole-day Native buttons carry full dates and event counts;
+bars are decorative. Outside-month cells are blank, and continuing bars are
+clipped at month/week boundaries with directional end caps.
+
+`DCalendarWeekdayHeader` switches from localized short to narrow weekday names
+when text scale and column width require it, retaining full spoken labels.
+`DCalendarScheduleEntry` renders an optional date heading/Today badge, a date
+rail, time, colored marker, title and metadata through an actionable Native
+item. At large text sizes, time stacks above the details. `DKalenderScheduleBody`
+removes Kalender's default list-row spacing around these custom entries; pair
+it with zero-width leading dates and empty month-header builders.
+
 ## Calendar systems
 
-Kalender 0.29.1 pages are Gregorian `DateTime` pages. Locale-specific Gregorian
+Kalender 0.31.3 pages are Gregorian `DateTime` pages. Locale-specific Gregorian
 labels, custom numerals, first weekday, and RTL are functional. The official
 React example implements Persian/Hijri/Jalali by replacing its underlying
 calendar engine. Kalender does not expose an equivalent non-Gregorian engine in
@@ -66,11 +82,18 @@ engine/calendar-math seam; `DCalendarDate` remains the stable caller boundary.
 
 ## Production adoption
 
-`EventCalendar` retains its existing Kalender event controller,
-month/week/day/year layouts, recurrence expansion, server timestamps, booking
-rules, grid lanes, overflow dialogs, and domain actions. It now uses
-`DKalenderTheme(compactMonthLayout: false)` and `DCalendarDayButton` for shared
-tokens, focus, day typography, outside-day state, and accessible activation.
+`EventCalendar` uses the compact month body below 600 logical pixels, with
+Native All/My and view selectors plus a second navigation row. Schedule uses
+a Kalender agenda bounded to one month and the Native timeline entries. Event
+metadata includes category, creator and civil-day continuation counts. Routes,
+Today and async month loading restore the selected date; populated-month
+refreshes retain the current scroll position. The web link maps Schedule to
+FullCalendar's `listMonth` view. Day details use Native Dialog and Item.
+
+The desktop month, week, day and yearly agenda keep their existing Kalender
+layouts. Server-expanded recurrence, occurrence opening, all-day boundaries
+and reader timezone conversion remain in the event adapter. See
+[the mobile implementation and verification record](mobile-event-calendar.md).
 
 `TopicCalendar` remains a domain-specific Kalender composition for embedded
 post geometry and split multi-week event bars. It now scopes

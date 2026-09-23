@@ -2,6 +2,7 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/theme/discourse_typography.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart' show DateFormat;
+import 'package:kalender/kalender.dart' as kalender;
 import 'package:timezone/timezone.dart' as tz;
 
 import '../styleguide_example.dart';
@@ -104,6 +105,41 @@ final calendarExamples = ComponentExamples(
   },
 )''',
       builder: (_) => const _ReferenceCalendar(),
+    ),
+    StyleguideExample(
+      title: 'Compact event month',
+      description:
+          'Kalender packs event lanes into weeks that grow with their content. Tap a day to inspect it.',
+      states: const ['Mobile', 'Multi-day bars', 'Overflow', 'Day actions'],
+      code: '''DKalenderTheme(
+  child: KalenderView(
+    eventsController: events,
+    kalenderController: controller,
+    viewConfiguration: MonthViewConfiguration.singleMonth(),
+    header: KalenderHeader(),
+    body: DKalenderCompactMonthBody(
+      onDayPressed: openDay,
+      eventColor: colorForEvent,
+    ),
+  ),
+)''',
+      builder: (_) => const _CompactEventMonth(),
+    ),
+    StyleguideExample(
+      title: 'Event schedule',
+      description:
+          'Date headings, a continuous timeline, event times and metadata reflow with text size.',
+      states: const ['Mobile', 'Today', 'Metadata', 'Multi-day continuation'],
+      code: '''DCalendarScheduleEntry(
+  dayLabel: 'Wed 23',
+  today: true,
+  time: '9 am',
+  title: 'Support escalations',
+  subtitle: 'books · grainydays',
+  color: categoryColor,
+  onPressed: openEvent,
+)''',
+      builder: (_) => const _EventScheduleExample(),
     ),
   ],
 );
@@ -579,4 +615,130 @@ class _TimezoneCalendarState extends State<_TimezoneCalendar> {
       width: 340,
     );
   }
+}
+
+class _CompactEventMonth extends StatefulWidget {
+  const _CompactEventMonth();
+  @override
+  State<_CompactEventMonth> createState() => _CompactEventMonthState();
+}
+
+class _CompactEventMonthState extends State<_CompactEventMonth> {
+  final _calendar = kalender.KalenderController();
+  final _events = kalender.DefaultEventsController();
+  String _selection = 'Tap a day to see its events';
+  late final _configuration = kalender.MonthViewConfiguration.singleMonth(
+    initialDateTime: DateTime.utc(2026, 9, 23),
+    firstDayOfWeek: DateTime.monday,
+    nowCallback: () => DateTime.utc(2026, 9, 23),
+  );
+
+  @override
+  void initState() {
+    super.initState();
+    _events.addEvents([
+      kalender.KalenderEvent(
+        id: 'launch',
+        start: DateTime.utc(2026, 9, 3),
+        end: DateTime.utc(2026, 9, 8),
+      ),
+      for (var i = 0; i < 6; i++)
+        kalender.KalenderEvent(
+          id: 'event-$i',
+          start: DateTime.utc(2026, 9, 15, i + 8),
+          end: DateTime.utc(2026, 9, 15, i + 9),
+        ),
+      kalender.KalenderEvent(
+        id: 'today',
+        start: DateTime.utc(2026, 9, 23, 9),
+        end: DateTime.utc(2026, 9, 23, 10),
+      ),
+    ]);
+  }
+
+  @override
+  void dispose() {
+    _calendar.dispose();
+    _events.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => _frame(
+    Column(
+      children: [
+        SizedBox(
+          height: 430,
+          child: DKalenderTheme(
+            child: kalender.KalenderView(
+              eventsController: _events,
+              kalenderController: _calendar,
+              viewConfiguration: _configuration,
+              components: kalender.KalenderComponents(
+                monthComponents: kalender.MonthComponents(
+                  headerComponents: kalender.MonthHeaderComponents(
+                    weekDayHeaderBuilder: (context, date) =>
+                        DCalendarWeekdayHeader(date: date),
+                  ),
+                ),
+              ),
+              header: const kalender.KalenderHeader(),
+              body: DKalenderCompactMonthBody(
+                onDayPressed: (date) => setState(
+                  () => _selection = DateFormat.yMMMMEEEEd().format(date),
+                ),
+                eventColor: (event) =>
+                    event.id == 'launch' ? Colors.green : Colors.orange,
+              ),
+            ),
+          ),
+        ),
+        Text(_selection),
+      ],
+    ),
+    width: 390,
+  );
+}
+
+class _EventScheduleExample extends StatefulWidget {
+  const _EventScheduleExample();
+  @override
+  State<_EventScheduleExample> createState() => _EventScheduleExampleState();
+}
+
+class _EventScheduleExampleState extends State<_EventScheduleExample> {
+  String? _opened;
+  @override
+  Widget build(BuildContext context) => _frame(
+    Column(
+      children: [
+        DCalendarScheduleEntry(
+          dayLabel: 'Wed 23',
+          today: true,
+          time: '9 am',
+          title: 'Support escalations',
+          subtitle: 'books · grainydays',
+          color: Colors.orange,
+          onPressed: () => setState(() => _opened = 'Support escalations'),
+        ),
+        DCalendarScheduleEntry(
+          dayLabel: 'Thu 24',
+          time: '7:30 pm',
+          title: 'Dev and ops sync',
+          subtitle: 'hiking · nomadnomad',
+          color: Colors.teal,
+          onPressed: () => setState(() => _opened = 'Dev and ops sync'),
+        ),
+        DCalendarScheduleEntry(
+          time: '8 pm',
+          title: 'Customer roundtable',
+          subtitle: 'plants · grindsetgo · day 1 of 3',
+          color: Colors.blue,
+          onPressed: () => setState(() => _opened = 'Customer roundtable'),
+        ),
+        if (_opened != null) Text('Opened $_opened'),
+      ],
+    ),
+    width: 390,
+  );
 }

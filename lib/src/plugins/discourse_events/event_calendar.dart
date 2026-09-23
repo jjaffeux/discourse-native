@@ -53,6 +53,7 @@ final class _EventCalendarState extends State<EventCalendar> {
   final _events = kalender.DefaultEventsController();
   final _monthScroll = ScrollController();
   late kalender.ViewConfiguration _configuration;
+  var _awaitingScheduleEvents = false;
   static final _interaction = kalender.KalenderInteraction(
     allowEventCreation: false,
     allowRescheduling: false,
@@ -61,6 +62,7 @@ final class _EventCalendarState extends State<EventCalendar> {
 
   String get _locale => Localizations.localeOf(context).toString();
   EventCalendarView get _view => widget.page.view;
+  bool get _schedule => _view == EventCalendarView.schedule;
   DateTime _now() => tz.TZDateTime.from(widget.clock(), widget.location);
   DateTime _inCalendar(DateTime day) =>
       tz.TZDateTime(widget.location, day.year, day.month, day.day);
@@ -70,25 +72,66 @@ final class _EventCalendarState extends State<EventCalendar> {
   void initState() {
     super.initState();
     unawaited(_localeData);
+    _awaitingScheduleEvents = _schedule && widget.events.isEmpty;
     _configure();
-    _events.replaceEvents(widget.events);
+    _replaceEvents();
   }
 
   @override
   void didUpdateWidget(EventCalendar oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.page != widget.page ||
+    final pageChanged =
+        oldWidget.page != widget.page ||
         oldWidget.location != widget.location ||
-        oldWidget.firstDay != widget.firstDay) {
+        oldWidget.firstDay != widget.firstDay;
+    final dataChanged = oldWidget.events != widget.events;
+    final eventsChanged = dataChanged || oldWidget.page.view != _view;
+    if (!_schedule) {
+      _awaitingScheduleEvents = false;
+    } else if (oldWidget.page.days(firstDay: oldWidget.firstDay) != _days ||
+        oldWidget.location != widget.location ||
+        oldWidget.mine != widget.mine ||
+        (oldWidget.page.view != _view && widget.events.isEmpty)) {
+      _awaitingScheduleEvents = true;
+    }
+    // The schedule mounts before its request completes. Once this month's
+    // events arrive, restore the requested day instead of keeping index zero.
+    // Later refreshes of a populated month preserve the reader's scroll.
+    final scheduleLoaded =
+        _awaitingScheduleEvents && dataChanged && widget.events.isNotEmpty;
+    if (scheduleLoaded) _awaitingScheduleEvents = false;
+    if (pageChanged) {
       _configure();
-      // initialDateTime only applies at first mount. Route and toolbar changes
-      // must also navigate an existing view after its configuration updates.
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) _calendar.jumpToDate(_inCalendar(widget.page.date));
-      });
       if (_monthScroll.hasClients) _monthScroll.jumpTo(0);
     }
-    if (oldWidget.events != widget.events) _events.replaceEvents(widget.events);
+    if (eventsChanged) _replaceEvents();
+    if (pageChanged || scheduleLoaded) {
+      // initialDateTime only applies at first mount. Route and toolbar changes
+      // must also navigate an existing view after its configuration updates.
+      final page = widget.page;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && widget.page == page) {
+          _calendar.jumpToDate(_inCalendar(page.date));
+        }
+      });
+    }
+  }
+
+  void _replaceEvents() {
+    final events = [...widget.events]
+      ..sort((a, b) {
+        if (_schedule) {
+          if (a.isAllDay != b.isAllDay) return a.isAllDay ? -1 : 1;
+          // Continuations keep their daily start time in the schedule.
+          final time = (a.localStart.hour * 60 + a.localStart.minute).compareTo(
+            b.localStart.hour * 60 + b.localStart.minute,
+          );
+          if (time != 0) return time;
+        }
+        final order = a.start.compareTo(b.start);
+        return order != 0 ? order : a.id.compareTo(b.id);
+      });
+    _events.replaceEvents(events);
   }
 
   void _configure() {
@@ -124,6 +167,21 @@ final class _EventCalendarState extends State<EventCalendar> {
         initialTimeOfDay: const kalender.KalenderTime(hour: 8, minute: 0),
         nowCallback: _now,
       ),
+      EventCalendarView.schedule =>
+        kalender.ScheduleViewConfiguration.paginated(
+          name: 'Schedule',
+          initialDateTime: date,
+          dateResolver: (_) =>
+              kalender.FloatingDateTime.fromDateTime(widget.page.date),
+          // Keep one internal schedule page. Kalender 0.31's neighboring
+          // pages share a mutable item map during animation; returning from
+          // an empty month can read the wrong map. The toolbar owns months.
+          displayRange: kalender.KalenderDateTimeRange(
+            start: _inCalendar(_days.start),
+            end: _inCalendar(_days.end),
+          ),
+          nowCallback: _now,
+        ),
       // Core's Year button is FullCalendar listYear: an agenda for that year.
       EventCalendarView.year => kalender.ScheduleViewConfiguration.continuous(
         name: 'Year',
@@ -180,7 +238,7 @@ final class _EventCalendarState extends State<EventCalendar> {
     EventCalendarView.week =>
       '${DateFormat.MMMd(_locale).format(_days.start)} – '
           '${DateFormat.yMMMd(_locale).format(_days.end.subtract(const Duration(days: 1)))}',
-    EventCalendarView.month => DateFormat.yMMMM(
+    EventCalendarView.month || EventCalendarView.schedule => DateFormat.yMMMM(
       _locale,
     ).format(widget.page.date),
     EventCalendarView.year => DateFormat.y(_locale).format(widget.page.date),
@@ -204,6 +262,7 @@ final class _EventCalendarState extends State<EventCalendar> {
 
   Widget _toolbar(BuildContext context, BoxConstraints constraints) {
     final scale = MediaQuery.textScalerOf(context).scale(14) / 14;
+    if (constraints.maxWidth < 600) return _mobileToolbar(context, constraints);
     final wide = constraints.maxWidth >= 1100 * scale;
     final scopes = _segments(
       const {false: 'All events', true: 'My events'},
@@ -213,7 +272,7 @@ final class _EventCalendarState extends State<EventCalendar> {
     final views = _segments(
       {for (final view in EventCalendarView.values) view: view.label},
       _view,
-      (view) => widget.onPageChanged(EventCalendarPage(view, widget.page.date)),
+      _selectView,
     );
     final period = Semantics(
       header: true,
@@ -247,15 +306,7 @@ final class _EventCalendarState extends State<EventCalendar> {
         DButton(
           variant: DButtonVariant.outline,
           label: const Text('Today'),
-          onPressed: () {
-            final now = _now();
-            final today = DateTime.utc(now.year, now.month, now.day);
-            final inView =
-                !today.isBefore(_days.start) && today.isBefore(_days.end);
-            if (_monthScroll.hasClients) _monthScroll.jumpTo(0);
-            widget.onPageChanged(EventCalendarPage(_view, today));
-            if (inView) unawaited(_calendar.animateToDate(_inCalendar(today)));
-          },
+          onPressed: _today,
         ),
       ],
     );
@@ -298,29 +349,201 @@ final class _EventCalendarState extends State<EventCalendar> {
     );
   }
 
-  @override
-  Widget build(BuildContext context) => Column(
-    crossAxisAlignment: CrossAxisAlignment.stretch,
-    children: [
-      LayoutBuilder(builder: _toolbar),
-      ?widget.status,
-      Expanded(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              border: Border.all(
-                color: Theme.of(context).colorScheme.outlineVariant,
-              ),
-            ),
-            child: _buildCalendar(),
-          ),
+  void _selectView(EventCalendarView view) {
+    final now = _now();
+    final date =
+        view == EventCalendarView.schedule &&
+            widget.page.date.year == now.year &&
+            widget.page.date.month == now.month
+        ? DateTime.utc(now.year, now.month, now.day)
+        : widget.page.date;
+    widget.onPageChanged(EventCalendarPage(view, date));
+  }
+
+  void _today() {
+    final now = _now();
+    final today = DateTime.utc(now.year, now.month, now.day);
+    final inView = !today.isBefore(_days.start) && today.isBefore(_days.end);
+    if (_monthScroll.hasClients) _monthScroll.jumpTo(0);
+    widget.onPageChanged(EventCalendarPage(_view, today));
+    if (inView) unawaited(_calendar.animateToDate(_inCalendar(today)));
+  }
+
+  Widget _select<T extends Object>(
+    String label,
+    Map<T, String> values,
+    T selected,
+    ValueChanged<T>? onChanged,
+  ) => DSelect<T>.controlled(
+    value: selected,
+    semanticLabel: label,
+    enabled: onChanged != null,
+    entries: [
+      for (final entry in values.entries)
+        DSelectItem(
+          value: entry.key,
+          textValue: entry.value,
+          child: Text(entry.value),
         ),
-      ),
     ],
+    onChanged: (value) {
+      if (value != null) onChanged?.call(value);
+    },
+    triggerBuilder: (context, state, _) => DButton(
+      variant: DButtonVariant.outline,
+      focusNode: state.focusNode,
+      hasPopup: true,
+      expanded: state.open,
+      semanticLabel: label,
+      onPressed: state.enabled ? state.toggle : null,
+      label: Row(
+        mainAxisSize: MainAxisSize.min,
+        spacing: DSpacing.controlGap,
+        children: [
+          Flexible(child: Text(values[selected]!, maxLines: 2)),
+          const Icon(Icons.keyboard_arrow_down),
+        ],
+      ),
+    ),
   );
 
-  Widget _buildCalendar() {
+  Widget _mobileToolbar(BuildContext context, BoxConstraints constraints) {
+    final filters = [
+      _select(
+        'Event filter',
+        const {false: 'All events', true: 'My events'},
+        widget.mine,
+        widget.onMineChanged,
+      ),
+      _select(
+        'Calendar view',
+        {
+          for (final view in [
+            EventCalendarView.month,
+            EventCalendarView.schedule,
+            EventCalendarView.week,
+            EventCalendarView.day,
+            EventCalendarView.year,
+          ])
+            view: view.label,
+        },
+        _view,
+        _selectView,
+      ),
+    ];
+    final today = DButton(
+      variant: DButtonVariant.outline,
+      label: const Text('Today'),
+      onPressed: _today,
+    );
+    final largeText = MediaQuery.textScalerOf(context).scale(14) > 21;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'Events',
+                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              widget.actions,
+            ],
+          ),
+          const SizedBox(height: 12),
+          if (largeText || constraints.maxWidth < 360)
+            Wrap(
+              spacing: DSpacing.controlGap,
+              runSpacing: 8,
+              children: [...filters, today],
+            )
+          else
+            Row(
+              spacing: DSpacing.controlGap,
+              children: [
+                Expanded(
+                  child: Wrap(
+                    spacing: DSpacing.controlGap,
+                    runSpacing: 8,
+                    children: filters,
+                  ),
+                ),
+                today,
+              ],
+            ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              DButton.iconOnly(
+                variant: DButtonVariant.outline,
+                size: DButtonSize.small,
+                icon: const Icon(Icons.chevron_left),
+                tooltip: 'Previous ${_schedule ? 'month' : _view.name}',
+                onPressed: widget.page.move(-1).date.year >= 1900
+                    ? () => widget.onPageChanged(widget.page.move(-1))
+                    : null,
+              ),
+              Expanded(
+                child: Semantics(
+                  header: true,
+                  child: Text(
+                    _period,
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ),
+              DButton.iconOnly(
+                variant: DButtonVariant.outline,
+                size: DButtonSize.small,
+                icon: const Icon(Icons.chevron_right),
+                tooltip: 'Next ${_schedule ? 'month' : _view.name}',
+                onPressed: widget.page.move(1).date.year < 2200
+                    ? () => widget.onPageChanged(widget.page.move(1))
+                    : null,
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          const DSeparator(),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, constraints) {
+      final compact = constraints.maxWidth < 600;
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _toolbar(context, constraints),
+          ?widget.status,
+          Expanded(
+            child: Padding(
+              padding: EdgeInsets.fromLTRB(
+                compact ? 16 : 12,
+                0,
+                compact ? 16 : 12,
+                12,
+              ),
+              child: _buildCalendar(compact: compact),
+            ),
+          ),
+        ],
+      );
+    },
+  );
+
+  Widget _buildCalendar({required bool compact}) {
     final touch = switch (Theme.of(context).platform) {
       TargetPlatform.android || TargetPlatform.iOS => true,
       _ => false,
@@ -366,13 +589,16 @@ final class _EventCalendarState extends State<EventCalendar> {
         multiDayLayoutStrategy: const EventCalendarLayout(),
       ),
       scheduleTileComponents: kalender.ScheduleTileComponents(
-        tileBuilder: (context, event, range) => SizedBox(
-          height: rowHeight + 12,
-          child: _tile(context, event, range),
-        ),
+        tileBuilder: _schedule
+            ? _scheduleTile
+            : (context, event, range) => SizedBox(
+                height: rowHeight + 12,
+                child: _tile(context, event, range),
+              ),
       ),
       scheduleBodyConfiguration: kalender.ScheduleBodyConfiguration(
         emptyDay: kalender.EmptyDayBehavior.hide,
+        leadingWidth: _schedule ? 0 : 56,
       ),
     );
     return DKalenderTheme(
@@ -385,18 +611,19 @@ final class _EventCalendarState extends State<EventCalendar> {
         locale: Localizations.localeOf(context),
         callbacks: kalender.KalenderCallbacks(onPageChanged: _pageChanged),
         components: kalender.KalenderComponents(
+          scheduleComponents: _schedule
+              ? kalender.ScheduleComponents(
+                  leadingDateBuilder: (context, date) =>
+                      const SizedBox.shrink(),
+                  monthItemBuilder: (context, range) => const SizedBox.shrink(),
+                  scheduleTileHighlightBuilder: (context, date, range, child) =>
+                      child,
+                )
+              : const kalender.ScheduleComponents(),
           monthComponents: kalender.MonthComponents(
             headerComponents: kalender.MonthHeaderComponents(
-              weekDayHeaderBuilder: (context, date) => SizedBox(
-                height: 32,
-                child: Center(
-                  child: Text(
-                    DateFormat.E(_locale).format(date).toUpperCase(),
-                    maxLines: 1,
-                    style: Theme.of(context).textTheme.labelSmall,
-                  ),
-                ),
-              ),
+              weekDayHeaderBuilder: (context, date) =>
+                  DCalendarWeekdayHeader(date: date),
             ),
             bodyComponents: kalender.MonthBodyComponents(
               monthGridBuilder: (context, rows) => kalender.MonthGrid(
@@ -431,8 +658,16 @@ final class _EventCalendarState extends State<EventCalendar> {
             tileHeight: rowHeight,
           ),
         ),
-        body: _view != EventCalendarView.month
+        body: _schedule
+            ? DKalenderScheduleBody(child: body)
+            : _view != EventCalendarView.month
             ? body
+            : compact
+            ? DKalenderCompactMonthBody(
+                onDayPressed: _openDay,
+                eventColor: (event) => (event as EventCalendarEntry).color,
+                layoutStrategy: const EventCalendarLayout(),
+              )
             : LayoutBuilder(
                 builder: (context, constraints) {
                   var most = 0;
@@ -469,6 +704,52 @@ final class _EventCalendarState extends State<EventCalendar> {
     );
   }
 
+  Widget _scheduleTile(
+    BuildContext context,
+    kalender.KalenderEvent raw,
+    kalender.KalenderDateTimeRange range,
+  ) {
+    final event = raw as EventCalendarEntry;
+    final day = DateTime.utc(
+      range.start.year,
+      range.start.month,
+      range.start.day,
+    );
+    final first = _events
+        .eventsInRange(
+          kalender.FloatingDateTimeRange(
+            start: kalender.FloatingDateTime.fromDateTime(day),
+            end: kalender.FloatingDateTime.fromDateTime(
+              day.add(const Duration(days: 1)),
+            ),
+          ),
+          multiDayRule: _configuration.multiDayRule,
+          location: widget.location,
+        )
+        .firstOrNull;
+    final now = _now();
+    final today = day == DateTime.utc(now.year, now.month, now.day);
+    final metadata = event.scheduleMetadata(day);
+    return DCalendarScheduleEntry(
+      dayLabel: first?.id == event.id
+          ? DateFormat('EEE d', _locale).format(day)
+          : null,
+      today: today,
+      time: event.isAllDay
+          ? 'All day'
+          : (event.localStart.minute == 0
+                    ? DateFormat.j(_locale)
+                    : DateFormat.jm(_locale))
+                .format(event.localStart)
+                .toLowerCase()
+                .replaceAll('\u202f', ' '),
+      title: event.title,
+      subtitle: metadata.isEmpty ? null : metadata,
+      color: event.color,
+      onPressed: () => widget.onOpen(event),
+    );
+  }
+
   Widget _dayHeader(BuildContext context, DateTime date) => SizedBox(
     height: 36,
     child: DCalendarDayButton(
@@ -501,51 +782,71 @@ final class _EventCalendarState extends State<EventCalendar> {
     final day = DateTime.utc(date.year, date.month, date.day);
     final events = widget.events.where((event) => event.includes(day)).toList();
     unawaited(
-      showDialog<void>(
+      showDDialog<void>(
         context: context,
-        builder: (context) => AlertDialog(
-          title: Text(DateFormat.yMMMMEEEEd(_locale).format(day)),
-          content: SizedBox(
-            width: 520,
-            child: events.isEmpty
-                ? const Text('No events on this day.')
-                : ListView.builder(
-                    shrinkWrap: true,
-                    itemCount: events.length,
-                    itemBuilder: (context, index) {
-                      final event = events[index];
-                      return ListTile(
-                        leading: Icon(
+        builder: (context, dialog) => DDialogContent(
+          maxWidth: 520,
+          children: [
+            DDialogHeader(
+              children: [
+                DDialogTitle(
+                  child: Text(DateFormat.yMMMMEEEEd(_locale).format(day)),
+                ),
+              ],
+            ),
+            if (events.isEmpty)
+              const Text('No events on this day.')
+            else
+              SizedBox(
+                height: math.min(420, MediaQuery.sizeOf(context).height * .5),
+                child: ListView.builder(
+                  itemCount: events.length,
+                  itemBuilder: (context, index) {
+                    final event = events[index];
+                    return DItem(
+                      onPressed: () {
+                        dialog.close();
+                        if (isCurrent()) widget.onOpen(event);
+                      },
+                      children: [
+                        Icon(
                           event.event.recurring ? Icons.repeat : Icons.event,
                           color: event.color,
                         ),
-                        title: Text(event.title),
-                        subtitle: Text(_timeLabel(event)),
-                        onTap: () {
-                          Navigator.pop(context);
-                          if (isCurrent()) widget.onOpen(event);
-                        },
+                        DItemContent(
+                          children: [
+                            DItemTitle(
+                              maxLines: null,
+                              child: Text(event.title),
+                            ),
+                            DItemDescription(child: Text(_timeLabel(event))),
+                          ],
+                        ),
+                      ],
+                    );
+                  },
+                ),
+              ),
+            DDialogFooter(
+              children: [
+                DButton(
+                  variant: DButtonVariant.outline,
+                  onPressed: () {
+                    dialog.close();
+                    if (isCurrent()) {
+                      widget.onPageChanged(
+                        EventCalendarPage(EventCalendarView.day, day),
                       );
-                    },
-                  ),
-          ),
-          actions: [
-            DButton(
-              variant: DButtonVariant.outline,
-              onPressed: () {
-                Navigator.pop(context);
-                if (isCurrent()) {
-                  widget.onPageChanged(
-                    EventCalendarPage(EventCalendarView.day, day),
-                  );
-                }
-              },
-              label: const Text('Day view'),
-            ),
-            DButton(
-              variant: DButtonVariant.ghost,
-              onPressed: () => Navigator.pop(context),
-              label: const Text('Close'),
+                    }
+                  },
+                  label: const Text('Day view'),
+                ),
+                DButton(
+                  variant: DButtonVariant.ghost,
+                  onPressed: dialog.close,
+                  label: const Text('Close'),
+                ),
+              ],
             ),
           ],
         ),
