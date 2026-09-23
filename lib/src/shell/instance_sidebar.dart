@@ -803,7 +803,7 @@ class ForumIdentityHeader extends StatelessWidget {
                 ),
                 tooltip: name,
                 semanticLabel: '$name, forum menu',
-                variant: DButtonVariant.ghost,
+                variant: DButtonVariant.inline,
                 size: compact ? DButtonSize.regular : DButtonSize.large,
                 focusNode: menu.focusNode,
                 hasPopup: true,
