@@ -77,7 +77,7 @@ void main() {
   group('the painted text is the source', () {
     for (final source in const [
       'say **hello** to @sam',
-      'a :smile: and `code` and <kbd>Esc</kbd>',
+      'a :smile: and `code` and <mark>highlight</mark>',
       '# Heading\n\n```ruby\nputs 1\n```',
       'plain',
     ]) {

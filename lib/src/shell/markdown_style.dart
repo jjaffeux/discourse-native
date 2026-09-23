@@ -127,14 +127,7 @@ Color? _inlineColor(String value) {
         ),
         1.0,
       ),
-      'sup' => (
-        style.copyWith(fontFeatures: const [FontFeature.superscripts()]),
-        1.0,
-      ),
-      'sub' => (
-        style.copyWith(fontFeatures: const [FontFeature.subscripts()]),
-        1.0,
-      ),
+      'sup' || 'sub' => (style, 0.75),
       'small' => (style, 0.75),
       'big' => (style, 1.5),
       'ins' => (_withDecoration(style, TextDecoration.underline), 1.0),

@@ -1304,6 +1304,13 @@ asterisks around a bold word while `controller.text` keeps every character. The
 markers stay visible on purpose — hiding them is where an editor starts lying
 about what will be posted.
 
+Superscript, subscript and keyboard-key wrappers are rendered exceptions:
+their HTML tags stay in the payload but take no visual space. Scripts use
+smaller, explicitly raised/lowered glyphs, independent of font support, and
+keyboard keys use Native keycaps. Placing the caret inside a key exposes its
+editable text while keeping the HTML wrappers hidden. Arrow keys skip the
+wrappers; deleting a wrapper boundary removes the complete formatting pair.
+
 Atomic authoring components are moving to the lossless hybrid described in
 [`docs/composer-hybrid.md`](docs/composer-hybrid.md). It still keeps exact
 Markdown as the only payload, but projects each recognized inline or block
