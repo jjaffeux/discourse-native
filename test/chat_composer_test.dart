@@ -1912,6 +1912,12 @@ void main() {
           findsOneWidget,
         );
         expect(_text(tester), 'latest editable message');
+        expect(_field(tester).focusNode!.hasFocus, isTrue);
+        expect(tester.testTextInput.hasAnyClients, isTrue);
+        expect(tester.testTextInput.isVisible, isTrue);
+        tester.testTextInput.enterText('edited message');
+        await tester.pump();
+        expect(_text(tester), 'edited message');
 
         await tester.tap(
           find.byKey(const ValueKey('chat-composer-edit-cancel')),

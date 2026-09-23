@@ -1066,6 +1066,9 @@ class _ChatComposerState extends State<ChatComposer> {
       return KeyEventResult.ignored;
     }
 
+    // Editing replaces the text field. Release focus before the rebuild so
+    // _replaceWithMessage can reopen keyboard input on the new field.
+    composer.focus.unfocus();
     widget.onEditMessage?.call(lastUserMessage);
     return KeyEventResult.handled;
   }
