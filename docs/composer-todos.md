@@ -84,3 +84,7 @@ Selecting or deselecting an image leaves the next task in place; explicit source
 line breaks remain intact. Regression tests cover this geometry and the image's
 same-line end caret. A macOS fixture verified selection in dark/wide and
 light/narrow layouts with the image fallback preview.
+
+Return after an uploaded image reuses its empty continuation line for the next
+item. Trailing spaces and indentation on a structural separator do not introduce
+an extra row between tasks. Additional authored blank lines remain visible.

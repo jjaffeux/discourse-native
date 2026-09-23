@@ -466,7 +466,7 @@ class ComposerListBodyController extends ComposerController {
     final emptyBoundary = before.text.trim().isEmpty && _needsParagraphBoundary
         ? newline
         : '';
-    final next = _item.isTask
+    var next = _item.isTask
         ? ComposerTodoInputFormatter(
             referenceMarkers: parent.text.todoReferenceMarkers,
           ).formatEditUpdate(
@@ -499,6 +499,23 @@ class ComposerListBodyController extends ComposerController {
               offset: offset + newline.length + _item.nextPrefix.length,
             ),
           );
+    final lineStart = caret == 0
+        ? 0
+        : before.text.lastIndexOf('\n', caret - 1) + 1;
+    if (caret == before.text.length &&
+        lineStart > 0 &&
+        before.text.trim().isNotEmpty &&
+        before.text.substring(lineStart).trim().isEmpty) {
+      // Uploads leave a continuation line ready for typing. Starting the next
+      // item reuses that line instead of leaving an empty row behind.
+      final breakStart = _item.body.sourceOffset(lineStart - 1);
+      next = next.copyWith(
+        text: next.text.replaceRange(breakStart, offset, ''),
+        selection: TextSelection.collapsed(
+          offset: next.selection.extentOffset - (offset - breakStart),
+        ),
+      );
+    }
     _scheduleCommand(value.text, next);
     return before;
   }
