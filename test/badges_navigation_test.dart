@@ -1,3 +1,4 @@
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/badge_route.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
@@ -35,6 +36,27 @@ void main() {
     await tester.tap(find.text('Badges').last);
     await tester.pumpAndSettle();
     expect(find.byType(BadgeRow), findsNWidgets(3));
+    expect(
+      find.descendant(
+        of: find.byType(BadgesPage),
+        matching: find.text('Badges'),
+      ),
+      findsOneWidget,
+    );
+    final header = tester
+        .widget<DPageSurface>(find.byType(DPageSurface).first)
+        .header!;
+    expect(
+      find.descendant(of: find.byWidget(header), matching: find.text('Badges')),
+      findsNothing,
+    );
+    expect(
+      find.descendant(
+        of: find.byWidget(header),
+        matching: find.byTooltip('Back'),
+      ),
+      findsOneWidget,
+    );
     final shell = ShellScope.read(tester.element(find.byType(MainContent)));
     expect(shell.currentContent!.badgeRoute, const BadgeRoute.directory());
     await tester.tap(find.text('Autobiographer'));

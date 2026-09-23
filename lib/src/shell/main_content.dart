@@ -195,6 +195,17 @@ class _MainContentBody extends StatelessWidget {
         ),
       );
     }
+    final pageOwnsTitle =
+        pluginContent == null &&
+        state.siteUrl != null &&
+        (route.isGroups ||
+            (route.isBadges && (route.badgeRoute?.isDirectory ?? true)) ||
+            (route.id == 'user-bookmarks' && state.isConnected));
+    final hideDirectoryHeader =
+        pageOwnsTitle &&
+        !state.canPop &&
+        (ShellScope.read(context).mobileNavigationEnabled ||
+            (ShellTitleBar.isSupported && !layout.isCompact));
     final usesTopicToolbar =
         !layout.isCompact &&
         !pluginOwnsChrome &&
@@ -253,6 +264,7 @@ class _MainContentBody extends StatelessWidget {
           header:
               !pluginOwnsChrome &&
                   !route.isTopic &&
+                  !hideDirectoryHeader &&
                   !(usesTopicToolbar && ShellTitleBar.isSupported)
               ? _ContentHeader(
                   layout: layout,
@@ -263,7 +275,7 @@ class _MainContentBody extends StatelessWidget {
                       pluginContent == null &&
                       !usesTopicToolbar &&
                       !ShellScope.read(context).mobileNavigationEnabled,
-                  searchOnly: usesTopicToolbar,
+                  searchOnly: usesTopicToolbar || pageOwnsTitle,
                   isConnected: state.isConnected,
                   registry: registry,
                   groupPages: groupPages,

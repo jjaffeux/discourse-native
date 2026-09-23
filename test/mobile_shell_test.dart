@@ -33,6 +33,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'support/badge_fixtures.dart';
 import 'support/bundled_plugins.dart';
 import 'support/fakes.dart';
 import 'support/shell_test_harness.dart';
@@ -102,6 +103,7 @@ Future<ShellController> pumpMobileShellFixture(
       totals: chatNotificationTotals(available: true),
       siteConfigs: {_site: config},
       pluginResponses: {
+        'GET /badges.json?only_listable=true': badgeCatalogWire,
         if (voice)
           'GET /voice/rooms.json': {
             'rooms': [
@@ -499,6 +501,13 @@ void main() {
       await tester.pumpAndSettle();
       expect(shell.currentContent?.id, id);
       expect(shell.mobileNavigation.tab, MobileTab.more);
+      expect(
+        find.descendant(
+          of: find.byType(MainContent),
+          matching: find.text(label),
+        ),
+        findsOneWidget,
+      );
       _expectPage();
     }
     expect(find.byType(BookmarkSection), findsOneWidget);
