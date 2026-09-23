@@ -19,6 +19,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'support/chat_scroll_fixture.dart';
 import 'support/chat_shell.dart';
+import 'support/fakes.dart';
 import 'support/topic_scroll_capture.dart';
 
 void main() {
@@ -424,6 +425,89 @@ void main() {
       await diagnostics.close();
     }
   }, variant: layouts);
+
+  for (final paginated in [false, true]) {
+    testWidgets('floating date jumps to day start (paginated: $paginated)', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(900, 700);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final controller = await chatScrollController(
+        count: paginated ? 120 : 48,
+        configureApi: (api) {
+          if (!paginated) return;
+          final page = api.chatMessagesByKey['9']!;
+          final messages = page.messages
+              .map(
+                (message) => ChatMessage(
+                  id: message.id,
+                  channelId: message.channelId,
+                  author: message.author,
+                  cooked: message.cooked,
+                  createdAt: DateTime(2026, 8, 1, 0, message.id),
+                ),
+              )
+              .toList();
+          api.chatMessagesByKey['9'] = (
+            messages: messages.where((message) => message.id >= 31).toList(),
+            canLoadMorePast: true,
+            canLoadMoreFuture: false,
+            targetMessageId: null,
+          );
+          api.chatMessagesByKey[FakeDiscourseApi.chatMessagesKey(
+            9,
+            before: 31,
+          )] = (
+            messages: messages.where((message) => message.id < 31).toList(),
+            canLoadMorePast: false,
+            canLoadMoreFuture: false,
+            targetMessageId: null,
+          );
+        },
+      );
+      addTearDown(controller.dispose);
+      final diagnostics = DiagnosticsController.start(
+        persistence: MemoryDiagnosticsPersistence(),
+      );
+      addTearDown(diagnostics.close);
+      await tester.pumpWidget(
+        ChatScrollFixture(controller: controller, diagnostics: diagnostics),
+      );
+      await tester.pumpAndSettle();
+
+      final floating = find.byWidgetPredicate(
+        (widget) => widget is StreamDaySeparator && widget.floating,
+      );
+      final day = tester.widget<StreamDaySeparator>(floating).day;
+      final firstId = 1 + day.difference(DateTime(2026, 8, 1)).inDays * 12;
+      final firstMessage = find.byWidgetPredicate(
+        (widget) => widget is ChatMessageTile && widget.messageId == firstId,
+      );
+      expect(firstMessage.hitTestable(), findsNothing);
+      if (paginated) {
+        expect(
+          tester
+              .widget<ChatMessageStream>(find.byType(ChatMessageStream))
+              .stream
+              .canLoadMorePast,
+          isTrue,
+        );
+      }
+      await tester.tap(floating);
+      await tester.pumpAndSettle();
+
+      expect(firstMessage.hitTestable(), findsOneWidget);
+      final viewport = tester.getRect(find.byType(ChatMessageStream));
+      expect(
+        tester.getTopLeft(find.byKey(ValueKey(('chat-day', day)))).dy,
+        closeTo(viewport.top, 1),
+      );
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+      await diagnostics.close();
+    });
+  }
 
   testWidgets('date extents refresh after a visible edit and viewport resize', (
     tester,
