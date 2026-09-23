@@ -34,3 +34,18 @@ and visible topics retain their message-bus subscriptions when focus changes.
 Focused coverage lives in `desktop_panels_test.dart`, `desktop_topic_page_test.dart`,
 `forum_tabs_integration_test.dart`, `sidebar_active_destination_test.dart`, and the
 chat navigation and site tracker suites.
+
+Verification on 2026-09-23: 544 tests passed across 24 focused suites, including
+mobile navigation, independent reader lifecycles, filter ownership, rebuild
+isolation, session restoration, chat threads, tab movement, and persistence.
+`flutter analyze --no-pub` reported no issues and the macOS debug build succeeded.
+Native inspection covered topic navigation, ordinary navigation in the focused
+panel, middle-click, dragging between panels, swapping positions, closing an
+unfocused panel's tab, and the narrow layout in dark mode. The final build also
+confirmed that opening Categories beside a topic list preserves the list's
+heading and creation action.
+
+The passing run excluded 15 failures reproduced in the pre-refactor baselines:
+four tab appearance tests, two mobile tab-subtree expectations, one composer
+docking test, seven existing chat tests, and one compact creation-button height
+expectation. Those baseline failures were not changed as part of this refactor.

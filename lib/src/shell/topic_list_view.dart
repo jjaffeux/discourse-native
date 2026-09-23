@@ -635,9 +635,8 @@ class _TopicListViewState extends State<TopicListView> {
         'topicCount': feed.topicIds.length,
       });
     }
-    final readingTopicId = widget.inbox
-        ? controller.readingTopicId
-        : null;
+    final readingTopicId = widget.inbox ? controller.readingTopicId : null;
+    final hiddenCategoryId = controller.topicListContent?.categoryId;
     if (_readingTopicId != readingTopicId) {
       _readingTopicId = readingTopicId;
       if (readingTopicId == null) {
@@ -794,8 +793,7 @@ class _TopicListViewState extends State<TopicListView> {
                           compact: lane.width < 600,
                           inbox: widget.inbox,
                           onOpen: _openRow,
-                          hiddenCategoryId:
-                              controller.topicListContent?.categoryId,
+                          hiddenCategoryId: hiddenCategoryId,
                         ),
                       );
                     },
@@ -1077,9 +1075,7 @@ class _TopicRowState extends State<_TopicRow> {
       select: (controller) => (
         siteUrl: controller.currentInstance?.url,
         reading: widget.inbox && controller.currentContent?.isTopic == true,
-        selected:
-            widget.inbox &&
-            controller.readingTopicId == widget.topicId,
+        selected: widget.inbox && controller.readingTopicId == widget.topicId,
       ),
       builder: (context, state, _) {
         final siteUrl = state.siteUrl;

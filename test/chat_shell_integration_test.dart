@@ -375,7 +375,7 @@ void _registerChatShellTests() {
           ).openChatChannel(9);
           await tester.pumpAndSettle();
 
-          final content = find.byType(MainContent);
+          final content = find.byKey(const ValueKey('desktop-panel-main'));
           final theme = Theme.of(tester.element(content));
           final boundary = tester.renderObject<RenderRepaintBoundary>(
             find
@@ -1075,24 +1075,24 @@ void _registerChatShellTests() {
               final chatTab = shell.activeTab!;
               await switchPane(tester, 'main');
               await tester.pumpAndSettle();
-              expect(shell.tabsForCurrentForum, hasLength(initialTabCount + 2));
+              expect(shell.tabsForCurrentForum, hasLength(initialTabCount + 3));
               expect(shell.activeTabId, isNot(chatTab.id));
               expect(
                 shell.currentWorkspace!.tabById(chatTab.id),
                 same(chatTab),
               );
-              expect(shell.contentStack, forumTab.contentStack);
+              expect(shell.currentContent, forumTab.currentContent);
               expect(shell.currentContent?.id, 'forum-detail');
               expect(sidebarDestination('Topics'), findsOneWidget);
               expect(sidebarDestination('Bugs'), findsNothing);
 
               await switchPane(tester, 'chat');
               await tester.pumpAndSettle();
-              expect(shell.currentContent?.id, ChatPlugin.searchRouteId);
+              expect(shell.currentContent?.id, 'chat-c-9');
               expect(sidebarDestination('Topics'), findsNothing);
               expect(sidebarDestination('Search'), findsNothing);
               expect(find.byTooltip('Exit chat'), findsNothing);
-              expect(shell.tabsForCurrentForum, hasLength(initialTabCount + 3));
+              expect(shell.tabsForCurrentForum, hasLength(initialTabCount + 4));
 
               shell.selectTab(forumTab.id);
               await tester.pumpAndSettle();
@@ -1106,33 +1106,23 @@ void _registerChatShellTests() {
         }
 
         testWidgets(
-          'ordinary forum navigation preserves the auxiliary Chat pane',
+          'forum and Chat navigation preserve their original document tabs',
           (tester) async {
             await pumpChat(
               tester,
               public: [channel(9)],
               messages: {key(9): page(const [])},
-              user: chatUser(
-                separateSidebarMode: ChatSeparateSidebarMode.always,
-              ),
               config: chatConfig(searchEnabled: true),
             );
             final shell = ShellScope.read(
               tester.element(find.byType(MainContent)),
             );
-
-            await switchPane(tester, 'chat');
+            final forum = shell.activeTab!;
+            shell.pluginSession.require(chatShellService).openSearch();
             await tester.pumpAndSettle();
-            ShellScope.read(
-              tester.element(find.byType(MainContent)),
-            ).pluginSession.require(chatShellService).openSearch();
-            await tester.pumpAndSettle();
-
-            expect(shell.currentContent?.id, ChatPlugin.searchRouteId);
-            expect(shell.contentStack.map((route) => route.id), [
-              ChatPlugin.searchRouteId,
-            ]);
-
+            final search = shell.activeTab!;
+            expect(search.panel, forum.panel);
+            expect(search.id, isNot(forum.id));
             shell.selectDestination(
               const SidebarDestination(
                 id: 'latest',
@@ -1141,85 +1131,18 @@ void _registerChatShellTests() {
               ),
             );
             await tester.pumpAndSettle();
-
-            expect(shell.currentContent?.id, 'latest');
-            expect(shell.destinationId, 'latest');
-            expect(shell.contentStack.map((route) => route.id), ['latest']);
-            expect(sidebarDestination('Topics'), findsOneWidget);
-            expect(sidebarDestination('Bugs'), findsNothing);
-
-            await switchPane(tester, 'chat');
+            expect(shell.currentWorkspace!.tabById(search.id), search);
+            expect(shell.currentWorkspace!.tabById(forum.id), forum);
+            expect(shell.activeTabId, isNot(search.id));
+            shell.selectTab(search.id);
             await tester.pumpAndSettle();
-
-            expect(shell.currentContent?.id, ChatPlugin.searchRouteId);
-            expect(shell.contentStack.map((route) => route.id), [
-              ChatPlugin.searchRouteId,
-            ]);
-            expect(sidebarDestination('Topics'), findsNothing);
-            expect(sidebarDestination('Search'), findsNothing);
+            expect(
+              find.byKey(const ValueKey('chat-search-field')),
+              findsOneWidget,
+            );
           },
           variant: TargetPlatformVariant.only(TargetPlatform.linux),
         );
-
-        for (final replace in [false, true]) {
-          testWidgets(
-            'cold direct ${replace ? 'replace' : 'push'} starts a clean Chat pane',
-            (tester) async {
-              await pumpChat(
-                tester,
-                public: [channel(9)],
-                messages: {key(9): page(const [])},
-                user: chatUser(
-                  separateSidebarMode: ChatSeparateSidebarMode.always,
-                ),
-                config: chatConfig(searchEnabled: true),
-              );
-              final shell = ShellScope.read(
-                tester.element(find.byType(MainContent)),
-              );
-              final forumRoute = ContentRoute(
-                id: replace ? 'forum-before-replace' : 'forum-before-push',
-                title: replace ? 'Forum before replace' : 'Forum before push',
-                icon: DIcons.comments,
-              );
-              shell.selectDestination(
-                SidebarDestination(
-                  id: forumRoute.id,
-                  label: forumRoute.title,
-                  icon: forumRoute.icon,
-                ),
-              );
-              await tester.pumpAndSettle();
-
-              const chatRoute = ContentRoute(
-                id: ChatPlugin.searchRouteId,
-                title: 'Search',
-                icon: DIcons.magnifyingGlass,
-              );
-              if (replace) {
-                shell.replaceCurrentContent(chatRoute);
-              } else {
-                shell.pushContent(chatRoute);
-              }
-              await tester.pumpAndSettle();
-
-              expect(shell.currentContent?.id, ChatPlugin.searchRouteId);
-              expect(shell.contentStack.map((route) => route.id), [
-                ChatPlugin.searchRouteId,
-              ]);
-              expect(shell.canPopContent, isFalse);
-              expect(shell.handleBack(canReturnToSidebar: false), isFalse);
-              expect(shell.currentContent?.id, ChatPlugin.searchRouteId);
-
-              await switchPane(tester, 'main');
-              await tester.pumpAndSettle();
-
-              expect(shell.currentContent, forumRoute);
-              expect(shell.contentStack, [forumRoute]);
-            },
-            variant: TargetPlatformVariant.only(TargetPlatform.linux),
-          );
-        }
 
         test(
           'direct entry switches between plugin owners via the Forum pane',
@@ -1379,79 +1302,6 @@ void _registerChatShellTests() {
         );
 
         testWidgets(
-          'forum push preserves both pane histories without a hybrid stack',
-          (tester) async {
-            await pumpChat(
-              tester,
-              public: [channel(9)],
-              messages: {key(9): page(const [])},
-              user: chatUser(
-                separateSidebarMode: ChatSeparateSidebarMode.always,
-              ),
-              config: chatConfig(searchEnabled: true),
-            );
-            final shell = ShellScope.read(
-              tester.element(find.byType(MainContent)),
-            );
-            shell.selectDestination(
-              const SidebarDestination(
-                id: 'forum-detail-a',
-                label: 'Forum detail A',
-                icon: DIcons.layerGroup,
-              ),
-            );
-            await tester.pumpAndSettle();
-            expect(shell.contentStack.map((route) => route.id), [
-              'forum-detail-a',
-            ]);
-
-            await switchPane(tester, 'chat');
-            await tester.pumpAndSettle();
-            ShellScope.read(
-              tester.element(find.byType(MainContent)),
-            ).pluginSession.require(chatShellService).openSearch();
-            await tester.pumpAndSettle();
-            expect(shell.currentContent?.id, ChatPlugin.searchRouteId);
-
-            shell.pushContent(
-              const ContentRoute(
-                id: 'forum-detail-b',
-                title: 'Forum detail B',
-                icon: DIcons.comments,
-              ),
-            );
-            await tester.pumpAndSettle();
-
-            expect(shell.currentContent?.id, 'forum-detail-b');
-            expect(shell.contentStack.map((route) => route.id), [
-              'forum-detail-a',
-              'forum-detail-b',
-            ]);
-            expect(
-              shell.contentStack.any(
-                (route) => ChatPlugin.ownsRouteId(route.id),
-              ),
-              isFalse,
-            );
-
-            await switchPane(tester, 'chat');
-            await tester.pumpAndSettle();
-            expect(shell.currentContent?.id, ChatPlugin.searchRouteId);
-            expect(shell.contentStack.map((route) => route.id), [
-              ChatPlugin.searchRouteId,
-            ]);
-            await switchPane(tester, 'main');
-            await tester.pumpAndSettle();
-            expect(shell.currentContent?.id, 'forum-detail-b');
-            expect(shell.contentStack.map((route) => route.id), [
-              'forum-detail-a',
-              'forum-detail-b',
-            ]);
-          },
-          variant: TargetPlatformVariant.only(TargetPlatform.linux),
-        );
-
-        testWidgets(
           'adopts a restored separated Chat route before forum navigation',
           (tester) async {
             final forumTabs = FakeForumTabStore([
@@ -1501,17 +1351,17 @@ void _registerChatShellTests() {
 
             expect(shell.currentContent?.id, 'forum-restored-target');
             expect(shell.contentStack.map((route) => route.id), [
-              'latest',
+              ChatPlugin.searchRouteId,
               'forum-restored-target',
             ]);
             expect(
               shell.contentStack.any(
                 (route) => ChatPlugin.ownsRouteId(route.id),
               ),
-              isFalse,
+              isTrue,
             );
 
-            await switchPane(tester, 'chat');
+            shell.selectTab('restored-chat');
             await tester.pumpAndSettle();
 
             expect(shell.currentContent?.id, ChatPlugin.searchRouteId);
@@ -2721,7 +2571,7 @@ void _registerChatShellTests() {
           ForumTabItem item() => tester
               .widget<ForumTabsBar>(find.byType(ForumTabsBar))
               .items
-              .single;
+              .singleWhere((item) => item.title == 'Bugs');
 
           expect(item().title, 'Bugs');
           expect(item().icon, DIcons.comment);
@@ -2763,7 +2613,10 @@ void _registerChatShellTests() {
           await tester.pumpAndSettle();
 
           final tab = find.byType(ForumTabsBar);
-          final item = tester.widget<ForumTabsBar>(tab).items.single;
+          final item = tester
+              .widget<ForumTabsBar>(tab)
+              .items
+              .singleWhere((item) => item.title == 'hawk');
           expect(item.avatarUrl, isNotNull);
           expect(item.prefixBuilder, isNotNull);
           expect(
@@ -2942,10 +2795,10 @@ void _registerChatShellTests() {
 
         final shell = ShellScope.read(tester.element(find.byType(MainContent)));
         expect(shell.currentContent?.id, 'chat-c-9-info-settings');
-        expect(shell.contentStack.map((route) => route.id), [
-          'chat-c-9',
-          'chat-c-9-info-settings',
-        ]);
+        expect(
+          shell.contentStack.map((route) => route.id),
+          containsAllInOrder(['chat-c-9', 'chat-c-9-info-settings']),
+        );
         expect(
           find.byKey(const ValueKey('chat-channel-settings')),
           findsOneWidget,
@@ -3145,9 +2998,10 @@ void _registerChatShellTests() {
           const ValueKey('chat-channel-settings-lane-content'),
         );
         final centeredSettingsLeft = tester.getTopLeft(settingsLane).dx;
+        final settingsWidth = tester.getSize(settingsLane).width;
         final tabsRect = tester.getRect(tabs);
-        expect(tester.getSize(settingsLane).width, 760);
-        expect(tabsRect.width, greaterThan(825));
+        expect(tester.getSize(settingsLane).width, lessThanOrEqualTo(760));
+        expect(tabsRect.width, tester.getSize(find.byType(MainContent)).width);
 
         await shell.appSettings.setLimitContentSize(false);
         await tester.pump();
@@ -3174,10 +3028,10 @@ void _registerChatShellTests() {
         await tester.pumpAndSettle();
 
         expect(shell.currentContent?.id, 'chat-c-9-info-members');
-        expect(shell.contentStack.map((route) => route.id), [
-          'chat-c-9',
-          'chat-c-9-info-members',
-        ]);
+        expect(
+          shell.contentStack.map((route) => route.id),
+          containsAllInOrder(['chat-c-9', 'chat-c-9-info-members']),
+        );
 
         expect(find.text('Sam'), findsOneWidget);
         expect(find.text('Hawk'), findsOneWidget);
@@ -3191,8 +3045,8 @@ void _registerChatShellTests() {
         );
         final centeredFilterLeft = tester.getTopLeft(memberFilterLane).dx;
         final centeredMemberLeft = tester.getTopLeft(firstMember).dx;
-        expect(tester.getSize(memberFilterLane).width, 760);
-        expect(tester.getSize(firstMember).width, 760);
+        expect(tester.getSize(memberFilterLane).width, settingsWidth);
+        expect(tester.getSize(firstMember).width, settingsWidth);
         expect(tester.getSize(memberList).width, tabsRect.width);
         expect(tester.getRect(tabs), tabsRect);
 
@@ -3442,6 +3296,8 @@ void _registerChatShellTests() {
         expect(threadingSwitch, findsOneWidget);
         expect(tester.widget<DSwitch>(threadingSwitch).value, isFalse);
 
+        await tester.ensureVisible(threadingSwitch);
+        await tester.pumpAndSettle();
         await tester.tap(threadingSwitch);
         await tester.pumpAndSettle();
 

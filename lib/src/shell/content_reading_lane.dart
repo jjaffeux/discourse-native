@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 
 import 'app_settings_controller.dart';
+import 'shell_scope.dart';
 
 typedef ContentReadingLaneBuilder = DPageReadingLaneBuilder;
 typedef ContentReadingLaneGeometry = DPageReadingLaneGeometry;
@@ -56,7 +57,9 @@ class ContentReadingLane extends StatelessWidget {
   Widget build(BuildContext context) => DPageReadingLane(
     basePadding: basePadding,
     widthLimit: widthLimit,
-    builder: builder,
+    builder: (context, lane) => ForumTabScope.idOf(context) == null
+        ? builder(context, lane)
+        : ForumTabScope.read(context, (_) => builder(context, lane)),
     limitContentSize: ContentSettingsScope.limitContentSizeOf(context),
   );
 

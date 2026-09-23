@@ -374,12 +374,15 @@ void main() {
         await tester.pumpAndSettle();
         expect(find.byType(ChatChannelView), findsOneWidget);
         expect(find.byType(ChatThreadView), findsOneWidget);
-        final channelState = tester.state(find.byType(ChatChannelView));
+        final channelState = tester.element(find.byType(ChatChannelView));
         final threadState = tester.state(find.byType(ChatThreadView));
         shell.selectTab(channel);
         await tester.pumpAndSettle();
         expect(shell.selectedTabIn(ForumPanel.secondary)?.id, thread);
-        expect(tester.state(find.byType(ChatChannelView)), same(channelState));
+        expect(
+          tester.element(find.byType(ChatChannelView)),
+          same(channelState),
+        );
         expect(tester.state(find.byType(ChatThreadView)), same(threadState));
         expect(tester.takeException(), isNull);
       });

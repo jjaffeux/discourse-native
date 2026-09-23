@@ -31,11 +31,13 @@ const _otherTopic = Topic(
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   late ShellController shell;
+  late FakeDiscourseApi api;
 
   setUp(() async {
     shell = ShellController(
       instanceStore: FakeInstanceStore([instance('panels.example')]),
-      api: FakeDiscourseApi(
+      api: api = FakeDiscourseApi(
+        creatableFeedPaths: const {'/latest.json'},
         feeds: const {
           '/latest.json': [_topic, _otherTopic],
         },
@@ -171,6 +173,27 @@ void main() {
     expect(shell.activeTabId, readerId);
   });
 
+  test(
+    'closing the unfocused selected tab activates its neighbour in place',
+    () {
+      final main = shell.activeTabId!;
+      shell.openTopic(_topic);
+      shell.openTopic(_otherTopic);
+      final closing = shell.activeTabId!;
+      shell.openTopic(_topic);
+      final neighbour = shell.activeTabId!;
+      shell.selectTab(closing);
+      shell.selectTab(main);
+      expect(FakeSiteTracker.built.last.watchedChannels, ['/topic/43']);
+
+      shell.closeTab(closing);
+
+      expect(shell.activeTabId, main);
+      expect(shell.selectedTabIn(ForumPanel.secondary)?.id, neighbour);
+      expect(FakeSiteTracker.built.last.watchedChannels, ['/topic/42']);
+    },
+  );
+
   testWidgets(
     'both panels keep their content when focus and positions change',
     (tester) async {
@@ -191,6 +214,72 @@ void main() {
       await tester.pumpAndSettle();
       expect(tester.getCenter(find.byType(TopicView)).dx, lessThan(before));
       expect(tester.state(find.byType(TopicView)), same(reader));
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets('restoration hydrates both selected tabs while main has focus', (
+    tester,
+  ) async {
+    final main = shell.activeTabId!;
+    shell.openTopic(_topic);
+    final topic = shell.activeTabId!;
+    shell.selectTab(main);
+    final restored = ShellController(
+      instanceStore: FakeInstanceStore([instance('panels.example')]),
+      api: api,
+      ownsApi: false,
+      authenticator: FakeAuthenticator(),
+      drafts: FakeDraftStore(),
+      forumTabs: FakeForumTabStore([shell.currentWorkspace!]),
+      trackers: FakeSiteTracker.factory,
+      updater: FakeUpdater(),
+      updateStore: FakeUpdateStore(),
+    );
+    addTearDown(restored.dispose);
+    await restored.load();
+    await _pump(tester, restored);
+    expect(restored.activeTabId, main);
+    expect(restored.selectedTabIn(ForumPanel.secondary)?.id, topic);
+    expect(find.byType(TopicListView), findsOneWidget);
+    expect(find.text('Content for 42', findRichText: true), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+    'a list keeps its heading, creation action and filter ownership',
+    (tester) async {
+      await _pump(tester, shell);
+      final main = shell.activeTabId!;
+      shell.openContentInNewTab(
+        const ContentRoute(
+          id: 'all-categories',
+          title: 'All categories',
+          icon: DIcons.folder,
+        ),
+        panel: ForumPanel.secondary,
+        rootDestinationId: 'all-categories',
+      );
+      final secondary = shell.activeTabId!;
+      await tester.pumpAndSettle();
+
+      expect(
+        tester
+            .widget<Text>(find.byKey(const ValueKey('topic-list-title')))
+            .data,
+        'Latest topics',
+      );
+      expect(find.byKey(const ValueKey('new-topic-button')), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('topic-list-filter')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Open topics'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Apply filter'));
+      await tester.pumpAndSettle();
+
+      expect(shell.activeTabId, main);
+      expect(shell.currentContent?.topicFilterQuery, 'status:open');
+      expect(shell.selectedTabIn(ForumPanel.secondary)?.id, secondary);
       expect(tester.takeException(), isNull);
     },
   );

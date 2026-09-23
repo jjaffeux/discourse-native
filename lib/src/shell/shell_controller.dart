@@ -5906,6 +5906,7 @@ class ShellController extends FrameSafeNotifier
     // an earlier visit to this topic in the same tab.
     final tab = activeTab;
     if (resetScrollPosition &&
+        !desktopPanelsEnabled &&
         tab != null &&
         tab.anchors.containsKey(route.id)) {
       _replaceActiveTab(
@@ -6011,12 +6012,13 @@ class ShellController extends FrameSafeNotifier
                     rootDestinationId: source.rootDestinationId,
                     contentStack: [
                       ...source.contentStack
-                          .where((item) => !item.isTopic)
+                          .where((item) => !route.isTopic || !item.isTopic)
                           .take(ForumTab.maximumContentRoutes - 1),
                       route,
                     ],
                   )
-                : route.id == root.currentContent.id
+                : rootDestinationId != null ||
+                      route.id == root.currentContent.id
                 ? root.copyWith(contentStack: [route])
                 : root.push(route))
             .copyWith(
@@ -14363,7 +14365,7 @@ class ShellController extends FrameSafeNotifier
 
   @override
   void selectDestination(SidebarDestination destination) {
-    if (!desktopTopicTabs) _preparePluginPaneForRoute(destination.id);
+    if (!desktopPanelsEnabled) _preparePluginPaneForRoute(destination.id);
     final instance = currentInstance;
     if (instance == null) return;
     final workspace = _ensureWorkspace(instance);
@@ -14583,7 +14585,7 @@ class ShellController extends FrameSafeNotifier
     ContentRoute route, {
     required bool keepTopicOpen,
   }) {
-    if (desktopTopicTabs && currentContent?.isTopic == true) {
+    if (desktopPanelsEnabled && currentContent?.isTopic == true) {
       openContentInNewTab(route);
       return;
     }
@@ -14694,7 +14696,7 @@ class ShellController extends FrameSafeNotifier
 
   /// Switches sidebar panels in a fresh tab, retaining both pane histories.
   void switchSidebarPanel(VoidCallback switchPanel) {
-    if (!forumTabsEnabled) {
+    if (!forumTabsEnabled || desktopPanelsEnabled) {
       switchPanel();
       return;
     }
@@ -14878,6 +14880,7 @@ class ShellController extends FrameSafeNotifier
     if (index < 0) return;
 
     final closedActive = workspace.activeTabId == id;
+    final closedVisible = isTabVisible(id);
     _rememberClosedForumTab(
       siteUrl: workspace.siteUrl,
       accountIdentity: workspace.accountIdentity,
@@ -14903,11 +14906,20 @@ class ShellController extends FrameSafeNotifier
       final activeId = closedActive
           ? (neighbour ?? remaining.first).id
           : workspace.activeTabId;
-      replacement = workspace.copyWith(tabs: remaining, activeTabId: activeId);
+      replacement = workspace.copyWith(
+        tabs: remaining,
+        activeTabId: activeId,
+        mainTabId: workspace.selectedTabIn(ForumPanel.main)?.id == id
+            ? neighbour?.id
+            : null,
+        secondaryTabId: workspace.selectedTabIn(ForumPanel.secondary)?.id == id
+            ? neighbour?.id
+            : null,
+      );
     }
 
     _putWorkspace(replacement);
-    if (closedActive) {
+    if (closedVisible) {
       _syncTopicChannels();
       _hydrateActiveTab(instance);
     }
@@ -15125,7 +15137,7 @@ class ShellController extends FrameSafeNotifier
   @override
   void pushContent(ContentRoute route) {
     if (desktopTopicTabs && forumTabsEnabled) {
-      openContentInNewTab(route);
+      openContentInNewTab(route, source: activeTab);
       return;
     }
     final startsPluginPane = _preparePluginPaneForRoute(route.id);
@@ -15184,7 +15196,7 @@ class ShellController extends FrameSafeNotifier
 
   @override
   bool activatePluginPane(PluginId owner) {
-    if (mobileNavigationEnabled || desktopTopicTabs) return false;
+    if (mobileNavigationEnabled || desktopPanelsEnabled) return false;
     final instance = currentInstance;
     var tab = activeTab;
     if (instance == null || tab == null) return false;
@@ -15235,6 +15247,28 @@ class ShellController extends FrameSafeNotifier
       handleBack();
       return;
     }
+    if (desktopPanelsEnabled) {
+      final policies = _pluginSession.capabilities<PluginPaneRoutePolicy>();
+      final source = tabsForCurrentForum.reversed
+          .where(
+            (tab) =>
+                tab.panel == activeTab?.panel &&
+                policies.every(
+                  (policy) =>
+                      !policy.ownsPluginPaneRoute(tab.currentContent.id),
+                ),
+          )
+          .firstOrNull;
+      if (source == null) {
+        createTab();
+      } else {
+        openContentInNewTab(
+          source.currentContent,
+          rootDestinationId: source.rootDestinationId,
+        );
+      }
+      return;
+    }
     _deactivatePluginPane(owner, notifyAndHydrate: true);
   }
 
@@ -15267,7 +15301,7 @@ class ShellController extends FrameSafeNotifier
   }
 
   bool _preparePluginPaneForRoute(String routeId) {
-    if (mobileNavigationEnabled) return false;
+    if (mobileNavigationEnabled || desktopPanelsEnabled) return false;
     final instance = currentInstance;
     final tab = activeTab;
     if (instance == null || tab == null) return false;

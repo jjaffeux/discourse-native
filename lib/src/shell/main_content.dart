@@ -1219,9 +1219,11 @@ class _TopicListHeadingTitle extends StatelessWidget {
 
     final categoryId = this.categoryId;
     if (categoryId == null) {
-      final mode = ShellScope.of(context).currentTopicListMode;
-      return title(
-        mode == null ? pageTitle : '${TopicFeedMenu.label(mode)} topics',
+      return ShellSelector<TopicListMode?>(
+        select: (shell) => shell.currentTopicListMode,
+        builder: (context, mode, _) => title(
+          mode == null ? pageTitle : '${TopicFeedMenu.label(mode)} topics',
+        ),
       );
     }
     final siteUrl = this.siteUrl;
@@ -1499,13 +1501,23 @@ class _TopicFeedSelector<T> extends StatefulWidget {
 
 class _TopicFeedSelectorState<T> extends State<_TopicFeedSelector<T>> {
   late T _value;
+  String? _tabId;
+
+  T _read() =>
+      widget.controller.readTab(_tabId, () => widget.select(widget.controller));
 
   @override
   void initState() {
     super.initState();
-    _value = widget.select(widget.controller);
     widget.controller.topicFeeds.addListener(_select);
     widget.controller.addListener(_select);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _tabId = ForumTabScope.idOf(context);
+    _value = _read();
   }
 
   @override
@@ -1517,11 +1529,11 @@ class _TopicFeedSelectorState<T> extends State<_TopicFeedSelector<T>> {
       widget.controller.topicFeeds.addListener(_select);
       widget.controller.addListener(_select);
     }
-    _value = widget.select(widget.controller);
+    _value = _read();
   }
 
   void _select() {
-    final next = widget.select(widget.controller);
+    final next = _read();
     if (next == _value) return;
     setState(() => _value = next);
   }

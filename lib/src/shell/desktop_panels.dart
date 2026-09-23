@@ -23,7 +23,8 @@ class _DesktopPanelsState extends State<DesktopPanels> {
   final _panelKeys = {
     for (final panel in ForumPanel.values) panel: GlobalKey(),
   };
-  final _tabKeys = <(String, String), GlobalKey>{};
+  // Tab-strip and focus changes must not rebuild an unchanged document.
+  final _tabContents = <(String, String), MainContent>{};
   final _mainWidth = PanelWidthController(
     initialWidth: 400 + workspacePanelGap,
     minimumWidth: 320 + workspacePanelGap,
@@ -38,7 +39,7 @@ class _DesktopPanelsState extends State<DesktopPanels> {
   @override
   Widget build(BuildContext context) {
     final shell = ShellScope.of(context);
-    _tabKeys.removeWhere(
+    _tabContents.removeWhere(
       (owner, _) => shell.workspaceFor(owner.$1)?.tabById(owner.$2) == null,
     );
     final swapped =
@@ -52,12 +53,15 @@ class _DesktopPanelsState extends State<DesktopPanels> {
           final tab = shell.selectedTabIn(panel);
           return _DesktopPanel(
             key: _panelKeys[panel],
-            contentKey: tab == null
+            content: tab == null
                 ? null
-                : _tabKeys.putIfAbsent((
-                    shell.currentInstance!.url,
-                    tab.id,
-                  ), () => GlobalKey()),
+                : _tabContents.putIfAbsent(
+                    (shell.currentInstance!.url, tab.id),
+                    () => MainContent(
+                      key: GlobalKey(),
+                      layout: ShellLayout.expanded,
+                    ),
+                  ),
             panel: panel,
             tab: tab,
             showHeader: horizontal,
@@ -130,12 +134,12 @@ class _DesktopPanel extends StatelessWidget {
     super.key,
     required this.panel,
     required this.tab,
-    this.contentKey,
+    this.content,
     this.showHeader = true,
   });
 
   final bool showHeader;
-  final GlobalKey? contentKey;
+  final MainContent? content;
   final ForumPanel panel;
   final ForumTab? tab;
 
@@ -143,7 +147,7 @@ class _DesktopPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     final shell = ShellScope.read(context);
     void activate() {
-      if (tab case final tab? when shell.activeTabId != tab.id) {
+      if (tab case final tab? when shell.activeTab?.panel != panel) {
         shell.selectTab(tab.id);
       }
     }
@@ -199,10 +203,7 @@ class _DesktopPanel extends StatelessWidget {
                               ),
                             ),
                           )
-                        : MainContent(
-                            key: contentKey,
-                            layout: ShellLayout.expanded,
-                          ),
+                        : content!,
                   ),
                 ),
               ),
