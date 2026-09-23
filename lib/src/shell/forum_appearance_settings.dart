@@ -91,6 +91,16 @@ class _ForumAppearanceSettingsState extends State<ForumAppearanceSettings> {
     return result.withBackground(_background(preferences, mode));
   }
 
+  void _removeTheme(String id) {
+    var preferences = settings.themesFor(widget.siteUrl);
+    if (preferences.selectedId == id) {
+      for (final palette in _palettes(preferences).values) {
+        preferences = preferences.withPalette(palette);
+      }
+    }
+    unawaited(_save(preferences.remove(id)));
+  }
+
   @override
   Widget build(BuildContext context) => ListenableBuilder(
     listenable: settings,
@@ -156,6 +166,7 @@ class _ForumAppearanceSettingsState extends State<ForumAppearanceSettings> {
                   ),
                 ForumThemeEditor(
                   palettes: _palettes(preferences),
+                  forumPalettes: _palettes(ForumThemePreferences.defaults),
                   background: _background(preferences, brightness),
                   brightness: brightness,
                   customThemes: preferences.customThemes,
@@ -196,9 +207,7 @@ class _ForumAppearanceSettingsState extends State<ForumAppearanceSettings> {
                     }
                     unawaited(_save(updated));
                   },
-                  onDelete: (id) => unawaited(
-                    _save(settings.themesFor(widget.siteUrl).remove(id)),
-                  ),
+                  onDelete: _removeTheme,
                   onSave: (theme) async {
                     final current = settings.themesFor(widget.siteUrl);
                     await settings.setThemes(

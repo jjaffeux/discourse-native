@@ -8,8 +8,8 @@ import 'package:share_plus/share_plus.dart' as sharing;
 
 import '../models/forum_background.dart';
 import '../models/forum_theme.dart';
-import '../models/forum_theme_presets.dart';
 import 'forum_theme_clipboard.dart';
+import 'forum_theme_picker.dart';
 import 'settings_section.dart';
 import 'theme_icons.dart';
 
@@ -28,12 +28,14 @@ class ForumThemeEditor extends StatefulWidget {
     required this.onImport,
     required this.onSave,
     this.onDelete,
+    this.forumPalettes = const {},
   });
 
   final Map<Brightness, ForumTheme> palettes;
   final ForumBackground background;
   final Brightness brightness;
   final List<ForumTheme> customThemes;
+  final Map<Brightness, ForumTheme> forumPalettes;
   final ValueChanged<ForumTheme> onChanged;
   final ValueChanged<ForumBackground> onBackgroundChanged;
   final ValueChanged<Brightness> onBrightnessChanged;
@@ -177,19 +179,39 @@ class _ForumThemeEditorState extends State<ForumThemeEditor> {
     }
   }
 
+  Future<void> _delete(ForumTheme theme) async {
+    final confirmed = await showDAlertDialog<bool>(
+      context: context,
+      builder: (context, close) => DAlertDialogContent(
+        semanticLabel: 'Delete theme',
+        children: [
+          DAlertDialogHeader(
+            title: Text('Delete “${theme.name}”?'),
+            description: const Text(
+              'This removes the theme from your saved themes. '
+              'Your current appearance will stay as it is.',
+            ),
+          ),
+          const DAlertDialogFooter(
+            children: [
+              DAlertDialogCancel<bool>(label: Text('Cancel'), result: false),
+              DAlertDialogAction<bool>(
+                label: Text('Delete'),
+                result: true,
+                variant: DButtonVariant.destructive,
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true && mounted) widget.onDelete?.call(theme.id);
+  }
+
   @override
   Widget build(BuildContext context) {
     final palette = _palette;
     final background = widget.background;
-    final presets = [
-      for (final theme in [...forumThemePresets, ...widget.customThemes])
-        if (theme.brightness == widget.brightness ||
-            theme.alternate?.brightness == widget.brightness)
-          theme.forBrightness(widget.brightness),
-    ];
-    if (!presets.any((theme) => theme.id == palette.id)) {
-      presets.insert(0, palette);
-    }
     final textureEnabled = background.effect != ForumBackgroundEffect.normal;
     final tokens = DTokens.of(context);
     return Column(
@@ -213,26 +235,14 @@ class _ForumThemeEditorState extends State<ForumThemeEditor> {
         SettingsSection(
           title: 'Preset',
           icon: const ThemeIcon(ThemeIcons.preset),
-          child: DSelect<String>.controlled(
-            filled: true,
+          child: ForumThemePicker(
             key: const ValueKey('theme-preset'),
-            value: palette.id,
-            semanticLabel: 'Preset',
-            isExpanded: true,
-            size: DSelectSize.large,
-            entries: [
-              for (final preset in presets)
-                DSelectOption(
-                  value: preset.id,
-                  label: preset.name,
-                  child: Text(preset.name),
-                ),
-            ],
-            onChanged: (id) {
-              if (id != null) {
-                widget.onChanged(presets.firstWhere((p) => p.id == id));
-              }
-            },
+            palette: palette,
+            background: background,
+            forumPalette: widget.forumPalettes[widget.brightness],
+            customThemes: widget.customThemes,
+            onChanged: widget.onChanged,
+            onDelete: widget.onDelete == null ? null : _delete,
           ),
         ),
         SettingsSection(
@@ -415,14 +425,6 @@ class _ForumThemeEditorState extends State<ForumThemeEditor> {
                                 label: const Text('Copy theme'),
                                 variant: DButtonVariant.outline,
                                 onPressed: () => copyForumTheme(context, saved),
-                              ),
-                              DButton.iconOnly(
-                                icon: const Icon(Icons.delete_outline),
-                                tooltip: 'Delete ${saved.name}',
-                                variant: DButtonVariant.transparentBackground,
-                                onPressed: widget.onDelete == null
-                                    ? null
-                                    : () => widget.onDelete!(saved.id),
                               ),
                             ],
                           ),

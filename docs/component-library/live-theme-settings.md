@@ -136,3 +136,25 @@ wrap at narrow widths and enlarged text sizes.
   inspection confirmed the four distinct samples, Lato and JetBrains Mono
   selection, and live workspace updates. Only isolated fixture data was used;
   the review app was quit afterward.
+
+### Theme thumbnails — September 24, 2026
+
+The preset dropdown is replaced by responsive Native Item thumbnail cards.
+Saved themes appear first under Your themes, followed by Forum default and the
+presets for the current mode. Saved themes remain available in both modes.
+The existing miniature renderer uses each choice's colours with the current
+shared background treatment. Selection updates the active mode immediately;
+the Native outline marks selection without changing card height.
+
+The user approved Native Item's hover-revealed corner action. Only saved themes
+have a delete button; keyboard focus reveals it too, and touch/accessible
+navigation keeps it visible. Native Alert Dialog names the theme and requires
+Delete or Cancel; Escape cancels. Deletion preserves the current appearance,
+font and other forums, and failed persistence retains the existing Retry flow.
+Saved-theme copy actions remain in Save and share.
+
+Focused verification covers ordering, thumbnails, selection in both modes,
+stable card size, confirmation/cancel/Escape, active and inactive deletion,
+persistence and forum isolation. Item tests cover independent pointer/keyboard
+activation, retained semantics, directional corner placement and touch targets.
+Narrow RTL layouts at 2× text are covered with macOS/iOS platform overrides.

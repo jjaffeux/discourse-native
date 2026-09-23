@@ -14,6 +14,7 @@ Widget host(
   TextDirection direction = TextDirection.ltr,
   ThemeData? theme,
   bool focusPolicy = false,
+  bool accessibleNavigation = false,
 }) => MaterialApp(
   theme: theme ?? ThemeData(platform: TargetPlatform.macOS),
   builder: focusPolicy ? (_, child) => DFocusHighlight(child: child!) : null,
@@ -22,6 +23,7 @@ Widget host(
       data: MediaQueryData(
         textScaler: TextScaler.linear(scale),
         disableAnimations: true,
+        accessibleNavigation: accessibleNavigation,
       ),
       child: Directionality(
         textDirection: direction,
@@ -55,6 +57,142 @@ Widget sample(DItemSize size) => DItem(
 );
 
 void main() {
+  for (final direction in TextDirection.values) {
+    testWidgets(
+      'corner action reveals and activates independently in $direction',
+      (tester) async {
+        final rowFocus = FocusNode();
+        final actionFocus = FocusNode();
+        addTearDown(rowFocus.dispose);
+        addTearDown(actionFocus.dispose);
+        var selections = 0;
+        var actions = 0;
+        const actionKey = Key('corner-action');
+        final semantics = tester.ensureSemantics();
+        await tester.pumpWidget(
+          host(
+            DItem(
+              focusNode: rowFocus,
+              onPressed: () => selections++,
+              cornerAction: DButton.iconOnly(
+                key: actionKey,
+                focusNode: actionFocus,
+                size: DButtonSize.small,
+                icon: const Icon(Icons.delete_outline),
+                tooltip: 'Delete saved item',
+                onPressed: () => actions++,
+              ),
+              header: const DItemHeader(child: SizedBox(height: 72)),
+              children: const [
+                DItemContent(children: [Text('Saved item')]),
+              ],
+            ),
+            direction: direction,
+          ),
+        );
+        final action = find.byKey(actionKey);
+        double opacity() => tester
+            .widget<Opacity>(
+              find.ancestor(of: action, matching: find.byType(Opacity)),
+            )
+            .opacity;
+        expect(opacity(), 0);
+        expect(
+          tester.getSemantics(action),
+          matchesSemantics(
+            label: 'Delete saved item',
+            isButton: true,
+            hasEnabledState: true,
+            isEnabled: true,
+            isFocusable: true,
+            hasTapAction: true,
+            hasFocusAction: true,
+          ),
+        );
+        final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+        addTearDown(mouse.removePointer);
+        await mouse.addPointer(location: const Offset(700, 500));
+        await mouse.moveTo(tester.getCenter(find.text('Saved item')));
+        await tester.pump();
+        expect(opacity(), 1);
+        final rowRect = tester.getRect(find.byType(DItem));
+        final actionRect = tester.getRect(action);
+        expect(actionRect.top, rowRect.top + DSpacing.sm);
+        expect(
+          direction == TextDirection.ltr ? actionRect.right : actionRect.left,
+          direction == TextDirection.ltr
+              ? rowRect.right - DSpacing.sm
+              : rowRect.left + DSpacing.sm,
+        );
+        await tester.tap(action);
+        await tester.pump();
+        expect(actions, 1);
+        expect(selections, 0);
+        await mouse.moveTo(const Offset(700, 500));
+        rowFocus.requestFocus();
+        await tester.pump();
+        expect(opacity(), 1);
+        await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+        expect(selections, 1);
+        await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+        await tester.pump();
+        expect(actionFocus.hasPrimaryFocus, isTrue);
+        expect(opacity(), 1);
+        await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+        expect(actions, 2);
+        expect(selections, 1);
+        actionFocus.unfocus();
+        await tester.pump();
+        expect(opacity(), 0);
+        expect(tester.takeException(), isNull);
+        semantics.dispose();
+      },
+    );
+  }
+
+  testWidgets(
+    'corner actions stay visible for touch and accessible navigation',
+    (tester) async {
+      for (final platform in [TargetPlatform.iOS, TargetPlatform.macOS]) {
+        await tester.pumpWidget(
+          host(
+            DItem(
+              cornerAction: DButton.iconOnly(
+                key: const Key('corner-action'),
+                icon: const Icon(Icons.delete_outline),
+                tooltip: 'Delete saved item',
+                size: DButtonSize.small,
+                onPressed: () {},
+              ),
+              header: const DItemHeader(child: SizedBox(height: 100)),
+              children: const [
+                DItemContent(children: [Text('Saved item')]),
+              ],
+            ),
+            width: 220,
+            scale: 2,
+            direction: TextDirection.rtl,
+            theme: ThemeData(platform: platform),
+            accessibleNavigation: platform == TargetPlatform.macOS,
+          ),
+        );
+        final action = find.byKey(const Key('corner-action'));
+        expect(
+          tester
+              .widget<Opacity>(
+                find.ancestor(of: action, matching: find.byType(Opacity)),
+              )
+              .opacity,
+          1,
+        );
+        if (platform == TargetPlatform.iOS) {
+          expect(tester.getSize(action).height, greaterThanOrEqualTo(48));
+        }
+        expect(tester.takeException(), isNull);
+      }
+    },
+  );
+
   for (final direction in TextDirection.values) {
     for (final brightness in Brightness.values) {
       testWidgets(

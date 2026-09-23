@@ -37,6 +37,15 @@ final itemExamples = ComponentExamples(
       builder: (_) => const _CardSelectionExample(),
     ),
     StyleguideExample(
+      title: 'Hover corner action',
+      description:
+          'The corner action appears on hover or focus, stays visible on touch '
+          'and with accessible navigation, and activates independently of the card.',
+      code:
+          "DItem(shape: DItemShape.card, variant: DItemVariant.outline, onPressed: select, cornerAction: DButton.iconOnly(size: DButtonSize.small, icon: Icon(Icons.delete_outline), tooltip: 'Remove saved item', onPressed: remove), header: DItemHeader(child: preview), children: [DItemContent(children: [Text('Saved item')])])",
+      builder: (_) => const _CornerActionExample(),
+    ),
+    StyleguideExample(
       title: 'Neutral selection',
       description:
           'Hover and select rows with a faint neutral fill and broader corners. '
@@ -107,6 +116,50 @@ final itemExamples = ComponentExamples(
       ),
   ],
 );
+
+class _CornerActionExample extends StatefulWidget {
+  const _CornerActionExample();
+
+  @override
+  State<_CornerActionExample> createState() => _CornerActionExampleState();
+}
+
+class _CornerActionExampleState extends State<_CornerActionExample> {
+  bool _selected = false;
+  int _actions = 0;
+
+  @override
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    spacing: DSpacing.md,
+    children: [
+      DItem(
+        shape: DItemShape.card,
+        variant: DItemVariant.outline,
+        selected: _selected,
+        selectionStyle: DItemSelectionStyle.outline,
+        onPressed: () => setState(() => _selected = !_selected),
+        cornerAction: DButton.iconOnly(
+          size: DButtonSize.small,
+          variant: DButtonVariant.outline,
+          icon: const Icon(Icons.delete_outline),
+          tooltip: 'Remove saved item',
+          onPressed: () => setState(() => _actions++),
+        ),
+        header: const DItemHeader(
+          child: SizedBox(
+            height: 72,
+            child: Center(child: Icon(Icons.palette_outlined, size: 32)),
+          ),
+        ),
+        children: const [
+          DItemContent(children: [Text('Saved item')]),
+        ],
+      ),
+      Text('Corner actions: $_actions'),
+    ],
+  );
+}
 
 class _CardSelectionExample extends StatefulWidget {
   const _CardSelectionExample();

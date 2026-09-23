@@ -214,6 +214,12 @@ Full-width topic rows use `DItemShape.fullWidth` with
 a stronger selected tint with a directional leading border. The application
 composes title, excerpt and metadata inside Item; the kit owns its interaction
 paint. Other choice lists keep persistent selection in their checkmark/checkbox.
+Theme thumbnail cards use Item's outline selection without a checkmark so their
+height stays fixed when selected. The approved `DItem.cornerAction` slot places
+an independent Native control at the top trailing corner. Item reveals it on
+hover or focus and keeps it visible on touch platforms and with accessible
+navigation. Reserve the corner in the header; Button retains action geometry,
+keyboard handling, semantics and focus. See Item / Hover corner action.
 Regression tests must inspect
 painted decorations immediately and during the next animation frames, without
 settling first.
