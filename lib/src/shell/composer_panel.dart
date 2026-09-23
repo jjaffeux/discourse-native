@@ -259,117 +259,131 @@ class ComposerPanel extends StatelessWidget {
                       Expanded(
                         child: LayoutBuilder(
                           builder: (context, constraints) {
+                            final fields = <Widget>[
+                              if (target.mode == ComposerMode.reply &&
+                                  constraints.maxHeight >= 80)
+                                ConstrainedBox(
+                                  constraints: BoxConstraints(
+                                    maxHeight: math.min(
+                                      140,
+                                      math.max(48, constraints.maxHeight * 0.6),
+                                    ),
+                                  ),
+                                  child: ComposerReplyContext(
+                                    key: ValueKey((
+                                      target.siteUrl,
+                                      target.topicId,
+                                      target.replyToPostNumber,
+                                    )),
+                                    target: target,
+                                  ),
+                                ),
+                              if (target.isPrivateMessage)
+                                Padding(
+                                  padding: const EdgeInsets.fromLTRB(
+                                    16,
+                                    2,
+                                    16,
+                                    6,
+                                  ),
+                                  child: InputDecorator(
+                                    key: const ValueKey(
+                                      'composer-private-message-recipients',
+                                    ),
+                                    decoration: const InputDecoration(
+                                      isDense: true,
+                                      labelText: 'To',
+                                    ),
+                                    child: Text(target.targetRecipients!),
+                                  ),
+                                ),
+                              if ((!mobile &&
+                                      (target.isNewTopic ||
+                                          target.editsTopicMetadata)) ||
+                                  target.isTaxonomyEdit)
+                                _TopicTaxonomy(composer: composer),
+                              if (target.createsTopic ||
+                                  target.editsTopicMetadata) ...[
+                                Padding(
+                                  padding: const EdgeInsets.fromLTRB(
+                                    16,
+                                    4,
+                                    16,
+                                    10,
+                                  ),
+                                  child: DInput(
+                                    key: const ValueKey('composer-topic-title'),
+                                    controller: composer.title,
+                                    borderless: true,
+                                    size: DControlSize.large,
+                                    readOnly: !composer.isEditing,
+                                    semanticLabel: 'Title',
+                                    style: theme.textTheme.titleMedium,
+                                    hintText: 'Give your topic a title',
+                                    textInputAction: TextInputAction.next,
+                                  ),
+                                ),
+                                if (!mobile)
+                                  const DSeparator(
+                                    indent: 16,
+                                    endIndent: 16,
+                                    space: 1,
+                                  ),
+                                const SizedBox(height: 12),
+                              ],
+                              if (target.mode == ComposerMode.postEdit)
+                                Padding(
+                                  padding: const EdgeInsets.fromLTRB(
+                                    16,
+                                    0,
+                                    16,
+                                    8,
+                                  ),
+                                  child: DItem(
+                                    key: const ValueKey(
+                                      'composer-edit-context',
+                                    ),
+                                    variant: DItemVariant.muted,
+                                    size: DItemSize.xs,
+                                    children: [
+                                      DItemContent(
+                                        spacing: 3,
+                                        children: [
+                                          const DItemDescription(
+                                            child: Text('Topic'),
+                                          ),
+                                          DItemTitle(
+                                            maxLines: 2,
+                                            child: TopicTitle(
+                                              target.topicTitle,
+                                              siteUrl: target.siteUrl,
+                                              maxLines: 2,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                            ];
                             final content = Column(
                               children: [
-                                if (target.mode == ComposerMode.reply &&
-                                    constraints.maxHeight >= 80)
+                                if (mobile)
+                                  ...fields
+                                else if (fields.isNotEmpty)
                                   ConstrainedBox(
                                     constraints: BoxConstraints(
-                                      maxHeight: math.min(
-                                        140,
-                                        math.max(
-                                          48,
-                                          constraints.maxHeight * 0.6,
-                                        ),
+                                      maxHeight:
+                                          constraints.maxHeight *
+                                          (target.isTaxonomyEdit ? 1 : .6),
+                                    ),
+                                    child: DScrollArea(
+                                      thumbVisibility: false,
+                                      child: Column(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: fields,
                                       ),
-                                    ),
-                                    child: ComposerReplyContext(
-                                      key: ValueKey((
-                                        target.siteUrl,
-                                        target.topicId,
-                                        target.replyToPostNumber,
-                                      )),
-                                      target: target,
-                                    ),
-                                  ),
-                                if (target.isPrivateMessage)
-                                  Padding(
-                                    padding: const EdgeInsets.fromLTRB(
-                                      16,
-                                      2,
-                                      16,
-                                      6,
-                                    ),
-                                    child: InputDecorator(
-                                      key: const ValueKey(
-                                        'composer-private-message-recipients',
-                                      ),
-                                      decoration: const InputDecoration(
-                                        isDense: true,
-                                        labelText: 'To',
-                                      ),
-                                      child: Text(target.targetRecipients!),
-                                    ),
-                                  ),
-                                if ((!mobile &&
-                                        (target.isNewTopic ||
-                                            target.editsTopicMetadata)) ||
-                                    target.isTaxonomyEdit)
-                                  _TopicTaxonomy(composer: composer),
-                                if (target.createsTopic ||
-                                    target.editsTopicMetadata) ...[
-                                  Padding(
-                                    padding: const EdgeInsets.fromLTRB(
-                                      16,
-                                      4,
-                                      16,
-                                      10,
-                                    ),
-                                    child: DInput(
-                                      key: const ValueKey(
-                                        'composer-topic-title',
-                                      ),
-                                      controller: composer.title,
-                                      borderless: true,
-                                      size: DControlSize.large,
-                                      readOnly: !composer.isEditing,
-                                      semanticLabel: 'Title',
-                                      style: theme.textTheme.titleMedium,
-                                      hintText: 'Give your topic a title',
-                                      textInputAction: TextInputAction.next,
-                                    ),
-                                  ),
-                                  if (!mobile)
-                                    const DSeparator(
-                                      indent: 16,
-                                      endIndent: 16,
-                                      space: 1,
-                                    ),
-                                  const SizedBox(height: 12),
-                                ],
-                                if (target.mode == ComposerMode.postEdit)
-                                  Padding(
-                                    padding: const EdgeInsets.fromLTRB(
-                                      16,
-                                      0,
-                                      16,
-                                      8,
-                                    ),
-                                    child: DItem(
-                                      key: const ValueKey(
-                                        'composer-edit-context',
-                                      ),
-                                      variant: DItemVariant.muted,
-                                      size: DItemSize.xs,
-                                      children: [
-                                        DItemContent(
-                                          spacing: 3,
-                                          children: [
-                                            const DItemDescription(
-                                              child: Text('Topic'),
-                                            ),
-                                            DItemTitle(
-                                              maxLines: 2,
-                                              child: TopicTitle(
-                                                target.topicTitle,
-                                                siteUrl: target.siteUrl,
-                                                maxLines: 2,
-                                                overflow: TextOverflow.ellipsis,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ],
                                     ),
                                   ),
                                 if (!target.isTaxonomyEdit) ...[
@@ -477,21 +491,10 @@ class ComposerPanel extends StatelessWidget {
                                 child: content,
                               );
                             }
-                            return DScrollArea(
-                              thumbVisibility: false,
-                              child: SizedBox(
-                                height: math.max(
-                                  constraints.maxHeight,
-                                  MediaQuery.textScalerOf(context).scale(
-                                    target.createsTopic ||
-                                            target.editsTopicMetadata
-                                        ? 200
-                                        : 160,
-                                  ),
-                                ),
-                                child: content,
-                              ),
-                            );
+                            // The editor owns its viewport. A larger minimum
+                            // height inside another scroller can hide its last
+                            // line even at the editor's maximum scroll offset.
+                            return content;
                           },
                         ),
                       ),
