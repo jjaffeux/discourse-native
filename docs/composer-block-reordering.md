@@ -159,6 +159,13 @@ line break. Native Enter and subsequent typing retained the compact spacing.
 Widget checks cover LF/CRLF, mobile keyboard input and 200% text scaling;
 these are not physical-device checks.
 
+Integration with main's subsequent list changes retained explicit blank lines
+after to-dos and passed the paragraph-to-task conversion checks. On main
+`18e7e7d74`, root analysis passes and 434 of 439 focused tests pass. The remaining
+five failures reproduce on unchanged main: four poll-to-component projection
+checks and the following focus-cleanup assertion. The paragraph rendering
+inspected above is unchanged by this integration.
+
 The September 22 drag polish adds regression coverage for the leading gutter in LTR
 and RTL, exact insertion-line centering, the source highlight's bounds and
 cancellation, and cursor transitions over text even after the source unmounts.
