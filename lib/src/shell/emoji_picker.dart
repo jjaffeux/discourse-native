@@ -427,14 +427,11 @@ class _EmojiPickerState extends State<EmojiPicker> {
         Expanded(child: _content(groups)),
         if (!widget.controller.hasQuery && groups.isNotEmpty) ...[
           const SizedBox(height: 4),
-          SizedBox(
-            height: _cellExtent,
-            child: _CategoryNavigation(
-              groups: groups,
-              activeGroup: _activeGroup ?? groups.first.id,
-              vertical: false,
-              onSelected: _scrollToGroup,
-            ),
+          _CategoryNavigation(
+            groups: groups,
+            activeGroup: _activeGroup ?? groups.first.id,
+            vertical: false,
+            onSelected: _scrollToGroup,
           ),
         ],
       ],
@@ -978,37 +975,31 @@ class _CategoryButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Semantics(
-      button: true,
-      selected: selected,
-      label: group.label,
-      child: DTooltip(
-        message: group.label,
-        child: InkWell(
-          key: ValueKey('emoji-picker-category-${group.id}'),
-          onTap: onPressed,
-          borderRadius: BorderRadius.circular(8),
-          child: ExcludeSemantics(
-            child: Container(
-              width: _cellExtent,
-              height: _cellExtent,
-              decoration: BoxDecoration(
-                color: selected ? theme.shell.selected : Colors.transparent,
-                borderRadius: BorderRadius.circular(8),
+    final preview = group.choices.first;
+    return DTooltip(
+      message: group.label,
+      child: DToggle.iconOnly(
+        key: ValueKey('emoji-picker-category-${group.id}'),
+        semanticLabel: group.label,
+        pressed: selected,
+        onPressedChanged: (_) => onPressed(),
+        size: DToggleSize.large,
+        icon: group.id == _frequentGroup
+            ? const DIcon(DIcons.farClock)
+            : Builder(
+                builder: (context) {
+                  final size = IconTheme.of(context).size!;
+                  return SizedBox.square(
+                    dimension: size,
+                    child: EmojiImage(
+                      url: preview.url,
+                      size: size,
+                      alt: ':${preview.code}:',
+                      style: Theme.of(context).textTheme.labelSmall,
+                    ),
+                  );
+                },
               ),
-              child: Center(
-                child: DIcon(
-                  _groupIcon(group.id),
-                  size: 18,
-                  color: selected
-                      ? theme.shell.selectedForeground
-                      : theme.colorScheme.onSurfaceVariant,
-                ),
-              ),
-            ),
-          ),
-        ),
       ),
     );
   }
@@ -1204,20 +1195,6 @@ String _groupLabel(String id) => switch (id) {
   'flags' => 'Flags',
   'default' || 'custom' => 'Custom emojis',
   _ => id,
-};
-
-DIconData _groupIcon(String id) => switch (id) {
-  _frequentGroup => DIcons.farClock,
-  'smileys_&_emotion' => DIcons.farFaceSmile,
-  'people_&_body' => DIcons.hand,
-  'animals_&_nature' => DIcons.heart,
-  'food_&_drink' ||
-  'travel_&_places' ||
-  'activities' ||
-  'objects' ||
-  'symbols' => DIcons.globe,
-  'flags' => DIcons.flag,
-  _ => DIcons.layerGroup,
 };
 
 String _toneLabel(EmojiSkinTone tone) => switch (tone) {
