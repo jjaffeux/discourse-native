@@ -60,7 +60,7 @@ void main() {
 
   for (final view in [EventCalendarView.schedule, EventCalendarView.month]) {
     testWidgets(
-      '${view.name} uses skeletons until events load and on refresh',
+      '${view.name} uses skeletons until events load and on foreground resume',
       (tester) async {
         tester.view.devicePixelRatio = 1;
         tester.view.physicalSize = const Size(390, 844);
@@ -101,9 +101,9 @@ void main() {
 
         final refresh = Completer<Map<String, dynamic>>();
         transport.respond = (_) => refresh.future;
-        await tester.tap(find.byTooltip('Calendar actions'));
-        await tester.pumpAndSettle();
-        await tester.tap(find.text('Refresh'));
+        expect(find.byTooltip('Calendar actions'), findsNothing);
+        ports.controller.setForeground(false);
+        ports.controller.setForeground(true);
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 300));
         expect(find.bySemanticsLabel('Loading events'), findsOneWidget);
