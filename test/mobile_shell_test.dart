@@ -59,6 +59,7 @@ Future<ShellController> pumpMobileShellFixture(
   bool voice = false,
   bool events = false,
   bool chat = true,
+  int chatUnreadCount = 0,
 }) async {
   final config = SiteConfig(
     plugins: PluginData.none
@@ -134,16 +135,17 @@ Future<ShellController> pumpMobileShellFixture(
         ),
       },
       chatChannelsBySite: {
-        _site: const ChatChannels(
+        _site: ChatChannels(
           public: [
             ChatChannel(
               id: 9,
               title: 'General',
               kind: ChatChannelKind.category,
-              membership: ChatMembership(following: true),
+              membership: const ChatMembership(following: true),
+              tracking: ChatTracking(unreadCount: chatUnreadCount),
             ),
           ],
-          direct: [
+          direct: const [
             ChatChannel(
               id: 10,
               title: 'sam',
@@ -305,6 +307,29 @@ void main() {
         tester.widget<DButton>(find.byKey(UserMenuButton.avatarKey)).size,
         DButtonSize.regular,
       );
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  _mobileTest(
+    'tab unread counts sit at the bottom center and pass taps through',
+    (tester) async {
+      final shell = await pumpMobileShellFixture(tester, chatUnreadCount: 32);
+      final button = find.byKey(const ValueKey('mobile-mode-panel/chat'));
+      final badge = find.byKey(const ValueKey('chat-sidebar-unread-badge'));
+      void expectPosition() {
+        final buttonRect = tester.getRect(button);
+        final badgeRect = tester.getRect(badge);
+        expect(badgeRect.center.dx, buttonRect.center.dx);
+        expect(badgeRect.bottom, buttonRect.bottom - DSpacing.xxs);
+      }
+
+      expectPosition();
+      expect(find.text('32'), findsOneWidget);
+      await tester.tapAt(tester.getCenter(badge));
+      await tester.pumpAndSettle();
+      expect(shell.mobileNavigation.tab, const MobileTab.panel('chat'));
+      expectPosition();
       expect(tester.takeException(), isNull);
     },
   );
