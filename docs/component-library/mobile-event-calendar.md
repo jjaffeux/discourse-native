@@ -14,6 +14,8 @@ headings, a timeline, times and category/creator metadata.
 - `EventCalendar` adapts server-expanded occurrences, navigation, event opening
   and domain metadata. The compact toolbar/month is selected below 600 logical
   pixels; Schedule is a monthly agenda available in the view selector.
+  iOS and Android open Schedule by default; desktop keeps the site's configured
+  default. Explicit routes and subsequent user selections take precedence.
 - Schedule scopes Kalender's paginated configuration to the current month,
   giving it a single internal page. This avoids Kalender 0.31.3's shared
   `currentPage` item-map race when animating between populated and empty
