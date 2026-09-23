@@ -621,7 +621,7 @@ class _ForumSearchState extends State<ForumSearch> {
 
   Widget _buildPageTrigger() => DButton.iconOnly(
     key: const ValueKey('mobile-search-button'),
-    icon: const DIcon(DIcons.magnifyingGlass),
+    icon: const DIcon(DIcons.magnifyingGlass, size: 20),
     tooltip: 'Search',
     variant: DButtonVariant.ghost,
     onPressed: _requestFocus,
