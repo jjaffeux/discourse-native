@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
@@ -59,6 +60,8 @@ class _ComposerBlockSurfaceState extends State<ComposerBlockSurface> {
   Offset? _pointer;
   Timer? _autoScroll;
   bool _refreshScheduled = false;
+  late int _revision;
+  bool _actionsHidden = false;
   final _blockActionsKey = GlobalKey();
   Rect? _handleRect;
   double? _actionCenter;
@@ -73,6 +76,7 @@ class _ComposerBlockSurfaceState extends State<ComposerBlockSurface> {
   @override
   void initState() {
     super.initState();
+    _revision = composer.blocks.revision;
     composer.blocks.addListener(_changed);
     widget.geometryChanges?.addListener(_scheduleGeometry);
     _lifecycle = AppLifecycleListener(
@@ -94,17 +98,55 @@ class _ComposerBlockSurfaceState extends State<ComposerBlockSurface> {
       composer.blocks.addListener(_changed);
       _cancelDrag();
       _hoveredId = null;
+      _revision = composer.blocks.revision;
+      _actionsHidden = false;
     }
     _scheduleGeometry();
   }
 
   void _changed() {
+    if (_revision != composer.blocks.revision) {
+      _revision = composer.blocks.revision;
+      _actionsHidden = true;
+      _hoveredId = null;
+    }
     _hoverPosition = null;
     if (_drag case final drag?) {
       if (!_accepts(drag)) _cancelDrag();
     }
     _scheduleGeometry();
     setState(() {});
+  }
+
+  void _hover(PointerEvent event) {
+    if (_drag != null || event.kind != PointerDeviceKind.mouse) return;
+    if (_actionsHidden) {
+      if (event.delta == Offset.zero) return;
+      setState(() => _actionsHidden = false);
+    }
+    // Controls can extend below a short text line. Keep their block stable
+    // instead of selecting the blank line beneath.
+    final actions = _blockActionsKey.currentContext?.findRenderObject();
+    if (actions is RenderBox &&
+        actions.hasSize &&
+        (Offset.zero & actions.size).contains(
+          actions.globalToLocal(event.position),
+        )) {
+      return;
+    }
+    _hoverPosition = event.position;
+    _scheduleGeometry();
+    for (final item in composer.blocks.index.blocks) {
+      final rect = widget.blockRect(item);
+      if (rect != null &&
+          event.position.dy >= rect.top &&
+          event.position.dy <= rect.bottom) {
+        if (_hoveredId != item.id) {
+          setState(() => _hoveredId = item.id);
+        }
+        break;
+      }
+    }
   }
 
   void _scheduleGeometry() {
@@ -551,36 +593,10 @@ class _ComposerBlockSurfaceState extends State<ComposerBlockSurface> {
           onMove: _moveDrag,
           onDrop: _drop,
           onLeave: _leaveDrag,
-          child: MouseRegion(
-            onHover: desktop && _drag == null
-                ? (event) {
-                    // Controls can extend below a short text line. Keep their
-                    // block stable instead of selecting the blank line beneath.
-                    final actions = _blockActionsKey.currentContext
-                        ?.findRenderObject();
-                    if (actions is RenderBox &&
-                        actions.hasSize &&
-                        (Offset.zero & actions.size).contains(
-                          actions.globalToLocal(event.position),
-                        )) {
-                      return;
-                    }
-                    _hoverPosition = event.position;
-                    _scheduleGeometry();
-                    for (final item in composer.blocks.index.blocks) {
-                      final rect = widget.blockRect(item);
-                      if (rect != null &&
-                          event.position.dy >= rect.top &&
-                          event.position.dy <= rect.bottom) {
-                        if (_hoveredId != item.id) {
-                          setState(() => _hoveredId = item.id);
-                          _scheduleGeometry();
-                        }
-                        break;
-                      }
-                    }
-                  }
-                : null,
+          child: Listener(
+            behavior: HitTestBehavior.opaque,
+            onPointerHover: desktop ? _hover : null,
+            onPointerMove: desktop ? _hover : null,
             child: Stack(
               key: _bounds,
               fit: widget.expands ? StackFit.expand : StackFit.loose,
@@ -617,6 +633,7 @@ class _ComposerBlockSurfaceState extends State<ComposerBlockSurface> {
                     child: const DDragHighlight(),
                   ),
                 if (desktop &&
+                    !_actionsHidden &&
                     (block != null || _emptyLine != null) &&
                     handleRect != null &&
                     (handleRect.top >= 0 ||

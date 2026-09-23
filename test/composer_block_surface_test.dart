@@ -107,6 +107,99 @@ void main() {
     await tester.pumpAndSettle();
   }
 
+  Future<void> hoverAt(WidgetTester tester, Offset position) async {
+    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    await mouse.addPointer(location: Offset.zero);
+    await mouse.moveTo(position);
+    await tester.pumpAndSettle();
+    await mouse.removePointer();
+  }
+
+  Future<void> hoverSelection(WidgetTester tester) async {
+    final surface = tester.widget<ComposerBlockSurface>(
+      find.byType(ComposerBlockSurface),
+    );
+    final rect =
+        surface.emptyLineAt(null)?.rect ??
+        surface.blockActionRect(composer.blocks.selected!)!;
+    await hoverAt(tester, rect.center);
+  }
+
+  void expectActionsHidden() {
+    expect(find.byTooltip('Add block'), findsNothing);
+    expect(find.byTooltip('Drag to move or click to open menu'), findsNothing);
+    expect(find.byTooltip('Empty paragraph actions'), findsNothing);
+  }
+
+  for (final dark in [false, true]) {
+    testWidgets('typing hides block actions until the mouse moves ($dark)', (
+      tester,
+    ) async {
+      await mount(tester, dark: dark);
+      final surface = tester.widget<ComposerBlockSurface>(
+        find.byType(ComposerBlockSurface),
+      );
+      final last = composer.blocks.index.blocks.last;
+      final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      await mouse.addPointer(location: Offset.zero);
+      addTearDown(mouse.removePointer);
+      await mouse.moveTo(surface.blockRect(last)!.center);
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(ValueKey('composer-block-handle-${last.id}')),
+        findsOneWidget,
+      );
+
+      await tester.enterText(
+        find.byType(EditableText),
+        '${composer.text.text} typed',
+      );
+      await tester.pumpAndSettle();
+      expectActionsHidden();
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+      await tester.pump(const Duration(seconds: 1));
+      expectActionsHidden();
+      await mouse.moveTo(surface.blockRect(last)!.center);
+      await tester.pump();
+      expectActionsHidden();
+
+      final first = composer.blocks.index.blocks.first;
+      await mouse.moveTo(surface.blockRect(first)!.center);
+      await tester.pumpAndSettle();
+      expect(find.byTooltip('Add block'), findsOneWidget);
+      expect(
+        find.byKey(ValueKey('composer-block-handle-${first.id}')),
+        findsOneWidget,
+      );
+      await tester.sendKeyEvent(LogicalKeyboardKey.backspace);
+      await tester.pumpAndSettle();
+      expectActionsHidden();
+      expect(tester.takeException(), isNull);
+    });
+  }
+
+  testWidgets('Enter hides new empty block actions until mouse movement', (
+    tester,
+  ) async {
+    await mount(tester);
+    composer.text.selection = TextSelection.collapsed(
+      offset: composer.text.text.length,
+    );
+    composer.focus.requestFocus();
+    await tester.pumpAndSettle();
+    expect(find.byTooltip('Add block'), findsOneWidget);
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pumpAndSettle();
+    expect(composer.text.text, endsWith('\n\n'));
+    expectActionsHidden();
+    final surface = tester.widget<ComposerBlockSurface>(
+      find.byType(ComposerBlockSurface),
+    );
+    await hoverAt(tester, surface.emptyLineAt(null)!.rect.center);
+    expect(find.byTooltip('Add block'), findsOneWidget);
+    expect(find.byTooltip('Empty paragraph actions'), findsOneWidget);
+  });
+
   for (final scale in [1.0, 1.5]) {
     for (final prefix in ['', '[ ] First task\n[ ] Second task\n\n']) {
       testWidgets(
@@ -696,10 +789,13 @@ void main() {
     expect(find.text('Type to search'), findsOneWidget);
     expect(find.text('Heading 2'), findsOneWidget);
     expect(composer.focus.hasFocus, isTrue);
+    expectActionsHidden();
     composer.history.undo();
     await tester.pumpAndSettle();
     expect(composer.text.value, original);
     expect(composer.history.canUndo, isFalse);
+    expectActionsHidden();
+    await hoverSelection(tester);
     await tester.tap(find.byTooltip('Add block'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Heading 2'));
@@ -707,6 +803,13 @@ void main() {
     expect(
       composer.text.text,
       'First paragraph\n\n## \n\n## A heading\n\nLast paragraph',
+    );
+    expectActionsHidden();
+    await hoverSelection(tester);
+    expect(find.byTooltip('Add block'), findsOneWidget);
+    expect(
+      find.byTooltip('Drag to move or click to open menu'),
+      findsOneWidget,
     );
   });
 
@@ -716,6 +819,7 @@ void main() {
       final semantics = tester.ensureSemantics();
       await mount(tester);
       for (var attempt = 0; attempt < 2; attempt++) {
+        if (attempt > 0) await hoverSelection(tester);
         final button = tester.getSemantics(find.byTooltip('Add block'));
         button.owner!.performAction(button.id, SemanticsAction.tap);
         await tester.pumpAndSettle();
@@ -754,6 +858,8 @@ void main() {
       await tester.pumpAndSettle();
       expect(composer.text.text, source.trim().isEmpty ? '' : source);
       expect(find.text('Close menu'), findsNothing);
+      expectActionsHidden();
+      await hoverSelection(tester);
       await tester.tap(find.byTooltip('Add block'));
       await tester.pumpAndSettle();
       expect(find.text('Close menu'), findsOneWidget);
@@ -800,6 +906,9 @@ void main() {
       await tester.sendKeyEvent(LogicalKeyboardKey.escape);
       await tester.pumpAndSettle();
       expect(composer.text.text, isEmpty);
+      expectActionsHidden();
+      await mouse.moveBy(const Offset(-1, 0));
+      await tester.pumpAndSettle();
       expect(handle, findsOneWidget);
       expect(tester.takeException(), isNull);
     });
@@ -847,6 +956,10 @@ void main() {
 
           await tester.enterText(find.byType(EditableText), '${source}d');
           await tester.pumpAndSettle();
+          expectActionsHidden();
+          expect(editable.getLocalRectForCaret(caretPosition), caret);
+          expect(tester.getRect(find.byType(ComposerEditor)), editorBounds);
+          await hoverSelection(tester);
           expect(tester.getRect(find.byTooltip('Add block')), add);
           expect(
             tester.getRect(
@@ -868,6 +981,9 @@ void main() {
           await tester.sendKeyEvent(LogicalKeyboardKey.backspace);
           await tester.pumpAndSettle();
           expect(composer.text.text, source);
+          expectActionsHidden();
+          expect(tester.getRect(find.byType(ComposerEditor)), editorBounds);
+          await hoverSelection(tester);
           expect(tester.getRect(find.byTooltip('Add block')), add);
           expect(
             tester.getRect(find.byTooltip('Empty paragraph actions')),
@@ -988,6 +1104,8 @@ void main() {
         composing: TextRange(start: 0, end: 4),
       );
       await tester.pumpAndSettle();
+      expectActionsHidden();
+      await hoverSelection(tester);
       expect(add().onPressed, isNull);
     },
   );
@@ -1493,6 +1611,7 @@ void main() {
       composer.text.text,
       '## A heading\n\nFirst paragraph\n\nLast paragraph',
     );
+    await hoverSelection(tester);
     await tester.tap(handle);
     await tester.pumpAndSettle();
     await tester.tap(find.text('Move up'));
