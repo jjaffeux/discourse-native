@@ -110,6 +110,34 @@ DCheckbox.defaultValue(invalid: true, title: Text('Accept terms'))''',
       ),
     ),
     StyleguideExample(
+      title: 'Inline text alignment',
+      description:
+          'Align artwork with the first text line while retaining the full click target.',
+      states: const ['Inline', 'Wrapped label'],
+      code: '''const style = TextStyle(fontSize: 14, height: 1.6);
+Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+  DCheckbox.defaultValue(inline: true, inlineTextStyle: style,
+    semanticLabel: 'Review the task'),
+  Expanded(child: Text('Review the task\\nKeep its continuation aligned.', style: style)),
+])''',
+      builder: (_) => const Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          DCheckbox.defaultValue(
+            inline: true,
+            inlineTextStyle: TextStyle(fontSize: 14, height: 1.6),
+            semanticLabel: 'Review the task',
+          ),
+          Expanded(
+            child: Text(
+              'Review the task\nKeep its continuation aligned.',
+              style: TextStyle(fontSize: 14, height: 1.6),
+            ),
+          ),
+        ],
+      ),
+    ),
+    StyleguideExample(
       title: 'Group',
       description: 'Choose which local devices appear on the desktop.',
       states: const ['Group', 'Independent choices'],

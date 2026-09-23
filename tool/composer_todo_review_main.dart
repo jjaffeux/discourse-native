@@ -83,7 +83,9 @@ class _TodoReviewState extends State<_TodoReview> {
                   child: ComposerEditor(
                     composer: composer,
                     hintText: 'Type /todo',
-                    textStyle: const TextStyle(fontSize: 16, height: 1.5),
+                    textStyle: (dark ? AppTheme.dark : AppTheme.light)
+                        .textTheme
+                        .bodyLarge,
                     hintStyle: null,
                   ),
                 ),

@@ -41,6 +41,7 @@ class DCheckbox extends StatefulWidget {
     this.contentPadding = EdgeInsets.zero,
     this.alignment = AlignmentDirectional.center,
     this.inline = false,
+    this.inlineTextStyle,
   }) : _controlled = true,
        assert(tristate || value != null);
 
@@ -63,6 +64,7 @@ class DCheckbox extends StatefulWidget {
     this.contentPadding = EdgeInsets.zero,
     this.alignment = AlignmentDirectional.center,
     this.inline = false,
+    this.inlineTextStyle,
   }) : value = defaultValue,
        _controlled = false,
        assert(tristate || defaultValue != null);
@@ -89,12 +91,19 @@ class DCheckbox extends StatefulWidget {
 
   /// Positions an unlabelled checkbox within its unchanged click target.
   /// Labelled checkboxes always align their artwork with the label row.
+  /// Inline checkboxes retain start alignment and honor the vertical alignment.
   final AlignmentGeometry alignment;
 
   /// Uses artwork plus the standard 8px label gap for an unlabelled desktop
   /// checkbox embedded before editable text. Artwork aligns to the start.
   /// Touch platforms retain their full 48px target. Ignored when [title] is set.
   final bool inline;
+
+  /// Aligns inline artwork with the first line of adjacent text using this
+  /// style. The full click target is retained; only the artwork moves.
+  /// Omit for a checkbox centered within an inline text span. Ignored when
+  /// [inline] is false or [title] is set.
+  final TextStyle? inlineTextStyle;
   final bool _controlled;
 
   @override
@@ -151,6 +160,35 @@ class _DCheckboxState extends State<DCheckbox> {
       _ => false,
     };
     final checked = _current == true;
+    final targetHeight = touch ? 48.0 : 32.0;
+    var alignment = widget.alignment.resolve(Directionality.of(context));
+    if (widget.inline) {
+      var vertical = alignment.y;
+      if (widget.inlineTextStyle case final style? when widget.title == null) {
+        final painter = TextPainter(
+          text: TextSpan(
+            text: ' ',
+            style: DefaultTextStyle.of(context).style.merge(style),
+          ),
+          textDirection: Directionality.of(context),
+          textScaler: MediaQuery.textScalerOf(context),
+        )..layout();
+        final center = painter
+            .getBoxesForSelection(
+              const TextSelection(baseOffset: 0, extentOffset: 1),
+            )
+            .first
+            .toRect()
+            .center
+            .dy;
+        painter.dispose();
+        vertical = ((center - 8) / (targetHeight - 16) * 2 - 1).clamp(-1, 1);
+      }
+      alignment = AlignmentDirectional(
+        -1,
+        vertical,
+      ).resolve(Directionality.of(context));
+    }
     final border = checked
         ? tokens.primary
         : widget.invalid
@@ -207,13 +245,8 @@ class _DCheckboxState extends State<DCheckbox> {
                 : widget.inline
                 ? 16 + DSpacing.sm
                 : 40,
-            height: touch ? 48 : 32,
-            child: Align(
-              alignment: widget.inline
-                  ? AlignmentDirectional.centerStart
-                  : widget.alignment,
-              child: artwork,
-            ),
+            height: targetHeight,
+            child: Align(alignment: alignment, child: artwork),
           )
         : ConstrainedBox(
             constraints: BoxConstraints(minHeight: touch ? 48 : 16),

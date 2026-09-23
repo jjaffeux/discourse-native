@@ -87,6 +87,99 @@ void main() {
     'assets/fonts/OpenSans.ttf',
     if (Platform.isMacOS) '/System/Library/Fonts/SFNS.ttf',
   ]) {
+    for (final scale in [1.0, 2.0]) {
+      for (final marker in ['- [ ] ', '[ ] ']) {
+        for (final label in [
+          '',
+          'dzadza',
+          'A task that wraps onto several lines ' * 3,
+        ]) {
+          testWidgets('todo row parts align for $marker with $font '
+              'at $scale and ${label.length} characters', (tester) async {
+            await (FontLoader(font)..addFont(
+                  font.startsWith('assets/')
+                      ? rootBundle.load(font)
+                      : Future.value(
+                          ByteData.sublistView(File(font).readAsBytesSync()),
+                        ),
+                ))
+                .load();
+            final root = await pumpEditor(
+              tester,
+              '$marker$label',
+              platform: TargetPlatform.macOS,
+              scale: scale,
+              textStyle: AppTheme.light.textTheme.bodyLarge!.copyWith(
+                fontFamily: font,
+              ),
+            );
+            final body = bodies(tester).firstOrNull ?? root;
+            Rect line;
+            if (label.isEmpty) {
+              final hint = tester.renderObject<RenderParagraph>(
+                find.text('To-do'),
+              );
+              line = MatrixUtils.transformRect(
+                hint.getTransformTo(null),
+                hint
+                    .getBoxesForSelection(
+                      const TextSelection(baseOffset: 0, extentOffset: 5),
+                    )
+                    .first
+                    .toRect(),
+              );
+            } else {
+              final start = identical(body, root) ? marker.length : 0;
+              final render = tester
+                  .state<EditableTextState>(editable(body))
+                  .renderEditable;
+              render.selectionHeightStyle = BoxHeightStyle.tight;
+              line = MatrixUtils.transformRect(
+                render.getTransformTo(null),
+                render
+                    .getBoxesForSelection(
+                      TextSelection(
+                        baseOffset: start,
+                        extentOffset: start + label.length,
+                      ),
+                    )
+                    .first
+                    .toRect(),
+              );
+            }
+            final add = tester.getRect(find.byTooltip('Add block'));
+            final handle = tester.getRect(
+              find.byTooltip('Drag to move or click to open menu'),
+            );
+            final artwork = tester.getRect(
+              find.descendant(
+                of: find.byType(DCheckbox),
+                matching: find.byType(AnimatedContainer),
+              ),
+            );
+            await tester.pumpWidget(const SizedBox());
+            await tester.pumpAndSettle();
+            expect(
+              add.center.dy,
+              closeTo(line.center.dy, scale),
+              reason: 'Add action and first text line',
+            );
+            expect(handle.center.dy, add.center.dy);
+            expect(
+              artwork.center.dy,
+              closeTo(line.center.dy, scale),
+              reason: 'Checkbox artwork and first text line',
+            );
+            expect(tester.takeException(), isNull);
+          });
+        }
+      }
+    }
+  }
+  for (final font in [
+    'assets/fonts/OpenSans.ttf',
+    if (Platform.isMacOS) '/System/Library/Fonts/SFNS.ttf',
+  ]) {
     for (final platform in [TargetPlatform.macOS, TargetPlatform.android]) {
       for (final scale in [1.0, 2.0]) {
         testWidgets(

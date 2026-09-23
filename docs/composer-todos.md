@@ -88,3 +88,12 @@ light/narrow layouts with the image fallback preview.
 Return after an uploaded image reuses its empty continuation line for the next
 item. Trailing spaces and indentation on a structural separator do not introduce
 an extra row between tasks. Additional authored blank lines remain visible.
+
+Todo checkbox artwork uses Native's `inlineTextStyle` to align with the first
+text line while preserving the complete click target. Block actions follow the
+same line, including empty placeholders, wrapped labels and legacy bare todos.
+Regression coverage uses Open Sans and the macOS system font at 100% and 200%,
+plus full-target activation on desktop and touch layouts. The isolated macOS
+fixture verified empty and typed todos in dark/wide and light/narrow layouts.
+Static analysis and 278 focused checkbox, styleguide, composer and posted-todo
+tests passed. Touch coverage is from widget tests, not physical-device review.
