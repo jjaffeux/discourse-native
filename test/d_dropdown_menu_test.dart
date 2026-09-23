@@ -289,6 +289,63 @@ void main() {
     },
   );
 
+  for (final platform in [
+    TargetPlatform.iOS,
+    TargetPlatform.android,
+    TargetPlatform.fuchsia,
+    TargetPlatform.macOS,
+  ]) {
+    testWidgets('initial row highlight and keyboard navigation on $platform', (
+      tester,
+    ) async {
+      await pumpMenu(tester, theme: ThemeData(platform: platform));
+      await open(tester);
+
+      Color rowColor(String label) {
+        final row = tester.widget<Container>(
+          find
+              .ancestor(
+                of: find.text(label),
+                matching: find.byWidgetPredicate(
+                  (widget) =>
+                      widget is Container && widget.decoration is BoxDecoration,
+                ),
+              )
+              .first,
+        );
+        return (row.decoration! as BoxDecoration).color!;
+      }
+
+      expect(
+        rowColor('Profile'),
+        platform == TargetPlatform.macOS
+            ? isNot(Colors.transparent)
+            : Colors.transparent,
+      );
+      expect(rowColor('Billing'), Colors.transparent);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.pumpAndSettle();
+      expect(rowColor('Profile'), Colors.transparent);
+      expect(rowColor('Billing'), isNot(Colors.transparent));
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pumpAndSettle();
+      expect(find.text('Billing selected'), findsOneWidget);
+
+      await open(tester);
+      expect(
+        rowColor('Profile'),
+        platform == TargetPlatform.macOS
+            ? isNot(Colors.transparent)
+            : Colors.transparent,
+      );
+      await tester.tap(find.text('Billing'));
+      await tester.pumpAndSettle();
+      expect(find.text('Disabled API'), findsNothing);
+    });
+  }
+
   testWidgets('Return opens and arrows/Home/End skip disabled rows', (
     tester,
   ) async {
@@ -688,6 +745,8 @@ void main() {
         child: const _ShortcutColorHarness(),
       );
       await open(tester);
+      await tester.sendKeyEvent(LogicalKeyboardKey.home);
+      await tester.pump();
 
       expect(
         DefaultTextStyle.of(tester.element(find.text('Profile'))).style.color,
