@@ -57,8 +57,23 @@ Future<String?> showEmojiPicker({
           semanticLabel: 'Emoji',
           topBottomMaxHeightFactor: 1,
           scrollWholeSheet: false,
+          showCloseButton: false,
           children: [
-            const DSheetHeader(children: [DSheetTitle(child: Text('Emoji'))]),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+              child: Row(
+                children: [
+                  const Expanded(child: DSheetTitle(child: Text('Emoji'))),
+                  DButton.iconOnly(
+                    key: const ValueKey('emoji-picker-close'),
+                    icon: const DIcon(DIcons.xmark),
+                    tooltip: 'Close',
+                    variant: DButtonVariant.transparentBackground,
+                    onPressed: sheet.close,
+                  ),
+                ],
+              ),
+            ),
             Expanded(
               child: _EmojiPickerFocusOwner(
                 focusNode: searchFocus,
@@ -382,11 +397,14 @@ class _EmojiPickerState extends State<EmojiPicker> {
           builder: (context, _) => Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              _SearchAndTone(
-                controller: widget.controller,
-                search: _search,
-                searchFocus: _searchFocus,
-                onSearchKey: _onSearchKey,
+              Padding(
+                padding: EdgeInsets.symmetric(horizontal: touch ? 16 : 0),
+                child: _SearchAndTone(
+                  controller: widget.controller,
+                  search: _search,
+                  searchFocus: _searchFocus,
+                  onSearchKey: _onSearchKey,
+                ),
               ),
               const SizedBox(height: 8),
               Expanded(child: touch ? _touchContent() : _desktopContent()),
@@ -426,6 +444,7 @@ class _EmojiPickerState extends State<EmojiPicker> {
       children: [
         Expanded(child: _content(groups)),
         if (!widget.controller.hasQuery && groups.isNotEmpty) ...[
+          const DSeparator(space: 1),
           const SizedBox(height: 4),
           _CategoryNavigation(
             groups: groups,
@@ -502,7 +521,10 @@ class _EmojiPickerState extends State<EmojiPicker> {
         return CustomScrollView(
           key: const ValueKey('emoji-picker-search-results'),
           controller: _scroll,
-          slivers: [_emojiGrid(choices, sectionId: 'search', baseIndex: 0)],
+          slivers: [
+            _emojiGrid(choices, sectionId: 'search', baseIndex: 0),
+            const SliverToBoxAdapter(child: SizedBox(height: 16)),
+          ],
         );
       },
     );
@@ -527,11 +549,16 @@ class _EmojiPickerState extends State<EmojiPicker> {
             SliverToBoxAdapter(
               child: SizedBox(
                 height: _sectionHeaderExtent,
-                child: _SectionHeader(
-                  label: group.label,
-                  frequent: group.id == _frequentGroup,
-                  clearing: widget.controller.clearingHistory,
-                  onClear: widget.controller.clearHistory,
+                child: Padding(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: (widget.touch ?? context.isTouch) ? 16 : 0,
+                  ),
+                  child: _SectionHeader(
+                    label: group.label,
+                    frequent: group.id == _frequentGroup,
+                    clearing: widget.controller.clearingHistory,
+                    onClear: widget.controller.clearHistory,
+                  ),
                 ),
               ),
             ),
@@ -570,7 +597,10 @@ class _EmojiPickerState extends State<EmojiPicker> {
         return CustomScrollView(
           key: const ValueKey('emoji-picker-groups'),
           controller: _scroll,
-          slivers: slivers,
+          slivers: [
+            ...slivers,
+            const SliverToBoxAdapter(child: SizedBox(height: 16)),
+          ],
         );
       },
     );
@@ -814,7 +844,7 @@ class _SearchAndTone extends StatelessWidget {
         Expanded(
           child: Focus(
             onKeyEvent: onSearchKey,
-            child: TextField(
+            child: DInput(
               style: Theme.of(context).textTheme.bodyMedium,
               key: const ValueKey('emoji-picker-search'),
               controller: search,
@@ -823,32 +853,26 @@ class _SearchAndTone extends StatelessWidget {
               inputFormatters: [LengthLimitingTextInputFormatter(100)],
               textInputAction: TextInputAction.search,
               onChanged: controller.updateQuery,
-              decoration: InputDecoration(
-                isDense: true,
-                hintText: 'Search emoji',
-                prefixIcon: const Padding(
-                  padding: EdgeInsets.all(11),
-                  child: DIcon(DIcons.magnifyingGlass, size: 17),
-                ),
-                suffixIcon: search.text.isEmpty
-                    ? null
-                    : DButton.iconOnly(
-                        key: const ValueKey('emoji-picker-clear-search'),
-                        onPressed: () {
-                          search.clear();
-                          controller.updateQuery('');
-                          searchFocus.requestFocus();
-                        },
-                        variant: DButtonVariant.ghost,
-                        tooltip: 'Clear search',
-                        icon: const DIcon(DIcons.xmark),
-                      ),
-                border: const OutlineInputBorder(),
-              ),
+              semanticLabel: 'Search emoji',
+              hintText: 'Search emoji',
+              prefix: const DIcon(DIcons.magnifyingGlass),
+              suffix: search.text.isEmpty
+                  ? null
+                  : DButton.iconOnly(
+                      key: const ValueKey('emoji-picker-clear-search'),
+                      onPressed: () {
+                        search.clear();
+                        controller.updateQuery('');
+                        searchFocus.requestFocus();
+                      },
+                      variant: DButtonVariant.ghost,
+                      tooltip: 'Clear search',
+                      icon: const DIcon(DIcons.xmark),
+                    ),
             ),
           ),
         ),
-        const SizedBox(width: 4),
+        const SizedBox(width: DSpacing.controlGap),
         _ToneMenu(controller: controller),
       ],
     );
@@ -925,7 +949,7 @@ class _TonePreview extends StatelessWidget {
   }
 }
 
-class _CategoryNavigation extends StatelessWidget {
+class _CategoryNavigation extends StatefulWidget {
   const _CategoryNavigation({
     required this.groups,
     required this.activeGroup,
@@ -939,31 +963,75 @@ class _CategoryNavigation extends StatelessWidget {
   final ValueChanged<String> onSelected;
 
   @override
+  State<_CategoryNavigation> createState() => _CategoryNavigationState();
+}
+
+class _CategoryNavigationState extends State<_CategoryNavigation> {
+  final Map<String, GlobalKey> _categoryKeys = {};
+
+  @override
+  void initState() {
+    super.initState();
+    _revealActiveCategory();
+  }
+
+  @override
+  void didUpdateWidget(_CategoryNavigation oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.activeGroup != widget.activeGroup ||
+        oldWidget.vertical != widget.vertical) {
+      _revealActiveCategory();
+    }
+  }
+
+  void _revealActiveCategory() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final target = _categoryKeys[widget.activeGroup]?.currentContext;
+      if (target == null) return;
+      // Reveal only the category strip; do not move the emoji grid or focus.
+      final scrollable = Scrollable.of(target);
+      final renderObject = target.findRenderObject();
+      if (renderObject == null) return;
+      unawaited(
+        scrollable.position.ensureVisible(
+          renderObject,
+          alignment: .5,
+          duration: const Duration(milliseconds: 180),
+          curve: Curves.easeOut,
+        ),
+      );
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
     final children = [
-      for (final group in groups)
+      for (final group in widget.groups)
         _CategoryButton(
+          key: _categoryKeys.putIfAbsent(group.id, GlobalKey.new),
           group: group,
-          selected: group.id == activeGroup,
-          onPressed: () => onSelected(group.id),
+          selected: group.id == widget.activeGroup,
+          onPressed: () => widget.onSelected(group.id),
         ),
     ];
-    if (vertical) {
-      return SingleChildScrollView(
-        key: const ValueKey('emoji-picker-category-nav-desktop'),
-        child: Column(children: children),
-      );
-    }
     return SingleChildScrollView(
-      key: const ValueKey('emoji-picker-category-nav-touch'),
-      scrollDirection: Axis.horizontal,
-      child: Row(children: children),
+      key: ValueKey(
+        widget.vertical
+            ? 'emoji-picker-category-nav-desktop'
+            : 'emoji-picker-category-nav-touch',
+      ),
+      scrollDirection: widget.vertical ? Axis.vertical : Axis.horizontal,
+      child: widget.vertical
+          ? Column(children: children)
+          : Row(children: children),
     );
   }
 }
 
 class _CategoryButton extends StatelessWidget {
   const _CategoryButton({
+    super.key,
     required this.group,
     required this.selected,
     required this.onPressed,
