@@ -957,6 +957,64 @@ class _SelectedPillInputFormatter extends TextInputFormatter {
   }
 }
 
+bool _startsNewParagraph(ComposerBlockIndex index, TextSelection selection) {
+  if (!selection.isValid) return false;
+  final block = index.atOffset(selection.start);
+  if (block == null ||
+      selection.start < block.start ||
+      selection.end > block.end) {
+    return false;
+  }
+  return block.kind == ComposerBlockKind.paragraph ||
+      block.kind == ComposerBlockKind.heading ||
+      (selection.isCollapsed &&
+          selection.start == block.end &&
+          block.movable &&
+          (block.kind == ComposerBlockKind.divider ||
+              block.kind == ComposerBlockKind.code));
+}
+
+class _ParagraphInputFormatter extends TextInputFormatter {
+  const _ParagraphInputFormatter(this.composer);
+
+  final ComposerController composer;
+
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    if (HardwareKeyboard.instance.isShiftPressed ||
+        !oldValue.composing.isCollapsed ||
+        !newValue.composing.isCollapsed ||
+        !_startsNewParagraph(composer.blocks.index, oldValue.selection)) {
+      return newValue;
+    }
+    final selection = oldValue.selection;
+    final newline = oldValue.text.contains('\r\n') ? '\r\n' : '\n';
+    if (newValue.text !=
+            oldValue.text.replaceRange(
+              selection.start,
+              selection.end,
+              newline,
+            ) ||
+        newValue.selection !=
+            TextSelection.collapsed(offset: selection.start + newline.length)) {
+      return newValue;
+    }
+    return newValue.copyWith(
+      text: oldValue.text.replaceRange(
+        selection.start,
+        selection.end,
+        '$newline$newline',
+      ),
+      selection: TextSelection.collapsed(
+        offset: selection.start + newline.length * 2,
+      ),
+    );
+  }
+}
+
 class _RenderedEmojiInputFormatter extends TextInputFormatter {
   const _RenderedEmojiInputFormatter({
     required this.endingAt,
@@ -1702,6 +1760,10 @@ class _ComposerEditorState extends State<ComposerEditor> {
                             referenceMarkers:
                                 widget.composer.text.todoReferenceMarkers,
                           ),
+                        if (context.isTouch &&
+                            widget.composer.text.enableBlockSeparators &&
+                            !widget.composer.singleNewlineParagraphs)
+                          _ParagraphInputFormatter(widget.composer),
                         ...widget.composer.inputFormatters,
                       ],
                       contextMenuBuilder: _contextMenu,
@@ -2204,10 +2266,12 @@ class _ComposerEditorState extends State<ComposerEditor> {
       }
       if (isEnter && event is KeyDownEvent) {
         final offset = text.selection.extentOffset;
+        final newline = text.text.contains('\r\n') ? '\r\n' : '\n';
+        final insertion = '$newline$newline';
         text.value = TextEditingValue(
-          text: text.text.replaceRange(offset, offset, '\n'),
+          text: text.text.replaceRange(offset, offset, insertion),
           selection: TextSelection.collapsed(
-            offset: before ? offset : offset + 1,
+            offset: before ? offset : offset + insertion.length,
           ),
         );
         return KeyEventResult.handled;
@@ -2237,9 +2301,10 @@ class _ComposerEditorState extends State<ComposerEditor> {
         !hasModifier) {
       final start = _pillStart(selectedComponent);
       final value = widget.composer.text.value;
+      final newline = value.text.contains('\r\n') ? '\r\n' : '\n';
       _clearKeyboardPillSelection();
       widget.composer.text.value = TextEditingValue(
-        text: value.text.replaceRange(start, start, '\n'),
+        text: value.text.replaceRange(start, start, '$newline$newline'),
         selection: TextSelection.collapsed(offset: start),
       );
       return KeyEventResult.handled;
@@ -2342,12 +2407,10 @@ class _ComposerEditorState extends State<ComposerEditor> {
     }
     final value = widget.composer.text.value;
     final selection = value.selection;
-    final paragraph = widget.composer.blocks.index.atOffset(selection.start);
-    final isInParagraph =
-        selection.isValid &&
-        paragraph?.kind == ComposerBlockKind.paragraph &&
-        selection.start >= paragraph!.start &&
-        selection.end <= paragraph.end;
+    final isParagraphBreak = _startsNewParagraph(
+      widget.composer.blocks.index,
+      selection,
+    );
     if (isEnter &&
         !widget.composer.discarding &&
         (keyboard.isShiftPressed || !widget.composer.autocomplete.isOpen) &&
@@ -2355,7 +2418,7 @@ class _ComposerEditorState extends State<ComposerEditor> {
         !keyboard.isControlPressed &&
         !keyboard.isAltPressed &&
         value.composing.isCollapsed &&
-        (isInParagraph ||
+        (isParagraphBreak ||
             widget.composer.singleNewlineParagraphs ||
             _blockquoteInputFormatter.isInQuote(value) ||
             widget.composer.text.todos.any(
@@ -2368,7 +2431,7 @@ class _ComposerEditorState extends State<ComposerEditor> {
       if (editable == null) return KeyEventResult.ignored;
       final newline = value.text.contains('\r\n') ? '\r\n' : '\n';
       final insertion =
-          isInParagraph &&
+          isParagraphBreak &&
               !keyboard.isShiftPressed &&
               !widget.composer.singleNewlineParagraphs
           ? '$newline$newline'
@@ -2821,7 +2884,7 @@ class _ComposerEditorState extends State<ComposerEditor> {
         ? text.selection.extentOffset.clamp(0, text.text.length)
         : editable.getPositionForPoint(position).offset;
     final start = offset == 0 ? 0 : text.text.lastIndexOf('\n', offset - 1) + 1;
-    if (text.blockSeparators.any(
+    if (text.blockGaps.any(
       (separator) => start > separator.start && start < separator.end,
     )) {
       return null;
