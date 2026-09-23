@@ -215,6 +215,39 @@ void main() {
     return composer;
   }
 
+  testWidgets('todo artwork aligns with ordinary composer text', (
+    tester,
+  ) async {
+    final composer = await pump(tester);
+    await tester.enterText(
+      find.byType(EditableText),
+      'Paragraph\n[ ] Open\n[x] Done',
+    );
+    await tester.pumpAndSettle();
+    final editable = tester
+        .state<EditableTextState>(find.byType(EditableText))
+        .renderEditable;
+    final textStart = editable
+        .localToGlobal(
+          editable.getLocalRectForCaret(const TextPosition(offset: 0)).topLeft,
+        )
+        .dx;
+    final artwork = find.descendant(
+      of: find.byType(DCheckbox),
+      matching: find.byType(AnimatedContainer),
+    );
+    expect(artwork, findsNWidgets(2));
+    for (final marker in artwork.evaluate()) {
+      expect(
+        tester.getTopLeft(find.byWidget(marker.widget)).dx,
+        closeTo(textStart, 0.1),
+      );
+    }
+    await tester.tap(find.byType(DCheckbox).first);
+    await tester.pump();
+    expect(composer.text.text, 'Paragraph\n[x] Open\n[x] Done');
+  });
+
   for (final query in ['todo', 'checklist', 'checkbox', 'task']) {
     testWidgets('/$query inserts an editable unchecked item', (tester) async {
       final composer = await pump(tester);

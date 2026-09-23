@@ -4,6 +4,7 @@ import 'dart:ui'
         SemanticsAction,
         SemanticsActionEvent,
         SemanticsValidationResult;
+
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -28,6 +29,54 @@ Widget host(
 );
 
 void main() {
+  for (final platform in [TargetPlatform.macOS, TargetPlatform.iOS]) {
+    for (final direction in TextDirection.values) {
+      testWidgets('start alignment preserves $platform $direction target', (
+        tester,
+      ) async {
+        var changes = 0;
+        await tester.pumpWidget(
+          host(
+            Center(
+              child: DCheckbox.defaultValue(
+                alignment: AlignmentDirectional.centerStart,
+                onChanged: (_) => changes++,
+              ),
+            ),
+            platform: platform,
+            direction: direction,
+          ),
+        );
+        final target = tester.getRect(find.byType(DCheckbox));
+        final artwork = tester.getRect(
+          find.descendant(
+            of: find.byType(DCheckbox),
+            matching: find.byType(AnimatedContainer),
+          ),
+        );
+        expect(
+          target.size,
+          platform == TargetPlatform.iOS
+              ? const Size(48, 48)
+              : const Size(40, 32),
+        );
+        expect(
+          direction == TextDirection.ltr ? artwork.left : artwork.right,
+          direction == TextDirection.ltr ? target.left : target.right,
+        );
+        // The empty trailing area must remain clickable.
+        await tester.tapAt(
+          Offset(
+            direction == TextDirection.ltr ? target.right - 2 : target.left + 2,
+            target.center.dy,
+          ),
+        );
+        await tester.pump();
+        expect(changes, 1);
+      });
+    }
+  }
+
   test('binary controlled forms reject a mixed reset proposal', () {
     expect(
       () => DCheckboxFormField.controlled(
