@@ -8,7 +8,7 @@ final historyTransitionExamples = ComponentExamples(
   description: 'Back and forward pages follow a touch swipe from the edge.',
   notes:
       'Open a page to populate history, then drag inward from the first or last '
-      '24 pixels using touch. Release past one quarter of the width or flick '
+      '48 pixels using touch. Travel at least 64 pixels or flick '
       'to commit; release a short drag to return. RTL mirrors both directions. '
       'The page underneath brightens as it is revealed, while a soft shadow '
       'follows the front page’s edge. Forward navigation reverses that depth. '
