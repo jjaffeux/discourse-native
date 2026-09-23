@@ -26,6 +26,7 @@ class TopicBookmarkButton extends StatelessWidget {
     this.showLabel = false,
     this.variant,
     this.size = DButtonSize.small,
+    this.density = DButtonDensity.standard,
   });
 
   final String siteUrl;
@@ -34,6 +35,7 @@ class TopicBookmarkButton extends StatelessWidget {
   final bool showLabel;
   final DButtonVariant? variant;
   final DButtonSize size;
+  final DButtonDensity density;
 
   @override
   Widget build(BuildContext context) {
@@ -82,6 +84,7 @@ class TopicBookmarkButton extends StatelessWidget {
         interactiveBackgroundColor: selectedSurface?.hover,
         hasPopup: true,
         size: size,
+        density: density,
       );
     }
     return DButton.iconOnly(
@@ -97,6 +100,7 @@ class TopicBookmarkButton extends StatelessWidget {
       interactiveBackgroundColor: selectedSurface?.hover,
       hasPopup: true,
       size: size,
+      density: density,
     );
   }
 }
@@ -180,12 +184,14 @@ class TopicStatusButton extends StatefulWidget {
     required this.topic,
     this.topicFlags = const [],
     this.variant = DButtonVariant.transparentBackground,
+    this.density = DButtonDensity.standard,
   });
 
   final String siteUrl;
   final TopicDetail topic;
   final List<PostFlagType> topicFlags;
   final DButtonVariant variant;
+  final DButtonDensity density;
 
   @override
   State<TopicStatusButton> createState() => _TopicStatusButtonState();
@@ -455,6 +461,7 @@ class _TopicStatusButtonState extends State<TopicStatusButton> {
             loading: busy,
             variant: widget.variant,
             size: DButtonSize.regular,
+            density: widget.density,
             icon: const DIcon(DIcons.wrench),
           ),
         ),
@@ -469,8 +476,10 @@ class TopicNotificationLevelButton extends StatelessWidget {
     required this.siteUrl,
     required this.topic,
     this.showLabel = false,
+    this.showChevron = false,
     this.variant,
     this.size = DButtonSize.small,
+    this.density = DButtonDensity.standard,
     this.backgroundColor,
     this.borderColor,
     this.interactiveBackgroundColor,
@@ -479,8 +488,10 @@ class TopicNotificationLevelButton extends StatelessWidget {
   final String siteUrl;
   final TopicDetail topic;
   final bool showLabel;
+  final bool showChevron;
   final DButtonVariant? variant;
   final DButtonSize size;
+  final DButtonDensity density;
   final Color? backgroundColor;
   final Color? borderColor;
   final Color? interactiveBackgroundColor;
@@ -526,8 +537,10 @@ class TopicNotificationLevelButton extends StatelessWidget {
           semanticLabel: 'Topic notifications',
           buttonKey: const ValueKey('topic-notification-level-button'),
           showLabel: showLabel,
+          showChevron: showChevron,
           variant: variant,
           size: size,
+          density: density,
           backgroundColor: backgroundColor,
           borderColor: borderColor,
           interactiveBackgroundColor: interactiveBackgroundColor,

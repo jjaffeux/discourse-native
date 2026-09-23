@@ -70,6 +70,13 @@ Mobile tab buttons use the approved `DButtonDensity.mobileNavigation` preset:
 44px artwork and full 18px glyphs on every platform, including desktop previews.
 The preset removes DIcon’s ordinary optical inset within the button.
 It supersedes the size preset, grows with text scaling and retains a 48px target.
+Mobile topic header actions use the September 23 approved
+`DButtonDensity.compactToolbar` preset: 24px-high surfaces, 32px-wide icon-only
+actions, 14px icons and small typography. Both Button constructors and
+`DNotificationLevelMenu` accept the density. It supersedes the size preset,
+grows with text scaling and retains at least 48px targets on every platform,
+so the compact artwork remains usable by touch. Header taxonomy chips keep
+their regular control size.
 Chat reaction chips use the explicitly approved `DToggleDensity.reaction`:
 28px artwork, 18px emoji, 12px counts with 16px leading, and symmetric 8px
 horizontal padding. This density supersedes the size preset, grows with text

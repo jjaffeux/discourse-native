@@ -385,14 +385,15 @@ class _MobileTopicHeaderActions extends StatelessWidget {
               targetId: topic.id,
             ),
             variant: DButtonVariant.outline,
-            size: DButtonSize.regular,
+            density: DButtonDensity.compactToolbar,
           ),
         if (instance?.isConnected == true)
           TopicNotificationLevelButton(
+            showChevron: true,
             siteUrl: siteUrl,
             topic: topic,
             variant: DButtonVariant.outline,
-            size: DButtonSize.regular,
+            density: DButtonDensity.compactToolbar,
           ),
         if (topic.privateMessage &&
             instance?.isConnected == true &&
@@ -410,6 +411,7 @@ class _MobileTopicHeaderActions extends StatelessWidget {
           topic: topic,
           topicFlags: shell.availableTopicFlagTypes(siteUrl, topic),
           variant: DButtonVariant.outline,
+          density: DButtonDensity.compactToolbar,
         ),
       ],
     );
@@ -1089,6 +1091,9 @@ class _TopicPropertyPopoverState extends State<_TopicPropertyPopover> {
             icon: const DIcon(DIcons.ellipsis),
             tooltip: section.label,
             size: DButtonSize.large,
+            density: ShellScope.read(context).mobileNavigationEnabled
+                ? DButtonDensity.compactToolbar
+                : DButtonDensity.standard,
             variant: DButtonVariant.ghost,
             hasPopup: true,
             expanded: expanded,

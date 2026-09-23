@@ -47,10 +47,14 @@ enum DButtonIconPosition { start, end }
 /// Pill also produces a circular surface for icon-only buttons.
 enum DButtonShape { rounded, pill }
 
-/// Mobile navigation keeps 44px artwork and 18px icons on every platform.
+/// Named artwork presets with shared styling and accessible touch targets.
 enum DButtonDensity {
   standard,
   mobileNavigation,
+
+  /// Short toolbar surfaces: 24px high, 32px wide for icon-only actions,
+  /// with 14px icons and at least 48px targets on every platform.
+  compactToolbar,
 
   /// Narrow desktop block actions, retaining regular icons and height.
   composerBlock,
@@ -365,6 +369,7 @@ class DButton extends StatelessWidget {
     this.isLink = false,
     this.variant = DButtonVariant.primary,
     this.size = DButtonSize.regular,
+    this.density = DButtonDensity.standard,
     this.loading = false,
     this.loadingSemanticLabel = 'Loading',
     this.loadingLabel,
@@ -383,8 +388,7 @@ class DButton extends StatelessWidget {
     this.foregroundColor,
     this.borderColor,
     this.interactiveBackgroundColor,
-  }) : density = DButtonDensity.standard,
-       _iconOnly = false;
+  }) : _iconOnly = false;
 
   const DButton.iconOnly({
     super.key,
@@ -446,6 +450,8 @@ class DButton extends StatelessWidget {
 
   /// Mobile navigation supersedes [size] with a 44px surface, 18px icon and
   /// regular typography. It retains a 48px target and grows with text scaling.
+  /// Compact toolbar supersedes [size] with small typography, 14px icons and
+  /// 24px artwork (32px wide for icon-only actions), retaining a 48px target.
   final DButtonDensity density;
 
   final bool loading;
@@ -620,21 +626,27 @@ class DButton extends StatelessWidget {
     final dark = theme.brightness == Brightness.dark;
     final variantStyle = _referenceStyle(tokens, dark);
     final mobileNavigation = density == DButtonDensity.mobileNavigation;
+    final compactToolbar = density == DButtonDensity.compactToolbar;
     final composerBlock = _iconOnly && density == DButtonDensity.composerBlock;
-    final effectiveSize = mobileNavigation || composerBlock
+    final effectiveSize = compactToolbar
+        ? DButtonSize.small
+        : mobileNavigation || composerBlock
         ? DButtonSize.regular
         : size;
     final fontSize = DControlStyle.fontSize(effectiveSize, context: context);
     final spacingUnit = mobileNavigation
         ? 18.0
+        : compactToolbar
+        ? 14.0
         : DControlStyle.iconDimension(effectiveSize, context: context);
-    final gap = DControlStyle.contentGap(size);
+    final gap = DControlStyle.contentGap(effectiveSize);
     final visualDimension = DControlStyle.scaledHeight(
       effectiveSize,
       MediaQuery.textScalerOf(context),
-      context: context,
+      context: compactToolbar ? null : context,
     ).clamp(mobileNavigation ? 44.0 : 0.0, double.infinity);
-    final touch = mobileNavigation || DControlStyle.isTouch(context);
+    final touch =
+        mobileNavigation || compactToolbar || DControlStyle.isTouch(context);
     final enabled = onPressed != null && !loading;
     final baseRadius =
         borderRadius ??
@@ -651,6 +663,8 @@ class DButton extends StatelessWidget {
         ? composerBlockWidth(context)
         : touch && joined?.axis == Axis.horizontal
         ? visualDimension.clamp(48.0, double.infinity)
+        : compactToolbar
+        ? visualDimension + 8
         : visualDimension;
     final surfaceHeight = touch && joined?.axis == Axis.vertical
         ? visualDimension.clamp(48.0, double.infinity)
@@ -748,13 +762,13 @@ class DButton extends StatelessWidget {
                 start:
                     (icon != null || (loading && loadingLabel != null)) &&
                         iconPosition == DButtonIconPosition.start
-                    ? (size == DButtonSize.small ? 6 : 8)
-                    : (size == DButtonSize.small ? 8 : 12),
+                    ? (effectiveSize == DButtonSize.small ? 6 : 8)
+                    : (effectiveSize == DButtonSize.small ? 8 : 12),
                 end:
                     (icon != null || (loading && loadingLabel != null)) &&
                         iconPosition == DButtonIconPosition.end
-                    ? (size == DButtonSize.small ? 6 : 8)
-                    : (size == DButtonSize.small ? 8 : 12),
+                    ? (effectiveSize == DButtonSize.small ? 6 : 8)
+                    : (effectiveSize == DButtonSize.small ? 8 : 12),
                 top: 1,
                 bottom: 1,
               )),
