@@ -26,13 +26,19 @@ class ProgressiveHtmlMode extends RenderMode {
 
 /// Lets the topic track unfinished parsing and mounting of a post body.
 class HtmlBodyMountingNotification extends Notification {
-  const HtmlBodyMountingNotification(this.completion);
+  const HtmlBodyMountingNotification(
+    this.completion, {
+    this.layoutPending = true,
+  });
 
   final Future<void> completion;
+
+  /// False when only the offscreen tail remains to be mounted.
+  final bool layoutPending;
 }
 
-/// Tracks the HTML parser's placeholder using the same completion signal as
-/// progressive mounting, without changing its appearance.
+/// Tracks parser and image placeholders until their content is laid out,
+/// using the same completion signal as progressive mounting.
 class HtmlBodyLoading extends StatefulWidget {
   const HtmlBodyLoading({super.key, required this.child});
 
@@ -80,7 +86,10 @@ class _ProgressiveHtmlBodyState extends State<_ProgressiveHtmlBody> {
   @override
   void initState() {
     super.initState();
-    HtmlBodyMountingNotification(_completion.future).dispatch(context);
+    HtmlBodyMountingNotification(
+      _completion.future,
+      layoutPending: false,
+    ).dispatch(context);
     _HtmlMountQueue.add(this);
   }
 

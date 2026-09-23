@@ -360,6 +360,8 @@ class _SiteImageState extends State<SiteImage> {
       height: widget.height,
       excludeFromSemantics: true,
       gaplessPlayback: true,
+      frameBuilder: (context, child, frame, _) =>
+          frame == null ? widget.loadingBuilder?.call(context) ?? child : child,
       errorBuilder: widget.errorBuilder,
     );
   }
@@ -569,10 +571,12 @@ final class SiteImageWidgetFactory extends WidgetFactory {
   ]) {
     if (data is ImageSource && _isAvatar(tree)) return _avatarFallback;
     final child = super.onLoadingBuilder(context, tree, loadingProgress, data);
-    return data == null &&
-            columnBodyMode is ProgressiveHtmlMode &&
-            child != null
-        ? HtmlBodyLoading(child: child)
+    final needsLayout =
+        data == null ||
+        (data is ImageSource &&
+            ((data.width ?? 0) <= 0 || (data.height ?? 0) <= 0));
+    return needsLayout && columnBodyMode is ProgressiveHtmlMode
+        ? HtmlBodyLoading(child: child ?? const SizedBox.shrink())
         : child;
   }
 

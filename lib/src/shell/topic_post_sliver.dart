@@ -8,11 +8,12 @@ import 'package:super_sliver_list/src/element.dart';
 import 'package:super_sliver_list/src/render_object.dart';
 import 'package:super_sliver_list/super_sliver_list.dart';
 
-/// Resolves a topic's initial position after measuring its slivers, before paint.
+/// Positions the reader before paint, including while its anchor changes size.
 class TopicPostScrollController extends ScrollController {
-  TopicPostScrollController(this._initialOffset);
+  TopicPostScrollController(this._initialOffset, {required this.anchorOffset});
 
   double? Function()? _initialOffset;
+  final double? Function() anchorOffset;
 
   @override
   ScrollPosition createScrollPosition(
@@ -23,7 +24,7 @@ class TopicPostScrollController extends ScrollController {
     physics: physics,
     context: context,
     oldPosition: oldPosition,
-    initialOffset: () => _initialOffset?.call(),
+    targetOffset: () => _initialOffset?.call() ?? anchorOffset(),
     onPositioned: () => _initialOffset = null,
   );
 }
@@ -33,11 +34,11 @@ class _TopicPostScrollPosition extends ScrollPositionWithSingleContext {
     required super.physics,
     required super.context,
     super.oldPosition,
-    required this.initialOffset,
+    required this.targetOffset,
     required this.onPositioned,
   });
 
-  final double? Function() initialOffset;
+  final double? Function() targetOffset;
   final VoidCallback onPositioned;
 
   @override
@@ -45,7 +46,7 @@ class _TopicPostScrollPosition extends ScrollPositionWithSingleContext {
     if (!super.applyContentDimensions(minScrollExtent, maxScrollExtent)) {
       return false;
     }
-    final offset = initialOffset();
+    final offset = targetOffset();
     if (offset == null) return true;
     final target = offset.clamp(minScrollExtent, maxScrollExtent);
     if ((target - pixels).abs() > precisionErrorTolerance) {
