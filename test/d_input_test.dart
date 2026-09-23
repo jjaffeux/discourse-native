@@ -524,7 +524,7 @@ void main() {
       final surface = find.byType(AnimatedContainer);
       expect(
         tester.getTopLeft(find.byType(TextField)),
-        tester.getTopLeft(surface) + const Offset(11, 4),
+        tester.getTopLeft(surface) + const Offset(11, 7),
       );
       final padding = tester.getTopLeft(surface) + const Offset(4, 4);
       final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
@@ -648,10 +648,10 @@ void main() {
   );
 
   testWidgets(
-    '28px desktop bounds grow for 200% text without changing inset or overflowing RTL',
+    '34px desktop bounds grow for 200% text without changing inset or overflowing RTL',
     (tester) async {
       await tester.pumpWidget(host(DInput(hintText: 'Email')));
-      expect(tester.getSize(find.byType(DInput)).height, 28);
+      expect(tester.getSize(find.byType(DInput)).height, 34);
       final field = tester.widget<TextField>(find.byType(TextField));
       expect(field.style!.fontSize, 13);
       await tester.pumpWidget(
@@ -672,14 +672,14 @@ void main() {
   );
 
   testWidgets(
-    'file input retains 28px desktop geometry and grows for large text',
+    'file input retains 34px desktop geometry and grows for large text',
     (tester) async {
       await tester.pumpWidget(host(DFileInput(onPick: () async => null)));
-      expect(tester.getSize(find.byType(DFileInput)).height, 28);
+      expect(tester.getSize(find.byType(DFileInput)).height, 34);
       await tester.pumpWidget(
         host(DFileInput(onPick: () async => null), scale: 2),
       );
-      expect(tester.getSize(find.byType(DFileInput)).height, 42);
+      expect(tester.getSize(find.byType(DFileInput)).height, 41);
       expect(tester.takeException(), isNull);
     },
   );

@@ -21,6 +21,74 @@ void main() {
     'name': 'My night',
   }, id: 'custom-night');
 
+  test('light and dark presets and edits persist independently', () {
+    final solarized = forumThemePresets.firstWhere((t) => t.id == 'solarized');
+    const background = ForumBackground.appearance(
+      strength: .7,
+      transparency: .3,
+      effect: ForumBackgroundEffect.lava,
+    );
+    final preferences = ForumThemePreferences()
+        .withPalette(solarized)
+        .withPalette(dracula)
+        .withBackground(background)
+        .withFont(ForumFont.lato);
+    final edited = preferences.withPalette(
+      solarized.copyWith(tertiary: const Color(0xff112233)),
+    );
+    final restored = ForumThemePreferences.fromJson(edited.toJson());
+    expect(restored, edited);
+    expect(
+      restored.themeFor(Brightness.light)!.tertiary,
+      const Color(0xff112233),
+    );
+    expect(restored.themeFor(Brightness.dark)!.tertiary, dracula.tertiary);
+    expect(restored.themeFor(Brightness.light)!.background, background);
+    expect(restored.themeFor(Brightness.dark)!.background, background);
+    expect(restored.font, ForumFont.lato);
+    expect(restored.select(null).palettes, isEmpty);
+  });
+
+  test(
+    'reference tint mixes the accent into background and text separately',
+    () {
+      for (final mode in Brightness.values) {
+        final source = dracula.forBrightness(mode);
+        final resolved = source
+            .copyWith(background: const ForumBackground.appearance(strength: 1))
+            .resolve(mode);
+        expect(
+          resolved.secondary.toARGB32(),
+          Color.lerp(source.secondary, source.tertiary, .22)!.toARGB32(),
+        );
+        expect(
+          resolved.primary.toARGB32(),
+          Color.lerp(source.primary, source.tertiary, .11)!.toARGB32(),
+        );
+      }
+    },
+  );
+
+  test('live palettes are visible before persistence completes', () async {
+    final persistence = _Persistence()..gate = Completer<void>();
+    final settings = ForumSettingsController(
+      store: ForumSettingsStore(persistence: persistence),
+    );
+    addTearDown(settings.dispose);
+    final loading = settings.load(site);
+    await persistence.readStarted.future;
+    final next = ForumThemePreferences().withPalette(dracula);
+    final saving = settings.setThemes(site, next);
+    expect(settings.themesFor(site), next);
+    expect(
+      settings.appearanceFor(site, null)!.alternate!.tertiary,
+      dracula.tertiary,
+    );
+    persistence.gate!.complete();
+    await Future.wait([loading, saving]);
+    expect(await settings.store.loadThemes(site), next);
+  });
+
   test('paired appearances resolve and persist their own surface settings', () {
     final source = forumThemePresets.first;
     const lightBackground = ForumBackground(

@@ -64,6 +64,20 @@ final selectExamples = ComponentExamples(
       builder: (_) => const _FruitSelectDemo(),
     ),
     StyleguideExample(
+      title: 'Filled form field',
+      description:
+          'The settings form surface retains Select keyboard and popup behavior.',
+      code:
+          "DSelect<String>(filled: true, value: 'apple', entries: entries, onChanged: select)",
+      builder: (_) => DSelect<String>(
+        filled: true,
+        value: 'apple',
+        entries: _fruitEntries,
+        onChanged: (_) {},
+      ),
+      states: const ['Filled', 'Open', 'Focus'],
+    ),
+    StyleguideExample(
       title: 'Align Item With Trigger',
       description:
           'Toggle selected-row overlap. When disabled, the popup aligns to the trigger edge.',

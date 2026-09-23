@@ -77,15 +77,15 @@ void main() {
                   child: SingleChildScrollView(
                     child: DCard(
                       child: ForumThemeEditor(
-                        initialTheme: ForumTheme.fromJson({
-                          ...forumThemePresets.first
-                              .forBrightness(brightness)
-                              .toJson(),
-                          'background': const ForumBackground(
-                            color: Colors.purple,
-                            effect: ForumBackgroundEffect.noise,
-                          ).toJson(),
-                        }, id: 'custom-narrow'),
+                        palettes: {
+                          for (final mode in Brightness.values)
+                            mode: forumThemePresets.first.forBrightness(mode),
+                        },
+                        brightness: brightness,
+                        background: const ForumBackground.appearance(),
+                        onBackgroundChanged: (_) {},
+                        onBrightnessChanged: (_) {},
+                        onImport: (_) {},
                         customThemes: const [],
                         onChanged: (_) {},
                         onSave: (_) async {},
@@ -99,7 +99,7 @@ void main() {
           await tester.pumpAndSettle();
           expect(
             find.byKey(const ValueKey('color-picker-inline-plane')),
-            findsOneWidget,
+            findsNWidgets(6),
           );
           expect(
             tester.takeException(),
@@ -190,7 +190,7 @@ void main() {
       }
     }
     expect(
-      () => ForumBackground.fromJson({...valid.toJson(), 'transparency': .21}),
+      () => ForumBackground.fromJson({...valid.toJson(), 'transparency': .31}),
       throwsFormatException,
     );
   });

@@ -98,6 +98,48 @@ final class ForumTheme {
   final bool windowGradient;
   final bool darkerSidebars;
 
+  factory ForumTheme.fromPalette(ResolvedSitePalette palette) => ForumTheme(
+    id: 'forum',
+    name: 'Forum default',
+    brightness: palette.brightness,
+    primary: palette.primary,
+    secondary: palette.secondary,
+    tertiary: palette.tertiary,
+    quaternary: palette.quaternary,
+    danger: palette.danger,
+    success: palette.success,
+    love: palette.love,
+    background: palette.background,
+  );
+
+  ForumTheme copyWith({
+    String? id,
+    String? name,
+    Color? primary,
+    Color? secondary,
+    Color? tertiary,
+    Color? quaternary,
+    Color? danger,
+    Color? success,
+    Color? love,
+    ForumBackground? background,
+  }) => ForumTheme(
+    id: id ?? this.id,
+    name: name ?? this.name,
+    brightness: brightness,
+    primary: primary ?? this.primary,
+    secondary: secondary ?? this.secondary,
+    tertiary: tertiary ?? this.tertiary,
+    quaternary: quaternary ?? this.quaternary,
+    danger: danger ?? this.danger,
+    success: success ?? this.success,
+    love: love ?? this.love,
+    alternate: alternate,
+    background: background ?? this.background,
+    windowGradient: windowGradient,
+    darkerSidebars: darkerSidebars,
+  );
+
   static String hex(Color color) =>
       '#${(color.toARGB32() & 0xffffff).toRadixString(16).padLeft(6, '0').toUpperCase()}';
 
@@ -133,7 +175,7 @@ final class ForumTheme {
     final source = alternate?.brightness == target ? alternate! : this;
     return ForumTheme(
       id: id,
-      name: name,
+      name: source.name,
       background: source.background,
       windowGradient: source.windowGradient,
       darkerSidebars: source.darkerSidebars,
@@ -167,22 +209,35 @@ final class ForumTheme {
     final background = tinted
         ? Color.lerp(
             originalBackground,
-            treatment.color,
-            treatment.strength * .45,
+            treatment.useAccentTint ? tertiary : treatment.color,
+            (treatment.useAccentTint
+                ? (treatment.strength * ForumBackground.maxTint * 100).round() /
+                      100
+                : treatment.strength * .45),
           )!
         : originalBackground;
-    Color readable(Color color, {Color? surface}) => tinted
+    Color readable(Color color, {Color? surface}) =>
+        tinted && !treatment.useAccentTint
         ? contrastSafeForeground(
             background: surface ?? background,
             backdrop: background,
             preferred: [color, originalForeground],
           )
         : color;
-    final foreground = readable(originalForeground);
+    final foreground = treatment?.useAccentTint == true
+        ? Color.lerp(
+            originalForeground,
+            tertiary,
+            (treatment!.strength * ForumBackground.maxTextTint * 100).round() /
+                100,
+          )!
+        : readable(originalForeground);
     Color mix(Color color, double amount) =>
         Color.lerp(background, color, amount)!;
     final selected = mix(tertiary, .20);
-    final metadata = readable(mix(foreground, .70));
+    final metadata = readable(
+      mix(foreground, treatment?.useAccentTint == true ? .50 : .70),
+    );
     return ResolvedSitePalette.fromJson({
       'brightness': target.name,
       if (this.background != null) 'background': this.background!.toJson(),

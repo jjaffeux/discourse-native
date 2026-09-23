@@ -5,6 +5,42 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  testWidgets('compact grid clamps edges and keeps its colour ring visible', (
+    tester,
+  ) async {
+    var color = Colors.white;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Center(
+            child: SizedBox(
+              width: 180,
+              child: StatefulBuilder(
+                builder: (context, setState) => DColorPicker.inline(
+                  value: color,
+                  size: DColorPickerSize.compact,
+                  semanticLabel: 'Compact colour',
+                  onChanged: (next) => setState(() => color = next),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    final grid = find.byType(DColorPicker);
+    expect(tester.getSize(grid).height, 58);
+    await tester.tapAt(tester.getTopLeft(grid) + const Offset(1, 1));
+    await tester.pump();
+    final hsl = HSLColor.fromColor(color);
+    expect(hsl.hue, closeTo(7.2, 1));
+    expect(hsl.lightness, closeTo(.98, .003));
+    await tester.tapAt(tester.getBottomRight(grid) - const Offset(1, 1));
+    await tester.pump();
+    expect(HSLColor.fromColor(color).lightness, closeTo(.02, .003));
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets(
     'presets support recent colors, keyboard activation, reset and disabled state',
     (tester) async {
