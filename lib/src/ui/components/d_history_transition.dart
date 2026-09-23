@@ -420,7 +420,7 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
                               : DecorationPosition.foreground,
                           child: IgnorePointer(
                             ignoring: _dragging || _settling,
-                            child: ColoredBox(color: background, child: child),
+                            child: child,
                           ),
                         ),
                       ),
