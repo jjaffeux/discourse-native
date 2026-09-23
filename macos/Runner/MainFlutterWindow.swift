@@ -7,6 +7,7 @@ class MainFlutterWindow: NSWindow {
   private let videoThumbnails = VideoThumbnailChannel()
   private var windowChannel: FlutterMethodChannel?
   private var youtubeScrollChannel: FlutterMethodChannel?
+  private var webViewScrollRouting = WebViewScrollRouting()
   private var launchScreen: LaunchScreenView?
 
   override func awakeFromNib() {
@@ -59,6 +60,14 @@ class MainFlutterWindow: NSWindow {
 
   override func sendEvent(_ event: NSEvent) {
     if forwardYoutubeScroll(event) { return }
+    if event.type == .scrollWheel,
+      !event.phase.isEmpty || !event.momentumPhase.isEmpty,
+      let flutterController = contentViewController as? FlutterViewController {
+      // A gesture that began in Flutter must also finish there, even when a
+      // native web view moves beneath the pointer before its end event.
+      flutterController.scrollWheel(with: event)
+      return
+    }
     super.sendEvent(event)
   }
 
@@ -78,7 +87,11 @@ class MainFlutterWindow: NSWindow {
     // desktop_drop intentionally installs a transparent full-window native
     // view, so AppKit's ordinary hitTest stops there. Walk the native subtree
     // and use WKWebView.visibleRect to find a player below that drop target.
-    guard containsVisibleWebView(at: event.locationInWindow, in: contentView) else {
+    guard webViewScrollRouting.shouldForward(
+      phase: event.phase,
+      momentumPhase: event.momentumPhase,
+      overWebView: containsVisibleWebView(at: event.locationInWindow, in: contentView)
+    ) else {
       return false
     }
 
@@ -173,6 +186,41 @@ class MainFlutterWindow: NSWindow {
       }
     }
     windowChannel = channel
+  }
+}
+
+/// Keep one owner for a trackpad gesture, including its momentum. Rechecking
+/// only the hit view on every event can switch between Flutter's pan/zoom
+/// physics and forwarded wheel deltas as an embed scrolls under the pointer.
+struct WebViewScrollRouting {
+  private var forwardingGesture = false
+  private var awaitingBegan = false
+
+  mutating func shouldForward(
+    phase: NSEvent.Phase,
+    momentumPhase: NSEvent.Phase,
+    overWebView: Bool
+  ) -> Bool {
+    if phase.contains(.mayBegin) {
+      forwardingGesture = overWebView
+      awaitingBegan = true
+    } else if phase.contains(.began) {
+      if !awaitingBegan { forwardingGesture = overWebView }
+      awaitingBegan = false
+    } else if phase.isEmpty && momentumPhase.isEmpty {
+      // Discrete mouse-wheel ticks have no gesture lifecycle.
+      return overWebView
+    }
+
+    let forward = forwardingGesture
+    if phase.contains(.cancelled) || momentumPhase.contains(.ended)
+      || momentumPhase.contains(.cancelled) {
+      forwardingGesture = false
+      awaitingBegan = false
+    }
+    // Retain ownership after phase.ended: native momentum may follow. A new
+    // gesture's began/mayBegin replaces it when there is no momentum.
+    return forward
   }
 }
 
