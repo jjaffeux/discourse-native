@@ -245,6 +245,9 @@ void main() {
       scroll.jumpTo(600);
       await tester.pumpAndSettle();
 
+      final listBounds = tester.getRect(find.byType(Scrollable));
+      final viewportHeight = scroll.viewportDimension;
+
       FakeSiteTracker.built.single.deliver({
         'topic_id': 99,
         'message_type': 'new_topic',
@@ -252,6 +255,21 @@ void main() {
       await tester.pumpAndSettle();
       const label = 'See 1 new or updated topic';
       expect(find.text(label), findsOneWidget);
+      expect(tester.getRect(find.byType(Scrollable)), listBounds);
+      expect(scroll.viewportDimension, viewportHeight);
+      expect(scroll.pixels, 600);
+      final buttonBounds = tester.getRect(button);
+      expect(listBounds.contains(buttonBounds.center), isTrue);
+
+      // The overlay stays fixed and leaves the list beside it interactive.
+      await tester.dragFrom(
+        Offset(listBounds.left + 20, buttonBounds.center.dy),
+        const Offset(0, -160),
+      );
+      await tester.pumpAndSettle();
+      expect(scroll.pixels, greaterThan(600));
+      expect(tester.getRect(button), buttonBounds);
+
       Focus.of(tester.element(find.text(label))).requestFocus();
       await tester.pump();
       await tester.sendKeyEvent(LogicalKeyboardKey.enter);
