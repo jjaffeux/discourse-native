@@ -8,6 +8,49 @@ import 'package:flutter_test/flutter_test.dart';
 import 'support/button_surface.dart';
 
 void main() {
+  for (final platform in [TargetPlatform.macOS, TargetPlatform.iOS]) {
+    testWidgets(
+      'composer density preserves icons and limits only desktop width $platform',
+      (tester) async {
+        var presses = 0;
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: AppTheme.light.copyWith(platform: platform),
+            home: Scaffold(
+              body: Center(
+                child: DButton.iconOnly(
+                  density: DButtonDensity.composerBlock,
+                  icon: const Icon(Icons.add),
+                  tooltip: 'Add block',
+                  onPressed: () => presses++,
+                ),
+              ),
+            ),
+          ),
+        );
+        final button = find.byType(DButton);
+        final desktop = platform == TargetPlatform.macOS;
+        expect(
+          tester.getSize(button),
+          desktop ? const Size(20, 34) : const Size(48, 48),
+        );
+        expect(tester.getSize(find.byIcon(Icons.add)), const Size(14, 14));
+        final rect = tester.getRect(button);
+        await tester.tapAt(rect.centerLeft + const Offset(1, 0));
+        await tester.pump();
+        expect(presses, 1);
+        await tester.tapAt(rect.centerLeft - const Offset(1, 0));
+        await tester.pump();
+        expect(presses, 1);
+        await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+        await tester.pump();
+        await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+        await tester.pump();
+        expect(presses, 2);
+      },
+    );
+  }
+
   for (final reducedMotion in [false, true]) {
     testWidgets(
       'icon shape retargets smoothly with reduced motion $reducedMotion',
