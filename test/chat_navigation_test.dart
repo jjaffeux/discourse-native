@@ -14,6 +14,7 @@ import 'package:discourse_native/src/plugin_api/plugin_manifest.dart';
 import 'package:discourse_native/src/plugin_api/plugin_scope.dart';
 import 'package:discourse_native/src/plugin_api/site_plugin_api.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
+import 'package:discourse_native/src/plugins/chat/chat_channel_view.dart';
 import 'package:discourse_native/src/plugins/chat/chat_direct_message_search.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message.dart';
 import 'package:discourse_native/src/plugins/chat/chat_my_threads_view.dart';
@@ -24,13 +25,16 @@ import 'package:discourse_native/src/plugins/chat/chat_route.dart';
 import 'package:discourse_native/src/plugins/chat/chat_services.dart';
 import 'package:discourse_native/src/plugins/chat/chat_shell_service.dart';
 import 'package:discourse_native/src/plugins/chat/chat_thread.dart';
+import 'package:discourse_native/src/plugins/chat/chat_thread_view.dart';
 import 'package:discourse_native/src/plugins/chat/chat_user_menu.dart';
 import 'package:discourse_native/src/shell/adaptive_shell.dart';
 import 'package:discourse_native/src/shell/composer_controller.dart';
+import 'package:discourse_native/src/shell/desktop_panels.dart';
 import 'package:discourse_native/src/shell/group_flair.dart';
 import 'package:discourse_native/src/shell/main_content.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
+import 'package:discourse_native/src/shell/topic_presentation.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/foundation.dart';
@@ -294,6 +298,93 @@ void main() {
   });
 
   group('Chat navigation', () {
+    group('desktop panels', () {
+      setUp(() => shell.desktopTopicTabs = true);
+
+      test('channels stay in their panel and threads open in secondary', () {
+        final original = shell.activeTabId;
+        expect(shell.openChatChannel(9), isTrue);
+        final channel = shell.activeTab!;
+        expect(channel.panel, ForumPanel.main);
+        expect(channel.id, isNot(original));
+        expect(channel.currentContent.id, 'chat-c-9');
+
+        shell.openChatThread(siteUrl: _site, channelId: 9, threadId: 3);
+        expect(shell.activeTab?.panel, ForumPanel.secondary);
+        expect(shell.currentContent?.id, 'chat-c-9-t-3');
+        expect(shell.selectedTabIn(ForumPanel.main), channel);
+        expect(shell.tabsForCurrentForum, hasLength(3));
+
+        expect(shell.openChatChannel(9), isTrue);
+        expect(shell.activeTab?.panel, ForumPanel.secondary);
+        expect(shell.currentContent?.id, 'chat-c-9');
+        expect(shell.selectedTabIn(ForumPanel.main), channel);
+        expect(shell.tabsForCurrentForum, hasLength(4));
+      });
+
+      test('middle-click channel links open in secondary', () async {
+        final original = shell.activeTab;
+        final service = shell.pluginSession.require(chatShellService);
+        expect(
+          await service.openPluginUrl(
+            '$_site/chat/c/-/9',
+            origin: PluginLinkOrigin.secondaryPanel,
+          ),
+          isTrue,
+        );
+        expect(shell.activeTab?.panel, ForumPanel.secondary);
+        expect(shell.currentContent?.id, 'chat-c-9');
+        expect(shell.selectedTabIn(ForumPanel.main), original);
+      });
+
+      test('channel thread lists open exactly one new tab', () {
+        shell.openChatChannel(9);
+        final channel = shell.activeTab;
+        final service = shell.pluginSession.require(chatShellService);
+        expect(
+          service.openChannelThreads(siteUrl: _site, channelId: 9),
+          isTrue,
+        );
+        expect(shell.tabsForCurrentForum, hasLength(3));
+        expect(shell.activeTab?.panel, ForumPanel.main);
+        expect(shell.currentWorkspace?.tabById(channel!.id), channel);
+      });
+
+      testWidgets('a channel and its thread render in independent panels', (
+        tester,
+      ) async {
+        tester.view.physicalSize = const Size(1600, 900);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
+        shell.openChatChannel(9);
+        final channel = shell.activeTabId!;
+        shell.openChatThread(siteUrl: _site, channelId: 9, threadId: 3);
+        final thread = shell.activeTabId!;
+        await tester.pumpWidget(
+          ShellScope(
+            controller: shell,
+            child: MaterialApp(
+              theme: AppTheme.light.copyWith(platform: TargetPlatform.macOS),
+              home: const TopicPresentationPreferences(
+                child: Scaffold(body: DesktopPanels()),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(find.byType(ChatChannelView), findsOneWidget);
+        expect(find.byType(ChatThreadView), findsOneWidget);
+        final channelState = tester.state(find.byType(ChatChannelView));
+        final threadState = tester.state(find.byType(ChatThreadView));
+        shell.selectTab(channel);
+        await tester.pumpAndSettle();
+        expect(shell.selectedTabIn(ForumPanel.secondary)?.id, thread);
+        expect(tester.state(find.byType(ChatChannelView)), same(channelState));
+        expect(tester.state(find.byType(ChatThreadView)), same(threadState));
+        expect(tester.takeException(), isNull);
+      });
+    });
+
     group('plugin host integration', () {
       test(
         'opens a thread route and publishes its target message to the view handoff',

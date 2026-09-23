@@ -45,7 +45,7 @@ class _MessageListNavigation extends StatelessWidget {
     BuildContext context,
   ) => ShellSelector<({MessageListMode mode, String? group})>(
     select: (controller) {
-      final route = controller.topicListContent ?? controller.currentContent;
+      final route = ForumTabScope.read(context, (shell) => shell.topicListContent ?? shell.currentContent);
       return (
         mode: route?.messageListMode ?? MessageListMode.inbox,
         group: route?.messageGroupName,

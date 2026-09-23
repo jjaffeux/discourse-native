@@ -3,6 +3,7 @@ import 'package:discourse_native/src/data/topic_presentation_store.dart';
 import 'package:discourse_native/src/diagnostics/diagnostics.dart';
 import 'package:discourse_native/src/models/app_settings.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
+import 'package:discourse_native/src/models/forum_workspace.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/sidebar.dart';
 import 'package:discourse_native/src/models/topic.dart';
@@ -44,7 +45,7 @@ void main() {
     (tester) async {
       final h = await _setup(tester, size: const Size(1800, 1000));
       final tabs = find.byKey(const ValueKey('forum-tabs-bar'));
-      final options = find.byKey(const ValueKey('topic-view-options'));
+      final options = find.byKey(const ValueKey('swap-panels-main'));
       final title = find.byKey(const ValueKey('topic-list-title'));
       final filters = find.byKey(const ValueKey('topic-list-feed-row'));
       final separator = find.byKey(
@@ -90,67 +91,42 @@ void main() {
       h.shell.openTopicFromList(h.topics.first);
       await tester.pumpAndSettle();
       final listTabs = find.descendant(
-        of: find.byKey(const ValueKey('inbox-topic-list-pane')),
+        of: find.byKey(const ValueKey('desktop-panel-main')),
         matching: tabs,
       );
-      final swap = find.byKey(const ValueKey('swap-topic-panels-list'));
+      final swap = find.byKey(const ValueKey('swap-panels-main'));
       expect(tester.getCenter(listTabs).dy, tester.getCenter(options).dy);
       expect(tester.getCenter(listTabs).dy, tester.getCenter(swap).dy);
-      expect(
-        tester.getRect(swap).left,
-        greaterThan(tester.getRect(options).left),
-      );
+      expect(tester.getRect(swap).left, tester.getRect(options).left);
       expect(tester.takeException(), isNull);
     },
     variant: TargetPlatformVariant.only(TargetPlatform.macOS),
   );
 
-  testWidgets(
-    'topic layout controls are absent from other pages while tabs remain',
-    (tester) async {
-      final h = await _setup(tester);
-      final options = find.byKey(const ValueKey('topic-view-options'));
-      expect(options, findsOneWidget);
-      for (final id in ['users', 'drafts', 'upcoming-events', 'groups']) {
-        h.shell.selectDestination(
-          SidebarDestination(id: id, label: id, icon: DIcons.folder),
-        );
-        await tester.pumpAndSettle();
-        expect(find.byKey(const ValueKey('forum-tabs-bar')), findsOneWidget);
-        expect(options, findsNothing, reason: id);
-        expect(
-          find.byKey(const ValueKey('swap-topic-panels-list')),
-          findsNothing,
-        );
-        expect(
-          find.byKey(const ValueKey('swap-topic-panels-reader')),
-          findsNothing,
-        );
-      }
+  testWidgets('all desktop pages keep panel tabs and position controls', (
+    tester,
+  ) async {
+    final h = await _setup(tester);
+    for (final id in [
+      'users',
+      'drafts',
+      'upcoming-events',
+      'groups',
+      'latest',
+    ]) {
       h.shell.selectDestination(
-        const SidebarDestination(
-          id: 'latest',
-          label: 'Latest',
-          icon: DIcons.folder,
-        ),
+        SidebarDestination(id: id, label: id, icon: DIcons.folder),
       );
       await tester.pumpAndSettle();
-      expect(options, findsOneWidget);
-      h.shell.openTopicFromList(h.topics.first);
-      await tester.pumpAndSettle();
-      expect(options, findsOneWidget);
-      expect(
-        find.byKey(const ValueKey('swap-topic-panels-list')),
-        findsOneWidget,
-      );
-      expect(
-        find.byKey(const ValueKey('swap-topic-panels-reader')),
-        findsOneWidget,
-      );
-      expect(tester.takeException(), isNull);
-    },
-    variant: TargetPlatformVariant.only(TargetPlatform.macOS),
-  );
+      expect(find.byKey(const ValueKey('forum-tabs-bar')), findsOneWidget);
+      expect(find.byKey(const ValueKey('topic-view-options')), findsNothing);
+      expect(find.byTooltip('Switch panel positions'), findsNWidgets(2));
+    }
+    h.shell.openTopicFromList(h.topics.first);
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('forum-tabs-bar')), findsNWidgets(2));
+    expect(tester.takeException(), isNull);
+  }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 
   testWidgets('narrow topic header separates controls from the list', (
     tester,
@@ -224,7 +200,7 @@ void main() {
       final presentation = TopicPresentationPreferences.maybeControllerOf(
         tester.element(_reader),
       )!;
-      presentation.select(TopicPresentation.merged);
+      presentation.swapPanels();
       await tester.pumpAndSettle();
       expect(
         find.byKey(const ValueKey('topic-card-1'), skipOffstage: false),
@@ -233,9 +209,10 @@ void main() {
       expect(h.shell.appSettings.topicListMode, TopicListDisplayMode.compact);
       expect(tester.state(_allLists), same(listState));
 
-      presentation.select(TopicPresentation.split);
+      presentation.swapPanels();
       await tester.pumpAndSettle();
       expect(find.byKey(const ValueKey('topic-card-1')), findsOneWidget);
+      h.shell.selectTab(h.shell.selectedTabIn(ForumPanel.secondary)!.id);
       h.shell.closeTopic();
       await tester.pumpAndSettle();
       expect(previous, findsNothing);
@@ -322,44 +299,38 @@ void main() {
     }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
   }
 
-  testWidgets('a hidden source list does not reflow when the composer opens', (
-    tester,
-  ) async {
-    await const TopicPresentationStore().write(TopicPresentation.merged);
-    final h = await _setup(tester, size: const Size(1280, 860));
-    final listState = tester.state(_allLists);
-    final width = tester.getSize(_allLists).width;
-    h.shell.openTopicFromList(h.topics.first);
-    await tester.pumpAndSettle();
-    final rows = find
-        .byWidgetPredicate(
-          (widget) =>
-              widget.key is ValueKey<String> &&
-              (widget.key! as ValueKey<String>).value.startsWith('topic-card-'),
-          skipOffstage: false,
-        )
-        .evaluate()
-        .toSet();
-    expect(rows, isNotEmpty);
-    final rebuilt = <Element>{};
-    final previous = debugOnRebuildDirtyWidget;
-    debugOnRebuildDirtyWidget = (element, builtOnce) {
-      previous?.call(element, builtOnce);
-      if (rows.contains(element)) rebuilt.add(element);
-    };
-    addTearDown(() => debugOnRebuildDirtyWidget = previous);
-    h.shell.openReply();
-    await tester.pumpAndSettle();
-    expect(tester.state(_allLists), same(listState));
-    expect(tester.getSize(_allLists).width, width);
-    expect(rebuilt, isEmpty);
-    h.shell.closeComposer();
-    h.shell.closeTopic();
-    await tester.pumpAndSettle();
-    expect(tester.state(_allLists), same(listState));
-    expect(find.byType(TopicListView).hitTestable(), findsOneWidget);
-    expect(tester.takeException(), isNull);
-  }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
+  testWidgets(
+    'a hidden source list retains its state when composer space changes',
+    (tester) async {
+      await const TopicPresentationStore().write(TopicPresentation.merged);
+      final h = await _setup(tester, size: const Size(1280, 860));
+      final listState = tester.state(_allLists);
+      h.shell.openTopicFromList(h.topics.first);
+      await tester.pumpAndSettle();
+      final rows = find
+          .byWidgetPredicate(
+            (widget) =>
+                widget.key is ValueKey<String> &&
+                (widget.key! as ValueKey<String>).value.startsWith(
+                  'topic-card-',
+                ),
+            skipOffstage: false,
+          )
+          .evaluate()
+          .toSet();
+      expect(rows, isNotEmpty);
+      h.shell.openReply();
+      await tester.pumpAndSettle();
+      expect(tester.state(_allLists), same(listState));
+      h.shell.closeComposer();
+      h.shell.closeTopic();
+      await tester.pumpAndSettle();
+      expect(tester.state(_allLists), same(listState));
+      expect(find.byType(TopicListView).hitTestable(), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+    variant: TargetPlatformVariant.only(TargetPlatform.macOS),
+  );
 
   for (final mode in TopicPresentation.values) {
     testWidgets('visible replies precede scroll cache in ${mode.name}', (
@@ -390,7 +361,9 @@ void main() {
     }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
   }
 
-  testWidgets('topic view switching retains reader and editor', (tester) async {
+  testWidgets('switching panel positions retains reader and editor', (
+    tester,
+  ) async {
     final h = await _setup(
       tester,
       size: const Size(2400, 1000),
@@ -413,13 +386,8 @@ void main() {
     await tester.pump(const Duration(seconds: 2));
     final editorState = tester.state(find.byType(ComposerEditor));
     final readingPost = h.shell.topicScrollPostNumber(h.topics.first.id);
-    for (final mode in [
-      TopicPresentation.merged,
-      TopicPresentation.split,
-      TopicPresentation.merged,
-      TopicPresentation.split,
-    ]) {
-      await tester.tap(find.byTooltip(mode.label));
+    for (var index = 0; index < 4; index++) {
+      await tester.tap(find.byKey(const ValueKey('swap-panels-main')));
       await tester.pumpAndSettle();
       expect(tester.state(_reader), same(readerState));
       expect(tester.state(_allLists), same(listState));
@@ -431,7 +399,6 @@ void main() {
       );
       expect(h.shell.topicScrollPostNumber(h.topics.first.id), readingPost);
       expect(find.byType(DSheetContent), findsNothing);
-      expect(await const TopicPresentationStore().read(), mode);
       expect(tester.takeException(), isNull);
     }
   }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
@@ -454,7 +421,7 @@ void main() {
     expect(tester.takeException(), isNull);
   }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 
-  testWidgets('split category selection loads while a reader stays active', (
+  testWidgets('category navigation opens a new tab in the reader panel', (
     tester,
   ) async {
     final h = await _setup(tester, size: const Size(2200, 1000));
@@ -481,19 +448,23 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(h.shell.activeTabId, readerId);
-    expect(h.shell.currentContent?.topicId, 1);
+    expect(h.shell.activeTabId, isNot(readerId));
+    expect(h.shell.activeTab?.panel, ForumPanel.secondary);
+    expect(
+      h.shell.currentWorkspace?.tabById(readerId!)?.currentContent.topicId,
+      1,
+    );
     expect(h.shell.topicListContent?.categoryId, 5);
     expect(h.api.feedPaths, contains(h.shell.topicListContent!.feedPath));
     expect(h.shell.currentFeed?.topicIds, [101]);
     expect(find.text('A general category topic'), findsOneWidget);
-    expect(find.byType(TopicListView).hitTestable(), findsOneWidget);
+    expect(find.byType(TopicListView).hitTestable(), findsNWidgets(2));
     expect(find.text('Not found'), findsNothing);
     expect(find.text('Replace with deeper view'), findsNothing);
     expect(tester.takeException(), isNull);
   }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 
-  testWidgets('split panels scope tabs and swap without replacing the reader', (
+  testWidgets('panels scope tabs and swap without replacing the reader', (
     tester,
   ) async {
     final h = await _setup(tester, size: const Size(2200, 1000));
@@ -504,8 +475,8 @@ void main() {
     h.shell.openTopicFromList(h.topics[1]);
     await tester.pumpAndSettle();
     final secondId = h.shell.activeTabId!;
-    final listPanel = find.byKey(const ValueKey('inbox-topic-list-pane'));
-    final readerPanel = find.byKey(const ValueKey('inbox-topic-reader-pane'));
+    final listPanel = find.byKey(const ValueKey('desktop-panel-main'));
+    final readerPanel = find.byKey(const ValueKey('desktop-panel-secondary'));
     expect(
       find.descendant(
         of: listPanel,
@@ -532,29 +503,35 @@ void main() {
       tester.getRect(listPanel).left,
       lessThan(tester.getRect(readerPanel).left),
     );
-    await tester.tap(find.byKey(const ValueKey('swap-topic-panels-list')));
+    await tester.tap(find.byKey(const ValueKey('swap-panels-main')));
     await tester.pumpAndSettle();
     expect(
       tester.getRect(readerPanel).left,
       lessThan(tester.getRect(listPanel).left),
     );
     expect(tester.state(_reader), same(readerState));
-    await tester.tap(find.byKey(const ValueKey('swap-topic-panels-reader')));
+    await tester.tap(find.byKey(const ValueKey('swap-panels-secondary')));
     await tester.pumpAndSettle();
     expect(
       tester.getRect(listPanel).left,
       lessThan(tester.getRect(readerPanel).left),
     );
-    h.shell.createTab();
+    h.shell.createTab(panel: ForumPanel.main);
     await tester.pumpAndSettle();
     final otherList = h.shell.listPanelTab!.id;
     expect(otherList, isNot(listId));
-    expect(h.shell.currentContent?.topicId, 2);
+    expect(
+      h.shell.selectedTabIn(ForumPanel.secondary)?.currentContent.topicId,
+      2,
+    );
     h.shell.selectTab(listId);
     await tester.pumpAndSettle();
     expect(h.shell.listPanelTab!.id, listId);
-    expect(h.shell.currentContent?.topicId, 2);
-    h.shell.closeOtherTabs(secondId, reading: true);
+    expect(
+      h.shell.selectedTabIn(ForumPanel.secondary)?.currentContent.topicId,
+      2,
+    );
+    h.shell.closeOtherTabs(secondId, panel: ForumPanel.secondary);
     await tester.pumpAndSettle();
     expect(
       h.shell.tabsForCurrentForum.map((tab) => tab.id),
@@ -568,36 +545,30 @@ void main() {
   }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 
   testWidgets(
-    'merged tabs retain lists and topics and remove obsolete display choices',
+    'moving topics between panels preserves tabs and display choices',
     (tester) async {
       final h = await _setup(tester);
       final listId = h.shell.activeTabId!;
-      await tester.tap(find.byTooltip('Keep topic tabs with the list'));
-      await tester.pumpAndSettle();
       h.shell.openTopicFromList(h.topics.first);
       await tester.pumpAndSettle();
       final topicId = h.shell.activeTabId!;
+      h.shell.moveTabToPanel(topicId, ForumPanel.main);
+      await tester.pumpAndSettle();
       expect(h.shell.tabsForCurrentForum, hasLength(2));
-      expect(find.byType(TopicPanelTabs), findsOneWidget);
       expect(find.byType(TopicListView).hitTestable(), findsNothing);
       h.shell.selectTab(listId);
       await tester.pumpAndSettle();
       expect(find.byType(TopicListView).hitTestable(), findsOneWidget);
-      expect(
-        h.shell.tabsForCurrentForum.map((tab) => tab.id),
-        contains(topicId),
-      );
       await tester.tap(find.byKey(const ValueKey('topic-list-display')));
       await tester.pumpAndSettle();
       expect(find.text('Open topics'), findsNothing);
       expect(find.text('Beside the list'), findsNothing);
       expect(find.text('In a dialog'), findsNothing);
       await tester.sendKeyEvent(LogicalKeyboardKey.escape);
-      await tester.pumpAndSettle();
-      await tester.tap(find.byTooltip('Split with the list'));
+      h.shell.moveTabToPanel(topicId, ForumPanel.secondary);
       await tester.pumpAndSettle();
       expect(h.shell.currentContent?.topicId, 1);
-      expect(h.shell.listPanelTab!.id, listId);
+      expect(h.shell.selectedTabIn(ForumPanel.main)?.id, listId);
       expect(tester.takeException(), isNull);
     },
     variant: TargetPlatformVariant.only(TargetPlatform.macOS),
@@ -607,13 +578,20 @@ void main() {
     'list visibility reserves 320 pixels for the topic after composer sizing',
     (tester) async {
       final h = await _setup(tester, size: const Size(1800, 900));
-      final chrome = 1800 - tester.getSize(find.byType(TopicListView)).width;
+      final chrome =
+          1800 -
+          tester
+              .getSize(find.byKey(const ValueKey('desktop-panel-main')))
+              .width -
+          tester
+              .getSize(find.byKey(const ValueKey('desktop-panel-secondary')))
+              .width;
       final listState = tester.state(_allLists);
       h.shell.openTopicFromList(h.topics.first);
       await tester.pumpAndSettle();
       final readerState = tester.state(_reader);
       await tester.drag(
-        find.byKey(const ValueKey('inbox-list-resize-handle')),
+        find.byKey(const ValueKey('main-panel-resize-handle')),
         const Offset(120, 0),
       );
       await tester.pumpAndSettle();
@@ -648,7 +626,7 @@ void main() {
   );
 
   for (final direction in TextDirection.values) {
-    testWidgets('topic keeps a reduced list beside the reader ($direction)', (
+    testWidgets('panels retain list width beside the reader ($direction)', (
       tester,
     ) async {
       final h = await _setup(
@@ -666,7 +644,7 @@ void main() {
       expect(tester.element(_allLists), same(listElement));
       final reader = tester.getRect(_reader);
       final reducedList = tester.getRect(find.byType(TopicListView));
-      expect(reducedList.width, lessThan(listRect.width));
+      expect(reducedList.width, listRect.width);
       expect(reducedList.width, inInclusiveRange(304, 480));
       if (direction == TextDirection.ltr) {
         expect(reader.left, greaterThanOrEqualTo(reducedList.right));
@@ -675,7 +653,7 @@ void main() {
       }
       expect(reader.width, greaterThanOrEqualTo(320));
       await tester.drag(
-        find.byKey(const ValueKey('inbox-list-resize-handle')),
+        find.byKey(const ValueKey('main-panel-resize-handle')),
         Offset(direction == TextDirection.ltr ? 60 : -60, 0),
       );
       await tester.pumpAndSettle();
@@ -705,7 +683,11 @@ void main() {
       await tester.tap(previous);
       await tester.pumpAndSettle();
       expect(h.shell.currentContent?.topicId, 1);
-      h.shell.splitTopicPanels = false;
+      for (final tab in h.shell.currentWorkspace!.tabsIn(
+        ForumPanel.secondary,
+      )) {
+        h.shell.closeTab(tab.id);
+      }
       h.shell.selectTab(h.shell.listPanelTab!.id);
       await tester.pumpAndSettle();
       expect(_reader, findsNothing);
@@ -737,11 +719,12 @@ void main() {
       await tester.drag(_reader, const Offset(0, -380));
       await tester.pumpAndSettle();
       final readingOffset = _readerScroll(tester).pixels;
+      final readerId = h.shell.activeTabId!;
       expect(readingOffset, greaterThan(0));
       h.shell.selectTab(h.shell.listPanelTab!.id);
       await tester.pumpAndSettle();
       expect(listPosition.pixels, closeTo(listOffset, 1));
-      h.shell.openTopicFromList(h.topics.first);
+      h.shell.selectTab(readerId);
       await tester.pumpAndSettle();
       expect(_readerScroll(tester).pixels, closeTo(readingOffset, 1));
       h.shell.openTopicFromList(h.topics[1]);

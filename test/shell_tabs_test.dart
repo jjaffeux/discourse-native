@@ -613,70 +613,49 @@ void main() {
         expect(controller.feedScrollRow('latest'), 3);
       });
 
-      test('split lists own feed rows independently of reader tabs', () async {
+      test(
+        'panels retain independent feed rows while either has focus',
+        () async {
+          controller.desktopTopicTabs = true;
+          final firstListId = controller.activeTabId!;
+          controller.saveFeedScrollRow('latest', 12);
+          controller.openTopicUrl('/t/reader/303');
+          final readerId = controller.activeTabId!;
+          controller.saveFeedScrollRow('latest', 18, tabId: firstListId);
+          expect(controller.activeTabId, readerId);
+          expect(controller.activeTab!.anchors['latest'], isNull);
+
+          controller.createTab(panel: ForumPanel.main);
+          final secondListId = controller.activeTabId!;
+          expect(controller.selectedTabIn(ForumPanel.secondary)?.id, readerId);
+          expect(controller.feedScrollRow('latest'), 0);
+          controller.saveFeedScrollRow('latest', 3);
+          controller.selectTab(firstListId);
+          expect(controller.feedScrollRow('latest'), 18);
+          controller.selectTab(secondListId);
+          expect(controller.feedScrollRow('latest'), 3);
+
+          controller.flushAnchorPersist();
+          await Future<void>.delayed(Duration.zero);
+          final saved = forumTabs.workspaces.firstWhere(
+            (workspace) => workspace.siteUrl == forums.first.url,
+          );
+          expect(saved.tabById(firstListId)!.anchors['latest']?.itemId, 18);
+          expect(saved.tabById(secondListId)!.anchors['latest']?.itemId, 3);
+          expect(saved.tabById(readerId)!.anchors['latest'], isNull);
+        },
+      );
+
+      test('moving a list to secondary preserves its reading position', () {
         controller.desktopTopicTabs = true;
-        controller.topicPanelsVisible = true;
-        final firstListId = controller.activeTabId!;
-        controller.saveFeedScrollRow('latest', 12);
-
-        controller.openTopicUrl('/t/first-reader/303');
-        final firstReaderId = controller.activeTabId!;
-        expect(firstReaderId, isNot(firstListId));
-        expect(controller.feedScrollRow('latest'), 12);
-        controller.saveFeedScrollRow('latest', 18);
-        expect(controller.activeTabId, firstReaderId);
-        expect(controller.activeTab!.anchors['latest'], isNull);
-        expect(
-          controller.currentWorkspace!
-              .tabById(firstListId)!
-              .anchors['latest']
-              ?.itemId,
-          18,
-        );
-
-        controller.openTopicUrl('/t/second-reader/404');
-        expect(controller.feedScrollRow('latest'), 18);
-        controller.selectTab(firstReaderId);
-        expect(controller.feedScrollRow('latest'), 18);
-
-        controller.createTab();
-        final secondListId = controller.listPanelTab!.id;
-        expect(secondListId, isNot(firstListId));
-        expect(controller.activeTabId, firstReaderId);
-        expect(controller.feedScrollRow('latest'), 0);
-        controller.saveFeedScrollRow('latest', 3);
-
-        controller.selectTab(firstListId);
-        expect(controller.activeTabId, firstReaderId);
-        expect(controller.feedScrollRow('latest'), 18);
-        controller.selectTab(secondListId);
-        expect(controller.feedScrollRow('latest'), 3);
-
-        controller.flushAnchorPersist();
-        await Future<void>.delayed(Duration.zero);
-        final saved = forumTabs.workspaces.firstWhere(
-          (workspace) => workspace.siteUrl == forums.first.url,
-        );
-        expect(saved.tabById(firstListId)!.anchors['latest']?.itemId, 18);
-        expect(saved.tabById(secondListId)!.anchors['latest']?.itemId, 3);
-        expect(saved.tabById(firstReaderId)!.anchors['latest'], isNull);
-      });
-
-      test('merged readers keep feed rows on their own tab', () {
-        controller.desktopTopicTabs = true;
-        controller.splitTopicPanels = false;
         final listId = controller.activeTabId!;
         controller.saveFeedScrollRow('latest', 12);
-
-        controller.openTopicUrl('/t/merged-reader/303');
-        final readerId = controller.activeTabId!;
-        expect(readerId, isNot(listId));
-        expect(controller.feedScrollRow('latest'), 0);
-        controller.saveFeedScrollRow('latest', 3);
-
-        controller.selectTab(listId);
+        controller.moveTabToPanel(listId, ForumPanel.secondary);
         expect(controller.feedScrollRow('latest'), 12);
-        controller.selectTab(readerId);
+        controller.saveFeedScrollRow('latest', 3);
+        controller.createTab(panel: ForumPanel.main);
+        controller.saveFeedScrollRow('latest', 8);
+        controller.selectTab(listId);
         expect(controller.feedScrollRow('latest'), 3);
       });
 

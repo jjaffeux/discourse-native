@@ -88,6 +88,8 @@ class ForumTabsBar extends StatefulWidget {
     this.onReopen,
     this.onRename,
     this.showAdd = true,
+    this.acceptsTab,
+    this.onDropTab,
   }) : assert(items.isNotEmpty),
        assert(items.any((item) => item.id == selectedId));
 
@@ -105,6 +107,8 @@ class ForumTabsBar extends StatefulWidget {
   static const double closeTargetWidth = 24;
 
   final bool showAdd;
+  final bool Function(String id)? acceptsTab;
+  final void Function(String id, int index)? onDropTab;
   final String forumName;
   final List<ForumTabItem> items;
   final String selectedId;
@@ -143,6 +147,7 @@ class _ForumTabsBarState extends State<ForumTabsBar> {
     if (widget.forumName != oldWidget.forumName ||
         widget.selectedId != oldWidget.selectedId ||
         widget.showAdd != oldWidget.showAdd ||
+        (widget.onDropTab == null) != (oldWidget.onDropTab == null) ||
         (widget.onAdd == null) != (oldWidget.onAdd == null) ||
         (widget.onReopen == null) != (oldWidget.onReopen == null) ||
         (widget.onRename == null) != (oldWidget.onRename == null) ||
@@ -255,6 +260,14 @@ class _ForumTabsBarState extends State<ForumTabsBar> {
                                           item: widget.items[index],
                                           index: index,
                                           itemCount: widget.items.length,
+                                          acceptsTab: widget.acceptsTab,
+                                          onDropTab: widget.onDropTab == null
+                                              ? null
+                                              : (id, index) =>
+                                                    widget.onDropTab!(
+                                                      id,
+                                                      index,
+                                                    ),
                                           selected:
                                               widget.items[index].id ==
                                               widget.selectedId,
@@ -835,8 +848,12 @@ class _ReorderableForumTab extends StatelessWidget {
     required this.onReorder,
     required this.onCloseOthers,
     this.onRename,
+    this.acceptsTab,
+    this.onDropTab,
   });
 
+  final bool Function(String id)? acceptsTab;
+  final void Function(String id, int index)? onDropTab;
   final ForumTabItem item;
   final int index;
   final int itemCount;
@@ -862,7 +879,7 @@ class _ReorderableForumTab extends StatelessWidget {
           ? null
           : () => onReorder(item.id, index + 1),
     );
-    if (itemCount < 2) return tab;
+    if (itemCount < 2 && onDropTab == null) return tab;
 
     return Listener(
       onPointerDown: (event) {
@@ -881,8 +898,10 @@ class _ReorderableForumTab extends StatelessWidget {
         }
       },
       child: DragTarget<String>(
-        onWillAcceptWithDetails: (details) => details.data != item.id,
-        onAcceptWithDetails: (details) => onReorder(details.data, index),
+        onWillAcceptWithDetails: (details) =>
+            details.data != item.id && (acceptsTab?.call(details.data) ?? true),
+        onAcceptWithDetails: (details) =>
+            (onDropTab ?? onReorder)(details.data, index),
         builder: (context, candidates, rejected) {
           final dropTarget = candidates.isNotEmpty;
           final child = _ForumTab(
@@ -902,7 +921,7 @@ class _ReorderableForumTab extends StatelessWidget {
           );
           return Draggable<String>(
             data: item.id,
-            axis: Axis.horizontal,
+            axis: onDropTab == null ? Axis.horizontal : null,
             dragAnchorStrategy: childDragAnchorStrategy,
             feedback: Builder(
               builder: (_) => _ForumTabDragFeedback(
@@ -1482,8 +1501,8 @@ final class _CurrentForumTabsSnapshot {
 }
 
 class CurrentForumTabsBar extends StatelessWidget {
-  const CurrentForumTabsBar({super.key, this.reading});
-  final bool? reading;
+  const CurrentForumTabsBar({super.key, this.panel});
+  final ForumPanel? panel;
 
   @override
   Widget build(BuildContext context) =>
@@ -1515,15 +1534,25 @@ class CurrentForumTabsBar extends StatelessWidget {
 
           final controller = ShellScope.read(context);
           final tabs = state.tabs
-              .where(
-                (tab) =>
-                    reading == null || tab.currentContent.isTopic == reading,
-              )
+              .where((tab) => (panel == null || tab.panel == panel))
               .toList();
-          if (tabs.isEmpty) return const SizedBox.shrink();
-          final selectedId = reading == false
-              ? controller.listPanelTab?.id
-              : activeTabId;
+          if (tabs.isEmpty) {
+            return Align(
+              alignment: AlignmentDirectional.centerStart,
+              child: DButton.iconOnly(
+                key: ValueKey('add-empty-${panel?.name}'),
+                icon: const DIcon(DIcons.plus),
+                tooltip: 'Open a new tab',
+                variant: DButtonVariant.ghost,
+                onPressed: controller.canCreateTab
+                    ? () => controller.createTab(panel: panel)
+                    : null,
+              ),
+            );
+          }
+          final selectedId = panel == null
+              ? activeTabId
+              : controller.selectedTabIn(panel!)?.id;
           final registry = PluginScope.of(context).registry;
           return ListenableBuilder(
             listenable: Listenable.merge(
@@ -1569,22 +1598,26 @@ class CurrentForumTabsBar extends StatelessWidget {
               }
 
               return ForumTabsBar(
-                key: ValueKey(('forum-tabs', siteUrl)),
+                key: ValueKey(('forum-tabs', siteUrl, panel)),
                 forumName: forumName,
-                showAdd: reading != true,
+                showAdd: true,
                 items: [for (final tab in tabs) itemFor(tab)],
                 recentlyClosedItems: [
                   for (final tab in state.recentlyClosedTabs)
-                    if (reading == null ||
-                        tab.currentContent.isTopic == reading)
-                      itemFor(tab),
+                    if (panel == null || tab.panel == panel) itemFor(tab),
                 ],
                 selectedId: tabs.any((tab) => tab.id == selectedId)
                     ? selectedId!
                     : tabs.first.id,
-                onAdd: reading != true && controller.canCreateTab
-                    ? controller.createTab
+                onAdd: controller.canCreateTab
+                    ? () => controller.createTab(panel: panel)
                     : null,
+                acceptsTab: (id) =>
+                    controller.currentWorkspace?.tabById(id) != null,
+                onDropTab: panel == null
+                    ? null
+                    : (id, index) =>
+                          controller.moveTabToPanel(id, panel!, index: index),
                 onSelect: controller.selectTab,
                 onClose: controller.closeTab,
                 onReorder: (id, index) => controller.moveTab(
@@ -1592,7 +1625,7 @@ class CurrentForumTabsBar extends StatelessWidget {
                   state.tabs.indexWhere((tab) => tab.id == tabs[index].id),
                 ),
                 onCloseOthers: (id) =>
-                    controller.closeOtherTabs(id, reading: reading),
+                    controller.closeOtherTabs(id, panel: panel),
                 onReopen: controller.canCreateTab
                     ? (id) {
                         if (controller.reopenClosedTab(id)) {

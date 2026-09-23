@@ -81,6 +81,7 @@ final class ChatShellService
 
   String? get currentSiteUrl => _host.currentInstance?.url;
   bool get forumActive => _host.forumActive;
+  bool get desktopPanelsEnabled => _host.desktopPanelsEnabled;
   bool get showHeaderShortcut =>
       _host.forumActive && _host.currentInstance != null;
   DiscourseUser? get currentUser => _host.currentInstance?.user;
@@ -203,7 +204,12 @@ final class ChatShellService
     index = _host.instances.indexWhere((instance) => instance.url == siteUrl);
     if (index < 0 || !_host.instances[index].isConnected) return false;
     if (_host.currentInstance?.url != siteUrl) _host.selectInstance(index);
-    return _openRoute(siteUrl, link.route, messageId: link.messageId);
+    return _openRoute(
+      siteUrl,
+      link.route,
+      messageId: link.messageId,
+      secondaryPanel: origin == PluginLinkOrigin.secondaryPanel,
+    );
   }
 
   @override
@@ -516,7 +522,17 @@ final class ChatShellService
     if (_host.currentInstance?.url != siteUrl) _host.selectInstance(index);
 
     final routeId = ChatPlugin.channelThreadsRouteId(channelId);
-
+    if (desktopPanelsEnabled) {
+      _host.pushContent(
+        ContentRoute(
+          id: routeId,
+          title: 'Threads',
+          subtitle: channel!.title,
+          icon: DIcons.comments,
+        ),
+      );
+      return true;
+    }
     _activateSeparatedPane();
 
     if (_host.currentContent?.id != routeId) {
@@ -626,10 +642,32 @@ final class ChatShellService
     ChatRoute route, {
     int? messageId,
     bool focusComposer = false,
+    bool secondaryPanel = false,
   }) {
     if (_host.currentInstance?.url != siteUrl) return false;
     final channel = chat.channel(siteUrl, route.channelId);
     if (channel == null) return false;
+    if (desktopPanelsEnabled) {
+      _host.pushContent(
+        ContentRoute(
+          id: route.routeId,
+          title: route.isThread ? 'Thread' : channel.title,
+          subtitle: route.isThread ? channel.title : null,
+          icon: route.isThread ? DIcons.comments : DIcons.comment,
+          openInSecondaryPanel: route.isThread || secondaryPanel,
+        ),
+      );
+      navigation.offer(
+        ChatNavigationTarget(
+          siteUrl: siteUrl,
+          route: route,
+          messageId: messageId,
+          focusComposer: focusComposer,
+        ),
+      );
+      _host.showPluginContent();
+      return true;
+    }
     if (route.isInfo) {
       return _openInfoRoute(siteUrl, channel, route);
     }
@@ -681,6 +719,7 @@ final class ChatShellService
 
   bool _openInfoRoute(String siteUrl, ChatChannel channel, ChatRoute route) {
     if (_host.currentInstance?.url != siteUrl || !route.isInfo) return false;
+    if (desktopPanelsEnabled) return _openRoute(siteUrl, route);
 
     _activateSeparatedPane();
     final currentRoute = switch (_host.currentContent?.id) {

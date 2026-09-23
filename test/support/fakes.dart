@@ -391,7 +391,11 @@ class FakeSiteTracker implements SiteTracker, PluginLiveChannelHandle {
     void Function(String channel, Object? data) onMessage, {
     Map<String, int?> lastIds = const {},
   }) {
-    if (watchedTopic == topicId) return;
+    if (watchedTopic == topicId &&
+        watchedChannels.length == channels.length &&
+        channels.every(watchedChannels.contains)) {
+      return;
+    }
     unwatchTopic();
     watchedTopic = topicId;
     watchedChannels.addAll(channels);

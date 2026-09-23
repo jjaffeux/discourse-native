@@ -191,7 +191,8 @@ class _TopicListNavigationControls extends StatelessWidget {
     bool ownsFeed() =>
         context.mounted &&
         lease?.isCurrent == true &&
-        _filterOwner(controller) == owner;
+        controller.readTab(owner.tabId, () => _filterOwner(controller)) ==
+            owner;
     final filters = !showsFilters
         ? null
         : TopicListFilterBar(

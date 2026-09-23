@@ -1,9 +1,7 @@
-import 'dart:async';
-
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
-import '../models/topic_presentation.dart';
+import '../models/forum_workspace.dart';
 import 'composer_presentation.dart';
 import 'forum_tabs_bar.dart';
 import 'platform.dart';
@@ -28,19 +26,6 @@ class TopicPresentationPreferences extends StatefulWidget {
 class _TopicPresentationPreferencesState
     extends State<TopicPresentationPreferences> {
   final _controller = TopicPresentationController();
-
-  @override
-  void initState() {
-    super.initState();
-    _controller.addListener(_syncNavigation);
-    unawaited(_controller.load());
-  }
-
-  void _syncNavigation() {
-    if (!mounted) return;
-    ShellScope.read(context).splitTopicPanels =
-        _controller.preference == TopicPresentation.split;
-  }
 
   @override
   void didChangeDependencies() {
@@ -78,81 +63,42 @@ class TopicWorkspace extends StatelessWidget {
 
 /// The panel header scopes tab actions to the tabs actually shown in it.
 class TopicPanelTabs extends StatelessWidget {
-  const TopicPanelTabs({super.key, this.reading, this.split = false});
-  final bool? reading;
-  final bool split;
+  const TopicPanelTabs({super.key, this.panel});
+  final ForumPanel? panel;
 
   @override
   Widget build(BuildContext context) {
     final shell = ShellScope.of(context);
     if (context.isTouch) return const SizedBox.shrink();
     final preferences = TopicPresentationPreferences.maybeControllerOf(context);
-    final route = shell.currentContent;
-    final showTopicControls =
-        route != null && (route.isTopicList || route.isTopic);
-    return Padding(
-      padding: workspaceTabsPadding,
-      child: Row(
-        children: [
-          Expanded(
-            child: shell.forumTabsEnabled
-                ? CurrentForumTabsBar(reading: reading)
-                : const SizedBox.shrink(),
-          ),
-          if (showTopicControls && reading != true && preferences != null)
-            const TopicPresentationButton(),
-          if (showTopicControls && split && preferences != null) ...[
-            if (reading != true) const SizedBox(width: DSpacing.controlGap),
-            DButton.iconOnly(
-              key: ValueKey(
-                reading == true
-                    ? 'swap-topic-panels-reader'
-                    : 'swap-topic-panels-list',
+    final target = panel ?? ForumTabScope.panelOf(context);
+    return DragTarget<String>(
+      onWillAcceptWithDetails: (details) =>
+          target != null &&
+          shell.currentWorkspace?.tabById(details.data)?.panel != target &&
+          shell.currentWorkspace?.tabById(details.data) != null,
+      onAcceptWithDetails: (details) =>
+          shell.moveTabToPanel(details.data, target!),
+      builder: (context, candidates, rejected) => Padding(
+        padding: workspaceTabsPadding,
+        child: Row(
+          children: [
+            Expanded(
+              child: shell.forumTabsEnabled
+                  ? CurrentForumTabsBar(panel: target)
+                  : const SizedBox.shrink(),
+            ),
+            if (preferences != null && target != null)
+              DButton.iconOnly(
+                key: ValueKey('swap-panels-${target.name}'),
+                icon: const Icon(Icons.swap_horiz),
+                tooltip: 'Switch panel positions',
+                variant: DButtonVariant.transparentBackground,
+                onPressed: preferences.swapPanels,
               ),
-              icon: const Icon(Icons.swap_horiz),
-              tooltip: preferences.readerOnLeft
-                  ? 'Move the reading panel right'
-                  : 'Move the reading panel left',
-              variant: DButtonVariant.transparentBackground,
-              onPressed: preferences.swapPanels,
-            ),
           ],
-        ],
+        ),
       ),
-    );
-  }
-}
-
-class TopicPresentationButton extends StatelessWidget {
-  const TopicPresentationButton({super.key});
-  @override
-  Widget build(BuildContext context) {
-    final controller = TopicPresentationPreferences.maybeControllerOf(context);
-    if (context.isTouch || controller == null) return const SizedBox.shrink();
-    return DToggleGroup<TopicPresentation>(
-      key: const ValueKey('topic-view-options'),
-      semanticLabel: 'Topic view',
-      inset: true,
-      values: [controller.preference],
-      allowEmptySelection: false,
-      onChanged: (values) {
-        controller.select(values.single);
-        ShellScope.read(context).splitTopicPanels =
-            values.single == TopicPresentation.split;
-      },
-      items: [
-        for (final mode in TopicPresentation.values)
-          DToggleGroupItem.iconOnly(
-            value: mode,
-            semanticLabel: mode.label,
-            tooltip: mode.label,
-            icon: Icon(
-              mode == TopicPresentation.merged
-                  ? Icons.copy_outlined
-                  : Icons.view_column_outlined,
-            ),
-          ),
-      ],
     );
   }
 }

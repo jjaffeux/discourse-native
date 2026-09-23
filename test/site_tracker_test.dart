@@ -324,6 +324,33 @@ void main() {
     });
 
     group('topic watches', () {
+      test(
+        'adds and removes another visible topic without changing the first',
+        () {
+          final bus = _FakeMessageBusSession();
+          final tracker = _tracker(bus);
+          addTearDown(tracker.dispose);
+          final messages = <String>[];
+          tracker.watchTopic(12, [
+            '/topic/12',
+          ], (channel, _) => messages.add(channel));
+          tracker.watchTopic(12, [
+            '/topic/12',
+            '/topic/13',
+          ], (channel, _) => messages.add(channel));
+          expect(bus.activeSubscriptionCount('/topic/12'), 1);
+          expect(bus.activeSubscriptionCount('/topic/13'), 1);
+          final oldCallback = bus.retainedCallback('/topic/13');
+          bus.deliver('/topic/13', 'visible');
+          tracker.watchTopic(12, [
+            '/topic/12',
+          ], (channel, _) => messages.add(channel));
+          oldCallback('closed');
+          expect(bus.activeSubscriptionCount('/topic/13'), 0);
+          expect(messages, ['/topic/13']);
+        },
+      );
+
       test('deduplicate channels and suppress unwatched callbacks', () async {
         final bus = _FakeMessageBusSession();
         final tracker = _tracker(bus);

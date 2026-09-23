@@ -23,11 +23,12 @@ import 'user_card.dart';
 /// Widgets and the coordinator consume [GroupPagesPort], so neither needs a
 /// build-context lookup or access to the full shell facade.
 final class ShellGroupPagesPort implements GroupPagesPort {
-  ShellGroupPagesPort(ShellController shell)
+  ShellGroupPagesPort(ShellController shell, {this.tabId})
     : _shell = shell,
       changes = Listenable.merge([shell.groups, shell.topicFeeds]);
 
   final ShellController _shell;
+  final String? tabId;
 
   @override
   Object get controllerIdentity => _shell;
@@ -44,7 +45,8 @@ final class ShellGroupPagesPort implements GroupPagesPort {
   bool isCurrent(GroupPagesOwner owner) =>
       _shell.currentInstance?.url == owner.siteUrl &&
       _shell.currentAccountIdentity == owner.accountIdentity &&
-      _shell.activeTabId == owner.tabId;
+      (tabId ?? _shell.activeTabId) == owner.tabId &&
+      _shell.currentWorkspace?.tabById(owner.tabId ?? '') != null;
 
   @override
   String? usernameFor(GroupPagesOwner owner) =>
@@ -318,7 +320,15 @@ final class ShellGroupPagesPort implements GroupPagesPort {
 
   @override
   void replaceWithDirectory(GroupPagesOwner owner, String routeId) {
-    if (!isCurrent(owner) || _shell.currentContent?.id != routeId) return;
+    if (!isCurrent(owner) ||
+        _shell.currentWorkspace
+                ?.tabById(owner.tabId ?? '')
+                ?.currentContent
+                .id !=
+            routeId) {
+      return;
+    }
+    if (owner.tabId case final id?) _shell.selectTab(id);
     _shell.replaceCurrentContent(
       ContentRoute.group(const GroupRoute.directory()),
     );
