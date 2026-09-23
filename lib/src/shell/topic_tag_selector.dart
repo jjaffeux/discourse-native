@@ -232,6 +232,7 @@ class _TopicTagSelectorState extends State<TopicTagSelector> {
       builder: (context, trigger) => TopicTaxonomyButton(
         buttonKey: widget.valueKey,
         size: widget.size,
+        showChevron: true,
         label: label,
         icon: selected.isEmpty ? const DIcon(DIcons.tag) : null,
         semanticLabel:

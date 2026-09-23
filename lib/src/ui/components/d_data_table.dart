@@ -6,6 +6,8 @@ import 'package:flutter/material.dart';
 
 import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
+import '../../theme/d_native_icons.dart';
+import '../foundation/control_style.dart';
 import '../foundation/tokens.dart';
 import 'd_button.dart';
 import 'd_checkbox.dart';
@@ -1081,6 +1083,7 @@ class DDataTableColumnToggle<T> extends StatelessWidget {
     required this.onChanged,
     this.label = 'Columns',
     this.menuLabel = 'Toggle columns',
+    this.size = DControlSize.regular,
   });
 
   final List<DDataTableColumn<T>> columns;
@@ -1088,6 +1091,7 @@ class DDataTableColumnToggle<T> extends StatelessWidget {
   final ValueChanged<Set<String>>? onChanged;
   final String label;
   final String menuLabel;
+  final DControlSize size;
 
   @override
   Widget build(BuildContext context) => DDropdownMenu(
@@ -1115,10 +1119,15 @@ class DDataTableColumnToggle<T> extends StatelessWidget {
     child: DDropdownMenuTrigger(
       builder: (context, trigger) => DButton(
         label: Text(label),
-        icon: const DIcon(DIcons.chevronDown),
+        icon: DIcon(
+          DControlStyle.isApplicationSize(size)
+              ? DNativeIcons.filterChevron
+              : DIcons.chevronDown,
+          size: DControlStyle.chevronDimension(size),
+        ),
         iconPosition: DButtonIconPosition.end,
         variant: DButtonVariant.outline,
-        size: DButtonSize.regular,
+        size: size,
         hasPopup: true,
         expanded: trigger.open,
         focusNode: trigger.focusNode,
@@ -1136,17 +1145,20 @@ class DDataTableFilterField extends StatelessWidget {
     required this.onChanged,
     this.hintText = 'Filter…',
     this.maxWidth = 384,
+    this.size = DControlSize.regular,
   });
 
   final String value;
   final ValueChanged<String>? onChanged;
   final String hintText;
   final double maxWidth;
+  final DControlSize size;
 
   @override
   Widget build(BuildContext context) => ConstrainedBox(
     constraints: BoxConstraints(maxWidth: maxWidth),
     child: DInput(
+      size: size,
       value: value,
       hintText: hintText,
       onChanged: onChanged,

@@ -90,7 +90,7 @@ class _TopicCreateControl extends StatelessWidget {
               builder: (context, state) {
                 final button = DButton.iconOnly(
                   key: TopicCreateButton.draftsButtonKey,
-                  icon: DIcon(DIcons.chevronDown, size: compact ? 12 : 16),
+                  icon: const DIcon(DIcons.chevronDown, size: 10),
                   tooltip: 'Open the latest drafts menu',
                   semanticLabel: 'Open the latest drafts menu',
                   onPressed: state.toggle,
@@ -98,7 +98,7 @@ class _TopicCreateControl extends StatelessWidget {
                   hasPopup: true,
                   expanded: state.open,
                   variant: DButtonVariant.primary,
-                  size: DButtonSize.regular,
+                  size: DButtonSize.action,
                 );
                 return button;
               },
@@ -212,12 +212,12 @@ class TopicCreateAction extends StatelessWidget {
       maxLines: 2,
       style: compact ? const TextStyle(fontWeight: FontWeight.w500) : null,
     ),
-    icon: DIcon(DIcons.plus, size: compact ? 14 : 18),
+    icon: const DIcon(DIcons.plus),
     tooltip: 'New topic',
     shortcut: const DShortcut(newTopicShortcut),
     semanticLabel: 'New topic',
     onPressed: onPressed,
     variant: DButtonVariant.primary,
-    size: DButtonSize.regular,
+    size: DButtonSize.action,
   );
 }

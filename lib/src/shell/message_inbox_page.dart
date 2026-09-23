@@ -93,6 +93,7 @@ class _MessageListNavigation extends StatelessWidget {
                       child: SizedBox(
                         width: 120,
                         child: DSelect<MessageListMode>.controlled(
+                          size: DControlSize.filter,
                           key: const ValueKey('message-list-menu'),
                           value: state.mode,
                           semanticLabel: 'Message lists',
@@ -179,7 +180,7 @@ class _MessageListNavigation extends StatelessWidget {
                     icon: const DIcon(DIcons.chevronDown, size: 12),
                     iconPosition: DButtonIconPosition.end,
                     variant: DButtonVariant.secondary,
-                    size: DButtonSize.large,
+                    size: DButtonSize.filter,
                     focusNode: trigger.focusNode,
                     hasPopup: true,
                     expanded: trigger.open,

@@ -975,18 +975,16 @@ void main() {
         ),
         theme: AppTheme.light.copyWith(platform: platform),
       );
-      final dimension = platform == TargetPlatform.iOS
-          ? 48.0
-          : DControlStyle.regularHeight;
+      final touch = platform == TargetPlatform.iOS;
       expect(
         tester.getSize(find.byKey(const ValueKey('users-search'))).height,
-        dimension,
+        touch ? 48 : 35.5,
       );
       expect(
         tester
             .getSize(find.byKey(const ValueKey('users-period-filter')))
             .height,
-        dimension,
+        touch ? 48 : 30.75,
       );
       expect(find.text('Manage columns'), findsNothing);
       await tester.tap(find.byKey(const ValueKey('users-columns')));

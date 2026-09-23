@@ -4,6 +4,7 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
 import '../models/topic.dart';
+import '../theme/d_icons.dart';
 import '../theme/d_native_icons.dart';
 import 'shell_scope.dart';
 
@@ -34,7 +35,7 @@ class CategoryNotificationLevelButton extends StatelessWidget {
       emphasized: true,
       label: 'Tracking',
       description: 'Mentions, replies, and unread count',
-      icon: DIcon(DNativeIcons.bell),
+      icon: DIcon(DIcons.bell),
     ),
     DNotificationLevelOption(
       value: CategoryNotificationLevel.watchingFirstPost,
@@ -47,7 +48,7 @@ class CategoryNotificationLevelButton extends StatelessWidget {
       value: CategoryNotificationLevel.normal,
       label: 'Normal',
       description: 'Mentions and replies only',
-      icon: DIcon(DNativeIcons.bell),
+      icon: DIcon(DIcons.bell),
     ),
     DNotificationLevelOption(
       value: CategoryNotificationLevel.muted,
@@ -73,7 +74,7 @@ class CategoryNotificationLevelButton extends StatelessWidget {
               key: ValueKey((controller, siteUrl, categoryId, lease.session)),
               semanticLabel: 'Category notifications',
               buttonKey: const ValueKey('category-notification-level-button'),
-              size: showChevron ? DButtonSize.large : DButtonSize.regular,
+              size: DButtonSize.chip,
               variant: DButtonVariant.outline,
               showLabel: showLabel,
               showChevron: showChevron,

@@ -7,6 +7,7 @@ import '../models/content_route.dart';
 import '../models/sidebar_tag.dart';
 import '../models/topic.dart';
 import '../theme/d_icons.dart';
+import '../theme/d_native_icons.dart';
 import 'category_notifications.dart';
 import 'content_reading_lane.dart';
 import 'platform.dart';
@@ -426,19 +427,23 @@ class TopicFeedMenu extends StatelessWidget {
       child: DDropdownMenuTrigger(
         builder: (context, trigger) => DButton(
           key: const ValueKey('topic-list-feed-menu'),
-          size: DButtonSize.large,
+          size: DButtonSize.filter,
           label: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
               Flexible(
-                child: Text(label(mode), overflow: TextOverflow.ellipsis),
+                child: Text(
+                  label(mode),
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                ),
               ),
               if (count > 0) ...[
-                const SizedBox(width: 8),
+                const SizedBox(width: 6),
                 DBadge(variant: DBadgeVariant.secondary, child: Text('$count')),
               ],
-              const SizedBox(width: 8),
-              const DIcon(DIcons.chevronDown, size: 12),
+              const SizedBox(width: 6),
+              const DIcon(DNativeIcons.filterChevron, size: 10),
             ],
           ),
           variant: DButtonVariant.outline,

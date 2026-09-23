@@ -1294,20 +1294,20 @@ class _DropdownMenuItemSurfaceState extends State<_DropdownMenuItemSurface> {
               : DControlStyle.rowHover(tokens)
         : Colors.transparent;
     final foreground = destructive ? tokens.destructive : tokens.foreground;
-    final mobile =
-        defaultTargetPlatform == TargetPlatform.iOS ||
-        defaultTargetPlatform == TargetPlatform.android;
-    final visualHeight = mobile
-        ? DSpacing.touchTarget
-        : DControlStyle.rowHeight;
+    final mobile = DControlStyle.isTouch(context);
     final startPadding = widget.inset ? 28.0 : 8.0;
     const endPadding = 8.0;
     const trailingGap = 8.0;
     // Active-row changes are atomic. Animating the previous row out while the
     // next row animates in briefly presents two highlighted menu choices.
     final row = interactiveRowSurface(
-      constraints: BoxConstraints(minHeight: visualHeight),
-      padding: EdgeInsetsDirectional.fromSTEB(startPadding, 7, endPadding, 7),
+      constraints: const BoxConstraints(minHeight: DControlStyle.rowHeight),
+      padding: EdgeInsetsDirectional.fromSTEB(
+        startPadding,
+        DControlStyle.menuVerticalInset(context),
+        endPadding,
+        DControlStyle.menuVerticalInset(context),
+      ),
       decoration: BoxDecoration(
         color: background,
         borderRadius: BorderRadius.circular(DControlStyle.rowRadius),
@@ -1392,7 +1392,12 @@ class _DropdownMenuItemSurfaceState extends State<_DropdownMenuItemSurface> {
                   : null,
               child: DefaultTextStyle.merge(
                 style: TextStyle(color: foreground),
-                child: row,
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(
+                    minHeight: mobile ? DSpacing.touchTarget : 0,
+                  ),
+                  child: Center(heightFactor: 1, child: row),
+                ),
               ),
             ),
           ),

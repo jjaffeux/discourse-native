@@ -385,7 +385,7 @@ class _MobileTopicHeaderActions extends StatelessWidget {
               targetId: topic.id,
             ),
             variant: DButtonVariant.outline,
-            density: DButtonDensity.compactToolbar,
+            size: DControlSize.chip,
           ),
         if (instance?.isConnected == true)
           TopicNotificationLevelButton(
@@ -393,7 +393,7 @@ class _MobileTopicHeaderActions extends StatelessWidget {
             siteUrl: siteUrl,
             topic: topic,
             variant: DButtonVariant.outline,
-            density: DButtonDensity.compactToolbar,
+            size: DControlSize.chip,
           ),
         if (topic.privateMessage &&
             instance?.isConnected == true &&
@@ -411,7 +411,6 @@ class _MobileTopicHeaderActions extends StatelessWidget {
           topic: topic,
           topicFlags: shell.availableTopicFlagTypes(siteUrl, topic),
           variant: DButtonVariant.outline,
-          density: DButtonDensity.compactToolbar,
         ),
       ],
     );
@@ -887,7 +886,7 @@ class _CategoryChip extends StatelessWidget {
               tooltip: edit == null ? label : editLabel,
               semanticLabel: edit == null ? label : '$editLabel: $label',
               variant: DButtonVariant.outline,
-              size: DButtonSize.regular,
+              size: DButtonSize.filter,
               backgroundColor: fill,
               borderColor: border,
               interactiveBackgroundColor: hover,
@@ -901,7 +900,7 @@ class _CategoryChip extends StatelessWidget {
                       category: category!,
                       siteUrl: siteUrl,
                       size: DControlStyle.iconDimension(
-                        DControlSize.regular,
+                        DControlSize.filter,
                         context: context,
                       ),
                     ),
@@ -934,7 +933,7 @@ class _CategoryChip extends StatelessWidget {
                 isLink: true,
                 onPressed: navigate,
                 variant: DButtonVariant.outline,
-                size: DButtonSize.regular,
+                size: DButtonSize.filter,
                 backgroundColor: fill,
                 borderColor: border,
                 interactiveBackgroundColor: hover,
@@ -1090,10 +1089,7 @@ class _TopicPropertyPopoverState extends State<_TopicPropertyPopover> {
           DButton.iconOnly(
             icon: const DIcon(DIcons.ellipsis),
             tooltip: section.label,
-            size: DButtonSize.large,
-            density: ShellScope.read(context).mobileNavigationEnabled
-                ? DButtonDensity.compactToolbar
-                : DButtonDensity.standard,
+            size: DButtonSize.chip,
             variant: DButtonVariant.ghost,
             hasPopup: true,
             expanded: expanded,
@@ -1104,7 +1100,7 @@ class _TopicPropertyPopoverState extends State<_TopicPropertyPopover> {
     return section.header?.call(context, showDetails) ??
         DButton(
           label: Text(section.label),
-          size: DButtonSize.large,
+          size: DButtonSize.filter,
           hasPopup: true,
           expanded: expanded,
           focusNode: focusNode,

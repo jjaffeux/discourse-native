@@ -1,6 +1,15 @@
 import 'd_icon.dart';
 
 abstract final class DNativeIcons {
+  // Font Awesome Free 7.3.1, from the native mockup's FilterPill.
+  // Icons: CC BY 4.0, https://fontawesome.com/license/free
+  static const DIconData filterChevron = DIconData(
+    'discourse-native-filter-chevron',
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512" fill="currentColor">'
+        '<path d="M201.4 406.6c12.5 12.5 32.8 12.5 45.3 0l192-192c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0L224 338.7 54.6 169.4c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3l192 192z"/>'
+        '</svg>',
+  );
+
   // Lucide 1.17.0 artwork from the contextual-tints mockup. License:
   // docs/component-library/evidence/avatar/lucide-LICENSE.txt
   static const DIconData bookmark = DIconData(
@@ -108,6 +117,7 @@ abstract final class DNativeIcons {
     'discourse-native-sliders': sliders,
     'discourse-native-columns': columns,
 
+    'discourse-native-filter-chevron': filterChevron,
     'discourse-native-bookmark': bookmark,
     'discourse-native-bookmark-check': bookmarkCheck,
     'discourse-native-bell': bell,

@@ -2587,7 +2587,7 @@ class _TopicBottomBar extends StatelessWidget {
                                 tooltip: 'Reply to this topic',
                                 shortcut: const DShortcut(topicReplyShortcut),
                                 variant: DButtonVariant.primary,
-                                size: DButtonSize.regular,
+                                size: DButtonSize.action,
                               ),
                             ],
                           ),
