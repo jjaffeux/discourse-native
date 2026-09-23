@@ -320,3 +320,8 @@ bypassing them.
 The approved mobile composer toolbar uses `DCardVariant.capsule`. The Card owns
 its capsule outline, tinted surface and insets; child actions retain DButton
 geometry and interaction. Standard Card defaults are unchanged.
+
+Desktop workspace and main content panels use `DCard(border: false)` or
+`DPageSurface(border: false)` to match the borderless HTML reference. The fill
+and rounded clipping remain; footer dividers and ordinary Card outlines are
+unchanged.

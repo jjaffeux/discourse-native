@@ -17,6 +17,7 @@ class DPageSurface extends StatefulWidget {
     this.tabs,
     this.footer,
     this.framed = true,
+    this.border = true,
     this.backgroundColor,
     this.borderRadius,
     this.hideHeaderOnScroll = false,
@@ -40,6 +41,9 @@ class DPageSurface extends StatefulWidget {
 
   /// Disable when composed inside an already framed page or a touch shell.
   final bool framed;
+
+  /// Paints the outer Card outline when framed; retains clipping when false.
+  final bool border;
 
   /// Optional fill for the enclosing Card. Ignored when [framed] is false.
   final Color? backgroundColor;
@@ -220,6 +224,7 @@ class _DPageSurfaceState extends State<DPageSurface> {
           widget.limitContentSize ?? DPageContentSettings.limitOf(context),
       child: widget.framed
           ? DCard(
+              border: widget.border,
               spacing: 0,
               backgroundColor: widget.backgroundColor,
               borderRadius: widget.borderRadius,

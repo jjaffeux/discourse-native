@@ -14,6 +14,7 @@ final pageSurfaceExamples = ComponentExamples(
       'Programmatic restoration and '
       'nested or horizontal scrolling do not retract it. Changing identity resets '
       'the header. Use framed: false inside an existing page frame or touch shell. '
+      'Use border: false to retain the rounded surface without an outer outline. '
       'backgroundColor changes the frame fill without changing descendant tokens. '
       'DPageReadingLane supplies padding inside a full-width viewport; its width '
       'policy inherits from the page. This app composition is separate from the '

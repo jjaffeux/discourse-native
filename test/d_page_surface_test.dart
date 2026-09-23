@@ -28,6 +28,46 @@ Widget _list({ScrollController? controller}) => ListView.builder(
 );
 
 void main() {
+  testWidgets('borderless page retains fill, clipping and footer divider', (
+    tester,
+  ) async {
+    const fill = Color(0xff334455);
+    for (final border in [true, false]) {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: DPageSurface(
+            border: border,
+            backgroundColor: fill,
+            footer: const DCardFooter(rounded: true, child: Text('Footer')),
+            child: const Text('Page'),
+          ),
+        ),
+      );
+      final card = find.byType(DCard);
+      final outline = tester.widget<DecoratedBox>(
+        find.descendant(of: card, matching: find.byType(DecoratedBox)).first,
+      );
+      expect((outline.decoration as BoxDecoration).border != null, border);
+      final material = tester.widget<Material>(
+        find.descendant(of: card, matching: find.byType(Material)).first,
+      );
+      expect(material.color, fill);
+      expect(material.clipBehavior, Clip.antiAlias);
+      expect(material.borderRadius, BorderRadius.circular(DRadius.panel));
+      final footerOutline = tester.widget<DecoratedBox>(
+        find
+            .descendant(
+              of: find.byType(DCardFooter),
+              matching: find.byType(DecoratedBox),
+            )
+            .first,
+      );
+      expect((footerOutline.decoration as BoxDecoration).border!.top.width, 1);
+      expect(find.text('Footer'), findsOneWidget);
+      expect(find.text('Page'), findsOneWidget);
+    }
+  });
+
   testWidgets('framed pages pass corner geometry to the Native card', (
     tester,
   ) async {
