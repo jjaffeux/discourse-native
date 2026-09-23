@@ -1,6 +1,7 @@
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_plugin_api/discourse_plugin_api.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 
 import '../models/composer_upload.dart';
@@ -172,7 +173,11 @@ class _ComposerListItemEditorState extends State<ComposerListItemEditor> {
   }
 
   void _focusFromParent() {
-    if (_focusScheduled || !widget.composer.focus.hasPrimaryFocus) return;
+    if (_focusScheduled ||
+        !body.isEditing ||
+        !widget.composer.focus.hasPrimaryFocus) {
+      return;
+    }
     final selection = widget.composer.value.selection;
     final item = body.item;
     if (!selection.isValid ||
@@ -181,25 +186,21 @@ class _ComposerListItemEditorState extends State<ComposerListItemEditor> {
         selection.end > item.end) {
       return;
     }
-    _focusScheduled = true;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _focusScheduled = false;
-      if (!mounted ||
-          !body.isEditing ||
-          !widget.composer.focus.hasPrimaryFocus) {
-        return;
-      }
-      final selection = widget.composer.value.selection;
-      if (!selection.isCollapsed ||
-          selection.start < body.item.contentStart ||
-          selection.end > body.item.end) {
-        return;
-      }
-      body.text.selection = TextSelection.collapsed(
-        offset: body.item.body.localOffset(selection.start),
-      );
-      body.requestFocus();
-    });
+    // Keyboard focus must reach the body before painting the parent's caret
+    // beside its full-width projection. Only defer changes during build/layout.
+    if (WidgetsBinding.instance.schedulerPhase ==
+        SchedulerPhase.persistentCallbacks) {
+      _focusScheduled = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _focusScheduled = false;
+        if (mounted) _focusFromParent();
+      });
+      return;
+    }
+    body.text.selection = TextSelection.collapsed(
+      offset: item.body.localOffset(selection.start),
+    );
+    body.requestFocus();
   }
 
   @override
@@ -618,8 +619,12 @@ class ComposerListBodyController extends ComposerController {
         return KeyEventResult.handled;
       }
       final source = parent.text.text;
+      final previousNewlineLength =
+          _item.start >= 2 && source.startsWith('\r\n', _item.start - 2)
+          ? 2
+          : 1;
       var offset = moveLeft
-          ? (_item.start - 1).clamp(0, source.length)
+          ? (_item.start - previousNewlineLength).clamp(0, source.length)
           : (_item.end + (source.startsWith('\r\n', _item.end) ? 2 : 1)).clamp(
               0,
               source.length,

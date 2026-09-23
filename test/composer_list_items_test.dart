@@ -496,6 +496,71 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  for (final newline in ['\n', '\r\n']) {
+    for (final firstText in ['First', '', 'First\n  Continued']) {
+      for (final nested in [false, true]) {
+        testWidgets(
+          'Left at a task start paints the previous text caret immediately '
+          '(newline ${newline.length}, first "$firstText", nested $nested)',
+          (tester) async {
+            final prefix = nested ? '- [ ] Parent$newline  ' : '';
+            final indent = nested ? '  ' : '';
+            final firstSource = firstText.replaceAll('\n', '$newline$indent');
+            final source =
+                '$prefix- [x] $firstSource$newline$indent- [ ] Second';
+            final root = await pumpEditor(
+              tester,
+              source,
+              platform: TargetPlatform.macOS,
+            );
+            final items = bodies(tester);
+            final first = items[items.length - 2];
+            final second = items.last;
+            second.text.selection = const TextSelection.collapsed(offset: 0);
+            second.requestFocus();
+            await tester.pumpAndSettle();
+
+            await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+            await tester.pump();
+
+            expect(first.focus.hasPrimaryFocus, isTrue);
+            // Check the frame that just painted, before deferred focus changes
+            // can hide a caret rendered beside the enclosing projection.
+            for (final composer in [root, ...items]) {
+              expect(
+                tester
+                    .state<EditableTextState>(editable(composer))
+                    .renderEditable
+                    .hasFocus,
+                identical(composer, first),
+              );
+            }
+            final textEnd = first.text.text.length;
+            expect(
+              first.text.selection,
+              TextSelection.collapsed(offset: textEnd),
+            );
+            final sourceEnd = source.indexOf('$newline$indent- [ ] Second');
+            expect(root.text.selection.extentOffset, sourceEnd);
+
+            tester.testTextInput.updateEditingValue(
+              TextEditingValue(
+                text: '${first.text.text}!',
+                selection: TextSelection.collapsed(offset: textEnd + 1),
+              ),
+            );
+            await tester.pumpAndSettle();
+            expect(
+              root.text.text,
+              source.replaceRange(sourceEnd, sourceEnd, '!'),
+            );
+            expect(tester.takeException(), isNull);
+          },
+        );
+      }
+    }
+  }
+
   testWidgets(
     'Return splits tasks and Shift Return stays in their content column',
     (tester) async {
