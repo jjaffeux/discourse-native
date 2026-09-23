@@ -272,6 +272,33 @@ class _ComposerBlockSurfaceState extends State<ComposerBlockSurface> {
     composer.focus.requestFocus();
   }
 
+  _BlockDrag? _touchDataAt(Offset position) {
+    if (!composer.blocks.enabled || _drag != null) return null;
+    for (final block in composer.blocks.index.blocks) {
+      final rect = widget.blockRect(block);
+      if (block.movable && rect != null && rect.contains(position)) {
+        return _BlockDrag(composer, block.id, composer.blocks.revision);
+      }
+    }
+    return null;
+  }
+
+  bool _startTouchDrag(_BlockDrag drag) {
+    if (!_validSnapshot(drag)) return false;
+    composer.blocks.select(drag.id);
+    _dragFocus.requestFocus();
+    setState(() => _drag = drag);
+    _scheduleGeometry();
+    return true;
+  }
+
+  bool _insideSurface(Offset position) {
+    final box = _bounds.currentContext?.findRenderObject();
+    return box is RenderBox &&
+        box.hasSize &&
+        (Offset.zero & box.size).contains(box.globalToLocal(position));
+  }
+
   void _move(int gap) {
     if (composer.blocks.moveTo(
       gap,
@@ -481,7 +508,7 @@ class _ComposerBlockSurfaceState extends State<ComposerBlockSurface> {
     final line = _dropTop == null
         ? null
         : PositionedDirectional(
-            start: gutter,
+            start: desktop ? gutter : 0,
             end: 0,
             top: _dropTop,
             child: const FractionalTranslation(
@@ -540,7 +567,23 @@ class _ComposerBlockSurfaceState extends State<ComposerBlockSurface> {
                   padding: EdgeInsetsDirectional.only(
                     start: desktop ? gutter : 0,
                   ),
-                  child: widget.child,
+                  child: DLongPressDragRegion<_BlockDrag>(
+                    enabled: !desktop && composer.blocks.enabled,
+                    dataAt: _touchDataAt,
+                    onStart: _startTouchDrag,
+                    onMove: (drag, position) {
+                      if (_insideSurface(position)) {
+                        _moveDrag(drag, position);
+                      } else {
+                        _leaveDrag();
+                      }
+                    },
+                    onDrop: (drag, position) {
+                      if (_insideSurface(position)) _drop(drag, position);
+                    },
+                    onEnd: _cancelDrag,
+                    child: widget.child,
+                  ),
                 ),
                 if (_drag != null && handleRect != null)
                   Positioned(

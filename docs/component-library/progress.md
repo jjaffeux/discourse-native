@@ -6,6 +6,21 @@ Coordinator task: `01a0816f-d4e0-7f93-9d6b-baeaf6961181`. Reference: 2026-09-08.
 
 Foundation: **merged** on `codex/component-library-foundation`. Merge: 1b130d3323f9b7619bdead025fd76a57be402a97.
 
+## Composer mobile block movement — 2026-09-23
+
+Added `DLongPressDragRegion` for touch movement resolved from content geometry.
+It uses the normal long-press timeout, takes priority over descendant text
+selection only for eligible content, and leaves taps and quick scroll gestures
+available. The topic composer reuses its snapshot validation, insertion line,
+source highlight, edge scrolling, and single undo transaction. Desktop handles
+retain their existing behavior. The Drag styleguide includes a touch example
+with an alternative button action.
+
+Verification: static analysis passed; 61 focused composer and drag component
+tests passed, including iOS/Android reorder gestures, undo, cancellation,
+concurrent edits, scrolling, tap-to-edit, and desktop regression coverage.
+No physical-device or live styleguide inspection was performed.
+
 ## Mobile control scale — 2026-09-20
 
 The shared size scale now resolves from the inherited platform: desktop remains

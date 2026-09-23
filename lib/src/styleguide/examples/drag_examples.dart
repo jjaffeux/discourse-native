@@ -23,6 +23,15 @@ final dragExamples = ComponentExamples(
       builder: (_) => const _DragExample(),
     ),
     StyleguideExample(
+      title: 'Long-press content',
+      description:
+          'On touch, hold the paragraph and move it into the destination. A quick swipe remains available for scrolling.',
+      states: const ['Touch', 'Light', 'Dark'],
+      code:
+          'DLongPressDragRegion<int>(dataAt: dataAt, onStart: start, onMove: move, onDrop: drop, onEnd: end, child: content)',
+      builder: (_) => const _LongPressExample(),
+    ),
+    StyleguideExample(
       title: 'Disabled',
       description: 'Unavailable handles cannot start a drag or action.',
       states: const ['Disabled'],
@@ -102,5 +111,75 @@ class _DragExampleState extends State<_DragExample> {
     onDragEnd: () {
       if (mounted) setState(() => _dragging = false);
     },
+  );
+}
+
+class _LongPressExample extends StatefulWidget {
+  const _LongPressExample();
+
+  @override
+  State<_LongPressExample> createState() => _LongPressExampleState();
+}
+
+class _LongPressExampleState extends State<_LongPressExample> {
+  final _source = GlobalKey();
+  final _destination = GlobalKey();
+  bool _dragging = false;
+  bool _over = false;
+  bool _placed = false;
+
+  bool _contains(GlobalKey key, Offset position) {
+    final box = key.currentContext?.findRenderObject();
+    return box is RenderBox &&
+        (Offset.zero & box.size).contains(box.globalToLocal(position));
+  }
+
+  void _place() => setState(() => _placed = true);
+
+  @override
+  Widget build(BuildContext context) => DLongPressDragRegion<int>(
+    dataAt: (position) => _contains(_source, position) ? 1 : null,
+    onStart: (_) {
+      setState(() => _dragging = true);
+      return true;
+    },
+    onMove: (_, position) =>
+        setState(() => _over = _contains(_destination, position)),
+    onDrop: (_, position) {
+      if (_contains(_destination, position)) _place();
+    },
+    onEnd: () => setState(() {
+      _dragging = false;
+      _over = false;
+    }),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Stack(
+          key: _source,
+          children: [
+            const Padding(
+              padding: EdgeInsets.all(DSpacing.md),
+              child: Text('Hold this paragraph, then move your finger down.'),
+            ),
+            if (_dragging) const Positioned.fill(child: DDragHighlight()),
+          ],
+        ),
+        const SizedBox(height: DSpacing.md),
+        DCard(
+          key: _destination,
+          child: Column(
+            children: [
+              if (_over) const DDropIndicator(),
+              Text(_placed ? 'Paragraph placed' : 'Drop here'),
+            ],
+          ),
+        ),
+        DButton(
+          label: Text(_placed ? 'Reset' : 'Move paragraph here'),
+          onPressed: _placed ? () => setState(() => _placed = false) : _place,
+        ),
+      ],
+    ),
   );
 }

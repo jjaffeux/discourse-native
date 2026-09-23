@@ -1,5 +1,8 @@
-import 'package:flutter/gestures.dart' show PointerDeviceKind;
+import 'dart:async';
+
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 
 import '../foundation/tokens.dart';
 import 'd_button.dart';
@@ -192,4 +195,133 @@ class DDropIndicator extends StatelessWidget {
       ),
     ),
   );
+}
+
+/// Long-press movement over content whose items are resolved by global position.
+///
+/// Returns a snapshot from [dataAt] on touch-down, or null to leave the gesture
+/// to the child. Accepted long presses take priority over child text selection;
+/// taps and scrolling before the long-press timeout retain their normal behavior.
+/// The owner supplies source/destination feedback and validates the snapshot
+/// before committing [onDrop]. All positions are global. Provide separate
+/// accessible actions when adopting this gesture on otherwise passive content.
+class DLongPressDragRegion<T extends Object> extends StatefulWidget {
+  const DLongPressDragRegion({
+    super.key,
+    required this.dataAt,
+    required this.onStart,
+    required this.onMove,
+    required this.onDrop,
+    required this.onEnd,
+    required this.child,
+    this.enabled = true,
+  });
+
+  final T? Function(Offset position) dataAt;
+  final bool Function(T data) onStart;
+  final void Function(T data, Offset position) onMove;
+  final void Function(T data, Offset position) onDrop;
+  final VoidCallback onEnd;
+  final Widget child;
+  final bool enabled;
+
+  @override
+  State<DLongPressDragRegion<T>> createState() =>
+      _DLongPressDragRegionState<T>();
+}
+
+class _DLongPressDragRegionState<T extends Object>
+    extends State<DLongPressDragRegion<T>> {
+  late final LongPressGestureRecognizer _recognizer;
+  T? _data;
+  bool _active = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _recognizer = LongPressGestureRecognizer(debugOwner: this)
+      ..onLongPressStart = (details) {
+        final data = _data;
+        if (!widget.enabled || data == null || !widget.onStart(data)) return;
+        _active = true;
+        unawaited(Feedback.forLongPress(context));
+        widget.onMove(data, details.globalPosition);
+      }
+      ..onLongPressMoveUpdate = (details) {
+        final data = _data;
+        if (_active && widget.enabled && data != null) {
+          widget.onMove(data, details.globalPosition);
+        }
+      }
+      ..onLongPressEnd = (details) {
+        final data = _data;
+        if (_active && widget.enabled && data != null) {
+          widget.onDrop(data, details.globalPosition);
+        }
+        _finish();
+      }
+      ..onLongPressCancel = _finish;
+  }
+
+  void _finish() {
+    final active = _active;
+    _active = false;
+    _data = null;
+    if (active) widget.onEnd();
+  }
+
+  void _down(PointerDownEvent event) {
+    if (!widget.enabled ||
+        _data != null ||
+        event.kind != PointerDeviceKind.touch) {
+      return;
+    }
+    final data = widget.dataAt(event.position);
+    if (data == null) return;
+    _data = data;
+    _recognizer.addPointer(event);
+  }
+
+  @override
+  void dispose() {
+    _recognizer.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) =>
+      _LongPressListener(onPointerDown: _down, child: widget.child);
+}
+
+// Register the block recognizer before descendant text-selection recognizers.
+// Both use the platform long-press timeout; hit-test order gives block movement
+// priority without shortening that timeout or intercepting taps/scroll drags.
+class _LongPressListener extends SingleChildRenderObjectWidget {
+  const _LongPressListener({required this.onPointerDown, required super.child});
+  final PointerDownEventListener onPointerDown;
+
+  @override
+  RenderPointerListener createRenderObject(BuildContext context) =>
+      _RenderLongPressListener(onPointerDown);
+
+  @override
+  void updateRenderObject(
+    BuildContext context,
+    RenderPointerListener renderObject,
+  ) {
+    renderObject.onPointerDown = onPointerDown;
+  }
+}
+
+class _RenderLongPressListener extends RenderPointerListener {
+  _RenderLongPressListener(PointerDownEventListener onDown)
+    : super(onPointerDown: onDown);
+
+  @override
+  bool hitTest(BoxHitTestResult result, {required Offset position}) {
+    if (!size.contains(position)) return false;
+    result.add(BoxHitTestEntry(this, position));
+    hitTestChildren(result, position: position);
+    return true;
+  }
 }

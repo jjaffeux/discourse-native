@@ -50,6 +50,7 @@ void main() {
   Future<void> mount(
     WidgetTester tester, {
     bool mobile = false,
+    TargetPlatform? platform,
     bool dark = false,
     double textScale = 1,
     TextDirection direction = TextDirection.ltr,
@@ -61,7 +62,8 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
     final theme = (dark ? AppTheme.dark : AppTheme.light).copyWith(
-      platform: mobile ? TargetPlatform.iOS : TargetPlatform.macOS,
+      platform:
+          platform ?? (mobile ? TargetPlatform.iOS : TargetPlatform.macOS),
     );
     final editor = ComposerEditor(
       composer: composer,
@@ -104,6 +106,147 @@ void main() {
     );
     await tester.pumpAndSettle();
   }
+
+  for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
+    testWidgets('mobile long press moves a block on $platform', (tester) async {
+      await mount(tester, mobile: true, platform: platform);
+      final original = composer.text.value;
+      final editor = tester.state<EditableTextState>(find.byType(EditableText));
+      final blocks = composer.blocks.index.blocks;
+      final surface = tester.widget<ComposerBlockSurface>(
+        find.byType(ComposerBlockSurface),
+      );
+      final first = surface.blockRect(blocks.first)!;
+      final second = surface.blockRect(blocks[1])!;
+      final last = surface.blockRect(blocks.last)!;
+      final gesture = await tester.startGesture(first.center);
+      await tester.pump(kLongPressTimeout + const Duration(milliseconds: 50));
+      await tester.pump();
+      expect(find.byType(DDragHighlight), findsOneWidget);
+      await gesture.moveTo(
+        Offset(first.center.dx, (second.bottom + last.top) / 2),
+      );
+      await tester.pump();
+      await tester.pump();
+      expect(find.byType(DDropIndicator), findsOneWidget);
+      expect(tester.getRect(find.byType(DDropIndicator)).left, 16);
+      expect(composer.text.text, original.text);
+      await gesture.up();
+      await tester.pumpAndSettle();
+      expect(
+        composer.text.text,
+        '## A heading\n\nFirst paragraph\n\nLast paragraph',
+      );
+      expect(composer.blocks.index.blocks[1].id, blocks.first.id);
+      expect(
+        tester.state<EditableTextState>(find.byType(EditableText)),
+        same(editor),
+      );
+      expect(find.byType(DDragHighlight), findsNothing);
+      expect(find.byType(DDropIndicator), findsNothing);
+      composer.history.undo();
+      await tester.pumpAndSettle();
+      expect(composer.text.value, original);
+      expect(composer.history.canUndo, isFalse);
+    });
+  }
+
+  for (final cancellation in ['pointer', 'outside', 'revision']) {
+    testWidgets('mobile block drag cancels on $cancellation', (tester) async {
+      await mount(tester, mobile: true);
+      final source = composer.text.text;
+      final surface = tester.widget<ComposerBlockSurface>(
+        find.byType(ComposerBlockSurface),
+      );
+      final blocks = composer.blocks.index.blocks;
+      final gesture = await tester.startGesture(
+        surface.blockRect(blocks.first)!.center,
+      );
+      await tester.pump(kLongPressTimeout + const Duration(milliseconds: 50));
+      await gesture.moveTo(surface.blockRect(blocks.last)!.bottomCenter);
+      await tester.pump();
+      if (cancellation == 'pointer') {
+        await gesture.cancel();
+      } else {
+        if (cancellation == 'outside') {
+          await gesture.moveTo(const Offset(0, 0));
+        } else {
+          composer.text.text = '$source!';
+        }
+        await gesture.up();
+      }
+      await tester.pumpAndSettle();
+      expect(
+        composer.text.text,
+        cancellation == 'revision' ? '$source!' : source,
+      );
+      expect(find.byType(DDragHighlight), findsNothing);
+      expect(find.byType(DDropIndicator), findsNothing);
+    });
+  }
+
+  testWidgets('mobile swipe scrolls without moving blocks', (tester) async {
+    composer.text.text = List.generate(40, (i) => 'Paragraph $i').join('\n\n');
+    await mount(tester, mobile: true);
+    final source = composer.text.text;
+    final surface = tester.widget<ComposerBlockSurface>(
+      find.byType(ComposerBlockSurface),
+    );
+    final start = surface.blockRect(composer.blocks.index.blocks[8])!.center;
+    final gesture = await tester.startGesture(start);
+    await gesture.moveBy(const Offset(0, -30));
+    await tester.pump();
+    await gesture.moveBy(const Offset(0, -150));
+    await tester.pump(kLongPressTimeout);
+    await gesture.up();
+    await tester.pumpAndSettle();
+    expect(surface.editorScroll()!.pixels, greaterThan(0));
+    expect(composer.text.text, source);
+    expect(find.byType(DDragHighlight), findsNothing);
+  });
+
+  testWidgets('mobile long press scrolls at the viewport edge', (tester) async {
+    composer.text.text = List.generate(40, (i) => 'Paragraph $i').join('\n\n');
+    await mount(tester, mobile: true);
+    final source = composer.text.text;
+    final surface = tester.widget<ComposerBlockSurface>(
+      find.byType(ComposerBlockSurface),
+    );
+    final gesture = await tester.startGesture(
+      surface.blockRect(composer.blocks.index.blocks.first)!.center,
+    );
+    await tester.pump(kLongPressTimeout + const Duration(milliseconds: 50));
+    await gesture.moveTo(const Offset(150, 694));
+    await tester.pump(const Duration(seconds: 1));
+    expect(surface.editorScroll()!.pixels, greaterThan(0));
+    await gesture.cancel();
+    await tester.pumpAndSettle();
+    expect(composer.text.text, source);
+    expect(find.byType(DDragHighlight), findsNothing);
+  });
+
+  testWidgets(
+    'mobile tapping still focuses the editor without moving a block',
+    (tester) async {
+      await mount(tester, mobile: true);
+      final source = composer.text.text;
+      final surface = tester.widget<ComposerBlockSurface>(
+        find.byType(ComposerBlockSurface),
+      );
+      await tester.tapAt(
+        surface.blockRect(composer.blocks.index.blocks.last)!.center,
+      );
+      await tester.pumpAndSettle();
+      expect(composer.focus.hasFocus, isTrue);
+      expect(composer.text.selection.isCollapsed, isTrue);
+      expect(
+        composer.text.selection.extentOffset,
+        greaterThan(source.indexOf('Last')),
+      );
+      expect(composer.text.text, source);
+      expect(find.byType(DDragHighlight), findsNothing);
+    },
+  );
 
   testWidgets('drag handle shows grab across its entire hit area', (
     tester,

@@ -6,6 +6,57 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  for (final enabled in [false, true]) {
+    testWidgets(
+      'long-press region preserves child gestures when enabled=$enabled',
+      (tester) async {
+        var taps = 0;
+        var childHolds = 0;
+        var starts = 0;
+        var moves = 0;
+        var drops = 0;
+        var ends = 0;
+        var eligible = true;
+        await tester.pumpWidget(
+          MaterialApp(
+            home: DLongPressDragRegion<int>(
+              enabled: enabled,
+              dataAt: (_) => eligible ? 7 : null,
+              onStart: (data) {
+                starts++;
+                return true;
+              },
+              onMove: (_, _) => moves++,
+              onDrop: (_, _) => drops++,
+              onEnd: () => ends++,
+              child: GestureDetector(
+                onTap: () => taps++,
+                onLongPress: () => childHolds++,
+                behavior: HitTestBehavior.opaque,
+                child: const SizedBox.expand(),
+              ),
+            ),
+          ),
+        );
+        await tester.tapAt(const Offset(100, 100));
+        expect(taps, 1);
+        final gesture = await tester.startGesture(const Offset(100, 100));
+        await tester.pump(kLongPressTimeout + const Duration(milliseconds: 50));
+        await gesture.moveBy(const Offset(0, 100));
+        await gesture.up();
+        expect(starts, enabled ? 1 : 0);
+        expect(moves, enabled ? greaterThan(0) : 0);
+        expect(drops, enabled ? 1 : 0);
+        expect(ends, enabled ? 1 : 0);
+        expect(childHolds, enabled ? 0 : 1);
+        eligible = false;
+        await tester.longPressAt(const Offset(100, 100));
+        expect(childHolds, enabled ? 1 : 2);
+        expect(starts, enabled ? 1 : 0);
+      },
+    );
+  }
+
   for (final (removeSource, cancel) in [
     (false, false),
     (true, false),
