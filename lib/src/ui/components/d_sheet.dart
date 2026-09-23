@@ -218,7 +218,7 @@ Widget _sheetPresentation(
     );
   }
 
-  return LayoutBuilder(
+  final layout = LayoutBuilder(
     builder: (context, bounds) {
       final margin = inset ? DSpacing.md : 0.0;
       // A trigger inside SafeArea can capture a MediaQuery with its top padding
@@ -273,6 +273,37 @@ Widget _sheetPresentation(
       );
     },
   );
+  return fillAvailableHeight ? _DSheetKeyboardInsets(child: layout) : layout;
+}
+
+// Scaffold can consume the opening control's keyboard inset. Observe the view
+// so a full-height sheet still resizes as the keyboard opens and closes, while
+// preserving the caller's other MediaQuery overrides.
+class _DSheetKeyboardInsets extends StatelessWidget {
+  const _DSheetKeyboardInsets({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final media = MediaQuery.of(context);
+    return MediaQuery.fromView(
+      view: View.of(context),
+      child: Builder(
+        builder: (viewContext) => MediaQuery(
+          data: media.copyWith(
+            viewInsets: media.viewInsets.copyWith(
+              bottom: math.max(
+                media.viewInsets.bottom,
+                MediaQuery.viewInsetsOf(viewContext).bottom,
+              ),
+            ),
+          ),
+          child: child,
+        ),
+      ),
+    );
+  }
 }
 
 /// The base-nova fixed-edge sheet surface.

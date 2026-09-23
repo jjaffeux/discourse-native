@@ -16,7 +16,6 @@ import 'curved_animation_builder.dart';
 import 'emoji.dart';
 import 'emoji_picker_controller.dart';
 import 'platform.dart';
-import 'shell_sheet.dart';
 
 Future<String?> showEmojiPicker({
   required BuildContext context,
@@ -45,20 +44,34 @@ Future<String?> showEmojiPicker({
 
   try {
     if (context.isTouch) {
-      return await showShellSheet<String>(
+      final searchFocus = FocusNode(debugLabel: 'emoji picker search');
+      return await showDSheet<String>(
         context: context,
-        title: 'Emoji',
-        padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
-        builder: (sheetContext) => SizedBox(
-          height: _pickerHeight(sheetContext),
-          child: EmojiPicker(
-            controller: controller,
-            touch: true,
-            onPicked: (code) {
-              Navigator.of(sheetContext).pop(code);
-            },
-            onDismiss: Navigator.of(sheetContext).pop,
-          ),
+        side: DSheetSide.bottom,
+        inset: true,
+        fillAvailableHeight: true,
+        initialFocusNode: searchFocus,
+        barrierLabel: 'Dismiss emoji picker',
+        builder: (context, sheet) => DSheetContent(
+          side: DSheetSide.bottom,
+          semanticLabel: 'Emoji',
+          topBottomMaxHeightFactor: 1,
+          scrollWholeSheet: false,
+          children: [
+            const DSheetHeader(children: [DSheetTitle(child: Text('Emoji'))]),
+            Expanded(
+              child: _EmojiPickerFocusOwner(
+                focusNode: searchFocus,
+                child: EmojiPicker(
+                  controller: controller,
+                  searchFocusNode: searchFocus,
+                  touch: true,
+                  onPicked: (code) => sheet.close(code),
+                  onDismiss: sheet.close,
+                ),
+              ),
+            ),
+          ],
         ),
       );
     }
@@ -188,9 +201,6 @@ const double _cellExtent = 44;
 const double _sectionHeaderExtent = 32;
 const String _frequentGroup = '__frequently-used';
 
-double _pickerHeight(BuildContext context) =>
-    (MediaQuery.sizeOf(context).height * 0.7).clamp(360.0, 540.0).toDouble();
-
 Rect? _anchorRect(BuildContext context) => anchorRect(
   anchor: context.findRenderObject() as RenderBox?,
   overlay:
@@ -272,6 +282,27 @@ class _DesktopPickerCard extends StatelessWidget {
   }
 }
 
+class _EmojiPickerFocusOwner extends StatefulWidget {
+  const _EmojiPickerFocusOwner({required this.focusNode, required this.child});
+
+  final FocusNode focusNode;
+  final Widget child;
+
+  @override
+  State<_EmojiPickerFocusOwner> createState() => _EmojiPickerFocusOwnerState();
+}
+
+class _EmojiPickerFocusOwnerState extends State<_EmojiPickerFocusOwner> {
+  @override
+  void dispose() {
+    widget.focusNode.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
+}
+
 class EmojiPicker extends StatefulWidget {
   const EmojiPicker({
     super.key,
@@ -279,6 +310,7 @@ class EmojiPicker extends StatefulWidget {
     required this.onPicked,
     required this.onDismiss,
     this.touch,
+    this.searchFocusNode,
   });
 
   final EmojiPickerController controller;
@@ -286,13 +318,19 @@ class EmojiPicker extends StatefulWidget {
   final VoidCallback onDismiss;
   final bool? touch;
 
+  /// Borrowed search focus node; the caller retains ownership.
+  final FocusNode? searchFocusNode;
+
   @override
   State<EmojiPicker> createState() => _EmojiPickerState();
 }
 
 class _EmojiPickerState extends State<EmojiPicker> {
   late final TextEditingController _search;
-  final FocusNode _searchFocus = FocusNode(debugLabel: 'emoji picker search');
+  final FocusNode _ownedSearchFocus = FocusNode(
+    debugLabel: 'emoji picker search',
+  );
+  FocusNode get _searchFocus => widget.searchFocusNode ?? _ownedSearchFocus;
   final ScrollController _scroll = ScrollController();
   final Map<String, FocusNode> _cellFocus = {};
   final Map<int, double> _cellOffsets = {};
@@ -323,7 +361,7 @@ class _EmojiPickerState extends State<EmojiPicker> {
       ..removeListener(_syncActiveGroup)
       ..dispose();
     _search.dispose();
-    _searchFocus.dispose();
+    _ownedSearchFocus.dispose();
     for (final node in _cellFocus.values) {
       node.dispose();
     }

@@ -145,57 +145,100 @@ void main() {
     );
   });
 
-  testWidgets('touch picker uses a keyboard-safe sheet and bottom navigation', (
-    tester,
-  ) async {
-    tester.view.physicalSize = const Size(390, 844);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
+  for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
+    testWidgets(
+      'mobile picker fills the space above the keyboard on $platform',
+      (tester) async {
+        tester.view.physicalSize = const Size(390, 844);
+        tester.view.devicePixelRatio = 1;
+        tester.view.padding = const FakeViewPadding(top: 47, bottom: 34);
+        tester.view.viewPadding = const FakeViewPadding(top: 47, bottom: 34);
+        addTearDown(tester.view.reset);
+        String? selected;
 
-    await tester.pumpWidget(
-      MaterialApp(
-        theme: AppTheme.light.copyWith(platform: TargetPlatform.android),
-        home: Scaffold(
-          body: Builder(
-            builder: (context) => FilledButton(
-              onPressed: () => unawaited(
-                showEmojiPicker(
-                  context: context,
-                  siteUrl: _siteUrl,
-                  pickerContext: chatEmojiUsageContext,
-                  store: EmojiPickerStore(persistence: _MemoryPersistence()),
-                  loadCatalog: ({refresh = false}) async => _catalog,
-                  loadSearchAliases: ({refresh = false}) async => const {},
+        await tester.pumpWidget(
+          MaterialApp(
+            theme:
+                (platform == TargetPlatform.iOS
+                        ? AppTheme.light
+                        : AppTheme.dark)
+                    .copyWith(platform: platform),
+            home: Scaffold(
+              body: SafeArea(
+                child: Builder(
+                  builder: (context) => DButton(
+                    onPressed: () async {
+                      selected = await showEmojiPicker(
+                        context: context,
+                        siteUrl: _siteUrl,
+                        pickerContext: chatEmojiUsageContext,
+                        store: EmojiPickerStore(
+                          persistence: _MemoryPersistence(),
+                        ),
+                        loadCatalog: ({refresh = false}) async => _catalog,
+                        loadSearchAliases: ({refresh = false}) async =>
+                            const {},
+                      );
+                    },
+                    label: const Text('Open emoji'),
+                  ),
                 ),
               ),
-              child: const Text('Open emoji'),
             ),
           ),
-        ),
-      ),
-    );
+        );
 
-    await tester.tap(find.text('Open emoji'));
-    await tester.pumpAndSettle();
-    expect(
-      find.byKey(const ValueKey('emoji-picker-category-nav-touch')),
-      findsOneWidget,
-    );
-    expect(
-      find.byKey(const ValueKey('emoji-picker-desktop-popover')),
-      findsNothing,
-    );
+        await tester.tap(find.text('Open emoji'));
+        await tester.pumpAndSettle();
+        final sheet = find.byType(DSheetContent);
+        final input = find.byType(EditableText);
+        final navigation = find.byKey(
+          const ValueKey('emoji-picker-category-nav-touch'),
+        );
+        expect(navigation, findsOneWidget);
+        expect(
+          find.byKey(const ValueKey('emoji-picker-desktop-popover')),
+          findsNothing,
+        );
+        expect(tester.getSize(sheet).height, greaterThan(700));
+        expect(tester.getTopLeft(sheet).dy, closeTo(844 * .11, .1));
+        expect(tester.getTopLeft(sheet).dx, DSpacing.md);
+        expect(tester.widget<EditableText>(input).focusNode.hasFocus, isTrue);
+        expect(tester.testTextInput.isVisible, isTrue);
 
-    tester.view.viewInsets = const FakeViewPadding(bottom: 260);
-    await tester.pumpAndSettle();
-    final inset = tester.widget<AnimatedPadding>(
-      find.byKey(const ValueKey('shell-sheet-keyboard-inset')),
-    );
-    expect(inset.padding, const EdgeInsets.only(bottom: 260));
+        tester.view.viewInsets = const FakeViewPadding(bottom: 300);
+        await tester.pumpAndSettle();
+        expect(tester.getTopLeft(sheet).dy, closeTo(844 * .11, .1));
+        expect(tester.getBottomLeft(sheet).dy, lessThanOrEqualTo(544));
+        expect(tester.getBottomLeft(navigation).dy, lessThan(544));
+        expect(tester.widget<EditableText>(input).focusNode.hasFocus, isTrue);
+        expect(tester.takeException(), isNull);
 
-    await tester.tap(find.byTooltip('Close'));
-    await tester.pumpAndSettle();
-  });
+        tester.view.viewInsets = const FakeViewPadding();
+        await tester.pumpAndSettle();
+        expect(tester.getSize(sheet).height, greaterThan(700));
+        expect(tester.widget<EditableText>(input).focusNode.hasFocus, isTrue);
+
+        tester.view.viewInsets = const FakeViewPadding(bottom: 300);
+        await tester.enterText(input, 'smile');
+        await tester.pumpAndSettle();
+        await tester.tap(find.bySemanticsLabel('Insert :smile:'));
+        await tester.pumpAndSettle();
+        expect(selected, 'smile');
+        expect(sheet, findsNothing);
+
+        tester.view.viewInsets = const FakeViewPadding();
+        await tester.tap(find.text('Open emoji'));
+        await tester.pumpAndSettle();
+        expect(tester.widget<EditableText>(input).controller.text, isEmpty);
+        await tester.tap(find.byTooltip('Close'));
+        await tester.pumpAndSettle();
+        expect(selected, isNull);
+        expect(sheet, findsNothing);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
 
   testWidgets('desktop picker centers when its live anchor disappears', (
     tester,
