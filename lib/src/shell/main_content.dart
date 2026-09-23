@@ -215,10 +215,11 @@ class _MainContentBody extends StatelessWidget {
                   (route.isBadges && (route.badgeRoute?.isDirectory ?? true)) ||
                   (route.id == 'user-bookmarks' && state.isConnected));
     final hideDirectoryHeader =
-        pageOwnsTitle &&
-        !state.canPop &&
-        (ShellScope.read(context).mobileNavigationEnabled ||
-            (ShellTitleBar.isSupported && !layout.isCompact));
+        (route.isThemes && !context.isTouch) ||
+        (pageOwnsTitle &&
+            !state.canPop &&
+            (ShellScope.read(context).mobileNavigationEnabled ||
+                (ShellTitleBar.isSupported && !layout.isCompact)));
     final usesTopicToolbar =
         !layout.isCompact &&
         !pluginOwnsChrome &&
