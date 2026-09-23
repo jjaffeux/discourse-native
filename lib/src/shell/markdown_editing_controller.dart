@@ -1472,12 +1472,43 @@ class MarkdownEditingController extends TextEditingController {
                 ),
                 if (separator.end - separator.start > 1)
                   const TextSpan(text: '\u200b', style: _hidden),
-              ] else
-                // The blank line is visible spacing, not an empty block.
+              ] else if (!blockSeparators.contains(separator))
+                // Embedded components retain their boundary caret layout.
                 TextSpan(
                   text: source.substring(separator.start, separator.end),
                   style: base,
+                )
+              else ...[
+                // Keep one real line break and project the required blank line
+                // as space below the previous paragraph. The full text strut stays
+                // intact, including the caret in an empty trailing paragraph.
+                WidgetSpan(
+                  alignment: PlaceholderAlignment.belowBaseline,
+                  baseline: TextBaseline.alphabetic,
+                  style: base,
+                  child: Builder(
+                    builder: (context) {
+                      final painter = TextPainter(
+                        text: TextSpan(text: ' ', style: base),
+                        strutStyle: StrutStyle.fromTextStyle(
+                          base,
+                          forceStrutHeight: false,
+                        ),
+                        textDirection: Directionality.of(context),
+                      )..layout();
+                      final line = painter.computeLineMetrics().single;
+                      painter.dispose();
+                      return SizedBox(
+                        width: 0,
+                        height: line.descent + line.height * .5,
+                      );
+                    },
+                  ),
                 ),
+                if (separator.end - separator.start == 4)
+                  const TextSpan(text: '\u200b\u200b', style: _hidden),
+                TextSpan(text: '\n', style: base),
+              ],
             ],
             normalizeSource: false,
           ),
