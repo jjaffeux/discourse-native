@@ -96,8 +96,8 @@ final class ForumThemePreferences {
     return background == null ? theme : theme?.copyWith(background: background);
   }
 
-  /// A preset replaces only this mode's colors. Effects belong to the window
-  /// and remain unchanged across mode switches.
+  /// A palette edit replaces only this mode's colors. Preset selection also
+  /// replaces the shared background with the preset's definition or defaults.
   ForumThemePreferences withPalette(ForumTheme theme) => ForumThemePreferences(
     selectedId: selectedId,
     font: font,

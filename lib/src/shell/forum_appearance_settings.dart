@@ -214,6 +214,16 @@ class _ForumAppearanceSettingsState extends State<ForumAppearanceSettings> {
                   customThemes: preferences.customThemes,
                   onBrightnessChanged: (value) =>
                       setState(() => _editingBrightness = value),
+                  onPresetSelected: (preset) => unawaited(
+                    _save(
+                      _seed(settings.themesFor(widget.siteUrl), brightness)
+                          .withPalette(preset)
+                          .withBackground(
+                            preset.background ??
+                                const ForumBackground.appearance(),
+                          ),
+                    ),
+                  ),
                   onChanged: (palette) => unawaited(
                     _save(
                       _seed(

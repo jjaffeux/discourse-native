@@ -87,6 +87,7 @@ void main() {
                         onBrightnessChanged: (_) {},
                         customThemes: const [],
                         onChanged: (_) {},
+                        onPresetSelected: (_) {},
                         onSave: (_) async {},
                       ),
                     ),

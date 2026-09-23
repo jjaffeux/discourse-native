@@ -19,6 +19,7 @@ class ForumThemeEditor extends StatefulWidget {
     required this.brightness,
     required this.customThemes,
     required this.onChanged,
+    required this.onPresetSelected,
     required this.onSave,
     required this.onBackgroundChanged,
     required this.onBrightnessChanged,
@@ -34,6 +35,7 @@ class ForumThemeEditor extends StatefulWidget {
   final List<ForumTheme> customThemes;
   final Map<Brightness, ForumTheme> forumPalettes;
   final ValueChanged<ForumTheme> onChanged;
+  final ValueChanged<ForumTheme> onPresetSelected;
   final Future<void> Function(ForumTheme) onSave;
   final ValueChanged<ForumBackground> onBackgroundChanged;
   final ValueChanged<Brightness> onBrightnessChanged;
@@ -123,10 +125,9 @@ class _ForumThemeEditorState extends State<ForumThemeEditor> {
             palette: palette,
             isForumDefault: widget.isForumDefault,
             onForumDefault: widget.onForumDefault,
-            background: background,
             forumPalette: widget.forumPalettes[widget.brightness],
             customThemes: widget.customThemes,
-            onChanged: widget.onChanged,
+            onChanged: widget.onPresetSelected,
             onDelete: widget.onDelete == null ? null : _delete,
           ),
         ),

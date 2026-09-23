@@ -13,7 +13,6 @@ class ForumThemePicker extends StatelessWidget {
   const ForumThemePicker({
     super.key,
     required this.palette,
-    required this.background,
     required this.customThemes,
     required this.onChanged,
     this.forumPalette,
@@ -23,7 +22,6 @@ class ForumThemePicker extends StatelessWidget {
   });
 
   final ForumTheme palette;
-  final ForumBackground background;
   final List<ForumTheme> customThemes;
   final ValueChanged<ForumTheme> onChanged;
   final ForumTheme? forumPalette;
@@ -113,7 +111,11 @@ class ForumThemePicker extends StatelessWidget {
                           child: ThemeThumbnail(
                             theme: AppTheme.fromPalette(
                               theme
-                                  .copyWith(background: background)
+                                  .copyWith(
+                                    background:
+                                        theme.background ??
+                                        const ForumBackground.appearance(),
+                                  )
                                   .resolve(palette.brightness),
                             ),
                           ),
