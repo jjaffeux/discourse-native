@@ -337,6 +337,22 @@ void main() {
     tester,
   ) async {
     final state = await _pump(tester, tabTransitions: true, roundedPanel: true);
+    Future<void> expectTransparentCorner() async {
+      final boundary = tester.renderObject<RenderRepaintBoundary>(
+        find.byKey(const ValueKey('history-test-boundary')),
+      );
+      final image = boundary.toImageSync(pixelRatio: 1);
+      final pixels = await tester.runAsync(
+        () => image.toByteData(format: ui.ImageByteFormat.rawRgba),
+      );
+      expect(pixels, isNotNull);
+      expect(pixels!.getUint8(0), 0);
+      expect(pixels.getUint8(1), 255);
+      expect(pixels.getUint8(2), 0);
+      image.dispose();
+    }
+
+    await expectTransparentCorner();
     state.selectTab(1);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 70));
@@ -360,6 +376,7 @@ void main() {
     expect(pixels.getUint8(offset + 2), 0);
     image.dispose();
     await tester.pumpAndSettle();
+    await expectTransparentCorner();
   });
 
   testWidgets('tab changes respect reduced motion and owner changes', (
