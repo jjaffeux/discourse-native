@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'composer_list_source.dart';
 import 'composer_todo_source.dart';
 
 /// Structural units in source Markdown. Inline components stay inside text.
@@ -400,10 +401,14 @@ class _BlockScanner {
   final String source;
   final List<ComposerBlockAtom> atoms;
   final List<_Line> lines = [];
+  late final _todoItems = {
+    for (final item in composerListItems(source))
+      if (item.isTask) item.start: item,
+  };
   late final _todoStarts = {
+    ..._todoItems.keys,
     for (final todo in composerTodos(source))
-      // Markdown lists retain their nested items and continuation paragraphs.
-      // The slash command and typing shortcuts produce standalone to-do rows.
+      // Legacy standalone checkboxes remain individually movable.
       if (source.substring(todo.start, todo.markerStart).trim().isEmpty)
         todo.start,
   };
@@ -441,7 +446,10 @@ class _BlockScanner {
           _Span(
             lines[first].start,
             lines[i].end,
-            ComposerBlockKind.component,
+            _todoItems.containsKey(lines[first].start)
+                ? ComposerBlockKind.todo
+                : ComposerBlockKind.component,
+            movable: _todoItems[lines[first].start]?.closed ?? true,
             label: atom.label,
           ),
         );
@@ -471,7 +479,20 @@ class _BlockScanner {
         continue;
       }
       if (_todoStarts.contains(lines[i].start)) {
-        result.add(_Span(lines[i].start, lines[i].end, ComposerBlockKind.todo));
+        final item = _todoItems[lines[i].start];
+        while (item != null &&
+            i + 1 < lines.length &&
+            lines[i + 1].start < item.end) {
+          i++;
+        }
+        result.add(
+          _Span(
+            lines[first].start,
+            lines[i].end,
+            ComposerBlockKind.todo,
+            movable: item?.closed ?? true,
+          ),
+        );
         i++;
         continue;
       }
@@ -554,6 +575,7 @@ class _BlockScanner {
             if (!continues) break;
             i = next;
           } else if (_heading.hasMatch(lines[i].text) ||
+              _todoStarts.contains(lines[i].start) ||
               _rule.hasMatch(lines[i].text) ||
               _atomAt(lines[i].start) != null ||
               (_bbOpen.hasMatch(lines[i].text) &&

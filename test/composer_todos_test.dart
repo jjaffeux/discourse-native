@@ -45,10 +45,10 @@ void main() {
     'insertion preserves current text and does not duplicate an existing item',
     () {
       for (final (before, after) in [
-        ('|', '[ ] |'),
-        ('Before\n\nDo this|', 'Before\n\n[ ] Do this|'),
-        ('## Heading|', '[ ] Heading|'),
-        ('- Bullet|', '[ ] Bullet|'),
+        ('|', '- [ ] |'),
+        ('Before\n\nDo this|', 'Before\n\n- [ ] Do this|'),
+        ('## Heading|', '- [ ] Heading|'),
+        ('- Bullet|', '- [ ] Bullet|'),
         ('[x] Done|', '[x] Done|'),
       ]) {
         expect(insertComposerTodo(valueAt(before)), valueAt(after));
@@ -300,9 +300,9 @@ void main() {
       expect(find.text('To-do list'), findsOneWidget);
       await tester.sendKeyEvent(LogicalKeyboardKey.enter);
       await tester.pumpAndSettle();
-      expect(composer.text.text, '[ ] ');
-      expect(composer.text.selection.extentOffset, 4);
-      expect(composer.focus.hasPrimaryFocus, isTrue);
+      expect(composer.text.text, '- [ ] ');
+      expect(composer.text.selection.extentOffset, 6);
+      expect(composer.activeEditor.focus.hasPrimaryFocus, isTrue);
       expect(find.byType(DCheckbox), findsOneWidget);
       expect(find.text('To-do'), findsOneWidget);
       expect(tester.takeException(), isNull);
@@ -318,7 +318,7 @@ void main() {
 
       Future<void> type(String text) async {
         for (final character in text.split('')) {
-          final value = composer.text.value;
+          final value = composer.activeEditor.text.value;
           final caret = value.selection.extentOffset;
           tester.testTextInput.updateEditingValue(
             TextEditingValue(
@@ -326,25 +326,34 @@ void main() {
               selection: TextSelection.collapsed(offset: caret + 1),
             ),
           );
-          await tester.pump();
+          await tester.pumpAndSettle();
         }
       }
 
+      final canonical = marker == '[]' ? '[ ]' : marker;
       for (final prefix in ['', 'Before\n']) {
-        await tester.enterText(find.byType(EditableText), prefix);
+        composer.text.value = TextEditingValue(
+          text: prefix,
+          selection: TextSelection.collapsed(offset: prefix.length),
+        );
+        composer.requestFocus();
+        await tester.pumpAndSettle();
         await type(marker);
-        expect(composer.text.value, valueAt('$prefix$marker |'));
+        expect(composer.text.value, valueAt('$prefix- $canonical |'));
         expect(find.text('To-do'), findsOneWidget);
         expect(
           tester.widget<DCheckbox>(find.byType(DCheckbox)).value,
           marker == '[x]',
         );
         await type('Buy milk');
-        expect(composer.text.value, valueAt('$prefix$marker Buy milk|'));
+        expect(composer.text.value, valueAt('$prefix- $canonical Buy milk|'));
         expect(find.byType(DCheckbox), findsOneWidget);
         await tester.sendKeyEvent(LogicalKeyboardKey.enter);
-        await tester.pump();
-        expect(composer.text.value, valueAt('$prefix$marker Buy milk\n[ ] |'));
+        await tester.pumpAndSettle();
+        expect(
+          composer.text.value,
+          valueAt('$prefix- $canonical Buy milk\n- [ ] |'),
+        );
         expect(tester.takeException(), isNull);
       }
     });

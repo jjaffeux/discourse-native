@@ -1047,12 +1047,16 @@ class ComposerRichBodyEditor extends StatelessWidget {
     required this.label,
     required this.hintText,
     required this.onExit,
+    this.onKeyEvent,
+    this.enableBlockReordering,
   });
 
   final ComposerController composer;
   final String label;
   final String hintText;
   final VoidCallback onExit;
+  final KeyEventResult Function(KeyEvent)? onKeyEvent;
+  final bool? enableBlockReordering;
 
   @override
   Widget build(BuildContext context) {
@@ -1098,7 +1102,11 @@ class ComposerRichBodyEditor extends StatelessWidget {
             expands: false,
             showSelectionToolbar: enclosing?.showSelectionToolbar ?? true,
             enableDropTarget: enclosing?.enableDropTarget ?? true,
-            enableBlockReordering: enclosing?.enableBlockReordering ?? true,
+            enableBlockReordering:
+                enableBlockReordering ??
+                enclosing?.enableBlockReordering ??
+                true,
+            onKeyEvent: onKeyEvent,
             pickFiles: enclosing?.pickFiles ?? pickComposerFiles,
             pickImages: enclosing?.pickImages ?? pickComposerImages,
             readClipboardFiles:
@@ -1666,7 +1674,8 @@ class _ComposerEditorState extends State<ComposerEditor> {
                         widget.composer.text.keyboardSelectedProjection != null
                         ? Colors.transparent
                         : null,
-                    child: TextField(
+                    child: DInput(
+                      borderless: true,
                       // New documents also get a fresh native input session.
                       // ComposerController resets the shared source history.
                       key: ValueKey(widget.composer.fieldGeneration),
@@ -1678,8 +1687,6 @@ class _ComposerEditorState extends State<ComposerEditor> {
                       autofocus: widget.autofocus,
                       expands: widget.expands,
                       maxLines: null,
-                      minLines: widget.expands ? null : 1,
-                      textAlignVertical: TextAlignVertical.top,
                       keyboardType: TextInputType.multiline,
                       textCapitalization: TextCapitalization.sentences,
                       inputFormatters: [
@@ -1690,7 +1697,11 @@ class _ComposerEditorState extends State<ComposerEditor> {
                         ...widget.composer.text.syntaxInputFormatters,
                         _blockquoteInputFormatter,
                         if (widget.composer.text.enableTodos)
-                          const ComposerTodoInputFormatter(),
+                          ComposerTodoInputFormatter(
+                            referenceMarkers:
+                                widget.composer.text.todoReferenceMarkers,
+                          ),
+                        ...widget.composer.inputFormatters,
                       ],
                       contextMenuBuilder: _contextMenu,
                       showCursor:
@@ -1710,10 +1721,6 @@ class _ComposerEditorState extends State<ComposerEditor> {
                         widget.textStyle ?? DefaultTextStyle.of(context).style,
                         forceStrutHeight: false,
                       ),
-                      // InputDecorator only gives the editable one text line when
-                      // the TextField expands. The composer draws its hint separately
-                      // so either viewport mode fills the available editor width.
-                      decoration: null,
                     ),
                   ),
                 ),
@@ -2348,6 +2355,7 @@ class _ComposerEditorState extends State<ComposerEditor> {
         !keyboard.isAltPressed &&
         value.composing.isCollapsed &&
         (isInParagraph ||
+            widget.composer.singleNewlineParagraphs ||
             _blockquoteInputFormatter.isInQuote(value) ||
             widget.composer.text.todos.any(
               (todo) =>
@@ -2358,7 +2366,10 @@ class _ComposerEditorState extends State<ComposerEditor> {
       final editable = _editableTextState;
       if (editable == null) return KeyEventResult.ignored;
       final newline = value.text.contains('\r\n') ? '\r\n' : '\n';
-      final insertion = isInParagraph && !keyboard.isShiftPressed
+      final insertion =
+          isInParagraph &&
+              !keyboard.isShiftPressed &&
+              !widget.composer.singleNewlineParagraphs
           ? '$newline$newline'
           : newline;
       editable.userUpdateTextEditingValue(

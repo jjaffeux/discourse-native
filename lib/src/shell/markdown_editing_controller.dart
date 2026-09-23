@@ -1,7 +1,8 @@
 import 'dart:async';
 
 import 'package:discourse_native/discourse_ui.dart';
-import 'package:flutter/foundation.dart' show listEquals, visibleForTesting;
+import 'package:flutter/foundation.dart'
+    show listEquals, setEquals, visibleForTesting;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -116,18 +117,39 @@ class MarkdownEditingController extends TextEditingController {
   ValueChanged<TextEditingValue>? onTodoChanged;
   String? _todoSource;
   List<ComposerTodo> _todos = const [];
+  Set<String> _todoReferenceMarkers = const {};
+  Set<String> get todoReferenceMarkers => _todoReferenceMarkers;
+  set todoReferenceMarkers(Set<String> value) {
+    if (setEquals(_todoReferenceMarkers, value)) return;
+    _todoReferenceMarkers = value;
+    _todoSource = null;
+    _syntaxScanned = null;
+    _cachedSpan = null;
+  }
+
   List<ComposerTodo> get todos {
     if (!enableTodos) return const [];
     if (_todoSource != text) {
       _todoSource = text;
       _todos = List.unmodifiable(
-        composerTodos(text, codeRanges: _codeRangesFor(text)),
+        composerTodos(
+          text,
+          codeRanges: _codeRangesFor(text),
+          referenceMarkers: todoReferenceMarkers,
+        ),
       );
     }
     return _todos;
   }
 
   bool _todosReadOnly = false;
+  bool _completedProse = false;
+  set completedProse(bool value) {
+    if (_completedProse == value) return;
+    _completedProse = value;
+    _cachedSpan = null;
+  }
+
   set todosReadOnly(bool value) {
     if (_todosReadOnly == value) return;
     _todosReadOnly = value;
@@ -1284,6 +1306,10 @@ class MarkdownEditingController extends TextEditingController {
     }
 
     void appendRun(MarkdownRun run) {
+      if (_completedProse && !run.has(Md.codeBlock)) {
+        appendStyledRun(run, true);
+        return;
+      }
       if (completedTodos.isEmpty) {
         appendStyledRun(run, false);
         return;
@@ -1350,9 +1376,13 @@ class MarkdownEditingController extends TextEditingController {
             normalizeSource: false,
           ),
       for (final todo in todos)
-        if (composing == null ||
-            composing.end <= todo.start ||
-            composing.start >= todo.contentStart)
+        if (!collapsedSyntax.any(
+              (block) =>
+                  block.start <= todo.start && block.end >= todo.contentStart,
+            ) &&
+            (composing == null ||
+                composing.end <= todo.start ||
+                composing.start >= todo.contentStart))
           _SpanProjection(
             todo.start,
             todo.contentStart,

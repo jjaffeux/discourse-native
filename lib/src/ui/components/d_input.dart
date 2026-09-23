@@ -27,9 +27,9 @@ import 'd_label.dart';
 /// label. Rich field layouts belong to Field; [prefix] and [suffix] are simple
 /// inline slots for application search/status controls, not Input Group's API.
 /// The box is editable edge to edge: its padding takes the text cursor and a
-/// press there focuses the editor. Multiline editing belongs to Textarea. Use
-/// [DFileInput] for file selection. [borderless] supports editing a title in
-/// place, with [style] and wrapping up to [maxLines] lines.
+/// press there focuses the editor. Multiline form fields use Textarea. Use
+/// [DFileInput] for file selection. [borderless] supports titles and rich
+/// document editing in place, with [style] and [maxLines] controlling wrapping.
 class DInput extends FormField<String> {
   DInput({
     super.key,
@@ -37,6 +37,12 @@ class DInput extends FormField<String> {
     this.size = DControlSize.regular,
     this.style,
     this.maxLines = 1,
+    this.expands = false,
+    this.scrollController,
+    this.strutStyle,
+    this.showCursor,
+    this.mouseCursor,
+    this.onTapAlwaysCalled = false,
     this.controller,
     this.value,
     String? initialValue,
@@ -78,8 +84,9 @@ class DInput extends FormField<String> {
     super.onReset,
     super.validator,
     super.autovalidateMode,
-  }) : assert(maxLines > 0),
+  }) : assert(maxLines == null || maxLines > 0),
        assert(borderless || maxLines == 1),
+       assert(!expands || (borderless && maxLines == null)),
        assert(controller == null || (initialValue == null && value == null)),
        assert(initialValue == null || value == null),
        assert(maxLength == null || maxLength > 0),
@@ -97,8 +104,17 @@ class DInput extends FormField<String> {
   /// Text styling for an inline editor.
   final TextStyle? style;
 
-  /// Inline editors may wrap; ordinary form inputs remain single-line.
-  final int maxLines;
+  /// Inline editors may grow with content when null. Ordinary form inputs
+  /// remain single-line. [expands] instead fills a bounded editor viewport.
+  final int? maxLines;
+  final bool expands;
+  final ScrollController? scrollController;
+
+  /// Rich inline content may supply its own line metrics, including widgets.
+  final StrutStyle? strutStyle;
+  final bool? showCursor;
+  final MouseCursor? mouseCursor;
+  final bool onTapAlwaysCalled;
 
   final TextEditingController? controller;
   final String? value;
@@ -278,6 +294,9 @@ class _DInputState extends FormFieldState<String> {
     group?.report(_focus, enabled, isInvalid);
     final editor = TextFieldTapRegion(
       child: Row(
+        crossAxisAlignment: input.expands
+            ? CrossAxisAlignment.stretch
+            : CrossAxisAlignment.center,
         children: [
           if (input.prefix != null) ...[
             input.prefix!,
@@ -300,8 +319,17 @@ class _DInputState extends FormFieldState<String> {
                 readOnly: input.readOnly,
                 autofocus: input.autofocus,
                 style: style,
+                strutStyle: input.strutStyle,
+                expands: input.expands,
                 maxLines: input.maxLines,
-                minLines: input.borderless ? 1 : null,
+                minLines: input.borderless && !input.expands ? 1 : null,
+                scrollController: input.scrollController,
+                showCursor: input.showCursor,
+                mouseCursor: input.mouseCursor,
+                onTapAlwaysCalled: input.onTapAlwaysCalled,
+                textAlignVertical: input.borderless
+                    ? TextAlignVertical.top
+                    : null,
                 scrollPadding: input.borderless
                     ? EdgeInsets.zero
                     : const EdgeInsets.all(20),

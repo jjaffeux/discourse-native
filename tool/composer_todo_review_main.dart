@@ -35,7 +35,13 @@ class _TodoReviewState extends State<_TodoReview> {
   void initState() {
     super.initState();
     composer.text.text =
-        '[x] Send the design\n[ ] Review the implementation\n[ ] ';
+        '- [x] Send the design\n'
+        '- [ ] Review the implementation and verify the longer lines wrap beside the checkbox\n'
+        '  Keep this continuation aligned with the task text.\n\n'
+        '  Check the earlier database versions too.\n\n'
+        '  ```sh\n  run-migration-checks\n  ```\n\n'
+        '  - [ ] Check the nested task\n'
+        '- [ ] ';
   }
 
   @override
@@ -87,8 +93,12 @@ class _TodoReviewState extends State<_TodoReview> {
                 const SizedBox(height: 8),
                 const CookedHtml(
                   html:
-                      '<p><span class="chcklst-box checked fa fa-square-check-o"></span> Send the design<br>'
-                      '<span class="chcklst-box fa fa-square-o"></span> Review the implementation</p>',
+                      '<ul><li><span class="chcklst-box checked"></span> Send the design</li>'
+                      '<li><p><span class="chcklst-box"></span> Review the implementation and verify the longer lines wrap beside the checkbox<br>'
+                      'Keep this continuation aligned with the task text.</p>'
+                      '<p>Check the earlier database versions too.</p>'
+                      '<pre><code class="lang-sh">run-migration-checks</code></pre>'
+                      '<ul><li><span class="chcklst-box"></span> Check the nested task</li></ul></li></ul>',
                 ),
                 const SizedBox(height: 16),
               ],

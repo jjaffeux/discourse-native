@@ -87,8 +87,11 @@ void main() {
     'nested checklists and literal markers keep their container boundaries',
     () {
       const nested = '- [ ] Parent\n  - [x] Child\n\n- Plain';
-      expect(parse(nested).blocks.single.source, nested);
-      expect(parse(nested).blocks.single.kind, ComposerBlockKind.list);
+      expect(parse(nested).blocks.map((block) => block.source), [
+        '- [ ] Parent\n  - [x] Child',
+        '- Plain',
+      ]);
+      expect(parse(nested).blocks.first.kind, ComposerBlockKind.todo);
       for (final source in [
         '```\n[ ] Code\n[x] Code\n```',
         '\\[ ] Escaped\n\\[x] Escaped',

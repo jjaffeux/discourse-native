@@ -60,18 +60,24 @@ TextEditingValue insertComposerTodo(TextEditingValue value) {
   final prefix = RegExp(
     r'^ {0,3}(?:#{1,6}|[-+*]|\d{1,9}[.)])(?:[ \t]+|$)',
   ).firstMatch(value.text.substring(start));
-  final end = start + (prefix?.end ?? 0);
+  final bullet = RegExp(
+    r'^( *)([-+*])[ \t]+',
+  ).firstMatch(value.text.substring(start));
+  final end = start + (bullet?.end ?? prefix?.end ?? 0);
+  final replacement = bullet == null ? '- [ ] ' : '${bullet[0]}[ ] ';
   return TextEditingValue(
-    text: value.text.replaceRange(start, end, '[ ] '),
+    text: value.text.replaceRange(start, end, replacement),
     selection: TextSelection.collapsed(
-      offset: 4 + (caret < end ? start : caret - (end - start)),
+      offset:
+          replacement.length + (caret < end ? start : caret - (end - start)),
     ),
   );
 }
 
 /// Mobile and desktop input share marker shortcuts, continuation and deletion.
 class ComposerTodoInputFormatter extends TextInputFormatter {
-  const ComposerTodoInputFormatter();
+  const ComposerTodoInputFormatter({this.referenceMarkers = const {}});
+  final Set<String> referenceMarkers;
 
   @override
   TextEditingValue formatEditUpdate(
@@ -87,18 +93,36 @@ class ComposerTodoInputFormatter extends TextInputFormatter {
     final caret = oldValue.selection.extentOffset;
     if (newValue.text == oldValue.text.replaceRange(caret, caret, ']') &&
         newValue.selection == TextSelection.collapsed(offset: caret + 1)) {
-      final completed = composerTodos(
-        newValue.text,
-      ).any((item) => item.contentStart == caret + 1 && item.end == caret + 1);
-      if (completed) {
+      final completed =
+          composerTodos(newValue.text, referenceMarkers: referenceMarkers)
+              .where(
+                (item) =>
+                    item.contentStart == caret + 1 && item.end == caret + 1,
+              )
+              .firstOrNull;
+      if (completed != null) {
         // Make the body immediately editable without exposing a required space.
+        final marker = newValue.text.substring(
+          completed.markerStart,
+          caret + 1,
+        );
+        final normalized = marker == '[]' ? '[ ]' : marker;
+        final prefix = completed.isListItem ? '' : '- ';
         return TextEditingValue(
-          text: newValue.text.replaceRange(caret + 1, caret + 1, ' '),
-          selection: TextSelection.collapsed(offset: caret + 2),
+          text: newValue.text
+              .replaceRange(completed.markerStart, caret + 1, '$normalized ')
+              .replaceRange(completed.start, completed.start, prefix),
+          selection: TextSelection.collapsed(
+            offset:
+                caret + 2 + prefix.length + normalized.length - marker.length,
+          ),
         );
       }
     }
-    final todos = composerTodos(oldValue.text);
+    final todos = composerTodos(
+      oldValue.text,
+      referenceMarkers: referenceMarkers,
+    );
     final deletedLength = oldValue.text.length - newValue.text.length;
     final deletionStart = newValue.selection.extentOffset;
     if (deletedLength > 0 &&
@@ -122,14 +146,29 @@ class ComposerTodoInputFormatter extends TextInputFormatter {
         }
       }
     }
-    final todo = todos
-        .where((item) => caret >= item.contentStart && caret <= item.end)
+    final todo = todos.reversed
+        .where(
+          (item) =>
+              caret >= item.contentStart && caret <= (item.itemEnd ?? item.end),
+        )
         .firstOrNull;
     if (todo == null) return newValue;
-    if (newValue.text == oldValue.text.replaceRange(caret, caret, '\n') &&
-        newValue.selection == TextSelection.collapsed(offset: caret + 1)) {
-      if (HardwareKeyboard.instance.isShiftPressed) return newValue;
-      if (oldValue.text.substring(todo.contentStart, todo.end).trim().isEmpty) {
+    final newline = oldValue.text.contains('\r\n') ? '\r\n' : '\n';
+    if (newValue.text == oldValue.text.replaceRange(caret, caret, newline) &&
+        newValue.selection ==
+            TextSelection.collapsed(offset: caret + newline.length)) {
+      if (HardwareKeyboard.instance.isShiftPressed) {
+        if (!todo.isListItem) return newValue;
+        final insertion = '$newline${todo.continuationIndent}';
+        return TextEditingValue(
+          text: oldValue.text.replaceRange(caret, caret, insertion),
+          selection: TextSelection.collapsed(offset: caret + insertion.length),
+        );
+      }
+      if (oldValue.text
+          .substring(todo.contentStart, todo.itemEnd ?? todo.end)
+          .trim()
+          .isEmpty) {
         return TextEditingValue(
           text: oldValue.text.replaceRange(todo.start, todo.end, ''),
           selection: TextSelection.collapsed(offset: todo.start),
@@ -138,8 +177,10 @@ class ComposerTodoInputFormatter extends TextInputFormatter {
       final prefix =
           '${oldValue.text.substring(todo.start, todo.markerStart)}[ ] ';
       return TextEditingValue(
-        text: oldValue.text.replaceRange(caret, caret, '\n$prefix'),
-        selection: TextSelection.collapsed(offset: caret + 1 + prefix.length),
+        text: oldValue.text.replaceRange(caret, caret, '$newline$prefix'),
+        selection: TextSelection.collapsed(
+          offset: caret + newline.length + prefix.length,
+        ),
       );
     }
     return newValue;

@@ -4,6 +4,7 @@ import 'dart:async';
 
 import 'package:discourse_plugin_api/discourse_plugin_api.dart';
 import 'package:flutter/foundation.dart' show listEquals;
+import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
 import '../data/discourse_api.dart';
@@ -23,6 +24,8 @@ import 'composer_details.dart';
 import 'composer_edit_history.dart';
 import 'composer_galleries.dart';
 import 'composer_images.dart';
+import 'composer_list_editor.dart';
+import 'composer_list_source.dart';
 import 'composer_marks.dart';
 import 'composer_pills.dart';
 import 'composer_quotes.dart';
@@ -332,8 +335,10 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
     int maxImageWidth = 690,
     int maxImageHeight = 500,
     int minimumRequiredTags = 0,
+    ComposerEditHistory? sharedHistory,
     DateTime Function()? now,
-  }) : _enableAutoGridImages = enableAutoGridImages,
+  }) : _ownsHistory = sharedHistory == null,
+       _enableAutoGridImages = enableAutoGridImages,
        text = MarkdownEditingController(
          imageSiteUrl: _target.siteUrl,
          resolveEmoji: resolveEmoji,
@@ -368,12 +373,15 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
       text.syntaxPolicies.add(ComposerUploadPlaceholderPolicy(this));
       text.syntaxPolicies.add(ComposerTablePolicy(this));
       text.syntaxPolicies.add(ComposerDetailsPolicy(this));
+      text.syntaxPolicies.add(ComposerListPolicy(this));
     }
-    history = ComposerEditHistory(
-      text,
-      beforeRestore: text.clearKeyboardPillSelection,
-      deferUntilSession: true,
-    );
+    history =
+        sharedHistory ??
+        ComposerEditHistory(
+          text,
+          beforeRestore: text.clearKeyboardPillSelection,
+          deferUntilSession: true,
+        );
     text.onTodoChanged = (value) {
       if (isEditing) history.transact(() => text.value = value);
     };
@@ -438,6 +446,12 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
 
   final MarkdownEditingController text;
   late final ComposerEditHistory history;
+  final bool _ownsHistory;
+
+  /// Embedded list bodies share document history and adapt native proposals
+  /// before they become edits to the canonical Markdown.
+  List<TextInputFormatter> get inputFormatters => const [];
+  bool get singleNewlineParagraphs => false;
   late final ComposerBlockController blocks;
   final TextEditingController title;
 
@@ -1391,7 +1405,8 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
     final at = offset.clamp(0, source.length);
     final before = at > 0 && source[at - 1] != '\n' ? '\n' : '';
     final after = at == source.length || source[at] != '\n' ? '\n' : '';
-    return '$before$markdown$after';
+    final indent = composerListContinuationAt(source, at);
+    return '$before$markdown$after'.replaceAll('\n', '\n$indent');
   }
 
   static String _galleryBlockInsertion(
@@ -2776,7 +2791,7 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
     } finally {
       _replacingDocument = false;
     }
-    history.reset();
+    if (_ownsHistory) history.reset();
     blocks.reset();
   }
 
@@ -2933,7 +2948,7 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
     text.removeListener(_onTextChanged);
     title.removeListener(_onMetadataChanged);
     blocks.dispose();
-    history.dispose();
+    if (_ownsHistory) history.dispose();
     text.dispose();
     title.dispose();
     autocomplete.dispose();

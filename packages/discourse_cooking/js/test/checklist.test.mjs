@@ -29,6 +29,16 @@ test('checklists respect site settings without leaking between requests', () => 
   assert.ok(cook('[x] Task').includes('chcklst-box checked'));
 });
 
+test('list tasks retain continuation paragraphs, code and nested items', () => {
+  const html = cook('- [ ] First line\n  Continuation\n\n  Second paragraph\n\n  ```text\n  [ ] literal\n  ```\n\n  - [x] Child\n- Ordinary bullet');
+  assert.equal(html.match(/chcklst-box/g).length, 2, html);
+  assert.ok(html.includes('Continuation</p>'), html);
+  assert.ok(html.includes('<p>Second paragraph</p>'), html);
+  assert.ok(html.includes('[ ] literal\n</code></pre>'), html);
+  assert.match(html, /<ul>\s*<li><span[^>]*chcklst-box checked[^>]*><\/span> Child<\/li>\s*<\/ul>\s*<\/li>/);
+  assert.ok(html.includes('<li>\n<p>Ordinary bullet</p>\n</li>'), html);
+});
+
 test('code, escapes and links do not become task controls', () => {
   for (const raw of ['`[x] Code`', '```\n[ ] Code\n```', '    [ ] Code', '\\[ ] Escaped', '[x](https://example.com)', '[x] Link\n\n[x]: https://example.com']) {
     assert.ok(!cook(raw).includes('chcklst-box'), raw);

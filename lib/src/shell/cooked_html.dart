@@ -198,7 +198,7 @@ class CookedHtml extends StatelessWidget {
     String linkCountForeground,
     TextStyle? linkStyle,
   ) {
-    final styles = <String, String>{};
+    final styles = <String, String>{...?cookedTodoStyles(element)};
 
     if (element.localName == 'a') {
       styles['text-decoration'] =
