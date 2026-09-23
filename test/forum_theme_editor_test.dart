@@ -118,6 +118,90 @@ void main() {
     }
   });
 
+  testWidgets(
+    'background hex entry validates, syncs with the palette and saves',
+    (tester) async {
+      ForumTheme? draft;
+      ForumTheme? saved;
+      Widget editor(ForumTheme theme) => MaterialApp(
+        theme: AppTheme.light,
+        home: SingleChildScrollView(
+          child: DCard(
+            child: ForumThemeEditor(
+              key: ValueKey(theme),
+              initialTheme: theme,
+              customThemes: const [],
+              onChanged: (value) => draft = value,
+              onSave: (value) async => saved = value,
+            ),
+          ),
+        ),
+      );
+      await tester.pumpWidget(editor(forumThemePresets.first));
+      final hex = input('custom-theme-background-hex');
+      await tester.ensureVisible(hex);
+      for (final value in ['#a1B2c3', '  099dd7  ']) {
+        await tester.enterText(hex, value);
+        await tester.pumpAndSettle();
+        final expected = value.contains('a1')
+            ? const Color(0xffa1b2c3)
+            : const Color(0xff099dd7);
+        expect(draft!.background!.color, expected);
+        expect(
+          tester
+              .widget<DColorPicker>(
+                find.byWidgetPredicate(
+                  (widget) =>
+                      widget is DColorPicker &&
+                      widget.semanticLabel == 'Background color palette',
+                ),
+              )
+              .value,
+          expected,
+        );
+      }
+      final valid = draft;
+      await tester.enterText(hex, '#12zz');
+      await tester.pumpAndSettle();
+      expect(draft, same(valid));
+      expect(
+        find.text('Enter a six-digit hex color, such as #099DD7.'),
+        findsOneWidget,
+      );
+      expect(
+        tester
+            .widget<DButton>(find.widgetWithText(DButton, 'Save theme'))
+            .onPressed,
+        isNull,
+      );
+
+      final plane = find.byKey(const ValueKey('color-picker-inline-plane'));
+      await tester.ensureVisible(plane);
+      await tester.tap(plane);
+      await tester.pumpAndSettle();
+      expect(
+        tester.widget<EditableText>(hex).controller.text,
+        ForumTheme.hex(draft!.background!.color),
+      );
+      expect(
+        find.text('Enter a six-digit hex color, such as #099DD7.'),
+        findsNothing,
+      );
+
+      await tester.enterText(hex, '#123456');
+      await tester.pumpAndSettle();
+      final save = find.widgetWithText(DButton, 'Save theme');
+      await tester.ensureVisible(save);
+      await tester.tap(save);
+      await tester.pumpAndSettle();
+      expect(saved!.background!.color, const Color(0xff123456));
+      await tester.pumpWidget(editor(saved!));
+      await tester.pumpAndSettle();
+      expect(tester.widget<EditableText>(hex).controller.text, '#123456');
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   testWidgets('surface toggles update the draft, save and reopen', (
     tester,
   ) async {
