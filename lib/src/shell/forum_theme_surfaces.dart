@@ -79,11 +79,16 @@ class _ForumWindowBackgroundState extends State<ForumWindowBackground>
         background!.noiseIntensity > 0) {
       _grain ??= _GrainTexture();
     }
+    final gradient = background?.effect == ForumBackgroundEffect.gradient;
     final animate =
         ownsCanvas &&
-        background?.useAccentTint != true &&
-        background?.effect == ForumBackgroundEffect.lava &&
-        background!.strength > 0 &&
+        (gradient ||
+            (background?.useAccentTint != true &&
+                background?.effect == ForumBackgroundEffect.lava)) &&
+        (background!.useAccentTint
+                ? background.noiseIntensity
+                : background.strength) >
+            0 &&
         !MediaQuery.disableAnimationsOf(context) &&
         TickerMode.valuesOf(context).enabled;
     if (animate && !_motion.isAnimating) {
@@ -111,11 +116,14 @@ class _ForumWindowBackgroundState extends State<ForumWindowBackground>
     final effects = theme.extension<ForumThemeEffects>();
     final background = effects?.background;
     final reference = background?.useAccentTint == true;
+    final gradient =
+        reference && background?.effect == ForumBackgroundEffect.gradient;
     final tokens = DTokens.of(context);
     final paintEffect = switch (background?.effect) {
       ForumBackgroundEffect.noise =>
         background!.strength > 0 || background.noiseIntensity > 0,
-      ForumBackgroundEffect.lava => background!.strength > 0,
+      ForumBackgroundEffect.lava ||
+      ForumBackgroundEffect.gradient => background!.strength > 0,
       _ => false,
     };
     return _ForumCanvas(
@@ -155,12 +163,30 @@ class _ForumWindowBackgroundState extends State<ForumWindowBackground>
             ),
             widget.child,
             Positioned.fill(
-              child: ForumTexture(
-                background: reference
-                    ? background!
-                    : const ForumBackground.appearance(),
-                accent: tokens.primary,
-              ),
+              child: gradient
+                  ? IgnorePointer(
+                      child: RepaintBoundary(
+                        child: CustomPaint(
+                          key: const ValueKey('forum-gradient-texture'),
+                          painter: _BackgroundPainter(
+                            // Reuse the original lava renderer with the live
+                            // accent and the form's independent Intensity.
+                            background!.copyWith(
+                              color: tokens.primary,
+                              strength: background.noiseIntensity,
+                            ),
+                            _motion,
+                            null,
+                          ),
+                        ),
+                      ),
+                    )
+                  : ForumTexture(
+                      background: reference
+                          ? background!
+                          : const ForumBackground.appearance(),
+                      accent: tokens.primary,
+                    ),
             ),
           ],
         ),
@@ -217,6 +243,9 @@ class _BackgroundPainter extends CustomPainter {
           center,
           radius,
           Paint()
+            ..blendMode = background.useAccentTint
+                ? BlendMode.overlay
+                : BlendMode.srcOver
             ..shader = RadialGradient(
               colors: [
                 tint.withValues(alpha: background.strength * .55),

@@ -2,7 +2,7 @@ import 'dart:ui';
 
 import 'package:flutter/foundation.dart';
 
-enum ForumBackgroundEffect { normal, lava, noise }
+enum ForumBackgroundEffect { normal, lava, noise, gradient }
 
 /// Portable background color and window effects for a custom forum theme.
 @immutable
@@ -85,7 +85,7 @@ class ForumBackground {
   final double strength;
   final ForumBackgroundEffect effect;
 
-  /// Grain amount, independent of color strength and panel transparency.
+  /// Texture intensity, independent of color tint and panel transparency.
   final double noiseIntensity;
 
   /// How much of the window canvas shows through content panels.

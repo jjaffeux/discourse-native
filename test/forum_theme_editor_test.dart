@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/src/models/forum_background.dart';
 import 'package:discourse_native/src/models/forum_font.dart';
 import 'package:discourse_native/src/models/forum_theme.dart';
 import 'package:discourse_native/src/models/forum_theme_preferences.dart';
@@ -44,6 +45,55 @@ Future<void> openLibrary(WidgetTester tester) async {
 }
 
 void main() {
+  testWidgets('Gradient updates live and survives saving and mode changes', (
+    tester,
+  ) async {
+    final shell = controller();
+    addTearDown(shell.dispose);
+    await pumpSettings(tester, shell);
+    await tester.ensureVisible(find.text('Gradient'));
+    await tester.tap(find.text('Gradient'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    final background = shell.forumSettings.themesFor(_site).background!;
+    expect(background.effect, ForumBackgroundEffect.gradient);
+    expect(background.strength, 0);
+    expect(background.noiseIntensity, .14);
+    expect(
+      find.byKey(const ValueKey('forum-gradient-texture')),
+      findsOneWidget,
+    );
+    expect(
+      (await shell.forumSettings.store.loadThemes(_site)).background,
+      background,
+    );
+
+    // Disable motion through the real Intensity field before settling a mode
+    // switch. Selecting Gradient must not require changing the Tint field.
+    final intensity = find.byKey(const ValueKey('theme-intensity'));
+    await tester.tapAt(tester.getTopLeft(intensity) + const Offset(1, 13));
+    await tester.pumpAndSettle();
+    expect(shell.forumSettings.themesFor(_site).background!.noiseIntensity, 0);
+    await mode(tester, 'Dark');
+    expect(
+      shell.forumSettings.themesFor(_site).background!.effect,
+      ForumBackgroundEffect.gradient,
+    );
+    await openLibrary(tester);
+    final save = find.widgetWithText(DButton, 'Save theme');
+    await tester.ensureVisible(save);
+    await tester.tap(save);
+    await tester.pumpAndSettle();
+    final saved = shell.forumSettings.themesFor(_site).customThemes.single;
+    for (final brightness in Brightness.values) {
+      expect(
+        saved.forBrightness(brightness).background!.effect,
+        ForumBackgroundEffect.gradient,
+      );
+    }
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('live appearance changes retain unsaved form state', (
     tester,
   ) async {

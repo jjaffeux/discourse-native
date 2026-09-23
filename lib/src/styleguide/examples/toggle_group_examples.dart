@@ -39,6 +39,11 @@ final toggleGroupExamples = ComponentExamples(
             icon: Icon(Icons.apps),
             child: Text('Lava lamp'),
           ),
+          DToggleGroupItem(
+            value: 'Gradient',
+            icon: Icon(Icons.gradient),
+            child: Text('Gradient'),
+          ),
         ],
       ),
     ),

@@ -33,6 +33,12 @@ The user explicitly approved adding the matching controls to Native.
   rendering stable; it is not a byte-identical random texture to the browser.
   Reduced motion freezes lava. macOS supplies a native blurred backdrop behind
   transparent Flutter surfaces in both application profiles.
+- Gradient restores the earlier lava effect as a fourth texture choice. It
+  reuses the four moving radial gradients and 24-second loop, coloured by the
+  live accent and controlled by Intensity. The live texture uses overlay
+  blending to preserve text, remains visible at zero tint and full panel opacity,
+  and freezes for reduced motion. Existing Lava lamp keeps the reference's
+  contour texture; legacy background blending remains unchanged.
 - Local preferences update synchronously; disk writes are serialized and
   coalesced during drags. A failed final write restores the last persisted
   palette and offers Retry. Effect changes preserve mounted form and reader
