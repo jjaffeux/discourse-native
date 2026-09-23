@@ -18,11 +18,13 @@ class TopicHeaderTags extends StatelessWidget {
     required this.siteUrl,
     required this.topic,
     required this.onTagNavigate,
+    this.editOnTap = false,
   });
 
   final String siteUrl;
   final TopicDetail topic;
   final TopicTagNavigationCallback onTagNavigate;
+  final bool editOnTap;
 
   @override
   Widget build(BuildContext context) => TopicTagMenuAnchor(
@@ -96,6 +98,7 @@ class TopicHeaderTags extends StatelessWidget {
               );
         // The overflow editor keeps editing available in narrow readers.
         final showEdit =
+            !editOnTap &&
             topic.canEditTags &&
             constraints.maxWidth >=
                 labelWidth(overflowLabel(0)) + editWidth + gap;
@@ -110,7 +113,9 @@ class TopicHeaderTags extends StatelessWidget {
               labelWidth('# ${tag.name}'),
             ),
         ];
-        var visible = topic.canEditTags && !showEdit ? 0 : widths.length;
+        var visible = topic.canEditTags && !showEdit && !editOnTap
+            ? 0
+            : widths.length;
         while (visible > 0) {
           final hidden = visible < tags.length;
           final needed =
@@ -148,13 +153,14 @@ class TopicHeaderTags extends StatelessWidget {
           onTertiaryTapUp: tag == null
               ? null
               : (_) => onTagNavigate(tag, newTab: true),
-          child: tag == null
+          child: tag == null || (editOnTap && topic.canEditTags)
               ? DBadge.action(
                   key: key,
                   variant: DBadgeVariant.secondary,
                   size: DBadgeSize.control,
                   onPressed: open,
                   semanticLabel: semanticLabel,
+                  leading: saving ? const DSpinner() : null,
                   child: Text(
                     label,
                     maxLines: 1,
@@ -185,7 +191,9 @@ class TopicHeaderTags extends StatelessWidget {
                 child: chip(
                   '# ${tags[index].name}',
                   ValueKey(('topic-header-tag', tags[index].name)),
-                  semanticLabel: 'Open tag ${tags[index].name}',
+                  semanticLabel: editOnTap && topic.canEditTags
+                      ? 'Edit topic tags: ${tags[index].name}'
+                      : 'Open tag ${tags[index].name}',
                   tag: tags[index],
                 ),
               ),
