@@ -45,10 +45,12 @@ void main() {
       expect(triggerIn('a :sm|'), ':sm');
     });
 
-    test('waits for a second character before searching for an emoji', () {
+    test('opens on the first character of an emoji', () {
+      expect(triggerIn(':|'), '-');
+      expect(triggerIn(':h|'), ':h');
       expect(triggerIn('Note:|'), '-');
       expect(triggerIn('Note: |'), '-');
-      expect(triggerIn('a :s|'), '-');
+      expect(triggerIn('a :s|'), ':s');
     });
 
     test('opens on the first character of a mention', () {

@@ -264,6 +264,24 @@ void main() {
   });
 
   group('emoji', () {
+    testWidgets('opens after one character and closes on a bare colon', (
+      tester,
+    ) async {
+      popup.update(typed(':s'));
+      await tester.pump(ComposerAutocomplete.debounce);
+      await tester.pump();
+
+      expect(askedEmojis, ['s']);
+      expect(popup.isOpen, isTrue);
+      expect(popup.suggestions.map((s) => s.value), ['smile', 'smirk', 'sad']);
+
+      popup.update(typed(':'));
+      await tester.pump(ComposerAutocomplete.debounce);
+
+      expect(askedEmojis, ['s']);
+      expect(popup.isOpen, isFalse);
+    });
+
     testWidgets('loads emoji through the same race-safe async path', (
       tester,
     ) async {
