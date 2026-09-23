@@ -121,3 +121,18 @@ shared with legacy themes; only live texture compositing uses overlay blending.
   appears across the window, and mode changes retain the choice and intensity.
   The final overlay blending was inspected at 100% intensity in both dark and
   light modes. Only isolated fixture data was used, and the review app was quit.
+
+### Font preview restoration — September 24, 2026
+
+The Font section again shows all four typefaces with their sample sentence,
+using Native Item rows inside the current form card. Selection still updates
+the workspace immediately. Each sample retains its own font and packaged
+fallback, including the system font when another typeface is selected. Samples
+wrap at narrow widths and enlarged text sizes.
+
+- All 11 settings-page and theme-editor tests passed, including both palettes,
+  macOS/iOS platform overrides, 360px width, 2× text and RTL.
+- Root `dart analyze` and the macOS settings fixture build passed. Native
+  inspection confirmed the four distinct samples, Lato and JetBrains Mono
+  selection, and live workspace updates. Only isolated fixture data was used;
+  the review app was quit afterward.

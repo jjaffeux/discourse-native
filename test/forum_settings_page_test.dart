@@ -33,16 +33,35 @@ void main() {
           expect(find.byType(DDialogContent), findsNothing);
           expect(find.byType(DSheetContent), findsNothing);
           expect(tester.takeException(), isNull);
-          final font = find.byKey(const ValueKey('appearance-font-select'));
+          final font = find.byKey(const ValueKey('appearance-font-lato'));
           await tester.ensureVisible(font);
           await tester.tap(font);
-          await tester.pumpAndSettle();
-          await tester.tap(find.text('Lato').last);
           await tester.pumpAndSettle();
           expect(
             shell.forumSettings.themesFor('https://a.example').font,
             ForumFont.lato,
           );
+          expect(tester.widget<DItem>(font).selected, isTrue);
+          for (final option in ForumFont.values) {
+            final row = find.byKey(ValueKey('appearance-font-${option.name}'));
+            final sample = tester.widget<Text>(
+              find.descendant(
+                of: row,
+                matching: find.text(
+                  'The quick brown fox jumps over the lazy dog.',
+                ),
+              ),
+            );
+            expect(
+              sample.style!.fontFamily,
+              option.family ??
+                  ThemeData(platform: platform).textTheme.bodyLarge!.fontFamily,
+            );
+            expect(
+              sample.style!.fontFamilyFallback,
+              forumFontFamilyFallback(option.family) ?? const [],
+            );
+          }
           expect(tester.takeException(), isNull);
           semantics.dispose();
         },

@@ -216,25 +216,50 @@ class _ForumAppearanceSettingsState extends State<ForumAppearanceSettings> {
                 SettingsSection(
                   title: 'Font',
                   icon: const Icon(Icons.text_fields),
-                  child: DSelect<ForumFont>.controlled(
-                    filled: true,
-                    key: const ValueKey('appearance-font-select'),
-                    value: preferences.font,
-                    semanticLabel: 'Font',
-                    isExpanded: true,
-                    entries: [
-                      for (final font in ForumFont.values)
-                        DSelectOption(
-                          value: font,
-                          label: font.label,
-                          child: Text(font.label),
+                  child: DItemGroup(
+                    spacing: 0,
+                    children: [
+                      for (final font in ForumFont.values) ...[
+                        if (font != ForumFont.values.first)
+                          const DItemSeparator(),
+                        DItem(
+                          key: ValueKey('appearance-font-${font.name}'),
+                          selected: preferences.font == font,
+                          shape: DItemShape.fullWidth,
+                          selectionStyle: DItemSelectionStyle.leadingAccent,
+                          onPressed: () =>
+                              unawaited(_save(preferences.withFont(font))),
+                          children: [
+                            DItemContent(
+                              children: [
+                                Text(
+                                  font.label,
+                                  style: Theme.of(context).textTheme.bodySmall,
+                                ),
+                                Text(
+                                  'The quick brown fox jumps over the lazy dog.',
+                                  style: Theme.of(context).textTheme.bodyLarge!
+                                      .copyWith(
+                                        fontFamily:
+                                            font.family ??
+                                            ThemeData(
+                                              platform: Theme.of(
+                                                context,
+                                              ).platform,
+                                            ).textTheme.bodyLarge!.fontFamily,
+                                        fontFamilyFallback:
+                                            forumFontFamilyFallback(
+                                              font.family,
+                                            ) ??
+                                            const [],
+                                      ),
+                                ),
+                              ],
+                            ),
+                          ],
                         ),
+                      ],
                     ],
-                    onChanged: (font) {
-                      if (font != null) {
-                        unawaited(_save(preferences.withFont(font)));
-                      }
-                    },
                   ),
                 ),
                 DSwitchTile(
