@@ -87,13 +87,13 @@ abstract final class DNativeIcons {
   // Original stroke glyphs for topic-list controls.
   static const DIconData filterLines = DIconData(
     'discourse-native-filterLines',
-    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">'
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="3 5 18 14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">'
         '<path d="M4 6h16M7 12h10M10 18h4"/></svg>',
   );
 
   static const DIconData sliders = DIconData(
     'discourse-native-sliders',
-    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">'
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="2 3 20 18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">'
         '<path d="M3 6h4m4 0h10M3 12h10m4 0h4M3 18h2m4 0h12"/><circle cx="9" cy="6" r="2"/><circle cx="15" cy="12" r="2"/><circle cx="7" cy="18" r="2"/></svg>',
   );
 
