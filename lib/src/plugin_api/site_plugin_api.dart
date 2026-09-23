@@ -622,6 +622,7 @@ final class SidebarPanelContribution {
   /// Optional mobile root presentation of this sidebar's existing data.
   /// Route commands still use the shared navigation host; the mobile shell
   /// supplies its header and bottom navigation around this bounded content.
+  /// Grouped panels retain the primary owner's mobile presentation.
   final WidgetBuilder? mobileBuilder;
 
   final String label;

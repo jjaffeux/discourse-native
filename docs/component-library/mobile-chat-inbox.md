@@ -42,3 +42,28 @@ actions at 390px and 320px, Dracula and Light palettes, and normal/150% text.
 The fixture uses iOS control density; this native pass is not a physical iOS or
 Android device run. Widget tests additionally exercise saving status and pausing
 and resuming notifications without writing to a real account.
+
+## Chat + Voice integration correction
+
+The initial visual fixture mounted Chat directly and missed the production
+plugin-grouping path. When Voice contributed rooms to the Chat panel,
+`PluginRegistry` discarded the primary panel's `mobileBuilder` and displayed
+the old grouped sidebar. The existing mobile Voice test also expected that
+old layout, so the initial test pass did not establish that the redesign was
+visible with Voice enabled.
+
+Grouped panels now retain the primary owner's mobile root. Supplemental plugin
+sections remain reachable in the mobile hamburger navigation; desktop grouping
+is unchanged. The regression test fails on the original implementation on both
+iOS and Android, then passes with the fix. It verifies the real Chat tab,
+filters and status menu with Voice enabled. A separate navigation test checks
+room visibility and capability revocation without replacing Chat.
+
+All 99 checks passed across the mobile shell, desktop sidebar panels, plugin
+registry and full-shell render fixture. Root static analysis reported no issues.
+
+`flutter test --no-pub tool/render_mobile_chat_test.dart` now renders the full
+production mobile shell with Chat and Voice, rather than mounting Chat alone.
+It writes Neutral/Dracula inbox and status-menu images to
+`build/mobile-chat-review/` for inspection at 430×932 with iOS platform metrics.
+These are offscreen application renders, not screenshots from a physical iPhone.

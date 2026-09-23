@@ -353,6 +353,19 @@ class _SidebarPanelBodyState extends State<_SidebarPanelBody> {
       return !panels.any((candidate) => candidate.includesOwner(owner));
     }
 
+    final mobileNavigationOwners = <PluginId>{
+      if (widget.mobile && showCoreSections)
+        for (final group in panels)
+          if (group.panel.mobileBuilder != null)
+            ...group.sectionOwners.where((owner) => owner != group.owner),
+    };
+    // A custom mobile root owns the primary plugin's content. Keep its
+    // auxiliary plugins reachable through the main navigation instead.
+    bool includeSidebarOwner(PluginId owner) =>
+        widget.mobile && showCoreSections
+        ? mobileNavigationOwners.contains(owner)
+        : includePluginOwner(owner);
+
     final customSections = [
       for (final section in sidebar.sections)
         if (section.id.startsWith('custom-')) section,
@@ -569,18 +582,20 @@ class _SidebarPanelBodyState extends State<_SidebarPanelBody> {
                               ],
                             ),
                           ),
-                        if (!widget.mobile || !showCoreSections)
+                        if (!widget.mobile ||
+                            !showCoreSections ||
+                            mobileNavigationOwners.isNotEmpty)
                           ListenableBuilder(
                             listenable: Listenable.merge(
                               registry.sidebarListenables(
                                 context,
-                                includeOwner: includePluginOwner,
+                                includeOwner: includeSidebarOwner,
                               ),
                             ),
                             builder: (context, _) {
                               final sections = registry.sidebarSections(
                                 context,
-                                includeOwner: includePluginOwner,
+                                includeOwner: includeSidebarOwner,
                               );
                               return _RestoredSidebarSections(
                                 siteUrl: sidebar.siteUrl!,

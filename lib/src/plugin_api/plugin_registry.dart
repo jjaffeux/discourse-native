@@ -1767,8 +1767,8 @@ final class PluginRegistry
         onClose: panel.onClose,
         badge: panel.badge,
         selectedDestinationId: panel.selectedDestinationId,
-        // Shared panels use the same scrollable section list on both platforms.
-        mobileBuilder: contributions.length == 1 ? panel.mobileBuilder : null,
+        // Auxiliary sections must not replace the primary owner's mobile root.
+        mobileBuilder: panel.mobileBuilder,
       ),
     );
   }
