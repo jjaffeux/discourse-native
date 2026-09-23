@@ -325,7 +325,7 @@ class _MobileForumRootState extends State<MobileForumRoot> {
                         trigger: DSheetTrigger(
                           builder: (context, open) => DButton.iconOnly(
                             key: const ValueKey('mobile-menu-button'),
-                            icon: const Icon(Icons.menu),
+                            icon: const Icon(Icons.menu, size: 20),
                             tooltip: 'Open navigation',
                             variant: DButtonVariant.ghost,
                             alignment: AlignmentDirectional.centerStart,
