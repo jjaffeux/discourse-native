@@ -41,6 +41,11 @@ The user explicitly approved adding the matching controls to Native.
   fields. Legacy selected themes and exports retain their previous treatment
   until edited. Saved themes, import/export, fonts and reset remain available.
   Reset preserves the saved library and font while restoring forum colours.
+- Copy theme works for the current pair of live palettes and individual saved
+  themes. Shared theme cards retain their own small previews, independent of
+  the settings editor. Undo after applying a shared card restores prior
+  per-mode colours and effects while retaining the imported library item.
+  A subsequent live edit supersedes the card's applied state.
 
 The Native swatch popover offers HSV controls instead of the browser's platform
 colour dialog. All six values also support hex input. Touch controls retain
@@ -68,3 +73,28 @@ Runnable styleguide additions are Slider / Appearance ramps, Color Picker /
 Compact colour grid, Toggle Group / Texture tiles, and Input and Select /
 Filled form field. Root and full-profile static analysis pass. Focused commands
 and the final integration result are recorded with the completed review below.
+
+### Completed review — September 24, 2026
+
+The implementation at `627e8a16d` was integrated with main's theme sharing at
+`396a21039` in `b1b39a4ad`, preserving copied theme cards and their undo behavior.
+
+- 216 tests passed across the theme model, settings controller, page, editor,
+  appearance background, app integration, Native controls, input styleguide,
+  control adoption and composer clipping suites. After integration, 73 tests
+  passed across clipboard, sharing, onebox, settings, app and outline-pill tab
+  suites. The onebox suite then passed all 7 tests, including a new regression
+  for live edits superseding an applied shared theme. These runs overlap.
+- `dart analyze` passed at the repository root and in `profiles/full`.
+- `flutter build macos --debug --no-pub -t tool/forum_settings_review_main.dart`
+  passed for the final integrated source.
+- The actual macOS app was inspected in light and dark modes. The form retains
+  typed text while switching textures and modes, and texture overlays allow
+  pointer input. The Native styleguide's appearance ramps, compact colour grid,
+  texture tiles and filled select were inspected; keyboard input advanced a
+  ramp from 30% to 31%.
+- A final launch of the integrated build confirmed Settings opens directly at
+  the Themes heading without a redundant desktop Back row, Solarized updates
+  the surrounding workspace, the form uses three colour columns at reference
+  width, and Copy theme displays its success notification. The isolated review
+  app was closed after inspection.
