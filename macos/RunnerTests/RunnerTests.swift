@@ -5,6 +5,44 @@ import XCTest
 @testable import Discourse
 
 class RunnerTests: XCTestCase {
+  func testFlutterScrollKeepsOwnershipWhenAnEmbedMovesUnderThePointer() {
+    var routing = WebViewScrollRouting()
+    XCTAssertFalse(routing.shouldForward(phase: .began, momentumPhase: [], overWebView: false))
+    XCTAssertFalse(routing.shouldForward(phase: .changed, momentumPhase: [], overWebView: true))
+    XCTAssertFalse(routing.shouldForward(phase: .ended, momentumPhase: [], overWebView: true))
+    XCTAssertFalse(routing.shouldForward(phase: [], momentumPhase: .began, overWebView: true))
+    XCTAssertFalse(routing.shouldForward(phase: [], momentumPhase: .changed, overWebView: true))
+    XCTAssertFalse(routing.shouldForward(phase: [], momentumPhase: .ended, overWebView: true))
+  }
+
+  func testEmbedScrollKeepsOwnershipUntilMomentumEndsOutsideTheEmbed() {
+    var routing = WebViewScrollRouting()
+    XCTAssertTrue(routing.shouldForward(phase: .began, momentumPhase: [], overWebView: true))
+    XCTAssertTrue(routing.shouldForward(phase: .changed, momentumPhase: [], overWebView: false))
+    XCTAssertTrue(routing.shouldForward(phase: .ended, momentumPhase: [], overWebView: false))
+    XCTAssertTrue(routing.shouldForward(phase: [], momentumPhase: .began, overWebView: false))
+    XCTAssertTrue(routing.shouldForward(phase: [], momentumPhase: .changed, overWebView: false))
+    XCTAssertTrue(routing.shouldForward(phase: [], momentumPhase: .ended, overWebView: false))
+    XCTAssertFalse(routing.shouldForward(phase: .began, momentumPhase: [], overWebView: false))
+  }
+
+  func testScrollOwnershipHandlesMayBeginCancellationAndGesturesWithoutMomentum() {
+    var routing = WebViewScrollRouting()
+    XCTAssertTrue(routing.shouldForward(phase: .mayBegin, momentumPhase: [], overWebView: true))
+    XCTAssertTrue(routing.shouldForward(phase: .began, momentumPhase: [], overWebView: false))
+    XCTAssertTrue(routing.shouldForward(phase: .cancelled, momentumPhase: [], overWebView: false))
+    XCTAssertFalse(routing.shouldForward(phase: .began, momentumPhase: [], overWebView: false))
+    XCTAssertFalse(routing.shouldForward(phase: .ended, momentumPhase: [], overWebView: true))
+    XCTAssertTrue(routing.shouldForward(phase: .began, momentumPhase: [], overWebView: true))
+  }
+
+  func testDiscreteMouseWheelTicksUseTheCurrentHitView() {
+    var routing = WebViewScrollRouting()
+    XCTAssertTrue(routing.shouldForward(phase: [], momentumPhase: [], overWebView: true))
+    XCTAssertFalse(routing.shouldForward(phase: [], momentumPhase: [], overWebView: false))
+    XCTAssertTrue(routing.shouldForward(phase: [], momentumPhase: [], overWebView: true))
+  }
+
   @MainActor
   func testYoutubePlayerEnablesFullscreenBeforeLoading() async throws {
     guard #available(macOS 12.3, *) else {

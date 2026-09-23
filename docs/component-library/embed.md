@@ -27,12 +27,22 @@ On macOS the platform view is composited in the root overlay, clipped to its
 reader. This keeps native links clickable above Flutter card surfaces. The
 existing native wheel bridge is shared with YouTube so wheel events scroll
 the surrounding reader and continue to respect covering Flutter surfaces.
+Trackpad gestures keep the same routing from their start through momentum,
+even when an embed moves under or away from the pointer. Gestures started in
+Flutter stay with Flutter's pan/zoom handling; gestures started over a native
+embed stay with the wheel bridge. Discrete mouse-wheel ticks use the current
+pointer location.
 Touch platforms retain vertical drag scrolling with the reader.
 
 The Embed styleguide provides self-contained examples of both presentations
 and an unavailable example. None requires a Reddit account or network access.
 
 ## Verification — 2026-09-22
+
+- Scroll routing follow-up (2026-09-23): 38 embed, Reddit and YouTube widget
+  tests and all 11 macOS Runner tests passed, along with a macOS debug build.
+  Native regression tests cover crossing embed boundaries in both directions,
+  momentum, cancellation, gestures without momentum and discrete wheel ticks.
 
 - Initial integration: 229 tests passed using the command below. Coverage includes cooked post and
   comment rendering, malformed URLs, canonical redirects, bounded resizing,
