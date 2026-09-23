@@ -736,7 +736,9 @@ class ComposerListBodyController extends ComposerController {
           source,
           referenceMarkers: parent.text.todoReferenceMarkers,
         )) {
-          if (item.start == offset && item.containsTasks) {
+          if (item.start == offset &&
+              item.contentStart >
+                  item.start + item.indent + item.marker.length) {
             offset = item.contentStart;
             break;
           }
