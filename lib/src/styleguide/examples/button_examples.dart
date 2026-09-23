@@ -72,6 +72,14 @@ final buttonExamples = ComponentExamples(
       ),
     ),
     StyleguideExample(
+      title: 'Compact toolbar',
+      description:
+          '24px-high surfaces, 32px icon actions and 14px icons, with 48px touch targets. Compare the shorter actions with a regular tag chip.',
+      code:
+          "DButton.iconOnly(density: DButtonDensity.compactToolbar, variant: DButtonVariant.outline, icon: DIcon(DIcons.bookmark), tooltip: 'Bookmark', onPressed: bookmark)",
+      builder: (_) => const _CompactToolbarExample(),
+    ),
+    StyleguideExample(
       title: 'Mobile navigation',
       description:
           'Switch tabs to see the 240ms circle-to-rounded-square transition. 44px surfaces, 18px icons and 48px targets.',
@@ -1058,6 +1066,101 @@ class _MobileNavigationExampleState extends State<_MobileNavigationExample> {
           tooltip: index == 0 ? 'Topics' : 'Users',
           onPressed: () => setState(() => selected = index),
         ),
+    ],
+  );
+}
+
+class _CompactToolbarExample extends StatefulWidget {
+  const _CompactToolbarExample();
+
+  @override
+  State<_CompactToolbarExample> createState() => _CompactToolbarExampleState();
+}
+
+class _CompactToolbarExampleState extends State<_CompactToolbarExample> {
+  var _bookmarked = false;
+  var _notifications = 1;
+  var _action = 'Try the actions, including their invisible outer edges.';
+
+  @override
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      Wrap(
+        spacing: DSpacing.controlGap,
+        runSpacing: DSpacing.sm,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
+          DBadge.action(
+            size: DBadgeSize.control,
+            variant: DBadgeVariant.secondary,
+            onPressed: () => setState(() => _action = 'Tag activated'),
+            child: const Text('# show-and-tell'),
+          ),
+          DButton.iconOnly(
+            density: DButtonDensity.compactToolbar,
+            icon: DIcon(_bookmarked ? DIcons.check : DIcons.bookmark),
+            tooltip: _bookmarked ? 'Remove bookmark' : 'Bookmark',
+            variant: DButtonVariant.outline,
+            onPressed: () => setState(() => _bookmarked = !_bookmarked),
+          ),
+          DNotificationLevelMenu<int>(
+            value: _notifications,
+            density: DButtonDensity.compactToolbar,
+            showChevron: true,
+            variant: DButtonVariant.outline,
+            semanticLabel: 'Topic notifications',
+            options: const [
+              DNotificationLevelOption(
+                value: 1,
+                label: 'Normal',
+                description: 'Mentions and replies',
+                icon: DIcon(DIcons.bell),
+              ),
+              DNotificationLevelOption(
+                value: 3,
+                label: 'Watching',
+                description: 'Every reply',
+                icon: DIcon(DIcons.bell),
+              ),
+            ],
+            onChanged: (value) => setState(() => _notifications = value),
+          ),
+          DButton.iconOnly(
+            density: DButtonDensity.compactToolbar,
+            icon: const DIcon(DIcons.userPlus),
+            tooltip: 'Assign topic',
+            variant: DButtonVariant.outline,
+            onPressed: () => setState(() => _action = 'Assignment activated'),
+          ),
+          DButton.iconOnly(
+            density: DButtonDensity.compactToolbar,
+            icon: const DIcon(DIcons.wrench),
+            tooltip: 'Topic actions',
+            variant: DButtonVariant.outline,
+            onPressed: () =>
+                setState(() => _action = 'Topic actions activated'),
+          ),
+          const DButton.iconOnly(
+            density: DButtonDensity.compactToolbar,
+            icon: DIcon(DIcons.bookmark),
+            tooltip: 'Disabled bookmark',
+            variant: DButtonVariant.outline,
+            onPressed: null,
+          ),
+          DButton.iconOnly(
+            density: DButtonDensity.compactToolbar,
+            icon: const DIcon(DIcons.bookmark),
+            tooltip: 'Saving bookmark',
+            variant: DButtonVariant.outline,
+            loading: true,
+            onPressed: () {},
+          ),
+        ],
+      ),
+      const SizedBox(height: DSpacing.sm),
+      Text(_action),
     ],
   );
 }

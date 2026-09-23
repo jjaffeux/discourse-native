@@ -8,6 +8,100 @@ import 'package:flutter_test/flutter_test.dart';
 import 'support/button_surface.dart';
 
 void main() {
+  for (final platform in [
+    TargetPlatform.macOS,
+    TargetPlatform.iOS,
+    TargetPlatform.android,
+  ]) {
+    for (final iconOnly in [true, false]) {
+      testWidgets(
+        'compact toolbar retains touch targets ($platform, icon: $iconOnly)',
+        (tester) async {
+          final semantics = tester.ensureSemantics();
+          try {
+            var presses = 0;
+            Future<void> pump({
+              double scale = 1,
+              bool loading = false,
+              bool disabled = false,
+            }) => tester.pumpWidget(
+              MaterialApp(
+                theme: AppTheme.dark.copyWith(platform: platform),
+                home: MediaQuery(
+                  data: MediaQueryData(textScaler: TextScaler.linear(scale)),
+                  child: Scaffold(
+                    body: Center(
+                      child: iconOnly
+                          ? DButton.iconOnly(
+                              icon: const Icon(Icons.bookmark),
+                              tooltip: 'Bookmark',
+                              density: DButtonDensity.compactToolbar,
+                              variant: DButtonVariant.outline,
+                              loading: loading,
+                              onPressed: disabled ? null : () => presses++,
+                            )
+                          : DButton(
+                              icon: const Icon(Icons.bookmark),
+                              label: const Text('Bookmark'),
+                              density: DButtonDensity.compactToolbar,
+                              variant: DButtonVariant.outline,
+                              loading: loading,
+                              onPressed: disabled ? null : () => presses++,
+                            ),
+                    ),
+                  ),
+                ),
+              ),
+            );
+            await pump();
+            final button = find.byType(DButton);
+            final surface = find.byWidgetPredicate(
+              (widget) =>
+                  widget is AnimatedContainer &&
+                  widget.decoration is DButtonDecoration,
+            );
+            final target = tester.getRect(button);
+            expect(target.height, 48);
+            expect(target.width, greaterThanOrEqualTo(48));
+            expect(tester.getSize(surface).height, 24);
+            if (iconOnly) expect(tester.getSize(surface).width, 32);
+            expect(
+              tester.getSize(find.byIcon(Icons.bookmark)),
+              const Size(14, 14),
+            );
+            expect(tester.getSemantics(button).rect.size, target.size);
+            final edge = target.topLeft + const Offset(2, 2);
+            expect(tester.getRect(surface).contains(edge), isFalse);
+            await tester.tapAt(edge);
+            await tester.pump();
+            expect(presses, 1);
+            await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+            await tester.pump();
+            await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+            await tester.pump();
+            expect(presses, 2);
+            await pump(scale: 2);
+            expect(tester.getSize(surface).height, greaterThan(24));
+            expect(tester.getSize(button).height, greaterThanOrEqualTo(48));
+            expect(tester.takeException(), isNull);
+            await pump(disabled: true);
+            await tester.tap(button);
+            await tester.pump();
+            expect(presses, 2);
+            await pump(loading: true);
+            await tester.tap(button);
+            await tester.pump();
+            expect(presses, 2);
+            expect(find.byType(DSpinner), findsOneWidget);
+            expect(tester.getSize(surface).height, 24);
+          } finally {
+            semantics.dispose();
+          }
+        },
+      );
+    }
+  }
+
   for (final platform in [TargetPlatform.macOS, TargetPlatform.iOS]) {
     testWidgets(
       'composer density preserves icons and limits only desktop width $platform',

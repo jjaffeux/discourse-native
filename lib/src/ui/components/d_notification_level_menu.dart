@@ -50,6 +50,7 @@ class DNotificationLevelMenu<T> extends StatelessWidget {
     this.showLabel = false,
     this.showChevron = false,
     this.size = DButtonSize.small,
+    this.density = DButtonDensity.standard,
     this.variant,
     this.backgroundColor,
     this.borderColor,
@@ -64,6 +65,7 @@ class DNotificationLevelMenu<T> extends StatelessWidget {
   final bool showLabel;
   final bool showChevron;
   final DButtonSize size;
+  final DButtonDensity density;
 
   /// Overrides the trigger style for compositions such as an outlined group.
   /// When null, labeled triggers are outlined; icon-only triggers use primary
@@ -146,6 +148,7 @@ class DNotificationLevelMenu<T> extends StatelessWidget {
                 borderColor: borderColor,
                 interactiveBackgroundColor: interactiveBackgroundColor,
                 size: size,
+                density: density,
               )
             : DButton.iconOnly(
                 key: buttonKey,
@@ -165,6 +168,7 @@ class DNotificationLevelMenu<T> extends StatelessWidget {
                 borderColor: borderColor,
                 interactiveBackgroundColor: interactiveBackgroundColor,
                 size: size,
+                density: density,
               ),
       ),
     );
