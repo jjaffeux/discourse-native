@@ -551,42 +551,43 @@ void main() {
   });
 
   testWidgets(
-    'narrow windows keep both strips usable for selection and drops',
+    'narrow windows show only the visible panel tabs and restore both on resize',
     (tester) async {
       final main = shell.activeTabId!;
       shell.openTopic(_topic);
       final reader = shell.activeTabId!;
       await _pump(tester, shell);
+      expect(find.byType(ForumTabsBar), findsNWidgets(2));
+
       tester.view.physicalSize = const Size(580, 850);
       await tester.pumpAndSettle();
-      expect(find.byType(ForumTabsBar), findsNWidgets(2));
+      expect(find.byType(ForumTabsBar), findsOneWidget);
+      expect(find.byKey(ValueKey('forum-tab-$main')), findsNothing);
+      expect(find.byKey(ValueKey('forum-tab-$reader')), findsOneWidget);
       expect(find.byType(TopicView), findsOneWidget);
-      await tester.tap(find.byKey(ValueKey('forum-tab-$main')));
+
+      shell.selectTab(main);
       await tester.pumpAndSettle();
+      expect(find.byType(ForumTabsBar), findsOneWidget);
+      expect(find.byKey(ValueKey('forum-tab-$main')), findsOneWidget);
+      expect(find.byKey(ValueKey('forum-tab-$reader')), findsNothing);
       expect(find.byType(TopicListView), findsOneWidget);
       expect(find.byType(TopicView), findsNothing);
-      final source = find.byKey(ValueKey('forum-tab-$reader'));
-      final target = find.byKey(ValueKey('forum-tab-$main'));
-      final gesture = await tester.startGesture(
-        tester.getCenter(source),
-        kind: PointerDeviceKind.mouse,
-      );
-      await gesture.moveTo(tester.getCenter(target));
+
+      await tester.tap(find.byKey(const ValueKey('swap-panels-main')));
       await tester.pumpAndSettle();
-      final placeholder = find.byKey(
-        const ValueKey('forum-tab-drop-placeholder'),
-      );
-      expect(placeholder, findsOneWidget);
-      expect(
-        tester.getRect(placeholder).center.dy,
-        tester.getRect(target).center.dy,
-      );
-      await gesture.up();
+      expect(find.byType(ForumTabsBar), findsOneWidget);
+      expect(find.byKey(ValueKey('forum-tab-$reader')), findsNothing);
+
+      tester.view.physicalSize = const Size(1200, 850);
       await tester.pumpAndSettle();
-      expect(placeholder, findsNothing);
-      expect(shell.activeTab?.panel, ForumPanel.main);
-      expect(shell.activeTabId, reader);
+      expect(find.byType(ForumTabsBar), findsNWidgets(2));
+      expect(find.byKey(ValueKey('forum-tab-$main')), findsOneWidget);
+      expect(find.byKey(ValueKey('forum-tab-$reader')), findsOneWidget);
+      expect(find.byType(TopicListView), findsOneWidget);
       expect(find.byType(TopicView), findsOneWidget);
+      expect(shell.selectedTabIn(ForumPanel.main)?.id, main);
+      expect(shell.selectedTabIn(ForumPanel.secondary)?.id, reader);
       expect(tester.takeException(), isNull);
     },
   );

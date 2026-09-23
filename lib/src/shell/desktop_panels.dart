@@ -74,13 +74,11 @@ class _DesktopPanelsState extends State<DesktopPanels> {
           final active = shell.activeTab?.panel ?? ForumPanel.main;
           return Column(
             children: [
-              for (final target
-                  in swapped ? ForumPanel.values.reversed : ForumPanel.values)
-                ForumTabScope(
-                  tabId: shell.selectedTabIn(target)?.id,
-                  panel: target,
-                  child: TopicPanelTabs(panel: target),
-                ),
+              ForumTabScope(
+                tabId: shell.selectedTabIn(active)?.id,
+                panel: active,
+                child: TopicPanelTabs(panel: active),
+              ),
               Expanded(
                 child: Stack(
                   children: [
