@@ -48,7 +48,13 @@ enum DButtonIconPosition { start, end }
 enum DButtonShape { rounded, pill }
 
 /// Mobile navigation keeps 44px artwork and 18px icons on every platform.
-enum DButtonDensity { standard, mobileNavigation }
+enum DButtonDensity {
+  standard,
+  mobileNavigation,
+
+  /// Narrow desktop block actions, retaining regular icons and height.
+  composerBlock,
+}
 
 @immutable
 class DButtonStateStyle {
@@ -495,6 +501,16 @@ class DButton extends StatelessWidget {
   static double iconOnlyDimensionFor(DButtonSize size) =>
       DControlStyle.height(size);
 
+  /// Width reserved by compact composer actions; touch keeps regular geometry.
+  static double composerBlockWidth(BuildContext context) {
+    final height = DControlStyle.scaledHeight(
+      DButtonSize.regular,
+      MediaQuery.textScalerOf(context),
+      context: context,
+    );
+    return DControlStyle.isTouch(context) ? height : height * 20 / 34;
+  }
+
   DButtonVariant get _visualVariant => switch (variant) {
     DButtonVariant.standard => DButtonVariant.outline,
     DButtonVariant.danger ||
@@ -604,11 +620,14 @@ class DButton extends StatelessWidget {
     final dark = theme.brightness == Brightness.dark;
     final variantStyle = _referenceStyle(tokens, dark);
     final mobileNavigation = density == DButtonDensity.mobileNavigation;
-    final effectiveSize = mobileNavigation ? DButtonSize.regular : size;
+    final composerBlock = _iconOnly && density == DButtonDensity.composerBlock;
+    final effectiveSize = mobileNavigation || composerBlock
+        ? DButtonSize.regular
+        : size;
     final fontSize = DControlStyle.fontSize(effectiveSize, context: context);
     final spacingUnit = mobileNavigation
         ? 18.0
-        : DControlStyle.iconDimension(size, context: context);
+        : DControlStyle.iconDimension(effectiveSize, context: context);
     final gap = DControlStyle.contentGap(size);
     final visualDimension = DControlStyle.scaledHeight(
       effectiveSize,
@@ -628,7 +647,9 @@ class DButton extends StatelessWidget {
     final joined = DJoinedControlScope.maybeOf(context);
     // Joined artwork must fill the touch target along the joining axis;
     // invisible Material padding would otherwise split the shared border.
-    final surfaceWidth = touch && joined?.axis == Axis.horizontal
+    final surfaceWidth = composerBlock && !touch
+        ? composerBlockWidth(context)
+        : touch && joined?.axis == Axis.horizontal
         ? visualDimension.clamp(48.0, double.infinity)
         : visualDimension;
     final surfaceHeight = touch && joined?.axis == Axis.vertical

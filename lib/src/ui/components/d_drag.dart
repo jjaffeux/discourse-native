@@ -20,6 +20,7 @@ class DDragHandle<T extends Object> extends StatefulWidget {
     required this.label,
     required this.onPressed,
     this.enabled = true,
+    this.density = DButtonDensity.standard,
     this.focusNode,
     this.expanded = false,
     this.onDragStarted,
@@ -30,6 +31,7 @@ class DDragHandle<T extends Object> extends StatefulWidget {
   final String label;
   final VoidCallback? onPressed;
   final bool enabled;
+  final DButtonDensity density;
   final FocusNode? focusNode;
   final bool expanded;
   final VoidCallback? onDragStarted;
@@ -93,6 +95,7 @@ class _DDragHandleState<T extends Object> extends State<DDragHandle<T>> {
   Widget build(BuildContext context) {
     final button = DButton.iconOnly(
       tooltip: widget.label,
+      density: widget.density,
       semanticLabel: '${widget.label}. Drag to move or activate for actions.',
       variant: DButtonVariant.transparentBackground,
       // The source highlight owns the shared backdrop, including on hover.

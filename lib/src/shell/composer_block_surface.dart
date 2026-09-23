@@ -394,6 +394,7 @@ class _ComposerBlockSurfaceState extends State<ComposerBlockSurface> {
         builder: (context, trigger) => DDragHandle<_BlockDrag>(
           key: ValueKey('composer-block-handle-${block.id}'),
           data: drag,
+          density: DButtonDensity.composerBlock,
           label: 'Drag to move or click to open menu',
           enabled:
               composer.blocks.enabled &&
@@ -459,6 +460,8 @@ class _ComposerBlockSurfaceState extends State<ComposerBlockSurface> {
       DButton.iconOnly(
         key: ValueKey('composer-block-add-${emptyLine?.start ?? block?.id}'),
         tooltip: 'Add block',
+        density: DButtonDensity.composerBlock,
+        backgroundColor: const Color(0x00000000),
         variant: DButtonVariant.transparentBackground,
         icon: const DIcon(DIcons.plus),
         hasPopup: true,
@@ -473,6 +476,7 @@ class _ComposerBlockSurfaceState extends State<ComposerBlockSurface> {
         DDragHandle<TextRange>(
           key: ValueKey('composer-block-empty-handle-${emptyLine.start}'),
           data: emptyLine,
+          density: DButtonDensity.composerBlock,
           label: 'Empty paragraph actions',
           // There is no indexed block to move until this line has content.
           enabled: false,
@@ -498,13 +502,7 @@ class _ComposerBlockSurfaceState extends State<ComposerBlockSurface> {
     final block = _activeBlock;
     final handleRect = _handleRect;
     final gutter =
-        DControlStyle.scaledHeight(
-              DControlSize.regular,
-              MediaQuery.textScalerOf(context),
-              context: context,
-            ) *
-            2 +
-        DSpacing.controlGap;
+        DButton.composerBlockWidth(context) * 2 + DSpacing.controlGap;
     final line = _dropTop == null
         ? null
         : PositionedDirectional(

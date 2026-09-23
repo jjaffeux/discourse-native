@@ -1,6 +1,7 @@
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/widgets.dart';
 
+import '../../theme/d_icons.dart';
 import '../styleguide_example.dart';
 
 final dragExamples = ComponentExamples(
@@ -32,6 +33,17 @@ final dragExamples = ComponentExamples(
       builder: (_) => const _LongPressExample(),
     ),
     StyleguideExample(
+      title: 'Compact composer actions',
+      description:
+          'Desktop-only narrow hit zones retain regular icons and height. '
+          'Touch platforms retain the normal accessible targets.',
+      states: const ['Light', 'Dark', 'Keyboard', 'Touch'],
+      code:
+          'DDragHandle<int>(density: DButtonDensity.composerBlock, '
+          'data: 1, label: "Move paragraph", onPressed: place)',
+      builder: (_) => const _DragExample(compact: true),
+    ),
+    StyleguideExample(
       title: 'Disabled',
       description: 'Unavailable handles cannot start a drag or action.',
       states: const ['Disabled'],
@@ -48,7 +60,9 @@ final dragExamples = ComponentExamples(
 );
 
 class _DragExample extends StatefulWidget {
-  const _DragExample();
+  const _DragExample({this.compact = false});
+
+  final bool compact;
   @override
   State<_DragExample> createState() => _DragExampleState();
 }
@@ -70,7 +84,17 @@ class _DragExampleState extends State<_DragExample> {
           if (_dragging) const Positioned.fill(child: DDragHighlight()),
           Row(
             children: [
+              if (widget.compact)
+                DButton.iconOnly(
+                  density: DButtonDensity.composerBlock,
+                  variant: DButtonVariant.transparentBackground,
+                  backgroundColor: const Color(0x00000000),
+                  icon: const DIcon(DIcons.plus),
+                  tooltip: 'Add block',
+                  onPressed: _place,
+                ),
               _handle(),
+              const SizedBox(width: DSpacing.controlGap),
               const Expanded(
                 child: Text(
                   'A paragraph remains selectable while its handle moves.',
@@ -104,6 +128,9 @@ class _DragExampleState extends State<_DragExample> {
   );
 
   Widget _handle() => DDragHandle<int>(
+    density: widget.compact
+        ? DButtonDensity.composerBlock
+        : DButtonDensity.standard,
     data: 1,
     label: 'Move paragraph',
     onPressed: _place,
