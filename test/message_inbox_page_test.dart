@@ -230,7 +230,6 @@ void main() {
 
   for (final (platform, width, textScale) in [
     (TargetPlatform.macOS, 1440.0, 1.0),
-    (TargetPlatform.iOS, 360.0, 1.0),
     (TargetPlatform.linux, 640.0, 2.0),
   ]) {
     testWidgets(
@@ -287,6 +286,78 @@ void main() {
     );
   }
 
+  for (final width in [320.0, 390.0, 640.0]) {
+    for (final textScale in [1.0, 2.0]) {
+      testWidgets(
+        'mobile Messages header at $width with ${textScale}x text',
+        (tester) async {
+          final setup = await _pumpInbox(
+            tester,
+            width: width,
+            textScale: textScale,
+            mobileNavigation: true,
+          );
+          final title = find.text('Messages');
+          final folder = find.byKey(const ValueKey('message-list-menu'));
+          final inbox = find.byKey(const ValueKey('message-inbox-selector'));
+          final divider = find.byKey(
+            const ValueKey('message-header-separator'),
+          );
+          expect(find.byTooltip('Display'), findsNothing);
+          expect(find.byKey(const ValueKey('topic-list-filter')), findsNothing);
+          expect(
+            tester.getRect(title).bottom,
+            lessThan(tester.getRect(folder).top),
+          );
+          final folderSurface = find.descendant(
+            of: folder,
+            matching: find.byKey(const Key('d-select-trigger-visual')),
+          );
+          final inboxSurface = find.descendant(
+            of: inbox,
+            matching: find.byKey(const Key('d-select-trigger-visual')),
+          );
+          expect(
+            tester.getCenter(folderSurface).dy,
+            tester.getCenter(inboxSurface).dy,
+          );
+          expect(
+            tester.getRect(folderSurface).right + DSpacing.controlGap,
+            tester.getRect(inboxSurface).left,
+          );
+          expect(
+            tester.getRect(divider).top,
+            greaterThan(tester.getRect(inbox).bottom),
+          );
+          expect(tester.getRect(divider).width, width - DSpacing.lg * 2);
+          final heading = tester.widget<DText>(
+            find.ancestor(of: title, matching: find.byType(DText)),
+          );
+          expect(heading.variant, DTextVariant.h3);
+          expect(heading.headingLevel, 1);
+          expect(
+            tester.widget<DSelect<MessageListMode>>(folder).size,
+            tester.widget<DSelect<String>>(inbox).size,
+          );
+          setup.controller.selectMessageInbox(
+            'engineering-infrastructure-platform-team',
+          );
+          await tester.pumpAndSettle();
+          expect(tester.getCenter(folder).dy, tester.getCenter(inbox).dy);
+          expect(
+            tester.getRect(inbox).right,
+            lessThanOrEqualTo(width - DSpacing.lg),
+          );
+          expect(tester.takeException(), isNull);
+        },
+        variant: const TargetPlatformVariant({
+          TargetPlatform.iOS,
+          TargetPlatform.android,
+        }),
+      );
+    }
+  }
+
   testWidgets(
     'switches message folders and inboxes using their own cached feeds',
     (tester) async {
@@ -334,6 +405,11 @@ void main() {
       ]);
       expect(tester.takeException(), isNull);
     },
+    variant: const TargetPlatformVariant({
+      TargetPlatform.macOS,
+      TargetPlatform.iOS,
+      TargetPlatform.android,
+    }),
   );
 
   testWidgets('restored inbox keeps its label and a route back to Personal', (
@@ -358,7 +434,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(setup.controller.currentContent, ContentRoute.messages());
     expect(menu, findsNothing);
-  });
+  }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 
   for (final change in ['session', 'folder', 'site']) {
     testWidgets('open inbox menu rejects $change changes before rebuilding', (
@@ -385,12 +461,7 @@ void main() {
       }
       final route = shell.currentContent;
       // Activate the still-mounted old menu before its next frame.
-      await tester.tap(
-        find.descendant(
-          of: find.byType(DComboboxContent),
-          matching: find.text('team'),
-        ),
-      );
+      await tester.tap(find.text('team'));
       await tester.pumpAndSettle();
       expect(shell.currentContent, route);
       expect(shell.currentContent?.messageGroupName, isNull);
@@ -775,12 +846,7 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('message-inbox-selector')));
     await tester.pumpAndSettle();
     shell.selectMessageListMode(MessageListMode.unread, keepTopicOpen: true);
-    await tester.tap(
-      find.descendant(
-        of: find.byType(DComboboxContent),
-        matching: find.text('team'),
-      ),
-    );
+    await tester.tap(find.text('team'));
     await tester.pumpAndSettle();
     expect(shell.currentContent?.topicId, 1);
     expect(
@@ -788,7 +854,7 @@ void main() {
       ContentRoute.messages(mode: MessageListMode.unread),
     );
     expect(tester.takeException(), isNull);
-  });
+  }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 }
 
 Future<({ShellController controller, FakeDiscourseApi api})> _pumpInbox(
@@ -800,6 +866,7 @@ Future<({ShellController controller, FakeDiscourseApi api})> _pumpInbox(
   int inboxCount = 1,
   bool paginate = false,
   bool desktopTopicTabs = false,
+  bool mobileNavigation = false,
   DiscourseUser user = const DiscourseUser(
     id: 1,
     username: 'reader',
@@ -896,6 +963,7 @@ Future<({ShellController controller, FakeDiscourseApi api})> _pumpInbox(
     drafts: FakeDraftStore(),
     forumTabs: FakeForumTabStore(),
     forumTabsEnabled: desktopTopicTabs,
+    mobileNavigationEnabled: mobileNavigation,
     trackers: FakeSiteTracker.reset(),
     updater: FakeUpdater(),
     updateStore: FakeUpdateStore(),

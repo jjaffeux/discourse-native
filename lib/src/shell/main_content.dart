@@ -880,7 +880,9 @@ class _FeedBackedContent extends StatelessWidget {
         if (route.isMessages) {
           content = MessageInboxPage(
             feed: feed ?? const TopicFeed(),
-            heading: topicListHeadingBuilder?.call(context, null),
+            heading: context.isTouch
+                ? null
+                : topicListHeadingBuilder?.call(context, null),
             keepTopicOpen: keepTopicOpen,
           );
         } else if (feed == null) {

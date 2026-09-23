@@ -22,11 +22,61 @@ class MessageInboxTitle extends StatelessWidget {
     this.keepTopicOpen = false,
   });
 
-  static const _personal = 'personal:';
-
   final String? selectedGroup;
   final Widget? trailing;
   final bool keepTopicOpen;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Row(
+      key: const ValueKey('message-inbox-title'),
+      children: [
+        Flexible(
+          child: Text(
+            'Messages',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.titleSmall?.copyWith(
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+        DSeparator(
+          orientation: Axis.vertical,
+          length: 18,
+          space: 21,
+          color: theme.shell.divider,
+        ),
+        Flexible(
+          flex: 2,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 240),
+            child: MessageInboxSelector(
+              selectedGroup: selectedGroup,
+              keepTopicOpen: keepTopicOpen,
+            ),
+          ),
+        ),
+        ?trailing,
+      ],
+    );
+  }
+}
+
+class MessageInboxSelector extends StatelessWidget {
+  const MessageInboxSelector({
+    super.key,
+    required this.selectedGroup,
+    this.keepTopicOpen = false,
+    this.useSelect = false,
+  });
+
+  static const _personal = 'personal:';
+
+  final String? selectedGroup;
+  final bool keepTopicOpen;
+  final bool useSelect;
 
   @override
   Widget build(BuildContext context) => ShellSelector<_InboxOwner>(
@@ -48,87 +98,92 @@ class MessageInboxTitle extends StatelessWidget {
       final lease = owner.siteUrl == null
           ? null
           : controller.lifecycle.capture(owner.siteUrl!);
-      final theme = Theme.of(context);
       final groups = {
         ...owner.groups,
         // A restored inbox may precede a fresh membership payload. Preserve
         // its label while keeping Personal available as a way back.
         ?selectedGroup,
       };
-      return Row(
-        key: const ValueKey('message-inbox-title'),
-        children: [
-          Flexible(
-            child: Text(
-              'Messages',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: theme.textTheme.titleSmall?.copyWith(
-                fontWeight: FontWeight.w600,
-              ),
-            ),
+      final value = selectedGroup == null ? _personal : 'group:$selectedGroup';
+      final options = [
+        const DMessageInboxOption(
+          value: _personal,
+          label: 'Personal',
+          description: 'Private messages sent directly to you',
+          icon: DIcon(DIcons.user),
+        ),
+        for (final group in groups)
+          DMessageInboxOption(
+            value: 'group:$group',
+            label: group,
+            description: 'Private messages sent to @$group',
+            icon: const DIcon(DIcons.users),
           ),
-          DSeparator(
-            orientation: Axis.vertical,
-            length: 18,
-            space: 21,
-            color: theme.shell.divider,
-          ),
-          Flexible(
-            flex: 2,
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 240),
-              child: DMessageInboxMenu<String>(
-                key: ValueKey((
-                  controller,
-                  owner.siteUrl,
-                  owner.session,
-                  owner.tabId,
-                )),
-                buttonKey: const ValueKey('message-inbox-selector'),
-                value: selectedGroup == null
-                    ? _personal
-                    : 'group:$selectedGroup',
-                options: [
-                  const DMessageInboxOption(
-                    value: _personal,
-                    label: 'Personal',
-                    description: 'Private messages sent directly to you',
-                    icon: DIcon(DIcons.user),
-                  ),
-                  for (final group in groups)
-                    DMessageInboxOption(
-                      value: 'group:$group',
-                      label: group,
-                      description: 'Private messages sent to @$group',
-                      icon: const DIcon(DIcons.users),
+      ];
+      void select(String choice) {
+        // Navigation or account replacement may precede the next frame that
+        // removes the old popup.
+        if (!context.mounted ||
+            lease == null ||
+            !lease.isCurrent ||
+            controller.currentInstance?.url != owner.siteUrl ||
+            controller.activeTabId != owner.tabId ||
+            controller.currentContent?.id != owner.routeId ||
+            controller.topicListContent?.id != owner.sourceId) {
+          return;
+        }
+        controller.selectMessageInbox(
+          choice == _personal ? null : choice.substring('group:'.length),
+          keepTopicOpen: keepTopicOpen,
+        );
+      }
+
+      return KeyedSubtree(
+        key: ValueKey((controller, owner.siteUrl, owner.session, owner.tabId)),
+        child: useSelect
+            ? DSelect<String>.controlled(
+                key: const ValueKey('message-inbox-selector'),
+                value: value,
+                semanticLabel: 'Choose inbox',
+                width: 160,
+                valueBuilder: (context, value, item) => Row(
+                  children: [
+                    IconTheme.merge(
+                      data: IconThemeData(
+                        size: DControlStyle.iconDimension(
+                          DControlSize.regular,
+                          context: context,
+                        ),
+                        color: DTokens.of(context).mutedForeground,
+                      ),
+                      child: options
+                          .firstWhere((option) => option.value == value)
+                          .icon,
+                    ),
+                    const SizedBox(width: DSpacing.controlGap),
+                    Flexible(child: Text(item!.textValue)),
+                  ],
+                ),
+                entries: [
+                  for (final option in options)
+                    DSelectItem(
+                      value: option.value,
+                      textValue: option.label,
+                      semanticLabel: option.description,
+                      child: Text(option.label),
                     ),
                 ],
-                onChanged: lease == null
-                    ? null
-                    : (choice) {
-                        // Navigation or account replacement may precede the
-                        // next frame that removes the old popup.
-                        if (!context.mounted ||
-                            !lease.isCurrent ||
-                            controller.currentInstance?.url != owner.siteUrl ||
-                            controller.activeTabId != owner.tabId ||
-                            controller.currentContent?.id != owner.routeId ||
-                            controller.topicListContent?.id != owner.sourceId) {
-                          return;
-                        }
-                        controller.selectMessageInbox(
-                          choice == _personal
-                              ? null
-                              : choice.substring('group:'.length),
-                          keepTopicOpen: keepTopicOpen,
-                        );
-                      },
+                enabled: lease != null,
+                onChanged: (choice) {
+                  if (choice != null) select(choice);
+                },
+              )
+            : DMessageInboxMenu<String>(
+                buttonKey: const ValueKey('message-inbox-selector'),
+                value: value,
+                options: options,
+                onChanged: lease == null ? null : select,
               ),
-            ),
-          ),
-          ?trailing,
-        ],
       );
     },
   );
