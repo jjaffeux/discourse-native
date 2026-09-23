@@ -1040,29 +1040,54 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('directory remains usable in a narrow content lane', (
-    tester,
-  ) async {
-    await _pump(
+  for (final width in [320.0, 390.0]) {
+    testWidgets('mobile directory keeps dropdowns together at width $width', (
       tester,
-      const UsersPage(
-        siteUrl: 'https://example.com',
-        data: UsersPageData(
-          items: [_sam, _hawk],
-          columns: [_likes, _replies, _days],
-          groupNames: ['design'],
-          totalRows: 2,
-          loaded: true,
+    ) async {
+      await (FontLoader(
+        'Roboto',
+      )..addFont(rootBundle.load('assets/fonts/Lato-Regular.ttf'))).load();
+      await _pump(
+        tester,
+        const UsersPage(
+          siteUrl: 'https://example.com',
+          data: UsersPageData(
+            items: [_sam, _hawk],
+            columns: [_likes, _replies, _days],
+            groupNames: ['design'],
+            totalRows: 2,
+            loaded: true,
+          ),
         ),
-      ),
-      size: const Size(390, 680),
-    );
+        size: Size(width, 680),
+        theme: AppTheme.light.copyWith(platform: TargetPlatform.iOS),
+      );
 
-    expect(find.byKey(const ValueKey('users-search')), findsOneWidget);
-    expect(find.byKey(const ValueKey('user-row-sam')), findsOneWidget);
-    expect(find.byKey(const ValueKey('users-group-filter')), findsOneWidget);
-    expect(tester.takeException(), isNull);
-  });
+      final search = tester.getRect(find.byKey(const ValueKey('users-search')));
+      final period = tester.getRect(
+        find.byKey(const ValueKey('users-period-filter')),
+      );
+      final group = tester.getRect(
+        find.byKey(const ValueKey('users-group-filter')),
+      );
+      final columns = tester.getRect(
+        find.byKey(const ValueKey('users-columns')),
+      );
+      expect(search.bottom, lessThan(period.top));
+      expect(period.center.dy, closeTo(group.center.dy, 1));
+      if (width == 320) {
+        expect(columns.top, greaterThan(group.bottom));
+      } else {
+        expect(columns.center.dy, closeTo(group.center.dy, 1));
+      }
+      expect(columns.right, closeTo(search.right, 1));
+      expect(find.byKey(const ValueKey('user-row-sam')), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('users-columns')));
+      await tester.pumpAndSettle();
+      expect(find.byType(DDropdownMenuCheckboxItem), findsNWidgets(4));
+      expect(tester.takeException(), isNull);
+    });
+  }
 
   for (final width in [390.0, 1100.0]) {
     testWidgets('directory supports large text at width $width', (
