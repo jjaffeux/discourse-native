@@ -13,7 +13,6 @@ import 'platform.dart';
 import 'shell_controller.dart';
 import 'shell_scope.dart';
 import 'topic_list_filter_bar.dart';
-import 'topic_list_tracking_button.dart';
 
 typedef _TopicListNavigationSnapshot = ({
   TopicListMode? mode,
@@ -274,20 +273,15 @@ class _TopicListNavigationControls extends StatelessWidget {
                   ),
                   if (state.connected &&
                       state.siteUrl != null &&
+                      state.route?.categoryId != null &&
                       state.route?.isMessages != true &&
-                      (!context.isTouch || state.route?.categoryId == null)) ...[
+                      !context.isTouch) ...[
                     const SizedBox(width: DSpacing.controlGap),
-                    if (state.route?.categoryId case final categoryId?)
-                      CategoryNotificationLevelButton(
-                        siteUrl: state.siteUrl!,
-                        categoryId: categoryId,
-                        showChevron: true,
-                      )
-                    else
-                      TopicListTrackingButton(
-                        key: ValueKey(owner),
-                        siteUrl: state.siteUrl!,
-                      ),
+                    CategoryNotificationLevelButton(
+                      siteUrl: state.siteUrl!,
+                      categoryId: state.route!.categoryId!,
+                      showChevron: true,
+                    ),
                   ],
                   if (trailing != null) ...[
                     const SizedBox(width: DSpacing.controlGap),
