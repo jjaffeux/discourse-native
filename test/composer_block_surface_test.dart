@@ -248,6 +248,94 @@ void main() {
     },
   );
 
+  for (final scale in [1.0, 2.0]) {
+    for (final source in [
+      'A paragraph',
+      'First line\nSecond line\nThird line',
+      '[ ] First task\n[x] Second task',
+      '```\nfirst\nsecond\nthird\n```',
+    ]) {
+      testWidgets('actions align to a top text line at $scale in "$source"', (
+        tester,
+      ) async {
+        composer.text.value = TextEditingValue(
+          text: source,
+          selection: const TextSelection.collapsed(offset: 0),
+        );
+        await mount(
+          tester,
+          textScale: scale,
+          textStyle: const TextStyle(fontSize: 16, height: 1.5),
+        );
+        final surface = tester.widget<ComposerBlockSurface>(
+          find.byType(ComposerBlockSurface),
+        );
+        final block = composer.blocks.index.blocks.first;
+        final blockRect = surface.blockRect(block)!;
+        final add = tester.getRect(find.byTooltip('Add block'));
+        final handle = tester.getRect(
+          find.byKey(ValueKey('composer-block-handle-${block.id}')),
+        );
+        final editable = tester
+            .state<EditableTextState>(find.byType(EditableText))
+            .renderEditable;
+        final caret = editable.getLocalRectForCaret(
+          TextPosition(offset: block.start),
+        );
+        final expectedCenter =
+            source.startsWith('[ ]') || source.startsWith('```')
+            ? blockRect.top + surface.lineHeight / 2
+            : editable.localToGlobal(caret.center).dy;
+        expect(add.center.dy, closeTo(expectedCenter, .01));
+        expect(handle.center.dy, closeTo(add.center.dy, .01));
+        expect(
+          handle.top,
+          greaterThanOrEqualTo(tester.getRect(find.byType(ComposerEditor)).top),
+        );
+        expect(tester.takeException(), isNull);
+      });
+    }
+  }
+
+  for (final prefix in ['#', '###']) {
+    testWidgets(
+      'wrapped $prefix heading aligns actions to its first heading line',
+      (tester) async {
+        composer.text.value = TextEditingValue(
+          text: '$prefix ${List.filled(35, 'Heading').join(' ')}',
+          selection: const TextSelection.collapsed(offset: 0),
+        );
+        await mount(tester);
+        final editable = tester
+            .state<EditableTextState>(find.byType(EditableText))
+            .renderEditable;
+        final boxes = editable.getBoxesForSelection(
+          TextSelection(baseOffset: 0, extentOffset: composer.text.text.length),
+        );
+        expect(boxes.length, greaterThan(1));
+        final first = boxes.first.toRect().shift(
+          editable.localToGlobal(Offset.zero),
+        );
+        final add = tester.getRect(find.byTooltip('Add block'));
+        expect(add.center.dy, closeTo(first.center.dy, .01));
+        final surface = tester.widget<ComposerBlockSurface>(
+          find.byType(ComposerBlockSurface),
+        );
+        final block = composer.blocks.index.blocks.first;
+        expect(surface.blockRect(block)!.height, greaterThan(first.height));
+        expect(
+          tester
+              .getRect(
+                find.byKey(ValueKey('composer-block-handle-${block.id}')),
+              )
+              .center
+              .dy,
+          closeTo(first.center.dy, .01),
+        );
+      },
+    );
+  }
+
   testWidgets('drag handle shows grab across its entire hit area', (
     tester,
   ) async {
