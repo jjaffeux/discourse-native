@@ -191,6 +191,7 @@ export 'src/shell/topic_list_actions.dart' show TopicListActions;
 export 'src/shell/topic_list_footer.dart' show TopicSourceFooter;
 export 'src/shell/topic_list_view.dart' show TopicListRow;
 export 'src/shell/user_card.dart' show UserCardTarget;
+export 'src/shell/user_menu.dart' show UserPresenceMenu;
 export 'src/shell/user_menu_button.dart' show UserMenuButton;
 export 'src/shell/user_status.dart' show UserStatusMessage;
 export 'src/shell/youtube_video.dart'
