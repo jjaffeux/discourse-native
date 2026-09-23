@@ -125,8 +125,8 @@ class _ForumAppearanceSettingsState extends State<ForumAppearanceSettings> {
         padding: const EdgeInsets.all(16),
         child: Align(
           alignment: AlignmentDirectional.topStart,
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 588),
+          child: SizedBox(
+            width: double.infinity,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               spacing: 18,
