@@ -17,6 +17,7 @@ class ForumIcon extends StatelessWidget {
       label: forum.title,
       image: true,
       child: DAvatar.frame(
+        border: false,
         borderRadius: BorderRadius.circular(size / 4),
         child: AvatarImage(
           url: forum.iconUrl,

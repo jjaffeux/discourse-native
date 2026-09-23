@@ -28,6 +28,7 @@ class DAvatar extends StatelessWidget {
     this.fallback = const DAvatarFallback(child: SizedBox.shrink()),
     this.child,
     this.badge,
+    this.border = true,
     this.ring = false,
     this.ringSemanticLabel,
     this.semanticLabel,
@@ -43,6 +44,7 @@ class DAvatar extends StatelessWidget {
     super.key,
     required this.child,
     this.badge,
+    this.border = true,
     this.ring = false,
     this.ringSemanticLabel,
     this.semanticLabel,
@@ -60,6 +62,10 @@ class DAvatar extends StatelessWidget {
   final Widget fallback;
   final Widget? child;
   final Widget? badge;
+
+  /// Paints the subtle image outline. Disable for borderless forum artwork.
+  /// The online [ring], when enabled, takes precedence over this outline.
+  final bool border;
 
   /// Applies Discourse's online treatment without changing the avatar's outer
   /// dimensions: a one-pixel success ring, a one-pixel background gap, then
@@ -94,7 +100,7 @@ class DAvatar extends StatelessWidget {
         ),
         child: _AvatarRingInset(child: picture),
       );
-    } else {
+    } else if (border) {
       picture = CustomPaint(
         foregroundPainter: _AvatarBorder(
           tokens.border,

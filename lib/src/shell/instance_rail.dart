@@ -1520,7 +1520,8 @@ class _RailTooltip extends StatelessWidget {
         key: ValueKey('instance-rail-callout-${instance.url}'),
         mainAxisSize: MainAxisSize.min,
         children: [
-          ClipRRect(
+          DAvatar.frame(
+            border: false,
             borderRadius: BorderRadius.circular(DTokens.of(context).radius),
             child: AvatarImage(
               key: ValueKey('instance-rail-callout-icon-${instance.url}'),
@@ -1600,7 +1601,8 @@ class _InstanceIcon extends StatelessWidget {
       ),
     );
 
-    return ClipRRect(
+    return DAvatar.frame(
+      border: false,
       borderRadius: BorderRadius.circular(8),
       child: AvatarImage(
         url: instance.iconUrl,
