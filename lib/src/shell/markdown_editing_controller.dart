@@ -83,7 +83,8 @@ class MarkdownEditingController extends TextEditingController {
   /// as their populated rich text, so Native hints retain the text baseline.
   bool neutralEmptyParagraph = false;
 
-  /// A list body keeps a directly nested list beside its surrounding prose.
+  /// A list body keeps child blocks beside their surrounding prose without
+  /// adding paragraph spacing to a single source newline.
   bool compactListSpacing = false;
   String? _separatorSource;
   List<TextRange> _separators = const [];
@@ -140,10 +141,9 @@ class MarkdownEditingController extends TextEditingController {
         else if (text.startsWith('\n\n', block.end))
           TextRange(start: block.end, end: block.end + 2)
         else if (i + 1 < index.blocks.length &&
-            // Mixed list rows share the same compact rhythm. Inside a list
-            // item, a single newline before a child list is compact too.
-            !(_isListRow(index.blocks[i + 1]) &&
-                (_isListRow(block) || compactListSpacing)))
+            !compactListSpacing &&
+            // Mixed list rows share the same compact rhythm.
+            !(_isListRow(index.blocks[i + 1]) && _isListRow(block)))
           if (text.startsWith('\r\n', block.end))
             TextRange(start: block.end, end: block.end + 2)
           else if (text.startsWith('\n', block.end))
@@ -152,6 +152,7 @@ class MarkdownEditingController extends TextEditingController {
     _componentGapStarts.clear();
     _spaceBeforeComponents.clear();
     _spaceAfterComponents.clear();
+    if (compactListSpacing) return;
     final componentStarts = index.atoms.map((atom) => atom.start).toSet();
     for (final (i, block) in index.blocks.indexed) {
       final next = i + 1 < index.blocks.length ? index.blocks[i + 1] : null;

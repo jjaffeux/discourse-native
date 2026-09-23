@@ -12,6 +12,9 @@ paragraphs, code blocks and nested lists all remain in the content column beside
 the checkbox. The Native `DInput` in borderless growing mode edits a lossless
 view of that body, mapping selection and composition back to the original
 Markdown. Nested task editors share the enclosing document's undo history.
+Images follow the task text without an extra paragraph gap when separated by
+one source newline. Explicit blank lines are retained, and uploading an image
+keeps the first line's text and checkbox in place.
 
 Click a checkbox or focus it and press Space to change its state. Completed
 prose is muted and crossed out; child tasks and code blocks retain their own
@@ -68,3 +71,10 @@ renderer. Light/narrow and dark/wide layouts, typing, Return continuation and
 exit, and `/todo` insertion were inspected on macOS. Native accessibility
 exposes the source and task-body editors as text fields and task controls as
 checkboxes. No physical mobile-device or spoken screen-reader review is claimed.
+
+The image-layout regression covers pending and completed uploads with Open Sans
+and macOS system fonts, desktop/mobile widget layouts, and 100%/200% text. An
+isolated macOS fixture also verified insertion in dark/wide and light/narrow
+layouts using the image fallback preview. The focused todo/list/image suites
+passed; five unrelated block-selection failures were reproduced on the unchanged
+base revision.
