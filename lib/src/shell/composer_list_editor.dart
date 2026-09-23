@@ -40,7 +40,10 @@ final class ComposerListPolicy implements ComposerSyntaxPolicy {
   ];
 }
 
-final class _ListProjection implements ComposerInteractiveSyntaxProjection {
+final class _ListProjection
+    implements
+        ComposerInteractiveSyntaxProjection,
+        ComposerParagraphSpacingProjection {
   _ListProjection(this.composer, this.item);
   final ComposerController composer;
   final ComposerListItem item;
@@ -79,7 +82,10 @@ final class _ListProjection implements ComposerInteractiveSyntaxProjection {
     _key = context.pillKey;
     return [
       WidgetSpan(
-        alignment: PlaceholderAlignment.top,
+        // The embedded editor owns its line spacing. Top alignment would add
+        // the outer paragraph's ascent leading before the first line again.
+        alignment: PlaceholderAlignment.middle,
+        style: context.baseStyle,
         child: ComposerBlockSelection(
           selected: context.highlighted,
           child: ComposerListItemEditor(

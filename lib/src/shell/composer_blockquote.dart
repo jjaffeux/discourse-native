@@ -123,11 +123,15 @@ class ComposerBlockquoteDecoration extends SingleChildRenderObjectWidget {
     super.key,
     required this.repaint,
     required super.child,
+    this.reserveGutter = true,
   });
 
   static const gutter = 12.0;
 
   final Listenable repaint;
+
+  /// Nested editors share the enclosing document's trailing quote gutter.
+  final bool reserveGutter;
 
   @override
   RenderObject createRenderObject(BuildContext context) {
@@ -136,6 +140,7 @@ class ComposerBlockquoteDecoration extends SingleChildRenderObjectWidget {
       repaint,
       theme.shell.panel,
       theme.colorScheme.primary,
+      reserveGutter,
     );
   }
 
@@ -149,6 +154,7 @@ class ComposerBlockquoteDecoration extends SingleChildRenderObjectWidget {
       repaint,
       theme.shell.panel,
       theme.colorScheme.primary,
+      reserveGutter,
     );
   }
 }
@@ -158,9 +164,10 @@ class _RenderComposerBlockquoteDecoration extends RenderPadding {
     this._repaint,
     this._background,
     this._bar,
+    bool reserveGutter,
   ) : super(
-        padding: const EdgeInsets.only(
-          right: ComposerBlockquoteDecoration.gutter,
+        padding: EdgeInsets.only(
+          right: reserveGutter ? ComposerBlockquoteDecoration.gutter : 0,
         ),
       );
 
@@ -178,7 +185,15 @@ class _RenderComposerBlockquoteDecoration extends RenderPadding {
     size.height,
   );
 
-  void update(Listenable repaint, Color background, Color bar) {
+  void update(
+    Listenable repaint,
+    Color background,
+    Color bar,
+    bool reserveGutter,
+  ) {
+    padding = EdgeInsets.only(
+      right: reserveGutter ? ComposerBlockquoteDecoration.gutter : 0,
+    );
     if (!identical(repaint, _repaint)) {
       if (attached) _repaint.removeListener(markNeedsPaint);
       _repaint = repaint;

@@ -1665,6 +1665,7 @@ class _ComposerEditorState extends State<ComposerEditor> {
                 widget.composer.focus,
               ]),
               builder: (_, _) => ComposerBlockquoteDecoration(
+                reserveGutter: _parentEditor == null,
                 repaint: Listenable.merge([widget.composer.text, _scroll]),
                 child: ClipRect(
                   child: DefaultSelectionStyle.merge(

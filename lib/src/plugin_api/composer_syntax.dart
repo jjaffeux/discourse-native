@@ -174,6 +174,12 @@ abstract interface class ComposerSyntaxProjection {
 abstract interface class ComposerBlockSyntaxProjection
     implements ComposerSyntaxProjection {}
 
+/// A block that uses the same source separator spacing as ordinary paragraphs.
+/// Its embedded editor owns content layout, but required Markdown blank lines
+/// must not add visual space when a paragraph becomes this component.
+abstract interface class ComposerParagraphSpacingProjection
+    implements ComposerBlockSyntaxProjection {}
+
 /// A block whose Native controls own pointer interaction and nested editing.
 /// Its widget identity survives source updates at the same document position,
 /// so cell focus, selection and IME composition survive its own edits.

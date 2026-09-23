@@ -82,10 +82,10 @@ final class _CollapsedComponentSourceNormalizer {
                 1;
             return ConstrainedBox(
               constraints: BoxConstraints(
-                maxWidth:
-                    (constraints.maxWidth -
-                            (suppressSyntheticLineBreaks ? caretMargin : 0))
-                        .clamp(0, double.infinity),
+                maxWidth: (constraints.maxWidth - caretMargin).clamp(
+                  0,
+                  double.infinity,
+                ),
               ),
               child: span.child,
             );
