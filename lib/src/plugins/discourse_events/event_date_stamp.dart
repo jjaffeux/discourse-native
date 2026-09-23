@@ -31,6 +31,8 @@ class EventDateStamp extends StatelessWidget {
         ),
         child: DCard(
           spacing: 0,
+          border: false,
+          borderRadius: BorderRadius.zero,
           backgroundColor: paper,
           leading: ColoredBox(
             color: red,
