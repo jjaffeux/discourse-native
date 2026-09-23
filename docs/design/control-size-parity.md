@@ -94,5 +94,7 @@ regression batches reported 575 passes / 26 baseline failures and 123 passes /
 four baseline failures; the failing test names matched the baseline exactly.
 The final focused acceptance run passed all 161 tests (geometry, scaling,
 goldens, header tags, selects, menus, New topic accessibility and settings).
-Static analysis passed with no issues. These failures are recorded
+Integration with main `9e446738f` preserved the font preview rows and gradient
+settings; all 30 integrated settings, sizing and golden checks passed.
+Static analysis passed with no issues before and after integration. These failures are recorded
 separately from the sizing regression checks.
