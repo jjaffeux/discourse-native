@@ -23,6 +23,8 @@ void main() {
       'RTL',
       'Timezone boundary',
       'Reference demo',
+      'Compact event month',
+      'Event schedule',
     ]);
   });
 
@@ -58,7 +60,13 @@ void main() {
           ),
         );
         await tester.pump();
-        expect(find.byType(DCalendar), findsAtLeastNWidgets(1));
+        if (example.title == 'Compact event month') {
+          expect(find.byType(DKalenderCompactMonthBody), findsOneWidget);
+        } else if (example.title == 'Event schedule') {
+          expect(find.byType(DCalendarScheduleEntry), findsNWidgets(3));
+        } else {
+          expect(find.byType(DCalendar), findsAtLeastNWidgets(1));
+        }
         expect(tester.takeException(), isNull, reason: example.title);
       }
     });
