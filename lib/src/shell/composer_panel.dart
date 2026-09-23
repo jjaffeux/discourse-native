@@ -1735,6 +1735,11 @@ class _ComposerEditorState extends State<ComposerEditor> {
                         : null,
                     child: DInput(
                       borderless: true,
+                      hintText:
+                          widget.composer.singleNewlineParagraphs &&
+                              widget.composer.text.text.isEmpty
+                          ? widget.hintText
+                          : null,
                       // New documents also get a fresh native input session.
                       // ComposerController resets the shared source history.
                       key: ValueKey(widget.composer.fieldGeneration),
@@ -3042,22 +3047,23 @@ class _ComposerEditorState extends State<ComposerEditor> {
               key: _stackKey,
               clipBehavior: Clip.none,
               children: [
-                Positioned.fill(
-                  child: ValueListenableBuilder<TextEditingValue>(
-                    valueListenable: widget.composer.text,
-                    builder: (context, value, _) => value.text.isEmpty
-                        ? IgnorePointer(
-                            child: Align(
-                              alignment: Alignment.topLeft,
-                              child: Text(
-                                widget.hintText,
-                                style: widget.hintStyle,
+                if (!widget.composer.singleNewlineParagraphs)
+                  Positioned.fill(
+                    child: ValueListenableBuilder<TextEditingValue>(
+                      valueListenable: widget.composer.text,
+                      builder: (context, value, _) => value.text.isEmpty
+                          ? IgnorePointer(
+                              child: Align(
+                                alignment: Alignment.topLeft,
+                                child: Text(
+                                  widget.hintText,
+                                  style: widget.hintStyle,
+                                ),
                               ),
-                            ),
-                          )
-                        : const SizedBox.shrink(),
+                            )
+                          : const SizedBox.shrink(),
+                    ),
                   ),
-                ),
                 if (widget.expands)
                   Positioned.fill(child: _field())
                 else

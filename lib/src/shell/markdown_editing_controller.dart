@@ -78,6 +78,10 @@ class MarkdownEditingController extends TextEditingController {
   final bool enableImageGalleries;
   final bool enableTodos;
   final bool enableBlockSeparators;
+
+  /// Embedded task fields use the same neutral paragraph height when empty
+  /// as their populated rich text, so Native hints retain the text baseline.
+  bool neutralEmptyParagraph = false;
   String? _separatorSource;
   List<TextRange> _separators = const [];
   List<TextRange> _blockGaps = const [];
@@ -1164,7 +1168,11 @@ class MarkdownEditingController extends TextEditingController {
       _renderedEmojiDocument = source;
       _renderedEmojiRanges = const {};
       _cachedSpan = null;
-      return TextSpan(style: style);
+      // Match the neutral paragraph defaults below. The field's strut owns
+      // leading, including while its Native placeholder is visible.
+      return TextSpan(
+        style: neutralEmptyParagraph ? style?.copyWith(height: 1) : style,
+      );
     }
 
     final theme = Theme.of(context);

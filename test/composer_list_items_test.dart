@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:ui' show BoxHeightStyle;
 
 import 'package:discourse_native/discourse_ui.dart';
@@ -28,6 +29,7 @@ Finder editable(ComposerController composer) => find.byWidgetPredicate(
 Future<ComposerController> pumpEditor(
   WidgetTester tester,
   String source, {
+  TextStyle? textStyle,
   double scale = 1,
   TargetPlatform platform = TargetPlatform.android,
 }) async {
@@ -56,7 +58,8 @@ Future<ComposerController> pumpEditor(
             child: ComposerEditor(
               composer: composer,
               hintText: 'Reply',
-              textStyle: const TextStyle(fontSize: 16, height: 1.5),
+              textStyle:
+                  textStyle ?? const TextStyle(fontSize: 16, height: 1.5),
               hintStyle: null,
               showSelectionToolbar: false,
             ),
@@ -198,6 +201,85 @@ void main() {
 
   for (final platform in [TargetPlatform.macOS, TargetPlatform.android]) {
     for (final scale in [1.0, 1.5, 2.0]) {
+      for (final font in [
+        'assets/fonts/OpenSans.ttf',
+        if (Platform.isMacOS) '/System/Library/Fonts/SFNS.ttf',
+      ]) {
+        for (final marker in ['- [ ] ', '[ ] ']) {
+          testWidgets('todo hint matches typed glyphs for $marker with $font '
+              'on ${platform.name} at $scale', (tester) async {
+            await (FontLoader(font)..addFont(
+                  font.startsWith('assets/')
+                      ? rootBundle.load(font)
+                      : Future.value(
+                          ByteData.sublistView(File(font).readAsBytesSync()),
+                        ),
+                ))
+                .load();
+            final root = await pumpEditor(
+              tester,
+              '${marker}Previous\n$marker',
+              scale: scale,
+              platform: platform,
+              textStyle: AppTheme.light.textTheme.bodyLarge!.copyWith(
+                fontFamily: font,
+              ),
+            );
+            Rect hintRect() {
+              final hint = tester.renderObject<RenderParagraph>(
+                find.text('To-do'),
+              );
+              final box = hint
+                  .getBoxesForSelection(
+                    const TextSelection(baseOffset: 0, extentOffset: 5),
+                  )
+                  .first
+                  .toRect();
+              return MatrixUtils.transformRect(hint.getTransformTo(null), box);
+            }
+
+            final before = hintRect();
+            final body = bodies(tester).lastOrNull ?? root;
+            final prefix = identical(body, root)
+                ? '${marker}Previous\n$marker'
+                : '';
+            await tester.enterText(editable(body), '${prefix}To-do');
+            await tester.pumpAndSettle();
+            final render = tester
+                .state<EditableTextState>(
+                  editable(bodies(tester).lastOrNull ?? root),
+                )
+                .renderEditable;
+            render.selectionHeightStyle = BoxHeightStyle.tight;
+            final box = render
+                .getBoxesForSelection(
+                  TextSelection(
+                    baseOffset: prefix.length,
+                    extentOffset: prefix.length + 5,
+                  ),
+                )
+                .first
+                .toRect();
+            final after = MatrixUtils.transformRect(
+              render.getTransformTo(null),
+              box,
+            );
+            await tester.enterText(
+              editable(bodies(tester).lastOrNull ?? root),
+              prefix,
+            );
+            await tester.pumpAndSettle();
+            final restored = hintRect();
+            await tester.pumpWidget(const SizedBox());
+            await tester.pumpAndSettle();
+            expect(after.left, closeTo(before.left, .1));
+            expect(after.top, closeTo(before.top, .1));
+            expect(after.width, closeTo(before.width, .1));
+            expect(after.height, closeTo(before.height, .1));
+            expect(restored, before);
+          });
+        }
+      }
       for (final prefix in ['', 'Before\n\n']) {
         testWidgets(
           'converting ${prefix.isEmpty ? "first" : "later"} line to a task '
