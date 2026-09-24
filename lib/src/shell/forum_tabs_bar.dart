@@ -208,9 +208,21 @@ class _ForumTabsBarState extends State<ForumTabsBar> {
     return source < insertion ? insertion - 1 : insertion;
   }
 
+  /// The strip's own tabs and tabs arriving from another strip share one
+  /// insertion bar, so every strip reorders the same way whether or not it
+  /// can also receive tabs.
+  ForumTabItem? _droppable(String id) {
+    for (final item in widget.items) {
+      if (item.id == id) {
+        return (widget.acceptsTab?.call(id) ?? true) ? item : null;
+      }
+    }
+    return widget.onDropTab == null ? null : widget.itemForDrop?.call(id);
+  }
+
   bool _startDrop(DragTargetDetails<String> details) {
-    final item = widget.itemForDrop?.call(details.data);
-    if (item == null || widget.onDropTab == null) return false;
+    final item = _droppable(details.data);
+    if (item == null) return false;
     _captureDropGeometry(item.id);
     setState(() {
       _dropItem = item;
@@ -302,10 +314,8 @@ class _ForumTabsBarState extends State<ForumTabsBar> {
         _indexAt(details.data, details.offset),
       );
       _clearDrop();
-      if (destination != null &&
-          widget.itemForDrop?.call(details.data) != null) {
-        widget.onDropTab?.call(details.data, destination);
-      }
+      if (destination == null || _droppable(details.data) == null) return;
+      (widget.onDropTab ?? widget.onReorder)(details.data, destination);
     },
     builder: (context, candidates, rejected) =>
         _contents ??= _buildContents(context),
@@ -435,19 +445,8 @@ class _ForumTabsBarState extends State<ForumTabsBar> {
                                             item: widget.items[index],
                                             index: index,
                                             itemCount: widget.items.length,
-                                            acceptsTab: (id) =>
-                                                widget.items.any(
-                                                  (tab) => tab.id == id,
-                                                ) &&
-                                                (widget.acceptsTab?.call(id) ??
-                                                    true),
-                                            onDropTab: widget.onDropTab == null
-                                                ? null
-                                                : (id, index) =>
-                                                      widget.onDropTab!(
-                                                        id,
-                                                        index,
-                                                      ),
+                                            movesBetweenStrips:
+                                                widget.onDropTab != null,
                                             selected:
                                                 widget.items[index].id ==
                                                 widget.selectedId,
@@ -1057,14 +1056,14 @@ class _ReorderableForumTab extends StatelessWidget {
     required this.onReorder,
     required this.onCloseOthers,
     this.onRename,
-    this.acceptsTab,
-    this.onDropTab,
+    this.movesBetweenStrips = false,
     this.moveToPanel,
     this.moveToPanelLabel,
   });
 
-  final bool Function(String id)? acceptsTab;
-  final void Function(String id, int index)? onDropTab;
+  /// Whether another strip can receive this tab, which frees the drag from
+  /// the strip's axis. The drop itself is always handled by [ForumTabsBar].
+  final bool movesBetweenStrips;
   final ForumTabItem item;
   final int index;
   final int itemCount;
@@ -1077,24 +1076,28 @@ class _ReorderableForumTab extends StatelessWidget {
   final VoidCallback? moveToPanel;
   final String? moveToPanelLabel;
 
+  _ForumTab _tab({required bool selectOnPointerDown}) => _ForumTab(
+    key: ValueKey(item.id),
+    item: item,
+    selected: selected,
+    selectOnPointerDown: selectOnPointerDown,
+    onSelect: onSelect,
+    onClose: onClose,
+    onCloseOthers: onCloseOthers,
+    onRename: onRename,
+    moveToPanel: moveToPanel,
+    moveToPanelLabel: moveToPanelLabel,
+    onMoveLeft: index == 0 ? null : () => onReorder(item.id, index - 1),
+    onMoveRight: index == itemCount - 1
+        ? null
+        : () => onReorder(item.id, index + 1),
+  );
+
   @override
   Widget build(BuildContext context) {
-    final tab = _ForumTab(
-      key: ValueKey(item.id),
-      item: item,
-      selected: selected,
-      onSelect: onSelect,
-      onClose: onClose,
-      onCloseOthers: onCloseOthers,
-      onRename: onRename,
-      moveToPanel: moveToPanel,
-      moveToPanelLabel: moveToPanelLabel,
-      onMoveLeft: index == 0 ? null : () => onReorder(item.id, index - 1),
-      onMoveRight: index == itemCount - 1
-          ? null
-          : () => onReorder(item.id, index + 1),
-    );
-    if (itemCount < 2 && onDropTab == null) return tab;
+    if (itemCount < 2 && !movesBetweenStrips) {
+      return _tab(selectOnPointerDown: true);
+    }
 
     return Listener(
       onPointerDown: (event) {
@@ -1112,48 +1115,20 @@ class _ReorderableForumTab extends StatelessWidget {
           onSelect();
         }
       },
-      child: DragTarget<String>(
-        onWillAcceptWithDetails: (details) =>
-            onDropTab == null &&
-            details.data != item.id &&
-            (acceptsTab?.call(details.data) ?? true),
-        onAcceptWithDetails: (details) =>
-            (onDropTab ?? onReorder)(details.data, index),
-        builder: (context, candidates, rejected) {
-          final dropTarget = candidates.isNotEmpty;
-          final child = _ForumTab(
-            key: ValueKey(item.id),
+      child: Draggable<String>(
+        data: item.id,
+        axis: movesBetweenStrips ? null : Axis.horizontal,
+        // Target offsets follow the pointer. Keep the floating tab below
+        // it so the insertion placeholder remains visible in the strip.
+        dragAnchorStrategy: pointerDragAnchorStrategy,
+        feedback: Transform.translate(
+          offset: Offset(DSpacing.md, ForumTabsBar.heightFor(context) / 2),
+          child: _ForumTabDragFeedback(
             item: item,
-            selected: selected,
-            dropTarget: dropTarget,
-            selectOnPointerDown: false,
-            onSelect: onSelect,
-            onClose: onClose,
-            onCloseOthers: onCloseOthers,
-            onRename: onRename,
-            moveToPanel: moveToPanel,
-            moveToPanelLabel: moveToPanelLabel,
-            onMoveLeft: index == 0 ? null : () => onReorder(item.id, index - 1),
-            onMoveRight: index == itemCount - 1
-                ? null
-                : () => onReorder(item.id, index + 1),
-          );
-          return Draggable<String>(
-            data: item.id,
-            axis: onDropTab == null ? Axis.horizontal : null,
-            // Target offsets follow the pointer. Keep the floating tab below
-            // it so the insertion placeholder remains visible in the strip.
-            dragAnchorStrategy: pointerDragAnchorStrategy,
-            feedback: Transform.translate(
-              offset: Offset(DSpacing.md, ForumTabsBar.heightFor(context) / 2),
-              child: _ForumTabDragFeedback(
-                item: item,
-                width: ForumTabsBar.maximumTabWidth,
-              ),
-            ),
-            child: child,
-          );
-        },
+            width: ForumTabsBar.maximumTabWidth,
+          ),
+        ),
+        child: _tab(selectOnPointerDown: false),
       ),
     );
   }
@@ -1260,7 +1235,6 @@ class _ForumTab extends StatefulWidget {
     required this.onSelect,
     required this.onClose,
     required this.onCloseOthers,
-    this.dropTarget = false,
     this.selectOnPointerDown = true,
     this.onMoveLeft,
     this.onMoveRight,
@@ -1274,7 +1248,6 @@ class _ForumTab extends StatefulWidget {
   final VoidCallback onSelect;
   final VoidCallback onClose;
   final VoidCallback? onCloseOthers;
-  final bool dropTarget;
   final bool selectOnPointerDown;
   final VoidCallback? onMoveLeft;
   final VoidCallback? onMoveRight;
@@ -1579,7 +1552,6 @@ class _ForumTabState extends State<_ForumTab> {
             closeKey: ValueKey('forum-tab-close-${widget.item.id}'),
             selected: widget.selected,
             closeOnlyWhenSelected: true,
-            dropTarget: widget.dropTarget,
             onSelect: _handleTap,
             onTapDown: _handleTapDown,
             onTapCancel: _handleTapCancel,

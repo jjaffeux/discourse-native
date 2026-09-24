@@ -589,13 +589,13 @@ void main() {
       );
     });
 
-    testWidgets('delegate horizontal drag-and-drop reordering by ID', (
+    testWidgets('reorder by ID behind the insertion bar without a panel', (
       tester,
     ) async {
       final reordered = <({String id, int newIndex})>[];
       await _pumpBar(
         tester,
-        items: const [first, second],
+        items: const [first, second, third],
         selectedId: first.id,
         onReorder: (id, newIndex) =>
             reordered.add((id: id, newIndex: newIndex)),
@@ -603,19 +603,67 @@ void main() {
 
       final firstTab = find.byKey(const ValueKey('forum-tab-item-topic-1'));
       final secondTab = find.byKey(const ValueKey('forum-tab-item-chat-2'));
-      final drag = await tester.startGesture(tester.getCenter(firstTab));
-      await drag.moveTo(tester.getCenter(secondTab));
+      final indicator = find.byKey(
+        const ValueKey('forum-tab-drop-placeholder'),
+      );
+      final firstRect = tester.getRect(firstTab);
+      final secondRect = tester.getRect(secondTab);
+      final drag = await tester.startGesture(firstRect.center);
+      await drag.moveBy(const Offset(20, 0));
       await tester.pump();
+      await drag.moveTo(Offset(secondRect.left + 2, secondRect.center.dy));
+      await tester.pumpAndSettle();
 
-      final targetOutline =
-          _tabDecoration(tester, secondTab).shape as OutlinedBorder;
-      expect(targetOutline.side.width, 2);
-      expect(targetOutline.side.style, BorderStyle.solid);
+      // A strip that receives no tabs from elsewhere still shows where the
+      // tab will land rather than outlining the tab under the pointer, and
+      // the carried tab keeps its slot.
+      expect(indicator, findsOneWidget);
+      expect(
+        tester.getRect(indicator).left,
+        greaterThanOrEqualTo(secondRect.right),
+      );
+      expect(
+        (_tabDecoration(tester, secondTab).shape as OutlinedBorder).side.width,
+        isNot(2),
+      );
+      expect(tester.getRect(firstTab), firstRect);
+      expect(tester.getRect(secondTab), secondRect);
 
       await drag.up();
       await tester.pumpAndSettle();
 
+      expect(indicator, findsNothing);
       expect(reordered, [(id: first.id, newIndex: 1)]);
+    });
+
+    testWidgets('ignore a drop over the dragged tab\'s own slot', (
+      tester,
+    ) async {
+      final reordered = <({String id, int newIndex})>[];
+      await _pumpBar(
+        tester,
+        items: const [first, second, third],
+        selectedId: first.id,
+        onReorder: (id, newIndex) =>
+            reordered.add((id: id, newIndex: newIndex)),
+      );
+
+      final secondRect = tester.getRect(
+        find.byKey(const ValueKey('forum-tab-item-chat-2')),
+      );
+      final drag = await tester.startGesture(secondRect.center);
+      await drag.moveBy(const Offset(4, 0));
+      await tester.pump();
+      await drag.moveTo(Offset(secondRect.right - 2, secondRect.center.dy));
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const ValueKey('forum-tab-drop-placeholder')),
+        findsNothing,
+      );
+
+      await drag.up();
+      await tester.pumpAndSettle();
+      expect(reordered, isEmpty);
     });
 
     testWidgets('show the click cursor across every tab', (tester) async {
