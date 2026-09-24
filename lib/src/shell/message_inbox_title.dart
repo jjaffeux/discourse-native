@@ -142,6 +142,7 @@ class MessageInboxSelector extends StatelessWidget {
         key: ValueKey((controller, owner.siteUrl, owner.session, owner.tabId)),
         child: useSelect
             ? DSelect<String>.controlled(
+                size: DControlSize.filter,
                 key: const ValueKey('message-inbox-selector'),
                 value: value,
                 semanticLabel: 'Choose inbox',
@@ -151,7 +152,7 @@ class MessageInboxSelector extends StatelessWidget {
                     IconTheme.merge(
                       data: IconThemeData(
                         size: DControlStyle.iconDimension(
-                          DControlSize.regular,
+                          DControlSize.filter,
                           context: context,
                         ),
                         color: DTokens.of(context).mutedForeground,

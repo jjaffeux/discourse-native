@@ -214,6 +214,7 @@ class _InviteListState extends State<InviteList> {
             ),
             const SizedBox(height: 8),
             DSelect<InviteFilter>.controlled(
+              size: DControlSize.filter,
               isExpanded: true,
               key: ValueKey(('invite-filter', controller.filter)),
               value: controller.filter,

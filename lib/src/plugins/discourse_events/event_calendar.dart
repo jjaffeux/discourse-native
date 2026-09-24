@@ -293,7 +293,7 @@ final class _EventCalendarState extends State<EventCalendar> {
               ? () => widget.onPageChanged(widget.page.move(-1))
               : null,
           variant: DButtonVariant.ghost,
-          size: DButtonSize.small,
+          size: DControlSize.chip,
           tooltip: 'Previous ${_view.name}',
           icon: const Icon(Icons.chevron_left),
         ),
@@ -302,7 +302,7 @@ final class _EventCalendarState extends State<EventCalendar> {
               ? () => widget.onPageChanged(widget.page.move(1))
               : null,
           variant: DButtonVariant.ghost,
-          size: DButtonSize.small,
+          size: DControlSize.chip,
           tooltip: 'Next ${_view.name}',
           icon: const Icon(Icons.chevron_right),
         ),

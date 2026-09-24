@@ -306,7 +306,7 @@ class _ChannelSettings extends StatelessWidget {
                                           DSelect<
                                             ChatChannelNotificationLevel
                                           >.controlled(
-                                            size: DSelectSize.large,
+                                            size: DControlSize.preference,
                                             isExpanded: true,
                                             key: const ValueKey(
                                               'chat-channel-notification-setting',
