@@ -494,34 +494,39 @@ class _ForumSearchState extends State<ForumSearch> {
               height: height,
               child: Column(
                 children: [
-                  Padding(
-                    padding: mobile
-                        ? const EdgeInsets.symmetric(vertical: 8)
-                        : EdgeInsets.fromLTRB(
-                            editorLeft,
-                            math.max(0, _anchorTop - surfaceTop),
-                            math.max(0.0, width - editorLeft - anchorWidth),
-                            6,
+                  Transform.translate(
+                    offset: mobile
+                        ? Offset.zero
+                        : Offset(0, math.min(0, _anchorTop - surfaceTop)),
+                    child: Padding(
+                      padding: mobile
+                          ? const EdgeInsets.symmetric(vertical: 8)
+                          : EdgeInsets.fromLTRB(
+                              editorLeft,
+                              math.max(0, _anchorTop - surfaceTop),
+                              math.max(0.0, width - editorLeft - anchorWidth),
+                              6,
+                            ),
+                      child: Row(
+                        children: [
+                          if (mobile)
+                            DButton.iconOnly(
+                              key: const ValueKey('global-search-back'),
+                              icon: const DIcon(DIcons.arrowLeft),
+                              tooltip: 'Back',
+                              variant: DButtonVariant.ghost,
+                              onPressed: _popover.close,
+                            ),
+                          Expanded(
+                            child: _open
+                                ? _editor(
+                                    mobile ? width - 32 : anchorWidth,
+                                    expanded: true,
+                                  )
+                                : const SizedBox.shrink(),
                           ),
-                    child: Row(
-                      children: [
-                        if (mobile)
-                          DButton.iconOnly(
-                            key: const ValueKey('global-search-back'),
-                            icon: const DIcon(DIcons.arrowLeft),
-                            tooltip: 'Back',
-                            variant: DButtonVariant.ghost,
-                            onPressed: _popover.close,
-                          ),
-                        Expanded(
-                          child: _open
-                              ? _editor(
-                                  mobile ? width - 32 : anchorWidth,
-                                  expanded: true,
-                                )
-                              : const SizedBox.shrink(),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
                   const DSeparator(),

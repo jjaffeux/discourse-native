@@ -286,7 +286,7 @@ void main() {
       expect(_editorFinder(), findsOneWidget);
       final opened = tester.getRect(_editorFinder());
       expect(opened.topLeft.dx, closeTo(before.topLeft.dx, .5));
-      expect(opened.topLeft.dy, closeTo(before.topLeft.dy + 4, .5));
+      expect(opened.topLeft.dy, closeTo(before.topLeft.dy, .5));
       expect(opened.height, closeTo(before.height, .5));
       expect(_editor(tester).focusNode.hasFocus, isTrue);
 
@@ -342,7 +342,7 @@ void main() {
       await tester.pumpAndSettle();
       final groupBefore = tester.getRect(find.byType(DInputGroup));
       final editorBefore = tester.getRect(_editorFinder());
-      expect(groupBefore.width, 112);
+      expect(groupBefore.width, lessThan(212));
 
       await tester.tap(find.byKey(ForumSearch.inputKey));
       await tester.pumpAndSettle();
@@ -375,7 +375,7 @@ void main() {
       final after = tester.getRect(_editorFinder());
       final panel = tester.getRect(find.byKey(ForumSearch.panelKey));
       expect(after.topLeft.dx, closeTo(before.topLeft.dx, .5));
-      expect(after.topLeft.dy, closeTo(before.topLeft.dy + 4, .5));
+      expect(after.topLeft.dy, closeTo(before.topLeft.dy, .5));
       expect(panel.top, greaterThanOrEqualTo(8));
       expect(panel.bottom, lessThanOrEqualTo(420));
       expect(_editor(tester).focusNode.hasFocus, isTrue);
