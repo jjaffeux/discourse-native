@@ -141,3 +141,10 @@ style inside that button, so the forum adapter, its drag feedback and the
 styleguide render labels at the same size. `workspaceTabStripHeightFor` grows
 with the same role. The tab switcher keeps its 14px `bodyMedium` rows, matching
 the reference's switcher list.
+
+## Corner radius — September 25, 2026
+
+The September 23 fixed Native radius scale (see `conventions.md`) supersedes
+the September 19 8px selected radius: inactive tabs, including their hover
+fill, use the pill radius and the selected tab uses the 14px panel radius,
+independently of the site radius. `d_document_tab_test.dart` pins both.

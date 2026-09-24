@@ -38,6 +38,16 @@ Verification:
   Logs: `/tmp/tabs-recommendation-tests.log` and
   `/tmp/tabs-recommendation-baseline.log`.
 
+## September 25 line-row height
+
+The desktop line row's minimum was the regular control height plus 14px, which
+gave 42px only while that preset was 28px. The September 23 design rules raised
+it to 34px, inflating every desktop line row to 48px. Desktop rows are now the
+label line with 11px above and below and no preset floor: 42px regular (the
+reference's 41.5px with the text line rounded to whole pixels) and 43px for
+Chat information's large tabs. Touch rows are unchanged. The regular default
+list is 34px, its trigger 27px.
+
 ## Sources
 
 - Frozen documentation: <https://ui.shadcn.com/docs/components/base/tabs.md>,

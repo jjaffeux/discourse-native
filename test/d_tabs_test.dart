@@ -546,9 +546,13 @@ void main() {
     (tester) async {
       await mount(tester, tabs());
       await tester.pumpAndSettle();
-      // The 20px label line grows the inset surface beyond its compact minimum.
-      expect(tester.getSize(find.byType(DTabList<String>)).height, 31);
-      expect(tester.getSize(find.byType(DTabTrigger<String>).first).height, 25);
+      // The regular 34px preset holds a trigger inset by 3.5px on each side;
+      // its 20px label line fits inside that minimum.
+      expect(
+        tester.getSize(find.byType(DTabList<String>)).height,
+        DControlStyle.regularHeight,
+      );
+      expect(tester.getSize(find.byType(DTabTrigger<String>).first).height, 27);
 
       await mount(
         tester,
@@ -834,7 +838,11 @@ void main() {
               final boundary =
                   boundaryKey.currentContext!.findRenderObject()!
                       as RenderRepaintBoundary;
-              final image = await boundary.toImage();
+              // The 1px ring only has fully covered pixels where a straight
+              // edge lands on the pixel grid. Pill-shaped unselected tabs have
+              // no straight vertical edges, and the regular list insets its
+              // triggers by 3.5px, so a 1x raster antialiases the whole ring.
+              final image = await boundary.toImage(pixelRatio: 2);
               try {
                 final bytes = (await image.toByteData(
                   format: ImageByteFormat.rawRgba,

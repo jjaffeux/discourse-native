@@ -864,10 +864,7 @@ void main() {
         final before = tester.getRect(add);
         expect(before.size, const Size.square(DControlStyle.regularHeight));
         expect(before.left, tester.getRect(tab).right + 4);
-        expect(
-          tester.widget<DButton>(add).variant,
-          DButtonVariant.transparentBackground,
-        );
+        expect(tester.widget<DButton>(add).variant, DButtonVariant.inline);
         final fill = buttonSurface(tester, of: add).color;
         final pointer = await tester.createGesture(
           kind: PointerDeviceKind.mouse,
