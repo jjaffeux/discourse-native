@@ -1,3 +1,4 @@
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/shell/main_content.dart';
 import 'package:discourse_native/src/shell/new_tab_page.dart';
@@ -49,6 +50,12 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Everything else'), findsOneWidget);
+    final groups = tester.widget<DButton>(
+      find.widgetWithText(DButton, 'Groups'),
+    );
+    expect(groups.variant, DButtonVariant.secondary);
+    expect(groups.backgroundColor, isNot(Colors.transparent));
+    expect(groups.borderColor, Colors.transparent);
     expect(find.text('Latest topics'), findsNothing);
     expect(find.text('Categories'), findsNothing);
     expect(find.text('Chat'), findsNothing);
