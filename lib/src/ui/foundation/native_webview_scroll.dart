@@ -21,6 +21,15 @@ final class NativeWebViewScrollBridge {
 
   static void unregister(Object owner) => _targets.remove(owner);
 
+  /// Native deltas describe screen direction; reversed readers (such as chat)
+  /// store their scroll offset in the opposite direction, just as Flutter's
+  /// Scrollable accounts for when handling a regular PointerScrollEvent.
+  static void scrollPosition(ScrollPosition position, double delta) {
+    position.pointerScroll(
+      axisDirectionIsReversed(position.axisDirection) ? -delta : delta,
+    );
+  }
+
   static Future<void> _handleMethodCall(MethodCall call) async {
     if (call.method != 'scroll' || call.arguments is! Map) return;
     final arguments = call.arguments as Map;

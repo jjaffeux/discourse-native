@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/ui/foundation/embed_document.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -267,6 +268,76 @@ void main() {
     },
     variant: const TargetPlatformVariant({TargetPlatform.macOS}),
   );
+
+  for (final reverse in [false, true]) {
+    testWidgets(
+      'native embed wheel direction matches its reader (reverse: $reverse)',
+      (tester) async {
+        platform.view = GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () {},
+          child: const SizedBox.expand(),
+        );
+        final scroll = ScrollController(initialScrollOffset: 200);
+        addTearDown(scroll.dispose);
+        await tester.pumpWidget(
+          MaterialApp(
+            home: SizedBox.expand(
+              child: SingleChildScrollView(
+                controller: scroll,
+                reverse: reverse,
+                child: Column(
+                  children: [
+                    const SizedBox(height: 400),
+                    DEmbed(
+                      uri: _embedUri,
+                      origins: const {'https://embed.example.com'},
+                      title: 'Example post',
+                      externalUri: _externalUri,
+                      height: 300,
+                      onOpenLink: opened.add,
+                    ),
+                    const SizedBox(height: 400),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pump();
+        send('loaded');
+        await tester.pumpAndSettle();
+        for (final delta in [40.0, -40.0]) {
+          final before = scroll.offset;
+          // Move over ordinary reader content, then over the native surface.
+          await tester.sendEventToBinding(
+            PointerScrollEvent(
+              position: const Offset(20, 580),
+              scrollDelta: Offset(0, delta),
+            ),
+          );
+          await tester.pumpAndSettle();
+          expect(scroll.offset, before + (reverse ? -delta : delta));
+          final point = tester.getCenter(find.byType(WebViewWidget));
+          await tester.binding.defaultBinaryMessenger.handlePlatformMessage(
+            'org.discourse.native/youtube_scroll',
+            const StandardMethodCodec().encodeMethodCall(
+              MethodCall('scroll', {
+                'x': point.dx,
+                'y': point.dy,
+                'deltaY': delta,
+              }),
+            ),
+            (_) {},
+          );
+          await tester.pumpAndSettle();
+          expect(scroll.offset, before + (reverse ? -2 * delta : 2 * delta));
+        }
+        await tester.pumpWidget(const SizedBox.shrink());
+      },
+      variant: const TargetPlatformVariant({TargetPlatform.macOS}),
+    );
+  }
 
   testWidgets('HTTP failures show retry and retain the browser destination', (
     tester,
