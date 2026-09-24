@@ -24,6 +24,7 @@ import '../data/forum_tab_store.dart';
 import '../data/groups_api.dart';
 import '../data/http_transport.dart';
 import '../data/instance_store.dart';
+import '../data/recent_destinations_store.dart';
 import '../data/shell_api_ports.dart';
 import '../data/sidebar_section_store.dart';
 import '../data/site_image_repository.dart';
@@ -293,6 +294,7 @@ class ShellController extends FrameSafeNotifier
     AppSettingsStore? appSettingsStore,
     ForumSettingsStore? forumSettingsStore,
     ForumTabStore? forumTabs,
+    RecentDestinationsStore? recentDestinations,
     this.forumTabsEnabled = true,
     this.mobileNavigationEnabled = false,
     Store? store,
@@ -316,6 +318,8 @@ class ShellController extends FrameSafeNotifier
     PluginDiagnosticsReporter? pluginDiagnosticsReporter,
   }) : api = ShellApiPorts.fromCapabilities(api),
        forumTabs = forumTabs ?? ForumTabStore.memory(),
+       recentDestinations =
+           recentDestinations ?? RecentDestinationsStore.memory(),
        aggregatePreferences =
            aggregatePreferences ?? AggregatePreferencesStore(),
        appSettings = AppSettingsController(
@@ -512,6 +516,7 @@ class ShellController extends FrameSafeNotifier
 
   final InstanceStore instanceStore;
   final ForumTabStore forumTabs;
+  final RecentDestinationsStore recentDestinations;
   final AggregatePreferencesStore aggregatePreferences;
   final AppSettingsController appSettings;
   final ForumSettingsController forumSettings;
@@ -1509,38 +1514,34 @@ class ShellController extends FrameSafeNotifier
   @override
   ContentRoute? get currentContent => activeTab?.currentContent;
 
-  final Map<String, List<ContentRoute>> _recentCategoryRoutes = {};
-  final Map<String, List<ContentRoute>> _recentChannelRoutes = {};
-  final Map<String, List<ContentRoute>> _recentTopicRoutes = {};
+  String _recentAccountIdentity(String siteUrl) {
+    final instance = _instanceAt(siteUrl);
+    return instance == null ? 'anonymous' : _workspaceAccountIdentity(instance);
+  }
 
-  String _recentKey(String siteUrl) =>
-      '$siteUrl\u0000${currentAccountIdentity ?? 'signed-out'}';
-
-  List<ContentRoute> recentCategoriesFor(String siteUrl) =>
-      List.unmodifiable(_recentCategoryRoutes[_recentKey(siteUrl)] ?? const []);
+  List<ContentRoute> recentCategoriesFor(String siteUrl) => recentDestinations
+      .categoriesFor(siteUrl, _recentAccountIdentity(siteUrl));
   List<ContentRoute> recentChannelsFor(String siteUrl) =>
-      List.unmodifiable(_recentChannelRoutes[_recentKey(siteUrl)] ?? const []);
+      recentDestinations.channelsFor(siteUrl, _recentAccountIdentity(siteUrl));
   List<ContentRoute> recentTopicsFor(String siteUrl) =>
-      List.unmodifiable(_recentTopicRoutes[_recentKey(siteUrl)] ?? const []);
+      recentDestinations.topicsFor(siteUrl, _recentAccountIdentity(siteUrl));
 
   void _rememberCurrentContent() {
+    if (!loaded) return;
     final siteUrl = currentInstance?.url;
     final route = currentContent;
     if (siteUrl == null || route == null) return;
-    final history = switch (route) {
-      _ when route.topicId != null => _recentTopicRoutes,
-      _ when route.id.startsWith('category-') ||
-          route.id.startsWith('list-/c/') =>
-        _recentCategoryRoutes,
-      _ when RegExp(r'^chat-channel-[1-9][0-9]*$').hasMatch(route.id) =>
-        _recentChannelRoutes,
-      _ => null,
-    };
-    if (history == null) return;
-    final recent = history.putIfAbsent(_recentKey(siteUrl), () => []);
-    recent.removeWhere((item) => item.id == route.id);
-    recent.insert(0, route);
-    if (recent.length > 5) recent.removeLast();
+    _rememberRoute(siteUrl, _recentAccountIdentity(siteUrl), route);
+  }
+
+  void _rememberRoute(
+    String siteUrl,
+    String accountIdentity,
+    ContentRoute route,
+  ) {
+    if (recentDestinations.remember(siteUrl, accountIdentity, route)) {
+      unawaited(recentDestinations.save());
+    }
   }
 
   bool get canPopContent => mobileNavigationEnabled
@@ -1919,6 +1920,7 @@ class ShellController extends FrameSafeNotifier
     unawaited(cooking.start());
     final settingsLoad = appSettings.load();
     final storedWorkspaces = forumTabs.load();
+    final recentDestinationsLoad = recentDestinations.load();
     final List<DiscourseInstance> stored;
     try {
       stored = await instanceStore.load();
@@ -1938,6 +1940,7 @@ class ShellController extends FrameSafeNotifier
     }
 
     await settingsLoad;
+    await recentDestinationsLoad;
     if (isDisposed) return;
     _instances
       ..clear()
@@ -1983,6 +1986,32 @@ class ShellController extends FrameSafeNotifier
         _forumWorkspaces[workspace.siteUrl] = normalized;
       }
     }
+    // Existing installations have tab history but no separate Start page
+    // visits yet. Seed it once so those visits appear after the upgrade.
+    var seededRecentDestinations = false;
+    for (final workspace in _forumWorkspaces.values) {
+      if (recentDestinations.hasVisits(
+        workspace.siteUrl,
+        workspace.accountIdentity,
+      )) {
+        continue;
+      }
+      for (final tab in workspace.tabs) {
+        for (final location in tab.backHistory) {
+          seededRecentDestinations |= recentDestinations.remember(
+            workspace.siteUrl,
+            workspace.accountIdentity,
+            location.contentStack.last,
+          );
+        }
+        seededRecentDestinations |= recentDestinations.remember(
+          workspace.siteUrl,
+          workspace.accountIdentity,
+          tab.currentContent,
+        );
+      }
+    }
+    if (seededRecentDestinations) unawaited(recentDestinations.save());
     if (workspacesNormalized) _persistWorkspaces();
     final initialInstance = currentInstance;
     // A persisted palette is already good enough for the first frame. Its
@@ -6143,6 +6172,7 @@ class ShellController extends FrameSafeNotifier
         activeTabId: activate ? tab.id : null,
       ),
     );
+    _rememberRoute(instance.url, workspace.accountIdentity, route);
     if (activate && currentInstance?.url == instance.url) {
       _mobilePane = MobilePane.content;
       _hydrateActiveTab(instance);

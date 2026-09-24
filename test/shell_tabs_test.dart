@@ -1,3 +1,4 @@
+import 'package:discourse_native/src/data/recent_destinations_store.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/forum_workspace.dart';
@@ -36,6 +37,95 @@ void main() {
     });
 
     group('creation', () {
+      test(
+        'Start page visits survive a restart, including background tabs',
+        () async {
+          final persistence = MemoryRecentDestinationsPersistence();
+          final firstStore = RecentDestinationsStore(persistence: persistence);
+          final first = ShellController(
+            instanceStore: FakeInstanceStore(forums),
+            api: FakeDiscourseApi(feeds: const {'/latest.json': []}),
+            authenticator: FakeAuthenticator(),
+            drafts: FakeDraftStore(),
+            forumTabs: forumTabs,
+            recentDestinations: firstStore,
+            trackers: FakeSiteTracker.reset(),
+          );
+          addTearDown(first.dispose);
+          await first.load();
+          first.openTopicUrl('/t/visited-topic/42');
+          first.openListUrl('/c/support/12', title: 'Support');
+          expect(
+            first.openContentInNewTab(
+              const ContentRoute(
+                id: 'chat-channel-7',
+                title: 'General',
+                icon: DIcons.comments,
+              ),
+              select: false,
+            ),
+            TabOpenResult.opened,
+          );
+          for (final tab in first.tabsForCurrentForum.toList()) {
+            first.closeTab(tab.id);
+          }
+          await firstStore.save();
+
+          final restored = ShellController(
+            instanceStore: FakeInstanceStore(forums),
+            api: FakeDiscourseApi(feeds: const {'/latest.json': []}),
+            authenticator: FakeAuthenticator(),
+            drafts: FakeDraftStore(),
+            forumTabs: forumTabs,
+            recentDestinations: RecentDestinationsStore(
+              persistence: persistence,
+            ),
+            trackers: FakeSiteTracker.reset(),
+          );
+          addTearDown(restored.dispose);
+          await restored.load();
+
+          expect(restored.recentTopicsFor(forums.first.url).single.topicId, 42);
+          expect(
+            restored.recentCategoriesFor(forums.first.url).single.title,
+            'Support',
+          );
+          expect(
+            restored.recentChannelsFor(forums.first.url).single.title,
+            'General',
+          );
+          expect(restored.recentTopicsFor(forums.last.url), isEmpty);
+        },
+      );
+
+      test(
+        'restored tab history seeds visits from before persistence',
+        () async {
+          controller.openTopicUrl('/t/older-topic/41');
+          controller.openTopicUrl('/t/newer-topic/42');
+          await Future<void>.delayed(Duration.zero);
+
+          final restored = ShellController(
+            instanceStore: FakeInstanceStore(forums),
+            api: FakeDiscourseApi(feeds: const {'/latest.json': []}),
+            authenticator: FakeAuthenticator(),
+            drafts: FakeDraftStore(),
+            forumTabs: forumTabs,
+            recentDestinations: RecentDestinationsStore.memory(),
+            trackers: FakeSiteTracker.reset(),
+          );
+          addTearDown(restored.dispose);
+          await restored.load();
+
+          expect(
+            restored
+                .recentTopicsFor(forums.first.url)
+                .map((route) => route.topicId),
+            [42, 41],
+          );
+        },
+      );
+
       test('recent destinations keep five distinct visits per forum', () {
         for (var id = 1; id <= 6; id++) {
           controller.openTopicUrl('/t/topic-$id/$id');
