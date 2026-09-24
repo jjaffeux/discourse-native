@@ -292,11 +292,6 @@ class TopicFilterController extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> acceptSelected() async {
-    final choice = selected ?? _suggestions.firstOrNull;
-    if (choice != null) await accept(choice);
-  }
-
   Future<void> accept(TopicFilterSuggestion choice) async {
     final input = _FilterInput(text.text);
     var replacement = choice.name;

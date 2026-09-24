@@ -190,9 +190,6 @@ class DiscourseUser {
 
   final PluginData plugins;
 
-  bool get isInDoNotDisturb =>
-      doNotDisturbUntil?.isAfter(DateTime.now()) ?? false;
-
   Map<String, dynamic> toJson({
     PluginDataDecoder extensions = const EmptyPluginDataDecoder(),
   }) {

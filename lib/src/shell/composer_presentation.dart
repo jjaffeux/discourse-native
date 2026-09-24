@@ -52,31 +52,6 @@ class ComposerPresentationHost extends StatefulWidget {
         ._redockForNavigation();
   }
 
-  /// Reader width if the editor were docked in the outer desktop workspace.
-  /// Used to reserve room for a side composer within a topic sheet.
-  static double readerWidthOf(BuildContext context, double width) {
-    final owner = _ComposerPresentationScope.of(context);
-    final entry = owner._entries[owner._presentableComposer];
-    if (entry == null || entry.minimized) return width;
-    final placement = owner._presentation.effectivePlacement(
-      mobile: false,
-      width: width,
-      minimumReaderWidth:
-          ComposerPresentationController.readerMinimum + workspacePanelGap - 1,
-    );
-    if (!placement.isSide) return width;
-    final editorWidth = owner._presentation.preference.sideWidth.clamp(
-      ComposerPresentationController.sideMinimum,
-      math.max(
-        ComposerPresentationController.sideMinimum,
-        width -
-            ComposerPresentationController.readerMinimum -
-            workspacePanelGap,
-      ),
-    );
-    return width - editorWidth - workspacePanelGap;
-  }
-
   @override
   State<ComposerPresentationHost> createState() =>
       _ComposerPresentationHostState();

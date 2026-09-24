@@ -173,16 +173,6 @@ abstract final class DControlStyle {
   )!;
   static Color alpha(Color color, double factor) =>
       color.withValues(alpha: color.a * factor);
-  static Color outlineFill(
-    DTokens tokens, {
-    required bool dark,
-    bool hovered = false,
-    bool field = false,
-  }) {
-    return hovered
-        ? tokens.controlTheme.outline.hover
-        : tokens.controlTheme.outline.background;
-  }
 
   static Color outlineBorder(
     DTokens tokens, {

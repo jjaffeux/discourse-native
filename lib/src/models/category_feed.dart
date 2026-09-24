@@ -37,17 +37,6 @@ class CategoryFeed {
     canCreateTopic: canCreateTopic,
   );
 
-  CategoryFeed withFirstPage(
-    Iterable<int> ids, {
-    required bool hasMore,
-    required bool canCreateTopic,
-  }) => CategoryFeed(
-    categoryIds: List.unmodifiable(ids),
-    loaded: true,
-    nextPage: hasMore ? 2 : null,
-    canCreateTopic: canCreateTopic,
-  );
-
   CategoryFeed loadingNextPage() => CategoryFeed(
     categoryIds: categoryIds,
     loadingMore: true,

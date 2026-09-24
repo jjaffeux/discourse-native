@@ -107,10 +107,6 @@ final class ChatSearchController {
     };
   }
 
-  void requestGlobalFocus(String siteUrl) {
-    if (!_disposed) _globalFocus[siteUrl]?.call();
-  }
-
   void setGlobalQuery(String siteUrl, String query) {
     if (_disposed) return;
     final held = globalState(siteUrl);

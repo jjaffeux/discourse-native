@@ -2659,9 +2659,6 @@ final class LiveKitVoiceMediaSession extends _VoiceMediaNotifier {
     }
   }
 
-  @visibleForTesting
-  Future<void> pollRawStatsForTesting() => _pollRawStats();
-
   void _startRawStatsTimer() {
     if (rawStatsInterval <= Duration.zero || _rawStatsTimer != null) return;
     _rawStatsTimer = Timer.periodic(

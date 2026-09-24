@@ -146,13 +146,6 @@ final class SiteEmojiCatalog {
 
   SiteEmoji? emojiNamed(String name) => byName[name];
 
-  SiteEmojiGroup? groupNamed(String id) {
-    for (final group in groups) {
-      if (group.id == id) return group;
-    }
-    return null;
-  }
-
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||

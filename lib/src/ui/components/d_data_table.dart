@@ -160,18 +160,6 @@ class DDataTableController extends ChangeNotifier {
     );
   }
 
-  void setColumnVisible(String columnId, bool visible) {
-    final hidden = Set<String>.of(_value.hiddenColumnIds);
-    visible ? hidden.remove(columnId) : hidden.add(columnId);
-    value = _value.copyWith(hiddenColumnIds: hidden, page: 1);
-  }
-
-  void setRowSelected(Object rowId, bool selected) {
-    final selection = Set<Object>.of(_value.selectedRowIds);
-    selected ? selection.add(rowId) : selection.remove(rowId);
-    value = _value.copyWith(selectedRowIds: selection);
-  }
-
   void setPageRowsSelected(Iterable<Object> rowIds, bool selected) {
     final selection = Set<Object>.of(_value.selectedRowIds);
     selected ? selection.addAll(rowIds) : selection.removeAll(rowIds);

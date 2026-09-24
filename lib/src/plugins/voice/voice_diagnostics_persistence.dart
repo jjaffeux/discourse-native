@@ -1961,25 +1961,6 @@ final class _VoiceDiagnosticsStore {
         activeCaptures: Map.unmodifiable(activeCaptures),
       );
 
-  Map<String, Object?> get metadataLine => {
-    'version': voiceDiagnosticsFormatVersion,
-    'record': 'state',
-    'droppedRecords': droppedRecords,
-    'truncated': truncated,
-    if (activeCaptureId != null) 'activeCaptureId': activeCaptureId,
-    if (activeCaptureStartedAtUtc != null)
-      'activeCaptureStartedAtUtc': activeCaptureStartedAtUtc!
-          .toUtc()
-          .toIso8601String(),
-    if (activeCaptures.isNotEmpty)
-      'activeCaptures': [
-        for (final capture in activeCaptures.values.take(
-          _voiceDiagnosticsActiveCaptureLimit,
-        ))
-          capture.toJson(),
-      ],
-  };
-
   void reset() {
     _records = [];
     _identities = {};
@@ -2016,59 +1997,10 @@ final class _VoiceDiagnosticsStore {
     return duplicate;
   }
 
-  bool loadMetadata(Map<dynamic, dynamic> json) {
-    final dropped = json['droppedRecords'];
-    final wasTruncated = json['truncated'];
-    final captureId = json['activeCaptureId'];
-    final startedAt = json['activeCaptureStartedAtUtc'];
-    if (dropped is! int ||
-        dropped < 0 ||
-        wasTruncated is! bool ||
-        captureId is! String? ||
-        startedAt is! String?) {
-      return false;
-    }
-    final parsedStart = startedAt == null ? null : DateTime.tryParse(startedAt);
-    if (startedAt != null && parsedStart == null) return false;
-    droppedRecords = dropped;
-    truncated = wasTruncated;
-    activeCaptureId = captureId;
-    activeCaptureStartedAtUtc = parsedStart?.toUtc();
-    activeCaptures = {
-      if (captureId != null && parsedStart != null)
-        'legacy': VoiceDiagnosticsActiveCapture(
-          writerId: 'legacy',
-          captureId: captureId,
-          startedAtUtc: parsedStart.toUtc(),
-        ),
-    };
-    return true;
-  }
-
   void noteDropped(int count) {
     if (count <= 0) return;
     droppedRecords += count;
     truncated = true;
-  }
-
-  void removeIdentities(Set<String> identities) {
-    if (identities.isEmpty) return;
-    final retained = <VoiceDiagnosticRecord>[];
-    var removed = 0;
-    var bytes = 0;
-    for (final record in _records) {
-      if (identities.contains(record.identity)) {
-        removed += 1;
-      } else {
-        retained.add(record);
-        bytes += voiceDiagnosticSerializedBytes(record);
-      }
-    }
-    _records = retained;
-    _identities = {for (final record in retained) record.identity};
-    _timestampsMonotonic = _isTimestampMonotonic(retained);
-    retainedBytes = bytes;
-    noteDropped(removed);
   }
 
   void sort() {

@@ -209,16 +209,6 @@ List<LocalDateComposerBlock> parseLocalDateComposerBlocks(
   return List.unmodifiable(blocks);
 }
 
-LocalDateComposerBlock? localDateBlockAtComposerOffset(
-  Iterable<LocalDateComposerBlock> blocks,
-  int offset,
-) {
-  for (final block in blocks) {
-    if (block.containsOffset(offset)) return block;
-  }
-  return null;
-}
-
 @immutable
 class _TagHeader {
   const _TagHeader(this.kind, this.tagName, this.contentStart);

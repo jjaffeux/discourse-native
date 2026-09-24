@@ -106,17 +106,7 @@ final class PanelWidthController extends FrameSafeNotifier
 }
 
 /// The logical edge of the pane that owns its resize handle.
-enum ResizablePaneEdge {
-  leading,
-  trailing;
-
-  double widthDeltaForDrag(double horizontalDelta, TextDirection direction) {
-    final logicalDelta = direction == TextDirection.ltr
-        ? horizontalDelta
-        : -horizontalDelta;
-    return this == ResizablePaneEdge.trailing ? logicalDelta : -logicalDelta;
-  }
-}
+enum ResizablePaneEdge { leading, trailing }
 
 /// A width-listening pane with one logical-edge resize handle.
 class ResizablePane extends StatefulWidget {

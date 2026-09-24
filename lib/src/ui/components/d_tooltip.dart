@@ -310,14 +310,6 @@ class DTooltip extends RawTooltip {
 
   static final _visible = <DTooltipState>{};
 
-  static bool dismissAllToolTips() {
-    final states = _visible.toList();
-    for (final state in states) {
-      state._request(false, DTooltipChangeReason.imperative);
-    }
-    return states.isNotEmpty;
-  }
-
   @override
   DTooltipState createState() => DTooltipState();
 }

@@ -76,8 +76,6 @@ class ChatMessageTile extends StatelessWidget {
   static const double minimumChainedHeight = 28;
 
   static const double hoverActionsTop = 4;
-  static const double minimumHoverActionsHeight =
-      hoverActionsTop + HoverActionButton.height;
 
   static double hoverActionsHeight(BuildContext context) =>
       hoverActionsTop +

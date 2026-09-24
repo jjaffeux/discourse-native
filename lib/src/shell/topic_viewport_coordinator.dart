@@ -448,7 +448,6 @@ final class TopicViewportCoordinator extends FrameSafeNotifier
   double get floatingDayOffset => _floatingDayOffset;
   @override
   int? get progressPosition => _progressPosition;
-  Object? get anchorRestoreToken => _anchorRestoreToken;
   int? get anchorRestorePostId => _anchorRestorePostId;
   double get anchorRestoreViewportOffset => _anchorRestoreViewportOffset;
   int get generation => _generation;
@@ -755,10 +754,6 @@ final class TopicViewportCoordinator extends FrameSafeNotifier
   void finishRestoration({bool saveAnchor = false}) {
     _restoring = false;
     scheduleLook(saveAnchor: saveAnchor);
-  }
-
-  void setUserDragging(bool dragging) {
-    _userDragging = dragging;
   }
 
   void cancelAnchorForExternalScroll() {

@@ -39,7 +39,6 @@ typedef PluginSiteConfigResolver = Future<SiteConfig?> Function(String siteUrl);
 typedef PluginTopicReloader =
     Future<void> Function(String siteUrl, int topicId);
 typedef PluginTargetSnapshot<T extends Object> = ({bool valid, T? value});
-typedef PluginTrackingSync = void Function();
 typedef PluginCurrentSiteReader = String? Function();
 typedef PluginPostFlagCatalogReader =
     List<PostFlagType> Function(String siteUrl);

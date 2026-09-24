@@ -78,7 +78,6 @@ class DTokens extends ThemeExtension<DTokens> {
   Color get primary => colors.primary;
   Color get primaryForeground => colors.onPrimary;
   Color get destructive => colors.error;
-  Color get destructiveForeground => colors.onError;
   Color get focusRing => colors.primary;
 
   /// Positive state color supplied by the host palette.
@@ -174,7 +173,6 @@ abstract final class DSpacing {
   /// Joined groups own their internal spacing; content and row gaps use the
   /// general spacing scale instead.
   static const double controlGap = 6;
-  static const double filterGap = sm;
 
   static const double touchTarget = 48;
 }

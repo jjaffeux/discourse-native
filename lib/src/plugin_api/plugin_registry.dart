@@ -431,13 +431,6 @@ final class PluginRegistry
               ),
       );
 
-  List<PluginGroupTab> groupTabs(PluginGroupContext group) =>
-      List.unmodifiable([
-        for (final plugin in plugins.whereType<GroupTabPlugin>())
-          if (plugin.groupTab(group) case final tab?)
-            _validateGroupTab(plugin, tab),
-      ]);
-
   List<OwnedPluginGroupTab> ownedGroupTabs(PluginGroupContext group) =>
       List.unmodifiable([
         for (final plugin in plugins.whereType<GroupTabPlugin>())

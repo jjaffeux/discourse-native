@@ -97,7 +97,6 @@ class ReactionPill extends StatefulWidget {
 
   // Retained for the legacy post reaction-picker adapter. Native controls
   // determine their own platform-appropriate target size.
-  static const double minTarget = 44;
 
   final String siteUrl;
   final String reaction;

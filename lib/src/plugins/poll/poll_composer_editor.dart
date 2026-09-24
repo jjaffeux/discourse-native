@@ -141,7 +141,6 @@ class PollComposerDraft {
   final _PollDraftSnapshot? _initial;
 
   bool get isNew => sourceBlock == null;
-  bool get typeIsLocked => type == ComposerPollType.rankedChoice;
 
   String get effectiveResultsValue =>
       results == PollResultMode.unknown ? resultsSource : results.markupValue;

@@ -2355,9 +2355,6 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
   DraftStatus _draftStatus = DraftStatus.clean;
   DraftStatus get draftStatus => _draftStatus;
 
-  bool _hasSavedDraft = false;
-  bool get hasSavedDraft => _restoredDraft || _hasSavedDraft;
-
   bool get draftsGaveUp => _draftsGaveUp;
 
   bool get localDraftFailed => _localDraftFailed;
@@ -2589,7 +2586,6 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
       _draftFailures = 0;
       if (!_disposed && request.isCurrent()) {
         _localDraftFailed = false;
-        _hasSavedDraft = true;
         _draftStatus = DraftStatus.saved;
       }
     } catch (error, stackTrace) {

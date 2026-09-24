@@ -60,8 +60,6 @@ final PrivateStorage? platformLegacyAppleStorage = _platformStorage.legacyApple;
 final PrivateStorage? platformLegacyClientIdStorage =
     _platformStorage.legacyClientIds;
 
-final PrivateStorage platformPrivateStorage = platformCredentialStorage;
-
 final class _PlatformPrivateStorage {
   const _PlatformPrivateStorage({
     required this.credentials,

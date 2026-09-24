@@ -72,12 +72,6 @@ TextStyle styleguideText(
       : DTokens.of(context).foreground,
 );
 
-double styleguideTargetHeight(BuildContext context) =>
-    switch (Theme.of(context).platform) {
-      TargetPlatform.iOS || TargetPlatform.android => 44,
-      _ => 32,
-    };
-
 /// Documentation navigation and toolbar geometry, not a catalogue Button.
 class StyleguideAction extends StatelessWidget {
   const StyleguideAction({
