@@ -253,7 +253,7 @@ final class _NavigationHost implements PluginNavigationHost {
   }
 
   @override
-  void pushContent(ContentRoute route) {
+  void pushContent(ContentRoute route, {bool newTab = false}) {
     _contentStack = [..._contentStack, route];
     _changes.notifyListeners();
   }

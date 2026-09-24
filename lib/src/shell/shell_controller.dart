@@ -5910,6 +5910,18 @@ class ShellController extends FrameSafeNotifier
       title: title,
       postNumber: postNumber,
     );
+    if (desktopPanelsEnabled) {
+      final result = _openContentInSecondaryPanel(
+        route,
+        resetScrollPosition: resetScrollPosition,
+      );
+      if (result == TabOpenResult.opened && force) {
+        unawaited(
+          loadTopic(topicId, slug, force: true, postNumber: postNumber),
+        );
+      }
+      return result;
+    }
     // An explicit post destination supersedes the last reading position from
     // an earlier visit to this topic in the same tab.
     final tab = activeTab;
@@ -6043,6 +6055,61 @@ class ShellController extends FrameSafeNotifier
     }
     _syncTopicChannels();
     _notify();
+    return TabOpenResult.opened;
+  }
+
+  TabOpenResult _openContentInSecondaryPanel(
+    ContentRoute route, {
+    bool resetScrollPosition = false,
+  }) {
+    final instance = currentInstance;
+    final workspace = currentWorkspace;
+    final source = activeTab;
+    if (instance == null || workspace == null || source == null) {
+      return TabOpenResult.unsupported;
+    }
+    final selected = workspace.selectedTabIn(ForumPanel.secondary);
+    if (selected == null) {
+      return openContentInNewTab(
+        route,
+        panel: ForumPanel.secondary,
+        select: true,
+        source: source,
+      );
+    }
+
+    final target = selected.navigate(
+      rootDestinationId: source.rootDestinationId,
+      contentStack: [
+        ...source.contentStack
+            .where(
+              (item) =>
+                  item.id != route.id && (!route.isTopic || !item.isTopic),
+            )
+            .take(ForumTab.maximumContentRoutes - 1),
+        route,
+      ],
+    );
+    final updated = resetScrollPosition
+        ? target.copyWith(
+            anchors: Map<String, ForumTabAnchor>.of(target.anchors)
+              ..remove(route.id),
+          )
+        : target;
+    _pendingHomepageTabs.remove(updated.id);
+    _putWorkspace(
+      workspace.copyWith(
+        tabs: [
+          for (final tab in workspace.tabs)
+            if (tab.id == updated.id) updated else tab,
+        ],
+        activeTabId: updated.id,
+      ),
+    );
+    _setForumContentRoot();
+    _syncTopicChannels();
+    _notify();
+    _hydrateActiveTab(instance);
     return TabOpenResult.opened;
   }
 
@@ -14427,6 +14494,28 @@ class ShellController extends FrameSafeNotifier
     }
 
     final workspace = _ensureWorkspace(instance);
+    if (desktopPanelsEnabled) {
+      if (workspace.selectedTabIn(ForumPanel.secondary) == null &&
+          workspace.tabs.length >= ForumWorkspace.maximumTabs) {
+        return AggregateTopicOpenResult.tabLimitReached;
+      }
+      _rootMode = ShellRootMode.forum;
+      if (index != _instanceIndex) {
+        _instanceIndex = index;
+        _restoreInstanceWorkspace(hydrateActiveTab: false);
+      }
+      final result = _openContentInSecondaryPanel(
+        ContentRoute.topic(
+          topicId: topic.id,
+          slug: topic.slug,
+          title: topic.title,
+          postNumber: topic.lastUnreadPostNumber,
+        ),
+      );
+      return result == TabOpenResult.opened
+          ? AggregateTopicOpenResult.opened
+          : AggregateTopicOpenResult.unavailable;
+    }
     ForumTab? existingTopicTab;
     for (final candidate in workspace.tabs) {
       if (candidate.currentContent.topicId == topic.id) {
@@ -15253,9 +15342,13 @@ class ShellController extends FrameSafeNotifier
   }
 
   @override
-  void pushContent(ContentRoute route) {
-    if (desktopPanelsEnabled && route.openInSecondaryPanel) {
+  void pushContent(ContentRoute route, {bool newTab = false}) {
+    if (newTab && forumTabsEnabled) {
       openContentInNewTab(route, source: activeTab);
+      return;
+    }
+    if (desktopPanelsEnabled && route.prefersSecondaryPanel) {
+      _openContentInSecondaryPanel(route);
       return;
     }
     final startsPluginPane = _preparePluginPaneForRoute(route.id);
@@ -16128,7 +16221,8 @@ final class _ShellPluginNavigationHost implements PluginNavigationHost {
       _shell.selectDestination(destination);
 
   @override
-  void pushContent(ContentRoute route) => _shell.pushContent(route);
+  void pushContent(ContentRoute route, {bool newTab = false}) =>
+      _shell.pushContent(route, newTab: newTab);
 
   @override
   void replaceCurrentContent(ContentRoute route) =>
