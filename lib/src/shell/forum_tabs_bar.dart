@@ -273,7 +273,13 @@ class _ForumTabsBarState extends State<ForumTabsBar> {
       final index = _indexAt(details.offset);
       _clearDrop();
       if (widget.itemForDrop?.call(details.data) != null) {
-        widget.onDropTab?.call(details.data, index);
+        final sourceIndex = widget.items.indexWhere(
+          (item) => item.id == details.data,
+        );
+        widget.onDropTab?.call(
+          details.data,
+          sourceIndex >= 0 && sourceIndex < index ? index - 1 : index,
+        );
       }
     },
     builder: (context, candidates, rejected) =>
@@ -335,6 +341,7 @@ class _ForumTabsBarState extends State<ForumTabsBar> {
                           (constraints.maxWidth -
                                   (widget.showAdd ? addWidth + 4 : 0) -
                                   _tabGap * (tabCount - 1) -
+                                  (incoming == null ? 0 : 3 + _tabGap) -
                                   selectedWidth) /
                               tabCount,
                         );
@@ -1051,7 +1058,9 @@ class _ReorderableForumTab extends StatelessWidget {
       },
       child: DragTarget<String>(
         onWillAcceptWithDetails: (details) =>
-            details.data != item.id && (acceptsTab?.call(details.data) ?? true),
+            onDropTab == null &&
+            details.data != item.id &&
+            (acceptsTab?.call(details.data) ?? true),
         onAcceptWithDetails: (details) =>
             (onDropTab ?? onReorder)(details.data, index),
         builder: (context, candidates, rejected) {
@@ -1762,12 +1771,15 @@ class CurrentForumTabsBar extends StatelessWidget {
 
               ForumTabItem? itemForDrop(String id) {
                 final tab = controller.currentWorkspace?.tabById(id);
-                return panel != null && tab != null && tab.panel != panel
-                    ? itemFor(tab)
-                    : null;
+                return panel != null && tab != null ? itemFor(tab) : null;
               }
 
               final incoming = incomingTabId == null
+                  ? null
+                  : controller.currentWorkspace
+                            ?.tabById(incomingTabId!)
+                            ?.panel ==
+                        panel
                   ? null
                   : itemForDrop(incomingTabId!);
               if (tabs.isEmpty) {

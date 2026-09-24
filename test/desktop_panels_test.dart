@@ -1121,6 +1121,45 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  for (final panel in ForumPanel.values) {
+    testWidgets('reordering within ${panel.name} shows an insertion bar', (
+      tester,
+    ) async {
+      if (panel == ForumPanel.secondary) {
+        _openTopicTab(shell, _topic);
+      }
+      final first = shell.selectedTabIn(panel)!.id;
+      shell.createTab(panel: panel);
+      final second = shell.selectedTabIn(panel)!.id;
+      await _pump(tester, shell);
+
+      final source = find.byKey(ValueKey('forum-tab-$first'));
+      final target = find.byKey(ValueKey('forum-tab-$second'));
+      final gesture = await tester.startGesture(
+        tester.getCenter(source),
+        kind: PointerDeviceKind.mouse,
+      );
+      await gesture.moveBy(const Offset(0, 20));
+      await tester.pump();
+      final targetRect = tester.getRect(target);
+      await gesture.moveTo(Offset(targetRect.right - 2, targetRect.center.dy));
+      await tester.pumpAndSettle();
+      final indicator = find.byKey(
+        const ValueKey('forum-tab-drop-placeholder'),
+      );
+      expect(indicator, findsOneWidget);
+      expect(tester.getRect(indicator).left, greaterThan(targetRect.right));
+      await gesture.up();
+      await tester.pumpAndSettle();
+      expect(indicator, findsNothing);
+      expect(shell.currentWorkspace!.tabsIn(panel).map((tab) => tab.id), [
+        second,
+        first,
+      ]);
+      expect(tester.takeException(), isNull);
+    });
+  }
+
   testWidgets(
     'dragging the divider after an edge resize resets the preferred split',
     (tester) async {
