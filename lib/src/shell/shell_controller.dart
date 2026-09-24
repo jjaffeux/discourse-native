@@ -1508,6 +1508,41 @@ class ShellController extends FrameSafeNotifier
   List<ContentRoute> get contentStack => activeTab?.contentStack ?? const [];
   @override
   ContentRoute? get currentContent => activeTab?.currentContent;
+
+  final Map<String, List<ContentRoute>> _recentCategoryRoutes = {};
+  final Map<String, List<ContentRoute>> _recentChannelRoutes = {};
+  final Map<String, List<ContentRoute>> _recentTopicRoutes = {};
+
+  String _recentKey(String siteUrl) =>
+      '$siteUrl\u0000${currentAccountIdentity ?? 'signed-out'}';
+
+  List<ContentRoute> recentCategoriesFor(String siteUrl) =>
+      List.unmodifiable(_recentCategoryRoutes[_recentKey(siteUrl)] ?? const []);
+  List<ContentRoute> recentChannelsFor(String siteUrl) =>
+      List.unmodifiable(_recentChannelRoutes[_recentKey(siteUrl)] ?? const []);
+  List<ContentRoute> recentTopicsFor(String siteUrl) =>
+      List.unmodifiable(_recentTopicRoutes[_recentKey(siteUrl)] ?? const []);
+
+  void _rememberCurrentContent() {
+    final siteUrl = currentInstance?.url;
+    final route = currentContent;
+    if (siteUrl == null || route == null) return;
+    final history = switch (route) {
+      _ when route.topicId != null => _recentTopicRoutes,
+      _ when route.id.startsWith('category-') ||
+          route.id.startsWith('list-/c/') =>
+        _recentCategoryRoutes,
+      _ when RegExp(r'^chat-channel-[1-9][0-9]*$').hasMatch(route.id) =>
+        _recentChannelRoutes,
+      _ => null,
+    };
+    if (history == null) return;
+    final recent = history.putIfAbsent(_recentKey(siteUrl), () => []);
+    recent.removeWhere((item) => item.id == route.id);
+    recent.insert(0, route);
+    if (recent.length > 5) recent.removeLast();
+  }
+
   bool get canPopContent => mobileNavigationEnabled
       ? mobileNavigation.canGoBack
       : activeTab?.canGoBack ?? false;
@@ -15638,6 +15673,7 @@ class ShellController extends FrameSafeNotifier
   }
 
   void _notifyCurrentWorkspace() {
+    _rememberCurrentContent();
     _topicPrefetch.validate();
     if (mobileNavigationEnabled) {
       if (_mobilePane == MobilePane.sidebar &&
