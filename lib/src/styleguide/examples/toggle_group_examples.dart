@@ -30,9 +30,9 @@ final toggleGroupExamples = ComponentExamples(
             child: Text('None'),
           ),
           DToggleGroupItem(
-            value: 'Noise',
+            value: 'Paper',
             icon: Icon(Icons.grain),
-            child: Text('Noise'),
+            child: Text('Paper'),
           ),
           DToggleGroupItem(
             value: 'Lava lamp',

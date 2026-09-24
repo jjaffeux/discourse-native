@@ -12,7 +12,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   for (final brightness in Brightness.values) {
-    testWidgets('noise has dense grain and a shaded gradient in $brightness', (
+    testWidgets('paper has dense grain and a shaded gradient in $brightness', (
       tester,
     ) async {
       final pixels = await _render(
@@ -42,7 +42,7 @@ void main() {
       expect(
         (_mean(smooth, 16, 16) - _mean(smooth, 208, 208)).abs(),
         greaterThan(10),
-        reason: 'Disabling noise must retain the gradient.',
+        reason: 'Disabling paper grain must retain the gradient.',
       );
       expect(tester.takeException(), isNull);
     });
@@ -66,7 +66,7 @@ void main() {
   });
 
   testWidgets(
-    'noise is static and independent of transparency and color strength',
+    'paper is static and independent of transparency and color strength',
     (tester) async {
       final original = await _render(tester, strength: .8);
       await tester.pump(const Duration(seconds: 30));
@@ -104,7 +104,7 @@ Future<Uint8List> _render(
   required double strength,
   double noiseIntensity = ForumBackground.defaultNoiseIntensity,
   double transparency = ForumBackground.defaultTransparency,
-  ForumBackgroundEffect effect = ForumBackgroundEffect.noise,
+  ForumBackgroundEffect effect = ForumBackgroundEffect.paper,
   Size size = const Size.square(256),
 }) async {
   final theme = ForumTheme.fromJson({

@@ -489,11 +489,11 @@ void main() {
           reason: control,
         );
       }
-      expect(tester.widget<DToggleGroup<bool>>(sidebar).values, [false]);
+      expect(tester.widget<DRadioGroup<bool>>(sidebar).groupValue, isFalse);
       Object? sidebarTheme() =>
           _appTheme(tester).extension<ForumThemeEffects>()?.sidebarTheme;
       await _tap(tester, find.text('Darker sidebar'));
-      expect(tester.widget<DToggleGroup<bool>>(sidebar).values, [true]);
+      expect(tester.widget<DRadioGroup<bool>>(sidebar).groupValue, isTrue);
       expect(sidebarTheme(), isNotNull);
       await _tap(tester, find.text('Neutral sidebar'));
       expect(sidebarTheme(), isNull);
@@ -539,13 +539,13 @@ void main() {
       await tester.tapAt(tester.getTopLeft(opacity) + const Offset(1, 13));
       await tester.pumpAndSettle();
       expect(find.text('70%'), findsOneWidget);
-      await _tap(tester, find.text('Noise'));
+      await _tap(tester, find.text('Paper'));
       expect(slider('intensity').onChanged, isNotNull);
 
       final effects = shell.forumSettings.shared.effects;
       expect(effects.strength, 1);
       expect(effects.transparency, .3);
-      expect(effects.effect, ForumBackgroundEffect.noise);
+      expect(effects.effect, ForumBackgroundEffect.paper);
       expect(
         _appTheme(tester).extension<ForumThemeEffects>()!.background,
         effects,

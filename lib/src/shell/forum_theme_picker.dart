@@ -8,6 +8,7 @@ import '../models/forum_theme_presets.dart';
 import '../theme/app_theme.dart';
 import '../theme/d_icons.dart';
 import 'forum_theme_thumbnail.dart';
+import 'settings_section.dart';
 
 /// Choose between ready-made palettes and the user's saved themes.
 class ForumThemeSources extends StatelessWidget {
@@ -37,43 +38,23 @@ class ForumThemeSources extends StatelessWidget {
             onChanged(source);
           }
         },
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            const items = [
-              DRadioGroupItem(
-                key: ValueKey(('theme-source', ForumThemeSource.preset)),
-                value: ForumThemeSource.preset,
-                card: true,
-                label: Text('Presets'),
-                description: Text('Forum and built-in palettes'),
-              ),
-              DRadioGroupItem(
-                key: ValueKey(('theme-source', ForumThemeSource.custom)),
-                value: ForumThemeSource.custom,
-                card: true,
-                label: Text('Your own'),
-                description: Text('Build and save themes'),
-              ),
-            ];
-            final wide =
-                constraints.maxWidth >=
-                540 * MediaQuery.textScalerOf(context).scale(14) / 14;
-            return wide
-                ? IntrinsicHeight(
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      spacing: DSpacing.md,
-                      children: [
-                        for (final item in items) Expanded(child: item),
-                      ],
-                    ),
-                  )
-                : const Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    spacing: DSpacing.sm,
-                    children: items,
-                  );
-          },
+        child: const SettingsChoiceCards(
+          children: [
+            DRadioGroupItem(
+              key: ValueKey(('theme-source', ForumThemeSource.preset)),
+              value: ForumThemeSource.preset,
+              card: true,
+              label: Text('Presets'),
+              description: Text('Forum and built-in palettes'),
+            ),
+            DRadioGroupItem(
+              key: ValueKey(('theme-source', ForumThemeSource.custom)),
+              value: ForumThemeSource.custom,
+              card: true,
+              label: Text('Your own'),
+              description: Text('Build and save themes'),
+            ),
+          ],
         ),
       );
 }

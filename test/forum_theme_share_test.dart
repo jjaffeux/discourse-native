@@ -18,7 +18,7 @@ void main() {
     'name': 'Moss 🌿',
     'background': const ForumBackground(
       color: Color(0xff65906a),
-      effect: ForumBackgroundEffect.noise,
+      effect: ForumBackgroundEffect.paper,
       noiseIntensity: .4,
       transparency: .15,
     ).toJson(),
