@@ -442,7 +442,10 @@ class _PanelTutorialDiagram extends StatelessWidget {
     return ColoredBox(
       color: tokens.surface,
       child: Padding(
-        padding: const EdgeInsets.all(DSpacing.xl),
+        padding: const EdgeInsets.symmetric(
+          horizontal: DSpacing.xl,
+          vertical: DSpacing.lg,
+        ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           mainAxisAlignment: MainAxisAlignment.center,
@@ -458,21 +461,12 @@ class _PanelTutorialDiagram extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               spacing: DSpacing.sm,
               children: [
-                const Expanded(
-                  child: DCard(
-                    size: DCardSize.small,
-                    children: [Text('Main'), DSeparator(), Text('This page')],
-                  ),
-                ),
+                const Expanded(child: _PanelPreview(label: 'Main')),
                 Expanded(
-                  child: DCard(
-                    size: DCardSize.small,
+                  child: _PanelPreview(
+                    label: 'Secondary',
                     backgroundColor: tokens.selected,
-                    children: const [
-                      Text('Secondary'),
-                      DSeparator(),
-                      Text('Opened link'),
-                    ],
+                    highlightFirstLine: true,
                   ),
                 ),
               ],
@@ -484,6 +478,80 @@ class _PanelTutorialDiagram extends StatelessWidget {
                 style: Theme.of(
                   context,
                 ).textTheme.bodySmall?.copyWith(color: tokens.mutedForeground),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _PanelPreview extends StatelessWidget {
+  const _PanelPreview({
+    required this.label,
+    this.backgroundColor,
+    this.highlightFirstLine = false,
+  });
+
+  final String label;
+  final Color? backgroundColor;
+  final bool highlightFirstLine;
+
+  @override
+  Widget build(BuildContext context) {
+    final tokens = DTokens.of(context);
+    return SizedBox(
+      height: 148,
+      child: DCard(
+        spacing: 0,
+        borderRadius: BorderRadius.circular(DRadius.control),
+        backgroundColor: backgroundColor,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: DSpacing.sm,
+                vertical: DSpacing.sm,
+              ),
+              child: Text(
+                label,
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  color: tokens.foreground,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            const DSeparator(),
+            Padding(
+              padding: const EdgeInsets.all(DSpacing.md),
+              child: LayoutBuilder(
+                builder: (context, constraints) => Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  spacing: DSpacing.sm,
+                  children: [
+                    DSkeleton(
+                      height: 5,
+                      color: highlightFirstLine
+                          ? tokens.primary
+                          : tokens.border,
+                      animate: false,
+                    ),
+                    DSkeleton(
+                      width: constraints.maxWidth * .75,
+                      height: 5,
+                      color: tokens.border,
+                      animate: false,
+                    ),
+                    DSkeleton(
+                      width: constraints.maxWidth * .55,
+                      height: 5,
+                      color: tokens.border,
+                      animate: false,
+                    ),
+                  ],
+                ),
               ),
             ),
           ],
