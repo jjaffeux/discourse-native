@@ -172,16 +172,31 @@ class _ForumTabsBarState extends State<ForumTabsBar> {
     });
   }
 
-  int _indexAt(Offset position) {
+  /// The gap [id] would be inserted into when dropped at [position].
+  ///
+  /// The two gaps touching a strip tab's own slot would not move it, so a
+  /// neighbour answers its far side wherever the pointer is on it, and the
+  /// slot itself answers a gap that [_destinationFor] declines.
+  int _indexAt(String id, Offset position) {
     final rtl = Directionality.of(context) == TextDirection.rtl;
+    var gap = widget.items.length;
     for (var index = 0; index < _tabCenters.length; index++) {
       if (rtl
           ? position.dx > _tabCenters[index]
           : position.dx < _tabCenters[index]) {
-        return index;
+        gap = index;
+        break;
       }
     }
-    return widget.items.length;
+    final source = widget.items.indexWhere((item) => item.id == id);
+    if (source < 0 || _tabRects.length != widget.items.length) return gap;
+    final slot = _tabRects[source];
+    if (position.dx >= slot.left && position.dx <= slot.right) return source;
+    if (gap == source && source > 0) return source - 1;
+    if (gap == source + 1 && source + 2 <= widget.items.length) {
+      return source + 2;
+    }
+    return gap;
   }
 
   /// Where [id] lands when dropped at gap [insertion], or null when that gap
@@ -199,7 +214,7 @@ class _ForumTabsBarState extends State<ForumTabsBar> {
     _captureDropGeometry(item.id);
     setState(() {
       _dropItem = item;
-      _dropIndex = _indexAt(details.offset);
+      _dropIndex = _indexAt(item.id, details.offset);
       _contents = null;
     });
     return true;
@@ -207,7 +222,7 @@ class _ForumTabsBarState extends State<ForumTabsBar> {
 
   void _moveDrop(DragTargetDetails<String> details) {
     if (_dropItem == null) return;
-    final index = _indexAt(details.offset);
+    final index = _indexAt(details.data, details.offset);
     if (index == _dropIndex) return;
     setState(() {
       _dropIndex = index;
@@ -284,18 +299,11 @@ class _ForumTabsBarState extends State<ForumTabsBar> {
     onAcceptWithDetails: (details) {
       final destination = _destinationFor(
         details.data,
-        _indexAt(details.offset),
+        _indexAt(details.data, details.offset),
       );
       _clearDrop();
-      if (destination == null ||
-          widget.itemForDrop?.call(details.data) == null) {
-        return;
-      }
-      // Reordering within the strip keeps the current tab selected; only a tab
-      // arriving from the other panel becomes this panel's selection.
-      if (widget.items.any((item) => item.id == details.data)) {
-        widget.onReorder(details.data, destination);
-      } else {
+      if (destination != null &&
+          widget.itemForDrop?.call(details.data) != null) {
         widget.onDropTab?.call(details.data, destination);
       }
     },
@@ -1024,7 +1032,7 @@ Widget? _tabPrefix(
   return null;
 }
 
-class _ReorderableForumTab extends StatefulWidget {
+class _ReorderableForumTab extends StatelessWidget {
   const _ReorderableForumTab({
     required this.item,
     required this.index,
@@ -1056,43 +1064,17 @@ class _ReorderableForumTab extends StatefulWidget {
   final String? moveToPanelLabel;
 
   @override
-  State<_ReorderableForumTab> createState() => _ReorderableForumTabState();
-}
-
-class _ReorderableForumTabState extends State<_ReorderableForumTab> {
-  // A press selects on release, and a press that becomes a drag never does:
-  // picking up a background tab must leave the current tab on screen.
-  bool _selectOnRelease = false;
-
-  bool _selectable(Offset position) =>
-      position.dx <
-      (context.findRenderObject()! as RenderBox).size.width -
-          (widget.selected
-              ? DControlStyle.scaledHeight(
-                  DControlSize.small,
-                  MediaQuery.textScalerOf(context),
-                  context: context,
-                )
-              : 0) -
-          ForumTabsBar._tabContentInset;
-
-  @override
   Widget build(BuildContext context) {
-    final item = widget.item;
-    final index = widget.index;
-    final itemCount = widget.itemCount;
-    final onReorder = widget.onReorder;
-    final onDropTab = widget.onDropTab;
     final tab = _ForumTab(
       key: ValueKey(item.id),
       item: item,
-      selected: widget.selected,
-      onSelect: widget.onSelect,
-      onClose: widget.onClose,
-      onCloseOthers: widget.onCloseOthers,
-      onRename: widget.onRename,
-      moveToPanel: widget.moveToPanel,
-      moveToPanelLabel: widget.moveToPanelLabel,
+      selected: selected,
+      onSelect: onSelect,
+      onClose: onClose,
+      onCloseOthers: onCloseOthers,
+      onRename: onRename,
+      moveToPanel: moveToPanel,
+      moveToPanelLabel: moveToPanelLabel,
       onMoveLeft: index == 0 ? null : () => onReorder(item.id, index - 1),
       onMoveRight: index == itemCount - 1
           ? null
@@ -1101,20 +1083,26 @@ class _ReorderableForumTabState extends State<_ReorderableForumTab> {
     if (itemCount < 2 && onDropTab == null) return tab;
 
     return Listener(
-      onPointerDown: (event) => _selectOnRelease =
-          event.buttons == kPrimaryButton && _selectable(event.localPosition),
-      onPointerUp: (event) {
-        if (!_selectOnRelease) return;
-        _selectOnRelease = false;
-        final box = context.findRenderObject()! as RenderBox;
-        if (box.size.contains(event.localPosition)) widget.onSelect();
+      onPointerDown: (event) {
+        if (event.buttons == kPrimaryButton &&
+            event.localPosition.dx <
+                (context.findRenderObject()! as RenderBox).size.width -
+                    (selected
+                        ? DControlStyle.scaledHeight(
+                            DControlSize.small,
+                            MediaQuery.textScalerOf(context),
+                            context: context,
+                          )
+                        : 0) -
+                    ForumTabsBar._tabContentInset) {
+          onSelect();
+        }
       },
-      onPointerCancel: (_) => _selectOnRelease = false,
       child: DragTarget<String>(
         onWillAcceptWithDetails: (details) =>
             onDropTab == null &&
             details.data != item.id &&
-            (widget.acceptsTab?.call(details.data) ?? true),
+            (acceptsTab?.call(details.data) ?? true),
         onAcceptWithDetails: (details) =>
             (onDropTab ?? onReorder)(details.data, index),
         builder: (context, candidates, rejected) {
@@ -1122,15 +1110,15 @@ class _ReorderableForumTabState extends State<_ReorderableForumTab> {
           final child = _ForumTab(
             key: ValueKey(item.id),
             item: item,
-            selected: widget.selected,
+            selected: selected,
             dropTarget: dropTarget,
             selectOnPointerDown: false,
-            onSelect: widget.onSelect,
-            onClose: widget.onClose,
-            onCloseOthers: widget.onCloseOthers,
-            onRename: widget.onRename,
-            moveToPanel: widget.moveToPanel,
-            moveToPanelLabel: widget.moveToPanelLabel,
+            onSelect: onSelect,
+            onClose: onClose,
+            onCloseOthers: onCloseOthers,
+            onRename: onRename,
+            moveToPanel: moveToPanel,
+            moveToPanelLabel: moveToPanelLabel,
             onMoveLeft: index == 0 ? null : () => onReorder(item.id, index - 1),
             onMoveRight: index == itemCount - 1
                 ? null
@@ -1139,7 +1127,6 @@ class _ReorderableForumTabState extends State<_ReorderableForumTab> {
           return Draggable<String>(
             data: item.id,
             axis: onDropTab == null ? Axis.horizontal : null,
-            onDragStarted: () => _selectOnRelease = false,
             // Target offsets follow the pointer. Keep the floating tab below
             // it so the insertion placeholder remains visible in the strip.
             dragAnchorStrategy: pointerDragAnchorStrategy,
@@ -1149,11 +1136,6 @@ class _ReorderableForumTabState extends State<_ReorderableForumTab> {
                 item: item,
                 width: ForumTabsBar.maximumTabWidth,
               ),
-            ),
-            childWhenDragging: Opacity(
-              opacity: 0,
-              alwaysIncludeSemantics: true,
-              child: child,
             ),
             child: child,
           );
