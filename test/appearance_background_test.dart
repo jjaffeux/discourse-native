@@ -203,12 +203,21 @@ void main() {
                   scaffoldBackgroundColor: paletteTheme.shell.content,
                 )
               : paletteTheme;
+          Color? chromeColor;
           await tester.pumpWidget(
             MaterialApp(
               theme: theme,
-              home: const ForumWindowBackground(
-                child: Center(
-                  child: DCard(child: SizedBox(width: 100, height: 100)),
+              home: ForumWindowBackground(
+                child: Builder(
+                  builder: (context) {
+                    chromeColor = ForumWindowBackground.chromeColor(
+                      context,
+                      theme.scaffoldBackgroundColor,
+                    );
+                    return const Center(
+                      child: DCard(child: SizedBox(width: 100, height: 100)),
+                    );
+                  },
                 ),
               ),
             ),
@@ -219,6 +228,7 @@ void main() {
             find.byKey(const ValueKey('forum-window-canvas')),
           );
           final canvasColor = (canvas.decoration as BoxDecoration).color!;
+          expect(chromeColor, canvasColor);
           final card = tester.widget<Material>(
             find.descendant(
               of: find.byType(DCard),

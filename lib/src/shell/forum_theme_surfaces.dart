@@ -36,6 +36,15 @@ class ForumWindowBackground extends StatefulWidget {
   static Color surfaceColor(BuildContext context, Color fallback) =>
       isContinuous(context) ? Colors.transparent : fallback;
 
+  /// Window chrome shares the plain workspace canvas behind framed panels.
+  /// Custom backgrounds still use [surfaceColor] to expose their effect.
+  static Color chromeColor(BuildContext context, Color fallback) {
+    final canvas = context.dependOnInheritedWidgetOfExactType<_ForumCanvas>();
+    return canvas != null && !canvas.continuous
+        ? _plainWindowColor(Theme.of(context), DTokens.of(context))
+        : fallback;
+  }
+
   /// Paint once at each panel boundary, without restarting the window effect.
   /// The slight foreground tint keeps flat backgrounds visibly framed too.
   static Color? panelColor(BuildContext context) {

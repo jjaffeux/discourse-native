@@ -23,6 +23,7 @@ import 'package:discourse_native/src/shell/forum_settings_page.dart';
 import 'package:discourse_native/src/shell/instance_rail.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
+import 'package:discourse_native/src/shell/title_bar.dart';
 import 'package:discourse_native/src/shell/topic_view.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:discourse_native/src/theme/color_contrast.dart';
@@ -39,6 +40,60 @@ import 'support/site_appearance_fixtures.dart';
 void main() {
   const siteA = 'https://a.example';
   const siteB = 'https://b.example';
+
+  testWidgets('plain forum window chrome matches the panel gutters', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1200, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final source = forumThemePresets.first.resolve(Brightness.dark);
+    final palette = ResolvedSitePalette.fromJson({
+      ...source.toJson(),
+      'headerBackground': source.secondary.toARGB32(),
+    });
+    final forums = ForumSettingsStore.memory();
+    await forums.writeThemeMode(siteA, AppThemeMode.dark);
+    await _pumpApp(
+      tester,
+      store: FakeInstanceStore([
+        DiscourseInstance(
+          url: siteA,
+          title: 'A',
+          appearance: SiteAppearance(base: palette),
+        ),
+      ]),
+      api: FakeDiscourseApi(feeds: const {'/latest.json': []}),
+      forumSettingsStore: forums,
+      appSettingsStore: AppSettingsStore(
+        persistence: MemoryAppSettingsPersistence(),
+      ),
+    );
+
+    final canvas = tester.widget<DecoratedBox>(
+      find.byKey(const ValueKey('forum-window-canvas')),
+    );
+    final canvasColor = (canvas.decoration as BoxDecoration).color!;
+    final titleBar = tester.widget<ColoredBox>(
+      find
+          .descendant(
+            of: find.byType(ShellTitleBar),
+            matching: find.byType(ColoredBox),
+          )
+          .first,
+    );
+    final rail = tester.widget<ColoredBox>(
+      find
+          .descendant(
+            of: find.byType(InstanceRail),
+            matching: find.byType(ColoredBox),
+          )
+          .first,
+    );
+    expect(canvasColor, isNot(palette.secondary));
+    expect(titleBar.color, canvasColor);
+    expect(rail.color, canvasColor);
+  }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 
   testWidgets('live textures and opacity retain the topic reader and panels', (
     tester,
