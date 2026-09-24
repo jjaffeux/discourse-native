@@ -286,7 +286,7 @@ void main() {
       expect(_editorFinder(), findsOneWidget);
       final opened = tester.getRect(_editorFinder());
       expect(opened.topLeft.dx, closeTo(before.topLeft.dx, .5));
-      expect(opened.topLeft.dy, closeTo(before.topLeft.dy, .5));
+      expect(opened.topLeft.dy, closeTo(before.topLeft.dy + 4, .5));
       expect(opened.height, closeTo(before.height, .5));
       expect(_editor(tester).focusNode.hasFocus, isTrue);
 
@@ -366,7 +366,7 @@ void main() {
   );
 
   _testPresentation(
-    'short desktop windows keep the replacement editor on its original baseline',
+    'short desktop windows keep search inset from the viewport',
     (tester) async {
       await _pumpSearch(tester, size: const Size(1000, 420));
       final before = tester.getRect(_editorFinder());
@@ -375,7 +375,8 @@ void main() {
       final after = tester.getRect(_editorFinder());
       final panel = tester.getRect(find.byKey(ForumSearch.panelKey));
       expect(after.topLeft.dx, closeTo(before.topLeft.dx, .5));
-      expect(after.topLeft.dy, closeTo(before.topLeft.dy, .5));
+      expect(after.topLeft.dy, closeTo(before.topLeft.dy + 4, .5));
+      expect(panel.top, greaterThanOrEqualTo(8));
       expect(panel.bottom, lessThanOrEqualTo(420));
       expect(_editor(tester).focusNode.hasFocus, isTrue);
       expect(tester.takeException(), isNull);
@@ -541,7 +542,7 @@ void main() {
       expect(find.byKey(ForumSearch.panelKey), findsOneWidget);
       expect(_editor(tester).focusNode.hasFocus, isTrue);
       expect(tester.getTopLeft(_editorFinder()).dx, closeTo(before.dx, .5));
-      expect(tester.getTopLeft(_editorFinder()).dy, closeTo(before.dy, .5));
+      expect(tester.getTopLeft(_editorFinder()).dy, closeTo(before.dy + 4, .5));
       expect(tester.takeException(), isNull);
     },
   );
