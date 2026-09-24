@@ -110,7 +110,8 @@ final class ForumSettingsStore {
             ? preferences.customTheme
             : null;
         final background = (theme?.background ?? theme?.alternate?.background)
-            ?.toAccentTint();
+            ?.toAccentTint()
+            .copyWith(strength: 0);
         if (background != null && !background.isPlain) effects ??= background;
       } on FormatException {
         // A damaged document still gave its font.

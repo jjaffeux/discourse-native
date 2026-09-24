@@ -13,23 +13,38 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  test('a theme tints surfaces and ink toward its accent as a forum '
-      'palette does', () {
+  test('a theme tints surfaces and ink toward its accent by its own tint, '
+      'and the shared effects never tint', () {
+    const effects = ForumBackground.appearance(strength: 1);
     for (final source in forumThemePresets) {
       for (final mode in Brightness.values) {
         final theme = source.forBrightness(mode);
         final plain = theme.resolve(mode);
-        for (final strength in [0.0, .37, 1.0]) {
-          final effects = ForumBackground.appearance(strength: strength);
-          final tinted = theme.copyWith(background: effects).resolve(mode);
-          final forum = plain.withEffects(effects);
-          final reason = '${source.id} $mode $strength';
-          expect(tinted.secondary, forum.secondary, reason: reason);
-          expect(tinted.primary, forum.primary, reason: reason);
-          if (strength == 0) {
-            expect(tinted.secondary, plain.secondary, reason: reason);
-            expect(tinted.primary, plain.primary, reason: reason);
-          }
+        final shared = theme.copyWith(background: effects).resolve(mode);
+        expect(shared.secondary, plain.secondary, reason: source.id);
+        expect(shared.primary, plain.primary, reason: source.id);
+        expect(plain.withEffects(effects).secondary, plain.secondary);
+        for (final tint in [.37, 1.0]) {
+          final tinted = theme.copyWith(tint: tint).resolve(mode);
+          final reason = '${source.id} $mode $tint';
+          // Palettes hold eight bits per channel.
+          Color lerped(Color from, double reach) => Color(
+            Color.lerp(
+              from,
+              theme.tertiary,
+              (tint * reach * 100).round() / 100,
+            )!.toARGB32(),
+          );
+          expect(
+            tinted.secondary,
+            lerped(theme.secondary, ForumBackground.maxTint),
+            reason: reason,
+          );
+          expect(
+            tinted.primary,
+            lerped(theme.primary, ForumBackground.maxTextTint),
+            reason: reason,
+          );
         }
       }
     }

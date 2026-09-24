@@ -480,7 +480,12 @@ void main() {
         ),
         findsNothing,
       );
-      for (final key in ['theme-name', 'theme-sidebar', 'theme-save']) {
+      for (final key in [
+        'theme-name',
+        'theme-sidebar',
+        'theme-tint',
+        'theme-save',
+      ]) {
         expect(
           find.descendant(of: section, matching: find.byKey(ValueKey(key))),
           findsOneWidget,
@@ -495,7 +500,7 @@ void main() {
               .dy,
         ),
       );
-      for (final control in ['theme-tint', 'theme-texture']) {
+      for (final control in ['theme-opacity', 'theme-texture']) {
         expect(
           find.descendant(
             of: find.byType(ForumThemeEditor),
@@ -515,6 +520,16 @@ void main() {
       expect(sidebarTheme(), isNull);
       await _tap(tester, find.text('Darker sidebar'));
       expect(sidebarTheme(), isNotNull);
+
+      // The tint is the theme's own, chosen per mode, and the app shows it.
+      final untinted = _appTheme(tester).scaffoldBackgroundColor;
+      final tint = find.byKey(const ValueKey('theme-tint'));
+      await tester.ensureVisible(tint);
+      await tester.pumpAndSettle();
+      await tester.tapAt(tester.getTopRight(tint) + const Offset(-2, 13));
+      await tester.pumpAndSettle();
+      expect(find.text('22%'), findsOneWidget);
+      expect(_appTheme(tester).scaffoldBackgroundColor, isNot(untinted));
       expect(_preferences(shell), initial);
 
       await _tap(tester, find.byKey(const ValueKey('theme-save')));
@@ -527,6 +542,8 @@ void main() {
       final edited = preferences.customTheme!;
       expect(edited.forBrightness(Brightness.light).darkerSidebars, isTrue);
       expect(edited.forBrightness(Brightness.dark).darkerSidebars, isFalse);
+      expect(edited.forBrightness(Brightness.light).tint, 1);
+      expect(edited.forBrightness(Brightness.dark).tint, 0);
       for (final mode in Brightness.values) {
         expect(edited.forBrightness(mode).background, isNull);
       }

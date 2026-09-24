@@ -122,7 +122,7 @@ void main() {
       for (final mode in Brightness.values) {
         final source = dracula.forBrightness(mode);
         final resolved = source
-            .copyWith(background: const ForumBackground.appearance(strength: 1))
+            .copyWith(tint: 1, background: const ForumBackground.appearance())
             .resolve(mode);
         expect(
           resolved.secondary.toARGB32(),
@@ -206,11 +206,13 @@ void main() {
     final paired = ForumTheme.fromJson({
       ...source.toJson(),
       'background': lightBackground.toJson(),
+      'tint': .3,
       'alternate': {
         ...source.alternate!.toJson(),
         'background': darkBackground.toJson(),
         'windowGradient': true,
         'darkerSidebars': true,
+        'tint': .8,
       },
     }, id: 'custom-pair');
     final restored = ForumThemePreferences.fromJson(
@@ -224,6 +226,10 @@ void main() {
       expect(standalone.background, authored.background);
       expect(standalone.windowGradient, authored.windowGradient);
       expect(standalone.darkerSidebars, authored.darkerSidebars);
+      expect(standalone.tint, authored.tint);
+      // The tint is the theme's own; the other effects are the app's.
+      expect(restored.colours.forBrightness(mode).tint, authored.tint);
+      expect(restored.colours.forBrightness(mode).background, isNull);
       expect(resolved.background, authored.background);
       expect(resolved.windowGradient, authored.windowGradient);
       expect(resolved.darkerSidebars, authored.darkerSidebars);
@@ -309,12 +315,19 @@ void main() {
     const shared = SharedAppearance(
       font: ForumFont.lato,
       effects: ForumBackground.appearance(
-        strength: .4,
         effect: ForumBackgroundEffect.paper,
         transparency: .2,
       ),
     );
     expect(SharedAppearance.fromJson(shared.toJson()), shared);
+    // A tint stored while it was shared is dropped; themes carry their own.
+    expect(
+      SharedAppearance.fromJson({
+        ...shared.toJson(),
+        'effects': shared.effects.copyWith(strength: .4).toJson(),
+      }),
+      shared,
+    );
     expect(
       SharedAppearance.fromJson({...shared.toJson(), 'effects': 'damaged'}),
       const SharedAppearance(font: ForumFont.lato),
@@ -327,14 +340,19 @@ void main() {
       () => SharedAppearance.fromJson(const {'version': 2}),
       throwsFormatException,
     );
-    // An older shared theme's own tint colour becomes the accent tint.
-    const legacy = ForumBackground(color: Color(0xff336699), strength: .22);
+    // An older shared theme's own tint colour becomes the accent tint, which
+    // is then dropped with any other shared tint.
+    const legacy = ForumBackground(
+      color: Color(0xff336699),
+      strength: .22,
+      transparency: .2,
+    );
     expect(
       SharedAppearance.fromJson({
         'version': 1,
         'effects': legacy.toJson(),
       }).effects,
-      legacy.toAccentTint(),
+      legacy.toAccentTint().copyWith(strength: 0),
     );
     expect(legacy.toAccentTint().useAccentTint, isTrue);
     expect(legacy.toAccentTint().strength, closeTo(.45, 1e-9));
@@ -433,9 +451,13 @@ void main() {
         },
         order: ['https://a.example', 'https://b.example', 'https://c.example'],
       );
+      // The theme's tint stays with themes rather than becoming shared.
       expect(
         shared,
-        const SharedAppearance(font: ForumFont.openSans, effects: paper),
+        SharedAppearance(
+          font: ForumFont.openSans,
+          effects: paper.copyWith(strength: 0),
+        ),
       );
       expect(
         SharedAppearance.fromJson(
@@ -489,7 +511,6 @@ void main() {
       }),
     );
     const effects = ForumBackground.appearance(
-      strength: 1,
       effect: ForumBackgroundEffect.paper,
       transparency: .2,
     );
@@ -502,58 +523,65 @@ void main() {
       expect(settings.appearanceFor(site, forum), same(forum));
     });
 
-    test(
-      'tint every source, and keep the forum\'s own derived colours',
-      () async {
-        final settings = ForumSettingsController(
-          store: ForumSettingsStore.memory(),
-        );
-        addTearDown(settings.dispose);
-        await settings.setShared(const SharedAppearance(effects: effects));
-        final published = forum.base!;
-        final tinted = settings.appearanceFor(site, forum)!.base!;
-        // Palettes hold eight bits per channel.
-        Matcher lerped(Color from, double amount) => equals(
-          Color(Color.lerp(from, published.tertiary, amount)!.toARGB32()),
-        );
-        expect(tinted.background, effects);
-        expect(tinted.secondary, lerped(published.secondary, .22));
-        expect(tinted.primary, lerped(published.primary, .11));
-        expect(
-          tinted.headerBackground,
-          lerped(published.headerBackground, .22),
-        );
-        expect(tinted.primaryLow, lerped(published.primaryLow, .22));
-        expect(tinted.tertiary, published.tertiary);
-        expect(tinted.danger, published.danger);
+    test('are drawn over every source, and only a saved theme tints', () async {
+      final settings = ForumSettingsController(
+        store: ForumSettingsStore.memory(),
+      );
+      addTearDown(settings.dispose);
+      await settings.setShared(const SharedAppearance(effects: effects));
+      final published = forum.base!;
+      final shown = settings.appearanceFor(site, forum)!.base!;
+      expect(shown.background, effects);
+      expect(shown, published.withEffects(effects));
+      expect(shown.secondary, published.secondary);
+      expect(shown.headerBackground, published.headerBackground);
 
-        await settings.setThemes(
-          site,
-          ForumThemePreferences().withPreset(Brightness.light, 'solarized'),
-        );
-        expect(
-          settings.appearanceFor(site, forum)!.base,
-          forumThemePresetFor('solarized', Brightness.light)!
-              .forBrightness(Brightness.light)
-              .copyWith(background: effects)
-              .resolve(Brightness.light, forumPalette: published),
-        );
+      await settings.setThemes(
+        site,
+        ForumThemePreferences().withPreset(Brightness.light, 'solarized'),
+      );
+      expect(
+        settings.appearanceFor(site, forum)!.base,
+        forumThemePresetFor('solarized', Brightness.light)!
+            .forBrightness(Brightness.light)
+            .copyWith(background: effects)
+            .resolve(Brightness.light, forumPalette: published),
+      );
 
-        final legacy = ForumTheme.fromJson({
-          ...custom.toJson(),
-          'background': const ForumBackground(
-            color: Color(0xff00ff00),
-            strength: 1,
-          ).toJson(),
-        }, id: 'custom-legacy');
-        await settings.setThemes(site, ForumThemePreferences().save(legacy));
-        expect(
-          settings.appearanceFor(site, forum)!.base!.background,
-          effects,
-          reason: 'a saved theme\'s own effects no longer apply',
-        );
-      },
-    );
+      final legacy = ForumTheme.fromJson({
+        ...custom.toJson(),
+        'background': const ForumBackground(
+          color: Color(0xff00ff00),
+          strength: 1,
+        ).toJson(),
+      }, id: 'custom-legacy');
+      await settings.setThemes(site, ForumThemePreferences().save(legacy));
+      expect(
+        settings.appearanceFor(site, forum)!.base,
+        legacy
+            .forBrightness(Brightness.light)
+            .copyWith(background: effects)
+            .resolve(Brightness.light, forumPalette: published),
+        reason:
+            'a saved theme\'s own effects, tint included, no longer '
+            'apply',
+      );
+
+      final tinted = custom.copyWith(id: 'custom-tinted', tint: 1);
+      await settings.setThemes(site, ForumThemePreferences().save(tinted));
+      final shownTinted = settings.appearanceFor(site, forum)!.base!;
+      expect(shownTinted.background, effects);
+      expect(
+        shownTinted.secondary,
+        Color(
+          Color.lerp(
+            custom.forBrightness(Brightness.light).secondary,
+            custom.forBrightness(Brightness.light).tertiary,
+            ForumBackground.maxTint,
+          )!.toARGB32(),
+        ),
+      );
+    });
   });
 
   group('using one forum\'s colours in the others', () {
@@ -706,7 +734,7 @@ void main() {
     expect(dark.contentBorderColor, isNot(dark.secondary));
   });
 
-  test('portable imports reject invalid names, modes, and colors', () {
+  test('portable imports reject invalid names, modes, colors, and tints', () {
     for (final bad in [
       {...custom.toJson(), 'name': ''},
       {...custom.toJson(), 'mode': 'system'},
@@ -719,6 +747,10 @@ void main() {
         ...custom.toJson(),
         'colors': {...custom.toJson()['colors'] as Map, 'love': '#11223344'},
       },
+      {...custom.toJson(), 'tint': 'strong'},
+      {...custom.toJson(), 'tint': -.1},
+      {...custom.toJson(), 'tint': 1.5},
+      {...custom.toJson(), 'tint': double.nan},
     ]) {
       expect(
         () => ForumTheme.fromJson(bad, id: 'custom-test'),

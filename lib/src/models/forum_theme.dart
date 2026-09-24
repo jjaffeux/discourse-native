@@ -5,8 +5,9 @@ import 'package:flutter/foundation.dart';
 import 'forum_background.dart';
 import 'site_appearance.dart';
 
-/// A portable color palette; the forum still owns geometry, and the app owns
-/// the font and window effects.
+/// A portable color palette and how far it tints toward its accent; the forum
+/// still owns geometry, and the app owns the font and the other window
+/// effects.
 @immutable
 final class ForumTheme {
   const ForumTheme({
@@ -24,7 +25,8 @@ final class ForumTheme {
     this.background,
     this.windowGradient = false,
     this.darkerSidebars = false,
-  });
+    this.tint = 0,
+  }) : assert(tint >= 0 && tint <= 1);
 
   factory ForumTheme.fromJson(Map<String, dynamic> json, {required String id}) {
     final name = json['name'];
@@ -51,6 +53,11 @@ final class ForumTheme {
       }
     }
 
+    final tint = json['tint'] ?? 0;
+    if (tint is! num || !tint.isFinite || tint < 0 || tint > 1) {
+      throw const FormatException('Invalid tint.');
+    }
+
     final rawAlternate = json['alternate'];
     ForumTheme? alternate;
     if (rawAlternate != null) {
@@ -69,6 +76,7 @@ final class ForumTheme {
           : ForumBackground.fromJson(json['background']),
       windowGradient: json['windowGradient'] == true,
       darkerSidebars: json['darkerSidebars'] == true,
+      tint: tint.toDouble(),
       alternate: alternate,
       id: id,
       name: name.trim(),
@@ -98,6 +106,10 @@ final class ForumTheme {
   final bool windowGradient;
   final bool darkerSidebars;
 
+  /// How far surfaces and text lean toward the accent, from none to
+  /// [ForumBackground.maxTint] and [ForumBackground.maxTextTint].
+  final double tint;
+
   factory ForumTheme.fromPalette(ResolvedSitePalette palette) => ForumTheme(
     id: 'forum',
     name: 'Forum default',
@@ -114,6 +126,7 @@ final class ForumTheme {
 
   ForumTheme copyWith({
     bool? darkerSidebars,
+    double? tint,
     String? id,
     String? name,
     Color? primary,
@@ -139,6 +152,7 @@ final class ForumTheme {
     background: background ?? this.background,
     windowGradient: windowGradient,
     darkerSidebars: darkerSidebars ?? this.darkerSidebars,
+    tint: tint ?? this.tint,
   );
 
   static String hex(Color color) =>
@@ -158,6 +172,7 @@ final class ForumTheme {
     if (background != null) 'background': background!.toJson(),
     'windowGradient': windowGradient,
     'darkerSidebars': darkerSidebars,
+    if (tint > 0) 'tint': tint,
     'name': name,
     'mode': brightness.name,
     'colors': {
@@ -171,8 +186,9 @@ final class ForumTheme {
     },
   };
 
-  /// The palettes alone. Window effects belong to the app and apply to every
-  /// forum alike; themes saved before that carried effects of their own.
+  /// The palettes and their tints alone. The other window effects belong to
+  /// the app and apply to every forum alike; themes saved before that carried
+  /// effects of their own.
   ForumTheme get colours => background == null && alternate?.background == null
       ? this
       : ForumTheme.fromJson({
@@ -190,6 +206,7 @@ final class ForumTheme {
       background: source.background,
       windowGradient: source.windowGradient,
       darkerSidebars: source.darkerSidebars,
+      tint: source.tint,
       brightness: target,
       primary: source.brightness == target ? source.primary : source.secondary,
       secondary: source.brightness == target
@@ -216,15 +233,10 @@ final class ForumTheme {
     // Tint the shared base before deriving panel and control surfaces. Applying
     // it only to the window canvas leaves opaque Native surfaces unchanged.
     final effects = this.background;
-    Color tint(Color color, double reach) => effects == null
-        ? color
-        : Color.lerp(
-            color,
-            tertiary,
-            (effects.strength * reach * 100).round() / 100,
-          )!;
-    final background = tint(originalBackground, ForumBackground.maxTint);
-    final foreground = tint(originalForeground, ForumBackground.maxTextTint);
+    Color lean(Color color, double reach) =>
+        Color.lerp(color, tertiary, (tint * reach * 100).round() / 100)!;
+    final background = lean(originalBackground, ForumBackground.maxTint);
+    final foreground = lean(originalForeground, ForumBackground.maxTextTint);
     Color mix(Color color, double amount) =>
         Color.lerp(background, color, amount)!;
     final selected = mix(tertiary, .20);
@@ -297,7 +309,8 @@ final class ForumTheme {
       other.alternate == alternate &&
       other.background == background &&
       other.windowGradient == windowGradient &&
-      other.darkerSidebars == darkerSidebars;
+      other.darkerSidebars == darkerSidebars &&
+      other.tint == tint;
 
   @override
   int get hashCode => Object.hash(
@@ -315,5 +328,6 @@ final class ForumTheme {
     background,
     windowGradient,
     darkerSidebars,
+    tint,
   );
 }
