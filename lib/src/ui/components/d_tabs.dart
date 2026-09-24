@@ -919,15 +919,20 @@ class _DTabTriggerState<T> extends State<DTabTrigger<T>> {
         minHeight: navigation
             ? 56
             : horizontalLine
-            ? math.max(
-                touch ? DSpacing.touchTarget : 0,
-                DControlStyle.scaledHeight(
-                      size,
-                      MediaQuery.textScalerOf(context),
-                      context: context,
-                    ) +
-                    14,
-              )
+            ? (touch
+                  ? math.max(
+                      DSpacing.touchTarget,
+                      DControlStyle.scaledHeight(
+                            size,
+                            MediaQuery.textScalerOf(context),
+                            context: context,
+                          ) +
+                          14,
+                    )
+                  // The desktop row is the reference's label line with 11px
+                  // above and below. Control presets size boxed controls and
+                  // are not a floor here; the regular one is taller than that.
+                  : 0)
             : DControlStyle.scaledHeight(
                     size,
                     MediaQuery.textScalerOf(context),

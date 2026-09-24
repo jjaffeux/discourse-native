@@ -78,6 +78,13 @@ void main() {
           'borderColor': 1,
           'interactiveBackgroundColor': 1,
         },
+        // Start page links are borderless chips on the footer surface, with
+        // the neutral accent hover; no kit variant fills without a border.
+        'lib/src/shell/new_tab_page.dart': {
+          'backgroundColor': 1,
+          'interactiveBackgroundColor': 1,
+          'borderColor': 1,
+        },
         // A saved bookmark combines the kit's selected fill with its outline
         // variant so the joined group keeps a continuous perimeter and divider.
         'lib/src/shell/topic_actions.dart': {

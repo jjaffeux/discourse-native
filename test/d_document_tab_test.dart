@@ -79,7 +79,7 @@ void main() {
       expect(decoration().color, Colors.transparent);
       expect(
         (decoration().shape as RoundedRectangleBorder).borderRadius,
-        BorderRadius.circular(4),
+        BorderRadius.circular(DRadius.pill),
       );
       expect(
         (decoration().shape as OutlinedBorder).side.color,
@@ -108,6 +108,10 @@ void main() {
       expect(tester.getRect(tab), before);
       expect((decoration().shape as OutlinedBorder).side.color, border);
       expect((decoration().shape as OutlinedBorder).side.width, 1);
+      expect(
+        (decoration().shape as RoundedRectangleBorder).borderRadius,
+        BorderRadius.circular(DRadius.panel),
+      );
       await tester.sendKeyEvent(LogicalKeyboardKey.tab);
       await tester.pumpAndSettle();
       expect(
