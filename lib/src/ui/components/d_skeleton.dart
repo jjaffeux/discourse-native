@@ -40,8 +40,9 @@ class DSkeleton extends StatelessWidget {
   final double? width;
   final double? height;
 
-  /// Defaults to the theme's muted surface, matching shadcn's bg-muted.
-  /// Override for a composition placed on that same muted background.
+  /// Defaults to the enclosing [DSkeletonRegion.color], then to the theme's
+  /// muted surface, matching shadcn's bg-muted. Override for a composition
+  /// placed on that same muted background.
   final Color? color;
 
   /// Defaults to shadcn's medium radius (0.8 × the live site radius).
@@ -56,8 +57,9 @@ class DSkeleton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tokens = DTokens.of(context);
+    final region = _SkeletonScope.maybeOf(context);
     final decoration = BoxDecoration(
-      color: color ?? tokens.muted,
+      color: color ?? region?.color ?? tokens.muted,
       shape: shape,
       borderRadius: shape == BoxShape.circle
           ? null
@@ -69,10 +71,9 @@ class DSkeleton extends StatelessWidget {
         child: Container(width: width, height: height, decoration: decoration),
       ),
     );
-    final opacity = _SkeletonScope.maybeOf(context);
     if (!animate) return visual;
-    if (opacity != null) {
-      return FadeTransition(opacity: opacity, child: visual);
+    if (region != null) {
+      return FadeTransition(opacity: region.opacity, child: visual);
     }
     return _SkeletonPulse(child: _SkeletonFade(child: visual));
   }
@@ -90,6 +91,7 @@ class DSkeletonRegion extends StatelessWidget {
     super.key,
     required this.semanticsLabel,
     required this.child,
+    this.color,
     this.animate = true,
     this.liveRegion = true,
     this.expand = false,
@@ -98,6 +100,14 @@ class DSkeletonRegion extends StatelessWidget {
   /// A localized label for the whole composition, for example 'Loading topics'.
   final String semanticsLabel;
   final Widget child;
+
+  /// Fill for descendant shapes that set no [DSkeleton.color] of their own,
+  /// including those inside nested regions that set none either.
+  ///
+  /// Defaults to the enclosing region's fill, then to the theme's muted
+  /// surface. Set it once here when the whole composition sits on a surface
+  /// the muted fill disappears against.
+  final Color? color;
   final bool animate;
 
   /// Whether assistive technology should announce this loading region.
@@ -111,7 +121,11 @@ class DSkeletonRegion extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final content = _SkeletonPulse(animate: animate, child: child);
+    final content = _SkeletonPulse(
+      animate: animate,
+      color: color,
+      child: child,
+    );
     return Semantics(
       container: true,
       liveRegion: liveRegion,
@@ -142,9 +156,10 @@ class DSkeletonRegion extends StatelessWidget {
 }
 
 class _SkeletonPulse extends StatefulWidget {
-  const _SkeletonPulse({this.animate = true, required this.child});
+  const _SkeletonPulse({this.animate = true, this.color, required this.child});
 
   final bool animate;
+  final Color? color;
   final Widget child;
 
   @override
@@ -200,21 +215,29 @@ class _SkeletonPulseState extends State<_SkeletonPulse>
   }
 
   @override
-  Widget build(BuildContext context) =>
-      _SkeletonScope(opacity: _opacity, child: widget.child);
+  Widget build(BuildContext context) => _SkeletonScope(
+    opacity: _opacity,
+    color: widget.color ?? _SkeletonScope.maybeOf(context)?.color,
+    child: widget.child,
+  );
 }
 
 class _SkeletonScope extends InheritedWidget {
-  const _SkeletonScope({required this.opacity, required super.child});
+  const _SkeletonScope({
+    required this.opacity,
+    required this.color,
+    required super.child,
+  });
 
   final Animation<double> opacity;
+  final Color? color;
 
-  static Animation<double>? maybeOf(BuildContext context) =>
-      context.dependOnInheritedWidgetOfExactType<_SkeletonScope>()?.opacity;
+  static _SkeletonScope? maybeOf(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<_SkeletonScope>();
 
   @override
   bool updateShouldNotify(_SkeletonScope oldWidget) =>
-      !identical(opacity, oldWidget.opacity);
+      !identical(opacity, oldWidget.opacity) || color != oldWidget.color;
 }
 
 class _SkeletonFade extends StatelessWidget {
@@ -223,6 +246,8 @@ class _SkeletonFade extends StatelessWidget {
   final Widget child;
 
   @override
-  Widget build(BuildContext context) =>
-      FadeTransition(opacity: _SkeletonScope.maybeOf(context)!, child: child);
+  Widget build(BuildContext context) => FadeTransition(
+    opacity: _SkeletonScope.maybeOf(context)!.opacity,
+    child: child,
+  );
 }

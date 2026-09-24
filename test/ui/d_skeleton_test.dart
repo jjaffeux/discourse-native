@@ -271,6 +271,78 @@ void main() {
     );
   });
 
+  testWidgets('a region fill reaches every shape that sets none of its own', (
+    tester,
+  ) async {
+    const own = Color(0xFF654321);
+    final fill = ValueNotifier<Color?>(const Color(0xFF123456));
+    addTearDown(fill.dispose);
+    await tester.pumpWidget(
+      _app(
+        ValueListenableBuilder(
+          valueListenable: fill,
+          builder: (context, color, _) => DSkeletonRegion(
+            semanticsLabel: 'Loading filled preview',
+            color: color,
+            child: const Column(
+              children: [
+                DSkeleton(key: ValueKey('inherits'), width: 100, height: 20),
+                DSkeleton(
+                  key: ValueKey('own'),
+                  width: 100,
+                  height: 20,
+                  color: own,
+                ),
+                DSkeleton(
+                  key: ValueKey('static'),
+                  width: 100,
+                  height: 20,
+                  animate: false,
+                ),
+                DSkeletonRegion(
+                  semanticsLabel: 'Loading nested preview',
+                  child: DSkeleton(
+                    key: ValueKey('nested'),
+                    width: 100,
+                    height: 20,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+    for (final key in ['inherits', 'static', 'nested']) {
+      expect(
+        _decoration(tester, key).color,
+        const Color(0xFF123456),
+        reason: key,
+      );
+    }
+    expect(_decoration(tester, 'own').color, own);
+
+    await tester.pump(const Duration(milliseconds: 300));
+    final animation = _fade(tester, 'inherits').opacity;
+    final opacity = animation.value;
+    fill.value = const Color(0xFFABCDEF);
+    await tester.pump();
+    expect(_decoration(tester, 'inherits').color, const Color(0xFFABCDEF));
+    expect(_decoration(tester, 'nested').color, const Color(0xFFABCDEF));
+    expect(_fade(tester, 'inherits').opacity, same(animation));
+    expect(animation.value, opacity);
+
+    fill.value = null;
+    await tester.pump();
+    final tokens = DTokens.of(
+      tester.element(find.byKey(const ValueKey('own'))),
+    );
+    for (final key in ['inherits', 'static', 'nested']) {
+      expect(_decoration(tester, key).color, tokens.muted, reason: key);
+    }
+    expect(_decoration(tester, 'own').color, own);
+  });
+
   testWidgets('loading descendants cannot receive touch or keyboard focus', (
     tester,
   ) async {
