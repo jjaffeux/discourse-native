@@ -1123,6 +1123,7 @@ void main() {
       await gesture.moveBy(const Offset(0, 20));
       await tester.pump();
       final targetRect = tester.getRect(target);
+      final sourceRect = tester.getRect(source);
       await gesture.moveTo(Offset(targetRect.right - 2, targetRect.center.dy));
       await tester.pumpAndSettle();
       final indicator = find.byKey(
@@ -1130,6 +1131,8 @@ void main() {
       );
       expect(indicator, findsOneWidget);
       expect(tester.getRect(indicator).left, greaterThan(targetRect.right));
+      expect(tester.getRect(target), targetRect);
+      expect(tester.getRect(source), sourceRect);
       await gesture.up();
       await tester.pumpAndSettle();
       expect(indicator, findsNothing);
