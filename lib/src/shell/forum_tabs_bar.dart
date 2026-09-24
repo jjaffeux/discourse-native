@@ -279,7 +279,7 @@ class _ForumTabsBarState extends State<ForumTabsBar> {
     final insertion = _dropItem == null
         ? widget.items.length
         : _dropIndex.clamp(0, widget.items.length);
-    final tabCount = widget.items.length + (incoming == null ? 0 : 1);
+    final tabCount = widget.items.length;
     return Container(
       key: const ValueKey('forum-tabs-bar'),
       width: double.infinity,
@@ -350,14 +350,8 @@ class _ForumTabsBarState extends State<ForumTabsBar> {
                                     ) ...[
                                       if (incoming != null &&
                                           insertion == index) ...[
-                                        SizedBox(
-                                          width: math.min(
-                                            ForumTabsBar.maximumTabWidth,
-                                            labelWidth,
-                                          ),
-                                          child: _ForumTabDropPlaceholder(
-                                            item: incoming,
-                                          ),
+                                        _ForumTabDropPlaceholder(
+                                          item: incoming,
                                         ),
                                         const SizedBox(width: _tabGap),
                                       ],
@@ -424,15 +418,7 @@ class _ForumTabsBarState extends State<ForumTabsBar> {
                                     if (incoming != null &&
                                         insertion == widget.items.length) ...[
                                       const SizedBox(width: _tabGap),
-                                      SizedBox(
-                                        width: math.min(
-                                          ForumTabsBar.maximumTabWidth,
-                                          labelWidth,
-                                        ),
-                                        child: _ForumTabDropPlaceholder(
-                                          item: incoming,
-                                        ),
-                                      ),
+                                      _ForumTabDropPlaceholder(item: incoming),
                                     ],
                                   ],
                                 ),
@@ -1070,7 +1056,11 @@ class _ReorderableForumTab extends StatelessWidget {
                 width: ForumTabsBar.maximumTabWidth,
               ),
             ),
-            childWhenDragging: Opacity(opacity: 0.3, child: child),
+            childWhenDragging: Opacity(
+              opacity: 0,
+              alwaysIncludeSemantics: true,
+              child: child,
+            ),
             child: child,
           );
         },
@@ -1092,22 +1082,13 @@ class _ForumTabDropPlaceholder extends StatelessWidget {
     enabled: false,
     label: 'Drop ${item.title} here',
     liveRegion: true,
-    child: ExcludeSemantics(
-      child: ExcludeFocus(
-        child: IgnorePointer(
-          child: DDocumentTab(
-            selected: false,
-            dropTarget: true,
-            closeOnlyWhenSelected: true,
-            onSelect: () {},
-            onClose: () {},
-            closeLabel: '',
-            child: Text(
-              item.title,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
+    child: Center(
+      child: Container(
+        width: 3,
+        height: 28,
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.primary,
+          borderRadius: BorderRadius.circular(2),
         ),
       ),
     ),
