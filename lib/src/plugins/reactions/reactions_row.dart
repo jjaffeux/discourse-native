@@ -43,18 +43,16 @@ class ReactionsRow extends StatelessWidget {
   Widget _buildPills(
     BuildContext context,
     ReactionsController? controller,
-    PluginEmojiHost? emoji, {
-    bool summarize = true,
-    Post? currentPost,
-  }) {
-    final post = currentPost ?? this.post;
+    PluginEmojiHost? emoji,
+  ) {
+    final post = this.post;
     final reactions = post.reactions!;
     if (reactions.isEmpty &&
         (!post.canReact || controller == null || emoji == null)) {
       return const SizedBox.shrink();
     }
     final writeInFlight = controller?.writeInFlight(siteUrl, post.id) == true;
-    if (summarize && MediaQuery.sizeOf(context).width < 600) {
+    if (MediaQuery.sizeOf(context).width < 600) {
       final count = reactions.entries.fold<int>(
         0,
         (total, entry) => total + entry.count,
@@ -156,6 +154,7 @@ class ReactionsRow extends StatelessWidget {
     ReactionsController? controller,
     PluginEmojiHost? emoji,
   ) {
+    String? filter;
     if (controller != null) {
       unawaited(controller.load(siteUrl: siteUrl, postId: post.id));
     }
@@ -168,32 +167,63 @@ class ReactionsRow extends StatelessWidget {
         children: [
           const DSheetHeader(children: [DSheetTitle(child: Text('Reactions'))]),
           DSheetBody(
-            child: ListenableBuilder(
-              listenable: controller ?? const AlwaysStoppedAnimation(null),
-              builder: (context, _) {
-                final current = controller?.post(siteUrl, post.id) ?? post;
-                return Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildPills(
-                      context,
-                      controller,
-                      emoji,
-                      summarize: false,
-                      currentPost: current,
-                    ),
-                    if (controller != null) ...[
-                      const SizedBox(height: DSpacing.md),
-                      ReactorList(
-                        siteUrl: siteUrl,
-                        post: current,
-                        controller: controller,
+            child: StatefulBuilder(
+              builder: (context, setSheetState) => ListenableBuilder(
+                listenable: controller ?? const AlwaysStoppedAnimation(null),
+                builder: (context, _) {
+                  final current = controller?.post(siteUrl, post.id) ?? post;
+                  return Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      ReactionPills(
+                        padding: const EdgeInsets.only(top: 10),
+                        children: [
+                          for (final entry in current.reactions!.entries)
+                            DToggle(
+                              key: ValueKey('post-reaction-filter-${entry.id}'),
+                              size: DToggleSize.large,
+                              variant: DToggleVariant.outline,
+                              pressed: filter == entry.id,
+                              semanticLabel:
+                                  '${entry.count} ${entry.id} reactions',
+                              onPressedChanged: (_) => setSheetState(() {
+                                filter = filter == entry.id ? null : entry.id;
+                              }),
+                              icon: Builder(
+                                builder: (context) => SiteEmojiImage(
+                                  siteUrl: siteUrl,
+                                  name: entry.id,
+                                  size: IconTheme.of(context).size!,
+                                  alt: ':${entry.id}:',
+                                ),
+                              ),
+                              child: Text('${entry.count}'),
+                            ),
+                          if (current.canReact &&
+                              controller != null &&
+                              emoji != null)
+                            PostReactionButton(
+                              controller: controller,
+                              emoji: emoji,
+                              siteUrl: siteUrl,
+                              post: current,
+                            ),
+                        ],
                       ),
+                      if (controller != null) ...[
+                        const SizedBox(height: DSpacing.md),
+                        ReactorList(
+                          siteUrl: siteUrl,
+                          post: current,
+                          filter: filter,
+                          controller: controller,
+                        ),
+                      ],
                     ],
-                  ],
-                );
-              },
+                  );
+                },
+              ),
             ),
           ),
         ],
