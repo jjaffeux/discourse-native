@@ -392,12 +392,18 @@ class _LinkButton extends StatelessWidget {
   final VoidCallback onPressed;
 
   @override
-  Widget build(BuildContext context) => DButton(
-    variant: DButtonVariant.transparentBackground,
-    icon: DIcon(icon, size: 16),
-    label: Text(label),
-    onPressed: onPressed,
-  );
+  Widget build(BuildContext context) {
+    final tokens = DTokens.of(context);
+    return DButton(
+      variant: DButtonVariant.secondary,
+      backgroundColor: tokens.footerBackground,
+      interactiveBackgroundColor: tokens.buttonTheme.accent.hover,
+      borderColor: Colors.transparent,
+      icon: DIcon(icon, size: 16),
+      label: Text(label),
+      onPressed: onPressed,
+    );
+  }
 }
 
 class _PanelGestureHint extends StatelessWidget {
