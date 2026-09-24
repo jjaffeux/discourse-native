@@ -143,14 +143,32 @@ class _DesktopPanelsState extends State<DesktopPanels>
   // beside it keeps its place; picking one of the panel's tabs moves it.
   void _restore(ForumPanel panel, {String? tabId, bool newTab = false}) {
     final shell = ShellScope.read(context);
+    final canSplit =
+        (context.size?.width ?? double.infinity) >= 640 + workspacePanelGap;
     setState(() {
       _minimized = null;
+      // Restoring a rail at this window width starts a new visible split.
+      _resizeEdge = null;
+      if (!canSplit) {
+        // No two-panel split exists at this width. An older split would
+        // otherwise become the anchor of the next window expansion.
+        _lastSplitMainWidth = null;
+        _lastSplitTotalWidth = null;
+        _anchoredMainWidth = null;
+        _anchoredSecondaryWidth = null;
+        _anchoredWindowWidth = null;
+      }
       _move(panel, away: false);
     });
     if (newTab) {
       shell.createTab(panel: panel);
     } else if (tabId != null) {
       shell.selectTab(tabId);
+    } else if (!canSplit) {
+      // Two full panels cannot fit here. Show the requested panel in the
+      // single-panel layout instead of leaving its restore button inert.
+      final selected = shell.selectedTabIn(panel);
+      if (selected != null) shell.selectTab(selected.id);
     }
   }
 
@@ -239,14 +257,23 @@ class _DesktopPanelsState extends State<DesktopPanels>
           null => preferredMainWidth,
         };
         final autoCollapsed = switch (_resizeEdge) {
-          _WindowResizeEdge.right when requestedMainWidth < minimumMainWidth =>
+          _WindowResizeEdge.right
+              when _minimized == null &&
+                  shell.selectedTabIn(ForumPanel.secondary) != null &&
+                  requestedMainWidth < minimumMainWidth =>
             ForumPanel.main,
-          _WindowResizeEdge.left when total - requestedMainWidth < 320 =>
+          _WindowResizeEdge.left
+              when _minimized == null &&
+                  shell.selectedTabIn(ForumPanel.main) != null &&
+                  total - requestedMainWidth < 320 =>
             ForumPanel.secondary,
           _ => null,
         };
+        final minimized = _minimized ?? autoCollapsed;
         final horizontal =
-            total >= 640 + workspacePanelGap && autoCollapsed == null;
+            total >= 640 + workspacePanelGap ||
+            (minimized != null &&
+                total >= 320 + PanelRail.width + workspacePanelGap);
         final mainWidth = requestedMainWidth
             .clamp(
               minimumMainWidth,
@@ -254,10 +281,20 @@ class _DesktopPanelsState extends State<DesktopPanels>
             )
             .toDouble();
         if (horizontal) {
-          _lastSplitMainWidth = mainWidth;
-          _lastSplitTotalWidth = total;
+          if (minimized == null) {
+            _lastSplitMainWidth = mainWidth;
+            _lastSplitTotalWidth = total;
+          }
         }
         shell.topicPanelsVisible = horizontal;
+        if (autoCollapsed != null && shell.activeTab?.panel == autoCollapsed) {
+          final tabId = shell.selectedTabIn(_other(autoCollapsed))?.id;
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted && tabId != null) {
+              ShellScope.read(context).selectTab(tabId);
+            }
+          });
+        }
         // `minimizable` is null where a panel offers no minimize action.
         Widget panel(ForumPanel target, {bool? minimizable}) {
           final tab = shell.selectedTabIn(target);
@@ -349,7 +386,6 @@ class _DesktopPanelsState extends State<DesktopPanels>
           );
         }
 
-        final minimized = _minimized;
         final direction = Directionality.of(context);
         // Built once per layout, so that dragging the seam or settling a fold
         // only moves and wraps them.
@@ -421,7 +457,10 @@ class _DesktopPanelsState extends State<DesktopPanels>
                   total - docked,
                 ),
                 (ForumPanel.main, _) => (0.0, mainWidth - workspacePanelGap),
-                (ForumPanel.secondary, _) => (mainWidth, total - mainWidth),
+                (ForumPanel.secondary, _) => (
+                  mainWidth,
+                  math.max(320.0, total - mainWidth),
+                ),
               };
               final folding = moving?.panel == target;
               final revealing = moving != null && !folding;

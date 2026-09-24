@@ -253,6 +253,21 @@ class _ResizablePaneState extends State<ResizablePane> {
                       ? AlignmentDirectional.centerStart
                       : AlignmentDirectional.centerEnd,
                   valueFormatter: (value) => '${value.round()} pixels wide',
+                  onChangeStart: () {
+                    // An outer-window resize may be displaying a temporary
+                    // width that differs from the saved preference. Start a
+                    // seam drag at the width under the pointer, including
+                    // when its first update lands on the old preference.
+                    final visible = widget.widthOverride;
+                    if (visible == null) return;
+                    final preferred = widget.controller.effectiveWidth(
+                      maximum: widget.maximumWidth,
+                    );
+                    widget.controller.resizeBy(
+                      visible - preferred,
+                      maximum: widget.maximumWidth,
+                    );
+                  },
                   onChanged: (next) => widget.controller.resizeBy(
                     next -
                         widget.controller.effectiveWidth(

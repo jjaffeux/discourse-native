@@ -75,10 +75,12 @@ content fills the workspace. Mobile keeps its existing single-surface navigation
 On macOS, dragging the window's right edge holds the secondary panel's width
 while the main panel shrinks to 320 px; dragging the left edge holds the main
 panel while the secondary panel shrinks to 320 px. Below that limit the shrinking
-panel closes from view and the other fills the workspace. Expanding the window
-restores the split and its preferred main-panel width. The visible panel becomes
-active when its neighbour closes, so keyboard navigation follows the document
-on screen.
+panel becomes its tab rail, with restore, tab, and new-tab controls, while the
+other fills the remaining workspace. Expanding the window restores the split
+and its preferred main-panel width. The rail can also restore its panel at the
+current window width; the divider then resizes both panels again. The visible
+panel becomes active when its neighbour collapses, so keyboard navigation
+follows the document on screen.
 
 `DesktopPanels` owns the layout and stable widget keys. `ForumTabScope` identifies
 the document being rendered. `ShellSelector`, `ForumTabLayoutBuilder`, and
