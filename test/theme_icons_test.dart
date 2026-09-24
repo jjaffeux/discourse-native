@@ -17,7 +17,7 @@ void main() {
                   key: ValueKey('matched'),
                   matchTextDirection: true,
                 ),
-                ThemeIcon(ThemeIcons.noise, key: ValueKey('fixed')),
+                ThemeIcon(ThemeIcons.paper, key: ValueKey('fixed')),
               ],
             ),
           ),
