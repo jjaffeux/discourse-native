@@ -407,7 +407,7 @@ class _YoutubeVideoState extends State<YoutubeVideo>
 
     final position = Scrollable.maybeOf(context)?.position;
     if (position == null || !position.hasContentDimensions) return true;
-    position.pointerScroll(delta);
+    NativeWebViewScrollBridge.scrollPosition(position, delta);
     return true;
   }
 

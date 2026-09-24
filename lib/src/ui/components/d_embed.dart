@@ -426,7 +426,7 @@ class _EmbedViewportState extends State<_EmbedViewport> {
     }
     final position = Scrollable.maybeOf(context)?.position;
     if (position != null && position.hasContentDimensions) {
-      position.pointerScroll(delta);
+      NativeWebViewScrollBridge.scrollPosition(position, delta);
     }
     return true;
   }

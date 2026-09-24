@@ -31,13 +31,25 @@ Trackpad gestures keep the same routing from their start through momentum,
 even when an embed moves under or away from the pointer. Gestures started in
 Flutter stay with Flutter's pan/zoom handling; gestures started over a native
 embed stay with the wheel bridge. Discrete mouse-wheel ticks use the current
-pointer location.
+pointer location. Forwarded deltas also respect the reader’s axis direction,
+so reversed chat streams move the same way over an embed and ordinary content.
 Touch platforms retain vertical drag scrolling with the reader.
 
 The Embed styleguide provides self-contained examples of both presentations
 and an unavailable example. None requires a Reddit account or network access.
 
 ## Verification — 2026-09-22
+
+- Reversed-reader follow-up (2026-09-24): the gesture-routing change did not
+  fix reversed chat streams. Reddit and YouTube both forwarded screen deltas
+  directly to scroll offsets, making them move opposite to surrounding content.
+  Both now use a shared direction conversion. Regression tests failed before
+  the fix for both embed types and pass afterward; they cover both directions
+  and crossing from ordinary content to a native surface in normal/reversed
+  readers. All 66 focused tests, targeted analysis and a macOS debug build pass.
+  An isolated native fixture verified up/down scrolling over an offline iframe
+  and a playing YouTube video (offsets 200 → 329 → 200 for each). Automated native
+  scroll input was used; a physical trackpad was not tested.
 
 - Scroll routing follow-up (2026-09-23): 38 embed, Reddit and YouTube widget
   tests and all 11 macOS Runner tests passed, along with a macOS debug build.

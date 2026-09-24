@@ -7,7 +7,8 @@ import 'package:discourse_native/src/shell/cooked_html.dart';
 import 'package:discourse_native/src/shell/site_image.dart';
 import 'package:discourse_native/src/shell/youtube_video.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/gestures.dart' show EagerGestureRecognizer;
+import 'package:flutter/gestures.dart'
+    show EagerGestureRecognizer, PointerScrollEvent;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -439,6 +440,71 @@ void main() {
         });
       },
     );
+
+    for (final reverse in [false, true]) {
+      testWidgets(
+        'YouTube wheel direction matches its reader (reverse: $reverse)',
+        (tester) async {
+          await _withTargetPlatform(TargetPlatform.macOS, () async {
+            final scroll = ScrollController(initialScrollOffset: 200);
+            addTearDown(scroll.dispose);
+            await tester.pumpWidget(
+              MaterialApp(
+                home: SingleChildScrollView(
+                  controller: scroll,
+                  reverse: reverse,
+                  child: Column(
+                    children: [
+                      const SizedBox(height: 400),
+                      SizedBox(
+                        width: 400,
+                        child: YoutubeVideo(
+                          data: _video,
+                          siteUrl: 'https://meta.discourse.org',
+                          playerBuilder: (_, _) => const ColoredBox(
+                            key: ValueKey('direction-player'),
+                            color: Colors.black,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 400),
+                    ],
+                  ),
+                ),
+              ),
+            );
+            await tester.tap(
+              find.bySemanticsLabel('Play video: A useful video'),
+            );
+            await tester.pumpAndSettle();
+            for (final delta in [40.0, -40.0]) {
+              final before = scroll.offset;
+              // Move over ordinary reader content, then over the native surface.
+              await tester.sendEventToBinding(
+                PointerScrollEvent(
+                  position: const Offset(20, 580),
+                  scrollDelta: Offset(0, delta),
+                ),
+              );
+              await tester.pumpAndSettle();
+              expect(scroll.offset, before + (reverse ? -delta : delta));
+              await _sendMacOSYoutubeScroll(
+                tester,
+                position: tester.getCenter(
+                  find.byKey(const ValueKey('direction-player')),
+                ),
+                delta: delta,
+              );
+              await tester.pumpAndSettle();
+              expect(
+                scroll.offset,
+                before + (reverse ? -2 * delta : 2 * delta),
+              );
+            }
+          });
+        },
+      );
+    }
 
     for (final modal in [true, false]) {
       testWidgets(
