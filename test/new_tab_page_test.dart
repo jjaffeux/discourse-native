@@ -332,7 +332,9 @@ void main() {
     expect(opened, 1);
   });
 
-  testWidgets('empty recent sections are hidden', (tester) async {
+  testWidgets('empty recent sections become Everything else shortcuts', (
+    tester,
+  ) async {
     SharedPreferences.setMockInitialValues({
       'discourse_native.panel_tutorial_dismissed': true,
     });
@@ -343,23 +345,44 @@ void main() {
     shell.pushContent(ContentRoute.newTab());
     await tester.pumpAndSettle();
 
-    expect(find.text('Everything else'), findsOneWidget);
-    final groups = tester.widget<DButton>(
-      find.widgetWithText(DButton, 'Groups'),
+    Finder shortcut(String label) => find.descendant(
+      of: find.byKey(const ValueKey('start-page-shortcuts')),
+      matching: find.widgetWithText(DButton, label),
     );
+
+    expect(find.text('Everything else'), findsOneWidget);
+    final groups = tester.widget<DButton>(shortcut('Groups'));
     expect(groups.variant, DButtonVariant.secondary);
     expect(groups.backgroundColor, isNot(Colors.transparent));
     expect(groups.borderColor, Colors.transparent);
-    expect(find.text('Latest topics'), findsNothing);
-    expect(find.text('Categories'), findsNothing);
+    for (final label in ['Latest topics', 'Categories']) {
+      expect(
+        tester.widget<DButton>(shortcut(label)).variant,
+        DButtonVariant.secondary,
+        reason: label,
+      );
+    }
     expect(find.text('Chat'), findsNothing);
 
     shell.openTopicUrl('/t/recent-topic/42');
     shell.pushContent(ContentRoute.newTab());
     await tester.pumpAndSettle();
-    expect(find.text('Latest topics'), findsOneWidget);
-    expect(find.text('Categories'), findsNothing);
-    expect(find.text('Chat'), findsNothing);
+    expect(
+      find.byKey(const ValueKey('start-page-recent-topic-42')),
+      findsOneWidget,
+    );
+    expect(
+      tester
+          .widget<DButton>(find.widgetWithText(DButton, 'Latest topics'))
+          .variant,
+      DButtonVariant.transparentBackground,
+    );
+    expect(find.widgetWithText(DButton, 'Latest topics'), findsOneWidget);
+    expect(shortcut('Categories'), findsOneWidget);
+
+    await tester.tap(shortcut('Categories'));
+    await tester.pumpAndSettle();
+    expect(shell.currentContent?.id, 'all-categories');
   });
 
   testWidgets('an opened chat channel appears on the start page', (
@@ -396,12 +419,24 @@ void main() {
     final shell = ShellScope.read(
       tester.element(find.byType(MainContent).first),
     );
+    shell.pushContent(ContentRoute.newTab());
+    await tester.pumpAndSettle();
+    final chatShortcut = find.descendant(
+      of: find.byKey(const ValueKey('start-page-shortcuts')),
+      matching: find.widgetWithText(DButton, 'Chat'),
+    );
+    expect(chatShortcut, findsOneWidget);
+    await tester.tap(chatShortcut);
+    await tester.pumpAndSettle();
+    expect(shell.currentContent?.id, 'chat-channels');
+
     expect(await shell.openPluginUrl('$site/chat/c/-/9'), isTrue);
     shell.pushContent(ContentRoute.newTab());
     await tester.pumpAndSettle();
 
     expect(shell.recentChannelsFor(site).single.id, 'chat-c-9');
     expect(find.text('Chat'), findsOneWidget);
+    expect(chatShortcut, findsNothing);
     expect(find.text('General'), findsOneWidget);
     await tester.tap(find.text('General'));
     await tester.pumpAndSettle();
