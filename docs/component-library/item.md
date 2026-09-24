@@ -130,7 +130,7 @@ Implemented:
 
 Audited retained alternatives / adjacent ownership:
 
-- TopicListRow, TopicInboxRow, NotificationRow and aggregate topic adapters have
+- TopicListRow, NotificationRow and aggregate topic adapters have
   bespoke timeline/read-state/column and per-row selector ownership. Their
   keyboard selection and compact metadata layouts are not Item's content-row
   contract. Retained rather than changing these to an eager ItemGroup.

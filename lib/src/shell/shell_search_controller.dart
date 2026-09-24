@@ -55,8 +55,6 @@ class SearchSuggestion {
   final UserStatus? userStatus;
 }
 
-typedef SearchQuickTip = ({String label, String description, bool clickable});
-
 enum _SuggestionSource { hashtag, user, shortcut }
 
 typedef _SuggestionMatch = ({
@@ -88,19 +86,6 @@ class ShellSearchController extends ChangeNotifier {
   static const int maxConcurrentSearches = 2;
   static const int maximumSuggestions = 8;
   static const int maximumHashtagSuggestions = 5;
-
-  static const List<SearchQuickTip> quickTips = [
-    (label: '#', description: 'Search by category or tag', clickable: true),
-    (label: '@', description: 'Search by author', clickable: true),
-    (label: 'in:', description: 'Choose where to search', clickable: true),
-    (label: 'status:', description: 'Filter by topic status', clickable: true),
-    (
-      label: 'Ctrl Enter',
-      description: 'Open the full search page',
-      clickable: false,
-    ),
-    (label: '@me', description: 'Search your own posts', clickable: false),
-  ];
 
   static const List<String> _baseShortcuts = [
     'in:title',
@@ -145,10 +130,6 @@ class ShellSearchController extends ChangeNotifier {
     caseSensitive: false,
   );
   static final RegExp _zeroWidthCharacters = RegExp(r'[\u200B-\u200D\uFEFF]');
-  static final RegExp _privateMessageScope = RegExp(
-    r'\bin:(personal|messages|personal-direct|all-pms)\b',
-    caseSensitive: false,
-  );
 
   final ShellSearchApi api;
   final ApiCredentialReader credentials;
@@ -201,11 +182,9 @@ class ShellSearchController extends ChangeNotifier {
   List<String> get recentSearches => _recentSearches;
   String? get message => _message;
   int get selectedIndex => _selectedIndex;
-  int get selectedSuggestionIndex => _selectedSuggestionIndex;
   int get minimumLength => _minimumLength;
   bool get taggingEnabled => _taggingEnabled;
   bool get usePgHeadlinesForExcerpt => _usePgHeadlinesForExcerpt;
-  bool get isPrivateMessageOnly => _privateMessageScope.hasMatch(_query);
   bool get topicsActionSelected => _topicsActionSelected;
   bool get moreActionSelected => _moreActionSelected;
   bool get hasMoreTopics =>
@@ -222,11 +201,6 @@ class ShellSearchController extends ChangeNotifier {
           _selectedSuggestionIndex < _suggestions.length
       ? _suggestions[_selectedSuggestionIndex]
       : null;
-  SearchQuickTip get quickTip {
-    final site = _siteUrl;
-    if (site == null) return quickTips.first;
-    return quickTips[site.hashCode.abs() % quickTips.length];
-  }
 
   bool ownsPanel(Object field) => identical(_activeField, field);
 
@@ -367,11 +341,6 @@ class ShellSearchController extends ChangeNotifier {
     _schedule(_query, immediate: true);
   }
 
-  void refreshTopics() {
-    if (_mode != SearchMode.topics || _query.trim().isEmpty) return;
-    _schedule(_query, immediate: true);
-  }
-
   void acceptSuggestion(SearchSuggestion suggestion) {
     if (!_suggestions.contains(suggestion)) return;
     _query = suggestion.completion;
@@ -384,12 +353,6 @@ class ShellSearchController extends ChangeNotifier {
     _query = term;
     _mode = SearchMode.topics;
     _schedule(term, immediate: true);
-  }
-
-  void useQuickTip() {
-    final tip = quickTip;
-    if (!tip.clickable) return;
-    setQuery(tip.label);
   }
 
   bool _isValid(String term) =>
@@ -829,37 +792,12 @@ class ShellSearchController extends ChangeNotifier {
     return true;
   }
 
-  void selectTopicsAction() {
-    if (_mode != SearchMode.facets || _topicsActionSelected) return;
-    _clearSelection();
-    _topicsActionSelected = true;
-    _notify();
-  }
-
-  void selectMoreAction() {
-    if (!hasMoreTopics || _moreActionSelected) return;
-    _clearSelection();
-    _moreActionSelected = true;
-    _notify();
-  }
-
   void select(int index) {
     if (index < 0 || index >= _results.length || _selectedIndex == index) {
       return;
     }
     _clearSelection();
     _selectedIndex = index;
-    _notify();
-  }
-
-  void selectSuggestion(int index) {
-    if (index < 0 ||
-        index >= _suggestions.length ||
-        _selectedSuggestionIndex == index) {
-      return;
-    }
-    _clearSelection();
-    _selectedSuggestionIndex = index;
     _notify();
   }
 

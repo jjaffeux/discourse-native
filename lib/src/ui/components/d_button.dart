@@ -74,19 +74,6 @@ class DButtonStateStyle {
   final Color iconColor;
   final BorderSide border;
 
-  DButtonStateStyle withOpacity(double opacity) => DButtonStateStyle(
-    foregroundColor: foregroundColor.withValues(
-      alpha: foregroundColor.a * opacity,
-    ),
-    backgroundColor: backgroundColor.withValues(
-      alpha: backgroundColor.a * opacity,
-    ),
-    iconColor: iconColor.withValues(alpha: iconColor.a * opacity),
-    border: border.copyWith(
-      color: border.color.withValues(alpha: border.color.a * opacity),
-    ),
-  );
-
   static DButtonStateStyle lerp(
     DButtonStateStyle first,
     DButtonStateStyle second,
@@ -173,26 +160,6 @@ class DiscourseButtonTheme extends ThemeExtension<DiscourseButtonTheme> {
   final DButtonVariantStyle transparentDanger;
   final DButtonVariantStyle transparentSuccess;
   final DButtonVariantStyle link;
-
-  DButtonVariantStyle styleFor(DButtonVariant variant) => switch (variant) {
-    DButtonVariant.outline => standard,
-    DButtonVariant.secondary => standard,
-    DButtonVariant.ghost => flat,
-    DButtonVariant.transparentBackground ||
-    DButtonVariant.inline => transparent,
-    DButtonVariant.destructive => danger,
-    DButtonVariant.standard => standard,
-    DButtonVariant.primary => primary,
-    DButtonVariant.danger => danger,
-    DButtonVariant.success => success,
-    DButtonVariant.flat => flat,
-    DButtonVariant.flatClose => flatClose,
-    DButtonVariant.transparent => transparent,
-    DButtonVariant.transparentPrimary => transparentPrimary,
-    DButtonVariant.transparentDanger => transparentDanger,
-    DButtonVariant.transparentSuccess => transparentSuccess,
-    DButtonVariant.link => link,
-  };
 
   factory DiscourseButtonTheme.fromColors(
     ColorScheme colors, {

@@ -54,7 +54,6 @@ final class GifPickerController extends ChangeNotifier {
       _searchPending ||
       _query.trim().length >= minimumQueryLength;
   String? get error => hasActiveSearch ? _searchError : _categoriesError;
-  bool get loadingCategories => _loadingCategories;
   bool get searchPending => _searchPending;
   bool get searching => _searching;
   bool get loadingMore => _loadingMore;

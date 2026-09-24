@@ -24,8 +24,6 @@ import 'package:discourse_native/src/shell/shell_panel.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/topic_actions.dart';
 import 'package:discourse_native/src/shell/topic_inbox_header.dart';
-import 'package:discourse_native/src/shell/topic_inbox_row.dart';
-import 'package:discourse_native/src/shell/topic_list_indicators.dart';
 import 'package:discourse_native/src/shell/topic_list_view.dart';
 import 'package:discourse_native/src/shell/topic_presentation.dart';
 import 'package:discourse_native/src/shell/topic_title.dart';
@@ -1708,155 +1706,6 @@ void main() {
     },
   );
 
-  for (final dark in [false, true]) {
-    testWidgets('inbox read colors and badges follow web topic state ($dark)', (
-      tester,
-    ) async {
-      final setup = await _setup(tester);
-      final siteUrl = setup.controller.currentInstance!.url;
-      final theme = dark ? AppTheme.dark : AppTheme.light;
-      const scenarios = [
-        (
-          name: 'Caught up',
-          fields: {'last_read_post_number': 5},
-          read: true,
-          count: 0,
-          dot: null,
-        ),
-        (
-          name: 'Deleted final post',
-          fields: {'last_read_post_number': 6},
-          read: true,
-          count: 0,
-          dot: null,
-        ),
-        (
-          name: 'Untracked unread topic',
-          fields: {'last_read_post_number': 4},
-          read: false,
-          count: 0,
-          dot: null,
-        ),
-        (
-          name: 'Unknown read position',
-          fields: <String, Object>{},
-          read: false,
-          count: 0,
-          dot: null,
-        ),
-        (
-          name: 'Tracked unread posts',
-          fields: {
-            'last_read_post_number': 2,
-            'unread_posts': 3,
-            'new_posts': 3,
-          },
-          read: false,
-          count: 3,
-          dot: null,
-        ),
-        (
-          name: 'Legacy unread count',
-          fields: {'last_read_post_number': 2, 'new_posts': 3},
-          read: false,
-          count: 3,
-          dot: null,
-        ),
-        (
-          name: 'New topic',
-          fields: {'unseen': true},
-          read: false,
-          count: 0,
-          dot: 'new-topic-dot',
-        ),
-        (
-          name: 'Nested replies',
-          fields: {
-            'is_nested_view': true,
-            'has_new_replies': true,
-            'unseen': true,
-            'unread_posts': 3,
-          },
-          read: false,
-          count: 0,
-          dot: 'new-replies-dot',
-        ),
-      ];
-      for (final scenario in scenarios) {
-        final topic = Topic.fromJson(
-          {
-            'id': 101,
-            'title': scenario.name,
-            'slug': 'read-state',
-            'highest_post_number': 5,
-            'posts_count': 5,
-            'reply_count': 2,
-            ...scenario.fields,
-          },
-          const {},
-          siteUrl,
-        );
-        await tester.pumpWidget(
-          ShellScope(
-            controller: setup.controller,
-            child: MaterialApp(
-              theme: theme,
-              home: Scaffold(
-                body: Align(
-                  alignment: Alignment.topLeft,
-                  child: SizedBox(
-                    width: 304,
-                    child: TopicInboxRow(
-                      topic: topic,
-                      siteUrl: siteUrl,
-                      onTap: () {},
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        );
-        await tester.pumpAndSettle();
-        final title = tester.widget<TopicTitle>(find.byType(TopicTitle));
-        expect(
-          title.style?.color,
-          scenario.read ? theme.discourse.whisper : theme.colorScheme.onSurface,
-          reason: scenario.name,
-        );
-        expect(
-          find.text('4'),
-          findsOneWidget,
-          reason: 'Total replies: ${scenario.name}',
-        );
-        expect(
-          find.byType(TopicUnreadBadge),
-          scenario.count > 0 ? findsOneWidget : findsNothing,
-          reason: scenario.name,
-        );
-        if (scenario.count > 0) {
-          expect(find.text('${scenario.count}'), findsOneWidget);
-          expect(
-            find.byTooltip('${scenario.count} unread posts'),
-            findsOneWidget,
-          );
-          expect(find.text('6'), findsNothing);
-        }
-        expect(
-          find.byKey(const ValueKey('new-topic-dot')),
-          scenario.dot == 'new-topic-dot' ? findsOneWidget : findsNothing,
-          reason: scenario.name,
-        );
-        expect(
-          find.byKey(const ValueKey('new-replies-dot')),
-          scenario.dot == 'new-replies-dot' ? findsOneWidget : findsNothing,
-          reason: scenario.name,
-        );
-        expect(tester.takeException(), isNull, reason: scenario.name);
-      }
-    });
-  }
-
   testWidgets(
     'retained inbox updates read colors and counts as activity changes',
     (tester) async {
@@ -1912,68 +1761,6 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
-
-  testWidgets('unread badge stays visible and opens the topic at large text', (
-    tester,
-  ) async {
-    final setup = await _setup(tester);
-    var opened = false;
-    final semantics = tester.ensureSemantics();
-    try {
-      await tester.pumpWidget(
-        ShellScope(
-          controller: setup.controller,
-          child: MaterialApp(
-            theme: AppTheme.dark,
-            home: Scaffold(
-              body: MediaQuery(
-                data: const MediaQueryData(textScaler: TextScaler.linear(2)),
-                child: Align(
-                  alignment: Alignment.topLeft,
-                  child: SizedBox(
-                    width: 304,
-                    child: TopicInboxRow(
-                      topic: Topic(
-                        id: 101,
-                        title:
-                            'A long topic title that needs to wrap beside its unread badge',
-                        slug: 'long-topic',
-                        unreadPosts: 128,
-                        replyCount: 200,
-                        bumpedAt: DateTime.now().subtract(
-                          const Duration(days: 12),
-                        ),
-                      ),
-                      siteUrl: setup.controller.currentInstance!.url,
-                      onTap: () => opened = true,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
-      );
-      await tester.pumpAndSettle();
-      final badge = find.byType(TopicUnreadBadge);
-      final badgeRect = tester.getRect(badge);
-      final timeRect = tester.getRect(
-        find.byKey(const ValueKey('inbox-row-time-101')),
-      );
-      expect(
-        find.bySemanticsLabel(RegExp(r'\b128 unread posts\b')),
-        findsOneWidget,
-      );
-      expect(find.text('200'), findsOneWidget);
-      expect(badgeRect.right, lessThan(timeRect.left));
-      expect(timeRect.right, lessThan(304));
-      await tester.tap(badge);
-      expect(opened, isTrue);
-      expect(tester.takeException(), isNull);
-    } finally {
-      semantics.dispose();
-    }
-  });
 
   testWidgets('wide reader aligns title, taxonomy, activity, and post text', (
     tester,
@@ -2576,58 +2363,6 @@ void main() {
   );
 
   testWidgets(
-    'assigned cards share the activity row and disclose hidden tags',
-    (tester) async {
-      const registry = PluginRegistry([AssignPlugin()]);
-      final setup = await _setup(tester, registry: registry);
-      final topic = setup.rows.first.copyWith(
-        tags: const [
-          TopicTag(id: 1, name: 'first'),
-          TopicTag(id: 2, name: 'second'),
-          TopicTag(id: 3, name: 'third'),
-          TopicTag(id: 4, name: 'fourth'),
-        ],
-        plugins: registry.readTopic(const {
-          'assigned_to_user': {'username': 'sam', 'name': 'Sam'},
-        }, setup.controller.currentInstance!.url),
-      );
-      await tester.pumpWidget(
-        ShellScope(
-          controller: setup.controller,
-          child: MaterialApp(
-            theme: AppTheme.light,
-            home: Scaffold(
-              body: Align(
-                alignment: Alignment.topLeft,
-                child: SizedBox(
-                  width: 304,
-                  child: TopicInboxRow(
-                    topic: topic,
-                    siteUrl: setup.controller.currentInstance!.url,
-                    selected: true,
-                    onTap: () {},
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
-      );
-      await tester.pumpAndSettle();
-      expect(find.text('First topic preview'), findsNothing);
-      expect(find.text('Sam'), findsOneWidget);
-      expect(find.text('Assigned to'), findsOneWidget);
-      expect(find.text('+2'), findsOneWidget);
-      expect(find.byTooltip('# third, # fourth'), findsOneWidget);
-      expect(
-        tester.getSize(find.byKey(const ValueKey('inbox-row-1'))).height,
-        lessThan(160),
-      );
-      expect(tester.takeException(), isNull);
-    },
-  );
-
-  testWidgets(
     'topic list and reader bottom bars align at every text scale',
     (tester) async {
       final setup = await _setup(tester);
@@ -3048,12 +2783,6 @@ void main() {
     expect(find.byKey(const ValueKey('topic-more-topics-jump')), findsNothing);
     expect(find.text('Suggested'), findsNothing);
     expect(find.text('Related'), findsNothing);
-    expect(
-      find.byWidgetPredicate(
-        (widget) => widget is TopicInboxRow && widget.recommendation,
-      ),
-      findsNothing,
-    );
     expect(tester.takeException(), isNull);
   });
 

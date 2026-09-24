@@ -12,8 +12,6 @@ extension PollPostPluginData on PluginData {
 
 extension PostPolls on Post {
   Polls? get polls => plugins.polls;
-
-  bool get hasPolls => polls != null;
 }
 
 /// Preserves unknown future wire values for a read-only web fallback.

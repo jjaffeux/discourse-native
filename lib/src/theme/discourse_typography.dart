@@ -163,24 +163,6 @@ abstract final class DiscourseTypography {
   }
 
   // Compatibility aliases for consumers of discourse_plugin_sdk.dart.
-  @Deprecated('Use xs or a semantic TextTheme role.')
-  static const double fontDown3 = xs;
-  @Deprecated('Use xs or a semantic TextTheme role.')
-  static const double fontDown2 = xs;
-  @Deprecated('Use sm or a semantic TextTheme role.')
-  static const double fontDown1 = sm;
-  @Deprecated('Use lg or a semantic TextTheme role.')
-  static const double fontUp1 = lg;
-  @Deprecated('Use xl or a semantic TextTheme role.')
-  static const double fontUp2 = xl;
-  @Deprecated('Use xxl or a semantic TextTheme role.')
-  static const double fontUp3 = xxl;
-  @Deprecated('Use xxxl or a semantic TextTheme role.')
-  static const double fontUp4 = xxxl;
-  @Deprecated('Use xxxl or a semantic TextTheme role.')
-  static const double fontUp5 = xxxl;
-  @Deprecated('Use xxxxl or a semantic TextTheme role.')
-  static const double fontUp6 = xxxxl;
   @Deprecated('Use sm instead.')
   static const double code = sm;
 }

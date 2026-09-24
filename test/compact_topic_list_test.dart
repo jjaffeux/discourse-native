@@ -20,7 +20,6 @@ import 'package:discourse_native/src/shell/emoji.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/site_emoji_image.dart';
-import 'package:discourse_native/src/shell/topic_inbox_row.dart';
 import 'package:discourse_native/src/shell/topic_list_actions.dart';
 import 'package:discourse_native/src/shell/topic_list_view.dart';
 import 'package:discourse_native/src/shell/topic_title.dart';
@@ -85,34 +84,6 @@ void main() {
       });
     }
   }
-
-  testWidgets('inbox rows honor live metadata choices', (tester) async {
-    final shell = await _setup(tester);
-    await tester.pumpWidget(
-      ShellScope(
-        controller: shell,
-        child: MaterialApp(
-          theme: AppTheme.light,
-          home: Scaffold(
-            body: TopicInboxRow(
-              topic: shell.store.read<Topic>(shell.currentInstance!.url, 1)!,
-              siteUrl: shell.currentInstance!.url,
-              onTap: () {},
-            ),
-          ),
-        ),
-      ),
-    );
-    await tester.pumpAndSettle();
-    expect(find.text('mobile'), findsOneWidget);
-    await shell.appSettings.setTopicListShowTags(false);
-    await tester.pumpAndSettle();
-    expect(find.text('mobile'), findsNothing);
-    expect(find.text('Community'), findsOneWidget);
-    await shell.appSettings.setTopicListShowTags(true);
-    await tester.pumpAndSettle();
-    expect(find.text('mobile'), findsOneWidget);
-  });
 
   testWidgets('metadata display choices update rows independently', (
     tester,
@@ -666,31 +637,6 @@ void main() {
       expect(tester.takeException(), isNull);
     });
   }
-
-  testWidgets('Inbox recommendations retain the event stamp', (tester) async {
-    final shell = await _setup(tester, enableEvents: true);
-    final site = shell.currentInstance!.url;
-    await tester.pumpWidget(
-      ShellScope(
-        controller: shell,
-        child: MaterialApp(
-          theme: AppTheme.light,
-          home: Scaffold(
-            body: TopicInboxRow(
-              topic: shell.store.read<Topic>(site, 1)!,
-              siteUrl: site,
-              recommendation: true,
-              onTap: () {},
-            ),
-          ),
-        ),
-      ),
-    );
-    await tester.pumpAndSettle();
-    expect(find.text('14'), findsOneWidget);
-    expect(find.textContaining(RegExp(r'^.* · 20:00$')), findsOneWidget);
-    expect(tester.takeException(), isNull);
-  });
 
   testWidgets(
     'legacy list settings preserve the lazy viewport and visible topic',

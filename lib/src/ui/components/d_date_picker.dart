@@ -1381,9 +1381,6 @@ class DTimeValue {
       assert(minute >= 0 && minute <= 59),
       assert(second >= 0 && second <= 59);
 
-  factory DTimeValue.fromTimeOfDay(TimeOfDay value, {int second = 0}) =>
-      DTimeValue(hour: value.hour, minute: value.minute, second: second);
-
   static DTimeValue? tryParse(String text) {
     final match = RegExp(
       r'^(?:([01]\d|2[0-3])):([0-5]\d)(?::([0-5]\d))?$',

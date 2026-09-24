@@ -11,7 +11,6 @@ class ComposerPresentationController extends ChangeNotifier {
 
   static const sideMinimum = 320.0;
   static const readerMinimum = 320.0;
-  static const sideBreakpoint = sideMinimum + readerMinimum + 1;
 
   final ComposerLayoutStore store;
   ComposerLayoutPreference _preference = const ComposerLayoutPreference();

@@ -1777,17 +1777,6 @@ VoiceController _resolveController(
     PluginUiScope.maybe(context, voiceControllerService) ??
     fallback;
 
-Future<void> showVoiceChat(
-  BuildContext context, {
-  required String siteUrl,
-  required int roomId,
-}) => _showVoiceChat(
-  context,
-  PluginUiScope.require(context, voiceControllerService),
-  siteUrl: siteUrl,
-  roomId: roomId,
-);
-
 Future<void> _showVoiceChat(
   BuildContext context,
   VoiceController controller, {
@@ -1924,17 +1913,6 @@ class _VoiceChatSheetState extends State<_VoiceChatSheet> {
     ),
   );
 }
-
-Future<void> showVoiceMembers(
-  BuildContext context, {
-  required String siteUrl,
-  required VoiceRoom room,
-}) => _showVoiceMembers(
-  context,
-  PluginUiScope.require(context, voiceControllerService),
-  siteUrl: siteUrl,
-  room: room,
-);
 
 Future<void> _showVoiceMembers(
   BuildContext context,

@@ -182,12 +182,6 @@ final class AccountActivityController extends FrameSafeNotifier {
 
   static const int userActivityPageSize = 30;
 
-  Future<void> refreshAll(Iterable<DiscourseInstance> instances) async {
-    await Future.wait(
-      instances.where((instance) => instance.isConnected).map(refresh),
-    );
-  }
-
   Future<NotificationTotals?> refresh(
     DiscourseInstance instance, {
     bool force = false,

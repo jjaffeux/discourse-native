@@ -292,26 +292,6 @@ class Assignments {
 
   Assignment? forPost(int postId) => postAssignments[postId];
 
-  Assignments withDirect(Assignment? assignment) => Assignments(
-    canAssign: canAssign,
-    direct: assignment,
-    postAssignments: postAssignments,
-  );
-
-  Assignments withPost(int postId, Assignment? assignment) {
-    final updated = Map<int, Assignment>.of(postAssignments);
-    if (assignment == null) {
-      updated.remove(postId);
-    } else {
-      updated[postId] = assignment;
-    }
-    return Assignments(
-      canAssign: canAssign,
-      direct: direct,
-      postAssignments: updated,
-    );
-  }
-
   static bool _hasAssignPayload(Map<String, dynamic> json) =>
       _payloadKeys.any(json.containsKey);
 

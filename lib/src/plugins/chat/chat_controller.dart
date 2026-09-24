@@ -2565,9 +2565,6 @@ class ChatController extends FrameSafeNotifier {
     }
   }
 
-  bool messagePinWriteInFlight(String siteUrl, int messageId) =>
-      _messagePinWrites.containsKey((siteUrl: siteUrl, messageId: messageId));
-
   /// Rollback preserves unrelated fields changed while the pin request runs.
   Future<String?> setMessagePinned(
     String siteUrl,
@@ -2670,12 +2667,6 @@ class ChatController extends FrameSafeNotifier {
         heldChannel.canModerate ||
         message.deletedById == user.id;
   }
-
-  bool messageDeletionWriteInFlight(String siteUrl, int messageId) =>
-      _messageDeletionWrites.containsKey((
-        siteUrl: siteUrl,
-        messageId: messageId,
-      ));
 
   Future<String?> deleteMessage(String siteUrl, int messageId) =>
       _setMessageDeleted(siteUrl, messageId, deleted: true);

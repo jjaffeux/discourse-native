@@ -304,8 +304,6 @@ class Post with Storable<Post> {
 
   Post withPlugins(PluginData next) => copyWith(plugins: next);
 
-  Post withPluginsOf(Post other) => copyWith(plugins: other.plugins);
-
   Post withBookmark(Bookmark? next) =>
       copyWith(bookmark: next, clearBookmark: next == null);
 

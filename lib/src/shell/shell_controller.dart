@@ -917,12 +917,6 @@ class ShellController extends FrameSafeNotifier
 
   void notifyPluginStateChanged() => _notify();
 
-  void reportPluginError(
-    Object error,
-    StackTrace stackTrace,
-    String operation,
-  ) => _reportOperationalError(error, stackTrace, operation);
-
   void _reportOperationalError(
     Object error,
     StackTrace stackTrace,
@@ -9266,41 +9260,6 @@ class ShellController extends FrameSafeNotifier
     return (start: start, end: start + selected.length);
   }
 
-  void openCategoryEdit() {
-    final instance = currentInstance;
-    final route = currentContent;
-    final detail = currentTopic;
-    if (instance == null || route?.topicId == null || detail?.canEdit != true) {
-      return;
-    }
-    unawaited(_ensureTopicComposerCapabilities(instance.url));
-    if (!_replaceComposer()) return;
-    final target = ComposerTarget(
-      siteUrl: instance.url,
-      tabId: activeTabId,
-      topicId: route!.topicId!,
-      slug: route.slug ?? '',
-      topicTitle: detail!.title,
-      editingPostId: detail.stream.firstOrNull,
-      editingPostNumber: 1,
-      mode: ComposerMode.categoryEdit,
-      initialCategoryId: detail.categoryId,
-      initialTags: detail.tags,
-    );
-    _setComposer(
-      ComposerController(
-        target,
-        minimumRequiredTags:
-            categoryFor(
-              detail.categoryId,
-              siteUrl: instance.url,
-            )?.minimumRequiredTags ??
-            0,
-      ),
-    );
-    _notify();
-  }
-
   Future<String?> saveTopicTitle({
     required String siteUrl,
     required int topicId,
@@ -14816,17 +14775,6 @@ class ShellController extends FrameSafeNotifier
     _syncTopicChannels();
     _notify();
     await loadFeed(route.id);
-  }
-
-  void searchTopicList(String query, {bool keepTopicOpen = false}) {
-    final source = topicListContent;
-    if (source?.isTopicListFilter != true || currentInstance == null) return;
-    final route = source!.withTopicListSearch(query);
-    if (route.feedPath == source.feedPath) return;
-    _replaceTopicListContent(route, keepTopicOpen: keepTopicOpen);
-    _syncTopicChannels();
-    _notify();
-    unawaited(loadFeed(route.id));
   }
 
   void selectTopicListCategory(

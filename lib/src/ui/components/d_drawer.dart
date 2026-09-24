@@ -27,7 +27,7 @@ enum DDrawerChangeReason {
   routeRemoved,
 }
 
-enum DDrawerSnapChangeReason { initial, controlled, programmatic, swipe }
+enum DDrawerSnapChangeReason { initial, controlled, swipe }
 
 @immutable
 class DDrawerSnapPoint {
@@ -109,7 +109,6 @@ class DDrawerController<T> extends ChangeNotifier {
   Object? _attachment;
   void Function(DDrawerChangeReason)? _requestOpen;
   void Function(T?, DDrawerChangeReason)? _requestClose;
-  void Function(DDrawerSnapPoint?, DDrawerSnapChangeReason)? _requestSnap;
   DDrawerSwipeDirection? _dismissDirection;
   Future<T?>? _submission;
   int _openSession = 0;
@@ -122,8 +121,6 @@ class DDrawerController<T> extends ChangeNotifier {
   void open() => _requestOpen?.call(DDrawerChangeReason.programmatic);
   void close([T? result]) =>
       _requestClose?.call(result, DDrawerChangeReason.programmatic);
-  void snapTo(DDrawerSnapPoint point) =>
-      _requestSnap?.call(point, DDrawerSnapChangeReason.programmatic);
 
   Future<T?> submit(Future<T> Function() operation) {
     final current = _submission;
@@ -164,13 +161,11 @@ class DDrawerController<T> extends ChangeNotifier {
     Object attachment,
     void Function(DDrawerChangeReason) requestOpen,
     void Function(T?, DDrawerChangeReason) requestClose,
-    void Function(DDrawerSnapPoint?, DDrawerSnapChangeReason) requestSnap,
     DDrawerSwipeDirection dismissDirection,
   ) {
     _attachment = attachment;
     _requestOpen = requestOpen;
     _requestClose = requestClose;
-    _requestSnap = requestSnap;
     _dismissDirection = dismissDirection;
   }
 
@@ -179,7 +174,6 @@ class DDrawerController<T> extends ChangeNotifier {
     _attachment = null;
     _requestOpen = null;
     _requestClose = null;
-    _requestSnap = null;
     _dismissDirection = null;
   }
 
@@ -202,7 +196,6 @@ class DDrawerController<T> extends ChangeNotifier {
     _attachment = null;
     _requestOpen = null;
     _requestClose = null;
-    _requestSnap = null;
     _dismissDirection = null;
     super.dispose();
   }
@@ -369,7 +362,6 @@ class _DDrawerState<T> extends State<DDrawer<T>> {
     _attachment,
     _requestOpen,
     _requestClose,
-    _requestSnap,
     widget.swipeDirection,
   );
 
@@ -1997,7 +1989,6 @@ Future<T?> showDDrawer<T>({
     route,
     (_) {},
     (result, _) => requestClose(result),
-    updateSnap,
     swipeDirection,
   );
   try {
