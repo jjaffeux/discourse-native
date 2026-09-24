@@ -182,62 +182,71 @@ class _NewTabPageState extends State<NewTabPage> {
                     ],
                   ),
                 if (shell != null) ...[
-                  LayoutBuilder(
-                    builder: (context, constraints) {
-                      final width = constraints.maxWidth;
-                      final columns = width >= 1050
-                          ? 3
-                          : width >= 650
-                          ? 2
-                          : 1;
-                      final columnWidth =
-                          (width - (columns - 1) * DSpacing.lg) / columns;
-                      return Wrap(
-                        spacing: DSpacing.lg,
-                        runSpacing: DSpacing.xl,
-                        children: [
-                          SizedBox(
-                            width: columnWidth,
-                            child: _RecentSection(
-                              title: 'Categories',
-                              icon: DIcons.layerGroup,
-                              onHeading: () => openLink(context, '/categories'),
-                              routes: categories,
-                              onRoute: (route) => _openRoute(context, route),
-                            ),
-                          ),
-                          if (hasChat)
-                            SizedBox(
-                              width: columnWidth,
-                              child: _RecentSection(
-                                title: 'Chat',
-                                icon: DIcons.comments,
-                                onHeading: () => shell.selectDestination(
-                                  const SidebarDestination(
-                                    id: 'chat-channels',
-                                    label: 'Chat',
-                                    icon: DIcons.comments,
-                                  ),
+                  if (categories.isNotEmpty ||
+                      channels.isNotEmpty ||
+                      topics.isNotEmpty)
+                    LayoutBuilder(
+                      builder: (context, constraints) {
+                        final width = constraints.maxWidth;
+                        final columns = width >= 1050
+                            ? 3
+                            : width >= 650
+                            ? 2
+                            : 1;
+                        final columnWidth =
+                            (width - (columns - 1) * DSpacing.lg) / columns;
+                        return Wrap(
+                          spacing: DSpacing.lg,
+                          runSpacing: DSpacing.xl,
+                          children: [
+                            if (categories.isNotEmpty)
+                              SizedBox(
+                                width: columnWidth,
+                                child: _RecentSection(
+                                  title: 'Categories',
+                                  icon: DIcons.layerGroup,
+                                  onHeading: () =>
+                                      openLink(context, '/categories'),
+                                  routes: categories,
+                                  onRoute: (route) =>
+                                      _openRoute(context, route),
                                 ),
-                                routes: channels,
-                                onRoute: (route) =>
-                                    availableChannels[route.id]?.onTap?.call(),
                               ),
-                            ),
-                          SizedBox(
-                            width: columnWidth,
-                            child: _RecentSection(
-                              title: 'Latest topics',
-                              icon: DIcons.layerGroup,
-                              onHeading: widget.onBrowseTopics,
-                              routes: topics,
-                              onRoute: (route) => _openRoute(context, route),
-                            ),
-                          ),
-                        ],
-                      );
-                    },
-                  ),
+                            if (hasChat && channels.isNotEmpty)
+                              SizedBox(
+                                width: columnWidth,
+                                child: _RecentSection(
+                                  title: 'Chat',
+                                  icon: DIcons.comments,
+                                  onHeading: () => shell.selectDestination(
+                                    const SidebarDestination(
+                                      id: 'chat-channels',
+                                      label: 'Chat',
+                                      icon: DIcons.comments,
+                                    ),
+                                  ),
+                                  routes: channels,
+                                  onRoute: (route) =>
+                                      availableChannels[route.id]?.onTap
+                                          ?.call(),
+                                ),
+                              ),
+                            if (topics.isNotEmpty)
+                              SizedBox(
+                                width: columnWidth,
+                                child: _RecentSection(
+                                  title: 'Latest topics',
+                                  icon: DIcons.layerGroup,
+                                  onHeading: widget.onBrowseTopics,
+                                  routes: topics,
+                                  onRoute: (route) =>
+                                      _openRoute(context, route),
+                                ),
+                              ),
+                          ],
+                        );
+                      },
+                    ),
                   Text(
                     'Everything else',
                     style: Theme.of(context).textTheme.titleLarge,
