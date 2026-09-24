@@ -2,7 +2,6 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/app_settings.dart';
 import 'package:discourse_native/src/models/forum_font.dart';
 import 'package:discourse_native/src/models/forum_theme_preferences.dart';
-import 'package:discourse_native/src/shell/forum_settings_page.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -10,8 +9,7 @@ import 'support/theme_settings.dart';
 
 void main() {
   testWidgets(
-    'the forum default has no editing controls, and showing dark repaints the '
-    'app while keeping System mode',
+    'the forum default has no editing controls or duplicate mode switch',
     (tester) async {
       final shell = controller();
       addTearDown(shell.dispose);
@@ -39,20 +37,10 @@ void main() {
         tester.getTopLeft(find.byKey(const ValueKey('appearance-mode'))).dy,
         lessThan(tester.getTopLeft(sources).dy),
       );
-      final shown = find.byKey(const ValueKey('theme-shown-mode'));
-      await tester.ensureVisible(shown);
-      await tester.tap(find.descendant(of: shown, matching: find.text('Dark')));
-      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('theme-shown-mode')), findsNothing);
       expect(
         shell.forumSettings.themeModeFor('https://a.example'),
         AppThemeMode.system,
-      );
-      expect(tester.widget<DToggleGroup<Brightness>>(shown).values, [
-        Brightness.dark,
-      ]);
-      expect(
-        Theme.of(tester.element(find.byType(ForumSettingsPage))).brightness,
-        Brightness.dark,
       );
       expect(tester.takeException(), isNull);
     },

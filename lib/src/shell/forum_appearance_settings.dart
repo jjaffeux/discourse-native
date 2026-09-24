@@ -73,7 +73,10 @@ class _ForumAppearanceSettingsState extends State<ForumAppearanceSettings> {
   }
 
   void _edit(ForumTheme? theme) {
-    setState(() => _editing = _draft = theme);
+    setState(() {
+      _editing = _draft = theme;
+      if (theme == null) _shownBrightness = null;
+    });
     _preview();
   }
 
@@ -409,7 +412,6 @@ class _ForumAppearanceSettingsState extends State<ForumAppearanceSettings> {
                           preferences: preferences,
                           brightness: brightness,
                           fontFamily: fontFamily,
-                          onBrightnessChanged: _show,
                           onPreset: (mode, id) => unawaited(
                             _save(_preferences.withPreset(mode, id)),
                           ),

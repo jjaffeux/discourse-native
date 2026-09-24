@@ -88,7 +88,6 @@ class ForumThemePicker extends StatefulWidget {
     super.key,
     required this.preferences,
     required this.brightness,
-    required this.onBrightnessChanged,
     required this.onPreset,
     required this.onTheme,
     required this.onNewTheme,
@@ -101,9 +100,8 @@ class ForumThemePicker extends StatefulWidget {
 
   final ForumThemePreferences preferences;
 
-  /// The mode the lists are for, and the app shows while the page is open.
+  /// The active appearance mode used for the preset list and thumbnails.
   final Brightness brightness;
-  final ValueChanged<Brightness> onBrightnessChanged;
   final void Function(Brightness mode, String id) onPreset;
   final ValueChanged<String> onTheme;
 
@@ -145,37 +143,6 @@ class _ForumThemePickerState extends State<ForumThemePicker> {
     },
   );
 
-  Widget _header(String? label) => Wrap(
-    alignment: label == null ? WrapAlignment.end : WrapAlignment.spaceBetween,
-    crossAxisAlignment: WrapCrossAlignment.center,
-    spacing: DSpacing.md,
-    runSpacing: DSpacing.sm,
-    children: [
-      if (label != null) DFieldLabel(child: Text(label)),
-      DToggleGroup<Brightness>(
-        key: const ValueKey('theme-shown-mode'),
-        values: [widget.brightness],
-        allowEmptySelection: false,
-        size: DToggleSize.small,
-        variant: DToggleVariant.outline,
-        semanticLabel: 'Colours shown',
-        items: const [
-          DToggleGroupItem(
-            value: Brightness.light,
-            icon: Icon(Icons.light_mode_outlined),
-            child: Text('Light'),
-          ),
-          DToggleGroupItem(
-            value: Brightness.dark,
-            icon: Icon(Icons.dark_mode_outlined),
-            child: Text('Dark'),
-          ),
-        ],
-        onChanged: (values) => widget.onBrightnessChanged(values.single),
-      ),
-    ],
-  );
-
   Widget _caption(BuildContext context, String text) => Text(
     text,
     style: TextStyle(
@@ -201,7 +168,7 @@ class _ForumThemePickerState extends State<ForumThemePicker> {
   );
 
   List<Widget> _forum(BuildContext context) => [
-    _header('The forum’s own colours'),
+    const DFieldLabel(child: Text('The forum’s own colours')),
     _footer([
       _caption(
         context,
@@ -215,7 +182,6 @@ class _ForumThemePickerState extends State<ForumThemePicker> {
   List<Widget> _presets(BuildContext context) {
     final chosen = widget.preferences.presetFor(widget.brightness);
     return [
-      _header(null),
       if (chosen == null)
         _caption(
           context,
@@ -235,7 +201,7 @@ class _ForumThemePickerState extends State<ForumThemePicker> {
   }
 
   List<Widget> _saved(BuildContext context) => [
-    _header('Your themes'),
+    const DFieldLabel(child: Text('Your themes')),
     _list([
       for (final theme in widget.preferences.customThemes)
         _row(
@@ -347,6 +313,7 @@ class _ThemeChoiceRowState extends State<_ThemeChoiceRow> {
         key: ValueKey(('theme-choice', widget.theme.id)),
         size: DItemSize.sm,
         selected: widget.chosen,
+        showSelectionIndicator: false,
         onPressed: widget.onPressed,
         onHoverChanged: widget.onCustomize == null
             ? null
