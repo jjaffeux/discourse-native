@@ -97,6 +97,35 @@ void main() {
     });
   }
 
+  testWidgets('icon toggles fit collapsing widths in both directions', (
+    tester,
+  ) async {
+    for (final rtl in [false, true]) {
+      for (final position in DToggleIconPosition.values) {
+        for (final width in [240.0, 40.0, 21.385, 1.0, 0.0]) {
+          await mount(
+            tester,
+            DToggle(
+              density: DToggleDensity.reaction,
+              variant: DToggleVariant.outline,
+              iconPosition: position,
+              icon: const Icon(Icons.favorite),
+              child: const Text('1'),
+            ),
+            theme: AppTheme.light.copyWith(platform: TargetPlatform.macOS),
+            rtl: rtl,
+            width: width,
+          );
+          expect(
+            tester.takeException(),
+            isNull,
+            reason: 'width=$width, rtl=$rtl, iconPosition=$position',
+          );
+        }
+      }
+    }
+  });
+
   testWidgets('reaction density grows for scaled counts in RTL', (
     tester,
   ) async {
