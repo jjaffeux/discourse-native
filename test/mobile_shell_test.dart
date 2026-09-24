@@ -228,6 +228,26 @@ void main() {
     expect(find.text('Recent'), findsOneWidget);
     expect(find.text('All'), findsOneWidget);
     expect(find.byKey(const ValueKey('user-presence-menu')), findsOneWidget);
+    // Check painted geometry separately from the invisible touch targets.
+    // A missing size on either custom trigger used to inflate it to 44px.
+    for (final (key, height) in [
+      ('mobile-chat-activity-filter', 30.75),
+      ('mobile-chat-kind-filter', 30.75),
+      ('user-presence-menu', 24.0),
+    ]) {
+      final control = find.byKey(ValueKey(key));
+      final surface = find.descendant(
+        of: control,
+        matching: find.byWidgetPredicate(
+          (widget) =>
+              widget is AnimatedContainer &&
+              widget.decoration is DButtonDecoration,
+        ),
+      );
+      expect(tester.getSize(surface).height, height, reason: key);
+      expect(tester.getSize(control).height, greaterThanOrEqualTo(48));
+      expect(tester.getSize(control).width, greaterThanOrEqualTo(48));
+    }
     expect(find.text('Starred channels'), findsNothing);
     expect(find.text('General'), findsOneWidget);
     expect(find.text('sam'), findsOneWidget);

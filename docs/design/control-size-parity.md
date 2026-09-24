@@ -98,3 +98,49 @@ Integration with main `9e446738f` preserved the font preview rows and gradient
 settings; all 30 integrated settings, sizing and golden checks passed.
 Static analysis passed with no issues before and after integration. These failures are recorded
 separately from the sizing regression checks.
+
+## Choosing sizes in application code
+
+Choose by the control's role, consistently across pages:
+
+- List filters (including Chat Recent/type, channel browsing, inbox and invite
+  scope) use `filter`. A custom Select trigger must set `filter` on its actual
+  Button as well; the Select size does not override a caller-built Button.
+- Search fields use `field`; preference selectors use `preference`, including
+  channel notification settings.
+- Compact header actions and the Chat presence trigger use `chip`. Do not put
+  `compactToolbar` density over this preset.
+- Toolbars use `toolbar`, footer actions use `action`, and joined view controls
+  use `segment`.
+- Other controls use the general `small` / `regular` / `large` scale. Regular
+  is the ordinary form/action default; small is for compact secondary actions;
+  large needs a deliberate prominent-action role, not just a mobile viewport.
+
+The mockup itself has more than three artwork heights. These named presets
+retain that reference in the single shared `DControlSize` implementation;
+application code must not invent local heights, padding or text sizes to imitate
+another control. Existing adoption tests reject local Button styling overrides.
+The mobile Chat interaction test also checks actual filter/chip paint heights
+and 48px targets on both iOS and Android themes, so custom triggers cannot
+silently revert to the generic default.
+
+### Chat and remaining caller follow-up
+
+The September 24 follow-up corrected Chat's custom Select buttons, presence
+chip, channel-browse filters/search, notification preference, footer actions,
+the ordinary inbox selector, invitation filter and calendar navigation chips.
+Topics, Messages, Bookmarks, Badges, Groups and Users already used the filter
+preset in their main filter rows. No shared size metrics were changed.
+
+Verification: static analysis passed; the focused Chat interaction/geometry
+check passed for iOS and Android theme variants. The broader affected-surface,
+adoption and mockup-size run passed 103 tests with one failure: `reader tabs
+retain the message list and its scroll position`. That failure was reproduced
+in an untouched detached checkout of `69c5f09ef`.
+
+Visual review compared the localhost Chat reference with widget-test renders
+using the system font in neutral/Dracula and a native macOS offline fixture
+using mobile theme metrics. Native inspection covered 390px dark and 320px
+light at 150% text, selecting Unread, opening presence and Escape dismissal.
+The isolated ad-hoc bundle launched successfully. This was not physical mobile
+device testing. No new component or sizing API was needed.

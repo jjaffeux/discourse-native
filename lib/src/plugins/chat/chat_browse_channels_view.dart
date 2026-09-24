@@ -146,22 +146,19 @@ class _ChatBrowseChannelsViewState extends State<ChatBrowseChannelsView> {
           padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
           child: Column(
             children: [
-              TextField(
-                style: Theme.of(context).textTheme.bodyMedium,
+              DInput(
+                size: DControlSize.field,
                 key: const ValueKey('chat-browse-filter'),
                 controller: _filterController,
-                decoration: const InputDecoration(
-                  labelText: 'Find a channel',
-                  prefixIcon: Icon(Icons.search),
-                  border: OutlineInputBorder(),
-                  isDense: true,
-                ),
+                labelText: 'Find a channel',
+                prefix: const DIcon(DIcons.magnifyingGlass),
               ),
               const SizedBox(height: 8),
               Row(
                 children: [
                   Expanded(
                     child: DSelect<ChatChannelBrowseStatus>.controlled(
+                      size: DControlSize.filter,
                       isExpanded: true,
                       key: const ValueKey('chat-browse-status'),
                       value: _status,
@@ -182,9 +179,10 @@ class _ChatBrowseChannelsViewState extends State<ChatBrowseChannelsView> {
                       initialValue: _status,
                     ),
                   ),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: DSpacing.controlGap),
                   Expanded(
                     child: DSelect<ChatChannelJoinedFilter>.controlled(
+                      size: DControlSize.filter,
                       isExpanded: true,
                       key: const ValueKey('chat-browse-joined'),
                       value: _joined,

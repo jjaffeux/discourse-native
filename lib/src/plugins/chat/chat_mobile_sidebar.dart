@@ -227,6 +227,7 @@ class _ChatMobileSidebarState extends State<ChatMobileSidebar> {
                     if (settings.publicChannelsEnabled)
                       DButton(
                         key: const ValueKey('mobile-chat-browse'),
+                        size: DControlSize.action,
                         icon: const DIcon(DIcons.list),
                         label: const Text('Browse channels'),
                         variant: DButtonVariant.outline,
@@ -235,6 +236,7 @@ class _ChatMobileSidebarState extends State<ChatMobileSidebar> {
                     if (settings.threadsEnabled && chat.hasThreads(siteUrl))
                       DButton(
                         key: const ValueKey('mobile-chat-my-threads'),
+                        size: DControlSize.action,
                         icon: const DIcon(DIcons.comments),
                         label: const Text('My threads'),
                         variant: DButtonVariant.outline,
@@ -270,6 +272,7 @@ class _ChatFilter<T> extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => DSelect<T>.controlled(
+    size: DControlSize.filter,
     value: value,
     semanticLabel: semanticLabel,
     entries: entries,
@@ -280,6 +283,7 @@ class _ChatFilter<T> extends StatelessWidget {
       if (value != null) onChanged(value);
     },
     triggerBuilder: (context, state, _) => DButton(
+      size: DControlSize.filter,
       variant: DButtonVariant.outline,
       semanticLabel: '$semanticLabel, $label',
       focusNode: state.focusNode,
@@ -301,7 +305,7 @@ class _ChatFilter<T> extends StatelessWidget {
               ),
             ),
           ),
-          const DIcon(DIcons.chevronDown),
+          const DIcon(DNativeIcons.filterChevron, size: 10),
         ],
       ),
     ),

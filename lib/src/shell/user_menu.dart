@@ -11,6 +11,7 @@ import '../plugin_api/plugin_scope.dart';
 import '../plugin_api/site_plugin_api.dart';
 import '../theme/app_theme.dart';
 import '../theme/d_icons.dart';
+import '../theme/d_native_icons.dart';
 import 'avatar_image.dart';
 import 'bookmark_list.dart';
 import 'do_not_disturb_dialog.dart';
@@ -953,7 +954,7 @@ class _UserPresenceMenuState extends State<UserPresenceMenu> {
             builder: (context, state) => DButton(
               key: const ValueKey('user-presence-menu'),
               variant: DButtonVariant.outline,
-              density: DButtonDensity.compactToolbar,
+              size: DControlSize.chip,
               tooltip: 'Status and notifications',
               semanticLabel: 'Status and notifications, $label',
               focusNode: state.focusNode,
@@ -966,7 +967,7 @@ class _UserPresenceMenuState extends State<UserPresenceMenu> {
                     ? DTokens.of(context).success
                     : DTokens.of(context).mutedForeground,
               ),
-              label: const DIcon(DIcons.chevronDown),
+              label: const DIcon(DNativeIcons.filterChevron, size: 10),
             ),
           ),
         );
