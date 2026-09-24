@@ -285,11 +285,6 @@ class _ForumAppearanceSettingsState extends State<ForumAppearanceSettings> {
       final fontFamily = settings.shared.font.family;
       final others = _otherForums();
       final editing = _editing;
-      final sources = ForumThemeSources(
-        value: editing == null ? preferences.source : ForumThemeSource.custom,
-        enabled: editing == null,
-        onChanged: _chooseSource,
-      );
       return SingleChildScrollView(
         key: const PageStorageKey('theme-settings-scroll'),
         padding: const EdgeInsets.all(16),
@@ -379,7 +374,6 @@ class _ForumAppearanceSettingsState extends State<ForumAppearanceSettings> {
                     theme: editing,
                     brightness: brightness,
                     onBrightnessChanged: _show,
-                    sources: sources,
                     onChanged: (draft) {
                       _draft = draft;
                       _preview();
@@ -396,7 +390,10 @@ class _ForumAppearanceSettingsState extends State<ForumAppearanceSettings> {
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       spacing: 16,
                       children: [
-                        sources,
+                        ForumThemeSources(
+                          value: preferences.source,
+                          onChanged: _chooseSource,
+                        ),
                         ForumThemePicker(
                           key: const ValueKey('theme-picker'),
                           preferences: preferences,

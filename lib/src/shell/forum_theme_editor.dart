@@ -14,7 +14,6 @@ class ForumThemeEditor extends StatefulWidget {
     required this.theme,
     required this.brightness,
     required this.onBrightnessChanged,
-    required this.sources,
     required this.onChanged,
     required this.onSave,
     required this.onCancel,
@@ -26,9 +25,6 @@ class ForumThemeEditor extends StatefulWidget {
   /// The mode whose colours are edited, and the app shows.
   final Brightness brightness;
   final ValueChanged<Brightness> onBrightnessChanged;
-
-  /// The Theme section's choice of source, shown above the draft.
-  final Widget sources;
 
   /// The draft after each change to how it looks.
   final ValueChanged<ForumTheme> onChanged;
@@ -91,166 +87,145 @@ class _ForumThemeEditorState extends State<ForumThemeEditor> {
   @override
   Widget build(BuildContext context) {
     final palette = _palette;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      spacing: 18,
-      children: [
-        SettingsSection(
-          title: 'Theme',
-          icon: const ThemeIcon(ThemeIcons.preset),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            spacing: 16,
-            children: [
-              widget.sources,
-              DInput(
-                key: const ValueKey('theme-name'),
-                controller: _name,
-                labelText: 'Name',
-                maxLength: 48,
-                readOnly: _saving,
-                onChanged: (_) => setState(() {}),
-              ),
-            ],
+    return SettingsSection(
+      title: 'Theme',
+      icon: const ThemeIcon(ThemeIcons.preset),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        spacing: 16,
+        children: [
+          DInput(
+            key: const ValueKey('theme-name'),
+            controller: _name,
+            labelText: 'Name',
+            maxLength: 48,
+            readOnly: _saving,
+            onChanged: (_) => setState(() {}),
           ),
-        ),
-        SettingsSection(
-          title: 'Colours',
-          icon: const ThemeIcon(ThemeIcons.palette),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            spacing: 16,
-            children: [
-              DTabs<Brightness>.controlled(
-                key: const ValueKey('appearance-theme-select'),
-                value: widget.brightness,
-                onActivated: widget.onBrightnessChanged,
-                children: const [
-                  DTabList<Brightness>(
-                    variant: DTabListVariant.line,
-                    children: [
-                      DTabTrigger(
-                        value: Brightness.light,
-                        child: Text('Light'),
-                      ),
-                      DTabTrigger(value: Brightness.dark, child: Text('Dark')),
-                    ],
-                  ),
+          DTabs<Brightness>.controlled(
+            key: const ValueKey('appearance-theme-select'),
+            value: widget.brightness,
+            onActivated: widget.onBrightnessChanged,
+            children: const [
+              DTabList<Brightness>(
+                variant: DTabListVariant.line,
+                children: [
+                  DTabTrigger(value: Brightness.light, child: Text('Light')),
+                  DTabTrigger(value: Brightness.dark, child: Text('Dark')),
                 ],
               ),
-              LayoutBuilder(
-                builder: (context, bounds) {
-                  final minimum =
-                      150 * MediaQuery.textScalerOf(context).scale(13) / 13;
-                  final columns = ((bounds.maxWidth + 14) / (minimum + 14))
-                      .floor()
-                      .clamp(1, 3);
-                  final fields = <(String, Color, ValueChanged<Color>)>[
-                    (
-                      'Background',
-                      palette.secondary,
-                      (c) => _palette = palette.copyWith(secondary: c),
-                    ),
-                    (
-                      'Text',
-                      palette.primary,
-                      (c) => _palette = palette.copyWith(primary: c),
-                    ),
-                    (
-                      'Accent',
-                      palette.tertiary,
-                      (c) => _palette = palette.copyWith(tertiary: c),
-                    ),
-                    (
-                      'Highlight',
-                      palette.quaternary,
-                      (c) => _palette = palette.copyWith(quaternary: c),
-                    ),
-                    (
-                      'Success',
-                      palette.success,
-                      (c) => _palette = palette.copyWith(success: c),
-                    ),
-                    (
-                      'Attention',
-                      palette.danger,
-                      (c) => _palette = palette.copyWith(danger: c),
-                    ),
-                  ];
-                  return Wrap(
-                    spacing: 14,
-                    runSpacing: 14,
-                    children: [
-                      for (final field in fields)
-                        SizedBox(
-                          width:
-                              (bounds.maxWidth - 14 * (columns - 1)) / columns,
-                          child: _ColorField(
-                            key: ValueKey((widget.brightness, field.$1)),
-                            label: field.$1,
-                            color: field.$2,
-                            onChanged: field.$3,
-                          ),
-                        ),
-                    ],
-                  );
-                },
-              ),
-              DRadioGroup<bool>.controlled(
-                key: const ValueKey('theme-sidebar'),
-                groupValue: palette.darkerSidebars,
-                onChanged: (value) {
-                  if (value != null) {
-                    _palette = palette.copyWith(darkerSidebars: value);
-                  }
-                },
-                child: const SettingsChoiceCards(
-                  children: [
-                    DRadioGroupItem(
-                      key: ValueKey(('theme-sidebar', false)),
-                      value: false,
-                      card: true,
-                      label: Text('Neutral sidebar'),
-                      description: Text('Matches the background'),
-                    ),
-                    DRadioGroupItem(
-                      key: ValueKey(('theme-sidebar', true)),
-                      value: true,
-                      card: true,
-                      label: Text('Darker sidebar'),
-                      description: Text('Sets navigation apart'),
-                    ),
-                  ],
+            ],
+          ),
+          LayoutBuilder(
+            builder: (context, bounds) {
+              final minimum =
+                  150 * MediaQuery.textScalerOf(context).scale(13) / 13;
+              final columns = ((bounds.maxWidth + 14) / (minimum + 14))
+                  .floor()
+                  .clamp(1, 3);
+              final fields = <(String, Color, ValueChanged<Color>)>[
+                (
+                  'Background',
+                  palette.secondary,
+                  (c) => _palette = palette.copyWith(secondary: c),
                 ),
+                (
+                  'Text',
+                  palette.primary,
+                  (c) => _palette = palette.copyWith(primary: c),
+                ),
+                (
+                  'Accent',
+                  palette.tertiary,
+                  (c) => _palette = palette.copyWith(tertiary: c),
+                ),
+                (
+                  'Highlight',
+                  palette.quaternary,
+                  (c) => _palette = palette.copyWith(quaternary: c),
+                ),
+                (
+                  'Success',
+                  palette.success,
+                  (c) => _palette = palette.copyWith(success: c),
+                ),
+                (
+                  'Attention',
+                  palette.danger,
+                  (c) => _palette = palette.copyWith(danger: c),
+                ),
+              ];
+              return Wrap(
+                spacing: 14,
+                runSpacing: 14,
+                children: [
+                  for (final field in fields)
+                    SizedBox(
+                      width: (bounds.maxWidth - 14 * (columns - 1)) / columns,
+                      child: _ColorField(
+                        key: ValueKey((widget.brightness, field.$1)),
+                        label: field.$1,
+                        color: field.$2,
+                        onChanged: field.$3,
+                      ),
+                    ),
+                ],
+              );
+            },
+          ),
+          DRadioGroup<bool>.controlled(
+            key: const ValueKey('theme-sidebar'),
+            groupValue: palette.darkerSidebars,
+            onChanged: (value) {
+              if (value != null) {
+                _palette = palette.copyWith(darkerSidebars: value);
+              }
+            },
+            child: const SettingsChoiceCards(
+              children: [
+                DRadioGroupItem(
+                  key: ValueKey(('theme-sidebar', false)),
+                  value: false,
+                  card: true,
+                  label: Text('Neutral sidebar'),
+                  description: Text('Matches the background'),
+                ),
+                DRadioGroupItem(
+                  key: ValueKey(('theme-sidebar', true)),
+                  value: true,
+                  card: true,
+                  label: Text('Darker sidebar'),
+                  description: Text('Sets navigation apart'),
+                ),
+              ],
+            ),
+          ),
+          if (_error case final error?)
+            DAlert(
+              variant: DAlertVariant.destructive,
+              description: DAlertDescription(child: Text(error)),
+            ),
+          Wrap(
+            spacing: DSpacing.controlGap,
+            runSpacing: DSpacing.controlGap,
+            children: [
+              DButton(
+                key: const ValueKey('theme-save'),
+                label: const Text('Save'),
+                loading: _saving,
+                loadingSemanticLabel: 'Saving theme',
+                onPressed: _name.text.trim().isEmpty ? null : _save,
+              ),
+              DButton(
+                key: const ValueKey('theme-cancel'),
+                label: const Text('Cancel'),
+                variant: DButtonVariant.outline,
+                onPressed: _saving ? null : widget.onCancel,
               ),
             ],
           ),
-        ),
-        if (_error case final error?)
-          DAlert(
-            variant: DAlertVariant.destructive,
-            description: DAlertDescription(child: Text(error)),
-          ),
-        Wrap(
-          spacing: DSpacing.controlGap,
-          runSpacing: DSpacing.controlGap,
-          children: [
-            DButton(
-              key: const ValueKey('theme-save'),
-              label: const Text('Save'),
-              loading: _saving,
-              loadingSemanticLabel: 'Saving theme',
-              onPressed: _name.text.trim().isEmpty ? null : _save,
-            ),
-            DButton(
-              key: const ValueKey('theme-cancel'),
-              label: const Text('Cancel'),
-              variant: DButtonVariant.outline,
-              onPressed: _saving ? null : widget.onCancel,
-            ),
-          ],
-        ),
-      ],
+        ],
+      ),
     );
   }
 }

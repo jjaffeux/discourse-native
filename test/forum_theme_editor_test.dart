@@ -467,15 +467,33 @@ void main() {
       await _tap(tester, find.byKey(ValueKey(('edit-theme', second.id))));
 
       final sidebar = find.byKey(const ValueKey('theme-sidebar'));
-      // The sidebar tone is part of each mode's colours.
+      // The draft is one section: its name, then each mode's colours, then
+      // Save. The source choice cannot change mid-edit, so it is not shown.
+      final section = find.byWidgetPredicate(
+        (widget) => widget is SettingsSection && widget.title == 'Theme',
+      );
+      expect(section, findsOneWidget);
+      expect(find.byKey(const ValueKey('theme-source')), findsNothing);
       expect(
-        find.descendant(
-          of: find.byWidgetPredicate(
-            (widget) => widget is SettingsSection && widget.title == 'Colours',
-          ),
-          matching: sidebar,
+        find.byWidgetPredicate(
+          (widget) => widget is SettingsSection && widget.title == 'Colours',
         ),
-        findsOneWidget,
+        findsNothing,
+      );
+      for (final key in ['theme-name', 'theme-sidebar', 'theme-save']) {
+        expect(
+          find.descendant(of: section, matching: find.byKey(ValueKey(key))),
+          findsOneWidget,
+          reason: key,
+        );
+      }
+      expect(
+        tester.getTopLeft(find.byKey(const ValueKey('theme-name'))).dy,
+        lessThan(
+          tester
+              .getTopLeft(find.byKey(const ValueKey('appearance-theme-select')))
+              .dy,
+        ),
       );
       for (final control in ['theme-tint', 'theme-texture']) {
         expect(
