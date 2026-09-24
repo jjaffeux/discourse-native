@@ -1178,8 +1178,6 @@ void main() {
       expect(tester.getRect(indicator).left, greaterThan(targetRect.right));
       expect(tester.getRect(target), targetRect);
       expect(tester.getRect(source), sourceRect);
-      // Picking up the background tab leaves the current one on screen.
-      expect(shell.activeTabId, second);
       await gesture.up();
       await tester.pumpAndSettle();
       expect(indicator, findsNothing);
@@ -1187,7 +1185,6 @@ void main() {
         second,
         first,
       ]);
-      expect(shell.activeTabId, second);
       expect(tester.takeException(), isNull);
     });
 
