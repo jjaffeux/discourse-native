@@ -371,6 +371,53 @@ void main() {
     }
   });
 
+  testWidgets('outline border override leaves selection accent intact', (
+    tester,
+  ) async {
+    const restingBorder = Color(0xFF7689A0);
+    for (final brightness in Brightness.values) {
+      final theme = ThemeData(brightness: brightness);
+      final tokens = DTokens.fromTheme(theme);
+      var selected = false;
+      await tester.pumpWidget(
+        host(
+          StatefulBuilder(
+            builder: (context, setState) => DItem(
+              variant: DItemVariant.outline,
+              borderColor: restingBorder,
+              selectionStyle: DItemSelectionStyle.outline,
+              selected: selected,
+              showSelectionIndicator: false,
+              onPressed: () => setState(() => selected = true),
+              children: const [Text('Outlined item')],
+            ),
+          ),
+          theme: theme,
+        ),
+      );
+      await tester.pumpAndSettle();
+      Container surface() => tester.widget<Container>(
+        find.descendant(
+          of: find.byType(DItem),
+          matching: find.byWidgetPredicate(
+            (widget) =>
+                widget is Container && widget.decoration is BoxDecoration,
+          ),
+        ),
+      );
+      expect(
+        (surface().decoration! as BoxDecoration).border!.top.color,
+        restingBorder,
+      );
+      await tester.tap(find.text('Outlined item'));
+      await tester.pump();
+      expect(
+        (surface().foregroundDecoration! as BoxDecoration).border,
+        Border.all(color: tokens.primary, width: 2),
+      );
+    }
+  });
+
   testWidgets('neutral rows keep hover subtle and selection borderless', (
     tester,
   ) async {

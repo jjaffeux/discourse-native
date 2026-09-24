@@ -82,109 +82,51 @@ class _ForumThemeNewDialogState extends State<ForumThemeNewDialog> {
     widget.controller.close((name: name, base: _base));
   }
 
-  String get _note {
-    final base = _base;
-    if (base.id == blankForumTheme.id) {
-      return 'Starts with plain greys for light and dark.';
-    }
-    if (base.id == widget.forum.id) {
-      return 'Starts with the forum’s light and dark colours. Your copy won’t '
-          'follow later changes the forum makes.';
-    }
-    if (widget.saved.contains(base)) {
-      return 'Starts as a copy of ${base.name}, light and dark.';
-    }
-    final missing = Brightness.values
-        .where((mode) => !forumThemeHasMode(base, mode))
-        .firstOrNull;
-    if (missing == null) {
-      return 'Starts with ${base.name}’s light and dark versions.';
-    }
-    final authored = missing == Brightness.light ? 'dark' : 'light';
-    return '${base.name} only has a $authored version, so the '
-        '${missing.name} one is generated from it. You can adjust both.';
-  }
-
   @override
-  Widget build(BuildContext context) {
-    final tokens = DTokens.of(context);
-    return DDialogContent(
-      semanticLabel: 'New theme',
-      maxWidth: 560,
-      children: [
-        const DDialogHeader(
-          children: [
-            DDialogTitle(child: Text('New theme')),
-            DDialogDescription(
-              child: Text(
-                'Start blank or from a theme you like. You can change every '
-                'colour afterwards.',
-              ),
-            ),
-          ],
-        ),
-        DInput(
-          key: const ValueKey('new-theme-name'),
-          controller: _name,
-          labelText: 'Name',
-          autofocus: true,
-          maxLength: 48,
-          textInputAction: TextInputAction.done,
-          onChanged: (_) => setState(() => _named = true),
-          onSubmitted: (_) => _continue(),
-        ),
-        DDialogScrollArea(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            spacing: DSpacing.md,
-            children: [
-              const DFieldLabel(child: Text('Start from')),
-              _grid([blankForumTheme, widget.forum]),
-              _group('Presets', _presets),
-              if (widget.saved.isNotEmpty) _group('Your themes', widget.saved),
-            ],
-          ),
-        ),
-        Text(
-          _note,
-          key: const ValueKey('new-theme-note'),
-          style: TextStyle(
-            fontSize: 12.5,
-            height: 1.45,
-            color: tokens.mutedForeground,
-          ),
-        ),
-        DDialogFooter(
-          children: [
-            DButton(
-              label: const Text('Cancel'),
-              variant: DButtonVariant.outline,
-              onPressed: widget.controller.close,
-            ),
-            DButton(
-              key: const ValueKey('new-theme-continue'),
-              label: const Text('Continue'),
-              onPressed: _name.text.trim().isEmpty ? null : _continue,
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-
-  Widget _group(String label, List<ForumTheme> themes) => Column(
-    crossAxisAlignment: CrossAxisAlignment.stretch,
-    spacing: DSpacing.sm,
+  Widget build(BuildContext context) => DDialogContent(
+    semanticLabel: 'New theme',
+    maxWidth: 560,
     children: [
-      Text(
-        label,
-        style: TextStyle(
-          fontSize: 12,
-          fontWeight: FontWeight.w600,
-          color: DTokens.of(context).mutedForeground,
+      const DDialogHeader(children: [DDialogTitle(child: Text('New theme'))]),
+      DInput(
+        key: const ValueKey('new-theme-name'),
+        controller: _name,
+        labelText: 'Name',
+        autofocus: true,
+        maxLength: 48,
+        textInputAction: TextInputAction.done,
+        onChanged: (_) => setState(() => _named = true),
+        onSubmitted: (_) => _continue(),
+      ),
+      DDialogScrollArea(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          spacing: DSpacing.md,
+          children: [
+            const DFieldLabel(child: Text('Start from')),
+            _grid([
+              blankForumTheme,
+              widget.forum,
+              ..._presets,
+              ...widget.saved,
+            ]),
+          ],
         ),
       ),
-      _grid(themes),
+      DDialogFooter(
+        children: [
+          DButton(
+            label: const Text('Cancel'),
+            variant: DButtonVariant.outline,
+            onPressed: widget.controller.close,
+          ),
+          DButton(
+            key: const ValueKey('new-theme-continue'),
+            label: const Text('Continue'),
+            onPressed: _name.text.trim().isEmpty ? null : _continue,
+          ),
+        ],
+      ),
     ],
   );
 
@@ -196,6 +138,7 @@ class _ForumThemeNewDialogState extends State<ForumThemeNewDialog> {
           .floor()
           .clamp(1, 4);
       final width = (constraints.maxWidth - gap * (columns - 1)) / columns;
+      final borderColor = DTokens.of(context).foreground.withValues(alpha: .24);
       return Semantics(
         role: SemanticsRole.list,
         child: Wrap(
@@ -208,6 +151,7 @@ class _ForumThemeNewDialogState extends State<ForumThemeNewDialog> {
                 child: DItem(
                   key: ValueKey(('new-theme-base', theme.id)),
                   variant: DItemVariant.outline,
+                  borderColor: borderColor,
                   shape: DItemShape.card,
                   size: DItemSize.xs,
                   selected: theme.id == _base.id,
