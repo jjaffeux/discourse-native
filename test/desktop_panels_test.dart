@@ -109,7 +109,10 @@ void main() {
       expect(shell.activeTabId, original);
       expect(shell.activeTab?.panel, panel);
       expect(shell.currentContent?.id, 'all-categories');
-      expect(shell.tabsForCurrentForum, hasLength(1));
+      expect(
+        shell.tabsForCurrentForum,
+        hasLength(panel == ForumPanel.main ? 1 : 2),
+      );
     });
   }
 
@@ -181,7 +184,10 @@ void main() {
       final beforeMove = shell.activeTab!;
       shell.moveTabToPanel(topic.id, ForumPanel.main, index: 0);
       expect(shell.activeTab, beforeMove.copyWith(panel: ForumPanel.main));
-      expect(shell.selectedTabIn(ForumPanel.secondary), isNull);
+      expect(
+        shell.selectedTabIn(ForumPanel.secondary)?.currentContent.isNewTab,
+        isTrue,
+      );
 
       shell.createTab(panel: ForumPanel.secondary);
       final secondaryId = shell.activeTabId;
@@ -841,12 +847,12 @@ void main() {
     );
   }
 
-  testWidgets('a lone tab can be dragged to an empty panel and back', (
+  testWidgets('dragging the last tab leaves a Start page in each panel', (
     tester,
   ) async {
     await _pump(tester, shell);
     final id = shell.activeTabId!;
-    Future<void> moveToEmptyPanel(String label) async {
+    Future<void> moveToPanel(Finder target) async {
       final tab = find.byKey(ValueKey('forum-tab-$id'));
       final gesture = await tester.startGesture(
         tester.getCenter(tab),
@@ -854,7 +860,7 @@ void main() {
       );
       await gesture.moveBy(const Offset(0, 20));
       await tester.pump();
-      await gesture.moveTo(tester.getCenter(find.text(label)));
+      await gesture.moveTo(tester.getCenter(target));
       await tester.pumpAndSettle();
       final indicator = find.byKey(
         const ValueKey('forum-tab-drop-placeholder'),
@@ -866,16 +872,36 @@ void main() {
       expect(indicator, findsNothing);
     }
 
-    await moveToEmptyPanel('Secondary panel');
+    await moveToPanel(find.text('Secondary panel'));
     await tester.pumpAndSettle();
     expect(shell.activeTab?.panel, ForumPanel.secondary);
     expect(shell.activeTabId, id);
-    expect(find.text('Main panel'), findsOneWidget);
+    final main = shell.selectedTabIn(ForumPanel.main)!;
+    expect(main.currentContent.title, 'Start page');
+    expect(main.currentContent.icon, DIcons.grip);
+    final startTab = find.byKey(ValueKey('forum-tab-${main.id}'));
+    expect(
+      find.descendant(of: startTab, matching: find.text('Start page')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(
+        of: startTab,
+        matching: find.byWidgetPredicate(
+          (widget) => widget is DIcon && widget.icon == DIcons.grip,
+        ),
+      ),
+      findsOneWidget,
+    );
 
-    await moveToEmptyPanel('Main panel');
+    await moveToPanel(startTab);
     await tester.pumpAndSettle();
     expect(shell.activeTab?.panel, ForumPanel.main);
     expect(shell.activeTabId, id);
+    expect(
+      shell.selectedTabIn(ForumPanel.secondary)?.currentContent.isNewTab,
+      isTrue,
+    );
     expect(tester.takeException(), isNull);
   });
 
