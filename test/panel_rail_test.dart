@@ -79,6 +79,21 @@ void main() {
     }
   }
 
+  testWidgets('the read-out starts growing after the frame that builds it', (
+    tester,
+  ) async {
+    await _pump(tester);
+    final mouse = await _mouse(tester, at: const Offset(600, 400));
+    await mouse.moveTo(tester.getCenter(_rail));
+    await tester.pump();
+    // Its first tick: still the rail's width, so none of the growth is lost
+    // to the build.
+    await tester.pump(const Duration(milliseconds: 16));
+    expect(tester.getSize(_readOut).width, PanelRail.width);
+    await tester.pump(const Duration(milliseconds: 16));
+    expect(tester.getSize(_readOut).width, greaterThan(PanelRail.width));
+  });
+
   testWidgets(
     'moving from the rail onto the read-out keeps it open until it leaves',
     (tester) async {
