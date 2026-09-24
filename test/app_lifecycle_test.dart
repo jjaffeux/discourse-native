@@ -281,46 +281,54 @@ void main() {
           sessionId: 'app-lifecycle-dispatch',
         );
         addTearDown(diagnostics.close);
-        final first = _LifecycleProbe();
-        final second = _LifecycleProbe();
-        final manifest = PluginManifest([
-          _LifecycleTestModule('lifecycle-one', first),
-          _LifecycleTestModule('lifecycle-two', second),
-        ]);
+        // Close under the fake clock even when the body fails: a close first
+        // reached from a tearDown never completes, because it waits on futures
+        // created under the fake clock, which nothing drives once the body has
+        // returned.
+        try {
+          final first = _LifecycleProbe();
+          final second = _LifecycleProbe();
+          final manifest = PluginManifest([
+            _LifecycleTestModule('lifecycle-one', first),
+            _LifecycleTestModule('lifecycle-two', second),
+          ]);
 
-        await tester.pumpWidget(
-          DiscourseApp(
-            store: FakeInstanceStore(),
-            api: FakeDiscourseApi(),
-            authenticator: FakeAuthenticator(),
-            drafts: FakeDraftStore(),
-            forumTabs: FakeForumTabStore(),
-            trackers: FakeSiteTracker.reset(),
-            updater: FakeUpdater(),
-            updateStore: FakeUpdateStore(),
-            diagnostics: diagnostics,
-            pluginManifest: manifest,
-            initialRootMode: ShellRootMode.forum,
-          ),
-        );
-        await tester.pumpAndSettle();
-        final appendCallsBeforeBackground = persistence.appendCalls;
-        diagnostics.recordLog(name: 'before.background', source: 'test');
-        expect(persistence.appendCalls, appendCallsBeforeBackground);
+          await tester.pumpWidget(
+            DiscourseApp(
+              store: FakeInstanceStore(),
+              api: FakeDiscourseApi(),
+              authenticator: FakeAuthenticator(),
+              drafts: FakeDraftStore(),
+              forumTabs: FakeForumTabStore(),
+              trackers: FakeSiteTracker.reset(),
+              updater: FakeUpdater(),
+              updateStore: FakeUpdateStore(),
+              diagnostics: diagnostics,
+              pluginManifest: manifest,
+              initialRootMode: ShellRootMode.forum,
+            ),
+          );
+          await tester.pumpAndSettle();
+          final appendCallsBeforeBackground = persistence.appendCalls;
+          diagnostics.recordLog(name: 'before.background', source: 'test');
+          expect(persistence.appendCalls, appendCallsBeforeBackground);
 
-        final observer =
-            tester.state(find.byType(DiscourseApp)) as WidgetsBindingObserver;
-        observer.didChangeAppLifecycleState(AppLifecycleState.paused);
-        await tester.pump();
-        await tester.pump();
+          final observer =
+              tester.state(find.byType(DiscourseApp)) as WidgetsBindingObserver;
+          observer.didChangeAppLifecycleState(AppLifecycleState.paused);
+          await tester.pump();
+          await tester.pump();
 
-        for (final probe in [first, second]) {
-          expect(probe.states.last, ('paused', false));
-          expect(probe.flushCalls, 1);
+          for (final probe in [first, second]) {
+            expect(probe.states.last, ('paused', false));
+            expect(probe.flushCalls, 1);
+          }
+          expect(persistence.appendCalls, appendCallsBeforeBackground + 1);
+        } finally {
+          await tester.pumpWidget(const SizedBox.shrink());
+          await tester.pump();
+          await diagnostics.close();
         }
-        expect(persistence.appendCalls, appendCallsBeforeBackground + 1);
-        await tester.pumpWidget(const SizedBox.shrink());
-        await diagnostics.close();
       },
     );
     testWidgets('releases replaced diagnostics without replacing the shell', (
@@ -339,72 +347,83 @@ void main() {
       addTearDown(firstDiagnostics.close);
       addTearDown(secondDiagnostics.close);
 
-      final key = GlobalKey();
-      final api = FakeDiscourseApi();
-      final store = FakeInstanceStore();
-      final authenticator = FakeAuthenticator();
-      final drafts = FakeDraftStore();
-      final forumTabs = FakeForumTabStore();
-      final trackers = FakeSiteTracker.reset();
-      final updater = FakeUpdater();
-      final updateStore = FakeUpdateStore();
-      final reporterProbe = _ReporterProbe();
-      final manifest = PluginManifest([_ReporterTestModule(reporterProbe)]);
+      // Close under the fake clock even when the body fails: a close first
+      // reached from a tearDown never completes, because it waits on futures
+      // created under the fake clock, which nothing drives once the body has
+      // returned.
+      try {
+        final key = GlobalKey();
+        final api = FakeDiscourseApi();
+        final store = FakeInstanceStore();
+        final authenticator = FakeAuthenticator();
+        final drafts = FakeDraftStore();
+        final forumTabs = FakeForumTabStore();
+        final trackers = FakeSiteTracker.reset();
+        final updater = FakeUpdater();
+        final updateStore = FakeUpdateStore();
+        final reporterProbe = _ReporterProbe();
+        final manifest = PluginManifest([_ReporterTestModule(reporterProbe)]);
 
-      Widget app(DiagnosticsController diagnostics) => DiscourseApp(
-        key: key,
-        store: store,
-        api: api,
-        authenticator: authenticator,
-        drafts: drafts,
-        forumTabs: forumTabs,
-        trackers: trackers,
-        updater: updater,
-        updateStore: updateStore,
-        diagnostics: diagnostics,
-        pluginManifest: manifest,
-        initialRootMode: ShellRootMode.forum,
-      );
+        Widget app(DiagnosticsController diagnostics) => DiscourseApp(
+          key: key,
+          store: store,
+          api: api,
+          authenticator: authenticator,
+          drafts: drafts,
+          forumTabs: forumTabs,
+          trackers: trackers,
+          updater: updater,
+          updateStore: updateStore,
+          diagnostics: diagnostics,
+          pluginManifest: manifest,
+          initialRootMode: ShellRootMode.forum,
+        );
 
-      await tester.pumpWidget(app(firstDiagnostics));
-      await tester.pumpAndSettle();
-      final shell = _controller(tester);
-      reporterProbe.record('before-replacement');
-      expect(
-        firstDiagnostics.events.whereType<DiagnosticLogEvent>().map(
-          (event) => event.name,
-        ),
-        contains('before-replacement'),
-      );
+        await tester.pumpWidget(app(firstDiagnostics));
+        await tester.pumpAndSettle();
+        final shell = _controller(tester);
+        reporterProbe.record('before-replacement');
+        expect(
+          firstDiagnostics.events.whereType<DiagnosticLogEvent>().map(
+            (event) => event.name,
+          ),
+          contains('before-replacement'),
+        );
 
-      await tester.pumpWidget(app(secondDiagnostics));
-      await tester.pumpAndSettle();
-      await firstPersistence.closed.future;
-      reporterProbe.record('after-replacement');
+        await tester.pumpWidget(app(secondDiagnostics));
+        await tester.pumpAndSettle();
+        await firstPersistence.closed.future;
+        reporterProbe.record('after-replacement');
 
-      expect(_controller(tester), same(shell));
-      expect(api.closeCalls, 0);
-      expect(firstPersistence.closeCalls, 1);
-      expect(secondPersistence.closeCalls, 0);
-      expect(
-        secondDiagnostics.events.whereType<DiagnosticLogEvent>().map(
-          (event) => event.name,
-        ),
-        contains('after-replacement'),
-      );
-      expect(
-        firstDiagnostics.events.whereType<DiagnosticLogEvent>().map(
-          (event) => event.name,
-        ),
-        isNot(contains('after-replacement')),
-      );
+        expect(_controller(tester), same(shell));
+        expect(api.closeCalls, 0);
+        expect(firstPersistence.closeCalls, 1);
+        expect(secondPersistence.closeCalls, 0);
+        expect(
+          secondDiagnostics.events.whereType<DiagnosticLogEvent>().map(
+            (event) => event.name,
+          ),
+          contains('after-replacement'),
+        );
+        expect(
+          firstDiagnostics.events.whereType<DiagnosticLogEvent>().map(
+            (event) => event.name,
+          ),
+          isNot(contains('after-replacement')),
+        );
 
-      await tester.pumpWidget(const SizedBox.shrink());
-      await secondPersistence.closed.future;
+        await tester.pumpWidget(const SizedBox.shrink());
+        await secondPersistence.closed.future;
 
-      expect(api.closeCalls, 1);
-      expect(firstPersistence.closeCalls, 1);
-      expect(secondPersistence.closeCalls, 1);
+        expect(api.closeCalls, 1);
+        expect(firstPersistence.closeCalls, 1);
+        expect(secondPersistence.closeCalls, 1);
+      } finally {
+        await tester.pumpWidget(const SizedBox.shrink());
+        await tester.pump();
+        await firstDiagnostics.close();
+        await secondDiagnostics.close();
+      }
     });
 
     testWidgets('reports a released diagnostics close failure', (tester) async {
@@ -423,50 +442,66 @@ void main() {
       );
       addTearDown(firstDiagnostics.close);
       addTearDown(secondDiagnostics.close);
-      final diagnosticsSink = _RecordingDiagnosticsSink();
-      final sinkBinding = DiagnosticsSink.install(diagnosticsSink);
-      addTearDown(sinkBinding.close);
+      // Close under the fake clock even when the body fails: a close first
+      // reached from a tearDown never completes, because it waits on futures
+      // created under the fake clock, which nothing drives once the body has
+      // returned.
+      try {
+        final diagnosticsSink = _RecordingDiagnosticsSink();
+        final sinkBinding = DiagnosticsSink.install(diagnosticsSink);
+        addTearDown(sinkBinding.close);
 
-      final key = GlobalKey();
-      final api = FakeDiscourseApi();
-      final store = FakeInstanceStore();
-      final authenticator = FakeAuthenticator();
-      final drafts = FakeDraftStore();
-      final forumTabs = FakeForumTabStore();
-      final trackers = FakeSiteTracker.reset();
-      final updater = FakeUpdater();
-      final updateStore = FakeUpdateStore();
+        final key = GlobalKey();
+        final api = FakeDiscourseApi();
+        final store = FakeInstanceStore();
+        final authenticator = FakeAuthenticator();
+        final drafts = FakeDraftStore();
+        final forumTabs = FakeForumTabStore();
+        final trackers = FakeSiteTracker.reset();
+        final updater = FakeUpdater();
+        final updateStore = FakeUpdateStore();
 
-      Widget app(DiagnosticsController diagnostics) => DiscourseApp(
-        key: key,
-        store: store,
-        api: api,
-        authenticator: authenticator,
-        drafts: drafts,
-        forumTabs: forumTabs,
-        trackers: trackers,
-        updater: updater,
-        updateStore: updateStore,
-        diagnostics: diagnostics,
-        initialRootMode: ShellRootMode.forum,
-      );
+        Widget app(DiagnosticsController diagnostics) => DiscourseApp(
+          key: key,
+          store: store,
+          api: api,
+          authenticator: authenticator,
+          drafts: drafts,
+          forumTabs: forumTabs,
+          trackers: trackers,
+          updater: updater,
+          updateStore: updateStore,
+          diagnostics: diagnostics,
+          initialRootMode: ShellRootMode.forum,
+        );
 
-      await tester.pumpWidget(app(firstDiagnostics));
-      await tester.pumpAndSettle();
-      await tester.pumpWidget(app(secondDiagnostics));
-      await firstPersistence.closed.future;
-      await diagnosticsSink.reported.future;
+        await tester.pumpWidget(app(firstDiagnostics));
+        await tester.pumpAndSettle();
+        await tester.pumpWidget(app(secondDiagnostics));
+        await firstPersistence.closed.future;
+        await diagnosticsSink.reported.future;
 
-      expect(diagnosticsSink.error, same(closeError));
-      expect(diagnosticsSink.operation, 'app.diagnostics.close');
-      expect(diagnosticsSink.source, 'diagnostics');
-      expect(diagnosticsSink.severity, DiagnosticSeverity.warning);
-      expect(diagnosticsSink.handled, isTrue);
-      expect(diagnosticsSink.degraded, isFalse);
-      expect(tester.takeException(), isNull);
+        expect(diagnosticsSink.error, same(closeError));
+        expect(diagnosticsSink.operation, 'app.diagnostics.close');
+        expect(diagnosticsSink.source, 'diagnostics');
+        expect(diagnosticsSink.severity, DiagnosticSeverity.warning);
+        expect(diagnosticsSink.handled, isTrue);
+        expect(diagnosticsSink.degraded, isFalse);
+        expect(tester.takeException(), isNull);
 
-      await tester.pumpWidget(const SizedBox.shrink());
-      await secondPersistence.closed.future;
+        await tester.pumpWidget(const SizedBox.shrink());
+        await secondPersistence.closed.future;
+      } finally {
+        await tester.pumpWidget(const SizedBox.shrink());
+        await tester.pump();
+        // The first persistence fails its close by design; when the body fails
+        // before the app releases it, that failure must not replace the body's.
+        await firstDiagnostics.close().catchError(
+          (Object _) {},
+          test: (error) => identical(error, closeError),
+        );
+        await secondDiagnostics.close();
+      }
     });
   });
 

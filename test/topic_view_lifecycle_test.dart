@@ -923,53 +923,61 @@ void main() {
         );
         addTearDown(controller.dispose);
         addTearDown(diagnostics.close);
-        await controller.load();
-        _storeFullTopic(controller, site.url, topicId: 1, firstPostId: 100);
-        controller.pushContent(
-          ContentRoute.topic(topicId: 1, slug: 'one', title: 'One'),
-        );
-        diagnostics.topicScrollCapture.start();
+        // Close under the fake clock even when the body fails: a close first
+        // reached from a tearDown never completes, because it waits on futures
+        // created under the fake clock, which nothing drives once the body has
+        // returned.
+        try {
+          await controller.load();
+          _storeFullTopic(controller, site.url, topicId: 1, firstPostId: 100);
+          controller.pushContent(
+            ContentRoute.topic(topicId: 1, slug: 'one', title: 'One'),
+          );
+          diagnostics.topicScrollCapture.start();
 
-        await tester.pumpWidget(
-          _topicView(controller, diagnostics: diagnostics),
-        );
-        await tester.pumpAndSettle();
-        final vertical = find.byWidgetPredicate(
-          (widget) =>
-              widget is Scrollable &&
-              widget.axisDirection == AxisDirection.down,
-        );
-        await tester.drag(vertical.first, const Offset(0, -500));
-        await tester.pumpAndSettle();
-        await tester.runAsync(() async {
-          diagnostics.topicScrollCapture.stop();
-        });
-        await tester.pump();
+          await tester.pumpWidget(
+            _topicView(controller, diagnostics: diagnostics),
+          );
+          await tester.pumpAndSettle();
+          final vertical = find.byWidgetPredicate(
+            (widget) =>
+                widget is Scrollable &&
+                widget.axisDirection == AxisDirection.down,
+          );
+          await tester.drag(vertical.first, const Offset(0, -500));
+          await tester.pumpAndSettle();
+          await tester.runAsync(() async {
+            diagnostics.topicScrollCapture.stop();
+          });
+          await tester.pump();
 
-        final events = diagnostics.topicScrollCapture.events;
-        final names = events.map((event) => event.name).toSet();
-        expect(names, contains('topic.capture.context'));
-        expect(names, contains('topic.view.built'));
-        expect(names, contains('sliver.layout.changed'));
-        expect(names, contains('sliver.child.built'));
-        expect(names, contains('sliver.post.attached'));
-        expect(names, contains('scroll.notification'));
-        expect(names, contains('viewport.inspected'));
-        expect(names, contains('viewport.work'));
-        expect(names, contains('post.layout'));
-        final layouts = events.where((event) => event.name == 'post.layout');
-        for (final event in layouts) {
-          expect(event.data['topicId'], 1);
-          expect(event.data['postId'], isA<int>());
-          expect(event.data['htmlCharacters'], greaterThan(0));
-          expect(event.data['durationUs'], greaterThanOrEqualTo(0));
+          final events = diagnostics.topicScrollCapture.events;
+          final names = events.map((event) => event.name).toSet();
+          expect(names, contains('topic.capture.context'));
+          expect(names, contains('topic.view.built'));
+          expect(names, contains('sliver.layout.changed'));
+          expect(names, contains('sliver.child.built'));
+          expect(names, contains('sliver.post.attached'));
+          expect(names, contains('scroll.notification'));
+          expect(names, contains('viewport.inspected'));
+          expect(names, contains('viewport.work'));
+          expect(names, contains('post.layout'));
+          final layouts = events.where((event) => event.name == 'post.layout');
+          for (final event in layouts) {
+            expect(event.data['topicId'], 1);
+            expect(event.data['postId'], isA<int>());
+            expect(event.data['htmlCharacters'], greaterThan(0));
+            expect(event.data['durationUs'], greaterThanOrEqualTo(0));
+          }
+          final report = await tester.runAsync(
+            diagnostics.topicScrollCapture.buildJsonReport,
+          );
+          expect(report, isNot(contains(site.url)));
+        } finally {
+          await tester.pumpWidget(const SizedBox.shrink());
+          await tester.pump();
+          await diagnostics.close();
         }
-        final report = await tester.runAsync(
-          diagnostics.topicScrollCapture.buildJsonReport,
-        );
-        expect(report, isNot(contains(site.url)));
-        await tester.pumpWidget(const SizedBox.shrink());
-        await diagnostics.close();
       });
 
       testWidgets('record post detach without an ancestor lookup', (
@@ -990,27 +998,36 @@ void main() {
         );
         addTearDown(controller.dispose);
         addTearDown(diagnostics.close);
-        await controller.load();
-        _storeFullTopic(controller, site.url, topicId: 1, firstPostId: 100);
-        controller.pushContent(
-          ContentRoute.topic(topicId: 1, slug: 'one', title: 'One'),
-        );
+        // Close under the fake clock even when the body fails: a close first
+        // reached from a tearDown never completes, because it waits on futures
+        // created under the fake clock, which nothing drives once the body has
+        // returned.
+        try {
+          await controller.load();
+          _storeFullTopic(controller, site.url, topicId: 1, firstPostId: 100);
+          controller.pushContent(
+            ContentRoute.topic(topicId: 1, slug: 'one', title: 'One'),
+          );
 
-        await tester.pumpWidget(
-          _topicView(controller, diagnostics: diagnostics),
-        );
-        await tester.pumpAndSettle();
-        diagnostics.topicScrollCapture.start();
+          await tester.pumpWidget(
+            _topicView(controller, diagnostics: diagnostics),
+          );
+          await tester.pumpAndSettle();
+          diagnostics.topicScrollCapture.start();
 
-        await tester.pumpWidget(const SizedBox.shrink());
+          await tester.pumpWidget(const SizedBox.shrink());
 
-        expect(tester.takeException(), isNull);
-        expect(
-          diagnostics.topicScrollCapture.events.map((event) => event.name),
-          contains('sliver.post.detached'),
-        );
-        diagnostics.topicScrollCapture.stop();
-        await diagnostics.close();
+          expect(tester.takeException(), isNull);
+          expect(
+            diagnostics.topicScrollCapture.events.map((event) => event.name),
+            contains('sliver.post.detached'),
+          );
+        } finally {
+          diagnostics.topicScrollCapture.stop();
+          await tester.pumpWidget(const SizedBox.shrink());
+          await tester.pump();
+          await diagnostics.close();
+        }
       });
 
       for (final longPost in [73, 74]) {
@@ -1032,107 +1049,116 @@ void main() {
             );
             addTearDown(controller.dispose);
             addTearDown(diagnostics.close);
-            await controller.load();
-            final posts = [
-              for (var number = 35; number <= 74; number++)
-                Post(
-                  id: number,
-                  postNumber: number,
-                  username: 'sam',
-                  cooked: number == longPost
-                      ? List.filled(
-                          600,
-                          '<p>A very long earlier post</p>',
-                        ).join()
-                      : '<p>Post $number</p>',
-                ),
-            ];
-            controller.store
-              ..put(
-                site.url,
-                TopicDetail(
-                  id: 1,
+            // Close under the fake clock even when the body fails: a close
+            // first reached from a tearDown never completes, because it waits
+            // on futures created under the fake clock, which nothing drives
+            // once the body has returned.
+            try {
+              await controller.load();
+              final posts = [
+                for (var number = 35; number <= 74; number++)
+                  Post(
+                    id: number,
+                    postNumber: number,
+                    username: 'sam',
+                    cooked: number == longPost
+                        ? List.filled(
+                            600,
+                            '<p>A very long earlier post</p>',
+                          ).join()
+                        : '<p>Post $number</p>',
+                  ),
+              ];
+              controller.store
+                ..put(
+                  site.url,
+                  TopicDetail(
+                    id: 1,
+                    title: 'One',
+                    stream: [
+                      for (var number = 1; number <= 74; number++) number,
+                    ],
+                    postsCount: 74,
+                  ),
+                )
+                ..putAll(site.url, posts);
+              controller.pushContent(
+                ContentRoute.topic(
+                  topicId: 1,
+                  slug: 'one',
                   title: 'One',
-                  stream: [for (var number = 1; number <= 74; number++) number],
-                  postsCount: 74,
+                  postNumber: 74,
                 ),
-              )
-              ..putAll(site.url, posts);
-            controller.pushContent(
-              ContentRoute.topic(
-                topicId: 1,
-                slug: 'one',
-                title: 'One',
-                postNumber: 74,
-              ),
-            );
-            diagnostics.topicScrollCapture.start();
+              );
+              diagnostics.topicScrollCapture.start();
 
-            await tester.pumpWidget(
-              _topicView(controller, diagnostics: diagnostics),
-            );
-            final target = find.byKey(const ValueKey(74));
-            double? firstTop;
-            if (longPost == 74) {
-              expect(target, findsNothing);
+              await tester.pumpWidget(
+                _topicView(controller, diagnostics: diagnostics),
+              );
+              final target = find.byKey(const ValueKey(74));
+              double? firstTop;
+              if (longPost == 74) {
+                expect(target, findsNothing);
+                expect(
+                  find.byKey(const ValueKey('topic-loading-skeleton')),
+                  findsOneWidget,
+                );
+              } else {
+                expect(target, findsOneWidget);
+                firstTop = tester.getTopLeft(target).dy;
+              }
+              for (var frame = 0; frame < 120; frame++) {
+                await tester.runAsync(
+                  () => Future<void>.delayed(const Duration(milliseconds: 10)),
+                );
+                await tester.pump(const Duration(milliseconds: 16));
+                if (target.evaluate().isEmpty && firstTop == null) continue;
+                expect(target, findsOneWidget, reason: 'frame $frame');
+                firstTop ??= tester.getTopLeft(target).dy;
+                expect(
+                  tester.getTopLeft(target).dy,
+                  closeTo(firstTop, 1),
+                  reason: 'frame $frame',
+                );
+              }
+              expect(firstTop, isNotNull);
+              if (longPost == 74) {
+                expect(
+                  firstTop,
+                  closeTo(tester.getTopLeft(topicPostListFinder()).dy, 1),
+                );
+              }
+
               expect(
-                find.byKey(const ValueKey('topic-loading-skeleton')),
-                findsOneWidget,
+                find.byWidgetPredicate(
+                  (widget) =>
+                      widget is RichText &&
+                      widget.text.toPlainText().contains(
+                        'A very long earlier post',
+                      ),
+                ),
+                findsNWidgets(600),
               );
-            } else {
-              expect(target, findsOneWidget);
-              firstTop = tester.getTopLeft(target).dy;
-            }
-            for (var frame = 0; frame < 120; frame++) {
-              await tester.runAsync(
-                () => Future<void>.delayed(const Duration(milliseconds: 10)),
+
+              expect(tester.takeException(), isNull);
+              final itemJumps = diagnostics.topicScrollCapture.events.where(
+                (event) => event.name == 'viewport.anchor.jumpToItem',
               );
-              await tester.pump(const Duration(milliseconds: 16));
-              if (target.evaluate().isEmpty && firstTop == null) continue;
-              expect(target, findsOneWidget, reason: 'frame $frame');
-              firstTop ??= tester.getTopLeft(target).dy;
+              final progressChanges = diagnostics.topicScrollCapture.events
+                  .where((event) => event.name == 'topic.progress.changed')
+                  .length;
               expect(
-                tester.getTopLeft(target).dy,
-                closeTo(firstTop, 1),
-                reason: 'frame $frame',
+                itemJumps.length,
+                lessThanOrEqualTo(2),
+                reason: '$progressChanges progress changes',
               );
+              expect(find.textContaining('74 / 74'), findsOneWidget);
+            } finally {
+              diagnostics.topicScrollCapture.stop();
+              await tester.pumpWidget(const SizedBox.shrink());
+              await tester.pump();
+              await diagnostics.close();
             }
-            expect(firstTop, isNotNull);
-            if (longPost == 74) {
-              expect(
-                firstTop,
-                closeTo(tester.getTopLeft(topicPostListFinder()).dy, 1),
-              );
-            }
-
-            expect(
-              find.byWidgetPredicate(
-                (widget) =>
-                    widget is RichText &&
-                    widget.text.toPlainText().contains(
-                      'A very long earlier post',
-                    ),
-              ),
-              findsNWidgets(600),
-            );
-
-            expect(tester.takeException(), isNull);
-            final itemJumps = diagnostics.topicScrollCapture.events.where(
-              (event) => event.name == 'viewport.anchor.jumpToItem',
-            );
-            final progressChanges = diagnostics.topicScrollCapture.events
-                .where((event) => event.name == 'topic.progress.changed')
-                .length;
-            expect(
-              itemJumps.length,
-              lessThanOrEqualTo(2),
-              reason: '$progressChanges progress changes',
-            );
-            expect(find.textContaining('74 / 74'), findsOneWidget);
-
-            diagnostics.topicScrollCapture.stop();
-            await tester.pumpWidget(const SizedBox.shrink());
-            await diagnostics.close();
           },
         );
       }

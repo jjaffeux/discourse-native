@@ -33,6 +33,10 @@ void main() {
       controller: controller,
       diagnostics: diagnostics,
     );
+    // Close under the fake clock even when the body fails, so nothing in the
+    // finally may throw before the close: a close first reached from a tearDown
+    // never completes, because it waits on futures created under the fake
+    // clock, which nothing drives once the body has returned.
     try {
       await tester.pumpWidget(TickerMode(enabled: true, child: fixture));
       Future<void> frames(int count) async {
@@ -225,8 +229,8 @@ void main() {
     } finally {
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pump();
-      expect(tester.takeException(), isNull);
       await diagnostics.close();
     }
+    expect(tester.takeException(), isNull);
   });
 }

@@ -182,8 +182,10 @@ timeout (ten minutes: `testWidgets` passes one explicitly, overriding
 one, every later test in the file fails. A failing body is when this happens:
 Flutter leaves the widget tree mounted after a failure, so a close that
 unmounting would have run falls to the tearDown. Release resources whose
-cleanup is asynchronous, such as a `DiagnosticsController` or an app that
-closes one as it unmounts, in a `finally` inside the body.
+cleanup is asynchronous, such as a `DiagnosticsController`, a
+`VoiceDiagnosticsController`, or an app that closes one as it unmounts, in a
+`finally` inside the body, and check expectations after that `finally` rather
+than in it: one that fails ahead of the release skips it.
 
 Fakes expose observed requests and explicit gates. They do not reproduce the
 production algorithm or add implicit timing. Put broadly reused fakes in

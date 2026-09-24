@@ -325,90 +325,101 @@ void main() {
     );
     addTearDown(controller.dispose);
     addTearDown(diagnostics.close);
-    final site = controller.currentInstance!.url;
-    final longHtml = controller.store.read<Post>(site, 1)!.cooked;
-    // Neighboring async placeholders can temporarily share the first viewport.
-    for (final id in [2, 3, 4, 35, 50]) {
+    // Close under the fake clock even when the body fails: a close first
+    // reached from a tearDown never completes, because it waits on futures
+    // created under the fake clock, which nothing drives once the body has
+    // returned.
+    try {
+      final site = controller.currentInstance!.url;
+      final longHtml = controller.store.read<Post>(site, 1)!.cooked;
+      // Neighboring async placeholders can temporarily share the first
+      // viewport.
+      for (final id in [2, 3, 4, 35, 50]) {
+        controller.store.update<Post>(
+          site,
+          id,
+          (post) => Post(
+            id: post.id,
+            postNumber: post.postNumber,
+            username: post.username,
+            createdAt: post.createdAt,
+            cooked: longHtml.replaceAll('Post 1:', 'Post $id:'),
+          ),
+        );
+      }
+      await tester.pumpWidget(
+        TopicScrollFixture(controller: controller, diagnostics: diagnostics),
+      );
+      await _pumpUntilRendered(tester, 'Post 1:');
+      Finder htmlFor(int id, {bool offscreen = false}) =>
+          find.byWidgetPredicate(
+            (widget) => widget is CookedHtml && widget.post?.id == id,
+            skipOffstage: !offscreen,
+          );
+      final firstHtml = tester.element(htmlFor(1));
+      final list = topicPostList(tester);
+      Future<void> jumpTo(int id) async {
+        list.listController!.jumpToItem(
+          index: (id - 1) * 2,
+          scrollController: list.controller!,
+          alignment: 0,
+        );
+        await tester.pump();
+        await _pumpUntilRendered(tester, 'Post $id:');
+        await tester.pumpAndSettle();
+      }
+
+      await jumpTo(20);
+      expect(firstHtml.mounted, isTrue);
       controller.store.update<Post>(
         site,
-        id,
+        1,
         (post) => Post(
           id: post.id,
           postNumber: post.postNumber,
           username: post.username,
           createdAt: post.createdAt,
-          cooked: longHtml.replaceAll('Post 1:', 'Post $id:'),
+          cooked: longHtml.replaceAll('Post 1:', 'Edited 1:'),
         ),
       );
-    }
-    await tester.pumpWidget(
-      TopicScrollFixture(controller: controller, diagnostics: diagnostics),
-    );
-    await _pumpUntilRendered(tester, 'Post 1:');
-    Finder htmlFor(int id, {bool offscreen = false}) => find.byWidgetPredicate(
-      (widget) => widget is CookedHtml && widget.post?.id == id,
-      skipOffstage: !offscreen,
-    );
-    final firstHtml = tester.element(htmlFor(1));
-    final list = topicPostList(tester);
-    Future<void> jumpTo(int id) async {
-      list.listController!.jumpToItem(
-        index: (id - 1) * 2,
-        scrollController: list.controller!,
-        alignment: 0,
-      );
-      await tester.pump();
-      await _pumpUntilRendered(tester, 'Post $id:');
-      await tester.pumpAndSettle();
-    }
-
-    await jumpTo(20);
-    expect(firstHtml.mounted, isTrue);
-    controller.store.update<Post>(
-      site,
-      1,
-      (post) => Post(
-        id: post.id,
-        postNumber: post.postNumber,
-        username: post.username,
-        createdAt: post.createdAt,
-        cooked: longHtml.replaceAll('Post 1:', 'Edited 1:'),
-      ),
-    );
-    await _pumpUntilRendered(tester, 'Post 20:');
-    // An offscreen async edit still needs layout for text selection.
-    for (var i = 0; i < 10; i++) {
-      await tester.runAsync(
-        () => Future<void>.delayed(const Duration(milliseconds: 10)),
-      );
-      await tester.pump();
-    }
-    expect(tester.takeException(), isNull);
-    expect(
-      tester.widget<CookedHtml>(htmlFor(1, offscreen: true)).html,
-      contains('Edited 1:'),
-    );
-
-    await jumpTo(35);
-    await jumpTo(50);
-    expect(firstHtml.mounted, isFalse);
-    final retainedLongPosts = tester
-        .widgetList<CookedHtml>(find.byType(CookedHtml, skipOffstage: false))
-        .where(
-          (widget) =>
-              widget.post != null &&
-              CookedHtml.buildsAsynchronously(widget.html),
+      await _pumpUntilRendered(tester, 'Post 20:');
+      // An offscreen async edit still needs layout for text selection.
+      for (var i = 0; i < 10; i++) {
+        await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 10)),
         );
-    expect(retainedLongPosts.length, lessThanOrEqualTo(3));
+        await tester.pump();
+      }
+      expect(tester.takeException(), isNull);
+      expect(
+        tester.widget<CookedHtml>(htmlFor(1, offscreen: true)).html,
+        contains('Edited 1:'),
+      );
 
-    final retainedElements = tester
-        .elementList(find.byType(CookedHtml, skipOffstage: false))
-        .toList();
-    await tester.pumpWidget(const SizedBox.shrink());
-    await tester.pump();
-    expect(retainedElements.every((element) => !element.mounted), isTrue);
-    expect(tester.takeException(), isNull);
-    await diagnostics.close();
+      await jumpTo(35);
+      await jumpTo(50);
+      expect(firstHtml.mounted, isFalse);
+      final retainedLongPosts = tester
+          .widgetList<CookedHtml>(find.byType(CookedHtml, skipOffstage: false))
+          .where(
+            (widget) =>
+                widget.post != null &&
+                CookedHtml.buildsAsynchronously(widget.html),
+          );
+      expect(retainedLongPosts.length, lessThanOrEqualTo(3));
+
+      final retainedElements = tester
+          .elementList(find.byType(CookedHtml, skipOffstage: false))
+          .toList();
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump();
+      expect(retainedElements.every((element) => !element.mounted), isTrue);
+      expect(tester.takeException(), isNull);
+    } finally {
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump();
+      await diagnostics.close();
+    }
   });
 }
 
