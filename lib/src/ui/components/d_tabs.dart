@@ -1348,6 +1348,19 @@ class _DDocumentTabState extends State<DDocumentTab> {
     final radius = BorderRadius.circular(
       widget.selected ? DRadius.panel : DRadius.pill,
     );
+    final fontSize = DControlStyle.fontSize(
+      DControlSize.regular,
+      context: context,
+    );
+    // Tab labels use the regular control role even though the select target
+    // is a small button, whose own text style would otherwise win.
+    final labelStyle = TextStyle(
+      fontSize: fontSize,
+      height:
+          DControlStyle.lineHeight(DControlSize.regular, context: context) /
+          fontSize,
+      fontWeight: FontWeight.w400,
+    );
     return MouseRegion(
       key: widget.pointerKey,
       cursor: SystemMouseCursors.click,
@@ -1377,23 +1390,7 @@ class _DDocumentTabState extends State<DDocumentTab> {
         child: IconTheme.merge(
           data: IconThemeData(color: foreground),
           child: DefaultTextStyle.merge(
-            style: TextStyle(
-              color: foreground,
-              fontSize: DControlStyle.fontSize(
-                DControlSize.regular,
-                context: context,
-              ),
-              height:
-                  DControlStyle.lineHeight(
-                    DControlSize.regular,
-                    context: context,
-                  ) /
-                  DControlStyle.fontSize(
-                    DControlSize.regular,
-                    context: context,
-                  ),
-              fontWeight: FontWeight.w400,
-            ),
+            style: labelStyle.copyWith(color: foreground),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
@@ -1431,7 +1428,10 @@ class _DDocumentTabState extends State<DDocumentTab> {
                                   interactiveBackgroundColor:
                                       Colors.transparent,
                                   foregroundColor: foreground,
-                                  label: widget.child,
+                                  label: DefaultTextStyle.merge(
+                                    style: labelStyle,
+                                    child: widget.child,
+                                  ),
                                 ),
                               ),
                             ),

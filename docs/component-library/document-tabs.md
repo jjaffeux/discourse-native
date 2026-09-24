@@ -129,3 +129,15 @@ Verification:
   pixel expectations, switcher hover paint and two 200% switcher-row heights.
   The tab paint checks now match the reference; the three unchanged switcher
   checks remain excluded from the passing focused run.
+
+## Label typography — September 25, 2026
+
+Tab labels use the 13/19.5 control role (`labelLarge` at weight 400), as
+`docs/design/reference-rules.md` specifies for tab labels and the desktop tab
+strip. The September 23 typography pass remapped `labelMedium` to 12.5 without
+revisiting the strip, and the small selection button's own 12.5 text style
+shadowed the tab's regular-size default. `DDocumentTab` now applies its label
+style inside that button, so the forum adapter, its drag feedback and the
+styleguide render labels at the same size. `workspaceTabStripHeightFor` grows
+with the same role. The tab switcher keeps its 14px `bodyMedium` rows, matching
+the reference's switcher list.

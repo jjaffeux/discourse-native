@@ -15,8 +15,9 @@ const double readerHeaderHeight = 44;
 const double workspaceTabStripHeight = 38;
 const workspaceTabsPadding = EdgeInsets.fromLTRB(8, 8, 8, 4);
 
+/// Grows with the forum tab label role so scaled tab labels keep their inset.
 double workspaceTabStripHeightFor(BuildContext context) {
-  final style = Theme.of(context).textTheme.labelMedium!;
+  final style = Theme.of(context).textTheme.labelLarge!;
   final fontSize = style.fontSize!;
   final growth =
       (MediaQuery.textScalerOf(context).scale(fontSize) - fontSize) *
