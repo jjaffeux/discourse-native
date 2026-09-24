@@ -70,22 +70,34 @@ void main() {
       final shell = controller();
       addTearDown(shell.dispose);
       await pumpSettings(tester, shell);
-      await _source(tester, ForumThemeSource.preset);
-      expect(_preferences(shell).source, ForumThemeSource.preset);
+      expect(_preferences(shell).source, ForumThemeSource.forum);
       expect(_preferences(shell).presets, isEmpty);
       expect(
-        find.text(
-          'No preset chosen for light mode yet, so it keeps the forum’s '
-          'colours.',
-        ),
-        findsOneWidget,
+        find.byKey(const ValueKey(('theme-source', ForumThemeSource.forum))),
+        findsNothing,
+      );
+      expect(
+        tester
+            .widget<DRadioGroup<ForumThemeSource>>(
+              find.byKey(const ValueKey('theme-source')),
+            )
+            .groupValue,
+        ForumThemeSource.preset,
+      );
+      expect(_choice('forum'), findsOneWidget);
+      expect(tester.widget<DItem>(_choice('forum')).selected, isTrue);
+      expect(
+        tester.getTopLeft(_choice('forum')).dy,
+        lessThan(tester.getTopLeft(_choice('neutral')).dy),
       );
       expect(_choice('summer'), findsOneWidget);
       expect(_choice('dracula'), findsNothing, reason: 'Dracula is dark only');
       expect(find.byKey(const ValueKey('theme-shown-mode')), findsNothing);
 
       await _tap(tester, _choice('solarized'));
+      expect(_preferences(shell).source, ForumThemeSource.preset);
       expect(_preferences(shell).presets, {Brightness.light: 'solarized'});
+      expect(tester.widget<DItem>(_choice('forum')).selected, isFalse);
       expect(_appTheme(tester).colorScheme.primary, const Color(0xff0088cc));
       expect(find.text('Built-in presets'), findsNothing);
       expect(find.text('Solarized · light and dark'), findsNothing);
@@ -106,9 +118,47 @@ void main() {
       expect(_checkmark('dracula'), findsNothing);
       expect(tester.widget<DItem>(_choice('neutral')).selected, isFalse);
       expect(shell.forumSettings.themeModeFor(_site), AppThemeMode.dark);
+      await _tap(tester, _choice('forum'));
+      expect(_preferences(shell).source, ForumThemeSource.forum);
+      expect(_preferences(shell).presets, {
+        Brightness.light: 'solarized',
+        Brightness.dark: 'dracula',
+      });
+      expect(tester.widget<DItem>(_choice('forum')).selected, isTrue);
+      expect(tester.widget<DItem>(_choice('dracula')).selected, isFalse);
+      await _source(tester, ForumThemeSource.preset);
+      expect(_preferences(shell).source, ForumThemeSource.forum);
       expect(tester.takeException(), isNull);
     },
   );
+
+  testWidgets('Presets restores a previously chosen palette from Your own', (
+    tester,
+  ) async {
+    final shell = controller();
+    addTearDown(shell.dispose);
+    final saved = _saved('custom-moss', 'Moss', 'neutral');
+    await shell.forumSettings.setThemes(
+      _site,
+      ForumThemePreferences(
+        source: ForumThemeSource.custom,
+        customId: saved.id,
+        customThemes: [saved],
+        presets: const {Brightness.light: 'wcag'},
+      ),
+    );
+    await pumpSettings(tester, shell);
+
+    await _source(tester, ForumThemeSource.preset);
+    expect(_preferences(shell).source, ForumThemeSource.preset);
+    expect(tester.widget<DItem>(_choice('wcag')).selected, isTrue);
+    expect(tester.widget<DItem>(_choice('forum')).selected, isFalse);
+    await _tap(tester, _choice('forum'));
+    expect(_preferences(shell).source, ForumThemeSource.forum);
+    expect(_preferences(shell).presets, {Brightness.light: 'wcag'});
+    expect(tester.widget<DItem>(_choice('forum')).selected, isTrue);
+    expect(tester.takeException(), isNull);
+  });
 
   testWidgets('each preset reveals its own Customize action on hover', (
     tester,
@@ -116,7 +166,6 @@ void main() {
     final shell = controller();
     addTearDown(shell.dispose);
     await pumpSettings(tester, shell);
-    await _source(tester, ForumThemeSource.preset);
 
     final neutralAction = find.byKey(
       const ValueKey(('customize-theme', 'neutral')),
@@ -156,6 +205,26 @@ void main() {
           .text,
       'Neutral copy',
     );
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('Customize on Forum default starts from the forum palette', (
+    tester,
+  ) async {
+    final shell = controller();
+    addTearDown(shell.dispose);
+    await pumpSettings(tester, shell);
+
+    await _tap(
+      tester,
+      find.byKey(const ValueKey(('customize-theme', 'forum'))),
+    );
+    expect(find.byType(DDialogContent), findsOneWidget);
+    expect(
+      tester.widget<Text>(find.byKey(const ValueKey('new-theme-note'))).data,
+      contains('forum’s light and dark colours'),
+    );
+    expect(_preferences(shell).source, ForumThemeSource.forum);
     expect(tester.takeException(), isNull);
   });
 
@@ -201,7 +270,6 @@ void main() {
       final shell = controller();
       addTearDown(shell.dispose);
       await pumpSettings(tester, shell);
-      await _source(tester, ForumThemeSource.preset);
       await _tap(tester, _choice('solarized'));
       final applied = _preferences(shell);
 
@@ -570,11 +638,10 @@ void main() {
       tester.element(find.byType(ForumSettingsPage)),
     ).textTheme.bodyMedium!.fontFamily;
     expect(family(), 'Lato');
-    await _source(tester, ForumThemeSource.preset);
     await _tap(tester, _choice('wcag'));
     expect(_preferences(shell).font, ForumFont.lato);
     expect(family(), 'Lato');
-    await _source(tester, ForumThemeSource.forum);
+    await _tap(tester, _choice('forum'));
     expect(_preferences(shell).font, ForumFont.lato);
     expect(_preferences(shell).presets, {Brightness.light: 'wcag'});
     expect(tester.takeException(), isNull);
@@ -586,7 +653,6 @@ void main() {
     final shell = controller();
     addTearDown(shell.dispose);
     await pumpSettings(tester, shell);
-    await _source(tester, ForumThemeSource.preset);
     tester.view.physicalSize = const Size(960, 2400);
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('appearance-font-lato')));

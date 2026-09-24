@@ -111,6 +111,14 @@ class _ForumAppearanceSettingsState extends State<ForumAppearanceSettings> {
     };
   }
 
+  ForumTheme _forumTheme() {
+    final forum = _forumPalettes();
+    return ForumTheme.fromJson({
+      ...forum[Brightness.light]!.toJson(),
+      'alternate': forum[Brightness.dark]!.toJson(),
+    }, id: 'forum');
+  }
+
   Future<void> _save(ForumThemePreferences preferences) async {
     final revision = ++_revision;
     setState(() {
@@ -145,16 +153,12 @@ class _ForumAppearanceSettingsState extends State<ForumAppearanceSettings> {
   }
 
   Future<void> _newTheme({String? base}) async {
-    final forum = _forumPalettes();
     final start = await showDDialog<ForumThemeStart>(
       context: context,
       builder: (context, controller) => ForumThemeNewDialog(
         controller: controller,
         brightness: _brightness(),
-        forum: ForumTheme.fromJson({
-          ...forum[Brightness.light]!.toJson(),
-          'alternate': forum[Brightness.dark]!.toJson(),
-        }, id: 'forum'),
+        forum: _forumTheme(),
         saved: _preferences.customThemes,
         initial: base,
       ),
@@ -410,8 +414,10 @@ class _ForumAppearanceSettingsState extends State<ForumAppearanceSettings> {
                         ForumThemePicker(
                           key: const ValueKey('theme-picker'),
                           preferences: preferences,
+                          forum: _forumTheme(),
                           brightness: brightness,
                           fontFamily: fontFamily,
+                          onForum: () => _chooseSource(ForumThemeSource.forum),
                           onPreset: (mode, id) => unawaited(
                             _save(_preferences.withPreset(mode, id)),
                           ),

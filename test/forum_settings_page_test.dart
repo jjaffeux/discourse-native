@@ -19,10 +19,22 @@ void main() {
       expect(find.text('Font'), findsOneWidget);
       expect(
         tester.widget<DRadioGroup<ForumThemeSource>>(sources).groupValue,
-        ForumThemeSource.forum,
+        ForumThemeSource.preset,
       );
       expect(
-        find.byKey(const ValueKey(('make-own-theme', 'forum'))),
+        find.byKey(const ValueKey(('theme-source', ForumThemeSource.forum))),
+        findsNothing,
+      );
+      expect(
+        tester
+            .widget<DItem>(
+              find.byKey(const ValueKey(('theme-choice', 'forum'))),
+            )
+            .selected,
+        isTrue,
+      );
+      expect(
+        find.byKey(const ValueKey(('customize-theme', 'forum'))),
         findsOneWidget,
       );
       for (final control in [
