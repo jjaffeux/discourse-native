@@ -226,19 +226,17 @@ class _ForumThemePickerState extends State<ForumThemePicker> {
             ),
           ],
         ),
-      DItem(
-        key: const ValueKey('new-theme'),
-        size: DItemSize.sm,
-        onPressed: widget.onNewTheme,
-        children: const [
-          DItemMedia(
-            variant: DItemMediaVariant.icon,
-            child: DIcon(DIcons.plus),
-          ),
-          DItemContent(children: [DItemTitle(child: Text('New theme'))]),
-        ],
-      ),
     ]),
+    Align(
+      alignment: AlignmentDirectional.centerStart,
+      child: DButton(
+        key: const ValueKey('new-theme'),
+        label: const Text('New theme'),
+        icon: const DIcon(DIcons.plus),
+        variant: DButtonVariant.primary,
+        onPressed: widget.onNewTheme,
+      ),
+    ),
   ];
 
   Widget _list(List<Widget> rows) => Semantics(
