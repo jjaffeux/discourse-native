@@ -26,10 +26,7 @@ Future<void> main() async {
   const title = 'Show & tell: houseplant shelfie thread';
   const topic = Topic(id: 7, title: title, slug: 'shelfie');
   final settings = ForumSettingsStore.memory();
-  await settings.writeThemes(
-    site,
-    ForumThemePreferences(selectedId: 'dracula'),
-  );
+  await settings.writeThemes(site, ForumThemePreferences.preset('dracula'));
   await settings.writeThemeMode(site, AppThemeMode.dark);
   runApp(
     DiscourseApp(

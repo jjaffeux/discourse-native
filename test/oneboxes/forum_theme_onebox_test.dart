@@ -4,7 +4,6 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/data/forum_settings_store.dart';
 import 'package:discourse_native/src/data/scalar_preference_repository.dart';
 import 'package:discourse_native/src/models/app_settings.dart';
-import 'package:discourse_native/src/models/forum_background.dart';
 import 'package:discourse_native/src/models/forum_theme.dart';
 import 'package:discourse_native/src/models/forum_theme_preferences.dart';
 import 'package:discourse_native/src/models/forum_theme_presets.dart';
@@ -64,16 +63,9 @@ void main() {
       addTearDown(settings.dispose);
       await settings.setThemes(
         _site,
-        ForumThemePreferences(selectedId: 'dracula')
-            .withPalette(
-              forumThemePresets.first
-                  .forBrightness(Brightness.light)
-                  .copyWith(tertiary: const Color(0xff112233)),
-            )
-            .withPalette(forumThemePresets.last.forBrightness(Brightness.dark))
-            .withBackground(
-              const ForumBackground.appearance(strength: .6, transparency: .2),
-            ),
+        ForumThemePreferences()
+            .withPreset(Brightness.light, 'solarized')
+            .withPreset(Brightness.dark, 'dracula'),
       );
       await settings.setThemeMode(_site, AppThemeMode.light);
       final before = settings.themesFor(_site);
@@ -101,19 +93,19 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Using theme'), findsOneWidget);
       expect(find.text('Undo'), findsOneWidget);
-      expect(settings.themesFor(_site).selectedTheme, _theme);
-      expect(settings.themesFor(_site).selectedTheme!.alternate, isNotNull);
+      expect(settings.themesFor(_site).source, ForumThemeSource.custom);
+      expect(settings.themesFor(_site).customTheme, _theme);
+      expect(settings.themesFor(_site).customTheme!.alternate, isNotNull);
       expect(settings.themeModeFor(_site), AppThemeMode.light);
-      expect((await store.loadThemes(_site)).selectedTheme, _theme);
+      expect((await store.loadThemes(_site)).customTheme, _theme);
       await tester.tap(find.bySemanticsLabel('Preview light theme'));
       await tester.pumpAndSettle();
       expect(preview().brightness, Brightness.light);
-      expect(settings.themesFor(_site).selectedTheme, _theme);
+      expect(settings.themesFor(_site).customTheme, _theme);
       await tester.tap(find.text('Undo'));
       await tester.pumpAndSettle();
-      expect(settings.themesFor(_site).selectedId, 'dracula');
-      expect(settings.themesFor(_site).palettes, before.palettes);
-      expect(settings.themesFor(_site).background, before.background);
+      expect(settings.themesFor(_site).source, ForumThemeSource.preset);
+      expect(settings.themesFor(_site).presets, before.presets);
       expect(settings.themesFor(_site).customThemes, [_theme]);
       expect(find.text('Use theme'), findsOneWidget);
       expect(find.text('Undo'), findsNothing);
@@ -122,7 +114,7 @@ void main() {
     },
   );
 
-  testWidgets('live palette edits supersede an applied shared theme', (
+  testWidgets('choosing a preset supersedes an applied shared theme', (
     tester,
   ) async {
     final settings = ForumSettingsController(
@@ -139,13 +131,7 @@ void main() {
     expect(find.text('Using theme'), findsOneWidget);
     await settings.setThemes(
       _site,
-      settings
-          .themesFor(_site)
-          .withPalette(
-            _theme
-                .forBrightness(Brightness.light)
-                .copyWith(tertiary: const Color(0xff112233)),
-          ),
+      settings.themesFor(_site).withPreset(Brightness.light, 'solarized'),
     );
     await tester.pumpAndSettle();
     expect(find.text('Use theme'), findsOneWidget);
@@ -153,7 +139,10 @@ void main() {
     expect(find.text('Undo'), findsNothing);
     expect(
       settings.themesFor(_site).themeFor(Brightness.light)!.tertiary,
-      const Color(0xff112233),
+      forumThemePresetFor(
+        'solarized',
+        Brightness.light,
+      )!.forBrightness(Brightness.light).tertiary,
     );
   });
 
@@ -192,11 +181,11 @@ void main() {
         expect(find.text('Moss'), findsOneWidget);
         await tester.tap(find.text('Use theme'));
         await tester.pumpAndSettle();
-        expect(controller.forumSettings.themesFor(_site).selectedTheme, _theme);
+        expect(controller.forumSettings.themesFor(_site).customTheme, _theme);
         expect(
           controller.forumSettings
               .themesFor('https://other.example')
-              .selectedTheme,
+              .customTheme,
           isNull,
         );
         expect(tester.takeException(), isNull);
@@ -242,12 +231,12 @@ void main() {
     await tester.tap(find.text('Use theme'));
     await tester.pumpAndSettle();
     expect(find.text('Could not save theme. Try again.'), findsOneWidget);
-    expect(settings.themesFor(_site).selectedTheme, isNull);
+    expect(settings.themesFor(_site).customTheme, isNull);
     expect(find.text('Using theme'), findsNothing);
     persistence.fail = false;
     await tester.tap(find.text('Use theme'));
     await tester.pumpAndSettle();
-    expect(settings.themesFor(_site).selectedTheme, _theme);
+    expect(settings.themesFor(_site).customTheme, _theme);
     expect(find.text('Could not save theme. Try again.'), findsNothing);
   });
 

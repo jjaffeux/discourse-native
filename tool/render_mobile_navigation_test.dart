@@ -75,7 +75,7 @@ void main() {
       final name = dark ? 'dracula' : 'light';
       await shell.forumSettings.setThemes(
         shell.currentInstance!.url,
-        ForumThemePreferences(selectedId: dark ? 'dracula' : 'neutral'),
+        ForumThemePreferences.preset(dark ? 'dracula' : 'neutral'),
       );
       await shell.forumSettings.setThemeMode(
         shell.currentInstance!.url,

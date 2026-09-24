@@ -570,6 +570,22 @@ Existing forums start with the previous app-wide appearance choice; newly added
 forums follow the system. Aggregate and the app-wide Settings modal follow the
 system appearance independently.
 
+The same page's **Theme** chooses where the forum's colours come from: the
+forum's own palette (the default, which follows the forum when its admins
+change it), a built-in **preset** chosen separately for light and dark (a mode
+without one keeps the forum's colours), or one of the user's **own** themes.
+Presets and the forum palette are never edited in place. **Make my own from
+this** and **New theme** start a theme from plain greys, the forum's colours, a
+preset or another saved theme, and nothing is stored until the editor's
+**Save**. A saved theme carries both modes' palettes and the shared tint,
+opacity, texture and darker sidebars. Its preview draws every colour the theme
+defines, including attention, highlight and likes, which a live page may not
+be showing. The **Font** is chosen separately and applies with every source.
+Preferences are stored per forum under `discourse_native.forum_themes.*` as
+version 2. Version 1 documents migrate on read without changing what the forum
+looked like: untouched forum colours, presets and saved themes map onto their
+sources, and edited colours become a saved theme named *My theme*.
+
 **Topic list** switches between **Card** (the default, with previews) and
 **Compact** (a denser table). It applies immediately to forum lists, Aggregate
 rows, and topic recommendations, and persists across restarts under

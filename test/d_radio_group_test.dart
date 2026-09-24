@@ -555,6 +555,60 @@ void main() {
     },
   );
 
+  testWidgets('choice cards side by side share the tallest card height', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      host(
+        DRadioGroup<String>(
+          initialValue: 'a',
+          child: IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                for (final (value, description) in [
+                  ('a', 'One line'),
+                  ('b', 'One\nTwo\nThree'),
+                ])
+                  Expanded(
+                    child: DRadioGroupItem(
+                      key: ValueKey(value),
+                      value: value,
+                      card: true,
+                      label: Text(value),
+                      description: Text(description),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+    Rect card(String value) => tester.getRect(
+      find
+          .descendant(
+            of: find.byKey(ValueKey(value)),
+            matching: find.byWidgetPredicate(
+              (widget) =>
+                  widget is Container &&
+                  widget.decoration is BoxDecoration &&
+                  (widget.decoration! as BoxDecoration).shape ==
+                      BoxShape.rectangle,
+            ),
+          )
+          .first,
+    );
+    expect(card('a').height, greaterThan(0));
+    expect(card('a').top, card('b').top);
+    expect(card('a').height, card('b').height);
+    expect(
+      tester.getTopLeft(find.text('a')).dy,
+      tester.getTopLeft(find.text('b')).dy,
+    );
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets(
     'input role and opacity remain distinct from card border in live themes',
     (tester) async {

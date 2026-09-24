@@ -47,10 +47,13 @@ Future<void> pumpSettings(
               .appearanceFor(_site, null)
               ?.paletteForBrightness(brightness);
           final theme = palette == null
-              ? AppTheme.forBrightness(brightness)
+              ? AppTheme.forBrightness(
+                  brightness,
+                  fontFamily: preferences.font.family,
+                )
               : AppTheme.fromPalette(
                   palette,
-                  fontFamily: preferences.effectiveFont.family,
+                  fontFamily: preferences.font.family,
                 );
           return MaterialApp(
             theme: theme.copyWith(platform: platform),

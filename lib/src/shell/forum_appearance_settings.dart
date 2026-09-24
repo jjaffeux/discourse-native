@@ -10,7 +10,10 @@ import '../models/forum_theme.dart';
 import '../models/forum_theme_preferences.dart';
 import '../models/forum_theme_presets.dart';
 import 'forum_settings_controller.dart';
+import 'forum_theme_clipboard.dart';
 import 'forum_theme_editor.dart';
+import 'forum_theme_new_dialog.dart';
+import 'forum_theme_picker.dart';
 import 'settings_section.dart';
 import 'shell_scope.dart';
 import 'theme_icons.dart';
@@ -24,49 +27,46 @@ class ForumAppearanceSettings extends StatefulWidget {
 }
 
 class _ForumAppearanceSettingsState extends State<ForumAppearanceSettings> {
-  Brightness? _editingBrightness;
+  /// The mode the Theme section shows, until the appearance changes.
+  Brightness? _shownBrightness;
+
+  /// The theme being edited. It is saved only from the editor.
+  ForumTheme? _editing;
   String? _error;
   int _revision = 0;
   ForumThemePreferences? _retry;
   ForumSettingsController get settings =>
       ShellScope.identityOf(context).forumSettings;
 
-  Map<Brightness, ForumTheme> _palettes(ForumThemePreferences preferences) {
-    if (!preferences.useCustomTheme) {
-      preferences = ForumThemePreferences.defaults;
-    }
+  /// Read when a choice lands rather than captured at build: two choices made
+  /// before the page redraws must both be kept.
+  ForumThemePreferences get _preferences => settings.themesFor(widget.siteUrl);
+
+  Brightness _activeBrightness() =>
+      switch (settings.themeModeFor(widget.siteUrl)) {
+        AppThemeMode.system => MediaQuery.platformBrightnessOf(context),
+        AppThemeMode.light => Brightness.light,
+        AppThemeMode.dark => Brightness.dark,
+      };
+
+  Brightness _brightness() => _shownBrightness ?? _activeBrightness();
+
+  /// The forum's own palette for each mode, or the neutral preset where the
+  /// forum has not published one.
+  Map<Brightness, ForumTheme> _forumPalettes() {
     final forum = ShellScope.identityOf(
       context,
     ).siteAppearanceFor(widget.siteUrl);
-    ForumTheme resolve(Brightness mode) {
-      final palette = forum?.paletteForBrightness(mode);
-      return preferences.palettes[mode] ??
-          preferences.selectedTheme?.forBrightness(mode) ??
-          (palette != null
-              ? ForumTheme.fromPalette(palette)
-              : forumThemePresets.first
-                    .forBrightness(mode)
-                    .copyWith(id: 'forum', name: 'Forum default'));
-    }
-
-    return {for (final mode in Brightness.values) mode: resolve(mode)};
-  }
-
-  ForumBackground _background(
-    ForumThemePreferences preferences,
-    Brightness mode,
-  ) {
-    if (!preferences.useCustomTheme) return const ForumBackground.appearance();
-    final background =
-        preferences.background ?? preferences.themeFor(mode)?.background;
-    if (background == null) return const ForumBackground.appearance();
-    if (background.useAccentTint) return background;
-    return ForumBackground.appearance(
-      strength: (background.strength * .45 / .22).clamp(0, 1),
-      effect: background.effect,
-      noiseIntensity: background.noiseIntensity,
-      transparency: background.transparency,
-    );
+    return {
+      for (final mode in Brightness.values)
+        mode: switch (forum?.paletteForBrightness(mode)) {
+          final palette? => ForumTheme.fromPalette(palette),
+          null =>
+            forumThemePresets.first
+                .forBrightness(mode)
+                .copyWith(id: 'forum', name: 'Forum default'),
+        },
+    };
   }
 
   Future<void> _save(ForumThemePreferences preferences) async {
@@ -85,27 +85,115 @@ class _ForumAppearanceSettingsState extends State<ForumAppearanceSettings> {
     }
   }
 
-  ForumThemePreferences _seed(
-    ForumThemePreferences preferences,
-    Brightness mode,
-  ) {
-    var result = preferences.useCustomTheme
-        ? preferences
-        : ForumThemePreferences(customThemes: preferences.customThemes);
-    for (final palette in _palettes(preferences).values) {
-      result = result.withPalette(palette);
+  void _chooseSource(ForumThemeSource source) {
+    final preferences = _preferences;
+    if (source == preferences.source) return;
+    if (source != ForumThemeSource.custom) {
+      unawaited(_save(preferences.withSource(source)));
+      return;
     }
-    return result.withBackground(_background(preferences, mode));
+    final theme =
+        preferences.customTheme ?? preferences.customThemes.firstOrNull;
+    // Nothing is saved yet: start the first theme instead.
+    if (theme == null) {
+      unawaited(_newTheme());
+    } else {
+      unawaited(_save(preferences.useTheme(theme.id)));
+    }
   }
 
-  void _removeTheme(String id) {
-    var preferences = settings.themesFor(widget.siteUrl);
-    if (preferences.useCustomTheme && preferences.selectedId == id) {
-      for (final palette in _palettes(preferences).values) {
-        preferences = preferences.withPalette(palette);
-      }
+  Future<void> _newTheme({String? base}) async {
+    final forum = _forumPalettes();
+    final start = await showDDialog<ForumThemeStart>(
+      context: context,
+      builder: (context, controller) => ForumThemeNewDialog(
+        controller: controller,
+        brightness: _brightness(),
+        forum: ForumTheme.fromJson({
+          ...forum[Brightness.light]!.toJson(),
+          'alternate': forum[Brightness.dark]!.toJson(),
+        }, id: 'forum'),
+        saved: _preferences.customThemes,
+        initial: base,
+      ),
+    );
+    if (start == null || !mounted) return;
+    final background =
+        start.base.background ??
+        start.base.alternate?.background ??
+        const ForumBackground.appearance();
+    Map<String, dynamic> part(Brightness mode) => {
+      ...start.base.forBrightness(mode).toJson(),
+      'name': start.name,
+      'background': background.toJson(),
+    };
+    setState(
+      () => _editing = ForumTheme.fromJson({
+        ...part(Brightness.light),
+        'alternate': part(Brightness.dark),
+      }, id: 'custom-${DateTime.now().microsecondsSinceEpoch}'),
+    );
+  }
+
+  Future<void> _saveEdit(ForumTheme theme) async {
+    await settings.setThemes(widget.siteUrl, _preferences.save(theme));
+    if (mounted) setState(() => _editing = null);
+  }
+
+  void _duplicate(ForumTheme theme) {
+    final copy = '${theme.name} copy';
+    final name = copy.length <= 48 ? copy : copy.substring(0, 48).trimRight();
+    unawaited(
+      _save(
+        _preferences.add(
+          ForumTheme.fromJson({
+            ...theme.toJson(),
+            'name': name,
+            if (theme.alternate case final alternate?)
+              'alternate': {...alternate.toJson(), 'name': name},
+          }, id: 'custom-${DateTime.now().microsecondsSinceEpoch}'),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _delete(ForumTheme theme) async {
+    final preferences = _preferences;
+    final inUse =
+        preferences.source == ForumThemeSource.custom &&
+        preferences.customId == theme.id;
+    final confirmed = await showDAlertDialog<bool>(
+      context: context,
+      builder: (context, close) => DAlertDialogContent(
+        semanticLabel: 'Delete theme',
+        children: [
+          DAlertDialogHeader(
+            title: Text('Delete “${theme.name}”?'),
+            description: Text(
+              inUse
+                  ? 'This removes the theme from your saved themes. The '
+                        'forum’s own colours are used until you choose '
+                        'another.'
+                  : 'This removes the theme from your saved themes. Your '
+                        'current appearance will stay as it is.',
+            ),
+          ),
+          const DAlertDialogFooter(
+            children: [
+              DAlertDialogCancel<bool>(label: Text('Cancel'), result: false),
+              DAlertDialogAction<bool>(
+                label: Text('Delete'),
+                result: true,
+                variant: DButtonVariant.destructive,
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true && mounted) {
+      unawaited(_save(_preferences.remove(theme.id)));
     }
-    unawaited(_save(preferences.remove(id)));
   }
 
   @override
@@ -114,12 +202,14 @@ class _ForumAppearanceSettingsState extends State<ForumAppearanceSettings> {
     builder: (context, _) {
       final preferences = settings.themesFor(widget.siteUrl);
       final mode = settings.themeModeFor(widget.siteUrl);
-      final activeBrightness = switch (mode) {
-        AppThemeMode.system => MediaQuery.platformBrightnessOf(context),
-        AppThemeMode.light => Brightness.light,
-        AppThemeMode.dark => Brightness.dark,
-      };
-      final brightness = _editingBrightness ?? activeBrightness;
+      final brightness = _brightness();
+      final fontFamily = preferences.font.family;
+      final editing = _editing;
+      final sources = ForumThemeSources(
+        value: editing == null ? preferences.source : ForumThemeSource.custom,
+        enabled: editing == null,
+        onChanged: _chooseSource,
+      );
       return SingleChildScrollView(
         key: const PageStorageKey('theme-settings-scroll'),
         padding: const EdgeInsets.all(16),
@@ -197,7 +287,7 @@ class _ForumAppearanceSettingsState extends State<ForumAppearanceSettings> {
                     ),
                   ],
                   onChanged: (values) {
-                    setState(() => _editingBrightness = null);
+                    setState(() => _shownBrightness = null);
                     unawaited(
                       settings.setThemeMode(widget.siteUrl, values.single),
                     );
@@ -214,14 +304,11 @@ class _ForumAppearanceSettingsState extends State<ForumAppearanceSettings> {
                           const DItemSeparator(),
                         DItem(
                           key: ValueKey('appearance-font-${font.name}'),
-                          selected: preferences.effectiveFont == font,
+                          selected: preferences.font == font,
                           shape: DItemShape.fullWidth,
                           selectionStyle: DItemSelectionStyle.leadingAccent,
-                          onPressed: () => unawaited(
-                            _save(
-                              _seed(preferences, brightness).withFont(font),
-                            ),
-                          ),
+                          onPressed: () =>
+                              unawaited(_save(_preferences.withFont(font))),
                           children: [
                             DItemContent(
                               children: [
@@ -255,59 +342,49 @@ class _ForumAppearanceSettingsState extends State<ForumAppearanceSettings> {
                     ],
                   ),
                 ),
-                ForumThemeEditor(
-                  palettes: _palettes(preferences),
-                  isForumDefault: !preferences.useCustomTheme,
-                  onForumDefault: () =>
-                      unawaited(_save(preferences.withCustomTheme(false))),
-                  forumPalettes: _palettes(ForumThemePreferences.defaults),
-                  background: _background(preferences, brightness),
-                  brightness: brightness,
-                  customThemes: preferences.customThemes,
-                  onBrightnessChanged: (value) =>
-                      setState(() => _editingBrightness = value),
-                  onPresetSelected: (preset) => unawaited(
-                    _save(
-                      _seed(settings.themesFor(widget.siteUrl), brightness)
-                          .withPalette(preset)
-                          .withBackground(
-                            preset.background ??
-                                const ForumBackground.appearance(),
+                if (editing != null)
+                  ForumThemeEditor(
+                    key: ValueKey(('theme-editor', editing.id)),
+                    theme: editing,
+                    brightness: brightness,
+                    sources: sources,
+                    fontFamily: fontFamily,
+                    onSave: _saveEdit,
+                    onCancel: () => setState(() => _editing = null),
+                  )
+                else
+                  SettingsSection(
+                    title: 'Theme',
+                    icon: const ThemeIcon(ThemeIcons.preset),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      spacing: 16,
+                      children: [
+                        sources,
+                        ForumThemePicker(
+                          key: const ValueKey('theme-picker'),
+                          preferences: preferences,
+                          forum: _forumPalettes(),
+                          brightness: brightness,
+                          fontFamily: fontFamily,
+                          onBrightnessChanged: (value) =>
+                              setState(() => _shownBrightness = value),
+                          onPreset: (mode, id) => unawaited(
+                            _save(_preferences.withPreset(mode, id)),
                           ),
+                          onTheme: (id) =>
+                              unawaited(_save(_preferences.useTheme(id))),
+                          onNewTheme: ({base}) =>
+                              unawaited(_newTheme(base: base)),
+                          onEdit: (theme) => setState(() => _editing = theme),
+                          onDuplicate: _duplicate,
+                          onCopy: (theme) =>
+                              unawaited(copyForumTheme(context, theme)),
+                          onDelete: (theme) => unawaited(_delete(theme)),
+                        ),
+                      ],
                     ),
                   ),
-                  onChanged: (palette) => unawaited(
-                    _save(
-                      _seed(
-                        settings.themesFor(widget.siteUrl),
-                        brightness,
-                      ).withPalette(palette),
-                    ),
-                  ),
-                  onBackgroundChanged: (background) => unawaited(
-                    _save(
-                      _seed(
-                        settings.themesFor(widget.siteUrl),
-                        brightness,
-                      ).withBackground(background),
-                    ),
-                  ),
-                  onDelete: _removeTheme,
-                  onSave: (theme) async {
-                    final current = settings.themesFor(widget.siteUrl);
-                    await settings.setThemes(
-                      widget.siteUrl,
-                      ForumThemePreferences(
-                        useCustomTheme: current.useCustomTheme,
-                        selectedId: current.selectedId,
-                        customThemes: [...current.customThemes, theme],
-                        font: current.font,
-                        palettes: current.palettes,
-                        background: current.background,
-                      ),
-                    );
-                  },
-                ),
               ],
             ),
           ),

@@ -21,61 +21,99 @@ void main() {
     'name': 'My night',
   }, id: 'custom-night');
 
+  test('the forum default keeps the chosen presets, saved theme and font', () {
+    final chosen = ForumThemePreferences()
+        .withPreset(Brightness.dark, 'dracula')
+        .save(custom)
+        .withFont(ForumFont.lato);
+    final forum = ForumThemePreferences.fromJson(
+      chosen.withSource(ForumThemeSource.forum).toJson(),
+    );
+    expect(forum.source, ForumThemeSource.forum);
+    for (final mode in Brightness.values) {
+      expect(forum.themeFor(mode), isNull, reason: '$mode');
+    }
+    expect(forum.font, ForumFont.lato);
+    expect(forum.withSource(ForumThemeSource.custom), chosen);
+    expect(
+      forum
+          .withSource(ForumThemeSource.preset)
+          .themeFor(Brightness.dark)!
+          .tertiary,
+      dracula.tertiary,
+    );
+  });
+
   test(
-    'default mode persists custom edits and migrates existing preferences',
+    'presets are chosen per mode and a mode without one keeps the forum colours',
     () {
-      final original = ForumThemePreferences(selectedId: 'dracula')
-          .withFont(ForumFont.lato)
-          .withBackground(const ForumBackground.appearance(strength: .5));
-      final disabled = ForumThemePreferences.fromJson(
-        original.withCustomTheme(false).toJson(),
+      final solarized = forumThemePresets.firstWhere(
+        (t) => t.id == 'solarized',
       );
-      expect(disabled.useCustomTheme, isFalse);
-      expect(disabled.themeFor(Brightness.dark), isNull);
-      expect(disabled.effectiveFont, ForumFont.system);
-      expect(disabled.withCustomTheme(true), original);
+      final light = ForumThemePreferences().withPreset(
+        Brightness.light,
+        'solarized',
+      );
+      expect(light.source, ForumThemeSource.preset);
       expect(
-        ForumThemePreferences(
-          useCustomTheme: true,
-        ).withFont(ForumFont.system).useCustomTheme,
-        isTrue,
+        light.themeFor(Brightness.light)!.tertiary,
+        solarized.forBrightness(Brightness.light).tertiary,
       );
-      final legacy = original.toJson()..remove('useCustomTheme');
-      expect(ForumThemePreferences.fromJson(legacy).useCustomTheme, isTrue);
+      expect(light.themeFor(Brightness.dark), isNull);
+      final both = light.withPreset(Brightness.dark, 'dracula');
+      final restored = ForumThemePreferences.fromJson(both.toJson());
+      expect(restored, both);
+      expect(restored.presets, {
+        Brightness.light: 'solarized',
+        Brightness.dark: 'dracula',
+      });
+      expect(restored.themeFor(Brightness.dark)!.tertiary, dracula.tertiary);
+      for (final mode in Brightness.values) {
+        expect(
+          restored.themeFor(mode)!.background,
+          const ForumBackground.appearance(),
+        );
+      }
       expect(
-        ForumThemePreferences.fromJson(const {'version': 1}).useCustomTheme,
-        isFalse,
+        ForumThemePreferences.fromJson({
+          ...both.toJson(),
+          'presets': const {'light': 'dracula', 'dark': 'unknown'},
+        }).presets,
+        isEmpty,
+        reason: 'a preset only applies to a mode it has a palette for',
       );
+      expect(ForumThemePreferences.preset('dracula').presets, {
+        Brightness.dark: 'dracula',
+      });
+      expect(ForumThemePreferences.preset('solarized').presets, {
+        Brightness.light: 'solarized',
+        Brightness.dark: 'solarized',
+      });
     },
   );
 
-  test('light and dark presets and edits persist independently', () {
-    final solarized = forumThemePresets.firstWhere((t) => t.id == 'solarized');
-    const background = ForumBackground.appearance(
-      strength: .7,
-      transparency: .3,
-      effect: ForumBackgroundEffect.lava,
-    );
-    final preferences = ForumThemePreferences()
-        .withPalette(solarized)
-        .withPalette(dracula)
-        .withBackground(background)
-        .withFont(ForumFont.lato);
-    final edited = preferences.withPalette(
-      solarized.copyWith(tertiary: const Color(0xff112233)),
-    );
-    final restored = ForumThemePreferences.fromJson(edited.toJson());
-    expect(restored, edited);
-    expect(
-      restored.themeFor(Brightness.light)!.tertiary,
-      const Color(0xff112233),
-    );
-    expect(restored.themeFor(Brightness.dark)!.tertiary, dracula.tertiary);
-    expect(restored.themeFor(Brightness.light)!.background, background);
-    expect(restored.themeFor(Brightness.dark)!.background, background);
-    expect(restored.font, ForumFont.lato);
-    expect(restored.select(null).palettes, isEmpty);
-  });
+  test(
+    'a mode without a preset keeps the forum palette for that mode',
+    () async {
+      final settings = ForumSettingsController(
+        store: ForumSettingsStore.memory(),
+      );
+      addTearDown(settings.dispose);
+      final forum = SiteAppearance(
+        base: forumThemePresets
+            .firstWhere((t) => t.id == 'solarized')
+            .resolve(Brightness.light),
+        alternate: forumThemePresets.first.resolve(Brightness.dark),
+      );
+      await settings.setThemes(
+        site,
+        ForumThemePreferences().withPreset(Brightness.dark, 'dracula'),
+      );
+      final appearance = settings.appearanceFor(site, forum)!;
+      expect(appearance.base, same(forum.base));
+      expect(appearance.alternate!.tertiary, dracula.tertiary);
+    },
+  );
 
   test(
     'reference tint mixes the accent into background and text separately',
@@ -105,7 +143,7 @@ void main() {
     addTearDown(settings.dispose);
     final loading = settings.load(site);
     await persistence.readStarted.future;
-    final next = ForumThemePreferences().withPalette(dracula);
+    final next = ForumThemePreferences().withPreset(Brightness.dark, 'dracula');
     final saving = settings.setThemes(site, next);
     expect(settings.themesFor(site), next);
     expect(
@@ -140,7 +178,7 @@ void main() {
     }, id: 'custom-pair');
     final restored = ForumThemePreferences.fromJson(
       ForumThemePreferences().save(paired).toJson(),
-    ).selectedTheme!;
+    ).customTheme!;
     expect(restored, paired);
     for (final mode in Brightness.values) {
       final authored = mode == Brightness.light ? paired : paired.alternate!;
@@ -204,7 +242,7 @@ void main() {
       expect(
         ForumThemePreferences.fromJson(
           ForumThemePreferences().save(themed).toJson(),
-        ).selectedTheme,
+        ).customTheme,
         themed,
       );
       for (final mode in Brightness.values) {
@@ -233,7 +271,7 @@ void main() {
     'font survives theme edits and older or unknown preferences default safely',
     () {
       final chosen = ForumThemePreferences().withFont(ForumFont.lato);
-      final edited = chosen.save(custom).select(null);
+      final edited = chosen.save(custom).withSource(ForumThemeSource.forum);
       expect(edited.font, ForumFont.lato);
       expect(edited.remove(custom.id).font, ForumFont.lato);
       expect(ForumThemePreferences.fromJson(edited.toJson()), edited);
@@ -243,7 +281,7 @@ void main() {
       );
       expect(
         ForumThemePreferences.fromJson(const {
-          'version': 1,
+          'version': 2,
           'font': 'unknown',
         }).font,
         ForumFont.system,
@@ -334,9 +372,15 @@ void main() {
           'version': 1,
           'selectedId': old,
         });
-        expect(preferences.selectedId, current);
-        expect(preferences.selectedTheme, isNotNull);
-        expect(preferences.toJson()['selectedId'], current);
+        expect(preferences.source, ForumThemeSource.preset, reason: old);
+        expect(preferences.presets, {
+          Brightness.light: current,
+          Brightness.dark: current,
+        }, reason: old);
+        expect(preferences.toJson()['presets'], {
+          'light': current,
+          'dark': current,
+        });
       }
       for (final theme in forumThemePresets) {
         for (final brightness in Brightness.values) {
@@ -403,11 +447,30 @@ void main() {
       ],
     });
     expect(restored.customThemes, [custom]);
-    expect(restored.selectedTheme, isNull);
+    expect(restored.source, ForumThemeSource.forum);
+    expect(restored.customTheme, isNull);
     final updated = restored.save(custom);
-    expect(updated.selectedTheme, custom);
+    expect(updated.customTheme, custom);
     expect(updated.customThemes, hasLength(1));
-    expect(updated.remove(custom.id).selectedTheme, isNull);
+    final removed = updated.remove(custom.id);
+    expect(removed.customTheme, isNull);
+    expect(removed.source, ForumThemeSource.forum);
+    expect(
+      ForumThemePreferences.fromJson({
+        'version': 2,
+        'source': 'custom',
+        'custom': 'custom-gone',
+        'customThemes': [
+          {'id': custom.id, ...custom.toJson()},
+        ],
+      }).source,
+      ForumThemeSource.forum,
+      reason: 'a missing saved theme leaves the forum colours',
+    );
+    expect(
+      () => ForumThemePreferences.fromJson(const {'version': 3}),
+      throwsFormatException,
+    );
   });
 
   test('custom themes and selections persist per canonical forum', () async {
@@ -419,14 +482,17 @@ void main() {
     await first.setThemes(site, ForumThemePreferences.defaults.save(custom));
     await restored.load('$site/');
     await restored.load('https://example.com');
-    expect(restored.themesFor(site).selectedTheme, custom);
-    expect(restored.themesFor('https://example.com').selectedTheme, isNull);
+    expect(restored.themesFor(site).customTheme, custom);
+    expect(restored.themesFor('https://example.com').customTheme, isNull);
     const source = SiteAppearance.unknown();
     expect(
       restored.appearanceFor(site, source)?.base?.tertiary,
       custom.tertiary,
     );
-    await restored.setThemes(site, restored.themesFor(site).select(null));
+    await restored.setThemes(
+      site,
+      restored.themesFor(site).withSource(ForumThemeSource.forum),
+    );
     expect(restored.appearanceFor(site, source), same(source));
     expect(restored.themesFor(site).customThemes, [custom]);
   });
@@ -437,7 +503,7 @@ void main() {
       store: ForumSettingsStore(persistence: persistence),
     );
     addTearDown(settings.dispose);
-    final initial = ForumThemePreferences(selectedId: 'dracula');
+    final initial = ForumThemePreferences.preset('dracula');
     await settings.setThemes(site, initial);
     persistence.failWrites = true;
     await expectLater(
@@ -457,7 +523,7 @@ void main() {
     await persistence.readStarted.future;
     final first = settings.setThemes(
       site,
-      ForumThemePreferences(selectedId: 'dracula'),
+      ForumThemePreferences.preset('dracula'),
     );
     final last = settings.setThemes(
       site,
@@ -465,9 +531,138 @@ void main() {
     );
     persistence.gate!.complete();
     await Future.wait([load, first, last]);
-    expect(settings.themesFor(site).selectedTheme, custom);
+    expect(settings.themesFor(site).customTheme, custom);
     final restored = await settings.store.loadThemes(site);
-    expect(restored.selectedTheme, custom);
+    expect(restored.customTheme, custom);
+  });
+
+  group('version 1 documents', () {
+    Map<String, dynamic> legacy({
+      Map<Brightness, ForumTheme> palettes = const {},
+      ForumBackground? background,
+      List<ForumTheme> customThemes = const [],
+      String font = 'system',
+    }) => {
+      'version': 1,
+      'useCustomTheme': true,
+      'font': font,
+      'selectedId': null,
+      if (background != null) 'background': background.toJson(),
+      'palettes': {
+        for (final entry in palettes.entries)
+          entry.key.name: {'id': entry.value.id, ...entry.value.toJson()},
+      },
+      'customThemes': [
+        for (final theme in customThemes) {'id': theme.id, ...theme.toJson()},
+      ],
+    };
+    ForumTheme forumCopy(Brightness mode) => forumThemePresets.first
+        .forBrightness(mode)
+        .copyWith(id: 'forum', name: 'Forum default');
+
+    test('a font chosen over the forum colours keeps the forum default', () {
+      final preferences = ForumThemePreferences.fromJson(
+        legacy(
+          palettes: {
+            for (final mode in Brightness.values) mode: forumCopy(mode),
+          },
+          background: const ForumBackground.appearance(),
+          font: 'lato',
+        ),
+      );
+      expect(preferences.source, ForumThemeSource.forum);
+      expect(preferences.font, ForumFont.lato);
+      expect(preferences.customThemes, isEmpty);
+    });
+
+    test(
+      'a preset chosen for one mode keeps the forum colours in the other',
+      () {
+        final preferences = ForumThemePreferences.fromJson(
+          legacy(
+            palettes: {
+              Brightness.light: forumCopy(Brightness.light),
+              Brightness.dark: dracula.forBrightness(Brightness.dark),
+            },
+            background: const ForumBackground.appearance(),
+          ),
+        );
+        expect(preferences.source, ForumThemeSource.preset);
+        expect(preferences.presets, {Brightness.dark: 'dracula'});
+        expect(preferences.themeFor(Brightness.light), isNull);
+      },
+    );
+
+    test('an applied saved theme stays applied', () {
+      final preferences = ForumThemePreferences.fromJson(
+        legacy(
+          palettes: {
+            for (final mode in Brightness.values)
+              mode: custom.forBrightness(mode),
+          },
+          background: const ForumBackground.appearance(),
+          customThemes: [custom],
+        ),
+      );
+      expect(preferences.source, ForumThemeSource.custom);
+      expect(preferences.customThemes, [custom]);
+      expect(preferences.customTheme, custom);
+    });
+
+    test(
+      'edited colours and effects become a saved theme that looks the same',
+      () {
+        final solarized = forumThemePresets.firstWhere(
+          (t) => t.id == 'solarized',
+        );
+        final palettes = {
+          Brightness.light: solarized
+              .forBrightness(Brightness.light)
+              .copyWith(tertiary: const Color(0xff112233)),
+          Brightness.dark: dracula
+              .forBrightness(Brightness.dark)
+              .copyWith(darkerSidebars: true),
+        };
+        const background = ForumBackground.appearance(
+          strength: .5,
+          effect: ForumBackgroundEffect.noise,
+        );
+        final existing = custom.copyWith(id: 'custom-mine', name: 'My theme');
+        final preferences = ForumThemePreferences.fromJson(
+          legacy(
+            palettes: palettes,
+            background: background,
+            customThemes: [existing],
+          ),
+        );
+        expect(preferences.source, ForumThemeSource.custom);
+        expect(preferences.customThemes.first, existing);
+        final migrated = preferences.customTheme!;
+        expect(preferences.customThemes.last, migrated);
+        expect(migrated.name, 'My theme 2');
+        for (final mode in Brightness.values) {
+          expect(
+            preferences.themeFor(mode)!.resolve(mode),
+            palettes[mode]!.copyWith(background: background).resolve(mode),
+            reason: '$mode',
+          );
+        }
+        expect(
+          ForumThemePreferences.fromJson(preferences.toJson()),
+          preferences,
+        );
+      },
+    );
+
+    test('the forum default keeps the library and font', () {
+      final preferences = ForumThemePreferences.fromJson({
+        ...legacy(customThemes: [custom], font: 'lato'),
+        'useCustomTheme': false,
+      });
+      expect(preferences.source, ForumThemeSource.forum);
+      expect(preferences.customThemes, [custom]);
+      expect(preferences.font, ForumFont.lato);
+    });
   });
 }
 

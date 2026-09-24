@@ -30,20 +30,19 @@ final class ForumSettingsController extends FrameSafeNotifier {
     SiteAppearance? forumAppearance,
   ) {
     final preferences = themesFor(siteUrl);
-    if (!preferences.useCustomTheme ||
-        (preferences.selectedTheme == null && preferences.palettes.isEmpty)) {
-      return forumAppearance;
-    }
+    final themes = {
+      for (final mode in Brightness.values) mode: preferences.themeFor(mode),
+    };
+    if (themes.values.every((theme) => theme == null)) return forumAppearance;
+    // A mode without its own choice keeps the forum's palette for that mode.
     ResolvedSitePalette? palette(Brightness brightness) =>
-        preferences
-            .themeFor(brightness)
-            ?.resolve(
-              brightness,
-              forumPalette:
-                  forumAppearance?.paletteForBrightness(brightness) ??
-                  forumAppearance?.base ??
-                  forumAppearance?.alternate,
-            ) ??
+        themes[brightness]?.resolve(
+          brightness,
+          forumPalette:
+              forumAppearance?.paletteForBrightness(brightness) ??
+              forumAppearance?.base ??
+              forumAppearance?.alternate,
+        ) ??
         forumAppearance?.paletteForBrightness(brightness);
     return SiteAppearance(
       base: palette(Brightness.light),
