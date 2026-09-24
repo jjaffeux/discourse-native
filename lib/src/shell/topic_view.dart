@@ -58,6 +58,7 @@ import 'topic_move_posts.dart';
 import 'topic_post_retention.dart';
 import 'topic_post_sliver.dart';
 import 'topic_progress.dart';
+import 'topic_skeleton.dart';
 import 'topic_tag_picker.dart';
 import 'topic_taxonomy_fields.dart';
 import 'topic_title.dart';
@@ -3056,12 +3057,7 @@ class _TopicPostSkeleton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final tokens = DTokens.of(context);
-    // The muted surface nearly disappears at the pulse's half-opacity trough
-    // on light topic backgrounds. Use the stronger existing neutral token.
-    final color = Theme.of(context).brightness == Brightness.light
-        ? tokens.border
-        : tokens.muted;
+    final color = topicSkeletonColor(context);
     final post = Padding(
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
       child: Column(
