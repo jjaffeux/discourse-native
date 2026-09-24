@@ -135,6 +135,42 @@ void main() {
     },
   );
 
+  test('a preview shows a draft and a mode without storing them, and only its '
+      'owner ends it', () async {
+    final settings = ForumSettingsController(
+      store: ForumSettingsStore.memory(),
+    );
+    addTearDown(settings.dispose);
+    final stored = ForumThemePreferences.preset('wcag');
+    await settings.setThemes(site, stored);
+    final saved = settings.appearanceFor(site, null);
+    var notified = 0;
+    settings.addListener(() => notified++);
+    final page = Object();
+    final other = Object();
+
+    settings.preview(site, page, brightness: Brightness.dark, draft: dracula);
+    expect(notified, 1);
+    expect(settings.previewBrightnessFor(site), Brightness.dark);
+    expect(
+      settings.appearanceFor(site, null)!.alternate!.tertiary,
+      dracula.tertiary,
+    );
+    settings.preview(site, page, brightness: Brightness.dark, draft: dracula);
+    expect(notified, 1, reason: 'an unchanged preview does not notify');
+    settings.preview(site, other);
+    expect(settings.previewBrightnessFor(site), Brightness.dark);
+    expect(notified, 1);
+
+    settings.preview(site, page, brightness: Brightness.dark);
+    expect(settings.appearanceFor(site, null), saved);
+    settings.preview(site, page);
+    expect(notified, 3);
+    expect(settings.previewBrightnessFor(site), isNull);
+    expect(settings.themesFor(site), stored);
+    expect(await settings.store.loadThemes(site), stored);
+  });
+
   test('live palettes are visible before persistence completes', () async {
     final persistence = _Persistence()..gate = Completer<void>();
     final settings = ForumSettingsController(

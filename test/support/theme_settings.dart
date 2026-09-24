@@ -39,9 +39,9 @@ Future<void> pumpSettings(
         listenable: shell.forumSettings,
         builder: (context, _) {
           final mode = shell.forumSettings.themeModeFor(_site);
-          final brightness = mode == AppThemeMode.dark
-              ? Brightness.dark
-              : Brightness.light;
+          final brightness =
+              shell.forumSettings.previewBrightnessFor(_site) ??
+              (mode == AppThemeMode.dark ? Brightness.dark : Brightness.light);
           final preferences = shell.forumSettings.themesFor(_site);
           final palette = shell.forumSettings
               .appearanceFor(_site, null)

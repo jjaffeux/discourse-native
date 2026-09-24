@@ -20,18 +20,49 @@ final class ForumSettingsController extends FrameSafeNotifier {
   final _themes = PreferenceSnapshots<String, ForumThemePreferences>();
   final _themeImports = SerialOperationQueue();
   final _themeWrites = <String, _ThemeWrite>{};
+  final _previews = <String, _AppearancePreview>{};
 
   ForumThemePreferences themesFor(String siteUrl) =>
       _themes.peek(requireStoredForumBase(siteUrl)) ??
       ForumThemePreferences.defaults;
+
+  /// The mode the app shows while the Appearance page chooses colours for it,
+  /// or null for the saved mode.
+  Brightness? previewBrightnessFor(String siteUrl) =>
+      _previews[requireStoredForumBase(siteUrl)]?.brightness;
+
+  /// Shows [brightness] and a [draft] theme across the app while [owner], an
+  /// open Appearance page, chooses or edits colours. Neither is stored.
+  /// Passing neither ends [owner]'s preview and leaves another owner's alone.
+  void preview(
+    String siteUrl,
+    Object owner, {
+    Brightness? brightness,
+    ForumTheme? draft,
+  }) {
+    if (isDisposed) return;
+    final site = requireStoredForumBase(siteUrl);
+    final current = _previews[site];
+    if (brightness == null && draft == null) {
+      if (current?.owner != owner) return;
+      _previews.remove(site);
+    } else {
+      final next = (owner: owner, brightness: brightness, draft: draft);
+      if (current == next) return;
+      _previews[site] = next;
+    }
+    notifySafely();
+  }
 
   SiteAppearance? appearanceFor(
     String siteUrl,
     SiteAppearance? forumAppearance,
   ) {
     final preferences = themesFor(siteUrl);
+    final draft = _previews[requireStoredForumBase(siteUrl)]?.draft;
     final themes = {
-      for (final mode in Brightness.values) mode: preferences.themeFor(mode),
+      for (final mode in Brightness.values)
+        mode: draft?.forBrightness(mode) ?? preferences.themeFor(mode),
     };
     if (themes.values.every((theme) => theme == null)) return forumAppearance;
     // A mode without its own choice keeps the forum's palette for that mode.
@@ -136,6 +167,12 @@ final class ForumSettingsController extends FrameSafeNotifier {
     return saving;
   }
 }
+
+typedef _AppearancePreview = ({
+  Object owner,
+  Brightness? brightness,
+  ForumTheme? draft,
+});
 
 final class _ThemeWrite {
   _ThemeWrite(this.saved);

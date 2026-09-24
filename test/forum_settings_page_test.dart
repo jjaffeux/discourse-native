@@ -2,6 +2,7 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/app_settings.dart';
 import 'package:discourse_native/src/models/forum_font.dart';
 import 'package:discourse_native/src/models/forum_theme_preferences.dart';
+import 'package:discourse_native/src/shell/forum_settings_page.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -9,8 +10,8 @@ import 'support/theme_settings.dart';
 
 void main() {
   testWidgets(
-    'the forum default shows its colours without editing controls and the '
-    'preview switch keeps System mode',
+    'the forum default has no editing controls, and showing dark repaints the '
+    'app while keeping System mode',
     (tester) async {
       final shell = controller();
       addTearDown(shell.dispose);
@@ -22,7 +23,10 @@ void main() {
         tester.widget<DRadioGroup<ForumThemeSource>>(sources).groupValue,
         ForumThemeSource.forum,
       );
-      expect(find.byKey(const ValueKey('theme-preview')), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey(('make-own-theme', 'forum'))),
+        findsOneWidget,
+      );
       for (final control in [
         'appearance-theme-select',
         'theme-tint',
@@ -35,7 +39,7 @@ void main() {
         tester.getTopLeft(find.byKey(const ValueKey('appearance-mode'))).dy,
         lessThan(tester.getTopLeft(sources).dy),
       );
-      final shown = find.byKey(const ValueKey('theme-preview-mode'));
+      final shown = find.byKey(const ValueKey('theme-shown-mode'));
       await tester.ensureVisible(shown);
       await tester.tap(find.descendant(of: shown, matching: find.text('Dark')));
       await tester.pumpAndSettle();
@@ -47,9 +51,7 @@ void main() {
         Brightness.dark,
       ]);
       expect(
-        Theme.of(
-          tester.element(find.byKey(const ValueKey('forum-theme-preview'))),
-        ).brightness,
+        Theme.of(tester.element(find.byType(ForumSettingsPage))).brightness,
         Brightness.dark,
       );
       expect(tester.takeException(), isNull);

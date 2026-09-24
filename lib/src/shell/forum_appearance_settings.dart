@@ -27,16 +27,55 @@ class ForumAppearanceSettings extends StatefulWidget {
 }
 
 class _ForumAppearanceSettingsState extends State<ForumAppearanceSettings> {
-  /// The mode the Theme section shows, until the appearance changes.
+  /// The mode the Theme section shows, and the app with it, until the
+  /// appearance changes or the page closes.
   Brightness? _shownBrightness;
 
   /// The theme being edited. It is saved only from the editor.
   ForumTheme? _editing;
+
+  /// The editor's latest draft, which the app shows until Save or Cancel.
+  ForumTheme? _draft;
   String? _error;
   int _revision = 0;
   ForumThemePreferences? _retry;
-  ForumSettingsController get settings =>
-      ShellScope.identityOf(context).forumSettings;
+
+  /// Held for [dispose], which can no longer look it up.
+  late ForumSettingsController settings;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    settings = ShellScope.identityOf(context).forumSettings;
+  }
+
+  @override
+  void dispose() {
+    // The app goes back to the saved mode and theme with the page.
+    settings.preview(widget.siteUrl, this);
+    super.dispose();
+  }
+
+  void _preview() => settings.preview(
+    widget.siteUrl,
+    this,
+    brightness: _shownBrightness,
+    draft: _draft,
+  );
+
+  void _show(Brightness? brightness) {
+    setState(
+      () => _shownBrightness = brightness == _activeBrightness()
+          ? null
+          : brightness,
+    );
+    _preview();
+  }
+
+  void _edit(ForumTheme? theme) {
+    setState(() => _editing = _draft = theme);
+    _preview();
+  }
 
   /// Read when a choice lands rather than captured at build: two choices made
   /// before the page redraws must both be kept.
@@ -127,8 +166,8 @@ class _ForumAppearanceSettingsState extends State<ForumAppearanceSettings> {
       'name': start.name,
       'background': background.toJson(),
     };
-    setState(
-      () => _editing = ForumTheme.fromJson({
+    _edit(
+      ForumTheme.fromJson({
         ...part(Brightness.light),
         'alternate': part(Brightness.dark),
       }, id: 'custom-${DateTime.now().microsecondsSinceEpoch}'),
@@ -137,7 +176,7 @@ class _ForumAppearanceSettingsState extends State<ForumAppearanceSettings> {
 
   Future<void> _saveEdit(ForumTheme theme) async {
     await settings.setThemes(widget.siteUrl, _preferences.save(theme));
-    if (mounted) setState(() => _editing = null);
+    if (mounted) _edit(null);
   }
 
   void _duplicate(ForumTheme theme) {
@@ -287,10 +326,10 @@ class _ForumAppearanceSettingsState extends State<ForumAppearanceSettings> {
                     ),
                   ],
                   onChanged: (values) {
-                    setState(() => _shownBrightness = null);
                     unawaited(
                       settings.setThemeMode(widget.siteUrl, values.single),
                     );
+                    _show(null);
                   },
                 ),
                 SettingsSection(
@@ -347,10 +386,14 @@ class _ForumAppearanceSettingsState extends State<ForumAppearanceSettings> {
                     key: ValueKey(('theme-editor', editing.id)),
                     theme: editing,
                     brightness: brightness,
+                    onBrightnessChanged: _show,
                     sources: sources,
-                    fontFamily: fontFamily,
+                    onChanged: (draft) {
+                      _draft = draft;
+                      _preview();
+                    },
                     onSave: _saveEdit,
-                    onCancel: () => setState(() => _editing = null),
+                    onCancel: () => _edit(null),
                   )
                 else
                   SettingsSection(
@@ -364,11 +407,9 @@ class _ForumAppearanceSettingsState extends State<ForumAppearanceSettings> {
                         ForumThemePicker(
                           key: const ValueKey('theme-picker'),
                           preferences: preferences,
-                          forum: _forumPalettes(),
                           brightness: brightness,
                           fontFamily: fontFamily,
-                          onBrightnessChanged: (value) =>
-                              setState(() => _shownBrightness = value),
+                          onBrightnessChanged: _show,
                           onPreset: (mode, id) => unawaited(
                             _save(_preferences.withPreset(mode, id)),
                           ),
@@ -376,7 +417,7 @@ class _ForumAppearanceSettingsState extends State<ForumAppearanceSettings> {
                               unawaited(_save(_preferences.useTheme(id))),
                           onNewTheme: ({base}) =>
                               unawaited(_newTheme(base: base)),
-                          onEdit: (theme) => setState(() => _editing = theme),
+                          onEdit: _edit,
                           onDuplicate: _duplicate,
                           onCopy: (theme) =>
                               unawaited(copyForumTheme(context, theme)),

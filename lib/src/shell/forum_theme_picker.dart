@@ -7,7 +7,6 @@ import '../models/forum_theme_preferences.dart';
 import '../models/forum_theme_presets.dart';
 import '../theme/app_theme.dart';
 import '../theme/d_icons.dart';
-import 'forum_theme_preview.dart';
 import 'forum_theme_thumbnail.dart';
 
 /// Where the forum's colours come from. Choosing a source never edits one:
@@ -82,13 +81,12 @@ class ForumThemeSources extends StatelessWidget {
 }
 
 /// The content of the chosen source: the forum's own colours, the presets for
-/// one mode, or the user's saved themes, each with a preview of every colour
-/// in the choice under the pointer or in use.
+/// one mode, or the user's saved themes. The app around the page is the
+/// preview: a choice applies as it is made, in the mode shown here.
 class ForumThemePicker extends StatefulWidget {
   const ForumThemePicker({
     super.key,
     required this.preferences,
-    required this.forum,
     required this.brightness,
     required this.onBrightnessChanged,
     required this.onPreset,
@@ -103,10 +101,7 @@ class ForumThemePicker extends StatefulWidget {
 
   final ForumThemePreferences preferences;
 
-  /// The forum's own palette for each mode.
-  final Map<Brightness, ForumTheme> forum;
-
-  /// The mode whose colours the lists and preview show.
+  /// The mode the lists are for, and the app shows while the page is open.
   final Brightness brightness;
   final ValueChanged<Brightness> onBrightnessChanged;
   final void Function(Brightness mode, String id) onPreset;
@@ -125,19 +120,8 @@ class ForumThemePicker extends StatefulWidget {
 }
 
 class _ForumThemePickerState extends State<ForumThemePicker> {
-  String? _hovered;
-
-  /// Hovering redraws the preview; every row's miniature keeps its theme.
+  /// A choice redraws the list; every row's miniature keeps its theme.
   final _themes = <(ForumTheme, Brightness, String?), ThemeData>{};
-
-  @override
-  void didUpdateWidget(ForumThemePicker oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.preferences.source != widget.preferences.source ||
-        oldWidget.brightness != widget.brightness) {
-      _hovered = null;
-    }
-  }
 
   ThemeData _theme(ForumTheme theme) {
     final key = (theme, widget.brightness, widget.fontFamily);
@@ -151,11 +135,15 @@ class _ForumThemePickerState extends State<ForumThemePicker> {
   String get _mode => widget.brightness == Brightness.dark ? 'dark' : 'light';
 
   @override
-  Widget build(BuildContext context) => switch (widget.preferences.source) {
-    ForumThemeSource.forum => _forum(context),
-    ForumThemeSource.preset => _presets(context),
-    ForumThemeSource.custom => _saved(context),
-  };
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    spacing: DSpacing.md,
+    children: switch (widget.preferences.source) {
+      ForumThemeSource.forum => _forum(context),
+      ForumThemeSource.preset => _presets(context),
+      ForumThemeSource.custom => _saved(context),
+    },
+  );
 
   Widget _header(String label) => Wrap(
     alignment: WrapAlignment.spaceBetween,
@@ -165,7 +153,7 @@ class _ForumThemePickerState extends State<ForumThemePicker> {
     children: [
       DFieldLabel(child: Text(label)),
       DToggleGroup<Brightness>(
-        key: const ValueKey('theme-preview-mode'),
+        key: const ValueKey('theme-shown-mode'),
         values: [widget.brightness],
         allowEmptySelection: false,
         size: DToggleSize.small,
@@ -188,11 +176,6 @@ class _ForumThemePickerState extends State<ForumThemePicker> {
     ],
   );
 
-  Widget _preview(ForumTheme theme) => ForumThemePreview(
-    key: const ValueKey('theme-preview'),
-    theme: _theme(theme.forBrightness(widget.brightness)),
-  );
-
   Widget _caption(BuildContext context, String text) => Text(
     text,
     style: TextStyle(
@@ -202,30 +185,12 @@ class _ForumThemePickerState extends State<ForumThemePicker> {
     ),
   );
 
-  Widget _forum(BuildContext context) {
-    final forum = widget.forum[widget.brightness]!;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      spacing: DSpacing.md,
-      children: [
-        _header('The forum’s own colours'),
-        _preview(forum),
-        Wrap(
-          spacing: DSpacing.md,
-          runSpacing: DSpacing.sm,
-          crossAxisAlignment: WrapCrossAlignment.center,
-          children: [
-            _caption(
-              context,
-              'Light and dark come from the forum, and follow it when its '
-              'admins change them.',
-            ),
-            _makeOwn('forum'),
-          ],
-        ),
-      ],
-    );
-  }
+  Widget _footer(List<Widget> children) => Wrap(
+    spacing: DSpacing.md,
+    runSpacing: DSpacing.sm,
+    crossAxisAlignment: WrapCrossAlignment.center,
+    children: children,
+  );
 
   Widget _makeOwn(String base) => DButton(
     key: ValueKey(('make-own-theme', base)),
@@ -235,135 +200,114 @@ class _ForumThemePickerState extends State<ForumThemePicker> {
     onPressed: () => widget.onNewTheme(base: base),
   );
 
-  Widget _presets(BuildContext context) {
-    final chosen = widget.preferences.presets[widget.brightness];
-    return _Browser(
-      header: _header('Built-in presets'),
-      rows: [
+  List<Widget> _forum(BuildContext context) => [
+    _header('The forum’s own colours'),
+    _footer([
+      _caption(
+        context,
+        'Light and dark come from the forum, and follow it when its admins '
+        'change them.',
+      ),
+      _makeOwn('forum'),
+    ]),
+  ];
+
+  List<Widget> _presets(BuildContext context) {
+    final chosen = widget.preferences.presetFor(widget.brightness);
+    return [
+      _header('Built-in presets'),
+      if (chosen == null)
+        _caption(
+          context,
+          'No preset chosen for $_mode mode yet, so it keeps the forum’s '
+          'colours.',
+        ),
+      _list([
         for (final preset in forumThemePresetsFor(widget.brightness))
           _row(
             preset,
-            chosen: chosen == preset.id,
-            onPressed: () {
-              widget.onPreset(widget.brightness, preset.id);
-            },
+            chosen: preset.id == chosen?.id,
+            onPressed: () => widget.onPreset(widget.brightness, preset.id),
           ),
-      ],
-      detail: _presetDetail(context, chosen),
-    );
-  }
-
-  Widget _presetDetail(BuildContext context, String? chosen) {
-    final shown = [_hovered, chosen]
-        .whereType<String>()
-        .map((id) => forumThemePresetFor(id, widget.brightness))
-        .whereType<ForumTheme>()
-        .firstOrNull;
-    if (shown == null) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        spacing: DSpacing.sm,
-        children: [
-          _preview(widget.forum[widget.brightness]!),
+      ]),
+      if (chosen != null)
+        _footer([
           _caption(
             context,
-            'No preset chosen for $_mode mode yet, so it keeps the forum’s '
-            'colours.',
+            forumThemeHasMode(
+                  chosen,
+                  widget.brightness == Brightness.dark
+                      ? Brightness.light
+                      : Brightness.dark,
+                )
+                ? '${chosen.name} · light and dark'
+                : '${chosen.name} · $_mode only',
           ),
-        ],
-      );
-    }
-    final both = forumThemeHasMode(
-      shown,
-      widget.brightness == Brightness.dark ? Brightness.light : Brightness.dark,
-    );
-    return _Detail(
-      preview: _preview(shown),
-      name: shown.name,
-      inUse: shown.id == chosen,
-      palette: _theme(shown.forBrightness(widget.brightness)),
-      caption: _caption(
-        context,
-        both ? 'Built-in · has light and dark' : 'Built-in · $_mode only',
-      ),
-      actions: [_makeOwn(shown.id)],
-    );
+          _makeOwn(chosen.id),
+        ]),
+    ];
   }
 
-  Widget _saved(BuildContext context) {
-    final themes = widget.preferences.customThemes;
-    final chosen = widget.preferences.customId;
-    final shown =
-        themes.where((theme) => theme.id == _hovered).firstOrNull ??
-        widget.preferences.customTheme;
-    return _Browser(
-      header: _header('Your themes'),
-      rows: [
-        for (final theme in themes)
-          _row(
-            theme,
-            chosen: theme.id == chosen,
-            onPressed: () {
-              widget.onTheme(theme.id);
-            },
-          ),
-        DItem(
-          key: const ValueKey('new-theme'),
-          size: DItemSize.sm,
-          onPressed: widget.onNewTheme,
-          children: const [
-            DItemMedia(
-              variant: DItemMediaVariant.icon,
-              child: DIcon(DIcons.plus),
+  List<Widget> _saved(BuildContext context) => [
+    _header('Your themes'),
+    _list([
+      for (final theme in widget.preferences.customThemes)
+        _row(
+          theme,
+          chosen: theme.id == widget.preferences.customId,
+          onPressed: () => widget.onTheme(theme.id),
+          actions: [
+            DButton.iconOnly(
+              key: ValueKey(('edit-theme', theme.id)),
+              icon: const DIcon(DIcons.pencil),
+              tooltip: 'Edit',
+              semanticLabel: 'Edit ${theme.name}',
+              variant: DButtonVariant.ghost,
+              size: DButtonSize.small,
+              onPressed: () => widget.onEdit(theme),
             ),
-            DItemContent(children: [DItemTitle(child: Text('New theme'))]),
+            _ThemeActions(
+              theme: theme,
+              onDuplicate: widget.onDuplicate,
+              onCopy: widget.onCopy,
+              onDelete: widget.onDelete,
+            ),
           ],
         ),
-      ],
-      detail: shown == null
-          ? _preview(widget.forum[widget.brightness]!)
-          : _Detail(
-              preview: _preview(shown),
-              name: shown.name,
-              inUse: shown.id == chosen,
-              palette: _theme(shown.forBrightness(widget.brightness)),
-              caption: _caption(context, 'Your theme · light and dark'),
-              actions: [
-                DButton(
-                  key: ValueKey(('edit-theme', shown.id)),
-                  label: const Text('Edit'),
-                  icon: const DIcon(DIcons.pencil),
-                  variant: DButtonVariant.outline,
-                  size: DButtonSize.small,
-                  onPressed: () => widget.onEdit(shown),
-                ),
-                _ThemeActions(
-                  theme: shown,
-                  onDuplicate: widget.onDuplicate,
-                  onCopy: widget.onCopy,
-                  onDelete: widget.onDelete,
-                ),
-              ],
-            ),
-    );
-  }
+      DItem(
+        key: const ValueKey('new-theme'),
+        size: DItemSize.sm,
+        onPressed: widget.onNewTheme,
+        children: const [
+          DItemMedia(
+            variant: DItemMediaVariant.icon,
+            child: DIcon(DIcons.plus),
+          ),
+          DItemContent(children: [DItemTitle(child: Text('New theme'))]),
+        ],
+      ),
+    ]),
+  ];
+
+  Widget _list(List<Widget> rows) => Semantics(
+    role: SemanticsRole.list,
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      spacing: 2,
+      children: rows,
+    ),
+  );
 
   Widget _row(
     ForumTheme theme, {
     required bool chosen,
     required VoidCallback onPressed,
+    List<Widget> actions = const [],
   }) => DItem(
     key: ValueKey(('theme-choice', theme.id)),
     size: DItemSize.sm,
     selected: chosen,
     onPressed: onPressed,
-    onHoverChanged: (hovered) => setState(() {
-      if (hovered) {
-        _hovered = theme.id;
-      } else if (_hovered == theme.id) {
-        _hovered = null;
-      }
-    }),
     children: [
       DItemMedia(
         child: ThemeThumbnail(
@@ -371,125 +315,7 @@ class _ForumThemePickerState extends State<ForumThemePicker> {
         ),
       ),
       DItemContent(children: [DItemTitle(child: Text(theme.name))]),
-    ],
-  );
-}
-
-/// A list beside the preview when there is room for both, else below it.
-class _Browser extends StatelessWidget {
-  const _Browser({
-    required this.header,
-    required this.rows,
-    required this.detail,
-  });
-
-  final Widget header;
-  final List<Widget> rows;
-  final Widget detail;
-
-  @override
-  Widget build(BuildContext context) => Column(
-    crossAxisAlignment: CrossAxisAlignment.stretch,
-    spacing: DSpacing.md,
-    children: [
-      header,
-      LayoutBuilder(
-        builder: (context, constraints) {
-          final list = Semantics(
-            role: SemanticsRole.list,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              spacing: 2,
-              children: rows,
-            ),
-          );
-          final scale = MediaQuery.textScalerOf(context).scale(14) / 14;
-          if (constraints.maxWidth < 560 * scale) {
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              spacing: DSpacing.lg,
-              children: [detail, list],
-            );
-          }
-          return Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            spacing: 20,
-            children: [
-              SizedBox(width: 232 * scale, child: list),
-              Expanded(child: detail),
-            ],
-          );
-        },
-      ),
-    ],
-  );
-}
-
-class _Detail extends StatelessWidget {
-  const _Detail({
-    required this.preview,
-    required this.name,
-    required this.inUse,
-    required this.palette,
-    required this.caption,
-    required this.actions,
-  });
-
-  final Widget preview;
-  final String name;
-  final bool inUse;
-  final ThemeData palette;
-  final Widget caption;
-  final List<Widget> actions;
-
-  @override
-  Widget build(BuildContext context) => Column(
-    crossAxisAlignment: CrossAxisAlignment.stretch,
-    spacing: DSpacing.sm,
-    children: [
-      preview,
-      Row(
-        spacing: DSpacing.sm,
-        children: [
-          Flexible(
-            child: Text(
-              name,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                color: DTokens.of(context).foreground,
-              ),
-            ),
-          ),
-          DBadge(
-            key: const ValueKey('theme-status'),
-            variant: inUse ? DBadgeVariant.primary : DBadgeVariant.outline,
-            child: Text(inUse ? 'In use' : 'Preview'),
-          ),
-          const Spacer(),
-          ExcludeSemantics(
-            child: SizedBox(
-              width: 100,
-              height: 14,
-              child: FittedBox(child: ThemePaletteStrip(theme: palette)),
-            ),
-          ),
-        ],
-      ),
-      Wrap(
-        spacing: DSpacing.controlGap,
-        runSpacing: DSpacing.sm,
-        crossAxisAlignment: WrapCrossAlignment.center,
-        children: [
-          Padding(
-            padding: const EdgeInsetsDirectional.only(end: DSpacing.sm),
-            child: caption,
-          ),
-          ...actions,
-        ],
-      ),
+      if (actions.isNotEmpty) DItemActions(children: actions),
     ],
   );
 }
@@ -535,7 +361,7 @@ class _ThemeActions extends StatelessWidget {
         key: ValueKey(('theme-actions', theme.id)),
         icon: const DIcon(DIcons.ellipsis),
         tooltip: 'More actions for ${theme.name}',
-        variant: DButtonVariant.outline,
+        variant: DButtonVariant.ghost,
         size: DButtonSize.small,
         hasPopup: true,
         focusNode: trigger.focusNode,

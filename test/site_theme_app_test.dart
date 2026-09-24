@@ -222,6 +222,46 @@ void main() {
   }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 
   testWidgets(
+    'the mode the theme page shows repaints the whole app until Back leaves it',
+    (tester) async {
+      tester.view.physicalSize = const Size(1200, 800);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      tester.platformDispatcher.platformBrightnessTestValue = Brightness.light;
+      addTearDown(tester.platformDispatcher.clearPlatformBrightnessTestValue);
+      await _pumpApp(
+        tester,
+        store: FakeInstanceStore([
+          const DiscourseInstance(url: siteA, title: 'A'),
+        ]),
+        api: FakeDiscourseApi(),
+        appSettingsStore: AppSettingsStore(
+          persistence: MemoryAppSettingsPersistence(),
+        ),
+      );
+      final controller = _controller(tester);
+      await _openForumSettings(tester);
+      final shown = find.byKey(const ValueKey('theme-shown-mode'));
+      await tester.ensureVisible(shown);
+      await tester.tap(
+        find.descendant(of: shown, matching: find.text('Dark')),
+        kind: PointerDeviceKind.mouse,
+      );
+      await tester.pumpAndSettle();
+      expect(_materialApp(tester).themeMode, ThemeMode.dark);
+      expect(_activeTheme(tester).brightness, Brightness.dark);
+      expect(controller.forumSettings.themeModeFor(siteA), AppThemeMode.system);
+
+      controller.handleBack(canReturnToSidebar: true);
+      await tester.pumpAndSettle();
+      expect(find.byType(ForumSettingsPage), findsNothing);
+      expect(_materialApp(tester).themeMode, ThemeMode.system);
+      expect(_activeTheme(tester).brightness, Brightness.light);
+    },
+    variant: TargetPlatformVariant.only(TargetPlatform.macOS),
+  );
+
+  testWidgets(
     'a personal palette updates the app and restores forum defaults',
     (tester) async {
       final forums = ForumSettingsStore.memory();

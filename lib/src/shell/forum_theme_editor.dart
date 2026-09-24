@@ -3,35 +3,38 @@ import 'package:flutter/material.dart';
 
 import '../models/forum_background.dart';
 import '../models/forum_theme.dart';
-import '../theme/app_theme.dart';
-import 'forum_theme_preview.dart';
 import 'settings_section.dart';
 import 'theme_icons.dart';
 
-/// Edits a draft of one of the user's own themes; nothing applies until Save.
-/// Light and dark keep separate palettes and share one window background.
+/// Edits a draft of one of the user's own themes. The app shows the draft as
+/// it changes, and nothing is stored until Save. Light and dark keep separate
+/// palettes and share one window background.
 class ForumThemeEditor extends StatefulWidget {
   const ForumThemeEditor({
     super.key,
     required this.theme,
     required this.brightness,
+    required this.onBrightnessChanged,
     required this.sources,
+    required this.onChanged,
     required this.onSave,
     required this.onCancel,
-    this.fontFamily,
   });
 
   /// The theme as it was saved, or the starting point of a new one.
   final ForumTheme theme;
 
-  /// The mode edited first.
+  /// The mode whose colours are edited, and the app shows.
   final Brightness brightness;
+  final ValueChanged<Brightness> onBrightnessChanged;
 
   /// The Theme section's choice of source, shown above the draft.
   final Widget sources;
+
+  /// The draft after each change to how it looks.
+  final ValueChanged<ForumTheme> onChanged;
   final Future<void> Function(ForumTheme) onSave;
   final VoidCallback onCancel;
-  final String? fontFamily;
 
   @override
   State<ForumThemeEditor> createState() => _ForumThemeEditorState();
@@ -46,7 +49,6 @@ class _ForumThemeEditorState extends State<ForumThemeEditor> {
   late var _background = _editable(
     widget.theme.background ?? widget.theme.alternate?.background,
   );
-  late var _brightness = widget.brightness;
   bool _saving = false;
   String? _error;
 
@@ -69,13 +71,17 @@ class _ForumThemeEditorState extends State<ForumThemeEditor> {
     );
   }
 
-  ForumTheme get _palette => _palettes[_brightness]!;
+  ForumTheme get _palette => _palettes[widget.brightness]!;
 
-  set _palette(ForumTheme value) =>
-      setState(() => _palettes[_brightness] = value);
+  set _palette(ForumTheme value) {
+    setState(() => _palettes[widget.brightness] = value);
+    widget.onChanged(_theme(widget.theme.name));
+  }
 
-  void _changeBackground(ForumBackground value) =>
-      setState(() => _background = value);
+  void _changeBackground(ForumBackground value) {
+    setState(() => _background = value);
+    widget.onChanged(_theme(widget.theme.name));
+  }
 
   ForumTheme _theme(String name) {
     Map<String, dynamic> part(Brightness mode) => {
@@ -130,33 +136,6 @@ class _ForumThemeEditorState extends State<ForumThemeEditor> {
                 maxLength: 48,
                 readOnly: _saving,
                 onChanged: (_) => setState(() {}),
-              ),
-              DField(
-                children: [
-                  Row(
-                    spacing: DSpacing.sm,
-                    children: [
-                      const Expanded(
-                        child: DFieldLabel(child: Text('Preview')),
-                      ),
-                      DBadge(
-                        variant: DBadgeVariant.outline,
-                        child: Text(
-                          _brightness == Brightness.dark ? 'Dark' : 'Light',
-                        ),
-                      ),
-                    ],
-                  ),
-                  ForumThemePreview(
-                    key: const ValueKey('theme-editor-preview'),
-                    theme: AppTheme.fromPalette(
-                      palette
-                          .copyWith(background: background)
-                          .resolve(_brightness),
-                      fontFamily: widget.fontFamily,
-                    ),
-                  ),
-                ],
               ),
             ],
           ),
@@ -272,8 +251,8 @@ class _ForumThemeEditorState extends State<ForumThemeEditor> {
             children: [
               DTabs<Brightness>.controlled(
                 key: const ValueKey('appearance-theme-select'),
-                value: _brightness,
-                onActivated: (value) => setState(() => _brightness = value),
+                value: widget.brightness,
+                onActivated: widget.onBrightnessChanged,
                 children: const [
                   DTabList<Brightness>(
                     variant: DTabListVariant.line,
@@ -335,7 +314,7 @@ class _ForumThemeEditorState extends State<ForumThemeEditor> {
                           width:
                               (bounds.maxWidth - 14 * (columns - 1)) / columns,
                           child: _ColorField(
-                            key: ValueKey((_brightness, field.$1)),
+                            key: ValueKey((widget.brightness, field.$1)),
                             label: field.$1,
                             color: field.$2,
                             onChanged: field.$3,
