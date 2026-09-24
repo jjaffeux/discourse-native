@@ -4,9 +4,11 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
 import '../models/app_settings.dart';
+import '../models/forum_background.dart';
 import '../models/forum_font.dart';
 import '../theme/d_icons.dart';
 import 'app_home_theme.dart';
+import 'forum_appearance_effects.dart';
 import 'forum_settings_controller.dart';
 import 'shell_scope.dart';
 
@@ -98,6 +100,8 @@ class AppSettingsModal extends StatelessWidget {
                 ),
                 const DFieldSeparator(),
                 _FontSetting(settings: identity.forumSettings),
+                const DFieldSeparator(),
+                _EffectsSetting(settings: identity.forumSettings),
                 const DFieldSeparator(),
                 DSwitchTile(
                   key: const ValueKey('disable-gif-animations-switch'),
@@ -241,6 +245,71 @@ class _FontSetting extends StatelessWidget {
       },
     );
   }
+}
+
+/// The window effects, which every forum draws over its own colours. The
+/// workspace behind the modal shows each one as it is chosen.
+class _EffectsSetting extends StatelessWidget {
+  const _EffectsSetting({required this.settings});
+
+  final ForumSettingsController settings;
+
+  Future<void> _change(
+    BuildContext context,
+    ForumBackground Function(ForumBackground) change,
+  ) async {
+    try {
+      // Applied to the effects as they are when the choice lands, so two
+      // choices made before the modal redraws are both kept.
+      final shared = settings.shared;
+      await settings.setShared(
+        shared.copyWith(effects: change(shared.effects)),
+      );
+    } catch (_) {
+      if (context.mounted) {
+        DToast.show(
+          context,
+          'Could not save the effects.',
+          type: DToastType.error,
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    spacing: DSpacing.md,
+    children: [
+      DFieldContent(
+        children: [
+          DFieldTitle(
+            child: Semantics(headingLevel: 2, child: const Text('Effects')),
+          ),
+          const DFieldDescription(
+            child: Text('Drawn over the colours of every forum.'),
+          ),
+        ],
+      ),
+      DCard(
+        spacing: 16,
+        backgroundColor: Colors.transparent,
+        borderRadius: BorderRadius.circular(12),
+        children: [
+          DCardContent(
+            child: ListenableBuilder(
+              listenable: settings,
+              builder: (context, _) => ForumAppearanceEffects(
+                key: const ValueKey('appearance-effects'),
+                effects: settings.shared.effects,
+                onChanged: (change) => unawaited(_change(context, change)),
+              ),
+            ),
+          ),
+        ],
+      ),
+    ],
+  );
 }
 
 class _TextSizeSetting extends StatelessWidget {

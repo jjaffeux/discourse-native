@@ -8,9 +8,7 @@ import '../models/app_settings.dart';
 import '../models/forum_theme.dart';
 import '../models/forum_theme_preferences.dart';
 import '../models/forum_theme_presets.dart';
-import '../models/shared_appearance.dart';
 import '../theme/discourse_typography.dart';
-import 'forum_appearance_effects.dart';
 import 'forum_settings_controller.dart';
 import 'forum_theme_clipboard.dart';
 import 'forum_theme_editor.dart';
@@ -85,7 +83,6 @@ class _ForumAppearanceSettingsState extends State<ForumAppearanceSettings> {
   /// Read when a choice lands rather than captured at build: two choices made
   /// before the page redraws must both be kept.
   ForumThemePreferences get _preferences => settings.themesFor(widget.siteUrl);
-  SharedAppearance get _shared => settings.shared;
 
   /// Every other connected forum, which the colours chosen here can be
   /// copied to.
@@ -150,9 +147,6 @@ class _ForumAppearanceSettingsState extends State<ForumAppearanceSettings> {
 
   Future<void> _save(ForumThemePreferences preferences) =>
       _attempt(() => settings.setThemes(widget.siteUrl, preferences));
-
-  Future<void> _saveShared(SharedAppearance value) =>
-      _attempt(() => settings.setShared(value));
 
   /// Nothing with one forum, a note once every forum shows these colours,
   /// and otherwise the action that makes them. The colours stay each forum's
@@ -286,10 +280,9 @@ class _ForumAppearanceSettingsState extends State<ForumAppearanceSettings> {
     listenable: settings,
     builder: (context, _) {
       final preferences = settings.themesFor(widget.siteUrl);
-      final shared = settings.shared;
       final mode = settings.themeModeFor(widget.siteUrl);
       final brightness = _brightness();
-      final fontFamily = shared.font.family;
+      final fontFamily = settings.shared.font.family;
       final others = _otherForums();
       final editing = _editing;
       final sources = ForumThemeSources(
@@ -380,14 +373,6 @@ class _ForumAppearanceSettingsState extends State<ForumAppearanceSettings> {
                     _show(null);
                   },
                 ),
-                ForumAppearanceEffects(
-                  key: const ValueKey('appearance-effects'),
-                  effects: shared.effects,
-                  trailing: const _HeadingNote.shared(),
-                  onChanged: (effects) => unawaited(
-                    _saveShared(_shared.copyWith(effects: effects)),
-                  ),
-                ),
                 if (editing != null)
                   ForumThemeEditor(
                     key: ValueKey(('theme-editor', editing.id)),
@@ -447,9 +432,6 @@ class _ForumAppearanceSettingsState extends State<ForumAppearanceSettings> {
 /// A section heading's muted note on what its choice reaches.
 class _HeadingNote extends StatelessWidget {
   const _HeadingNote(this.text);
-
-  /// Marks a choice that every forum shares.
-  const _HeadingNote.shared() : text = 'All forums';
 
   final String text;
 

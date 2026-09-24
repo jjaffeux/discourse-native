@@ -573,14 +573,15 @@ system appearance independently.
 Only a forum's colours, and whether it shows them light or dark, are its own.
 The **Font** is an app setting, chosen in the Settings modal below **Text
 size** from samples drawn in each face, so it is never mistaken for part of a
-theme. The page's **Effects** (**Tint**, **Opacity**, **Texture** and its
-**Intensity**) are marked *All forums* and apply to every forum, so moving
-between forums never changes the reading font or the window's opacity, and the
-effects are found without making a theme. Effects are drawn over whichever
-colours a forum uses. The tint pulls surfaces and text toward that palette's
-accent; on the forum's own palette it does so colour by colour, so every colour
-the forum derived itself is kept, and with no effects that palette is shown
-exactly as published. The font applies to Aggregate too. Both are stored once
+theme. The window **Effects** (**Tint**, **Opacity**, **Texture** and its
+**Intensity**) follow it in the same modal rather than sitting on any forum's
+page, and the workspace behind the modal shows each one as it is chosen. Both
+apply to every forum, so moving between forums never changes the reading font
+or the window's opacity, and the effects are found without making a theme.
+Effects are drawn over whichever colours a forum uses. The tint pulls surfaces
+and text toward that palette's accent; on the forum's own palette it does so
+colour by colour, so every colour the forum derived itself is kept, and with no
+effects that palette is shown exactly as published. The font applies to Aggregate too. Both are stored once
 under `discourse_native.appearance`. The first launch that finds nothing there
 adopts what the forums chose when both were per forum: the font of the first
 forum in rail order that had one of its own, and the effects of the first
