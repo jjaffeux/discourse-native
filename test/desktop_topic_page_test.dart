@@ -45,7 +45,7 @@ void main() {
     (tester) async {
       final h = await _setup(tester, size: const Size(1800, 1000));
       final tabs = find.byKey(const ValueKey('forum-tabs-bar'));
-      final options = find.byKey(const ValueKey('swap-panels-main'));
+      final options = find.byKey(const ValueKey('minimize-panel-main'));
       final title = find.byKey(const ValueKey('topic-list-title'));
       final filters = find.byKey(const ValueKey('topic-list-feed-row'));
       final separator = find.byKey(
@@ -94,10 +94,10 @@ void main() {
         of: find.byKey(const ValueKey('desktop-panel-main')),
         matching: tabs,
       );
-      final swap = find.byKey(const ValueKey('swap-panels-main'));
+      final minimize = find.byKey(const ValueKey('minimize-panel-main'));
       expect(tester.getCenter(listTabs).dy, tester.getCenter(options).dy);
-      expect(tester.getCenter(listTabs).dy, tester.getCenter(swap).dy);
-      expect(tester.getRect(swap).left, tester.getRect(options).left);
+      expect(tester.getCenter(listTabs).dy, tester.getCenter(minimize).dy);
+      expect(tester.getRect(minimize).left, tester.getRect(options).left);
       expect(tester.takeException(), isNull);
     },
     variant: TargetPlatformVariant.only(TargetPlatform.macOS),
@@ -120,7 +120,12 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.byKey(const ValueKey('forum-tabs-bar')), findsOneWidget);
       expect(find.byKey(const ValueKey('topic-view-options')), findsNothing);
-      expect(find.byTooltip('Switch panel positions'), findsNWidgets(2));
+      for (final panel in ForumPanel.values) {
+        expect(
+          find.byKey(ValueKey('minimize-panel-${panel.name}')),
+          findsOneWidget,
+        );
+      }
     }
     _openTopicTab(h.shell, h.topics.first);
     await tester.pumpAndSettle();
@@ -197,11 +202,9 @@ void main() {
       await tester.sendKeyEvent(LogicalKeyboardKey.escape);
       await tester.pumpAndSettle();
 
-      final presentation = TopicPresentationPreferences.maybeControllerOf(
-        tester.element(_reader),
-      )!;
-      presentation.swapPanels();
+      await tester.tap(find.byKey(const ValueKey('minimize-panel-main')));
       await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('topic-card-1')), findsNothing);
       expect(
         find.byKey(const ValueKey('topic-card-1'), skipOffstage: false),
         findsOneWidget,
@@ -209,7 +212,7 @@ void main() {
       expect(h.shell.appSettings.topicListMode, TopicListDisplayMode.compact);
       expect(tester.state(_allLists), same(listState));
 
-      presentation.swapPanels();
+      await tester.tap(find.byKey(const ValueKey('panel-rail-restore')));
       await tester.pumpAndSettle();
       expect(find.byKey(const ValueKey('topic-card-1')), findsOneWidget);
       h.shell.selectTab(h.shell.selectedTabIn(ForumPanel.secondary)!.id);
@@ -361,7 +364,7 @@ void main() {
     }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
   }
 
-  testWidgets('switching panel positions retains reader and editor', (
+  testWidgets('minimizing the list panel retains the reader and editor', (
     tester,
   ) async {
     final h = await _setup(
@@ -386,8 +389,13 @@ void main() {
     await tester.pump(const Duration(seconds: 2));
     final editorState = tester.state(find.byType(ComposerEditor));
     final readingPost = h.shell.topicScrollPostNumber(h.topics.first.id);
-    for (var index = 0; index < 4; index++) {
-      await tester.tap(find.byKey(const ValueKey('swap-panels-main')));
+    for (final action in [
+      'minimize-panel-main',
+      'panel-rail-restore',
+      'minimize-panel-main',
+      'panel-rail-restore',
+    ]) {
+      await tester.tap(find.byKey(ValueKey(action)));
       await tester.pumpAndSettle();
       expect(tester.state(_reader), same(readerState));
       expect(tester.state(_allLists), same(listState));
@@ -460,7 +468,7 @@ void main() {
     expect(tester.takeException(), isNull);
   }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 
-  testWidgets('panels scope tabs and swap without replacing the reader', (
+  testWidgets('panels scope tabs and minimize without replacing the reader', (
     tester,
   ) async {
     final h = await _setup(tester, size: const Size(2200, 1000));
@@ -499,19 +507,18 @@ void main() {
       tester.getRect(listPanel).left,
       lessThan(tester.getRect(readerPanel).left),
     );
-    await tester.tap(find.byKey(const ValueKey('swap-panels-main')));
+    final split = tester.getRect(readerPanel);
+    await tester.tap(find.byKey(const ValueKey('minimize-panel-main')));
     await tester.pumpAndSettle();
-    expect(
-      tester.getRect(readerPanel).left,
-      lessThan(tester.getRect(listPanel).left),
-    );
+    final rail = tester.getRect(find.byKey(const ValueKey('panel-rail-main')));
+    expect(rail.right, lessThan(tester.getRect(readerPanel).left));
+    expect(tester.getRect(readerPanel).right, split.right);
+    expect(tester.getRect(readerPanel).width, greaterThan(split.width));
     expect(tester.state(_reader), same(readerState));
-    await tester.tap(find.byKey(const ValueKey('swap-panels-secondary')));
+    await tester.tap(find.byKey(const ValueKey('panel-rail-restore')));
     await tester.pumpAndSettle();
-    expect(
-      tester.getRect(listPanel).left,
-      lessThan(tester.getRect(readerPanel).left),
-    );
+    expect(tester.getRect(readerPanel), split);
+    expect(tester.state(_reader), same(readerState));
     h.shell.createTab(panel: ForumPanel.main);
     await tester.pumpAndSettle();
     final otherList = h.shell.listPanelTab!.id;

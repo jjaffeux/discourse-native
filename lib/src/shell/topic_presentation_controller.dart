@@ -16,13 +16,6 @@ class TopicPresentationController extends ChangeNotifier {
   int _revision = 0;
 
   TopicPresentation get preference => _preference;
-  bool _readerOnLeft = false;
-  bool get readerOnLeft => _readerOnLeft;
-
-  void swapPanels() {
-    _readerOnLeft = !_readerOnLeft;
-    notifyListeners();
-  }
 
   Future<void> load() async {
     final revision = _revision;

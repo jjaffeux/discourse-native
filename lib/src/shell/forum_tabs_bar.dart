@@ -9,11 +9,14 @@ import 'package:flutter/services.dart';
 import '../app_shortcuts.dart';
 import '../models/forum_workspace.dart';
 import '../models/sidebar.dart';
+import '../plugin_api/plugin_registry.dart';
 import '../plugin_api/plugin_scope.dart';
 import '../theme/app_theme.dart';
 import '../theme/d_icons.dart';
 import 'avatar_image.dart';
 import 'emoji.dart';
+import 'panel_rail.dart';
+import 'shell_controller.dart';
 import 'shell_metrics.dart';
 import 'shell_scope.dart';
 import 'site_emoji_text.dart';
@@ -1634,6 +1637,21 @@ final class _CurrentForumTabsSnapshot {
     required this.listTabId,
   });
 
+  factory _CurrentForumTabsSnapshot.of(ShellController controller) {
+    final instance = controller.currentInstance;
+    return _CurrentForumTabsSnapshot(
+      siteUrl: instance?.url,
+      forumName: instance?.title,
+      tabs: controller.tabsForCurrentForum,
+      recentlyClosedTabs: controller.recentlyClosedTabsForCurrentForum,
+      activeTabId: controller.activeTabId,
+      listTabId: controller.listPanelTab?.id,
+      presentationToken: instance == null
+          ? null
+          : controller.presentationTokenFor(instance.url),
+    );
+  }
+
   final String? siteUrl;
   final String? forumName;
   final List<ForumTab> tabs;
@@ -1681,20 +1699,7 @@ class CurrentForumTabsBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) =>
       ShellSelector<_CurrentForumTabsSnapshot>(
-        select: (controller) {
-          final instance = controller.currentInstance;
-          return _CurrentForumTabsSnapshot(
-            siteUrl: instance?.url,
-            forumName: instance?.title,
-            tabs: controller.tabsForCurrentForum,
-            recentlyClosedTabs: controller.recentlyClosedTabsForCurrentForum,
-            activeTabId: controller.activeTabId,
-            listTabId: controller.listPanelTab?.id,
-            presentationToken: instance == null
-                ? null
-                : controller.presentationTokenFor(instance.url),
-          );
-        },
+        select: _CurrentForumTabsSnapshot.of,
         builder: (context, state, _) {
           final siteUrl = state.siteUrl;
           final forumName = state.forumName;
@@ -1719,43 +1724,13 @@ class CurrentForumTabsBar extends StatelessWidget {
               registry.forumTabListenables(context, siteUrl),
             ),
             builder: (context, _) {
-              ForumTabItem itemFor(ForumTab tab) {
-                final route = tab.currentContent;
-                final destination = registry.forumTabDestination(
-                  context,
-                  siteUrl,
-                  tab,
-                );
-                if (destination != null) {
-                  final emoji = destination.emoji;
-                  return ForumTabItem(
-                    id: tab.id,
-                    title: destination.label,
-                    siteUrl: siteUrl,
-                    icon: destination.icon,
-                    color: destination.color,
-                    parentColor: destination.parentColor,
-                    iconColor: destination.iconColor,
-                    avatarUrl: destination.avatarUrl,
-                    prefixBuilder: destination.prefixBuilder,
-                    labelSuffixBuilder: destination.labelSuffixBuilder,
-                    semanticDescription: destination.semanticDescription,
-                    emojiUrl: emoji == null
-                        ? null
-                        : controller.emojiUrlFor(siteUrl, emoji),
-                    emojiName: emoji,
-                    badge: destination.badge ?? SidebarBadge.none,
-                  );
-                }
-
-                return ForumTabItem(
-                  id: tab.id,
-                  title: route.tabTitle,
-                  siteUrl: siteUrl,
-                  icon: route.icon,
-                  color: route.color,
-                );
-              }
+              ForumTabItem itemFor(ForumTab tab) => _forumTabItem(
+                context,
+                controller: controller,
+                registry: registry,
+                siteUrl: siteUrl,
+                tab: tab,
+              );
 
               ForumTabItem? itemForDrop(String id) {
                 final tab = controller.currentWorkspace?.tabById(id);
@@ -1833,6 +1808,130 @@ class CurrentForumTabsBar extends StatelessWidget {
               );
             },
           );
+        },
+      );
+}
+
+ForumTabItem _forumTabItem(
+  BuildContext context, {
+  required ShellController controller,
+  required PluginRegistry registry,
+  required String siteUrl,
+  required ForumTab tab,
+}) {
+  final route = tab.currentContent;
+  final destination = registry.forumTabDestination(context, siteUrl, tab);
+  if (destination != null) {
+    final emoji = destination.emoji;
+    return ForumTabItem(
+      id: tab.id,
+      title: destination.label,
+      siteUrl: siteUrl,
+      icon: destination.icon,
+      color: destination.color,
+      parentColor: destination.parentColor,
+      iconColor: destination.iconColor,
+      avatarUrl: destination.avatarUrl,
+      prefixBuilder: destination.prefixBuilder,
+      labelSuffixBuilder: destination.labelSuffixBuilder,
+      semanticDescription: destination.semanticDescription,
+      emojiUrl: emoji == null ? null : controller.emojiUrlFor(siteUrl, emoji),
+      emojiName: emoji,
+      badge: destination.badge ?? SidebarBadge.none,
+    );
+  }
+
+  return ForumTabItem(
+    id: tab.id,
+    title: route.tabTitle,
+    siteUrl: siteUrl,
+    icon: route.icon,
+    color: route.color,
+  );
+}
+
+/// A minimized panel's tabs, docked as a [PanelRail] where the panel was.
+class CurrentForumTabsRail extends StatelessWidget {
+  const CurrentForumTabsRail({
+    super.key,
+    required this.panel,
+    required this.semanticLabel,
+    required this.onRestore,
+    required this.onSelect,
+    required this.onNewTab,
+    this.opensTowardStart = false,
+  });
+
+  final ForumPanel panel;
+  final String semanticLabel;
+  final VoidCallback onRestore;
+  final ValueChanged<String> onSelect;
+  final VoidCallback onNewTab;
+  final bool opensTowardStart;
+
+  @override
+  Widget build(BuildContext context) =>
+      ShellSelector<_CurrentForumTabsSnapshot>(
+        select: _CurrentForumTabsSnapshot.of,
+        builder: (context, state, _) {
+          final controller = ShellScope.read(context);
+          final siteUrl = state.siteUrl;
+          Widget rail(List<PanelRailTab> tabs) => PanelRail(
+            semanticLabel: semanticLabel,
+            tabs: tabs,
+            onRestore: onRestore,
+            onSelect: onSelect,
+            onNewTab: controller.canCreateTab ? onNewTab : null,
+            opensTowardStart: opensTowardStart,
+          );
+          if (siteUrl == null) return rail(const []);
+          final selectedId = controller.selectedTabIn(panel)?.id;
+          final registry = PluginScope.of(context).registry;
+          return ListenableBuilder(
+            listenable: Listenable.merge(
+              registry.forumTabListenables(context, siteUrl),
+            ),
+            builder: (context, _) => rail([
+              for (final tab in state.tabs)
+                if (tab.panel == panel)
+                  _railTab(
+                    _forumTabItem(
+                      context,
+                      controller: controller,
+                      registry: registry,
+                      siteUrl: siteUrl,
+                      tab: tab,
+                    ),
+                    selected: tab.id == selectedId,
+                  ),
+            ]),
+          );
+        },
+      );
+
+  static PanelRailTab _railTab(ForumTabItem item, {required bool selected}) =>
+      PanelRailTab(
+        id: item.id,
+        title: item.title,
+        selected: selected,
+        icon: Builder(
+          builder: (context) =>
+              _tabPrefix(
+                context,
+                item,
+                IconTheme.of(context).color ?? DTokens.of(context).foreground,
+                size: 13,
+              ) ??
+              const DIcon(DIcons.farFileLines),
+        ),
+        label: switch (item.siteUrl) {
+          final siteUrl? => SiteEmojiText.plain(
+            item.title,
+            siteUrl: siteUrl,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          null => null,
         },
       );
 }

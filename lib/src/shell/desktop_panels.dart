@@ -2,16 +2,19 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/widgets.dart';
 
 import '../models/forum_workspace.dart';
+import '../theme/d_icons.dart';
 import 'adaptive_shell.dart';
+import 'forum_tabs_bar.dart';
 import 'forum_theme_surfaces.dart';
 import 'main_content.dart';
+import 'panel_rail.dart';
 import 'resizable_pane.dart';
 import 'shell_metrics.dart';
 import 'shell_panel.dart';
 import 'shell_scope.dart';
 import 'topic_presentation.dart';
 
-/// Two document panels whose identities survive swapping their positions.
+/// Two document panels whose identities survive either one being minimized.
 class DesktopPanels extends StatefulWidget {
   const DesktopPanels({super.key});
 
@@ -30,6 +33,35 @@ class _DesktopPanelsState extends State<DesktopPanels> {
     minimumWidth: 320 + workspacePanelGap,
   );
 
+  // Only one panel stands down at a time, or there would be nothing left to
+  // read. Like the panel width, it belongs to this window's layout.
+  ForumPanel? _minimized;
+
+  static ForumPanel _other(ForumPanel panel) =>
+      panel == ForumPanel.main ? ForumPanel.secondary : ForumPanel.main;
+
+  void _minimize(ForumPanel panel) {
+    final shell = ShellScope.read(context);
+    final visible = shell.selectedTabIn(_other(panel));
+    if (visible == null) return;
+    // Keyboard input and sidebar navigation follow the active tab, so it
+    // cannot stay behind in a panel that is no longer shown.
+    if (shell.activeTab?.panel == panel) shell.selectTab(visible.id);
+    setState(() => _minimized = panel);
+  }
+
+  // Restoring a panel leaves input where it is, so a reply being written
+  // beside it keeps its place; picking one of the panel's tabs moves it.
+  void _restore(ForumPanel panel, {String? tabId, bool newTab = false}) {
+    final shell = ShellScope.read(context);
+    setState(() => _minimized = null);
+    if (newTab) {
+      shell.createTab(panel: panel);
+    } else if (tabId != null) {
+      shell.selectTab(tabId);
+    }
+  }
+
   @override
   void dispose() {
     _mainWidth.dispose();
@@ -42,14 +74,17 @@ class _DesktopPanelsState extends State<DesktopPanels> {
     _tabContents.removeWhere(
       (owner, _) => shell.workspaceFor(owner.$1)?.tabById(owner.$2) == null,
     );
-    final swapped =
-        TopicPresentationPreferences.maybeControllerOf(context)?.readerOnLeft ??
-        false;
+    // Whatever becomes active in a minimized panel, whether a topic opened
+    // from the list, a link or another forum's workspace, is what the reader
+    // asked to see, so the panel comes back to show it.
+    if (_minimized case final panel? when shell.activeTab?.panel == panel) {
+      _minimized = null;
+    }
     return LayoutBuilder(
       builder: (context, constraints) {
         final horizontal = constraints.maxWidth >= 640 + workspacePanelGap;
         shell.topicPanelsVisible = horizontal;
-        Widget panel(ForumPanel panel) {
+        Widget panel(ForumPanel panel, {Widget? action}) {
           final tab = shell.selectedTabIn(panel);
           return _DesktopPanel(
             key: _panelKeys[panel],
@@ -65,11 +100,10 @@ class _DesktopPanelsState extends State<DesktopPanels> {
             panel: panel,
             tab: tab,
             showHeader: horizontal,
+            action: action,
           );
         }
 
-        final main = panel(ForumPanel.main);
-        final secondary = panel(ForumPanel.secondary);
         if (!horizontal) {
           final active = shell.activeTab?.panel ?? ForumPanel.main;
           return Column(
@@ -82,10 +116,7 @@ class _DesktopPanelsState extends State<DesktopPanels> {
               Expanded(
                 child: Stack(
                   children: [
-                    for (final (target, child) in [
-                      (ForumPanel.main, main),
-                      (ForumPanel.secondary, secondary),
-                    ])
+                    for (final target in ForumPanel.values)
                       Positioned.fill(
                         child: Offstage(
                           offstage: active != target,
@@ -93,7 +124,7 @@ class _DesktopPanelsState extends State<DesktopPanels> {
                             enabled: active == target,
                             child: ExcludeFocus(
                               excluding: active != target,
-                              child: child,
+                              child: panel(target),
                             ),
                           ),
                         ),
@@ -104,22 +135,100 @@ class _DesktopPanelsState extends State<DesktopPanels> {
             ],
           );
         }
+
+        Widget minimize(ForumPanel target) {
+          final available = shell.selectedTabIn(_other(target)) != null;
+          return DButton.iconOnly(
+            key: ValueKey('minimize-panel-${target.name}'),
+            icon: const DIcon(DIcons.downLeftAndUpRightToCenter),
+            tooltip: available
+                ? 'Minimize panel'
+                : 'Open a tab in the other panel first',
+            variant: DButtonVariant.transparentBackground,
+            onPressed: available ? () => _minimize(target) : null,
+          );
+        }
+
+        final maximumMainWidth = constraints.maxWidth - 320;
+        final minimized = _minimized;
+        if (minimized == null) {
+          return Row(
+            children: [
+              ResizablePane(
+                controller: _mainWidth,
+                edge: ResizablePaneEdge.trailing,
+                resizeKey: 'main-panel',
+                semanticsLabel: 'Resize main panel',
+                maximumWidth: maximumMainWidth,
+                gap: workspacePanelGap,
+                handleWidth: workspacePanelGap,
+                child: panel(
+                  ForumPanel.main,
+                  action: minimize(ForumPanel.main),
+                ),
+              ),
+              Expanded(
+                child: panel(
+                  ForumPanel.secondary,
+                  action: minimize(ForumPanel.secondary),
+                ),
+              ),
+            ],
+          );
+        }
+
+        final shown = _other(minimized);
+        final mainWidth = _mainWidth.effectiveWidth(maximum: maximumMainWidth);
+        final dock = SizedBox(
+          width: PanelRail.width,
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              // The minimized panel stays mounted at the width it returns
+              // to, so restoring it shows the same reader, list and scroll
+              // position instead of building them again.
+              PositionedDirectional(
+                start: 0,
+                top: 0,
+                bottom: 0,
+                width: minimized == ForumPanel.main
+                    ? mainWidth - workspacePanelGap
+                    : constraints.maxWidth - mainWidth,
+                child: Offstage(
+                  child: TickerMode(
+                    enabled: false,
+                    child: ExcludeFocus(child: panel(minimized)),
+                  ),
+                ),
+              ),
+              Align(
+                alignment: AlignmentDirectional.topStart,
+                child: CurrentForumTabsRail(
+                  key: ValueKey('panel-rail-${minimized.name}'),
+                  panel: minimized,
+                  semanticLabel: minimized == ForumPanel.main
+                      ? 'Main panel, minimized'
+                      : 'Secondary panel, minimized',
+                  opensTowardStart: minimized == ForumPanel.secondary,
+                  onRestore: () => _restore(minimized),
+                  onSelect: (id) => _restore(minimized, tabId: id),
+                  onNewTab: () => _restore(minimized, newTab: true),
+                ),
+              ),
+            ],
+          ),
+        );
         return Row(
           children: [
-            if (swapped) Expanded(child: secondary),
-            ResizablePane(
-              controller: _mainWidth,
-              edge: swapped
-                  ? ResizablePaneEdge.leading
-                  : ResizablePaneEdge.trailing,
-              resizeKey: 'main-panel',
-              semanticsLabel: 'Resize main panel',
-              maximumWidth: constraints.maxWidth - 320,
-              gap: workspacePanelGap,
-              handleWidth: workspacePanelGap,
-              child: main,
-            ),
-            if (!swapped) Expanded(child: secondary),
+            if (minimized == ForumPanel.main) ...[
+              dock,
+              const SizedBox(width: workspacePanelGap),
+            ],
+            Expanded(child: panel(shown, action: minimize(shown))),
+            if (minimized == ForumPanel.secondary) ...[
+              const SizedBox(width: workspacePanelGap),
+              dock,
+            ],
           ],
         );
       },
@@ -134,12 +243,14 @@ class _DesktopPanel extends StatelessWidget {
     required this.tab,
     this.content,
     this.showHeader = true,
+    this.action,
   });
 
   final bool showHeader;
   final MainContent? content;
   final ForumPanel panel;
   final ForumTab? tab;
+  final Widget? action;
 
   @override
   Widget build(BuildContext context) {
@@ -169,6 +280,7 @@ class _DesktopPanel extends StatelessWidget {
                 TopicPanelTabs(
                   panel: panel,
                   incomingTabId: candidates.firstOrNull,
+                  trailing: action,
                 ),
               Expanded(
                 child: Focus(

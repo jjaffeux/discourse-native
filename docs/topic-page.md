@@ -11,14 +11,15 @@ source list tab. Selecting that list returns to it without closing the topic.
 
 In split mode, list tabs belong to the list panel and topic tabs belong to the
 reading panel. Selecting another list keeps the selected topic open. Each
-panel has a double-arrow action that swaps the panel positions. Tab switchers,
-reordering, recently closed tabs, and “Close other tabs” use the panel's scope.
-The reading panel does not display a new-list-tab action.
+panel has a diagonal-arrows action that minimizes it to a rail of its tabs; see
+[desktop panels](desktop-panels.md). Tab switchers, reordering, recently closed
+tabs, and “Close other tabs” use the panel's scope. The reading panel does not
+display a new-list-tab action.
 
 The list resizes between 304 and 480 logical pixels. A split requires at least
 520 pixels for the reader. Narrow windows use one combined tab bar, where list
 tabs remain selectable. The split preference is retained for wider windows.
-Switching mode or swapping positions retains the reader, list, and composer;
+Switching mode or minimizing a panel retains the reader, list, and composer;
 reading anchors and draft contents remain owned by their tabs and draft.
 Touch platforms retain their existing inline topic navigation.
 
@@ -30,7 +31,7 @@ available; returning to a dock preserves the draft and selection.
 
 ## Verification
 
-`test/desktop_topic_page_test.dart` covers scoped tabs, swapping, merged lists,
+`test/desktop_topic_page_test.dart` covers scoped tabs, minimizing, merged lists,
 narrow fallback, retained positions, composer placement, full-screen bounds,
 shortcuts, and mobile navigation. `test/composer_docking_test.dart` exercises
 editor retention, physical docking, and full screen. Toggle Group and preference

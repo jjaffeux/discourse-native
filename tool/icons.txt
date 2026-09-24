@@ -64,6 +64,8 @@ phone-slash
 expand
 discourse-compress
 discourse-expand
+down-left-and-up-right-to-center
+up-right-and-down-left-from-center
 
 # --- Topics and posts
 far-file-lines

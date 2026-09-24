@@ -385,7 +385,6 @@ class _TopicInboxWorkspaceState extends State<_TopicInboxWorkspace> {
           context,
         );
         final wantsSplit = preferences?.preference != TopicPresentation.merged;
-        final readerOnLeft = preferences?.readerOnLeft ?? false;
         final minimumTopicWidth = context.isTouch
             ? 520.0
             : TopicPresentationController.minimumReaderWidth;
@@ -524,17 +523,14 @@ class _TopicInboxWorkspaceState extends State<_TopicInboxWorkspace> {
                 children: [
                   PositionedDirectional(
                     key: const ValueKey('inbox-topic-list-pane'),
-                    start: split && readerOnLeft ? null : 0,
-                    end: split && readerOnLeft ? 0 : null,
+                    start: 0,
                     top: 0,
                     bottom: 0,
                     width: listWidth,
                     child: ResizablePane(
                       controller: _listWidth,
                       resizeEnabled: split,
-                      edge: readerOnLeft
-                          ? ResizablePaneEdge.leading
-                          : ResizablePaneEdge.trailing,
+                      edge: ResizablePaneEdge.trailing,
                       resizeKey: 'inbox-list',
                       semanticsLabel: messages
                           ? 'Resize message list'
@@ -558,9 +554,7 @@ class _TopicInboxWorkspaceState extends State<_TopicInboxWorkspace> {
                             context,
                             atRightEdge:
                                 !split ||
-                                readerOnLeft ==
-                                    (Directionality.of(context) ==
-                                        TextDirection.ltr),
+                                Directionality.of(context) == TextDirection.rtl,
                           ),
                           backgroundColor: ForumWindowBackground.panelColor(
                             context,
@@ -645,8 +639,8 @@ class _TopicInboxWorkspaceState extends State<_TopicInboxWorkspace> {
                   if (topicOpen)
                     PositionedDirectional(
                       key: const ValueKey('inbox-topic-reader-pane'),
-                      start: split && !readerOnLeft ? listWidth : 0,
-                      end: split && readerOnLeft ? listWidth : 0,
+                      start: split ? listWidth : 0,
+                      end: 0,
                       top: 0,
                       bottom: 0,
                       child: DPageSurface(
@@ -655,9 +649,7 @@ class _TopicInboxWorkspaceState extends State<_TopicInboxWorkspace> {
                           context,
                           atRightEdge:
                               !split ||
-                              readerOnLeft ==
-                                  (Directionality.of(context) ==
-                                      TextDirection.rtl),
+                              Directionality.of(context) == TextDirection.ltr,
                         ),
                         backgroundColor: ForumWindowBackground.panelColor(
                           context,
