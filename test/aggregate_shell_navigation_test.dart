@@ -44,6 +44,30 @@ void main() {
     expect(controller.aggregate.state.topics, isEmpty);
   });
 
+  test('adding a forum leaves narrowed aggregate tabs narrowed', () async {
+    const added = DiscourseInstance(
+      url: 'https://added.example',
+      title: 'Added',
+      user: DiscourseUser(username: 'sam'),
+    );
+    final controller = _controller(store: Store());
+    addTearDown(controller.dispose);
+    await controller.load();
+    final followingTab = controller.activeAggregateTabId;
+    controller.createAggregateTab();
+    await controller.setAggregateForumFilters(
+      includedForums: {_site.url},
+      queries: {_site.url: 'tag:workflows'},
+    );
+
+    expect(await controller.addInstance(added), isTrue);
+    await pumpEventQueue();
+
+    expect(controller.aggregate.includes(added), isFalse);
+    controller.selectAggregateTab(followingTab);
+    expect(controller.aggregate.includes(added), isTrue);
+  });
+
   test('aggregate topic opens in the current forum tab', () async {
     final store = Store();
     final api = FakeDiscourseApi(feeds: const {'/latest.json': []});

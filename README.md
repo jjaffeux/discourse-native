@@ -3130,6 +3130,11 @@ saved tab filters remain, and reopening refreshes the invalidated feed. Server
 pagination cycles stop after the last distinct page rather than repeatedly
 fetching empty or duplicate-only results.
 
+A tab whose forum filters were narrowed — a query set or a forum unchecked —
+does not take in forums added afterwards: their unfiltered latest topics would
+bury what the filters select, so a new forum stays unchecked there until it is
+chosen. A tab that was never narrowed follows every forum.
+
 Active tabs join the content with rounded top corners and curved feet. Inactive
 tabs use an inset, rounded tertiary-low hover surface; adjacent dividers
 disappear while hovered. Close icons appear on tab hover or when the close
