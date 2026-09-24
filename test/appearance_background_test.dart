@@ -58,7 +58,6 @@ void main() {
                         theme: forumThemePresets.first,
                         brightness: brightness,
                         onBrightnessChanged: (_) {},
-                        sources: const SizedBox.shrink(),
                         onChanged: (_) {},
                         onSave: (_) async {},
                         onCancel: () {},

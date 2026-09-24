@@ -599,6 +599,9 @@ are not drawn, and editing drops them. The workspace around the
 page is the preview: a choice applies as it is made, and the whole app shows
 the theme being edited as it changes, though nothing is stored until the
 editor's **Save**; **Cancel**, or leaving the page, puts the saved theme back.
+While editing, the Theme section holds only the draft — its name, each mode's
+colours and sidebar tone, then Save and Cancel — since the choice between
+Presets and Your own cannot change until the edit ends.
 The **Appearance** setting chooses which mode's preset is shown.
 **Use on all forums**, beside the Theme heading, shows this forum's choice in
 every other connected forum: its own palette, the same presets, or the same

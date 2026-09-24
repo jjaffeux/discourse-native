@@ -16,12 +16,10 @@ class ForumThemeSources extends StatelessWidget {
     super.key,
     required this.value,
     required this.onChanged,
-    this.enabled = true,
   });
 
   final ForumThemeSource value;
   final ValueChanged<ForumThemeSource> onChanged;
-  final bool enabled;
 
   @override
   Widget build(BuildContext context) =>
@@ -30,7 +28,6 @@ class ForumThemeSources extends StatelessWidget {
         groupValue: value == ForumThemeSource.forum
             ? ForumThemeSource.preset
             : value,
-        enabled: enabled,
         onChanged: (source) {
           if (source != null &&
               !(value == ForumThemeSource.forum &&
