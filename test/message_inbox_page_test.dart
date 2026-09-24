@@ -18,6 +18,7 @@ import 'package:discourse_native/src/shell/topic_list_view.dart';
 import 'package:discourse_native/src/shell/topic_view.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -686,7 +687,11 @@ void main() {
         .controller!;
     final scroll = listScroll();
 
-    await tester.tap(find.byKey(const ValueKey('topic-card-1')));
+    await tester.tap(
+      find.byKey(const ValueKey('topic-card-1')),
+      kind: PointerDeviceKind.mouse,
+      buttons: kMiddleMouseButton,
+    );
     await tester.pump();
     expect(tester.element(list), same(listElement));
     expect(listScroll(), same(scroll));
@@ -710,7 +715,11 @@ void main() {
       expect(row.hitTestable(), findsOneWidget);
     }
 
-    await tester.tap(row);
+    await tester.tap(
+      row,
+      kind: PointerDeviceKind.mouse,
+      buttons: kMiddleMouseButton,
+    );
     await tester.pump();
     expectRetainedList();
     await tester.pumpAndSettle();

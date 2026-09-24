@@ -5914,7 +5914,6 @@ class ShellController extends FrameSafeNotifier
     // an earlier visit to this topic in the same tab.
     final tab = activeTab;
     if (resetScrollPosition &&
-        !desktopPanelsEnabled &&
         tab != null &&
         tab.anchors.containsKey(route.id)) {
       _replaceActiveTab(
@@ -5925,18 +5924,7 @@ class ShellController extends FrameSafeNotifier
         persist: false,
       );
     }
-    if (desktopTopicTabs && forumTabsEnabled && currentWorkspace != null) {
-      final result = openContentInNewTab(
-        route,
-        panel: ForumPanel.secondary,
-        select: true,
-        source: topicListTab,
-      );
-      if (result != TabOpenResult.opened) return result;
-      // The new active tab already hydrates this destination. A second load
-      // would queue a redundant refresh, including after a hover handoff.
-      if (!force) return result;
-    } else if (replace) {
+    if (replace) {
       replaceCurrentContent(route);
     } else {
       pushContent(route);
@@ -6396,7 +6384,6 @@ class ShellController extends FrameSafeNotifier
         instance == null ||
         instance.url != siteUrl ||
         rootMode != ShellRootMode.forum ||
-        (desktopPanelsEnabled && !canCreateTab) ||
         (instance.loginRequired && !instance.isConnected) ||
         readingTopicId == topic.id) {
       return () {};
@@ -14518,14 +14505,7 @@ class ShellController extends FrameSafeNotifier
       rootDestinationId: destination.id,
       contentStack: [content],
     );
-    if (desktopTopicTabs && forumTabsEnabled) {
-      if (openContentInNewTab(content, rootDestinationId: destination.id) !=
-          TabOpenResult.opened) {
-        return;
-      }
-    } else {
-      _replaceActiveTab(updated);
-    }
+    _replaceActiveTab(updated);
     _mobilePane = MobilePane.content;
     _syncTopicChannels();
     _notify();
@@ -14712,16 +14692,13 @@ class ShellController extends FrameSafeNotifier
     ContentRoute route, {
     required bool keepTopicOpen,
   }) {
-    if (desktopPanelsEnabled && currentContent?.isTopic == true) {
-      openContentInNewTab(route);
-      return;
-    }
     final tab = activeTab;
     if (tab == null) return;
     final sourceIndex = tab.contentStack.lastIndexWhere(
       (item) => !item.isTopic,
     );
     final retainReader =
+        !desktopPanelsEnabled &&
         keepTopicOpen &&
         tab.currentContent.isTopic &&
         sourceIndex >= 0 &&
@@ -15277,7 +15254,7 @@ class ShellController extends FrameSafeNotifier
 
   @override
   void pushContent(ContentRoute route) {
-    if (desktopTopicTabs && forumTabsEnabled) {
+    if (desktopPanelsEnabled && route.openInSecondaryPanel) {
       openContentInNewTab(route, source: activeTab);
       return;
     }
@@ -15389,6 +15366,9 @@ class ShellController extends FrameSafeNotifier
       return;
     }
     if (desktopPanelsEnabled) {
+      final instance = currentInstance;
+      final active = activeTab;
+      if (instance == null || active == null) return;
       final policies = _pluginSession.capabilities<PluginPaneRoutePolicy>();
       final source = tabsForCurrentForum.reversed
           .where(
@@ -15400,14 +15380,17 @@ class ShellController extends FrameSafeNotifier
                 ),
           )
           .firstOrNull;
-      if (source == null) {
-        createTab();
-      } else {
-        openContentInNewTab(
-          source.currentContent,
-          rootDestinationId: source.rootDestinationId,
-        );
-      }
+      _replaceActiveTab(
+        active.navigate(
+          rootDestinationId:
+              source?.rootDestinationId ?? instance.defaultDestination.id,
+          contentStack: [source?.currentContent ?? _homepageFor(instance)],
+        ),
+      );
+      _mobilePane = MobilePane.content;
+      _syncTopicChannels();
+      _notify();
+      _hydrateActiveTab(instance);
       return;
     }
     _deactivatePluginPane(owner, notifyAndHydrate: true);

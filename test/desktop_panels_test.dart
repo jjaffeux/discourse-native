@@ -74,36 +74,43 @@ void main() {
   });
   tearDown(() => shell.dispose());
 
-  test('navigation opens tabs in their panel and topics in secondary', () {
-    final main = shell.activeTabId;
-    shell.openTopic(_topic);
-    final topic = shell.activeTab!;
-    expect(topic.panel, ForumPanel.secondary);
-    expect(shell.selectedTabIn(ForumPanel.main)?.id, main);
+  for (final panel in ForumPanel.values) {
+    test('ordinary navigation reuses the active $panel tab with history', () {
+      shell.moveTabToPanel(shell.activeTabId!, panel);
+      final original = shell.activeTabId;
+      shell.openTopic(_topic);
+      expect(shell.activeTabId, original);
+      expect(shell.activeTab?.panel, panel);
+      expect(shell.currentContent?.topicId, 42);
 
-    shell.pushContent(
-      const ContentRoute(id: 'all-tags', title: 'Tags', icon: DIcons.tag),
-    );
-    expect(shell.activeTab?.panel, ForumPanel.secondary);
-    expect(shell.currentWorkspace?.tabById(topic.id), topic);
+      shell.pushContent(
+        const ContentRoute(id: 'all-tags', title: 'Tags', icon: DIcons.tag),
+      );
+      expect(shell.activeTabId, original);
+      expect(shell.currentContent?.id, 'all-tags');
+      expect(shell.handleBack(canReturnToSidebar: false), isTrue);
+      expect(shell.currentContent?.topicId, 42);
+      expect(shell.handleForward(), isTrue);
+      expect(shell.currentContent?.id, 'all-tags');
 
-    shell.selectTab(main!);
-    shell.selectDestination(
-      const SidebarDestination(
-        id: 'all-categories',
-        label: 'Categories',
-        icon: DIcons.folder,
-      ),
-    );
-    expect(shell.activeTab?.panel, ForumPanel.main);
-    expect(shell.activeTabId, isNot(main));
-    expect(shell.tabsForCurrentForum, hasLength(4));
-  });
+      shell.selectDestination(
+        const SidebarDestination(
+          id: 'all-categories',
+          label: 'Categories',
+          icon: DIcons.folder,
+        ),
+      );
+      expect(shell.activeTabId, original);
+      expect(shell.activeTab?.panel, panel);
+      expect(shell.currentContent?.id, 'all-categories');
+      expect(shell.tabsForCurrentForum, hasLength(1));
+    });
+  }
 
   test(
     'move, persist, close and reopen retain tab state and panel selections',
     () {
-      shell.openTopic(_topic);
+      _openTopicTab(shell, _topic);
       final topic = shell.activeTab!;
       shell.saveTopicScrollPost(42, 7, viewportOffset: 21);
       final beforeMove = shell.activeTab!;
@@ -131,24 +138,24 @@ void main() {
 
   test('closing other tabs is confined to the requested panel', () {
     final mainId = shell.activeTabId!;
-    shell.openTopic(_topic);
+    _openTopicTab(shell, _topic);
     final first = shell.activeTabId!;
-    shell.openTopic(_otherTopic);
+    _openTopicTab(shell, _otherTopic);
     shell.closeOtherTabs(first, panel: ForumPanel.secondary);
     expect(shell.tabsForCurrentForum.map((tab) => tab.id), [mainId, first]);
   });
 
-  test('opening at the tab limit preserves every existing document', () {
+  test('explicit new tabs at the limit preserve every existing document', () {
     while (shell.canCreateTab) {
       shell.createTab();
     }
     final workspace = shell.currentWorkspace;
-    shell.openTopic(_topic);
+    _openTopicTab(shell, _topic);
     expect(shell.currentWorkspace, workspace);
   });
 
   testWidgets(
-    'topic row explains the tab limit and opens after closing a tab',
+    'middle-click explains the tab limit and opens after closing a tab',
     (tester) async {
       final main = shell.activeTabId!;
       while (shell.canCreateTab) {
@@ -160,7 +167,11 @@ void main() {
       final workspace = shell.currentWorkspace;
       final row = find.byKey(const ValueKey('topic-card-42')).first;
 
-      await tester.tap(row, kind: PointerDeviceKind.mouse);
+      await tester.tap(
+        row,
+        kind: PointerDeviceKind.mouse,
+        buttons: kMiddleMouseButton,
+      );
       await tester.pumpAndSettle();
 
       expect(shell.currentWorkspace, workspace);
@@ -168,7 +179,11 @@ void main() {
 
       shell.closeTab(extraTab);
       await tester.pumpAndSettle();
-      await tester.tap(row, kind: PointerDeviceKind.mouse);
+      await tester.tap(
+        row,
+        kind: PointerDeviceKind.mouse,
+        buttons: kMiddleMouseButton,
+      );
       await tester.pumpAndSettle();
       expect(
         shell.selectedTabIn(ForumPanel.secondary)?.currentContent.topicId,
@@ -180,10 +195,10 @@ void main() {
   );
 
   test('both visible topics stay subscribed when either panel is focused', () {
-    shell.openTopic(_topic);
+    _openTopicTab(shell, _topic);
     final first = shell.activeTabId!;
     shell.moveTabToPanel(first, ForumPanel.main);
-    shell.openTopic(_otherTopic);
+    _openTopicTab(shell, _otherTopic);
     final tracker = FakeSiteTracker.built.last;
     expect(tracker.watchedChannels, containsAll(['/topic/42', '/topic/43']));
     shell.selectTab(first);
@@ -194,7 +209,7 @@ void main() {
 
   test('reading an inactive panel never changes input focus', () {
     final mainId = shell.activeTabId!;
-    shell.openTopic(_topic);
+    _openTopicTab(shell, _topic);
     final readerId = shell.activeTabId!;
     expect(shell.readTab(mainId, () => shell.currentContent?.id), 'latest');
     expect(shell.activeTabId, readerId);
@@ -209,10 +224,10 @@ void main() {
     'closing the unfocused selected tab activates its neighbour in place',
     () {
       final main = shell.activeTabId!;
-      shell.openTopic(_topic);
-      shell.openTopic(_otherTopic);
+      _openTopicTab(shell, _topic);
+      _openTopicTab(shell, _otherTopic);
       final closing = shell.activeTabId!;
-      shell.openTopic(_topic);
+      _openTopicTab(shell, _topic);
       final neighbour = shell.activeTabId!;
       shell.selectTab(closing);
       shell.selectTab(main);
@@ -229,7 +244,7 @@ void main() {
   testWidgets(
     'both panels keep their content when focus and positions change',
     (tester) async {
-      shell.openTopic(_topic);
+      _openTopicTab(shell, _topic);
       await _pump(tester, shell);
       expect(find.byType(TopicListView), findsOneWidget);
       expect(find.byType(TopicView), findsOneWidget);
@@ -254,7 +269,7 @@ void main() {
     tester,
   ) async {
     final main = shell.activeTabId!;
-    shell.openTopic(_topic);
+    _openTopicTab(shell, _topic);
     final topic = shell.activeTabId!;
     shell.selectTab(main);
     final restored = ShellController(
@@ -316,6 +331,32 @@ void main() {
     },
   );
 
+  testWidgets('primary click navigates the current tab even at the limit', (
+    tester,
+  ) async {
+    final main = shell.activeTabId;
+    while (shell.canCreateTab) {
+      shell.createTab(panel: ForumPanel.secondary);
+    }
+    final secondary = shell.activeTab;
+    shell.selectTab(main!);
+    await _pump(tester, shell);
+
+    await tester.tap(
+      find.byKey(const ValueKey('topic-card-42')).first,
+      kind: PointerDeviceKind.mouse,
+    );
+    await tester.pumpAndSettle();
+
+    expect(shell.activeTabId, main);
+    expect(shell.currentContent?.topicId, 42);
+    expect(shell.tabsForCurrentForum, hasLength(ForumWorkspace.maximumTabs));
+    expect(shell.selectedTabIn(ForumPanel.secondary), secondary);
+    expect(find.text('Close a tab before opening another.'), findsNothing);
+    expect(find.text('Content for 42', findRichText: true), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('middle click opens in secondary without replacing the list', (
     tester,
   ) async {
@@ -338,7 +379,9 @@ void main() {
     testWidgets(
       'topic click survives panel activation after $pressDuration ms',
       (tester) async {
-        shell.openTopic(_topic);
+        _openTopicTab(shell, _topic);
+        final reader = shell.activeTab;
+        final main = shell.selectedTabIn(ForumPanel.main)!.id;
         await _pump(tester, shell);
         final row = find.byKey(const ValueKey('topic-card-43'));
         final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
@@ -350,10 +393,14 @@ void main() {
         await tester.pump(Duration(milliseconds: pressDuration));
         await mouse.up();
         await tester.pumpAndSettle();
+        expect(shell.activeTabId, main);
+        expect(shell.currentContent?.topicId, 43);
+        expect(shell.selectedTabIn(ForumPanel.secondary)?.id, reader?.id);
         expect(
           shell.selectedTabIn(ForumPanel.secondary)?.currentContent.topicId,
-          43,
+          42,
         );
+        expect(shell.tabsForCurrentForum, hasLength(2));
         expect(find.text('Content for 43', findRichText: true), findsOneWidget);
         expect(tester.takeException(), isNull);
       },
@@ -432,16 +479,16 @@ void main() {
       tester,
     ) async {
       final initial = shell.activeTabId!;
-      shell.pushContent(
+      shell.openContentInNewTab(
         const ContentRoute(id: 'panel-a', title: 'A', icon: DIcons.tag),
       );
       final first = shell.activeTabId!;
       shell.closeTab(initial);
-      shell.pushContent(
+      shell.openContentInNewTab(
         const ContentRoute(id: 'panel-b', title: 'B', icon: DIcons.tag),
       );
       final second = shell.activeTabId!;
-      shell.openTopic(_topic);
+      _openTopicTab(shell, _topic);
       final incoming = shell.activeTabId!;
       await _pump(tester, shell, direction: direction);
       final source = find.byKey(ValueKey('forum-tab-$incoming'));
@@ -535,7 +582,7 @@ void main() {
     tester,
   ) async {
     final original = shell.activeTabId!;
-    shell.openTopic(_topic);
+    _openTopicTab(shell, _topic);
     final incoming = shell.activeTabId!;
     await _pump(tester, shell);
     final source = find.byKey(ValueKey('forum-tab-$incoming'));
@@ -584,7 +631,7 @@ void main() {
     final original = shell.activeTabId!;
     shell.createTab();
     final second = shell.activeTabId!;
-    shell.openTopic(_topic);
+    _openTopicTab(shell, _topic);
     final reader = shell.activeTabId!;
     await _pump(tester, shell);
     await tester.tap(find.byKey(ValueKey('forum-tab-$original')));
@@ -612,7 +659,7 @@ void main() {
     'narrow windows show only the visible panel tabs and restore both on resize',
     (tester) async {
       final main = shell.activeTabId!;
-      shell.openTopic(_topic);
+      _openTopicTab(shell, _topic);
       final reader = shell.activeTabId!;
       await _pump(tester, shell);
       expect(find.byType(ForumTabsBar), findsNWidgets(2));
@@ -653,10 +700,10 @@ void main() {
   testWidgets(
     'two topic readers show their own posts and save separate anchors',
     (tester) async {
-      shell.openTopic(_topic);
+      _openTopicTab(shell, _topic);
       final first = shell.activeTabId!;
       shell.moveTabToPanel(first, ForumPanel.main);
-      shell.openTopic(_otherTopic);
+      _openTopicTab(shell, _otherTopic);
       final second = shell.activeTabId!;
       await _pump(tester, shell);
       expect(find.byType(TopicView), findsNWidgets(2));
@@ -696,4 +743,8 @@ Future<void> _pump(
     ),
   );
   await tester.pumpAndSettle();
+}
+
+void _openTopicTab(ShellController shell, Topic topic) {
+  shell.openLinkInNewTab('/t/${topic.slug}/${topic.id}', title: topic.title);
 }

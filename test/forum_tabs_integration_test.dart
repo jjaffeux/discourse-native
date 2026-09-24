@@ -34,6 +34,30 @@ void main() {
   setUp(binding.exitRequests.clear);
 
   testWidgets(
+    'primary clicks reuse the current tab for sidebar and topic navigation',
+    (tester) => _withPlatform(TargetPlatform.macOS, () async {
+      await _pumpShell(tester);
+      final controller = ShellScope.read(
+        tester.element(find.byType(MainContent)),
+      );
+      final originalId = controller.activeTabId;
+      controller.openTopicUrl('/t/current-topic/42');
+      await tester.pumpAndSettle();
+      expect(controller.activeTabId, originalId);
+      expect(controller.currentContent?.topicId, 42);
+
+      await tester.tap(_sidebarText('Topics'), kind: PointerDeviceKind.mouse);
+      await tester.pumpAndSettle();
+
+      expect(controller.activeTabId, originalId);
+      expect(controller.tabsForCurrentForum, hasLength(1));
+      expect(controller.currentContent?.id, 'latest');
+      expect(controller.handleBack(canReturnToSidebar: false), isTrue);
+      expect(controller.currentContent?.topicId, 42);
+    }),
+  );
+
+  testWidgets(
     'middle-click opens a sidebar destination in the secondary panel',
     (tester) => _withPlatform(TargetPlatform.macOS, () async {
       await _pumpShell(tester);
@@ -594,12 +618,14 @@ void main() {
       expect(_bar(tester).items.single.title, 'Latest');
       expect(_bar(tester).selectedId, originalId);
 
-      controller.pushContent(ContentRoute.topicList(TopicListMode.topYearly));
+      controller.openContentInNewTab(
+        ContentRoute.topicList(TopicListMode.topYearly),
+      );
       await tester.pumpAndSettle();
       expect(_bar(tester).items.last.title, 'Top - year');
       expect(_bar(tester).items, hasLength(2));
 
-      controller.pushContent(
+      controller.openContentInNewTab(
         ContentRoute.filteredTopicList(
           TopicListMode.topMonthly,
           tags: const ['design'],
@@ -629,7 +655,8 @@ void main() {
       await tester.pumpAndSettle();
 
       final topicId = controller.activeTabId!;
-      expect(controller.activeTab?.panel, ForumPanel.secondary);
+      expect(controller.activeTabId, newId);
+      expect(controller.activeTab?.panel, ForumPanel.main);
       final ForumTabItem routedItem = tester
           .widgetList<ForumTabsBar>(find.byType(ForumTabsBar))
           .expand((bar) => bar.items)
@@ -652,12 +679,12 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      expect(controller.tabsForCurrentForum, hasLength(4));
+      expect(controller.tabsForCurrentForum, hasLength(3));
       expect(
         controller.tabsForCurrentForum.where(
           (tab) => !tab.currentContent.isTopic,
         ),
-        hasLength(3),
+        hasLength(2),
       );
       expect(_bar(tester).items.map((item) => item.id), contains(newId));
       expect(_bar(tester).selectedId, isNot(originalId));

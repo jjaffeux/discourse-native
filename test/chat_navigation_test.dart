@@ -301,26 +301,27 @@ void main() {
     group('desktop panels', () {
       setUp(() => shell.desktopTopicTabs = true);
 
-      test('channels stay in their panel and threads open in secondary', () {
-        final original = shell.activeTabId;
-        expect(shell.openChatChannel(9), isTrue);
-        final channel = shell.activeTab!;
-        expect(channel.panel, ForumPanel.main);
-        expect(channel.id, isNot(original));
-        expect(channel.currentContent.id, 'chat-c-9');
+      for (final panel in ForumPanel.values) {
+        test('channels and threads reuse the active $panel tab', () {
+          shell.moveTabToPanel(shell.activeTabId!, panel);
+          final original = shell.activeTabId;
+          expect(shell.openChatChannel(9), isTrue);
+          expect(shell.activeTabId, original);
+          expect(shell.activeTab?.panel, panel);
+          expect(shell.currentContent?.id, 'chat-c-9');
 
-        shell.openChatThread(siteUrl: _site, channelId: 9, threadId: 3);
-        expect(shell.activeTab?.panel, ForumPanel.secondary);
-        expect(shell.currentContent?.id, 'chat-c-9-t-3');
-        expect(shell.selectedTabIn(ForumPanel.main), channel);
-        expect(shell.tabsForCurrentForum, hasLength(3));
+          shell.openChatThread(siteUrl: _site, channelId: 9, threadId: 3);
+          expect(shell.activeTabId, original);
+          expect(shell.activeTab?.panel, panel);
+          expect(shell.currentContent?.id, 'chat-c-9-t-3');
+          expect(shell.tabsForCurrentForum, hasLength(1));
 
-        expect(shell.openChatChannel(9), isTrue);
-        expect(shell.activeTab?.panel, ForumPanel.secondary);
-        expect(shell.currentContent?.id, 'chat-c-9');
-        expect(shell.selectedTabIn(ForumPanel.main), channel);
-        expect(shell.tabsForCurrentForum, hasLength(4));
-      });
+          expect(shell.openChatChannel(9), isTrue);
+          expect(shell.activeTabId, original);
+          expect(shell.currentContent?.id, 'chat-c-9');
+          expect(shell.tabsForCurrentForum, hasLength(1));
+        });
+      }
 
       test('middle-click channel links open in secondary', () async {
         final original = shell.activeTab;
@@ -337,7 +338,20 @@ void main() {
         expect(shell.selectedTabIn(ForumPanel.main), original);
       });
 
-      test('channel thread lists open exactly one new tab', () {
+      test('leaving chat returns to the forum in the current tab', () {
+        final originalId = shell.activeTabId;
+        shell.openChatChannel(9);
+
+        shell.deactivatePluginPane(chatPluginId);
+
+        expect(shell.activeTabId, originalId);
+        expect(shell.currentContent?.id, 'latest');
+        expect(shell.tabsForCurrentForum, hasLength(1));
+        expect(shell.handleBack(canReturnToSidebar: false), isTrue);
+        expect(shell.currentContent?.id, 'chat-c-9');
+      });
+
+      test('channel thread lists reuse the channel tab', () {
         shell.openChatChannel(9);
         final channel = shell.activeTab;
         final service = shell.pluginSession.require(chatShellService);
@@ -345,9 +359,10 @@ void main() {
           service.openChannelThreads(siteUrl: _site, channelId: 9),
           isTrue,
         );
-        expect(shell.tabsForCurrentForum, hasLength(3));
+        expect(shell.tabsForCurrentForum, hasLength(1));
         expect(shell.activeTab?.panel, ForumPanel.main);
-        expect(shell.currentWorkspace?.tabById(channel!.id), channel);
+        expect(shell.activeTabId, channel!.id);
+        expect(shell.currentContent?.id, ChatPlugin.channelThreadsRouteId(9));
       });
 
       testWidgets('a channel and its thread render in independent panels', (
@@ -358,7 +373,11 @@ void main() {
         addTearDown(tester.view.reset);
         shell.openChatChannel(9);
         final channel = shell.activeTabId!;
-        shell.openChatThread(siteUrl: _site, channelId: 9, threadId: 3);
+        final service = shell.pluginSession.require(chatShellService);
+        await service.openPluginUrl(
+          '$_site/chat/c/-/9/t/3',
+          origin: PluginLinkOrigin.secondaryPanel,
+        );
         final thread = shell.activeTabId!;
         await tester.pumpWidget(
           ShellScope(
