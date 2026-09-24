@@ -4963,40 +4963,45 @@ class _PostInboundLinks extends StatelessWidget {
           DSeparator(space: 1, color: theme.shell.divider),
           const SizedBox(height: 10),
           for (final link in displayed)
-            InlineAction.link(
-              semanticLabel: link.title,
-              excludeChildSemantics: true,
-              borderRadius: BorderRadius.circular(4),
-              onTap: () => unawaited(
-                openLink(
-                  context,
-                  link.url,
-                  title: link.title,
-                  siteUrl: siteUrl,
+            LinkTarget(
+              url: link.url,
+              title: link.title,
+              siteUrl: siteUrl,
+              child: InlineAction.link(
+                semanticLabel: link.title,
+                excludeChildSemantics: true,
+                borderRadius: BorderRadius.circular(4),
+                onTap: () => unawaited(
+                  openLink(
+                    context,
+                    link.url,
+                    title: link.title,
+                    siteUrl: siteUrl,
+                  ),
                 ),
-              ),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 5),
-                child: Row(
-                  children: [
-                    DIcon(
-                      DIcons.link,
-                      size: 14,
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: SiteEmojiText.plain(
-                        link.title,
-                        siteUrl: siteUrl,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 5),
+                  child: Row(
+                    children: [
+                      DIcon(
+                        DIcons.link,
+                        size: 14,
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: SiteEmojiText.plain(
+                          link.title,
+                          siteUrl: siteUrl,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
                         ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -5087,22 +5092,27 @@ class _TopicMap extends StatelessWidget {
         tooltip: 'Links in this topic',
         menuChildren: [
           for (final link in topic.links)
-            DDropdownMenuItem(
-              onPressed: () => unawaited(
-                openLink(
-                  context,
-                  link.url,
-                  title: link.title,
-                  siteUrl: siteUrl,
+            LinkTarget(
+              url: link.url,
+              title: link.title,
+              siteUrl: siteUrl,
+              child: DDropdownMenuItem(
+                onPressed: () => unawaited(
+                  openLink(
+                    context,
+                    link.url,
+                    title: link.title,
+                    siteUrl: siteUrl,
+                  ),
                 ),
-              ),
-              leading: const DIcon(DIcons.link, size: 14),
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 320),
-                child: Text(
-                  link.label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+                leading: const DIcon(DIcons.link, size: 14),
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 320),
+                  child: Text(
+                    link.label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
               ),
             ),

@@ -214,27 +214,31 @@ class _Attachment extends StatelessWidget {
 
     return ConstrainedBox(
       constraints: const BoxConstraints(maxWidth: ChatUploads.maxWidth),
-      child: DAttachment(
-        size: DAttachmentSize.extraSmall,
-        // The attachment border sits outside the trigger's content box. Keep
-        // the link itself at the established 44 logical-pixel hit target.
-        constraints: const BoxConstraints(minWidth: 160, minHeight: 46),
-        children: [
-          const DAttachmentMedia(child: DIcon(DIcons.paperclip, size: 16)),
-          DAttachmentContent(
-            children: [
-              DAttachmentTitle(child: Text(upload.originalFilename)),
-              if (filesize case final size?)
-                DAttachmentDescription(child: Text(size)),
-            ],
-          ),
-          DAttachmentTrigger(
-            semanticLabel: label,
-            isLink: true,
-            onPressed: () =>
-                openLink(context, _absoluteUploadUrl(siteUrl, upload.url)),
-          ),
-        ],
+      child: LinkTarget(
+        url: _absoluteUploadUrl(siteUrl, upload.url),
+        siteUrl: siteUrl,
+        child: DAttachment(
+          size: DAttachmentSize.extraSmall,
+          // The attachment border sits outside the trigger's content box. Keep
+          // the link itself at the established 44 logical-pixel hit target.
+          constraints: const BoxConstraints(minWidth: 160, minHeight: 46),
+          children: [
+            const DAttachmentMedia(child: DIcon(DIcons.paperclip, size: 16)),
+            DAttachmentContent(
+              children: [
+                DAttachmentTitle(child: Text(upload.originalFilename)),
+                if (filesize case final size?)
+                  DAttachmentDescription(child: Text(size)),
+              ],
+            ),
+            DAttachmentTrigger(
+              semanticLabel: label,
+              isLink: true,
+              onPressed: () =>
+                  openLink(context, _absoluteUploadUrl(siteUrl, upload.url)),
+            ),
+          ],
+        ),
       ),
     );
   }

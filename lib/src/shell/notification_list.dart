@@ -296,15 +296,19 @@ class _PluginNotificationsSectionState
             padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
             child: Align(
               alignment: Alignment.center,
-              child: DButton(
-                key: ValueKey(
-                  empty
-                      ? 'plugin-notification-empty-action-${widget.source.id.id}'
-                      : 'plugin-notification-view-all-${widget.source.id.id}',
+              child: LinkTarget(
+                url: link.path,
+                siteUrl: widget.siteUrl,
+                child: DButton(
+                  key: ValueKey(
+                    empty
+                        ? 'plugin-notification-empty-action-${widget.source.id.id}'
+                        : 'plugin-notification-view-all-${widget.source.id.id}',
+                  ),
+                  label: Text(link.label),
+                  variant: DButtonVariant.link,
+                  onPressed: () => unawaited(_openLink(link.path)),
                 ),
-                label: Text(link.label),
-                variant: DButtonVariant.link,
-                onPressed: () => unawaited(_openLink(link.path)),
               ),
             ),
           ),
