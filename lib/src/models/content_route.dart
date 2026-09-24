@@ -257,6 +257,12 @@ class ContentRoute {
     groupRoute: route,
   );
 
+  factory ContentRoute.allCategories() => const ContentRoute(
+    id: 'all-categories',
+    title: 'Categories',
+    icon: DIcons.layerGroup,
+  );
+
   factory ContentRoute.userActivity() =>
       const ContentRoute(id: 'activity', title: 'Activity', icon: DIcons.list);
 
@@ -366,13 +372,7 @@ class ContentRoute {
       homepage =
           config.topMenu.where(anonymous.contains).firstOrNull ?? 'latest';
     }
-    if (homepage == 'categories') {
-      return const ContentRoute(
-        id: 'all-categories',
-        title: 'Categories',
-        icon: DIcons.layerGroup,
-      );
-    }
+    if (homepage == 'categories') return ContentRoute.allCategories();
     final mode = switch (homepage) {
       'hot' => TopicListMode.popular,
       'top' => TopicListMode.top(
