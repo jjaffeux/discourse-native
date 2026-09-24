@@ -140,22 +140,24 @@ class _ForumTabsBarState extends State<ForumTabsBar> {
   static const _tabGap = 4.0;
   static const _switcherGap = 4.0;
   Widget? _contents;
+  final _barKey = GlobalKey();
   final _tabKeys = <String, GlobalKey>{};
   ForumTabItem? _dropItem;
   int _dropIndex = 0;
   String? _geometryTabId;
   List<double> _tabCenters = const [];
+  List<Rect> _tabRects = const [];
 
   void _captureDropGeometry(String id) {
     if (_geometryTabId == id) return;
     _geometryTabId = id;
-    // Preserve the actual tab widths before the placeholder shifts them.
-    _tabCenters = [
+    _tabRects = [
       for (final item in widget.items)
         if (_tabKeys[item.id]?.currentContext?.findRenderObject()
             case final RenderBox box)
-          box.localToGlobal(box.size.center(Offset.zero)).dx,
+          box.localToGlobal(Offset.zero) & box.size,
     ];
+    _tabCenters = [for (final rect in _tabRects) rect.center.dx];
   }
 
   void _scheduleGeometryReset() {
@@ -165,6 +167,7 @@ class _ForumTabsBarState extends State<ForumTabsBar> {
       if (mounted && _dropItem == null && widget.incomingTab == null) {
         _geometryTabId = null;
         _tabCenters = const [];
+        _tabRects = const [];
       }
     });
   }
@@ -292,12 +295,29 @@ class _ForumTabsBarState extends State<ForumTabsBar> {
         ? widget.items.length
         : _dropIndex.clamp(0, widget.items.length);
     final tabCount = widget.items.length;
+    final rtl = Directionality.of(context) == TextDirection.rtl;
+    double? indicatorLeft;
+    if (incoming != null && _tabRects.length == tabCount && tabCount > 0) {
+      final previous = insertion == 0 ? null : _tabRects[insertion - 1];
+      final next = insertion == tabCount ? null : _tabRects[insertion];
+      final position = previous == null
+          ? (rtl ? next!.right + _tabGap / 2 : next!.left - _tabGap / 2)
+          : next == null
+          ? (rtl ? previous.left - _tabGap / 2 : previous.right + _tabGap / 2)
+          : (rtl
+                ? (previous.left + next.right) / 2
+                : (previous.right + next.left) / 2);
+      if (_barKey.currentContext?.findRenderObject() case final RenderBox box) {
+        indicatorLeft = position - box.localToGlobal(Offset.zero).dx - 1.5;
+      }
+    }
     return Container(
       key: const ValueKey('forum-tabs-bar'),
       width: double.infinity,
       height: ForumTabsBar.heightFor(context),
       decoration: const BoxDecoration(color: Colors.transparent),
       child: Stack(
+        key: _barKey,
         children: [
           Positioned.fill(
             child: Padding(
@@ -341,7 +361,6 @@ class _ForumTabsBarState extends State<ForumTabsBar> {
                           (constraints.maxWidth -
                                   (widget.showAdd ? addWidth + 4 : 0) -
                                   _tabGap * (tabCount - 1) -
-                                  (incoming == null ? 0 : 3 + _tabGap) -
                                   selectedWidth) /
                               tabCount,
                         );
@@ -361,13 +380,6 @@ class _ForumTabsBarState extends State<ForumTabsBar> {
                                       index < widget.items.length;
                                       index++
                                     ) ...[
-                                      if (incoming != null &&
-                                          insertion == index) ...[
-                                        _ForumTabDropPlaceholder(
-                                          item: incoming,
-                                        ),
-                                        const SizedBox(width: _tabGap),
-                                      ],
                                       ConstrainedBox(
                                         key: _tabKeys.putIfAbsent(
                                           widget.items[index].id,
@@ -444,11 +456,6 @@ class _ForumTabsBarState extends State<ForumTabsBar> {
                                       if (index != widget.items.length - 1)
                                         const SizedBox(width: _tabGap),
                                     ],
-                                    if (incoming != null &&
-                                        insertion == widget.items.length) ...[
-                                      const SizedBox(width: _tabGap),
-                                      _ForumTabDropPlaceholder(item: incoming),
-                                    ],
                                   ],
                                 ),
                               ),
@@ -470,6 +477,16 @@ class _ForumTabsBarState extends State<ForumTabsBar> {
               ),
             ),
           ),
+          if (incoming != null && indicatorLeft != null)
+            Positioned(
+              left: indicatorLeft,
+              top: (ForumTabsBar.heightFor(context) - 28) / 2,
+              width: 3,
+              height: 28,
+              child: IgnorePointer(
+                child: _ForumTabDropPlaceholder(item: incoming),
+              ),
+            ),
         ],
       ),
     );
