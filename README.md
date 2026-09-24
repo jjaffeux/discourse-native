@@ -1883,10 +1883,14 @@ fetch.
 The Direct messages section appears after the channel snapshot even when it is
 empty, but its `+` action exists only when the current-user payload says
 `can_direct_message` (staff retain core's override). The picker queries
-`GET /chat/api/chatables` for users, visible groups, and existing direct-message
-channels, keeps core's match-quality/type ordering, and leaves recipients with
-Chat disabled visible but unavailable. Choosing an existing conversation opens
-it directly; choosing a user posts to
+`GET /chat/api/chatables` for users, visible groups, existing direct-message
+channels, and public channels, keeps core's match-quality/type ordering, and
+leaves recipients with Chat disabled visible but unavailable. Before any query
+it lists followed direct messages and public channels together, most recently
+active first. Only public channels the user already follows are offered: core
+opens an unjoined channel as a preview with a Join button, and the native
+channel view has no such state. Choosing an existing conversation or channel
+opens it directly; choosing a user posts to
 `/chat/api/direct-message-channels.json` with `upsert: true`. When
 `chat_max_direct_message_users` permits groups (with core's staff override),
 the picker also exposes New group chat: selected users and visible groups are

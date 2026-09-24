@@ -97,7 +97,10 @@ class _ChatNewDirectMessageDialogState
   });
 
   void _showExistingChannels() {
-    final channels = widget.chat.directChannels(widget.siteUrl);
+    final channels = [
+      ...widget.chat.directChannels(widget.siteUrl),
+      ...widget.chat.publicChannels(widget.siteUrl),
+    ];
     final positions = {
       for (final (i, channel) in channels.indexed) channel.id: i,
     };
@@ -148,6 +151,7 @@ class _ChatNewDirectMessageDialogState
           query,
           includeGroups: _canUseGroupChat,
           includeDirectMessageChannels: !_composingGroup,
+          includeCategoryChannels: !_composingGroup,
         );
         if (!mounted || generation != _generation) return;
         setState(() {
@@ -459,7 +463,7 @@ class _ChatNewDirectMessageDialogState
                         semanticLabel: 'Search chat recipients',
                         placeholder: _composingGroup
                             ? 'Search users or groups'
-                            : 'Search users, groups, or conversations',
+                            : 'Search users, groups, or channels',
                       ),
                     ),
                     _buildResults(),
@@ -636,8 +640,9 @@ class _ChatNewDirectMessageDialogState
       final heading = switch (item) {
         ChatDirectMessageUser() => 'People',
         ChatDirectMessageGroup() => 'Groups',
-        ChatDirectMessageChannel() =>
-          query.isEmpty ? 'Recent conversations' : 'Conversations',
+        ChatDirectMessageChannel() when query.isEmpty => 'Recent conversations',
+        ChatDirectMessageChannel(:final channel) =>
+          channel.isDirectMessage ? 'Conversations' : 'Channels',
       };
       if (groups.isEmpty || groups.last.heading != heading) {
         groups.add((heading: heading, items: []));
@@ -776,6 +781,12 @@ class _ChatNewDirectMessageDialogState
   }
 
   Widget _channelAvatar(ChatChannel channel) {
+    if (!channel.isDirectMessage) {
+      return DIcon(
+        channel.readRestricted ? DIcons.lock : DIcons.comment,
+        color: channel.categoryColor,
+      );
+    }
     final currentUser = widget.chat.currentUserFor(widget.siteUrl)?.id;
     final others = channel.users.where((user) => user.id != currentUser);
     if (!channel.isGroup && others.length == 1) {

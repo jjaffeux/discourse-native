@@ -50,6 +50,7 @@ final class ChatApiClient implements ChatApi {
     required String term,
     bool includeGroups = false,
     bool includeDirectMessageChannels = true,
+    bool includeCategoryChannels = false,
     String? clientId,
   }) async {
     _validateComposerLookupValue(term);
@@ -59,7 +60,7 @@ final class ChatApiClient implements ChatApi {
           'term': term,
           'include_users': 'true',
           'include_groups': '$includeGroups',
-          'include_category_channels': 'false',
+          'include_category_channels': '$includeCategoryChannels',
           'include_direct_message_channels': '$includeDirectMessageChannels',
         },
       ),

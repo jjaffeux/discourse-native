@@ -65,7 +65,8 @@ void main() {
   }
 
   testWidgets(
-    'group creation comes first, followed by recent chats ordered by activity',
+    'group creation comes first, then recent chats and followed channels '
+    'interleaved by activity',
     (tester) async {
       await pump(tester);
       final command = tester
@@ -86,6 +87,9 @@ void main() {
       await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
       await tester.pump();
       expect(command.value, 'c-55');
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.pump();
+      expect(command.value, 'c-60');
       await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
       await tester.pump();
       expect(command.value, 'c-56');
@@ -155,6 +159,34 @@ void main() {
     },
     variant: TargetPlatformVariant.only(TargetPlatform.macOS),
   );
+
+  testWidgets('search finds followed public channels and opens them', (
+    tester,
+  ) async {
+    await pump(tester);
+    await query(tester, 'general');
+    expect(
+      api.chatDirectMessageSearchRequests.last.includeCategoryChannels,
+      isTrue,
+    );
+    expect(find.text('Channels'), findsOneWidget);
+    final channel = find.byKey(
+      const ValueKey('chat-new-direct-message-channel-60'),
+    );
+    expect(channel, findsOneWidget);
+    expect(
+      tester
+          .widget<DCommand<String>>(find.byType(DCommand<String>))
+          .controller!
+          .value,
+      'c-60',
+    );
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pumpAndSettle();
+    expect(shell.currentContent?.id, 'chat-c-60');
+    expect(dialog, findsNothing);
+    expect(tester.takeException(), isNull);
+  }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 
   testWidgets(
     'stale search cannot replace a newer query or group composition',
@@ -236,7 +268,9 @@ void main() {
       expect(shell.currentContent?.id, 'chat-c-59');
       expect(
         api.chatDirectMessageSearchRequests.every(
-          (request) => !request.includeDirectMessageChannels,
+          (request) =>
+              !request.includeDirectMessageChannels &&
+              !request.includeCategoryChannels,
         ),
         isTrue,
       );
