@@ -1164,7 +1164,12 @@ class FakeDiscourseApi
   final Map<String, ChatDirectMessageSearchResults> chatDirectMessageSearches;
   final List<String> chatDirectMessageSearchesRequested = [];
   final List<
-    ({String term, bool includeGroups, bool includeDirectMessageChannels})
+    ({
+      String term,
+      bool includeGroups,
+      bool includeDirectMessageChannels,
+      bool includeCategoryChannels,
+    })
   >
   chatDirectMessageSearchRequests = [];
 
@@ -2960,6 +2965,7 @@ class FakeDiscourseApi
     required String term,
     bool includeGroups = false,
     bool includeDirectMessageChannels = true,
+    bool includeCategoryChannels = false,
     String? clientId,
   }) async {
     chatDirectMessageSearchesRequested.add(term);
@@ -2967,6 +2973,7 @@ class FakeDiscourseApi
       term: term,
       includeGroups: includeGroups,
       includeDirectMessageChannels: includeDirectMessageChannels,
+      includeCategoryChannels: includeCategoryChannels,
     ));
     return chatDirectMessageSearches[term] ??
         ChatDirectMessageSearchResults(const []);

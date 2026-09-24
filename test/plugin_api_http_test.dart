@@ -266,6 +266,53 @@ void main() {
       expect((results.items.last as ChatDirectMessageGroup).name, 'sam-fans');
     });
 
+    test('keeps only followed public channels, which Chat can open', () async {
+      late http.Request seen;
+      Map<String, Object?> categoryChannel(int id, {required bool following}) =>
+          {
+            'identifier': 'c-$id',
+            'type': 'channel',
+            'match_quality': 1,
+            'model': {
+              'id': id,
+              'title': 'general-$id',
+              'chatable_type': 'Category',
+              'chatable': {'id': 4, 'color': '0088CC'},
+              'current_user_membership': {'following': following},
+            },
+          };
+      final api = DiscourseApi(
+        client: MockClient((request) async {
+          seen = request;
+          return http.Response(
+            jsonEncode({
+              'users': const <Object?>[],
+              'groups': const <Object?>[],
+              'direct_message_channels': const <Object?>[],
+              'category_channels': [
+                categoryChannel(70, following: false),
+                categoryChannel(71, following: true),
+              ],
+            }),
+            200,
+          );
+        }),
+      );
+
+      final results = await ChatApiClient(api).searchChatDirectMessages(
+        siteUrl: 'https://example.com',
+        apiKey: 'key',
+        term: 'general',
+        includeCategoryChannels: true,
+      );
+
+      expect(seen.url.queryParameters['include_category_channels'], 'true');
+      final channel =
+          (results.items.single as ChatDirectMessageChannel).channel;
+      expect(channel.id, 71);
+      expect(channel.isCategoryChannel, isTrue);
+    });
+
     test('upserts a DM channel for the user-card Chat action', () async {
       late http.Request seen;
       final api = DiscourseApi(

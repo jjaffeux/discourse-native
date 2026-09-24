@@ -17,6 +17,7 @@ abstract interface class ChatApi {
     required String term,
     bool includeGroups = false,
     bool includeDirectMessageChannels = true,
+    bool includeCategoryChannels = false,
     String? clientId,
   });
 

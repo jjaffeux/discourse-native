@@ -1792,6 +1792,7 @@ class ChatController extends FrameSafeNotifier {
     String term, {
     bool includeGroups = false,
     bool includeDirectMessageChannels = true,
+    bool includeCategoryChannels = false,
   }) async {
     final query = term.trim();
     if (isDisposed || query.isEmpty) {
@@ -1811,6 +1812,7 @@ class ChatController extends FrameSafeNotifier {
       term: query,
       includeGroups: includeGroups,
       includeDirectMessageChannels: includeDirectMessageChannels,
+      includeCategoryChannels: includeCategoryChannels,
     );
     if (isDisposed || !lease.isCurrent) {
       return ChatDirectMessageSearchResults(const []);
@@ -1824,6 +1826,7 @@ class ChatController extends FrameSafeNotifier {
           final held = _store.read<ChatChannel>(siteUrl, channel.id);
           _store.put(siteUrl, held?.withServerSettings(channel) ?? channel);
           if (listed != null &&
+              channel.isDirectMessage &&
               channel.membership.following &&
               !listed.contains(channel.id)) {
             listed.insert(0, channel.id);

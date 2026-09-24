@@ -102,6 +102,16 @@ final startChattingChannels = [
   ),
 ];
 
+final startChattingPublicChannel = ChatChannel(
+  id: 60,
+  title: 'General',
+  slug: 'general',
+  kind: ChatChannelKind.category,
+  membership: const ChatMembership(following: true),
+  tracking: const ChatTracking(),
+  lastMessageAt: DateTime.now().subtract(const Duration(minutes: 30)),
+);
+
 class StartChattingApi extends FakeDiscourseApi {
   StartChattingApi()
     : super(
@@ -109,7 +119,7 @@ class StartChattingApi extends FakeDiscourseApi {
         feeds: const {'/latest.json': []},
         chatChannelsBySite: {
           startChattingSite: ChatChannels(
-            public: const [],
+            public: [startChattingPublicChannel],
             direct: startChattingChannels.reversed.toList(),
           ),
         },
@@ -164,6 +174,7 @@ class StartChattingApi extends FakeDiscourseApi {
     required String term,
     bool includeGroups = false,
     bool includeDirectMessageChannels = true,
+    bool includeCategoryChannels = false,
     String? clientId,
   }) async {
     await super.searchChatDirectMessages(
@@ -172,6 +183,7 @@ class StartChattingApi extends FakeDiscourseApi {
       term: term,
       includeGroups: includeGroups,
       includeDirectMessageChannels: includeDirectMessageChannels,
+      includeCategoryChannels: includeCategoryChannels,
       clientId: clientId,
     );
     if (pendingSearches[term] case final pending?) return pending.future;
@@ -182,6 +194,13 @@ class StartChattingApi extends FakeDiscourseApi {
         if ('${person.username} ${person.name}'.toLowerCase().contains(query))
           person,
       if (includeGroups && 'design team'.contains(query)) startChattingGroup,
+      if (includeCategoryChannels && 'general'.contains(query))
+        ChatDirectMessageChannel(
+          identifier: 'c-60',
+          matchQuality: 1,
+          enabled: true,
+          channel: startChattingPublicChannel,
+        ),
     ]);
   }
 }

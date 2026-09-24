@@ -120,6 +120,16 @@ final class ChatDirectMessageSearchResults {
       final candidate = ChatDirectMessageChannel.fromJson(channel, siteUrl);
       if (candidate.channel.id > 0) items.add(candidate);
     }
+    // The native channel view has no pre-join preview, so an unfollowed
+    // channel could be found here but not opened.
+    for (final channel in jsonObjects(json['category_channels'])) {
+      final candidate = ChatDirectMessageChannel.fromJson(channel, siteUrl);
+      if (candidate.channel.id > 0 &&
+          candidate.channel.isCategoryChannel &&
+          candidate.channel.membership.following) {
+        items.add(candidate);
+      }
+    }
     for (final group in jsonObjects(json['groups'])) {
       final candidate = ChatDirectMessageGroup.fromJson(group);
       if (candidate.name.isNotEmpty) items.add(candidate);
@@ -146,7 +156,7 @@ final class ChatDirectMessageSearchResults {
 
   static int _typePriority(ChatDirectMessageSearchItem item) => switch (item) {
     ChatDirectMessageUser() => 0,
-    ChatDirectMessageChannel() => 1,
-    ChatDirectMessageGroup() => 2,
+    ChatDirectMessageChannel(:final channel) => channel.isDirectMessage ? 1 : 2,
+    ChatDirectMessageGroup() => 3,
   };
 }

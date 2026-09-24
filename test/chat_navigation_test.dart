@@ -1416,6 +1416,36 @@ void main() {
         expect(shell.currentContent?.id, 'chat-c-56');
       });
 
+      testWidgets('a public channel found by search stays out of DMs', (
+        tester,
+      ) async {
+        await shell.chat.loadChannels(_site);
+        api.chatDirectMessageSearches['general'] =
+            ChatDirectMessageSearchResults([
+              ChatDirectMessageChannel(
+                identifier: 'c-13',
+                matchQuality: 1,
+                enabled: true,
+                channel: _channel(13, title: 'General'),
+              ),
+            ]);
+
+        final results = await shell.chat.searchDirectMessages(
+          _site,
+          'general',
+          includeCategoryChannels: true,
+        );
+
+        expect(results.items, hasLength(1));
+        expect(
+          api.chatDirectMessageSearchRequests.single.includeCategoryChannels,
+          isTrue,
+        );
+        expect(shell.chat.directChannels(_site), isEmpty);
+        expect(shell.chat.channel(_site, 13)?.title, 'General');
+        expect(shell.openChatChannel(13), isTrue);
+      });
+
       testWidgets('create a named group from users and groups', (tester) async {
         await shell.chat.loadChannels(_site);
         shell.accountActivity.applyCounts(
