@@ -1205,6 +1205,7 @@ class _NewTabButton extends StatelessWidget {
               ),
             ),
       variant: DButtonVariant.transparentBackground,
+      interactiveBackgroundColor: Colors.transparent,
       icon: const DIcon(DIcons.plus),
       onPressed: onPressed,
     ),
@@ -1805,6 +1806,7 @@ class CurrentForumTabsBar extends StatelessWidget {
                       icon: const DIcon(DIcons.plus),
                       tooltip: 'Open a new tab',
                       variant: DButtonVariant.transparentBackground,
+                      interactiveBackgroundColor: Colors.transparent,
                       onPressed: controller.canCreateTab
                           ? () => controller.createTab(panel: panel)
                           : null,

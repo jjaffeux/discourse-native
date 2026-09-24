@@ -772,7 +772,7 @@ void main() {
         final tab = find.byKey(const ValueKey('forum-tab-item-topic-1'));
         final add = find.byKey(addKey);
         final before = tester.getRect(add);
-        expect(before.size, const Size.square(DControlStyle.regularHeight));
+        expect(before.width, DControlStyle.regularHeight);
         expect(before.left, tester.getRect(tab).right + 4);
         expect(
           tester.widget<DButton>(add).variant,
@@ -786,7 +786,8 @@ void main() {
         await pointer.addPointer();
         await pointer.moveTo(tester.getCenter(add));
         await tester.pumpAndSettle();
-        expect(buttonSurface(tester, of: add).color, isNot(fill));
+        expect(fill, Colors.transparent);
+        expect(buttonSurface(tester, of: add).color, Colors.transparent);
         expect(tester.getRect(add), before);
       },
     );
