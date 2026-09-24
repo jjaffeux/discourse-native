@@ -135,9 +135,15 @@ class _PanelRailState extends State<PanelRail>
     setState(_portal.show);
     if (MediaQuery.disableAnimationsOf(context)) {
       _reveal.value = 1;
-    } else {
-      _reveal.forward(from: 0);
+      return;
     }
+    // The frame that builds the rows is the read-out's expensive one, and it
+    // still shows only the rail's width. Growing from the next frame lets the
+    // whole motion play instead of losing its opening to that build.
+    _reveal.value = 0;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && _portal.isShowing) _reveal.forward();
+    });
   }
 
   // The read-out covers the rail as it opens, so the rail reports an exit
