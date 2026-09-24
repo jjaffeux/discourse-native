@@ -224,6 +224,51 @@ void main() {
     expect(controller.activeTab?.panel, ForumPanel.secondary);
     expect(controller.currentContent?.topicId, 42);
   });
+
+  testWidgets('right-clicking another link closes the previous menu', (
+    tester,
+  ) async {
+    final chosen = <String>[];
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Column(
+            children: [
+              LinkTarget.action(
+                action: ({required newTab, panel}) => chosen.add('first'),
+                child: const Text('First link'),
+              ),
+              const SizedBox(height: 300),
+              LinkTarget.action(
+                action: ({required newTab, panel}) => chosen.add('second'),
+                child: const Text('Second link'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(
+      find.text('First link'),
+      kind: PointerDeviceKind.mouse,
+      buttons: kSecondaryMouseButton,
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Open in main panel'), findsOneWidget);
+
+    await tester.tap(
+      find.text('Second link'),
+      kind: PointerDeviceKind.mouse,
+      buttons: kSecondaryMouseButton,
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Open in main panel'), findsOneWidget);
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pumpAndSettle();
+    expect(chosen, ['second']);
+  });
 }
 
 Future<ShellController> _pumpLink(
