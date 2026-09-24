@@ -522,12 +522,20 @@ class _DRadioGroupItemState<T> extends State<DRadioGroupItem<T>> {
                   minWidth: touch ? 48 : 16,
                   minHeight: touch ? 48 : 16,
                 ),
-                child: Align(
-                  alignment: AlignmentDirectional.centerStart,
-                  widthFactor: 1,
-                  heightFactor: 1,
-                  child: ColoredBox(color: Colors.transparent, child: content),
-                ),
+                // A choice card fills the height it is given, so cards side by
+                // side in a row share the tallest one's height, as grid items
+                // stretch on the web.
+                child: widget.card
+                    ? ColoredBox(color: Colors.transparent, child: content)
+                    : Align(
+                        alignment: AlignmentDirectional.centerStart,
+                        widthFactor: 1,
+                        heightFactor: 1,
+                        child: ColoredBox(
+                          color: Colors.transparent,
+                          child: content,
+                        ),
+                      ),
               ),
             ),
           ),
