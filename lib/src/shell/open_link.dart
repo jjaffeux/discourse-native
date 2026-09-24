@@ -83,6 +83,30 @@ bool handleTabOpenResult(BuildContext context, TabOpenResult result) {
 final ValueNotifier<bool> _shiftHeldForLinks = ValueNotifier(false);
 bool _shiftWatcherInstalled = false;
 
+/// Keeps one link context menu open at a time across link surfaces.
+final class LinkContextMenuSession {
+  static LinkContextMenuSession? _active;
+
+  final DContextMenuController controller = DContextMenuController();
+
+  void onOpenChange(bool open, DPopoverChangeReason _) {
+    if (open) {
+      if (!identical(_active, this)) {
+        final previous = _active;
+        _active = this;
+        previous?.controller.close();
+      }
+    } else if (identical(_active, this)) {
+      _active = null;
+    }
+  }
+
+  void dispose() {
+    if (identical(_active, this)) _active = null;
+    controller.dispose();
+  }
+}
+
 void _watchLinkShift() {
   if (_shiftWatcherInstalled) return;
   _shiftWatcherInstalled = true;
@@ -92,7 +116,7 @@ void _watchLinkShift() {
   });
 }
 
-class LinkTarget extends StatelessWidget {
+class LinkTarget extends StatefulWidget {
   const LinkTarget({
     super.key,
     required this.url,
@@ -128,19 +152,32 @@ class LinkTarget extends StatelessWidget {
   final Widget child;
 
   @override
+  State<LinkTarget> createState() => _LinkTargetState();
+}
+
+class _LinkTargetState extends State<LinkTarget> {
+  final _menu = LinkContextMenuSession();
+
+  @override
+  void dispose() {
+    _menu.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     _watchLinkShift();
     void activate({required bool newTab, ForumPanel? panel}) {
-      if (action case final open?) {
+      if (widget.action case final open?) {
         open(newTab: newTab, panel: panel);
-      } else if (content case final route?) {
+      } else if (widget.content case final route?) {
         final controller = ShellScope.read(context);
         if (newTab) {
           handleTabOpenResult(
             context,
             controller.openContentInNewTab(
               route,
-              siteUrl: siteUrl,
+              siteUrl: widget.siteUrl,
               panel: panel,
               select: false,
               source: controller.activeTab,
@@ -154,13 +191,13 @@ class LinkTarget extends StatelessWidget {
         } else {
           controller.pushContent(route);
         }
-      } else if (url case final link?) {
+      } else if (widget.url case final link?) {
         unawaited(
           openLink(
             context,
             link,
-            title: title,
-            siteUrl: siteUrl,
+            title: widget.title,
+            siteUrl: widget.siteUrl,
             newTab: newTab,
             panel: panel,
           ),
@@ -175,6 +212,8 @@ class LinkTarget extends StatelessWidget {
             shiftHeld &&
             ShellScope.maybeRead(context)?.desktopPanelsEnabled == true;
         return DContextMenu(
+          controller: _menu.controller,
+          onOpenChange: _menu.onOpenChange,
           content: DContextMenuContent(
             semanticLabel: 'Open link',
             children: [
@@ -212,7 +251,7 @@ class LinkTarget extends StatelessWidget {
                 newTab: true,
                 panel: shifted ? ForumPanel.secondary : null,
               ),
-              child: IgnorePointer(ignoring: shifted, child: child),
+              child: IgnorePointer(ignoring: shifted, child: widget.child),
             ),
           ),
         );

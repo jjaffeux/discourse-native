@@ -672,8 +672,15 @@ class _InlineLinkContextMenu extends StatefulWidget {
 
 class _InlineLinkContextMenuState extends State<_InlineLinkContextMenu> {
   final GlobalKey _textKey = GlobalKey();
+  final _menu = LinkContextMenuSession();
   String? _url;
   bool _open = false;
+
+  @override
+  void dispose() {
+    _menu.dispose();
+    super.dispose();
+  }
 
   RenderParagraph? _paragraph(RenderObject? object) {
     if (object is RenderParagraph) return object;
@@ -724,9 +731,11 @@ class _InlineLinkContextMenuState extends State<_InlineLinkContextMenu> {
 
   @override
   Widget build(BuildContext context) => DContextMenu(
+    controller: _menu.controller,
     open: _open,
-    onOpenChange: (open, _) {
+    onOpenChange: (open, reason) {
       if (open && _url == null) return;
+      _menu.onOpenChange(open, reason);
       setState(() => _open = open);
     },
     content: DContextMenuContent(
