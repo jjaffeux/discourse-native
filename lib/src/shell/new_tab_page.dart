@@ -137,7 +137,7 @@ class _NewTabPageState extends State<NewTabPage> {
                 if (shell != null)
                   ConstrainedBox(
                     constraints: const BoxConstraints(maxWidth: 680),
-                    child: const ForumSearch(),
+                    child: const ForumSearch(showNavigationControls: false),
                   ),
                 if (_dismissed == false &&
                     (ShellScope.maybeRead(context)?.desktopPanelsEnabled ??

@@ -8,6 +8,7 @@ import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/shell/content_navigation_controls.dart';
 import 'package:discourse_native/src/shell/forum_search.dart';
 import 'package:discourse_native/src/shell/main_content.dart';
+import 'package:discourse_native/src/shell/new_tab_page.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
@@ -21,6 +22,38 @@ import 'support/fakes.dart';
 import 'support/shell_test_harness.dart';
 
 void main() {
+  _testOnPlatform(
+    TargetPlatform.macOS,
+    'Start page search omits navigation controls',
+    (tester) async {
+      await pumpShell(tester, desktop);
+      final shell = _shell(tester);
+
+      expect(shell.canCreateTab, isTrue);
+      shell.createTab();
+      await tester.pumpAndSettle();
+
+      expect(shell.tabsForCurrentForum.last.currentContent.isNewTab, isTrue);
+      expect(shell.currentContent?.isNewTab, isTrue);
+      final startPage = find.byType(NewTabPage);
+      expect(startPage, findsOneWidget);
+      expect(
+        find.descendant(
+          of: startPage,
+          matching: find.byKey(ForumSearch.inputKey),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: startPage,
+          matching: find.byType(ContentNavigationControls),
+        ),
+        findsNothing,
+      );
+    },
+  );
+
   for (final platform in [
     TargetPlatform.macOS,
     TargetPlatform.windows,
