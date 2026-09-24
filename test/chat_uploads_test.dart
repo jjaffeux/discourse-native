@@ -92,6 +92,7 @@ void main() {
     testWidgets('opens the previewed chat image for ${input.name}', (
       tester,
     ) async {
+      _requestReducedMotion(tester);
       final requests = <(String, String)>[];
       await _pumpImage(
         tester,
@@ -167,6 +168,7 @@ void main() {
   testWidgets('opens the same subfolder image without a separate thumbnail', (
     tester,
   ) async {
+    _requestReducedMotion(tester);
     const siteUrl = 'https://example.com/community';
     const fullUrl = '$siteUrl/uploads/default/a.png';
     final requests = <(String, String)>[];
@@ -239,4 +241,22 @@ Future<void> _pumpImage(
     ),
   );
   await tester.pumpAndSettle();
+}
+
+/// Requests reduced motion for the rest of the test, under which the
+/// lightbox's loading spinner is drawn still.
+///
+/// The lightbox shows a `DSpinner` until the full image's first frame is
+/// decoded, and an engine decode only completes on the real event loop, which
+/// a body under the fake clock never yields to. A turning spinner would keep
+/// `pumpAndSettle` from returning. Every test that opens the lightbox needs
+/// this, not just the first to run: the image cache outlives each test, so
+/// once the event loop has finished one decode between tests, later tests that
+/// show the same bytes draw the frame at once and pass either way.
+void _requestReducedMotion(WidgetTester tester) {
+  tester.binding.platformDispatcher.accessibilityFeaturesTestValue =
+      const FakeAccessibilityFeatures(disableAnimations: true);
+  addTearDown(
+    tester.binding.platformDispatcher.clearAccessibilityFeaturesTestValue,
+  );
 }

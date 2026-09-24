@@ -143,7 +143,14 @@ Engine work such as image decoding completes on the real event loop, which a
 `testWidgets` body reaches only inside `tester.runAsync`. A placeholder that
 animates until the first decoded frame keeps `pumpAndSettle` from returning;
 draw static placeholders (`WidgetFactory.debugDeterministicLoadingWidget` for
-cooked HTML) unless the decoded frame is itself the contract.
+cooked HTML, reduced motion for a `DSpinner`) unless the decoded frame is
+itself the contract. When it is, await the frame inside `tester.runAsync`, for
+example with `precacheImage` on the provider of the `Image` already in the
+tree, instead of a wall-clock delay. The image cache outlives each test, so
+once the event loop has finished a decode between tests, later tests that show
+the same bytes draw the frame at once: only the first such test to run fails,
+and randomized ordering moves that failure between them. Give every test that
+shows the image its placeholder, and check each one run alone.
 
 A bounded short poll is acceptable for an explicit independently scheduled
 condition, such as worker-isolate rendering, a cross-process result, or a
