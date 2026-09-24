@@ -570,21 +570,19 @@ Existing forums start with the previous app-wide appearance choice; newly added
 forums follow the system. Aggregate and the app-wide Settings modal follow the
 system appearance independently.
 
-The same page's **Theme** chooses where the forum's colours come from: the
-forum's own palette (the default, which follows the forum when its admins
-change it), a built-in **preset** chosen separately for light and dark (a mode
-without one keeps the forum's colours), or one of the user's **own** themes.
-Presets and the forum palette are never edited in place. **Make my own from
-this** and **New theme** start a theme from plain greys, the forum's colours, a
-preset or another saved theme. A saved theme carries both modes' palettes and
-the shared tint, opacity, texture and darker sidebars. The workspace around the
+The same page's **Theme** lists **Forum default** first among the **Presets**.
+The forum palette follows the forum when its admins change it. Built-in presets
+can be chosen separately for light and dark; a mode without one keeps the
+forum's colours. The **Your own** choice shows saved themes. Presets and the
+forum palette are never edited in place. **Customize** and **New theme** start
+a theme from plain greys, the forum's colours, a preset or another saved theme.
+A saved theme carries both modes' palettes and the shared tint, opacity, texture
+and darker sidebars. The workspace around the
 page is the preview: a choice applies as it is made, and the whole app shows
 the theme being edited as it changes, though nothing is stored until the
 editor's **Save**; **Cancel**, or leaving the page, puts the saved theme back.
-The section's Light/Dark switch shows the app in that mode while the page is
-open, so the other mode's colours can be chosen without changing the forum's
-saved **Appearance**. The **Font** is chosen separately and applies with every
-source.
+The **Appearance** setting chooses which mode's preset is shown. The **Font**
+is chosen separately and applies with every source.
 Preferences are stored per forum under `discourse_native.forum_themes.*` as
 version 2. Version 1 documents migrate on read without changing what the forum
 looked like: untouched forum colours, presets and saved themes map onto their

@@ -9,8 +9,7 @@ import '../theme/app_theme.dart';
 import '../theme/d_icons.dart';
 import 'forum_theme_thumbnail.dart';
 
-/// Where the forum's colours come from. Choosing a source never edits one:
-/// the forum's palette and the presets apply as they are.
+/// Choose between ready-made palettes and the user's saved themes.
 class ForumThemeSources extends StatelessWidget {
   const ForumThemeSources({
     super.key,
@@ -27,27 +26,26 @@ class ForumThemeSources extends StatelessWidget {
   Widget build(BuildContext context) =>
       DRadioGroup<ForumThemeSource>.controlled(
         key: const ValueKey('theme-source'),
-        groupValue: value,
+        groupValue: value == ForumThemeSource.forum
+            ? ForumThemeSource.preset
+            : value,
         enabled: enabled,
         onChanged: (source) {
-          if (source != null) onChanged(source);
+          if (source != null &&
+              !(value == ForumThemeSource.forum &&
+                  source == ForumThemeSource.preset)) {
+            onChanged(source);
+          }
         },
         child: LayoutBuilder(
           builder: (context, constraints) {
             const items = [
               DRadioGroupItem(
-                key: ValueKey(('theme-source', ForumThemeSource.forum)),
-                value: ForumThemeSource.forum,
-                card: true,
-                label: Text('Forum default'),
-                description: Text('The forum’s own colours'),
-              ),
-              DRadioGroupItem(
                 key: ValueKey(('theme-source', ForumThemeSource.preset)),
                 value: ForumThemeSource.preset,
                 card: true,
-                label: Text('Preset'),
-                description: Text('A built-in palette'),
+                label: Text('Presets'),
+                description: Text('Forum and built-in palettes'),
               ),
               DRadioGroupItem(
                 key: ValueKey(('theme-source', ForumThemeSource.custom)),
@@ -80,14 +78,15 @@ class ForumThemeSources extends StatelessWidget {
       );
 }
 
-/// The content of the chosen source: the forum's own colours, the presets for
-/// one mode, or the user's saved themes. The app around the page is the
-/// preview: a choice applies as it is made, in the mode shown here.
+/// Shows the forum and built-in palettes for the active mode, or the user's
+/// saved themes. The app around the page previews each choice as it is made.
 class ForumThemePicker extends StatefulWidget {
   const ForumThemePicker({
     super.key,
     required this.preferences,
+    required this.forum,
     required this.brightness,
+    required this.onForum,
     required this.onPreset,
     required this.onTheme,
     required this.onNewTheme,
@@ -99,9 +98,11 @@ class ForumThemePicker extends StatefulWidget {
   });
 
   final ForumThemePreferences preferences;
+  final ForumTheme forum;
 
   /// The active appearance mode used for the preset list and thumbnails.
   final Brightness brightness;
+  final VoidCallback onForum;
   final void Function(Brightness mode, String id) onPreset;
   final ValueChanged<String> onTheme;
 
@@ -130,69 +131,34 @@ class _ForumThemePickerState extends State<ForumThemePicker> {
     );
   }
 
-  String get _mode => widget.brightness == Brightness.dark ? 'dark' : 'light';
-
   @override
   Widget build(BuildContext context) => Column(
     crossAxisAlignment: CrossAxisAlignment.stretch,
     spacing: DSpacing.md,
     children: switch (widget.preferences.source) {
-      ForumThemeSource.forum => _forum(context),
-      ForumThemeSource.preset => _presets(context),
-      ForumThemeSource.custom => _saved(context),
+      ForumThemeSource.forum || ForumThemeSource.preset => _presets(),
+      ForumThemeSource.custom => _saved(),
     },
   );
 
-  Widget _caption(BuildContext context, String text) => Text(
-    text,
-    style: TextStyle(
-      fontSize: 12.5,
-      height: 1.45,
-      color: DTokens.of(context).mutedForeground,
-    ),
-  );
-
-  Widget _footer(List<Widget> children) => Wrap(
-    spacing: DSpacing.md,
-    runSpacing: DSpacing.sm,
-    crossAxisAlignment: WrapCrossAlignment.center,
-    children: children,
-  );
-
-  Widget _makeOwn(String base) => DButton(
-    key: ValueKey(('make-own-theme', base)),
-    label: const Text('Make my own from this'),
-    variant: DButtonVariant.outline,
-    size: DButtonSize.small,
-    onPressed: () => widget.onNewTheme(base: base),
-  );
-
-  List<Widget> _forum(BuildContext context) => [
-    const DFieldLabel(child: Text('The forum’s own colours')),
-    _footer([
-      _caption(
-        context,
-        'Light and dark come from the forum, and follow it when its admins '
-        'change them.',
-      ),
-      _makeOwn('forum'),
-    ]),
-  ];
-
-  List<Widget> _presets(BuildContext context) {
+  List<Widget> _presets() {
     final chosen = widget.preferences.presetFor(widget.brightness);
     return [
-      if (chosen == null)
-        _caption(
-          context,
-          'No preset chosen for $_mode mode yet, so it keeps the forum’s '
-          'colours.',
-        ),
       _list([
+        _row(
+          widget.forum,
+          chosen:
+              widget.preferences.source == ForumThemeSource.forum ||
+              chosen == null,
+          onPressed: widget.onForum,
+          onCustomize: () => widget.onNewTheme(base: widget.forum.id),
+        ),
         for (final preset in forumThemePresetsFor(widget.brightness))
           _row(
             preset,
-            chosen: preset.id == chosen?.id,
+            chosen:
+                widget.preferences.source == ForumThemeSource.preset &&
+                preset.id == chosen?.id,
             onPressed: () => widget.onPreset(widget.brightness, preset.id),
             onCustomize: () => widget.onNewTheme(base: preset.id),
           ),
@@ -200,7 +166,7 @@ class _ForumThemePickerState extends State<ForumThemePicker> {
     ];
   }
 
-  List<Widget> _saved(BuildContext context) => [
+  List<Widget> _saved() => [
     const DFieldLabel(child: Text('Your themes')),
     _list([
       for (final theme in widget.preferences.customThemes)
