@@ -814,11 +814,12 @@ class _TopicHeaderTaxonomy extends StatelessWidget {
             siteUrl: siteUrl,
             topic: topic,
             editOnTap: mobile,
-            onTagNavigate: (tag, {newTab = false}) => shell.openTopicTag(
+            onTagNavigate: (tag, {newTab = false, panel}) => shell.openTopicTag(
               tag,
               siteUrl: siteUrl,
               privateMessage: topic.privateMessage,
               newTab: newTab,
+              panel: panel,
             ),
           );
           if (mobile) {

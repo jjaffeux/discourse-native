@@ -208,7 +208,16 @@ final class ChatShellService
       siteUrl,
       link.route,
       messageId: link.messageId,
-      secondaryPanel: origin == PluginLinkOrigin.secondaryPanel,
+      mainPanel:
+          origin == PluginLinkOrigin.mainPanel ||
+          origin == PluginLinkOrigin.mainPanelNewTab,
+      secondaryPanel:
+          origin == PluginLinkOrigin.secondaryPanel ||
+          origin == PluginLinkOrigin.secondaryPanelNewTab,
+      newTab:
+          origin == PluginLinkOrigin.newTab ||
+          origin == PluginLinkOrigin.mainPanelNewTab ||
+          origin == PluginLinkOrigin.secondaryPanelNewTab,
     );
   }
 
@@ -642,7 +651,9 @@ final class ChatShellService
     ChatRoute route, {
     int? messageId,
     bool focusComposer = false,
+    bool mainPanel = false,
     bool secondaryPanel = false,
+    bool newTab = false,
   }) {
     if (_host.currentInstance?.url != siteUrl) return false;
     final channel = chat.channel(siteUrl, route.channelId);
@@ -654,9 +665,10 @@ final class ChatShellService
           title: route.isThread ? 'Thread' : channel.title,
           subtitle: route.isThread ? channel.title : null,
           icon: route.isThread ? DIcons.comments : DIcons.comment,
-          openInSecondaryPanel: route.isThread || secondaryPanel,
+          openInMainPanel: mainPanel,
+          openInSecondaryPanel: secondaryPanel,
         ),
-        newTab: secondaryPanel,
+        newTab: newTab,
       );
       navigation.offer(
         ChatNavigationTarget(

@@ -607,7 +607,7 @@ final class _Harness {
                             categoryId: categoryId,
                             tags: selectedTags,
                             enabled: true,
-                            onTagNavigate: (tag, {newTab = false}) {
+                            onTagNavigate: (tag, {newTab = false, panel}) {
                               navigations.add((
                                 siteUrl: navigationSite,
                                 tag: tag,

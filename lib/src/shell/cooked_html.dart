@@ -594,9 +594,8 @@ bool _isCountedLink(dom.Element link) {
     'onebox-result',
     'onebox-body',
   };
-  return !_ancestors(
-    link,
-  ).any((ancestor) => ancestor.classes.any(ignoredAncestorClasses.contains));
+  return !_ancestors(link)
+      .any((ancestor) => ancestor.classes.any(ignoredAncestorClasses.contains));
 }
 
 bool _isBestOneboxLink(dom.Element link) {

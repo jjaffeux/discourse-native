@@ -6,6 +6,7 @@ import 'package:discourse_native/discourse_ui.dart'
 import 'package:discourse_native/src/data/app_settings_store.dart';
 import 'package:discourse_native/src/data/site_image_repository.dart';
 import 'package:discourse_native/src/data/site_lifecycle.dart';
+import 'package:discourse_native/src/models/forum_workspace.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/models/user_status.dart';
@@ -722,6 +723,41 @@ void main() {
   });
 
   group('links', () {
+    testWidgets('right-click selects the inline link under the pointer', (
+      tester,
+    ) async {
+      final controller = await pumpCookedInShell(
+        tester,
+        '<p>Read <a href="/t/first/42">first</a> or '
+        '<a href="/t/second/43">second</a> here.</p>',
+      );
+      controller.desktopTopicTabs = true;
+      await tester.pumpAndSettle();
+      final text = find.byWidgetPredicate(
+        (widget) =>
+            widget is RichText &&
+            widget.text.toPlainText().contains('second here.'),
+      );
+      final paragraph = tester.renderObject<RenderParagraph>(text.first);
+      final start = paragraph.text.toPlainText().indexOf('second');
+      final box = paragraph
+          .getBoxesForSelection(
+            TextSelection(baseOffset: start, extentOffset: start + 6),
+          )
+          .first;
+      await tester.tapAt(
+        paragraph.localToGlobal(box.toRect().center),
+        kind: PointerDeviceKind.mouse,
+        buttons: kSecondaryMouseButton,
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Open in secondary panel'));
+      await tester.pumpAndSettle();
+
+      expect(controller.currentContent?.topicId, 43);
+      expect(controller.activeTab?.panel, ForumPanel.secondary);
+    });
+
     for (final (label, markup) in [
       (
         'inline text',

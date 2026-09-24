@@ -112,71 +112,63 @@ void main() {
     });
   }
 
-  test('topics create the first secondary tab then reuse it with history', () {
-    final main = shell.activeTab;
+  test('topic clicks reuse the active tab and retain history', () {
+    final main = shell.activeTab!;
     expect(shell.openTopicFromList(_topic), TabOpenResult.opened);
-    final readerId = shell.activeTabId;
-    expect(shell.selectedTabIn(ForumPanel.main), main);
-    expect(shell.activeTab?.panel, ForumPanel.secondary);
+    expect(shell.activeTabId, main.id);
+    expect(shell.activeTab?.panel, ForumPanel.main);
     expect(shell.currentContent?.topicId, 42);
-    expect(shell.tabsForCurrentForum, hasLength(2));
+    expect(shell.tabsForCurrentForum, hasLength(1));
 
-    shell.selectTab(main!.id);
     expect(shell.openTopicFromList(_otherTopic), TabOpenResult.opened);
-    expect(shell.activeTabId, readerId);
+    expect(shell.activeTabId, main.id);
     expect(shell.currentContent?.topicId, 43);
     expect(shell.contentStack, hasLength(2));
-    expect(shell.selectedTabIn(ForumPanel.main), main);
-    expect(shell.tabsForCurrentForum, hasLength(2));
+    expect(shell.tabsForCurrentForum, hasLength(1));
     expect(shell.handleBack(canReturnToSidebar: false), isTrue);
     expect(shell.currentContent?.topicId, 42);
     expect(shell.handleForward(), isTrue);
     expect(shell.currentContent?.topicId, 43);
   });
 
-  test(
-    'topic links reuse the selected secondary tab and reset explicit posts',
-    () {
-      final main = shell.activeTab!;
-      shell.createTab(panel: ForumPanel.secondary);
-      final selectedId = shell.activeTabId!;
-      shell.createTab(panel: ForumPanel.secondary);
-      final other = shell.activeTab!;
-      shell.selectTab(selectedId);
-      shell.openTopic(_topic);
-      shell.saveTopicScrollPost(42, 9);
-      shell.openTopic(_otherTopic);
-      shell.selectTab(main.id);
+  test('topic links use the active panel and reset explicit posts', () {
+    final main = shell.activeTab!;
+    shell.createTab(panel: ForumPanel.secondary);
+    final selectedId = shell.activeTabId!;
+    shell.createTab(panel: ForumPanel.secondary);
+    final other = shell.activeTab!;
+    shell.selectTab(selectedId);
+    shell.openTopic(_topic);
+    shell.saveTopicScrollPost(42, 9);
+    shell.openTopic(_otherTopic);
+    shell.selectTab(main.id);
 
-      expect(shell.openTopicUrl('/t/panel-topic/42/3'), isTrue);
-      expect(shell.activeTabId, selectedId);
-      expect(shell.currentContent?.topicId, 42);
-      expect(shell.currentContent?.postNumber, 3);
-      expect(shell.topicScrollPostNumber(42), 3);
-      expect(shell.activeTab?.anchors['topic-42'], isNull);
-      expect(shell.currentWorkspace?.tabById(other.id), other);
-      expect(shell.selectedTabIn(ForumPanel.main)?.id, main.id);
-      expect(shell.tabsForCurrentForum, hasLength(3));
-    },
-  );
+    expect(shell.openTopicUrl('/t/panel-topic/42/3'), isTrue);
+    expect(shell.activeTabId, main.id);
+    expect(shell.currentContent?.topicId, 42);
+    expect(shell.currentContent?.postNumber, 3);
+    expect(shell.topicScrollPostNumber(42), 3);
+    expect(shell.activeTab?.anchors['topic-42'], isNull);
+    expect(shell.currentWorkspace?.tabById(other.id), other);
+    expect(shell.selectedTabIn(ForumPanel.secondary)?.id, selectedId);
+    expect(shell.tabsForCurrentForum, hasLength(3));
+  });
 
-  test('reused reader gets its source feed from the clicked list', () {
+  test('topic clicks retain the current list as their source', () {
     final mainId = shell.activeTabId!;
     shell.openTopicFromList(_topic);
-    final readerId = shell.activeTabId;
-    shell.selectTab(mainId);
+    expect(shell.activeTabId, mainId);
     shell.openListUrl('/tag/flutter');
     final list = shell.currentContent;
 
     shell.openTopicFromList(_otherTopic);
 
-    expect(shell.activeTabId, readerId);
+    expect(shell.activeTabId, mainId);
     expect(shell.topicListContent, list);
     expect(shell.currentContent?.topicId, 43);
-    expect(shell.tabsForCurrentForum, hasLength(2));
+    expect(shell.tabsForCurrentForum, hasLength(1));
     expect(shell.handleBack(canReturnToSidebar: false), isTrue);
-    expect(shell.topicListContent?.id, 'latest');
-    expect(shell.currentContent?.topicId, 42);
+    expect(shell.currentContent, list);
   });
 
   test(
@@ -225,7 +217,17 @@ void main() {
       }
       final before = shell.currentWorkspace;
 
-      expect(shell.openTopic(_topic), TabOpenResult.limitReached);
+      expect(
+        shell.openContentInPanel(
+          ContentRoute.topic(
+            topicId: _topic.id,
+            slug: _topic.slug,
+            title: _topic.title,
+          ),
+          panel: ForumPanel.secondary,
+        ),
+        TabOpenResult.limitReached,
+      );
 
       expect(shell.currentWorkspace, before);
       expect(shell.selectedTabIn(ForumPanel.secondary), isNull);
@@ -272,10 +274,11 @@ void main() {
         buttons: kMiddleMouseButton,
       );
       await tester.pumpAndSettle();
-      expect(
-        shell.selectedTabIn(ForumPanel.secondary)?.currentContent.topicId,
-        42,
-      );
+      expect(shell.activeTab?.panel, ForumPanel.main);
+      expect(shell.activeTabId, main);
+      expect(shell.tabsForCurrentForum.last.currentContent.topicId, 42);
+      shell.selectTab(shell.tabsForCurrentForum.last.id);
+      await tester.pumpAndSettle();
       expect(find.text('Content for 42', findRichText: true), findsOneWidget);
       expect(tester.takeException(), isNull);
     },
@@ -412,7 +415,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('opening a topic from the list brings the reader panel back', (
+  testWidgets('opening a topic from the list keeps the other panel minimized', (
     tester,
   ) async {
     _openTopicTab(shell, _topic);
@@ -426,8 +429,9 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('topic-card-43')).first);
     await tester.pumpAndSettle();
 
-    expect(_rail(ForumPanel.secondary), findsNothing);
-    expect(shell.activeTabId, readerTab);
+    expect(_rail(ForumPanel.secondary), findsOneWidget);
+    expect(shell.activeTabId, shell.selectedTabIn(ForumPanel.main)?.id);
+    expect(shell.selectedTabIn(ForumPanel.secondary)?.id, readerTab);
     expect(find.text('Content for 43', findRichText: true), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
@@ -758,7 +762,7 @@ void main() {
     },
   );
 
-  testWidgets('primary click reuses the secondary tab even at the limit', (
+  testWidgets('primary click reuses the current tab even at the limit', (
     tester,
   ) async {
     final main = shell.activeTabId;
@@ -775,16 +779,17 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(shell.activeTabId, secondary!.id);
+    expect(shell.activeTabId, main);
     expect(shell.currentContent?.topicId, 42);
     expect(shell.tabsForCurrentForum, hasLength(ForumWorkspace.maximumTabs));
     expect(shell.selectedTabIn(ForumPanel.main)?.id, main);
+    expect(shell.selectedTabIn(ForumPanel.secondary)?.id, secondary!.id);
     expect(find.text('Close a tab before opening another.'), findsNothing);
     expect(find.text('Content for 42', findRichText: true), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('middle click opens in secondary without replacing the list', (
+  testWidgets('middle click opens a new tab in the current panel', (
     tester,
   ) async {
     await _pump(tester, shell);
@@ -795,10 +800,10 @@ void main() {
       buttons: kMiddleMouseButton,
     );
     await tester.pumpAndSettle();
-    expect(shell.activeTab?.panel, ForumPanel.secondary);
-    expect(shell.currentContent?.topicId, 42);
-    expect(shell.selectedTabIn(ForumPanel.main)?.id, main);
-    expect(find.byType(TopicListView), findsOneWidget);
+    expect(shell.activeTabId, main);
+    expect(shell.tabsForCurrentForum.last.panel, ForumPanel.main);
+    expect(shell.tabsForCurrentForum.last.currentContent.topicId, 42);
+    expect(shell.currentWorkspace?.tabById(main!)?.currentContent.id, 'latest');
     expect(tester.takeException(), isNull);
   });
 
@@ -820,12 +825,12 @@ void main() {
         await tester.pump(Duration(milliseconds: pressDuration));
         await mouse.up();
         await tester.pumpAndSettle();
-        expect(shell.activeTabId, reader!.id);
+        expect(shell.activeTabId, main);
         expect(shell.currentContent?.topicId, 43);
-        expect(shell.selectedTabIn(ForumPanel.secondary)?.id, reader.id);
+        expect(shell.selectedTabIn(ForumPanel.secondary)?.id, reader!.id);
         expect(
           shell.selectedTabIn(ForumPanel.secondary)?.currentContent.topicId,
-          43,
+          42,
         );
         expect(shell.selectedTabIn(ForumPanel.main)?.id, main);
         expect(shell.tabsForCurrentForum, hasLength(2));
@@ -1186,5 +1191,12 @@ Future<void> _pump(
 }
 
 void _openTopicTab(ShellController shell, Topic topic) {
-  shell.openLinkInNewTab('/t/${topic.slug}/${topic.id}', title: topic.title);
+  final result = shell.openLinkInNewTab(
+    '/t/${topic.slug}/${topic.id}',
+    title: topic.title,
+    panel: ForumPanel.secondary,
+  );
+  if (result == TabOpenResult.opened) {
+    shell.selectTab(shell.tabsForCurrentForum.last.id);
+  }
 }

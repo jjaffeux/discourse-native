@@ -125,7 +125,15 @@ abstract interface class PluginPaneRoutePolicy
   bool separatesPluginPane(String routeId);
 }
 
-enum PluginLinkOrigin { direct, inApp, secondaryPanel }
+enum PluginLinkOrigin {
+  direct,
+  inApp,
+  newTab,
+  mainPanel,
+  mainPanelNewTab,
+  secondaryPanel,
+  secondaryPanelNewTab,
+}
 
 abstract interface class PluginLinkHandler implements PluginSessionCapability {
   Future<bool> openPluginUrl(

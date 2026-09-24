@@ -3780,12 +3780,13 @@ class _TopicPropertiesCard extends StatelessWidget {
                     categoryId: topic.categoryId,
                     tags: topic.tags,
                     enabled: topic.canEditTags,
-                    onTagNavigate: (tag, {newTab = false}) =>
+                    onTagNavigate: (tag, {newTab = false, panel}) =>
                         controller.openTopicTag(
                           tag,
                           siteUrl: siteUrl,
                           privateMessage: topic.privateMessage,
                           newTab: newTab,
+                          panel: panel,
                         ),
                     builder: (context, openMenu, saving) => TopicPropertyRow(
                       key: const ValueKey('topic-sidebar-tags-property'),
@@ -3793,11 +3794,14 @@ class _TopicPropertiesCard extends StatelessWidget {
                       child: TopicTagsValue(
                         tags: topic.tags,
                         saving: saving,
-                        onTagNavigate: (tag) => controller.openTopicTag(
-                          tag,
-                          siteUrl: siteUrl,
-                          privateMessage: topic.privateMessage,
-                        ),
+                        onTagNavigate: (tag, {newTab = false, panel}) =>
+                            controller.openTopicTag(
+                              tag,
+                              siteUrl: siteUrl,
+                              privateMessage: topic.privateMessage,
+                              newTab: newTab,
+                              panel: panel,
+                            ),
                         onEdit: openMenu,
                         tagKey: (tag) =>
                             ValueKey(('topic-sidebar-tag', tag.name)),

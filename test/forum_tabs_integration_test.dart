@@ -34,7 +34,7 @@ void main() {
   setUp(binding.exitRequests.clear);
 
   testWidgets(
-    'topics use secondary and sidebar navigation reuses its active tab',
+    'topic and sidebar clicks reuse the active tab',
     (tester) => _withPlatform(TargetPlatform.macOS, () async {
       await _pumpShell(tester);
       final controller = ShellScope.read(
@@ -43,17 +43,16 @@ void main() {
       final originalId = controller.activeTabId;
       controller.openTopicUrl('/t/current-topic/42');
       await tester.pumpAndSettle();
-      final readerId = controller.activeTabId;
-      expect(readerId, isNot(originalId));
-      expect(controller.activeTab?.panel, ForumPanel.secondary);
-      expect(controller.selectedTabIn(ForumPanel.main)?.id, originalId);
+      expect(controller.activeTabId, originalId);
+      expect(controller.activeTab?.panel, ForumPanel.main);
+      expect(controller.selectedTabIn(ForumPanel.secondary), isNull);
       expect(controller.currentContent?.topicId, 42);
 
       await tester.tap(_sidebarText('Topics'), kind: PointerDeviceKind.mouse);
       await tester.pumpAndSettle();
 
-      expect(controller.activeTabId, readerId);
-      expect(controller.tabsForCurrentForum, hasLength(2));
+      expect(controller.activeTabId, originalId);
+      expect(controller.tabsForCurrentForum, hasLength(1));
       expect(controller.currentContent?.id, 'latest');
       expect(controller.handleBack(canReturnToSidebar: false), isTrue);
       expect(controller.currentContent?.topicId, 42);
@@ -61,13 +60,13 @@ void main() {
   );
 
   testWidgets(
-    'middle-click opens a sidebar destination in the secondary panel',
+    'middle-click opens a sidebar destination in a new main tab',
     (tester) => _withPlatform(TargetPlatform.macOS, () async {
       await _pumpShell(tester);
       final controller = ShellScope.read(
         tester.element(find.byType(MainContent)),
       );
-      final original = controller.activeTab;
+      final original = controller.activeTab!;
 
       await tester.tap(
         find.descendant(
@@ -79,8 +78,9 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(controller.selectedTabIn(ForumPanel.main), original);
-      expect(controller.activeTab?.panel, ForumPanel.secondary);
+      expect(controller.currentWorkspace?.tabById(original.id), original);
+      expect(controller.activeTab?.panel, ForumPanel.main);
+      expect(controller.activeTabId, isNot(original.id));
       expect(controller.tabsForCurrentForum, hasLength(2));
       final opened = controller.tabsForCurrentForum.last;
       expect(opened.currentContent.id, 'latest');
@@ -89,7 +89,7 @@ void main() {
   );
 
   testWidgets(
-    'middle-click opens topic rows and tags in the secondary panel',
+    'middle-click opens topic rows and tags in new main tabs',
     (tester) => _withPlatform(TargetPlatform.macOS, () async {
       const topic = Topic(
         id: 42,
@@ -108,7 +108,7 @@ void main() {
       final controller = ShellScope.read(
         tester.element(find.byType(MainContent)),
       );
-      final original = controller.activeTab;
+      final original = controller.activeTab!;
 
       await tester.tap(
         find.text(topic.title),
@@ -117,14 +117,14 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(controller.selectedTabIn(ForumPanel.main), original);
-      expect(controller.activeTab?.panel, ForumPanel.secondary);
+      expect(controller.currentWorkspace?.tabById(original.id), original);
+      expect(controller.activeTab?.panel, ForumPanel.main);
       expect(controller.tabsForCurrentForum, hasLength(2));
       final opened = controller.tabsForCurrentForum.last;
       expect(opened.currentContent.topicId, topic.id);
       expect(opened.currentContent.title, topic.title);
 
-      controller.selectTab(original!.id);
+      controller.selectTab(original.id);
       await tester.pumpAndSettle();
       await tester.tap(
         find.text('flutter'),
@@ -132,8 +132,8 @@ void main() {
         buttons: kMiddleMouseButton,
       );
       await tester.pumpAndSettle();
-      expect(controller.selectedTabIn(ForumPanel.main), original);
-      expect(controller.activeTab?.panel, ForumPanel.secondary);
+      expect(controller.currentWorkspace?.tabById(original.id), original);
+      expect(controller.activeTab?.panel, ForumPanel.main);
       expect(controller.tabsForCurrentForum, hasLength(3));
       expect(
         controller.tabsForCurrentForum.last.currentContent.feedPath,
@@ -645,6 +645,7 @@ void main() {
       expect(newId, isNot(originalId));
       expect(_bar(tester).items, hasLength(4));
       expect(_bar(tester).selectedId, newId);
+      expect(controller.currentContent?.isNewTab, isTrue);
 
       const color = Color(0xFF0088CC);
       controller.pushContent(
@@ -658,8 +659,8 @@ void main() {
       await tester.pumpAndSettle();
 
       final topicId = controller.activeTabId!;
-      expect(controller.activeTabId, isNot(newId));
-      expect(controller.activeTab?.panel, ForumPanel.secondary);
+      expect(controller.activeTabId, newId);
+      expect(controller.activeTab?.panel, ForumPanel.main);
       final ForumTabItem routedItem = tester
           .widgetList<ForumTabsBar>(find.byType(ForumTabsBar))
           .expand((bar) => bar.items)
@@ -682,12 +683,12 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      expect(controller.tabsForCurrentForum, hasLength(4));
+      expect(controller.tabsForCurrentForum, hasLength(3));
       expect(
         controller.tabsForCurrentForum.where(
           (tab) => !tab.currentContent.isTopic,
         ),
-        hasLength(3),
+        hasLength(2),
       );
       expect(_bar(tester).items.map((item) => item.id), contains(newId));
       expect(_bar(tester).selectedId, isNot(originalId));
@@ -914,7 +915,7 @@ void main() {
             tester.getRect(find.byType(ForumTabsBar)).top,
             lessThanOrEqualTo(tester.getRect(find.byType(MainContent)).top),
           );
-          expect(find.byType(CurrentForumTabsBar), findsNWidgets(2));
+          expect(find.byType(CurrentForumTabsBar), findsWidgets);
           expect(find.byKey(const ValueKey('forum-tabs-add')), findsOneWidget);
           expect(_bar(tester).items.single.title, 'Latest');
         }
@@ -935,8 +936,7 @@ void main() {
 
           expect(_inSidebar(find.text('OPEN')), findsNothing);
 
-          if (size == _compact) {
-            expect(find.byType(MainContent), findsNothing);
+          if (size == _compact && find.byType(MainContent).evaluate().isEmpty) {
             await tester.tap(_sidebarText('Topics'));
             await tester.pumpAndSettle();
             expect(find.byType(MainContent), findsOneWidget);

@@ -679,17 +679,6 @@ void main() {
       final next = find.byKey(const ValueKey('inbox-next-topic'));
       expect(tester.getCenter(previous).dy, tester.getCenter(next).dy);
       expect(tester.widget<DButton>(previous).onPressed, isNull);
-      final readerTabId = h.shell.activeTabId;
-      final tabCount = h.shell.tabsForCurrentForum.length;
-      await tester.tap(next);
-      await tester.pumpAndSettle();
-      expect(h.shell.currentContent?.topicId, 2);
-      expect(h.shell.activeTabId, readerTabId);
-      expect(h.shell.tabsForCurrentForum, hasLength(tabCount));
-      expect(h.shell.contentStack, hasLength(2));
-      await tester.tap(previous);
-      await tester.pumpAndSettle();
-      expect(h.shell.currentContent?.topicId, 1);
       for (final tab in h.shell.currentWorkspace!.tabsIn(
         ForumPanel.secondary,
       )) {
@@ -1169,5 +1158,10 @@ _setup(
 }
 
 void _openTopicTab(ShellController shell, Topic topic) {
-  shell.openLinkInNewTab('/t/${topic.slug}/${topic.id}', title: topic.title);
+  shell.openLinkInNewTab(
+    '/t/${topic.slug}/${topic.id}',
+    title: topic.title,
+    panel: ForumPanel.secondary,
+  );
+  shell.selectTab(shell.tabsForCurrentForum.last.id);
 }

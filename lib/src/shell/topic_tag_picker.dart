@@ -5,8 +5,10 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../foundation/latest_wins_queued_lookup_controller.dart';
+import '../models/forum_workspace.dart';
 import '../models/topic.dart';
 import '../theme/d_icons.dart';
+import 'open_link.dart';
 import 'platform.dart';
 import 'shell_scope.dart';
 import 'topic_taxonomy_picker.dart';
@@ -14,7 +16,8 @@ import 'topic_taxonomy_picker.dart';
 typedef TopicTagMenuAnchorBuilder =
     Widget Function(BuildContext context, VoidCallback? openMenu, bool saving);
 
-typedef TopicTagNavigationCallback = void Function(TopicTag tag, {bool newTab});
+typedef TopicTagNavigationCallback =
+    void Function(TopicTag tag, {bool newTab, ForumPanel? panel});
 
 class TopicTagMenuAnchor extends StatefulWidget {
   const TopicTagMenuAnchor({
@@ -115,8 +118,10 @@ class _TopicTagMenuAnchorState extends State<TopicTagMenuAnchor> {
         capabilities: capabilities,
         onTagNavigate: target.onTagNavigate == null
             ? null
-            : (tag, {newTab = false}) {
-                if (isCurrent()) target.onTagNavigate!(tag, newTab: newTab);
+            : (tag, {newTab = false, panel}) {
+                if (isCurrent()) {
+                  target.onTagNavigate!(tag, newTab: newTab, panel: panel);
+                }
               },
         search: (term) async {
           if (!isCurrent()) return const TopicTagSearch();
@@ -209,10 +214,10 @@ Future<List<TopicTag>?> showTopicTagPicker({
                   },
                   onTagNavigate: onTagNavigate == null
                       ? null
-                      : (tag, {newTab = false}) {
+                      : (tag, {newTab = false, panel}) {
                           navigated = true;
                           sheet.close();
-                          onTagNavigate(tag, newTab: newTab);
+                          onTagNavigate(tag, newTab: newTab, panel: panel);
                         },
                 ),
               ),
@@ -234,9 +239,9 @@ Future<List<TopicTag>?> showTopicTagPicker({
       onSelected: close,
       onTagNavigate: onTagNavigate == null
           ? null
-          : (tag, {newTab = false}) {
+          : (tag, {newTab = false, panel}) {
               close(null);
-              onTagNavigate(tag, newTab: newTab);
+              onTagNavigate(tag, newTab: newTab, panel: panel);
             },
     ),
   );
@@ -483,17 +488,25 @@ class _TopicTagPickerState extends State<TopicTagPicker> {
                               : Text(tag.disabledReason!),
                           secondary: widget.onTagNavigate == null
                               ? null
-                              : DButton.iconOnly(
-                                  key: ValueKey((
-                                    'topic-tag-picker-open',
-                                    tag.name,
-                                  )),
-                                  icon: const DIcon(DIcons.upRightFromSquare),
-                                  tooltip: 'Open tag ${tag.name}',
-                                  onPressed: () => widget.onTagNavigate!(tag),
-                                  isLink: true,
-                                  variant: DButtonVariant.ghost,
-                                  size: DButtonSize.small,
+                              : LinkTarget.action(
+                                  action: ({required newTab, panel}) =>
+                                      widget.onTagNavigate!(
+                                        tag,
+                                        newTab: newTab,
+                                        panel: panel,
+                                      ),
+                                  child: DButton.iconOnly(
+                                    key: ValueKey((
+                                      'topic-tag-picker-open',
+                                      tag.name,
+                                    )),
+                                    icon: const DIcon(DIcons.upRightFromSquare),
+                                    tooltip: 'Open tag ${tag.name}',
+                                    onPressed: () => widget.onTagNavigate!(tag),
+                                    isLink: true,
+                                    variant: DButtonVariant.ghost,
+                                    size: DButtonSize.small,
+                                  ),
                                 ),
                           onChanged:
                               tag.disabled || (!_selected(tag) && _atMaximum)

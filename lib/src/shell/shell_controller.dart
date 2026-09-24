@@ -7,6 +7,7 @@ import 'package:discourse_cooking/discourse_cooking.dart';
 import 'package:flutter/foundation.dart'
     show ChangeNotifier, Listenable, ValueListenable, listEquals;
 import 'package:flutter/scheduler.dart';
+import 'package:flutter/services.dart' show HardwareKeyboard;
 
 import '../data/account_session_coordinator.dart';
 import '../data/aggregate_preferences_store.dart';
@@ -1705,19 +1706,23 @@ class ShellController extends FrameSafeNotifier
         connected: instance.isConnected,
       );
 
-  ForumTab _newDefaultTab(DiscourseInstance instance) {
-    final destination = instance.defaultDestination;
+  ForumTab _newDefaultTab() {
     final id = _nextTabId();
-    _pendingHomepageTabs.add(id);
     return ForumTab(
       id: id,
-      rootDestinationId: destination.id,
-      contentStack: [_homepageFor(instance)],
+      rootDestinationId: 'new-tab',
+      contentStack: [ContentRoute.newTab()],
     );
   }
 
   ForumWorkspace _newWorkspace(DiscourseInstance instance) {
-    final tab = _newDefaultTab(instance);
+    final id = _nextTabId();
+    final tab = ForumTab(
+      id: id,
+      rootDestinationId: instance.defaultDestination.id,
+      contentStack: [_homepageFor(instance)],
+    );
+    _pendingHomepageTabs.add(id);
     return ForumWorkspace(
       siteUrl: instance.url,
       accountIdentity: _workspaceAccountIdentity(instance),
@@ -5733,6 +5738,7 @@ class ShellController extends FrameSafeNotifier
     required String siteUrl,
     bool privateMessage = false,
     bool newTab = false,
+    ForumPanel? panel,
   }) async {
     var resolvedTag = _topicTagWithKnownIdentity(siteUrl, tag);
     final isPrivateMessage =
@@ -5792,11 +5798,18 @@ class ShellController extends FrameSafeNotifier
     );
     if (destination == null) return false;
 
+    final requestedPanel =
+        panel ??
+        (desktopPanelsEnabled && HardwareKeyboard.instance.isShiftPressed
+            ? ForumPanel.secondary
+            : null);
+
     if (newTab && forumTabsEnabled) {
       return openContentInNewTab(
             ContentRoute.fromDestination(destination),
             siteUrl: siteUrl,
-            panel: ForumPanel.secondary,
+            panel: requestedPanel ?? activeTab?.panel,
+            select: false,
           ) ==
           TabOpenResult.opened;
     }
@@ -5807,6 +5820,10 @@ class ShellController extends FrameSafeNotifier
     if (currentInstance?.url != siteUrl) return false;
 
     final route = ContentRoute.fromDestination(destination);
+    if (desktopPanelsEnabled && requestedPanel != null) {
+      return openContentInPanel(route, panel: requestedPanel) ==
+          TabOpenResult.opened;
+    }
     if (currentContent?.id == route.id) {
       showPluginContent();
       return true;
@@ -5910,18 +5927,6 @@ class ShellController extends FrameSafeNotifier
       title: title,
       postNumber: postNumber,
     );
-    if (desktopPanelsEnabled) {
-      final result = _openContentInSecondaryPanel(
-        route,
-        resetScrollPosition: resetScrollPosition,
-      );
-      if (result == TabOpenResult.opened && force) {
-        unawaited(
-          loadTopic(topicId, slug, force: true, postNumber: postNumber),
-        );
-      }
-      return result;
-    }
     // An explicit post destination supersedes the last reading position from
     // an earlier visit to this topic in the same tab.
     final tab = activeTab;
@@ -5955,13 +5960,42 @@ class ShellController extends FrameSafeNotifier
     String? title,
     ForumPanel? panel,
   }) {
+    final destination = _routeForLink(url, title: title);
+    if (destination == null) return TabOpenResult.unsupported;
+    return openContentInNewTab(
+      destination.route,
+      siteUrl: destination.siteUrl,
+      panel: panel,
+      select: false,
+      source: currentInstance?.url == destination.siteUrl ? activeTab : null,
+    );
+  }
+
+  TabOpenResult openLinkInPanel(
+    String url, {
+    String? title,
+    required ForumPanel panel,
+  }) {
+    final destination = _routeForLink(url, title: title);
+    if (destination == null) return TabOpenResult.unsupported;
+    final index = _instances.indexWhere(
+      (instance) => instance.url == destination.siteUrl,
+    );
+    if (index != _instanceIndex) selectInstance(index);
+    return openContentInPanel(destination.route, panel: panel);
+  }
+
+  ({ContentRoute route, String siteUrl})? _routeForLink(
+    String url, {
+    String? title,
+  }) {
     final absolute = absoluteUrl(url);
     final target = Uri.tryParse(absolute);
-    if (target == null) return TabOpenResult.unsupported;
+    if (target == null) return null;
     final instance = _instances
         .where((site) => site.serves(target))
         .firstOrNull;
-    if (instance == null) return TabOpenResult.unsupported;
+    if (instance == null) return null;
 
     final topic = TopicLink.parse(absolute, siteUrl: instance.url);
     final list = ListLink.parse(absolute);
@@ -5994,9 +6028,9 @@ class ShellController extends FrameSafeNotifier
         feedPath: group.topicFeedPath(instance.user?.username),
       );
     } else {
-      return TabOpenResult.unsupported;
+      return null;
     }
-    return openContentInNewTab(route, siteUrl: instance.url, panel: panel);
+    return (route: route, siteUrl: instance.url);
   }
 
   TabOpenResult openContentInNewTab(
@@ -6016,7 +6050,7 @@ class ShellController extends FrameSafeNotifier
     if (workspace.tabs.length >= ForumWorkspace.maximumTabs) {
       return TabOpenResult.limitReached;
     }
-    final root = _newDefaultTab(instance);
+    final root = _newDefaultTab();
     final tab =
         (source != null
                 ? ForumTab(
@@ -6024,21 +6058,21 @@ class ShellController extends FrameSafeNotifier
                     rootDestinationId: source.rootDestinationId,
                     contentStack: [
                       ...source.contentStack
-                          .where((item) => !route.isTopic || !item.isTopic)
+                          .where(
+                            (item) =>
+                                item.id != route.id &&
+                                (!route.isTopic || !item.isTopic),
+                          )
                           .take(ForumTab.maximumContentRoutes - 1),
                       route,
                     ],
                   )
-                : rootDestinationId != null ||
-                      route.id == root.currentContent.id
-                ? root.copyWith(contentStack: [route])
-                : root.push(route))
+                : root.copyWith(
+                    rootDestinationId: rootDestinationId ?? route.id,
+                    contentStack: [route],
+                  ))
             .copyWith(
-              panel:
-                  panel ??
-                  (route.prefersSecondaryPanel
-                      ? ForumPanel.secondary
-                      : workspace.activeTab.panel),
+              panel: panel ?? workspace.activeTab.panel,
               rootDestinationId: rootDestinationId,
             );
     final activate = select ?? desktopTopicTabs;
@@ -6058,8 +6092,9 @@ class ShellController extends FrameSafeNotifier
     return TabOpenResult.opened;
   }
 
-  TabOpenResult _openContentInSecondaryPanel(
+  TabOpenResult openContentInPanel(
     ContentRoute route, {
+    required ForumPanel panel,
     bool resetScrollPosition = false,
   }) {
     final instance = currentInstance;
@@ -6068,11 +6103,16 @@ class ShellController extends FrameSafeNotifier
     if (instance == null || workspace == null || source == null) {
       return TabOpenResult.unsupported;
     }
-    final selected = workspace.selectedTabIn(ForumPanel.secondary);
+    if (source.panel == panel) {
+      pushContent(route);
+      _hydrateActiveTab(instance);
+      return TabOpenResult.opened;
+    }
+    final selected = workspace.selectedTabIn(panel);
     if (selected == null) {
       return openContentInNewTab(
         route,
-        panel: ForumPanel.secondary,
+        panel: panel,
         select: true,
         source: source,
       );
@@ -14303,16 +14343,18 @@ class ShellController extends FrameSafeNotifier
     if (tab == null || currentInstance?.url != instance.url) return;
 
     final root = tab.contentStack.first;
-    if (root.id == 'all-categories') {
-      unawaited(loadCategories(instance.url));
-    } else {
-      unawaited(
-        loadFeed(
-          root.feedPath == null && !root.isMessages
-              ? tab.rootDestinationId
-              : root.id,
-        ),
-      );
+    if (!root.isNewTab) {
+      if (root.id == 'all-categories') {
+        unawaited(loadCategories(instance.url));
+      } else {
+        unawaited(
+          loadFeed(
+            root.feedPath == null && !root.isMessages
+                ? tab.rootDestinationId
+                : root.id,
+          ),
+        );
+      }
     }
     final source = topicListContent;
     if (source != null && source.id != root.id) {
@@ -14493,75 +14535,19 @@ class ShellController extends FrameSafeNotifier
       return AggregateTopicOpenResult.opened;
     }
 
-    final workspace = _ensureWorkspace(instance);
-    if (desktopPanelsEnabled) {
-      if (workspace.selectedTabIn(ForumPanel.secondary) == null &&
-          workspace.tabs.length >= ForumWorkspace.maximumTabs) {
-        return AggregateTopicOpenResult.tabLimitReached;
-      }
-      _rootMode = ShellRootMode.forum;
-      if (index != _instanceIndex) {
-        _instanceIndex = index;
-        _restoreInstanceWorkspace(hydrateActiveTab: false);
-      }
-      final result = _openContentInSecondaryPanel(
-        ContentRoute.topic(
-          topicId: topic.id,
-          slug: topic.slug,
-          title: topic.title,
-          postNumber: topic.lastUnreadPostNumber,
-        ),
-      );
-      return result == TabOpenResult.opened
-          ? AggregateTopicOpenResult.opened
-          : AggregateTopicOpenResult.unavailable;
-    }
-    ForumTab? existingTopicTab;
-    for (final candidate in workspace.tabs) {
-      if (candidate.currentContent.topicId == topic.id) {
-        existingTopicTab = candidate;
-        break;
-      }
-    }
-    if (existingTopicTab == null &&
-        workspace.tabs.length >= ForumWorkspace.maximumTabs) {
-      return AggregateTopicOpenResult.tabLimitReached;
-    }
-
     _rootMode = ShellRootMode.forum;
     if (index != _instanceIndex) {
       _instanceIndex = index;
       _restoreInstanceWorkspace(hydrateActiveTab: false);
     }
-
-    if (existingTopicTab case final tab?) {
-      _putWorkspace(workspace.copyWith(activeTabId: tab.id));
-      _mobilePane = MobilePane.content;
-      _syncTopicChannels();
-      _notify();
-      _hydrateActiveTab(instance);
-      return AggregateTopicOpenResult.opened;
-    }
-
-    final tab = _newDefaultTab(instance)
-        .copyWith(panel: ForumPanel.secondary)
-        .push(
-          ContentRoute.topic(
-            topicId: topic.id,
-            slug: topic.slug,
-            title: topic.title,
-            postNumber: topic.lastUnreadPostNumber,
-          ),
-        );
-    // This tab already has an explicit destination; homepage hydration would
-    // replace its topic route when the site configuration finishes loading.
-    _pendingHomepageTabs.remove(tab.id);
-    _putWorkspace(
-      workspace.copyWith(tabs: [...workspace.tabs, tab], activeTabId: tab.id),
+    pushContent(
+      ContentRoute.topic(
+        topicId: topic.id,
+        slug: topic.slug,
+        title: topic.title,
+        postNumber: topic.lastUnreadPostNumber,
+      ),
     );
-    _mobilePane = MobilePane.content;
-    _syncTopicChannels();
-    _notify();
     _hydrateActiveTab(instance);
     return AggregateTopicOpenResult.opened;
   }
@@ -14952,9 +14938,9 @@ class ShellController extends FrameSafeNotifier
     final instance = currentInstance;
     if (instance == null) return;
     final workspace = _ensureWorkspace(instance);
-    final tab = _newDefaultTab(
-      instance,
-    ).copyWith(panel: panel ?? workspace.activeTab.panel);
+    final tab = _newDefaultTab().copyWith(
+      panel: panel ?? workspace.activeTab.panel,
+    );
     _putWorkspace(
       workspace.copyWith(tabs: [...workspace.tabs, tab], activeTabId: tab.id),
     );
@@ -15082,7 +15068,7 @@ class ShellController extends FrameSafeNotifier
     );
     late ForumWorkspace replacement;
     if (workspace.tabs.length == 1) {
-      final fresh = _newDefaultTab(instance);
+      final fresh = _newDefaultTab();
       replacement = workspace.copyWith(tabs: [fresh], activeTabId: fresh.id);
     } else {
       final remaining = [
@@ -15343,12 +15329,24 @@ class ShellController extends FrameSafeNotifier
 
   @override
   void pushContent(ContentRoute route, {bool newTab = false}) {
+    final requestedPanel = route.openInMainPanel
+        ? ForumPanel.main
+        : route.openInSecondaryPanel
+        ? ForumPanel.secondary
+        : null;
     if (newTab && forumTabsEnabled) {
-      openContentInNewTab(route, source: activeTab);
+      openContentInNewTab(
+        route,
+        source: activeTab,
+        panel: requestedPanel,
+        select: false,
+      );
       return;
     }
-    if (desktopPanelsEnabled && route.prefersSecondaryPanel) {
-      _openContentInSecondaryPanel(route);
+    if (desktopPanelsEnabled &&
+        requestedPanel != null &&
+        activeTab?.panel != requestedPanel) {
+      openContentInPanel(route, panel: requestedPanel);
       return;
     }
     final startsPluginPane = _preparePluginPaneForRoute(route.id);

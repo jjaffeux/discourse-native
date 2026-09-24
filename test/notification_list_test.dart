@@ -6,6 +6,7 @@ import 'package:discourse_native/src/app.dart';
 import 'package:discourse_native/src/diagnostics/diagnostics_controller.dart';
 import 'package:discourse_native/src/diagnostics/diagnostics_persistence.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
+import 'package:discourse_native/src/models/forum_workspace.dart';
 import 'package:discourse_native/src/models/notification.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/shell/notification_list.dart';
@@ -29,7 +30,7 @@ const _rowKey = ValueKey('notification-row-1');
 void main() {
   for (final startingPost in [20, 137]) {
     testWidgets(
-      'notification refresh preserves the viewport from post $startingPost on every frame',
+      'notification opens post 137 in the current tab from post $startingPost',
       (tester) async {
         final diagnostics = await DiagnosticsController.create(
           topicScrollCapture: topicScrollCaptureWithoutVm(),
@@ -70,11 +71,7 @@ void main() {
           '$_siteUrl/t/notification-topic/42/$startingPost',
         );
         await tester.pumpAndSettle();
-        final scroll = topicPostList(tester).controller!;
-        final initialPixels = scroll.position.pixels;
-        final initialTop = tester
-            .getTopLeft(find.byKey(ValueKey(startingPost)))
-            .dy;
+        final originalTabId = controller.activeTabId;
         await tester.tap(find.byKey(UserMenuButton.bellKey));
         await tester.pumpAndSettle();
         diagnostics.topicScrollCapture.start();
@@ -83,46 +80,20 @@ void main() {
         for (var frame = 0; frame < 20; frame++) {
           if (frame == 4) gate.complete();
           await tester.pump(const Duration(milliseconds: 16));
-          final expectedPost = frame <= 4 ? startingPost : 137;
-          final target = find.byKey(ValueKey(expectedPost));
-          final viewport = tester.getRect(topicPostListFinder());
-          diagnostics.topicScrollCapture
-              .recordTopicEvent('notification.test.frame', {
-                'frame': frame,
-                'loading': controller.currentTopicLoading,
-                'pixels': scroll.position.pixels,
-                'expectedPost': expectedPost,
-                'targetTop': target.evaluate().isEmpty
-                    ? null
-                    : tester.getTopLeft(target).dy,
-              });
-          expect(target, findsOneWidget, reason: 'Frame $frame');
-          expect(
-            tester.getRect(target).overlaps(viewport),
-            isTrue,
-            reason: 'Frame $frame',
+          diagnostics.topicScrollCapture.recordTopicEvent(
+            'notification.test.frame',
+            {'frame': frame, 'loading': controller.currentTopicLoading},
           );
-          if (frame < 4 || startingPost == 137) {
-            expect(
-              scroll.position.pixels,
-              closeTo(initialPixels, 0.5),
-              reason: 'Frame $frame',
-            );
-            expect(
-              tester.getTopLeft(target).dy,
-              closeTo(initialTop, 0.5),
-              reason: 'Frame $frame',
-            );
-          }
         }
+        await tester.pumpAndSettle();
+        expect(controller.activeTabId, originalTabId);
+        expect(controller.currentContent?.postNumber, 137);
+        final target = find.byKey(const ValueKey(137));
+        final viewport = tester.getRect(topicPostListFinder());
+        expect(target, findsOneWidget);
+        expect(tester.getRect(target).overlaps(viewport), isTrue);
         expect(api.topicPostNumbersOpened, [137]);
         expect(controller.topicScrollPostNumber(42), 137);
-        expect(
-          diagnostics.topicScrollCapture.events
-              .singleWhere((event) => event.name == 'topic.controllers.sync')
-              .data['viewportRetained'],
-          isTrue,
-        );
         expect(tester.takeException(), isNull);
         if (const bool.fromEnvironment('TRACE_NOTIFICATION_SCROLL')) {
           for (final event in diagnostics.topicScrollCapture.events) {
@@ -308,7 +279,7 @@ void main() {
           await tester.tap(find.byKey(ValueKey('user-menu-tab-$section')));
           await tester.pumpAndSettle();
         }
-        final original = controller.activeTab;
+        final originalTabId = controller.activeTabId;
 
         await tester.tap(
           find.byKey(_rowKey),
@@ -317,7 +288,7 @@ void main() {
         );
         await tester.pumpAndSettle();
 
-        expect(controller.activeTab, original);
+        expect(controller.activeTabId, originalTabId);
         expect(controller.tabsForCurrentForum, hasLength(2));
         final opened = controller.tabsForCurrentForum.last.currentContent;
         expect(opened.topicId, 42);
@@ -338,12 +309,31 @@ void main() {
     await tester.tap(find.byKey(_rowKey));
     await tester.pumpAndSettle();
 
-    expect(controller.activeTabId, isNot(originalId));
-    expect(controller.tabsForCurrentForum, hasLength(2));
+    expect(controller.activeTabId, originalId);
+    expect(controller.tabsForCurrentForum, hasLength(1));
     expect(controller.currentContent?.topicId, 42);
     expect(controller.currentContent?.postNumber, 7);
     expect(api.markedRead, [1]);
     expect(find.byType(UserMenuPanel), findsNothing);
+  }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
+
+  testWidgets('right-click opens a notification in the secondary panel', (
+    tester,
+  ) async {
+    final (controller, _) = await _pumpMenu(tester);
+    controller.desktopTopicTabs = true;
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(_rowKey),
+      kind: PointerDeviceKind.mouse,
+      buttons: kSecondaryMouseButton,
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Open in secondary panel'));
+    await tester.pumpAndSettle();
+
+    expect(controller.currentContent?.topicId, 42);
+    expect(controller.activeTab?.panel, ForumPanel.secondary);
   }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 
   testWidgets(

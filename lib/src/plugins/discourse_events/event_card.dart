@@ -228,17 +228,21 @@ class _EventCardState extends State<EventCard> {
           );
     final chat = channelId == null
         ? null
-        : DButton(
-            onPressed: () => unawaited(
-              openLink(
-                context,
-                resolveSitePath(siteUrl, 'chat/c/-/$channelId'),
-                siteUrl: siteUrl,
+        : LinkTarget(
+            url: resolveSitePath(siteUrl, 'chat/c/-/$channelId'),
+            siteUrl: siteUrl,
+            child: DButton(
+              onPressed: () => unawaited(
+                openLink(
+                  context,
+                  resolveSitePath(siteUrl, 'chat/c/-/$channelId'),
+                  siteUrl: siteUrl,
+                ),
               ),
+              variant: DButtonVariant.inline,
+              icon: const Icon(Icons.chat_bubble_outline),
+              label: const Text('Open event chat'),
             ),
-            variant: DButtonVariant.inline,
-            icon: const Icon(Icons.chat_bubble_outline),
-            label: const Text('Open event chat'),
           );
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
@@ -433,16 +437,20 @@ class _EventCardState extends State<EventCard> {
                   if (url != null && !event.flag('url_restates_location'))
                     _Detail(
                       icon: Icons.link,
-                      child: DButton(
-                        variant: DButtonVariant.inline,
-                        alignment: AlignmentDirectional.centerStart,
-                        isLink: true,
-                        label: Text(url, softWrap: true, maxLines: 4),
-                        onPressed: () => unawaited(
-                          openLink(
-                            context,
-                            eventLinkUrl(url),
-                            siteUrl: siteUrl,
+                      child: LinkTarget(
+                        url: eventLinkUrl(url),
+                        siteUrl: siteUrl,
+                        child: DButton(
+                          variant: DButtonVariant.inline,
+                          alignment: AlignmentDirectional.centerStart,
+                          isLink: true,
+                          label: Text(url, softWrap: true, maxLines: 4),
+                          onPressed: () => unawaited(
+                            openLink(
+                              context,
+                              eventLinkUrl(url),
+                              siteUrl: siteUrl,
+                            ),
                           ),
                         ),
                       ),
@@ -495,12 +503,17 @@ class _EventCardState extends State<EventCard> {
                     if (responses != null) const SizedBox(height: 12),
                   ],
                   if (event.text('livestream_url') case final link?)
-                    DButton(
-                      onPressed: () =>
-                          unawaited(openLink(context, link, siteUrl: siteUrl)),
-                      variant: DButtonVariant.inline,
-                      icon: const Icon(Icons.videocam_outlined),
-                      label: const Text('Open livestream'),
+                    LinkTarget(
+                      url: link,
+                      siteUrl: siteUrl,
+                      child: DButton(
+                        onPressed: () => unawaited(
+                          openLink(context, link, siteUrl: siteUrl),
+                        ),
+                        variant: DButtonVariant.inline,
+                        icon: const Icon(Icons.videocam_outlined),
+                        label: const Text('Open livestream'),
+                      ),
                     ),
                   if (event.flag('is_closed') ||
                       event.flag('is_expired') ||

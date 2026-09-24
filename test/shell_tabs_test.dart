@@ -125,7 +125,7 @@ void main() {
         expect(controller.activeTab, original);
       });
 
-      test('adds and activates a fresh Topics tab', () {
+      test('adds and activates a fresh new-tab page', () {
         final originalTabId = controller.activeTabId;
 
         expect(originalTabId, isNotNull);
@@ -135,7 +135,7 @@ void main() {
 
         expect(controller.tabsForCurrentForum, hasLength(2));
         expect(controller.activeTabId, isNot(originalTabId));
-        _expectTopicsRoot(controller);
+        _expectNewTabRoot(controller);
       });
 
       test('stops at the bounded eager workspace capacity', () {
@@ -388,7 +388,7 @@ void main() {
         controller.selectTab(secondTabId);
 
         expect(controller.canForwardContent, isFalse);
-        _expectTopicsRoot(controller);
+        _expectNewTabRoot(controller);
       });
 
       test('keeps independent active content stacks per forum', () {
@@ -450,7 +450,7 @@ void main() {
         final topicTabIds = <String>[];
         for (final topicId in [101, 202, 303, 404]) {
           controller.openLinkInNewTab('/t/topic/$topicId');
-          topicTabIds.add(controller.activeTabId!);
+          topicTabIds.add(controller.tabsForCurrentForum.last.id);
         }
 
         controller.selectTab(topicTabIds[1]);
@@ -490,7 +490,7 @@ void main() {
         },
       );
 
-      test('replaces the final closed tab with a fresh Topics tab', () {
+      test('replaces the final closed tab with a fresh new-tab page', () {
         final closedTabId = controller.activeTabId!;
 
         controller.closeTab(closedTabId);
@@ -498,7 +498,7 @@ void main() {
         expect(controller.tabsForCurrentForum, hasLength(1));
         expect(controller.activeTabId, isNotNull);
         expect(controller.activeTabId, isNot(closedTabId));
-        _expectTopicsRoot(controller);
+        _expectNewTabRoot(controller);
       });
 
       test('preserves the active tab and persists reordered tabs', () {
@@ -619,14 +619,25 @@ void main() {
           controller.desktopTopicTabs = true;
           final firstListId = controller.activeTabId!;
           controller.saveFeedScrollRow('latest', 12);
-          controller.openLinkInNewTab('/t/reader/303');
-          final readerId = controller.activeTabId!;
+          controller.openLinkInNewTab(
+            '/t/reader/303',
+            panel: ForumPanel.secondary,
+          );
+          final readerId = controller.tabsForCurrentForum.last.id;
+          controller.selectTab(readerId);
           controller.saveFeedScrollRow('latest', 18, tabId: firstListId);
           expect(controller.activeTabId, readerId);
           expect(controller.activeTab!.anchors['latest'], isNull);
 
           controller.createTab(panel: ForumPanel.main);
           final secondListId = controller.activeTabId!;
+          controller.selectDestination(
+            const SidebarDestination(
+              id: 'latest',
+              label: 'Topics',
+              icon: DIcons.layerGroup,
+            ),
+          );
           expect(controller.selectedTabIn(ForumPanel.secondary)?.id, readerId);
           expect(controller.feedScrollRow('latest'), 0);
           controller.saveFeedScrollRow('latest', 3);
@@ -925,8 +936,8 @@ List<String> _routeIds(ShellController controller) => [
   for (final route in controller.contentStack) route.id,
 ];
 
-void _expectTopicsRoot(ShellController controller) {
-  expect(controller.destinationId, 'latest');
-  expect(_routeIds(controller), ['latest']);
-  expect(controller.currentContent?.title, 'Topics');
+void _expectNewTabRoot(ShellController controller) {
+  expect(controller.destinationId, 'new-tab');
+  expect(_routeIds(controller), ['new-tab']);
+  expect(controller.currentContent?.title, 'New tab');
 }

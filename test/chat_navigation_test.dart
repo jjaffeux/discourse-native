@@ -301,63 +301,61 @@ void main() {
     group('desktop panels', () {
       setUp(() => shell.desktopTopicTabs = true);
 
+      test('threads reuse the active tab and its history', () {
+        final mainId = shell.activeTabId;
+        expect(shell.openChatChannel(9), isTrue);
+        final channel = shell.activeTab!;
+        expect(channel.id, mainId);
+
+        shell.openChatThread(siteUrl: _site, channelId: 9, threadId: 3);
+        final readerId = shell.activeTabId;
+        expect(shell.activeTab?.panel, ForumPanel.main);
+        expect(shell.currentContent?.id, 'chat-c-9-t-3');
+        expect(readerId, channel.id);
+        expect(shell.tabsForCurrentForum, hasLength(1));
+
+        shell.createTab(panel: ForumPanel.secondary);
+        final other = shell.activeTab;
+        shell.selectTab(readerId!);
+        shell.openChatThread(siteUrl: _site, channelId: 9, threadId: 4);
+        expect(shell.activeTabId, readerId);
+        expect(shell.currentContent?.id, 'chat-c-9-t-4');
+        expect(shell.selectedTabIn(ForumPanel.main)?.id, channel.id);
+        expect(shell.currentWorkspace?.tabById(other!.id), other);
+        expect(shell.tabsForCurrentForum, hasLength(2));
+        expect(shell.handleBack(canReturnToSidebar: false), isTrue);
+        expect(shell.currentContent?.id, 'chat-c-9-t-3');
+        expect(shell.handleForward(), isTrue);
+        expect(shell.currentContent?.id, 'chat-c-9-t-4');
+
+        expect(shell.openChatChannel(9), isTrue);
+        expect(shell.activeTabId, readerId);
+        expect(shell.currentContent?.id, 'chat-c-9');
+        expect(shell.tabsForCurrentForum, hasLength(2));
+      });
+
       test(
-        'threads create the first secondary tab then reuse the selected tab',
-        () {
-          final mainId = shell.activeTabId;
-          expect(shell.openChatChannel(9), isTrue);
-          final channel = shell.activeTab!;
-          expect(channel.id, mainId);
-
-          shell.openChatThread(siteUrl: _site, channelId: 9, threadId: 3);
-          final readerId = shell.activeTabId;
-          expect(shell.activeTab?.panel, ForumPanel.secondary);
-          expect(shell.currentContent?.id, 'chat-c-9-t-3');
-          expect(shell.selectedTabIn(ForumPanel.main), channel);
-          expect(shell.tabsForCurrentForum, hasLength(2));
-
+        'explicit secondary channel links reuse the selected panel tab',
+        () async {
+          final original = shell.activeTab!;
           shell.createTab(panel: ForumPanel.secondary);
-          final other = shell.activeTab;
-          shell.selectTab(readerId!);
-          shell.selectTab(channel.id);
-          shell.openChatThread(siteUrl: _site, channelId: 9, threadId: 4);
-          expect(shell.activeTabId, readerId);
-          expect(shell.currentContent?.id, 'chat-c-9-t-4');
-          expect(shell.selectedTabIn(ForumPanel.main), channel);
-          expect(shell.currentWorkspace?.tabById(other!.id), other);
-          expect(shell.tabsForCurrentForum, hasLength(3));
-          expect(shell.handleBack(canReturnToSidebar: false), isTrue);
-          expect(shell.currentContent?.id, 'chat-c-9-t-3');
-          expect(shell.handleForward(), isTrue);
-          expect(shell.currentContent?.id, 'chat-c-9-t-4');
-
-          expect(shell.openChatChannel(9), isTrue);
-          expect(shell.activeTabId, readerId);
+          final reader = shell.activeTab!;
+          shell.selectTab(original.id);
+          final service = shell.pluginSession.require(chatShellService);
+          expect(
+            await service.openPluginUrl(
+              '$_site/chat/c/-/9',
+              origin: PluginLinkOrigin.secondaryPanel,
+            ),
+            isTrue,
+          );
+          expect(shell.activeTab?.panel, ForumPanel.secondary);
           expect(shell.currentContent?.id, 'chat-c-9');
-          expect(shell.tabsForCurrentForum, hasLength(3));
+          expect(shell.selectedTabIn(ForumPanel.main)?.id, original.id);
+          expect(shell.activeTabId, reader.id);
+          expect(shell.tabsForCurrentForum, hasLength(2));
         },
       );
-
-      test('middle-click channel links open in secondary', () async {
-        final original = shell.activeTab;
-        shell.openChatThread(siteUrl: _site, channelId: 9, threadId: 3);
-        final reader = shell.activeTab;
-        shell.selectTab(original!.id);
-        final service = shell.pluginSession.require(chatShellService);
-        expect(
-          await service.openPluginUrl(
-            '$_site/chat/c/-/9',
-            origin: PluginLinkOrigin.secondaryPanel,
-          ),
-          isTrue,
-        );
-        expect(shell.activeTab?.panel, ForumPanel.secondary);
-        expect(shell.currentContent?.id, 'chat-c-9');
-        expect(shell.selectedTabIn(ForumPanel.main), original);
-        expect(shell.activeTabId, isNot(reader!.id));
-        expect(shell.currentWorkspace?.tabById(reader.id), reader);
-        expect(shell.tabsForCurrentForum, hasLength(3));
-      });
 
       test('leaving chat returns to the forum in the current tab', () {
         final originalId = shell.activeTabId;
