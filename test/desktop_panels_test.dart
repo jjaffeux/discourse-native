@@ -19,6 +19,7 @@ import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/fakes.dart';
@@ -542,6 +543,155 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('minimizing and restoring move no document to another parent', (
+    tester,
+  ) async {
+    _openTopicTab(shell, _topic);
+    await _pump(tester, shell);
+    // Reparenting a document would rebuild every widget in it that reads an
+    // inherited value, so each panel must keep its chain of ancestors.
+    List<Element> ancestry(ForumPanel panel) {
+      final chain = <Element>[];
+      tester
+          .element(
+            find.byKey(
+              ValueKey('desktop-panel-${panel.name}'),
+              skipOffstage: false,
+            ),
+          )
+          .visitAncestorElements((ancestor) {
+            if (ancestor.widget is DesktopPanels) return false;
+            chain.add(ancestor);
+            return true;
+          });
+      return chain;
+    }
+
+    final before = {
+      for (final panel in ForumPanel.values) panel: ancestry(panel),
+    };
+    for (final action in [
+      'minimize-panel-secondary',
+      'panel-rail-restore',
+      'minimize-panel-main',
+      'panel-rail-restore',
+    ]) {
+      await tester.tap(find.byKey(ValueKey(action)));
+      await tester.pumpAndSettle();
+      for (final panel in ForumPanel.values) {
+        final after = ancestry(panel);
+        expect(after, hasLength(before[panel]!.length), reason: action);
+        for (var index = 0; index < after.length; index++) {
+          expect(
+            after[index],
+            same(before[panel]![index]),
+            reason: '$action: ${after[index].widget.runtimeType} of $panel',
+          );
+        }
+      }
+    }
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('a minimized panel folds toward its rail as the other opens up', (
+    tester,
+  ) async {
+    _openTopicTab(shell, _topic);
+    await _pump(tester, shell);
+    final reader = tester.getRect(_secondaryPanel);
+    await tester.tap(find.byKey(const ValueKey('minimize-panel-secondary')));
+    // The frame that lays the panels out anew, then the motion's first tick:
+    // nothing has moved yet.
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 16));
+    expect(tester.getRect(_secondaryPanel), reader);
+
+    await tester.pump(const Duration(milliseconds: 100));
+    final folding = tester.getRect(_secondaryPanel);
+    expect(find.byType(TopicView), findsOneWidget);
+    expect(folding.left, greaterThan(reader.left));
+    expect(folding.left, lessThan(1200 - PanelRail.width));
+    final list = tester.renderObject<RenderClipRRect>(
+      find.ancestor(of: _mainPanel, matching: find.byType(ClipRRect)).first,
+    );
+    // The list's revealed edge keeps one gap from the folding reader's edge.
+    expect(
+      list.clipper!.getClip(list.size).right,
+      closeTo(folding.left - workspacePanelGap, 0.01),
+    );
+
+    await tester.pumpAndSettle();
+    expect(find.byType(TopicView), findsNothing);
+    expect(
+      tester.getRect(_mainPanel).right,
+      1200 - PanelRail.width - workspacePanelGap,
+    );
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('a restored panel slides back in before the seam returns', (
+    tester,
+  ) async {
+    _openTopicTab(shell, _topic);
+    await _pump(tester, shell);
+    final reader = tester.getRect(_secondaryPanel);
+    final seam = find.byKey(const ValueKey('main-panel-resize-handle'));
+    expect(seam, findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('minimize-panel-secondary')));
+    await tester.pumpAndSettle();
+    expect(seam, findsNothing);
+
+    await tester.tap(find.byKey(const ValueKey('panel-rail-restore')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 16));
+    final folded = tester.getRect(_secondaryPanel);
+    expect(folded.left, 1200 - PanelRail.width);
+    await tester.pump(const Duration(milliseconds: 100));
+    final opening = tester.getRect(_secondaryPanel);
+    expect(opening.left, inExclusiveRange(reader.left, folded.left));
+    expect(seam, findsNothing);
+    // The list keeps its wide layout until the motion settles, cut at one
+    // gap from the returning reader, so no hole opens between them.
+    expect(
+      tester.getRect(_mainPanel).right,
+      1200 - PanelRail.width - workspacePanelGap,
+    );
+    final list = tester.renderObject<RenderClipRRect>(
+      find.ancestor(of: _mainPanel, matching: find.byType(ClipRRect)).first,
+    );
+    expect(
+      list.clipper!.getClip(list.size).right,
+      closeTo(opening.left - workspacePanelGap, 0.01),
+    );
+
+    await tester.pumpAndSettle();
+    expect(tester.getRect(_secondaryPanel), reader);
+    expect(tester.getRect(_mainPanel).right, reader.left - workspacePanelGap);
+    expect(seam, findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('with reduced motion a panel minimizes and restores at once', (
+    tester,
+  ) async {
+    _openTopicTab(shell, _topic);
+    await _pump(tester, shell, reduceMotion: true);
+    final reader = tester.getRect(_secondaryPanel);
+    await tester.tap(find.byKey(const ValueKey('minimize-panel-secondary')));
+    await tester.pump();
+    expect(find.byType(TopicView), findsNothing);
+    expect(
+      tester.getRect(_mainPanel).right,
+      1200 - PanelRail.width - workspacePanelGap,
+    );
+
+    await tester.tap(find.byKey(const ValueKey('panel-rail-restore')));
+    await tester.pump();
+    expect(find.byType(TopicView), findsOneWidget);
+    expect(tester.getRect(_secondaryPanel), reader);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('restoration hydrates both selected tabs while main has focus', (
     tester,
   ) async {
@@ -1005,6 +1155,7 @@ Future<void> _pump(
   WidgetTester tester,
   ShellController shell, {
   TextDirection direction = TextDirection.ltr,
+  bool reduceMotion = false,
 }) async {
   tester.view.physicalSize = const Size(1200, 850);
   tester.view.devicePixelRatio = 1;
@@ -1015,10 +1166,17 @@ Future<void> _pump(
       controller: shell,
       child: MaterialApp(
         theme: AppTheme.light.copyWith(platform: TargetPlatform.macOS),
-        home: Directionality(
-          textDirection: direction,
-          child: const TopicPresentationPreferences(
-            child: DToaster(child: Scaffold(body: DesktopPanels())),
+        home: Builder(
+          builder: (context) => MediaQuery(
+            data: MediaQuery.of(
+              context,
+            ).copyWith(disableAnimations: reduceMotion),
+            child: Directionality(
+              textDirection: direction,
+              child: const TopicPresentationPreferences(
+                child: DToaster(child: Scaffold(body: DesktopPanels())),
+              ),
+            ),
           ),
         ),
       ),

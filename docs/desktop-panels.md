@@ -34,6 +34,21 @@ mounted offstage at the width it returns to, so its reader, list and scroll
 positions come back unchanged. Like the panel width, the choice belongs to the
 window and is not persisted.
 
+Minimizing and restoring play over 240 ms, fast out and slow in. A minimized
+panel slides toward its rail and fades while the other panel's edge follows it
+at one gap; a restored panel slides back while the other panel keeps its wider
+layout, clipped to that same gap, until the motion settles. The motion only
+moves, fades and clips painted layers, so no frame of it lays a document out;
+the layout it needs happens once, in the frame before a minimize starts moving
+and in the frame after a restore stops. Both panels keep one place in the
+widget tree in every layout: moving a document under another parent would
+rebuild every widget in it that reads an inherited value, which is what made
+the first version stall for hundreds of milliseconds on an open topic. The
+folding panel's tickers and focus change once it has settled, off the frame
+that lays the other panel out, and each panel keeps the same widget while its
+tab, header and minimize action are unchanged, so a shell change during the
+motion does not rebuild its frame. With reduced motion both happen at once.
+
 Normal navigation creates and selects a tab in the current panel. Topics and
 chat threads default to the secondary panel. Middle-click also targets the
 secondary panel. A tab can be dragged onto another tab strip or into the other
