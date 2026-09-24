@@ -241,7 +241,12 @@ void main() {
         const Size.square(ForumTabsBar.minimumActionTarget),
       );
       expect(tester.getSize(selected).width, ForumTabsBar.maximumTabWidth);
-      expect(tester.getSize(ordinary).width, ForumTabsBar.maximumTabWidth);
+      // Tabs are sized to their content, so a short title may stop short of
+      // the shared maximum but never exceeds it.
+      expect(
+        tester.getSize(ordinary).width,
+        lessThanOrEqualTo(ForumTabsBar.maximumTabWidth),
+      );
 
       final barDecoration = _decoration(tester, bar);
       expect(barDecoration.color, Colors.transparent);
@@ -772,7 +777,7 @@ void main() {
         final tab = find.byKey(const ValueKey('forum-tab-item-topic-1'));
         final add = find.byKey(addKey);
         final before = tester.getRect(add);
-        expect(before.width, DControlStyle.regularHeight);
+        expect(before.size, const Size.square(DControlStyle.regularHeight));
         expect(before.left, tester.getRect(tab).right + 4);
         expect(
           tester.widget<DButton>(add).variant,
@@ -1030,7 +1035,8 @@ void main() {
       expect(longTitle.maxLines, 1);
       expect(longTitle.overflow, TextOverflow.ellipsis);
       expect(find.text('3'), findsOneWidget);
-      expect(tester.getSize(countBadge).height, 18);
+      // One 12/18 count line plus a point of padding above and below.
+      expect(tester.getSize(countBadge).height, 20);
       expect(tester.getSize(urgentDot), const Size(8, 8));
       expect(
         _decoration(

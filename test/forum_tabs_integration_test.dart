@@ -13,6 +13,7 @@ import 'package:discourse_native/src/shell/forum_search.dart';
 import 'package:discourse_native/src/shell/forum_tabs_bar.dart';
 import 'package:discourse_native/src/shell/instance_sidebar.dart';
 import 'package:discourse_native/src/shell/main_content.dart';
+import 'package:discourse_native/src/shell/platform.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
@@ -79,10 +80,10 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(controller.currentWorkspace?.tabById(original.id), original);
-      expect(controller.activeTab?.panel, ForumPanel.main);
-      expect(controller.activeTabId, isNot(original.id));
+      expect(controller.activeTabId, original.id);
       expect(controller.tabsForCurrentForum, hasLength(2));
       final opened = controller.tabsForCurrentForum.last;
+      expect(opened.panel, ForumPanel.main);
       expect(opened.currentContent.id, 'latest');
       expect(opened.contentStack, hasLength(1));
     }),
@@ -939,8 +940,8 @@ void main() {
           if (size == _compact && find.byType(MainContent).evaluate().isEmpty) {
             await tester.tap(_sidebarText('Topics'));
             await tester.pumpAndSettle();
-            expect(find.byType(MainContent), findsOneWidget);
           }
+          expect(find.byType(MainContent), findsOneWidget);
 
           expect(
             find.byType(CurrentForumTabsBar, skipOffstage: false),
@@ -1027,12 +1028,14 @@ Future<void> _pumpShell(
   );
   await tester.pumpAndSettle();
 
-  if (size.width >= 768 &&
-      find.byTooltip('Expand sidebar').evaluate().isNotEmpty) {
+  // iOS and Android keep the mobile shell at tablet widths, where the sidebar
+  // lives behind the hamburger rather than beside the content.
+  if (size.width < 768 || usesMobileNavigation(defaultTargetPlatform)) return;
+  if (find.byTooltip('Expand sidebar').evaluate().isNotEmpty) {
     await tester.tap(find.byTooltip('Expand sidebar'));
     await tester.pumpAndSettle();
   }
-  if (size.width >= 768) expect(find.byType(InstanceSidebar), findsOneWidget);
+  expect(find.byType(InstanceSidebar), findsOneWidget);
 }
 
 Future<void> _withPlatform(
