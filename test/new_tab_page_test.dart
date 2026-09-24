@@ -10,7 +10,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'support/shell_test_harness.dart';
 
 void main() {
-  testWidgets('panel guide leaves space above its dismiss action', (
+  testWidgets('panel guide keeps its close action at the top right', (
     tester,
   ) async {
     SharedPreferences.setMockInitialValues({});
@@ -34,16 +34,12 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    final lastHint = tester.getRect(
-      find.ancestor(
-        of: find.text('Open in a new tab in secondary panel'),
-        matching: find.byType(Wrap),
-      ).first,
-    );
     final dismiss = tester.getRect(
       find.byKey(const ValueKey('dismiss-panel-tutorial')),
     );
-    expect(dismiss.top - lastHint.bottom, greaterThanOrEqualTo(32));
+    final title = tester.getRect(find.text('Work with two panels'));
+    expect(dismiss.top, lessThan(title.bottom));
+    expect(dismiss.right, greaterThan(title.right - 48));
     expect(tester.takeException(), isNull);
   });
 
@@ -65,7 +61,7 @@ void main() {
     expect(find.text('Opens a new tab in main panel'), findsOneWidget);
     expect(find.text('Open in secondary panel'), findsOneWidget);
     expect(find.text('Open in a new tab in secondary panel'), findsOneWidget);
-    expect(find.text("Don't show again"), findsOneWidget);
+    expect(find.text("Don't show again"), findsNothing);
     expect(find.text('Got it'), findsNothing);
     expect(find.text('Read side by side'), findsNothing);
 

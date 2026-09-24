@@ -378,59 +378,73 @@ class _PanelTutorial extends StatelessWidget {
     constraints: const BoxConstraints(maxWidth: 920),
     child: DCard(
       spacing: 0,
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final compact = constraints.maxWidth < 700;
-          final instructions = Padding(
-            padding: const EdgeInsets.all(DSpacing.xl),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              spacing: DSpacing.md,
-              children: [
-                Text(
-                  'Work with two panels',
-                  style: Theme.of(context).textTheme.titleLarge,
+      child: Stack(
+        children: [
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final compact = constraints.maxWidth < 700;
+              final instructions = Padding(
+                padding: const EdgeInsets.all(DSpacing.xl),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  spacing: DSpacing.md,
+                  children: [
+                    Padding(
+                      padding: EdgeInsetsDirectional.only(
+                        end: compact ? DSpacing.xxl : 0,
+                      ),
+                      child: Text(
+                        'Work with two panels',
+                        style: Theme.of(context).textTheme.titleLarge,
+                      ),
+                    ),
+                    const _PanelGestureHint(
+                      keys: ['Middle click'],
+                      description: 'Opens a new tab in main panel',
+                    ),
+                    const _PanelGestureHint(
+                      keys: ['Shift', 'Click'],
+                      description: 'Open in secondary panel',
+                    ),
+                    const _PanelGestureHint(
+                      keys: ['Shift', 'Middle click'],
+                      description: 'Open in a new tab in secondary panel',
+                    ),
+                  ],
                 ),
-                const _PanelGestureHint(
-                  keys: ['Middle click'],
-                  description: 'Opens a new tab in main panel',
+              );
+              final diagram = _PanelTutorialDiagram();
+              if (compact) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [instructions, const DSeparator(), diagram],
+                );
+              }
+              return IntrinsicHeight(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Expanded(child: instructions),
+                    const DSeparator(orientation: Axis.vertical),
+                    Expanded(child: diagram),
+                  ],
                 ),
-                const _PanelGestureHint(
-                  keys: ['Shift', 'Click'],
-                  description: 'Open in secondary panel',
-                ),
-                const _PanelGestureHint(
-                  keys: ['Shift', 'Middle click'],
-                  description: 'Open in a new tab in secondary panel',
-                ),
-                const SizedBox(height: DSpacing.md),
-                DButton(
-                  key: const ValueKey('dismiss-panel-tutorial'),
-                  onPressed: onDismiss,
-                  variant: DButtonVariant.outline,
-                  label: const Text("Don't show again"),
-                ),
-              ],
+              );
+            },
+          ),
+          PositionedDirectional(
+            top: DSpacing.sm,
+            end: DSpacing.sm,
+            child: DButton.iconOnly(
+              key: const ValueKey('dismiss-panel-tutorial'),
+              icon: const DIcon(DIcons.xmark),
+              tooltip: "Don't show this tutorial again",
+              onPressed: onDismiss,
+              variant: DButtonVariant.transparentBackground,
+              size: DButtonSize.small,
             ),
-          );
-          final diagram = _PanelTutorialDiagram();
-          if (compact) {
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [instructions, const DSeparator(), diagram],
-            );
-          }
-          return IntrinsicHeight(
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Expanded(child: instructions),
-                const DSeparator(orientation: Axis.vertical),
-                Expanded(child: diagram),
-              ],
-            ),
-          );
-        },
+          ),
+        ],
       ),
     ),
   );
