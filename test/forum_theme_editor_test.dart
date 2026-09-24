@@ -8,6 +8,7 @@ import 'package:discourse_native/src/models/forum_theme_presets.dart';
 import 'package:discourse_native/src/shell/forum_settings_page.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -77,7 +78,9 @@ void main() {
       await _tap(tester, _choice('solarized'));
       expect(_preferences(shell).presets, {Brightness.light: 'solarized'});
       expect(_appTheme(tester).colorScheme.primary, const Color(0xff0088cc));
-      expect(find.text('Solarized · light and dark'), findsOneWidget);
+      expect(find.text('Built-in presets'), findsNothing);
+      expect(find.text('Solarized · light and dark'), findsNothing);
+      expect(find.text('Make my own from this'), findsNothing);
 
       await _show(tester, 'Dark');
       expect(_appTheme(tester).brightness, Brightness.dark);
@@ -88,13 +91,62 @@ void main() {
         Brightness.dark: 'dracula',
       });
       expect(_appTheme(tester).colorScheme.primary, const Color(0xffbd93f9));
-      expect(find.text('Dracula · dark only'), findsOneWidget);
+      expect(find.text('Dracula · dark only'), findsNothing);
       expect(tester.widget<DItem>(_choice('dracula')).selected, isTrue);
       expect(tester.widget<DItem>(_choice('neutral')).selected, isFalse);
       expect(shell.forumSettings.themeModeFor(_site), AppThemeMode.system);
       expect(tester.takeException(), isNull);
     },
   );
+
+  testWidgets('each preset reveals its own Customize action on hover', (
+    tester,
+  ) async {
+    final shell = controller();
+    addTearDown(shell.dispose);
+    await pumpSettings(tester, shell);
+    await _source(tester, ForumThemeSource.preset);
+
+    final neutralAction = find.byKey(
+      const ValueKey(('customize-theme', 'neutral')),
+    );
+    final solarizedAction = find.byKey(
+      const ValueKey(('customize-theme', 'solarized')),
+    );
+    double opacity(Finder action) => tester
+        .widget<Opacity>(
+          find.ancestor(of: action, matching: find.byType(Opacity)).first,
+        )
+        .opacity;
+    expect(opacity(neutralAction), 0);
+    expect(opacity(solarizedAction), 0);
+
+    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    addTearDown(mouse.removePointer);
+    await mouse.addPointer(location: const Offset(0, 0));
+    await mouse.moveTo(tester.getCenter(_choice('neutral')));
+    await tester.pump();
+    expect(opacity(neutralAction), 1);
+    expect(opacity(solarizedAction), 0);
+
+    await tester.tap(neutralAction);
+    await tester.pumpAndSettle();
+    expect(_preferences(shell).presets, isEmpty);
+    expect(find.byType(DDialogContent), findsOneWidget);
+    expect(
+      tester
+          .widget<EditableText>(
+            find.descendant(
+              of: find.byKey(const ValueKey('new-theme-name')),
+              matching: find.byType(EditableText),
+            ),
+          )
+          .controller
+          .text,
+      'Neutral copy',
+    );
+    expect(tester.takeException(), isNull);
+  });
 
   testWidgets(
     'the app shows the mode being chosen for until the page closes or the '
@@ -149,7 +201,7 @@ void main() {
 
       await _tap(
         tester,
-        find.byKey(const ValueKey(('make-own-theme', 'solarized'))),
+        find.byKey(const ValueKey(('customize-theme', 'solarized'))),
       );
       expect(find.byType(DDialogContent), findsOneWidget);
       expect(
@@ -506,9 +558,11 @@ void main() {
     await _tap(tester, find.byKey(const ValueKey('appearance-font-lato')));
     expect(_preferences(shell).font, ForumFont.lato);
     expect(_preferences(shell).source, ForumThemeSource.forum);
-    String? family() => Theme.of(
-      tester.element(find.byType(ForumSettingsPage)),
-    ).textTheme.bodyMedium!.fontFamily;
+    String? family() =>
+        Theme.of(tester.element(find.byType(ForumSettingsPage)))
+            .textTheme
+            .bodyMedium!
+            .fontFamily;
     expect(family(), 'Lato');
     await _source(tester, ForumThemeSource.preset);
     await _tap(tester, _choice('wcag'));

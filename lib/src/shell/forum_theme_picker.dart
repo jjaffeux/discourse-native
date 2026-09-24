@@ -145,13 +145,13 @@ class _ForumThemePickerState extends State<ForumThemePicker> {
     },
   );
 
-  Widget _header(String label) => Wrap(
-    alignment: WrapAlignment.spaceBetween,
+  Widget _header(String? label) => Wrap(
+    alignment: label == null ? WrapAlignment.end : WrapAlignment.spaceBetween,
     crossAxisAlignment: WrapCrossAlignment.center,
     spacing: DSpacing.md,
     runSpacing: DSpacing.sm,
     children: [
-      DFieldLabel(child: Text(label)),
+      if (label != null) DFieldLabel(child: Text(label)),
       DToggleGroup<Brightness>(
         key: const ValueKey('theme-shown-mode'),
         values: [widget.brightness],
@@ -215,7 +215,7 @@ class _ForumThemePickerState extends State<ForumThemePicker> {
   List<Widget> _presets(BuildContext context) {
     final chosen = widget.preferences.presetFor(widget.brightness);
     return [
-      _header('Built-in presets'),
+      _header(null),
       if (chosen == null)
         _caption(
           context,
@@ -228,23 +228,9 @@ class _ForumThemePickerState extends State<ForumThemePicker> {
             preset,
             chosen: preset.id == chosen?.id,
             onPressed: () => widget.onPreset(widget.brightness, preset.id),
+            onCustomize: () => widget.onNewTheme(base: preset.id),
           ),
       ]),
-      if (chosen != null)
-        _footer([
-          _caption(
-            context,
-            forumThemeHasMode(
-                  chosen,
-                  widget.brightness == Brightness.dark
-                      ? Brightness.light
-                      : Brightness.dark,
-                )
-                ? '${chosen.name} · light and dark'
-                : '${chosen.name} · $_mode only',
-          ),
-          _makeOwn(chosen.id),
-        ]),
     ];
   }
 
@@ -302,22 +288,95 @@ class _ForumThemePickerState extends State<ForumThemePicker> {
     ForumTheme theme, {
     required bool chosen,
     required VoidCallback onPressed,
+    VoidCallback? onCustomize,
     List<Widget> actions = const [],
-  }) => DItem(
-    key: ValueKey(('theme-choice', theme.id)),
-    size: DItemSize.sm,
-    selected: chosen,
+  }) => _ThemeChoiceRow(
+    key: ValueKey(('theme-row', theme.id)),
+    theme: theme,
+    previewTheme: _theme(theme.forBrightness(widget.brightness)),
+    chosen: chosen,
     onPressed: onPressed,
-    children: [
-      DItemMedia(
-        child: ThemeThumbnail(
-          theme: _theme(theme.forBrightness(widget.brightness)),
-        ),
-      ),
-      DItemContent(children: [DItemTitle(child: Text(theme.name))]),
-      if (actions.isNotEmpty) DItemActions(children: actions),
-    ],
+    onCustomize: onCustomize,
+    actions: actions,
   );
+}
+
+class _ThemeChoiceRow extends StatefulWidget {
+  const _ThemeChoiceRow({
+    super.key,
+    required this.theme,
+    required this.previewTheme,
+    required this.chosen,
+    required this.onPressed,
+    required this.onCustomize,
+    required this.actions,
+  });
+
+  final ForumTheme theme;
+  final ThemeData previewTheme;
+  final bool chosen;
+  final VoidCallback onPressed;
+  final VoidCallback? onCustomize;
+  final List<Widget> actions;
+
+  @override
+  State<_ThemeChoiceRow> createState() => _ThemeChoiceRowState();
+}
+
+class _ThemeChoiceRowState extends State<_ThemeChoiceRow> {
+  bool _hovered = false;
+  bool _focusWithin = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final touch = switch (Theme.of(context).platform) {
+      TargetPlatform.iOS || TargetPlatform.android => true,
+      _ => false,
+    };
+    final showCustomize =
+        _hovered ||
+        _focusWithin ||
+        touch ||
+        MediaQuery.accessibleNavigationOf(context);
+    return Focus(
+      canRequestFocus: false,
+      onFocusChange: widget.onCustomize == null
+          ? null
+          : (focused) => setState(() => _focusWithin = focused),
+      child: DItem(
+        key: ValueKey(('theme-choice', widget.theme.id)),
+        size: DItemSize.sm,
+        selected: widget.chosen,
+        onPressed: widget.onPressed,
+        onHoverChanged: widget.onCustomize == null
+            ? null
+            : (hovered) => setState(() => _hovered = hovered),
+        children: [
+          DItemMedia(child: ThemeThumbnail(theme: widget.previewTheme)),
+          DItemContent(children: [DItemTitle(child: Text(widget.theme.name))]),
+          if (widget.onCustomize != null || widget.actions.isNotEmpty)
+            DItemActions(
+              children: [
+                if (widget.onCustomize case final customize?)
+                  Opacity(
+                    opacity: showCustomize ? 1 : 0,
+                    alwaysIncludeSemantics: true,
+                    child: DButton(
+                      key: ValueKey(('customize-theme', widget.theme.id)),
+                      label: const Text('Customize'),
+                      semanticLabel: 'Customize ${widget.theme.name}',
+                      variant: DButtonVariant.outline,
+                      size: DButtonSize.small,
+                      onPressed: customize,
+                    ),
+                  ),
+                ...widget.actions,
+              ],
+            ),
+        ],
+      ),
+    );
+  }
 }
 
 class _ThemeActions extends StatelessWidget {
