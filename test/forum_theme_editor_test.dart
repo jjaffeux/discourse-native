@@ -824,12 +824,12 @@ void main() {
     await pumpSettings(tester, shell);
     tester.view.physicalSize = const Size(960, 2400);
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Noise'));
+    await tester.tap(find.text('Paper'));
     await tester.tap(_choice('wcag'));
     await tester.pumpAndSettle();
     expect(
       shell.forumSettings.shared.effects.effect,
-      ForumBackgroundEffect.noise,
+      ForumBackgroundEffect.paper,
     );
     expect(_preferences(shell).presets, {Brightness.light: 'wcag'});
     expect(
@@ -838,7 +838,7 @@ void main() {
     );
     expect(
       (await shell.forumSettings.store.loadAppearance()).effects.effect,
-      ForumBackgroundEffect.noise,
+      ForumBackgroundEffect.paper,
     );
     expect(tester.takeException(), isNull);
   });
