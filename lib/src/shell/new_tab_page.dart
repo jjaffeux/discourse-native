@@ -49,6 +49,8 @@ class _NewTabPageState extends State<NewTabPage> {
   }
 
   void _openTopBarSearch() {
+    // Keep the placeholder out of focus history when the search panel closes.
+    _searchPromptFocus.unfocus();
     if (mounted) ShellScope.maybeRead(context)?.search.requestFocus();
   }
 

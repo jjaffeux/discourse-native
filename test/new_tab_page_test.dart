@@ -210,6 +210,59 @@ void main() {
     }
   });
 
+  testWidgets('outside click dismisses Start page search without reopening', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({
+      'discourse_native.panel_tutorial_dismissed': true,
+    });
+    final previousPlatform = debugDefaultTargetPlatformOverride;
+    debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+    try {
+      await pumpShell(tester, desktop);
+      final shell = ShellScope.read(
+        tester.element(find.byType(MainContent).first),
+      );
+      shell.pushContent(ContentRoute.newTab());
+      await tester.pumpAndSettle();
+
+      final prompt = find.byKey(const ValueKey('start-page-search-prompt'));
+      final promptFocus = tester.widget<DInputGroupInput>(prompt).focusNode!;
+      final content = tester.getRect(find.byType(MainContent).first);
+
+      Future<void> dismissOutside() async {
+        await tester.tapAt(content.bottomCenter - const Offset(0, 20));
+        await tester.pumpAndSettle();
+        expect(find.byKey(ForumSearch.panelKey), findsNothing);
+        expect(shell.search.panelOpen, isFalse);
+        expect(promptFocus.hasFocus, isFalse);
+      }
+
+      await tester.tap(prompt);
+      await tester.pumpAndSettle();
+      expect(find.byKey(ForumSearch.panelKey), findsOneWidget);
+      await dismissOutside();
+
+      promptFocus.requestFocus();
+      await tester.pumpAndSettle();
+      expect(find.byKey(ForumSearch.panelKey), findsOneWidget);
+      await dismissOutside();
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyF);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
+      await tester.pumpAndSettle();
+      expect(find.byKey(ForumSearch.panelKey), findsOneWidget);
+      await dismissOutside();
+
+      await tester.tap(prompt);
+      await tester.pumpAndSettle();
+      expect(find.byKey(ForumSearch.panelKey), findsOneWidget);
+    } finally {
+      debugDefaultTargetPlatformOverride = previousPlatform;
+    }
+  });
+
   testWidgets('panel guide keeps its close action at the top right', (
     tester,
   ) async {
