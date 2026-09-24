@@ -559,17 +559,26 @@ class _DiscourseAppState extends State<DiscourseApp>
                   fontFamily,
                 );
                 SurfaceOpeningTrace.mark('forum.theme.end');
+                final shown = selection.siteUrl == null
+                    ? null
+                    : _controller.forumSettings.previewBrightnessFor(
+                        selection.siteUrl!,
+                      );
                 return _materialApp(
                   theme: lightTheme,
                   darkTheme: darkTheme,
-                  themeMode: switch (selection.siteUrl == null
-                      ? AppThemeMode.system
-                      : _controller.forumSettings.themeModeFor(
-                          selection.siteUrl!,
-                        )) {
-                    AppThemeMode.system => ThemeMode.system,
-                    AppThemeMode.light => ThemeMode.light,
-                    AppThemeMode.dark => ThemeMode.dark,
+                  themeMode: switch (shown) {
+                    Brightness.light => ThemeMode.light,
+                    Brightness.dark => ThemeMode.dark,
+                    null => switch (selection.siteUrl == null
+                        ? AppThemeMode.system
+                        : _controller.forumSettings.themeModeFor(
+                            selection.siteUrl!,
+                          )) {
+                      AppThemeMode.system => ThemeMode.system,
+                      AppThemeMode.light => ThemeMode.light,
+                      AppThemeMode.dark => ThemeMode.dark,
+                    },
                   },
                 );
               },
