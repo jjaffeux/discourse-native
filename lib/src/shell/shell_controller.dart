@@ -6076,6 +6076,14 @@ class ShellController extends FrameSafeNotifier
     final ContentRoute route;
     if (_isOwnMessagesUrl(instance, target)) {
       route = ContentRoute.messages();
+    } else if (instance.pathWithin(target) == '/u' &&
+        !target.hasQuery &&
+        !target.hasFragment) {
+      route = const ContentRoute(
+        id: 'users',
+        title: 'Users',
+        icon: DIcons.user,
+      );
     } else if (instance.pathWithin(target) == '/latest' &&
         !target.hasQuery &&
         !target.hasFragment) {
@@ -6539,10 +6547,10 @@ class ShellController extends FrameSafeNotifier
     }
   }
 
-  bool openCoreListUrl(String url) {
+  bool openCorePageUrl(String url) {
     final destination = _routeForLink(url);
     if (destination == null ||
-        !{'latest', 'messages'}.contains(destination.route.id)) {
+        !{'latest', 'messages', 'users'}.contains(destination.route.id)) {
       return false;
     }
     final index = _instances.indexWhere(
@@ -6556,7 +6564,11 @@ class ShellController extends FrameSafeNotifier
       return true;
     }
     pushContent(destination.route);
-    unawaited(loadFeed(destination.route.id));
+    if (destination.route.isUsers) {
+      unawaited(userDirectory.load(_instances[index]));
+    } else {
+      unawaited(loadFeed(destination.route.id));
+    }
     return true;
   }
 
@@ -14457,6 +14469,8 @@ class ShellController extends FrameSafeNotifier
     if (!root.isNewTab) {
       if (root.id == 'all-categories') {
         unawaited(loadCategories(instance.url));
+      } else if (root.isUsers) {
+        unawaited(userDirectory.load(instance));
       } else {
         unawaited(
           loadFeed(
@@ -14496,6 +14510,8 @@ class ShellController extends FrameSafeNotifier
       unawaited(
         badges.load(instance, route.badgeRoute ?? const BadgeRoute.directory()),
       );
+    } else if (route.isUsers && route.id != root.id) {
+      unawaited(userDirectory.load(instance));
     } else if (route.feedPath != null && route.id != root.id) {
       unawaited(loadFeed(route.id));
     }
