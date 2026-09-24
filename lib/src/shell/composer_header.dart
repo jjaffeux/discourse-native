@@ -465,6 +465,7 @@ class ComposerHeader extends StatelessWidget {
                   reverse: true,
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
+                    spacing: DSpacing.controlGap,
                     children: controls,
                   ),
                 ),
