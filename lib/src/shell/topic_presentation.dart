@@ -1,4 +1,3 @@
-import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
 import '../models/forum_workspace.dart';
@@ -63,15 +62,22 @@ class TopicWorkspace extends StatelessWidget {
 
 /// The panel header scopes tab actions to the tabs actually shown in it.
 class TopicPanelTabs extends StatelessWidget {
-  const TopicPanelTabs({super.key, this.panel, this.incomingTabId});
+  const TopicPanelTabs({
+    super.key,
+    this.panel,
+    this.incomingTabId,
+    this.trailing,
+  });
   final ForumPanel? panel;
   final String? incomingTabId;
+
+  /// An action on the panel itself, after its tabs.
+  final Widget? trailing;
 
   @override
   Widget build(BuildContext context) {
     final shell = ShellScope.of(context);
     if (context.isTouch) return const SizedBox.shrink();
-    final preferences = TopicPresentationPreferences.maybeControllerOf(context);
     final target = panel ?? ForumTabScope.panelOf(context);
     return DragTarget<String>(
       onWillAcceptWithDetails: (details) =>
@@ -92,14 +98,7 @@ class TopicPanelTabs extends StatelessWidget {
                     )
                   : const SizedBox.shrink(),
             ),
-            if (preferences != null && target != null)
-              DButton.iconOnly(
-                key: ValueKey('swap-panels-${target.name}'),
-                icon: const Icon(Icons.swap_horiz),
-                tooltip: 'Switch panel positions',
-                variant: DButtonVariant.transparentBackground,
-                onPressed: preferences.swapPanels,
-              ),
+            ?trailing,
           ],
         ),
       ),

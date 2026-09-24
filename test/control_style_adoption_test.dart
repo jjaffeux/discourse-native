@@ -98,6 +98,15 @@ void main() {
           'borderRadius': 1,
           'foregroundColor': 2,
         },
+        // A minimized panel's rail stands in for its tab strip: the selected
+        // tab keeps the selected document tab's raised fill and outline, on
+        // the reference's circular slots, in the rail and in its read-out.
+        'lib/src/shell/panel_rail.dart': {
+          'shape': 1,
+          'backgroundColor': 2,
+          'borderColor': 2,
+          'foregroundColor': 2,
+        },
       },
       reason:
           'Use the kit variant and size first. Document a concrete semantic or layout reason before adding an exception.',

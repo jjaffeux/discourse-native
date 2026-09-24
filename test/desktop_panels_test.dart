@@ -8,7 +8,9 @@ import 'package:discourse_native/src/models/sidebar.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/shell/desktop_panels.dart';
 import 'package:discourse_native/src/shell/forum_tabs_bar.dart';
+import 'package:discourse_native/src/shell/panel_rail.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
+import 'package:discourse_native/src/shell/shell_metrics.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/topic_list_view.dart';
 import 'package:discourse_native/src/shell/topic_presentation.dart';
@@ -326,28 +328,219 @@ void main() {
   );
 
   testWidgets(
-    'both panels keep their content when focus and positions change',
+    'both panels keep their content when focus moves and a panel minimizes',
     (tester) async {
       _openTopicTab(shell, _topic);
+      final readerTab = shell.activeTabId!;
       await _pump(tester, shell);
       expect(find.byType(TopicListView), findsOneWidget);
       expect(find.byType(TopicView), findsOneWidget);
       expect(find.byKey(const ValueKey('topic-view-options')), findsNothing);
-      expect(find.byTooltip('Switch panel positions'), findsNWidgets(2));
+      expect(find.byTooltip('Minimize panel'), findsNWidgets(2));
+      expect(find.byTooltip('Switch panel positions'), findsNothing);
       final reader = tester.state(find.byType(TopicView));
       final main = shell.selectedTabIn(ForumPanel.main)!.id;
       shell.selectTab(main);
       await tester.pumpAndSettle();
       expect(find.text('Content for 42', findRichText: true), findsOneWidget);
       expect(tester.state(find.byType(TopicView)), same(reader));
-      final before = tester.getCenter(find.byType(TopicView)).dx;
-      await tester.tap(find.byKey(const ValueKey('swap-panels-main')));
+      final list = tester.getRect(_mainPanel);
+
+      await tester.tap(find.byKey(const ValueKey('minimize-panel-secondary')));
       await tester.pumpAndSettle();
-      expect(tester.getCenter(find.byType(TopicView)).dx, lessThan(before));
+      expect(find.byType(TopicView), findsNothing);
+      expect(
+        tester.state(find.byType(TopicView, skipOffstage: false)),
+        same(reader),
+      );
+      final rail = tester.getRect(_rail(ForumPanel.secondary));
+      expect(rail.width, PanelRail.width);
+      expect(rail.right, 1200);
+      expect(tester.getRect(_mainPanel).left, list.left);
+      expect(
+        tester.getRect(_mainPanel).right,
+        1200 - PanelRail.width - workspacePanelGap,
+      );
+      expect(shell.activeTabId, main);
+
+      await tester.tap(find.byKey(const ValueKey('panel-rail-restore')));
+      await tester.pumpAndSettle();
+      expect(_rail(ForumPanel.secondary), findsNothing);
       expect(tester.state(find.byType(TopicView)), same(reader));
+      expect(tester.getRect(_mainPanel), list);
+      expect(shell.activeTabId, main);
+      expect(shell.selectedTabIn(ForumPanel.secondary)?.id, readerTab);
       expect(tester.takeException(), isNull);
     },
   );
+
+  testWidgets('a panel cannot stand down while the other one is empty', (
+    tester,
+  ) async {
+    final main = shell.activeTabId!;
+    await _pump(tester, shell);
+    final minimizeMain = tester.widget<DButton>(
+      find.byKey(const ValueKey('minimize-panel-main')),
+    );
+    expect(minimizeMain.onPressed, isNull);
+    expect(minimizeMain.tooltip, 'Open a tab in the other panel first');
+
+    await tester.tap(find.byKey(const ValueKey('minimize-panel-secondary')));
+    await tester.pumpAndSettle();
+    expect(find.text('Secondary panel'), findsNothing);
+    expect(
+      find.descendant(
+        of: _rail(ForumPanel.secondary),
+        matching: find.byType(DButton),
+      ),
+      findsNWidgets(2),
+    );
+    expect(
+      tester
+          .widget<DButton>(find.byKey(const ValueKey('minimize-panel-main')))
+          .onPressed,
+      isNull,
+    );
+
+    await tester.tap(find.byKey(const ValueKey('panel-rail-new-tab')));
+    await tester.pumpAndSettle();
+    expect(_rail(ForumPanel.secondary), findsNothing);
+    expect(shell.activeTab?.panel, ForumPanel.secondary);
+    expect(shell.activeTabId, isNot(main));
+    expect(shell.tabsForCurrentForum, hasLength(2));
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('opening a topic from the list brings the reader panel back', (
+    tester,
+  ) async {
+    _openTopicTab(shell, _topic);
+    final readerTab = shell.activeTabId!;
+    shell.selectTab(shell.selectedTabIn(ForumPanel.main)!.id);
+    await _pump(tester, shell);
+    await tester.tap(find.byKey(const ValueKey('minimize-panel-secondary')));
+    await tester.pumpAndSettle();
+    expect(find.byType(TopicView), findsNothing);
+
+    await tester.tap(find.byKey(const ValueKey('topic-card-43')).first);
+    await tester.pumpAndSettle();
+
+    expect(_rail(ForumPanel.secondary), findsNothing);
+    expect(shell.activeTabId, readerTab);
+    expect(find.text('Content for 43', findRichText: true), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('a tab picked from the rail restores its panel on that tab', (
+    tester,
+  ) async {
+    _openTopicTab(shell, _topic);
+    final first = shell.activeTabId!;
+    _openTopicTab(shell, _otherTopic);
+    final second = shell.activeTabId!;
+    final main = shell.selectedTabIn(ForumPanel.main)!.id;
+    await _pump(tester, shell);
+    await tester.tap(find.byKey(const ValueKey('minimize-panel-secondary')));
+    await tester.pumpAndSettle();
+    expect(shell.activeTabId, main);
+    expect(
+      tester
+          .widgetList<DButton>(
+            find.descendant(
+              of: _rail(ForumPanel.secondary),
+              matching: find.byType(DButton),
+            ),
+          )
+          .map((button) => button.tooltip),
+      ['Restore panel', 'Panel topic', 'Another topic', 'New tab'],
+    );
+
+    await tester.tap(find.byKey(ValueKey('panel-rail-tab-$first')));
+    await tester.pumpAndSettle();
+
+    expect(_rail(ForumPanel.secondary), findsNothing);
+    expect(shell.activeTabId, first);
+    expect(shell.selectedTabIn(ForumPanel.secondary)?.id, first);
+    expect(shell.currentWorkspace?.tabById(second), isNotNull);
+    expect(find.text('Content for 42', findRichText: true), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  for (final direction in TextDirection.values) {
+    testWidgets('a minimized main panel docks at its start and reads out '
+        'over the reader in $direction', (tester) async {
+      _openTopicTab(shell, _topic);
+      await _pump(tester, shell, direction: direction);
+      final list = tester.state(find.byType(TopicListView));
+      final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      await mouse.addPointer(location: const Offset(600, 500));
+      addTearDown(mouse.removePointer);
+
+      await tester.tap(find.byKey(const ValueKey('minimize-panel-main')));
+      await tester.pumpAndSettle();
+      final rail = tester.getRect(_rail(ForumPanel.main));
+      final reader = tester.getRect(_secondaryPanel);
+      if (direction == TextDirection.ltr) {
+        expect(rail.left, 0);
+        expect(reader.left, PanelRail.width + workspacePanelGap);
+      } else {
+        expect(rail.right, 1200);
+        expect(reader.right, 1200 - PanelRail.width - workspacePanelGap);
+      }
+      expect(find.byType(TopicListView), findsNothing);
+
+      await mouse.moveTo(rail.center);
+      await tester.pumpAndSettle();
+      final readOut = find.byKey(const ValueKey('panel-rail-read-out'));
+      expect(
+        find.descendant(of: readOut, matching: find.text('Restore panel')),
+        findsOneWidget,
+      );
+      expect(
+        tester.getRect(readOut).overlaps(reader),
+        isTrue,
+        reason: 'the read-out opens over the panel beside the rail',
+      );
+      await mouse.moveTo(reader.center);
+      await tester.pumpAndSettle();
+      expect(readOut, findsNothing);
+
+      await tester.tap(find.byKey(const ValueKey('panel-rail-restore')));
+      await tester.pumpAndSettle();
+      expect(tester.state(find.byType(TopicListView)), same(list));
+      expect(tester.takeException(), isNull);
+    });
+  }
+
+  testWidgets('a rail that appears under the pointer does not read itself '
+      'out until it has been left', (tester) async {
+    _openTopicTab(shell, _topic);
+    await _pump(tester, shell);
+    final button = tester.getCenter(
+      find.byKey(const ValueKey('minimize-panel-secondary')),
+    );
+    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    await mouse.addPointer(location: button);
+    addTearDown(mouse.removePointer);
+    await mouse.down(button);
+    await mouse.up();
+    await tester.pumpAndSettle();
+
+    final rail = tester.getRect(_rail(ForumPanel.secondary));
+    expect(rail.contains(button), isTrue);
+    final readOut = find.byKey(const ValueKey('panel-rail-read-out'));
+    expect(readOut, findsNothing);
+
+    await mouse.moveTo(rail.center);
+    await tester.pumpAndSettle();
+    expect(readOut, findsNothing);
+    await mouse.moveTo(const Offset(600, 500));
+    await tester.pump();
+    await mouse.moveTo(rail.center);
+    await tester.pumpAndSettle();
+    expect(readOut, findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
 
   testWidgets('restoration hydrates both selected tabs while main has focus', (
     tester,
@@ -764,10 +957,8 @@ void main() {
       expect(find.byType(TopicListView), findsOneWidget);
       expect(find.byType(TopicView), findsNothing);
 
-      await tester.tap(find.byKey(const ValueKey('swap-panels-main')));
-      await tester.pumpAndSettle();
-      expect(find.byType(ForumTabsBar), findsOneWidget);
-      expect(find.byKey(ValueKey('forum-tab-$reader')), findsNothing);
+      // One panel is all a narrow window shows, so neither stands down.
+      expect(find.byTooltip('Minimize panel'), findsNothing);
 
       tester.view.physicalSize = const Size(1200, 850);
       await tester.pumpAndSettle();
@@ -803,6 +994,12 @@ void main() {
     },
   );
 }
+
+final _mainPanel = find.byKey(const ValueKey('desktop-panel-main'));
+final _secondaryPanel = find.byKey(const ValueKey('desktop-panel-secondary'));
+
+Finder _rail(ForumPanel panel) =>
+    find.byKey(ValueKey('panel-rail-${panel.name}'));
 
 Future<void> _pump(
   WidgetTester tester,

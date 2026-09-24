@@ -2,8 +2,37 @@
 
 Desktop forum workspaces have a main panel and a secondary panel. Each panel
 selects its own tab; the workspace's active tab identifies the panel that owns
-keyboard input and navigation from the sidebar. Swapping panel positions does
-not change their identities or selected documents.
+keyboard input and navigation from the sidebar. The main panel always sits at
+the start of the workspace and the secondary panel at its end.
+
+The action at the end of each panel's tab strip minimizes that panel, and the
+other panel takes the whole workspace. Only one panel stands down at a time:
+minimizing the other one brings the first back. A panel cannot be minimized
+while the other panel holds no tab, because nothing would be left to read, and
+narrow windows, which show one panel anyway, offer no minimize action. If the
+minimized panel held the active tab, the other panel's selected tab becomes
+active, so keyboard input and sidebar navigation never go to a hidden panel.
+
+A minimized panel is a rail docked at the top of the column it held: a restore
+button, a button per tab with the selected one raised, and a new-tab button
+(`PanelRail`, fed by `CurrentForumTabsRail`). Pointing at the rail reads it out
+over the neighbouring panel, with each tab's name, rather than pushing that
+panel along; the read-out grows from the rail's width and opens at once when
+motion is reduced. A rail that appears under the pointer, as it does when the
+secondary panel's minimize action sat where the rail now is, does not read
+itself out until the pointer has left it. The read-out repeats the rail for the
+pointer only: keyboard and assistive technology use the rail's own buttons,
+which carry tooltips and labels.
+
+Restoring a panel leaves the active tab where it is, so a reply being written
+in the other panel keeps its place. Picking a tab from the rail restores the
+panel on that tab, and the new-tab button restores it with a fresh tab.
+Anything that makes one of the minimized panel's tabs active — a topic opened
+from the list, a link, reopening a closed tab, or switching to a forum whose
+active tab is in that panel — restores it too. The minimized panel stays
+mounted offstage at the width it returns to, so its reader, list and scroll
+positions come back unchanged. Like the panel width, the choice belongs to the
+window and is not persisted.
 
 Normal navigation creates and selects a tab in the current panel. Topics and
 chat threads default to the secondary panel. Middle-click also targets the
@@ -41,9 +70,10 @@ Viewport bindings keep their owning tab ID, so scrolling or paging one reader
 cannot save anchors into another. Both selected documents hydrate on restoration,
 and visible topics retain their message-bus subscriptions when focus changes.
 
-Focused coverage lives in `desktop_panels_test.dart`, `desktop_topic_page_test.dart`,
-`forum_tabs_integration_test.dart`, `sidebar_active_destination_test.dart`, and the
-chat navigation and site tracker suites.
+Focused coverage lives in `desktop_panels_test.dart`, `panel_rail_test.dart`,
+`desktop_topic_page_test.dart`, `forum_tabs_integration_test.dart`,
+`sidebar_active_destination_test.dart`, and the chat navigation and site tracker
+suites.
 
 Verification on 2026-09-23: 544 tests passed across 24 focused suites, including
 mobile navigation, independent reader lifecycles, filter ownership, rebuild
