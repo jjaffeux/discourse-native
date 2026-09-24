@@ -103,7 +103,8 @@ void main() {
   });
 
   testWidgets(
-    'tint, opacity and texture are in Settings and apply to every forum',
+    'opacity and texture are in Settings and apply to every forum, and the '
+    'tint is left to themes',
     (tester) async {
       final controller = _controller();
       addTearDown(controller.dispose);
@@ -112,13 +113,10 @@ void main() {
       DSlider slider(String name) =>
           tester.widget(find.byKey(ValueKey('theme-$name')));
       expect(slider('intensity').onChanged, isNull);
-      final tint = find.byKey(const ValueKey('theme-tint'));
-      await tester.ensureVisible(tint);
-      await tester.pumpAndSettle();
-      await tester.tapAt(tester.getTopRight(tint) + const Offset(-2, 13));
-      await tester.pumpAndSettle();
-      expect(find.text('22%'), findsOneWidget);
+      expect(find.byKey(const ValueKey('theme-tint')), findsNothing);
       final opacity = find.byKey(const ValueKey('theme-opacity'));
+      await tester.ensureVisible(opacity);
+      await tester.pumpAndSettle();
       await tester.tapAt(tester.getTopLeft(opacity) + const Offset(1, 13));
       await tester.pumpAndSettle();
       expect(find.text('70%'), findsOneWidget);
@@ -127,7 +125,6 @@ void main() {
       expect(slider('intensity').onChanged, isNotNull);
 
       final effects = settings.shared.effects;
-      expect(effects.strength, 1);
       expect(effects.transparency, .3);
       expect(effects.effect, ForumBackgroundEffect.paper);
       expect((await settings.store.loadAppearance()).effects, effects);
@@ -152,12 +149,12 @@ void main() {
     final controller = _controller();
     addTearDown(controller.dispose);
     await _pumpPage(tester, controller, size: const Size(1100, 1400));
-    final tint = find.byKey(const ValueKey('theme-tint'));
-    await tester.tapAt(tester.getTopRight(tint) + const Offset(-2, 13));
+    final opacity = find.byKey(const ValueKey('theme-opacity'));
+    await tester.tapAt(tester.getTopLeft(opacity) + const Offset(1, 13));
     await tester.tap(find.text('Paper'));
     await tester.pumpAndSettle();
     final effects = controller.forumSettings.shared.effects;
-    expect(effects.strength, 1);
+    expect(effects.transparency, .3);
     expect(effects.effect, ForumBackgroundEffect.paper);
     expect(
       (await controller.forumSettings.store.loadAppearance()).effects,

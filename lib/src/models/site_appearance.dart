@@ -334,54 +334,13 @@ class ResolvedSitePalette {
     'codeMeta': codeMeta.toARGB32(),
   };
 
-  /// This palette under the app's window [effects]. The tint draws surfaces
-  /// and ink toward the accent by the amounts [ForumTheme.resolve] uses for a
-  /// theme's own colours, so a forum's published palette tints like a preset
-  /// while keeping every colour the forum derived itself.
-  ResolvedSitePalette withEffects(ForumBackground effects) {
-    final surface =
-        (effects.strength * ForumBackground.maxTint * 100).round() / 100;
-    final ink =
-        (effects.strength * ForumBackground.maxTextTint * 100).round() / 100;
-    int tint(Color color, double amount) =>
-        Color.lerp(color, tertiary, amount)!.toARGB32();
-    return ResolvedSitePalette.fromJson({
-      ...toJson(),
-      'background': effects.toJson(),
-      for (final (key, color) in [
-        ('secondary', secondary),
-        ('headerBackground', headerBackground),
-        ('contentBorderColor', contentBorderColor),
-        ('selected', selected),
-        ('hover', hover),
-        ('primaryVeryLow', primaryVeryLow),
-        ('primaryLow', primaryLow),
-        ('primaryLowMid', primaryLowMid),
-        ('secondaryVeryHigh', secondaryVeryHigh),
-        ('tertiaryLow', tertiaryLow),
-        ('quaternaryLow', quaternaryLow),
-        ('highlightLow', highlightLow),
-        ('dangerLow', dangerLow),
-        ('mentionBackground', mentionBackground),
-        ('currentUserMentionBackground', currentUserMentionBackground),
-        ('codeBlockBackground', codeBlockBackground),
-        ('inlineCodeBackground', inlineCodeBackground),
-      ])
-        key: tint(color, surface),
-      for (final (key, color) in [
-        ('primary', primary),
-        ('headerPrimary', headerPrimary),
-        ('metadataColor', metadataColor),
-        ('selectedForeground', selectedForeground),
-        ('primaryMedium', primaryMedium),
-        ('primaryHigh', primaryHigh),
-        ('primaryVeryHigh', primaryVeryHigh),
-        ('codeComment', codeComment),
-        ('codeMeta', codeMeta),
-      ])
-        key: tint(color, ink),
-    });
-  }
+  /// This palette under the app's window [effects], its colours exactly as
+  /// published: only a theme tints, by its own [ForumTheme.tint].
+  ResolvedSitePalette withEffects(ForumBackground effects) =>
+      ResolvedSitePalette.fromJson({
+        ...toJson(),
+        'background': effects.toJson(),
+      });
 
   @override
   bool operator ==(Object other) =>

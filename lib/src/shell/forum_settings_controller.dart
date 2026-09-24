@@ -33,7 +33,7 @@ final class ForumSettingsController extends FrameSafeNotifier {
       _themes.peek(requireStoredForumBase(siteUrl)) ??
       ForumThemePreferences.defaults;
 
-  /// The font and window effects, which are the same in every forum.
+  /// The font, opacity and texture, which are the same in every forum.
   SharedAppearance get shared =>
       _shared.peek(_everyForum) ?? SharedAppearance.defaults;
 
@@ -80,7 +80,7 @@ final class ForumSettingsController extends FrameSafeNotifier {
       return forumAppearance;
     }
     // A mode without its own choice keeps the forum's palette for that mode,
-    // exactly as published unless there are effects to draw over it.
+    // its colours exactly as published: only a theme tints.
     ResolvedSitePalette? palette(Brightness brightness) {
       final forum = forumAppearance?.paletteForBrightness(brightness);
       final theme = themes[brightness];

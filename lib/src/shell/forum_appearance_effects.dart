@@ -7,6 +7,7 @@ import 'theme_icons.dart';
 /// The controls for the window effects every forum shares, drawn over
 /// whichever colours it uses. They are chosen outside any theme so they are
 /// found without making one, and so moving between forums never changes them.
+/// The tint is a theme's own; see [ForumTintField].
 class ForumAppearanceEffects extends StatelessWidget {
   const ForumAppearanceEffects({
     super.key,
@@ -28,21 +29,6 @@ class ForumAppearanceEffects extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       spacing: 16,
       children: [
-        _RampField(
-          label: 'Tint',
-          value: effects.strength,
-          readout:
-              '${(effects.strength * ForumBackground.maxTint * 100).round()}%',
-          ramp: DSliderRamp(
-            startColor: tokens.background,
-            endColor: Color.lerp(
-              tokens.background,
-              tokens.primary,
-              ForumBackground.maxTint,
-            ),
-          ),
-          onChanged: (v) => onChanged((e) => e.copyWith(strength: v)),
-        ),
         _RampField(
           label: 'Opacity',
           value: 1 - effects.transparency / ForumBackground.maxTransparency,
@@ -110,6 +96,38 @@ class ForumAppearanceEffects extends StatelessWidget {
               : null,
         ),
       ],
+    );
+  }
+}
+
+/// How far a theme's surfaces and text lean toward its accent, as a share of
+/// [ForumBackground.maxTint].
+class ForumTintField extends StatelessWidget {
+  const ForumTintField({
+    super.key,
+    required this.value,
+    required this.onChanged,
+  });
+
+  final double value;
+  final ValueChanged<double> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final tokens = DTokens.of(context);
+    return _RampField(
+      label: 'Tint',
+      value: value,
+      readout: '${(value * ForumBackground.maxTint * 100).round()}%',
+      ramp: DSliderRamp(
+        startColor: tokens.background,
+        endColor: Color.lerp(
+          tokens.background,
+          tokens.primary,
+          ForumBackground.maxTint,
+        ),
+      ),
+      onChanged: onChanged,
     );
   }
 }

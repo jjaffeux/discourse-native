@@ -2,12 +2,14 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
 import '../models/forum_theme.dart';
+import 'forum_appearance_effects.dart';
 import 'settings_section.dart';
 import 'theme_icons.dart';
 
 /// Edits a draft of one of the user's own themes. The app shows the draft as
 /// it changes, and nothing is stored until Save. Light and dark keep separate
-/// palettes; the window effects are the app's, chosen beside the theme.
+/// palettes, each with its sidebar tone and tint; the other window effects
+/// are the app's, chosen in Settings.
 class ForumThemeEditor extends StatefulWidget {
   const ForumThemeEditor({
     super.key,
@@ -199,6 +201,10 @@ class _ForumThemeEditorState extends State<ForumThemeEditor> {
                 ),
               ],
             ),
+          ),
+          ForumTintField(
+            value: palette.tint,
+            onChanged: (value) => _palette = palette.copyWith(tint: value),
           ),
           if (_error case final error?)
             DAlert(

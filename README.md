@@ -570,22 +570,27 @@ Existing forums start with the previous app-wide appearance choice; newly added
 forums follow the system. Aggregate and the app-wide Settings modal follow the
 system appearance independently.
 
-Only a forum's colours, and whether it shows them light or dark, are its own.
-The **Font** is an app setting, chosen in the Settings modal below **Text
-size** from samples drawn in each face, so it is never mistaken for part of a
-theme. The window **Effects** (**Tint**, **Opacity**, **Texture** and its
+Only a forum's colours, their tint, and whether it shows them light or dark,
+are its own. The **Font** is an app setting, chosen in the Settings modal below
+**Text size** from samples drawn in each face, so it is never mistaken for part
+of a theme. The window **Effects** (**Opacity**, **Texture** and its
 **Intensity**) follow it in the same modal rather than sitting on any forum's
 page, and the workspace behind the modal shows each one as it is chosen. Both
 apply to every forum, so moving between forums never changes the reading font
 or the window's opacity, and the effects are found without making a theme.
-Effects are drawn over whichever colours a forum uses. The tint pulls surfaces
-and text toward that palette's accent; on the forum's own palette it does so
-colour by colour, so every colour the forum derived itself is kept, and with no
-effects that palette is shown exactly as published. The font applies to Aggregate too. Both are stored once
-under `discourse_native.appearance`. The first launch that finds nothing there
+Effects are drawn over whichever colours a forum uses, and never change those
+colours: with no effects the forum's own palette is shown exactly as
+published. The font applies to Aggregate too. Both are stored once under
+`discourse_native.appearance`. The first launch that finds nothing there
 adopts what the forums chose when both were per forum: the font of the first
-forum in rail order that had one of its own, and the effects of the first
-forum showing a saved theme that carried any.
+forum in rail order that had one of its own, and the opacity and texture of
+the first forum showing a saved theme that carried any.
+
+The **Tint** belongs to a saved theme, beside the colours it changes: it pulls
+surfaces and text toward that palette's accent, and each mode keeps its own,
+like its sidebar tone. Presets and the forum's own palette are never tinted. A
+tint chosen while it was an app-wide effect is dropped rather than moved onto
+any theme.
 
 The same page's **Theme** lists **Forum default** first among the **Presets**.
 The forum palette follows the forum when its admins change it. Built-in presets
@@ -593,14 +598,14 @@ can be chosen separately for light and dark; a mode without one keeps the
 forum's colours. The **Your own** choice shows saved themes. Presets and the
 forum palette are never edited in place. **Customize** and **New theme** start
 a theme from plain greys, the forum's colours, a preset or another saved theme.
-A saved theme carries both modes' palettes, each with its sidebar tone; themes
-saved or shared before effects were shared keep theirs in storage, where they
-are not drawn, and editing drops them. The workspace around the
+A saved theme carries both modes' palettes, each with its sidebar tone and
+tint; themes saved or shared before effects were shared keep theirs in
+storage, where they are not drawn, and editing drops them. The workspace around the
 page is the preview: a choice applies as it is made, and the whole app shows
 the theme being edited as it changes, though nothing is stored until the
 editor's **Save**; **Cancel**, or leaving the page, puts the saved theme back.
 While editing, the Theme section holds only the draft — its name, each mode's
-colours and sidebar tone, then Save and Cancel — since the choice between
+colours, sidebar tone and tint, then Save and Cancel — since the choice between
 Presets and Your own cannot change until the edit ends.
 The **Appearance** setting chooses which mode's preset is shown.
 **Use on all forums**, beside the Theme heading, shows this forum's choice in
