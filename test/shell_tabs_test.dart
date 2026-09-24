@@ -58,7 +58,7 @@ void main() {
           expect(
             first.openContentInNewTab(
               const ContentRoute(
-                id: 'chat-channel-7',
+                id: 'chat-c-7',
                 title: 'General',
                 icon: DIcons.comments,
               ),
@@ -149,6 +149,17 @@ void main() {
         expect(
           controller.recentCategoriesFor(forums.first.url).single.title,
           'Support',
+        );
+        controller.selectDestination(
+          const SidebarDestination(
+            id: 'chat-c-9',
+            label: 'General',
+            icon: DIcons.comment,
+          ),
+        );
+        expect(
+          controller.recentChannelsFor(forums.first.url).single.id,
+          'chat-c-9',
         );
         controller.selectInstance(1);
         expect(controller.recentTopicsFor(forums.last.url), isEmpty);

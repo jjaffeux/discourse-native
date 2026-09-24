@@ -1,5 +1,8 @@
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/content_route.dart';
+import 'package:discourse_native/src/models/discourse_user.dart';
+import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
+import 'package:discourse_native/src/plugins/chat/chat_notification_counter.dart';
 import 'package:discourse_native/src/shell/forum_search.dart';
 import 'package:discourse_native/src/shell/main_content.dart';
 import 'package:discourse_native/src/shell/new_tab_page.dart';
@@ -11,6 +14,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'support/fakes.dart';
 import 'support/shell_test_harness.dart';
 
 void main() {
@@ -184,5 +188,51 @@ void main() {
     expect(find.text('Latest topics'), findsOneWidget);
     expect(find.text('Categories'), findsNothing);
     expect(find.text('Chat'), findsNothing);
+  });
+
+  testWidgets('an opened chat channel appears on the start page', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({
+      'discourse_native.panel_tutorial_dismissed': true,
+    });
+    const site = 'https://meta.discourse.org';
+    const user = DiscourseUser(username: 'reader');
+    await pumpShell(
+      tester,
+      desktop,
+      instances: [instance('meta.discourse.org').copyWith(user: user)],
+      authenticator: FakeAuthenticator()..keys[site] = 'key',
+      api: FakeDiscourseApi(
+        user: user,
+        totals: chatNotificationTotals(available: true),
+        feeds: const {'/latest.json': []},
+        chatChannelsBySite: {
+          site: const ChatChannels(
+            public: [
+              ChatChannel(
+                id: 9,
+                title: 'General',
+                kind: ChatChannelKind.category,
+                membership: ChatMembership(following: true),
+              ),
+            ],
+          ),
+        },
+      ),
+    );
+    final shell = ShellScope.read(
+      tester.element(find.byType(MainContent).first),
+    );
+    expect(await shell.openPluginUrl('$site/chat/c/-/9'), isTrue);
+    shell.pushContent(ContentRoute.newTab());
+    await tester.pumpAndSettle();
+
+    expect(shell.recentChannelsFor(site).single.id, 'chat-c-9');
+    expect(find.text('Chat'), findsOneWidget);
+    expect(find.text('General'), findsOneWidget);
+    await tester.tap(find.text('General'));
+    await tester.pumpAndSettle();
+    expect(shell.currentContent?.id, 'chat-c-9');
   });
 }

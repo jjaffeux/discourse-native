@@ -88,7 +88,7 @@ class _NewTabPageState extends State<NewTabPage> {
       for (final section in pluginSections)
         for (final destination in section.destinations)
           if (destination.enabled &&
-              RegExp(r'^chat-channel-[1-9][0-9]*$').hasMatch(destination.id))
+              RegExp(r'^chat-c-[1-9][0-9]*$').hasMatch(destination.id))
             destination.id: destination,
     };
     final hasChat = pluginSections.any(
