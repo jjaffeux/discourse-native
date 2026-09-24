@@ -1089,61 +1089,210 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('dragging the divider changes both panel widths', (tester) async {
+    _openTopicTab(shell, _topic);
+    await _pump(tester, shell);
+    final handle = find.byKey(const ValueKey('main-panel-resize-handle'));
+    expect(tester.getRect(_mainPanel).width, 400);
+
+    await tester.drag(handle, const Offset(80, 0));
+    await tester.pumpAndSettle();
+
+    expect(tester.getRect(_mainPanel).width, 480);
+    expect(tester.getRect(_secondaryPanel).width, 708);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets(
-    'right-edge resize shrinks main to 320 then shows secondary alone',
+    'dragging the divider after an edge resize resets the preferred split',
     (tester) async {
       final frame = ValueNotifier<Rect?>(
         const Rect.fromLTWH(100, 0, 1200, 850),
       );
       addTearDown(frame.dispose);
       _openTopicTab(shell, _topic);
-      shell.selectTab(shell.selectedTabIn(ForumPanel.main)!.id);
       await _pump(tester, shell, windowFrame: frame);
-
       frame.value = const Rect.fromLTWH(100, 0, 1160, 850);
       tester.view.physicalSize = const Size(1160, 850);
       await tester.pumpAndSettle();
       expect(tester.getRect(_mainPanel).width, 360);
-      expect(tester.getRect(_secondaryPanel).width, 788);
-      expect(
-        tester
-            .getRect(find.byKey(const ValueKey('main-panel-resize-handle')))
-            .center
-            .dx,
-        366,
-      );
 
-      frame.value = const Rect.fromLTWH(100, 0, 1120, 850);
-      tester.view.physicalSize = const Size(1120, 850);
+      final handle = find.byKey(const ValueKey('main-panel-resize-handle'));
+      await tester.drag(handle, const Offset(50, 0));
       await tester.pumpAndSettle();
-      expect(tester.getRect(_mainPanel).width, 320);
-      expect(tester.getRect(_secondaryPanel).width, 788);
 
-      frame.value = const Rect.fromLTWH(100, 0, 1119, 850);
-      tester.view.physicalSize = const Size(1119, 850);
-      await tester.pumpAndSettle();
-      expect(_mainPanel, findsNothing);
-      expect(tester.getRect(_secondaryPanel).width, 1119);
-      expect(shell.activeTab?.panel, ForumPanel.secondary);
-
-      // A collapsing navigation sidebar can widen the document workspace
-      // even as the outer window keeps getting narrower.
-      frame.value = const Rect.fromLTWH(100, 0, 1099, 850);
-      tester.view.physicalSize = const Size(1051, 850);
-      await tester.pumpAndSettle();
-      expect(_mainPanel, findsNothing);
-
-      frame.value = const Rect.fromLTWH(100, 0, 1200, 850);
-      tester.view.physicalSize = const Size(1200, 850);
-      await tester.pumpAndSettle();
-      expect(tester.getRect(_mainPanel).width, 400);
-      expect(tester.getRect(_secondaryPanel).width, 788);
+      expect(tester.getRect(_mainPanel).width, 410);
+      expect(tester.getRect(_secondaryPanel).width, 738);
       expect(tester.takeException(), isNull);
     },
   );
 
   testWidgets(
-    'left-edge resize shrinks secondary to 320 then shows main alone',
+    'divider can return exactly to its preferred width after edge resize',
+    (tester) async {
+      final frame = ValueNotifier<Rect?>(
+        const Rect.fromLTWH(100, 0, 1200, 850),
+      );
+      addTearDown(frame.dispose);
+      _openTopicTab(shell, _topic);
+      await _pump(tester, shell, windowFrame: frame);
+      frame.value = const Rect.fromLTWH(100, 0, 1160, 850);
+      tester.view.physicalSize = const Size(1160, 850);
+      await tester.pumpAndSettle();
+      expect(tester.getRect(_mainPanel).width, 360);
+
+      final handle = find.byKey(const ValueKey('main-panel-resize-handle'));
+      final gesture = await tester.startGesture(tester.getCenter(handle));
+      await gesture.moveBy(const Offset(40, 0));
+      await gesture.up();
+      await tester.pumpAndSettle();
+
+      expect(tester.getRect(_mainPanel).width, 400);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets('right-edge resize shrinks main to 320 then docks its rail', (
+    tester,
+  ) async {
+    final frame = ValueNotifier<Rect?>(const Rect.fromLTWH(100, 0, 1200, 850));
+    addTearDown(frame.dispose);
+    _openTopicTab(shell, _topic);
+    shell.selectTab(shell.selectedTabIn(ForumPanel.main)!.id);
+    await _pump(tester, shell, windowFrame: frame);
+
+    frame.value = const Rect.fromLTWH(100, 0, 1160, 850);
+    tester.view.physicalSize = const Size(1160, 850);
+    await tester.pumpAndSettle();
+    expect(tester.getRect(_mainPanel).width, 360);
+    expect(tester.getRect(_secondaryPanel).width, 788);
+    expect(
+      tester
+          .getRect(find.byKey(const ValueKey('main-panel-resize-handle')))
+          .center
+          .dx,
+      366,
+    );
+
+    frame.value = const Rect.fromLTWH(100, 0, 1120, 850);
+    tester.view.physicalSize = const Size(1120, 850);
+    await tester.pumpAndSettle();
+    expect(tester.getRect(_mainPanel).width, 320);
+    expect(tester.getRect(_secondaryPanel).width, 788);
+
+    frame.value = const Rect.fromLTWH(100, 0, 1119, 850);
+    tester.view.physicalSize = const Size(1119, 850);
+    await tester.pumpAndSettle();
+    expect(_mainPanel, findsNothing);
+    final mainRail = tester.getRect(_rail(ForumPanel.main));
+    expect(mainRail.left, 0);
+    expect(mainRail.width, PanelRail.width);
+    expect(
+      tester.getRect(_secondaryPanel),
+      const Rect.fromLTWH(
+        PanelRail.width + workspacePanelGap,
+        0,
+        1119 - PanelRail.width - workspacePanelGap,
+        850,
+      ),
+    );
+    expect(find.byKey(const ValueKey('panel-rail-restore')), findsOneWidget);
+    expect(find.byKey(const ValueKey('panel-rail-new-tab')), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('main-panel-resize-handle')),
+      findsNothing,
+    );
+    expect(shell.activeTab?.panel, ForumPanel.secondary);
+
+    // A collapsing navigation sidebar can widen the document workspace
+    // even as the outer window keeps getting narrower.
+    frame.value = const Rect.fromLTWH(100, 0, 1099, 850);
+    tester.view.physicalSize = const Size(1051, 850);
+    await tester.pumpAndSettle();
+    expect(_mainPanel, findsNothing);
+    expect(_rail(ForumPanel.main), findsOneWidget);
+
+    frame.value = const Rect.fromLTWH(100, 0, 1200, 850);
+    tester.view.physicalSize = const Size(1200, 850);
+    await tester.pumpAndSettle();
+    expect(tester.getRect(_mainPanel).width, 400);
+    expect(tester.getRect(_secondaryPanel).width, 788);
+    expect(_rail(ForumPanel.main), findsNothing);
+    expect(
+      find.byKey(const ValueKey('main-panel-resize-handle')),
+      findsOneWidget,
+    );
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('left-edge resize shrinks secondary to 320 then docks its rail', (
+    tester,
+  ) async {
+    final frame = ValueNotifier<Rect?>(const Rect.fromLTWH(100, 0, 1200, 850));
+    addTearDown(frame.dispose);
+    _openTopicTab(shell, _topic);
+    await _pump(tester, shell, windowFrame: frame);
+
+    frame.value = const Rect.fromLTWH(140, 0, 1160, 850);
+    tester.view.physicalSize = const Size(1160, 850);
+    await tester.pumpAndSettle();
+    expect(tester.getRect(_mainPanel).width, 400);
+    expect(tester.getRect(_secondaryPanel).width, 748);
+
+    frame.value = const Rect.fromLTWH(568, 0, 732, 850);
+    tester.view.physicalSize = const Size(732, 850);
+    await tester.pumpAndSettle();
+    expect(tester.getRect(_mainPanel).width, 400);
+    expect(tester.getRect(_secondaryPanel).width, 320);
+
+    frame.value = const Rect.fromLTWH(569, 0, 731, 850);
+    tester.view.physicalSize = const Size(731, 850);
+    await tester.pumpAndSettle();
+    expect(_secondaryPanel, findsNothing);
+    final secondaryRail = tester.getRect(_rail(ForumPanel.secondary));
+    expect(secondaryRail.right, 731);
+    expect(secondaryRail.width, PanelRail.width);
+    expect(
+      tester.getRect(_mainPanel).width,
+      731 - PanelRail.width - workspacePanelGap,
+    );
+    expect(find.byKey(const ValueKey('panel-rail-restore')), findsOneWidget);
+    expect(find.byKey(const ValueKey('panel-rail-new-tab')), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('main-panel-resize-handle')),
+      findsNothing,
+    );
+    expect(shell.activeTab?.panel, ForumPanel.main);
+
+    frame.value = const Rect.fromLTWH(700, 0, 600, 850);
+    tester.view.physicalSize = const Size(600, 850);
+    await tester.pumpAndSettle();
+    expect(_rail(ForumPanel.secondary), findsOneWidget);
+    expect(tester.getRect(_mainPanel).width, 550);
+    expect(_secondaryPanel, findsNothing);
+
+    await tester.tap(find.byKey(const ValueKey('panel-rail-restore')));
+    await tester.pumpAndSettle();
+    expect(_rail(ForumPanel.secondary), findsNothing);
+    expect(_mainPanel, findsNothing);
+    expect(_secondaryPanel, findsOneWidget);
+    expect(shell.activeTab?.panel, ForumPanel.secondary);
+
+    frame.value = const Rect.fromLTWH(100, 0, 1200, 850);
+    tester.view.physicalSize = const Size(1200, 850);
+    await tester.pumpAndSettle();
+    expect(tester.getRect(_mainPanel).width, 400);
+    expect(tester.getRect(_secondaryPanel).width, 788);
+    expect(_rail(ForumPanel.secondary), findsNothing);
+    expect(
+      find.byKey(const ValueKey('main-panel-resize-handle')),
+      findsOneWidget,
+    );
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+    'restoring a window-collapsed main panel brings back the draggable seam',
     (tester) async {
       final frame = ValueNotifier<Rect?>(
         const Rect.fromLTWH(100, 0, 1200, 850),
@@ -1152,30 +1301,28 @@ void main() {
       _openTopicTab(shell, _topic);
       await _pump(tester, shell, windowFrame: frame);
 
-      frame.value = const Rect.fromLTWH(140, 0, 1160, 850);
-      tester.view.physicalSize = const Size(1160, 850);
+      frame.value = const Rect.fromLTWH(100, 0, 1119, 850);
+      tester.view.physicalSize = const Size(1119, 850);
       await tester.pumpAndSettle();
-      expect(tester.getRect(_mainPanel).width, 400);
-      expect(tester.getRect(_secondaryPanel).width, 748);
+      expect(_rail(ForumPanel.main), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('main-panel-resize-handle')),
+        findsNothing,
+      );
 
-      frame.value = const Rect.fromLTWH(568, 0, 732, 850);
-      tester.view.physicalSize = const Size(732, 850);
+      await tester.tap(find.byKey(const ValueKey('panel-rail-restore')));
       await tester.pumpAndSettle();
+      expect(_rail(ForumPanel.main), findsNothing);
       expect(tester.getRect(_mainPanel).width, 400);
-      expect(tester.getRect(_secondaryPanel).width, 320);
+      expect(tester.getRect(_secondaryPanel).width, 707);
 
-      frame.value = const Rect.fromLTWH(569, 0, 731, 850);
-      tester.view.physicalSize = const Size(731, 850);
+      await tester.drag(
+        find.byKey(const ValueKey('main-panel-resize-handle')),
+        const Offset(30, 0),
+      );
       await tester.pumpAndSettle();
-      expect(_secondaryPanel, findsNothing);
-      expect(tester.getRect(_mainPanel).width, 731);
-      expect(shell.activeTab?.panel, ForumPanel.main);
-
-      frame.value = const Rect.fromLTWH(100, 0, 1200, 850);
-      tester.view.physicalSize = const Size(1200, 850);
-      await tester.pumpAndSettle();
-      expect(tester.getRect(_mainPanel).width, 400);
-      expect(tester.getRect(_secondaryPanel).width, 788);
+      expect(tester.getRect(_mainPanel).width, 430);
+      expect(tester.getRect(_secondaryPanel).width, 677);
       expect(tester.takeException(), isNull);
     },
   );
