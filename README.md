@@ -3083,7 +3083,10 @@ selects a neighbour, while the last tab's close button creates a fresh Topics
 tab. Command+W (Control+W on Linux and Windows) exits the app when the current
 forum or Aggregate workspace has only one tab. Tabs can be dragged onto one
 another to reorder them; the active context stays selected and the new order
-is restored after launch. The app-wide Aggregate workspace uses the same tab
+is restored after launch. In desktop panel strips an insertion bar marks
+where a dragged tab will land. It is withheld from the two gaps beside the
+tab's own slot, since dropping there would leave the order unchanged, and such
+a drop does nothing. The app-wide Aggregate workspace uses the same tab
 ordering interaction.
 
 Aggregate refreshes and paging share their admitted futures. Each forum source

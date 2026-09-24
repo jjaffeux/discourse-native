@@ -184,6 +184,15 @@ class _ForumTabsBarState extends State<ForumTabsBar> {
     return widget.items.length;
   }
 
+  /// Where [id] lands when dropped at gap [insertion], or null when that gap
+  /// borders the tab's own slot and dropping there would not move it.
+  int? _destinationFor(String id, int insertion) {
+    final source = widget.items.indexWhere((item) => item.id == id);
+    if (source < 0) return insertion;
+    if (insertion == source || insertion == source + 1) return null;
+    return source < insertion ? insertion - 1 : insertion;
+  }
+
   bool _startDrop(DragTargetDetails<String> details) {
     final item = widget.itemForDrop?.call(details.data);
     if (item == null || widget.onDropTab == null) return false;
@@ -273,16 +282,14 @@ class _ForumTabsBarState extends State<ForumTabsBar> {
     onMove: _moveDrop,
     onLeave: (_) => _clearDrop(),
     onAcceptWithDetails: (details) {
-      final index = _indexAt(details.offset);
+      final destination = _destinationFor(
+        details.data,
+        _indexAt(details.offset),
+      );
       _clearDrop();
-      if (widget.itemForDrop?.call(details.data) != null) {
-        final sourceIndex = widget.items.indexWhere(
-          (item) => item.id == details.data,
-        );
-        widget.onDropTab?.call(
-          details.data,
-          sourceIndex >= 0 && sourceIndex < index ? index - 1 : index,
-        );
+      if (destination != null &&
+          widget.itemForDrop?.call(details.data) != null) {
+        widget.onDropTab?.call(details.data, destination);
       }
     },
     builder: (context, candidates, rejected) =>
@@ -297,7 +304,10 @@ class _ForumTabsBarState extends State<ForumTabsBar> {
     final tabCount = widget.items.length;
     final rtl = Directionality.of(context) == TextDirection.rtl;
     double? indicatorLeft;
-    if (incoming != null && _tabRects.length == tabCount && tabCount > 0) {
+    if (incoming != null &&
+        _tabRects.length == tabCount &&
+        tabCount > 0 &&
+        _destinationFor(incoming.id, insertion) != null) {
       final previous = insertion == 0 ? null : _tabRects[insertion - 1];
       final next = insertion == tabCount ? null : _tabRects[insertion];
       final position = previous == null
