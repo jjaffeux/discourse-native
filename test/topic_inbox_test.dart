@@ -275,75 +275,128 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('loading reader shows cached metadata until details arrive', (
-    tester,
-  ) async {
-    final gate = Completer<void>();
-    final setup = await _setup(tester, topicGate: gate);
-    final shell = setup.controller;
-    final siteUrl = shell.currentInstance!.url;
-    final row = setup.rows.first.copyWith(
-      title: 'Cached title',
-      closed: true,
-      postsCount: 9,
-      lastReadPostNumber: 0,
-      tags: const [TopicTag(name: 'cached-tag')],
-      posterAvatars: const ['https://meta.example/avatar/sam.png'],
-    );
-    shell.store.put(siteUrl, row);
-    shell.openTopicFromList(row);
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 100));
+  for (final (assignable, width) in [
+    (false, 1100.0),
+    (true, 1100.0),
+    (true, 600.0),
+  ]) {
+    testWidgets(
+      'a loading reader reserves its loaded rows ${assignable ? 'with' : 'without'} Assign at $width',
+      (tester) async {
+        final gate = Completer<void>();
+        final setup = await _setup(
+          tester,
+          topicGate: gate,
+          closed: true,
+          registry: assignable
+              ? const PluginRegistry([AssignPlugin()])
+              : PluginRegistry.empty,
+          topicPluginPayload: assignable
+              ? const {'can_assign': true}
+              : const {},
+        );
+        tester.view.physicalSize = Size(width, 800);
+        await tester.pumpAndSettle();
+        final shell = setup.controller;
+        final row = setup.rows.first.copyWith(
+          closed: true,
+          posterAvatars: const ['https://meta.example/avatar/sam.png'],
+        );
+        shell.store.put(shell.currentInstance!.url, row);
+        shell.openTopicFromList(row);
+        await tester.pump();
 
-    final header = find.byType(TopicInboxHeader);
-    Finder inHeader(Finder finder) =>
-        find.descendant(of: header, matching: finder);
-    expect(
-      find.byKey(const ValueKey('topic-loading-skeleton')),
-      findsOneWidget,
-    );
-    expect(inHeader(find.text('Cached title')), findsOneWidget);
-    expect(inHeader(find.text('Design')), findsOneWidget);
-    expect(inHeader(find.text('Onboarding')), findsOneWidget);
-    expect(inHeader(find.text('# cached-tag')), findsOneWidget);
-    expect(inHeader(find.text('8 replies')), findsOneWidget);
-    expect(inHeader(find.textContaining('last activity')), findsOneWidget);
-    expect(
-      inHeader(find.byKey(const ValueKey('topic-header-closed'))),
-      findsOneWidget,
-    );
-    expect(
-      tester.widget<AvatarImage>(inHeader(find.byType(AvatarImage))).url,
-      row.posterAvatars.single,
-    );
-    expect(inHeader(find.byType(InlineTopicTitleEditor)), findsNothing);
-    expect(inHeader(find.byTooltip('Edit topic category')), findsNothing);
-    expect(inHeader(find.byTooltip('Edit topic tags')), findsNothing);
-    expect(inHeader(find.byType(TopicStatusButton)), findsNothing);
-    expect(shell.currentTopic, isNull);
-    expect(find.byType(CookedHtml), findsNothing);
+        final header = find.byType(TopicInboxHeader);
+        Finder inHeader(Finder finder) =>
+            find.descendant(of: header, matching: finder);
+        final toolbar = inHeader(
+          find.byKey(const ValueKey('topic-content-header')),
+        );
+        final closed = inHeader(
+          find.byKey(const ValueKey('topic-header-closed')),
+        );
+        final footer = find.byKey(const ValueKey('topic-bottom-bar'));
+        final separator = find.byKey(const ValueKey('topic-scroll-separator'));
+        // Only what renders identically once loaded is drawn from the row.
+        expect(inHeader(find.text('Topic 1')), findsOneWidget);
+        expect(closed, findsOneWidget);
+        expect(inHeader(find.text('Onboarding')), findsNothing);
+        expect(inHeader(find.text('# community')), findsNothing);
+        expect(inHeader(find.byType(AvatarImage)), findsNothing);
+        // Permission-dependent controls wait for the topic, disabled in place.
+        expect(inHeader(find.byType(InlineTopicTitleEditor)), findsNothing);
+        expect(inHeader(find.byType(TopicStatusButton)), findsNothing);
+        expect(inHeader(find.byType(TopicStatusButtonPlaceholder)), findsOne);
+        expect(find.byKey(const ValueKey('topic-reply-button')), findsNothing);
+        expect(
+          tester
+              .widget<DButton>(
+                find.byKey(const ValueKey('topic-reply-placeholder')),
+              )
+              .onPressed,
+          isNull,
+        );
+        expect(find.byType(TopicBookmarkButtonPlaceholder), findsOneWidget);
+        expect(find.byType(TopicNotificationLevelPlaceholder), findsOneWidget);
+        expect(
+          find.byKey(const ValueKey('topic-loading-skeleton')),
+          findsOneWidget,
+        );
+        final loadingElement = tester.element(header);
+        final title = tester.getRect(toolbar);
+        final lock = tester.getRect(closed);
+        final taxonomy = tester.getRect(
+          find.byKey(const ValueKey('topic-header-taxonomy-placeholder')),
+        );
+        final activity = tester.getRect(
+          find.byKey(const ValueKey('topic-header-activity-placeholder')),
+        );
+        final body = tester.getRect(separator);
+        final actions = tester.getRect(footer);
 
-    shell.store.put(siteUrl, row.copyWith(postsCount: 10));
-    await tester.pump();
-    expect(inHeader(find.text('9 replies')), findsOneWidget);
+        gate.complete();
+        await tester.pump();
+        await tester.pump();
 
-    gate.complete();
-    await tester.pumpAndSettle();
-    expect(find.byKey(const ValueKey('topic-loading-skeleton')), findsNothing);
-    expect(inHeader(find.text('9 replies')), findsNothing);
-    expect(inHeader(find.text('3 replies')), findsOneWidget);
-    expect(inHeader(find.text('# cached-tag')), findsNothing);
-    expect(inHeader(find.text('# community')), findsOneWidget);
-    expect(
-      inHeader(find.byKey(const ValueKey('topic-header-closed'))),
-      findsNothing,
+        expect(find.byType(CookedHtml), findsWidgets);
+        expect(
+          find.byKey(const ValueKey('topic-loading-skeleton')),
+          findsNothing,
+        );
+        expect(
+          tester.element(header),
+          same(loadingElement),
+          reason:
+              'the arriving topic fills the header instead of remounting it',
+        );
+        expect(tester.getRect(toolbar), title);
+        expect(tester.getRect(closed), lock);
+        final loadedTaxonomy = tester.getRect(
+          find.byKey(const ValueKey('topic-header-taxonomy')),
+        );
+        expect(loadedTaxonomy.top, taxonomy.top);
+        expect(loadedTaxonomy.height, taxonomy.height);
+        final loadedActivity = tester.getRect(
+          find.byKey(const ValueKey('topic-header-activity')),
+        );
+        expect(loadedActivity.top, activity.top);
+        expect(loadedActivity.height, activity.height);
+        expect(tester.getRect(separator), body);
+        expect(tester.getRect(footer), actions);
+        expect(inHeader(find.byType(TopicStatusButton)), findsOneWidget);
+        expect(inHeader(find.byType(InlineTopicTitleEditor)), findsOneWidget);
+        expect(
+          inHeader(find.byKey(const Key('assign-topic-header'))),
+          assignable ? findsOneWidget : findsNothing,
+        );
+        expect(find.byKey(const ValueKey('topic-reply-button')), findsOne);
+        expect(tester.takeException(), isNull);
+      },
+      variant: TargetPlatformVariant.only(TargetPlatform.macOS),
     );
-    expect(inHeader(find.byType(InlineTopicTitleEditor)), findsOneWidget);
-    expect(inHeader(find.byType(TopicStatusButton)), findsOneWidget);
-    expect(tester.takeException(), isNull);
-  });
+  }
 
-  testWidgets('loading metadata follows navigation and absent cached rows', (
+  testWidgets('loading placeholders follow navigation and a failed load', (
     tester,
   ) async {
     final gate = Completer<void>();
@@ -357,14 +410,23 @@ void main() {
       categoryId: 21,
       tags: const [TopicTag(name: 'second')],
     );
+    final header = find.byType(TopicInboxHeader);
+    Finder inHeader(Finder finder) =>
+        find.descendant(of: header, matching: finder);
+    final placeholder = find.byKey(
+      const ValueKey('topic-header-taxonomy-placeholder'),
+    );
     shell.store.putAll(siteUrl, [first, second]);
     shell.openTopicFromList(first);
     await tester.pump();
-    expect(find.text('# first'), findsOneWidget);
+    expect(inHeader(find.text('Topic 1')), findsOneWidget);
+    expect(inHeader(find.text('# first')), findsNothing);
+    expect(placeholder, findsOneWidget);
     shell.openTopicFromList(second);
     await tester.pump();
-    expect(find.text('# first'), findsNothing);
-    expect(find.text('# second'), findsOneWidget);
+    expect(inHeader(find.text('Topic 1')), findsNothing);
+    expect(inHeader(find.text('Topic 2')), findsOneWidget);
+    expect(placeholder, findsOneWidget);
 
     shell.pushContent(
       ContentRoute.topic(
@@ -375,14 +437,10 @@ void main() {
     );
     final loading = shell.loadTopic(999, 'uncached');
     await tester.pump();
-    expect(find.text('# second'), findsNothing);
-    expect(find.byKey(const ValueKey('topic-header-taxonomy')), findsNothing);
-    expect(find.byKey(const ValueKey('topic-header-activity')), findsNothing);
+    expect(inHeader(find.text('Uncached topic')), findsOneWidget);
+    expect(placeholder, findsOneWidget);
     expect(
-      find.descendant(
-        of: find.byType(TopicInboxHeader),
-        matching: find.text('Uncached topic'),
-      ),
+      find.byKey(const ValueKey('topic-header-activity-placeholder')),
       findsOneWidget,
     );
     expect(
@@ -394,6 +452,12 @@ void main() {
     await tester.pumpAndSettle();
     await loading;
     expect(find.text("Couldn't load this topic."), findsOneWidget);
+    expect(placeholder, findsNothing);
+    expect(
+      find.byKey(const ValueKey('topic-header-activity-placeholder')),
+      findsNothing,
+    );
+    expect(inHeader(find.byType(TopicStatusButtonPlaceholder)), findsNothing);
     expect(find.byKey(const ValueKey('topic-header-taxonomy')), findsNothing);
     expect(tester.takeException(), isNull);
   });

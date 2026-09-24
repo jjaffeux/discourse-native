@@ -105,6 +105,32 @@ class TopicBookmarkButton extends StatelessWidget {
   }
 }
 
+/// The disabled [TopicBookmarkButton] shown while its topic loads.
+class TopicBookmarkButtonPlaceholder extends StatelessWidget {
+  const TopicBookmarkButtonPlaceholder({
+    super.key,
+    this.variant = DButtonVariant.ghost,
+    this.size = DButtonSize.chip,
+    this.density = DButtonDensity.standard,
+  });
+
+  final DButtonVariant variant;
+  final DButtonSize size;
+  final DButtonDensity density;
+
+  @override
+  Widget build(BuildContext context) => DButton.iconOnly(
+    onPressed: null,
+    icon: const DIcon(DIcons.bookmark),
+    tooltip: 'Bookmark this topic',
+    shortcut: const DShortcut(topicBookmarkShortcut),
+    variant: variant,
+    hasPopup: true,
+    size: size,
+    density: density,
+  );
+}
+
 enum _TopicCommand {
   flag,
   pinned,
@@ -442,11 +468,9 @@ class _TopicStatusButtonState extends State<TopicStatusButton> {
           children: _openItems,
         ),
         child: DDropdownMenuTrigger(
-          builder: (context, state) => DButton.iconOnly(
+          builder: (context, state) => _topicStatusTrigger(
             key: const ValueKey('topic-status-button'),
-            tooltip: 'More topic actions',
             focusNode: state.focusNode,
-            hasPopup: true,
             expanded: state.open,
             onPressed: busy || items.isEmpty
                 ? null
@@ -460,15 +484,52 @@ class _TopicStatusButtonState extends State<TopicStatusButton> {
                   },
             loading: busy,
             variant: widget.variant,
-            size: DButtonSize.chip,
             density: widget.density,
-            icon: const DIcon(DIcons.wrench, size: 14),
           ),
         ),
       ),
     );
   }
 }
+
+/// The disabled [TopicStatusButton] shown while its topic loads, so the
+/// header's actions keep their place when the menu becomes available.
+class TopicStatusButtonPlaceholder extends StatelessWidget {
+  const TopicStatusButtonPlaceholder({
+    super.key,
+    this.variant = DButtonVariant.transparentBackground,
+    this.density = DButtonDensity.standard,
+  });
+
+  final DButtonVariant variant;
+  final DButtonDensity density;
+
+  @override
+  Widget build(BuildContext context) =>
+      _topicStatusTrigger(variant: variant, density: density);
+}
+
+Widget _topicStatusTrigger({
+  Key? key,
+  FocusNode? focusNode,
+  bool expanded = false,
+  VoidCallback? onPressed,
+  bool loading = false,
+  required DButtonVariant variant,
+  required DButtonDensity density,
+}) => DButton.iconOnly(
+  key: key,
+  tooltip: 'More topic actions',
+  focusNode: focusNode,
+  hasPopup: true,
+  expanded: expanded,
+  onPressed: onPressed,
+  loading: loading,
+  variant: variant,
+  size: DButtonSize.chip,
+  density: density,
+  icon: const DIcon(DIcons.wrench, size: 14),
+);
 
 class TopicNotificationLevelButton extends StatelessWidget {
   const TopicNotificationLevelButton({
@@ -557,4 +618,37 @@ class TopicNotificationLevelButton extends StatelessWidget {
       },
     );
   }
+}
+
+/// The disabled [TopicNotificationLevelButton] shown while its topic loads,
+/// at the default level until the topic's own level arrives.
+class TopicNotificationLevelPlaceholder extends StatelessWidget {
+  const TopicNotificationLevelPlaceholder({
+    super.key,
+    this.showLabel = false,
+    this.showChevron = false,
+    this.variant,
+    this.size = DButtonSize.chip,
+    this.density = DButtonDensity.standard,
+  });
+
+  final bool showLabel;
+  final bool showChevron;
+  final DButtonVariant? variant;
+  final DButtonSize size;
+  final DButtonDensity density;
+
+  @override
+  Widget build(BuildContext context) =>
+      DNotificationLevelMenu<TopicNotificationLevel>(
+        semanticLabel: 'Topic notifications',
+        showLabel: showLabel,
+        showChevron: showChevron,
+        variant: variant,
+        size: size,
+        density: density,
+        value: TopicNotificationLevel.normal,
+        options: TopicNotificationLevelButton._options,
+        onChanged: null,
+      );
 }

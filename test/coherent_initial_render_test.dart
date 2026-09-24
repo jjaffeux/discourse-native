@@ -105,6 +105,8 @@ void main() {
     api.categoryLookups.single.response.complete([_category, _parent]);
     await tester.pump();
     await Future.wait([feed, loading]);
+    // The load notifies after the pump's frame check; the reader redraws next.
+    await tester.pump();
     expect(find.byType(CookedHtml), findsOneWidget);
     expect(api.categoryLookups, hasLength(1));
     expect(shell.categoryFor(9), _category);
@@ -126,6 +128,8 @@ void main() {
     api.categoryLookups.single.response.completeError(StateError('offline'));
     await tester.pump();
     await loading;
+    // The load notifies after the pump's frame check; the reader redraws next.
+    await tester.pump();
     expect(find.byType(CookedHtml), findsOneWidget);
     expect(shell.currentTopicLoading, isFalse);
   });

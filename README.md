@@ -1070,6 +1070,21 @@ to clear the collapse control in narrow readers. Compact mode keeps the same
 row order while reducing the title size and hiding activity. Header content
 transitions smoothly while the toolbar controls stay mounted and interactive.
 
+A loading topic already has its final frame, so nothing moves when it arrives.
+The title and closed lock come from the route or the cached list row, which
+render identically once loaded; the wrench and the footer's controls are drawn
+disabled. Taxonomy, activity and posts are placeholders at their loaded
+heights, and the topic fills them in place: the header is the same element
+before and after. List metadata is deliberately not drawn in the meantime.
+Category chevrons, “+ Subcategory”, the tag pencil and Assign depend on
+permissions only the topic carries, so drawing the list row first meant the
+header reflowed when they arrived. The desktop taxonomy row is always as tall
+as its tallest control, so Assign's larger button cannot grow it either.
+Placeholders stay transparent for 150 ms, so a prefetched or fast topic never
+flashes them. On dark palettes they mix the text colour into the page:
+a forum's `--primary-very-low`, the UI kit's usual skeleton fill, is only a few
+levels off its page there, and the pulse halves it.
+
 Plugin properties can supply a compact `TopicPropertySection.header` builder;
 other properties remain available through a labelled details popover. The
 assignment plugin shows Assign or one assignee dropdown near the title. Its
