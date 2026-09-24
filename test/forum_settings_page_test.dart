@@ -40,14 +40,14 @@ void main() {
       for (final control in ['appearance-theme-select', 'theme-sidebar']) {
         expect(find.byKey(ValueKey(control)), findsNothing, reason: control);
       }
-      // Effects are found without making a theme of one's own.
+      // Effects apply to every forum, so they live in the app's Settings.
       for (final control in [
         'theme-tint',
         'theme-opacity',
         'theme-texture',
         'theme-intensity',
       ]) {
-        expect(find.byKey(ValueKey(control)), findsOneWidget, reason: control);
+        expect(find.byKey(ValueKey(control)), findsNothing, reason: control);
       }
       expect(
         tester.getTopLeft(find.byKey(const ValueKey('appearance-mode'))).dy,

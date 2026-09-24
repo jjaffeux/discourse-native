@@ -4,8 +4,11 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
 import '../models/app_settings.dart';
+import '../models/shared_appearance.dart';
 import '../theme/d_icons.dart';
 import 'app_home_theme.dart';
+import 'forum_appearance_effects.dart';
+import 'forum_settings_controller.dart';
 import 'shell_scope.dart';
 
 Future<void> showAppSettingsModal(BuildContext context) async {
@@ -110,10 +113,47 @@ class AppSettingsModal extends StatelessWidget {
               ],
             ),
           ),
+          _EffectsSettings(
+            settings: ShellScope.identityOf(context).forumSettings,
+          ),
         ],
       ),
     );
   }
+}
+
+/// The window effects, which every forum draws the same way.
+class _EffectsSettings extends StatelessWidget {
+  const _EffectsSettings({required this.settings});
+
+  final ForumSettingsController settings;
+
+  /// Read when a choice lands rather than captured at build: two choices made
+  /// before the modal redraws must both be kept. A failed write has already
+  /// put the saved value back, so it only needs saying.
+  void _save(
+    BuildContext context,
+    SharedAppearance Function(SharedAppearance) change,
+  ) => unawaited(
+    settings.setShared(change(settings.shared)).catchError((Object _) {
+      if (context.mounted) {
+        DToast.show(context, 'Could not save changes.', type: DToastType.error);
+      }
+    }),
+  );
+
+  @override
+  Widget build(BuildContext context) => ListenableBuilder(
+    listenable: settings,
+    builder: (context, _) => ForumAppearanceEffects(
+      key: const ValueKey('appearance-effects'),
+      effects: settings.shared.effects,
+      onChanged: (change) => _save(
+        context,
+        (shared) => shared.copyWith(effects: change(shared.effects)),
+      ),
+    ),
+  );
 }
 
 class _SettingsField extends StatelessWidget {

@@ -11,7 +11,6 @@ import '../models/forum_theme_preferences.dart';
 import '../models/forum_theme_presets.dart';
 import '../models/shared_appearance.dart';
 import '../theme/discourse_typography.dart';
-import 'forum_appearance_effects.dart';
 import 'forum_settings_controller.dart';
 import 'forum_theme_clipboard.dart';
 import 'forum_theme_editor.dart';
@@ -430,14 +429,6 @@ class _ForumAppearanceSettingsState extends State<ForumAppearanceSettings> {
                         ),
                       ],
                     ],
-                  ),
-                ),
-                ForumAppearanceEffects(
-                  key: const ValueKey('appearance-effects'),
-                  effects: shared.effects,
-                  trailing: const _HeadingNote.shared(),
-                  onChanged: (effects) => unawaited(
-                    _saveShared(_shared.copyWith(effects: effects)),
                   ),
                 ),
                 if (editing != null)

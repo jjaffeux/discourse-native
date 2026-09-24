@@ -1,12 +1,10 @@
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/app_settings.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
-import 'package:discourse_native/src/models/forum_background.dart';
 import 'package:discourse_native/src/models/forum_font.dart';
 import 'package:discourse_native/src/models/forum_theme.dart';
 import 'package:discourse_native/src/models/forum_theme_preferences.dart';
 import 'package:discourse_native/src/models/forum_theme_presets.dart';
-import 'package:discourse_native/src/models/site_appearance.dart';
 import 'package:discourse_native/src/shell/forum_settings_page.dart';
 import 'package:discourse_native/src/shell/forum_theme_editor.dart';
 import 'package:discourse_native/src/shell/settings_section.dart';
@@ -514,58 +512,6 @@ void main() {
       for (final mode in Brightness.values) {
         expect(edited.forBrightness(mode).background, isNull);
       }
-      expect(tester.takeException(), isNull);
-    },
-  );
-
-  testWidgets(
-    'tint, opacity and texture are found without a theme of your own and '
-    'apply to every forum at once',
-    (tester) async {
-      final shell = controller();
-      addTearDown(shell.dispose);
-      await pumpSettings(tester, shell);
-      await _tap(tester, _choice('wcag'));
-      final applied = _preferences(shell);
-      DSlider slider(String name) =>
-          tester.widget(find.byKey(ValueKey('theme-$name')));
-      expect(slider('intensity').onChanged, isNull);
-      final tint = find.byKey(const ValueKey('theme-tint'));
-      await tester.ensureVisible(tint);
-      await tester.tapAt(tester.getTopRight(tint) + const Offset(-2, 13));
-      await tester.pumpAndSettle();
-      expect(find.text('22%'), findsOneWidget);
-      final opacity = find.byKey(const ValueKey('theme-opacity'));
-      await tester.tapAt(tester.getTopLeft(opacity) + const Offset(1, 13));
-      await tester.pumpAndSettle();
-      expect(find.text('70%'), findsOneWidget);
-      await _tap(tester, find.text('Noise'));
-      expect(slider('intensity').onChanged, isNotNull);
-
-      final effects = shell.forumSettings.shared.effects;
-      expect(effects.strength, 1);
-      expect(effects.transparency, .3);
-      expect(effects.effect, ForumBackgroundEffect.noise);
-      expect(
-        _appTheme(tester).extension<ForumThemeEffects>()!.background,
-        effects,
-      );
-      expect(_preferences(shell), applied);
-      expect(
-        (await shell.forumSettings.store.loadAppearance()).effects,
-        effects,
-      );
-      // Another forum, still on its own colours, draws the same effects.
-      final other = SiteAppearance(
-        base: forumThemePresets.first.resolve(Brightness.light),
-      );
-      expect(
-        shell.forumSettings
-            .appearanceFor('https://b.example', other)!
-            .base!
-            .background,
-        effects,
-      );
       expect(tester.takeException(), isNull);
     },
   );

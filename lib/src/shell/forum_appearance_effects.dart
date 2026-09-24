@@ -17,7 +17,10 @@ class ForumAppearanceEffects extends StatelessWidget {
   });
 
   final ForumBackground effects;
-  final ValueChanged<ForumBackground> onChanged;
+
+  /// Receives each choice as a change to whatever the effects are when it
+  /// lands, so two choices made before a redraw are both kept.
+  final ValueChanged<ForumBackground Function(ForumBackground)> onChanged;
 
   /// The section heading's trailing label.
   final Widget? trailing;
@@ -47,7 +50,7 @@ class ForumAppearanceEffects extends StatelessWidget {
                 ForumBackground.maxTint,
               ),
             ),
-            onChanged: (v) => onChanged(effects.copyWith(strength: v)),
+            onChanged: (v) => onChanged((e) => e.copyWith(strength: v)),
           ),
           _RampField(
             label: 'Opacity',
@@ -61,7 +64,7 @@ class ForumAppearanceEffects extends StatelessWidget {
               pattern: DSliderRampPattern.checkerboard,
             ),
             onChanged: (v) => onChanged(
-              effects.copyWith(
+              (e) => e.copyWith(
                 transparency: (1 - v) * ForumBackground.maxTransparency,
               ),
             ),
@@ -100,7 +103,7 @@ class ForumAppearanceEffects extends StatelessWidget {
                   ),
                 ],
                 onChanged: (values) =>
-                    onChanged(effects.copyWith(effect: values.single)),
+                    onChanged((e) => e.copyWith(effect: values.single)),
               ),
             ],
           ),
@@ -112,7 +115,7 @@ class ForumAppearanceEffects extends StatelessWidget {
               pattern: DSliderRampPattern.wave,
             ),
             onChanged: textureEnabled
-                ? (v) => onChanged(effects.copyWith(noiseIntensity: v))
+                ? (v) => onChanged((e) => e.copyWith(noiseIntensity: v))
                 : null,
           ),
         ],

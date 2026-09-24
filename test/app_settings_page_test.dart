@@ -1,7 +1,12 @@
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/data/app_settings_store.dart';
+import 'package:discourse_native/src/data/forum_settings_store.dart';
+import 'package:discourse_native/src/data/scalar_preference_repository.dart';
 import 'package:discourse_native/src/diagnostics/diagnostics.dart';
 import 'package:discourse_native/src/models/app_settings.dart';
+import 'package:discourse_native/src/models/forum_background.dart';
+import 'package:discourse_native/src/models/forum_theme_presets.dart';
+import 'package:discourse_native/src/models/site_appearance.dart';
 import 'package:discourse_native/src/shell/app_settings_page.dart';
 import 'package:discourse_native/src/shell/instance_rail.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
@@ -14,6 +19,13 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'support/fakes.dart';
 import 'support/finders.dart';
+
+/// The Text size readout, which the effects' percentages must not be
+/// mistaken for.
+Finder _textSize(String value) => find.descendant(
+  of: find.byKey(const ValueKey('text-size-value')),
+  matching: find.text(value),
+);
 
 void main() {
   testWidgets('the app settings form is centered and updates immediately', (
@@ -41,7 +53,7 @@ void main() {
     expect(find.text('Text size'), findsOneWidget);
     expect(find.text('Choose a comfortable reading size.'), findsNothing);
     expect(find.text('Topic list'), findsNothing);
-    expect(find.text('100%'), findsOneWidget);
+    expect(_textSize('100%'), findsOneWidget);
     expect(find.text('Disable GIF animations'), findsOneWidget);
     expect(
       find.textContaining('reading lane is limited to 825 px'),
@@ -71,20 +83,104 @@ void main() {
 
     expect(controller.appSettings.textScale, AppTextScale.percent110);
     expect(persistence.textScale, AppTextScale.percent110.name);
-    expect(find.text('110%'), findsOneWidget);
+    expect(_textSize('110%'), findsOneWidget);
 
     await tester.tap(find.byKey(const ValueKey('text-size-reset')));
     await tester.pump();
 
     expect(controller.appSettings.textScale, AppTextScale.percent100);
     expect(persistence.textScale, AppTextScale.percent100.name);
-    expect(find.text('100%'), findsOneWidget);
+    expect(_textSize('100%'), findsOneWidget);
 
     await tester.tap(find.text('Disable GIF animations'));
     await tester.pump();
 
     expect(controller.appSettings.disableGifAnimations, isTrue);
     expect(persistence.disableGifAnimations, isTrue);
+  });
+
+  testWidgets(
+    'tint, opacity and texture are in Settings and apply to every forum',
+    (tester) async {
+      final controller = _controller();
+      addTearDown(controller.dispose);
+      await _pumpPage(tester, controller, size: const Size(1100, 900));
+      final settings = controller.forumSettings;
+      DSlider slider(String name) =>
+          tester.widget(find.byKey(ValueKey('theme-$name')));
+      expect(slider('intensity').onChanged, isNull);
+      final tint = find.byKey(const ValueKey('theme-tint'));
+      await tester.ensureVisible(tint);
+      await tester.pumpAndSettle();
+      await tester.tapAt(tester.getTopRight(tint) + const Offset(-2, 13));
+      await tester.pumpAndSettle();
+      expect(find.text('22%'), findsOneWidget);
+      final opacity = find.byKey(const ValueKey('theme-opacity'));
+      await tester.tapAt(tester.getTopLeft(opacity) + const Offset(1, 13));
+      await tester.pumpAndSettle();
+      expect(find.text('70%'), findsOneWidget);
+      await tester.tap(find.text('Noise'));
+      await tester.pumpAndSettle();
+      expect(slider('intensity').onChanged, isNotNull);
+
+      final effects = settings.shared.effects;
+      expect(effects.strength, 1);
+      expect(effects.transparency, .3);
+      expect(effects.effect, ForumBackgroundEffect.noise);
+      expect((await settings.store.loadAppearance()).effects, effects);
+      // A forum on its own colours draws the same effects.
+      final forum = SiteAppearance(
+        base: forumThemePresets.first.resolve(Brightness.light),
+      );
+      for (final site in ['https://a.example', 'https://b.example']) {
+        expect(
+          settings.appearanceFor(site, forum)!.base!.background,
+          effects,
+          reason: site,
+        );
+      }
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets('two effects chosen before Settings redraws both stay', (
+    tester,
+  ) async {
+    final controller = _controller();
+    addTearDown(controller.dispose);
+    await _pumpPage(tester, controller, size: const Size(1100, 1400));
+    final tint = find.byKey(const ValueKey('theme-tint'));
+    await tester.tapAt(tester.getTopRight(tint) + const Offset(-2, 13));
+    await tester.tap(find.text('Noise'));
+    await tester.pumpAndSettle();
+    final effects = controller.forumSettings.shared.effects;
+    expect(effects.strength, 1);
+    expect(effects.effect, ForumBackgroundEffect.noise);
+    expect(
+      (await controller.forumSettings.store.loadAppearance()).effects,
+      effects,
+    );
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('an effect that cannot be saved is put back and said so', (
+    tester,
+  ) async {
+    final controller = _controller(
+      forumSettingsStore: ForumSettingsStore(
+        persistence: _RejectingPersistence(),
+      ),
+    );
+    addTearDown(controller.dispose);
+    await _pumpPage(tester, controller, size: const Size(1100, 1400));
+    await tester.tap(find.text('Noise'));
+    await tester.pumpAndSettle();
+    expect(
+      controller.forumSettings.shared.effects.effect,
+      ForumBackgroundEffect.normal,
+    );
+    expect(find.text('Could not save changes.'), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('settings heading grows to fit 200% text without clipping', (
@@ -98,7 +194,7 @@ void main() {
       find.byKey(const ValueKey('app-settings-header')),
     );
     expect(header.height, greaterThanOrEqualTo(title.height));
-    expect(tester.getSize(find.text('100%')).height, closeTo(40, 0.001));
+    expect(tester.getSize(_textSize('100%')).height, closeTo(40, 0.001));
     expect(tester.takeException(), isNull);
     await tester.tap(find.byKey(const ValueKey('app-settings-close')));
     await tester.pumpAndSettle();
@@ -295,20 +391,23 @@ void main() {
   );
 }
 
-ShellController _controller({AppSettingsPersistence? appSettingsPersistence}) =>
-    ShellController(
-      instanceStore: FakeInstanceStore(),
-      api: FakeDiscourseApi(),
-      authenticator: FakeAuthenticator(),
-      drafts: FakeDraftStore(),
-      forumTabs: FakeForumTabStore(),
-      trackers: FakeSiteTracker.reset(),
-      updateStore: FakeUpdateStore(),
-      initialRootMode: ShellRootMode.forum,
-      appSettingsStore: AppSettingsStore(
-        persistence: appSettingsPersistence ?? MemoryAppSettingsPersistence(),
-      ),
-    );
+ShellController _controller({
+  AppSettingsPersistence? appSettingsPersistence,
+  ForumSettingsStore? forumSettingsStore,
+}) => ShellController(
+  instanceStore: FakeInstanceStore(),
+  api: FakeDiscourseApi(),
+  authenticator: FakeAuthenticator(),
+  drafts: FakeDraftStore(),
+  forumTabs: FakeForumTabStore(),
+  trackers: FakeSiteTracker.reset(),
+  updateStore: FakeUpdateStore(),
+  initialRootMode: ShellRootMode.forum,
+  appSettingsStore: AppSettingsStore(
+    persistence: appSettingsPersistence ?? MemoryAppSettingsPersistence(),
+  ),
+  forumSettingsStore: forumSettingsStore,
+);
 
 Future<void> _pumpPage(
   WidgetTester tester,
@@ -327,13 +426,16 @@ Future<void> _pumpPage(
       controller: controller,
       child: MaterialApp(
         theme: theme ?? AppTheme.light,
-        builder: (context, child) => MediaQuery(
-          data: MediaQuery.of(
-            context,
-          ).copyWith(textScaler: TextScaler.linear(scale)),
-          child: Directionality(
-            textDirection: rtl ? TextDirection.rtl : TextDirection.ltr,
-            child: child!,
+        // The app hosts toasts above every page.
+        builder: (context, child) => DToaster(
+          child: MediaQuery(
+            data: MediaQuery.of(
+              context,
+            ).copyWith(textScaler: TextScaler.linear(scale)),
+            child: Directionality(
+              textDirection: rtl ? TextDirection.rtl : TextDirection.ltr,
+              child: child!,
+            ),
           ),
         ),
         home: Builder(
@@ -377,4 +479,13 @@ Future<void> _pumpRail(
     ),
   );
   await tester.pump();
+}
+
+final class _RejectingPersistence
+    implements ScalarPreferencePersistence<String> {
+  @override
+  Future<String?> read(String key) async => null;
+
+  @override
+  Future<bool> write(String key, String value) async => false;
 }

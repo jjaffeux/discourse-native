@@ -571,10 +571,12 @@ forums follow the system. Aggregate and the app-wide Settings modal follow the
 system appearance independently.
 
 Only a forum's colours, and whether it shows them light or dark, are its own.
-The page's **Font** and **Effects** (**Tint**, **Opacity**, **Texture** and its
-**Intensity**) are marked *All forums* and apply to every forum, so moving
-between forums never changes the reading font or the window's opacity, and the
-effects are found without making a theme. Effects are drawn over whichever
+The page's **Font** is marked *All forums*, and the window **Effects**
+(**Tint**, **Opacity**, **Texture** and its **Intensity**) are in the app-wide
+Settings modal rather than on any forum's page. Both apply to every forum, so
+moving between forums never changes the reading font or the window's opacity,
+and the effects are found without making a theme. The workspace behind the
+modal shows each effect as it is chosen. Effects are drawn over whichever
 colours a forum uses. The tint pulls surfaces and text toward that palette's
 accent; on the forum's own palette it does so colour by colour, so every colour
 the forum derived itself is kept, and with no effects that palette is shown
