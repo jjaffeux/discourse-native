@@ -1188,51 +1188,73 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('reordering within ${panel.name} skips gaps that keep the '
-        'dragged tab in place', (tester) async {
+    testWidgets('reordering within ${panel.name} keeps the dragged tab in '
+        'place and drops past a whole neighbour', (tester) async {
       if (panel == ForumPanel.secondary) {
         _openTopicTab(shell, _topic);
       }
       final first = shell.selectedTabIn(panel)!.id;
       shell.createTab(panel: panel);
       final second = shell.selectedTabIn(panel)!.id;
+      shell.createTab(panel: panel);
+      final third = shell.selectedTabIn(panel)!.id;
       await _pump(tester, shell);
 
-      final sourceRect = tester.getRect(
-        find.byKey(ValueKey('forum-tab-$first')),
-      );
-      final targetRect = tester.getRect(
-        find.byKey(ValueKey('forum-tab-$second')),
-      );
+      Rect rectOf(String id) =>
+          tester.getRect(find.byKey(ValueKey('forum-tab-$id')));
       final indicator = find.byKey(
         const ValueKey('forum-tab-drop-placeholder'),
       );
       final gesture = await tester.startGesture(
-        sourceRect.center,
+        rectOf(second).center,
         kind: PointerDeviceKind.mouse,
       );
       await gesture.moveBy(const Offset(0, 20));
       await tester.pump();
+      // Pressing selects the tab, which widens it for its close action.
+      final firstRect = rectOf(first);
+      final secondRect = rectOf(second);
+      final thirdRect = rectOf(third);
 
       Future<void> hover(double dx) async {
-        await gesture.moveTo(Offset(dx, sourceRect.center.dy));
+        await gesture.moveTo(Offset(dx, secondRect.center.dy));
         await tester.pumpAndSettle();
       }
 
-      // The gaps before and after the dragged tab's own slot.
-      await hover(sourceRect.left + 2);
+      expect(
+        find.ancestor(
+          of: find.byKey(ValueKey('forum-tab-$second')),
+          matching: find.byWidgetPredicate(
+            (widget) => widget is Opacity && widget.opacity == 0,
+          ),
+        ),
+        findsNothing,
+      );
+
+      // Its own slot would not move it.
+      await hover(secondRect.left + 2);
       expect(indicator, findsNothing);
-      await hover(targetRect.left + 2);
-      expect(indicator, findsNothing);
-      await hover(targetRect.right - 2);
-      expect(indicator, findsOneWidget);
-      await hover(targetRect.left + 2);
+      await hover(secondRect.right - 2);
       expect(indicator, findsNothing);
 
+      // Either half of a neighbour answers that neighbour's far side.
+      for (final dx in [firstRect.right - 2, firstRect.left + 2]) {
+        await hover(dx);
+        expect(indicator, findsOneWidget);
+        expect(tester.getRect(indicator).right, lessThan(firstRect.left));
+      }
+      for (final dx in [thirdRect.left + 2, thirdRect.right - 2]) {
+        await hover(dx);
+        expect(indicator, findsOneWidget);
+        expect(tester.getRect(indicator).left, greaterThan(thirdRect.right));
+      }
+
+      await hover(thirdRect.left + 2);
       await gesture.up();
       await tester.pumpAndSettle();
       expect(shell.currentWorkspace!.tabsIn(panel).map((tab) => tab.id), [
         first,
+        third,
         second,
       ]);
       expect(tester.takeException(), isNull);

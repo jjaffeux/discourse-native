@@ -172,16 +172,31 @@ class _ForumTabsBarState extends State<ForumTabsBar> {
     });
   }
 
-  int _indexAt(Offset position) {
+  /// The gap [id] would be inserted into when dropped at [position].
+  ///
+  /// The two gaps touching a strip tab's own slot would not move it, so a
+  /// neighbour answers its far side wherever the pointer is on it, and the
+  /// slot itself answers a gap that [_destinationFor] declines.
+  int _indexAt(String id, Offset position) {
     final rtl = Directionality.of(context) == TextDirection.rtl;
+    var gap = widget.items.length;
     for (var index = 0; index < _tabCenters.length; index++) {
       if (rtl
           ? position.dx > _tabCenters[index]
           : position.dx < _tabCenters[index]) {
-        return index;
+        gap = index;
+        break;
       }
     }
-    return widget.items.length;
+    final source = widget.items.indexWhere((item) => item.id == id);
+    if (source < 0 || _tabRects.length != widget.items.length) return gap;
+    final slot = _tabRects[source];
+    if (position.dx >= slot.left && position.dx <= slot.right) return source;
+    if (gap == source && source > 0) return source - 1;
+    if (gap == source + 1 && source + 2 <= widget.items.length) {
+      return source + 2;
+    }
+    return gap;
   }
 
   /// Where [id] lands when dropped at gap [insertion], or null when that gap
@@ -199,7 +214,7 @@ class _ForumTabsBarState extends State<ForumTabsBar> {
     _captureDropGeometry(item.id);
     setState(() {
       _dropItem = item;
-      _dropIndex = _indexAt(details.offset);
+      _dropIndex = _indexAt(item.id, details.offset);
       _contents = null;
     });
     return true;
@@ -207,7 +222,7 @@ class _ForumTabsBarState extends State<ForumTabsBar> {
 
   void _moveDrop(DragTargetDetails<String> details) {
     if (_dropItem == null) return;
-    final index = _indexAt(details.offset);
+    final index = _indexAt(details.data, details.offset);
     if (index == _dropIndex) return;
     setState(() {
       _dropIndex = index;
@@ -284,7 +299,7 @@ class _ForumTabsBarState extends State<ForumTabsBar> {
     onAcceptWithDetails: (details) {
       final destination = _destinationFor(
         details.data,
-        _indexAt(details.offset),
+        _indexAt(details.data, details.offset),
       );
       _clearDrop();
       if (destination != null &&
@@ -1121,11 +1136,6 @@ class _ReorderableForumTab extends StatelessWidget {
                 item: item,
                 width: ForumTabsBar.maximumTabWidth,
               ),
-            ),
-            childWhenDragging: Opacity(
-              opacity: 0,
-              alwaysIncludeSemantics: true,
-              child: child,
             ),
             child: child,
           );
