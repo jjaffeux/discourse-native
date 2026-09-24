@@ -9,6 +9,18 @@ import '../models/forum_background.dart';
 import '../theme/app_theme.dart';
 import 'forum_texture.dart';
 
+Color _plainWindowColor(ThemeData theme, DTokens tokens) {
+  final scaffold = theme.scaffoldBackgroundColor;
+  if (scaffold != tokens.background) return scaffold;
+  // Some forums use their reading color for the header too. In that case the
+  // workspace gutters need a separate fill to reveal the framed panels.
+  return Color.lerp(
+    tokens.background,
+    Colors.black,
+    theme.brightness == Brightness.dark ? .20 : .06,
+  )!;
+}
+
 /// Paints one shared canvas behind the entire forum workspace.
 class ForumWindowBackground extends StatefulWidget {
   const ForumWindowBackground({super.key, required this.child});
@@ -138,7 +150,7 @@ class _ForumWindowBackgroundState extends State<ForumWindowBackground>
                   alpha: 1 - (background!.transparency / .3 * 38).round() / 100,
                 )
               : background == null
-              ? theme.scaffoldBackgroundColor
+              ? _plainWindowColor(theme, tokens)
               : theme.shell.content,
           gradient: background == null ? effects?.windowGradient : null,
         ),

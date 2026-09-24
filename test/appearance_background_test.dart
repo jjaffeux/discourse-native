@@ -191,6 +191,57 @@ void main() {
   });
 
   testWidgets(
+    'plain forum canvas distinguishes desktop panels from their gutters',
+    (tester) async {
+      for (final brightness in Brightness.values) {
+        final paletteTheme = AppTheme.fromPalette(
+          forumThemePresets.first.resolve(brightness),
+        );
+        for (final sameHeaderAndPanelColor in [true, false]) {
+          final theme = sameHeaderAndPanelColor
+              ? paletteTheme.copyWith(
+                  scaffoldBackgroundColor: paletteTheme.shell.content,
+                )
+              : paletteTheme;
+          await tester.pumpWidget(
+            MaterialApp(
+              theme: theme,
+              home: const ForumWindowBackground(
+                child: Center(
+                  child: DCard(child: SizedBox(width: 100, height: 100)),
+                ),
+              ),
+            ),
+          );
+          await tester.pumpAndSettle();
+
+          final canvas = tester.widget<DecoratedBox>(
+            find.byKey(const ValueKey('forum-window-canvas')),
+          );
+          final canvasColor = (canvas.decoration as BoxDecoration).color!;
+          final card = tester.widget<Material>(
+            find.descendant(
+              of: find.byType(DCard),
+              matching: find.byType(Material),
+            ),
+          );
+          expect(
+            card.color,
+            DTokens.of(tester.element(find.byType(DCard))).background,
+          );
+          if (sameHeaderAndPanelColor) {
+            expect(canvasColor.r, lessThan(card.color!.r));
+            expect(canvasColor.g, lessThan(card.color!.g));
+            expect(canvasColor.b, lessThan(card.color!.b));
+          } else {
+            expect(canvasColor, theme.scaffoldBackgroundColor);
+          }
+        }
+      }
+    },
+  );
+
+  testWidgets(
     'panel transparency updates independently with opaque footers at zero',
     (tester) async {
       for (final brightness in Brightness.values) {
