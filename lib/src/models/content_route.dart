@@ -755,10 +755,11 @@ class ContentRoute {
       id: id,
       openInSecondaryPanel: json['open_in_secondary_panel'] == true,
       openInMainPanel: json['open_in_main_panel'] == true,
-      title: title,
+      title: id == 'new-tab' ? 'Start page' : title,
       // Upgrade the speech bubble saved by older topic tabs without changing
       // the durable icon of routes that deliberately chose another glyph.
       icon:
+          (id == 'new-tab' ? DIcons.grip : null) ??
           DNativeIcons.byName[iconName] ??
           (topicId != null && iconName == DIcons.comments.name
               ? DNativeIcons.topic

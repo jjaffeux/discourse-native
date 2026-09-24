@@ -1065,4 +1065,5 @@ void _expectNewTabRoot(ShellController controller) {
   expect(controller.destinationId, 'new-tab');
   expect(_routeIds(controller), ['new-tab']);
   expect(controller.currentContent?.title, 'Start page');
+  expect(controller.currentContent?.icon, DIcons.grip);
 }

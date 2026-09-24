@@ -6,6 +6,21 @@ import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test('start page uses six dots and upgrades saved new tabs', () {
+    final route = ContentRoute.newTab();
+    expect(route.tabTitle, 'Start page');
+    expect(route.icon, DIcons.grip);
+    expect(ContentRoute.fromJson(route.toJson()), route);
+
+    final restored = ContentRoute.fromJson({
+      ...route.toJson(),
+      'title': 'New tab',
+      'icon': DIcons.house.name,
+    });
+    expect(restored.tabTitle, 'Start page');
+    expect(restored.icon, DIcons.grip);
+  });
+
   test(
     'tab titles describe topic modes, including restored and filtered tabs',
     () {
