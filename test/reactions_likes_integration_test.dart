@@ -1048,6 +1048,80 @@ void _registerReactionAndLikeTests() {
       }
     });
 
+    testWidgets('mobile reaction chips filter the names in the sheet', (
+      tester,
+    ) async {
+      final previous = debugDefaultTargetPlatformOverride;
+      debugDefaultTargetPlatformOverride = TargetPlatform.android;
+
+      final api = await openTopic(
+        tester,
+        config: configured,
+        posts: [
+          post(
+            reactions: [(id: 'heart', count: 1), (id: 'clap', count: 1)],
+            userCount: 2,
+          ),
+        ],
+        reactorsById: {
+          '1': const PostReactors(
+            postId: 1,
+            total: 2,
+            reactors: [
+              PostReactor(id: 3, username: 'sam', reaction: 'heart'),
+              PostReactor(id: 4, username: 'ada', reaction: 'clap'),
+            ],
+          ),
+          '1:clap': const PostReactors(
+            postId: 1,
+            filter: 'clap',
+            total: 1,
+            reactors: [PostReactor(id: 4, username: 'ada', reaction: 'clap')],
+          ),
+        },
+      );
+      tester.view.physicalSize = const Size(390, 844);
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const ValueKey('post-reaction-summary-1')));
+      await tester.pumpAndSettle();
+      final names = find.byType(ReactorList);
+      expect(
+        find.descendant(of: names, matching: find.text('sam')),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(of: names, matching: find.text('ada')),
+        findsOneWidget,
+      );
+
+      await tester.tap(find.byKey(const ValueKey('post-reaction-filter-clap')));
+      await tester.pumpAndSettle();
+      expect(api.reactorsRequested.last, (postId: 1, filter: 'clap'));
+      expect(
+        find.descendant(of: names, matching: find.text('sam')),
+        findsNothing,
+      );
+      expect(
+        find.descendant(of: names, matching: find.text('ada')),
+        findsOneWidget,
+      );
+      expect(api.reacted, isEmpty);
+
+      await tester.tap(find.byKey(const ValueKey('post-reaction-filter-clap')));
+      await tester.pumpAndSettle();
+      expect(
+        find.descendant(of: names, matching: find.text('sam')),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(of: names, matching: find.text('ada')),
+        findsOneWidget,
+      );
+      debugDefaultTargetPlatformOverride = previous;
+      tester.view.resetPhysicalSize();
+    });
+
     testWidgets('clicking an existing reaction adds the reader to it', (
       tester,
     ) async {
