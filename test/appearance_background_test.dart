@@ -4,56 +4,34 @@ import 'package:discourse_native/src/models/forum_theme.dart';
 import 'package:discourse_native/src/models/forum_theme_preferences.dart';
 import 'package:discourse_native/src/models/forum_theme_presets.dart';
 import 'package:discourse_native/src/models/site_appearance.dart';
+import 'package:discourse_native/src/shell/forum_texture.dart';
 import 'package:discourse_native/src/shell/forum_theme_editor.dart';
 import 'package:discourse_native/src/shell/forum_theme_surfaces.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
-import 'package:discourse_native/src/theme/color_contrast.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  test('tinted palettes keep readable text and preserve authored colors', () {
-    double contrast(Color a, Color b) {
-      final luminances = [a.computeLuminance(), b.computeLuminance()]..sort();
-      return (luminances.last + .05) / (luminances.first + .05);
-    }
-
+  test('a theme tints surfaces and ink toward its accent as a forum '
+      'palette does', () {
     for (final source in forumThemePresets) {
-      final authored = source.toJson();
-      for (final color in [
-        Colors.white,
-        Colors.black,
-        Colors.pink,
-        Colors.lime,
-      ]) {
-        for (final mode in Brightness.values) {
-          final modeColors = source.forBrightness(mode).toJson();
-          final custom = ForumTheme.fromJson({
-            ...modeColors,
-            'background': ForumBackground(color: color, strength: 1).toJson(),
-          }, id: 'custom');
-          final palette = custom.resolve(mode);
-          for (final foreground in [palette.primary, palette.metadataColor]) {
-            expect(
-              contrast(foreground, palette.secondary),
-              greaterThanOrEqualTo(minimumTextContrastRatio),
-              reason: '${source.id} $mode $color',
-            );
+      for (final mode in Brightness.values) {
+        final theme = source.forBrightness(mode);
+        final plain = theme.resolve(mode);
+        for (final strength in [0.0, .37, 1.0]) {
+          final effects = ForumBackground.appearance(strength: strength);
+          final tinted = theme.copyWith(background: effects).resolve(mode);
+          final forum = plain.withEffects(effects);
+          final reason = '${source.id} $mode $strength';
+          expect(tinted.secondary, forum.secondary, reason: reason);
+          expect(tinted.primary, forum.primary, reason: reason);
+          if (strength == 0) {
+            expect(tinted.secondary, plain.secondary, reason: reason);
+            expect(tinted.primary, plain.primary, reason: reason);
           }
-          expect(
-            contrast(palette.selectedForeground, palette.selected),
-            greaterThanOrEqualTo(minimumTextContrastRatio),
-          );
-          final zero = ForumTheme.fromJson({
-            ...modeColors,
-            'background': ForumBackground(color: color, strength: 0).toJson(),
-          }, id: 'zero').resolve(mode).toJson()..remove('background');
-          expect(zero, source.resolve(mode).toJson());
-          expect(custom.toJson()['colors'], modeColors['colors']);
         }
       }
-      expect(source.toJson(), authored);
     }
   });
 
@@ -264,18 +242,18 @@ void main() {
   );
 
   testWidgets(
-    'panel transparency updates independently with opaque footers at zero',
+    'panel transparency updates independently while footers stay opaque',
     (tester) async {
       for (final brightness in Brightness.values) {
         for (final transparency in [0.0, .1, .2]) {
-          final custom = ForumTheme.fromJson({
-            ...forumThemePresets.first.forBrightness(brightness).toJson(),
-            'background': ForumBackground(
-              color: Colors.purple,
-              effect: ForumBackgroundEffect.paper,
-              transparency: transparency,
-            ).toJson(),
-          }, id: 'custom-panels');
+          final custom = forumThemePresets.first
+              .forBrightness(brightness)
+              .copyWith(
+                background: ForumBackground.appearance(
+                  effect: ForumBackgroundEffect.paper,
+                  transparency: transparency,
+                ),
+              );
           Color? panel;
           Color? footer;
           Color? nested;
@@ -305,7 +283,7 @@ void main() {
           );
           await tester.pumpAndSettle();
           expect(panel!.a, closeTo(1 - transparency, .001));
-          expect(footer!.a, closeTo(1 - transparency * .25, .001));
+          expect(footer!.a, 1);
           expect(nested, panel);
           expect(tester.takeException(), isNull);
         }
@@ -430,16 +408,16 @@ void main() {
     Future<void> show(
       ForumBackgroundEffect effect, {
       bool reduced = false,
-      double strength = .7,
+      double intensity = .7,
     }) async {
-      final theme = ForumTheme.fromJson({
-        ...forumThemePresets.first.forBrightness(Brightness.dark).toJson(),
-        'background': ForumBackground(
-          color: Colors.purple,
-          strength: strength,
-          effect: effect,
-        ).toJson(),
-      }, id: 'custom-motion');
+      final theme = forumThemePresets.first
+          .forBrightness(Brightness.dark)
+          .copyWith(
+            background: ForumBackground.appearance(
+              effect: effect,
+              noiseIntensity: intensity,
+            ),
+          );
       await tester.pumpWidget(
         MaterialApp(
           theme: AppTheme.fromPalette(theme.resolve(Brightness.dark)),
@@ -456,11 +434,9 @@ void main() {
 
     await show(ForumBackgroundEffect.lava);
     expect(
-      find.byWidgetPredicate(
-        (widget) => widget is CustomPaint && widget.painter != null,
-      ),
+      find.byType(ForumTexture),
       findsOneWidget,
-      reason: 'Nested mobile shells must share one effect painter.',
+      reason: 'Nested mobile shells must share one texture.',
     );
     expect(tester.binding.hasScheduledFrame, isTrue);
     await show(ForumBackgroundEffect.lava, reduced: true);
@@ -470,7 +446,7 @@ void main() {
     await tester.pumpAndSettle();
     await show(ForumBackgroundEffect.normal);
     await tester.pumpAndSettle();
-    await show(ForumBackgroundEffect.lava, strength: 0);
+    await show(ForumBackgroundEffect.lava, intensity: 0);
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
   });

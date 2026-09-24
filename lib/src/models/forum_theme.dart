@@ -2,7 +2,6 @@ import 'dart:ui';
 
 import 'package:flutter/foundation.dart';
 
-import '../theme/color_contrast.dart';
 import 'forum_background.dart';
 import 'site_appearance.dart';
 
@@ -216,40 +215,20 @@ final class ForumTheme {
     final originalBackground = target == brightness ? secondary : primary;
     // Tint the shared base before deriving panel and control surfaces. Applying
     // it only to the window canvas leaves opaque Native surfaces unchanged.
-    final treatment = this.background;
-    final tinted = treatment != null && treatment.strength > 0;
-    final background = tinted
-        ? Color.lerp(
-            originalBackground,
-            treatment.useAccentTint ? tertiary : treatment.color,
-            (treatment.useAccentTint
-                ? (treatment.strength * ForumBackground.maxTint * 100).round() /
-                      100
-                : treatment.strength * .45),
-          )!
-        : originalBackground;
-    Color readable(Color color, {Color? surface}) =>
-        tinted && !treatment.useAccentTint
-        ? contrastSafeForeground(
-            background: surface ?? background,
-            backdrop: background,
-            preferred: [color, originalForeground],
-          )
-        : color;
-    final foreground = treatment?.useAccentTint == true
-        ? Color.lerp(
-            originalForeground,
+    final effects = this.background;
+    Color tint(Color color, double reach) => effects == null
+        ? color
+        : Color.lerp(
+            color,
             tertiary,
-            (treatment!.strength * ForumBackground.maxTextTint * 100).round() /
-                100,
-          )!
-        : readable(originalForeground);
+            (effects.strength * reach * 100).round() / 100,
+          )!;
+    final background = tint(originalBackground, ForumBackground.maxTint);
+    final foreground = tint(originalForeground, ForumBackground.maxTextTint);
     Color mix(Color color, double amount) =>
         Color.lerp(background, color, amount)!;
     final selected = mix(tertiary, .20);
-    final metadata = readable(
-      mix(foreground, treatment?.useAccentTint == true ? .50 : .70),
-    );
+    final metadata = mix(foreground, effects == null ? .70 : .50);
     return ResolvedSitePalette.fromJson({
       'brightness': target.name,
       if (this.background != null) 'background': this.background!.toJson(),
@@ -276,7 +255,7 @@ final class ForumTheme {
       'success': success.toARGB32(),
       'love': love.toARGB32(),
       'selected': selected.toARGB32(),
-      'selectedForeground': readable(foreground, surface: selected).toARGB32(),
+      'selectedForeground': foreground.toARGB32(),
       'hover': mix(foreground, .08).toARGB32(),
       'primaryVeryLow': mix(foreground, .03).toARGB32(),
       'primaryLow': mix(foreground, .12).toARGB32(),
@@ -295,7 +274,7 @@ final class ForumTheme {
       'inlineCodeBackground': mix(foreground, .08).toARGB32(),
       'codeKeyword': tertiary.toARGB32(),
       'codeString': success.toARGB32(),
-      'codeComment': readable(mix(foreground, .62)).toARGB32(),
+      'codeComment': mix(foreground, .62).toARGB32(),
       'codeNumber': quaternary.toARGB32(),
       'codeName': tertiary.toARGB32(),
       'codeMeta': metadata.toARGB32(),

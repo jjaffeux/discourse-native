@@ -4,7 +4,11 @@ import 'package:flutter/foundation.dart';
 
 enum ForumBackgroundEffect { normal, lava, paper, gradient }
 
-/// Portable background color and window effects for a custom forum theme.
+/// The window effects: an accent tint, panel transparency and a texture.
+///
+/// Only accent-tint values are drawn. Themes saved or shared before the tint
+/// followed the accent chose a [color] of their own; they still parse, and
+/// [toAccentTint] turns them into what the app draws.
 @immutable
 class ForumBackground {
   const ForumBackground({
@@ -83,6 +87,7 @@ class ForumBackground {
     );
   }
 
+  /// The tint colour an older theme chose. Accent tints ignore it.
   final Color color;
   final double strength;
   final ForumBackgroundEffect effect;
@@ -93,8 +98,8 @@ class ForumBackground {
   /// How much of the window canvas shows through content panels.
   final double transparency;
 
-  /// New themes tint both background and text with their own accent. Older
-  /// exported themes retain their separately chosen background treatment.
+  /// Whether this tints toward the accent. Older themes tinted toward their
+  /// own [color], on a stronger [strength] scale; see [toAccentTint].
   final bool useAccentTint;
 
   /// Whether this draws nothing over the colours it is applied to.
