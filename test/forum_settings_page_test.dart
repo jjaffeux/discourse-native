@@ -14,7 +14,14 @@ void main() {
       addTearDown(shell.dispose);
       await pumpSettings(tester, shell);
       final sources = find.byKey(const ValueKey('theme-source'));
-      expect(find.byKey(const ValueKey('appearance-mode')), findsOneWidget);
+      expect(
+        tester
+            .widget<DRadioGroup<AppThemeMode>>(
+              find.byKey(const ValueKey('appearance-mode')),
+            )
+            .groupValue,
+        AppThemeMode.system,
+      );
       // The font is an app setting, chosen in Settings.
       expect(find.text('Font'), findsNothing);
       expect(
