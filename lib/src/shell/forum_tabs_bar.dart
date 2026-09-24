@@ -1174,7 +1174,7 @@ class _NewTabButton extends StatelessWidget {
                 LogicalKeyboardKey.keyT,
               ),
             ),
-      variant: DButtonVariant.ghost,
+      variant: DButtonVariant.transparentBackground,
       icon: const DIcon(DIcons.plus),
       onPressed: onPressed,
     ),
@@ -1758,7 +1758,7 @@ class CurrentForumTabsBar extends StatelessWidget {
                       key: ValueKey('add-empty-${panel?.name}'),
                       icon: const DIcon(DIcons.plus),
                       tooltip: 'Open a new tab',
-                      variant: DButtonVariant.ghost,
+                      variant: DButtonVariant.transparentBackground,
                       onPressed: controller.canCreateTab
                           ? () => controller.createTab(panel: panel)
                           : null,
