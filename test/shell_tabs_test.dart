@@ -449,7 +449,7 @@ void main() {
         final listTabId = controller.activeTabId!;
         final topicTabIds = <String>[];
         for (final topicId in [101, 202, 303, 404]) {
-          controller.openTopicUrl('/t/topic/$topicId');
+          controller.openLinkInNewTab('/t/topic/$topicId');
           topicTabIds.add(controller.activeTabId!);
         }
 
@@ -619,7 +619,7 @@ void main() {
           controller.desktopTopicTabs = true;
           final firstListId = controller.activeTabId!;
           controller.saveFeedScrollRow('latest', 12);
-          controller.openTopicUrl('/t/reader/303');
+          controller.openLinkInNewTab('/t/reader/303');
           final readerId = controller.activeTabId!;
           controller.saveFeedScrollRow('latest', 18, tabId: firstListId);
           expect(controller.activeTabId, readerId);

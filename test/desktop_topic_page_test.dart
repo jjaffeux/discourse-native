@@ -88,7 +88,7 @@ void main() {
         DButtonVariant.transparentBackground,
       );
 
-      h.shell.openTopicFromList(h.topics.first);
+      _openTopicTab(h.shell, h.topics.first);
       await tester.pumpAndSettle();
       final listTabs = find.descendant(
         of: find.byKey(const ValueKey('desktop-panel-main')),
@@ -122,7 +122,7 @@ void main() {
       expect(find.byKey(const ValueKey('topic-view-options')), findsNothing);
       expect(find.byTooltip('Switch panel positions'), findsNWidgets(2));
     }
-    h.shell.openTopicFromList(h.topics.first);
+    _openTopicTab(h.shell, h.topics.first);
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('forum-tabs-bar')), findsNWidgets(2));
     expect(tester.takeException(), isNull);
@@ -177,7 +177,7 @@ void main() {
       expect(previous, findsNothing);
       expect(next, findsNothing);
 
-      h.shell.openTopicFromList(h.topics.first);
+      _openTopicTab(h.shell, h.topics.first);
       await tester.pumpAndSettle();
       expect(previous, findsOneWidget);
       expect(next, findsOneWidget);
@@ -233,7 +233,7 @@ void main() {
         await const TopicPresentationStore().write(TopicPresentation.merged);
         final h = await _setup(tester, size: const Size(1280, 860));
         expect(find.bySemanticsLabel('Forum navigation'), findsOneWidget);
-        h.shell.openTopicFromList(h.topics.first);
+        _openTopicTab(h.shell, h.topics.first);
         await tester.pumpAndSettle();
         expect(find.bySemanticsLabel('Forum navigation'), findsOneWidget);
         h.shell.openReply();
@@ -252,7 +252,7 @@ void main() {
     await const TopicPresentationStore().write(TopicPresentation.merged);
     final h = await _setup(tester);
     await h.shell.loadTopic(h.topics.first.id, h.topics.first.slug);
-    h.shell.openTopicFromList(h.topics.first);
+    _openTopicTab(h.shell, h.topics.first);
     for (var frame = 0; frame < 20; frame++) {
       await tester.pump(const Duration(milliseconds: 16));
       for (final reader
@@ -279,7 +279,7 @@ void main() {
     ) async {
       await const TopicPresentationStore().write(mode);
       final h = await _setup(tester);
-      h.shell.openTopicFromList(h.topics.first);
+      _openTopicTab(h.shell, h.topics.first);
       await tester.pumpAndSettle();
       final cooked = find.byType(CookedHtml).evaluate().toSet();
       expect(cooked, isNotEmpty);
@@ -305,7 +305,7 @@ void main() {
       await const TopicPresentationStore().write(TopicPresentation.merged);
       final h = await _setup(tester, size: const Size(1280, 860));
       final listState = tester.state(_allLists);
-      h.shell.openTopicFromList(h.topics.first);
+      _openTopicTab(h.shell, h.topics.first);
       await tester.pumpAndSettle();
       final rows = find
           .byWidgetPredicate(
@@ -339,7 +339,7 @@ void main() {
       await const TopicPresentationStore().write(mode);
       final h = await _setup(tester);
       await h.shell.loadTopic(h.topics.first.id, h.topics.first.slug);
-      h.shell.openTopicFromList(h.topics.first);
+      _openTopicTab(h.shell, h.topics.first);
       final scroll = find.descendant(
         of: _reader,
         matching: find.byType(CustomScrollView),
@@ -369,7 +369,7 @@ void main() {
       size: const Size(2400, 1000),
       theme: AppTheme.dark,
     );
-    h.shell.openTopicFromList(h.topics.first);
+    _openTopicTab(h.shell, h.topics.first);
     await tester.pumpAndSettle();
     final readerState = tester.state(_reader);
     final listState = tester.state(_allLists);
@@ -421,11 +421,9 @@ void main() {
     expect(tester.takeException(), isNull);
   }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 
-  testWidgets('category navigation opens a new tab in the reader panel', (
-    tester,
-  ) async {
+  testWidgets('category navigation reuses the reader tab', (tester) async {
     final h = await _setup(tester, size: const Size(2200, 1000));
-    h.shell.openTopicFromList(h.topics.first);
+    _openTopicTab(h.shell, h.topics.first);
     await tester.pumpAndSettle();
     final readerId = h.shell.activeTabId;
     h.api.feedPaths.clear();
@@ -448,12 +446,10 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(h.shell.activeTabId, isNot(readerId));
+    expect(h.shell.activeTabId, readerId);
     expect(h.shell.activeTab?.panel, ForumPanel.secondary);
-    expect(
-      h.shell.currentWorkspace?.tabById(readerId!)?.currentContent.topicId,
-      1,
-    );
+    expect(h.shell.tabsForCurrentForum, hasLength(2));
+    expect(h.shell.currentContent?.topicId, isNull);
     expect(h.shell.topicListContent?.categoryId, 5);
     expect(h.api.feedPaths, contains(h.shell.topicListContent!.feedPath));
     expect(h.shell.currentFeed?.topicIds, [101]);
@@ -469,10 +465,10 @@ void main() {
   ) async {
     final h = await _setup(tester, size: const Size(2200, 1000));
     final listId = h.shell.activeTabId!;
-    h.shell.openTopicFromList(h.topics.first);
+    _openTopicTab(h.shell, h.topics.first);
     await tester.pumpAndSettle();
     final firstId = h.shell.activeTabId!;
-    h.shell.openTopicFromList(h.topics[1]);
+    _openTopicTab(h.shell, h.topics[1]);
     await tester.pumpAndSettle();
     final secondId = h.shell.activeTabId!;
     final listPanel = find.byKey(const ValueKey('desktop-panel-main'));
@@ -549,7 +545,7 @@ void main() {
     (tester) async {
       final h = await _setup(tester);
       final listId = h.shell.activeTabId!;
-      h.shell.openTopicFromList(h.topics.first);
+      _openTopicTab(h.shell, h.topics.first);
       await tester.pumpAndSettle();
       final topicId = h.shell.activeTabId!;
       h.shell.moveTabToPanel(topicId, ForumPanel.main);
@@ -587,7 +583,7 @@ void main() {
               .getSize(find.byKey(const ValueKey('desktop-panel-secondary')))
               .width;
       final listState = tester.state(_allLists);
-      h.shell.openTopicFromList(h.topics.first);
+      _openTopicTab(h.shell, h.topics.first);
       await tester.pumpAndSettle();
       final readerState = tester.state(_reader);
       await tester.drag(
@@ -636,7 +632,7 @@ void main() {
       );
       final listElement = tester.element(_allLists);
       final listRect = tester.getRect(find.byType(TopicListView));
-      h.shell.openTopicFromList(h.topics.first);
+      _openTopicTab(h.shell, h.topics.first);
       await tester.pumpAndSettle();
       expect(_reader, findsOneWidget);
       expect(find.byType(BackdropFilter), findsNothing);
@@ -676,9 +672,13 @@ void main() {
       final next = find.byKey(const ValueKey('inbox-next-topic'));
       expect(tester.getCenter(previous).dy, tester.getCenter(next).dy);
       expect(tester.widget<DButton>(previous).onPressed, isNull);
+      final readerTabId = h.shell.activeTabId;
+      final tabCount = h.shell.tabsForCurrentForum.length;
       await tester.tap(next);
       await tester.pumpAndSettle();
       expect(h.shell.currentContent?.topicId, 2);
+      expect(h.shell.activeTabId, readerTabId);
+      expect(h.shell.tabsForCurrentForum, hasLength(tabCount));
       expect(h.shell.contentStack, hasLength(2));
       await tester.tap(previous);
       await tester.pumpAndSettle();
@@ -714,7 +714,7 @@ void main() {
           .position;
       final listOffset = listPosition.pixels;
       expect(listOffset, greaterThan(0));
-      h.shell.openTopicFromList(h.topics.first);
+      _openTopicTab(h.shell, h.topics.first);
       await tester.pumpAndSettle();
       await tester.drag(_reader, const Offset(0, -380));
       await tester.pumpAndSettle();
@@ -727,7 +727,7 @@ void main() {
       h.shell.selectTab(readerId);
       await tester.pumpAndSettle();
       expect(_readerScroll(tester).pixels, closeTo(readingOffset, 1));
-      h.shell.openTopicFromList(h.topics[1]);
+      _openTopicTab(h.shell, h.topics[1]);
       await tester.pumpAndSettle();
       h.shell.selectTab(h.shell.listPanelTab!.id);
       await tester.pumpAndSettle();
@@ -739,7 +739,7 @@ void main() {
 
   testWidgets('changing topics keeps the draft destination', (tester) async {
     final h = await _setup(tester);
-    h.shell.openTopicFromList(h.topics.first);
+    _openTopicTab(h.shell, h.topics.first);
     await tester.pumpAndSettle();
     h.shell.openReply();
     await tester.pumpAndSettle();
@@ -765,7 +765,7 @@ void main() {
     tester,
   ) async {
     final h = await _setup(tester);
-    h.shell.openTopicFromList(h.topics.first);
+    _openTopicTab(h.shell, h.topics.first);
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('topic-page-navigation')), findsNothing);
     expect(find.byKey(const ValueKey('topic-switcher-trigger')), findsNothing);
@@ -780,7 +780,7 @@ void main() {
     'responsive docking retains editor and reader while rail stays visible',
     (tester) async {
       final h = await _setup(tester);
-      h.shell.openTopicFromList(h.topics.first);
+      _openTopicTab(h.shell, h.topics.first);
       await tester.pumpAndSettle();
       final topicState = tester.state(_reader);
       h.shell.openReply();
@@ -827,7 +827,7 @@ void main() {
     'narrow navigation opens and dismisses without losing topic or draft',
     (tester) async {
       final h = await _setup(tester, size: const Size(960, 900));
-      h.shell.openTopicFromList(h.topics.first);
+      _openTopicTab(h.shell, h.topics.first);
       await tester.pumpAndSettle();
       h.shell.openReply();
       await tester.pumpAndSettle();
@@ -859,7 +859,7 @@ void main() {
       tester,
     ) async {
       final h = await _setup(tester);
-      h.shell.openTopicFromList(h.topics.first);
+      _openTopicTab(h.shell, h.topics.first);
       await tester.pumpAndSettle();
       final rail = tester.getRect(find.byType(InstanceRail));
       final sidebar = tester.getRect(find.byType(InstanceSidebar));
@@ -889,7 +889,7 @@ void main() {
     'full-screen composer fills the desktop workspace and restores docking',
     (tester) async {
       final h = await _setup(tester);
-      h.shell.openTopicFromList(h.topics.first);
+      _openTopicTab(h.shell, h.topics.first);
       await tester.pumpAndSettle();
       final workspace = tester.getRect(find.byType(TopicWorkspace));
       h.shell.openReply();
@@ -927,7 +927,7 @@ void main() {
       'Escape restores the $dock composer from full screen without closing it',
       (tester) async {
         final h = await _setup(tester);
-        h.shell.openTopicFromList(h.topics.first);
+        _openTopicTab(h.shell, h.topics.first);
         await tester.pumpAndSettle();
         h.shell.openReply();
         await tester.pumpAndSettle();
@@ -965,7 +965,7 @@ void main() {
     tester,
   ) async {
     final h = await _setup(tester);
-    h.shell.openTopicFromList(h.topics.first);
+    _openTopicTab(h.shell, h.topics.first);
     final firstTab = h.shell.activeTabId!;
     await tester.pumpAndSettle();
     await tester.drag(_reader, const Offset(0, -350));
@@ -978,7 +978,7 @@ void main() {
     await tester.pump(const Duration(seconds: 2));
     h.shell.createTab();
     await tester.pumpAndSettle();
-    h.shell.openTopicFromList(h.topics[1]);
+    _openTopicTab(h.shell, h.topics[1]);
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(ValueKey('forum-tab-item-$firstTab')));
     await tester.pumpAndSettle();
@@ -994,7 +994,7 @@ void main() {
       tester,
     ) async {
       final h = await _setup(tester);
-      h.shell.openTopicFromList(h.topics.first);
+      _openTopicTab(h.shell, h.topics.first);
       await tester.pumpAndSettle();
       FocusScope.of(tester.element(_reader)).unfocus();
       await tester.pump();
@@ -1010,7 +1010,7 @@ void main() {
     tester,
   ) async {
     final h = await _setup(tester);
-    h.shell.openTopicFromList(h.topics.first);
+    _openTopicTab(h.shell, h.topics.first);
     await tester.pumpAndSettle();
     final dialog = showDDialog<void>(
       context: tester.element(_reader),
@@ -1159,4 +1159,8 @@ _setup(
   );
   await tester.pumpAndSettle();
   return (shell: shell, topics: topics, api: api);
+}
+
+void _openTopicTab(ShellController shell, Topic topic) {
+  shell.openLinkInNewTab('/t/${topic.slug}/${topic.id}', title: topic.title);
 }

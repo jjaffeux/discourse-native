@@ -654,7 +654,7 @@ final class ChatShellService
           title: route.isThread ? 'Thread' : channel.title,
           subtitle: route.isThread ? channel.title : null,
           icon: route.isThread ? DIcons.comments : DIcons.comment,
-          openInSecondaryPanel: route.isThread || secondaryPanel,
+          openInSecondaryPanel: secondaryPanel,
         ),
       );
       navigation.offer(
