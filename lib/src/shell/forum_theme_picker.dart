@@ -126,7 +126,7 @@ class _ForumThemePickerState extends State<ForumThemePicker> {
     final key = (theme, widget.brightness, widget.fontFamily);
     if (_themes.length > 64) _themes.clear();
     return _themes[key] ??= AppTheme.fromPalette(
-      theme.resolve(widget.brightness),
+      theme.colours.resolve(widget.brightness),
       fontFamily: widget.fontFamily,
     );
   }

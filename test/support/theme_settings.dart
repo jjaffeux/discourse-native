@@ -1,5 +1,7 @@
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/data/forum_settings_store.dart';
 import 'package:discourse_native/src/models/app_settings.dart';
+import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/shell/forum_settings_page.dart';
 import 'package:discourse_native/src/shell/forum_theme_surfaces.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
@@ -11,8 +13,10 @@ import 'fakes.dart';
 
 const _site = 'https://a.example';
 
-ShellController controller() => ShellController(
-  instanceStore: FakeInstanceStore(),
+ShellController controller({
+  Iterable<DiscourseInstance> instances = const [],
+}) => ShellController(
+  instanceStore: FakeInstanceStore(instances),
   api: FakeDiscourseApi(),
   authenticator: FakeAuthenticator(),
   drafts: FakeDraftStore(),
@@ -42,26 +46,23 @@ Future<void> pumpSettings(
           final brightness =
               shell.forumSettings.previewBrightnessFor(_site) ??
               (mode == AppThemeMode.dark ? Brightness.dark : Brightness.light);
-          final preferences = shell.forumSettings.themesFor(_site);
+          final font = shell.forumSettings.shared.font;
           final palette = shell.forumSettings
               .appearanceFor(_site, null)
               ?.paletteForBrightness(brightness);
           final theme = palette == null
-              ? AppTheme.forBrightness(
-                  brightness,
-                  fontFamily: preferences.font.family,
-                )
-              : AppTheme.fromPalette(
-                  palette,
-                  fontFamily: preferences.font.family,
-                );
+              ? AppTheme.forBrightness(brightness, fontFamily: font.family)
+              : AppTheme.fromPalette(palette, fontFamily: font.family);
           return MaterialApp(
             theme: theme.copyWith(platform: platform),
-            builder: (context, child) => MediaQuery(
-              data: MediaQuery.of(
-                context,
-              ).copyWith(textScaler: TextScaler.linear(scale)),
-              child: Directionality(textDirection: direction, child: child!),
+            // The app hosts toasts above every page.
+            builder: (context, child) => DToaster(
+              child: MediaQuery(
+                data: MediaQuery.of(
+                  context,
+                ).copyWith(textScaler: TextScaler.linear(scale)),
+                child: Directionality(textDirection: direction, child: child!),
+              ),
             ),
             home: const ForumWindowBackground(
               child: Scaffold(

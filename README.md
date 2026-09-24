@@ -570,19 +570,38 @@ Existing forums start with the previous app-wide appearance choice; newly added
 forums follow the system. Aggregate and the app-wide Settings modal follow the
 system appearance independently.
 
+Only a forum's colours, and whether it shows them light or dark, are its own.
+The page's **Font** and **Effects** (**Tint**, **Opacity**, **Texture** and its
+**Intensity**) are marked *All forums* and apply to every forum, so moving
+between forums never changes the reading font or the window's opacity, and the
+effects are found without making a theme. Effects are drawn over whichever
+colours a forum uses. The tint pulls surfaces and text toward that palette's
+accent; on the forum's own palette it does so colour by colour, so every colour
+the forum derived itself is kept, and with no effects that palette is shown
+exactly as published. The font applies to Aggregate too. Both are stored once
+under `discourse_native.appearance`. The first launch that finds nothing there
+adopts what the forums chose when both were per forum: the font of the first
+forum in rail order that had one of its own, and the effects of the first
+forum showing a saved theme that carried any.
+
 The same page's **Theme** lists **Forum default** first among the **Presets**.
 The forum palette follows the forum when its admins change it. Built-in presets
 can be chosen separately for light and dark; a mode without one keeps the
 forum's colours. The **Your own** choice shows saved themes. Presets and the
 forum palette are never edited in place. **Customize** and **New theme** start
 a theme from plain greys, the forum's colours, a preset or another saved theme.
-A saved theme carries both modes' palettes and the shared tint, opacity, texture
-and darker sidebars. The workspace around the
+A saved theme carries both modes' palettes, each with its sidebar tone; themes
+saved or shared before effects were shared keep theirs in storage, where they
+are not drawn, and editing drops them. The workspace around the
 page is the preview: a choice applies as it is made, and the whole app shows
 the theme being edited as it changes, though nothing is stored until the
 editor's **Save**; **Cancel**, or leaving the page, puts the saved theme back.
-The **Appearance** setting chooses which mode's preset is shown. The **Font**
-is chosen separately and applies with every source.
+The **Appearance** setting chooses which mode's preset is shown.
+**Use on all forums**, beside the Theme heading, shows this forum's choice in
+every other connected forum: its own palette, the same presets, or the same
+saved theme, added to each forum's library unless the library already holds
+it. Once every forum shows the same colours the heading reads *Used on all
+forums*; a later change still applies only where it is made.
 Preferences are stored per forum under `discourse_native.forum_themes.*` as
 version 2. Version 1 documents migrate on read without changing what the forum
 looked like: untouched forum colours, presets and saved themes map onto their

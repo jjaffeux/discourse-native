@@ -6,7 +6,8 @@ import '../theme/color_contrast.dart';
 import 'forum_background.dart';
 import 'site_appearance.dart';
 
-/// A portable color palette; the forum still owns typography and geometry.
+/// A portable color palette; the forum still owns geometry, and the app owns
+/// the font and window effects.
 @immutable
 final class ForumTheme {
   const ForumTheme({
@@ -170,6 +171,16 @@ final class ForumTheme {
       'love': hex(love),
     },
   };
+
+  /// The palettes alone. Window effects belong to the app and apply to every
+  /// forum alike; themes saved before that carried effects of their own.
+  ForumTheme get colours => background == null && alternate?.background == null
+      ? this
+      : ForumTheme.fromJson({
+          ...toJson()..remove('background'),
+          if (alternate case final alternate?)
+            'alternate': alternate.toJson()..remove('background'),
+        }, id: id);
 
   /// A standalone palette for the requested mode, suitable for editing.
   ForumTheme forBrightness(Brightness target) {

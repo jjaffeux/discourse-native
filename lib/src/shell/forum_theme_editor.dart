@@ -1,14 +1,13 @@
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
-import '../models/forum_background.dart';
 import '../models/forum_theme.dart';
 import 'settings_section.dart';
 import 'theme_icons.dart';
 
 /// Edits a draft of one of the user's own themes. The app shows the draft as
 /// it changes, and nothing is stored until Save. Light and dark keep separate
-/// palettes and share one window background.
+/// palettes; the window effects are the app's, chosen beside the theme.
 class ForumThemeEditor extends StatefulWidget {
   const ForumThemeEditor({
     super.key,
@@ -46,9 +45,6 @@ class _ForumThemeEditorState extends State<ForumThemeEditor> {
     for (final mode in Brightness.values)
       mode: widget.theme.forBrightness(mode),
   };
-  late var _background = _editable(
-    widget.theme.background ?? widget.theme.alternate?.background,
-  );
   bool _saving = false;
   String? _error;
 
@@ -58,19 +54,6 @@ class _ForumThemeEditorState extends State<ForumThemeEditor> {
     super.dispose();
   }
 
-  /// Older shared themes chose their own tint colour; this editor's tint is
-  /// the accent, at the strength the old tint reached.
-  static ForumBackground _editable(ForumBackground? background) {
-    if (background == null) return const ForumBackground.appearance();
-    if (background.useAccentTint) return background;
-    return ForumBackground.appearance(
-      strength: (background.strength * .45 / .22).clamp(0, 1),
-      effect: background.effect,
-      noiseIntensity: background.noiseIntensity,
-      transparency: background.transparency,
-    );
-  }
-
   ForumTheme get _palette => _palettes[widget.brightness]!;
 
   set _palette(ForumTheme value) {
@@ -78,21 +61,15 @@ class _ForumThemeEditorState extends State<ForumThemeEditor> {
     widget.onChanged(_theme(widget.theme.name));
   }
 
-  void _changeBackground(ForumBackground value) {
-    setState(() => _background = value);
-    widget.onChanged(_theme(widget.theme.name));
-  }
-
   ForumTheme _theme(String name) {
     Map<String, dynamic> part(Brightness mode) => {
       ..._palettes[mode]!.toJson(),
       'name': name,
-      'background': _background.toJson(),
     };
     return ForumTheme.fromJson({
       ...part(Brightness.light),
       'alternate': part(Brightness.dark),
-    }, id: widget.theme.id);
+    }, id: widget.theme.id).colours;
   }
 
   Future<void> _save() async {
@@ -114,9 +91,6 @@ class _ForumThemeEditorState extends State<ForumThemeEditor> {
   @override
   Widget build(BuildContext context) {
     final palette = _palette;
-    final background = _background;
-    final textureEnabled = background.effect != ForumBackgroundEffect.normal;
-    final tokens = DTokens.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       spacing: 18,
@@ -136,128 +110,6 @@ class _ForumThemeEditorState extends State<ForumThemeEditor> {
                 maxLength: 48,
                 readOnly: _saving,
                 onChanged: (_) => setState(() {}),
-              ),
-            ],
-          ),
-        ),
-        SettingsSection(
-          title: 'Background',
-          icon: const ThemeIcon(ThemeIcons.background),
-          child: Column(
-            spacing: 16,
-            children: [
-              _RampField(
-                label: 'Tint',
-                value: background.strength,
-                readout: '${(background.strength * 22).round()}%',
-                ramp: DSliderRamp(
-                  startColor: palette.secondary,
-                  endColor: Color.lerp(
-                    palette.secondary,
-                    palette.tertiary,
-                    .22,
-                  ),
-                ),
-                onChanged: (v) =>
-                    _changeBackground(background.copyWith(strength: v)),
-              ),
-              _RampField(
-                label: 'Opacity',
-                value: 1 - background.transparency / .3,
-                readout: '${((1 - background.transparency) * 100).round()}%',
-                ramp: DSliderRamp(
-                  startColor: palette.secondary.withValues(alpha: .7),
-                  endColor: palette.secondary,
-                  pattern: DSliderRampPattern.checkerboard,
-                ),
-                onChanged: (v) => _changeBackground(
-                  background.copyWith(transparency: (1 - v) * .3),
-                ),
-              ),
-              DToggleGroup<bool>(
-                key: const ValueKey('theme-sidebar'),
-                values: [palette.darkerSidebars],
-                allowEmptySelection: false,
-                inset: true,
-                expanded: true,
-                semanticLabel: 'Sidebar',
-                items: const [
-                  DToggleGroupItem(
-                    value: false,
-                    icon: ThemeIcon(
-                      ThemeIcons.neutralSidebar,
-                      matchTextDirection: true,
-                    ),
-                    child: Text('Neutral sidebar'),
-                  ),
-                  DToggleGroupItem(
-                    value: true,
-                    icon: ThemeIcon(
-                      ThemeIcons.darkerSidebar,
-                      matchTextDirection: true,
-                    ),
-                    child: Text('Darker sidebar'),
-                  ),
-                ],
-                onChanged: (values) =>
-                    _palette = palette.copyWith(darkerSidebars: values.single),
-              ),
-            ],
-          ),
-        ),
-        SettingsSection(
-          title: 'Texture',
-          icon: const ThemeIcon(ThemeIcons.texture),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            spacing: 16,
-            children: [
-              DToggleGroup<ForumBackgroundEffect>(
-                key: const ValueKey('theme-texture'),
-                values: [background.effect],
-                allowEmptySelection: false,
-                inset: true,
-                expanded: true,
-                density: DToggleDensity.tile,
-                semanticLabel: 'Texture',
-                items: const [
-                  DToggleGroupItem(
-                    value: ForumBackgroundEffect.normal,
-                    icon: ThemeIcon(ThemeIcons.none),
-                    child: Text('None'),
-                  ),
-                  DToggleGroupItem(
-                    value: ForumBackgroundEffect.noise,
-                    icon: ThemeIcon(ThemeIcons.noise),
-                    child: Text('Noise'),
-                  ),
-                  DToggleGroupItem(
-                    value: ForumBackgroundEffect.lava,
-                    icon: ThemeIcon(ThemeIcons.lava),
-                    child: Text('Lava lamp'),
-                  ),
-                  DToggleGroupItem(
-                    value: ForumBackgroundEffect.gradient,
-                    icon: ThemeIcon(ThemeIcons.gradient),
-                    child: Text('Gradient'),
-                  ),
-                ],
-                onChanged: (values) => _changeBackground(
-                  background.copyWith(effect: values.single),
-                ),
-              ),
-              _RampField(
-                label: 'Intensity',
-                value: background.noiseIntensity,
-                ramp: DSliderRamp(
-                  startColor: Color.lerp(tokens.background, Colors.black, .14),
-                  pattern: DSliderRampPattern.wave,
-                ),
-                onChanged: textureEnabled
-                    ? (v) => _changeBackground(
-                        background.copyWith(noiseIntensity: v),
-                      )
-                    : null,
               ),
             ],
           ),
@@ -344,6 +196,34 @@ class _ForumThemeEditorState extends State<ForumThemeEditor> {
                   );
                 },
               ),
+              DToggleGroup<bool>(
+                key: const ValueKey('theme-sidebar'),
+                values: [palette.darkerSidebars],
+                allowEmptySelection: false,
+                inset: true,
+                expanded: true,
+                semanticLabel: 'Sidebar',
+                items: const [
+                  DToggleGroupItem(
+                    value: false,
+                    icon: ThemeIcon(
+                      ThemeIcons.neutralSidebar,
+                      matchTextDirection: true,
+                    ),
+                    child: Text('Neutral sidebar'),
+                  ),
+                  DToggleGroupItem(
+                    value: true,
+                    icon: ThemeIcon(
+                      ThemeIcons.darkerSidebar,
+                      matchTextDirection: true,
+                    ),
+                    child: Text('Darker sidebar'),
+                  ),
+                ],
+                onChanged: (values) =>
+                    _palette = palette.copyWith(darkerSidebars: values.single),
+              ),
             ],
           ),
         ),
@@ -374,54 +254,6 @@ class _ForumThemeEditorState extends State<ForumThemeEditor> {
       ],
     );
   }
-}
-
-class _RampField extends StatelessWidget {
-  const _RampField({
-    required this.label,
-    required this.value,
-    required this.ramp,
-    required this.onChanged,
-    this.readout,
-  });
-  final String label;
-  final double value;
-  final DSliderRamp ramp;
-  final ValueChanged<double>? onChanged;
-  final String? readout;
-
-  @override
-  Widget build(BuildContext context) => DField(
-    children: [
-      Opacity(
-        opacity: onChanged == null ? .4 : 1,
-        child: Row(
-          children: [
-            Expanded(child: DFieldLabel(child: Text(label))),
-            Text(
-              readout ?? '${(value * 100).round()}%',
-              style: TextStyle(
-                color: DTokens.of(context).mutedForeground,
-                fontSize: 12.5,
-                fontWeight: FontWeight.w600,
-                fontFeatures: const [FontFeature.tabularFigures()],
-              ),
-            ),
-          ],
-        ),
-      ),
-      DSlider(
-        key: ValueKey('theme-${label.toLowerCase()}'),
-        value: value * 100,
-        variant: DSliderVariant.ramp,
-        ramp: ramp,
-        semanticLabel: label,
-        semanticFormatterCallback: (_) =>
-            readout ?? '${(value * 100).round()}%',
-        onChanged: onChanged == null ? null : (v) => onChanged!(v / 100),
-      ),
-    ],
-  );
 }
 
 class _ColorField extends StatefulWidget {

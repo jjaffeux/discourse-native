@@ -1969,6 +1969,7 @@ class ShellController extends FrameSafeNotifier
       aggregate.loadPreferences(stored),
       for (final instance in stored)
         forumSettings.load(instance.url, initialMode: appSettings.themeMode),
+      forumSettings.loadShared([for (final instance in stored) instance.url]),
       for (final instance in stored) topicSidebar.ensure(siteUrl: instance.url),
     ]);
     if (isDisposed) return;
