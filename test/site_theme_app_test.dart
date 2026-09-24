@@ -1,20 +1,24 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/app.dart';
 import 'package:discourse_native/src/data/app_settings_store.dart';
 import 'package:discourse_native/src/data/forum_settings_store.dart';
+import 'package:discourse_native/src/data/scalar_preference_repository.dart';
 import 'package:discourse_native/src/diagnostics/surface_opening_trace.dart';
 import 'package:discourse_native/src/models/app_settings.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/forum_background.dart';
+import 'package:discourse_native/src/models/forum_font.dart';
 import 'package:discourse_native/src/models/forum_theme.dart';
 import 'package:discourse_native/src/models/forum_theme_preferences.dart';
 import 'package:discourse_native/src/models/forum_theme_presets.dart';
 import 'package:discourse_native/src/models/notification_totals.dart';
 import 'package:discourse_native/src/models/post.dart';
+import 'package:discourse_native/src/models/shared_appearance.dart';
 import 'package:discourse_native/src/models/site_appearance.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/shell/adaptive_shell.dart';
@@ -144,19 +148,24 @@ void main() {
     await tester.pumpAndSettle();
     final topicElement = tester.element(find.byType(TopicView).first);
     final dracula = forumThemePresets.firstWhere((t) => t.id == 'dracula');
+    await controller.forumSettings.setThemes(
+      siteA,
+      ForumThemePreferences().save(
+        ForumTheme.fromJson({
+          ...dracula.toJson(),
+          'name': 'Night',
+        }, id: 'custom-night'),
+      ),
+    );
     for (final effect in ForumBackgroundEffect.values) {
       final background = ForumBackground.appearance(
         effect: effect,
         noiseIntensity: .5,
         transparency: .2,
       );
-      final preferences = ForumThemePreferences().save(
-        ForumTheme.fromJson({
-          ...dracula.toJson(),
-          'background': background.toJson(),
-        }, id: 'custom-${effect.name}'),
+      await controller.forumSettings.setShared(
+        SharedAppearance(effects: background),
       );
-      await controller.forumSettings.setThemes(siteA, preferences);
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 300));
       expect(tester.element(find.byType(TopicView).first), same(topicElement));
@@ -174,6 +183,7 @@ void main() {
       );
       expect(tester.takeException(), isNull);
     }
+    await controller.forumSettings.setShared(SharedAppearance.defaults);
     await controller.forumSettings.setThemes(
       siteA,
       ForumThemePreferences.defaults,
@@ -187,15 +197,20 @@ void main() {
   ) async {
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
+    // Reduced motion holds the gradient still, so the app can settle.
+    tester.platformDispatcher.accessibilityFeaturesTestValue =
+        const FakeAccessibilityFeatures(disableAnimations: true);
+    addTearDown(tester.platformDispatcher.clearAccessibilityFeaturesTestValue);
     final forums = ForumSettingsStore.memory();
-    final custom = ForumTheme.fromJson({
-      ...forumThemePresets.first.toJson(),
-      'background': const ForumBackground(
-        color: Colors.purple,
-        effect: ForumBackgroundEffect.noise,
-      ).toJson(),
-    }, id: 'custom-mobile');
-    await forums.writeThemes(siteA, ForumThemePreferences().save(custom));
+    await forums.writeThemes(siteA, ForumThemePreferences.preset('neutral'));
+    await forums.writeAppearance(
+      const SharedAppearance(
+        effects: ForumBackground.appearance(
+          effect: ForumBackgroundEffect.gradient,
+          noiseIntensity: .5,
+        ),
+      ),
+    );
     tester.view.physicalSize = const Size(390, 844);
     await _pumpApp(
       tester,
@@ -212,7 +227,10 @@ void main() {
       tester.view.physicalSize = Size(width, 844);
       await tester.pumpAndSettle();
       expect(find.byKey(const ValueKey('forum-window-canvas')), findsOneWidget);
-      expect(find.byKey(const ValueKey('forum-window-effect')), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('forum-gradient-texture')),
+        findsOneWidget,
+      );
       expect(
         tester
             .widget<DPageSurface>(
@@ -223,9 +241,9 @@ void main() {
       );
       expect(tester.takeException(), isNull);
     }
-    await _controller(
-      tester,
-    ).forumSettings.setThemes(siteA, ForumThemePreferences.defaults);
+    final settings = _controller(tester).forumSettings;
+    await settings.setShared(SharedAppearance.defaults);
+    await settings.setThemes(siteA, ForumThemePreferences.defaults);
     await tester.pumpAndSettle();
     expect(
       tester
@@ -235,7 +253,7 @@ void main() {
           .framed,
       isTrue,
     );
-    expect(find.byKey(const ValueKey('forum-window-effect')), findsNothing);
+    expect(find.byKey(const ValueKey('forum-gradient-texture')), findsNothing);
   }, variant: TargetPlatformVariant.only(TargetPlatform.iOS));
 
   testWidgets('Back leaves the theme page after changing appearance', (
@@ -441,6 +459,44 @@ void main() {
     controller.selectInstance(1);
     await tester.pumpAndSettle();
     expect(_materialApp(tester).themeMode, ThemeMode.light);
+  }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
+
+  testWidgets('a font one forum chose before fonts were shared becomes every '
+      'forum\'s and the Aggregate\'s, and is stored once', (tester) async {
+    tester.view.physicalSize = const Size(1200, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final persistence = _MapPersistence()
+      ..values[ForumSettingsStore.themesKey(siteB)] = jsonEncode({
+        ...ForumThemePreferences().toJson(),
+        'font': 'lato',
+      });
+    await _pumpApp(
+      tester,
+      store: FakeInstanceStore([
+        const DiscourseInstance(url: siteA, title: 'A'),
+        const DiscourseInstance(url: siteB, title: 'B'),
+      ]),
+      api: FakeDiscourseApi(),
+      forumSettingsStore: ForumSettingsStore(persistence: persistence),
+    );
+    final controller = _controller(tester);
+    String? family() => _activeTheme(tester).textTheme.bodyMedium!.fontFamily;
+    expect(controller.currentInstance!.title, 'A');
+    expect(family(), 'Lato');
+    controller.selectInstance(1);
+    await tester.pumpAndSettle();
+    expect(family(), 'Lato');
+    controller.selectAggregate();
+    await tester.pumpAndSettle();
+    expect(family(), 'Lato');
+    expect(
+      SharedAppearance.fromJson(
+        jsonDecode(persistence.values[ForumSettingsStore.appearanceKey]!)
+            as Map<String, dynamic>,
+      ).font,
+      ForumFont.lato,
+    );
   }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 
   for (final size in [const Size(390, 700), const Size(1200, 800)]) {
@@ -1264,4 +1320,17 @@ Future<void> _openForumSettings(WidgetTester tester) async {
   await tester.pumpAndSettle();
   await tester.tap(find.byKey(const ValueKey('forum-identity-settings')));
   await tester.pumpAndSettle();
+}
+
+final class _MapPersistence implements ScalarPreferencePersistence<String> {
+  final values = <String, String>{};
+
+  @override
+  Future<String?> read(String key) async => values[key];
+
+  @override
+  Future<bool> write(String key, String value) async {
+    values[key] = value;
+    return true;
+  }
 }

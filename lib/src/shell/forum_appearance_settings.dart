@@ -3,12 +3,15 @@ import 'dart:async';
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
+import '../data/stored_forum_base.dart';
 import '../models/app_settings.dart';
-import '../models/forum_background.dart';
 import '../models/forum_font.dart';
 import '../models/forum_theme.dart';
 import '../models/forum_theme_preferences.dart';
 import '../models/forum_theme_presets.dart';
+import '../models/shared_appearance.dart';
+import '../theme/discourse_typography.dart';
+import 'forum_appearance_effects.dart';
 import 'forum_settings_controller.dart';
 import 'forum_theme_clipboard.dart';
 import 'forum_theme_editor.dart';
@@ -38,7 +41,7 @@ class _ForumAppearanceSettingsState extends State<ForumAppearanceSettings> {
   ForumTheme? _draft;
   String? _error;
   int _revision = 0;
-  ForumThemePreferences? _retry;
+  Future<void> Function()? _retry;
 
   /// Held for [dispose], which can no longer look it up.
   late ForumSettingsController settings;
@@ -83,6 +86,17 @@ class _ForumAppearanceSettingsState extends State<ForumAppearanceSettings> {
   /// Read when a choice lands rather than captured at build: two choices made
   /// before the page redraws must both be kept.
   ForumThemePreferences get _preferences => settings.themesFor(widget.siteUrl);
+  SharedAppearance get _shared => settings.shared;
+
+  /// Every other connected forum, which the colours chosen here can be
+  /// copied to.
+  List<String> _otherForums() {
+    final site = requireStoredForumBase(widget.siteUrl);
+    return [
+      for (final instance in ShellScope.identityOf(context).instances)
+        if (requireStoredForumBase(instance.url) != site) instance.url,
+    ];
+  }
 
   Brightness _activeBrightness() =>
       switch (settings.themeModeFor(widget.siteUrl)) {
@@ -119,14 +133,14 @@ class _ForumAppearanceSettingsState extends State<ForumAppearanceSettings> {
     }, id: 'forum');
   }
 
-  Future<void> _save(ForumThemePreferences preferences) async {
+  Future<void> _attempt(Future<void> Function() save) async {
     final revision = ++_revision;
     setState(() {
       _error = null;
-      _retry = preferences;
+      _retry = save;
     });
     try {
-      await settings.setThemes(widget.siteUrl, preferences);
+      await save();
       if (mounted && revision == _revision) _retry = null;
     } catch (_) {
       if (mounted && revision == _revision) {
@@ -134,6 +148,37 @@ class _ForumAppearanceSettingsState extends State<ForumAppearanceSettings> {
       }
     }
   }
+
+  Future<void> _save(ForumThemePreferences preferences) =>
+      _attempt(() => settings.setThemes(widget.siteUrl, preferences));
+
+  Future<void> _saveShared(SharedAppearance value) =>
+      _attempt(() => settings.setShared(value));
+
+  /// Nothing with one forum, a note once every forum shows these colours,
+  /// and otherwise the action that makes them. The colours stay each forum's
+  /// own, so the note says they are used everywhere rather than shared.
+  Widget? _themeScope(ForumThemePreferences preferences, List<String> others) {
+    if (others.isEmpty) return null;
+    if (others.every((forum) {
+      final theirs = settings.themesFor(forum);
+      return theirs.showing(preferences) == theirs;
+    })) {
+      return const _HeadingNote('Used on all forums');
+    }
+    return DButton(
+      key: const ValueKey('theme-use-everywhere'),
+      label: const Text('Use on all forums'),
+      variant: DButtonVariant.outline,
+      size: DButtonSize.small,
+      onPressed: () => unawaited(_useEverywhere(others)),
+    );
+  }
+
+  Future<void> _useEverywhere(List<String> forums) => _attempt(() async {
+    await settings.useThemesIn(widget.siteUrl, forums);
+    if (mounted) DToast.show(context, 'Every forum now uses these colours.');
+  });
 
   void _chooseSource(ForumThemeSource source) {
     final preferences = _preferences;
@@ -164,20 +209,15 @@ class _ForumAppearanceSettingsState extends State<ForumAppearanceSettings> {
       ),
     );
     if (start == null || !mounted) return;
-    final background =
-        start.base.background ??
-        start.base.alternate?.background ??
-        const ForumBackground.appearance();
     Map<String, dynamic> part(Brightness mode) => {
       ...start.base.forBrightness(mode).toJson(),
       'name': start.name,
-      'background': background.toJson(),
     };
     _edit(
       ForumTheme.fromJson({
         ...part(Brightness.light),
         'alternate': part(Brightness.dark),
-      }, id: 'custom-${DateTime.now().microsecondsSinceEpoch}'),
+      }, id: 'custom-${DateTime.now().microsecondsSinceEpoch}').colours,
     );
   }
 
@@ -197,7 +237,7 @@ class _ForumAppearanceSettingsState extends State<ForumAppearanceSettings> {
             'name': name,
             if (theme.alternate case final alternate?)
               'alternate': {...alternate.toJson(), 'name': name},
-          }, id: 'custom-${DateTime.now().microsecondsSinceEpoch}'),
+          }, id: 'custom-${DateTime.now().microsecondsSinceEpoch}').colours,
         ),
       ),
     );
@@ -247,9 +287,11 @@ class _ForumAppearanceSettingsState extends State<ForumAppearanceSettings> {
     listenable: settings,
     builder: (context, _) {
       final preferences = settings.themesFor(widget.siteUrl);
+      final shared = settings.shared;
       final mode = settings.themeModeFor(widget.siteUrl);
       final brightness = _brightness();
-      final fontFamily = preferences.font.family;
+      final fontFamily = shared.font.family;
+      final others = _otherForums();
       final editing = _editing;
       final sources = ForumThemeSources(
         value: editing == null ? preferences.source : ForumThemeSource.custom,
@@ -302,7 +344,7 @@ class _ForumAppearanceSettingsState extends State<ForumAppearanceSettings> {
                             variant: DButtonVariant.outline,
                             onPressed: _retry == null
                                 ? null
-                                : () => unawaited(_save(_retry!)),
+                                : () => unawaited(_attempt(_retry!)),
                           ),
                         ],
                       ),
@@ -342,6 +384,7 @@ class _ForumAppearanceSettingsState extends State<ForumAppearanceSettings> {
                 SettingsSection(
                   title: 'Font',
                   icon: const Icon(Icons.text_fields),
+                  trailing: const _HeadingNote.shared(),
                   child: DItemGroup(
                     spacing: 0,
                     children: [
@@ -350,11 +393,12 @@ class _ForumAppearanceSettingsState extends State<ForumAppearanceSettings> {
                           const DItemSeparator(),
                         DItem(
                           key: ValueKey('appearance-font-${font.name}'),
-                          selected: preferences.font == font,
+                          selected: shared.font == font,
                           shape: DItemShape.fullWidth,
                           selectionStyle: DItemSelectionStyle.leadingAccent,
-                          onPressed: () =>
-                              unawaited(_save(_preferences.withFont(font))),
+                          onPressed: () => unawaited(
+                            _saveShared(_shared.copyWith(font: font)),
+                          ),
                           children: [
                             DItemContent(
                               children: [
@@ -388,6 +432,14 @@ class _ForumAppearanceSettingsState extends State<ForumAppearanceSettings> {
                     ],
                   ),
                 ),
+                ForumAppearanceEffects(
+                  key: const ValueKey('appearance-effects'),
+                  effects: shared.effects,
+                  trailing: const _HeadingNote.shared(),
+                  onChanged: (effects) => unawaited(
+                    _saveShared(_shared.copyWith(effects: effects)),
+                  ),
+                ),
                 if (editing != null)
                   ForumThemeEditor(
                     key: ValueKey(('theme-editor', editing.id)),
@@ -406,6 +458,7 @@ class _ForumAppearanceSettingsState extends State<ForumAppearanceSettings> {
                   SettingsSection(
                     title: 'Theme',
                     icon: const ThemeIcon(ThemeIcons.preset),
+                    trailing: _themeScope(preferences, others),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       spacing: 16,
@@ -440,5 +493,25 @@ class _ForumAppearanceSettingsState extends State<ForumAppearanceSettings> {
         ),
       );
     },
+  );
+}
+
+/// A section heading's muted note on what its choice reaches.
+class _HeadingNote extends StatelessWidget {
+  const _HeadingNote(this.text);
+
+  /// Marks a choice that every forum shares.
+  const _HeadingNote.shared() : text = 'All forums';
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) => Text(
+    text,
+    style: TextStyle(
+      fontSize: DiscourseTypography.xs,
+      height: DiscourseTypography.lineHeightCaption,
+      color: DTokens.of(context).mutedForeground,
+    ),
   );
 }

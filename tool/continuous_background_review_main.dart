@@ -1,5 +1,5 @@
 // Local-only review of one shared canvas in list, split-reader and preview layouts.
-// Switch between the three saved custom themes to inspect Normal, Lava and Noise.
+// Switch textures under Appearance > Effects to inspect each one.
 import 'package:discourse_native/src/app.dart';
 import 'package:discourse_native/src/data/app_settings_store.dart';
 import 'package:discourse_native/src/data/forum_settings_store.dart';
@@ -7,10 +7,9 @@ import 'package:discourse_native/src/macos_launch_screen.dart';
 import 'package:discourse_native/src/models/app_settings.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/forum_background.dart';
-import 'package:discourse_native/src/models/forum_theme.dart';
 import 'package:discourse_native/src/models/forum_theme_preferences.dart';
-import 'package:discourse_native/src/models/forum_theme_presets.dart';
 import 'package:discourse_native/src/models/post.dart';
+import 'package:discourse_native/src/models/shared_appearance.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:flutter/material.dart';
@@ -21,25 +20,17 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   MacOSLaunchScreen.dismissAfterFirstFlutterFrame();
   final forums = ForumSettingsStore.memory();
-  final source = forumThemePresets.firstWhere((theme) => theme.id == 'dracula');
-  final themes = [
-    for (final effect in ForumBackgroundEffect.values)
-      ForumTheme.fromJson({
-        ...source.toJson(),
-        'name': 'Continuous ${effect.name}',
-        'background': ForumBackground(
-          color: const Color(0xff874ad7),
-          strength: .8,
-          effect: effect,
-        ).toJson(),
-      }, id: 'custom-${effect.name}'),
-  ];
   await forums.writeThemes(
     'https://dev.example',
-    ForumThemePreferences(
-      source: ForumThemeSource.custom,
-      customId: 'custom-lava',
-      customThemes: themes,
+    ForumThemePreferences.preset('dracula'),
+  );
+  await forums.writeAppearance(
+    const SharedAppearance(
+      effects: ForumBackground.appearance(
+        strength: .8,
+        effect: ForumBackgroundEffect.lava,
+        noiseIntensity: .5,
+      ),
     ),
   );
   await forums.writeThemeMode('https://dev.example', AppThemeMode.dark);

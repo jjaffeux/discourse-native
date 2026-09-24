@@ -37,13 +37,17 @@ void main() {
         find.byKey(const ValueKey(('customize-theme', 'forum'))),
         findsOneWidget,
       );
-      for (final control in [
-        'appearance-theme-select',
-        'theme-tint',
-        'theme-texture',
-        'theme-sidebar',
-      ]) {
+      for (final control in ['appearance-theme-select', 'theme-sidebar']) {
         expect(find.byKey(ValueKey(control)), findsNothing, reason: control);
+      }
+      // Effects are found without making a theme of one's own.
+      for (final control in [
+        'theme-tint',
+        'theme-opacity',
+        'theme-texture',
+        'theme-intensity',
+      ]) {
+        expect(find.byKey(ValueKey(control)), findsOneWidget, reason: control);
       }
       expect(
         tester.getTopLeft(find.byKey(const ValueKey('appearance-mode'))).dy,
@@ -88,10 +92,7 @@ void main() {
           await tester.ensureVisible(font);
           await tester.tap(font);
           await tester.pumpAndSettle();
-          expect(
-            shell.forumSettings.themesFor('https://a.example').font,
-            ForumFont.lato,
-          );
+          expect(shell.forumSettings.shared.font, ForumFont.lato);
           expect(tester.widget<DItem>(font).selected, isTrue);
           for (final option in ForumFont.values) {
             final row = find.byKey(ValueKey('appearance-font-${option.name}'));

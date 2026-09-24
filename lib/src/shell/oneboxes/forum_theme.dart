@@ -107,7 +107,6 @@ class _ForumThemeOneboxState extends State<ForumThemeOnebox> {
               presets: previous.presets,
               customId: previous.customId,
               customThemes: current.customThemes,
-              font: current.font,
             ),
           );
         }
@@ -143,7 +142,9 @@ class _ForumThemeOneboxState extends State<ForumThemeOnebox> {
   Widget _card(BuildContext context, ForumSettingsController? settings) {
     final host = Theme.of(context);
     final brightness = _previewBrightness ?? host.brightness;
-    final preview = AppTheme.fromPalette(widget.theme.resolve(brightness));
+    final preview = AppTheme.fromPalette(
+      widget.theme.colours.resolve(brightness),
+    );
     final tokens = DTokens.of(context);
     final site = widget.siteUrl;
     final using =

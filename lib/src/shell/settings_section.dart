@@ -8,10 +8,14 @@ class SettingsSection extends StatelessWidget {
     required this.title,
     required this.icon,
     required this.child,
+    this.trailing,
   });
   final String title;
   final Widget icon;
   final Widget child;
+
+  /// Sits at the heading's end, for what the section applies to.
+  final Widget? trailing;
 
   @override
   Widget build(BuildContext context) => Column(
@@ -42,6 +46,7 @@ class SettingsSection extends StatelessWidget {
               ),
             ),
           ),
+          ?trailing,
         ],
       ),
       DCard(
