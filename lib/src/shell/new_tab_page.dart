@@ -88,7 +88,7 @@ class _NewTabPageState extends State<NewTabPage> {
       for (final section in pluginSections)
         for (final destination in section.destinations)
           if (destination.enabled &&
-              RegExp(r'^chat-channel-[1-9][0-9]*$').hasMatch(destination.id))
+              RegExp(r'^chat-c-[1-9][0-9]*$').hasMatch(destination.id))
             destination.id: destination,
     };
     final hasChat = pluginSections.any(
@@ -214,6 +214,7 @@ class _NewTabPageState extends State<NewTabPage> {
                                   icon: DIcons.layerGroup,
                                   onHeading: () =>
                                       openLink(context, '/categories'),
+                                  headingUrl: '/categories',
                                   routes: categories,
                                   onRoute: (route) =>
                                       _openRoute(context, route),
@@ -226,6 +227,13 @@ class _NewTabPageState extends State<NewTabPage> {
                                   title: 'Chat',
                                   icon: DIcons.comments,
                                   onHeading: () => shell.selectDestination(
+                                    const SidebarDestination(
+                                      id: 'chat-channels',
+                                      label: 'Chat',
+                                      icon: DIcons.comments,
+                                    ),
+                                  ),
+                                  headingContent: ContentRoute.fromDestination(
                                     const SidebarDestination(
                                       id: 'chat-channels',
                                       label: 'Chat',
@@ -245,6 +253,7 @@ class _NewTabPageState extends State<NewTabPage> {
                                   title: 'Latest topics',
                                   icon: DIcons.layerGroup,
                                   onHeading: widget.onBrowseTopics,
+                                  headingUrl: '/latest',
                                   routes: topics,
                                   onRoute: (route) =>
                                       _openRoute(context, route),
@@ -266,16 +275,19 @@ class _NewTabPageState extends State<NewTabPage> {
                         _LinkButton(
                           label: 'Messages',
                           icon: DIcons.inbox,
+                          url: '/my/messages',
                           onPressed: () => openLink(context, '/my/messages'),
                         ),
                       _LinkButton(
                         label: 'Groups',
                         icon: DIcons.users,
+                        url: '/g',
                         onPressed: () => openLink(context, '/g'),
                       ),
                       _LinkButton(
                         label: 'Badges',
                         icon: DIcons.certificate,
+                        url: '/badges',
                         onPressed: () => openLink(context, '/badges'),
                       ),
                       if (events != null)
@@ -287,6 +299,7 @@ class _NewTabPageState extends State<NewTabPage> {
                       _LinkButton(
                         label: 'Users',
                         icon: DIcons.users,
+                        url: '/u',
                         onPressed: () => openLink(context, '/u'),
                       ),
                       _LinkButton(
@@ -318,21 +331,23 @@ class _NewTabPageState extends State<NewTabPage> {
   void _openRoute(BuildContext context, ContentRoute route) {
     final site = ShellScope.read(context).currentInstance;
     if (site == null) return;
-    if (route.topicId case final id?) {
-      unawaited(
-        openLink(
-          context,
-          '/t/${route.slug ?? 'topic'}/$id',
-          title: route.title,
-        ),
-      );
-    } else if (route.feedPath case final path?) {
-      final url = path.endsWith('.json')
-          ? path.substring(0, path.length - 5)
-          : path;
+    if (_recentRouteUrl(route) case final url?) {
       unawaited(openLink(context, url, title: route.title));
+    } else {
+      ShellScope.read(context).pushContent(route);
     }
   }
+}
+
+String? _recentRouteUrl(ContentRoute route) {
+  if (route.topicId case final id?) {
+    return '/t/${route.slug ?? 'topic'}/$id';
+  }
+  if (route.feedPath case final path?) {
+    return path.endsWith('.json') ? path.substring(0, path.length - 5) : path;
+  }
+  final channel = RegExp(r'^chat-c-([1-9][0-9]*)$').firstMatch(route.id);
+  return channel == null ? null : '/chat/c/-/${channel.group(1)}';
 }
 
 class _RecentSection extends StatelessWidget {
@@ -340,6 +355,8 @@ class _RecentSection extends StatelessWidget {
     required this.title,
     required this.icon,
     required this.onHeading,
+    this.headingUrl,
+    this.headingContent,
     required this.routes,
     required this.onRoute,
   });
@@ -347,43 +364,61 @@ class _RecentSection extends StatelessWidget {
   final String title;
   final DIconData icon;
   final VoidCallback onHeading;
+  final String? headingUrl;
+  final ContentRoute? headingContent;
   final List<ContentRoute> routes;
   final ValueChanged<ContentRoute> onRoute;
+
+  Widget _heading() {
+    final button = DButton(
+      variant: DButtonVariant.transparentBackground,
+      icon: DIcon(icon, size: 17),
+      label: Text(title),
+      onPressed: onHeading,
+    );
+    if (headingUrl case final url?) {
+      return LinkTarget(url: url, child: button);
+    }
+    if (headingContent case final content?) {
+      return LinkTarget.content(content: content, child: button);
+    }
+    return button;
+  }
+
+  Widget _row(ContentRoute route) {
+    final item = DItem(
+      key: ValueKey('start-page-recent-${route.id}'),
+      variant: DItemVariant.muted,
+      link: true,
+      onPressed: () => onRoute(route),
+      children: [
+        DIcon(route.icon, size: 17, color: route.color),
+        DItemContent(
+          children: [
+            DItemTitle(
+              child: Text(
+                route.title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+    final url = _recentRouteUrl(route);
+    return url == null
+        ? LinkTarget.content(content: route, child: item)
+        : LinkTarget(url: url, title: route.title, child: item);
+  }
 
   @override
   Widget build(BuildContext context) => Column(
     crossAxisAlignment: CrossAxisAlignment.stretch,
     spacing: DSpacing.sm,
     children: [
-      Align(
-        alignment: AlignmentDirectional.centerStart,
-        child: DButton(
-          variant: DButtonVariant.transparentBackground,
-          icon: DIcon(icon, size: 17),
-          label: Text(title),
-          onPressed: onHeading,
-        ),
-      ),
-      for (final route in routes)
-        DItem(
-          variant: DItemVariant.muted,
-          link: true,
-          onPressed: () => onRoute(route),
-          children: [
-            DIcon(route.icon, size: 17, color: route.color),
-            DItemContent(
-              children: [
-                DItemTitle(
-                  child: Text(
-                    route.title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
+      Align(alignment: AlignmentDirectional.centerStart, child: _heading()),
+      for (final route in routes) _row(route),
     ],
   );
 }
@@ -393,15 +428,17 @@ class _LinkButton extends StatelessWidget {
     required this.label,
     required this.icon,
     required this.onPressed,
+    this.url,
   });
   final String label;
   final DIconData icon;
   final VoidCallback onPressed;
+  final String? url;
 
   @override
   Widget build(BuildContext context) {
     final tokens = DTokens.of(context);
-    return DButton(
+    final button = DButton(
       variant: DButtonVariant.secondary,
       backgroundColor: tokens.footerBackground,
       interactiveBackgroundColor: tokens.buttonTheme.accent.hover,
@@ -410,6 +447,7 @@ class _LinkButton extends StatelessWidget {
       label: Text(label),
       onPressed: onPressed,
     );
+    return url == null ? button : LinkTarget(url: url!, child: button);
   }
 }
 

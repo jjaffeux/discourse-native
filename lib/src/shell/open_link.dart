@@ -82,7 +82,12 @@ bool handleTabOpenResult(BuildContext context, TabOpenResult result) {
 }
 
 final ValueNotifier<bool> _shiftHeldForLinks = ValueNotifier(false);
-bool _shiftWatcherInstalled = false;
+int _shiftWatcherUsers = 0;
+
+bool _updateLinkShift(KeyEvent _) {
+  _shiftHeldForLinks.value = HardwareKeyboard.instance.isShiftPressed;
+  return false;
+}
 
 /// Keeps one link context menu open at a time across link surfaces.
 final class LinkContextMenuSession {
@@ -109,12 +114,17 @@ final class LinkContextMenuSession {
 }
 
 void _watchLinkShift() {
-  if (_shiftWatcherInstalled) return;
-  _shiftWatcherInstalled = true;
-  HardwareKeyboard.instance.addHandler((_) {
+  if (_shiftWatcherUsers++ == 0) {
+    HardwareKeyboard.instance.addHandler(_updateLinkShift);
     _shiftHeldForLinks.value = HardwareKeyboard.instance.isShiftPressed;
-    return false;
-  });
+  }
+}
+
+void _unwatchLinkShift() {
+  if (--_shiftWatcherUsers == 0) {
+    HardwareKeyboard.instance.removeHandler(_updateLinkShift);
+    _shiftHeldForLinks.value = false;
+  }
 }
 
 class LinkTarget extends StatefulWidget {
@@ -160,14 +170,20 @@ class _LinkTargetState extends State<LinkTarget> {
   final _menu = LinkContextMenuSession();
 
   @override
+  void initState() {
+    super.initState();
+    _watchLinkShift();
+  }
+
+  @override
   void dispose() {
+    _unwatchLinkShift();
     _menu.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    _watchLinkShift();
     void activate({required bool newTab, ForumPanel? panel}) {
       if (widget.action case final open?) {
         open(newTab: newTab, panel: panel);

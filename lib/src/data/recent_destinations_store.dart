@@ -166,7 +166,7 @@ _RecentKind? _kindOf(ContentRoute route) => switch (route) {
   _ when route.topicId != null => _RecentKind.topic,
   _ when route.id.startsWith('category-') || route.id.startsWith('list-/c/') =>
     _RecentKind.category,
-  _ when RegExp(r'^chat-channel-[1-9][0-9]*$').hasMatch(route.id) =>
+  _ when RegExp(r'^chat-c-[1-9][0-9]*$').hasMatch(route.id) =>
     _RecentKind.channel,
   _ => null,
 };

@@ -1,11 +1,14 @@
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/content_route.dart';
+import 'package:discourse_native/src/models/forum_workspace.dart';
 import 'package:discourse_native/src/shell/forum_search.dart';
 import 'package:discourse_native/src/shell/main_content.dart';
 import 'package:discourse_native/src/shell/new_tab_page.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/title_bar.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/gestures.dart'
+    show PointerDeviceKind, kMiddleMouseButton, kSecondaryMouseButton;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -14,6 +17,122 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'support/shell_test_harness.dart';
 
 void main() {
+  testWidgets('recent categories and Start page links expose panel actions', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({
+      'discourse_native.panel_tutorial_dismissed': true,
+    });
+    final previousPlatform = debugDefaultTargetPlatformOverride;
+    debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+    try {
+      await pumpShell(tester, desktop);
+      final shell = ShellScope.read(
+        tester.element(find.byType(MainContent).first),
+      );
+      shell.openListUrl('/c/support/12', title: 'Support');
+      final category = shell
+          .recentCategoriesFor(shell.currentInstance!.url)
+          .single;
+      shell.pushContent(ContentRoute.newTab());
+      await tester.pumpAndSettle();
+
+      await tester.tap(
+        find.byKey(ValueKey('start-page-recent-${category.id}')),
+        kind: PointerDeviceKind.mouse,
+        buttons: kSecondaryMouseButton,
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Open in new secondary tab'), findsOneWidget);
+      await tester.tap(find.text('Open in new secondary tab'));
+      await tester.pumpAndSettle();
+      expect(shell.tabsForCurrentForum.last.panel, ForumPanel.secondary);
+      expect(shell.tabsForCurrentForum.last.currentContent.title, 'Support');
+
+      await tester.tap(
+        find.widgetWithText(DButton, 'Groups'),
+        kind: PointerDeviceKind.mouse,
+        buttons: kMiddleMouseButton,
+      );
+      await tester.pumpAndSettle();
+      expect(shell.tabsForCurrentForum.last.panel, ForumPanel.main);
+      expect(shell.tabsForCurrentForum.last.currentContent.id, 'groups');
+    } finally {
+      debugDefaultTargetPlatformOverride = previousPlatform;
+    }
+  });
+
+  testWidgets('recent topics support middle, Shift, and right click', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({
+      'discourse_native.panel_tutorial_dismissed': true,
+    });
+    final previousPlatform = debugDefaultTargetPlatformOverride;
+    debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+    try {
+      await pumpShell(tester, desktop);
+      final shell = ShellScope.read(
+        tester.element(find.byType(MainContent).first),
+      );
+      shell.openTopicUrl('/t/recent-topic/42');
+      shell.pushContent(ContentRoute.newTab());
+      await tester.pumpAndSettle();
+
+      final row = find.byKey(const ValueKey('start-page-recent-topic-42'));
+      expect(row, findsOneWidget);
+      expect(shell.desktopPanelsEnabled, isTrue);
+      final startTabId = shell.activeTabId;
+
+      await tester.tap(
+        row,
+        kind: PointerDeviceKind.mouse,
+        buttons: kMiddleMouseButton,
+      );
+      await tester.pumpAndSettle();
+      expect(shell.activeTabId, startTabId);
+      expect(shell.tabsForCurrentForum.last.panel, ForumPanel.main);
+      expect(shell.tabsForCurrentForum.last.currentContent.topicId, 42);
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+      await tester.pump();
+      await tester.tapAt(
+        tester.getCenter(row),
+        kind: PointerDeviceKind.mouse,
+        buttons: kMiddleMouseButton,
+      );
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+      await tester.pumpAndSettle();
+      expect(shell.activeTabId, startTabId);
+      expect(shell.tabsForCurrentForum.last.panel, ForumPanel.secondary);
+      expect(shell.tabsForCurrentForum.last.currentContent.topicId, 42);
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+      await tester.pump();
+      await tester.tapAt(tester.getCenter(row), kind: PointerDeviceKind.mouse);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+      await tester.pumpAndSettle();
+      expect(shell.activeTab?.panel, ForumPanel.secondary);
+      expect(shell.currentContent?.topicId, 42);
+
+      await tester.tap(
+        row,
+        kind: PointerDeviceKind.mouse,
+        buttons: kSecondaryMouseButton,
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Open in new main tab'), findsOneWidget);
+      final tabCount = shell.tabsForCurrentForum.length;
+      await tester.tap(find.text('Open in new main tab'));
+      await tester.pumpAndSettle();
+      expect(shell.tabsForCurrentForum, hasLength(tabCount + 1));
+      expect(shell.tabsForCurrentForum.last.panel, ForumPanel.main);
+      expect(shell.tabsForCurrentForum.last.currentContent.topicId, 42);
+    } finally {
+      debugDefaultTargetPlatformOverride = previousPlatform;
+    }
+  });
+
   testWidgets('Start page search opens the top bar search on focus and Cmd+F', (
     tester,
   ) async {

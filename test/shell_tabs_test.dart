@@ -58,7 +58,7 @@ void main() {
           expect(
             first.openContentInNewTab(
               const ContentRoute(
-                id: 'chat-channel-7',
+                id: 'chat-c-7',
                 title: 'General',
                 icon: DIcons.comments,
               ),
