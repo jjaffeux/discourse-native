@@ -43,8 +43,8 @@ Future<void> _tap(WidgetTester tester, Finder target) async {
   await tester.pumpAndSettle();
 }
 
-Future<void> _source(WidgetTester tester, ForumThemeSource source) =>
-    _tap(tester, find.byKey(ValueKey(('theme-source', source))));
+Future<void> _newTheme(WidgetTester tester) =>
+    _tap(tester, find.byKey(const ValueKey('new-theme')));
 
 Future<void> _appearance(WidgetTester tester, String mode) => _tap(
   tester,
@@ -74,18 +74,7 @@ void main() {
       await pumpSettings(tester, shell);
       expect(_preferences(shell).source, ForumThemeSource.forum);
       expect(_preferences(shell).presets, isEmpty);
-      expect(
-        find.byKey(const ValueKey(('theme-source', ForumThemeSource.forum))),
-        findsNothing,
-      );
-      expect(
-        tester
-            .widget<DRadioGroup<ForumThemeSource>>(
-              find.byKey(const ValueKey('theme-source')),
-            )
-            .groupValue,
-        ForumThemeSource.preset,
-      );
+      expect(find.byKey(const ValueKey('theme-source')), findsNothing);
       expect(_choice('forum'), findsOneWidget);
       expect(tester.widget<DItem>(_choice('forum')).selected, isTrue);
       expect(
@@ -128,39 +117,67 @@ void main() {
       });
       expect(tester.widget<DItem>(_choice('forum')).selected, isTrue);
       expect(tester.widget<DItem>(_choice('dracula')).selected, isFalse);
-      await _source(tester, ForumThemeSource.preset);
-      expect(_preferences(shell).source, ForumThemeSource.forum);
       expect(tester.takeException(), isNull);
     },
   );
 
-  testWidgets('Presets restores a previously chosen palette from Your own', (
-    tester,
-  ) async {
-    final shell = controller();
-    addTearDown(shell.dispose);
-    final saved = _saved('custom-moss', 'Moss', 'neutral');
-    await shell.forumSettings.setThemes(
-      _site,
-      ForumThemePreferences(
-        source: ForumThemeSource.custom,
-        customId: saved.id,
-        customThemes: [saved],
-        presets: const {Brightness.light: 'wcag'},
-      ),
-    );
-    await pumpSettings(tester, shell);
+  testWidgets(
+    'saved themes lead one list with the forum palette and presets, below '
+    'New theme',
+    (tester) async {
+      final shell = controller();
+      addTearDown(shell.dispose);
+      final saved = _saved('custom-moss', 'Moss', 'neutral');
+      await shell.forumSettings.setThemes(
+        _site,
+        ForumThemePreferences(
+          source: ForumThemeSource.custom,
+          customId: saved.id,
+          customThemes: [saved],
+          presets: const {Brightness.light: 'wcag'},
+        ),
+      );
+      await pumpSettings(tester, shell);
 
-    await _source(tester, ForumThemeSource.preset);
-    expect(_preferences(shell).source, ForumThemeSource.preset);
-    expect(tester.widget<DItem>(_choice('wcag')).selected, isTrue);
-    expect(tester.widget<DItem>(_choice('forum')).selected, isFalse);
-    await _tap(tester, _choice('forum'));
-    expect(_preferences(shell).source, ForumThemeSource.forum);
-    expect(_preferences(shell).presets, {Brightness.light: 'wcag'});
-    expect(tester.widget<DItem>(_choice('forum')).selected, isTrue);
-    expect(tester.takeException(), isNull);
-  });
+      double top(Finder finder) => tester.getTopLeft(finder).dy;
+      expect(
+        top(find.byKey(const ValueKey('new-theme'))),
+        lessThan(top(_choice(saved.id))),
+      );
+      expect(top(_choice(saved.id)), lessThan(top(_choice('forum'))));
+      expect(top(_choice('forum')), lessThan(top(_choice('neutral'))));
+      expect(tester.widget<DItem>(_choice(saved.id)).selected, isTrue);
+      expect(tester.widget<DItem>(_choice('wcag')).selected, isFalse);
+      expect(tester.widget<DItem>(_choice('forum')).selected, isFalse);
+      for (final key in ['edit-theme', 'theme-actions', 'customize-theme']) {
+        expect(
+          find.descendant(
+            of: _choice(saved.id),
+            matching: find.byKey(ValueKey((key, saved.id))),
+          ),
+          key == 'customize-theme' ? findsNothing : findsOneWidget,
+          reason: key,
+        );
+      }
+      for (final key in ['edit-theme', 'theme-actions']) {
+        expect(find.byKey(ValueKey((key, 'wcag'))), findsNothing, reason: key);
+      }
+
+      await _tap(tester, _choice('wcag'));
+      expect(_preferences(shell).source, ForumThemeSource.preset);
+      expect(_preferences(shell).customId, saved.id);
+      expect(tester.widget<DItem>(_choice('wcag')).selected, isTrue);
+      expect(tester.widget<DItem>(_choice(saved.id)).selected, isFalse);
+      await _tap(tester, _choice('forum'));
+      expect(_preferences(shell).source, ForumThemeSource.forum);
+      expect(_preferences(shell).presets, {Brightness.light: 'wcag'});
+      expect(tester.widget<DItem>(_choice('forum')).selected, isTrue);
+      await _tap(tester, _choice(saved.id));
+      expect(_preferences(shell).source, ForumThemeSource.custom);
+      expect(tester.widget<DItem>(_choice(saved.id)).selected, isTrue);
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   testWidgets('each preset reveals its own Customize action on hover', (
     tester,
@@ -260,7 +277,7 @@ void main() {
       ForumThemePreferences().save(saved),
     );
     await pumpSettings(tester, shell);
-    await _tap(tester, find.byKey(const ValueKey('new-theme')));
+    await _newTheme(tester);
 
     final dialog = find.byType(DDialogContent);
     expect(dialog, findsOneWidget);
@@ -382,18 +399,17 @@ void main() {
   );
 
   testWidgets(
-    'your first theme is started from the Your own choice and saved with both '
-    'modes',
+    'your first theme is started from New theme and saved with both modes',
     (tester) async {
       final shell = controller();
       addTearDown(shell.dispose);
       await pumpSettings(tester, shell);
-      await _source(tester, ForumThemeSource.custom);
+      await _newTheme(tester);
       expect(find.byType(DDialogContent), findsOneWidget);
       await _tap(tester, find.widgetWithText(DButton, 'Cancel'));
       expect(_preferences(shell).source, ForumThemeSource.forum);
 
-      await _source(tester, ForumThemeSource.custom);
+      await _newTheme(tester);
       await _tap(
         tester,
         find.byKey(const ValueKey(('new-theme-base', 'wcag'))),
@@ -616,7 +632,7 @@ void main() {
       final shell = controller();
       addTearDown(shell.dispose);
       await pumpSettings(tester, shell);
-      await _source(tester, ForumThemeSource.custom);
+      await _newTheme(tester);
       await _tap(tester, find.byKey(const ValueKey('new-theme-continue')));
       final palette = find.byWidgetPredicate(
         (w) => w is DColorPicker && w.semanticLabel == 'Accent colour palette',

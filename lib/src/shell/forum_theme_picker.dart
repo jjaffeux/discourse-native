@@ -8,56 +8,10 @@ import '../models/forum_theme_presets.dart';
 import '../theme/app_theme.dart';
 import '../theme/d_icons.dart';
 import 'forum_theme_thumbnail.dart';
-import 'settings_section.dart';
 
-/// Choose between ready-made palettes and the user's saved themes.
-class ForumThemeSources extends StatelessWidget {
-  const ForumThemeSources({
-    super.key,
-    required this.value,
-    required this.onChanged,
-  });
-
-  final ForumThemeSource value;
-  final ValueChanged<ForumThemeSource> onChanged;
-
-  @override
-  Widget build(BuildContext context) =>
-      DRadioGroup<ForumThemeSource>.controlled(
-        key: const ValueKey('theme-source'),
-        groupValue: value == ForumThemeSource.forum
-            ? ForumThemeSource.preset
-            : value,
-        onChanged: (source) {
-          if (source != null &&
-              !(value == ForumThemeSource.forum &&
-                  source == ForumThemeSource.preset)) {
-            onChanged(source);
-          }
-        },
-        child: const SettingsChoiceCards(
-          children: [
-            DRadioGroupItem(
-              key: ValueKey(('theme-source', ForumThemeSource.preset)),
-              value: ForumThemeSource.preset,
-              card: true,
-              label: Text('Presets'),
-              description: Text('Forum and built-in palettes'),
-            ),
-            DRadioGroupItem(
-              key: ValueKey(('theme-source', ForumThemeSource.custom)),
-              value: ForumThemeSource.custom,
-              card: true,
-              label: Text('Your own'),
-              description: Text('Build and save themes'),
-            ),
-          ],
-        ),
-      );
-}
-
-/// Shows the forum and built-in palettes for the active mode, or the user's
-/// saved themes. The app around the page previews each choice as it is made.
+/// One list of every theme the forum can show in the active mode: the user's
+/// saved themes, then the forum's own palette and the built-in presets. The
+/// app around the page previews each choice as it is made.
 class ForumThemePicker extends StatefulWidget {
   const ForumThemePicker({
     super.key,
@@ -110,78 +64,69 @@ class _ForumThemePickerState extends State<ForumThemePicker> {
   }
 
   @override
-  Widget build(BuildContext context) => Column(
-    crossAxisAlignment: CrossAxisAlignment.stretch,
-    spacing: DSpacing.md,
-    children: switch (widget.preferences.source) {
-      ForumThemeSource.forum || ForumThemeSource.preset => _presets(),
-      ForumThemeSource.custom => _saved(),
-    },
-  );
-
-  List<Widget> _presets() {
-    final chosen = widget.preferences.presetFor(widget.brightness);
-    return [
-      _list([
-        _row(
-          widget.forum,
-          chosen:
-              widget.preferences.source == ForumThemeSource.forum ||
-              chosen == null,
-          onPressed: widget.onForum,
-          onCustomize: () => widget.onNewTheme(base: widget.forum.id),
-        ),
-        for (final preset in forumThemePresetsFor(widget.brightness))
-          _row(
-            preset,
-            chosen:
-                widget.preferences.source == ForumThemeSource.preset &&
-                preset.id == chosen?.id,
-            onPressed: () => widget.onPreset(widget.brightness, preset.id),
-            onCustomize: () => widget.onNewTheme(base: preset.id),
+  Widget build(BuildContext context) {
+    final preferences = widget.preferences;
+    final preset = preferences.presetFor(widget.brightness);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      spacing: DSpacing.md,
+      children: [
+        Align(
+          alignment: AlignmentDirectional.centerStart,
+          child: DButton(
+            key: const ValueKey('new-theme'),
+            label: const Text('New theme'),
+            icon: const DIcon(DIcons.plus),
+            variant: DButtonVariant.outline,
+            onPressed: widget.onNewTheme,
           ),
-      ]),
-    ];
-  }
-
-  List<Widget> _saved() => [
-    const DFieldLabel(child: Text('Your themes')),
-    _list([
-      for (final theme in widget.preferences.customThemes)
-        _row(
-          theme,
-          chosen: theme.id == widget.preferences.customId,
-          onPressed: () => widget.onTheme(theme.id),
-          actions: [
-            DButton.iconOnly(
-              key: ValueKey(('edit-theme', theme.id)),
-              icon: const DIcon(DIcons.pencil),
-              tooltip: 'Edit',
-              semanticLabel: 'Edit ${theme.name}',
-              variant: DButtonVariant.ghost,
-              size: DButtonSize.small,
-              onPressed: () => widget.onEdit(theme),
-            ),
-            _ThemeActions(
-              theme: theme,
-              onDuplicate: widget.onDuplicate,
-              onCopy: widget.onCopy,
-              onDelete: widget.onDelete,
-            ),
-          ],
         ),
-    ]),
-    Align(
-      alignment: AlignmentDirectional.centerStart,
-      child: DButton(
-        key: const ValueKey('new-theme'),
-        label: const Text('New theme'),
-        icon: const DIcon(DIcons.plus),
-        variant: DButtonVariant.primary,
-        onPressed: widget.onNewTheme,
-      ),
-    ),
-  ];
+        _list([
+          for (final theme in preferences.customThemes)
+            _row(
+              theme,
+              chosen:
+                  preferences.source == ForumThemeSource.custom &&
+                  theme.id == preferences.customId,
+              onPressed: () => widget.onTheme(theme.id),
+              actions: [
+                DButton.iconOnly(
+                  key: ValueKey(('edit-theme', theme.id)),
+                  icon: const DIcon(DIcons.pencil),
+                  tooltip: 'Edit',
+                  semanticLabel: 'Edit ${theme.name}',
+                  variant: DButtonVariant.ghost,
+                  size: DButtonSize.small,
+                  onPressed: () => widget.onEdit(theme),
+                ),
+                _ThemeActions(
+                  theme: theme,
+                  onDuplicate: widget.onDuplicate,
+                  onCopy: widget.onCopy,
+                  onDelete: widget.onDelete,
+                ),
+              ],
+            ),
+          _row(
+            widget.forum,
+            // Whatever leaves this mode without a palette shows the forum's.
+            chosen: preferences.themeFor(widget.brightness) == null,
+            onPressed: widget.onForum,
+            onCustomize: () => widget.onNewTheme(base: widget.forum.id),
+          ),
+          for (final option in forumThemePresetsFor(widget.brightness))
+            _row(
+              option,
+              chosen:
+                  preferences.source == ForumThemeSource.preset &&
+                  option.id == preset?.id,
+              onPressed: () => widget.onPreset(widget.brightness, option.id),
+              onCustomize: () => widget.onNewTheme(base: option.id),
+            ),
+        ]),
+      ],
+    );
+  }
 
   Widget _list(List<Widget> rows) => Semantics(
     role: SemanticsRole.list,

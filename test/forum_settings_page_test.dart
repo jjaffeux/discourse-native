@@ -1,6 +1,5 @@
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/app_settings.dart';
-import 'package:discourse_native/src/models/forum_theme_preferences.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -13,7 +12,6 @@ void main() {
       final shell = controller();
       addTearDown(shell.dispose);
       await pumpSettings(tester, shell);
-      final sources = find.byKey(const ValueKey('theme-source'));
       expect(
         tester
             .widget<DRadioGroup<AppThemeMode>>(
@@ -24,14 +22,7 @@ void main() {
       );
       // The font is an app setting, chosen in Settings.
       expect(find.text('Font'), findsNothing);
-      expect(
-        tester.widget<DRadioGroup<ForumThemeSource>>(sources).groupValue,
-        ForumThemeSource.preset,
-      );
-      expect(
-        find.byKey(const ValueKey(('theme-source', ForumThemeSource.forum))),
-        findsNothing,
-      );
+      expect(find.byKey(const ValueKey('theme-source')), findsNothing);
       expect(
         tester
             .widget<DItem>(
@@ -58,7 +49,9 @@ void main() {
       }
       expect(
         tester.getTopLeft(find.byKey(const ValueKey('appearance-mode'))).dy,
-        lessThan(tester.getTopLeft(sources).dy),
+        lessThan(
+          tester.getTopLeft(find.byKey(const ValueKey('theme-picker'))).dy,
+        ),
       );
       expect(find.byKey(const ValueKey('theme-shown-mode')), findsNothing);
       expect(

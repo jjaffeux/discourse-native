@@ -173,23 +173,6 @@ class _ForumAppearanceSettingsState extends State<ForumAppearanceSettings> {
     if (mounted) DToast.show(context, 'Every forum now uses these colours.');
   });
 
-  void _chooseSource(ForumThemeSource source) {
-    final preferences = _preferences;
-    if (source == preferences.source) return;
-    if (source != ForumThemeSource.custom) {
-      unawaited(_save(preferences.withSource(source)));
-      return;
-    }
-    final theme =
-        preferences.customTheme ?? preferences.customThemes.firstOrNull;
-    // Nothing is saved yet: start the first theme instead.
-    if (theme == null) {
-      unawaited(_newTheme());
-    } else {
-      unawaited(_save(preferences.useTheme(theme.id)));
-    }
-  }
-
   Future<void> _newTheme({String? base}) async {
     final start = await showDDialog<ForumThemeStart>(
       context: context,
@@ -386,35 +369,25 @@ class _ForumAppearanceSettingsState extends State<ForumAppearanceSettings> {
                     title: 'Theme',
                     icon: const ThemeIcon(ThemeIcons.preset),
                     trailing: _themeScope(preferences, others),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      spacing: 16,
-                      children: [
-                        ForumThemeSources(
-                          value: preferences.source,
-                          onChanged: _chooseSource,
-                        ),
-                        ForumThemePicker(
-                          key: const ValueKey('theme-picker'),
-                          preferences: preferences,
-                          forum: _forumTheme(),
-                          brightness: brightness,
-                          fontFamily: fontFamily,
-                          onForum: () => _chooseSource(ForumThemeSource.forum),
-                          onPreset: (mode, id) => unawaited(
-                            _save(_preferences.withPreset(mode, id)),
-                          ),
-                          onTheme: (id) =>
-                              unawaited(_save(_preferences.useTheme(id))),
-                          onNewTheme: ({base}) =>
-                              unawaited(_newTheme(base: base)),
-                          onEdit: _edit,
-                          onDuplicate: _duplicate,
-                          onCopy: (theme) =>
-                              unawaited(copyForumTheme(context, theme)),
-                          onDelete: (theme) => unawaited(_delete(theme)),
-                        ),
-                      ],
+                    child: ForumThemePicker(
+                      key: const ValueKey('theme-picker'),
+                      preferences: preferences,
+                      forum: _forumTheme(),
+                      brightness: brightness,
+                      fontFamily: fontFamily,
+                      onForum: () => unawaited(
+                        _save(_preferences.withSource(ForumThemeSource.forum)),
+                      ),
+                      onPreset: (mode, id) =>
+                          unawaited(_save(_preferences.withPreset(mode, id))),
+                      onTheme: (id) =>
+                          unawaited(_save(_preferences.useTheme(id))),
+                      onNewTheme: ({base}) => unawaited(_newTheme(base: base)),
+                      onEdit: _edit,
+                      onDuplicate: _duplicate,
+                      onCopy: (theme) =>
+                          unawaited(copyForumTheme(context, theme)),
+                      onDelete: (theme) => unawaited(_delete(theme)),
                     ),
                   ),
               ],
