@@ -16,6 +16,7 @@ import 'package:discourse_native/src/shell/site_image.dart';
 import 'package:discourse_native/src/shell/stream_day_separator.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_widget_from_html_core/flutter_widget_from_html_core.dart';
 
 import 'support/chat_scroll_fixture.dart';
 import 'support/chat_shell.dart';
@@ -103,6 +104,7 @@ void main() {
       tester.view.physicalSize = const Size(900, 700);
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.reset);
+      _useStaticImagePlaceholders();
       MediaPipeline.replace(chatScrollMediaPipeline());
       addTearDown(() => MediaPipeline.replace(MediaPipeline()));
       final controller = await chatScrollController(rich: true);
@@ -111,103 +113,112 @@ void main() {
         persistence: MemoryDiagnosticsPersistence(),
       );
       addTearDown(diagnostics.close);
-      await tester.pumpWidget(
-        ChatScrollFixture(
-          controller: controller,
-          diagnostics: diagnostics,
-          width: 800,
-        ),
-      );
-      await tester.pumpAndSettle();
-      final scrollable = find.descendant(
-        of: find.byType(ChatMessageStream),
-        matching: find.byWidgetPredicate(
-          (widget) =>
-              widget is Scrollable &&
-              axisDirectionToAxis(widget.axisDirection) == Axis.vertical,
-        ),
-      );
-      final position = tester.state<ScrollableState>(scrollable).position;
-      final tiles = find.byType(ChatMessageTile, skipOffstage: false);
-      final pill = find.byType(ReactionPill).hitTestable().last;
-      final hoveredElement = tester.element(pill);
-      final preview = tester
-          .widget<DHoverCard>(
-            find.descendant(of: pill, matching: find.byType(DHoverCard)),
-          )
-          .controller!;
-      final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
-      await mouse.addPointer(location: Offset.zero);
-      await mouse.moveTo(tester.getCenter(pill));
-      await tester.pump(const Duration(milliseconds: 300));
-      await tester.pumpAndSettle();
-      expect(preview.isOpen, isTrue);
-      for (var step = 0; step < 4; step++) {
-        position.pointerScroll(350);
-        await tester.pump();
-      }
-      await tester.pump(const Duration(milliseconds: 700));
-      await tester.pumpAndSettle();
-      expect(hoveredElement.mounted, isTrue);
-      expect(
-        preview.isOpen,
-        isFalse,
-        reason: 'retaining a row must not strand its hover preview',
-      );
-      await mouse.removePointer();
-      position.jumpTo(0);
-      await tester.pumpAndSettle();
-      final initial = tiles.evaluate().toSet();
-      for (var step = 0; step < 200; step++) {
-        position.pointerScroll(120);
-        await tester.pump(const Duration(milliseconds: 16));
-      }
-      await tester.pumpAndSettle();
-      final held = tiles.evaluate().toSet();
-      expect(held.length, inInclusiveRange(20, 24));
-      expect(
-        held.intersection(initial),
-        isEmpty,
-        reason: 'old rows must be evicted',
-      );
-      for (var step = 0; step < 60; step++) {
-        position.pointerScroll(-40);
-        await tester.pump(const Duration(milliseconds: 16));
-      }
-      await tester.pumpAndSettle();
-      expect(
-        tiles.evaluate().toSet(),
-        held,
-        reason: 'a local reversal reuses the actual elements',
-      );
+      // Close under the fake clock even when the body fails: a close first
+      // reached from a tearDown never completes, because it waits on futures
+      // created under the fake clock, which nothing drives once the body has
+      // returned.
+      try {
+        await tester.pumpWidget(
+          ChatScrollFixture(
+            controller: controller,
+            diagnostics: diagnostics,
+            width: 800,
+          ),
+        );
+        await tester.pumpAndSettle();
+        final scrollable = find.descendant(
+          of: find.byType(ChatMessageStream),
+          matching: find.byWidgetPredicate(
+            (widget) =>
+                widget is Scrollable &&
+                axisDirectionToAxis(widget.axisDirection) == Axis.vertical,
+          ),
+        );
+        final position = tester.state<ScrollableState>(scrollable).position;
+        final tiles = find.byType(ChatMessageTile, skipOffstage: false);
+        final pill = find.byType(ReactionPill).hitTestable().last;
+        final hoveredElement = tester.element(pill);
+        final preview = tester
+            .widget<DHoverCard>(
+              find.descendant(of: pill, matching: find.byType(DHoverCard)),
+            )
+            .controller!;
+        final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+        await mouse.addPointer(location: Offset.zero);
+        await mouse.moveTo(tester.getCenter(pill));
+        await tester.pump(const Duration(milliseconds: 300));
+        await tester.pumpAndSettle();
+        expect(preview.isOpen, isTrue);
+        for (var step = 0; step < 4; step++) {
+          position.pointerScroll(350);
+          await tester.pump();
+        }
+        await tester.pump(const Duration(milliseconds: 700));
+        await tester.pumpAndSettle();
+        expect(hoveredElement.mounted, isTrue);
+        expect(
+          preview.isOpen,
+          isFalse,
+          reason: 'retaining a row must not strand its hover preview',
+        );
+        await mouse.removePointer();
+        position.jumpTo(0);
+        await tester.pumpAndSettle();
+        final initial = tiles.evaluate().toSet();
+        for (var step = 0; step < 200; step++) {
+          position.pointerScroll(120);
+          await tester.pump(const Duration(milliseconds: 16));
+        }
+        await tester.pumpAndSettle();
+        final held = tiles.evaluate().toSet();
+        expect(held.length, inInclusiveRange(20, 24));
+        expect(
+          held.intersection(initial),
+          isEmpty,
+          reason: 'old rows must be evicted',
+        );
+        for (var step = 0; step < 60; step++) {
+          position.pointerScroll(-40);
+          await tester.pump(const Duration(milliseconds: 16));
+        }
+        await tester.pumpAndSettle();
+        expect(
+          tiles.evaluate().toSet(),
+          held,
+          reason: 'a local reversal reuses the actual elements',
+        );
 
-      final tile = tester.widgetList<ChatMessageTile>(tiles).first;
-      final chat = controller.pluginSession.require(chatControllerService);
-      final message = chat.messageRef(chatScrollSite, tile.messageId).value!;
-      controller.chatRecords.put(
-        chatScrollSite,
-        message.withReactions(const [ChatReaction(emoji: 'heart', count: 101)]),
-      );
-      await tester.pumpAndSettle();
-      expect(
-        find.byWidgetPredicate(
-          (widget) => widget is ReactionPill && widget.count == 101,
-          skipOffstage: false,
-        ),
-        findsOneWidget,
-      );
-      position.pointerScroll(12000);
-      await tester.pumpAndSettle();
-      expect(
-        tiles.evaluate().toSet().intersection(held),
-        isEmpty,
-        reason: 'long jumps discard the previous retention window',
-      );
-      expect(tiles.evaluate().length, lessThanOrEqualTo(4));
-      await tester.pumpWidget(const SizedBox.shrink());
-      await tester.pump();
+        final tile = tester.widgetList<ChatMessageTile>(tiles).first;
+        final chat = controller.pluginSession.require(chatControllerService);
+        final message = chat.messageRef(chatScrollSite, tile.messageId).value!;
+        controller.chatRecords.put(
+          chatScrollSite,
+          message.withReactions(const [
+            ChatReaction(emoji: 'heart', count: 101),
+          ]),
+        );
+        await tester.pumpAndSettle();
+        expect(
+          find.byWidgetPredicate(
+            (widget) => widget is ReactionPill && widget.count == 101,
+            skipOffstage: false,
+          ),
+          findsOneWidget,
+        );
+        position.pointerScroll(12000);
+        await tester.pumpAndSettle();
+        expect(
+          tiles.evaluate().toSet().intersection(held),
+          isEmpty,
+          reason: 'long jumps discard the previous retention window',
+        );
+        expect(tiles.evaluate().length, lessThanOrEqualTo(4));
+      } finally {
+        await tester.pumpWidget(const SizedBox.shrink());
+        await tester.pump();
+        await diagnostics.close();
+      }
       expect(tester.takeException(), isNull);
-      await diagnostics.close();
     },
   );
 
@@ -223,6 +234,7 @@ void main() {
       tester.view.physicalSize = const Size(900, 700);
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.reset);
+      _useStaticImagePlaceholders();
       MediaPipeline.replace(chatScrollMediaPipeline());
       addTearDown(() => MediaPipeline.replace(MediaPipeline()));
       final layout = richLayouts.currentValue!;
@@ -237,51 +249,59 @@ void main() {
       );
       addTearDown(controller.dispose);
       addTearDown(diagnostics.close);
-      await tester.pumpWidget(
-        ChatScrollFixture(
-          controller: controller,
-          diagnostics: diagnostics,
-          width: layout.width,
-          dark: layout.dark,
-        ),
-      );
-      await tester.pumpAndSettle();
-      final scrollable = find.descendant(
-        of: find.byType(ChatMessageStream),
-        matching: find.byWidgetPredicate(
-          (widget) =>
-              widget is Scrollable &&
-              axisDirectionToAxis(widget.axisDirection) == Axis.vertical,
-        ),
-      );
-      final position = tester.state<ScrollableState>(scrollable).position;
-      final seen = <Type>{};
-      capture.start();
-      for (final delta in [40.0, 1200.0, -1200.0]) {
-        for (var step = 0; step < 40; step++) {
-          for (final type in [SiteImage, OneboxCard, QuoteBlock]) {
-            if (find.byType(type).evaluate().isNotEmpty) seen.add(type);
+      // Close under the fake clock even when the body fails: a close first
+      // reached from a tearDown never completes, because it waits on futures
+      // created under the fake clock, which nothing drives once the body has
+      // returned.
+      try {
+        await tester.pumpWidget(
+          ChatScrollFixture(
+            controller: controller,
+            diagnostics: diagnostics,
+            width: layout.width,
+            dark: layout.dark,
+          ),
+        );
+        await tester.pumpAndSettle();
+        final scrollable = find.descendant(
+          of: find.byType(ChatMessageStream),
+          matching: find.byWidgetPredicate(
+            (widget) =>
+                widget is Scrollable &&
+                axisDirectionToAxis(widget.axisDirection) == Axis.vertical,
+          ),
+        );
+        final position = tester.state<ScrollableState>(scrollable).position;
+        final seen = <Type>{};
+        capture.start();
+        for (final delta in [40.0, 1200.0, -1200.0]) {
+          for (var step = 0; step < 40; step++) {
+            for (final type in [SiteImage, OneboxCard, QuoteBlock]) {
+              if (find.byType(type).evaluate().isNotEmpty) seen.add(type);
+            }
+            position.pointerScroll(delta);
+            await tester.pump(const Duration(milliseconds: 16));
+            expect(tester.takeException(), isNull);
           }
-          position.pointerScroll(delta);
-          await tester.pump(const Duration(milliseconds: 16));
-          expect(tester.takeException(), isNull);
         }
+        await tester.pumpAndSettle();
+        capture.stop();
+        final activity = <String, int>{};
+        for (final event in capture.events) {
+          activity.update(event.name, (count) => count + 1, ifAbsent: () => 1);
+        }
+        debugPrint('CHAT_RICH_COUNTS ${jsonEncode(activity)}');
+        expect(seen, containsAll([SiteImage, OneboxCard, QuoteBlock]));
+        expect(
+          capture.events.where((event) => event.name == 'chat.stream.built'),
+          isEmpty,
+        );
+      } finally {
+        capture.stop();
+        await tester.pumpWidget(const SizedBox.shrink());
+        await tester.pump();
+        await diagnostics.close();
       }
-      await tester.pumpAndSettle();
-      capture.stop();
-      final activity = <String, int>{};
-      for (final event in capture.events) {
-        activity.update(event.name, (count) => count + 1, ifAbsent: () => 1);
-      }
-      debugPrint('CHAT_RICH_COUNTS ${jsonEncode(activity)}');
-      expect(seen, containsAll([SiteImage, OneboxCard, QuoteBlock]));
-      expect(
-        capture.events.where((event) => event.name == 'chat.stream.built'),
-        isEmpty,
-      );
-      await tester.pumpWidget(const SizedBox.shrink());
-      await tester.pump();
-      await diagnostics.close();
     },
     variant: richLayouts,
   );
@@ -573,4 +593,18 @@ void main() {
     await tester.pump();
     await diagnostics.close();
   });
+}
+
+/// Draws the HTML package's static loading placeholder instead of its spinner
+/// for the rest of the test.
+///
+/// `SiteImage` keeps its loading builder until an image's first frame is
+/// decoded, and an engine decode only completes on the real event loop, which
+/// a body under the fake clock never yields to. The spinner would animate for
+/// as long as the test runs, so `pumpAndSettle` could never return. Each image
+/// still reserves its final geometry.
+void _useStaticImagePlaceholders() {
+  final previous = WidgetFactory.debugDeterministicLoadingWidget;
+  WidgetFactory.debugDeterministicLoadingWidget = true;
+  addTearDown(() => WidgetFactory.debugDeterministicLoadingWidget = previous);
 }

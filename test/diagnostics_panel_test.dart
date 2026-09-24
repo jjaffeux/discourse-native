@@ -888,29 +888,33 @@ void main() {
               cooked: '<p>Post $id</p>',
             ),
         ];
-        await _pumpApp(
-          tester,
-          Size(width, 1049),
-          diagnostics,
-          store: FakeInstanceStore([instance('meta.discourse.org')]),
-          api: FakeDiscourseApi(
-            topics: {7: topicPayload(id: 7, title: 'Reader', posts: posts)},
-          ),
-        );
-        final shell = ShellScope.read(
-          tester.element(find.byType(InstanceRail)),
-        );
-        shell.pushContent(
-          ContentRoute.topic(topicId: 7, slug: 'reader', title: 'Reader'),
-        );
-        await shell.loadTopic(7, 'reader');
-        await tester.pumpAndSettle();
-        final reader = find.byType(TopicView);
-        final readerState = tester.state(reader);
-        final list = topicPostList(tester);
-        diagnostics.topicScrollCapture.start();
-
+        // Unmount inside the body even when it fails. The app closes
+        // diagnostics as it unmounts, and a close first reached from a
+        // tearDown never completes: it waits on futures created under the fake
+        // clock, which nothing drives once the body has returned.
         try {
+          await _pumpApp(
+            tester,
+            Size(width, 1049),
+            diagnostics,
+            store: FakeInstanceStore([instance('meta.discourse.org')]),
+            api: FakeDiscourseApi(
+              topics: {7: topicPayload(id: 7, title: 'Reader', posts: posts)},
+            ),
+          );
+          final shell = ShellScope.read(
+            tester.element(find.byType(InstanceRail)),
+          );
+          shell.pushContent(
+            ContentRoute.topic(topicId: 7, slug: 'reader', title: 'Reader'),
+          );
+          await shell.loadTopic(7, 'reader');
+          await tester.pumpAndSettle();
+          final reader = find.byType(TopicView);
+          final readerState = tester.state(reader);
+          final list = topicPostList(tester);
+          diagnostics.topicScrollCapture.start();
+
           for (var toggle = 0; toggle < 3; toggle++) {
             diagnostics.openPanel();
             await tester.pumpAndSettle();
@@ -928,6 +932,7 @@ void main() {
         } finally {
           diagnostics.topicScrollCapture.stop();
           await tester.pumpWidget(const SizedBox.shrink());
+          await diagnostics.close();
         }
         final names = diagnostics.topicScrollCapture.events.map(
           (event) => event.name,
@@ -936,6 +941,7 @@ void main() {
         expect(names, isNot(contains('topic.controllers.sync')));
         expect(tester.takeException(), isNull);
       },
+      variant: TargetPlatformVariant.only(TargetPlatform.linux),
     );
   }
 }
