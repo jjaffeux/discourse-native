@@ -355,6 +355,15 @@ void main() {
   testWidgets('loads a secure cooked image with the connected account', (
     tester,
   ) async {
+    // The image draws the HTML package's loading builder until its first
+    // frame is decoded, which never happens under the fake clock, and that
+    // spinner would keep the shell from settling. What is under test is the
+    // request and the provider, not the decoded frame.
+    final loadingWidget = WidgetFactory.debugDeterministicLoadingWidget;
+    WidgetFactory.debugDeterministicLoadingWidget = true;
+    addTearDown(
+      () => WidgetFactory.debugDeterministicLoadingWidget = loadingWidget,
+    );
     tester.view.physicalSize = const Size(800, 1200);
     tester.view.devicePixelRatio = 2;
     addTearDown(tester.view.reset);
