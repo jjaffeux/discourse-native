@@ -77,16 +77,23 @@ class BadgesPage extends StatelessWidget {
 
   List<Widget> _detail(BuildContext context, DiscourseBadge badge) {
     final theme = Theme.of(context);
+    final ownAwardsUrl = currentUsername == null
+        ? null
+        : '$siteUrl${BadgeRoute.detail(badge.id, slug: badge.slug, username: currentUsername).path}';
     return [
       SliverToBoxAdapter(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            DButton(
-              label: const Text('All badges'),
-              icon: const DIcon(DIcons.arrowLeft),
-              variant: DButtonVariant.link,
-              onPressed: () => onOpenUrl('$siteUrl/badges'),
+            LinkTarget(
+              url: '$siteUrl/badges',
+              siteUrl: siteUrl,
+              child: DButton(
+                label: const Text('All badges'),
+                icon: const DIcon(DIcons.arrowLeft),
+                variant: DButtonVariant.link,
+                onPressed: () => onOpenUrl('$siteUrl/badges'),
+              ),
             ),
             const SizedBox(height: 24),
             Row(
@@ -163,17 +170,23 @@ class BadgesPage extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             if (route.username != null)
-              DButton(
-                label: const Text('Show all recipients'),
-                variant: DButtonVariant.link,
-                onPressed: () => onOpenUrl('$siteUrl${badge.route.path}'),
+              LinkTarget(
+                url: '$siteUrl${badge.route.path}',
+                siteUrl: siteUrl,
+                child: DButton(
+                  label: const Text('Show all recipients'),
+                  variant: DButtonVariant.link,
+                  onPressed: () => onOpenUrl('$siteUrl${badge.route.path}'),
+                ),
               )
-            else if (badge.hasBadge == true && currentUsername != null)
-              DButton(
-                label: const Text('Show your awards'),
-                variant: DButtonVariant.link,
-                onPressed: () => onOpenUrl(
-                  '$siteUrl${BadgeRoute.detail(badge.id, slug: badge.slug, username: currentUsername).path}',
+            else if (badge.hasBadge == true && ownAwardsUrl != null)
+              LinkTarget(
+                url: ownAwardsUrl,
+                siteUrl: siteUrl,
+                child: DButton(
+                  label: const Text('Show your awards'),
+                  variant: DButtonVariant.link,
+                  onPressed: () => onOpenUrl(ownAwardsUrl),
                 ),
               ),
             const SizedBox(height: 8),
