@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 
 import '../data/stored_forum_base.dart';
 import '../models/app_settings.dart';
-import '../models/forum_font.dart';
 import '../models/forum_theme.dart';
 import '../models/forum_theme_preferences.dart';
 import '../models/forum_theme_presets.dart';
@@ -380,57 +379,6 @@ class _ForumAppearanceSettingsState extends State<ForumAppearanceSettings> {
                     );
                     _show(null);
                   },
-                ),
-                SettingsSection(
-                  title: 'Font',
-                  icon: const Icon(Icons.text_fields),
-                  trailing: const _HeadingNote.shared(),
-                  child: DItemGroup(
-                    spacing: 0,
-                    children: [
-                      for (final font in ForumFont.values) ...[
-                        if (font != ForumFont.values.first)
-                          const DItemSeparator(),
-                        DItem(
-                          key: ValueKey('appearance-font-${font.name}'),
-                          selected: shared.font == font,
-                          shape: DItemShape.fullWidth,
-                          selectionStyle: DItemSelectionStyle.leadingAccent,
-                          onPressed: () => unawaited(
-                            _saveShared(_shared.copyWith(font: font)),
-                          ),
-                          children: [
-                            DItemContent(
-                              children: [
-                                Text(
-                                  font.label,
-                                  style: Theme.of(context).textTheme.bodySmall,
-                                ),
-                                Text(
-                                  'The quick brown fox jumps over the lazy dog.',
-                                  style: Theme.of(context).textTheme.bodyLarge!
-                                      .copyWith(
-                                        fontFamily:
-                                            font.family ??
-                                            ThemeData(
-                                              platform: Theme.of(
-                                                context,
-                                              ).platform,
-                                            ).textTheme.bodyLarge!.fontFamily,
-                                        fontFamilyFallback:
-                                            forumFontFamilyFallback(
-                                              font.family,
-                                            ) ??
-                                            const [],
-                                      ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ],
-                    ],
-                  ),
                 ),
                 ForumAppearanceEffects(
                   key: const ValueKey('appearance-effects'),

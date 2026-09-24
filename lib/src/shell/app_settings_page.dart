@@ -4,8 +4,10 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
 import '../models/app_settings.dart';
+import '../models/forum_font.dart';
 import '../theme/d_icons.dart';
 import 'app_home_theme.dart';
+import 'forum_settings_controller.dart';
 import 'shell_scope.dart';
 
 Future<void> showAppSettingsModal(BuildContext context) async {
@@ -27,7 +29,8 @@ class AppSettingsModal extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final appSettings = ShellScope.identityOf(context).appSettings;
+    final identity = ShellScope.identityOf(context);
+    final appSettings = identity.appSettings;
     return AppHomeTheme(
       child: DDialogContent(
         key: const ValueKey('app-settings-modal'),
@@ -94,6 +97,8 @@ class AppSettingsModal extends StatelessWidget {
                       : () => unawaited(appSettings.resetTextScale()),
                 ),
                 const DFieldSeparator(),
+                _FontSetting(settings: identity.forumSettings),
+                const DFieldSeparator(),
                 DSwitchTile(
                   key: const ValueKey('disable-gif-animations-switch'),
                   contentPadding: EdgeInsets.zero,
@@ -137,6 +142,105 @@ class _SettingsField extends StatelessWidget {
       control,
     ],
   );
+}
+
+/// The reading font, which every forum and Aggregate share. Each choice is
+/// drawn in its own face so it can be compared before it is chosen.
+class _FontSetting extends StatelessWidget {
+  const _FontSetting({required this.settings});
+
+  final ForumSettingsController settings;
+
+  Future<void> _choose(BuildContext context, ForumFont font) async {
+    try {
+      // Read when the choice lands: the effects may have changed since the
+      // modal last drew.
+      await settings.setShared(settings.shared.copyWith(font: font));
+    } catch (_) {
+      if (context.mounted) {
+        DToast.show(
+          context,
+          'Could not save the font.',
+          type: DToastType.error,
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final systemFamily = ThemeData(
+      platform: theme.platform,
+    ).textTheme.bodyLarge!.fontFamily;
+    return ListenableBuilder(
+      listenable: settings,
+      builder: (context, _) {
+        final chosen = settings.shared.font;
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          spacing: DSpacing.md,
+          children: [
+            DFieldContent(
+              children: [
+                DFieldTitle(
+                  child: Semantics(headingLevel: 2, child: const Text('Font')),
+                ),
+                const DFieldDescription(
+                  child: Text('Used for reading and writing in every forum.'),
+                ),
+              ],
+            ),
+            DCard(
+              spacing: 16,
+              backgroundColor: Colors.transparent,
+              borderRadius: BorderRadius.circular(12),
+              children: [
+                DCardContent(
+                  child: DItemGroup(
+                    key: const ValueKey('app-settings-font'),
+                    spacing: 0,
+                    children: [
+                      for (final font in ForumFont.values) ...[
+                        if (font != ForumFont.values.first)
+                          const DItemSeparator(),
+                        DItem(
+                          key: ValueKey('appearance-font-${font.name}'),
+                          selected: chosen == font,
+                          shape: DItemShape.fullWidth,
+                          selectionStyle: DItemSelectionStyle.leadingAccent,
+                          onPressed: () => unawaited(_choose(context, font)),
+                          children: [
+                            DItemContent(
+                              children: [
+                                Text(
+                                  font.label,
+                                  style: theme.textTheme.bodySmall,
+                                ),
+                                Text(
+                                  'The quick brown fox jumps over the lazy dog.',
+                                  style: theme.textTheme.bodyLarge!.copyWith(
+                                    fontFamily: font.family ?? systemFamily,
+                                    fontFamilyFallback:
+                                        forumFontFamilyFallback(font.family) ??
+                                        const [],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ],
+        );
+      },
+    );
+  }
 }
 
 class _TextSizeSetting extends StatelessWidget {

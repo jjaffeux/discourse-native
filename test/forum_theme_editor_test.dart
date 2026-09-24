@@ -788,23 +788,21 @@ void main() {
     },
   );
 
-  testWidgets('the font is every forum\'s, applies with every source and '
-      'never changes it', (tester) async {
+  testWidgets('the font, chosen in Settings, applies with every source and '
+      'no choice here changes it', (tester) async {
     final shell = controller();
     addTearDown(shell.dispose);
     await pumpSettings(tester, shell);
     expect(
-      find.descendant(
-        of: find.byWidgetPredicate(
-          (widget) => widget is SettingsSection && widget.title == 'Font',
-        ),
-        matching: find.text('All forums'),
+      find.byWidgetPredicate(
+        (widget) => widget is SettingsSection && widget.title == 'Font',
       ),
-      findsOneWidget,
+      findsNothing,
     );
-    await _tap(tester, find.byKey(const ValueKey('appearance-font-lato')));
-    expect(shell.forumSettings.shared.font, ForumFont.lato);
-    expect(_preferences(shell).source, ForumThemeSource.forum);
+    await shell.forumSettings.setShared(
+      shell.forumSettings.shared.copyWith(font: ForumFont.lato),
+    );
+    await tester.pumpAndSettle();
     String? family() => Theme.of(
       tester.element(find.byType(ForumSettingsPage)),
     ).textTheme.bodyMedium!.fontFamily;
@@ -814,30 +812,33 @@ void main() {
     expect(family(), 'Lato');
     await _tap(tester, _choice('forum'));
     expect(shell.forumSettings.shared.font, ForumFont.lato);
+    expect(family(), 'Lato');
     expect(_preferences(shell).presets, {Brightness.light: 'wcag'});
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('a font and a preset chosen before the page redraws both stay', (
-    tester,
-  ) async {
+  testWidgets('a texture and a preset chosen before the page redraws both '
+      'stay', (tester) async {
     final shell = controller();
     addTearDown(shell.dispose);
     await pumpSettings(tester, shell);
     tester.view.physicalSize = const Size(960, 2400);
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey('appearance-font-lato')));
+    await tester.tap(find.text('Paper'));
     await tester.tap(_choice('wcag'));
     await tester.pumpAndSettle();
-    expect(shell.forumSettings.shared.font, ForumFont.lato);
+    expect(
+      shell.forumSettings.shared.effects.effect,
+      ForumBackgroundEffect.paper,
+    );
     expect(_preferences(shell).presets, {Brightness.light: 'wcag'});
     expect(
       await shell.forumSettings.store.loadThemes(_site),
       _preferences(shell),
     );
     expect(
-      (await shell.forumSettings.store.loadAppearance()).font,
-      ForumFont.lato,
+      (await shell.forumSettings.store.loadAppearance()).effects.effect,
+      ForumBackgroundEffect.paper,
     );
     expect(tester.takeException(), isNull);
   });

@@ -1,7 +1,10 @@
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/data/app_settings_store.dart';
+import 'package:discourse_native/src/data/forum_settings_store.dart';
+import 'package:discourse_native/src/data/scalar_preference_repository.dart';
 import 'package:discourse_native/src/diagnostics/diagnostics.dart';
 import 'package:discourse_native/src/models/app_settings.dart';
+import 'package:discourse_native/src/models/forum_font.dart';
 import 'package:discourse_native/src/shell/app_settings_page.dart';
 import 'package:discourse_native/src/shell/instance_rail.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
@@ -80,6 +83,8 @@ void main() {
     expect(persistence.textScale, AppTextScale.percent100.name);
     expect(find.text('100%'), findsOneWidget);
 
+    await tester.ensureVisible(find.text('Disable GIF animations'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Disable GIF animations'));
     await tester.pump();
 
@@ -116,7 +121,11 @@ void main() {
       await _pumpPage(tester, controller);
 
       expect(find.bySemanticsLabel('Close settings'), findsOneWidget);
-      for (final (label, level) in [('Settings', 1), ('Text size', 2)]) {
+      for (final (label, level) in [
+        ('Settings', 1),
+        ('Text size', 2),
+        ('Font', 2),
+      ]) {
         expect(
           tester.getSemantics(find.text(label)).getSemanticsData().headingLevel,
           level,
@@ -143,6 +152,89 @@ void main() {
     } finally {
       semantics.dispose();
     }
+  });
+
+  for (final platform in [TargetPlatform.macOS, TargetPlatform.iOS]) {
+    testWidgets('the font is chosen here for every forum on $platform', (
+      tester,
+    ) async {
+      final controller = _controller();
+      addTearDown(controller.dispose);
+      await _pumpPage(
+        tester,
+        controller,
+        size: const Size(360, 800),
+        scale: 2,
+        theme: AppTheme.light.copyWith(platform: platform),
+        rtl: true,
+      );
+      expect(tester.takeException(), isNull);
+
+      for (final option in ForumFont.values) {
+        final row = find.byKey(ValueKey('appearance-font-${option.name}'));
+        expect(tester.widget<DItem>(row).selected, option == ForumFont.system);
+        final sample = tester.widget<Text>(
+          find.descendant(
+            of: row,
+            matching: find.text('The quick brown fox jumps over the lazy dog.'),
+          ),
+        );
+        expect(
+          sample.style!.fontFamily,
+          option.family ??
+              ThemeData(platform: platform).textTheme.bodyLarge!.fontFamily,
+        );
+        expect(
+          sample.style!.fontFamilyFallback,
+          forumFontFamilyFallback(option.family) ?? const [],
+        );
+      }
+
+      final lato = find.byKey(const ValueKey('appearance-font-lato'));
+      await tester.ensureVisible(lato);
+      await tester.tap(lato);
+      await tester.pumpAndSettle();
+      expect(controller.forumSettings.shared.font, ForumFont.lato);
+      expect(
+        (await controller.forumSettings.store.loadAppearance()).font,
+        ForumFont.lato,
+      );
+      expect(tester.widget<DItem>(lato).selected, isTrue);
+      expect(
+        tester
+            .widget<DItem>(find.byKey(const ValueKey('appearance-font-system')))
+            .selected,
+        isFalse,
+      );
+      expect(tester.takeException(), isNull);
+    });
+  }
+
+  testWidgets('a font that cannot be saved is put back and says so', (
+    tester,
+  ) async {
+    final controller = _controller(
+      forumSettingsStore: ForumSettingsStore(
+        persistence: _FailingPersistence(),
+      ),
+    );
+    addTearDown(controller.dispose);
+    await _pumpPage(tester, controller, size: const Size(800, 1200));
+
+    await tester.tap(find.byKey(const ValueKey('appearance-font-lato')));
+    await tester.pumpAndSettle();
+
+    expect(controller.forumSettings.shared.font, ForumFont.system);
+    expect(
+      tester
+          .widget<DItem>(find.byKey(const ValueKey('appearance-font-system')))
+          .selected,
+      isTrue,
+    );
+    expect(find.text('Could not save the font.'), findsOneWidget);
+    await tester.pump(const Duration(seconds: 6));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('Diagnostics is the bottom-most rail destination when present', (
@@ -295,20 +387,31 @@ void main() {
   );
 }
 
-ShellController _controller({AppSettingsPersistence? appSettingsPersistence}) =>
-    ShellController(
-      instanceStore: FakeInstanceStore(),
-      api: FakeDiscourseApi(),
-      authenticator: FakeAuthenticator(),
-      drafts: FakeDraftStore(),
-      forumTabs: FakeForumTabStore(),
-      trackers: FakeSiteTracker.reset(),
-      updateStore: FakeUpdateStore(),
-      initialRootMode: ShellRootMode.forum,
-      appSettingsStore: AppSettingsStore(
-        persistence: appSettingsPersistence ?? MemoryAppSettingsPersistence(),
-      ),
-    );
+ShellController _controller({
+  AppSettingsPersistence? appSettingsPersistence,
+  ForumSettingsStore? forumSettingsStore,
+}) => ShellController(
+  instanceStore: FakeInstanceStore(),
+  api: FakeDiscourseApi(),
+  authenticator: FakeAuthenticator(),
+  drafts: FakeDraftStore(),
+  forumTabs: FakeForumTabStore(),
+  trackers: FakeSiteTracker.reset(),
+  updateStore: FakeUpdateStore(),
+  initialRootMode: ShellRootMode.forum,
+  appSettingsStore: AppSettingsStore(
+    persistence: appSettingsPersistence ?? MemoryAppSettingsPersistence(),
+  ),
+  forumSettingsStore: forumSettingsStore,
+);
+
+class _FailingPersistence implements ScalarPreferencePersistence<String> {
+  @override
+  Future<String?> read(String key) async => null;
+
+  @override
+  Future<bool> write(String key, String value) async => false;
+}
 
 Future<void> _pumpPage(
   WidgetTester tester,
@@ -327,13 +430,16 @@ Future<void> _pumpPage(
       controller: controller,
       child: MaterialApp(
         theme: theme ?? AppTheme.light,
-        builder: (context, child) => MediaQuery(
-          data: MediaQuery.of(
-            context,
-          ).copyWith(textScaler: TextScaler.linear(scale)),
-          child: Directionality(
-            textDirection: rtl ? TextDirection.rtl : TextDirection.ltr,
-            child: child!,
+        // The app hosts toasts above every page.
+        builder: (context, child) => DToaster(
+          child: MediaQuery(
+            data: MediaQuery.of(
+              context,
+            ).copyWith(textScaler: TextScaler.linear(scale)),
+            child: Directionality(
+              textDirection: rtl ? TextDirection.rtl : TextDirection.ltr,
+              child: child!,
+            ),
           ),
         ),
         home: Builder(
