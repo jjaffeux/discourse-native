@@ -58,3 +58,32 @@ class SettingsSection extends StatelessWidget {
     ],
   );
 }
+
+/// A pair of radio choice cards: side by side when each has room for its
+/// description, stacked otherwise, and the same height when side by side.
+class SettingsChoiceCards extends StatelessWidget {
+  const SettingsChoiceCards({super.key, required this.children});
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, constraints) {
+      final wide =
+          constraints.maxWidth >=
+          540 * MediaQuery.textScalerOf(context).scale(14) / 14;
+      return wide
+          ? IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                spacing: DSpacing.md,
+                children: [for (final card in children) Expanded(child: card)],
+              ),
+            )
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              spacing: DSpacing.sm,
+              children: children,
+            );
+    },
+  );
+}
