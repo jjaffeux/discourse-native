@@ -489,11 +489,11 @@ void main() {
           reason: control,
         );
       }
-      expect(tester.widget<DToggleGroup<bool>>(sidebar).values, [false]);
+      expect(tester.widget<DRadioGroup<bool>>(sidebar).groupValue, isFalse);
       Object? sidebarTheme() =>
           _appTheme(tester).extension<ForumThemeEffects>()?.sidebarTheme;
       await _tap(tester, find.text('Darker sidebar'));
-      expect(tester.widget<DToggleGroup<bool>>(sidebar).values, [true]);
+      expect(tester.widget<DRadioGroup<bool>>(sidebar).groupValue, isTrue);
       expect(sidebarTheme(), isNotNull);
       await _tap(tester, find.text('Neutral sidebar'));
       expect(sidebarTheme(), isNull);
