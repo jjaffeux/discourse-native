@@ -592,10 +592,11 @@ like its sidebar tone. Presets and the forum's own palette are never tinted. A
 tint chosen while it was an app-wide effect is dropped rather than moved onto
 any theme.
 
-The same page's **Theme** lists **Forum default** first among the **Presets**.
-The forum palette follows the forum when its admins change it. Built-in presets
-can be chosen separately for light and dark; a mode without one keeps the
-forum's colours. The **Your own** choice shows saved themes. Presets and the
+The same page's **Theme** is one list under **New theme**: saved themes, each
+with Edit and a menu to duplicate, copy or delete it, then **Forum default**
+and the built-in presets for the shown mode. The forum palette follows the
+forum when its admins change it. Built-in presets can be chosen separately for
+light and dark; a mode without one keeps the forum's colours. Presets and the
 forum palette are never edited in place. **Customize** and **New theme** start
 a theme from plain greys, the forum's colours, a preset or another saved theme.
 A saved theme carries both modes' palettes, each with its sidebar tone and
@@ -605,8 +606,8 @@ page is the preview: a choice applies as it is made, and the whole app shows
 the theme being edited as it changes, though nothing is stored until the
 editor's **Save**; **Cancel**, or leaving the page, puts the saved theme back.
 While editing, the Theme section holds only the draft — its name, each mode's
-colours, sidebar tone and tint, then Save and Cancel — since the choice between
-Presets and Your own cannot change until the edit ends.
+colours, sidebar tone and tint, then Save and Cancel — since no other theme
+can be chosen until the edit ends.
 The **Appearance** setting chooses which mode's preset is shown.
 **Use on all forums**, beside the Theme heading, shows this forum's choice in
 every other connected forum: its own palette, the same presets, or the same
