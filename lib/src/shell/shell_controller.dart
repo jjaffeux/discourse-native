@@ -6089,6 +6089,10 @@ class ShellController extends FrameSafeNotifier
         !target.hasQuery &&
         !target.hasFragment) {
       route = ContentRoute.topicList(TopicListMode.latest);
+    } else if (instance.pathWithin(target) == '/categories' &&
+        !target.hasQuery &&
+        !target.hasFragment) {
+      route = ContentRoute.allCategories();
     } else if (topic != null) {
       route = ContentRoute.topic(
         topicId: topic.topicId,
@@ -6551,7 +6555,12 @@ class ShellController extends FrameSafeNotifier
   bool openCorePageUrl(String url) {
     final destination = _routeForLink(url);
     if (destination == null ||
-        !{'latest', 'messages', 'users'}.contains(destination.route.id)) {
+        !{
+          'latest',
+          'messages',
+          'users',
+          'all-categories',
+        }.contains(destination.route.id)) {
       return false;
     }
     final index = _instances.indexWhere(
@@ -6567,6 +6576,8 @@ class ShellController extends FrameSafeNotifier
     pushContent(destination.route);
     if (destination.route.isUsers) {
       unawaited(userDirectory.load(_instances[index]));
+    } else if (destination.route.id == 'all-categories') {
+      unawaited(loadCategories(destination.siteUrl));
     } else {
       unawaited(loadFeed(destination.route.id));
     }

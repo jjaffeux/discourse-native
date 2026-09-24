@@ -126,6 +126,36 @@ void main() {
     });
   }
 
+  for (final newTab in [false, true]) {
+    testWidgets('opens the forum categories URL natively (new tab: $newTab)', (
+      tester,
+    ) async {
+      final launched = watchBrowser(tester);
+      final controller = await _pumpLink(
+        tester,
+        url: 'https://one.example/categories',
+      );
+      controller.pushContent(ContentRoute.newTab());
+      await tester.pumpAndSettle();
+
+      await tester.tap(
+        find.text('Open link'),
+        kind: PointerDeviceKind.mouse,
+        buttons: newTab ? kMiddleMouseButton : kPrimaryMouseButton,
+      );
+      await tester.pumpAndSettle();
+
+      expect(launched, isEmpty);
+      if (newTab) {
+        expect(controller.tabsForCurrentForum, hasLength(2));
+        controller.selectTab(controller.tabsForCurrentForum.last.id);
+        await tester.pumpAndSettle();
+      }
+      expect(controller.currentContent?.id, 'all-categories');
+      expect(controller.categoryFeedFor('https://one.example').loaded, isTrue);
+    });
+  }
+
   testWidgets('primary click keeps navigation in the active tab', (
     tester,
   ) async {
