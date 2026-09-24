@@ -546,12 +546,7 @@ class _DiscourseAppState extends State<DiscourseApp>
                         selection.siteUrl!,
                         selection.appearance,
                       );
-                final fontFamily = selection.siteUrl == null
-                    ? null
-                    : _controller.forumSettings
-                          .themesFor(selection.siteUrl!)
-                          .font
-                          .family;
+                final fontFamily = _controller.forumSettings.shared.font.family;
                 final lightTheme = _themeFor(
                   appearance,
                   Brightness.light,

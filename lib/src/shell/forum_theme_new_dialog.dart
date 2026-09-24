@@ -164,7 +164,7 @@ class _ForumThemeNewDialogState extends State<ForumThemeNewDialog> {
                       child: FittedBox(
                         child: ThemeThumbnail(
                           theme: _thumbnails[theme.id] ??= AppTheme.fromPalette(
-                            theme.resolve(widget.brightness),
+                            theme.colours.resolve(widget.brightness),
                           ),
                         ),
                       ),

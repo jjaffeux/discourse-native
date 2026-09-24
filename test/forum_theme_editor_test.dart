@@ -1,11 +1,15 @@
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/app_settings.dart';
+import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/forum_background.dart';
 import 'package:discourse_native/src/models/forum_font.dart';
 import 'package:discourse_native/src/models/forum_theme.dart';
 import 'package:discourse_native/src/models/forum_theme_preferences.dart';
 import 'package:discourse_native/src/models/forum_theme_presets.dart';
+import 'package:discourse_native/src/models/site_appearance.dart';
 import 'package:discourse_native/src/shell/forum_settings_page.dart';
+import 'package:discourse_native/src/shell/forum_theme_editor.dart';
+import 'package:discourse_native/src/shell/settings_section.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
@@ -184,6 +188,8 @@ void main() {
     final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
     addTearDown(mouse.removePointer);
     await mouse.addPointer(location: const Offset(0, 0));
+    await tester.ensureVisible(_choice('neutral'));
+    await tester.pumpAndSettle();
     await mouse.moveTo(tester.getCenter(_choice('neutral')));
     await tester.pump();
     expect(opacity(neutralAction), 1);
@@ -462,19 +468,37 @@ void main() {
       await pumpSettings(tester, shell);
       await _tap(tester, find.byKey(ValueKey(('edit-theme', second.id))));
 
-      await _tap(
-        tester,
-        find.byKey(const ValueKey('custom-theme-darker-sidebars')),
-      );
+      final sidebar = find.byKey(const ValueKey('theme-sidebar'));
+      // The sidebar tone is part of each mode's colours.
       expect(
-        _appTheme(tester).extension<ForumThemeEffects>()?.sidebarTheme,
-        isNotNull,
+        find.descendant(
+          of: find.byWidgetPredicate(
+            (widget) => widget is SettingsSection && widget.title == 'Colours',
+          ),
+          matching: sidebar,
+        ),
+        findsOneWidget,
       );
-      await _tap(tester, find.text('Noise'));
-      expect(
-        _appTheme(tester).extension<ForumThemeEffects>()!.background!.effect,
-        ForumBackgroundEffect.noise,
-      );
+      for (final control in ['theme-tint', 'theme-texture']) {
+        expect(
+          find.descendant(
+            of: find.byType(ForumThemeEditor),
+            matching: find.byKey(ValueKey(control)),
+          ),
+          findsNothing,
+          reason: control,
+        );
+      }
+      expect(tester.widget<DRadioGroup<bool>>(sidebar).groupValue, isFalse);
+      Object? sidebarTheme() =>
+          _appTheme(tester).extension<ForumThemeEffects>()?.sidebarTheme;
+      await _tap(tester, find.text('Darker sidebar'));
+      expect(tester.widget<DRadioGroup<bool>>(sidebar).groupValue, isTrue);
+      expect(sidebarTheme(), isNotNull);
+      await _tap(tester, find.text('Neutral sidebar'));
+      expect(sidebarTheme(), isNull);
+      await _tap(tester, find.text('Darker sidebar'));
+      expect(sidebarTheme(), isNotNull);
       expect(_preferences(shell), initial);
 
       await _tap(tester, find.byKey(const ValueKey('theme-save')));
@@ -488,23 +512,21 @@ void main() {
       expect(edited.forBrightness(Brightness.light).darkerSidebars, isTrue);
       expect(edited.forBrightness(Brightness.dark).darkerSidebars, isFalse);
       for (final mode in Brightness.values) {
-        expect(
-          edited.forBrightness(mode).background!.effect,
-          ForumBackgroundEffect.noise,
-        );
+        expect(edited.forBrightness(mode).background, isNull);
       }
       expect(tester.takeException(), isNull);
     },
   );
 
   testWidgets(
-    'tint, opacity and texture use today’s controls and edit only the draft',
+    'tint, opacity and texture are found without a theme of your own and '
+    'apply to every forum at once',
     (tester) async {
       final shell = controller();
       addTearDown(shell.dispose);
       await pumpSettings(tester, shell);
-      await _source(tester, ForumThemeSource.custom);
-      await _tap(tester, find.byKey(const ValueKey('new-theme-continue')));
+      await _tap(tester, _choice('wcag'));
+      final applied = _preferences(shell);
       DSlider slider(String name) =>
           tester.widget(find.byKey(ValueKey('theme-$name')));
       expect(slider('intensity').onChanged, isNull);
@@ -519,16 +541,93 @@ void main() {
       expect(find.text('70%'), findsOneWidget);
       await _tap(tester, find.text('Noise'));
       expect(slider('intensity').onChanged, isNotNull);
-      expect(_preferences(shell).customThemes, isEmpty);
 
-      await _tap(tester, find.byKey(const ValueKey('theme-save')));
-      final background = _preferences(shell).customTheme!.background!;
-      expect(background.strength, 1);
-      expect(background.transparency, .3);
-      expect(background.effect, ForumBackgroundEffect.noise);
+      final effects = shell.forumSettings.shared.effects;
+      expect(effects.strength, 1);
+      expect(effects.transparency, .3);
+      expect(effects.effect, ForumBackgroundEffect.noise);
+      expect(
+        _appTheme(tester).extension<ForumThemeEffects>()!.background,
+        effects,
+      );
+      expect(_preferences(shell), applied);
+      expect(
+        (await shell.forumSettings.store.loadAppearance()).effects,
+        effects,
+      );
+      // Another forum, still on its own colours, draws the same effects.
+      final other = SiteAppearance(
+        base: forumThemePresets.first.resolve(Brightness.light),
+      );
+      expect(
+        shell.forumSettings
+            .appearanceFor('https://b.example', other)!
+            .base!
+            .background,
+        effects,
+      );
       expect(tester.takeException(), isNull);
     },
   );
+
+  testWidgets('Use on all forums copies these colours to every other forum', (
+    tester,
+  ) async {
+    final shell = controller(
+      instances: const [
+        DiscourseInstance(url: _site, title: 'A'),
+        DiscourseInstance(url: 'https://b.example', title: 'B'),
+      ],
+    );
+    addTearDown(shell.dispose);
+    await shell.load();
+    await pumpSettings(tester, shell);
+    final use = find.byKey(const ValueKey('theme-use-everywhere'));
+    expect(use, findsNothing, reason: 'both show their forum colours');
+    expect(
+      find.descendant(
+        of: find.byWidgetPredicate(
+          (widget) => widget is SettingsSection && widget.title == 'Theme',
+        ),
+        matching: find.text('Used on all forums'),
+      ),
+      findsOneWidget,
+    );
+
+    await _tap(tester, _choice('wcag'));
+    expect(
+      shell.forumSettings.themesFor('https://b.example').source,
+      ForumThemeSource.forum,
+    );
+    await _tap(tester, use);
+    expect(shell.forumSettings.themesFor('https://b.example').presets, {
+      Brightness.light: 'wcag',
+    });
+    expect(
+      await shell.forumSettings.store.loadThemes('https://b.example'),
+      shell.forumSettings.themesFor('https://b.example'),
+    );
+    expect(find.text('Every forum now uses these colours.'), findsOneWidget);
+    expect(use, findsNothing);
+    expect(find.text('Used on all forums'), findsOneWidget);
+    await tester.pump(const Duration(seconds: 6));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('with one forum there is nothing to copy colours to', (
+    tester,
+  ) async {
+    final shell = controller(
+      instances: const [DiscourseInstance(url: _site, title: 'A')],
+    );
+    addTearDown(shell.dispose);
+    await shell.load();
+    await pumpSettings(tester, shell);
+    await _tap(tester, _choice('wcag'));
+    expect(find.byKey(const ValueKey('theme-use-everywhere')), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
 
   testWidgets(
     'colour grid and hex field stay synchronized with keyboard and pointer edits',
@@ -576,7 +675,6 @@ void main() {
           source: ForumThemeSource.custom,
           customId: moss.id,
           customThemes: [moss, kept],
-          font: ForumFont.lato,
         );
         await shell.forumSettings.setThemes(_site, initial);
         await shell.forumSettings.setThemes('https://b.example', initial);
@@ -608,7 +706,6 @@ void main() {
         final after = _preferences(shell);
         expect(after.customThemes, [kept]);
         expect(after.source, ForumThemeSource.forum);
-        expect(after.font, ForumFont.lato);
         expect(await shell.forumSettings.store.loadThemes(_site), after);
         expect(shell.forumSettings.themesFor('https://b.example'), initial);
         expect(tester.takeException(), isNull);
@@ -691,24 +788,32 @@ void main() {
     },
   );
 
-  testWidgets('the font applies with every source and never changes it', (
-    tester,
-  ) async {
+  testWidgets('the font is every forum\'s, applies with every source and '
+      'never changes it', (tester) async {
     final shell = controller();
     addTearDown(shell.dispose);
     await pumpSettings(tester, shell);
+    expect(
+      find.descendant(
+        of: find.byWidgetPredicate(
+          (widget) => widget is SettingsSection && widget.title == 'Font',
+        ),
+        matching: find.text('All forums'),
+      ),
+      findsOneWidget,
+    );
     await _tap(tester, find.byKey(const ValueKey('appearance-font-lato')));
-    expect(_preferences(shell).font, ForumFont.lato);
+    expect(shell.forumSettings.shared.font, ForumFont.lato);
     expect(_preferences(shell).source, ForumThemeSource.forum);
     String? family() => Theme.of(
       tester.element(find.byType(ForumSettingsPage)),
     ).textTheme.bodyMedium!.fontFamily;
     expect(family(), 'Lato');
     await _tap(tester, _choice('wcag'));
-    expect(_preferences(shell).font, ForumFont.lato);
+    expect(shell.forumSettings.shared.font, ForumFont.lato);
     expect(family(), 'Lato');
     await _tap(tester, _choice('forum'));
-    expect(_preferences(shell).font, ForumFont.lato);
+    expect(shell.forumSettings.shared.font, ForumFont.lato);
     expect(_preferences(shell).presets, {Brightness.light: 'wcag'});
     expect(tester.takeException(), isNull);
   });
@@ -724,11 +829,15 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('appearance-font-lato')));
     await tester.tap(_choice('wcag'));
     await tester.pumpAndSettle();
-    expect(_preferences(shell).font, ForumFont.lato);
+    expect(shell.forumSettings.shared.font, ForumFont.lato);
     expect(_preferences(shell).presets, {Brightness.light: 'wcag'});
     expect(
       await shell.forumSettings.store.loadThemes(_site),
       _preferences(shell),
+    );
+    expect(
+      (await shell.forumSettings.store.loadAppearance()).font,
+      ForumFont.lato,
     );
     expect(tester.takeException(), isNull);
   });

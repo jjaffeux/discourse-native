@@ -95,6 +95,24 @@ class ForumBackground {
   /// exported themes retain their separately chosen background treatment.
   final bool useAccentTint;
 
+  /// Whether this draws nothing over the colours it is applied to.
+  bool get isPlain =>
+      strength == 0 &&
+      transparency == 0 &&
+      effect == ForumBackgroundEffect.normal;
+
+  /// This treatment as the accent tint the app applies to every forum. Older
+  /// shared themes chose a tint colour of their own; the accent takes over at
+  /// the strength that colour reached.
+  ForumBackground toAccentTint() => useAccentTint
+      ? this
+      : ForumBackground.appearance(
+          strength: (strength * .45 / maxTint).clamp(0, 1),
+          effect: effect,
+          noiseIntensity: noiseIntensity,
+          transparency: transparency,
+        );
+
   ForumBackground copyWith({
     Color? color,
     double? strength,

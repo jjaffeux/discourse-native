@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:ui';
 
 import 'package:discourse_native/src/data/forum_settings_store.dart';
@@ -8,6 +9,7 @@ import 'package:discourse_native/src/models/forum_font.dart';
 import 'package:discourse_native/src/models/forum_theme.dart';
 import 'package:discourse_native/src/models/forum_theme_preferences.dart';
 import 'package:discourse_native/src/models/forum_theme_presets.dart';
+import 'package:discourse_native/src/models/shared_appearance.dart';
 import 'package:discourse_native/src/models/site_appearance.dart';
 import 'package:discourse_native/src/shell/forum_settings_controller.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
@@ -21,11 +23,10 @@ void main() {
     'name': 'My night',
   }, id: 'custom-night');
 
-  test('the forum default keeps the chosen presets, saved theme and font', () {
+  test('the forum default keeps the chosen presets and saved theme', () {
     final chosen = ForumThemePreferences()
         .withPreset(Brightness.dark, 'dracula')
-        .save(custom)
-        .withFont(ForumFont.lato);
+        .save(custom);
     final forum = ForumThemePreferences.fromJson(
       chosen.withSource(ForumThemeSource.forum).toJson(),
     );
@@ -33,7 +34,7 @@ void main() {
     for (final mode in Brightness.values) {
       expect(forum.themeFor(mode), isNull, reason: '$mode');
     }
-    expect(forum.font, ForumFont.lato);
+    expect(forum.toJson(), isNot(contains('font')));
     expect(forum.withSource(ForumThemeSource.custom), chosen);
     expect(
       forum
@@ -303,62 +304,316 @@ void main() {
     },
   );
 
-  test(
-    'font survives theme edits and older or unknown preferences default safely',
-    () {
-      final chosen = ForumThemePreferences().withFont(ForumFont.lato);
-      final edited = chosen.save(custom).withSource(ForumThemeSource.forum);
-      expect(edited.font, ForumFont.lato);
-      expect(edited.remove(custom.id).font, ForumFont.lato);
-      expect(ForumThemePreferences.fromJson(edited.toJson()), edited);
-      expect(
-        ForumThemePreferences.fromJson(const {'version': 1}).font,
-        ForumFont.system,
-      );
-      expect(
-        ForumThemePreferences.fromJson(const {
-          'version': 2,
-          'font': 'unknown',
-        }).font,
-        ForumFont.system,
-      );
-    },
-  );
+  test('the shared font and effects round trip and damaged values default '
+      'safely', () {
+    const shared = SharedAppearance(
+      font: ForumFont.lato,
+      effects: ForumBackground.appearance(
+        strength: .4,
+        effect: ForumBackgroundEffect.noise,
+        transparency: .2,
+      ),
+    );
+    expect(SharedAppearance.fromJson(shared.toJson()), shared);
+    expect(
+      SharedAppearance.fromJson({...shared.toJson(), 'effects': 'damaged'}),
+      const SharedAppearance(font: ForumFont.lato),
+    );
+    expect(
+      SharedAppearance.fromJson({...shared.toJson(), 'font': 'unknown'}).font,
+      ForumFont.system,
+    );
+    expect(
+      () => SharedAppearance.fromJson(const {'version': 2}),
+      throwsFormatException,
+    );
+    // An older shared theme's own tint colour becomes the accent tint.
+    const legacy = ForumBackground(color: Color(0xff336699), strength: .22);
+    expect(
+      SharedAppearance.fromJson({
+        'version': 1,
+        'effects': legacy.toJson(),
+      }).effects,
+      legacy.toAccentTint(),
+    );
+    expect(legacy.toAccentTint().useAccentTint, isTrue);
+    expect(legacy.toAccentTint().strength, closeTo(.45, 1e-9));
+  });
 
-  test(
-    'fonts persist independently per forum and failed writes retain the choice',
-    () async {
+  test('the shared appearance is stored once for every forum, and a failed '
+      'write restores the saved choice', () async {
+    final persistence = _Persistence();
+    final settings = ForumSettingsController(
+      store: ForumSettingsStore(persistence: persistence),
+    );
+    addTearDown(settings.dispose);
+    await settings.loadShared(const []);
+    final chosen = settings.shared.copyWith(
+      font: ForumFont.openSans,
+      effects: const ForumBackground.appearance(transparency: .15),
+    );
+    await settings.setShared(chosen);
+    expect(persistence.values.keys, [ForumSettingsStore.appearanceKey]);
+    final restored = ForumSettingsController(
+      store: ForumSettingsStore(persistence: persistence),
+    );
+    addTearDown(restored.dispose);
+    await restored.loadShared([site]);
+    expect(restored.shared, chosen);
+    persistence.failWrites = true;
+    await expectLater(
+      settings.setShared(chosen.copyWith(font: ForumFont.lato)),
+      throwsStateError,
+    );
+    expect(settings.shared, chosen);
+  });
+
+  test('a choice made while the shared appearance is read wins', () async {
+    final persistence = _Persistence()
+      ..values[ForumSettingsStore.appearanceKey] = jsonEncode(
+        const SharedAppearance(font: ForumFont.lato).toJson(),
+      )
+      ..gate = Completer<void>();
+    final settings = ForumSettingsController(
+      store: ForumSettingsStore(persistence: persistence),
+    );
+    addTearDown(settings.dispose);
+    final loading = settings.loadShared(const []);
+    await persistence.readStarted.future;
+    final saving = settings.setShared(
+      const SharedAppearance(font: ForumFont.jetBrainsMono),
+    );
+    persistence.gate!.complete();
+    await Future.wait([loading, saving]);
+    expect(settings.shared.font, ForumFont.jetBrainsMono);
+  });
+
+  group('the first shared load', () {
+    Future<(SharedAppearance, _Persistence)> adopt(
+      Map<String, Map<String, dynamic>> forums, {
+      List<String>? order,
+    }) async {
       final persistence = _Persistence();
-      final store = ForumSettingsStore(persistence: persistence);
-      final settings = ForumSettingsController(store: store);
+      for (final entry in forums.entries) {
+        persistence.values[ForumSettingsStore.themesKey(entry.key)] =
+            jsonEncode(entry.value);
+      }
+      final shared = await ForumSettingsStore(
+        persistence: persistence,
+      ).loadAppearance(sites: order ?? forums.keys);
+      return (shared, persistence);
+    }
+
+    const noise = ForumBackground.appearance(
+      strength: .5,
+      effect: ForumBackgroundEffect.noise,
+      transparency: .1,
+    );
+    final themed = ForumTheme.fromJson({
+      ...custom.toJson(),
+      'background': noise.toJson(),
+    }, id: 'custom-noise');
+
+    test('adopts the first font and the first theme effects in forum order, '
+        'and stores them', () async {
+      final (shared, persistence) = await adopt(
+        {
+          'https://a.example': {
+            ...ForumThemePreferences().toJson(),
+            'font': 'system',
+          },
+          'https://b.example': {
+            ...ForumThemePreferences().save(themed).toJson(),
+            'font': 'openSans',
+          },
+          'https://c.example': {
+            ...ForumThemePreferences().toJson(),
+            'font': 'lato',
+          },
+        },
+        order: ['https://a.example', 'https://b.example', 'https://c.example'],
+      );
+      expect(
+        shared,
+        const SharedAppearance(font: ForumFont.openSans, effects: noise),
+      );
+      expect(
+        SharedAppearance.fromJson(
+          jsonDecode(persistence.values[ForumSettingsStore.appearanceKey]!)
+              as Map<String, dynamic>,
+        ),
+        shared,
+      );
+    });
+
+    test('ignores effects of a saved theme that is not shown', () async {
+      final (shared, _) = await adopt({
+        'https://a.example': ForumThemePreferences()
+            .save(themed)
+            .withSource(ForumThemeSource.forum)
+            .toJson(),
+      });
+      expect(shared, SharedAppearance.defaults);
+    });
+
+    test(
+      'never replaces a stored appearance, even an unreadable one',
+      () async {
+        final persistence = _Persistence()
+          ..values[ForumSettingsStore.appearanceKey] = '{not json'
+          ..values[ForumSettingsStore.themesKey(site)] = jsonEncode({
+            ...ForumThemePreferences().toJson(),
+            'font': 'lato',
+          });
+        final shared = await ForumSettingsStore(
+          persistence: persistence,
+        ).loadAppearance(sites: [site]);
+        expect(shared, SharedAppearance.defaults);
+        expect(
+          persistence.values[ForumSettingsStore.appearanceKey],
+          '{not json',
+        );
+      },
+    );
+  });
+
+  group('effects', () {
+    final forum = SiteAppearance(
+      base: ResolvedSitePalette.fromJson(const {
+        'brightness': 'light',
+        'primary': 0xff222222,
+        'secondary': 0xffffffff,
+        'tertiary': 0xff0088cc,
+        'headerBackground': 0xff113355,
+        'primaryLow': 0xffe9e9e9,
+      }),
+    );
+    const effects = ForumBackground.appearance(
+      strength: 1,
+      effect: ForumBackgroundEffect.noise,
+      transparency: .2,
+    );
+
+    test('without effects the forum palette is shown exactly as published', () {
+      final settings = ForumSettingsController(
+        store: ForumSettingsStore.memory(),
+      );
       addTearDown(settings.dispose);
+      expect(settings.appearanceFor(site, forum), same(forum));
+    });
+
+    test(
+      'tint every source, and keep the forum\'s own derived colours',
+      () async {
+        final settings = ForumSettingsController(
+          store: ForumSettingsStore.memory(),
+        );
+        addTearDown(settings.dispose);
+        await settings.setShared(const SharedAppearance(effects: effects));
+        final published = forum.base!;
+        final tinted = settings.appearanceFor(site, forum)!.base!;
+        // Palettes hold eight bits per channel.
+        Matcher lerped(Color from, double amount) => equals(
+          Color(Color.lerp(from, published.tertiary, amount)!.toARGB32()),
+        );
+        expect(tinted.background, effects);
+        expect(tinted.secondary, lerped(published.secondary, .22));
+        expect(tinted.primary, lerped(published.primary, .11));
+        expect(
+          tinted.headerBackground,
+          lerped(published.headerBackground, .22),
+        );
+        expect(tinted.primaryLow, lerped(published.primaryLow, .22));
+        expect(tinted.tertiary, published.tertiary);
+        expect(tinted.danger, published.danger);
+
+        await settings.setThemes(
+          site,
+          ForumThemePreferences().withPreset(Brightness.light, 'solarized'),
+        );
+        expect(
+          settings.appearanceFor(site, forum)!.base,
+          forumThemePresetFor('solarized', Brightness.light)!
+              .forBrightness(Brightness.light)
+              .copyWith(background: effects)
+              .resolve(Brightness.light, forumPalette: published),
+        );
+
+        final legacy = ForumTheme.fromJson({
+          ...custom.toJson(),
+          'background': const ForumBackground(
+            color: Color(0xff00ff00),
+            strength: 1,
+          ).toJson(),
+        }, id: 'custom-legacy');
+        await settings.setThemes(site, ForumThemePreferences().save(legacy));
+        expect(
+          settings.appearanceFor(site, forum)!.base!.background,
+          effects,
+          reason: 'a saved theme\'s own effects no longer apply',
+        );
+      },
+    );
+  });
+
+  group('using one forum\'s colours in the others', () {
+    const other = 'https://other.example';
+    const third = 'https://third.example';
+
+    test('copies the forum default, presets or saved theme and keeps each '
+        'library', () async {
+      final settings = ForumSettingsController(
+        store: ForumSettingsStore.memory(),
+      );
+      addTearDown(settings.dispose);
+      final theirs = custom.copyWith(id: 'custom-theirs', name: 'Theirs');
+      await settings.setThemes(other, ForumThemePreferences().save(theirs));
+
       await settings.setThemes(
         site,
-        ForumThemePreferences().withFont(ForumFont.openSans),
+        ForumThemePreferences().withPreset(Brightness.dark, 'dracula'),
       );
+      await settings.useThemesIn(site, [site, other, third]);
+      for (final forum in [other, third]) {
+        expect(settings.themesFor(forum).source, ForumThemeSource.preset);
+        expect(settings.themesFor(forum).presets, {Brightness.dark: 'dracula'});
+      }
+      expect(settings.themesFor(other).customThemes, [theirs]);
+
+      await settings.setThemes(site, settings.themesFor(site).save(custom));
+      await settings.useThemesIn(site, [other, third]);
+      for (final forum in [other, third]) {
+        expect(settings.themesFor(forum).customTheme, custom);
+      }
+      expect(settings.themesFor(other).customThemes, [theirs, custom]);
+
+      // Applying again changes nothing and adds no second copy.
+      final before = settings.themesFor(other);
+      expect(before.showing(settings.themesFor(site)), before);
+      await settings.useThemesIn(site, [other]);
+      expect(settings.themesFor(other), before);
+
       await settings.setThemes(
-        'https://other.example',
-        ForumThemePreferences().withFont(ForumFont.lato),
+        site,
+        settings.themesFor(site).withSource(ForumThemeSource.forum),
       );
-      final restored = ForumSettingsController(
-        store: ForumSettingsStore(persistence: persistence),
-      );
-      addTearDown(restored.dispose);
-      await restored.load(site);
-      await restored.load('https://other.example');
-      expect(restored.themesFor(site).font, ForumFont.openSans);
-      expect(restored.themesFor('https://other.example').font, ForumFont.lato);
-      persistence.failWrites = true;
-      await expectLater(
-        settings.setThemes(
-          site,
-          settings.themesFor(site).withFont(ForumFont.system),
-        ),
-        throwsStateError,
-      );
-      expect(settings.themesFor(site).font, ForumFont.openSans);
-    },
-  );
+      await settings.useThemesIn(site, [other]);
+      expect(settings.themesFor(other).source, ForumThemeSource.forum);
+      expect(settings.themesFor(other).customThemes, [theirs, custom]);
+    });
+
+    test('loads a forum not yet read before changing it', () async {
+      final store = ForumSettingsStore.memory();
+      final theirs = custom.copyWith(id: 'custom-theirs', name: 'Theirs');
+      await store.writeThemes(other, ForumThemePreferences().save(theirs));
+      final settings = ForumSettingsController(store: store);
+      addTearDown(settings.dispose);
+      await settings.setThemes(site, ForumThemePreferences().save(custom));
+      await settings.useThemesIn(site, [other]);
+      expect(settings.themesFor(other).customThemes, [theirs, custom]);
+      expect((await store.loadThemes(other)).customTheme, custom);
+    });
+  });
 
   test('contains all reference schemes with their original colors', () {
     expect(forumThemePresets.map((t) => t.id), [
@@ -596,19 +851,22 @@ void main() {
         .forBrightness(mode)
         .copyWith(id: 'forum', name: 'Forum default');
 
-    test('a font chosen over the forum colours keeps the forum default', () {
-      final preferences = ForumThemePreferences.fromJson(
-        legacy(
-          palettes: {
-            for (final mode in Brightness.values) mode: forumCopy(mode),
-          },
-          background: const ForumBackground.appearance(),
-          font: 'lato',
-        ),
+    test('a font chosen over the forum colours keeps the forum default, '
+        'and becomes every forum\'s font', () async {
+      final document = legacy(
+        palettes: {for (final mode in Brightness.values) mode: forumCopy(mode)},
+        background: const ForumBackground.appearance(),
+        font: 'lato',
       );
+      final preferences = ForumThemePreferences.fromJson(document);
       expect(preferences.source, ForumThemeSource.forum);
-      expect(preferences.font, ForumFont.lato);
       expect(preferences.customThemes, isEmpty);
+      final persistence = _Persistence()
+        ..values[ForumSettingsStore.themesKey(site)] = jsonEncode(document);
+      final shared = await ForumSettingsStore(
+        persistence: persistence,
+      ).loadAppearance(sites: [site]);
+      expect(shared.font, ForumFont.lato);
     });
 
     test(
@@ -690,14 +948,13 @@ void main() {
       },
     );
 
-    test('the forum default keeps the library and font', () {
+    test('the forum default keeps the library', () {
       final preferences = ForumThemePreferences.fromJson({
         ...legacy(customThemes: [custom], font: 'lato'),
         'useCustomTheme': false,
       });
       expect(preferences.source, ForumThemeSource.forum);
       expect(preferences.customThemes, [custom]);
-      expect(preferences.font, ForumFont.lato);
     });
   });
 }

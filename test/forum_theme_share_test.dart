@@ -4,7 +4,6 @@ import 'dart:ui';
 import 'package:discourse_cooking/discourse_cooking.dart';
 import 'package:discourse_native/src/data/forum_settings_store.dart';
 import 'package:discourse_native/src/models/forum_background.dart';
-import 'package:discourse_native/src/models/forum_font.dart';
 import 'package:discourse_native/src/models/forum_theme.dart';
 import 'package:discourse_native/src/models/forum_theme_preferences.dart';
 import 'package:discourse_native/src/models/forum_theme_presets.dart';
@@ -99,7 +98,7 @@ void main() {
   );
 
   test(
-    'imports preserve an existing library, font and other forums before loading',
+    'imports preserve an existing library and other forums before loading',
     () async {
       const site = 'https://example.com/forum';
       const otherSite = 'https://other.example';
@@ -112,7 +111,6 @@ void main() {
         source: ForumThemeSource.custom,
         customId: existing.id,
         customThemes: [existing],
-        font: ForumFont.values.last,
       );
       await store.writeThemes(site, original);
       await store.writeThemes(otherSite, original);
@@ -123,7 +121,6 @@ void main() {
       final saved = await store.loadThemes(site);
       expect(saved.customThemes, [existing, incoming]);
       expect(saved.customTheme, incoming);
-      expect(saved.font, original.font);
       expect(await store.loadThemes(otherSite), original);
       await settings.importTheme(site, incoming);
       expect(settings.themesFor(site).customThemes, [existing, incoming]);

@@ -9,6 +9,7 @@ import '../foundation/frame_safe_notifier.dart';
 import '../models/app_settings.dart';
 import '../models/forum_theme.dart';
 import '../models/forum_theme_preferences.dart';
+import '../models/shared_appearance.dart';
 import '../models/site_appearance.dart';
 
 final class ForumSettingsController extends FrameSafeNotifier {
@@ -19,12 +20,22 @@ final class ForumSettingsController extends FrameSafeNotifier {
 
   final _themes = PreferenceSnapshots<String, ForumThemePreferences>();
   final _themeImports = SerialOperationQueue();
-  final _themeWrites = <String, _ThemeWrite>{};
+  final _themeWrites = <String, _Write<ForumThemePreferences>>{};
   final _previews = <String, _AppearancePreview>{};
+
+  /// One document for every forum, so it shares the per-forum snapshots'
+  /// rule that a choice made while it is read wins over what was read.
+  final _shared = PreferenceSnapshots<String, SharedAppearance>();
+  static const _everyForum = '';
+  _Write<SharedAppearance>? _sharedWrite;
 
   ForumThemePreferences themesFor(String siteUrl) =>
       _themes.peek(requireStoredForumBase(siteUrl)) ??
       ForumThemePreferences.defaults;
+
+  /// The font and window effects, which are the same in every forum.
+  SharedAppearance get shared =>
+      _shared.peek(_everyForum) ?? SharedAppearance.defaults;
 
   /// The mode the app shows while the Appearance page chooses colours for it,
   /// or null for the saved mode.
@@ -60,21 +71,31 @@ final class ForumSettingsController extends FrameSafeNotifier {
   ) {
     final preferences = themesFor(siteUrl);
     final draft = _previews[requireStoredForumBase(siteUrl)]?.draft;
+    final effects = shared.effects;
     final themes = {
       for (final mode in Brightness.values)
         mode: draft?.forBrightness(mode) ?? preferences.themeFor(mode),
     };
-    if (themes.values.every((theme) => theme == null)) return forumAppearance;
-    // A mode without its own choice keeps the forum's palette for that mode.
-    ResolvedSitePalette? palette(Brightness brightness) =>
-        themes[brightness]?.resolve(
-          brightness,
-          forumPalette:
-              forumAppearance?.paletteForBrightness(brightness) ??
-              forumAppearance?.base ??
-              forumAppearance?.alternate,
-        ) ??
-        forumAppearance?.paletteForBrightness(brightness);
+    if (effects.isPlain && themes.values.every((theme) => theme == null)) {
+      return forumAppearance;
+    }
+    // A mode without its own choice keeps the forum's palette for that mode,
+    // exactly as published unless there are effects to draw over it.
+    ResolvedSitePalette? palette(Brightness brightness) {
+      final forum = forumAppearance?.paletteForBrightness(brightness);
+      final theme = themes[brightness];
+      if (theme == null) {
+        return effects.isPlain ? forum : forum?.withEffects(effects);
+      }
+      return theme
+          .copyWith(background: effects)
+          .resolve(
+            brightness,
+            forumPalette:
+                forum ?? forumAppearance?.base ?? forumAppearance?.alternate,
+          );
+    }
+
     return SiteAppearance(
       base: palette(Brightness.light),
       alternate: palette(Brightness.dark),
@@ -88,41 +109,111 @@ final class ForumSettingsController extends FrameSafeNotifier {
       return _themeWrites[site]?.completion.future ?? Future.value();
     }
     final existing = _themeWrites[site];
-    final write = existing ?? _ThemeWrite(themesFor(site));
+    final write = existing ?? _Write(themesFor(site));
     _themeWrites[site] = write;
     write.pending = value;
     _themes.remember(site, value);
     notifySafely();
-    if (existing == null) unawaited(_persistThemes(site, write));
+    if (existing == null) {
+      unawaited(
+        _persist(
+          write,
+          (value) => store.writeThemes(site, value),
+          revert: (saved) => _themes.remember(site, saved),
+          done: () => _themeWrites.remove(site),
+        ),
+      );
+    }
     return write.completion.future;
   }
 
-  Future<void> _persistThemes(String site, _ThemeWrite write) async {
+  /// Loads the font and effects every forum shares. The first load adopts
+  /// what [siteUrls] chose for themselves when those were per forum.
+  Future<void> loadShared(Iterable<String> siteUrls) async {
+    if (isDisposed) return;
+    final sites = [for (final url in siteUrls) requireStoredForumBase(url)];
+    await _shared.ensure(_everyForum, () => store.loadAppearance(sites: sites));
+    if (!isDisposed) notifySafely();
+  }
+
+  Future<void> setShared(SharedAppearance value) {
+    if (isDisposed) return Future.value();
+    if (_shared.peek(_everyForum) == value) {
+      return _sharedWrite?.completion.future ?? Future.value();
+    }
+    final existing = _sharedWrite;
+    final write = existing ?? _Write(shared);
+    _sharedWrite = write;
+    write.pending = value;
+    _shared.remember(_everyForum, value);
+    notifySafely();
+    if (existing == null) {
+      unawaited(
+        _persist(
+          write,
+          store.writeAppearance,
+          revert: (saved) => _shared.remember(_everyForum, saved),
+          done: () => _sharedWrite = null,
+        ),
+      );
+    }
+    return write.completion.future;
+  }
+
+  Future<void> _persist<T extends Object>(
+    _Write<T> write,
+    Future<void> Function(T value) save, {
+    required void Function(T saved) revert,
+    required void Function() done,
+  }) async {
     while (write.pending != null) {
       final value = write.pending!;
       write.pending = null;
       try {
-        await store.writeThemes(site, value);
+        await save(value);
         write.saved = value;
       } catch (error, stack) {
         // A newer live edit supersedes an obsolete failed write. Try that
         // latest value before reporting a failure or reverting the app.
         if (write.pending != null) continue;
-        _themeWrites.remove(site);
+        done();
         if (!isDisposed) {
-          _themes.remember(site, write.saved);
+          revert(write.saved);
           notifySafely();
         }
         write.completion.completeError(error, stack);
         return;
       }
     }
-    _themeWrites.remove(site);
+    done();
     write.completion.complete();
   }
 
-  /// Loads the destination library before importing, preserving its font and
-  /// other custom themes. Serial imports also retain simultaneous shares.
+  /// Shows [siteUrl]'s colours in each of [siteUrls] too, each loaded first
+  /// so that its own library is kept. A saved theme joins a library that
+  /// lacks it.
+  Future<void> useThemesIn(String siteUrl, Iterable<String> siteUrls) {
+    final source = requireStoredForumBase(siteUrl);
+    final chosen = themesFor(source);
+    return Future.wait([
+      for (final site in {
+        for (final url in siteUrls) requireStoredForumBase(url),
+      }.where((site) => site != source))
+        _themeImports.run(
+          owner: this,
+          key: site,
+          operation: () async {
+            await _themes.ensure(site, () => store.loadThemes(site));
+            if (!isDisposed) {
+              await setThemes(site, themesFor(site).showing(chosen));
+            }
+          },
+        ),
+    ]);
+  }
+
+  /// Loads the destination library before importing, preserving its other
+  /// custom themes. Serial imports also retain simultaneous shares.
   Future<ForumThemePreferences> importTheme(String siteUrl, ForumTheme theme) {
     final site = requireStoredForumBase(siteUrl);
     return _themeImports.run(
@@ -174,9 +265,9 @@ typedef _AppearancePreview = ({
   ForumTheme? draft,
 });
 
-final class _ThemeWrite {
-  _ThemeWrite(this.saved);
-  ForumThemePreferences saved;
-  ForumThemePreferences? pending;
+final class _Write<T extends Object> {
+  _Write(this.saved);
+  T saved;
+  T? pending;
   final completion = Completer<void>();
 }

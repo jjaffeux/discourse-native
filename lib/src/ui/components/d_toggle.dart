@@ -1,5 +1,7 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
-import 'package:flutter/semantics.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 
 import '../../theme/d_icon.dart';
@@ -346,32 +348,14 @@ class _DToggleState extends State<DToggle> {
                       ),
                     ],
                   )
-                : Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      if (widget.iconPosition == DToggleIconPosition.start) ...[
-                        Flexible(
-                          child: Padding(
-                            padding: const EdgeInsetsDirectional.only(end: 4),
-                            child: ExcludeSemantics(child: effectiveIcon),
-                          ),
-                        ),
-                      ],
-                      Flexible(
-                        child: ExcludeSemantics(
-                          excluding: widget.semanticLabel != null,
-                          child: widget.child,
-                        ),
-                      ),
-                      if (widget.iconPosition == DToggleIconPosition.end) ...[
-                        Flexible(
-                          child: Padding(
-                            padding: const EdgeInsetsDirectional.only(start: 4),
-                            child: ExcludeSemantics(child: effectiveIcon),
-                          ),
-                        ),
-                      ],
-                    ],
+                : _IconLabel(
+                    iconAtEnd: widget.iconPosition == DToggleIconPosition.end,
+                    direction: direction,
+                    icon: ExcludeSemantics(child: effectiveIcon),
+                    label: ExcludeSemantics(
+                      excluding: widget.semanticLabel != null,
+                      child: widget.child,
+                    ),
                   ),
           );
     content = IconTheme.merge(
@@ -504,4 +488,198 @@ class _DToggleState extends State<DToggle> {
       ),
     );
   }
+}
+
+/// Lays the icon out at its natural width first and gives the label only what
+/// remains, so a label ellipsizes against its icon rather than against an even
+/// split of the row. A width narrower than the icon clamps the icon and its
+/// gap as well, which keeps collapsing layouts free of overflow.
+class _IconLabel extends MultiChildRenderObjectWidget {
+  _IconLabel({
+    required this.iconAtEnd,
+    required this.direction,
+    required Widget icon,
+    required Widget label,
+  }) : super(children: [icon, label]);
+
+  final bool iconAtEnd;
+  final TextDirection direction;
+
+  @override
+  _RenderIconLabel createRenderObject(BuildContext context) =>
+      _RenderIconLabel(iconAtEnd, direction);
+
+  @override
+  void updateRenderObject(BuildContext context, _RenderIconLabel renderObject) {
+    renderObject
+      ..iconAtEnd = iconAtEnd
+      ..direction = direction;
+  }
+}
+
+class _IconLabelParentData extends ContainerBoxParentData<RenderBox> {}
+
+typedef _IconLabelMetrics = ({
+  Size size,
+  BoxConstraints iconConstraints,
+  Size icon,
+  BoxConstraints labelConstraints,
+  Size label,
+  double gap,
+});
+
+class _RenderIconLabel extends RenderBox
+    with
+        ContainerRenderObjectMixin<RenderBox, _IconLabelParentData>,
+        RenderBoxContainerDefaultsMixin<RenderBox, _IconLabelParentData> {
+  _RenderIconLabel(this._iconAtEnd, this._direction);
+
+  static const _gap = 4.0;
+
+  bool _iconAtEnd;
+  set iconAtEnd(bool value) {
+    if (value == _iconAtEnd) return;
+    _iconAtEnd = value;
+    markNeedsLayout();
+  }
+
+  TextDirection _direction;
+  set direction(TextDirection value) {
+    if (value == _direction) return;
+    _direction = value;
+    markNeedsLayout();
+  }
+
+  RenderBox get _icon => firstChild!;
+  RenderBox get _label => lastChild!;
+
+  @override
+  void setupParentData(RenderBox child) {
+    if (child.parentData is! _IconLabelParentData) {
+      child.parentData = _IconLabelParentData();
+    }
+  }
+
+  _IconLabelMetrics _measure(
+    BoxConstraints constraints,
+    ChildLayouter layoutChild,
+  ) {
+    final available = constraints.maxWidth;
+    final iconConstraints = BoxConstraints(
+      maxWidth: available,
+      maxHeight: constraints.maxHeight,
+    );
+    final icon = layoutChild(_icon, iconConstraints);
+    final gap = math.min(_gap, math.max(0.0, available - icon.width));
+    final labelConstraints = BoxConstraints(
+      maxWidth: math.max(0.0, available - icon.width - gap),
+      maxHeight: constraints.maxHeight,
+    );
+    final label = layoutChild(_label, labelConstraints);
+    return (
+      size: constraints.constrain(
+        Size(
+          icon.width + gap + label.width,
+          math.max(icon.height, label.height),
+        ),
+      ),
+      iconConstraints: iconConstraints,
+      icon: icon,
+      labelConstraints: labelConstraints,
+      label: label,
+      gap: gap,
+    );
+  }
+
+  /// Children sit at the start of the reading direction and are centred
+  /// across it, as they were in the row this replaces.
+  (Offset icon, Offset label) _offsets(_IconLabelMetrics metrics) {
+    final iconStart = _iconAtEnd ? metrics.label.width + metrics.gap : 0.0;
+    final labelStart = _iconAtEnd ? 0.0 : metrics.icon.width + metrics.gap;
+    Offset place(double start, Size child) => Offset(
+      _direction == TextDirection.ltr
+          ? start
+          : metrics.size.width - start - child.width,
+      (metrics.size.height - child.height) / 2,
+    );
+    return (place(iconStart, metrics.icon), place(labelStart, metrics.label));
+  }
+
+  @override
+  void performLayout() {
+    final metrics = _measure(constraints, ChildLayoutHelper.layoutChild);
+    size = metrics.size;
+    final (icon, label) = _offsets(metrics);
+    (_icon.parentData! as _IconLabelParentData).offset = icon;
+    (_label.parentData! as _IconLabelParentData).offset = label;
+  }
+
+  @override
+  Size computeDryLayout(BoxConstraints constraints) =>
+      _measure(constraints, ChildLayoutHelper.dryLayoutChild).size;
+
+  @override
+  double? computeDryBaseline(
+    BoxConstraints constraints,
+    TextBaseline baseline,
+  ) {
+    final metrics = _measure(constraints, ChildLayoutHelper.dryLayoutChild);
+    final (iconOffset, labelOffset) = _offsets(metrics);
+    final icon = _icon.getDryBaseline(metrics.iconConstraints, baseline);
+    final label = _label.getDryBaseline(metrics.labelConstraints, baseline);
+    return switch ((icon, label)) {
+      (null, null) => null,
+      (final icon?, null) => icon + iconOffset.dy,
+      (null, final label?) => label + labelOffset.dy,
+      (final icon?, final label?) => math.min(
+        icon + iconOffset.dy,
+        label + labelOffset.dy,
+      ),
+    };
+  }
+
+  @override
+  double computeMinIntrinsicWidth(double height) =>
+      _icon.getMinIntrinsicWidth(height) +
+      _gap +
+      _label.getMinIntrinsicWidth(height);
+
+  @override
+  double computeMaxIntrinsicWidth(double height) =>
+      _icon.getMaxIntrinsicWidth(height) +
+      _gap +
+      _label.getMaxIntrinsicWidth(height);
+
+  double _intrinsicHeight(double width, {required bool maximum}) {
+    final icon = math.min(width, _icon.getMaxIntrinsicWidth(double.infinity));
+    final label = math.max(0.0, width - icon - _gap);
+    return math.max(
+      maximum
+          ? _icon.getMaxIntrinsicHeight(icon)
+          : _icon.getMinIntrinsicHeight(icon),
+      maximum
+          ? _label.getMaxIntrinsicHeight(label)
+          : _label.getMinIntrinsicHeight(label),
+    );
+  }
+
+  @override
+  double computeMinIntrinsicHeight(double width) =>
+      _intrinsicHeight(width, maximum: false);
+
+  @override
+  double computeMaxIntrinsicHeight(double width) =>
+      _intrinsicHeight(width, maximum: true);
+
+  @override
+  double? computeDistanceToActualBaseline(TextBaseline baseline) =>
+      defaultComputeDistanceToHighestActualBaseline(baseline);
+
+  @override
+  void paint(PaintingContext context, Offset offset) =>
+      defaultPaint(context, offset);
+
+  @override
+  bool hitTestChildren(BoxHitTestResult result, {required Offset position}) =>
+      defaultHitTestChildren(result, position: position);
 }

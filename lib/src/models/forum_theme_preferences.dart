@@ -16,7 +16,6 @@ final class ForumThemePreferences {
     this.source = ForumThemeSource.forum,
     Map<Brightness, String> presets = const {},
     this.customId,
-    this.font = ForumFont.system,
     List<ForumTheme> customThemes = const [],
   }) : presets = Map.unmodifiable(presets),
        customThemes = List.unmodifiable(customThemes);
@@ -31,13 +30,13 @@ final class ForumThemePreferences {
   );
 
   /// Reads the current document, and migrates version 1 documents whose loose
-  /// palettes and shared background could hold any edited state.
+  /// palettes and shared background could hold any edited state. A font
+  /// either version holds is read once into the app-wide appearance instead.
   factory ForumThemePreferences.fromJson(Map<String, dynamic> json) {
     final customs = _library(json['customThemes']);
-    final font = ForumFont.fromName(json['font']);
     return switch (json['version']) {
-      2 => _read(json, customs, font),
-      1 => _migrate(json, customs, font),
+      2 => _read(json, customs),
+      1 => _migrate(json, customs),
       _ => throw const FormatException('Invalid themes.'),
     };
   }
@@ -52,9 +51,6 @@ final class ForumThemePreferences {
 
   /// The saved theme chosen last, kept while another source is in use.
   final String? customId;
-
-  /// Applies whatever the colours' source: a font is not part of a theme.
-  final ForumFont font;
   final List<ForumTheme> customThemes;
 
   ForumTheme? get customTheme =>
@@ -88,7 +84,6 @@ final class ForumThemePreferences {
         source: value,
         presets: presets,
         customId: customId,
-        font: font,
         customThemes: customThemes,
       );
 
@@ -97,7 +92,6 @@ final class ForumThemePreferences {
         source: ForumThemeSource.preset,
         presets: {...presets, mode: id},
         customId: customId,
-        font: font,
         customThemes: customThemes,
       );
 
@@ -108,7 +102,6 @@ final class ForumThemePreferences {
           source: ForumThemeSource.custom,
           presets: presets,
           customId: id,
-          font: font,
           customThemes: customThemes,
         )
       : this;
@@ -119,7 +112,6 @@ final class ForumThemePreferences {
     source: ForumThemeSource.custom,
     presets: presets,
     customId: theme.id,
-    font: font,
     customThemes: customThemes.any((held) => held.id == theme.id)
         ? [for (final held in customThemes) held.id == theme.id ? theme : held]
         : [...customThemes, theme],
@@ -130,7 +122,6 @@ final class ForumThemePreferences {
     source: source,
     presets: presets,
     customId: customId,
-    font: font,
     customThemes: [...customThemes, theme],
   );
 
@@ -143,18 +134,28 @@ final class ForumThemePreferences {
           : source,
       presets: presets,
       customId: chosen ? null : customId,
-      font: font,
       customThemes: customThemes.where((theme) => theme.id != id).toList(),
     );
   }
 
-  ForumThemePreferences withFont(ForumFont value) => ForumThemePreferences(
-    source: source,
-    presets: presets,
-    customId: customId,
-    font: value,
-    customThemes: customThemes,
-  );
+  /// These preferences showing the colours [other] shows, keeping this
+  /// library: the forum's own palette, the same presets, or the same saved
+  /// theme, added to the library unless it already holds it. Returns
+  /// preferences equal to these when they already show those colours.
+  ForumThemePreferences showing(ForumThemePreferences other) =>
+      switch (other.source) {
+        ForumThemeSource.forum => withSource(ForumThemeSource.forum),
+        ForumThemeSource.preset => ForumThemePreferences(
+          source: ForumThemeSource.preset,
+          presets: other.presets,
+          customId: customId,
+          customThemes: customThemes,
+        ),
+        ForumThemeSource.custom => switch (other.customTheme) {
+          final theme? => importTheme(theme),
+          null => this,
+        },
+      };
 
   /// Reuses an identical theme already in the library, including the sender's
   /// original saved theme when they use their own shared card.
@@ -173,7 +174,6 @@ final class ForumThemePreferences {
         for (final entry in presets.entries) entry.key.name: entry.value,
       },
     if (customId != null) 'custom': customId,
-    'font': font.name,
     'customThemes': [
       for (final theme in customThemes) {'id': theme.id, ...theme.toJson()},
     ],
@@ -202,7 +202,6 @@ final class ForumThemePreferences {
   static ForumThemePreferences _read(
     Map<String, dynamic> json,
     List<ForumTheme> customs,
-    ForumFont font,
   ) {
     final presets = <Brightness, String>{};
     if (json['presets'] case final Map<String, dynamic> raw) {
@@ -232,7 +231,6 @@ final class ForumThemePreferences {
           : source,
       presets: presets,
       customId: customId,
-      font: font,
       customThemes: customs,
     );
   }
@@ -244,8 +242,9 @@ final class ForumThemePreferences {
   static ForumThemePreferences _migrate(
     Map<String, dynamic> json,
     List<ForumTheme> customs,
-    ForumFont font,
   ) {
+    // Choosing a font turned the rest of version 1's custom appearance on.
+    final font = ForumFont.fromName(json['font']);
     final rawId = json['selectedId'];
     final selectedId = canonicalForumThemeId(rawId is String ? rawId : null);
     final selected = [
@@ -290,7 +289,6 @@ final class ForumThemePreferences {
       source: source,
       presets: presets,
       customId: customId,
-      font: font,
       customThemes: library ?? customs,
     );
     if (!enabled) return keep();
@@ -394,7 +392,6 @@ final class ForumThemePreferences {
       other.source == source &&
       mapEquals(other.presets, presets) &&
       other.customId == customId &&
-      other.font == font &&
       listEquals(other.customThemes, customThemes);
 
   @override
@@ -403,7 +400,6 @@ final class ForumThemePreferences {
     presets[Brightness.light],
     presets[Brightness.dark],
     customId,
-    font,
     Object.hashAll(customThemes),
   );
 }

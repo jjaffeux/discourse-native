@@ -8,10 +8,14 @@ class SettingsSection extends StatelessWidget {
     required this.title,
     required this.icon,
     required this.child,
+    this.trailing,
   });
   final String title;
   final Widget icon;
   final Widget child;
+
+  /// Sits at the heading's end, for what the section applies to.
+  final Widget? trailing;
 
   @override
   Widget build(BuildContext context) => Column(
@@ -42,6 +46,7 @@ class SettingsSection extends StatelessWidget {
               ),
             ),
           ),
+          ?trailing,
         ],
       ),
       DCard(
@@ -51,5 +56,34 @@ class SettingsSection extends StatelessWidget {
         children: [DCardContent(child: child)],
       ),
     ],
+  );
+}
+
+/// A pair of radio choice cards: side by side when each has room for its
+/// description, stacked otherwise, and the same height when side by side.
+class SettingsChoiceCards extends StatelessWidget {
+  const SettingsChoiceCards({super.key, required this.children});
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, constraints) {
+      final wide =
+          constraints.maxWidth >=
+          540 * MediaQuery.textScalerOf(context).scale(14) / 14;
+      return wide
+          ? IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                spacing: DSpacing.md,
+                children: [for (final card in children) Expanded(child: card)],
+              ),
+            )
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              spacing: DSpacing.sm,
+              children: children,
+            );
+    },
   );
 }
