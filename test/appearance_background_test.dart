@@ -161,6 +161,18 @@ void main() {
     );
   });
 
+  test('themes stored before the Paper rename keep their texture', () {
+    const paper = ForumBackground(
+      color: Color(0xff4714b2),
+      effect: ForumBackgroundEffect.paper,
+    );
+    expect(paper.toJson()['effect'], 'paper');
+    expect(
+      ForumBackground.fromJson({...paper.toJson(), 'effect': 'noise'}),
+      paper,
+    );
+  });
+
   test('legacy backgrounds use subtle defaults and reject unsafe values', () {
     const valid = ForumBackground(color: Colors.blue);
     final legacy = valid.toJson()
@@ -260,7 +272,7 @@ void main() {
             ...forumThemePresets.first.forBrightness(brightness).toJson(),
             'background': ForumBackground(
               color: Colors.purple,
-              effect: ForumBackgroundEffect.noise,
+              effect: ForumBackgroundEffect.paper,
               transparency: transparency,
             ).toJson(),
           }, id: 'custom-panels');
@@ -454,7 +466,7 @@ void main() {
     await show(ForumBackgroundEffect.lava, reduced: true);
     await tester.pumpAndSettle();
     expect(tester.binding.hasScheduledFrame, isFalse);
-    await show(ForumBackgroundEffect.noise);
+    await show(ForumBackgroundEffect.paper);
     await tester.pumpAndSettle();
     await show(ForumBackgroundEffect.normal);
     await tester.pumpAndSettle();

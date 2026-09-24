@@ -21,8 +21,8 @@ abstract final class ThemeIcons {
     'theme-texture',
     '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="currentColor"><path d="M64 96c0-17.7 14.3-32 32-32l160 0c17.7 0 32 14.3 32 32l0 288 96 0 0-128c0-17.7 14.3-32 32-32l64 0c17.7 0 32 14.3 32 32s-14.3 32-32 32l-32 0 0 128c0 17.7-14.3 32-32 32l-160 0c-17.7 0-32-14.3-32-32l0-288-96 0 0 128c0 17.7-14.3 32-32 32l-64 0c-17.7 0-32-14.3-32-32s14.3-32 32-32l32 0 0-128z"/></svg>',
   );
-  static const noise = DIconData(
-    'theme-noise',
+  static const paper = DIconData(
+    'theme-paper',
     '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><circle cx="9.4" cy="4.2" r="0.72"/><circle cx="12" cy="4.2" r="0.72"/><circle cx="14.6" cy="4.2" r="0.72"/><circle cx="6.8" cy="6.8" r="0.72"/><circle cx="9.4" cy="6.8" r="0.72"/><circle cx="12" cy="6.8" r="0.72"/><circle cx="14.6" cy="6.8" r="0.72"/><circle cx="17.2" cy="6.8" r="0.72"/><circle cx="4.2" cy="9.4" r="0.72"/><circle cx="6.8" cy="9.4" r="0.72"/><circle cx="9.4" cy="9.4" r="0.72"/><circle cx="12" cy="9.4" r="0.72"/><circle cx="14.6" cy="9.4" r="0.72"/><circle cx="17.2" cy="9.4" r="0.72"/><circle cx="19.8" cy="9.4" r="0.72"/><circle cx="4.2" cy="12" r="0.72"/><circle cx="6.8" cy="12" r="0.72"/><circle cx="9.4" cy="12" r="0.72"/><circle cx="12" cy="12" r="0.72"/><circle cx="14.6" cy="12" r="0.72"/><circle cx="17.2" cy="12" r="0.72"/><circle cx="19.8" cy="12" r="0.72"/><circle cx="4.2" cy="14.6" r="0.72"/><circle cx="6.8" cy="14.6" r="0.72"/><circle cx="9.4" cy="14.6" r="0.72"/><circle cx="12" cy="14.6" r="0.72"/><circle cx="14.6" cy="14.6" r="0.72"/><circle cx="17.2" cy="14.6" r="0.72"/><circle cx="19.8" cy="14.6" r="0.72"/><circle cx="6.8" cy="17.2" r="0.72"/><circle cx="9.4" cy="17.2" r="0.72"/><circle cx="12" cy="17.2" r="0.72"/><circle cx="14.6" cy="17.2" r="0.72"/><circle cx="17.2" cy="17.2" r="0.72"/><circle cx="9.4" cy="19.8" r="0.72"/><circle cx="12" cy="19.8" r="0.72"/><circle cx="14.6" cy="19.8" r="0.72"/></svg>',
   );
   static const lava = DIconData(
@@ -37,44 +37,16 @@ abstract final class ThemeIcons {
     'theme-gradient',
     '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><rect x="5" y="5" width="14" height="3" rx="1"/><rect x="5" y="9" width="14" height="3" rx="1" opacity=".7"/><rect x="5" y="13" width="14" height="3" rx="1" opacity=".4"/><rect x="5" y="17" width="14" height="3" rx="1" opacity=".15"/></svg>',
   );
-
-  /// A window whose leading pane is drawn left-to-right; pair with
-  /// [ThemeIcon.matchTextDirection] so the pane follows the sidebar in RTL.
-  static const neutralSidebar = DIconData(
-    'theme-neutral-sidebar',
-    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"><rect x="3.5" y="5" width="17" height="14" rx="2.5" stroke="currentColor" stroke-width="2"/><path d="M9.5 5v14" stroke="currentColor" stroke-width="2"/></svg>',
-  );
-  static const darkerSidebar = DIconData(
-    'theme-darker-sidebar',
-    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"><path d="M2.5 7.5A3.5 3.5 0 0 1 6 4h4.5v16H6a3.5 3.5 0 0 1-3.5-3.5z" fill="currentColor"/><rect x="3.5" y="5" width="17" height="14" rx="2.5" stroke="currentColor" stroke-width="2"/></svg>',
-  );
 }
 
 class ThemeIcon extends StatelessWidget {
-  const ThemeIcon(
-    this.icon, {
-    super.key,
-    this.size,
-    this.color,
-    this.matchTextDirection = false,
-  });
+  const ThemeIcon(this.icon, {super.key, this.size, this.color});
   final DIconData icon;
   final double? size;
   final Color? color;
-
-  /// Mirrors the artwork in right-to-left text, for glyphs that picture the
-  /// app's leading edge.
-  final bool matchTextDirection;
   @override
-  Widget build(BuildContext context) {
-    final glyph = DIconGlyphTheme(
-      scale: 1,
-      child: DIcon(icon, size: size, color: color),
-    );
-    if (!matchTextDirection ||
-        Directionality.of(context) == TextDirection.ltr) {
-      return glyph;
-    }
-    return Transform.flip(flipX: true, child: glyph);
-  }
+  Widget build(BuildContext context) => DIconGlyphTheme(
+    scale: 1,
+    child: DIcon(icon, size: size, color: color),
+  );
 }

@@ -1,6 +1,5 @@
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/app_settings.dart';
-import 'package:discourse_native/src/models/forum_font.dart';
 import 'package:discourse_native/src/models/forum_theme_preferences.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -16,7 +15,8 @@ void main() {
       await pumpSettings(tester, shell);
       final sources = find.byKey(const ValueKey('theme-source'));
       expect(find.byKey(const ValueKey('appearance-mode')), findsOneWidget);
-      expect(find.text('Font'), findsOneWidget);
+      // The font is an app setting, chosen in Settings.
+      expect(find.text('Font'), findsNothing);
       expect(
         tester.widget<DRadioGroup<ForumThemeSource>>(sources).groupValue,
         ForumThemeSource.preset,
@@ -87,33 +87,6 @@ void main() {
           );
           expect(find.byType(DDialogContent), findsNothing);
           expect(find.byType(DSheetContent), findsNothing);
-          expect(tester.takeException(), isNull);
-          final font = find.byKey(const ValueKey('appearance-font-lato'));
-          await tester.ensureVisible(font);
-          await tester.tap(font);
-          await tester.pumpAndSettle();
-          expect(shell.forumSettings.shared.font, ForumFont.lato);
-          expect(tester.widget<DItem>(font).selected, isTrue);
-          for (final option in ForumFont.values) {
-            final row = find.byKey(ValueKey('appearance-font-${option.name}'));
-            final sample = tester.widget<Text>(
-              find.descendant(
-                of: row,
-                matching: find.text(
-                  'The quick brown fox jumps over the lazy dog.',
-                ),
-              ),
-            );
-            expect(
-              sample.style!.fontFamily,
-              option.family ??
-                  ThemeData(platform: platform).textTheme.bodyLarge!.fontFamily,
-            );
-            expect(
-              sample.style!.fontFamilyFallback,
-              forumFontFamilyFallback(option.family) ?? const [],
-            );
-          }
           expect(tester.takeException(), isNull);
           semantics.dispose();
         },

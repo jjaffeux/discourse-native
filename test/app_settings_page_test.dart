@@ -5,6 +5,7 @@ import 'package:discourse_native/src/data/scalar_preference_repository.dart';
 import 'package:discourse_native/src/diagnostics/diagnostics.dart';
 import 'package:discourse_native/src/models/app_settings.dart';
 import 'package:discourse_native/src/models/forum_background.dart';
+import 'package:discourse_native/src/models/forum_font.dart';
 import 'package:discourse_native/src/models/forum_theme_presets.dart';
 import 'package:discourse_native/src/models/site_appearance.dart';
 import 'package:discourse_native/src/shell/app_settings_page.dart';
@@ -92,6 +93,8 @@ void main() {
     expect(persistence.textScale, AppTextScale.percent100.name);
     expect(_textSize('100%'), findsOneWidget);
 
+    await tester.ensureVisible(find.text('Disable GIF animations'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Disable GIF animations'));
     await tester.pump();
 
@@ -119,14 +122,14 @@ void main() {
       await tester.tapAt(tester.getTopLeft(opacity) + const Offset(1, 13));
       await tester.pumpAndSettle();
       expect(find.text('70%'), findsOneWidget);
-      await tester.tap(find.text('Noise'));
+      await tester.tap(find.text('Paper'));
       await tester.pumpAndSettle();
       expect(slider('intensity').onChanged, isNotNull);
 
       final effects = settings.shared.effects;
       expect(effects.strength, 1);
       expect(effects.transparency, .3);
-      expect(effects.effect, ForumBackgroundEffect.noise);
+      expect(effects.effect, ForumBackgroundEffect.paper);
       expect((await settings.store.loadAppearance()).effects, effects);
       // A forum on its own colours draws the same effects.
       final forum = SiteAppearance(
@@ -151,11 +154,11 @@ void main() {
     await _pumpPage(tester, controller, size: const Size(1100, 1400));
     final tint = find.byKey(const ValueKey('theme-tint'));
     await tester.tapAt(tester.getTopRight(tint) + const Offset(-2, 13));
-    await tester.tap(find.text('Noise'));
+    await tester.tap(find.text('Paper'));
     await tester.pumpAndSettle();
     final effects = controller.forumSettings.shared.effects;
     expect(effects.strength, 1);
-    expect(effects.effect, ForumBackgroundEffect.noise);
+    expect(effects.effect, ForumBackgroundEffect.paper);
     expect(
       (await controller.forumSettings.store.loadAppearance()).effects,
       effects,
@@ -168,18 +171,18 @@ void main() {
   ) async {
     final controller = _controller(
       forumSettingsStore: ForumSettingsStore(
-        persistence: _RejectingPersistence(),
+        persistence: _FailingPersistence(),
       ),
     );
     addTearDown(controller.dispose);
     await _pumpPage(tester, controller, size: const Size(1100, 1400));
-    await tester.tap(find.text('Noise'));
+    await tester.tap(find.text('Paper'));
     await tester.pumpAndSettle();
     expect(
       controller.forumSettings.shared.effects.effect,
       ForumBackgroundEffect.normal,
     );
-    expect(find.text('Could not save changes.'), findsOneWidget);
+    expect(find.text('Could not save the effects.'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -212,7 +215,11 @@ void main() {
       await _pumpPage(tester, controller);
 
       expect(find.bySemanticsLabel('Close settings'), findsOneWidget);
-      for (final (label, level) in [('Settings', 1), ('Text size', 2)]) {
+      for (final (label, level) in [
+        ('Settings', 1),
+        ('Text size', 2),
+        ('Font', 2),
+      ]) {
         expect(
           tester.getSemantics(find.text(label)).getSemanticsData().headingLevel,
           level,
@@ -239,6 +246,89 @@ void main() {
     } finally {
       semantics.dispose();
     }
+  });
+
+  for (final platform in [TargetPlatform.macOS, TargetPlatform.iOS]) {
+    testWidgets('the font is chosen here for every forum on $platform', (
+      tester,
+    ) async {
+      final controller = _controller();
+      addTearDown(controller.dispose);
+      await _pumpPage(
+        tester,
+        controller,
+        size: const Size(360, 800),
+        scale: 2,
+        theme: AppTheme.light.copyWith(platform: platform),
+        rtl: true,
+      );
+      expect(tester.takeException(), isNull);
+
+      for (final option in ForumFont.values) {
+        final row = find.byKey(ValueKey('appearance-font-${option.name}'));
+        expect(tester.widget<DItem>(row).selected, option == ForumFont.system);
+        final sample = tester.widget<Text>(
+          find.descendant(
+            of: row,
+            matching: find.text('The quick brown fox jumps over the lazy dog.'),
+          ),
+        );
+        expect(
+          sample.style!.fontFamily,
+          option.family ??
+              ThemeData(platform: platform).textTheme.bodyLarge!.fontFamily,
+        );
+        expect(
+          sample.style!.fontFamilyFallback,
+          forumFontFamilyFallback(option.family) ?? const [],
+        );
+      }
+
+      final lato = find.byKey(const ValueKey('appearance-font-lato'));
+      await tester.ensureVisible(lato);
+      await tester.tap(lato);
+      await tester.pumpAndSettle();
+      expect(controller.forumSettings.shared.font, ForumFont.lato);
+      expect(
+        (await controller.forumSettings.store.loadAppearance()).font,
+        ForumFont.lato,
+      );
+      expect(tester.widget<DItem>(lato).selected, isTrue);
+      expect(
+        tester
+            .widget<DItem>(find.byKey(const ValueKey('appearance-font-system')))
+            .selected,
+        isFalse,
+      );
+      expect(tester.takeException(), isNull);
+    });
+  }
+
+  testWidgets('a font that cannot be saved is put back and says so', (
+    tester,
+  ) async {
+    final controller = _controller(
+      forumSettingsStore: ForumSettingsStore(
+        persistence: _FailingPersistence(),
+      ),
+    );
+    addTearDown(controller.dispose);
+    await _pumpPage(tester, controller, size: const Size(800, 1200));
+
+    await tester.tap(find.byKey(const ValueKey('appearance-font-lato')));
+    await tester.pumpAndSettle();
+
+    expect(controller.forumSettings.shared.font, ForumFont.system);
+    expect(
+      tester
+          .widget<DItem>(find.byKey(const ValueKey('appearance-font-system')))
+          .selected,
+      isTrue,
+    );
+    expect(find.text('Could not save the font.'), findsOneWidget);
+    await tester.pump(const Duration(seconds: 6));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('Diagnostics is the bottom-most rail destination when present', (
@@ -409,6 +499,14 @@ ShellController _controller({
   forumSettingsStore: forumSettingsStore,
 );
 
+class _FailingPersistence implements ScalarPreferencePersistence<String> {
+  @override
+  Future<String?> read(String key) async => null;
+
+  @override
+  Future<bool> write(String key, String value) async => false;
+}
+
 Future<void> _pumpPage(
   WidgetTester tester,
   ShellController controller, {
@@ -479,13 +577,4 @@ Future<void> _pumpRail(
     ),
   );
   await tester.pump();
-}
-
-final class _RejectingPersistence
-    implements ScalarPreferencePersistence<String> {
-  @override
-  Future<String?> read(String key) async => null;
-
-  @override
-  Future<bool> write(String key, String value) async => false;
 }

@@ -692,12 +692,97 @@ void main() {
                 (w.decoration! as BoxDecoration).borderRadius != null,
           ),
         );
-        expect(
-          (hovered.decoration! as BoxDecoration).color,
-          tokens.muted.withValues(alpha: tokens.muted.a * 0.5),
-        );
+        expect(hovered.decoration, decoration);
         await mouse.removePointer();
         await tester.pump();
+      }
+    },
+  );
+
+  testWidgets(
+    'hovering a selectable unselected card previews the selected treatment',
+    (tester) async {
+      final base = ThemeData(platform: TargetPlatform.macOS);
+      final colors = base.colorScheme.copyWith(
+        primary: const Color(0x80665544),
+      );
+      final tokens = DTokens.fromTheme(
+        base,
+      ).copyWith(colors: colors, border: const Color(0xff112233));
+      BoxDecoration card(String label) =>
+          tester
+                  .widget<Container>(
+                    find
+                        .ancestor(
+                          of: find.text(label),
+                          matching: find.byWidgetPredicate(
+                            (w) =>
+                                w is Container &&
+                                w.decoration is BoxDecoration &&
+                                (w.decoration! as BoxDecoration).borderRadius !=
+                                    null,
+                          ),
+                        )
+                        .first,
+                  )
+                  .decoration!
+              as BoxDecoration;
+      for (final dark in [false, true]) {
+        for (final (enabled, readOnly) in [
+          (true, false),
+          (false, false),
+          (true, true),
+        ]) {
+          await tester.pumpWidget(
+            host(
+              DRadioGroup<String>(
+                initialValue: 'a',
+                enabled: enabled,
+                readOnly: readOnly,
+                child: const Column(
+                  children: [
+                    DRadioGroupItem(value: 'a', card: true, label: Text('A')),
+                    DRadioGroupItem(value: 'b', card: true, label: Text('B')),
+                  ],
+                ),
+              ),
+              theme: base.copyWith(
+                brightness: dark ? Brightness.dark : Brightness.light,
+                extensions: [tokens],
+              ),
+            ),
+          );
+          await tester.pumpAndSettle();
+          final resting = card('B');
+          expect(resting.border!.top.color, tokens.border);
+          expect(resting.color, isNull);
+          final mouse = await tester.createGesture(
+            kind: PointerDeviceKind.mouse,
+          );
+          await mouse.addPointer(location: Offset.zero);
+          await mouse.moveTo(tester.getCenter(find.text('B')));
+          await tester.pump();
+          final hovered = card('B');
+          if (enabled && !readOnly) {
+            expect(
+              hovered.border!.top.color,
+              colors.primary.withValues(
+                alpha: colors.primary.a * (dark ? 0.2 : 0.3),
+              ),
+            );
+            expect(
+              hovered.color,
+              colors.primary.withValues(
+                alpha: colors.primary.a * (dark ? 0.1 : 0.05) * 0.5,
+              ),
+            );
+          } else {
+            expect(hovered, resting);
+          }
+          await mouse.removePointer();
+          await tester.pump();
+          expect(card('B'), resting);
+        }
       }
     },
   );

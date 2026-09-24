@@ -4,7 +4,8 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
 import '../models/app_settings.dart';
-import '../models/shared_appearance.dart';
+import '../models/forum_background.dart';
+import '../models/forum_font.dart';
 import '../theme/d_icons.dart';
 import 'app_home_theme.dart';
 import 'forum_appearance_effects.dart';
@@ -30,7 +31,8 @@ class AppSettingsModal extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final appSettings = ShellScope.identityOf(context).appSettings;
+    final identity = ShellScope.identityOf(context);
+    final appSettings = identity.appSettings;
     return AppHomeTheme(
       child: DDialogContent(
         key: const ValueKey('app-settings-modal'),
@@ -97,6 +99,10 @@ class AppSettingsModal extends StatelessWidget {
                       : () => unawaited(appSettings.resetTextScale()),
                 ),
                 const DFieldSeparator(),
+                _FontSetting(settings: identity.forumSettings),
+                const DFieldSeparator(),
+                _EffectsSetting(settings: identity.forumSettings),
+                const DFieldSeparator(),
                 DSwitchTile(
                   key: const ValueKey('disable-gif-animations-switch'),
                   contentPadding: EdgeInsets.zero,
@@ -113,47 +119,10 @@ class AppSettingsModal extends StatelessWidget {
               ],
             ),
           ),
-          _EffectsSettings(
-            settings: ShellScope.identityOf(context).forumSettings,
-          ),
         ],
       ),
     );
   }
-}
-
-/// The window effects, which every forum draws the same way.
-class _EffectsSettings extends StatelessWidget {
-  const _EffectsSettings({required this.settings});
-
-  final ForumSettingsController settings;
-
-  /// Read when a choice lands rather than captured at build: two choices made
-  /// before the modal redraws must both be kept. A failed write has already
-  /// put the saved value back, so it only needs saying.
-  void _save(
-    BuildContext context,
-    SharedAppearance Function(SharedAppearance) change,
-  ) => unawaited(
-    settings.setShared(change(settings.shared)).catchError((Object _) {
-      if (context.mounted) {
-        DToast.show(context, 'Could not save changes.', type: DToastType.error);
-      }
-    }),
-  );
-
-  @override
-  Widget build(BuildContext context) => ListenableBuilder(
-    listenable: settings,
-    builder: (context, _) => ForumAppearanceEffects(
-      key: const ValueKey('appearance-effects'),
-      effects: settings.shared.effects,
-      onChanged: (change) => _save(
-        context,
-        (shared) => shared.copyWith(effects: change(shared.effects)),
-      ),
-    ),
-  );
 }
 
 class _SettingsField extends StatelessWidget {
@@ -175,6 +144,170 @@ class _SettingsField extends StatelessWidget {
         ],
       ),
       control,
+    ],
+  );
+}
+
+/// The reading font, which every forum and Aggregate share. Each choice is
+/// drawn in its own face so it can be compared before it is chosen.
+class _FontSetting extends StatelessWidget {
+  const _FontSetting({required this.settings});
+
+  final ForumSettingsController settings;
+
+  Future<void> _choose(BuildContext context, ForumFont font) async {
+    try {
+      // Read when the choice lands: the effects may have changed since the
+      // modal last drew.
+      await settings.setShared(settings.shared.copyWith(font: font));
+    } catch (_) {
+      if (context.mounted) {
+        DToast.show(
+          context,
+          'Could not save the font.',
+          type: DToastType.error,
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final systemFamily = ThemeData(
+      platform: theme.platform,
+    ).textTheme.bodyLarge!.fontFamily;
+    return ListenableBuilder(
+      listenable: settings,
+      builder: (context, _) {
+        final chosen = settings.shared.font;
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          spacing: DSpacing.md,
+          children: [
+            DFieldContent(
+              children: [
+                DFieldTitle(
+                  child: Semantics(headingLevel: 2, child: const Text('Font')),
+                ),
+                const DFieldDescription(
+                  child: Text('Used for reading and writing in every forum.'),
+                ),
+              ],
+            ),
+            DCard(
+              spacing: 16,
+              backgroundColor: Colors.transparent,
+              borderRadius: BorderRadius.circular(12),
+              children: [
+                DCardContent(
+                  child: DItemGroup(
+                    key: const ValueKey('app-settings-font'),
+                    spacing: 0,
+                    children: [
+                      for (final font in ForumFont.values) ...[
+                        if (font != ForumFont.values.first)
+                          const DItemSeparator(),
+                        DItem(
+                          key: ValueKey('appearance-font-${font.name}'),
+                          selected: chosen == font,
+                          shape: DItemShape.fullWidth,
+                          selectionStyle: DItemSelectionStyle.leadingAccent,
+                          onPressed: () => unawaited(_choose(context, font)),
+                          children: [
+                            DItemContent(
+                              children: [
+                                Text(
+                                  font.label,
+                                  style: theme.textTheme.bodySmall,
+                                ),
+                                Text(
+                                  'The quick brown fox jumps over the lazy dog.',
+                                  style: theme.textTheme.bodyLarge!.copyWith(
+                                    fontFamily: font.family ?? systemFamily,
+                                    fontFamilyFallback:
+                                        forumFontFamilyFallback(font.family) ??
+                                        const [],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+/// The window effects, which every forum draws over its own colours. The
+/// workspace behind the modal shows each one as it is chosen.
+class _EffectsSetting extends StatelessWidget {
+  const _EffectsSetting({required this.settings});
+
+  final ForumSettingsController settings;
+
+  Future<void> _change(
+    BuildContext context,
+    ForumBackground Function(ForumBackground) change,
+  ) async {
+    try {
+      // Applied to the effects as they are when the choice lands, so two
+      // choices made before the modal redraws are both kept.
+      final shared = settings.shared;
+      await settings.setShared(
+        shared.copyWith(effects: change(shared.effects)),
+      );
+    } catch (_) {
+      if (context.mounted) {
+        DToast.show(
+          context,
+          'Could not save the effects.',
+          type: DToastType.error,
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    spacing: DSpacing.md,
+    children: [
+      DFieldContent(
+        children: [
+          DFieldTitle(
+            child: Semantics(headingLevel: 2, child: const Text('Effects')),
+          ),
+          const DFieldDescription(
+            child: Text('Drawn over the colours of every forum.'),
+          ),
+        ],
+      ),
+      DCard(
+        spacing: 16,
+        backgroundColor: Colors.transparent,
+        borderRadius: BorderRadius.circular(12),
+        children: [
+          DCardContent(
+            child: ListenableBuilder(
+              listenable: settings,
+              builder: (context, _) => ForumAppearanceEffects(
+                key: const ValueKey('appearance-effects'),
+                effects: settings.shared.effects,
+                onChanged: (change) => unawaited(_change(context, change)),
+              ),
+            ),
+          ),
+        ],
+      ),
     ],
   );
 }

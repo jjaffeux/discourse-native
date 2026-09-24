@@ -571,16 +571,17 @@ forums follow the system. Aggregate and the app-wide Settings modal follow the
 system appearance independently.
 
 Only a forum's colours, and whether it shows them light or dark, are its own.
-The page's **Font** is marked *All forums*, and the window **Effects**
-(**Tint**, **Opacity**, **Texture** and its **Intensity**) are in the app-wide
-Settings modal rather than on any forum's page. Both apply to every forum, so
-moving between forums never changes the reading font or the window's opacity,
-and the effects are found without making a theme. The workspace behind the
-modal shows each effect as it is chosen. Effects are drawn over whichever
-colours a forum uses. The tint pulls surfaces and text toward that palette's
-accent; on the forum's own palette it does so colour by colour, so every colour
-the forum derived itself is kept, and with no effects that palette is shown
-exactly as published. The font applies to Aggregate too. Both are stored once
+The **Font** is an app setting, chosen in the Settings modal below **Text
+size** from samples drawn in each face, so it is never mistaken for part of a
+theme. The window **Effects** (**Tint**, **Opacity**, **Texture** and its
+**Intensity**) follow it in the same modal rather than sitting on any forum's
+page, and the workspace behind the modal shows each one as it is chosen. Both
+apply to every forum, so moving between forums never changes the reading font
+or the window's opacity, and the effects are found without making a theme.
+Effects are drawn over whichever colours a forum uses. The tint pulls surfaces
+and text toward that palette's accent; on the forum's own palette it does so
+colour by colour, so every colour the forum derived itself is kept, and with no
+effects that palette is shown exactly as published. The font applies to Aggregate too. Both are stored once
 under `discourse_native.appearance`. The first launch that finds nothing there
 adopts what the forums chose when both were per forum: the font of the first
 forum in rail order that had one of its own, and the effects of the first
@@ -3104,10 +3105,11 @@ selects a neighbour, while the last tab's close button creates a fresh Topics
 tab. Command+W (Control+W on Linux and Windows) exits the app when the current
 forum or Aggregate workspace has only one tab. Tabs can be dragged onto one
 another to reorder them; the active context stays selected and the new order
-is restored after launch. In desktop panel strips an insertion bar marks
-where a dragged tab will land. It is withheld from the two gaps beside the
-tab's own slot, since dropping there would leave the order unchanged, and such
-a drop does nothing. The app-wide Aggregate workspace uses the same tab
+is restored after launch. A tab activates when its click is released, so
+picking up a background tab to drag it leaves the current tab on screen. In
+desktop panel strips an insertion bar marks where a dragged tab will land. It
+is withheld from the two gaps beside the tab's own slot, since dropping there
+would leave the order unchanged, and such a drop does nothing. The app-wide Aggregate workspace uses the same tab
 ordering interaction.
 
 Aggregate refreshes and paging share their admitted futures. Each forum source

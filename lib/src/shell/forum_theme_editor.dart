@@ -196,33 +196,32 @@ class _ForumThemeEditorState extends State<ForumThemeEditor> {
                   );
                 },
               ),
-              DToggleGroup<bool>(
+              DRadioGroup<bool>.controlled(
                 key: const ValueKey('theme-sidebar'),
-                values: [palette.darkerSidebars],
-                allowEmptySelection: false,
-                inset: true,
-                expanded: true,
-                semanticLabel: 'Sidebar',
-                items: const [
-                  DToggleGroupItem(
-                    value: false,
-                    icon: ThemeIcon(
-                      ThemeIcons.neutralSidebar,
-                      matchTextDirection: true,
+                groupValue: palette.darkerSidebars,
+                onChanged: (value) {
+                  if (value != null) {
+                    _palette = palette.copyWith(darkerSidebars: value);
+                  }
+                },
+                child: const SettingsChoiceCards(
+                  children: [
+                    DRadioGroupItem(
+                      key: ValueKey(('theme-sidebar', false)),
+                      value: false,
+                      card: true,
+                      label: Text('Neutral sidebar'),
+                      description: Text('Matches the background'),
                     ),
-                    child: Text('Neutral sidebar'),
-                  ),
-                  DToggleGroupItem(
-                    value: true,
-                    icon: ThemeIcon(
-                      ThemeIcons.darkerSidebar,
-                      matchTextDirection: true,
+                    DRadioGroupItem(
+                      key: ValueKey(('theme-sidebar', true)),
+                      value: true,
+                      card: true,
+                      label: Text('Darker sidebar'),
+                      description: Text('Sets navigation apart'),
                     ),
-                    child: Text('Darker sidebar'),
-                  ),
-                ],
-                onChanged: (values) =>
-                    _palette = palette.copyWith(darkerSidebars: values.single),
+                  ],
+                ),
               ),
             ],
           ),
