@@ -3,9 +3,25 @@ import 'package:discourse_native/src/models/forum_workspace.dart';
 import 'package:discourse_native/src/models/list_link.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
+import 'package:discourse_native/src/theme/d_native_icons.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test('start page uses six dots and upgrades saved new tabs', () {
+    final route = ContentRoute.newTab();
+    expect(route.tabTitle, 'Start page');
+    expect(route.icon, DNativeIcons.startPage);
+    expect(ContentRoute.fromJson(route.toJson()), route);
+
+    final restored = ContentRoute.fromJson({
+      ...route.toJson(),
+      'title': 'New tab',
+      'icon': DIcons.house.name,
+    });
+    expect(restored.tabTitle, 'Start page');
+    expect(restored.icon, DNativeIcons.startPage);
+  });
+
   test(
     'tab titles describe topic modes, including restored and filtered tabs',
     () {

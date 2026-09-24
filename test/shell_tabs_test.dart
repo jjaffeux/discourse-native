@@ -5,6 +5,7 @@ import 'package:discourse_native/src/models/sidebar.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
+import 'package:discourse_native/src/theme/d_native_icons.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/fakes.dart';
@@ -968,5 +969,6 @@ List<String> _routeIds(ShellController controller) => [
 void _expectNewTabRoot(ShellController controller) {
   expect(controller.destinationId, 'new-tab');
   expect(_routeIds(controller), ['new-tab']);
-  expect(controller.currentContent?.title, 'New tab');
+  expect(controller.currentContent?.title, 'Start page');
+  expect(controller.currentContent?.icon, DNativeIcons.startPage);
 }

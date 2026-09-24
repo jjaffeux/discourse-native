@@ -234,8 +234,11 @@ class ContentRoute {
     icon: DIcons.gear,
   );
 
-  factory ContentRoute.newTab() =>
-      const ContentRoute(id: 'new-tab', title: 'New tab', icon: DIcons.house);
+  factory ContentRoute.newTab() => const ContentRoute(
+    id: 'new-tab',
+    title: 'Start page',
+    icon: DNativeIcons.startPage,
+  );
 
   bool get isNewTab => id == 'new-tab';
 
@@ -755,10 +758,11 @@ class ContentRoute {
       id: id,
       openInSecondaryPanel: json['open_in_secondary_panel'] == true,
       openInMainPanel: json['open_in_main_panel'] == true,
-      title: title,
+      title: id == 'new-tab' ? 'Start page' : title,
       // Upgrade the speech bubble saved by older topic tabs without changing
       // the durable icon of routes that deliberately chose another glyph.
       icon:
+          (id == 'new-tab' ? DNativeIcons.startPage : null) ??
           DNativeIcons.byName[iconName] ??
           (topicId != null && iconName == DIcons.comments.name
               ? DNativeIcons.topic

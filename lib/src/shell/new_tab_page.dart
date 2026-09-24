@@ -131,7 +131,7 @@ class _NewTabPageState extends State<NewTabPage> {
                   )
                 else
                   Text(
-                    'New tab',
+                    'Start page',
                     style: Theme.of(context).textTheme.headlineMedium,
                   ),
                 if (shell != null)

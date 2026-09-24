@@ -1,6 +1,18 @@
 import 'd_icon.dart';
 
 abstract final class DNativeIcons {
+  static const DIconData startPage = DIconData(
+    'discourse-native-start-page',
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">'
+        '<rect x="2" y="4" width="5" height="5" rx="1.3"/>'
+        '<rect x="9.5" y="4" width="5" height="5" rx="1.3"/>'
+        '<rect x="17" y="4" width="5" height="5" rx="1.3"/>'
+        '<rect x="2" y="15" width="5" height="5" rx="1.3"/>'
+        '<rect x="9.5" y="15" width="5" height="5" rx="1.3"/>'
+        '<rect x="17" y="15" width="5" height="5" rx="1.3"/>'
+        '</svg>',
+  );
+
   // Font Awesome Free 7.3.1, from the native mockup's FilterPill.
   // Icons: CC BY 4.0, https://fontawesome.com/license/free
   static const DIconData filterChevron = DIconData(
@@ -113,6 +125,7 @@ abstract final class DNativeIcons {
   );
 
   static const Map<String, DIconData> byName = {
+    'discourse-native-start-page': startPage,
     'discourse-native-filterLines': filterLines,
     'discourse-native-sliders': sliders,
     'discourse-native-columns': columns,
