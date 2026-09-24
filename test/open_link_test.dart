@@ -1,5 +1,6 @@
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/content_route.dart';
+import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/forum_workspace.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/shell/open_link.dart';
@@ -14,6 +15,61 @@ import 'support/fakes.dart';
 import 'support/shell_test_harness.dart' show watchBrowser;
 
 void main() {
+  for (final url in [
+    'https://one.example/my/messages',
+    'https://one.example/u/j.jaffeux/messages',
+  ]) {
+    for (final newTab in [false, true]) {
+      testWidgets('opens $url natively (new tab: $newTab)', (tester) async {
+        final launched = watchBrowser(tester);
+        final controller = await _pumpLink(
+          tester,
+          url: url,
+          signedIn: true,
+          api: FakeDiscourseApi(
+            feeds: const {
+              '/latest.json': [],
+              '/topics/private-messages/j.jaffeux.json': [],
+            },
+          ),
+        );
+        controller.pushContent(ContentRoute.newTab());
+        await tester.pumpAndSettle();
+
+        await tester.tap(
+          find.text('Open link'),
+          kind: PointerDeviceKind.mouse,
+          buttons: newTab ? kMiddleMouseButton : kPrimaryMouseButton,
+        );
+        await tester.pumpAndSettle();
+
+        expect(launched, isEmpty);
+        if (newTab) {
+          expect(controller.tabsForCurrentForum, hasLength(2));
+          controller.selectTab(controller.tabsForCurrentForum.last.id);
+          await tester.pumpAndSettle();
+        }
+        expect(controller.currentContent?.id, 'messages');
+        expect(controller.currentFeedId, 'messages');
+      });
+    }
+  }
+
+  testWidgets('another user’s inbox URL stays outside native messages', (
+    tester,
+  ) async {
+    final launched = watchBrowser(tester);
+    final controller = await _pumpLink(
+      tester,
+      url: 'https://one.example/u/another-user/messages',
+      signedIn: true,
+    );
+    await tester.tap(find.text('Open link'));
+    await tester.pumpAndSettle();
+    expect(controller.currentContent?.id, isNot('messages'));
+    expect(launched, ['https://one.example/u/another-user/messages']);
+  });
+
   for (final newTab in [false, true]) {
     testWidgets('opens the forum latest URL natively (new tab: $newTab)', (
       tester,
@@ -262,10 +318,15 @@ Future<ShellController> _pumpLink(
   String url = '/t/a-topic/42',
   bool tabsEnabled = true,
   bool desktopPanels = false,
+  bool signedIn = false,
   FakeDiscourseApi? api,
 }) async {
   final controller = ShellController(
-    instanceStore: FakeInstanceStore([instance('one.example')]),
+    instanceStore: FakeInstanceStore([
+      instance('one.example').copyWith(
+        user: signedIn ? const DiscourseUser(username: 'j.jaffeux') : null,
+      ),
+    ]),
     api: api ?? FakeDiscourseApi(feeds: const {'/latest.json': []}),
     authenticator: FakeAuthenticator(),
     drafts: FakeDraftStore(),
