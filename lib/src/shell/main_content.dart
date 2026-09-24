@@ -209,13 +209,13 @@ class _MainContentBody extends StatelessWidget {
         state.siteUrl != null &&
         (pluginContent != null
             ? registry.ownsContentPageTitle(context, route)
-            : route.isThemes ||
+            : route.isAppearance ||
                   route.isGroups ||
                   route.isUsers ||
                   (route.isBadges && (route.badgeRoute?.isDirectory ?? true)) ||
                   (route.id == 'user-bookmarks' && state.isConnected));
     final hideDirectoryHeader =
-        (route.isThemes && !context.isTouch) ||
+        (route.isAppearance && !context.isTouch) ||
         (pageOwnsTitle &&
             !state.canPop &&
             (ShellScope.read(context).mobileNavigationEnabled ||
@@ -795,7 +795,7 @@ class _ContentViewport extends StatelessWidget {
         child: BookmarkSection(siteUrl: siteUrl!, onOpened: () {}, page: true),
       );
     }
-    if (route.isThemes && siteUrl != null) {
+    if (route.isAppearance && siteUrl != null) {
       return ForumSettingsPage(siteUrl: siteUrl!);
     }
     if (route.isPreferences && siteUrl != null) {

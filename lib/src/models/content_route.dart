@@ -233,8 +233,11 @@ class ContentRoute {
     icon: DIcons.gear,
   );
 
-  factory ContentRoute.themes() =>
-      const ContentRoute(id: 'themes', title: 'Themes', icon: DIcons.display);
+  factory ContentRoute.appearance() => const ContentRoute(
+    id: 'appearance',
+    title: 'Appearance',
+    icon: DIcons.display,
+  );
 
   factory ContentRoute.group(
     GroupRoute route, {
@@ -440,7 +443,7 @@ class ContentRoute {
   bool get isTopic => topicId != null;
 
   bool get isPreferences => !isTopic && id == 'preferences';
-  bool get isThemes => !isTopic && id == 'themes';
+  bool get isAppearance => !isTopic && id == 'appearance';
 
   bool get isMessages =>
       !isTopic &&
@@ -760,6 +763,8 @@ class ContentRoute {
       badgeRoute: badgeRoute,
     );
     if (id == 'filter') return ContentRoute.topicFilter(route.topicFilterQuery);
+    // Forum appearance was saved as a "themes" tab before it was renamed.
+    if (id == 'themes' && !route.isTopic) return ContentRoute.appearance();
     // The removed list-search field stored its query in the feed URL. Restore
     // those lists without an invisible filter, retaining their durable IDs so
     // tab history and viewport anchors still refer to the same routes.

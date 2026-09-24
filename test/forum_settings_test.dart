@@ -36,14 +36,14 @@ void main() {
       await shell.load();
       final previous = shell.currentContent;
       shell.openForumSettings(siteA);
-      expect(shell.currentContent!.isThemes, isTrue);
+      expect(shell.currentContent!.isAppearance, isTrue);
       expect(shell.canCreateTopicHere, isFalse);
       shell.openForumSettings(siteA);
       shell.handleBack(canReturnToSidebar: true);
       expect(shell.currentContent, previous);
       shell.openForumSettings(siteB);
       expect(shell.currentInstance!.url, siteB);
-      expect(shell.currentContent!.isThemes, isTrue);
+      expect(shell.currentContent!.isAppearance, isTrue);
     },
   );
 
