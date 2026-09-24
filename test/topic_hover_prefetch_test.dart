@@ -109,25 +109,25 @@ void main() {
     );
   }
 
-  testWidgets(
-    'desktop navigation adopts the hover request in the current tab',
-    (tester) async {
-      final (controller, api) = await setup(tester, panels: true);
-      final listTab = controller.activeTabId;
-      final mouse = await hover(tester, 1);
-      await tester.pump(const Duration(milliseconds: 40));
-      await tester.tap(find.byKey(const ValueKey('topic-card-1')));
-      await mouse.moveTo(const Offset(790, 590));
-      await tester.pump();
-      expect(api.requests, hasLength(1));
-      expect(api.requests.single.aborted, isFalse);
-      api.requests.single.complete();
-      await tester.pumpAndSettle();
-      expect(controller.activeTabId, listTab);
-      expect(controller.store.read<TopicDetail>(_site, 1), isNotNull);
-      expect(api.requests, hasLength(1));
-    },
-  );
+  testWidgets('desktop reader adopts the hover request from the list tab', (
+    tester,
+  ) async {
+    final (controller, api) = await setup(tester, panels: true);
+    final listTab = controller.activeTabId;
+    final mouse = await hover(tester, 1);
+    await tester.pump(const Duration(milliseconds: 40));
+    await tester.tap(find.byKey(const ValueKey('topic-card-1')));
+    await mouse.moveTo(const Offset(790, 590));
+    await tester.pump();
+    expect(api.requests, hasLength(1));
+    expect(api.requests.single.aborted, isFalse);
+    api.requests.single.complete();
+    await tester.pumpAndSettle();
+    expect(controller.activeTabId, isNot(listTab));
+    expect(controller.tabsForCurrentForum, hasLength(2));
+    expect(controller.store.read<TopicDetail>(_site, 1), isNotNull);
+    expect(api.requests, hasLength(1));
+  });
 
   testWidgets('forced navigation discards speculative work', (tester) async {
     final (controller, api) = await setup(tester);

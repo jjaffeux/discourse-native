@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 
 import '../app_shortcuts.dart';
 import '../models/content_route.dart';
-import '../models/forum_workspace.dart';
 import '../models/topic.dart';
 import '../theme/app_theme.dart';
 import '../theme/d_icons.dart';
@@ -91,18 +90,6 @@ bool openAdjacentTopic(
         ? null
         : shell.store.read<Topic>(siteUrl, target);
     if (topic != null) {
-      // The list footer can control the reader in the other panel. Keep
-      // adjacent-topic navigation in that reader's existing tab.
-      if (shell.desktopPanelsEnabled && shell.currentContent?.isTopic != true) {
-        final reader = shell.selectedTabIn(
-          shell.activeTab?.panel == ForumPanel.main
-              ? ForumPanel.secondary
-              : ForumPanel.main,
-        );
-        if (reader?.currentContent.isTopic == true) {
-          shell.selectTab(reader!.id);
-        }
-      }
       shell.openTopicFromList(topic, revealInList: true);
     }
   }

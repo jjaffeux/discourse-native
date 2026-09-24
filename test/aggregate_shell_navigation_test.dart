@@ -84,6 +84,43 @@ void main() {
     expect(controller.activeTabId, topicTabId);
   });
 
+  test(
+    'desktop aggregate topics reuse the secondary tab across destinations',
+    () async {
+      final store = Store();
+      final controller = _controller(store: store);
+      addTearDown(controller.dispose);
+      await controller.load();
+      controller.desktopTopicTabs = true;
+      final mainId = controller.activeTabId;
+      const first = Topic(id: 42, title: 'First', slug: 'first');
+      const second = Topic(id: 43, title: 'Second', slug: 'second');
+      store.put(_site.url, first);
+      store.put(_site.url, second);
+      controller.selectAggregate();
+
+      expect(
+        controller.openAggregateTopic(_site.url, first.id),
+        AggregateTopicOpenResult.opened,
+      );
+      final readerId = controller.activeTabId;
+      expect(controller.rootMode, ShellRootMode.forum);
+      expect(controller.activeTab?.panel, ForumPanel.secondary);
+      expect(controller.selectedTabIn(ForumPanel.main)?.id, mainId);
+      expect(controller.tabsForCurrentForum, hasLength(2));
+
+      controller.selectAggregate();
+      expect(
+        controller.openAggregateTopic(_site.url, second.id),
+        AggregateTopicOpenResult.opened,
+      );
+      expect(controller.rootMode, ShellRootMode.forum);
+      expect(controller.activeTabId, readerId);
+      expect(controller.currentContent?.topicId, second.id);
+      expect(controller.tabsForCurrentForum, hasLength(2));
+    },
+  );
+
   test('tab limit leaves the aggregate surface in place', () async {
     final store = Store();
     final controller = _controller(store: store);
@@ -120,6 +157,7 @@ void main() {
     );
     addTearDown(controller.dispose);
     await controller.load();
+    controller.desktopTopicTabs = true;
     const topic = Topic(id: 42, title: 'Other forum', slug: 'other-forum');
     store.put(otherSite.url, topic);
     controller.selectAggregate();

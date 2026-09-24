@@ -102,7 +102,7 @@ abstract interface class PluginNavigationHost {
   Rect? get readerContentBounds;
 
   void selectInstance(int index);
-  void pushContent(ContentRoute route);
+  void pushContent(ContentRoute route, {bool newTab = false});
   void replaceCurrentContent(ContentRoute route);
   void selectDestination(SidebarDestination destination);
   void showPluginContent();

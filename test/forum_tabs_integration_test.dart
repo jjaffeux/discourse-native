@@ -34,7 +34,7 @@ void main() {
   setUp(binding.exitRequests.clear);
 
   testWidgets(
-    'primary clicks reuse the current tab for sidebar and topic navigation',
+    'topics use secondary and sidebar navigation reuses its active tab',
     (tester) => _withPlatform(TargetPlatform.macOS, () async {
       await _pumpShell(tester);
       final controller = ShellScope.read(
@@ -43,14 +43,17 @@ void main() {
       final originalId = controller.activeTabId;
       controller.openTopicUrl('/t/current-topic/42');
       await tester.pumpAndSettle();
-      expect(controller.activeTabId, originalId);
+      final readerId = controller.activeTabId;
+      expect(readerId, isNot(originalId));
+      expect(controller.activeTab?.panel, ForumPanel.secondary);
+      expect(controller.selectedTabIn(ForumPanel.main)?.id, originalId);
       expect(controller.currentContent?.topicId, 42);
 
       await tester.tap(_sidebarText('Topics'), kind: PointerDeviceKind.mouse);
       await tester.pumpAndSettle();
 
-      expect(controller.activeTabId, originalId);
-      expect(controller.tabsForCurrentForum, hasLength(1));
+      expect(controller.activeTabId, readerId);
+      expect(controller.tabsForCurrentForum, hasLength(2));
       expect(controller.currentContent?.id, 'latest');
       expect(controller.handleBack(canReturnToSidebar: false), isTrue);
       expect(controller.currentContent?.topicId, 42);
@@ -655,8 +658,8 @@ void main() {
       await tester.pumpAndSettle();
 
       final topicId = controller.activeTabId!;
-      expect(controller.activeTabId, newId);
-      expect(controller.activeTab?.panel, ForumPanel.main);
+      expect(controller.activeTabId, isNot(newId));
+      expect(controller.activeTab?.panel, ForumPanel.secondary);
       final ForumTabItem routedItem = tester
           .widgetList<ForumTabsBar>(find.byType(ForumTabsBar))
           .expand((bar) => bar.items)
@@ -679,12 +682,12 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      expect(controller.tabsForCurrentForum, hasLength(3));
+      expect(controller.tabsForCurrentForum, hasLength(4));
       expect(
         controller.tabsForCurrentForum.where(
           (tab) => !tab.currentContent.isTopic,
         ),
-        hasLength(2),
+        hasLength(3),
       );
       expect(_bar(tester).items.map((item) => item.id), contains(newId));
       expect(_bar(tester).selectedId, isNot(originalId));
