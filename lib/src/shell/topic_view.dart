@@ -245,7 +245,9 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
   bool _retainedGeometryRefreshScheduled = false;
   double _laidOutPostWidth = 0;
   int _extentGeneration = 0;
-  (String, int, int)? _warmCacheIdentity;
+  // Only the scroll view reads this: warming its cache must not rebuild the
+  // header, footer and body frame around it.
+  final _warmCacheIdentity = ValueNotifier<(String, int, int)?>(null);
   (String, int, int)? _scheduledCacheIdentity;
   TopicScrollCaptureController? _scrollCapture;
   TopicScrollCaptureController? _reportedScrollCaptureController;
@@ -912,6 +914,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
       });
     }
     _viewport.dispose();
+    _warmCacheIdentity.dispose();
     _keyboardPost.dispose();
     _keyboardFocus.dispose();
     _entryFocus.dispose();
@@ -1893,31 +1896,26 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
     TopicViewportSnapshot snapshot, {
     Topic? loadingRow,
     bool loading = false,
-  }) => ListenableBuilder(
-    listenable: _viewportState.progressPositionListenable,
-    builder: (context, child) {
-      final progressPosition = _progressPosition;
-      final showProgress = progressPosition != null && totalPosts > 1;
-      // The progress control is resolved after layout. Reserve its footer on
-      // the first frame so it cannot shorten an already positioned viewport.
-      if (totalPosts <= 1 && !widget.canReply && !widget.inbox) {
-        return const SizedBox.shrink();
-      }
-      return _TopicBottomBar(
-        topic: widget.inbox ? snapshot.topic : null,
-        loading: widget.inbox && loading,
-        privateMessage: loadingRow?.privateMessage ?? false,
-        siteUrl: snapshot.siteUrl,
-        isConnected: widget.isConnected,
-        bookmarkBusy: widget.bookmarkBusy,
-        progressPosition: showProgress ? progressPosition : null,
-        totalPosts: totalPosts,
-        canReply: widget.canReply,
-        controller: controller,
-        onReplyPressed: controller.openReply,
-      );
-    },
-  );
+  }) {
+    // The progress control is resolved after layout. Reserve its footer on
+    // the first frame so it cannot shorten an already positioned viewport.
+    if (totalPosts <= 1 && !widget.canReply && !widget.inbox) {
+      return const SizedBox.shrink();
+    }
+    return _TopicBottomBar(
+      topic: widget.inbox ? snapshot.topic : null,
+      loading: widget.inbox && loading,
+      privateMessage: loadingRow?.privateMessage ?? false,
+      siteUrl: snapshot.siteUrl,
+      isConnected: widget.isConnected,
+      bookmarkBusy: widget.bookmarkBusy,
+      viewport: _viewportState,
+      totalPosts: totalPosts,
+      canReply: widget.canReply,
+      controller: controller,
+      onReplyPressed: controller.openReply,
+    );
+  }
 
   /// The body shared by the loading and loaded reader, so arriving posts
   /// replace the skeleton inside an unchanged frame and footer.
@@ -2239,7 +2237,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
     final siteUrl = snapshot.siteUrl!;
     _syncViewport(controller, snapshot);
     final cacheIdentity = _topicIdentity;
-    if (_warmCacheIdentity != cacheIdentity &&
+    if (_warmCacheIdentity.value != cacheIdentity &&
         _scheduledCacheIdentity != cacheIdentity) {
       _scheduledCacheIdentity = cacheIdentity;
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -2247,7 +2245,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
           _scheduledCacheIdentity = null;
         }
         if (!mounted || _topicIdentity != cacheIdentity) return;
-        setState(() => _warmCacheIdentity = cacheIdentity);
+        _warmCacheIdentity.value = cacheIdentity;
       });
     }
     _laidOutPostWidth = readingLane.width;
@@ -2473,6 +2471,27 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
     );
 
     Widget buildPostStream(List<Widget> openingSlivers) {
+      final physics = SuperRangeMaintainingScrollPhysics(
+        parent: snapshot.hasEarlier || snapshot.hasMore
+            ? const AlwaysScrollableScrollPhysics()
+            : null,
+      );
+      final slivers = [
+        ...openingSlivers,
+        SliverPadding(padding: readingLane.padding, sliver: postList),
+        if (controller.mobileNavigationEnabled)
+          SliverPadding(
+            padding: EdgeInsets.only(
+              bottom:
+                  DControlStyle.scaledHeight(
+                    DControlSize.regular,
+                    MediaQuery.textScalerOf(context),
+                    context: context,
+                  ) +
+                  DSpacing.lg,
+            ),
+          ),
+      ];
       final postStreamContent = NotificationListener<ScrollMetricsNotification>(
         onNotification: (notification) {
           if (notification.depth == 0) {
@@ -2501,42 +2520,26 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
             }
             return false;
           },
-          child: CustomScrollView(
-            key: ValueKey((
-              siteUrl,
-              snapshot.topicId,
-              _scroll,
-              _extentGeneration,
-            )),
-            controller: _scroll,
-            // Lay out visible replies first, then prime the ordinary scroll
-            // cache on the next frame without changing visible post geometry.
-            scrollCacheExtent: _warmCacheIdentity == _topicIdentity
-                ? null
-                : const ScrollCacheExtent.pixels(0),
-            // A partial window must accept a pull to fetch or retry a page.
-            physics: SuperRangeMaintainingScrollPhysics(
-              parent: snapshot.hasEarlier || snapshot.hasMore
-                  ? const AlwaysScrollableScrollPhysics()
-                  : null,
+          child: ValueListenableBuilder(
+            valueListenable: _warmCacheIdentity,
+            builder: (context, warmCacheIdentity, _) => CustomScrollView(
+              key: ValueKey((
+                siteUrl,
+                snapshot.topicId,
+                _scroll,
+                _extentGeneration,
+              )),
+              controller: _scroll,
+              // Lay out visible replies first, then prime the ordinary scroll
+              // cache on the next frame without changing visible post geometry.
+              scrollCacheExtent: warmCacheIdentity == _topicIdentity
+                  ? null
+                  : const ScrollCacheExtent.pixels(0),
+              // A partial window must accept a pull to fetch or retry a page.
+              physics: physics,
+              semanticChildCount: itemCount,
+              slivers: slivers,
             ),
-            semanticChildCount: itemCount,
-            slivers: [
-              ...openingSlivers,
-              SliverPadding(padding: readingLane.padding, sliver: postList),
-              if (controller.mobileNavigationEnabled)
-                SliverPadding(
-                  padding: EdgeInsets.only(
-                    bottom:
-                        DControlStyle.scaledHeight(
-                          DControlSize.regular,
-                          MediaQuery.textScalerOf(context),
-                          context: context,
-                        ) +
-                        DSpacing.lg,
-                  ),
-                ),
-            ],
           ),
         ),
       );
@@ -2703,7 +2706,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
 
 class _TopicBottomBar extends StatelessWidget {
   const _TopicBottomBar({
-    required this.progressPosition,
+    required this.viewport,
     required this.totalPosts,
     required this.canReply,
     required this.controller,
@@ -2716,7 +2719,9 @@ class _TopicBottomBar extends StatelessWidget {
     this.bookmarkBusy = false,
   });
 
-  final int? progressPosition;
+  /// Only the progress control listens: the reading position changes with
+  /// every post scrolled past, and the other controls never depend on it.
+  final TopicViewportListenable viewport;
   final int totalPosts;
   final bool canReply;
   final ShellController controller;
@@ -2850,18 +2855,26 @@ class _TopicBottomBar extends StatelessWidget {
                   )
                 else
                   const Spacer(),
-                if (progressPosition case final position?)
-                  Align(
-                    alignment: AlignmentDirectional.centerEnd,
-                    child: Padding(
-                      padding: const EdgeInsetsDirectional.only(start: 8),
-                      child: TopicProgressPopover(
-                        controller: controller,
-                        position: position,
-                        total: totalPosts,
+                ListenableBuilder(
+                  listenable: viewport.progressPositionListenable,
+                  builder: (context, _) {
+                    final position = viewport.progressPosition;
+                    if (position == null || totalPosts <= 1) {
+                      return const SizedBox.shrink();
+                    }
+                    return Align(
+                      alignment: AlignmentDirectional.centerEnd,
+                      child: Padding(
+                        padding: const EdgeInsetsDirectional.only(start: 8),
+                        child: TopicProgressPopover(
+                          controller: controller,
+                          position: position,
+                          total: totalPosts,
+                        ),
                       ),
-                    ),
-                  ),
+                    );
+                  },
+                ),
               ],
             ),
           ),
