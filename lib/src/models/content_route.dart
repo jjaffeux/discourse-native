@@ -187,6 +187,7 @@ class ContentRoute {
     this.groupRoute,
     this.badgeRoute,
     this.openInSecondaryPanel = false,
+    this.openInMainPanel = false,
   });
 
   factory ContentRoute.list(ListLink link, {String? title, Color? color}) {
@@ -232,6 +233,11 @@ class ContentRoute {
     title: 'Preferences',
     icon: DIcons.gear,
   );
+
+  factory ContentRoute.newTab() =>
+      const ContentRoute(id: 'new-tab', title: 'New tab', icon: DIcons.house);
+
+  bool get isNewTab => id == 'new-tab';
 
   factory ContentRoute.appearance() => const ContentRoute(
     id: 'appearance',
@@ -393,10 +399,11 @@ class ContentRoute {
       messageGroupName = null,
       groupRoute = null,
       badgeRoute = null,
-      openInSecondaryPanel = false;
+      openInSecondaryPanel = false,
+      openInMainPanel = false;
 
   final bool openInSecondaryPanel;
-  bool get prefersSecondaryPanel => isTopic || openInSecondaryPanel;
+  final bool openInMainPanel;
 
   final String id;
   final String title;
@@ -595,6 +602,8 @@ class ContentRoute {
         messageGroupName: messageGroupName,
         groupRoute: groupRoute,
         badgeRoute: badgeRoute,
+        openInSecondaryPanel: openInSecondaryPanel,
+        openInMainPanel: openInMainPanel,
       );
 
   int? get categoryId {
@@ -660,6 +669,7 @@ class ContentRoute {
   Map<String, Object?> toJson() => {
     'id': id,
     if (openInSecondaryPanel) 'open_in_secondary_panel': true,
+    if (openInMainPanel) 'open_in_main_panel': true,
     'title': title,
     'icon': icon.name,
     if (subtitle != null) 'subtitle': subtitle,
@@ -744,6 +754,7 @@ class ContentRoute {
     final route = ContentRoute(
       id: id,
       openInSecondaryPanel: json['open_in_secondary_panel'] == true,
+      openInMainPanel: json['open_in_main_panel'] == true,
       title: title,
       // Upgrade the speech bubble saved by older topic tabs without changing
       // the durable icon of routes that deliberately chose another glyph.

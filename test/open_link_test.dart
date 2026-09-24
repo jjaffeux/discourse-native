@@ -6,6 +6,7 @@ import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/fakes.dart';
@@ -154,12 +155,82 @@ void main() {
     expect(controller.tabsForCurrentForum, hasLength(1));
     expect(controller.currentContent?.topicId, 42);
   });
+
+  testWidgets('middle-click opens a new tab in the active panel', (
+    tester,
+  ) async {
+    final controller = await _pumpLink(tester, desktopPanels: true);
+    final original = controller.activeTabId;
+
+    await tester.tap(
+      find.text('Open link'),
+      kind: PointerDeviceKind.mouse,
+      buttons: kMiddleMouseButton,
+    );
+    await tester.pumpAndSettle();
+
+    expect(controller.activeTabId, original);
+    expect(controller.tabsForCurrentForum.last.panel, ForumPanel.main);
+    expect(controller.selectedTabIn(ForumPanel.secondary), isNull);
+    expect(controller.tabsForCurrentForum.last.currentContent.topicId, 42);
+  });
+
+  testWidgets('Shift-click opens in the secondary panel', (tester) async {
+    final controller = await _pumpLink(tester, desktopPanels: true);
+    final original = controller.activeTabId;
+
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+    await tester.tap(find.text('Open link'), kind: PointerDeviceKind.mouse);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+    await tester.pumpAndSettle();
+
+    expect(controller.selectedTabIn(ForumPanel.main)?.id, original);
+    expect(controller.activeTab?.panel, ForumPanel.secondary);
+    expect(controller.currentContent?.topicId, 42);
+  });
+
+  testWidgets('Shift-middle-click opens a new secondary tab', (tester) async {
+    final controller = await _pumpLink(tester, desktopPanels: true);
+
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+    await tester.tap(
+      find.text('Open link'),
+      kind: PointerDeviceKind.mouse,
+      buttons: kMiddleMouseButton,
+    );
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+    await tester.pumpAndSettle();
+
+    expect(controller.activeTab?.panel, ForumPanel.main);
+    expect(controller.tabsForCurrentForum, hasLength(2));
+    expect(controller.tabsForCurrentForum.last.panel, ForumPanel.secondary);
+    expect(controller.tabsForCurrentForum.last.currentContent.topicId, 42);
+  });
+
+  testWidgets('right-click offers explicit panel destinations', (tester) async {
+    final controller = await _pumpLink(tester, desktopPanels: true);
+
+    await tester.tap(
+      find.text('Open link'),
+      kind: PointerDeviceKind.mouse,
+      buttons: kSecondaryMouseButton,
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Open in main panel'), findsOneWidget);
+    expect(find.text('Open in secondary panel'), findsOneWidget);
+
+    await tester.tap(find.text('Open in secondary panel'));
+    await tester.pumpAndSettle();
+    expect(controller.activeTab?.panel, ForumPanel.secondary);
+    expect(controller.currentContent?.topicId, 42);
+  });
 }
 
 Future<ShellController> _pumpLink(
   WidgetTester tester, {
   String url = '/t/a-topic/42',
   bool tabsEnabled = true,
+  bool desktopPanels = false,
   FakeDiscourseApi? api,
 }) async {
   final controller = ShellController(
@@ -173,6 +244,7 @@ Future<ShellController> _pumpLink(
   );
   addTearDown(controller.dispose);
   await controller.load();
+  controller.desktopTopicTabs = desktopPanels;
   await tester.pumpWidget(
     ShellScope(
       controller: controller,

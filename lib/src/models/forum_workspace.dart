@@ -371,10 +371,7 @@ final class ForumTab {
       panel: switch (json['panel']) {
         'main' => ForumPanel.main,
         'secondary' => ForumPanel.secondary,
-        _ =>
-          stack.last.prefersSecondaryPanel
-              ? ForumPanel.secondary
-              : ForumPanel.main,
+        _ => ForumPanel.main,
       },
       rootDestinationId: root,
       contentStack: stack,

@@ -5,6 +5,8 @@ import '../models/topic.dart';
 import '../theme/d_icons.dart';
 import 'category_icon.dart';
 import 'inline_action.dart';
+import 'open_link.dart';
+import 'topic_tag_picker.dart';
 
 class TopicPropertyRow extends StatelessWidget {
   const TopicPropertyRow({
@@ -345,7 +347,7 @@ class TopicTagsValue extends StatelessWidget {
   final List<TopicTag> tags;
   final bool saving;
   final VoidCallback? onTap;
-  final ValueChanged<TopicTag>? onTagNavigate;
+  final TopicTagNavigationCallback? onTagNavigate;
   final VoidCallback? onEdit;
   final Key? Function(TopicTag tag)? tagKey;
   final Key? addKey;
@@ -366,13 +368,22 @@ class TopicTagsValue extends StatelessWidget {
             );
     }
 
-    Widget pill(TopicTag tag) => _TopicTagPill(
-      pillKey: tagKey?.call(tag),
-      tag: tag,
-      onTap: onTagNavigate == null ? onTap : () => onTagNavigate!(tag),
-      isLink: onTagNavigate != null,
-      semanticLabel: onTagNavigate == null ? null : 'Tag: ${tag.name}',
-    );
+    Widget pill(TopicTag tag) {
+      final built = _TopicTagPill(
+        pillKey: tagKey?.call(tag),
+        tag: tag,
+        onTap: onTagNavigate == null ? onTap : () => onTagNavigate!(tag),
+        isLink: onTagNavigate != null,
+        semanticLabel: onTagNavigate == null ? null : 'Tag: ${tag.name}',
+      );
+      return onTagNavigate == null
+          ? built
+          : LinkTarget.action(
+              action: ({required newTab, panel}) =>
+                  onTagNavigate!(tag, newTab: newTab, panel: panel),
+              child: built,
+            );
+    }
 
     final pills = [for (final tag in tags) pill(tag)];
     final Widget? trailingAction;

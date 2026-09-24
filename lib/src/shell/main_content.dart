@@ -37,6 +37,7 @@ import 'keyboard_navigation.dart';
 import 'message_create_button.dart';
 import 'message_inbox_page.dart';
 import 'message_inbox_title.dart';
+import 'new_tab_page.dart';
 import 'open_link.dart';
 import 'platform.dart';
 import 'preferences_page.dart';
@@ -167,6 +168,16 @@ class _MainContentBody extends StatelessWidget {
     if (route == null) {
       return ColoredBox(
         color: ForumWindowBackground.surfaceColor(context, theme.shell.content),
+      );
+    }
+    if (route.isNewTab) {
+      return DPageSurface(
+        border: false,
+        borderRadius: WorkspacePanelCorner.borderRadiusOf(context),
+        backgroundColor: ForumWindowBackground.panelColor(context),
+        framed: !context.isTouch,
+        tabs: forumTabsEnabled ? const TopicPanelTabs() : null,
+        child: NewTabPage(onBrowseTopics: () => openLink(context, '/latest')),
       );
     }
     final pluginContent = ForumTabScope.read(
@@ -1227,9 +1238,8 @@ class _TopicListHeadingTitle extends StatelessWidget {
     final siteUrl = this.siteUrl;
     if (siteUrl == null) return title('Category');
     return ValueListenableBuilder<TopicCategory?>(
-      valueListenable: ShellScope.read(
-        context,
-      ).categoryRef(siteUrl, categoryId),
+      valueListenable: ShellScope.read(context)
+          .categoryRef(siteUrl, categoryId),
       builder: (context, category, _) => title(category?.name ?? 'Category'),
     );
   }
@@ -1436,9 +1446,8 @@ class _GroupsDirectoryCount extends StatelessWidget {
           count == 1 ? '1 group' : '$count groups',
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
-          style: Theme.of(context).textTheme.labelSmall?.copyWith(
-            color: Theme.of(context).colorScheme.onSurfaceVariant,
-          ),
+          style: Theme.of(context).textTheme.labelSmall
+              ?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
         );
       },
     );
@@ -1554,62 +1563,61 @@ class _SignedOutMessagesState extends StatelessWidget {
   const _SignedOutMessagesState();
 
   @override
-  Widget build(
-    BuildContext context,
-  ) => ShellSelector<({bool connecting, String? error})>(
-    select: (controller) =>
-        (connecting: controller.connecting, error: controller.connectError),
-    builder: (context, state, _) {
-      final theme = Theme.of(context);
-      final controller = ShellScope.read(context);
+  Widget build(BuildContext context) =>
+      ShellSelector<({bool connecting, String? error})>(
+        select: (controller) =>
+            (connecting: controller.connecting, error: controller.connectError),
+        builder: (context, state, _) {
+          final theme = Theme.of(context);
+          final controller = ShellScope.read(context);
 
-      return Center(
-        child: SingleChildScrollView(
-          child: DEmpty(
-            children: [
-              const DEmptyHeader(
+          return Center(
+            child: SingleChildScrollView(
+              child: DEmpty(
                 children: [
-                  DEmptyMedia(
-                    variant: DEmptyMediaVariant.icon,
-                    child: DIcon(DIcons.lock),
+                  const DEmptyHeader(
+                    children: [
+                      DEmptyMedia(
+                        variant: DEmptyMediaVariant.icon,
+                        child: DIcon(DIcons.lock),
+                      ),
+                      DEmptyTitle('Sign in to view your messages'),
+                      DEmptyDescription(
+                        'Private messages are tied to your forum account and aren’t available while you’re signed out.',
+                      ),
+                    ],
                   ),
-                  DEmptyTitle('Sign in to view your messages'),
-                  DEmptyDescription(
-                    'Private messages are tied to your forum account and aren’t available while you’re signed out.',
-                  ),
-                ],
-              ),
-              if (state.error case final error?)
-                Semantics(
-                  liveRegion: true,
-                  child: Text(
-                    error,
-                    textAlign: TextAlign.center,
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: theme.colorScheme.error,
+                  if (state.error case final error?)
+                    Semantics(
+                      liveRegion: true,
+                      child: Text(
+                        error,
+                        textAlign: TextAlign.center,
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: theme.colorScheme.error,
+                        ),
+                      ),
                     ),
-                  ),
-                ),
-              DEmptyContent(
-                children: [
-                  DButton(
-                    key: const ValueKey('messages-sign-in'),
-                    label: const Text('Sign in'),
-                    onPressed: () =>
-                        unawaited(controller.connectCurrentInstance()),
-                    icon: const DIcon(DIcons.user),
-                    variant: DButtonVariant.primary,
-                    loading: state.connecting,
-                    loadingLabel: const Text('Signing in…'),
+                  DEmptyContent(
+                    children: [
+                      DButton(
+                        key: const ValueKey('messages-sign-in'),
+                        label: const Text('Sign in'),
+                        onPressed: () =>
+                            unawaited(controller.connectCurrentInstance()),
+                        icon: const DIcon(DIcons.user),
+                        variant: DButtonVariant.primary,
+                        loading: state.connecting,
+                        loadingLabel: const Text('Signing in…'),
+                      ),
+                    ],
                   ),
                 ],
               ),
-            ],
-          ),
-        ),
+            ),
+          );
+        },
       );
-    },
-  );
 }
 
 class _ContentNotFound extends StatelessWidget {

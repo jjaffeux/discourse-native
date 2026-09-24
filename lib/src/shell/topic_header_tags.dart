@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import '../models/post.dart';
 import '../models/topic.dart';
 import '../theme/d_icons.dart';
+import 'open_link.dart';
 import 'platform.dart';
 import 'topic_tag_picker.dart';
 import 'topic_taxonomy_picker.dart';
@@ -134,9 +135,9 @@ class TopicHeaderTags extends StatelessWidget {
                   popoverKey: const ValueKey('topic-header-tags-popover'),
                   builder: (pickerContext, close) => _ReadOnlyTags(
                     tags: tags,
-                    onTagNavigate: (tag, {newTab = false}) {
+                    onTagNavigate: (tag, {newTab = false, panel}) {
                       close(null);
-                      onTagNavigate(tag, newTab: newTab);
+                      onTagNavigate(tag, newTab: newTab, panel: panel);
                     },
                   ),
                 ),
@@ -147,39 +148,48 @@ class TopicHeaderTags extends StatelessWidget {
           Key key, {
           required String semanticLabel,
           TopicTag? tag,
-        }) => GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          excludeFromSemantics: true,
-          onTertiaryTapUp: tag == null
-              ? null
-              : (_) => onTagNavigate(tag, newTab: true),
-          child: tag == null || (editOnTap && topic.canEditTags)
-              ? DBadge.action(
-                  key: key,
-                  variant: DBadgeVariant.secondary,
-                  size: DBadgeSize.control,
-                  onPressed: open,
-                  semanticLabel: semanticLabel,
-                  leading: saving ? const DSpinner() : null,
-                  child: Text(
-                    label,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+        }) {
+          final built = GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            excludeFromSemantics: true,
+            onTertiaryTapUp: tag == null
+                ? null
+                : (_) => onTagNavigate(tag, newTab: true),
+            child: tag == null || (editOnTap && topic.canEditTags)
+                ? DBadge.action(
+                    key: key,
+                    variant: DBadgeVariant.secondary,
+                    size: DBadgeSize.control,
+                    onPressed: open,
+                    semanticLabel: semanticLabel,
+                    leading: saving ? const DSpinner() : null,
+                    child: Text(
+                      label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  )
+                : DBadge.link(
+                    key: key,
+                    variant: DBadgeVariant.secondary,
+                    size: DBadgeSize.control,
+                    onPressed: () => onTagNavigate(tag),
+                    semanticLabel: semanticLabel,
+                    child: Text(
+                      label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
-                )
-              : DBadge.link(
-                  key: key,
-                  variant: DBadgeVariant.secondary,
-                  size: DBadgeSize.control,
-                  onPressed: () => onTagNavigate(tag),
-                  semanticLabel: semanticLabel,
-                  child: Text(
-                    label,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-        );
+          );
+          return tag == null || (editOnTap && topic.canEditTags)
+              ? built
+              : LinkTarget.action(
+                  action: ({required newTab, panel}) =>
+                      onTagNavigate(tag, newTab: newTab, panel: panel),
+                  child: built,
+                );
+        }
 
         return Row(
           mainAxisSize: MainAxisSize.min,
@@ -272,23 +282,27 @@ class _ReadOnlyTagsState extends State<_ReadOnlyTags> {
       onQuerySubmitted: (_) {},
       children: [
         for (final tag in matches)
-          GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            excludeFromSemantics: true,
-            onTertiaryTapUp: (_) => widget.onTagNavigate(tag, newTab: true),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 2),
-              child: DItem(
-                key: ValueKey(('topic-header-tag-option', tag.name)),
-                size: DItemSize.xs,
-                link: true,
-                children: [
-                  DItemContent(children: [Text('# ${tag.name}')]),
-                  const DItemActions(
-                    children: [DIcon(DIcons.upRightFromSquare, size: 12)],
-                  ),
-                ],
-                onPressed: () => widget.onTagNavigate(tag),
+          LinkTarget.action(
+            action: ({required newTab, panel}) =>
+                widget.onTagNavigate(tag, newTab: newTab, panel: panel),
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              excludeFromSemantics: true,
+              onTertiaryTapUp: (_) => widget.onTagNavigate(tag, newTab: true),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 2),
+                child: DItem(
+                  key: ValueKey(('topic-header-tag-option', tag.name)),
+                  size: DItemSize.xs,
+                  link: true,
+                  children: [
+                    DItemContent(children: [Text('# ${tag.name}')]),
+                    const DItemActions(
+                      children: [DIcon(DIcons.upRightFromSquare, size: 12)],
+                    ),
+                  ],
+                  onPressed: () => widget.onTagNavigate(tag),
+                ),
               ),
             ),
           ),

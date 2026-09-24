@@ -160,7 +160,7 @@ void main() {
           await openPicker(
             tester,
             onClosed: results.add,
-            onTagNavigate: (tag, {newTab = false}) =>
+            onTagNavigate: (tag, {newTab = false, panel}) =>
                 opened.add((tag: tag, newTab: newTab)),
           );
 
@@ -188,7 +188,7 @@ void main() {
       await openPicker(
         tester,
         onClosed: results.add,
-        onTagNavigate: (tag, {newTab = false}) => opened.add(tag),
+        onTagNavigate: (tag, {newTab = false, panel}) => opened.add(tag),
       );
 
       for (final target in ['option', 'open']) {
@@ -229,7 +229,7 @@ void main() {
             tester,
             platform: platform,
             onClosed: results.add,
-            onTagNavigate: (tag, {newTab = false}) => opened.add(tag),
+            onTagNavigate: (tag, {newTab = false, panel}) => opened.add(tag),
           );
 
           expect(
@@ -330,7 +330,7 @@ void main() {
       await openPicker(
         tester,
         onClosed: results.add,
-        onTagNavigate: (tag, {newTab = false}) => opened.add(tag),
+        onTagNavigate: (tag, {newTab = false, panel}) => opened.add(tag),
       );
       // Input → selected checkbox/link pairs → the unselected tag's link.
       // Its checkbox is disabled because the topic is already at its tag limit.
@@ -377,7 +377,7 @@ void main() {
       tester,
       selectedTags: const [],
       onClosed: results.add,
-      onTagNavigate: (_, {newTab = false}) {},
+      onTagNavigate: (_, {newTab = false, panel}) {},
       search: (term) async => TopicTagSearch(
         tags: [
           design,

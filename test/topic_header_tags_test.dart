@@ -1,11 +1,45 @@
+import 'package:discourse_native/src/models/forum_workspace.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/shell/topic_header_tags.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  testWidgets('tag context menu chooses a panel and tab', (tester) async {
+    final openings = <(bool, ForumPanel?)>[];
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.dark,
+        home: Scaffold(
+          body: TopicHeaderTags(
+            siteUrl: 'https://meta.example',
+            topic: const TopicDetail(
+              id: 1,
+              title: 'Tagged topic',
+              stream: [],
+              tags: [TopicTag(id: 2, name: 'design')],
+            ),
+            onTagNavigate: (tag, {newTab = false, panel}) =>
+                openings.add((newTab, panel)),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const ValueKey(('topic-header-tag', 'design'))),
+      kind: PointerDeviceKind.mouse,
+      buttons: kSecondaryMouseButton,
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Open in new secondary tab'));
+    await tester.pumpAndSettle();
+    expect(openings, [(true, ForumPanel.secondary)]);
+  });
+
   testWidgets('empty tags show a labeled add action only when editable', (
     tester,
   ) async {
@@ -23,7 +57,7 @@ void main() {
                     width: width,
                     child: TopicHeaderTags(
                       siteUrl: 'https://meta.example',
-                      onTagNavigate: (_, {newTab = false}) {},
+                      onTagNavigate: (_, {newTab = false, panel}) {},
                       topic: TopicDetail(
                         id: 1,
                         title: 'No tags',
@@ -83,7 +117,7 @@ void main() {
                       width: width,
                       child: TopicHeaderTags(
                         siteUrl: 'https://meta.example',
-                        onTagNavigate: (_, {newTab = false}) {},
+                        onTagNavigate: (_, {newTab = false, panel}) {},
                         topic: TopicDetail(
                           id: 1,
                           title: 'Many tags',

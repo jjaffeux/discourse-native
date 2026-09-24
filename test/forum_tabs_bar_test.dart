@@ -7,6 +7,7 @@ import 'dart:ui'
         Tristate;
 
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/src/models/forum_workspace.dart';
 import 'package:discourse_native/src/models/sidebar.dart';
 import 'package:discourse_native/src/models/site_emoji.dart';
 import 'package:discourse_native/src/shell/forum_tabs_bar.dart';
@@ -710,6 +711,32 @@ void main() {
         expect(closed, [second.id]);
       },
     );
+
+    testWidgets('right-click moves a tab to the other panel', (tester) async {
+      final moves = <(String, ForumPanel)>[];
+      await _pumpBar(
+        tester,
+        items: const [first, second],
+        selectedId: first.id,
+        panel: ForumPanel.main,
+        onMoveToPanel: (id, panel) => moves.add((id, panel)),
+      );
+
+      await tester.tap(
+        find.byKey(const ValueKey('forum-tab-chat-2')),
+        buttons: kSecondaryButton,
+      );
+      await tester.pumpAndSettle();
+      expect(
+        tester.widget<ForumTabsBar>(find.byType(ForumTabsBar)).panel,
+        ForumPanel.main,
+      );
+      expect(find.text('Close tab'), findsOneWidget);
+      await tester.tap(find.text('Move to secondary panel'));
+      await tester.pumpAndSettle();
+
+      expect(moves, [(second.id, ForumPanel.secondary)]);
+    });
 
     testWidgets('keep close-other visible but disabled for a sole tab', (
       tester,
@@ -1451,6 +1478,8 @@ Future<void> _pumpBar(
   double width = 500,
   ThemeData? theme,
   ShellController? controller,
+  ForumPanel? panel,
+  void Function(String id, ForumPanel panel)? onMoveToPanel,
 }) async {
   Widget child = MaterialApp(
     theme: (theme ?? AppTheme.light).copyWith(platform: TargetPlatform.macOS),
@@ -1466,6 +1495,8 @@ Future<void> _pumpBar(
                 child: ColoredBox(
                   color: (theme ?? AppTheme.light).shell.sidebar,
                   child: ForumTabsBar(
+                    panel: panel,
+                    onMoveToPanel: onMoveToPanel,
                     forumName: 'Discourse Meta',
                     items: items,
                     selectedId: selectedId,

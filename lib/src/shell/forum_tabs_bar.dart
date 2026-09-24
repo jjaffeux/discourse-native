@@ -95,6 +95,8 @@ class ForumTabsBar extends StatefulWidget {
     this.onDropTab,
     this.incomingTab,
     this.itemForDrop,
+    this.panel,
+    this.onMoveToPanel,
   }) : assert(items.isNotEmpty),
        assert(items.any((item) => item.id == selectedId));
 
@@ -116,6 +118,8 @@ class ForumTabsBar extends StatefulWidget {
   final void Function(String id, int index)? onDropTab;
   final ForumTabItem? incomingTab;
   final ForumTabItem? Function(String id)? itemForDrop;
+  final ForumPanel? panel;
+  final void Function(String id, ForumPanel panel)? onMoveToPanel;
   final String forumName;
   final List<ForumTabItem> items;
   final String selectedId;
@@ -237,6 +241,8 @@ class _ForumTabsBarState extends State<ForumTabsBar> {
         (widget.onAdd == null) != (oldWidget.onAdd == null) ||
         (widget.onReopen == null) != (oldWidget.onReopen == null) ||
         (widget.onRename == null) != (oldWidget.onRename == null) ||
+        widget.panel != oldWidget.panel ||
+        (widget.onMoveToPanel == null) != (oldWidget.onMoveToPanel == null) ||
         !_sameItems(widget.items, oldWidget.items) ||
         !_sameItems(
           widget.recentlyClosedItems,
@@ -416,6 +422,22 @@ class _ForumTabsBarState extends State<ForumTabsBar> {
                                                   widget.items[index].id,
                                                   title,
                                                 ),
+                                          moveToPanel:
+                                              widget.panel == null ||
+                                                  widget.onMoveToPanel == null
+                                              ? null
+                                              : () => widget.onMoveToPanel!(
+                                                  widget.items[index].id,
+                                                  widget.panel ==
+                                                          ForumPanel.main
+                                                      ? ForumPanel.secondary
+                                                      : ForumPanel.main,
+                                                ),
+                                          moveToPanelLabel: widget.panel == null
+                                              ? null
+                                              : widget.panel == ForumPanel.main
+                                              ? 'Move to secondary panel'
+                                              : 'Move to main panel',
                                         ),
                                       ),
                                       if (index != widget.items.length - 1)
@@ -988,6 +1010,8 @@ class _ReorderableForumTab extends StatelessWidget {
     this.onRename,
     this.acceptsTab,
     this.onDropTab,
+    this.moveToPanel,
+    this.moveToPanelLabel,
   });
 
   final bool Function(String id)? acceptsTab;
@@ -1001,6 +1025,8 @@ class _ReorderableForumTab extends StatelessWidget {
   final void Function(String id, int newIndex) onReorder;
   final VoidCallback? onCloseOthers;
   final ValueChanged<String>? onRename;
+  final VoidCallback? moveToPanel;
+  final String? moveToPanelLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -1012,6 +1038,8 @@ class _ReorderableForumTab extends StatelessWidget {
       onClose: onClose,
       onCloseOthers: onCloseOthers,
       onRename: onRename,
+      moveToPanel: moveToPanel,
+      moveToPanelLabel: moveToPanelLabel,
       onMoveLeft: index == 0 ? null : () => onReorder(item.id, index - 1),
       onMoveRight: index == itemCount - 1
           ? null
@@ -1052,6 +1080,8 @@ class _ReorderableForumTab extends StatelessWidget {
             onClose: onClose,
             onCloseOthers: onCloseOthers,
             onRename: onRename,
+            moveToPanel: moveToPanel,
+            moveToPanelLabel: moveToPanelLabel,
             onMoveLeft: index == 0 ? null : () => onReorder(item.id, index - 1),
             onMoveRight: index == itemCount - 1
                 ? null
@@ -1194,6 +1224,8 @@ class _ForumTab extends StatefulWidget {
     this.onMoveLeft,
     this.onMoveRight,
     this.onRename,
+    this.moveToPanel,
+    this.moveToPanelLabel,
   });
 
   final ForumTabItem item;
@@ -1206,6 +1238,8 @@ class _ForumTab extends StatefulWidget {
   final VoidCallback? onMoveLeft;
   final VoidCallback? onMoveRight;
   final ValueChanged<String>? onRename;
+  final VoidCallback? moveToPanel;
+  final String? moveToPanelLabel;
 
   @override
   State<_ForumTab> createState() => _ForumTabState();
@@ -1493,6 +1527,8 @@ class _ForumTabState extends State<_ForumTab> {
           },
           onClose: widget.onClose,
           onCloseOthers: widget.onCloseOthers,
+          moveToPanel: widget.moveToPanel,
+          moveToPanelLabel: widget.moveToPanelLabel,
           child: DDocumentTab(
             excludeSelectionSemantics: true,
             surfaceKey: ValueKey('forum-tab-item-${widget.item.id}'),
@@ -1554,6 +1590,8 @@ class _ForumTabActions extends StatefulWidget {
     required this.onTap,
     required this.onClose,
     required this.onCloseOthers,
+    this.moveToPanel,
+    this.moveToPanelLabel,
     this.customSemanticsActions,
     required this.child,
   });
@@ -1564,6 +1602,8 @@ class _ForumTabActions extends StatefulWidget {
   final VoidCallback onTap;
   final VoidCallback onClose;
   final VoidCallback? onCloseOthers;
+  final VoidCallback? moveToPanel;
+  final String? moveToPanelLabel;
   final Map<CustomSemanticsAction, VoidCallback>? customSemanticsActions;
   final Widget child;
 
@@ -1593,6 +1633,12 @@ class _ForumTabActionsState extends State<_ForumTabActions> {
         semanticLabel: 'Tab actions',
         width: 280,
         children: [
+          if (widget.moveToPanel != null)
+            DContextMenuItem(
+              key: ValueKey('forum-tab-menu-move-${widget.tabId}'),
+              onPressed: widget.moveToPanel,
+              child: Text(widget.moveToPanelLabel!),
+            ),
           DContextMenuItem(
             key: ValueKey('forum-tab-menu-close-${widget.tabId}'),
             trailing: widget.selected
@@ -1770,6 +1816,8 @@ class CurrentForumTabsBar extends StatelessWidget {
               return ForumTabsBar(
                 key: ValueKey(('forum-tabs', siteUrl, panel)),
                 forumName: forumName,
+                panel: panel,
+                onMoveToPanel: panel == null ? null : controller.moveTabToPanel,
                 showAdd: true,
                 incomingTab: incoming,
                 itemForDrop: itemForDrop,

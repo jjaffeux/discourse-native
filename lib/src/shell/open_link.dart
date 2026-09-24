@@ -1,5 +1,8 @@
+import 'dart:async';
+
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../models/content_route.dart';
 import '../models/forum_workspace.dart';
@@ -16,6 +19,7 @@ Future<bool> openLink(
   String? title,
   String? siteUrl,
   bool newTab = false,
+  ForumPanel? panel,
 }) async {
   final controller = ShellScope.maybeRead(context);
 
@@ -23,12 +27,25 @@ Future<bool> openLink(
       controller?.absoluteUrl(url, siteUrl: siteUrl) ??
       resolveSiteUrl(url, siteUrl);
 
-  if (newTab && controller != null) {
-    final result = controller.openLinkInNewTab(
-      target,
-      title: title,
-      panel: ForumPanel.secondary,
-    );
+  final requestedPanel =
+      panel ??
+      (HardwareKeyboard.instance.isShiftPressed &&
+              controller?.desktopPanelsEnabled == true
+          ? ForumPanel.secondary
+          : null);
+
+  if ((newTab || requestedPanel != null) && controller != null) {
+    final result = newTab
+        ? controller.openLinkInNewTab(
+            target,
+            title: title,
+            panel: requestedPanel,
+          )
+        : controller.openLinkInPanel(
+            target,
+            title: title,
+            panel: requestedPanel!,
+          );
     if (result != TabOpenResult.unsupported) {
       return handleTabOpenResult(context, result);
     }
@@ -37,9 +54,14 @@ Future<bool> openLink(
   if (showUserCardForUrl(context, target, siteUrl: siteUrl)) return true;
   if (await controller?.openPluginUrl(
         target,
-        origin: newTab
-            ? PluginLinkOrigin.secondaryPanel
-            : PluginLinkOrigin.inApp,
+        origin: switch ((requestedPanel, newTab)) {
+          (ForumPanel.main, true) => PluginLinkOrigin.mainPanelNewTab,
+          (ForumPanel.main, false) => PluginLinkOrigin.mainPanel,
+          (ForumPanel.secondary, true) => PluginLinkOrigin.secondaryPanelNewTab,
+          (ForumPanel.secondary, false) => PluginLinkOrigin.secondaryPanel,
+          (_, true) => PluginLinkOrigin.newTab,
+          _ => PluginLinkOrigin.inApp,
+        },
       ) ??
       false) {
     return true;
@@ -58,6 +80,18 @@ bool handleTabOpenResult(BuildContext context, TabOpenResult result) {
   return result == TabOpenResult.opened;
 }
 
+final ValueNotifier<bool> _shiftHeldForLinks = ValueNotifier(false);
+bool _shiftWatcherInstalled = false;
+
+void _watchLinkShift() {
+  if (_shiftWatcherInstalled) return;
+  _shiftWatcherInstalled = true;
+  HardwareKeyboard.instance.addHandler((_) {
+    _shiftHeldForLinks.value = HardwareKeyboard.instance.isShiftPressed;
+    return false;
+  });
+}
+
 class LinkTarget extends StatelessWidget {
   const LinkTarget({
     super.key,
@@ -65,7 +99,8 @@ class LinkTarget extends StatelessWidget {
     required this.child,
     this.title,
     this.siteUrl,
-  }) : content = null;
+  }) : content = null,
+       action = null;
 
   const LinkTarget.content({
     super.key,
@@ -73,36 +108,115 @@ class LinkTarget extends StatelessWidget {
     required this.child,
     this.siteUrl,
   }) : url = null,
-       title = null;
+       title = null,
+       action = null;
+
+  const LinkTarget.action({
+    super.key,
+    required this.action,
+    required this.child,
+  }) : url = null,
+       title = null,
+       siteUrl = null,
+       content = null;
 
   final String? url;
   final String? title;
   final String? siteUrl;
   final ContentRoute? content;
+  final void Function({required bool newTab, ForumPanel? panel})? action;
   final Widget child;
 
   @override
-  Widget build(BuildContext context) => GestureDetector(
-    behavior: HitTestBehavior.opaque,
-    excludeFromSemantics: true,
-    onTertiaryTapUp: content != null
-        ? (_) => handleTabOpenResult(
+  Widget build(BuildContext context) {
+    _watchLinkShift();
+    void activate({required bool newTab, ForumPanel? panel}) {
+      if (action case final open?) {
+        open(newTab: newTab, panel: panel);
+      } else if (content case final route?) {
+        final controller = ShellScope.read(context);
+        if (newTab) {
+          handleTabOpenResult(
             context,
-            ShellScope.read(context).openContentInNewTab(
-              content!,
+            controller.openContentInNewTab(
+              route,
               siteUrl: siteUrl,
-              panel: ForumPanel.secondary,
+              panel: panel,
+              select: false,
+              source: controller.activeTab,
             ),
-          )
-        : url != null
-        ? (_) => openLink(
+          );
+        } else if (panel != null) {
+          handleTabOpenResult(
             context,
-            url!,
+            controller.openContentInPanel(route, panel: panel),
+          );
+        } else {
+          controller.pushContent(route);
+        }
+      } else if (url case final link?) {
+        unawaited(
+          openLink(
+            context,
+            link,
             title: title,
             siteUrl: siteUrl,
-            newTab: true,
-          )
-        : null,
-    child: child,
-  );
+            newTab: newTab,
+            panel: panel,
+          ),
+        );
+      }
+    }
+
+    return ValueListenableBuilder<bool>(
+      valueListenable: _shiftHeldForLinks,
+      builder: (context, shiftHeld, _) {
+        final shifted =
+            shiftHeld &&
+            ShellScope.maybeRead(context)?.desktopPanelsEnabled == true;
+        return DContextMenu(
+          content: DContextMenuContent(
+            semanticLabel: 'Open link',
+            children: [
+              DContextMenuItem(
+                onPressed: () =>
+                    activate(newTab: false, panel: ForumPanel.main),
+                child: const Text('Open in main panel'),
+              ),
+              DContextMenuItem(
+                onPressed: () =>
+                    activate(newTab: false, panel: ForumPanel.secondary),
+                child: const Text('Open in secondary panel'),
+              ),
+              DContextMenuItem(
+                onPressed: () => activate(newTab: true, panel: ForumPanel.main),
+                child: const Text('Open in new main tab'),
+              ),
+              DContextMenuItem(
+                onPressed: () =>
+                    activate(newTab: true, panel: ForumPanel.secondary),
+                child: const Text('Open in new secondary tab'),
+              ),
+            ],
+          ),
+          child: DContextMenuTrigger(
+            focusable: false,
+            captureSecondaryTap: true,
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              excludeFromSemantics: true,
+              onTap: shifted
+                  ? () => activate(newTab: false, panel: ForumPanel.secondary)
+                  : null,
+              onTertiaryTapUp: (_) => activate(
+                newTab: true,
+                panel: shifted ? ForumPanel.secondary : null,
+              ),
+              child: IgnorePointer(ignoring: shifted, child: child),
+            ),
+          ),
+        );
+      },
+    );
+  }
 }

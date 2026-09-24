@@ -49,14 +49,19 @@ that lays the other panel out, and each panel keeps the same widget while its
 tab, header and minimize action are unchanged, so a shell change during the
 motion does not rebuild its frame. With reduced motion both happen at once.
 
-Normal navigation creates and selects a tab in the current panel. Topics and
-chat threads default to the secondary panel. Middle-click also targets the
-secondary panel. A tab can be dragged onto another tab strip or into the other
-panel, including an empty panel. Moving a tab preserves its ID, route history,
-and reading anchors. Close-other-tabs and adjacent-tab shortcuts operate within
-the relevant panel. The existing per-forum tab limit applies across both panels.
-At the limit, topic-row clicks show “Close a tab before opening another.” and
-preserve all existing documents. Closing a tab allows the next click to open.
+Normal clicks open in the current tab and panel, including topics and chat
+threads. Middle-click opens a new tab in the current panel. Shift-click opens
+in the secondary panel, and Shift-middle-click opens a new tab there. Link
+context menus offer main and secondary panel destinations, each in the current
+or a new tab. A new tab starts on a tutorial page that explains these controls;
+the reader can dismiss the tutorial permanently and browse latest topics from
+that page. A tab can be dragged onto another tab strip or into the other panel,
+including an empty panel, or moved using its context menu. Moving a tab
+preserves its ID, route history, and reading anchors. Close-other-tabs and
+adjacent-tab shortcuts operate within the relevant panel. The existing
+per-forum tab limit applies across both panels. At the limit, a request for a
+new tab shows “Close a tab before opening another.” and preserves all existing
+documents.
 
 Dragging between panels shows a Native document-tab placeholder at the insertion
 position. Hovering over the panel content previews an appended tab; an empty panel
@@ -67,8 +72,8 @@ preview does not jump as tabs shift. Leaving or cancelling the drag clears it
 without changing the workspace.
 
 `ForumTab.panel` and the selected tab in each panel are persisted in
-`ForumWorkspace`. Snapshots without panel metadata assign topic tabs to the
-secondary panel and other tabs to main. When space is insufficient for two
+`ForumWorkspace`. Snapshots without panel metadata assign all tabs to the main
+panel. When space is insufficient for two
 readable columns, both tab strips remain available and the focused panel's
 content fills the workspace. Mobile keeps its existing single-surface navigation.
 

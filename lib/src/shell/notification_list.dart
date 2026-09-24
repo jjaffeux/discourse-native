@@ -377,6 +377,7 @@ class _PluginNotificationsSectionState
                 siteUrl: widget.siteUrl,
                 notification: notification,
                 resolved: resolved,
+                linkPath: resolved.path,
                 onTap: () => _open(notification, resolved.path),
                 onMiddleClick: () =>
                     _open(notification, resolved.path, newTab: true),
@@ -501,6 +502,7 @@ class _NotificationSectionViewState extends State<_NotificationSectionView> {
                 siteUrl: widget.siteUrl,
                 notification: notification,
                 resolved: resolved,
+                linkPath: resolved.path,
                 onTap: () => _open(notification, resolved.path),
                 onMiddleClick: () =>
                     _open(notification, resolved.path, newTab: true),
@@ -520,6 +522,7 @@ class NotificationRow extends StatelessWidget {
     required this.notification,
     required this.onTap,
     this.onMiddleClick,
+    this.linkPath,
     this.resolved,
   });
 
@@ -527,6 +530,7 @@ class NotificationRow extends StatelessWidget {
   final DiscourseNotification notification;
   final VoidCallback onTap;
   final VoidCallback? onMiddleClick;
+  final String? linkPath;
   final ResolvedNotification? resolved;
 
   @override
@@ -602,11 +606,15 @@ class NotificationRow extends StatelessWidget {
         ),
       ),
     );
-    return GestureDetector(
+    final interactive = GestureDetector(
       behavior: HitTestBehavior.opaque,
       excludeFromSemantics: true,
       onTertiaryTapUp: onMiddleClick == null ? null : (_) => onMiddleClick!(),
       child: row,
     );
+    final path = linkPath;
+    return path == null
+        ? interactive
+        : LinkTarget(url: path, siteUrl: siteUrl, child: interactive);
   }
 }

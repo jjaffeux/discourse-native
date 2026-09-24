@@ -13,6 +13,7 @@ import 'global_search_api.dart';
 import 'global_search_controller.dart';
 import 'global_search_filters.dart';
 import 'global_search_models.dart';
+import 'open_link.dart';
 import 'shell_scope.dart';
 import 'site_emoji_text.dart';
 
@@ -465,79 +466,90 @@ class _GlobalSearchPanelState extends State<GlobalSearchPanel> {
     ];
     return KeyedSubtree(
       key: _resultKeys.putIfAbsent(result.id, GlobalKey.new),
-      child: Focus(
-        canRequestFocus: false,
-        onFocusChange: (focused) {
-          if (focused) widget.onSelect?.call(result.id);
-        },
-        child: DItem(
-          key: ValueKey('global-search-result-${result.id}'),
-          size: DItemSize.standard,
-          onPressed: () {
-            widget.onSelect?.call(result.id);
-            widget.onOpen(result);
+      child: LinkTarget(
+        url: result.path,
+        siteUrl: controller.siteUrl,
+        title: result.title,
+        child: Focus(
+          canRequestFocus: false,
+          onFocusChange: (focused) {
+            if (focused) widget.onSelect?.call(result.id);
           },
-          link: true,
-          selected: widget.selectedResultId == result.id,
-          showSelectionIndicator: false,
-          children: [
-            DItemMedia(
-              child: result.scope.showAvatar
-                  ? DAvatar(
-                      size: DAvatarSize.standard,
-                      decorative: true,
-                      child: AvatarImage(
-                        url: result.avatarUrl,
-                        size: 32,
-                        fallback: DAvatarFallback(
-                          child: Text(
-                            (result.username ?? result.title).characters
-                                .take(1)
-                                .toString()
-                                .toUpperCase(),
+          child: DItem(
+            key: ValueKey('global-search-result-${result.id}'),
+            size: DItemSize.standard,
+            onPressed: () {
+              widget.onSelect?.call(result.id);
+              widget.onOpen(result);
+            },
+            link: true,
+            selected: widget.selectedResultId == result.id,
+            showSelectionIndicator: false,
+            children: [
+              DItemMedia(
+                child: result.scope.showAvatar
+                    ? DAvatar(
+                        size: DAvatarSize.standard,
+                        decorative: true,
+                        child: AvatarImage(
+                          url: result.avatarUrl,
+                          size: 32,
+                          fallback: DAvatarFallback(
+                            child: Text(
+                              (result.username ?? result.title).characters
+                                  .take(1)
+                                  .toString()
+                                  .toUpperCase(),
+                            ),
                           ),
                         ),
+                      )
+                    : DIcon(
+                        result.scope == GlobalSearchScope.groups
+                            ? DIcons.users
+                            : DIcons.comments,
+                        size: 18,
+                        color: tokens.mutedForeground,
                       ),
-                    )
-                  : DIcon(
-                      result.scope == GlobalSearchScope.groups
-                          ? DIcons.users
-                          : DIcons.comments,
-                      size: 18,
-                      color: tokens.mutedForeground,
-                    ),
-            ),
-            DItemContent(
-              children: [
-                DItemTitle(
-                  maxLines: 2,
-                  child: _SearchHighlight(
-                    siteUrl: controller.siteUrl!,
-                    text: result.title,
-                    query: controller.query,
-                  ),
-                ),
-                if (properties.contains(GlobalSearchDisplayProperty.excerpt) &&
-                    result.excerpt.isNotEmpty)
-                  DItemDescription(
+              ),
+              DItemContent(
+                children: [
+                  DItemTitle(
                     maxLines: 2,
                     child: _SearchHighlight(
                       siteUrl: controller.siteUrl!,
-                      text: result.excerpt,
+                      text: result.title,
                       query: controller.query,
                     ),
                   ),
-                if (metadata.isNotEmpty)
-                  DefaultTextStyle.merge(
-                    style: TextStyle(
-                      fontSize: DiscourseTypography.xs,
-                      color: tokens.mutedForeground,
+                  if (properties.contains(
+                        GlobalSearchDisplayProperty.excerpt,
+                      ) &&
+                      result.excerpt.isNotEmpty)
+                    DItemDescription(
+                      maxLines: 2,
+                      child: _SearchHighlight(
+                        siteUrl: controller.siteUrl!,
+                        text: result.excerpt,
+                        query: controller.query,
+                      ),
                     ),
-                    child: Wrap(spacing: 10, runSpacing: 3, children: metadata),
-                  ),
-              ],
-            ),
-          ],
+                  if (metadata.isNotEmpty)
+                    DefaultTextStyle.merge(
+                      style: TextStyle(
+                        fontSize: DiscourseTypography.xs,
+                        color: tokens.mutedForeground,
+                      ),
+                      child: Wrap(
+                        spacing: 10,
+                        runSpacing: 3,
+                        children: metadata,
+                      ),
+                    ),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );

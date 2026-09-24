@@ -209,6 +209,7 @@ class _BookmarkSectionViewState extends State<_BookmarkSectionView> {
                       notification: reminder,
                       resolved: resolved,
                       siteUrl: widget.siteUrl,
+                      linkPath: resolved.path,
                       onTap: () => _openReminder(reminder, resolved.path),
                       onMiddleClick: () =>
                           _openReminder(reminder, resolved.path, newTab: true),
@@ -221,6 +222,7 @@ class _BookmarkSectionViewState extends State<_BookmarkSectionView> {
                 if (widget.page && index > 0) const DSeparator(),
                 BookmarkRow(
                   bookmark: entry.bookmark,
+                  siteUrl: widget.siteUrl,
                   presentation: widget.page ? entry.presentation : null,
                   onTap: () => _open(entry.bookmark.path),
                 ),
@@ -287,11 +289,13 @@ class BookmarkRow extends StatelessWidget {
   const BookmarkRow({
     super.key,
     required this.bookmark,
+    this.siteUrl,
     required this.onTap,
     this.presentation,
   });
 
   final Bookmark bookmark;
+  final String? siteUrl;
   final VoidCallback onTap;
   final BookmarkPresentation? presentation;
 
@@ -368,12 +372,17 @@ class BookmarkRow extends StatelessWidget {
     );
 
     final name = bookmark.name;
-    if (name == null) return row;
-    return DTooltip(
-      message: name,
-      excludeFromSemantics: true,
-      hoverDelay: const Duration(milliseconds: 400),
-      child: row,
-    );
+    final presented = name == null
+        ? row
+        : DTooltip(
+            message: name,
+            excludeFromSemantics: true,
+            hoverDelay: const Duration(milliseconds: 400),
+            child: row,
+          );
+    final path = bookmark.path;
+    return path == null
+        ? presented
+        : LinkTarget(url: path, siteUrl: siteUrl, child: presented);
   }
 }

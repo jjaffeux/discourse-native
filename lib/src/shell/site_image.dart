@@ -4,14 +4,17 @@ import 'dart:ui' as ui;
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_widget_from_html_core/flutter_widget_from_html_core.dart';
 import 'package:html/dom.dart' as dom;
 
 import '../data/site_image_repository.dart';
+import '../models/forum_workspace.dart';
 import '../plugin_api/plugin_registry.dart';
 import '../theme/d_icons.dart';
 import 'image_decode.dart';
+import 'open_link.dart';
 import 'progressive_html_mode.dart';
 import 'shell_scope.dart';
 import 'site_url.dart';
@@ -465,6 +468,50 @@ final class SiteImageWidgetFactory extends WidgetFactory {
   }
 
   final Set<dom.Element> _excludeLinkSemantics = Set.identity();
+  final Map<GestureRecognizer, String> _inlineLinkUrls = Map.identity();
+
+  @override
+  GestureRecognizer? buildGestureRecognizer(
+    BuildTree tree, {
+    GestureTapCallback? onTap,
+  }) {
+    final recognizer = super.buildGestureRecognizer(tree, onTap: onTap);
+    final href = tree.element.attributes['href'];
+    if (recognizer is TapGestureRecognizer && href != null) {
+      final url = urlFull(href) ?? href;
+      _inlineLinkUrls[recognizer] = url;
+      if (onMiddleClickUrl != null) {
+        recognizer.onTertiaryTapUp = (_) => onMiddleClickUrl!(url);
+      }
+    }
+    return recognizer;
+  }
+
+  @override
+  Widget? buildText(
+    BuildTree tree,
+    InheritedProperties resolved,
+    InlineSpan text,
+  ) {
+    final built = super.buildText(tree, resolved, text);
+    if (built == null) return null;
+    final urls = <GestureRecognizer, String>{};
+    void collect(InlineSpan span) {
+      if (span is! TextSpan) return;
+      final recognizer = span.recognizer;
+      if (recognizer != null) {
+        final url = _inlineLinkUrls[recognizer];
+        if (url != null) urls[recognizer] = url;
+      }
+      for (final child in span.children ?? const <InlineSpan>[]) {
+        collect(child);
+      }
+    }
+
+    collect(text);
+    if (urls.isEmpty) return built;
+    return _InlineLinkContextMenu(siteUrl: siteUrl, urls: urls, child: built);
+  }
 
   @override
   void parse(BuildTree tree) {
@@ -490,34 +537,19 @@ final class SiteImageWidgetFactory extends WidgetFactory {
   }
 
   @override
-  GestureRecognizer? buildGestureRecognizer(
-    BuildTree tree, {
-    GestureTapCallback? onTap,
-  }) {
-    final recognizer = super.buildGestureRecognizer(tree, onTap: onTap);
-    final href = tree.element.attributes['href'];
-    if (recognizer is TapGestureRecognizer &&
-        href != null &&
-        onMiddleClickUrl != null) {
-      recognizer.onTertiaryTapUp = (_) =>
-          onMiddleClickUrl!(urlFull(href) ?? href);
-    }
-    return recognizer;
-  }
-
-  @override
   Widget? buildGestureDetector(
     BuildTree tree,
     Widget child,
     GestureRecognizer recognizer,
   ) {
-    var detector = super.buildGestureDetector(tree, child, recognizer);
+    Widget? detector = super.buildGestureDetector(tree, child, recognizer);
+    final href = tree.element.attributes['href'];
     if (detector != null &&
         recognizer is TapGestureRecognizer &&
-        recognizer.onTertiaryTapUp != null) {
-      detector = GestureDetector(
-        excludeFromSemantics: true,
-        onTertiaryTapUp: recognizer.onTertiaryTapUp,
+        href != null) {
+      detector = LinkTarget(
+        url: urlFull(href) ?? href,
+        siteUrl: siteUrl,
         child: detector,
       );
     }
@@ -621,4 +653,115 @@ final class SiteImageWidgetFactory extends WidgetFactory {
       },
     );
   }
+}
+
+class _InlineLinkContextMenu extends StatefulWidget {
+  const _InlineLinkContextMenu({
+    required this.siteUrl,
+    required this.urls,
+    required this.child,
+  });
+
+  final String? siteUrl;
+  final Map<GestureRecognizer, String> urls;
+  final Widget child;
+
+  @override
+  State<_InlineLinkContextMenu> createState() => _InlineLinkContextMenuState();
+}
+
+class _InlineLinkContextMenuState extends State<_InlineLinkContextMenu> {
+  final GlobalKey _textKey = GlobalKey();
+  String? _url;
+  bool _open = false;
+
+  RenderParagraph? _paragraph(RenderObject? object) {
+    if (object is RenderParagraph) return object;
+    RenderParagraph? found;
+    object?.visitChildren((child) => found ??= _paragraph(child));
+    return found;
+  }
+
+  void _onPointerDown(PointerDownEvent event) {
+    if (event.buttons != kSecondaryMouseButton) return;
+    final paragraph = _paragraph(_textKey.currentContext?.findRenderObject());
+    if (paragraph == null) return;
+    final offset = paragraph.globalToLocal(event.position);
+    final position = paragraph.getPositionForOffset(offset);
+    final span = paragraph.text.getSpanForPosition(position);
+    final recognizer = span is TextSpan ? span.recognizer : null;
+    final url = widget.urls[recognizer];
+    if (url == null) {
+      _url = null;
+      return;
+    }
+    final boxes = paragraph.getBoxesForSelection(
+      TextSelection(
+        baseOffset: position.offset,
+        extentOffset: position.offset + 1,
+      ),
+    );
+    _url = boxes.any((box) => box.toRect().contains(offset)) ? url : null;
+  }
+
+  void _openLink(
+    BuildContext context, {
+    required bool newTab,
+    ForumPanel? panel,
+  }) {
+    final url = _url;
+    if (url == null) return;
+    unawaited(
+      openLink(
+        context,
+        url,
+        siteUrl: widget.siteUrl,
+        newTab: newTab,
+        panel: panel,
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) => DContextMenu(
+    open: _open,
+    onOpenChange: (open, _) {
+      if (open && _url == null) return;
+      setState(() => _open = open);
+    },
+    content: DContextMenuContent(
+      semanticLabel: 'Open link',
+      children: [
+        DContextMenuItem(
+          onPressed: () =>
+              _openLink(context, newTab: false, panel: ForumPanel.main),
+          child: const Text('Open in main panel'),
+        ),
+        DContextMenuItem(
+          onPressed: () =>
+              _openLink(context, newTab: false, panel: ForumPanel.secondary),
+          child: const Text('Open in secondary panel'),
+        ),
+        DContextMenuItem(
+          onPressed: () =>
+              _openLink(context, newTab: true, panel: ForumPanel.main),
+          child: const Text('Open in new main tab'),
+        ),
+        DContextMenuItem(
+          onPressed: () =>
+              _openLink(context, newTab: true, panel: ForumPanel.secondary),
+          child: const Text('Open in new secondary tab'),
+        ),
+      ],
+    ),
+    child: DContextMenuTrigger(
+      focusable: false,
+      longPressEnabled: false,
+      captureSecondaryTap: true,
+      child: Listener(
+        onPointerDown: _onPointerDown,
+        child: KeyedSubtree(key: _textKey, child: widget.child),
+      ),
+    ),
+  );
 }

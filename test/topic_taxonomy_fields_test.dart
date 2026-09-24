@@ -144,7 +144,7 @@ void main() {
               width: 220,
               child: TopicTagsValue(
                 tags: tags,
-                onTagNavigate: (tag) => selected = tag,
+                onTagNavigate: (tag, {newTab = false, panel}) => selected = tag,
                 tagKey: (tag) => ValueKey(tag.name),
               ),
             ),
@@ -210,7 +210,7 @@ void main() {
               width: 220,
               child: TopicTagsValue(
                 tags: tags,
-                onTagNavigate: (_) {},
+                onTagNavigate: (_, {newTab = false, panel}) {},
                 onEdit: () {},
                 tagKey: (tag) => ValueKey(tag.name),
                 addKey: const ValueKey('edit-tags'),

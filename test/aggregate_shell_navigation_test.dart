@@ -44,7 +44,7 @@ void main() {
     expect(controller.aggregate.state.topics, isEmpty);
   });
 
-  test('aggregate topic gets a new forum tab and then reuses it', () async {
+  test('aggregate topic opens in the current forum tab', () async {
     final store = Store();
     final api = FakeDiscourseApi(feeds: const {'/latest.json': []});
     final controller = _controller(store: store, api: api);
@@ -68,7 +68,7 @@ void main() {
     expect(controller.rootMode, ShellRootMode.forum);
     expect(controller.currentContent?.topicId, topic.id);
     expect(controller.currentContent?.postNumber, 6);
-    expect(controller.tabsForCurrentForum, hasLength(2));
+    expect(controller.tabsForCurrentForum, hasLength(1));
     final topicTabId = controller.activeTabId;
 
     await Future<void>.delayed(Duration.zero);
@@ -80,12 +80,12 @@ void main() {
     final second = controller.openAggregateTopic(_site.url, topic.id);
 
     expect(second, AggregateTopicOpenResult.opened);
-    expect(controller.tabsForCurrentForum, hasLength(2));
+    expect(controller.tabsForCurrentForum, hasLength(1));
     expect(controller.activeTabId, topicTabId);
   });
 
   test(
-    'desktop aggregate topics reuse the secondary tab across destinations',
+    'desktop aggregate topics use the current panel across destinations',
     () async {
       final store = Store();
       final controller = _controller(store: store);
@@ -105,9 +105,9 @@ void main() {
       );
       final readerId = controller.activeTabId;
       expect(controller.rootMode, ShellRootMode.forum);
-      expect(controller.activeTab?.panel, ForumPanel.secondary);
+      expect(controller.activeTab?.panel, ForumPanel.main);
       expect(controller.selectedTabIn(ForumPanel.main)?.id, mainId);
-      expect(controller.tabsForCurrentForum, hasLength(2));
+      expect(controller.tabsForCurrentForum, hasLength(1));
 
       controller.selectAggregate();
       expect(
@@ -117,31 +117,36 @@ void main() {
       expect(controller.rootMode, ShellRootMode.forum);
       expect(controller.activeTabId, readerId);
       expect(controller.currentContent?.topicId, second.id);
-      expect(controller.tabsForCurrentForum, hasLength(2));
+      expect(controller.tabsForCurrentForum, hasLength(1));
     },
   );
 
-  test('tab limit leaves the aggregate surface in place', () async {
-    final store = Store();
-    final controller = _controller(store: store);
-    addTearDown(controller.dispose);
-    await controller.load();
-    while (controller.tabsForCurrentForum.length < ForumWorkspace.maximumTabs) {
-      controller.createTab();
-    }
-    const topic = Topic(id: 7, title: 'Overflow', slug: 'overflow');
-    store.put(_site.url, topic);
-    controller.selectAggregate();
+  test(
+    'aggregate topic can open in the current tab at the tab limit',
+    () async {
+      final store = Store();
+      final controller = _controller(store: store);
+      addTearDown(controller.dispose);
+      await controller.load();
+      while (controller.tabsForCurrentForum.length <
+          ForumWorkspace.maximumTabs) {
+        controller.createTab();
+      }
+      const topic = Topic(id: 7, title: 'Overflow', slug: 'overflow');
+      store.put(_site.url, topic);
+      controller.selectAggregate();
 
-    final result = controller.openAggregateTopic(_site.url, topic.id);
+      final result = controller.openAggregateTopic(_site.url, topic.id);
 
-    expect(result, AggregateTopicOpenResult.tabLimitReached);
-    expect(controller.rootMode, ShellRootMode.aggregate);
-    expect(
-      controller.tabsForCurrentForum,
-      hasLength(ForumWorkspace.maximumTabs),
-    );
-  });
+      expect(result, AggregateTopicOpenResult.opened);
+      expect(controller.rootMode, ShellRootMode.forum);
+      expect(controller.currentContent?.topicId, topic.id);
+      expect(
+        controller.tabsForCurrentForum,
+        hasLength(ForumWorkspace.maximumTabs),
+      );
+    },
+  );
 
   test('aggregate topic survives hydration when switching forums', () async {
     const otherSite = DiscourseInstance(
