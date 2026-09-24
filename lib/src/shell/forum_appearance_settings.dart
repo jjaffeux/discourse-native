@@ -342,36 +342,36 @@ class _ForumAppearanceSettingsState extends State<ForumAppearanceSettings> {
                       ),
                     ),
                   ),
-                DToggleGroup<AppThemeMode>(
+                DRadioGroup<AppThemeMode>.controlled(
                   key: const ValueKey('appearance-mode'),
-                  values: [mode],
-                  allowEmptySelection: false,
-                  inset: true,
-                  expanded: true,
-                  semanticLabel: 'Appearance',
-                  items: const [
-                    DToggleGroupItem(
-                      value: AppThemeMode.light,
-                      icon: Icon(Icons.light_mode_outlined),
-                      child: Text('Light'),
-                    ),
-                    DToggleGroupItem(
-                      value: AppThemeMode.dark,
-                      icon: Icon(Icons.dark_mode_outlined),
-                      child: Text('Dark'),
-                    ),
-                    DToggleGroupItem(
-                      value: AppThemeMode.system,
-                      icon: Icon(Icons.desktop_windows_outlined),
-                      child: Text('System'),
-                    ),
-                  ],
-                  onChanged: (values) {
-                    unawaited(
-                      settings.setThemeMode(widget.siteUrl, values.single),
-                    );
+                  groupValue: mode,
+                  onChanged: (value) {
+                    if (value == null) return;
+                    unawaited(settings.setThemeMode(widget.siteUrl, value));
                     _show(null);
                   },
+                  child: const SettingsChoiceCards(
+                    children: [
+                      DRadioGroupItem(
+                        value: AppThemeMode.light,
+                        card: true,
+                        label: Text('Light'),
+                        description: Text('Always use light colours'),
+                      ),
+                      DRadioGroupItem(
+                        value: AppThemeMode.dark,
+                        card: true,
+                        label: Text('Dark'),
+                        description: Text('Always use dark colours'),
+                      ),
+                      DRadioGroupItem(
+                        value: AppThemeMode.system,
+                        card: true,
+                        label: Text('System'),
+                        description: Text('Follow the device setting'),
+                      ),
+                    ],
+                  ),
                 ),
                 if (editing != null)
                   ForumThemeEditor(
