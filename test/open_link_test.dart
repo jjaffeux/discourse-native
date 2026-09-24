@@ -1,4 +1,5 @@
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/forum_workspace.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/shell/open_link.dart';
@@ -13,6 +14,36 @@ import 'support/fakes.dart';
 import 'support/shell_test_harness.dart' show watchBrowser;
 
 void main() {
+  for (final newTab in [false, true]) {
+    testWidgets('opens the forum latest URL natively (new tab: $newTab)', (
+      tester,
+    ) async {
+      final launched = watchBrowser(tester);
+      final controller = await _pumpLink(
+        tester,
+        url: 'https://one.example/latest',
+      );
+      controller.pushContent(ContentRoute.newTab());
+      await tester.pumpAndSettle();
+
+      await tester.tap(
+        find.text('Open link'),
+        kind: PointerDeviceKind.mouse,
+        buttons: newTab ? kMiddleMouseButton : kPrimaryMouseButton,
+      );
+      await tester.pumpAndSettle();
+
+      expect(launched, isEmpty);
+      if (newTab) {
+        expect(controller.tabsForCurrentForum, hasLength(2));
+        controller.selectTab(controller.tabsForCurrentForum.last.id);
+        await tester.pumpAndSettle();
+      }
+      expect(controller.currentContent?.id, 'latest');
+      expect(controller.currentFeedId, 'latest');
+    });
+  }
+
   testWidgets('primary click keeps navigation in the active tab', (
     tester,
   ) async {

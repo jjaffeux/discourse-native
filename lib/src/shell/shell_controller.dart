@@ -6045,7 +6045,11 @@ class ShellController extends FrameSafeNotifier
         ? BadgeRoute.parse(absolute, siteUrl: instance.url)
         : null;
     final ContentRoute route;
-    if (topic != null) {
+    if (instance.pathWithin(target) == '/latest' &&
+        !target.hasQuery &&
+        !target.hasFragment) {
+      route = ContentRoute.topicList(TopicListMode.latest);
+    } else if (topic != null) {
       route = ContentRoute.topic(
         topicId: topic.topicId,
         slug: topic.slug,
@@ -6488,6 +6492,24 @@ class ShellController extends FrameSafeNotifier
         final _ = _topicJumpRuns.remove(key);
       }
     }
+  }
+
+  bool openLatestUrl(String url) {
+    final destination = _routeForLink(url);
+    if (destination == null || destination.route.id != 'latest') return false;
+    final index = _instances.indexWhere(
+      (instance) => instance.url == destination.siteUrl,
+    );
+    if (index < 0) return false;
+    if (index != _instanceIndex) selectInstance(index);
+    final rootChanged = _setForumContentRoot();
+    if (currentContent?.id == 'latest') {
+      if (rootChanged) _notify();
+      return true;
+    }
+    pushContent(destination.route);
+    unawaited(loadFeed(destination.route.id));
+    return true;
   }
 
   bool openListUrl(String url, {String? title}) {
