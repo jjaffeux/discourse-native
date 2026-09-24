@@ -235,7 +235,7 @@ class ContentRoute {
   );
 
   factory ContentRoute.newTab() =>
-      const ContentRoute(id: 'new-tab', title: 'New tab', icon: DIcons.house);
+      const ContentRoute(id: 'new-tab', title: 'Start page', icon: DIcons.grip);
 
   bool get isNewTab => id == 'new-tab';
 

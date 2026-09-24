@@ -501,6 +501,58 @@ void main() {
         _expectNewTabRoot(controller);
       });
 
+      test('closing the last tab in a panel opens a Start page there', () {
+        controller.desktopTopicTabs = true;
+        final mainId = controller.activeTabId!;
+        controller.createTab(panel: ForumPanel.secondary);
+        final secondaryId = controller.activeTabId!;
+
+        controller.closeTab(mainId);
+        final newMain = controller.selectedTabIn(ForumPanel.main);
+        expect(newMain, isNotNull);
+        expect(newMain!.id, isNot(mainId));
+        expect(newMain.currentContent.isNewTab, isTrue);
+        expect(controller.activeTabId, secondaryId);
+
+        controller.closeTab(secondaryId);
+        final newSecondary = controller.selectedTabIn(ForumPanel.secondary);
+        expect(newSecondary, isNotNull);
+        expect(newSecondary!.id, isNot(secondaryId));
+        expect(newSecondary.currentContent.isNewTab, isTrue);
+        expect(controller.activeTabId, newSecondary.id);
+      });
+
+      test('moving the only main tab leaves a Start page behind', () {
+        controller.desktopTopicTabs = true;
+        final movedId = controller.activeTabId!;
+
+        controller.moveTabToPanel(movedId, ForumPanel.secondary);
+
+        expect(controller.selectedTabIn(ForumPanel.secondary)?.id, movedId);
+        expect(controller.activeTabId, movedId);
+        final main = controller.selectedTabIn(ForumPanel.main);
+        expect(main, isNotNull);
+        expect(main!.id, isNot(movedId));
+        expect(main.currentContent.title, 'Start page');
+        expect(main.currentContent.icon, DIcons.grip);
+      });
+
+      test('closing other tabs keeps a Start page in the emptied panel', () {
+        controller.desktopTopicTabs = true;
+        final mainId = controller.activeTabId!;
+        controller.createTab(panel: ForumPanel.secondary);
+        final secondaryId = controller.activeTabId!;
+
+        controller.closeOtherTabs(mainId);
+
+        expect(controller.activeTabId, mainId);
+        expect(controller.currentWorkspace?.tabById(secondaryId), isNull);
+        expect(
+          controller.selectedTabIn(ForumPanel.secondary)?.currentContent.title,
+          'Start page',
+        );
+      });
+
       test('preserves the active tab and persists reordered tabs', () {
         final firstTabId = controller.activeTabId!;
         controller.createTab();
@@ -771,6 +823,50 @@ void main() {
 
     group('workspace persistence', () {
       test(
+        'restores a Start page when a saved workspace has no main tab',
+        () async {
+          final secondary = ForumTab(
+            id: 'secondary-only',
+            rootDestinationId: 'latest',
+            panel: ForumPanel.secondary,
+            contentStack: [
+              ContentRoute.fromDestination(
+                _destination(forums.first, 'latest'),
+              ),
+            ],
+          );
+          final saved = FakeForumTabStore([
+            ForumWorkspace(
+              siteUrl: forums.first.url,
+              accountIdentity: 'anonymous',
+              tabs: [secondary],
+              activeTabId: secondary.id,
+            ),
+          ]);
+          final restored = ShellController(
+            instanceStore: FakeInstanceStore(forums),
+            api: FakeDiscourseApi(feeds: const {'/latest.json': []}),
+            authenticator: FakeAuthenticator(),
+            drafts: FakeDraftStore(),
+            forumTabs: saved,
+            trackers: FakeSiteTracker.reset(),
+          );
+          addTearDown(restored.dispose);
+          await restored.load();
+
+          expect(restored.activeTabId, secondary.id);
+          expect(
+            restored.selectedTabIn(ForumPanel.secondary)?.id,
+            secondary.id,
+          );
+          expect(
+            restored.selectedTabIn(ForumPanel.main)?.currentContent.title,
+            'Start page',
+          );
+        },
+      );
+
+      test(
         'restores tab order, active stack, and anchors after restart',
         () async {
           final firstTabId = controller.activeTabId!;
@@ -939,5 +1035,5 @@ List<String> _routeIds(ShellController controller) => [
 void _expectNewTabRoot(ShellController controller) {
   expect(controller.destinationId, 'new-tab');
   expect(_routeIds(controller), ['new-tab']);
-  expect(controller.currentContent?.title, 'New tab');
+  expect(controller.currentContent?.title, 'Start page');
 }

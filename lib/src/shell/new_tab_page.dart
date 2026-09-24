@@ -63,7 +63,7 @@ class _NewTabPageState extends State<NewTabPage> {
             spacing: DSpacing.lg,
             children: [
               Text(
-                'New tab',
+                'Start page',
                 style: Theme.of(context).textTheme.headlineMedium,
               ),
               if (_dismissed == false &&

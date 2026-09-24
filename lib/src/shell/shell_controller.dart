@@ -1735,6 +1735,12 @@ class ShellController extends FrameSafeNotifier
     if (!forumTabsEnabled && workspace.tabs.length > 1) {
       return workspace.copyWith(tabs: [workspace.activeTab]);
     }
+    if (forumTabsEnabled &&
+        workspace.tabsIn(ForumPanel.main).isEmpty &&
+        workspace.tabs.length < ForumWorkspace.maximumTabs) {
+      final tab = _newDefaultTab();
+      return workspace.copyWith(tabs: [...workspace.tabs, tab]);
+    }
     return workspace;
   }
 
@@ -14970,6 +14976,12 @@ class ShellController extends FrameSafeNotifier
     final workspace = currentWorkspace;
     final tab = workspace?.tabById(id);
     if (workspace == null || tab == null) return;
+    final sourceWillBeEmpty =
+        tab.panel != panel && workspace.tabsIn(tab.panel).length == 1;
+    if (sourceWillBeEmpty &&
+        workspace.tabs.length >= ForumWorkspace.maximumTabs) {
+      return;
+    }
     final tabs = [...workspace.tabs]..removeWhere((item) => item.id == id);
     final destinationTabs = tabs.where((item) => item.panel == panel).toList();
     final offset = (index ?? destinationTabs.length).clamp(
@@ -14982,6 +14994,9 @@ class ShellController extends FrameSafeNotifier
         ? tabs.length
         : tabs.indexOf(destinationTabs.last) + 1;
     tabs.insert(insertion, tab.copyWith(panel: panel));
+    if (sourceWillBeEmpty) {
+      tabs.add(_newDefaultTab().copyWith(panel: tab.panel));
+    }
     _putWorkspace(workspace.copyWith(tabs: tabs, activeTabId: id));
     _syncTopicChannels();
     _notify();
@@ -15068,7 +15083,9 @@ class ShellController extends FrameSafeNotifier
     );
     late ForumWorkspace replacement;
     if (workspace.tabs.length == 1) {
-      final fresh = _newDefaultTab();
+      final fresh = _newDefaultTab().copyWith(
+        panel: workspace.tabs[index].panel,
+      );
       replacement = workspace.copyWith(tabs: [fresh], activeTabId: fresh.id);
     } else {
       final remaining = [
@@ -15082,17 +15099,21 @@ class ShellController extends FrameSafeNotifier
       final neighbour = neighbours
           .where((tab) => tab.panel == workspace.tabs[index].panel)
           .firstOrNull;
+      final fresh = neighbour == null
+          ? _newDefaultTab().copyWith(panel: workspace.tabs[index].panel)
+          : null;
+      if (fresh != null) remaining.add(fresh);
       final activeId = closedActive
-          ? (neighbour ?? remaining.first).id
+          ? (neighbour ?? fresh ?? remaining.first).id
           : workspace.activeTabId;
       replacement = workspace.copyWith(
         tabs: remaining,
         activeTabId: activeId,
         mainTabId: workspace.selectedTabIn(ForumPanel.main)?.id == id
-            ? neighbour?.id
+            ? (neighbour ?? fresh)?.id
             : null,
         secondaryTabId: workspace.selectedTabIn(ForumPanel.secondary)?.id == id
-            ? neighbour?.id
+            ? (neighbour ?? fresh)?.id
             : null,
       );
     }
@@ -15184,19 +15205,21 @@ class ShellController extends FrameSafeNotifier
       );
     }
     final activeChanged = workspace.activeTabId != id;
-    _putWorkspace(
-      workspace.copyWith(
-        tabs: [
-          for (final tab in workspace.tabs)
-            if (tab.id == id ||
-                (panel != null
-                    ? tab.panel != panel
-                    : reading != null && tab.currentContent.isTopic != reading))
-              tab,
-        ],
-        activeTabId: id,
-      ),
-    );
+    final remaining = [
+      for (final tab in workspace.tabs)
+        if (tab.id == id ||
+            (panel != null
+                ? tab.panel != panel
+                : reading != null && tab.currentContent.isTopic != reading))
+          tab,
+    ];
+    for (final panel in ForumPanel.values) {
+      if (workspace.tabsIn(panel).isNotEmpty &&
+          !remaining.any((tab) => tab.panel == panel)) {
+        remaining.add(_newDefaultTab().copyWith(panel: panel));
+      }
+    }
+    _putWorkspace(workspace.copyWith(tabs: remaining, activeTabId: id));
     if (activeChanged) {
       _syncTopicChannels();
       _hydrateActiveTab(instance);
