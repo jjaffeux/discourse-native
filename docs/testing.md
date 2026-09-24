@@ -139,6 +139,12 @@ fixed pathological input may instead use a generous absolute ceiling when the
 regression is catastrophic and a smaller comparison cannot be measured
 reliably.
 
+Engine work such as image decoding completes on the real event loop, which a
+`testWidgets` body reaches only inside `tester.runAsync`. A placeholder that
+animates until the first decoded frame keeps `pumpAndSettle` from returning;
+draw static placeholders (`WidgetFactory.debugDeterministicLoadingWidget` for
+cooked HTML) unless the decoded frame is itself the contract.
+
 A bounded short poll is acceptable for an explicit independently scheduled
 condition, such as worker-isolate rendering, a cross-process result, or a
 filesystem observation, when the platform exposes no deterministic test hook.
@@ -166,6 +172,18 @@ and complete or cancel outstanding work. The root
 `flutter_test_config.dart` hook provides a fresh in-memory preferences store
 for every test. A test that needs stored values sets them explicitly in its own
 setup.
+
+In `testWidgets`, tearDowns run after the body has returned, outside the fake
+clock. A future created in the body notifies its listeners through the body's
+fake zone, which nothing drives any longer, even once it has completed, so a
+tearDown that awaits one never finishes. The test then idles until its own
+timeout (ten minutes: `testWidgets` passes one explicitly, overriding
+`--timeout`), and because the binding's teardown is queued behind the stuck
+one, every later test in the file fails. A failing body is when this happens:
+Flutter leaves the widget tree mounted after a failure, so a close that
+unmounting would have run falls to the tearDown. Release resources whose
+cleanup is asynchronous, such as a `DiagnosticsController` or an app that
+closes one as it unmounts, in a `finally` inside the body.
 
 Fakes expose observed requests and explicit gates. They do not reproduce the
 production algorithm or add implicit timing. Put broadly reused fakes in
