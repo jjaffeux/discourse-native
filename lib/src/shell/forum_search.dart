@@ -20,9 +20,15 @@ import 'shell_search_controller.dart';
 
 /// Global search with one editor shared by the navbar and its open surface.
 class ForumSearch extends StatefulWidget {
-  const ForumSearch({super.key, this.dense = false, this.fullScreen = false});
+  const ForumSearch({
+    super.key,
+    this.dense = false,
+    this.fullScreen = false,
+    this.showNavigationControls = true,
+  });
 
   final bool dense;
+  final bool showNavigationControls;
 
   /// Mobile opens the editor and results on a dedicated navigation page.
   final bool fullScreen;
@@ -592,7 +598,10 @@ class _ForumSearchState extends State<ForumSearch> {
         child: field,
       );
     }
-    if (!ContentNavigationControls.isSupported) return field;
+    if (!ContentNavigationControls.isSupported ||
+        !widget.showNavigationControls) {
+      return field;
+    }
     return LayoutBuilder(
       builder: (context, constraints) => Row(
         children: [
