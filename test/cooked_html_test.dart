@@ -190,6 +190,25 @@ TextStyle styleOf(WidgetTester tester, String text) {
 }
 
 void main() {
+  testWidgets('completed task strikes only its first logical line', (
+    tester,
+  ) async {
+    for (final content in [
+      '<p><span class="chcklst-box checked"></span>'
+          'Done<br><a href="https://example.test">Reference</a></p>',
+      '<span class="chcklst-box checked"></span>'
+          'Done<br><a href="https://example.test">Reference</a>',
+    ]) {
+      await pumpCooked(tester, '<ul><li>$content</li></ul>');
+
+      expect(styleOf(tester, 'Done').decoration, TextDecoration.lineThrough);
+      expect(
+        styleOf(tester, 'Reference').decoration,
+        isNot(TextDecoration.lineThrough),
+      );
+    }
+  });
+
   for (final width in [280.0, 800.0]) {
     for (final align in DBubbleAlign.values) {
       testWidgets('content-sized chat HTML wraps at $width with $align', (

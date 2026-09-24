@@ -185,7 +185,13 @@ void _markCompletedText(dom.DocumentFragment fragment, Color color) {
   final cssColor = '#${color.toARGB32().toRadixString(16).substring(2)}';
   final decoration = 'color:$cssColor;text-decoration:line-through';
   dom.Element? run;
+  var firstLine = true;
   for (final node in fragment.nodes.toList()) {
+    if (node is dom.Element && node.localName == 'br') {
+      firstLine = false;
+      run = null;
+      continue;
+    }
     if (node is dom.Element &&
         const {
           'p',
@@ -198,11 +204,23 @@ void _markCompletedText(dom.DocumentFragment fragment, Color color) {
           'div',
         }.contains(node.localName)) {
       run = null;
-      if (node.localName == 'p') {
-        node.attributes['style'] =
-            '${node.attributes['style'] ?? ''};$decoration';
+      if (firstLine && node.localName == 'p') {
+        final leading = node.nodes
+            .takeWhile(
+              (child) => child is! dom.Element || child.localName != 'br',
+            )
+            .toList();
+        if (leading.isNotEmpty) {
+          final span = dom.Element.tag('span')
+            ..attributes['style'] = decoration;
+          leading.first.replaceWith(span);
+          for (final child in leading) {
+            span.append(child);
+          }
+        }
       }
-    } else {
+      firstLine = false;
+    } else if (firstLine) {
       if (run == null) {
         run = dom.Element.tag('span')..attributes['style'] = decoration;
         node.replaceWith(run);
