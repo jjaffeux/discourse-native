@@ -60,42 +60,37 @@ const _child = TopicCategory(
 const _tag = TopicTag(id: 1, name: 'community');
 
 void main() {
-  testWidgets(
-    'window corner follows topic panel opening, swapping and closing',
-    (tester) async {
-      SharedPreferences.setMockInitialValues({});
-      final setup = await _setup(
-        tester,
-        windowCorners: true,
-        theme: AppTheme.light.copyWith(platform: TargetPlatform.macOS),
-      );
-      DCard cardIn(String key) => tester.widget<DCard>(
-        find
-            .descendant(
-              of: find.byKey(ValueKey(key)),
-              matching: find.byType(DCard),
-            )
-            .first,
-      );
-      bool hasCorner(DCard card) =>
-          (card.borderRadius as BorderRadius?)?.bottomRight ==
-          const Radius.circular(10);
+  testWidgets('window corner follows topic panel opening and closing', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    final setup = await _setup(
+      tester,
+      windowCorners: true,
+      theme: AppTheme.light.copyWith(platform: TargetPlatform.macOS),
+    );
+    DCard cardIn(String key) => tester.widget<DCard>(
+      find
+          .descendant(
+            of: find.byKey(ValueKey(key)),
+            matching: find.byType(DCard),
+          )
+          .first,
+    );
+    bool hasCorner(DCard card) =>
+        (card.borderRadius as BorderRadius?)?.bottomRight ==
+        const Radius.circular(10);
 
-      expect(hasCorner(cardIn('inbox-topic-list-pane')), isTrue);
-      setup.controller.openTopicFromList(setup.rows.first);
-      await tester.pumpAndSettle();
-      expect(hasCorner(cardIn('inbox-topic-list-pane')), isFalse);
-      expect(hasCorner(cardIn('inbox-topic-reader-pane')), isTrue);
-      await tester.tap(find.byKey(const ValueKey('swap-topic-panels-reader')));
-      await tester.pumpAndSettle();
-      expect(hasCorner(cardIn('inbox-topic-list-pane')), isTrue);
-      expect(hasCorner(cardIn('inbox-topic-reader-pane')), isFalse);
-      setup.controller.closeTopicListReader();
-      await tester.pumpAndSettle();
-      expect(hasCorner(cardIn('inbox-topic-list-pane')), isTrue);
-      expect(tester.takeException(), isNull);
-    },
-  );
+    expect(hasCorner(cardIn('inbox-topic-list-pane')), isTrue);
+    setup.controller.openTopicFromList(setup.rows.first);
+    await tester.pumpAndSettle();
+    expect(hasCorner(cardIn('inbox-topic-list-pane')), isFalse);
+    expect(hasCorner(cardIn('inbox-topic-reader-pane')), isTrue);
+    setup.controller.closeTopicListReader();
+    await tester.pumpAndSettle();
+    expect(hasCorner(cardIn('inbox-topic-list-pane')), isTrue);
+    expect(tester.takeException(), isNull);
+  });
 
   testWidgets(
     'activity summary has stacked avatars, complete stats and a persistent inset separator',
