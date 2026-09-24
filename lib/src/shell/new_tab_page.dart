@@ -1,15 +1,16 @@
 import 'dart:async';
 
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:flutter/foundation.dart' show defaultTargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../app_shortcuts.dart';
 import '../models/content_route.dart';
 import '../models/sidebar.dart';
 import '../plugin_api/plugin_scope.dart';
 import '../theme/d_icons.dart';
 import 'forum_icon.dart';
-import 'forum_search.dart';
 import 'open_link.dart';
 import 'shell_scope.dart';
 
@@ -25,12 +26,30 @@ class NewTabPage extends StatefulWidget {
 
 class _NewTabPageState extends State<NewTabPage> {
   static const _dismissedKey = 'discourse_native.panel_tutorial_dismissed';
+  final _searchPromptFocus = FocusNode(debugLabel: 'start page search prompt');
   bool? _dismissed;
 
   @override
   void initState() {
     super.initState();
+    _searchPromptFocus.addListener(_onSearchPromptFocus);
     unawaited(_loadPreference());
+  }
+
+  @override
+  void dispose() {
+    _searchPromptFocus
+      ..removeListener(_onSearchPromptFocus)
+      ..dispose();
+    super.dispose();
+  }
+
+  void _onSearchPromptFocus() {
+    if (_searchPromptFocus.hasFocus) _openTopBarSearch();
+  }
+
+  void _openTopBarSearch() {
+    if (mounted) ShellScope.maybeRead(context)?.search.requestFocus();
   }
 
   Future<void> _loadPreference() async {
@@ -137,7 +156,33 @@ class _NewTabPageState extends State<NewTabPage> {
                 if (shell != null)
                   ConstrainedBox(
                     constraints: const BoxConstraints(maxWidth: 680),
-                    child: const ForumSearch(showNavigationControls: false),
+                    child: DInputGroup(
+                      size: DControlSize.large,
+                      children: [
+                        DInputGroupInput(
+                          key: const ValueKey('start-page-search-prompt'),
+                          focusNode: _searchPromptFocus,
+                          semanticLabel: 'Search this forum',
+                          hintText: 'Search this forum',
+                          readOnly: true,
+                          enableInteractiveSelection: false,
+                          onTap: _openTopBarSearch,
+                        ),
+                        const DInputGroupAddon(
+                          alignment: DInputGroupAddonAlignment.inlineStart,
+                          child: DIcon(DIcons.magnifyingGlass, size: 16),
+                        ),
+                        DInputGroupAddon(
+                          alignment: DInputGroupAddonAlignment.inlineEnd,
+                          child: DShortcutKeycaps(
+                            shortcut: DShortcut(
+                              searchShortcutForPlatform(defaultTargetPlatform),
+                            ),
+                            listenToKeyboard: false,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 if (_dismissed == false &&
                     (ShellScope.maybeRead(context)?.desktopPanelsEnabled ??

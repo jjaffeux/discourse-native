@@ -1,15 +1,92 @@
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/content_route.dart';
+import 'package:discourse_native/src/shell/forum_search.dart';
 import 'package:discourse_native/src/shell/main_content.dart';
 import 'package:discourse_native/src/shell/new_tab_page.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
+import 'package:discourse_native/src/shell/title_bar.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'support/shell_test_harness.dart';
 
 void main() {
+  testWidgets('Start page search opens the top bar search on focus and Cmd+F', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({
+      'discourse_native.panel_tutorial_dismissed': true,
+    });
+    final previousPlatform = debugDefaultTargetPlatformOverride;
+    debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+    try {
+      await pumpShell(tester, desktop);
+      final shell = ShellScope.read(
+        tester.element(find.byType(MainContent).first),
+      );
+      shell.pushContent(ContentRoute.newTab());
+      await tester.pumpAndSettle();
+
+      final prompt = find.byKey(const ValueKey('start-page-search-prompt'));
+      expect(prompt, findsOneWidget);
+      expect(find.byType(ForumSearch), findsOneWidget);
+      final promptField = tester.widget<DInputGroupInput>(prompt);
+      expect(promptField.readOnly, isTrue);
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
+      expect(await tester.sendKeyEvent(LogicalKeyboardKey.keyF), isTrue);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
+      await tester.pumpAndSettle();
+      expect(find.byKey(ForumSearch.panelKey), findsOneWidget);
+      expect(
+        tester
+            .widget<DInputGroupInput>(find.byKey(ForumSearch.inputKey))
+            .focusNode!
+            .hasFocus,
+        isTrue,
+      );
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+      await tester.tap(prompt);
+      await tester.pumpAndSettle();
+      expect(find.byKey(ForumSearch.panelKey), findsOneWidget);
+      expect(promptField.focusNode!.hasFocus, isFalse);
+      expect(
+        tester
+            .widget<DInputGroupInput>(find.byKey(ForumSearch.inputKey))
+            .focusNode!
+            .hasFocus,
+        isTrue,
+      );
+      expect(
+        tester
+            .getRect(find.byType(ShellTitleBar))
+            .contains(tester.getCenter(find.byKey(ForumSearch.inputKey))),
+        isTrue,
+      );
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+      promptField.focusNode!.requestFocus();
+      await tester.pumpAndSettle();
+      expect(find.byKey(ForumSearch.panelKey), findsOneWidget);
+      expect(promptField.focusNode!.hasFocus, isFalse);
+      expect(
+        tester
+            .widget<DInputGroupInput>(find.byKey(ForumSearch.inputKey))
+            .focusNode!
+            .hasFocus,
+        isTrue,
+      );
+    } finally {
+      debugDefaultTargetPlatformOverride = previousPlatform;
+    }
+  });
+
   testWidgets('panel guide keeps its close action at the top right', (
     tester,
   ) async {
