@@ -128,6 +128,7 @@ class ResizablePane extends StatefulWidget {
     required this.semanticsLabel,
     required this.child,
     this.maximumWidth = double.infinity,
+    this.widthOverride,
     this.resizeEnabled = true,
     this.handleWidth = 2,
     this.keyboardStep = 16,
@@ -147,6 +148,9 @@ class ResizablePane extends StatefulWidget {
   final String semanticsLabel;
   final Widget child;
   final double maximumWidth;
+
+  /// A temporary layout width that leaves the controller's preference intact.
+  final double? widthOverride;
   final bool resizeEnabled;
 
   final double handleWidth;
@@ -181,9 +185,9 @@ class _ResizablePaneState extends State<ResizablePane> {
     valueListenable: widget.controller,
     child: widget.child,
     builder: (context, _, child) {
-      final width = widget.controller.effectiveWidth(
-        maximum: widget.maximumWidth,
-      );
+      final width =
+          widget.widthOverride ??
+          widget.controller.effectiveWidth(maximum: widget.maximumWidth);
       final handleExtent = widget.resizeEnabled
           ? DResizableHandle.resolveHitExtent(context, widget.handleWidth)
           : 0.0;

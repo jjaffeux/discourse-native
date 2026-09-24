@@ -1,4 +1,7 @@
+import 'dart:math' as math;
+
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 
 import '../models/forum_workspace.dart';
@@ -13,10 +16,16 @@ import 'shell_metrics.dart';
 import 'shell_panel.dart';
 import 'shell_scope.dart';
 import 'topic_presentation.dart';
+import 'window_frame.dart';
+
+enum _WindowResizeEdge { left, right }
 
 /// Two document panels whose identities survive either one being minimized.
 class DesktopPanels extends StatefulWidget {
-  const DesktopPanels({super.key});
+  const DesktopPanels({super.key, this.windowFrame});
+
+  /// Allows a host to supply window geometry during resizing.
+  final ValueListenable<Rect?>? windowFrame;
 
   @override
   State<DesktopPanels> createState() => _DesktopPanelsState();
@@ -34,6 +43,66 @@ class _DesktopPanelsState extends State<DesktopPanels>
     initialWidth: 400 + workspacePanelGap,
     minimumWidth: 320 + workspacePanelGap,
   );
+  late ValueListenable<Rect?> _windowFrame;
+  WindowFrame? _ownedWindowFrame;
+  Rect? _previousWindowFrame;
+  _WindowResizeEdge? _resizeEdge;
+  double? _anchoredMainWidth;
+  double? _anchoredSecondaryWidth;
+  double? _anchoredWindowWidth;
+  double? _lastSplitMainWidth;
+  double? _lastSplitTotalWidth;
+
+  @override
+  void initState() {
+    super.initState();
+    _windowFrame = widget.windowFrame ?? (_ownedWindowFrame = WindowFrame());
+    _previousWindowFrame = _windowFrame.value;
+    _windowFrame.addListener(_frameChanged);
+    _mainWidth.addListener(_preferredWidthChanged);
+  }
+
+  @override
+  void didUpdateWidget(DesktopPanels oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.windowFrame == widget.windowFrame) return;
+    _windowFrame.removeListener(_frameChanged);
+    _ownedWindowFrame?.dispose();
+    _ownedWindowFrame = null;
+    _windowFrame = widget.windowFrame ?? (_ownedWindowFrame = WindowFrame());
+    _previousWindowFrame = _windowFrame.value;
+    _resizeEdge = null;
+    _windowFrame.addListener(_frameChanged);
+  }
+
+  void _preferredWidthChanged() {
+    // A seam drag becomes the starting split for the next window resize.
+    setState(() => _resizeEdge = null);
+  }
+
+  void _frameChanged() {
+    final frame = _windowFrame.value;
+    if (frame == null) return;
+    final previous = _previousWindowFrame;
+    _previousWindowFrame = frame;
+    if (previous == null || (frame.width - previous.width).abs() < 0.5) {
+      return;
+    }
+
+    final leftMove = (frame.left - previous.left).abs();
+    final rightMove = (frame.right - previous.right).abs();
+    final nextEdge = leftMove > rightMove + 0.5
+        ? _WindowResizeEdge.left
+        : rightMove > leftMove + 0.5
+        ? _WindowResizeEdge.right
+        : null;
+    if (nextEdge != _resizeEdge && _lastSplitMainWidth != null) {
+      _anchoredMainWidth = _lastSplitMainWidth;
+      _anchoredSecondaryWidth = _lastSplitTotalWidth! - _lastSplitMainWidth!;
+      _anchoredWindowWidth = previous.width;
+    }
+    setState(() => _resizeEdge = nextEdge);
+  }
 
   // Only one panel stands down at a time, or there would be nothing left to
   // read. Like the panel width, it belongs to this window's layout.
@@ -120,6 +189,9 @@ class _DesktopPanelsState extends State<DesktopPanels>
 
   @override
   void dispose() {
+    _windowFrame.removeListener(_frameChanged);
+    _ownedWindowFrame?.dispose();
+    _mainWidth.removeListener(_preferredWidthChanged);
     _folded.dispose();
     _fold.dispose();
     _moving.dispose();
@@ -142,7 +214,49 @@ class _DesktopPanelsState extends State<DesktopPanels>
     }
     return LayoutBuilder(
       builder: (context, constraints) {
-        final horizontal = constraints.maxWidth >= 640 + workspacePanelGap;
+        final total = constraints.maxWidth;
+        const minimumMainWidth = 320 + workspacePanelGap;
+        final maximumMainWidth = total - 320;
+        final preferredMainWidth = _mainWidth.effectiveWidth(
+          maximum: maximumMainWidth,
+        );
+        // The sidebar can disappear while the outer window shrinks, making
+        // this workspace wider. Follow the dragged window edge so the panel
+        // being reduced does not unexpectedly grow again at that breakpoint.
+        final windowDelta = _anchoredWindowWidth == null
+            ? 0.0
+            : (_windowFrame.value?.width ?? _anchoredWindowWidth!) -
+                  _anchoredWindowWidth!;
+        final requestedMainWidth = switch (_resizeEdge) {
+          _WindowResizeEdge.right => math.min(
+            _mainWidth.value,
+            (_anchoredMainWidth ?? preferredMainWidth) + windowDelta,
+          ),
+          _WindowResizeEdge.left =>
+            total -
+                (_anchoredSecondaryWidth ?? total - preferredMainWidth) -
+                windowDelta,
+          null => preferredMainWidth,
+        };
+        final autoCollapsed = switch (_resizeEdge) {
+          _WindowResizeEdge.right when requestedMainWidth < minimumMainWidth =>
+            ForumPanel.main,
+          _WindowResizeEdge.left when total - requestedMainWidth < 320 =>
+            ForumPanel.secondary,
+          _ => null,
+        };
+        final horizontal =
+            total >= 640 + workspacePanelGap && autoCollapsed == null;
+        final mainWidth = requestedMainWidth
+            .clamp(
+              minimumMainWidth,
+              math.max(minimumMainWidth, maximumMainWidth),
+            )
+            .toDouble();
+        if (horizontal) {
+          _lastSplitMainWidth = mainWidth;
+          _lastSplitTotalWidth = total;
+        }
         shell.topicPanelsVisible = horizontal;
         // `minimizable` is null where a panel offers no minimize action.
         Widget panel(ForumPanel target, {bool? minimizable}) {
@@ -190,7 +304,21 @@ class _DesktopPanelsState extends State<DesktopPanels>
         }
 
         if (!horizontal) {
-          final active = shell.activeTab?.panel ?? ForumPanel.main;
+          final remaining = autoCollapsed == ForumPanel.main
+              ? ForumPanel.secondary
+              : ForumPanel.main;
+          final active =
+              autoCollapsed != null && shell.selectedTabIn(remaining) != null
+              ? remaining
+              : shell.activeTab?.panel ?? ForumPanel.main;
+          if (autoCollapsed != null && shell.activeTab?.panel != active) {
+            final tabId = shell.selectedTabIn(active)?.id;
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted && tabId != null) {
+                ShellScope.read(context).selectTab(tabId);
+              }
+            });
+          }
           return Column(
             children: [
               ForumTabScope(
@@ -221,7 +349,6 @@ class _DesktopPanelsState extends State<DesktopPanels>
           );
         }
 
-        final maximumMainWidth = constraints.maxWidth - 320;
         final minimized = _minimized;
         final direction = Directionality.of(context);
         // Built once per layout, so that dragging the seam or settling a fold
@@ -249,23 +376,20 @@ class _DesktopPanelsState extends State<DesktopPanels>
                   onNewTab: () => _restore(minimized, newTab: true),
                 ),
               );
-        final seam = ResizablePane(
-          controller: _mainWidth,
-          edge: ResizablePaneEdge.trailing,
-          resizeKey: 'main-panel',
-          semanticsLabel: 'Resize main panel',
-          maximumWidth: maximumMainWidth,
-          gap: workspacePanelGap,
-          handleWidth: workspacePanelGap,
-          child: const SizedBox.shrink(),
-        );
         return ListenableBuilder(
           listenable: Listenable.merge([_mainWidth, _moving]),
           builder: (context, _) {
             final moving = _moving.value;
-            final total = constraints.maxWidth;
-            final mainWidth = _mainWidth.effectiveWidth(
-              maximum: maximumMainWidth,
+            final seam = ResizablePane(
+              controller: _mainWidth,
+              edge: ResizablePaneEdge.trailing,
+              resizeKey: 'main-panel',
+              semanticsLabel: 'Resize main panel',
+              maximumWidth: maximumMainWidth,
+              widthOverride: mainWidth,
+              gap: workspacePanelGap,
+              handleWidth: workspacePanelGap,
+              child: const SizedBox.shrink(),
             );
             const docked = PanelRail.width + workspacePanelGap;
             // How far each panel travels toward its own edge to fold into the

@@ -7,6 +7,8 @@ class MainFlutterWindow: NSWindow {
   private var flutterController: FlutterViewController?
   private let videoThumbnails = VideoThumbnailChannel()
   private var windowChannel: FlutterMethodChannel?
+  private var windowFrameObservers: [NSObjectProtocol] = []
+  private var liveResize = false
   private var youtubeScrollChannel: FlutterMethodChannel?
   private var webViewScrollRouting = WebViewScrollRouting()
   private var launchScreen: LaunchScreenView?
@@ -59,12 +61,33 @@ class MainFlutterWindow: NSWindow {
       to: flutterViewController.engine.binaryMessenger
     )
     attachWindowChannel(to: flutterViewController.engine.binaryMessenger)
+    observeWindowFrame(NSWindow.willStartLiveResizeNotification) { window in
+      window.liveResize = true
+      window.sendWindowFrame()
+    }
+    observeWindowFrame(NSWindow.didResizeNotification) { window in
+      window.sendWindowFrame()
+    }
+    observeWindowFrame(NSWindow.didMoveNotification) { window in
+      // AppKit may report the move of a dragged left edge before its new size.
+      if !window.liveResize { window.sendWindowFrame() }
+    }
+    observeWindowFrame(NSWindow.didEndLiveResizeNotification) { window in
+      window.liveResize = false
+      window.sendWindowFrame()
+    }
     youtubeScrollChannel = FlutterMethodChannel(
       name: "org.discourse.native/youtube_scroll",
       binaryMessenger: flutterViewController.engine.binaryMessenger
     )
 
     super.awakeFromNib()
+  }
+
+  deinit {
+    for observer in windowFrameObservers {
+      NotificationCenter.default.removeObserver(observer)
+    }
   }
 
   override func sendEvent(_ event: NSEvent) {
@@ -158,6 +181,8 @@ class MainFlutterWindow: NSWindow {
         return
       }
       switch call.method {
+      case "getWindowFrame":
+        result(self.windowFrameArguments())
       case "getWindowCornerRadius":
         if self.styleMask.contains(.fullScreen) {
           result(0.0)
@@ -195,6 +220,32 @@ class MainFlutterWindow: NSWindow {
       }
     }
     windowChannel = channel
+  }
+
+  private func windowFrameArguments() -> [String: Double] {
+    [
+      "x": Double(frame.minX),
+      "y": Double(frame.minY),
+      "width": Double(frame.width),
+      "height": Double(frame.height),
+    ]
+  }
+
+  private func sendWindowFrame() {
+    windowChannel?.invokeMethod("windowFrameChanged", arguments: windowFrameArguments())
+  }
+
+  private func observeWindowFrame(
+    _ name: Notification.Name,
+    action: @escaping (MainFlutterWindow) -> Void
+  ) {
+    windowFrameObservers.append(NotificationCenter.default.addObserver(
+      forName: name,
+      object: self,
+      queue: .main
+    ) { [weak self] _ in
+      if let self { action(self) }
+    })
   }
 }
 

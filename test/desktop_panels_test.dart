@@ -17,6 +17,7 @@ import 'package:discourse_native/src/shell/topic_presentation.dart';
 import 'package:discourse_native/src/shell/topic_view.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -1084,6 +1085,97 @@ void main() {
   });
 
   testWidgets(
+    'right-edge resize shrinks main to 320 then shows secondary alone',
+    (tester) async {
+      final frame = ValueNotifier<Rect?>(
+        const Rect.fromLTWH(100, 0, 1200, 850),
+      );
+      addTearDown(frame.dispose);
+      _openTopicTab(shell, _topic);
+      shell.selectTab(shell.selectedTabIn(ForumPanel.main)!.id);
+      await _pump(tester, shell, windowFrame: frame);
+
+      frame.value = const Rect.fromLTWH(100, 0, 1160, 850);
+      tester.view.physicalSize = const Size(1160, 850);
+      await tester.pumpAndSettle();
+      expect(tester.getRect(_mainPanel).width, 360);
+      expect(tester.getRect(_secondaryPanel).width, 788);
+      expect(
+        tester
+            .getRect(find.byKey(const ValueKey('main-panel-resize-handle')))
+            .center
+            .dx,
+        366,
+      );
+
+      frame.value = const Rect.fromLTWH(100, 0, 1120, 850);
+      tester.view.physicalSize = const Size(1120, 850);
+      await tester.pumpAndSettle();
+      expect(tester.getRect(_mainPanel).width, 320);
+      expect(tester.getRect(_secondaryPanel).width, 788);
+
+      frame.value = const Rect.fromLTWH(100, 0, 1119, 850);
+      tester.view.physicalSize = const Size(1119, 850);
+      await tester.pumpAndSettle();
+      expect(_mainPanel, findsNothing);
+      expect(tester.getRect(_secondaryPanel).width, 1119);
+      expect(shell.activeTab?.panel, ForumPanel.secondary);
+
+      // A collapsing navigation sidebar can widen the document workspace
+      // even as the outer window keeps getting narrower.
+      frame.value = const Rect.fromLTWH(100, 0, 1099, 850);
+      tester.view.physicalSize = const Size(1051, 850);
+      await tester.pumpAndSettle();
+      expect(_mainPanel, findsNothing);
+
+      frame.value = const Rect.fromLTWH(100, 0, 1200, 850);
+      tester.view.physicalSize = const Size(1200, 850);
+      await tester.pumpAndSettle();
+      expect(tester.getRect(_mainPanel).width, 400);
+      expect(tester.getRect(_secondaryPanel).width, 788);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'left-edge resize shrinks secondary to 320 then shows main alone',
+    (tester) async {
+      final frame = ValueNotifier<Rect?>(
+        const Rect.fromLTWH(100, 0, 1200, 850),
+      );
+      addTearDown(frame.dispose);
+      _openTopicTab(shell, _topic);
+      await _pump(tester, shell, windowFrame: frame);
+
+      frame.value = const Rect.fromLTWH(140, 0, 1160, 850);
+      tester.view.physicalSize = const Size(1160, 850);
+      await tester.pumpAndSettle();
+      expect(tester.getRect(_mainPanel).width, 400);
+      expect(tester.getRect(_secondaryPanel).width, 748);
+
+      frame.value = const Rect.fromLTWH(568, 0, 732, 850);
+      tester.view.physicalSize = const Size(732, 850);
+      await tester.pumpAndSettle();
+      expect(tester.getRect(_mainPanel).width, 400);
+      expect(tester.getRect(_secondaryPanel).width, 320);
+
+      frame.value = const Rect.fromLTWH(569, 0, 731, 850);
+      tester.view.physicalSize = const Size(731, 850);
+      await tester.pumpAndSettle();
+      expect(_secondaryPanel, findsNothing);
+      expect(tester.getRect(_mainPanel).width, 731);
+      expect(shell.activeTab?.panel, ForumPanel.main);
+
+      frame.value = const Rect.fromLTWH(100, 0, 1200, 850);
+      tester.view.physicalSize = const Size(1200, 850);
+      await tester.pumpAndSettle();
+      expect(tester.getRect(_mainPanel).width, 400);
+      expect(tester.getRect(_secondaryPanel).width, 788);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
     'narrow windows show only the visible panel tabs and restore both on resize',
     (tester) async {
       final main = shell.activeTabId!;
@@ -1156,6 +1248,7 @@ Future<void> _pump(
   ShellController shell, {
   TextDirection direction = TextDirection.ltr,
   bool reduceMotion = false,
+  ValueListenable<Rect?>? windowFrame,
 }) async {
   tester.view.physicalSize = const Size(1200, 850);
   tester.view.devicePixelRatio = 1;
@@ -1173,8 +1266,12 @@ Future<void> _pump(
             ).copyWith(disableAnimations: reduceMotion),
             child: Directionality(
               textDirection: direction,
-              child: const TopicPresentationPreferences(
-                child: DToaster(child: Scaffold(body: DesktopPanels())),
+              child: TopicPresentationPreferences(
+                child: DToaster(
+                  child: Scaffold(
+                    body: DesktopPanels(windowFrame: windowFrame),
+                  ),
+                ),
               ),
             ),
           ),

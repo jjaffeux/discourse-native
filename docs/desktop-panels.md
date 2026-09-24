@@ -72,6 +72,14 @@ secondary panel and other tabs to main. When space is insufficient for two
 readable columns, both tab strips remain available and the focused panel's
 content fills the workspace. Mobile keeps its existing single-surface navigation.
 
+On macOS, dragging the window's right edge holds the secondary panel's width
+while the main panel shrinks to 320 px; dragging the left edge holds the main
+panel while the secondary panel shrinks to 320 px. Below that limit the shrinking
+panel closes from view and the other fills the workspace. Expanding the window
+restores the split and its preferred main-panel width. The visible panel becomes
+active when its neighbour closes, so keyboard navigation follows the document
+on screen.
+
 `DesktopPanels` owns the layout and stable widget keys. `ForumTabScope` identifies
 the document being rendered. `ShellSelector`, `ForumTabLayoutBuilder`, and
 `ForumTabListenableBuilder` resolve synchronous presentation reads through
