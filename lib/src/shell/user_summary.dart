@@ -17,6 +17,7 @@ import 'external_link.dart';
 import 'relative_time.dart';
 import 'shell_controller.dart';
 import 'shell_scope.dart';
+import 'skeleton_fill.dart';
 import 'topic_title.dart';
 import 'user_card.dart';
 
@@ -1322,10 +1323,11 @@ class _SummaryLoadingSkeleton extends StatelessWidget {
   const _SummaryLoadingSkeleton({super.key});
 
   @override
-  Widget build(BuildContext context) => const DSkeletonRegion(
+  Widget build(BuildContext context) => DSkeletonRegion(
     expand: true,
     semanticsLabel: 'Loading summary',
-    child: _SummaryLayout(
+    color: skeletonFill(context),
+    child: const _SummaryLayout(
       profile: DCard(
         spacing: DSpacing.xl,
         children: [

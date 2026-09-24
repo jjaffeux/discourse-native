@@ -16,6 +16,7 @@ import 'external_link.dart';
 import 'relative_time.dart';
 import 'shell_controller.dart';
 import 'shell_scope.dart';
+import 'skeleton_fill.dart';
 import 'topic_title.dart';
 
 class DraftListView extends StatefulWidget {
@@ -188,6 +189,7 @@ class _DraftListLoadingSkeleton extends StatelessWidget {
     return DSkeletonRegion(
       expand: true,
       semanticsLabel: 'Loading drafts',
+      color: skeletonFill(context),
       child: ContentReadingLane(
         basePadding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
         builder: (context, lane) => LayoutBuilder(

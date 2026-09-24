@@ -11,6 +11,7 @@ import 'notification_list.dart';
 import 'open_link.dart';
 import 'shell_controller.dart';
 import 'shell_scope.dart';
+import 'skeleton_fill.dart';
 import 'user_menu_message.dart';
 
 class BookmarkSection extends StatelessWidget {
@@ -181,7 +182,12 @@ class _BookmarkSectionViewState extends State<_BookmarkSectionView> {
             );
           }
           if (!feed.loaded) {
-            return const UserMenuLoading(semanticsLabel: 'Loading bookmarks');
+            return UserMenuLoading(
+              semanticsLabel: 'Loading bookmarks',
+              surface: widget.page
+                  ? SkeletonSurface.page
+                  : SkeletonSurface.floating,
+            );
           }
           if (reminders.isEmpty && visibleEntries.isEmpty) {
             return UserMenuMessage(

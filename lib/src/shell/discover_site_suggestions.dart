@@ -7,6 +7,7 @@ import '../theme/d_icons.dart';
 import 'external_link.dart';
 import 'shell_scope.dart';
 import 'site_image.dart';
+import 'skeleton_fill.dart';
 
 class DiscoverSiteSuggestions extends StatefulWidget {
   const DiscoverSiteSuggestions({
@@ -138,6 +139,10 @@ class _DiscoverSiteSuggestionsState extends State<DiscoverSiteSuggestions> {
                     return loading
                         ? DSkeletonRegion(
                             semanticsLabel: 'Loading suggested communities',
+                            color: skeletonFill(
+                              context,
+                              on: SkeletonSurface.floating,
+                            ),
                             child: grid,
                           )
                         : grid;
@@ -228,7 +233,11 @@ class _SiteLogo extends StatelessWidget {
               siteUrl: null,
               fit: BoxFit.contain,
               excludeFromSemantics: true,
-              loadingBuilder: (_) => const DSkeleton(width: 32, height: 32),
+              loadingBuilder: (_) => DSkeleton(
+                width: 32,
+                height: 32,
+                color: skeletonFill(context, on: SkeletonSurface.floating),
+              ),
               errorBuilder: (_, _, _) => fallback,
             ),
     );

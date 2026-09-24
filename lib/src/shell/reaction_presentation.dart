@@ -11,6 +11,7 @@ import 'emoji_picker.dart';
 import 'platform.dart';
 import 'shell_sheet.dart';
 import 'site_emoji_image.dart';
+import 'skeleton_fill.dart';
 import 'user_card.dart';
 
 class ReactionPills extends Padding {
@@ -338,6 +339,7 @@ class _ReactionUsersListState extends State<ReactionUsersList> {
       if (error == null) {
         return DSkeletonRegion(
           semanticsLabel: 'Loading reactions',
+          color: skeletonFill(context, on: SkeletonSurface.floating),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [

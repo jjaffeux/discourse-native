@@ -120,10 +120,18 @@ visual deviation.
 | Plum | #2B2030 | #211725 | #302336 | #261C2B |
 
 A temporary Flutter probe measured these live palette values. Skeleton is
-intentionally subtle; a text-contrast threshold is inappropriate. The concrete
-exception is the navigation sidebar: its background equals muted in all four
-palettes. Only those caller-owned shapes set `color: tokens.background`, the
-native equivalent of a background-class override. No shared palette is changed.
+intentionally subtle; a text-contrast threshold is inappropriate for the
+component, and its muted default is unchanged.
+
+The application overrides it on every loading region. Sidebars and panels
+paint muted themselves, so their placeholders matched them exactly, and on
+dark forum palettes muted sits a few levels off the page, 1.02–1.05 contrast
+at the pulse trough. Each region passes `skeletonFill` from
+`lib/src/shell/skeleton_fill.dart` as its region `color`, mixing the text
+colour into the surface it sits on. `test/skeleton_fill_test.dart` holds that
+at the trough across the app themes, Discourse's default schemes and every
+forum preset, and `test/skeleton_fill_adoption_test.dart` requires every
+application skeleton to take its fill from it.
 
 Narrow constraints shrink the compositions. The table scrolls only below 256px,
 where its fixed columns would otherwise leave almost no first column. Its scroll

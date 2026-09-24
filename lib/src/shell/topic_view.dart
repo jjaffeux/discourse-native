@@ -45,6 +45,7 @@ import 'shell_controller.dart';
 import 'shell_metrics.dart';
 import 'shell_scope.dart';
 import 'site_emoji_text.dart';
+import 'skeleton_fill.dart';
 import 'small_action.dart';
 import 'stream_day_separator.dart';
 import 'time_gap.dart';
@@ -3137,6 +3138,7 @@ class _TopicLoadingSkeleton extends StatelessWidget {
       child: DSkeletonRegion(
         expand: true,
         semanticsLabel: 'Loading topic',
+        color: skeletonFill(context),
         child: ForumTabLayoutBuilder(
           builder: (context, constraints) {
             final patternCount = constraints.hasBoundedHeight
@@ -3196,7 +3198,6 @@ class _TopicPostSkeleton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = topicSkeletonColor(context);
     final post = Padding(
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
       child: Column(
@@ -3204,18 +3205,18 @@ class _TopicPostSkeleton extends StatelessWidget {
         children: [
           Row(
             children: [
-              DSkeleton.circle(diameter: 32, color: color),
+              const DSkeleton.circle(diameter: 32),
               const SizedBox(width: 10),
               Expanded(
                 child: Align(
                   alignment: AlignmentDirectional.centerStart,
                   child: FractionallySizedBox(
                     widthFactor: nameWidthFactor,
-                    child: DSkeleton(height: 10, color: color),
+                    child: const DSkeleton(height: 10),
                   ),
                 ),
               ),
-              DSkeleton(width: 36, height: 7, color: color),
+              const DSkeleton(width: 36, height: 7),
             ],
           ),
           Padding(
@@ -3227,7 +3228,7 @@ class _TopicPostSkeleton extends StatelessWidget {
                     alignment: AlignmentDirectional.centerStart,
                     child: FractionallySizedBox(
                       widthFactor: lineWidths[index],
-                      child: DSkeleton(height: 9, color: color),
+                      child: const DSkeleton(height: 9),
                     ),
                   ),
                   if (index < lineWidths.length - 1) const SizedBox(height: 8),
@@ -3236,13 +3237,13 @@ class _TopicPostSkeleton extends StatelessWidget {
             ),
           ),
           if (showFooter)
-            Row(
+            const Row(
               children: [
-                DSkeleton.circle(diameter: 14, color: color),
-                const SizedBox(width: 12),
-                DSkeleton.circle(diameter: 14, color: color),
-                const SizedBox(width: 12),
-                DSkeleton(width: 42, height: 7, color: color),
+                DSkeleton.circle(diameter: 14),
+                SizedBox(width: 12),
+                DSkeleton.circle(diameter: 14),
+                SizedBox(width: 12),
+                DSkeleton(width: 42, height: 7),
               ],
             ),
         ],
@@ -3942,6 +3943,7 @@ class _MoreTopicsLoadingSkeleton extends StatelessWidget {
       expand: true,
       key: const ValueKey('topic-recommendations-loading-skeleton'),
       semanticsLabel: 'Loading more topics',
+      color: skeletonFill(context, on: SkeletonSurface.panel),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -5513,6 +5515,7 @@ class _TopicPaginationSkeleton extends StatelessWidget {
   Widget build(BuildContext context) => DSkeletonRegion(
     expand: true,
     semanticsLabel: semanticsLabel,
+    color: skeletonFill(context),
     child: _TopicPostSkeleton(
       nameWidthFactor: nameWidthFactor,
       lineWidths: [lineWidthFactor],

@@ -93,6 +93,8 @@ dark theme, Discourse's default dark scheme, and the dark variant of every
 built-in forum preset. The new fill reaches 1.18–1.30 there (1.39–1.77 at
 full opacity). Light pages are unchanged at 1.09–1.15. `topic_skeleton_test`
 pins a 1.08 floor across all of these palettes; the old dark fill fails it.
+That fill now belongs to every loading surface as `skeletonFill`, and the
+floor moved with it to `skeleton_fill_test`.
 
 ## Reproducing
 

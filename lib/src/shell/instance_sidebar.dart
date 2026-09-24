@@ -25,6 +25,7 @@ import 'platform.dart';
 import 'shell_metrics.dart';
 import 'shell_scope.dart';
 import 'site_url.dart';
+import 'skeleton_fill.dart';
 import 'user_menu_button.dart';
 
 @immutable
@@ -1029,6 +1030,7 @@ class _SidebarLoadingSkeleton extends StatelessWidget {
     expand: true,
     key: const ValueKey('sidebar-loading-skeleton'),
     semanticsLabel: semanticsLabel,
+    color: skeletonFill(context, on: SkeletonSurface.panel),
     child: DSidebarMenu(
       children: [
         for (var row = 0; row < rowCount; row++)
@@ -1566,6 +1568,7 @@ class SidebarDestinationTile extends StatelessWidget {
         dimension: 16.0,
         child: DSkeletonRegion(
           semanticsLabel: 'Loading ${destination.label}',
+          color: skeletonFill(context, on: SkeletonSurface.row),
           child: const DSkeleton.circle(diameter: 16),
         ),
       );

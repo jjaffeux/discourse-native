@@ -327,6 +327,7 @@ class _ParticipantSkeleton extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 6),
       child: DSkeletonRegion(
         semanticsLabel: 'Loading participants',
+        color: skeletonFill(context, on: SkeletonSurface.floating),
         child: Column(
           children: [
             for (var i = 0; i < 6; i++) ...[

@@ -1,6 +1,8 @@
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
+import 'skeleton_fill.dart';
+
 class UserMenuMessage extends StatelessWidget {
   const UserMenuMessage({
     super.key,
@@ -67,13 +69,18 @@ class UserMenuLoading extends StatelessWidget {
   const UserMenuLoading({
     super.key,
     this.semanticsLabel = 'Loading notifications',
+    this.surface = SkeletonSurface.floating,
   });
 
   final String semanticsLabel;
 
+  /// The user menu is a popover; a section can also be a whole page.
+  final SkeletonSurface surface;
+
   @override
   Widget build(BuildContext context) => DSkeletonRegion(
     semanticsLabel: semanticsLabel,
+    color: skeletonFill(context, on: surface),
     child: Column(
       mainAxisSize: MainAxisSize.min,
       children: [

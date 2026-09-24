@@ -24,6 +24,7 @@ import 'platform.dart';
 import 'relative_time.dart';
 import 'shell_metrics.dart';
 import 'shell_scope.dart';
+import 'skeleton_fill.dart';
 import 'title_bar.dart';
 import 'topic_actions.dart';
 import 'topic_category_picker.dart';
@@ -161,7 +162,6 @@ class _TopicHeaderTaxonomyPlaceholder extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = topicSkeletonColor(context);
     final radius = BorderRadius.circular(DTokens.of(context).controlRadius);
     final height = DControlStyle.scaledHeight(
       DControlSize.filter,
@@ -169,12 +169,7 @@ class _TopicHeaderTaxonomyPlaceholder extends StatelessWidget {
       context: context,
     );
     Widget chip(double width) => Flexible(
-      child: DSkeleton(
-        width: width,
-        height: height,
-        borderRadius: radius,
-        color: color,
-      ),
+      child: DSkeleton(width: width, height: height, borderRadius: radius),
     );
     return ConstrainedBox(
       key: const ValueKey('topic-header-taxonomy-placeholder'),
@@ -187,6 +182,7 @@ class _TopicHeaderTaxonomyPlaceholder extends StatelessWidget {
         child: DSkeletonRegion(
           semanticsLabel: 'Loading topic details',
           liveRegion: false,
+          color: skeletonFill(context),
           child: Row(
             spacing: DSpacing.sm,
             children: [
@@ -209,24 +205,24 @@ class TopicActivityPlaceholder extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = topicSkeletonColor(context);
     final row = this.row;
     return TopicSkeletonReveal(
       child: DSkeletonRegion(
         key: const ValueKey('topic-header-activity-placeholder'),
         semanticsLabel: 'Loading topic activity',
         liveRegion: false,
+        color: skeletonFill(context),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            DAvatarGroup(
+            const DAvatarGroup(
               size: DAvatarSize.sm,
               children: [
                 DAvatar(
                   size: DAvatarSize.sm,
                   border: false,
                   decorative: true,
-                  child: DSkeleton(color: color),
+                  child: DSkeleton(),
                 ),
               ],
             ),
@@ -241,7 +237,7 @@ class TopicActivityPlaceholder extends StatelessWidget {
                 ((row?.postsCount ?? 0) * 4 / 60).ceil(),
               ),
               lastActivity: row?.bumpedAt,
-              placeholder: color,
+              placeholder: true,
             ),
           ],
         ),
@@ -382,10 +378,8 @@ class _TopicHeaderTitle extends StatelessWidget {
               child: DSkeletonRegion(
                 semanticsLabel: 'Loading topic title',
                 liveRegion: false,
-                child: DSkeleton(
-                  height: lineHeight * .6,
-                  color: topicSkeletonColor(context),
-                ),
+                color: skeletonFill(context),
+                child: DSkeleton(height: lineHeight * .6),
               ),
             ),
           ),
@@ -681,9 +675,9 @@ class TopicActivitySummary extends StatelessWidget {
   );
 }
 
-/// The statistics line of [TopicActivitySummary]. With a [placeholder] fill,
-/// each statistic keeps its text's width but draws a bar instead, so a
-/// placeholder built from estimates wraps where the loaded line will.
+/// The statistics line of [TopicActivitySummary]. As a [placeholder], each
+/// statistic keeps its text's width but draws a bar instead, so a placeholder
+/// built from estimates wraps where the loaded line will.
 class _TopicActivityStats extends StatelessWidget {
   const _TopicActivityStats({
     required this.replies,
@@ -692,7 +686,7 @@ class _TopicActivityStats extends StatelessWidget {
     required this.links,
     required this.readMinutes,
     required this.lastActivity,
-    this.placeholder,
+    this.placeholder = false,
   });
 
   final int replies;
@@ -701,7 +695,7 @@ class _TopicActivityStats extends StatelessWidget {
   final int links;
   final int readMinutes;
   final DateTime? lastActivity;
-  final Color? placeholder;
+  final bool placeholder;
 
   @override
   Widget build(BuildContext context) {
@@ -733,17 +727,14 @@ class _TopicActivityStats extends StatelessWidget {
           final age => 'last activity $age ago',
         }, style: style),
     ];
-    Widget reserve(Widget child) => switch (placeholder) {
-      null => child,
-      final color => Stack(
-        children: [
-          Opacity(opacity: 0, child: child),
-          Positioned.fill(
-            child: Center(child: DSkeleton(height: 9, color: color)),
-          ),
-        ],
-      ),
-    };
+    Widget reserve(Widget child) => placeholder
+        ? Stack(
+            children: [
+              Opacity(opacity: 0, child: child),
+              const Positioned.fill(child: Center(child: DSkeleton(height: 9))),
+            ],
+          )
+        : child;
     return Wrap(
       spacing: 8,
       runSpacing: 6,
@@ -755,7 +746,7 @@ class _TopicActivityStats extends StatelessWidget {
             children: [
               if (i > 0) ...[
                 Opacity(
-                  opacity: placeholder == null ? 1 : 0,
+                  opacity: placeholder ? 0 : 1,
                   child: Text('·', style: style),
                 ),
                 const SizedBox(width: 8),

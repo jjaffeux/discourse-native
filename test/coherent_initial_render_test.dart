@@ -14,6 +14,7 @@ import 'package:discourse_native/src/shell/cooked_html.dart';
 import 'package:discourse_native/src/shell/instance_sidebar.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
+import 'package:discourse_native/src/shell/skeleton_fill.dart';
 import 'package:discourse_native/src/shell/topic_list_view.dart';
 import 'package:discourse_native/src/shell/topic_view.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
@@ -166,28 +167,27 @@ void main() {
         of: find.byKey(const ValueKey('sidebar-loading-skeleton')),
         matching: find.byType(DSkeleton),
       );
-      final tokens = DTokens.of(tester.element(skeletons.first));
+      final context = tester.element(skeletons.first);
+      final panel = tester
+          .widget<DSidebar>(find.byType(DSidebar))
+          .backgroundColor;
+      final fill = skeletonFill(context, on: SkeletonSurface.panel);
+      expect(panel, DTokens.of(context).muted);
+      expect(fill, isNot(panel));
       expect(
-        tokens.muted,
-        Theme.of(tester.element(skeletons.first)).shell.sidebar,
+        tester
+            .widgetList<DecoratedBox>(
+              find.descendant(
+                of: skeletons,
+                matching: find.byType(DecoratedBox),
+              ),
+            )
+            .map((box) => (box.decoration as BoxDecoration).color),
+        everyElement(fill),
+        reason:
+            'The sidebar paints the kit skeleton fill itself, so its '
+            'placeholders take the panel fill.',
       );
-      expect(tokens.background, isNot(tokens.muted));
-      expect(
-        tester.widgetList<DSkeleton>(skeletons).map((shape) => shape.color),
-        everyElement(isNull),
-        reason: 'Sidebar placeholders inherit the UI kit skeleton fill.',
-      );
-      final decoration =
-          tester
-                  .widget<DecoratedBox>(
-                    find.descendant(
-                      of: skeletons.first,
-                      matching: find.byType(DecoratedBox),
-                    ),
-                  )
-                  .decoration
-              as BoxDecoration;
-      expect(decoration.color, tokens.muted);
 
       api.navigation.complete(
         CategoryLoadResult(
