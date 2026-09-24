@@ -452,6 +452,10 @@ class _DRadioGroupItemState<T> extends State<DRadioGroupItem<T>> {
       );
     }
     if (widget.card) {
+      // Hovering a card that a click would select previews the selected
+      // treatment at half strength, so the target reads as a choice rather
+      // than a surface; the selected card keeps its own tint.
+      final previewing = enabled && !readOnly && !checked && _hovered;
       content = Container(
         padding: const EdgeInsets.all(10),
         decoration: BoxDecoration(
@@ -459,17 +463,18 @@ class _DRadioGroupItemState<T> extends State<DRadioGroupItem<T>> {
           border: Border.all(
             color: focused
                 ? tokens.focusRing
-                : checked
+                : checked || previewing
                 ? tokens.primary.withValues(
                     alpha: tokens.primary.a * (dark ? 0.2 : 0.3),
                   )
                 : tokens.border,
           ),
-          color: enabled && _hovered
-              ? tokens.muted.withValues(alpha: tokens.muted.a * 0.5)
-              : checked
+          color: checked || previewing
               ? tokens.primary.withValues(
-                  alpha: tokens.primary.a * (dark ? 0.1 : 0.05),
+                  alpha:
+                      tokens.primary.a *
+                      (dark ? 0.1 : 0.05) *
+                      (previewing ? 0.5 : 1),
                 )
               : null,
         ),
