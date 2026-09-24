@@ -61,6 +61,17 @@ void main() {
           controller.recentCategoriesFor(forums.first.url).single.title,
           'Support',
         );
+        controller.selectDestination(
+          const SidebarDestination(
+            id: 'chat-c-9',
+            label: 'General',
+            icon: DIcons.comment,
+          ),
+        );
+        expect(
+          controller.recentChannelsFor(forums.first.url).single.id,
+          'chat-c-9',
+        );
         controller.selectInstance(1);
         expect(controller.recentTopicsFor(forums.last.url), isEmpty);
         expect(controller.recentCategoriesFor(forums.last.url), isEmpty);

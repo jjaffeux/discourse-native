@@ -1532,7 +1532,7 @@ class ShellController extends FrameSafeNotifier
       _ when route.id.startsWith('category-') ||
           route.id.startsWith('list-/c/') =>
         _recentCategoryRoutes,
-      _ when RegExp(r'^chat-channel-[1-9][0-9]*$').hasMatch(route.id) =>
+      _ when RegExp(r'^chat-c-[1-9][0-9]*$').hasMatch(route.id) =>
         _recentChannelRoutes,
       _ => null,
     };
