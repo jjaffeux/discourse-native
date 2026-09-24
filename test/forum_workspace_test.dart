@@ -23,6 +23,18 @@ void main() {
       expect(ContentRoute.fromJson(legacyJson).icon, DNativeIcons.topic);
     });
 
+    test('restores a saved themes tab as forum appearance', () {
+      final restored = ContentRoute.fromJson({
+        'id': 'themes',
+        'title': 'Themes',
+        'icon': DIcons.display.name,
+      });
+
+      expect(restored, ContentRoute.appearance());
+      expect(restored.isAppearance, isTrue);
+      expect(restored.title, 'Appearance');
+    });
+
     test('round-trips every durable route field', () {
       const route = ContentRoute(
         id: 'topic-42',

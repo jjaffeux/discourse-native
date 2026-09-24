@@ -3239,7 +3239,7 @@ class ShellController extends FrameSafeNotifier
   bool get canCreateTopicHere {
     if (currentContent?.isTopic != false ||
         currentContent?.isPreferences == true ||
-        currentContent?.isThemes == true ||
+        currentContent?.isAppearance == true ||
         currentContent?.isMessages == true) {
       return false;
     }
@@ -15262,12 +15262,12 @@ class ShellController extends FrameSafeNotifier
     if (index != _instanceIndex || _rootMode != ShellRootMode.forum) {
       selectInstance(index);
     }
-    if (currentContent?.isThemes == true) {
+    if (currentContent?.isAppearance == true) {
       _mobilePane = MobilePane.content;
       _notify();
       return;
     }
-    pushContent(ContentRoute.themes());
+    pushContent(ContentRoute.appearance());
   }
 
   void openUserActivity(String siteUrl) {

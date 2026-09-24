@@ -796,7 +796,7 @@ class ForumIdentityHeader extends StatelessWidget {
             leading: const DIcon(DIcons.gear, size: 16),
             onPressed: () =>
                 ShellScope.read(context).openForumSettings(siteUrl),
-            child: const Text('Themes'),
+            child: const Text('Appearance'),
           ),
           const DDropdownMenuSeparator(),
           DDropdownMenuItem(

@@ -143,7 +143,7 @@ class _ForumAppearanceSettingsState extends State<ForumAppearanceSettings> {
                       child: Semantics(
                         headingLevel: 1,
                         child: Text(
-                          'Themes',
+                          'Appearance',
                           style: TextStyle(
                             fontSize: 22,
                             height: 1.25,
