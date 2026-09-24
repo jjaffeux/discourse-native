@@ -1187,6 +1187,56 @@ void main() {
       ]);
       expect(tester.takeException(), isNull);
     });
+
+    testWidgets('reordering within ${panel.name} skips gaps that keep the '
+        'dragged tab in place', (tester) async {
+      if (panel == ForumPanel.secondary) {
+        _openTopicTab(shell, _topic);
+      }
+      final first = shell.selectedTabIn(panel)!.id;
+      shell.createTab(panel: panel);
+      final second = shell.selectedTabIn(panel)!.id;
+      await _pump(tester, shell);
+
+      final sourceRect = tester.getRect(
+        find.byKey(ValueKey('forum-tab-$first')),
+      );
+      final targetRect = tester.getRect(
+        find.byKey(ValueKey('forum-tab-$second')),
+      );
+      final indicator = find.byKey(
+        const ValueKey('forum-tab-drop-placeholder'),
+      );
+      final gesture = await tester.startGesture(
+        sourceRect.center,
+        kind: PointerDeviceKind.mouse,
+      );
+      await gesture.moveBy(const Offset(0, 20));
+      await tester.pump();
+
+      Future<void> hover(double dx) async {
+        await gesture.moveTo(Offset(dx, sourceRect.center.dy));
+        await tester.pumpAndSettle();
+      }
+
+      // The gaps before and after the dragged tab's own slot.
+      await hover(sourceRect.left + 2);
+      expect(indicator, findsNothing);
+      await hover(targetRect.left + 2);
+      expect(indicator, findsNothing);
+      await hover(targetRect.right - 2);
+      expect(indicator, findsOneWidget);
+      await hover(targetRect.left + 2);
+      expect(indicator, findsNothing);
+
+      await gesture.up();
+      await tester.pumpAndSettle();
+      expect(shell.currentWorkspace!.tabsIn(panel).map((tab) => tab.id), [
+        first,
+        second,
+      ]);
+      expect(tester.takeException(), isNull);
+    });
   }
 
   testWidgets(
