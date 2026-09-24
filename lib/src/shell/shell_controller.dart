@@ -5646,7 +5646,7 @@ class ShellController extends FrameSafeNotifier
     return true;
   }
 
-  void openTopic(Topic topic) => _openTopic(
+  TabOpenResult openTopic(Topic topic) => _openTopic(
     topic.id,
     topic.slug,
     topic.title,
@@ -5656,15 +5656,18 @@ class ShellController extends FrameSafeNotifier
   /// Requests to reveal a topic after list navigation; never replayed.
   Stream<int> get topicListRevealRequests => _topicListRevealRequests.stream;
 
-  void openTopicFromList(Topic topic, {bool revealInList = false}) {
-    _openTopic(
+  TabOpenResult openTopicFromList(Topic topic, {bool revealInList = false}) {
+    final result = _openTopic(
       topic.id,
       topic.slug,
       topic.title,
       postNumber: topic.lastUnreadPostNumber,
       replace: currentContent?.isTopic == true && topicListContent != null,
     );
-    if (revealInList) _topicListRevealRequests.add(topic.id);
+    if (revealInList && result == TabOpenResult.opened) {
+      _topicListRevealRequests.add(topic.id);
+    }
+    return result;
   }
 
   void openSummaryTopic(UserSummaryTopic topic, {int? postNumber}) =>
@@ -5884,7 +5887,7 @@ class ShellController extends FrameSafeNotifier
     postNumber: item.postNumber,
   );
 
-  void _openTopic(
+  TabOpenResult _openTopic(
     int topicId,
     String slug,
     String title, {
@@ -5895,7 +5898,8 @@ class ShellController extends FrameSafeNotifier
   }) {
     // A fast double tap on a row pushes the same topic twice — the fetch is
     // deduped below, but the second route still costs a back tap.
-    if (currentContent?.topicId == topicId) return;
+    if (currentInstance == null) return TabOpenResult.unsupported;
+    if (currentContent?.topicId == topicId) return TabOpenResult.opened;
     SurfaceOpeningTrace.mark('topic.request');
     if (currentInstance case final instance?) {
       _topicSummaryStreams.remove(_topicKey(instance.url, topicId));
@@ -5928,16 +5932,17 @@ class ShellController extends FrameSafeNotifier
         select: true,
         source: topicListTab,
       );
-      if (result != TabOpenResult.opened) return;
+      if (result != TabOpenResult.opened) return result;
       // The new active tab already hydrates this destination. A second load
       // would queue a redundant refresh, including after a hover handoff.
-      if (!force) return;
+      if (!force) return result;
     } else if (replace) {
       replaceCurrentContent(route);
     } else {
       pushContent(route);
     }
     unawaited(loadTopic(topicId, slug, force: force, postNumber: postNumber));
+    return TabOpenResult.opened;
   }
 
   String absoluteUrl(String url, {String? siteUrl}) =>
@@ -6391,6 +6396,7 @@ class ShellController extends FrameSafeNotifier
         instance == null ||
         instance.url != siteUrl ||
         rootMode != ShellRootMode.forum ||
+        (desktopPanelsEnabled && !canCreateTab) ||
         (instance.loginRequired && !instance.isConnected) ||
         readingTopicId == topic.id) {
       return () {};

@@ -11,6 +11,8 @@ secondary panel. A tab can be dragged onto another tab strip or into the other
 panel, including an empty panel. Moving a tab preserves its ID, route history,
 and reading anchors. Close-other-tabs and adjacent-tab shortcuts operate within
 the relevant panel. The existing per-forum tab limit applies across both panels.
+At the limit, topic-row clicks show “Close a tab before opening another.” and
+preserve all existing documents. Closing a tab allows the next click to open.
 
 Dragging between panels shows a Native document-tab placeholder at the insertion
 position. Hovering over the panel content previews an appended tab; an empty panel

@@ -146,6 +146,20 @@ void main() {
     await loading;
   });
 
+  testWidgets(
+    'a full desktop workspace does not prefetch blocked topic opens',
+    (tester) async {
+      final (controller, api) = await setup(tester, panels: true);
+      while (controller.canCreateTab) {
+        controller.createTab();
+      }
+      await tester.pumpAndSettle();
+      await hover(tester, 1);
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(api.requests, isEmpty);
+    },
+  );
+
   testWidgets('cancelled credential lookup does not block the next hover', (
     tester,
   ) async {

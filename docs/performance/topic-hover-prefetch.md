@@ -3,7 +3,8 @@
 Desktop forum topic rows start fetching after 40 ms of pointer dwell. Touch
 platforms do not prefetch. The request targets the same unread post position
 as row activation. Topics already held at that position, currently loading,
-or already open do not generate speculative requests.
+or already open do not generate speculative requests. A desktop workspace at
+its tab limit also skips prefetches, since clicking cannot open another tab.
 
 `TopicPrefetchController` retains one active request and one replaceable
 pending hover target. A new hover cancels the previous speculative request;
