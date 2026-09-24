@@ -221,10 +221,71 @@ void main() {
     );
     expect(find.byType(DDialogContent), findsOneWidget);
     expect(
-      tester.widget<Text>(find.byKey(const ValueKey('new-theme-note'))).data,
-      contains('forum’s light and dark colours'),
+      tester
+          .widget<EditableText>(
+            find.descendant(
+              of: find.byKey(const ValueKey('new-theme-name')),
+              matching: find.byType(EditableText),
+            ),
+          )
+          .controller
+          .text,
+      'Forum default copy',
     );
+    expect(
+      tester
+          .widget<DItem>(
+            find.byKey(const ValueKey(('new-theme-base', 'forum'))),
+          )
+          .selected,
+      isTrue,
+    );
+    expect(find.byKey(const ValueKey('new-theme-note')), findsNothing);
     expect(_preferences(shell).source, ForumThemeSource.forum);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('new theme choices share one grid without section copy', (
+    tester,
+  ) async {
+    final shell = controller();
+    addTearDown(shell.dispose);
+    final saved = _saved('custom-moss', 'Moss', 'neutral');
+    await shell.forumSettings.setThemes(
+      _site,
+      ForumThemePreferences().save(saved),
+    );
+    await pumpSettings(tester, shell);
+    await _tap(tester, find.byKey(const ValueKey('new-theme')));
+
+    final dialog = find.byType(DDialogContent);
+    expect(dialog, findsOneWidget);
+    for (final text in [
+      'Start blank or from a theme you like. You can change every colour afterwards.',
+      'Presets',
+      'Your themes',
+    ]) {
+      expect(
+        find.descendant(of: dialog, matching: find.text(text)),
+        findsNothing,
+      );
+    }
+    expect(find.byKey(const ValueKey('new-theme-note')), findsNothing);
+    Finder gridFor(String id) => find
+        .ancestor(
+          of: find.byKey(ValueKey(('new-theme-base', id))),
+          matching: find.byType(Wrap),
+        )
+        .first;
+    final grid = tester.element(gridFor('blank'));
+    for (final id in ['forum', 'neutral', saved.id]) {
+      expect(tester.element(gridFor(id)), grid);
+    }
+    final neutral = find.byKey(const ValueKey(('new-theme-base', 'neutral')));
+    expect(
+      tester.widget<DItem>(neutral).borderColor,
+      DTokens.of(tester.element(neutral)).foreground.withValues(alpha: .24),
+    );
     expect(tester.takeException(), isNull);
   });
 
@@ -291,9 +352,14 @@ void main() {
         'Solarized copy',
       );
       expect(
-        tester.widget<Text>(find.byKey(const ValueKey('new-theme-note'))).data,
-        'Starts with Solarized’s light and dark versions.',
+        tester
+            .widget<DItem>(
+              find.byKey(const ValueKey(('new-theme-base', 'solarized'))),
+            )
+            .selected,
+        isTrue,
       );
+      expect(find.byKey(const ValueKey('new-theme-note')), findsNothing);
       await _tap(tester, find.byKey(const ValueKey('new-theme-continue')));
 
       expect(find.byType(DDialogContent), findsNothing);

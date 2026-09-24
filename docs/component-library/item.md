@@ -10,6 +10,10 @@ selection, keyboard activation and independent nested controls. The Item
 styleguide's Card composition example demonstrates the composition, and the
 selection interaction tests cover both Item shapes in light and dark themes.
 
+Outlined items may set `borderColor` to strengthen their resting border for a
+particular context. Selected and keyboard-focused items retain the standard
+accent and focus colors.
+
 Task `01a084bf-dd8a-7c13-86dd-63f2e60d20cd`, branch `codex/ui-item`,
 initial base `402fe578`; integrated pinned main
 `e612ad7b47413fa890b35ae3b55a6f6d37b08cf7` in merge `1462873c`.

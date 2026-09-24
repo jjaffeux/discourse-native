@@ -34,6 +34,7 @@ class DItem extends StatefulWidget {
     this.header,
     this.footer,
     this.variant = DItemVariant.standard,
+    this.borderColor,
     this.size = DItemSize.standard,
     this.shape = DItemShape.standard,
     this.onPressed,
@@ -54,6 +55,11 @@ class DItem extends StatefulWidget {
   final DItemHeader? header;
   final DItemFooter? footer;
   final DItemVariant variant;
+
+  /// Overrides the outline variant's resting border color. Selected and
+  /// keyboard-focused items keep their theme accent and focus colors.
+  final Color? borderColor;
+
   final DItemSize size;
   final DItemShape shape;
   final VoidCallback? onPressed;
@@ -216,7 +222,7 @@ class _DItemState extends State<DItem> {
                     : widget.selected && !neutralSelection && !leadingSelection
                     ? tokens.primary
                     : widget.variant == DItemVariant.outline
-                    ? tokens.border
+                    ? widget.borderColor ?? tokens.border
                     : Colors.transparent,
               ),
             ),
