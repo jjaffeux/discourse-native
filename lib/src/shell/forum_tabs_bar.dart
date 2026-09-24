@@ -1470,7 +1470,9 @@ class _ForumTabState extends State<_ForumTab> {
     final prefix = !compact
         ? _tabPrefix(context, widget.item, foreground)
         : null;
-    final labelStyle = theme.textTheme.labelMedium?.copyWith(
+    // Tab labels are controls: the same role as DDocumentTab's own default
+    // and the drag feedback, so a dragged tab keeps its size.
+    final labelStyle = theme.textTheme.labelLarge?.copyWith(
       color: foreground,
       fontWeight: FontWeight.w400,
     );

@@ -324,6 +324,91 @@ void main() {
       );
     });
 
+    testWidgets('labels tabs, their editor and drag feedback as controls', (
+      tester,
+    ) async {
+      await _pumpBar(
+        tester,
+        items: const [first, second],
+        selectedId: first.id,
+        onRename: (_, _) {},
+      );
+
+      final control = Theme.of(
+        tester.element(find.byKey(const ValueKey('forum-tabs-bar'))),
+      ).textTheme.labelLarge!;
+      expect(control.fontSize, DiscourseTypography.control);
+      for (final item in [first, second]) {
+        final title = find.text(item.title);
+        final style = tester.widget<Text>(title).style!;
+        expect(style.fontSize, DiscourseTypography.control);
+        expect(style.height, control.height);
+        expect(style.fontWeight, FontWeight.w400);
+        expect(
+          DefaultTextStyle.of(tester.element(title)).style.fontSize,
+          style.fontSize,
+        );
+      }
+
+      final drag = await tester.startGesture(
+        tester.getCenter(find.byKey(const ValueKey('forum-tab-item-chat-2'))),
+      );
+      await drag.moveBy(const Offset(40, 0));
+      await tester.pump();
+      await drag.moveBy(const Offset(40, 0));
+      await tester.pump();
+      final dragged = find.text(second.title);
+      expect(dragged, findsNWidgets(2));
+      for (final paragraph in tester.renderObjectList<RenderParagraph>(
+        dragged,
+      )) {
+        expect(paragraph.text.style?.fontSize, DiscourseTypography.control);
+      }
+      await drag.up();
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text(first.title));
+      await tester.pump(kDoubleTapMinTime);
+      await tester.tap(find.text(first.title));
+      await tester.pump();
+      final editor = tester.widget<TextField>(
+        find.byKey(const ValueKey('forum-tab-rename-topic-1')),
+      );
+      expect(editor.style?.fontSize, DiscourseTypography.control);
+      await tester.pump(kDoubleTapTimeout);
+    });
+
+    testWidgets('grows the strip with scaled tab labels', (tester) async {
+      const scaler = TextScaler.linear(2);
+      await _pumpBar(
+        tester,
+        items: const [first, second],
+        selectedId: first.id,
+        textScaler: scaler,
+      );
+
+      final bar = find.byKey(const ValueKey('forum-tabs-bar'));
+      final barRect = tester.getRect(bar);
+      expect(ForumTabsBar.heightFor(tester.element(bar)), barRect.height);
+      expect(
+        barRect.height - ForumTabsBar.height,
+        (scaler.scale(DiscourseTypography.control) -
+                DiscourseTypography.control) *
+            DiscourseTypography.lineHeightSmall,
+      );
+      for (final item in [first, second]) {
+        final tab = tester.getRect(
+          find.byKey(ValueKey('forum-tab-item-${item.id}')),
+        );
+        expect(tab.top - barRect.top, barRect.bottom - tab.bottom);
+        expect(
+          tester.getSize(find.text(item.title)).height,
+          lessThanOrEqualTo(tab.height),
+        );
+      }
+      expect(tester.takeException(), isNull);
+    });
+
     testWidgets('spaces document tabs without separators', (tester) async {
       await _pumpBar(
         tester,
@@ -1487,9 +1572,16 @@ Future<void> _pumpBar(
   ShellController? controller,
   ForumPanel? panel,
   void Function(String id, ForumPanel panel)? onMoveToPanel,
+  TextScaler? textScaler,
 }) async {
   Widget child = MaterialApp(
     theme: (theme ?? AppTheme.light).copyWith(platform: TargetPlatform.macOS),
+    builder: textScaler == null
+        ? null
+        : (context, child) => MediaQuery(
+            data: MediaQuery.of(context).copyWith(textScaler: textScaler),
+            child: child!,
+          ),
     home: Scaffold(
       body: Align(
         alignment: Alignment.topLeft,
