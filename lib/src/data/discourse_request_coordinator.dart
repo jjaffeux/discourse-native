@@ -91,12 +91,13 @@ final class DiscourseRequestCoordinator {
     Uri url,
     Future<http.Response> Function() send, {
     DiscourseGetRequestKey? coalesce,
+    Future<void>? abortTrigger,
   }) {
     if (_gate.isClosed) {
       return Future.error(StateError('Request coordinator is closed.'));
     }
 
-    if (coalesce case final key?) {
+    if (coalesce case final key? when abortTrigger == null) {
       final active = _gets[key];
       if (active != null) return active;
 
@@ -111,13 +112,14 @@ final class DiscourseRequestCoordinator {
       return request;
     }
 
-    return _enqueue(url, send);
+    return _enqueue(url, send, abortTrigger: abortTrigger);
   }
 
   Future<http.Response> _enqueue(
     Uri url,
-    Future<http.Response> Function() send,
-  ) => _translateGateErrors(
+    Future<http.Response> Function() send, {
+    Future<void>? abortTrigger,
+  }) => _translateGateErrors(
     _gate.run(url, (lease) async {
       final response = await send();
       if (response.statusCode == 429) {
@@ -127,12 +129,15 @@ final class DiscourseRequestCoordinator {
         lease.extendCooldown(delay);
       }
       return response;
-    }),
+    }, abortTrigger: abortTrigger),
+    url,
   );
 
-  Future<T> _translateGateErrors<T>(Future<T> operation) async {
+  Future<T> _translateGateErrors<T>(Future<T> operation, Uri url) async {
     try {
       return await operation;
+    } on OriginRequestGateCancelledException {
+      throw http.RequestAbortedException(url);
     } on OriginRequestGateOverloadException catch (error) {
       throw DiscourseRequestOverloadException(error.origin, error.maxQueued);
     } on OriginRequestGateClosedException {

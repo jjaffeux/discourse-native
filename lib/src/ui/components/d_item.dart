@@ -37,6 +37,7 @@ class DItem extends StatefulWidget {
     this.size = DItemSize.standard,
     this.shape = DItemShape.standard,
     this.onPressed,
+    this.onHoverChanged,
     this.link = false,
     this.enabled = true,
     this.selected = false,
@@ -56,6 +57,10 @@ class DItem extends StatefulWidget {
   final DItemSize size;
   final DItemShape shape;
   final VoidCallback? onPressed;
+
+  /// Pointer entry/exit for an enabled, actionable item. Does not report
+  /// keyboard focus or removal; callers must release async work on disposal.
+  final ValueChanged<bool>? onHoverChanged;
 
   /// Uses link semantics. Navigation and external URL policy remain caller-owned.
   final bool link;
@@ -294,8 +299,14 @@ class _DItemState extends State<DItem> {
       // Pointer hover remains visible while the app suppresses keyboard focus
       // rings. FocusableActionDetector's hover highlight follows that policy.
       result = MouseRegion(
-        onEnter: (_) => setState(() => _hover = true),
-        onExit: (_) => setState(() => _hover = false),
+        onEnter: (_) {
+          setState(() => _hover = true);
+          if (_active) widget.onHoverChanged?.call(true);
+        },
+        onExit: (_) {
+          setState(() => _hover = false);
+          if (_active) widget.onHoverChanged?.call(false);
+        },
         child: FocusableActionDetector(
           enabled: _active,
           focusNode: _focus,

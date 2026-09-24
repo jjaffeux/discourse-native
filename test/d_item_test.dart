@@ -57,6 +57,46 @@ Widget sample(DItemSize size) => DItem(
 );
 
 void main() {
+  testWidgets(
+    'hover callbacks follow pointer entry and exit without activation',
+    (tester) async {
+      final events = <bool>[];
+      var pressed = 0;
+      await tester.pumpWidget(
+        host(
+          DItem(
+            onPressed: () => pressed++,
+            onHoverChanged: events.add,
+            children: const [Text('Hover item')],
+          ),
+        ),
+      );
+      final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      await mouse.addPointer(location: const Offset(700, 500));
+      await mouse.moveTo(tester.getCenter(find.byType(DItem)));
+      await tester.pump();
+      expect(events, [true]);
+      expect(pressed, 0);
+      await mouse.moveTo(const Offset(700, 500));
+      await tester.pump();
+      expect(events, [true, false]);
+      await tester.pumpWidget(
+        host(
+          DItem(
+            enabled: false,
+            onPressed: () => pressed++,
+            onHoverChanged: events.add,
+            children: const [Text('Hover item')],
+          ),
+        ),
+      );
+      await mouse.moveTo(tester.getCenter(find.byType(DItem)));
+      await tester.pump();
+      expect(events, [true, false]);
+      await mouse.removePointer();
+    },
+  );
+
   for (final direction in TextDirection.values) {
     testWidgets(
       'corner action reveals and activates independently in $direction',

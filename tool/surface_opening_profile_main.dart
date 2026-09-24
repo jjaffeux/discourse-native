@@ -265,10 +265,12 @@ class _OpeningApi extends FakeDiscourseApi {
     String? apiKey,
     bool summary = false,
     String? clientId,
+    Future<void>? abortTrigger,
   }) async {
     await Future<void>.delayed(const Duration(milliseconds: 70));
     return super.topic(
       siteUrl: siteUrl,
+      abortTrigger: abortTrigger,
       slug: slug,
       id: id,
       postNumber: postNumber,

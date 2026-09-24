@@ -631,6 +631,7 @@ class _OwnerApi extends FakeDiscourseApi {
     bool summary = false,
     String? apiKey,
     String? clientId,
+    Future<void>? abortTrigger,
   }) async => topicPayload(
     id: id,
     title: 'A real topic',

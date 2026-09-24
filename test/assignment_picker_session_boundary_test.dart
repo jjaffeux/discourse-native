@@ -442,6 +442,7 @@ class _AssignmentApi extends FakeDiscourseApi {
     bool summary = false,
     String? apiKey,
     String? clientId,
+    Future<void>? abortTrigger,
   }) async {
     final data = PluginData.none.withValue(
       assignmentsDataKey,

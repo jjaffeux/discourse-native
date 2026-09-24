@@ -381,6 +381,7 @@ final class _GatedTopicApi extends FakeDiscourseApi {
     bool summary = false,
     String? apiKey,
     String? clientId,
+    Future<void>? abortTrigger,
   }) async {
     started.complete();
     await _requestGate.future;

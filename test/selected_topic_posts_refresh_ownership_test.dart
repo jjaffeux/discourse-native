@@ -404,6 +404,7 @@ class _RefreshApi extends FakeDiscourseApi {
     bool summary = false,
     String? apiKey,
     String? clientId,
+    Future<void>? abortTrigger,
   }) async => topicPayload(
     id: id,
     posts: [

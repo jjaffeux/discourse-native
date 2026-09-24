@@ -550,6 +550,7 @@ class _MoveApi extends FakeDiscourseApi {
     bool summary = false,
     String? apiKey,
     String? clientId,
+    Future<void>? abortTrigger,
   }) async {
     topicsOpened.add(id);
     return topicPayload(

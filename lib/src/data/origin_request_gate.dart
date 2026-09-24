@@ -60,9 +60,25 @@ final class OriginRequestGate {
     Uri url,
     Future<T> Function(OriginRequestContext context) operation, {
     OriginRequestPriority priority = OriginRequestPriority.normal,
+    Future<void>? abortTrigger,
   }) {
     final pending = _RunAdmission<T>(operation);
     _enqueue(url.origin, pending, priority);
+    unawaited(
+      abortTrigger?.then((_) {
+        final index = _waiting.indexWhere(
+          (entry) => identical(entry.pending, pending),
+        );
+        if (index < 0) return; // Active requests cancel in the HTTP client.
+        final entry = _waiting.removeAt(index);
+        entry.state.waiting--;
+        pending.reject(
+          const OriginRequestGateCancelledException(),
+          StackTrace.current,
+        );
+        _forgetIdle(entry.origin, entry.state);
+      }),
+    );
     return pending.result.future;
   }
 
@@ -262,6 +278,11 @@ final class OriginRequestLease {
 
 sealed class OriginRequestGateException implements Exception {
   const OriginRequestGateException();
+}
+
+final class OriginRequestGateCancelledException
+    extends OriginRequestGateException {
+  const OriginRequestGateCancelledException();
 }
 
 final class OriginRequestGateClosedException

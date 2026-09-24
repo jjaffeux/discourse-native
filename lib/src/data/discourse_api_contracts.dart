@@ -543,6 +543,8 @@ abstract interface class TopicComposerQueriesApi {
 }
 
 abstract interface class TopicContentApi {
+  /// Fetches the post window around [postNumber]. Completing [abortTrigger]
+  /// cancels this request, including while it waits for a network slot.
   Future<TopicPayload> topic({
     required String siteUrl,
     required String slug,
@@ -551,6 +553,7 @@ abstract interface class TopicContentApi {
     bool summary = false,
     String? apiKey,
     String? clientId,
+    Future<void>? abortTrigger,
   });
 
   Future<List<Post>> posts({

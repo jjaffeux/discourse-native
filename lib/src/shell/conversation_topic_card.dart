@@ -1,9 +1,54 @@
 part of 'topic_list_view.dart';
 
 /// A full-width conversation row, shared by every topic source.
-class _ConversationTopicCard extends StatelessWidget {
+class _ConversationTopicCard extends StatefulWidget {
   const _ConversationTopicCard({required this.row});
   final _TopicRowBody row;
+
+  @override
+  State<_ConversationTopicCard> createState() => _ConversationTopicCardState();
+}
+
+class _ConversationTopicCardState extends State<_ConversationTopicCard> {
+  _TopicRowBody get row => widget.row;
+  VoidCallback? _releaseHover;
+
+  void _stopHover() {
+    _releaseHover?.call();
+    _releaseHover = null;
+  }
+
+  void _hoverChanged(bool hovered) {
+    _stopHover();
+    if (hovered && TickerMode.valuesOf(context).enabled) {
+      _releaseHover = ShellScope.maybeRead(
+        context,
+      )?.hoverTopic(row.siteUrl, row.topic);
+    }
+  }
+
+  @override
+  void didUpdateWidget(_ConversationTopicCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.row.siteUrl != row.siteUrl ||
+        oldWidget.row.topic.id != row.topic.id ||
+        oldWidget.row.topic.lastUnreadPostNumber !=
+            row.topic.lastUnreadPostNumber) {
+      _stopHover();
+    }
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!TickerMode.valuesOf(context).enabled) _stopHover();
+  }
+
+  @override
+  void deactivate() {
+    _stopHover();
+    super.deactivate();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -152,6 +197,7 @@ class _ConversationTopicCard extends StatelessWidget {
             padding: row.contentPadding ?? DInsets.listRow,
             link: true,
             onPressed: row.onTap,
+            onHoverChanged: context.isTouch ? null : _hoverChanged,
             selected: selected,
             selectionStyle: DItemSelectionStyle.leadingAccent,
             showSelectionIndicator: false,

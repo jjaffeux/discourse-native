@@ -925,6 +925,7 @@ final class _GatedTopicApi extends FakeDiscourseApi {
     String? apiKey,
     String? clientId,
     bool summary = false,
+    Future<void>? abortTrigger,
   }) {
     postNumbers.add(postNumber);
     final response = Completer<TopicPayload>();
@@ -991,6 +992,7 @@ final class _StaleTopicBookmarkApi extends FakeDiscourseApi {
     String? apiKey,
     String? clientId,
     bool summary = false,
+    Future<void>? abortTrigger,
   }) {
     topicCalls++;
     if (topicCalls == 2) {

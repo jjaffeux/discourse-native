@@ -227,16 +227,27 @@ final class DiscourseTransport {
     String? clientId,
     String? accept,
     Duration? requestTimeout,
+    Future<void>? abortTrigger,
   }) async {
     final effectiveTimeout = requestTimeout ?? timeout;
     assert(effectiveTimeout > Duration.zero);
     late http.Response response;
     try {
+      var aborted = false;
+      unawaited(abortTrigger?.then((_) => aborted = true));
+      if (abortTrigger != null) await Future<void>.value();
       var current = url;
       for (var redirects = 0; ; redirects++) {
         final requestUrl = requireSafeHttpUrl(current);
         if (apiKey != null) _requireCredentialOrigin(requestUrl, siteUrl);
-        final request = http.Request('GET', requestUrl);
+        if (aborted) throw http.RequestAbortedException(requestUrl);
+        final request = abortTrigger == null
+            ? http.Request('GET', requestUrl)
+            : http.AbortableRequest(
+                'GET',
+                requestUrl,
+                abortTrigger: abortTrigger,
+              );
         if (accept != null) request.headers['Accept'] = accept;
         if (apiKey != null) {
           request.headers.addAll(authHeaders(apiKey, clientId: clientId));
@@ -249,12 +260,17 @@ final class DiscourseTransport {
             timeout: effectiveTimeout,
             maxBodyBytes: _maxResponseBytes,
           ),
-          coalesce: DiscourseGetRequestKey(
-            requestUrl,
-            headers: request.headers,
-            timeout: effectiveTimeout,
-            maxResponseBytes: _maxResponseBytes,
-          ),
+          abortTrigger: abortTrigger,
+          // Speculative requests have one owner; sharing their cancellation
+          // with ordinary GET consumers would cancel real navigation.
+          coalesce: abortTrigger != null
+              ? null
+              : DiscourseGetRequestKey(
+                  requestUrl,
+                  headers: request.headers,
+                  timeout: effectiveTimeout,
+                  maxResponseBytes: _maxResponseBytes,
+                ),
         );
 
         final location = response.headers['location'];
@@ -306,6 +322,7 @@ final class DiscourseTransport {
     String? apiKey,
     String? clientId,
     Duration? requestTimeout,
+    Future<void>? abortTrigger,
   }) async {
     final response = await get(
       url,
@@ -313,6 +330,7 @@ final class DiscourseTransport {
       apiKey: apiKey,
       clientId: clientId,
       requestTimeout: requestTimeout,
+      abortTrigger: abortTrigger,
     );
     try {
       final decoded = await decodeJsonHttpResponse(response);

@@ -163,6 +163,7 @@ class ChecklistBookmarkApi extends ChecklistApi {
     bool summary = false,
     String? apiKey,
     String? clientId,
+    Future<void>? abortTrigger,
   }) async {
     topicsOpened.add(id);
     // Capture the body before waiting to exercise a stale bookmark response.

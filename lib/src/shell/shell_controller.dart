@@ -121,6 +121,7 @@ import 'site_presentation_controller.dart';
 import 'site_url.dart';
 import 'topic_category_path.dart' as category_path;
 import 'topic_feed_controller.dart';
+import 'topic_prefetch_controller.dart';
 import 'topic_read_controller.dart';
 import 'unread_topic_feed.dart';
 import 'update_controller.dart';
@@ -5303,6 +5304,7 @@ class ShellController extends FrameSafeNotifier
   void setForeground(bool foreground) {
     if (foreground == _foreground) return;
     _foreground = foreground;
+    if (!foreground) _topicPrefetch.validate();
     // The OS may suspend the process before a debounce timer fires again.
     if (!foreground) {
       _flushPendingAnchorPersist();
@@ -5330,6 +5332,7 @@ class ShellController extends FrameSafeNotifier
     }
   }
 
+  final _topicPrefetch = TopicPrefetchController();
   final Set<String> _topicsLoading = {};
   final Set<String> _topicRefreshPending = {};
   final Map<String, int> _topicRefreshPostNumbers = {};
@@ -5926,6 +5929,9 @@ class ShellController extends FrameSafeNotifier
         source: topicListTab,
       );
       if (result != TabOpenResult.opened) return;
+      // The new active tab already hydrates this destination. A second load
+      // would queue a redundant refresh, including after a hover handoff.
+      if (!force) return;
     } else if (replace) {
       replaceCurrentContent(route);
     } else {
@@ -6376,6 +6382,95 @@ class ShellController extends FrameSafeNotifier
     return true;
   }
 
+  /// Starts a speculative load after a short pointer dwell. The row releases
+  /// its interest on exit/removal; a real topic load adopts the response first.
+  void Function() hoverTopic(String siteUrl, Topic topic) {
+    final instance = currentInstance;
+    if (isDisposed ||
+        !_foreground ||
+        instance == null ||
+        instance.url != siteUrl ||
+        rootMode != ShellRootMode.forum ||
+        (instance.loginRequired && !instance.isConnected) ||
+        readingTopicId == topic.id) {
+      return () {};
+    }
+    final topicKey = _topicKey(siteUrl, topic.id);
+    final postNumber = topic.lastUnreadPostNumber;
+    if (_topicsLoading.contains(topicKey) ||
+        (!_topicsStale.contains(topicKey) &&
+            _hasTopicPost(siteUrl, topic.id, postNumber))) {
+      return () {};
+    }
+    final lease = lifecycle.capture(siteUrl);
+    final owner = (activeTabId, currentContent?.id, topicListContent?.id);
+    return _topicPrefetch.hover(
+      (
+        siteUrl: siteUrl,
+        session: lease.session,
+        topicId: topic.id,
+        postNumber: postNumber,
+      ),
+      isCurrent: () =>
+          !isDisposed &&
+          _foreground &&
+          lease.isCurrent &&
+          currentInstance?.url == siteUrl &&
+          rootMode == ShellRootMode.forum &&
+          ((activeTabId, currentContent?.id, topicListContent?.id) == owner ||
+              (currentContent?.topicId == topic.id &&
+                  currentContent?.postNumber == postNumber)),
+      load: (cancellation) async {
+        final elapsed = Stopwatch()..start();
+        final bookmarkVersion = _bookmarkVersion(siteUrl, topic.id);
+        final archiveVersion = _messageArchiveVersion(siteUrl, topic.id);
+        try {
+          final credential = await _awaitTopicLoadStage(
+            Future.any<_SessionValue<String?>?>([
+              _readSessionValue(lease, () => authenticator.apiKeyFor(siteUrl)),
+              cancellation.trigger.then((_) => null),
+            ]),
+            elapsed,
+            'reading credentials for topic prefetch',
+          );
+          if (credential == null ||
+              !lease.isCurrent ||
+              cancellation.isCancelled) {
+            return null;
+          }
+          final payload = await _awaitTopicLoadStage(
+            api.topicContent.topic(
+              siteUrl: siteUrl,
+              slug: topic.slug,
+              id: topic.id,
+              postNumber: postNumber,
+              apiKey: credential.value,
+              abortTrigger: cancellation.trigger,
+            ),
+            elapsed,
+            'prefetching topic ${topic.id}',
+          );
+          if (isDisposed || !lease.isCurrent || cancellation.isCancelled) {
+            return null;
+          }
+          return PrefetchedTopic(payload, bookmarkVersion, archiveVersion);
+        } catch (_) {
+          cancellation.cancel();
+          return null;
+        }
+      },
+    );
+  }
+
+  bool _hasTopicPost(String siteUrl, int topicId, int? postNumber) {
+    final held = store.read<TopicDetail>(siteUrl, topicId);
+    return held != null &&
+        (postNumber == null ||
+            held.stream.any(
+              (id) => store.read<Post>(siteUrl, id)?.postNumber == postNumber,
+            ));
+  }
+
   Future<void> loadTopic(
     int topicId,
     String slug, {
@@ -6454,8 +6549,18 @@ class ShellController extends FrameSafeNotifier
     }
     final lease = lifecycle.capture(instance.url);
     final elapsed = Stopwatch()..start();
-    final bookmarkVersion = _bookmarkVersion(instance.url, topicId);
-    final messageArchiveVersion = _messageArchiveVersion(instance.url, topicId);
+    final prefetchKey = (
+      siteUrl: instance.url,
+      session: lease.session,
+      topicId: topicId,
+      postNumber: requestedPostNumber,
+    );
+    if (force || _topicsStale.contains(key)) {
+      _topicPrefetch.discard(prefetchKey);
+    }
+    final prefetched = _topicPrefetch.take(prefetchKey);
+    var bookmarkVersion = _bookmarkVersion(instance.url, topicId);
+    var messageArchiveVersion = _messageArchiveVersion(instance.url, topicId);
 
     _topicsLoading.add(key);
     _notify();
@@ -6470,17 +6575,31 @@ class ShellController extends FrameSafeNotifier
         'reading credentials for topic $topicId',
       );
       if (credential == null || !lease.isCurrent) return;
-      final fetched = await _awaitTopicLoadStage(
-        api.topicContent.topic(
-          siteUrl: instance.url,
-          slug: slug,
-          id: topicId,
-          postNumber: requestedPostNumber,
-          apiKey: credential.value,
-        ),
-        elapsed,
-        'loading topic $topicId',
-      );
+      final warmed = prefetched == null
+          ? null
+          : await _awaitTopicLoadStage(
+              prefetched,
+              elapsed,
+              'waiting for topic prefetch $topicId',
+            );
+      if (isDisposed || !lease.isCurrent) return;
+      if (warmed != null) {
+        bookmarkVersion = warmed.bookmarkVersion;
+        messageArchiveVersion = warmed.archiveVersion;
+      }
+      final fetched =
+          warmed?.payload ??
+          await _awaitTopicLoadStage<TopicPayload>(
+            api.topicContent.topic(
+              siteUrl: instance.url,
+              slug: slug,
+              id: topicId,
+              postNumber: requestedPostNumber,
+              apiKey: credential.value,
+            ),
+            elapsed,
+            'loading topic $topicId',
+          );
       if (isDisposed || !lease.isCurrent) return;
       SurfaceOpeningTrace.mark('topic.response');
       try {
@@ -13825,6 +13944,7 @@ class ShellController extends FrameSafeNotifier
   }
 
   void _forgetSiteState(String siteUrl, {bool invalidateLifecycle = true}) {
+    _topicPrefetch.clear();
     cooking.forget(siteUrl);
     if (invalidateLifecycle) lifecycle.invalidate(siteUrl);
     siteImages.forget(siteUrl);
@@ -15438,6 +15558,7 @@ class ShellController extends FrameSafeNotifier
   }
 
   void _notifyCurrentWorkspace() {
+    _topicPrefetch.validate();
     if (mobileNavigationEnabled) {
       if (_mobilePane == MobilePane.sidebar &&
           mobileNavigation.panelOwner == null &&
@@ -15520,6 +15641,7 @@ class ShellController extends FrameSafeNotifier
 
   @override
   void dispose() {
+    _topicPrefetch.clear();
     // Queue the final local draft before lifecycle invalidation without
     // entering the normal remote-sync callback.
     for (final composer in _composers.values) {

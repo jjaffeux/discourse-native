@@ -84,6 +84,7 @@ class _ArchiveApi extends FakeDiscourseApi {
     bool summary = false,
     String? apiKey,
     String? clientId,
+    Future<void>? abortTrigger,
   }) {
     if (!started.isCompleted) started.complete();
     return response.future;
