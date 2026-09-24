@@ -6045,7 +6045,9 @@ class ShellController extends FrameSafeNotifier
         ? BadgeRoute.parse(absolute, siteUrl: instance.url)
         : null;
     final ContentRoute route;
-    if (instance.pathWithin(target) == '/latest' &&
+    if (_isOwnMessagesUrl(instance, target)) {
+      route = ContentRoute.messages();
+    } else if (instance.pathWithin(target) == '/latest' &&
         !target.hasQuery &&
         !target.hasFragment) {
       route = ContentRoute.topicList(TopicListMode.latest);
@@ -6076,6 +6078,19 @@ class ShellController extends FrameSafeNotifier
       return null;
     }
     return (route: route, siteUrl: instance.url);
+  }
+
+  bool _isOwnMessagesUrl(DiscourseInstance instance, Uri target) {
+    final username = instance.user?.username;
+    if (username == null || target.hasQuery || target.hasFragment) return false;
+    final path = instance.pathWithin(target);
+    if (path == '/my/messages') return true;
+    final segments = Uri.tryParse(path ?? '')?.pathSegments;
+    return segments != null &&
+        segments.length == 3 &&
+        segments[0] == 'u' &&
+        segments[1].toLowerCase() == username.toLowerCase() &&
+        segments[2] == 'messages';
   }
 
   TabOpenResult openContentInNewTab(
@@ -6494,16 +6509,19 @@ class ShellController extends FrameSafeNotifier
     }
   }
 
-  bool openLatestUrl(String url) {
+  bool openCoreListUrl(String url) {
     final destination = _routeForLink(url);
-    if (destination == null || destination.route.id != 'latest') return false;
+    if (destination == null ||
+        !{'latest', 'messages'}.contains(destination.route.id)) {
+      return false;
+    }
     final index = _instances.indexWhere(
       (instance) => instance.url == destination.siteUrl,
     );
     if (index < 0) return false;
     if (index != _instanceIndex) selectInstance(index);
     final rootChanged = _setForumContentRoot();
-    if (currentContent?.id == 'latest') {
+    if (currentContent?.id == destination.route.id) {
       if (rootChanged) _notify();
       return true;
     }
