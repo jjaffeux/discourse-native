@@ -8,6 +8,7 @@ import 'package:discourse_native/src/models/forum_theme_presets.dart';
 import 'package:discourse_native/src/shell/forum_settings_page.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
+import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -21,6 +22,13 @@ ForumThemePreferences _preferences(ShellController shell) =>
     shell.forumSettings.themesFor(_site);
 
 Finder _choice(String id) => find.byKey(ValueKey(('theme-choice', id)));
+
+Finder _checkmark(String id) => find.descendant(
+  of: _choice(id),
+  matching: find.byWidgetPredicate(
+    (widget) => widget is DIcon && widget.icon == DIcons.check,
+  ),
+);
 
 Finder _input(String role) => find.descendant(
   of: find.byKey(ValueKey('theme-color-$role')),
@@ -36,10 +44,10 @@ Future<void> _tap(WidgetTester tester, Finder target) async {
 Future<void> _source(WidgetTester tester, ForumThemeSource source) =>
     _tap(tester, find.byKey(ValueKey(('theme-source', source))));
 
-Future<void> _show(WidgetTester tester, String mode) => _tap(
+Future<void> _appearance(WidgetTester tester, String mode) => _tap(
   tester,
   find.descendant(
-    of: find.byKey(const ValueKey('theme-shown-mode')),
+    of: find.byKey(const ValueKey('appearance-mode')),
     matching: find.text(mode),
   ),
 );
@@ -74,6 +82,7 @@ void main() {
       );
       expect(_choice('summer'), findsOneWidget);
       expect(_choice('dracula'), findsNothing, reason: 'Dracula is dark only');
+      expect(find.byKey(const ValueKey('theme-shown-mode')), findsNothing);
 
       await _tap(tester, _choice('solarized'));
       expect(_preferences(shell).presets, {Brightness.light: 'solarized'});
@@ -81,8 +90,9 @@ void main() {
       expect(find.text('Built-in presets'), findsNothing);
       expect(find.text('Solarized · light and dark'), findsNothing);
       expect(find.text('Make my own from this'), findsNothing);
+      expect(_checkmark('solarized'), findsNothing);
 
-      await _show(tester, 'Dark');
+      await _appearance(tester, 'Dark');
       expect(_appTheme(tester).brightness, Brightness.dark);
       expect(_choice('summer'), findsNothing, reason: 'Summer is light only');
       await _tap(tester, _choice('dracula'));
@@ -93,8 +103,9 @@ void main() {
       expect(_appTheme(tester).colorScheme.primary, const Color(0xffbd93f9));
       expect(find.text('Dracula · dark only'), findsNothing);
       expect(tester.widget<DItem>(_choice('dracula')).selected, isTrue);
+      expect(_checkmark('dracula'), findsNothing);
       expect(tester.widget<DItem>(_choice('neutral')).selected, isFalse);
-      expect(shell.forumSettings.themeModeFor(_site), AppThemeMode.system);
+      expect(shell.forumSettings.themeModeFor(_site), AppThemeMode.dark);
       expect(tester.takeException(), isNull);
     },
   );
@@ -148,45 +159,40 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets(
-    'the app shows the mode being chosen for until the page closes or the '
-    'appearance changes, without saving it',
-    (tester) async {
-      final shell = controller();
-      addTearDown(shell.dispose);
-      await shell.forumSettings.setThemes(
-        _site,
-        ForumThemePreferences.preset('wcag'),
-      );
-      await pumpSettings(tester, shell);
-      await _show(tester, 'Dark');
-      expect(_appTheme(tester).brightness, Brightness.dark);
-      expect(_appTheme(tester).colorScheme.primary, const Color(0xff759aff));
-      expect(shell.forumSettings.themeModeFor(_site), AppThemeMode.system);
-      expect(
-        await shell.forumSettings.store.loadThemeMode(_site),
-        AppThemeMode.system,
-      );
+  testWidgets('editor mode preview resets when Cancel returns to the picker', (
+    tester,
+  ) async {
+    final shell = controller();
+    addTearDown(shell.dispose);
+    await shell.forumSettings.setThemes(
+      _site,
+      ForumThemePreferences.preset('wcag'),
+    );
+    await pumpSettings(tester, shell);
+    await _tap(tester, find.byKey(const ValueKey(('customize-theme', 'wcag'))));
+    await _tap(tester, find.byKey(const ValueKey('new-theme-continue')));
+    await _tap(
+      tester,
+      find.descendant(
+        of: find.byKey(const ValueKey('appearance-theme-select')),
+        matching: find.text('Dark'),
+      ),
+    );
+    expect(_appTheme(tester).brightness, Brightness.dark);
+    expect(_appTheme(tester).colorScheme.primary, const Color(0xff759aff));
+    expect(shell.forumSettings.themeModeFor(_site), AppThemeMode.system);
+    expect(
+      await shell.forumSettings.store.loadThemeMode(_site),
+      AppThemeMode.system,
+    );
 
-      await _tap(
-        tester,
-        find.descendant(
-          of: find.byKey(const ValueKey('appearance-mode')),
-          matching: find.text('Light'),
-        ),
-      );
-      expect(shell.forumSettings.previewBrightnessFor(_site), isNull);
-      expect(_appTheme(tester).brightness, Brightness.light);
-      expect(_appTheme(tester).colorScheme.primary, const Color(0xff0033cc));
-
-      await _show(tester, 'Dark');
-      expect(_appTheme(tester).brightness, Brightness.dark);
-      await tester.pumpWidget(const SizedBox());
-      expect(shell.forumSettings.previewBrightnessFor(_site), isNull);
-      expect(shell.forumSettings.themeModeFor(_site), AppThemeMode.light);
-      expect(tester.takeException(), isNull);
-    },
-  );
+    await _tap(tester, find.byKey(const ValueKey('theme-cancel')));
+    expect(shell.forumSettings.previewBrightnessFor(_site), isNull);
+    expect(_appTheme(tester).brightness, Brightness.light);
+    expect(_appTheme(tester).colorScheme.primary, const Color(0xff0033cc));
+    expect(find.byKey(const ValueKey('theme-shown-mode')), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
 
   testWidgets(
     'a preset is never edited in place: making your own starts a new theme '
@@ -297,8 +303,10 @@ void main() {
       expect(await shell.forumSettings.store.loadThemes(_site), preferences);
       expect(find.byKey(const ValueKey('theme-picker')), findsOneWidget);
       expect(tester.widget<DItem>(_choice(saved.id)).selected, isTrue);
-      expect(_appTheme(tester).brightness, Brightness.dark);
-      expect(_appTheme(tester).colorScheme.primary, const Color(0xff759aff));
+      expect(_checkmark(saved.id), findsNothing);
+      expect(find.byKey(const ValueKey('theme-shown-mode')), findsNothing);
+      expect(_appTheme(tester).brightness, Brightness.light);
+      expect(_appTheme(tester).colorScheme.primary, const Color(0xff39845b));
       expect(tester.takeException(), isNull);
     },
   );
@@ -558,11 +566,9 @@ void main() {
     await _tap(tester, find.byKey(const ValueKey('appearance-font-lato')));
     expect(_preferences(shell).font, ForumFont.lato);
     expect(_preferences(shell).source, ForumThemeSource.forum);
-    String? family() =>
-        Theme.of(tester.element(find.byType(ForumSettingsPage)))
-            .textTheme
-            .bodyMedium!
-            .fontFamily;
+    String? family() => Theme.of(
+      tester.element(find.byType(ForumSettingsPage)),
+    ).textTheme.bodyMedium!.fontFamily;
     expect(family(), 'Lato');
     await _source(tester, ForumThemeSource.preset);
     await _tap(tester, _choice('wcag'));
