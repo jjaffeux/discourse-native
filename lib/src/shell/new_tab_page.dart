@@ -116,6 +116,13 @@ class _NewTabPageState extends State<NewTabPage> {
     final topics = siteUrl == null
         ? <ContentRoute>[]
         : shell!.recentTopicsFor(siteUrl);
+    const chatDestination = SidebarDestination(
+      id: 'chat-channels',
+      label: 'Chat',
+      icon: DIcons.comments,
+    );
+    void openCategories() => openLink(context, '/categories');
+    void openChat() => shell!.selectDestination(chatDestination);
 
     return SingleChildScrollView(
       child: Align(
@@ -214,8 +221,7 @@ class _NewTabPageState extends State<NewTabPage> {
                                 child: _RecentSection(
                                   title: 'Categories',
                                   icon: DIcons.layerGroup,
-                                  onHeading: () =>
-                                      openLink(context, '/categories'),
+                                  onHeading: openCategories,
                                   headingUrl: '/categories',
                                   routes: categories,
                                   onRoute: (route) =>
@@ -228,19 +234,9 @@ class _NewTabPageState extends State<NewTabPage> {
                                 child: _RecentSection(
                                   title: 'Chat',
                                   icon: DIcons.comments,
-                                  onHeading: () => shell.selectDestination(
-                                    const SidebarDestination(
-                                      id: 'chat-channels',
-                                      label: 'Chat',
-                                      icon: DIcons.comments,
-                                    ),
-                                  ),
+                                  onHeading: openChat,
                                   headingContent: ContentRoute.fromDestination(
-                                    const SidebarDestination(
-                                      id: 'chat-channels',
-                                      label: 'Chat',
-                                      icon: DIcons.comments,
-                                    ),
+                                    chatDestination,
                                   ),
                                   routes: channels,
                                   onRoute: (route) =>
@@ -270,9 +266,35 @@ class _NewTabPageState extends State<NewTabPage> {
                     style: Theme.of(context).textTheme.titleLarge,
                   ),
                   Wrap(
+                    key: const ValueKey('start-page-shortcuts'),
                     spacing: DSpacing.sm,
                     runSpacing: DSpacing.sm,
                     children: [
+                      // A section with no history yet stays reachable here
+                      // instead of disappearing from the page.
+                      if (topics.isEmpty)
+                        _LinkButton(
+                          label: 'Latest topics',
+                          icon: DIcons.layerGroup,
+                          url: '/latest',
+                          onPressed: widget.onBrowseTopics,
+                        ),
+                      if (categories.isEmpty)
+                        _LinkButton(
+                          label: 'Categories',
+                          icon: DIcons.layerGroup,
+                          url: '/categories',
+                          onPressed: openCategories,
+                        ),
+                      if (hasChat && channels.isEmpty)
+                        _LinkButton(
+                          label: 'Chat',
+                          icon: DIcons.comments,
+                          content: ContentRoute.fromDestination(
+                            chatDestination,
+                          ),
+                          onPressed: openChat,
+                        ),
                       if (forum?.user != null)
                         _LinkButton(
                           label: 'Messages',
@@ -431,11 +453,13 @@ class _LinkButton extends StatelessWidget {
     required this.icon,
     required this.onPressed,
     this.url,
+    this.content,
   });
   final String label;
   final DIconData icon;
   final VoidCallback onPressed;
   final String? url;
+  final ContentRoute? content;
 
   @override
   Widget build(BuildContext context) {
@@ -449,7 +473,11 @@ class _LinkButton extends StatelessWidget {
       label: Text(label),
       onPressed: onPressed,
     );
-    return url == null ? button : LinkTarget(url: url!, child: button);
+    if (url case final url?) return LinkTarget(url: url, child: button);
+    if (content case final content?) {
+      return LinkTarget.content(content: content, child: button);
+    }
+    return button;
   }
 }
 
