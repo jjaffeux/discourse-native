@@ -512,11 +512,12 @@ class _TopicListViewState extends State<TopicListView> {
     if (keyboard) FocusManager.instance.primaryFocus?.unfocus();
     final controller = _controller!;
     if (keyboard && controller.readingTopicId == topic.id) return;
-    if (widget.inbox) {
-      controller.openTopicFromList(topic, revealInList: keyboard);
-    } else {
-      controller.openTopic(topic);
-    }
+    handleTabOpenResult(
+      context,
+      widget.inbox
+          ? controller.openTopicFromList(topic, revealInList: keyboard)
+          : controller.openTopic(topic),
+    );
   }
 
   bool _openSelection() {
@@ -1205,7 +1206,9 @@ class TopicListRow extends StatelessWidget {
         showCategoryBreadcrumb: showCategoryBreadcrumb,
         siteUrl: siteUrl,
         forum: owningForum,
-        onTap: onTap ?? () => controller.openTopic(topic),
+        onTap:
+            onTap ??
+            () => handleTabOpenResult(context, controller.openTopic(topic)),
         titleStyle: titleStyle,
         showViews: showViews,
         onSort: onSort,

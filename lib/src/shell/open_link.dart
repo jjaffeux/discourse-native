@@ -1,9 +1,9 @@
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
 import '../models/content_route.dart';
 import '../models/forum_workspace.dart';
 import '../plugin_api/shell_extensions.dart';
-import '../ui/components/d_toast.dart';
 import 'external_link.dart';
 import 'shell_controller.dart';
 import 'shell_scope.dart';
@@ -30,7 +30,7 @@ Future<bool> openLink(
       panel: ForumPanel.secondary,
     );
     if (result != TabOpenResult.unsupported) {
-      return _handleTabResult(context, result);
+      return handleTabOpenResult(context, result);
     }
   }
 
@@ -51,7 +51,7 @@ Future<bool> openLink(
   return openExternalLink(target);
 }
 
-bool _handleTabResult(BuildContext context, TabOpenResult result) {
+bool handleTabOpenResult(BuildContext context, TabOpenResult result) {
   if (result == TabOpenResult.limitReached) {
     DToast.show(context, 'Close a tab before opening another.');
   }
@@ -86,7 +86,7 @@ class LinkTarget extends StatelessWidget {
     behavior: HitTestBehavior.opaque,
     excludeFromSemantics: true,
     onTertiaryTapUp: content != null
-        ? (_) => _handleTabResult(
+        ? (_) => handleTabOpenResult(
             context,
             ShellScope.read(context).openContentInNewTab(
               content!,

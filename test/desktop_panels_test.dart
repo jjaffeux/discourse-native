@@ -147,6 +147,38 @@ void main() {
     expect(shell.currentWorkspace, workspace);
   });
 
+  testWidgets(
+    'topic row explains the tab limit and opens after closing a tab',
+    (tester) async {
+      final main = shell.activeTabId!;
+      while (shell.canCreateTab) {
+        shell.createTab(panel: ForumPanel.secondary);
+      }
+      final extraTab = shell.activeTabId!;
+      shell.selectTab(main);
+      await _pump(tester, shell);
+      final workspace = shell.currentWorkspace;
+      final row = find.byKey(const ValueKey('topic-card-42')).first;
+
+      await tester.tap(row, kind: PointerDeviceKind.mouse);
+      await tester.pumpAndSettle();
+
+      expect(shell.currentWorkspace, workspace);
+      expect(find.text('Close a tab before opening another.'), findsOneWidget);
+
+      shell.closeTab(extraTab);
+      await tester.pumpAndSettle();
+      await tester.tap(row, kind: PointerDeviceKind.mouse);
+      await tester.pumpAndSettle();
+      expect(
+        shell.selectedTabIn(ForumPanel.secondary)?.currentContent.topicId,
+        42,
+      );
+      expect(find.text('Content for 42', findRichText: true), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   test('both visible topics stay subscribed when either panel is focused', () {
     shell.openTopic(_topic);
     final first = shell.activeTabId!;
@@ -301,6 +333,32 @@ void main() {
     expect(find.byType(TopicListView), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
+
+  for (final pressDuration in [1, 50, 250]) {
+    testWidgets(
+      'topic click survives panel activation after $pressDuration ms',
+      (tester) async {
+        shell.openTopic(_topic);
+        await _pump(tester, shell);
+        final row = find.byKey(const ValueKey('topic-card-43'));
+        final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+        await mouse.addPointer(location: const Offset(1190, 840));
+        addTearDown(mouse.removePointer);
+        await mouse.moveTo(tester.getCenter(row));
+        await tester.pump(const Duration(milliseconds: 40));
+        await mouse.down(tester.getCenter(row));
+        await tester.pump(Duration(milliseconds: pressDuration));
+        await mouse.up();
+        await tester.pumpAndSettle();
+        expect(
+          shell.selectedTabIn(ForumPanel.secondary)?.currentContent.topicId,
+          43,
+        );
+        expect(find.text('Content for 43', findRichText: true), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
 
   testWidgets('a lone tab can be dragged to an empty panel and back', (
     tester,
@@ -631,7 +689,7 @@ Future<void> _pump(
         home: Directionality(
           textDirection: direction,
           child: const TopicPresentationPreferences(
-            child: Scaffold(body: DesktopPanels()),
+            child: DToaster(child: Scaffold(body: DesktopPanels())),
           ),
         ),
       ),
