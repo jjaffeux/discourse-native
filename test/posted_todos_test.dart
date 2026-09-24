@@ -793,4 +793,46 @@ void main() {
       expect(tester.takeException(), isNull);
     });
   }
+
+  testWidgets('post-body wrapper keeps an editable checklist interactive', (
+    tester,
+  ) async {
+    final api = ChecklistApi()..writeGates.add(Completer<void>());
+    final shell = await shellFor(api);
+    addTearDown(shell.dispose);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light,
+        home: ShellScope(
+          controller: shell,
+          child: Scaffold(
+            body: ValueListenableBuilder<Post?>(
+              valueListenable: shell.store.ref<Post>(site, 22),
+              builder: (context, current, _) => CookedHtml(
+                html: '<div class="post-body">${current!.cooked}</div>',
+                post: current,
+                siteUrl: site,
+                containingTopic: const PluginContainingTopic(
+                  id: 7,
+                  slug: 'topic',
+                  archived: false,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      tester.widget<DCheckbox>(find.byType(DCheckbox).first).readOnly,
+      false,
+    );
+    await tester.tap(find.byType(DCheckbox).first);
+    await tester.pumpAndSettle();
+    expect(tester.widget<DCheckbox>(find.byType(DCheckbox).first).value, true);
+    expect(api.calls, hasLength(1));
+    api.writeGates.single.complete();
+    await tester.pumpAndSettle();
+  });
 }
