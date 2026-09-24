@@ -539,13 +539,13 @@ void main() {
       await tester.tapAt(tester.getTopLeft(opacity) + const Offset(1, 13));
       await tester.pumpAndSettle();
       expect(find.text('70%'), findsOneWidget);
-      await _tap(tester, find.text('Noise'));
+      await _tap(tester, find.text('Paper'));
       expect(slider('intensity').onChanged, isNotNull);
 
       final effects = shell.forumSettings.shared.effects;
       expect(effects.strength, 1);
       expect(effects.transparency, .3);
-      expect(effects.effect, ForumBackgroundEffect.noise);
+      expect(effects.effect, ForumBackgroundEffect.paper);
       expect(
         _appTheme(tester).extension<ForumThemeEffects>()!.background,
         effects,

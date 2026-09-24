@@ -201,7 +201,7 @@ void main() {
     const darkBackground = ForumBackground(
       color: Color(0xffaa88dd),
       strength: .7,
-      effect: ForumBackgroundEffect.noise,
+      effect: ForumBackgroundEffect.paper,
     );
     final paired = ForumTheme.fromJson({
       ...source.toJson(),
@@ -310,7 +310,7 @@ void main() {
       font: ForumFont.lato,
       effects: ForumBackground.appearance(
         strength: .4,
-        effect: ForumBackgroundEffect.noise,
+        effect: ForumBackgroundEffect.paper,
         transparency: .2,
       ),
     );
@@ -404,15 +404,15 @@ void main() {
       return (shared, persistence);
     }
 
-    const noise = ForumBackground.appearance(
+    const paper = ForumBackground.appearance(
       strength: .5,
-      effect: ForumBackgroundEffect.noise,
+      effect: ForumBackgroundEffect.paper,
       transparency: .1,
     );
     final themed = ForumTheme.fromJson({
       ...custom.toJson(),
-      'background': noise.toJson(),
-    }, id: 'custom-noise');
+      'background': paper.toJson(),
+    }, id: 'custom-paper');
 
     test('adopts the first font and the first theme effects in forum order, '
         'and stores them', () async {
@@ -435,7 +435,7 @@ void main() {
       );
       expect(
         shared,
-        const SharedAppearance(font: ForumFont.openSans, effects: noise),
+        const SharedAppearance(font: ForumFont.openSans, effects: paper),
       );
       expect(
         SharedAppearance.fromJson(
@@ -490,7 +490,7 @@ void main() {
     );
     const effects = ForumBackground.appearance(
       strength: 1,
-      effect: ForumBackgroundEffect.noise,
+      effect: ForumBackgroundEffect.paper,
       transparency: .2,
     );
 
@@ -919,7 +919,7 @@ void main() {
         };
         const background = ForumBackground.appearance(
           strength: .5,
-          effect: ForumBackgroundEffect.noise,
+          effect: ForumBackgroundEffect.paper,
         );
         final existing = custom.copyWith(id: 'custom-mine', name: 'My theme');
         final preferences = ForumThemePreferences.fromJson(

@@ -2,7 +2,7 @@ import 'dart:ui';
 
 import 'package:flutter/foundation.dart';
 
-enum ForumBackgroundEffect { normal, lava, noise, gradient }
+enum ForumBackgroundEffect { normal, lava, paper, gradient }
 
 /// Portable background color and window effects for a custom forum theme.
 @immutable
@@ -49,8 +49,10 @@ class ForumBackground {
     final transparency = value.containsKey('transparency')
         ? value['transparency']
         : defaultTransparency;
+    // Paper was called noise before; stored and shared themes keep that name.
+    final effectName = value['effect'] == 'noise' ? 'paper' : value['effect'];
     final effect = ForumBackgroundEffect.values
-        .where((effect) => effect.name == value['effect'])
+        .where((effect) => effect.name == effectName)
         .firstOrNull;
     if (color is! String ||
         !RegExp(r'^#[a-fA-F0-9]{6}$').hasMatch(color) ||

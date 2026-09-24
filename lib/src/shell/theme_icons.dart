@@ -21,8 +21,8 @@ abstract final class ThemeIcons {
     'theme-texture',
     '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="currentColor"><path d="M64 96c0-17.7 14.3-32 32-32l160 0c17.7 0 32 14.3 32 32l0 288 96 0 0-128c0-17.7 14.3-32 32-32l64 0c17.7 0 32 14.3 32 32s-14.3 32-32 32l-32 0 0 128c0 17.7-14.3 32-32 32l-160 0c-17.7 0-32-14.3-32-32l0-288-96 0 0 128c0 17.7-14.3 32-32 32l-64 0c-17.7 0-32-14.3-32-32s14.3-32 32-32l32 0 0-128z"/></svg>',
   );
-  static const noise = DIconData(
-    'theme-noise',
+  static const paper = DIconData(
+    'theme-paper',
     '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><circle cx="9.4" cy="4.2" r="0.72"/><circle cx="12" cy="4.2" r="0.72"/><circle cx="14.6" cy="4.2" r="0.72"/><circle cx="6.8" cy="6.8" r="0.72"/><circle cx="9.4" cy="6.8" r="0.72"/><circle cx="12" cy="6.8" r="0.72"/><circle cx="14.6" cy="6.8" r="0.72"/><circle cx="17.2" cy="6.8" r="0.72"/><circle cx="4.2" cy="9.4" r="0.72"/><circle cx="6.8" cy="9.4" r="0.72"/><circle cx="9.4" cy="9.4" r="0.72"/><circle cx="12" cy="9.4" r="0.72"/><circle cx="14.6" cy="9.4" r="0.72"/><circle cx="17.2" cy="9.4" r="0.72"/><circle cx="19.8" cy="9.4" r="0.72"/><circle cx="4.2" cy="12" r="0.72"/><circle cx="6.8" cy="12" r="0.72"/><circle cx="9.4" cy="12" r="0.72"/><circle cx="12" cy="12" r="0.72"/><circle cx="14.6" cy="12" r="0.72"/><circle cx="17.2" cy="12" r="0.72"/><circle cx="19.8" cy="12" r="0.72"/><circle cx="4.2" cy="14.6" r="0.72"/><circle cx="6.8" cy="14.6" r="0.72"/><circle cx="9.4" cy="14.6" r="0.72"/><circle cx="12" cy="14.6" r="0.72"/><circle cx="14.6" cy="14.6" r="0.72"/><circle cx="17.2" cy="14.6" r="0.72"/><circle cx="19.8" cy="14.6" r="0.72"/><circle cx="6.8" cy="17.2" r="0.72"/><circle cx="9.4" cy="17.2" r="0.72"/><circle cx="12" cy="17.2" r="0.72"/><circle cx="14.6" cy="17.2" r="0.72"/><circle cx="17.2" cy="17.2" r="0.72"/><circle cx="9.4" cy="19.8" r="0.72"/><circle cx="12" cy="19.8" r="0.72"/><circle cx="14.6" cy="19.8" r="0.72"/></svg>',
   );
   static const lava = DIconData(

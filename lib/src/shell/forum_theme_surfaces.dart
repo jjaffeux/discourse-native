@@ -96,7 +96,7 @@ class _ForumWindowBackgroundState extends State<ForumWindowBackground>
         context.dependOnInheritedWidgetOfExactType<_ForumCanvas>() == null;
     if (ownsCanvas &&
         background?.useAccentTint != true &&
-        background?.effect == ForumBackgroundEffect.noise &&
+        background?.effect == ForumBackgroundEffect.paper &&
         background!.noiseIntensity > 0) {
       _grain ??= _GrainTexture();
     }
@@ -141,7 +141,7 @@ class _ForumWindowBackgroundState extends State<ForumWindowBackground>
         reference && background?.effect == ForumBackgroundEffect.gradient;
     final tokens = DTokens.of(context);
     final paintEffect = switch (background?.effect) {
-      ForumBackgroundEffect.noise =>
+      ForumBackgroundEffect.paper =>
         background!.strength > 0 || background.noiseIntensity > 0,
       ForumBackgroundEffect.lava ||
       ForumBackgroundEffect.gradient => background!.strength > 0,
@@ -249,8 +249,8 @@ class _BackgroundPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     canvas.save();
     canvas.clipRect(Offset.zero & size);
-    if (background.effect == ForumBackgroundEffect.noise) {
-      _paintNoise(canvas, size);
+    if (background.effect == ForumBackgroundEffect.paper) {
+      _paintPaper(canvas, size);
     } else {
       final phase = motion.value * math.pi * 2;
       final base = HSLColor.fromColor(background.color);
@@ -282,7 +282,7 @@ class _BackgroundPainter extends CustomPainter {
     canvas.restore();
   }
 
-  void _paintNoise(Canvas canvas, Size size) {
+  void _paintPaper(Canvas canvas, Size size) {
     final rect = Offset.zero & size;
     final base = HSLColor.fromColor(background.color);
     Color shade(double lightness) => base

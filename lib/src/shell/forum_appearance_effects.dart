@@ -84,9 +84,9 @@ class ForumAppearanceEffects extends StatelessWidget {
                     child: Text('None'),
                   ),
                   DToggleGroupItem(
-                    value: ForumBackgroundEffect.noise,
-                    icon: ThemeIcon(ThemeIcons.noise),
-                    child: Text('Noise'),
+                    value: ForumBackgroundEffect.paper,
+                    icon: ThemeIcon(ThemeIcons.paper),
+                    child: Text('Paper'),
                   ),
                   DToggleGroupItem(
                     value: ForumBackgroundEffect.lava,
