@@ -105,7 +105,8 @@ class RecentDestinationsStore {
       _RecentKind.topic => entry.topics,
     };
     if (routes.isNotEmpty && routes.first == route) return false;
-    routes.removeWhere((item) => item.id == route.id);
+    final identity = _identityOf(route);
+    routes.removeWhere((item) => _identityOf(item) == identity);
     routes.insert(0, route);
     if (routes.length > _limit) routes.removeLast();
     return true;
@@ -171,6 +172,24 @@ _RecentKind? _kindOf(ContentRoute route) => switch (route) {
   _ => null,
 };
 
+/// The sidebar opens a category as `category-12` and a link opens it as
+/// `list-/c/slug/12`; both are one visit, so a category is keyed by its id.
+String _identityOf(ContentRoute route) {
+  if (route.id.startsWith('category-')) {
+    final id = int.tryParse(route.id.substring('category-'.length));
+    if (id != null) return 'category:$id';
+  }
+  if (route.id.startsWith('list-/c/')) {
+    final segments = Uri.tryParse(route.feedPath ?? '')?.pathSegments;
+    final last = segments == null || segments.isEmpty ? null : segments.last;
+    final id = last != null && last.endsWith('.json')
+        ? int.tryParse(last.substring(0, last.length - '.json'.length))
+        : null;
+    if (id != null && id > 0) return 'category:$id';
+  }
+  return route.id;
+}
+
 final class _RecentDestinations {
   _RecentDestinations(this.siteUrl, this.accountIdentity);
 
@@ -206,7 +225,9 @@ final class _RecentDestinations {
         try {
           if (item is! Map) continue;
           final route = ContentRoute.fromJson(Map<String, dynamic>.from(item));
-          if (_kindOf(route) != kind || target.any((r) => r.id == route.id)) {
+          final identity = _identityOf(route);
+          if (_kindOf(route) != kind ||
+              target.any((r) => _identityOf(r) == identity)) {
             continue;
           }
           target.add(route);
