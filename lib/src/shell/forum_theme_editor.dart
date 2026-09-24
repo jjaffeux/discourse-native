@@ -174,16 +174,36 @@ class _ForumThemeEditorState extends State<ForumThemeEditor> {
                   background.copyWith(transparency: (1 - v) * .3),
                 ),
               ),
+              DToggleGroup<bool>(
+                key: const ValueKey('theme-sidebar'),
+                values: [palette.darkerSidebars],
+                allowEmptySelection: false,
+                inset: true,
+                expanded: true,
+                semanticLabel: 'Sidebar',
+                items: const [
+                  DToggleGroupItem(
+                    value: false,
+                    icon: ThemeIcon(
+                      ThemeIcons.neutralSidebar,
+                      matchTextDirection: true,
+                    ),
+                    child: Text('Neutral sidebar'),
+                  ),
+                  DToggleGroupItem(
+                    value: true,
+                    icon: ThemeIcon(
+                      ThemeIcons.darkerSidebar,
+                      matchTextDirection: true,
+                    ),
+                    child: Text('Darker sidebar'),
+                  ),
+                ],
+                onChanged: (values) =>
+                    _palette = palette.copyWith(darkerSidebars: values.single),
+              ),
             ],
           ),
-        ),
-        DSwitchTile(
-          key: const ValueKey('custom-theme-darker-sidebars'),
-          title: const Text('Darker sidebars'),
-          size: DSwitchSize.preference,
-          value: palette.darkerSidebars,
-          onChanged: (value) =>
-              _palette = palette.copyWith(darkerSidebars: value),
         ),
         SettingsSection(
           title: 'Texture',

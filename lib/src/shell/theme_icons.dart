@@ -37,16 +37,44 @@ abstract final class ThemeIcons {
     'theme-gradient',
     '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><rect x="5" y="5" width="14" height="3" rx="1"/><rect x="5" y="9" width="14" height="3" rx="1" opacity=".7"/><rect x="5" y="13" width="14" height="3" rx="1" opacity=".4"/><rect x="5" y="17" width="14" height="3" rx="1" opacity=".15"/></svg>',
   );
+
+  /// A window whose leading pane is drawn left-to-right; pair with
+  /// [ThemeIcon.matchTextDirection] so the pane follows the sidebar in RTL.
+  static const neutralSidebar = DIconData(
+    'theme-neutral-sidebar',
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"><rect x="3.5" y="5" width="17" height="14" rx="2.5" stroke="currentColor" stroke-width="2"/><path d="M9.5 5v14" stroke="currentColor" stroke-width="2"/></svg>',
+  );
+  static const darkerSidebar = DIconData(
+    'theme-darker-sidebar',
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"><path d="M2.5 7.5A3.5 3.5 0 0 1 6 4h4.5v16H6a3.5 3.5 0 0 1-3.5-3.5z" fill="currentColor"/><rect x="3.5" y="5" width="17" height="14" rx="2.5" stroke="currentColor" stroke-width="2"/></svg>',
+  );
 }
 
 class ThemeIcon extends StatelessWidget {
-  const ThemeIcon(this.icon, {super.key, this.size, this.color});
+  const ThemeIcon(
+    this.icon, {
+    super.key,
+    this.size,
+    this.color,
+    this.matchTextDirection = false,
+  });
   final DIconData icon;
   final double? size;
   final Color? color;
+
+  /// Mirrors the artwork in right-to-left text, for glyphs that picture the
+  /// app's leading edge.
+  final bool matchTextDirection;
   @override
-  Widget build(BuildContext context) => DIconGlyphTheme(
-    scale: 1,
-    child: DIcon(icon, size: size, color: color),
-  );
+  Widget build(BuildContext context) {
+    final glyph = DIconGlyphTheme(
+      scale: 1,
+      child: DIcon(icon, size: size, color: color),
+    );
+    if (!matchTextDirection ||
+        Directionality.of(context) == TextDirection.ltr) {
+      return glyph;
+    }
+    return Transform.flip(flipX: true, child: glyph);
+  }
 }

@@ -41,7 +41,7 @@ void main() {
         'appearance-theme-select',
         'theme-tint',
         'theme-texture',
-        'custom-theme-darker-sidebars',
+        'theme-sidebar',
       ]) {
         expect(find.byKey(ValueKey(control)), findsNothing, reason: control);
       }

@@ -6,6 +6,7 @@ import 'package:discourse_native/src/models/forum_theme.dart';
 import 'package:discourse_native/src/models/forum_theme_preferences.dart';
 import 'package:discourse_native/src/models/forum_theme_presets.dart';
 import 'package:discourse_native/src/shell/forum_settings_page.dart';
+import 'package:discourse_native/src/shell/settings_section.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
@@ -462,14 +463,27 @@ void main() {
       await pumpSettings(tester, shell);
       await _tap(tester, find.byKey(ValueKey(('edit-theme', second.id))));
 
-      await _tap(
-        tester,
-        find.byKey(const ValueKey('custom-theme-darker-sidebars')),
-      );
+      final sidebar = find.byKey(const ValueKey('theme-sidebar'));
       expect(
-        _appTheme(tester).extension<ForumThemeEffects>()?.sidebarTheme,
-        isNotNull,
+        find.descendant(
+          of: find.byWidgetPredicate(
+            (widget) =>
+                widget is SettingsSection && widget.title == 'Background',
+          ),
+          matching: sidebar,
+        ),
+        findsOneWidget,
       );
+      expect(tester.widget<DToggleGroup<bool>>(sidebar).values, [false]);
+      Object? sidebarTheme() =>
+          _appTheme(tester).extension<ForumThemeEffects>()?.sidebarTheme;
+      await _tap(tester, find.text('Darker sidebar'));
+      expect(tester.widget<DToggleGroup<bool>>(sidebar).values, [true]);
+      expect(sidebarTheme(), isNotNull);
+      await _tap(tester, find.text('Neutral sidebar'));
+      expect(sidebarTheme(), isNull);
+      await _tap(tester, find.text('Darker sidebar'));
+      expect(sidebarTheme(), isNotNull);
       await _tap(tester, find.text('Noise'));
       expect(
         _appTheme(tester).extension<ForumThemeEffects>()!.background!.effect,
