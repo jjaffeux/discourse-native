@@ -571,7 +571,9 @@ forums follow the system. Aggregate and the app-wide Settings modal follow the
 system appearance independently.
 
 Only a forum's colours, and whether it shows them light or dark, are its own.
-The page's **Font** and **Effects** (**Tint**, **Opacity**, **Texture** and its
+The **Font** is an app setting, chosen in the Settings modal below **Text
+size** from samples drawn in each face, so it is never mistaken for part of a
+theme. The page's **Effects** (**Tint**, **Opacity**, **Texture** and its
 **Intensity**) are marked *All forums* and apply to every forum, so moving
 between forums never changes the reading font or the window's opacity, and the
 effects are found without making a theme. Effects are drawn over whichever
