@@ -43,7 +43,10 @@ class ShellTitleBar extends StatelessWidget {
   Widget build(BuildContext context) {
     if (!showControls && !_hasWindowChrome) return const SizedBox.shrink();
 
-    final surface = Theme.of(context).scaffoldBackgroundColor;
+    final surface = ForumWindowBackground.chromeColor(
+      context,
+      Theme.of(context).scaffoldBackgroundColor,
+    );
 
     return SafeArea(
       bottom: false,

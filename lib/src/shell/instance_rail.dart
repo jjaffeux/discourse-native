@@ -55,7 +55,7 @@ class InstanceRail extends StatelessWidget {
                 ? Colors.transparent
                 : ForumWindowBackground.surfaceColor(
                     context,
-                    _railBackground(theme),
+                    _railSurface(context),
                   ),
             child: SafeArea(
               right: false,
@@ -157,6 +157,14 @@ class InstanceRail extends StatelessWidget {
 Color _railBackground(ThemeData theme) => usesMobileNavigation(theme.platform)
     ? theme.shell.content
     : theme.shell.rail;
+
+Color _railSurface(BuildContext context) {
+  final theme = Theme.of(context);
+  final fallback = _railBackground(theme);
+  return usesMobileNavigation(theme.platform)
+      ? fallback
+      : ForumWindowBackground.chromeColor(context, fallback);
+}
 
 const double _railListPadding = 8;
 const double _railItemExtent = 44;
@@ -1154,7 +1162,7 @@ class _DiagnosticsButton extends StatelessWidget {
                             color: theme.colorScheme.error,
                             shape: BoxShape.circle,
                             border: Border.all(
-                              color: _railBackground(theme),
+                              color: _railSurface(context),
                               width: 2,
                             ),
                           ),
@@ -1259,7 +1267,7 @@ class _UpdateButton extends StatelessWidget {
                         right: -2,
                         bottom: -2,
                         child: DNotificationDot.overlay(
-                          ringColor: _railBackground(theme),
+                          ringColor: _railSurface(context),
                         ),
                       ),
                   ],
@@ -1297,7 +1305,7 @@ class _RailDragFeedback extends StatelessWidget {
       theme.scaffoldBackgroundColor,
       theme.brightness,
     );
-    final railSurface = Color.alphaBlend(_railBackground(theme), scaffold);
+    final railSurface = Color.alphaBlend(_railSurface(context), scaffold);
     final foreground = contrastSafeForeground(
       background: background,
       backdrop: railSurface,
@@ -1365,7 +1373,7 @@ class _RailItemState extends State<_RailItem> {
       theme.scaffoldBackgroundColor,
       theme.brightness,
     );
-    final railSurface = Color.alphaBlend(_railBackground(theme), scaffold);
+    final railSurface = Color.alphaBlend(_railSurface(context), scaffold);
     final avatarForeground = contrastSafeForeground(
       background: avatarBackground,
       backdrop: railSurface,
@@ -1717,7 +1725,7 @@ class _CountBadge extends StatelessWidget {
       decoration: BoxDecoration(
         color: background,
         borderRadius: BorderRadius.circular(9),
-        border: Border.all(color: _railBackground(theme), width: 2),
+        border: Border.all(color: _railSurface(context), width: 2),
       ),
       child: Text(
         count > 99 ? '99+' : '$count',
