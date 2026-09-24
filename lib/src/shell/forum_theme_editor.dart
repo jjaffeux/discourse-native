@@ -3,114 +3,112 @@ import 'package:flutter/material.dart';
 
 import '../models/forum_background.dart';
 import '../models/forum_theme.dart';
-import 'forum_theme_clipboard.dart';
-import 'forum_theme_picker.dart';
-import 'forum_theme_save_dialog.dart';
+import '../theme/app_theme.dart';
+import 'forum_theme_preview.dart';
 import 'settings_section.dart';
 import 'theme_icons.dart';
 
-/// Controlled, live theme fields. Light and dark retain separate raw palettes;
-/// tint, opacity and texture are shared window preferences.
+/// Edits a draft of one of the user's own themes; nothing applies until Save.
+/// Light and dark keep separate palettes and share one window background.
 class ForumThemeEditor extends StatefulWidget {
   const ForumThemeEditor({
     super.key,
-    required this.palettes,
-    required this.background,
+    required this.theme,
     required this.brightness,
-    required this.customThemes,
-    required this.onChanged,
-    required this.onPresetSelected,
+    required this.sources,
     required this.onSave,
-    required this.onBackgroundChanged,
-    required this.onBrightnessChanged,
-    this.onDelete,
-    this.onForumDefault,
-    this.isForumDefault = false,
-    this.forumPalettes = const {},
+    required this.onCancel,
+    this.fontFamily,
   });
 
-  final Map<Brightness, ForumTheme> palettes;
-  final ForumBackground background;
+  /// The theme as it was saved, or the starting point of a new one.
+  final ForumTheme theme;
+
+  /// The mode edited first.
   final Brightness brightness;
-  final List<ForumTheme> customThemes;
-  final Map<Brightness, ForumTheme> forumPalettes;
-  final ValueChanged<ForumTheme> onChanged;
-  final ValueChanged<ForumTheme> onPresetSelected;
+
+  /// The Theme section's choice of source, shown above the draft.
+  final Widget sources;
   final Future<void> Function(ForumTheme) onSave;
-  final ValueChanged<ForumBackground> onBackgroundChanged;
-  final ValueChanged<Brightness> onBrightnessChanged;
-  final ValueChanged<String>? onDelete;
-  final VoidCallback? onForumDefault;
-  final bool isForumDefault;
+  final VoidCallback onCancel;
+  final String? fontFamily;
 
   @override
   State<ForumThemeEditor> createState() => _ForumThemeEditorState();
 }
 
 class _ForumThemeEditorState extends State<ForumThemeEditor> {
-  ForumTheme get _palette => widget.palettes[widget.brightness]!;
+  late final _name = TextEditingController(text: widget.theme.name);
+  late final _palettes = {
+    for (final mode in Brightness.values)
+      mode: widget.theme.forBrightness(mode),
+  };
+  late var _background = _editable(
+    widget.theme.background ?? widget.theme.alternate?.background,
+  );
+  late var _brightness = widget.brightness;
+  bool _saving = false;
+  String? _error;
 
-  ForumTheme _portable(String name) => ForumTheme.fromJson({
-    ...widget.palettes[Brightness.light]!.toJson(),
-    'name': name,
-    'background': widget.background.toJson(),
-    'alternate': {
-      ...widget.palettes[Brightness.dark]!.toJson(),
-      'name': name,
-      'background': widget.background.toJson(),
-    },
-  }, id: 'custom-${DateTime.now().microsecondsSinceEpoch}');
+  @override
+  void dispose() {
+    _name.dispose();
+    super.dispose();
+  }
 
-  Future<void> _save() async {
-    final snapshot = _portable('My theme');
-    await showDDialog<void>(
-      context: context,
-      builder: (context, controller) => ForumThemeSaveDialog(
-        controller: controller,
-        onSave: (name) => widget.onSave(
-          ForumTheme.fromJson({
-            ...snapshot.toJson(),
-            'name': name,
-            'alternate': {...snapshot.alternate!.toJson(), 'name': name},
-          }, id: snapshot.id),
-        ),
-      ),
+  /// Older shared themes chose their own tint colour; this editor's tint is
+  /// the accent, at the strength the old tint reached.
+  static ForumBackground _editable(ForumBackground? background) {
+    if (background == null) return const ForumBackground.appearance();
+    if (background.useAccentTint) return background;
+    return ForumBackground.appearance(
+      strength: (background.strength * .45 / .22).clamp(0, 1),
+      effect: background.effect,
+      noiseIntensity: background.noiseIntensity,
+      transparency: background.transparency,
     );
   }
 
-  Future<void> _delete(ForumTheme theme) async {
-    final confirmed = await showDAlertDialog<bool>(
-      context: context,
-      builder: (context, close) => DAlertDialogContent(
-        semanticLabel: 'Delete theme',
-        children: [
-          DAlertDialogHeader(
-            title: Text('Delete “${theme.name}”?'),
-            description: const Text(
-              'This removes the theme from your saved themes. '
-              'Your current appearance will stay as it is.',
-            ),
-          ),
-          const DAlertDialogFooter(
-            children: [
-              DAlertDialogCancel<bool>(label: Text('Cancel'), result: false),
-              DAlertDialogAction<bool>(
-                label: Text('Delete'),
-                result: true,
-                variant: DButtonVariant.destructive,
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-    if (confirmed == true && mounted) widget.onDelete?.call(theme.id);
+  ForumTheme get _palette => _palettes[_brightness]!;
+
+  set _palette(ForumTheme value) =>
+      setState(() => _palettes[_brightness] = value);
+
+  void _changeBackground(ForumBackground value) =>
+      setState(() => _background = value);
+
+  ForumTheme _theme(String name) {
+    Map<String, dynamic> part(Brightness mode) => {
+      ..._palettes[mode]!.toJson(),
+      'name': name,
+      'background': _background.toJson(),
+    };
+    return ForumTheme.fromJson({
+      ...part(Brightness.light),
+      'alternate': part(Brightness.dark),
+    }, id: widget.theme.id);
+  }
+
+  Future<void> _save() async {
+    final name = _name.text.trim();
+    if (_saving || name.isEmpty) return;
+    setState(() {
+      _saving = true;
+      _error = null;
+    });
+    try {
+      await widget.onSave(_theme(name));
+    } catch (_) {
+      if (mounted) setState(() => _error = 'Could not save theme. Try again.');
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final palette = _palette;
-    final background = widget.background;
+    final background = _background;
     final textureEnabled = background.effect != ForumBackgroundEffect.normal;
     final tokens = DTokens.of(context);
     return Column(
@@ -118,17 +116,49 @@ class _ForumThemeEditorState extends State<ForumThemeEditor> {
       spacing: 18,
       children: [
         SettingsSection(
-          title: 'Preset',
+          title: 'Theme',
           icon: const ThemeIcon(ThemeIcons.preset),
-          child: ForumThemePicker(
-            key: const ValueKey('theme-preset'),
-            palette: palette,
-            isForumDefault: widget.isForumDefault,
-            onForumDefault: widget.onForumDefault,
-            forumPalette: widget.forumPalettes[widget.brightness],
-            customThemes: widget.customThemes,
-            onChanged: widget.onPresetSelected,
-            onDelete: widget.onDelete == null ? null : _delete,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            spacing: 16,
+            children: [
+              widget.sources,
+              DInput(
+                key: const ValueKey('theme-name'),
+                controller: _name,
+                labelText: 'Name',
+                maxLength: 48,
+                readOnly: _saving,
+                onChanged: (_) => setState(() {}),
+              ),
+              DField(
+                children: [
+                  Row(
+                    spacing: DSpacing.sm,
+                    children: [
+                      const Expanded(
+                        child: DFieldLabel(child: Text('Preview')),
+                      ),
+                      DBadge(
+                        variant: DBadgeVariant.outline,
+                        child: Text(
+                          _brightness == Brightness.dark ? 'Dark' : 'Light',
+                        ),
+                      ),
+                    ],
+                  ),
+                  ForumThemePreview(
+                    key: const ValueKey('theme-editor-preview'),
+                    theme: AppTheme.fromPalette(
+                      palette
+                          .copyWith(background: background)
+                          .resolve(_brightness),
+                      fontFamily: widget.fontFamily,
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ),
         ),
         SettingsSection(
@@ -149,9 +179,8 @@ class _ForumThemeEditorState extends State<ForumThemeEditor> {
                     .22,
                   ),
                 ),
-                onChanged: (v) => widget.onBackgroundChanged(
-                  background.copyWith(strength: v),
-                ),
+                onChanged: (v) =>
+                    _changeBackground(background.copyWith(strength: v)),
               ),
               _RampField(
                 label: 'Opacity',
@@ -162,7 +191,7 @@ class _ForumThemeEditorState extends State<ForumThemeEditor> {
                   endColor: palette.secondary,
                   pattern: DSliderRampPattern.checkerboard,
                 ),
-                onChanged: (v) => widget.onBackgroundChanged(
+                onChanged: (v) => _changeBackground(
                   background.copyWith(transparency: (1 - v) * .3),
                 ),
               ),
@@ -175,7 +204,7 @@ class _ForumThemeEditorState extends State<ForumThemeEditor> {
           size: DSwitchSize.preference,
           value: palette.darkerSidebars,
           onChanged: (value) =>
-              widget.onChanged(palette.copyWith(darkerSidebars: value)),
+              _palette = palette.copyWith(darkerSidebars: value),
         ),
         SettingsSection(
           title: 'Texture',
@@ -214,7 +243,7 @@ class _ForumThemeEditorState extends State<ForumThemeEditor> {
                     child: Text('Gradient'),
                   ),
                 ],
-                onChanged: (values) => widget.onBackgroundChanged(
+                onChanged: (values) => _changeBackground(
                   background.copyWith(effect: values.single),
                 ),
               ),
@@ -226,7 +255,7 @@ class _ForumThemeEditorState extends State<ForumThemeEditor> {
                   pattern: DSliderRampPattern.wave,
                 ),
                 onChanged: textureEnabled
-                    ? (v) => widget.onBackgroundChanged(
+                    ? (v) => _changeBackground(
                         background.copyWith(noiseIntensity: v),
                       )
                     : null,
@@ -243,8 +272,8 @@ class _ForumThemeEditorState extends State<ForumThemeEditor> {
             children: [
               DTabs<Brightness>.controlled(
                 key: const ValueKey('appearance-theme-select'),
-                value: widget.brightness,
-                onActivated: widget.onBrightnessChanged,
+                value: _brightness,
+                onActivated: (value) => setState(() => _brightness = value),
                 children: const [
                   DTabList<Brightness>(
                     variant: DTabListVariant.line,
@@ -269,32 +298,32 @@ class _ForumThemeEditorState extends State<ForumThemeEditor> {
                     (
                       'Background',
                       palette.secondary,
-                      (c) => widget.onChanged(palette.copyWith(secondary: c)),
+                      (c) => _palette = palette.copyWith(secondary: c),
                     ),
                     (
                       'Text',
                       palette.primary,
-                      (c) => widget.onChanged(palette.copyWith(primary: c)),
+                      (c) => _palette = palette.copyWith(primary: c),
                     ),
                     (
                       'Accent',
                       palette.tertiary,
-                      (c) => widget.onChanged(palette.copyWith(tertiary: c)),
+                      (c) => _palette = palette.copyWith(tertiary: c),
                     ),
                     (
                       'Highlight',
                       palette.quaternary,
-                      (c) => widget.onChanged(palette.copyWith(quaternary: c)),
+                      (c) => _palette = palette.copyWith(quaternary: c),
                     ),
                     (
                       'Success',
                       palette.success,
-                      (c) => widget.onChanged(palette.copyWith(success: c)),
+                      (c) => _palette = palette.copyWith(success: c),
                     ),
                     (
                       'Attention',
                       palette.danger,
-                      (c) => widget.onChanged(palette.copyWith(danger: c)),
+                      (c) => _palette = palette.copyWith(danger: c),
                     ),
                   ];
                   return Wrap(
@@ -306,7 +335,7 @@ class _ForumThemeEditorState extends State<ForumThemeEditor> {
                           width:
                               (bounds.maxWidth - 14 * (columns - 1)) / columns,
                           child: _ColorField(
-                            key: ValueKey((widget.brightness, field.$1)),
+                            key: ValueKey((_brightness, field.$1)),
                             label: field.$1,
                             color: field.$2,
                             onChanged: field.$3,
@@ -319,15 +348,27 @@ class _ForumThemeEditorState extends State<ForumThemeEditor> {
             ],
           ),
         ),
+        if (_error case final error?)
+          DAlert(
+            variant: DAlertVariant.destructive,
+            description: DAlertDescription(child: Text(error)),
+          ),
         Wrap(
           spacing: DSpacing.controlGap,
           runSpacing: DSpacing.controlGap,
           children: [
-            DButton(label: const Text('Save theme'), onPressed: _save),
             DButton(
-              label: const Text('Copy theme'),
+              key: const ValueKey('theme-save'),
+              label: const Text('Save'),
+              loading: _saving,
+              loadingSemanticLabel: 'Saving theme',
+              onPressed: _name.text.trim().isEmpty ? null : _save,
+            ),
+            DButton(
+              key: const ValueKey('theme-cancel'),
+              label: const Text('Cancel'),
               variant: DButtonVariant.outline,
-              onPressed: () => copyForumTheme(context, _portable('My theme')),
+              onPressed: _saving ? null : widget.onCancel,
             ),
           ],
         ),

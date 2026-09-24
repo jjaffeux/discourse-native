@@ -79,10 +79,8 @@ class _ForumThemeOneboxState extends State<ForumThemeOnebox> {
   }
 
   bool _isApplied(ForumThemePreferences preferences) =>
-      preferences.useCustomTheme &&
-      preferences.palettes.isEmpty &&
-      preferences.background == null &&
-      ForumThemeShare.matches(preferences.selectedTheme, widget.theme);
+      preferences.source == ForumThemeSource.custom &&
+      ForumThemeShare.matches(preferences.customTheme, widget.theme);
 
   Future<void> _use(
     ForumSettingsController settings,
@@ -105,9 +103,9 @@ class _ForumThemeOneboxState extends State<ForumThemeOnebox> {
           await settings.setThemes(
             site,
             ForumThemePreferences(
-              selectedId: previous.selectedId,
-              palettes: previous.palettes,
-              background: previous.background,
+              source: previous.source,
+              presets: previous.presets,
+              customId: previous.customId,
               customThemes: current.customThemes,
               font: current.font,
             ),

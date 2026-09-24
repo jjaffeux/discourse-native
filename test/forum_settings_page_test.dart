@@ -1,45 +1,60 @@
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/app_settings.dart';
 import 'package:discourse_native/src/models/forum_font.dart';
+import 'package:discourse_native/src/models/forum_theme_preferences.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/theme_settings.dart';
 
 void main() {
-  testWidgets('default theme shows editing and palette tabs keep System mode', (
-    tester,
-  ) async {
-    final shell = controller();
-    addTearDown(shell.dispose);
-    await pumpSettings(tester, shell);
-    expect(find.byKey(const ValueKey('appearance-mode')), findsOneWidget);
-    expect(find.byKey(const ValueKey('theme-source')), findsNothing);
-    expect(find.text('Font'), findsOneWidget);
-    expect(
-      tester
-          .widget<DItem>(find.byKey(const ValueKey(('theme-preset', 'forum'))))
-          .selected,
-      isTrue,
-    );
-    expect(find.text('Reset to forum theme'), findsNothing);
-    expect(find.text('Follow system appearance'), findsNothing);
-    final tabs = find.byKey(const ValueKey('appearance-theme-select'));
-    expect(tabs, findsOneWidget);
-    expect(
-      tester.getTopLeft(find.byKey(const ValueKey('appearance-mode'))).dy,
-      lessThan(tester.getTopLeft(tabs).dy),
-    );
-    await tester.ensureVisible(tabs);
-    await tester.tap(find.descendant(of: tabs, matching: find.text('Dark')));
-    await tester.pumpAndSettle();
-    expect(
-      shell.forumSettings.themeModeFor('https://a.example'),
-      AppThemeMode.system,
-    );
-    expect(tester.widget<DTabs<Brightness>>(tabs).value, Brightness.dark);
-    expect(tester.takeException(), isNull);
-  });
+  testWidgets(
+    'the forum default shows its colours without editing controls and the '
+    'preview switch keeps System mode',
+    (tester) async {
+      final shell = controller();
+      addTearDown(shell.dispose);
+      await pumpSettings(tester, shell);
+      final sources = find.byKey(const ValueKey('theme-source'));
+      expect(find.byKey(const ValueKey('appearance-mode')), findsOneWidget);
+      expect(find.text('Font'), findsOneWidget);
+      expect(
+        tester.widget<DRadioGroup<ForumThemeSource>>(sources).groupValue,
+        ForumThemeSource.forum,
+      );
+      expect(find.byKey(const ValueKey('theme-preview')), findsOneWidget);
+      for (final control in [
+        'appearance-theme-select',
+        'theme-tint',
+        'theme-texture',
+        'custom-theme-darker-sidebars',
+      ]) {
+        expect(find.byKey(ValueKey(control)), findsNothing, reason: control);
+      }
+      expect(
+        tester.getTopLeft(find.byKey(const ValueKey('appearance-mode'))).dy,
+        lessThan(tester.getTopLeft(sources).dy),
+      );
+      final shown = find.byKey(const ValueKey('theme-preview-mode'));
+      await tester.ensureVisible(shown);
+      await tester.tap(find.descendant(of: shown, matching: find.text('Dark')));
+      await tester.pumpAndSettle();
+      expect(
+        shell.forumSettings.themeModeFor('https://a.example'),
+        AppThemeMode.system,
+      );
+      expect(tester.widget<DToggleGroup<Brightness>>(shown).values, [
+        Brightness.dark,
+      ]);
+      expect(
+        Theme.of(
+          tester.element(find.byKey(const ValueKey('forum-theme-preview'))),
+        ).brightness,
+        Brightness.dark,
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   for (final brightness in Brightness.values) {
     for (final platform in [TargetPlatform.macOS, TargetPlatform.iOS]) {

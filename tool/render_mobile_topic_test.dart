@@ -60,7 +60,7 @@ void main() {
       tester.view.physicalSize = Size(width, 961);
       await shell.forumSettings.setThemes(
         shell.currentInstance!.url,
-        ForumThemePreferences(selectedId: dark ? 'dracula' : 'neutral'),
+        ForumThemePreferences.preset(dark ? 'dracula' : 'neutral'),
       );
       await shell.forumSettings.setThemeMode(
         shell.currentInstance!.url,

@@ -162,6 +162,44 @@ const forumThemePresets = <ForumTheme>[
   ),
 ];
 
+/// Whether [theme] carries a palette authored for [mode].
+bool forumThemeHasMode(ForumTheme theme, Brightness mode) =>
+    theme.brightness == mode || theme.alternate?.brightness == mode;
+
+/// The presets authored for [mode], in reference order.
+Iterable<ForumTheme> forumThemePresetsFor(Brightness mode) =>
+    forumThemePresets.where((theme) => forumThemeHasMode(theme, mode));
+
+/// The preset named [id] when it has a palette authored for [mode].
+ForumTheme? forumThemePresetFor(String id, Brightness mode) =>
+    forumThemePresetsFor(mode).where((theme) => theme.id == id).firstOrNull;
+
+/// Plain greys to build a theme from scratch, every colour left to choose.
+const blankForumTheme = ForumTheme(
+  alternate: ForumTheme(
+    id: 'blank',
+    name: 'Blank',
+    brightness: Brightness.dark,
+    primary: Color(0xFFE6E6E6),
+    secondary: Color(0xFF1E1E1E),
+    tertiary: Color(0xFF9A9A9A),
+    quaternary: Color(0xFF7A7A7A),
+    danger: Color(0xFFB3B3B3),
+    success: Color(0xFF8C8C8C),
+    love: Color(0xFFA6A6A6),
+  ),
+  id: 'blank',
+  name: 'Blank',
+  brightness: Brightness.light,
+  primary: Color(0xFF1E1E1E),
+  secondary: Color(0xFFFFFFFF),
+  tertiary: Color(0xFF6B6B6B),
+  quaternary: Color(0xFF8C8C8C),
+  danger: Color(0xFF595959),
+  success: Color(0xFF737373),
+  love: Color(0xFF808080),
+);
+
 /// Preserve selections saved before light and dark variants shared one entry.
 String? canonicalForumThemeId(String? id) => switch (id) {
   'dark' => 'neutral',

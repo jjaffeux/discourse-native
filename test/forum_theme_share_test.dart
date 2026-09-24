@@ -109,8 +109,9 @@ void main() {
         'name': 'My theme',
       }, id: 'custom-existing');
       final original = ForumThemePreferences(
+        source: ForumThemeSource.custom,
+        customId: existing.id,
         customThemes: [existing],
-        selectedId: existing.id,
         font: ForumFont.values.last,
       );
       await store.writeThemes(site, original);
@@ -121,7 +122,7 @@ void main() {
       expect(await settings.importTheme(site, incoming), original);
       final saved = await store.loadThemes(site);
       expect(saved.customThemes, [existing, incoming]);
-      expect(saved.selectedTheme, incoming);
+      expect(saved.customTheme, incoming);
       expect(saved.font, original.font);
       expect(await store.loadThemes(otherSite), original);
       await settings.importTheme(site, incoming);
@@ -151,7 +152,7 @@ void main() {
       customThemes: [source],
     ).importTheme(incoming);
     expect(saved.customThemes, [source]);
-    expect(saved.selectedId, source.id);
+    expect(saved.customId, source.id);
   });
 
   for (final profile in [CookingProfile.post, CookingProfile.chat]) {

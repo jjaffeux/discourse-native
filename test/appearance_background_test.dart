@@ -77,18 +77,11 @@ void main() {
                   child: SingleChildScrollView(
                     child: DCard(
                       child: ForumThemeEditor(
-                        palettes: {
-                          for (final mode in Brightness.values)
-                            mode: forumThemePresets.first.forBrightness(mode),
-                        },
+                        theme: forumThemePresets.first,
                         brightness: brightness,
-                        background: const ForumBackground.appearance(),
-                        onBackgroundChanged: (_) {},
-                        onBrightnessChanged: (_) {},
-                        customThemes: const [],
-                        onChanged: (_) {},
-                        onPresetSelected: (_) {},
+                        sources: const SizedBox.shrink(),
                         onSave: (_) async {},
+                        onCancel: () {},
                       ),
                     ),
                   ),
@@ -129,7 +122,7 @@ void main() {
         expect(
           ForumThemePreferences.fromJson(
             ForumThemePreferences().save(theme).toJson(),
-          ).selectedTheme,
+          ).customTheme,
           theme,
         );
         for (final brightness in Brightness.values) {

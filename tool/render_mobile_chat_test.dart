@@ -114,7 +114,7 @@ void main() {
     for (final palette in ['neutral', 'dracula']) {
       await shell.forumSettings.setThemes(
         shell.currentInstance!.url,
-        ForumThemePreferences(selectedId: palette),
+        ForumThemePreferences.preset(palette),
       );
       await shell.forumSettings.setThemeMode(
         shell.currentInstance!.url,

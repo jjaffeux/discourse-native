@@ -36,7 +36,11 @@ Future<void> main() async {
   ];
   await forums.writeThemes(
     'https://dev.example',
-    ForumThemePreferences(customThemes: themes, selectedId: 'custom-lava'),
+    ForumThemePreferences(
+      source: ForumThemeSource.custom,
+      customId: 'custom-lava',
+      customThemes: themes,
+    ),
   );
   await forums.writeThemeMode('https://dev.example', AppThemeMode.dark);
   final topics = [

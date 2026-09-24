@@ -88,15 +88,19 @@ void main() {
     controller.openTopicFromList(topic);
     await tester.pumpAndSettle();
     final topicElement = tester.element(find.byType(TopicView).first);
+    final dracula = forumThemePresets.firstWhere((t) => t.id == 'dracula');
     for (final effect in ForumBackgroundEffect.values) {
-      final preferences = ForumThemePreferences(selectedId: 'dracula')
-          .withBackground(
-            ForumBackground.appearance(
-              effect: effect,
-              noiseIntensity: .5,
-              transparency: .2,
-            ),
-          );
+      final background = ForumBackground.appearance(
+        effect: effect,
+        noiseIntensity: .5,
+        transparency: .2,
+      );
+      final preferences = ForumThemePreferences().save(
+        ForumTheme.fromJson({
+          ...dracula.toJson(),
+          'background': background.toJson(),
+        }, id: 'custom-${effect.name}'),
+      );
       await controller.forumSettings.setThemes(siteA, preferences);
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 300));
@@ -111,7 +115,7 @@ void main() {
       }
       expect(
         _activeTheme(tester).extension<ForumThemeEffects>()!.background,
-        preferences.background,
+        background,
       );
       expect(tester.takeException(), isNull);
     }
@@ -238,7 +242,11 @@ void main() {
       var controller = _controller(tester);
       await controller.forumSettings.setThemes(
         siteA,
-        ForumThemePreferences(selectedId: 'dracula'),
+        ForumThemePreferences().save(
+          forumThemePresets
+              .firstWhere((theme) => theme.id == 'dracula')
+              .copyWith(id: 'custom-night', name: 'Night'),
+        ),
       );
       await tester.pumpAndSettle();
       expect(
