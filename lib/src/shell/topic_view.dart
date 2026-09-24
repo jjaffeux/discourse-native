@@ -58,6 +58,7 @@ import 'topic_move_posts.dart';
 import 'topic_post_retention.dart';
 import 'topic_post_sliver.dart';
 import 'topic_progress.dart';
+import 'topic_skeleton.dart';
 import 'topic_tag_picker.dart';
 import 'topic_taxonomy_fields.dart';
 import 'topic_title.dart';
@@ -244,7 +245,9 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
   bool _retainedGeometryRefreshScheduled = false;
   double _laidOutPostWidth = 0;
   int _extentGeneration = 0;
-  (String, int, int)? _warmCacheIdentity;
+  // Only the scroll view reads this: warming its cache must not rebuild the
+  // header, footer and body frame around it.
+  final _warmCacheIdentity = ValueNotifier<(String, int, int)?>(null);
   (String, int, int)? _scheduledCacheIdentity;
   TopicScrollCaptureController? _scrollCapture;
   TopicScrollCaptureController? _reportedScrollCaptureController;
@@ -911,6 +914,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
       });
     }
     _viewport.dispose();
+    _warmCacheIdentity.dispose();
     _keyboardPost.dispose();
     _keyboardFocus.dispose();
     _entryFocus.dispose();
@@ -1889,30 +1893,231 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
   Widget _buildTopicBottomBar(
     ShellController controller,
     int totalPosts,
-    TopicViewportSnapshot snapshot,
-  ) => ListenableBuilder(
-    listenable: _viewportState.progressPositionListenable,
-    builder: (context, child) {
-      final progressPosition = _progressPosition;
-      final showProgress = progressPosition != null && totalPosts > 1;
-      // The progress control is resolved after layout. Reserve its footer on
-      // the first frame so it cannot shorten an already positioned viewport.
-      if (totalPosts <= 1 && !widget.canReply && !widget.inbox) {
-        return const SizedBox.shrink();
-      }
-      return _TopicBottomBar(
-        topic: widget.inbox ? snapshot.topic : null,
-        siteUrl: snapshot.siteUrl,
-        isConnected: widget.isConnected,
-        bookmarkBusy: widget.bookmarkBusy,
-        progressPosition: showProgress ? progressPosition : null,
-        totalPosts: totalPosts,
-        canReply: widget.canReply,
-        controller: controller,
-        onReplyPressed: controller.openReply,
-      );
-    },
+    TopicViewportSnapshot snapshot, {
+    Topic? loadingRow,
+    bool loading = false,
+  }) {
+    // The progress control is resolved after layout. Reserve its footer on
+    // the first frame so it cannot shorten an already positioned viewport.
+    if (totalPosts <= 1 && !widget.canReply && !widget.inbox) {
+      return const SizedBox.shrink();
+    }
+    return _TopicBottomBar(
+      topic: widget.inbox ? snapshot.topic : null,
+      loading: widget.inbox && loading,
+      privateMessage: loadingRow?.privateMessage ?? false,
+      siteUrl: snapshot.siteUrl,
+      isConnected: widget.isConnected,
+      bookmarkBusy: widget.bookmarkBusy,
+      viewport: _viewportState,
+      totalPosts: totalPosts,
+      canReply: widget.canReply,
+      controller: controller,
+      onReplyPressed: controller.openReply,
+    );
+  }
+
+  /// The body shared by the loading and loaded reader, so arriving posts
+  /// replace the skeleton inside an unchanged frame and footer.
+  Widget _buildBodyFrame({
+    required Widget toolbar,
+    required Widget? stream,
+    required bool skeleton,
+    required EdgeInsets lanePadding,
+    List<Widget> overlays = const [],
+    Widget? footer,
+    Widget? overlaySidebar,
+  }) => Stack(
+    children: [
+      Positioned.fill(
+        child: Column(
+          children: [
+            toolbar,
+            Expanded(
+              child: Stack(
+                clipBehavior: Clip.hardEdge,
+                children: [
+                  if (stream != null)
+                    Positioned.fill(
+                      key: const ValueKey('topic-post-stream-slot'),
+                      child: Offstage(offstage: skeleton, child: stream),
+                    ),
+                  if (skeleton)
+                    Positioned.fill(
+                      key: const ValueKey('topic-loading-skeleton-slot'),
+                      child: Padding(
+                        padding: lanePadding,
+                        child: const _TopicLoadingSkeleton(
+                          key: ValueKey('topic-loading-skeleton'),
+                        ),
+                      ),
+                    ),
+                  ...overlays,
+                  Positioned(
+                    key: const ValueKey('topic-scroll-separator-slot'),
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    child: Padding(
+                      padding: lanePadding.add(
+                        const EdgeInsets.symmetric(horizontal: 16),
+                      ),
+                      child: const DSeparator(
+                        key: ValueKey('topic-scroll-separator'),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            ?footer,
+          ],
+        ),
+      ),
+      if (overlaySidebar != null)
+        Positioned(top: 0, right: 0, bottom: 0, child: overlaySidebar),
+    ],
   );
+
+  // The loading and loaded headers of one reader are the same element, so
+  // the topic fills it in place. A topic, tab or account change still replaces
+  // it, exactly when the viewport retires its controllers.
+  Key _headerKey(ShellController controller, String? siteUrl, int? topicId) =>
+      ValueKey((
+        'topic-inbox-header',
+        controller,
+        siteUrl,
+        topicId,
+        ForumTabScope.idOf(context) ?? controller.activeTabId,
+        siteUrl == null ? null : controller.lifecycle.capture(siteUrl).session,
+      ));
+
+  Widget _buildLoading(
+    BuildContext context,
+    ShellController controller,
+    TopicViewportSnapshot snapshot, {
+    required EdgeInsets lanePadding,
+    required double pinnedSidebarInset,
+    required bool showPinnedSidebar,
+    required bool showOverlaySidebar,
+    required bool canPinSidebar,
+  }) {
+    final siteUrl = snapshot.siteUrl;
+    final topic = snapshot.topic;
+    final topicId =
+        topic?.id ??
+        widget.route?.topicId ??
+        controller.currentContent?.topicId;
+    final row = topic != null || siteUrl == null || topicId == null
+        ? null
+        : controller.store.read<Topic>(siteUrl, topicId);
+    final title = topic?.title ?? widget.route?.title ?? row?.title;
+    final body = _buildBodyFrame(
+      toolbar: const SizedBox.shrink(),
+      stream: null,
+      skeleton: true,
+      lanePadding: lanePadding,
+      footer: controller.mobileNavigationEnabled
+          ? null
+          : _buildTopicBottomBar(
+              controller,
+              snapshot.streamIds.length,
+              snapshot,
+              loadingRow: row,
+              loading: true,
+            ),
+      overlaySidebar: showOverlaySidebar
+          ? _TopicSidebarPanel(
+              width: _sidebarOverlayWidth(context),
+              siteUrl: siteUrl,
+              topic: null,
+              recommendations: null,
+              loading: true,
+              selected: _recommendationsSourceId,
+              onSelected: _setRecommendationsSource,
+              onCollapsed: () => _setSidebarOverlayOpen(false),
+              route: widget.route,
+              registry: widget.registry,
+            )
+          : null,
+    );
+    final VoidCallback? onToggleSidebar = showOverlaySidebar
+        ? null
+        : () => _toggleSidebar(canPinSidebar: canPinSidebar);
+    return Stack(
+      children: [
+        Positioned.fill(
+          right: pinnedSidebarInset,
+          child: widget.inbox
+              ? TopicInboxHeader(
+                  key: _headerKey(controller, siteUrl, topicId),
+                  loading: true,
+                  title: title,
+                  siteUrl: siteUrl,
+                  route: widget.route,
+                  topic: topic,
+                  preview: row,
+                  canReturnToSidebar: widget.canReturnToSidebar,
+                  keepTopicListOpen: widget.keepTopicListOpen,
+                  registry: widget.registry,
+                  bodyBuilder: (_) => body,
+                )
+              : DPageSurface(
+                  hideHeaderOnScroll: true,
+                  framed: false,
+                  identity: (siteUrl, topicId, null),
+                  header: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      _TopicViewHeader(
+                        inbox: widget.inbox,
+                        keepTopicListOpen: widget.keepTopicListOpen,
+                        registry: widget.registry,
+                        title: title ?? 'Topic',
+                        siteUrl: siteUrl,
+                        topic: topic,
+                        route: widget.route,
+                        isConnected: widget.isConnected,
+                        bookmarkBusy: widget.bookmarkBusy,
+                        canReturnToSidebar: widget.canReturnToSidebar,
+                        sidebarVisible: showPinnedSidebar || showOverlaySidebar,
+                        onToggleSidebar: onToggleSidebar,
+                      ),
+                      Padding(
+                        padding: lanePadding.add(
+                          const EdgeInsets.fromLTRB(16, 8, 16, 20),
+                        ),
+                        child: topic != null && siteUrl != null
+                            ? TopicActivitySummary(
+                                siteUrl: siteUrl,
+                                topic: topic,
+                              )
+                            : TopicActivityPlaceholder(row: row),
+                      ),
+                    ],
+                  ),
+                  child: body,
+                ),
+        ),
+        if (showPinnedSidebar)
+          Positioned(
+            top: 0,
+            right: 0,
+            bottom: 0,
+            child: _TopicSidebarPanel(
+              siteUrl: siteUrl,
+              topic: null,
+              recommendations: null,
+              loading: true,
+              selected: _recommendationsSourceId,
+              onSelected: _setRecommendationsSource,
+              route: widget.route,
+              registry: widget.registry,
+            ),
+          ),
+      ],
+    );
+  }
 
   Widget _buildForViewport(
     BuildContext context,
@@ -1961,80 +2166,15 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
         widget.showSidebar && !widget.inbox && !_sidebarRestored;
     if (snapshot.topicId == null || restoringSidebar) {
       if (snapshot.loading || restoringSidebar) {
-        const topicSkeleton = _TopicLoadingSkeleton(
-          key: ValueKey('topic-loading-skeleton'),
-        );
-        return Stack(
-          children: [
-            Positioned.fill(
-              right: pinnedSidebarInset,
-              child: Column(
-                children: [
-                  _TopicViewHeader(
-                    inbox: widget.inbox,
-                    keepTopicListOpen: widget.keepTopicListOpen,
-                    registry: widget.registry,
-                    title:
-                        snapshot.topic?.title ?? widget.route?.title ?? 'Topic',
-                    siteUrl: snapshot.siteUrl,
-                    topic: snapshot.topic,
-                    route: widget.route,
-                    canReturnToSidebar: widget.canReturnToSidebar,
-                    sidebarVisible: showPinnedSidebar || showOverlaySidebar,
-                    onToggleSidebar: showOverlaySidebar
-                        ? null
-                        : () => _toggleSidebar(canPinSidebar: canPinSidebar),
-                  ),
-                  Expanded(
-                    child: Stack(
-                      children: [
-                        Positioned.fill(
-                          child: Padding(
-                            padding: readingLane.padding,
-                            child: topicSkeleton,
-                          ),
-                        ),
-                        if (showOverlaySidebar)
-                          Positioned(
-                            top: 0,
-                            right: 0,
-                            bottom: 0,
-                            child: _TopicSidebarPanel(
-                              width: _sidebarOverlayWidth(context),
-                              siteUrl: snapshot.siteUrl,
-                              topic: null,
-                              recommendations: null,
-                              loading: true,
-                              selected: _recommendationsSourceId,
-                              onSelected: _setRecommendationsSource,
-                              onCollapsed: () => _setSidebarOverlayOpen(false),
-                              route: widget.route,
-                              registry: widget.registry,
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            if (showPinnedSidebar)
-              Positioned(
-                top: 0,
-                right: 0,
-                bottom: 0,
-                child: _TopicSidebarPanel(
-                  siteUrl: snapshot.siteUrl,
-                  topic: null,
-                  recommendations: null,
-                  loading: true,
-                  selected: _recommendationsSourceId,
-                  onSelected: _setRecommendationsSource,
-                  route: widget.route,
-                  registry: widget.registry,
-                ),
-              ),
-          ],
+        return _buildLoading(
+          context,
+          controller,
+          snapshot,
+          lanePadding: readingLane.padding,
+          pinnedSidebarInset: pinnedSidebarInset,
+          showPinnedSidebar: showPinnedSidebar,
+          showOverlaySidebar: showOverlaySidebar,
+          canPinSidebar: canPinSidebar,
         );
       }
       return Column(
@@ -2097,7 +2237,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
     final siteUrl = snapshot.siteUrl!;
     _syncViewport(controller, snapshot);
     final cacheIdentity = _topicIdentity;
-    if (_warmCacheIdentity != cacheIdentity &&
+    if (_warmCacheIdentity.value != cacheIdentity &&
         _scheduledCacheIdentity != cacheIdentity) {
       _scheduledCacheIdentity = cacheIdentity;
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -2105,7 +2245,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
           _scheduledCacheIdentity = null;
         }
         if (!mounted || _topicIdentity != cacheIdentity) return;
-        setState(() => _warmCacheIdentity = cacheIdentity);
+        _warmCacheIdentity.value = cacheIdentity;
       });
     }
     _laidOutPostWidth = readingLane.width;
@@ -2331,6 +2471,27 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
     );
 
     Widget buildPostStream(List<Widget> openingSlivers) {
+      final physics = SuperRangeMaintainingScrollPhysics(
+        parent: snapshot.hasEarlier || snapshot.hasMore
+            ? const AlwaysScrollableScrollPhysics()
+            : null,
+      );
+      final slivers = [
+        ...openingSlivers,
+        SliverPadding(padding: readingLane.padding, sliver: postList),
+        if (controller.mobileNavigationEnabled)
+          SliverPadding(
+            padding: EdgeInsets.only(
+              bottom:
+                  DControlStyle.scaledHeight(
+                    DControlSize.regular,
+                    MediaQuery.textScalerOf(context),
+                    context: context,
+                  ) +
+                  DSpacing.lg,
+            ),
+          ),
+      ];
       final postStreamContent = NotificationListener<ScrollMetricsNotification>(
         onNotification: (notification) {
           if (notification.depth == 0) {
@@ -2359,42 +2520,26 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
             }
             return false;
           },
-          child: CustomScrollView(
-            key: ValueKey((
-              siteUrl,
-              snapshot.topicId,
-              _scroll,
-              _extentGeneration,
-            )),
-            controller: _scroll,
-            // Lay out visible replies first, then prime the ordinary scroll
-            // cache on the next frame without changing visible post geometry.
-            scrollCacheExtent: _warmCacheIdentity == _topicIdentity
-                ? null
-                : const ScrollCacheExtent.pixels(0),
-            // A partial window must accept a pull to fetch or retry a page.
-            physics: SuperRangeMaintainingScrollPhysics(
-              parent: snapshot.hasEarlier || snapshot.hasMore
-                  ? const AlwaysScrollableScrollPhysics()
-                  : null,
+          child: ValueListenableBuilder(
+            valueListenable: _warmCacheIdentity,
+            builder: (context, warmCacheIdentity, _) => CustomScrollView(
+              key: ValueKey((
+                siteUrl,
+                snapshot.topicId,
+                _scroll,
+                _extentGeneration,
+              )),
+              controller: _scroll,
+              // Lay out visible replies first, then prime the ordinary scroll
+              // cache on the next frame without changing visible post geometry.
+              scrollCacheExtent: warmCacheIdentity == _topicIdentity
+                  ? null
+                  : const ScrollCacheExtent.pixels(0),
+              // A partial window must accept a pull to fetch or retry a page.
+              physics: physics,
+              semanticChildCount: itemCount,
+              slivers: slivers,
             ),
-            semanticChildCount: itemCount,
-            slivers: [
-              ...openingSlivers,
-              SliverPadding(padding: readingLane.padding, sliver: postList),
-              if (controller.mobileNavigationEnabled)
-                SliverPadding(
-                  padding: EdgeInsets.only(
-                    bottom:
-                        DControlStyle.scaledHeight(
-                          DControlSize.regular,
-                          MediaQuery.textScalerOf(context),
-                          context: context,
-                        ) +
-                        DSpacing.lg,
-                  ),
-                ),
-            ],
           ),
         ),
       );
@@ -2422,105 +2567,63 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
       );
     }
 
-    Widget buildBody(List<Widget> openingSlivers) {
-      return Stack(
-        children: [
-          Positioned.fill(
-            child: Column(
-              children: [
-                _TopicPostSelectionToolbar(
-                  siteUrl: siteUrl,
-                  topic: snapshot.topic!,
-                ),
-                Expanded(
-                  child: Stack(
-                    clipBehavior: Clip.hardEdge,
-                    children: [
-                      Positioned.fill(
-                        child: Offstage(
-                          offstage: _openingPostId != null,
-                          child: buildPostStream(openingSlivers),
-                        ),
-                      ),
-                      if (_openingPostId != null)
-                        const Positioned.fill(
-                          child: _TopicLoadingSkeleton(
-                            key: ValueKey('topic-loading-skeleton'),
-                          ),
-                        ),
-                      _buildFloatingDayOverlay(readingLane.padding),
-                      if (controller.mobileNavigationEnabled)
-                        PositionedDirectional(
-                          start: DSpacing.sm,
-                          end: DSpacing.sm,
-                          bottom: DSpacing.sm,
-                          child: Align(
-                            alignment: AlignmentDirectional.centerEnd,
-                            child: ListenableBuilder(
-                              listenable:
-                                  _viewportState.progressPositionListenable,
-                              builder: (context, _) {
-                                final position = _progressPosition;
-                                if (position == null ||
-                                    snapshot.streamIds.length <= 1) {
-                                  return const SizedBox.shrink();
-                                }
-                                return TopicProgressPopover(
-                                  controller: controller,
-                                  position: position,
-                                  total: snapshot.streamIds.length,
-                                  floating: true,
-                                );
-                              },
-                            ),
-                          ),
-                        ),
-                      Positioned(
-                        top: 0,
-                        left: 0,
-                        right: 0,
-                        child: Padding(
-                          padding: readingLane.padding.add(
-                            const EdgeInsets.symmetric(horizontal: 16),
-                          ),
-                          child: const DSeparator(
-                            key: ValueKey('topic-scroll-separator'),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                if (!controller.mobileNavigationEnabled)
-                  _buildTopicBottomBar(
-                    controller,
-                    snapshot.streamIds.length,
-                    snapshot,
-                  ),
-              ],
-            ),
-          ),
-          if (showOverlaySidebar)
-            Positioned(
-              top: 0,
-              right: 0,
-              bottom: 0,
-              child: _TopicSidebarPanel(
-                width: _sidebarOverlayWidth(context),
-                siteUrl: siteUrl,
-                topic: snapshot.topic!,
-                recommendations: snapshot.recommendations,
-                loading: recommendationsPending || snapshot.loadingMore,
-                selected: _recommendationsSourceId,
-                onSelected: _setRecommendationsSource,
-                onCollapsed: () => _setSidebarOverlayOpen(false),
-                route: widget.route,
-                registry: widget.registry,
+    Widget buildBody(List<Widget> openingSlivers) => _buildBodyFrame(
+      toolbar: _TopicPostSelectionToolbar(
+        siteUrl: siteUrl,
+        topic: snapshot.topic!,
+      ),
+      stream: buildPostStream(openingSlivers),
+      skeleton: _openingPostId != null,
+      lanePadding: readingLane.padding,
+      overlays: [
+        _buildFloatingDayOverlay(readingLane.padding),
+        if (controller.mobileNavigationEnabled)
+          PositionedDirectional(
+            start: DSpacing.sm,
+            end: DSpacing.sm,
+            bottom: DSpacing.sm,
+            child: Align(
+              alignment: AlignmentDirectional.centerEnd,
+              child: ListenableBuilder(
+                listenable: _viewportState.progressPositionListenable,
+                builder: (context, _) {
+                  final position = _progressPosition;
+                  if (position == null || snapshot.streamIds.length <= 1) {
+                    return const SizedBox.shrink();
+                  }
+                  return TopicProgressPopover(
+                    controller: controller,
+                    position: position,
+                    total: snapshot.streamIds.length,
+                    floating: true,
+                  );
+                },
               ),
             ),
-        ],
-      );
-    }
+          ),
+      ],
+      footer: controller.mobileNavigationEnabled
+          ? null
+          : _buildTopicBottomBar(
+              controller,
+              snapshot.streamIds.length,
+              snapshot,
+            ),
+      overlaySidebar: showOverlaySidebar
+          ? _TopicSidebarPanel(
+              width: _sidebarOverlayWidth(context),
+              siteUrl: siteUrl,
+              topic: snapshot.topic!,
+              recommendations: snapshot.recommendations,
+              loading: recommendationsPending || snapshot.loadingMore,
+              selected: _recommendationsSourceId,
+              onSelected: _setRecommendationsSource,
+              onCollapsed: () => _setSidebarOverlayOpen(false),
+              route: widget.route,
+              registry: widget.registry,
+            )
+          : null,
+    );
 
     return Stack(
       children: [
@@ -2528,12 +2631,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
           right: pinnedSidebarInset,
           child: widget.inbox
               ? TopicInboxHeader(
-                  key: ValueKey((
-                    'topic-inbox-header',
-                    siteUrl,
-                    snapshot.topicId,
-                    _scroll,
-                  )),
+                  key: _headerKey(controller, siteUrl, snapshot.topicId),
                   title: snapshot.topic!.title,
                   siteUrl: siteUrl,
                   route: widget.route,
@@ -2608,23 +2706,33 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
 
 class _TopicBottomBar extends StatelessWidget {
   const _TopicBottomBar({
-    required this.progressPosition,
+    required this.viewport,
     required this.totalPosts,
     required this.canReply,
     required this.controller,
     required this.onReplyPressed,
     this.topic,
+    this.loading = false,
+    this.privateMessage = false,
     this.siteUrl,
     this.isConnected = false,
     this.bookmarkBusy = false,
   });
 
-  final int? progressPosition;
+  /// Only the progress control listens: the reading position changes with
+  /// every post scrolled past, and the other controls never depend on it.
+  final TopicViewportListenable viewport;
   final int totalPosts;
   final bool canReply;
   final ShellController controller;
   final VoidCallback onReplyPressed;
   final TopicDetail? topic;
+
+  /// Shows the topic's controls disabled, in place, until [topic] arrives.
+  final bool loading;
+
+  /// Whether the cached list row is a message, which adds its archive control.
+  final bool privateMessage;
   final String? siteUrl;
   final bool isConnected;
   final bool bookmarkBusy;
@@ -2633,18 +2741,28 @@ class _TopicBottomBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final hasTopic = topic != null && siteUrl != null;
+    final placeholders = loading && !hasTopic;
+    final user = siteUrl == null
+        ? null
+        : controller.instanceFor(siteUrl!)?.user;
+    final showReply = canReply || (placeholders && user != null);
     final showBookmark =
-        hasTopic && ShellScope.read(context).currentInstance?.user != null;
-    final showNotifications = hasTopic && isConnected;
+        (hasTopic || placeholders) &&
+        ShellScope.read(context).currentInstance?.user != null;
+    final showNotifications = (hasTopic || placeholders) && isConnected;
     final showArchive =
-        hasTopic &&
         isConnected &&
-        topic!.privateMessage &&
-        controller.instanceFor(siteUrl!)?.user?.canSendPrivateMessages == true;
+        (hasTopic ? topic!.privateMessage : placeholders && privateMessage) &&
+        user?.canSendPrivateMessages == true;
+    bool showLabel(BoxConstraints constraints) =>
+        constraints.maxWidth >= 580 &&
+        MediaQuery.textScalerOf(context).scale(13) <= 13;
     return DCardFooter(
       key: const ValueKey('topic-bottom-bar'),
       backgroundColor: context.isTouch
-          ? (topic == null ? theme.shell.panel : theme.shell.content)
+          ? (topic == null && !loading
+                ? theme.shell.panel
+                : theme.shell.content)
           : ForumWindowBackground.footerColor(
               context,
               DTokens.of(context).footerBackground,
@@ -2659,7 +2777,7 @@ class _TopicBottomBar extends StatelessWidget {
             padding: topicBottomBarPadding,
             child: Row(
               children: [
-                if (canReply ||
+                if (showReply ||
                     showArchive ||
                     showBookmark ||
                     showNotifications)
@@ -2670,12 +2788,16 @@ class _TopicBottomBar extends StatelessWidget {
                       runSpacing: DSpacing.controlGap,
                       crossAxisAlignment: WrapCrossAlignment.center,
                       children: [
-                        if (canReply)
+                        if (showReply)
                           DButtonGroup(
                             children: [
                               DButton(
-                                key: const ValueKey('topic-reply-button'),
-                                onPressed: onReplyPressed,
+                                key: ValueKey(
+                                  canReply
+                                      ? 'topic-reply-button'
+                                      : 'topic-reply-placeholder',
+                                ),
+                                onPressed: canReply ? onReplyPressed : null,
                                 icon: const DIcon(DIcons.reply),
                                 label: const Text('Reply'),
                                 tooltip: 'Reply to this topic',
@@ -2686,38 +2808,46 @@ class _TopicBottomBar extends StatelessWidget {
                             ],
                           ),
                         if (showArchive)
-                          MessageArchiveButton(
-                            key: ValueKey(
-                              'message-archive-$siteUrl-${topic!.id}',
-                            ),
-                            siteUrl: siteUrl!,
-                            topic: topic!,
-                          ),
+                          hasTopic
+                              ? MessageArchiveButton(
+                                  key: ValueKey(
+                                    'message-archive-$siteUrl-${topic!.id}',
+                                  ),
+                                  siteUrl: siteUrl!,
+                                  topic: topic!,
+                                )
+                              : const MessageArchiveButtonPlaceholder(),
                         if (showBookmark || showNotifications)
                           DButtonGroup(
                             semanticLabel: 'Topic management',
                             children: [
                               if (showBookmark)
-                                TopicBookmarkButton(
-                                  siteUrl: siteUrl!,
-                                  topic: topic!,
-                                  busy: bookmarkBusy,
-                                  variant: DButtonVariant.outline,
-                                  size: DButtonSize.regular,
-                                ),
+                                hasTopic
+                                    ? TopicBookmarkButton(
+                                        siteUrl: siteUrl!,
+                                        topic: topic!,
+                                        busy: bookmarkBusy,
+                                        variant: DButtonVariant.outline,
+                                        size: DButtonSize.regular,
+                                      )
+                                    : const TopicBookmarkButtonPlaceholder(
+                                        variant: DButtonVariant.outline,
+                                        size: DButtonSize.regular,
+                                      ),
                               if (showNotifications)
-                                TopicNotificationLevelButton(
-                                  siteUrl: siteUrl!,
-                                  topic: topic!,
-                                  showLabel:
-                                      constraints.maxWidth >= 580 &&
-                                      MediaQuery.textScalerOf(
-                                            context,
-                                          ).scale(13) <=
-                                          13,
-                                  variant: DButtonVariant.outline,
-                                  size: DButtonSize.regular,
-                                ),
+                                hasTopic
+                                    ? TopicNotificationLevelButton(
+                                        siteUrl: siteUrl!,
+                                        topic: topic!,
+                                        showLabel: showLabel(constraints),
+                                        variant: DButtonVariant.outline,
+                                        size: DButtonSize.regular,
+                                      )
+                                    : TopicNotificationLevelPlaceholder(
+                                        showLabel: showLabel(constraints),
+                                        variant: DButtonVariant.outline,
+                                        size: DButtonSize.regular,
+                                      ),
                             ],
                           ),
                       ],
@@ -2725,18 +2855,26 @@ class _TopicBottomBar extends StatelessWidget {
                   )
                 else
                   const Spacer(),
-                if (progressPosition case final position?)
-                  Align(
-                    alignment: AlignmentDirectional.centerEnd,
-                    child: Padding(
-                      padding: const EdgeInsetsDirectional.only(start: 8),
-                      child: TopicProgressPopover(
-                        controller: controller,
-                        position: position,
-                        total: totalPosts,
+                ListenableBuilder(
+                  listenable: viewport.progressPositionListenable,
+                  builder: (context, _) {
+                    final position = viewport.progressPosition;
+                    if (position == null || totalPosts <= 1) {
+                      return const SizedBox.shrink();
+                    }
+                    return Align(
+                      alignment: AlignmentDirectional.centerEnd,
+                      child: Padding(
+                        padding: const EdgeInsetsDirectional.only(start: 8),
+                        child: TopicProgressPopover(
+                          controller: controller,
+                          position: position,
+                          total: totalPosts,
+                        ),
                       ),
-                    ),
-                  ),
+                    );
+                  },
+                ),
               ],
             ),
           ),
@@ -2995,49 +3133,51 @@ class _TopicLoadingSkeleton extends StatelessWidget {
   Widget build(BuildContext context) {
     final divider = Theme.of(context).shell.divider;
 
-    return DSkeletonRegion(
-      expand: true,
-      semanticsLabel: 'Loading topic',
-      child: ForumTabLayoutBuilder(
-        builder: (context, constraints) {
-          final patternCount = constraints.hasBoundedHeight
-              ? (constraints.maxHeight / _patternHeight).ceil()
-              : 1;
+    return TopicSkeletonReveal(
+      child: DSkeletonRegion(
+        expand: true,
+        semanticsLabel: 'Loading topic',
+        child: ForumTabLayoutBuilder(
+          builder: (context, constraints) {
+            final patternCount = constraints.hasBoundedHeight
+                ? (constraints.maxHeight / _patternHeight).ceil()
+                : 1;
 
-          return ClipRect(
-            child: OverflowBox(
-              alignment: Alignment.topCenter,
-              maxHeight: double.infinity,
-              child: Column(
-                key: const ValueKey('topic-loading-skeleton-content'),
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  for (var index = 0; index < patternCount; index++) ...[
-                    const _TopicPostSkeleton(
-                      nameWidthFactor: 0.3,
-                      lineWidths: [0.92, 0.72, 0.48],
-                    ),
-                    DSeparator(space: 1, color: divider),
-                    const _TopicPostSkeleton(
-                      nameWidthFactor: 0.22,
-                      lineWidths: [0.72, 0.92, 0.3],
-                    ),
-                    DSeparator(space: 1, color: divider),
-                    const Opacity(
-                      opacity: 0.72,
-                      child: _TopicPostSkeleton(
+            return ClipRect(
+              child: OverflowBox(
+                alignment: Alignment.topCenter,
+                maxHeight: double.infinity,
+                child: Column(
+                  key: const ValueKey('topic-loading-skeleton-content'),
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    for (var index = 0; index < patternCount; index++) ...[
+                      const _TopicPostSkeleton(
                         nameWidthFactor: 0.3,
-                        lineWidths: [0.92, 0.48],
-                        showFooter: false,
+                        lineWidths: [0.92, 0.72, 0.48],
                       ),
-                    ),
-                    DSeparator(space: 1, color: divider),
+                      DSeparator(space: 1, color: divider),
+                      const _TopicPostSkeleton(
+                        nameWidthFactor: 0.22,
+                        lineWidths: [0.72, 0.92, 0.3],
+                      ),
+                      DSeparator(space: 1, color: divider),
+                      const Opacity(
+                        opacity: 0.72,
+                        child: _TopicPostSkeleton(
+                          nameWidthFactor: 0.3,
+                          lineWidths: [0.92, 0.48],
+                          showFooter: false,
+                        ),
+                      ),
+                      DSeparator(space: 1, color: divider),
+                    ],
                   ],
-                ],
+                ),
               ),
-            ),
-          );
-        },
+            );
+          },
+        ),
       ),
     );
   }
@@ -3056,12 +3196,7 @@ class _TopicPostSkeleton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final tokens = DTokens.of(context);
-    // The muted surface nearly disappears at the pulse's half-opacity trough
-    // on light topic backgrounds. Use the stronger existing neutral token.
-    final color = Theme.of(context).brightness == Brightness.light
-        ? tokens.border
-        : tokens.muted;
+    final color = topicSkeletonColor(context);
     final post = Padding(
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
       child: Column(
@@ -3157,28 +3292,16 @@ class _TopicViewHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (inbox) {
-      final topic = this.topic;
-      Widget header(Topic? preview) => TopicInboxHeader(
-        title: topic?.title ?? preview?.title ?? title,
+      return TopicInboxHeader(
+        title: this.topic?.title ?? title,
         siteUrl: this.siteUrl,
         topic: this.topic,
-        preview: preview,
         route: route,
         canReturnToSidebar: canReturnToSidebar,
         keepTopicListOpen: keepTopicListOpen,
         registry: registry,
         scrollController: scrollController,
         hasEarlierPosts: hasEarlierPosts,
-      );
-      final siteUrl = this.siteUrl;
-      final controller = ShellScope.read(context);
-      final topicId = route?.topicId ?? controller.currentContent?.topicId;
-      if (topic != null || siteUrl == null || topicId == null) {
-        return header(null);
-      }
-      return ValueListenableBuilder<Topic?>(
-        valueListenable: controller.topicRef(siteUrl, topicId),
-        builder: (context, preview, _) => header(preview),
       );
     }
     final theme = Theme.of(context);

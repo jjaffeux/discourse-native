@@ -79,6 +79,20 @@ class _MessageArchiveButtonState extends State<MessageArchiveButton> {
   }
 }
 
+/// The disabled [MessageArchiveButton] shown while its message loads.
+class MessageArchiveButtonPlaceholder extends StatelessWidget {
+  const MessageArchiveButtonPlaceholder({super.key});
+
+  @override
+  Widget build(BuildContext context) => const DButton(
+    onPressed: null,
+    icon: DIcon(DIcons.folder),
+    label: Text('Archive'),
+    variant: DButtonVariant.outline,
+    size: DButtonSize.regular,
+  );
+}
+
 Future<void> _moveMessage({
   required ShellController controller,
   required DToastController toasts,

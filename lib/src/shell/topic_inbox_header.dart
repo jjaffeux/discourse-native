@@ -28,6 +28,7 @@ import 'title_bar.dart';
 import 'topic_actions.dart';
 import 'topic_category_picker.dart';
 import 'topic_header_tags.dart';
+import 'topic_skeleton.dart';
 import 'topic_title.dart';
 import 'user_menu_button.dart';
 
@@ -44,12 +45,14 @@ class TopicInboxHeader extends StatelessWidget {
     this.route,
     this.topic,
     this.preview,
+    this.loading = false,
     this.scrollController,
     this.hasEarlierPosts = false,
     this.bodyBuilder,
   });
 
-  final String title;
+  /// Null while loading a topic whose title no route or list row supplied.
+  final String? title;
   final String? siteUrl;
   final bool canReturnToSidebar;
   final bool keepTopicListOpen;
@@ -57,86 +60,192 @@ class TopicInboxHeader extends StatelessWidget {
   final ContentRoute? route;
   final TopicDetail? topic;
 
-  /// Cached list metadata to display until the full topic response arrives.
+  /// The cached list row. Only its closed state is drawn, because that renders
+  /// identically once the topic arrives; its other fields size placeholders.
+  /// Taxonomy and activity depend on permissions and participants it lacks.
   final Topic? preview;
+
+  /// Reserves the loaded header's rows with placeholders until [topic] arrives.
+  final bool loading;
   final ScrollController? scrollController;
   final bool hasEarlierPosts;
   final Widget Function(List<Widget> openingSlivers)? bodyBuilder;
 
   @override
   Widget build(BuildContext context) {
-    final preview = this.preview;
-    // Reuse the read-only taxonomy presentation without promoting a list row
-    // into the detail cache or inferring permissions from incomplete data.
-    final topic =
-        this.topic ??
-        (preview == null
-            ? null
-            : TopicDetail(
-                id: preview.id,
-                title: preview.title,
-                stream: const [],
-                categoryId: preview.categoryId,
-                tags: preview.tags,
-                privateMessage: preview.privateMessage,
-                postsCount: preview.postsCount,
-                replyCount: preview.replyCount,
-              ));
+    final topic = this.topic;
     final siteUrl = this.siteUrl;
     final hasTopic = topic != null && siteUrl != null;
-    final showActivity = hasTopic;
-    final taxonomy = hasTopic
-        ? ColoredBox(
-            color: ForumWindowBackground.surfaceColor(
-              context,
-              Theme.of(context).shell.content,
-            ),
-            child: _TopicHeaderReadingLane(
-              child: Padding(
-                padding: const EdgeInsets.only(bottom: DSpacing.sm),
-                child: _TopicHeaderTaxonomy(
-                  siteUrl: siteUrl,
-                  topic: topic,
-                  keepTopicListOpen: keepTopicListOpen,
-                  registry: registry,
-                  showProperties: this.topic != null,
-                  mobileActions:
-                      ShellScope.read(context).mobileNavigationEnabled &&
-                          this.topic != null
-                      ? _MobileTopicHeaderActions(
-                          siteUrl: siteUrl,
-                          topic: topic,
-                          registry: registry,
-                        )
-                      : null,
-                ),
-              ),
-            ),
+    final placeholders = loading && !hasTopic;
+    final preview = this.preview;
+    final Widget? taxonomy = hasTopic
+        ? _TopicHeaderTaxonomy(
+            siteUrl: siteUrl,
+            topic: topic,
+            keepTopicListOpen: keepTopicListOpen,
+            registry: registry,
+            mobileActions: ShellScope.read(context).mobileNavigationEnabled
+                ? _MobileTopicHeaderActions(
+                    siteUrl: siteUrl,
+                    topic: topic,
+                    registry: registry,
+                  )
+                : null,
           )
-        : const SizedBox.shrink();
-    final activity = hasTopic
-        ? _TopicHeaderReadingLane(
+        : placeholders &&
+              !(preview != null &&
+                  preview.privateMessage &&
+                  preview.tags.isEmpty)
+        ? _TopicHeaderTaxonomyPlaceholder(
+            categories: preview?.privateMessage != true,
+          )
+        : null;
+    final Widget? activity = hasTopic
+        ? TopicActivitySummary(siteUrl: siteUrl, topic: topic)
+        : placeholders
+        ? TopicActivityPlaceholder(row: preview)
+        : null;
+    final rows = [
+      _TopicHeaderToolbar(header: this),
+      if (taxonomy != null)
+        ColoredBox(
+          color: ForumWindowBackground.surfaceColor(
+            context,
+            Theme.of(context).shell.content,
+          ),
+          child: _TopicHeaderReadingLane(
             child: Padding(
-              padding: const EdgeInsets.only(top: 8, bottom: 20),
-              child: TopicActivitySummary(siteUrl: siteUrl, topic: topic),
+              padding: const EdgeInsets.only(bottom: DSpacing.sm),
+              child: taxonomy,
             ),
-          )
-        : const SizedBox.shrink();
-    final toolbar = _TopicHeaderToolbar(header: this);
+          ),
+        ),
+      if (activity != null)
+        _TopicHeaderReadingLane(
+          child: Padding(
+            padding: const EdgeInsets.only(top: 8, bottom: 20),
+            child: activity,
+          ),
+        ),
+    ];
     final bodyBuilder = this.bodyBuilder;
     if (bodyBuilder == null) {
       return Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [toolbar, taxonomy, if (showActivity) activity],
+        children: rows,
       );
     }
     return DPageSurface(
       hideHeaderOnScroll: true,
       framed: false,
       identity: (siteUrl, topic?.id, scrollController),
-      header: Column(children: [toolbar, taxonomy, if (showActivity) activity]),
+      header: Column(children: rows),
       child: bodyBuilder(const []),
+    );
+  }
+}
+
+/// The desktop taxonomy row is as tall as its tallest possible control, so a
+/// plugin property such as Assign, or its placeholder, never changes it.
+double _taxonomyRowHeight(BuildContext context) => DControlStyle.scaledHeight(
+  DControlSize.regular,
+  MediaQuery.textScalerOf(context),
+  context: context,
+);
+
+class _TopicHeaderTaxonomyPlaceholder extends StatelessWidget {
+  const _TopicHeaderTaxonomyPlaceholder({required this.categories});
+
+  final bool categories;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = topicSkeletonColor(context);
+    final radius = BorderRadius.circular(DTokens.of(context).controlRadius);
+    final height = DControlStyle.scaledHeight(
+      DControlSize.filter,
+      MediaQuery.textScalerOf(context),
+      context: context,
+    );
+    Widget chip(double width) => Flexible(
+      child: DSkeleton(
+        width: width,
+        height: height,
+        borderRadius: radius,
+        color: color,
+      ),
+    );
+    return ConstrainedBox(
+      key: const ValueKey('topic-header-taxonomy-placeholder'),
+      constraints: BoxConstraints(
+        minHeight: ShellScope.read(context).mobileNavigationEnabled
+            ? height
+            : _taxonomyRowHeight(context),
+      ),
+      child: TopicSkeletonReveal(
+        child: DSkeletonRegion(
+          semanticsLabel: 'Loading topic details',
+          liveRegion: false,
+          child: Row(
+            spacing: DSpacing.sm,
+            children: [
+              if (categories) ...[chip(112), chip(88)],
+              chip(104),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Placeholder rows for [TopicActivitySummary]: its avatar row, and its
+/// statistics estimated from the cached list [row] so they wrap alike.
+class TopicActivityPlaceholder extends StatelessWidget {
+  const TopicActivityPlaceholder({super.key, this.row});
+
+  final Topic? row;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = topicSkeletonColor(context);
+    final row = this.row;
+    return TopicSkeletonReveal(
+      child: DSkeletonRegion(
+        key: const ValueKey('topic-header-activity-placeholder'),
+        semanticsLabel: 'Loading topic activity',
+        liveRegion: false,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            DAvatarGroup(
+              size: DAvatarSize.sm,
+              children: [
+                DAvatar(
+                  size: DAvatarSize.sm,
+                  border: false,
+                  decorative: true,
+                  child: DSkeleton(color: color),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            _TopicActivityStats(
+              replies: row?.replyCount ?? 0,
+              views: row?.views ?? 0,
+              likes: row?.likeCount ?? 0,
+              links: 0,
+              readMinutes: math.max(
+                1,
+                ((row?.postsCount ?? 0) * 4 / 60).ceil(),
+              ),
+              lastActivity: row?.bumpedAt,
+              placeholder: color,
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -254,11 +363,38 @@ class _TopicHeaderTitle extends StatelessWidget {
     final topic = header.topic;
     final siteUrl = header.siteUrl;
     final style = Theme.of(context).textTheme.headlineSmall;
+    final lineHeight =
+        MediaQuery.textScalerOf(
+          context,
+        ).scale(style?.fontSize ?? DiscourseTypography.lg) *
+        (style?.height ?? DiscourseTypography.lineHeightLarge);
+    final known = header.title;
     final Widget title;
-    if (topic?.canEdit == true && siteUrl != null) {
+    if (known == null && header.loading) {
+      title = SizedBox(
+        key: const ValueKey('topic-header-title-placeholder'),
+        height: lineHeight,
+        child: FractionallySizedBox(
+          widthFactor: .56,
+          alignment: AlignmentDirectional.centerStart,
+          child: Center(
+            child: TopicSkeletonReveal(
+              child: DSkeletonRegion(
+                semanticsLabel: 'Loading topic title',
+                liveRegion: false,
+                child: DSkeleton(
+                  height: lineHeight * .6,
+                  color: topicSkeletonColor(context),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+    } else if (topic?.canEdit == true && siteUrl != null) {
       title = InlineTopicTitleEditor(
         key: ValueKey(('topic-header-title', siteUrl, topic!.id)),
-        title: header.title,
+        title: known ?? topic.title,
         siteUrl: siteUrl,
         style: style,
         maxLines: 3,
@@ -267,28 +403,24 @@ class _TopicHeaderTitle extends StatelessWidget {
         ).saveTopicTitle(siteUrl: siteUrl, topicId: topic.id, title: value),
       );
     } else {
+      final value = known ?? 'Topic';
       final text = siteUrl == null
           ? Text(
-              header.title,
+              value,
               maxLines: 3,
               overflow: TextOverflow.ellipsis,
               style: style,
             )
           : TopicTitle(
-              header.title,
+              value,
               key: const ValueKey('topic-header-compact-title'),
               siteUrl: siteUrl,
               maxLines: 3,
               overflow: TextOverflow.ellipsis,
               style: style,
             );
-      title = DTooltip(message: header.title, child: text);
+      title = DTooltip(message: value, child: text);
     }
-    final lineHeight =
-        MediaQuery.textScalerOf(
-          context,
-        ).scale(style?.fontSize ?? DiscourseTypography.lg) *
-        (style?.height ?? DiscourseTypography.lineHeightLarge);
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       spacing: DSpacing.sm,
@@ -324,15 +456,16 @@ class _TopicHeaderActions extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       spacing: DSpacing.controlGap,
       children: [
-        if (topic != null && siteUrl != null) ...[
+        if (topic != null && siteUrl != null)
           TopicStatusButton(
             siteUrl: siteUrl,
             topic: topic,
             topicFlags: ShellScope.read(
               context,
             ).availableTopicFlagTypes(siteUrl, topic),
-          ),
-        ],
+          )
+        else if (header.loading)
+          const TopicStatusButtonPlaceholder(),
         if (ShellTitleBar.columnsCarryUserMenu) const UserMenuButton(),
       ],
     );
@@ -485,7 +618,6 @@ class TopicActivitySummary extends StatelessWidget {
   Widget build(BuildContext context) => ValueListenableBuilder<Topic?>(
     valueListenable: ShellScope.read(context).topicRef(siteUrl, topic.id),
     builder: (context, row, _) {
-      final theme = Theme.of(context);
       final participants = topic.participants.take(4).toList();
       final previewAvatars = participants.isEmpty
           ? row?.posterAvatars.take(4).toList() ?? const <String>[]
@@ -496,33 +628,6 @@ class TopicActivitySummary extends StatelessWidget {
       final readMinutes = math
           .max(topic.wordCount / wordsPerMinute, topic.postsCount * 4 / 60)
           .ceil();
-      final style = theme.textTheme.bodySmall?.copyWith(
-        color: theme.colorScheme.onSurfaceVariant,
-      );
-      Widget stat(int value, String label) => Text.rich(
-        TextSpan(
-          children: [
-            TextSpan(
-              text: '$value',
-              style: const TextStyle(fontWeight: FontWeight.w600),
-            ),
-            TextSpan(text: ' $label'),
-          ],
-        ),
-        style: style,
-      );
-      final stats = <Widget>[
-        stat(topic.replyCount, topic.replyCount == 1 ? 'reply' : 'replies'),
-        stat(topic.views, topic.views == 1 ? 'view' : 'views'),
-        stat(topic.likeCount, topic.likeCount == 1 ? 'like' : 'likes'),
-        stat(topic.links.length, topic.links.length == 1 ? 'link' : 'links'),
-        if (readMinutes > 0) stat(readMinutes, 'min read'),
-        if (row?.bumpedAt case final activity?)
-          Text(switch (relativeTime(activity)) {
-            'now' => 'last activity just now',
-            final age => 'last activity $age ago',
-          }, style: style),
-      ];
       return Column(
         key: const ValueKey('topic-header-activity'),
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -562,28 +667,105 @@ class TopicActivitySummary extends StatelessWidget {
             ),
             const SizedBox(height: 12),
           ],
-          Wrap(
-            spacing: 8,
-            runSpacing: 6,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: [
-              for (var i = 0; i < stats.length; i++)
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (i > 0) ...[
-                      Text('·', style: style),
-                      const SizedBox(width: 8),
-                    ],
-                    Flexible(child: stats[i]),
-                  ],
-                ),
-            ],
+          _TopicActivityStats(
+            replies: topic.replyCount,
+            views: topic.views,
+            likes: topic.likeCount,
+            links: topic.links.length,
+            readMinutes: readMinutes,
+            lastActivity: row?.bumpedAt,
           ),
         ],
       );
     },
   );
+}
+
+/// The statistics line of [TopicActivitySummary]. With a [placeholder] fill,
+/// each statistic keeps its text's width but draws a bar instead, so a
+/// placeholder built from estimates wraps where the loaded line will.
+class _TopicActivityStats extends StatelessWidget {
+  const _TopicActivityStats({
+    required this.replies,
+    required this.views,
+    required this.likes,
+    required this.links,
+    required this.readMinutes,
+    required this.lastActivity,
+    this.placeholder,
+  });
+
+  final int replies;
+  final int views;
+  final int likes;
+  final int links;
+  final int readMinutes;
+  final DateTime? lastActivity;
+  final Color? placeholder;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final style = theme.textTheme.bodySmall?.copyWith(
+      color: theme.colorScheme.onSurfaceVariant,
+    );
+    Widget stat(int value, String label) => Text.rich(
+      TextSpan(
+        children: [
+          TextSpan(
+            text: '$value',
+            style: const TextStyle(fontWeight: FontWeight.w600),
+          ),
+          TextSpan(text: ' $label'),
+        ],
+      ),
+      style: style,
+    );
+    final stats = <Widget>[
+      stat(replies, replies == 1 ? 'reply' : 'replies'),
+      stat(views, views == 1 ? 'view' : 'views'),
+      stat(likes, likes == 1 ? 'like' : 'likes'),
+      stat(links, links == 1 ? 'link' : 'links'),
+      if (readMinutes > 0) stat(readMinutes, 'min read'),
+      if (lastActivity case final activity?)
+        Text(switch (relativeTime(activity)) {
+          'now' => 'last activity just now',
+          final age => 'last activity $age ago',
+        }, style: style),
+    ];
+    Widget reserve(Widget child) => switch (placeholder) {
+      null => child,
+      final color => Stack(
+        children: [
+          Opacity(opacity: 0, child: child),
+          Positioned.fill(
+            child: Center(child: DSkeleton(height: 9, color: color)),
+          ),
+        ],
+      ),
+    };
+    return Wrap(
+      spacing: 8,
+      runSpacing: 6,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        for (var i = 0; i < stats.length; i++)
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (i > 0) ...[
+                Opacity(
+                  opacity: placeholder == null ? 1 : 0,
+                  child: Text('·', style: style),
+                ),
+                const SizedBox(width: 8),
+              ],
+              Flexible(child: reserve(stats[i])),
+            ],
+          ),
+      ],
+    );
+  }
 }
 
 class _TopicHeaderTaxonomy extends StatelessWidget {
@@ -592,14 +774,12 @@ class _TopicHeaderTaxonomy extends StatelessWidget {
     required this.topic,
     required this.keepTopicListOpen,
     required this.registry,
-    this.showProperties = true,
     this.mobileActions,
   });
   final String siteUrl;
   final TopicDetail topic;
   final bool keepTopicListOpen;
   final PluginRegistry registry;
-  final bool showProperties;
   final Widget? mobileActions;
 
   @override
@@ -697,51 +877,52 @@ class _TopicHeaderTaxonomy extends StatelessWidget {
               ],
             );
           }
-          return Row(
-            key: const ValueKey('topic-header-taxonomy'),
-            children: [
-              if (hasCategories) ...[
-                ConstrainedBox(
-                  constraints: BoxConstraints(maxWidth: categoryWidth),
-                  child: _TopicCategoryControl(
-                    key: const ValueKey('topic-header-parent-category'),
-                    siteUrl: siteUrl,
-                    topic: topic,
-                    category: root,
-                    subcategory: false,
-                    keepTopicListOpen: keepTopicListOpen,
-                    compressed: compressed,
-                    showBrowseButton: showBrowse,
-                  ),
-                ),
-                if (hasSubcategory) ...[
-                  const SizedBox(width: 7),
+          return ConstrainedBox(
+            constraints: BoxConstraints(minHeight: _taxonomyRowHeight(context)),
+            child: Row(
+              key: const ValueKey('topic-header-taxonomy'),
+              children: [
+                if (hasCategories) ...[
                   ConstrainedBox(
                     constraints: BoxConstraints(maxWidth: categoryWidth),
                     child: _TopicCategoryControl(
-                      key: const ValueKey('topic-header-category'),
+                      key: const ValueKey('topic-header-parent-category'),
                       siteUrl: siteUrl,
                       topic: topic,
-                      category: parent == null ? null : category,
-                      subcategory: true,
-                      parentCategoryId: root?.id,
+                      category: root,
+                      subcategory: false,
                       keepTopicListOpen: keepTopicListOpen,
                       compressed: compressed,
                       showBrowseButton: showBrowse,
                     ),
                   ),
+                  if (hasSubcategory) ...[
+                    const SizedBox(width: 7),
+                    ConstrainedBox(
+                      constraints: BoxConstraints(maxWidth: categoryWidth),
+                      child: _TopicCategoryControl(
+                        key: const ValueKey('topic-header-category'),
+                        siteUrl: siteUrl,
+                        topic: topic,
+                        category: parent == null ? null : category,
+                        subcategory: true,
+                        parentCategoryId: root?.id,
+                        keepTopicListOpen: keepTopicListOpen,
+                        compressed: compressed,
+                        showBrowseButton: showBrowse,
+                      ),
+                    ),
+                  ],
                 ],
-              ],
-              if (hasTags) ...[
-                if (hasCategories)
-                  const DSeparator(
-                    orientation: Axis.vertical,
-                    length: 20,
-                    space: 17,
-                  ),
-                Flexible(child: tags),
-              ],
-              if (showProperties)
+                if (hasTags) ...[
+                  if (hasCategories)
+                    const DSeparator(
+                      orientation: Axis.vertical,
+                      length: 20,
+                      space: 17,
+                    ),
+                  Flexible(child: tags),
+                ],
                 _TopicHeaderProperties(
                   siteUrl: siteUrl,
                   topic: topic,
@@ -749,7 +930,8 @@ class _TopicHeaderTaxonomy extends StatelessWidget {
                   compact: constraints.maxWidth < 620,
                   showSeparator: hasCategories || hasTags,
                 ),
-            ],
+              ],
+            ),
           );
         },
       );
