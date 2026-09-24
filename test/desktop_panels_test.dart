@@ -841,32 +841,33 @@ void main() {
   ) async {
     await _pump(tester, shell);
     final id = shell.activeTabId!;
-    final tab = find
-        .descendant(
-          of: find.byType(ForumTabsBar),
-          matching: find.byType(DDocumentTab),
-        )
-        .first;
-    final target = find.text('Secondary panel');
-    await tester.dragFrom(
-      tester.getCenter(tab),
-      tester.getCenter(target) - tester.getCenter(tab),
-    );
+    Future<void> moveToEmptyPanel(String label) async {
+      final tab = find.byKey(ValueKey('forum-tab-$id'));
+      final gesture = await tester.startGesture(
+        tester.getCenter(tab),
+        kind: PointerDeviceKind.mouse,
+      );
+      await gesture.moveBy(const Offset(0, 20));
+      await tester.pump();
+      await gesture.moveTo(tester.getCenter(find.text(label)));
+      await tester.pumpAndSettle();
+      final indicator = find.byKey(
+        const ValueKey('forum-tab-drop-placeholder'),
+      );
+      expect(indicator, findsOneWidget);
+      expect(tester.getRect(indicator).width, 3);
+      await gesture.up();
+      await tester.pumpAndSettle();
+      expect(indicator, findsNothing);
+    }
+
+    await moveToEmptyPanel('Secondary panel');
     await tester.pumpAndSettle();
     expect(shell.activeTab?.panel, ForumPanel.secondary);
     expect(shell.activeTabId, id);
     expect(find.text('Main panel'), findsOneWidget);
 
-    final moved = find
-        .descendant(
-          of: find.byType(ForumTabsBar),
-          matching: find.byType(DDocumentTab),
-        )
-        .first;
-    await tester.dragFrom(
-      tester.getCenter(moved),
-      tester.getCenter(find.text('Main panel')) - tester.getCenter(moved),
-    );
+    await moveToEmptyPanel('Main panel');
     await tester.pumpAndSettle();
     expect(shell.activeTab?.panel, ForumPanel.main);
     expect(shell.activeTabId, id);

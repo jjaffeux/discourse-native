@@ -1727,12 +1727,7 @@ class CurrentForumTabsBar extends StatelessWidget {
                 return Row(
                   children: [
                     if (incoming != null) ...[
-                      Flexible(
-                        child: SizedBox(
-                          width: ForumTabsBar.maximumTabWidth,
-                          child: _ForumTabDropPlaceholder(item: incoming),
-                        ),
-                      ),
+                      _ForumTabDropPlaceholder(item: incoming),
                       const SizedBox(width: DSpacing.controlGap),
                     ],
                     DButton.iconOnly(
