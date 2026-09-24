@@ -593,8 +593,9 @@ class _EventDescriptionState extends State<_EventDescription> {
 
   @override
   Widget build(BuildContext context) {
-    final style = Theme.of(context).textTheme.bodySmall!
-        .copyWith(color: DTokens.of(context).mutedForeground);
+    final style = Theme.of(
+      context,
+    ).textTheme.bodySmall!.copyWith(color: DTokens.of(context).mutedForeground);
     final preview = _preview;
     final content = widget.isHtml
         ? CookedHtml(
