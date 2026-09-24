@@ -950,6 +950,23 @@ void main() {
       );
       expect(placeholder, findsOneWidget);
       final previewRect = tester.getRect(placeholder);
+      expect(previewRect.width, 3);
+      expect(previewRect.height, 28);
+      expect(
+        tester
+            .widget<Container>(
+              find.descendant(
+                of: placeholder,
+                matching: find.byType(Container),
+              ),
+            )
+            .decoration,
+        isA<BoxDecoration>().having(
+          (decoration) => decoration.color,
+          'color',
+          Theme.of(tester.element(placeholder)).colorScheme.primary,
+        ),
+      );
       final firstRect = tester.getRect(
         find.byKey(ValueKey('forum-tab-$first')),
       );
