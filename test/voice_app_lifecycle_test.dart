@@ -85,32 +85,39 @@ void main() {
     );
     addTearDown(first.close);
     addTearDown(second.close);
-    await first.startCapture();
+    // Close under the fake clock even when the body fails: a close first
+    // reached from a tearDown never completes, because it waits on futures
+    // created under the fake clock, which nothing drives once the body has
+    // returned.
+    try {
+      await first.startCapture();
 
-    final host = await PluginHostHarness.forApp(
-      transport: RecordingPluginTransport(),
-    );
-    addTearDown(host.close);
+      final host = await PluginHostHarness.forApp(
+        transport: RecordingPluginTransport(),
+      );
+      addTearDown(host.close);
 
-    Widget app(VoiceDiagnosticsController diagnostics) => host.buildApp(
-      key: key,
-      manifest: PluginManifest([_VoiceDiagnosticsModule(diagnostics)]),
-    );
+      Widget app(VoiceDiagnosticsController diagnostics) => host.buildApp(
+        key: key,
+        manifest: PluginManifest([_VoiceDiagnosticsModule(diagnostics)]),
+      );
 
-    await tester.pumpWidget(app(first));
-    await tester.pump();
-    expect(first.captureEnabled, isTrue);
+      await tester.pumpWidget(app(first));
+      await tester.pump();
+      expect(first.captureEnabled, isTrue);
 
-    await tester.pumpWidget(app(second));
-    await tester.pump();
+      await tester.pumpWidget(app(second));
+      await tester.pump();
 
-    expect(bridgeReleased.isCompleted, isFalse);
-    expect(first.captureEnabled, isTrue);
-    expect(second.captureEnabled, isFalse);
-
-    await tester.pumpWidget(const SizedBox.shrink());
-    await first.close();
-    await second.close();
+      expect(bridgeReleased.isCompleted, isFalse);
+      expect(first.captureEnabled, isTrue);
+      expect(second.captureEnabled, isFalse);
+    } finally {
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump();
+      await first.close();
+      await second.close();
+    }
     expect(bridgeReleased.isCompleted, isTrue);
   });
 }

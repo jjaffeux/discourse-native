@@ -313,48 +313,57 @@ void main() {
       'a broken contribution renderer logs and falls back the whole source',
       (tester) async {
         final diagnostics = await _installDiagnostics('chat-preview-plugin');
-        const raw = '**before** [date] after';
-        final renderer = ChatPreviewEngine(
-          plugins: const [
-            _RenderingPlugin('date', '[date]', throwsWhileBuilding: true),
-          ],
-          reporter: PluginDiagnosticsReporter.fixed(diagnostics),
-        );
-        final projected =
-            project(raw, withEngine: renderer) as ProjectedPreview;
+        // Close under the fake clock even when the body fails: a close first
+        // reached from a tearDown never completes, because it waits on futures
+        // created under the fake clock, which nothing drives once the body has
+        // returned.
+        try {
+          const raw = '**before** [date] after';
+          final renderer = ChatPreviewEngine(
+            plugins: const [
+              _RenderingPlugin('date', '[date]', throwsWhileBuilding: true),
+            ],
+            reporter: PluginDiagnosticsReporter.fixed(diagnostics),
+          );
+          final projected =
+              project(raw, withEngine: renderer) as ProjectedPreview;
 
-        await tester.pumpWidget(
-          MaterialApp(
-            home: Scaffold(
-              body: ChatPreviewBody(
-                document: projected.document,
-                textStyle: null,
-                previewEngine: renderer,
+          await tester.pumpWidget(
+            MaterialApp(
+              home: Scaffold(
+                body: ChatPreviewBody(
+                  document: projected.document,
+                  textStyle: null,
+                  previewEngine: renderer,
+                ),
               ),
             ),
-          ),
-        );
+          );
 
-        expect(find.text(raw), findsOneWidget);
-        expect(find.text('before'), findsNothing);
-        expect(
-          diagnostics.events.whereType<ErrorDiagnosticEvent>().single,
-          isA<ErrorDiagnosticEvent>()
-              .having(
-                (event) => event.operation,
-                'operation',
-                'chat.previewPlugin.render',
-              )
-              .having((event) => event.source, 'source', 'chat')
-              .having(
-                (event) => event.severity,
-                'severity',
-                DiagnosticSeverity.warning,
-              )
-              .having((event) => event.handled, 'handled', isTrue)
-              .having((event) => event.degraded, 'degraded', isTrue),
-        );
-        await diagnostics.close();
+          expect(find.text(raw), findsOneWidget);
+          expect(find.text('before'), findsNothing);
+          expect(
+            diagnostics.events.whereType<ErrorDiagnosticEvent>().single,
+            isA<ErrorDiagnosticEvent>()
+                .having(
+                  (event) => event.operation,
+                  'operation',
+                  'chat.previewPlugin.render',
+                )
+                .having((event) => event.source, 'source', 'chat')
+                .having(
+                  (event) => event.severity,
+                  'severity',
+                  DiagnosticSeverity.warning,
+                )
+                .having((event) => event.handled, 'handled', isTrue)
+                .having((event) => event.degraded, 'degraded', isTrue),
+          );
+        } finally {
+          await tester.pumpWidget(const SizedBox.shrink());
+          await tester.pump();
+          await diagnostics.close();
+        }
       },
     );
   });

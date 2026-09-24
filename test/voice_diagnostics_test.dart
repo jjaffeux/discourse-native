@@ -1399,32 +1399,39 @@ void main() {
         captureIdFactory: () => 'capture-burst',
       );
       addTearDown(controller.close);
-      await controller.startCapture();
-      persistence.appendCalls = 0;
-      var eventNotifications = 0;
-      var stateNotifications = 0;
-      controller.eventsListenable.addListener(() => eventNotifications += 1);
-      controller.stateListenable.addListener(() => stateNotifications += 1);
+      // Close under the fake clock even when the body fails: a close first
+      // reached from a tearDown never completes, because it waits on futures
+      // created under the fake clock, which nothing drives once the body has
+      // returned.
+      try {
+        await controller.startCapture();
+        persistence.appendCalls = 0;
+        var eventNotifications = 0;
+        var stateNotifications = 0;
+        controller.eventsListenable.addListener(() => eventNotifications += 1);
+        controller.stateListenable.addListener(() => stateNotifications += 1);
 
-      for (var index = 0; index < 20; index += 1) {
-        controller.recordRaw('sdk.pending.$index');
-        await tester.pump(const Duration(milliseconds: 2));
+        for (var index = 0; index < 20; index += 1) {
+          controller.recordRaw('sdk.pending.$index');
+          await tester.pump(const Duration(milliseconds: 2));
+        }
+        expect(persistence.appendCalls, 0);
+        expect(eventNotifications, 0);
+        expect(stateNotifications, 0);
+
+        for (var index = 0; index < 2500; index += 1) {
+          controller.recordRaw('sdk.burst.$index');
+        }
+        await controller.flush();
+
+        expect(persistence.appendCalls, 1);
+        expect(eventNotifications, 1);
+        expect(stateNotifications, 1);
+        expect(controller.events, hasLength(2000));
+        expect(controller.events.last.event, 'sdk.burst.2499');
+      } finally {
+        await controller.close();
       }
-      expect(persistence.appendCalls, 0);
-      expect(eventNotifications, 0);
-      expect(stateNotifications, 0);
-
-      for (var index = 0; index < 2500; index += 1) {
-        controller.recordRaw('sdk.burst.$index');
-      }
-      await controller.flush();
-
-      expect(persistence.appendCalls, 1);
-      expect(eventNotifications, 1);
-      expect(stateNotifications, 1);
-      expect(controller.events, hasLength(2000));
-      expect(controller.events.last.event, 'sdk.burst.2499');
-      await controller.close();
     });
 
     test('bounds its decoded event tail by bytes as well as count', () async {

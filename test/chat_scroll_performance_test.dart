@@ -36,66 +36,75 @@ void main() {
       persistence: MemoryDiagnosticsPersistence(),
     );
     addTearDown(diagnostics.close);
-    await tester.pumpWidget(
-      ChatScrollFixture(
-        controller: controller,
-        diagnostics: diagnostics,
-        width: 800,
-      ),
-    );
-    await tester.pumpAndSettle();
-    final body = find.byType(CookedHtml).hitTestable().first;
-    final bodyElement = tester.element(body);
-    final tile = find.ancestor(
-      of: body,
-      matching: find.byType(ChatMessageTile),
-    );
-    final id = tester.widget<ChatMessageTile>(tile).messageId;
-    final more = find.byKey(ValueKey('chat-message-more-actions-$id'));
-    final scrollable = find.descendant(
-      of: find.byType(ChatMessageStream),
-      matching: find.byWidgetPredicate(
-        (widget) =>
-            widget is Scrollable &&
-            axisDirectionToAxis(widget.axisDirection) == Axis.vertical,
-      ),
-    );
-    final position = tester.state<ScrollableState>(scrollable).position;
-    final rebuilt = <Element>[];
-    final previous = debugOnRebuildDirtyWidget;
-    debugOnRebuildDirtyWidget = (element, builtOnce) {
-      previous?.call(element, builtOnce);
-      if (identical(element, bodyElement)) rebuilt.add(element);
-    };
-    addTearDown(() => debugOnRebuildDirtyWidget = previous);
-    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
-    await mouse.addPointer(location: Offset.zero);
-    addTearDown(mouse.removePointer);
-    await mouse.moveTo(tester.getCenter(body));
-    await tester.pumpAndSettle();
-    expect(more.hitTestable(), findsOneWidget);
-    expect(
-      rebuilt,
-      isEmpty,
-      reason: 'hover only changes the controls and surface',
-    );
+    // Close under the fake clock even when the body fails: a close first
+    // reached from a tearDown never completes, because it waits on futures
+    // created under the fake clock, which nothing drives once the body has
+    // returned.
+    try {
+      await tester.pumpWidget(
+        ChatScrollFixture(
+          controller: controller,
+          diagnostics: diagnostics,
+          width: 800,
+        ),
+      );
+      await tester.pumpAndSettle();
+      final body = find.byType(CookedHtml).hitTestable().first;
+      final bodyElement = tester.element(body);
+      final tile = find.ancestor(
+        of: body,
+        matching: find.byType(ChatMessageTile),
+      );
+      final id = tester.widget<ChatMessageTile>(tile).messageId;
+      final more = find.byKey(ValueKey('chat-message-more-actions-$id'));
+      final scrollable = find.descendant(
+        of: find.byType(ChatMessageStream),
+        matching: find.byWidgetPredicate(
+          (widget) =>
+              widget is Scrollable &&
+              axisDirectionToAxis(widget.axisDirection) == Axis.vertical,
+        ),
+      );
+      final position = tester.state<ScrollableState>(scrollable).position;
+      final rebuilt = <Element>[];
+      final previous = debugOnRebuildDirtyWidget;
+      debugOnRebuildDirtyWidget = (element, builtOnce) {
+        previous?.call(element, builtOnce);
+        if (identical(element, bodyElement)) rebuilt.add(element);
+      };
+      addTearDown(() => debugOnRebuildDirtyWidget = previous);
+      final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      await mouse.addPointer(location: Offset.zero);
+      addTearDown(mouse.removePointer);
+      await mouse.moveTo(tester.getCenter(body));
+      await tester.pumpAndSettle();
+      expect(more.hitTestable(), findsOneWidget);
+      expect(
+        rebuilt,
+        isEmpty,
+        reason: 'hover only changes the controls and surface',
+      );
 
-    position.pointerScroll(10);
-    await tester.pumpAndSettle();
-    expect(bodyElement.mounted, isTrue);
-    expect(more.hitTestable(), findsNothing);
-    expect(
-      rebuilt,
-      isEmpty,
-      reason: 'scroll suppression must leave HTML alone',
-    );
+      position.pointerScroll(10);
+      await tester.pumpAndSettle();
+      expect(bodyElement.mounted, isTrue);
+      expect(more.hitTestable(), findsNothing);
+      expect(
+        rebuilt,
+        isEmpty,
+        reason: 'scroll suppression must leave HTML alone',
+      );
 
-    // Moving the pointer again restores the controls without reconstructing HTML.
-    await mouse.moveTo(tester.getCenter(body) + const Offset(1, 0));
-    await tester.pumpAndSettle();
-    expect(more.hitTestable(), findsOneWidget);
-    expect(rebuilt, isEmpty);
-    await diagnostics.close();
+      // Moving the pointer again restores the controls without reconstructing HTML.
+      await mouse.moveTo(tester.getCenter(body) + const Offset(1, 0));
+      await tester.pumpAndSettle();
+      expect(more.hitTestable(), findsOneWidget);
+      expect(rebuilt, isEmpty);
+    } finally {
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump();
+      await diagnostics.close();
+    }
   }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 
   testWidgets(
@@ -337,37 +346,41 @@ void main() {
     );
     addTearDown(controller.dispose);
     addTearDown(diagnostics.close);
-    await tester.pumpWidget(
-      ChatScrollFixture(
-        controller: controller,
-        diagnostics: diagnostics,
-        width: layouts.currentValue!.width,
-        dark: layouts.currentValue!.dark,
-      ),
-    );
-    await tester.pumpAndSettle();
-    expect(find.byType(DBubble), findsWidgets);
-    final scrollable = find.descendant(
-      of: find.byType(ChatMessageStream),
-      matching: find.byWidgetPredicate(
-        (widget) =>
-            widget is Scrollable &&
-            axisDirectionToAxis(widget.axisDirection) == Axis.vertical,
-      ),
-    );
-    final position = tester.state<ScrollableState>(scrollable).position;
-    final viewport = tester.getRect(scrollable);
-    final rebuiltMessages = <Element>[];
-    final seenMessages = find.byType(ChatMessageTile).evaluate().toSet();
-    final previous = debugOnRebuildDirtyWidget;
-    debugOnRebuildDirtyWidget = (element, builtOnce) {
-      previous?.call(element, builtOnce);
-      if (element.widget is ChatMessageTile && !seenMessages.add(element)) {
-        rebuiltMessages.add(element);
-      }
-    };
-    addTearDown(() => debugOnRebuildDirtyWidget = previous);
+    // Close under the fake clock even when the body fails: a close first
+    // reached from a tearDown never completes, because it waits on futures
+    // created under the fake clock, which nothing drives once the body has
+    // returned.
     try {
+      await tester.pumpWidget(
+        ChatScrollFixture(
+          controller: controller,
+          diagnostics: diagnostics,
+          width: layouts.currentValue!.width,
+          dark: layouts.currentValue!.dark,
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.byType(DBubble), findsWidgets);
+      final scrollable = find.descendant(
+        of: find.byType(ChatMessageStream),
+        matching: find.byWidgetPredicate(
+          (widget) =>
+              widget is Scrollable &&
+              axisDirectionToAxis(widget.axisDirection) == Axis.vertical,
+        ),
+      );
+      final position = tester.state<ScrollableState>(scrollable).position;
+      final viewport = tester.getRect(scrollable);
+      final rebuiltMessages = <Element>[];
+      final seenMessages = find.byType(ChatMessageTile).evaluate().toSet();
+      final previous = debugOnRebuildDirtyWidget;
+      debugOnRebuildDirtyWidget = (element, builtOnce) {
+        previous?.call(element, builtOnce);
+        if (element.widget is ChatMessageTile && !seenMessages.add(element)) {
+          rebuiltMessages.add(element);
+        }
+      };
+      addTearDown(() => debugOnRebuildDirtyWidget = previous);
       for (var step = 0; step < 20; step++) {
         position.pointerScroll(10);
         await tester.pump(const Duration(milliseconds: 16));
@@ -491,41 +504,49 @@ void main() {
         persistence: MemoryDiagnosticsPersistence(),
       );
       addTearDown(diagnostics.close);
-      await tester.pumpWidget(
-        ChatScrollFixture(controller: controller, diagnostics: diagnostics),
-      );
-      await tester.pumpAndSettle();
-
-      final floating = find.byWidgetPredicate(
-        (widget) => widget is StreamDaySeparator && widget.floating,
-      );
-      final day = tester.widget<StreamDaySeparator>(floating).day;
-      final firstId = 1 + day.difference(DateTime(2026, 8, 1)).inDays * 12;
-      final firstMessage = find.byWidgetPredicate(
-        (widget) => widget is ChatMessageTile && widget.messageId == firstId,
-      );
-      expect(firstMessage.hitTestable(), findsNothing);
-      if (paginated) {
-        expect(
-          tester
-              .widget<ChatMessageStream>(find.byType(ChatMessageStream))
-              .stream
-              .canLoadMorePast,
-          isTrue,
+      // Close under the fake clock even when the body fails: a close first
+      // reached from a tearDown never completes, because it waits on futures
+      // created under the fake clock, which nothing drives once the body has
+      // returned.
+      try {
+        await tester.pumpWidget(
+          ChatScrollFixture(controller: controller, diagnostics: diagnostics),
         );
-      }
-      await tester.tap(floating);
-      await tester.pumpAndSettle();
+        await tester.pumpAndSettle();
 
-      expect(firstMessage.hitTestable(), findsOneWidget);
-      final viewport = tester.getRect(find.byType(ChatMessageStream));
-      expect(
-        tester.getTopLeft(find.byKey(ValueKey(('chat-day', day)))).dy,
-        closeTo(viewport.top, 1),
-      );
-      expect(tester.takeException(), isNull);
-      await tester.pumpWidget(const SizedBox.shrink());
-      await diagnostics.close();
+        final floating = find.byWidgetPredicate(
+          (widget) => widget is StreamDaySeparator && widget.floating,
+        );
+        final day = tester.widget<StreamDaySeparator>(floating).day;
+        final firstId = 1 + day.difference(DateTime(2026, 8, 1)).inDays * 12;
+        final firstMessage = find.byWidgetPredicate(
+          (widget) => widget is ChatMessageTile && widget.messageId == firstId,
+        );
+        expect(firstMessage.hitTestable(), findsNothing);
+        if (paginated) {
+          expect(
+            tester
+                .widget<ChatMessageStream>(find.byType(ChatMessageStream))
+                .stream
+                .canLoadMorePast,
+            isTrue,
+          );
+        }
+        await tester.tap(floating);
+        await tester.pumpAndSettle();
+
+        expect(firstMessage.hitTestable(), findsOneWidget);
+        final viewport = tester.getRect(find.byType(ChatMessageStream));
+        expect(
+          tester.getTopLeft(find.byKey(ValueKey(('chat-day', day)))).dy,
+          closeTo(viewport.top, 1),
+        );
+        expect(tester.takeException(), isNull);
+      } finally {
+        await tester.pumpWidget(const SizedBox.shrink());
+        await tester.pump();
+        await diagnostics.close();
+      }
     });
   }
 
@@ -546,52 +567,63 @@ void main() {
     );
     addTearDown(controller.dispose);
     addTearDown(diagnostics.close);
-    Future<void> mount(double width) async {
-      await tester.pumpWidget(
-        ChatScrollFixture(
-          controller: controller,
-          diagnostics: diagnostics,
-          width: width,
+    // Close under the fake clock even when the body fails: a close first
+    // reached from a tearDown never completes, because it waits on futures
+    // created under the fake clock, which nothing drives once the body has
+    // returned.
+    try {
+      Future<void> mount(double width) async {
+        await tester.pumpWidget(
+          ChatScrollFixture(
+            controller: controller,
+            diagnostics: diagnostics,
+            width: width,
+          ),
+        );
+        await tester.pumpAndSettle();
+      }
+
+      await mount(800);
+      final firstDay = ValueKey(('chat-floating-day', DateTime(2026, 8, 1)));
+      final secondDay = ValueKey(('chat-floating-day', DateTime(2026, 8, 2)));
+      expect(find.byKey(firstDay), findsOneWidget);
+      capture.start();
+      final original = controller.chat.messageRef(chatScrollSite, 14).value!;
+      controller.chatRecords.put(
+        chatScrollSite,
+        ChatMessage(
+          id: original.id,
+          channelId: original.channelId,
+          author: original.author,
+          createdAt: original.createdAt,
+          cooked:
+              '<p>${List.filled(200, 'A much longer edited message.').join(' ')}</p>',
         ),
       );
       await tester.pumpAndSettle();
+      expect(find.byKey(secondDay), findsOneWidget);
+      expect(
+        capture.events.where(
+          (event) => event.name == 'chat.dayExtents.scanned',
+        ),
+        isNotEmpty,
+      );
+      capture.start();
+      await mount(360);
+      expect(find.byKey(secondDay), findsOneWidget);
+      expect(
+        capture.events.where(
+          (event) => event.name == 'chat.dayExtents.scanned',
+        ),
+        isNotEmpty,
+      );
+      expect(tester.takeException(), isNull);
+    } finally {
+      capture.stop();
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump();
+      await diagnostics.close();
     }
-
-    await mount(800);
-    final firstDay = ValueKey(('chat-floating-day', DateTime(2026, 8, 1)));
-    final secondDay = ValueKey(('chat-floating-day', DateTime(2026, 8, 2)));
-    expect(find.byKey(firstDay), findsOneWidget);
-    capture.start();
-    final original = controller.chat.messageRef(chatScrollSite, 14).value!;
-    controller.chatRecords.put(
-      chatScrollSite,
-      ChatMessage(
-        id: original.id,
-        channelId: original.channelId,
-        author: original.author,
-        createdAt: original.createdAt,
-        cooked:
-            '<p>${List.filled(200, 'A much longer edited message.').join(' ')}</p>',
-      ),
-    );
-    await tester.pumpAndSettle();
-    expect(find.byKey(secondDay), findsOneWidget);
-    expect(
-      capture.events.where((event) => event.name == 'chat.dayExtents.scanned'),
-      isNotEmpty,
-    );
-    capture.start();
-    await mount(360);
-    expect(find.byKey(secondDay), findsOneWidget);
-    expect(
-      capture.events.where((event) => event.name == 'chat.dayExtents.scanned'),
-      isNotEmpty,
-    );
-    expect(tester.takeException(), isNull);
-    capture.stop();
-    await tester.pumpWidget(const SizedBox.shrink());
-    await tester.pump();
-    await diagnostics.close();
   });
 }
 

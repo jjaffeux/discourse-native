@@ -45,197 +45,206 @@ void main() {
       captureIdFactory: () => 'capture-panel-test',
       clock: () => now,
     );
-    final sinkBinding = DiagnosticsSink.install(diagnostics);
-    addTearDown(sinkBinding.close);
-    voice.record('call.safe.before_capture', component: 'controller');
-    await voice.startCapture();
-    now = now.add(const Duration(seconds: 1));
-    voice.record(
-      'call.join.captured',
-      component: 'controller',
-      correlationId: 'voice-call-panel',
-    );
-    now = now.add(const Duration(seconds: 1));
-    voice.recordRaw(
-      'peer.ice.failed',
-      component: 'mesh',
-      severity: DiagnosticSeverity.error,
-      message: 'ICE negotiation failed',
-      data: const {'username': 'sam', 'candidate': '10.0.0.2'},
-    );
-    now = now.add(const Duration(seconds: 1));
-    await voice.stopCapture();
-    DiagnosticsSink.runOperation('voice.join', () {
+    DiagnosticsController? replacementDiagnostics;
+    VoiceDiagnosticsController? replacementVoice;
+    // Close under the fake clock even when the body fails: a close first
+    // reached from a tearDown never completes, because it waits on futures
+    // created under the fake clock, which nothing drives once the body has
+    // returned.
+    try {
+      final sinkBinding = DiagnosticsSink.install(diagnostics);
+      addTearDown(sinkBinding.close);
+      voice.record('call.safe.before_capture', component: 'controller');
+      await voice.startCapture();
+      now = now.add(const Duration(seconds: 1));
+      voice.record(
+        'call.join.captured',
+        component: 'controller',
+        correlationId: 'voice-call-panel',
+      );
+      now = now.add(const Duration(seconds: 1));
+      voice.recordRaw(
+        'peer.ice.failed',
+        component: 'mesh',
+        severity: DiagnosticSeverity.error,
+        message: 'ICE negotiation failed',
+        data: const {'username': 'sam', 'candidate': '10.0.0.2'},
+      );
+      now = now.add(const Duration(seconds: 1));
+      await voice.stopCapture();
+      DiagnosticsSink.runOperation('voice.join', () {
+        diagnostics.recordHttp(
+          HttpDiagnosticRecord(
+            eventId: 'voice-http',
+            phase: HttpDiagnosticPhase.started,
+            timestamp: now,
+            method: 'POST',
+            uri: Uri.parse(
+              'https://forum.example/voice/rooms/42/join?token=private',
+            ),
+            sentBytes: 120,
+            receivedBytes: 0,
+          ),
+        );
+        diagnostics.recordHttp(
+          HttpDiagnosticRecord(
+            eventId: 'voice-http',
+            phase: HttpDiagnosticPhase.completed,
+            timestamp: now.add(const Duration(milliseconds: 180)),
+            method: 'POST',
+            uri: Uri.parse(
+              'https://forum.example/voice/rooms/42/join?token=private',
+            ),
+            statusCode: 200,
+            totalDuration: const Duration(milliseconds: 180),
+            sentBytes: 120,
+            receivedBytes: 2048,
+          ),
+        );
+      }, correlationId: 'voice-call-panel');
       diagnostics.recordHttp(
         HttpDiagnosticRecord(
-          eventId: 'voice-http',
+          eventId: 'unrelated-http',
           phase: HttpDiagnosticPhase.started,
           timestamp: now,
-          method: 'POST',
-          uri: Uri.parse(
-            'https://forum.example/voice/rooms/42/join?token=private',
-          ),
-          sentBytes: 120,
+          method: 'GET',
+          uri: Uri.parse('https://forum.example/latest.json'),
+          sentBytes: 0,
           receivedBytes: 0,
         ),
       );
-      diagnostics.recordHttp(
-        HttpDiagnosticRecord(
-          eventId: 'voice-http',
-          phase: HttpDiagnosticPhase.completed,
-          timestamp: now.add(const Duration(milliseconds: 180)),
-          method: 'POST',
-          uri: Uri.parse(
-            'https://forum.example/voice/rooms/42/join?token=private',
+      addTearDown(diagnostics.close);
+      addTearDown(voice.close);
+
+      final exporter = _NoopExporter();
+
+      tester.view.physicalSize = const Size(440, 900);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light,
+          home: Scaffold(
+            body: DiagnosticsPanel(
+              controller: diagnostics,
+              plugins: [
+                VoiceDiagnosticsPlugin(controller: voice, exporter: exporter),
+              ],
+              onClose: () {},
+            ),
           ),
-          statusCode: 200,
-          totalDuration: const Duration(milliseconds: 180),
-          sentBytes: 120,
-          receivedBytes: 2048,
         ),
       );
-    }, correlationId: 'voice-call-panel');
-    diagnostics.recordHttp(
-      HttpDiagnosticRecord(
-        eventId: 'unrelated-http',
-        phase: HttpDiagnosticPhase.started,
-        timestamp: now,
-        method: 'GET',
-        uri: Uri.parse('https://forum.example/latest.json'),
-        sentBytes: 0,
-        receivedBytes: 0,
-      ),
-    );
-    addTearDown(diagnostics.close);
-    addTearDown(voice.close);
+      await tester.pumpAndSettle();
 
-    final exporter = _NoopExporter();
+      expect(
+        find.byKey(const ValueKey('diagnostics-top-level-tabs')),
+        findsOneWidget,
+      );
+      expect(find.text('General'), findsOneWidget);
+      expect(find.text('Voice'), findsOneWidget);
+      expect(find.byKey(const ValueKey('diagnostics-search')), findsOneWidget);
 
-    tester.view.physicalSize = const Size(440, 900);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
-    await tester.pumpWidget(
-      MaterialApp(
-        theme: AppTheme.light,
-        home: Scaffold(
-          body: DiagnosticsPanel(
-            controller: diagnostics,
-            plugins: [
-              VoiceDiagnosticsPlugin(controller: voice, exporter: exporter),
-            ],
-            onClose: () {},
+      await tester.ensureVisible(find.text('Voice'));
+      await tester.tap(find.text('Voice'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Recording Off'), findsOneWidget);
+      expect(find.textContaining('/latest.json'), findsNothing);
+      expect(find.byKey(const ValueKey('diagnostics-freeze')), findsNothing);
+      expect(
+        find.byKey(const ValueKey('voice-diagnostics-search')),
+        findsOneWidget,
+      );
+      await tester.enterText(
+        find.byKey(const ValueKey('voice-diagnostics-search')),
+        'call.safe.before_capture',
+      );
+      await tester.pump();
+      expect(
+        find.descendant(
+          of: find.byKey(const ValueKey('voice-diagnostics-timeline')),
+          matching: find.text('call.safe.before_capture'),
+        ),
+        findsOneWidget,
+      );
+      await tester.tap(
+        find.byKey(const ValueKey('voice-diagnostics-clear-search')),
+      );
+      await tester.pump();
+      await tester.enterText(
+        find.byKey(const ValueKey('voice-diagnostics-search')),
+        '/voice/rooms/42/join',
+      );
+      await tester.pump();
+      expect(find.text('POST /voice/rooms/42/join?token'), findsOneWidget);
+      await tester.tap(
+        find.byKey(const ValueKey('voice-diagnostics-clear-search')),
+      );
+      await tester.pump();
+
+      await tester.tap(find.byKey(const ValueKey('voice-copy-report')));
+      await tester.pumpAndSettle();
+      expect(copied, hasLength(1));
+      expect(copied.single, isNotEmpty);
+
+      await tester.tap(find.byKey(const ValueKey('voice-export-report')));
+      await tester.pumpAndSettle();
+      expect(exporter.reports.single, isNotEmpty);
+
+      replacementDiagnostics = await DiagnosticsController.create(
+        persistence: MemoryDiagnosticsPersistence(),
+        sessionId: 'replacement-panel-test',
+        clock: () => now,
+      );
+      replacementVoice = await VoiceDiagnosticsController.create(
+        reporter: PluginDiagnosticsReporter.fixed(replacementDiagnostics),
+        persistence: MemoryVoiceDiagnosticsPersistence(),
+        captureIdFactory: () => 'replacement-capture',
+        clock: () => now,
+      );
+      addTearDown(replacementDiagnostics.close);
+      addTearDown(replacementVoice.close);
+      await replacementVoice.startCapture();
+      replacementVoice.recordRaw(
+        'replacement.controller.event',
+        component: 'replacement',
+      );
+      await replacementVoice.stopCapture();
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light,
+          home: Scaffold(
+            body: DiagnosticsPanel(
+              controller: replacementDiagnostics,
+              plugins: [
+                VoiceDiagnosticsPlugin(
+                  controller: replacementVoice,
+                  exporter: exporter,
+                ),
+              ],
+              onClose: () {},
+            ),
           ),
         ),
-      ),
-    );
-    await tester.pumpAndSettle();
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('replacement.controller.event'), findsOneWidget);
+      expect(find.text('call.safe.before_capture'), findsNothing);
 
-    expect(
-      find.byKey(const ValueKey('diagnostics-top-level-tabs')),
-      findsOneWidget,
-    );
-    expect(find.text('General'), findsOneWidget);
-    expect(find.text('Voice'), findsOneWidget);
-    expect(find.byKey(const ValueKey('diagnostics-search')), findsOneWidget);
-
-    await tester.ensureVisible(find.text('Voice'));
-    await tester.tap(find.text('Voice'));
-    await tester.pumpAndSettle();
-
-    expect(find.text('Recording Off'), findsOneWidget);
-    expect(find.textContaining('/latest.json'), findsNothing);
-    expect(find.byKey(const ValueKey('diagnostics-freeze')), findsNothing);
-    expect(
-      find.byKey(const ValueKey('voice-diagnostics-search')),
-      findsOneWidget,
-    );
-    await tester.enterText(
-      find.byKey(const ValueKey('voice-diagnostics-search')),
-      'call.safe.before_capture',
-    );
-    await tester.pump();
-    expect(
-      find.descendant(
-        of: find.byKey(const ValueKey('voice-diagnostics-timeline')),
-        matching: find.text('call.safe.before_capture'),
-      ),
-      findsOneWidget,
-    );
-    await tester.tap(
-      find.byKey(const ValueKey('voice-diagnostics-clear-search')),
-    );
-    await tester.pump();
-    await tester.enterText(
-      find.byKey(const ValueKey('voice-diagnostics-search')),
-      '/voice/rooms/42/join',
-    );
-    await tester.pump();
-    expect(find.text('POST /voice/rooms/42/join?token'), findsOneWidget);
-    await tester.tap(
-      find.byKey(const ValueKey('voice-diagnostics-clear-search')),
-    );
-    await tester.pump();
-
-    await tester.tap(find.byKey(const ValueKey('voice-copy-report')));
-    await tester.pumpAndSettle();
-    expect(copied, hasLength(1));
-    expect(copied.single, isNotEmpty);
-
-    await tester.tap(find.byKey(const ValueKey('voice-export-report')));
-    await tester.pumpAndSettle();
-    expect(exporter.reports.single, isNotEmpty);
-
-    final replacementDiagnostics = await DiagnosticsController.create(
-      persistence: MemoryDiagnosticsPersistence(),
-      sessionId: 'replacement-panel-test',
-      clock: () => now,
-    );
-    final replacementVoice = await VoiceDiagnosticsController.create(
-      reporter: PluginDiagnosticsReporter.fixed(replacementDiagnostics),
-      persistence: MemoryVoiceDiagnosticsPersistence(),
-      captureIdFactory: () => 'replacement-capture',
-      clock: () => now,
-    );
-    addTearDown(replacementDiagnostics.close);
-    addTearDown(replacementVoice.close);
-    await replacementVoice.startCapture();
-    replacementVoice.recordRaw(
-      'replacement.controller.event',
-      component: 'replacement',
-    );
-    await replacementVoice.stopCapture();
-    await tester.pumpWidget(
-      MaterialApp(
-        theme: AppTheme.light,
-        home: Scaffold(
-          body: DiagnosticsPanel(
-            controller: replacementDiagnostics,
-            plugins: [
-              VoiceDiagnosticsPlugin(
-                controller: replacementVoice,
-                exporter: exporter,
-              ),
-            ],
-            onClose: () {},
-          ),
-        ),
-      ),
-    );
-    await tester.pumpAndSettle();
-    expect(find.text('replacement.controller.event'), findsOneWidget);
-    expect(find.text('call.safe.before_capture'), findsNothing);
-
-    await tester.ensureVisible(find.text('General'));
-    await tester.tap(find.text('General'));
-    await tester.pump();
-    expect(find.byKey(const ValueKey('diagnostics-search')), findsOneWidget);
-    expect(find.byKey(const ValueKey('diagnostics-freeze')), findsOneWidget);
-
-    await tester.pumpWidget(const SizedBox.shrink());
-    await replacementVoice.close();
-    await replacementDiagnostics.close();
-    await diagnostics.close();
-    await voice.close();
+      await tester.ensureVisible(find.text('General'));
+      await tester.tap(find.text('General'));
+      await tester.pump();
+      expect(find.byKey(const ValueKey('diagnostics-search')), findsOneWidget);
+      expect(find.byKey(const ValueKey('diagnostics-freeze')), findsOneWidget);
+    } finally {
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump();
+      await replacementVoice?.close();
+      await replacementDiagnostics?.close();
+      await diagnostics.close();
+      await voice.close();
+    }
   });
 
   testWidgets('plugin diagnostics receive only an immutable read/export host', (
@@ -246,46 +255,54 @@ void main() {
       sessionId: 'hostile-diagnostics-plugin',
     );
     addTearDown(diagnostics.close);
-    diagnostics.recordLog(name: 'visible.event', source: 'host');
-    final plugin = _HostileDiagnosticsPlugin();
+    // Close under the fake clock even when the body fails: a close first
+    // reached from a tearDown never completes, because it waits on futures
+    // created under the fake clock, which nothing drives once the body has
+    // returned.
+    try {
+      diagnostics.recordLog(name: 'visible.event', source: 'host');
+      final plugin = _HostileDiagnosticsPlugin();
 
-    await tester.pumpWidget(
-      MaterialApp(
-        theme: AppTheme.light,
-        home: Scaffold(
-          body: DiagnosticsPanel(
-            controller: diagnostics,
-            plugins: [plugin],
-            onClose: () {},
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light,
+          home: Scaffold(
+            body: DiagnosticsPanel(
+              controller: diagnostics,
+              plugins: [plugin],
+              onClose: () {},
+            ),
           ),
         ),
-      ),
-    );
-    await tester.tap(find.text('Hostile'));
-    await tester.pump();
+      );
+      await tester.tap(find.text('Hostile'));
+      await tester.pump();
 
-    final host = plugin.host!;
-    expect(host, isNot(isA<DiagnosticsController>()));
-    final eventsListenable = host.eventsListenable;
-    expect(eventsListenable, same(host.eventsListenable));
-    expect(eventsListenable, isNot(isA<ChangeNotifier>()));
-    expect(
-      () => (eventsListenable as dynamic).dispose(),
-      throwsA(isA<NoSuchMethodError>()),
-    );
-    var notifications = 0;
-    void notified() => notifications++;
-    eventsListenable.addListener(notified);
-    diagnostics.recordLog(name: 'listener.event', source: 'host');
-    expect(notifications, 1);
-    eventsListenable.removeListener(notified);
-    diagnostics.recordLog(name: 'removed.listener.event', source: 'host');
-    expect(notifications, 1);
-    expect(host.events.whereType<DiagnosticLogEvent>(), hasLength(3));
-    expect(() => host.events.clear(), throwsUnsupportedError);
-    expect(host.buildJsonReport(), contains('visible.event'));
-    await tester.pumpWidget(const SizedBox.shrink());
-    await diagnostics.close();
+      final host = plugin.host!;
+      expect(host, isNot(isA<DiagnosticsController>()));
+      final eventsListenable = host.eventsListenable;
+      expect(eventsListenable, same(host.eventsListenable));
+      expect(eventsListenable, isNot(isA<ChangeNotifier>()));
+      expect(
+        () => (eventsListenable as dynamic).dispose(),
+        throwsA(isA<NoSuchMethodError>()),
+      );
+      var notifications = 0;
+      void notified() => notifications++;
+      eventsListenable.addListener(notified);
+      diagnostics.recordLog(name: 'listener.event', source: 'host');
+      expect(notifications, 1);
+      eventsListenable.removeListener(notified);
+      diagnostics.recordLog(name: 'removed.listener.event', source: 'host');
+      expect(notifications, 1);
+      expect(host.events.whereType<DiagnosticLogEvent>(), hasLength(3));
+      expect(() => host.events.clear(), throwsUnsupportedError);
+      expect(host.buildJsonReport(), contains('visible.event'));
+    } finally {
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump();
+      await diagnostics.close();
+    }
   });
 
   test('keeps one status listenable across controller teardown', () async {

@@ -89,158 +89,188 @@ void main() {
   ) async {
     final load = Completer<List<DiscourseInstance>>();
     final diagnostics = await _controller();
-    await _pumpApp(
-      tester,
-      const Size(390, 844),
-      diagnostics,
-      store: _PendingStore(load.future),
-      settle: false,
-    );
+    try {
+      await _pumpApp(
+        tester,
+        const Size(390, 844),
+        diagnostics,
+        store: _PendingStore(load.future),
+        settle: false,
+      );
 
-    expect(
-      find.byKey(const ValueKey('diagnostics-rail-button')),
-      findsOneWidget,
-    );
+      expect(
+        find.byKey(const ValueKey('diagnostics-rail-button')),
+        findsOneWidget,
+      );
 
-    load.completeError(StateError('preferences unavailable'));
-    await tester.pumpAndSettle();
+      load.completeError(StateError('preferences unavailable'));
+      await tester.pumpAndSettle();
 
-    expect(find.text("Couldn't load your sites"), findsOneWidget);
-    expect(
-      find.byKey(const ValueKey('diagnostics-rail-button')),
-      findsOneWidget,
-    );
-
-    await tester.pumpWidget(const SizedBox.shrink());
-    await diagnostics.close();
+      expect(find.text("Couldn't load your sites"), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('diagnostics-rail-button')),
+        findsOneWidget,
+      );
+    } finally {
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump();
+      await diagnostics.close();
+    }
 
     final emptyDiagnostics = await _controller();
-    await _pumpApp(
-      tester,
-      const Size(390, 844),
-      emptyDiagnostics,
-      store: FakeInstanceStore(),
-    );
+    try {
+      await _pumpApp(
+        tester,
+        const Size(390, 844),
+        emptyDiagnostics,
+        store: FakeInstanceStore(),
+      );
 
-    expect(find.text('No sites yet'), findsOneWidget);
-    expect(
-      find.byKey(const ValueKey('diagnostics-rail-button')),
-      findsOneWidget,
-    );
+      expect(find.text('No sites yet'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('diagnostics-rail-button')),
+        findsOneWidget,
+      );
+    } finally {
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump();
+      await emptyDiagnostics.close();
+    }
   });
 
   testWidgets('docks at its preferred width and becomes a responsive overlay', (
     tester,
   ) async {
     final diagnostics = await _controller();
-    await _pumpApp(tester, const Size(1440, 900), diagnostics);
+    try {
+      await _pumpApp(tester, const Size(1440, 900), diagnostics);
 
-    await tester.tap(find.byKey(const ValueKey('diagnostics-rail-button')));
-    await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('diagnostics-rail-button')));
+      await tester.pumpAndSettle();
 
-    expect(
-      find.byKey(const ValueKey('diagnostics-modal-barrier')),
-      findsNothing,
-    );
-    expect(
-      tester.getSize(find.byKey(const ValueKey('diagnostics-panel'))).width,
-      diagnosticsPanelWidth,
-    );
+      expect(
+        find.byKey(const ValueKey('diagnostics-modal-barrier')),
+        findsNothing,
+      );
+      expect(
+        tester.getSize(find.byKey(const ValueKey('diagnostics-panel'))).width,
+        diagnosticsPanelWidth,
+      );
 
-    await tester.enterText(
-      find.byKey(const ValueKey('diagnostics-search')),
-      'keep this filter',
-    );
-    expect(diagnostics.panelState.query, 'keep this filter');
+      await tester.enterText(
+        find.byKey(const ValueKey('diagnostics-search')),
+        'keep this filter',
+      );
+      expect(diagnostics.panelState.query, 'keep this filter');
 
-    tester.view.physicalSize = const Size(1000, 800);
-    await tester.pumpAndSettle();
+      tester.view.physicalSize = const Size(1000, 800);
+      await tester.pumpAndSettle();
 
-    expect(
-      find.byKey(const ValueKey('diagnostics-modal-barrier')),
-      findsOneWidget,
-    );
-    expect(
-      tester.getSize(find.byKey(const ValueKey('diagnostics-panel'))).width,
-      diagnosticsPanelWidth,
-    );
-    expect(
-      tester
-          .widget<TextField>(find.byKey(const ValueKey('diagnostics-search')))
-          .controller!
-          .text,
-      'keep this filter',
-    );
+      expect(
+        find.byKey(const ValueKey('diagnostics-modal-barrier')),
+        findsOneWidget,
+      );
+      expect(
+        tester.getSize(find.byKey(const ValueKey('diagnostics-panel'))).width,
+        diagnosticsPanelWidth,
+      );
+      expect(
+        tester
+            .widget<TextField>(find.byKey(const ValueKey('diagnostics-search')))
+            .controller!
+            .text,
+        'keep this filter',
+      );
 
-    tester.view.physicalSize = const Size(390, 844);
-    await tester.pumpAndSettle();
+      tester.view.physicalSize = const Size(390, 844);
+      await tester.pumpAndSettle();
 
-    expect(
-      tester.getSize(find.byKey(const ValueKey('diagnostics-panel'))).width,
-      390,
-    );
+      expect(
+        tester.getSize(find.byKey(const ValueKey('diagnostics-panel'))).width,
+        390,
+      );
+    } finally {
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump();
+      await diagnostics.close();
+    }
   });
 
   testWidgets('resizes from the left edge and restores the width on reload', (
     tester,
   ) async {
     final firstDiagnostics = await _controller();
-    await _pumpApp(tester, const Size(1440, 900), firstDiagnostics);
-    await tester.tap(find.byKey(const ValueKey('diagnostics-rail-button')));
-    await tester.pumpAndSettle();
+    try {
+      await _pumpApp(tester, const Size(1440, 900), firstDiagnostics);
+      await tester.tap(find.byKey(const ValueKey('diagnostics-rail-button')));
+      await tester.pumpAndSettle();
 
-    final panel = tester.getRect(
-      find.byKey(const ValueKey('diagnostics-panel')),
-    );
-    await tester.dragFrom(
-      Offset(panel.left + 1, panel.top + 28),
-      // The resize handle applies the full pointer displacement.
-      const Offset(-140, 0),
-    );
-    await tester.pumpAndSettle();
+      final panel = tester.getRect(
+        find.byKey(const ValueKey('diagnostics-panel')),
+      );
+      await tester.dragFrom(
+        Offset(panel.left + 1, panel.top + 28),
+        // The resize handle applies the full pointer displacement.
+        const Offset(-140, 0),
+      );
+      await tester.pumpAndSettle();
 
-    expect(
-      tester.getSize(find.byKey(const ValueKey('diagnostics-panel'))).width,
-      580,
-    );
-    expect(
-      (await SharedPreferences.getInstance()).getDouble(
-        DiagnosticsPanelWidthStore.storageKey,
-      ),
-      580,
-    );
-
-    await tester.pumpWidget(const SizedBox.shrink());
-    await firstDiagnostics.close();
+      expect(
+        tester.getSize(find.byKey(const ValueKey('diagnostics-panel'))).width,
+        580,
+      );
+      expect(
+        (await SharedPreferences.getInstance()).getDouble(
+          DiagnosticsPanelWidthStore.storageKey,
+        ),
+        580,
+      );
+    } finally {
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump();
+      await firstDiagnostics.close();
+    }
 
     final reloadedDiagnostics = await _controller();
-    await _pumpApp(tester, const Size(1440, 900), reloadedDiagnostics);
-    await tester.tap(find.byKey(const ValueKey('diagnostics-rail-button')));
-    await tester.pumpAndSettle();
+    try {
+      await _pumpApp(tester, const Size(1440, 900), reloadedDiagnostics);
+      await tester.tap(find.byKey(const ValueKey('diagnostics-rail-button')));
+      await tester.pumpAndSettle();
 
-    expect(
-      tester.getSize(find.byKey(const ValueKey('diagnostics-panel'))).width,
-      580,
-    );
+      expect(
+        tester.getSize(find.byKey(const ValueKey('diagnostics-panel'))).width,
+        580,
+      );
+    } finally {
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump();
+      await reloadedDiagnostics.close();
+    }
   }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
   testWidgets('detail back button is not covered by the resize handle', (
     tester,
   ) async {
     final diagnostics = await _controller();
-    _recordRequest(diagnostics);
-    await _pumpApp(tester, const Size(1000, 800), diagnostics);
-    await tester.tap(find.byKey(const ValueKey('diagnostics-rail-button')));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('https://example.test/t/42?token'));
-    await tester.pump();
+    try {
+      _recordRequest(diagnostics);
+      await _pumpApp(tester, const Size(1000, 800), diagnostics);
+      await tester.tap(find.byKey(const ValueKey('diagnostics-rail-button')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('https://example.test/t/42?token'));
+      await tester.pump();
 
-    expect(find.text('Event details'), findsOneWidget);
-    await tester.tap(find.byKey(const ValueKey('diagnostics-detail-back')));
-    await tester.pump();
+      expect(find.text('Event details'), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('diagnostics-detail-back')));
+      await tester.pump();
 
-    expect(find.text('Diagnostics'), findsOneWidget);
-    expect(find.text('Event details'), findsNothing);
+      expect(find.text('Diagnostics'), findsOneWidget);
+      expect(find.text('Event details'), findsNothing);
+    } finally {
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump();
+      await diagnostics.close();
+    }
   });
 
   testWidgets('resize handle is keyboard and semantics adjustable', (
@@ -248,56 +278,63 @@ void main() {
   ) async {
     final semantics = tester.ensureSemantics();
     final diagnostics = await _controller();
-    await _pumpApp(tester, const Size(1440, 900), diagnostics);
-    await tester.tap(find.byKey(const ValueKey('diagnostics-rail-button')));
-    await tester.pumpAndSettle();
+    try {
+      await _pumpApp(tester, const Size(1440, 900), diagnostics);
+      await tester.tap(find.byKey(const ValueKey('diagnostics-rail-button')));
+      await tester.pumpAndSettle();
 
-    final handle = find.byKey(const ValueKey('diagnostics-resize-handle'));
-    // This test uses Android's coarse pointer metrics, even at desktop width.
-    expect(tester.getSize(handle).width, 48);
-    final node = tester.getSemantics(handle);
-    final data = node.getSemanticsData();
-    expect(data.label, 'Resize diagnostics panel');
-    expect(data.value, '440 pixels wide');
-    expect(data.hasAction(SemanticsAction.increase), isTrue);
-    expect(data.hasAction(SemanticsAction.decrease), isTrue);
+      final handle = find.byKey(const ValueKey('diagnostics-resize-handle'));
+      // This test uses Android's coarse pointer metrics, even at desktop width.
+      expect(tester.getSize(handle).width, 48);
+      final node = tester.getSemantics(handle);
+      final data = node.getSemanticsData();
+      expect(data.label, 'Resize diagnostics panel');
+      expect(data.value, '440 pixels wide');
+      expect(data.hasAction(SemanticsAction.increase), isTrue);
+      expect(data.hasAction(SemanticsAction.decrease), isTrue);
 
-    final focus = tester.widget<Focus>(
-      find.byKey(const ValueKey('diagnostics-resize-focus')),
-    );
-    focus.focusNode!.requestFocus();
-    await tester.pump();
-    expect(focus.focusNode!.hasFocus, isTrue);
+      final focus = tester.widget<Focus>(
+        find.byKey(const ValueKey('diagnostics-resize-focus')),
+      );
+      focus.focusNode!.requestFocus();
+      await tester.pump();
+      expect(focus.focusNode!.hasFocus, isTrue);
 
-    await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
-    await tester.pumpAndSettle();
-    expect(
-      tester.getSize(find.byKey(const ValueKey('diagnostics-panel'))).width,
-      456,
-    );
-    expect(
-      (await SharedPreferences.getInstance()).getDouble(
-        DiagnosticsPanelWidthStore.storageKey,
-      ),
-      456,
-    );
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+      await tester.pumpAndSettle();
+      expect(
+        tester.getSize(find.byKey(const ValueKey('diagnostics-panel'))).width,
+        456,
+      );
+      expect(
+        (await SharedPreferences.getInstance()).getDouble(
+          DiagnosticsPanelWidthStore.storageKey,
+        ),
+        456,
+      );
 
-    await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
-    await tester.pumpAndSettle();
-    expect(
-      tester.getSize(find.byKey(const ValueKey('diagnostics-panel'))).width,
-      440,
-    );
-    semantics.dispose();
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+      await tester.pumpAndSettle();
+      expect(
+        tester.getSize(find.byKey(const ValueKey('diagnostics-panel'))).width,
+        440,
+      );
+      semantics.dispose();
+    } finally {
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump();
+      await diagnostics.close();
+    }
   });
 
-  testWidgets(
-    'phone and medium overlays cover and block the window title bar',
-    (tester) async {
-      final previousPlatform = debugDefaultTargetPlatformOverride;
-      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+  testWidgets('phone and medium overlays cover and block the window title bar', (
+    tester,
+  ) async {
+    final previousPlatform = debugDefaultTargetPlatformOverride;
+    debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+    try {
+      final diagnostics = await _controller();
       try {
-        final diagnostics = await _controller();
         final authenticator = FakeAuthenticator();
         await _pumpApp(
           tester,
@@ -365,32 +402,45 @@ void main() {
           }
         }
       } finally {
-        debugDefaultTargetPlatformOverride = previousPlatform;
+        await tester.pumpWidget(const SizedBox.shrink());
+        await tester.pump();
+        await diagnostics.close();
       }
-    },
-  );
+    } finally {
+      debugDefaultTargetPlatformOverride = previousPlatform;
+    }
+  });
 
   testWidgets('badge clears when the panel opens', (tester) async {
     final diagnostics = await _controller();
-    diagnostics.reportError(
-      TimeoutException('topic load took too long'),
-      StackTrace.fromString('loadTopic (shell_controller.dart:1203)'),
-      operation: 'load topic',
-      source: 'topic',
-    );
-    await _pumpApp(tester, const Size(1000, 800), diagnostics);
+    try {
+      diagnostics.reportError(
+        TimeoutException('topic load took too long'),
+        StackTrace.fromString('loadTopic (shell_controller.dart:1203)'),
+        operation: 'load topic',
+        source: 'topic',
+      );
+      await _pumpApp(tester, const Size(1000, 800), diagnostics);
 
-    final button = find.byKey(const ValueKey('diagnostics-rail-button'));
-    expect(
-      find.descendant(of: button, matching: find.text('1')),
-      findsOneWidget,
-    );
+      final button = find.byKey(const ValueKey('diagnostics-rail-button'));
+      expect(
+        find.descendant(of: button, matching: find.text('1')),
+        findsOneWidget,
+      );
 
-    await tester.tap(button);
-    await tester.pumpAndSettle();
+      await tester.tap(button);
+      await tester.pumpAndSettle();
 
-    expect(diagnostics.unseenErrorCountListenable.value, 0);
-    expect(find.descendant(of: button, matching: find.text('1')), findsNothing);
+      expect(diagnostics.unseenErrorCountListenable.value, 0);
+      expect(
+        find.descendant(of: button, matching: find.text('1')),
+        findsNothing,
+      );
+    } finally {
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump();
+      await diagnostics.close();
+    }
   });
 
   testWidgets('the diagnostics entry caps its badge and names unseen errors', (
@@ -398,212 +448,266 @@ void main() {
   ) async {
     final semantics = tester.ensureSemantics();
     final diagnostics = await _controller();
-    for (var index = 0; index < 105; index += 1) {
-      diagnostics.reportError(
-        StateError('background failure $index'),
-        StackTrace.current,
-      );
-    }
-    await _pumpApp(tester, const Size(390, 844), diagnostics);
+    try {
+      for (var index = 0; index < 105; index += 1) {
+        diagnostics.reportError(
+          StateError('background failure $index'),
+          StackTrace.current,
+        );
+      }
+      await _pumpApp(tester, const Size(390, 844), diagnostics);
 
-    final button = find.byKey(const ValueKey('diagnostics-rail-button'));
-    expect(
-      find.descendant(of: button, matching: find.text('99+')),
-      findsOneWidget,
-    );
-    final badge = find.byKey(const ValueKey('diagnostics-rail-badge'));
-    final badgeContainer = find.descendant(
-      of: badge,
-      matching: find.byType(Container),
-    );
-    final decoration = tester.widget<Container>(badgeContainer).decoration;
-    expect(
-      (decoration! as BoxDecoration).color,
-      Theme.of(tester.element(badge)).colorScheme.error,
-    );
-    final node = tester.getSemantics(button);
-    expect(node.label, 'Diagnostics, 105 unseen errors');
-    expect(node.getSemanticsData().flagsCollection.isButton, isTrue);
-    semantics.dispose();
+      final button = find.byKey(const ValueKey('diagnostics-rail-button'));
+      expect(
+        find.descendant(of: button, matching: find.text('99+')),
+        findsOneWidget,
+      );
+      final badge = find.byKey(const ValueKey('diagnostics-rail-badge'));
+      final badgeContainer = find.descendant(
+        of: badge,
+        matching: find.byType(Container),
+      );
+      final decoration = tester.widget<Container>(badgeContainer).decoration;
+      expect(
+        (decoration! as BoxDecoration).color,
+        Theme.of(tester.element(badge)).colorScheme.error,
+      );
+      final node = tester.getSemantics(button);
+      expect(node.label, 'Diagnostics, 105 unseen errors');
+      expect(node.getSemanticsData().flagsCollection.isButton, isTrue);
+      semantics.dispose();
+    } finally {
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump();
+      await diagnostics.close();
+    }
   });
 
   group('timeline interactions', () {
     testWidgets('tabs through timeline filters in form order', (tester) async {
-      await _pumpPopulatedDiagnosticsPanel(tester);
+      final diagnostics = await _controller();
+      try {
+        await _pumpPopulatedDiagnosticsPanel(tester, diagnostics);
 
-      final search = find.byKey(const ValueKey('diagnostics-search'));
-      final severity = find.byKey(
-        const ValueKey('diagnostics-severity-filter'),
-      );
-      final source = find.byKey(const ValueKey('diagnostics-source-filter'));
+        final search = find.byKey(const ValueKey('diagnostics-search'));
+        final severity = find.byKey(
+          const ValueKey('diagnostics-severity-filter'),
+        );
+        final source = find.byKey(const ValueKey('diagnostics-source-filter'));
 
-      await tester.tap(search);
-      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
-      await tester.pump();
-      expect(_primaryFocusIsWithin(severity), isTrue);
+        await tester.tap(search);
+        await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+        await tester.pump();
+        expect(_primaryFocusIsWithin(severity), isTrue);
 
-      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
-      await tester.pump();
-      expect(_primaryFocusIsWithin(source), isTrue);
+        await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+        await tester.pump();
+        expect(_primaryFocusIsWithin(source), isTrue);
+      } finally {
+        await tester.pumpWidget(const SizedBox.shrink());
+        await tester.pump();
+        await diagnostics.close();
+      }
     });
 
     testWidgets('category, severity, source, and text filters compose', (
       tester,
     ) async {
-      final diagnostics = await _pumpPopulatedDiagnosticsPanel(tester);
+      final diagnostics = await _controller();
+      try {
+        await _pumpPopulatedDiagnosticsPanel(tester, diagnostics);
 
-      final request = find.text('https://example.test/t/42?token');
-      final error = find.textContaining('topic load took too long');
-      expect(request, findsOneWidget);
-      expect(error, findsOneWidget);
-      final timeline = tester.widget<ListView>(
-        find.byKey(const ValueKey('diagnostics-timeline')),
-      );
-      final scrollbar = tester.widget<DScrollBar>(find.byType(DScrollBar));
-      expect(scrollbar.controller, same(timeline.controller));
+        final request = find.text('https://example.test/t/42?token');
+        final error = find.textContaining('topic load took too long');
+        expect(request, findsOneWidget);
+        expect(error, findsOneWidget);
+        final timeline = tester.widget<ListView>(
+          find.byKey(const ValueKey('diagnostics-timeline')),
+        );
+        final scrollbar = tester.widget<DScrollBar>(find.byType(DScrollBar));
+        expect(scrollbar.controller, same(timeline.controller));
 
-      await tester.tap(find.text('Requests'));
-      await tester.pumpAndSettle();
-      expect(request, findsOneWidget);
-      expect(error, findsNothing);
+        await tester.tap(find.text('Requests'));
+        await tester.pumpAndSettle();
+        expect(request, findsOneWidget);
+        expect(error, findsNothing);
 
-      await tester.tap(find.text('Errors'));
-      await tester.pumpAndSettle();
-      expect(request, findsNothing);
-      expect(error, findsOneWidget);
+        await tester.tap(find.text('Errors'));
+        await tester.pumpAndSettle();
+        expect(request, findsNothing);
+        expect(error, findsOneWidget);
 
-      await tester.tap(find.text('All'));
-      await tester.pumpAndSettle();
-      expect(diagnostics.panelState.kindFilter, DiagnosticsKindFilter.all);
-      await tester.tap(
-        find.byKey(const ValueKey('diagnostics-severity-filter')),
-      );
-      await tester.pumpAndSettle();
-      await tester.tap(_diagnosticsMenuItem('Error'));
-      await tester.pumpAndSettle();
-      expect(request, findsNothing);
-      expect(error, findsOneWidget);
+        await tester.tap(find.text('All'));
+        await tester.pumpAndSettle();
+        expect(diagnostics.panelState.kindFilter, DiagnosticsKindFilter.all);
+        await tester.tap(
+          find.byKey(const ValueKey('diagnostics-severity-filter')),
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(_diagnosticsMenuItem('Error'));
+        await tester.pumpAndSettle();
+        expect(request, findsNothing);
+        expect(error, findsOneWidget);
 
-      await tester.tap(
-        find.byKey(const ValueKey('diagnostics-severity-filter')),
-      );
-      await tester.pumpAndSettle();
-      await tester.tap(_diagnosticsMenuItem('Error'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const ValueKey('diagnostics-source-filter')));
-      await tester.pumpAndSettle();
-      await tester.tap(_diagnosticsMenuItem('Topic'));
-      await tester.pumpAndSettle();
-      expect(request, findsNothing);
-      expect(error, findsOneWidget);
+        await tester.tap(
+          find.byKey(const ValueKey('diagnostics-severity-filter')),
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(_diagnosticsMenuItem('Error'));
+        await tester.pumpAndSettle();
+        await tester.tap(
+          find.byKey(const ValueKey('diagnostics-source-filter')),
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(_diagnosticsMenuItem('Topic'));
+        await tester.pumpAndSettle();
+        expect(request, findsNothing);
+        expect(error, findsOneWidget);
 
-      await tester.tap(find.byKey(const ValueKey('diagnostics-source-filter')));
-      await tester.pumpAndSettle();
-      await tester.tap(_diagnosticsMenuItem('Topic'));
-      await tester.pumpAndSettle();
-      await tester.enterText(
-        find.byKey(const ValueKey('diagnostics-search')),
-        '/t/42',
-      );
-      await tester.pump();
-      expect(request, findsOneWidget);
-      expect(error, findsNothing);
+        await tester.tap(
+          find.byKey(const ValueKey('diagnostics-source-filter')),
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(_diagnosticsMenuItem('Topic'));
+        await tester.pumpAndSettle();
+        await tester.enterText(
+          find.byKey(const ValueKey('diagnostics-search')),
+          '/t/42',
+        );
+        await tester.pump();
+        expect(request, findsOneWidget);
+        expect(error, findsNothing);
+      } finally {
+        await tester.pumpWidget(const SizedBox.shrink());
+        await tester.pump();
+        await diagnostics.close();
+      }
     });
 
     testWidgets('freezing holds new events until the timeline resumes', (
       tester,
     ) async {
-      final diagnostics = await _pumpPopulatedDiagnosticsPanel(tester);
+      final diagnostics = await _controller();
+      try {
+        await _pumpPopulatedDiagnosticsPanel(tester, diagnostics);
 
-      await tester.tap(find.byKey(const ValueKey('diagnostics-freeze')));
-      await tester.pump();
-      expect(diagnostics.panelState.frozen, isTrue);
+        await tester.tap(find.byKey(const ValueKey('diagnostics-freeze')));
+        await tester.pump();
+        expect(diagnostics.panelState.frozen, isTrue);
 
-      diagnostics.reportError(
-        StateError('arrived while frozen'),
-        StackTrace.fromString('frozen stack'),
-        operation: 'background refresh',
-        source: 'refresh',
-      );
-      await tester.pump();
-      expect(find.textContaining('arrived while frozen'), findsNothing);
+        diagnostics.reportError(
+          StateError('arrived while frozen'),
+          StackTrace.fromString('frozen stack'),
+          operation: 'background refresh',
+          source: 'refresh',
+        );
+        await tester.pump();
+        expect(find.textContaining('arrived while frozen'), findsNothing);
 
-      await tester.tap(find.byKey(const ValueKey('diagnostics-freeze')));
-      await tester.pump();
-      expect(diagnostics.panelState.frozen, isFalse);
-      expect(find.textContaining('arrived while frozen'), findsOneWidget);
+        await tester.tap(find.byKey(const ValueKey('diagnostics-freeze')));
+        await tester.pump();
+        expect(diagnostics.panelState.frozen, isFalse);
+        expect(find.textContaining('arrived while frozen'), findsOneWidget);
+      } finally {
+        await tester.pumpWidget(const SizedBox.shrink());
+        await tester.pump();
+        await diagnostics.close();
+      }
     });
 
     testWidgets('copied reports and event details redact request secrets', (
       tester,
     ) async {
       final copied = _recordClipboardWrites(tester);
-      await _pumpPopulatedDiagnosticsPanel(tester);
-      final request = find.text('https://example.test/t/42?token');
+      final diagnostics = await _controller();
+      try {
+        await _pumpPopulatedDiagnosticsPanel(tester, diagnostics);
+        final request = find.text('https://example.test/t/42?token');
 
-      expect(find.textContaining('Bodies, credentials, cookies'), findsNothing);
-      await tester.tap(find.byKey(const ValueKey('diagnostics-copy-report')));
-      await tester.pump();
-      expect(copied, hasLength(1));
-      expect(copied.single, contains('"version": 1'));
-      expect(copied.single, contains('https://example.test/t/42?token'));
-      expect(copied.single, isNot(contains('secret')));
+        expect(
+          find.textContaining('Bodies, credentials, cookies'),
+          findsNothing,
+        );
+        await tester.tap(find.byKey(const ValueKey('diagnostics-copy-report')));
+        await tester.pump();
+        expect(copied, hasLength(1));
+        expect(copied.single, contains('"version": 1'));
+        expect(copied.single, contains('https://example.test/t/42?token'));
+        expect(copied.single, isNot(contains('secret')));
 
-      await tester.tap(request);
-      await tester.pump();
-      expect(find.text('Event details'), findsOneWidget);
-      await tester.tap(find.byKey(const ValueKey('diagnostics-copy-event')));
-      await tester.pump();
-      expect(copied, hasLength(2));
-      expect(copied.last, contains('"id": "request-42"'));
-      expect(copied.last, isNot(contains('secret')));
+        await tester.tap(request);
+        await tester.pump();
+        expect(find.text('Event details'), findsOneWidget);
+        await tester.tap(find.byKey(const ValueKey('diagnostics-copy-event')));
+        await tester.pump();
+        expect(copied, hasLength(2));
+        expect(copied.last, contains('"id": "request-42"'));
+        expect(copied.last, isNot(contains('secret')));
 
-      final detail = find.byKey(const ValueKey('diagnostic-detail-request-42'));
-      await tester.drag(detail, const Offset(0, -600));
-      await tester.pumpAndSettle();
-      expect(find.text('Response Headers'), findsOneWidget);
-      await tester.drag(detail, const Offset(0, -300));
-      await tester.pumpAndSettle();
-      expect(find.text('120000'), findsOneWidget);
+        final detail = find.byKey(
+          const ValueKey('diagnostic-detail-request-42'),
+        );
+        await tester.drag(detail, const Offset(0, -600));
+        await tester.pumpAndSettle();
+        expect(find.text('Response Headers'), findsOneWidget);
+        await tester.drag(detail, const Offset(0, -300));
+        await tester.pumpAndSettle();
+        expect(find.text('120000'), findsOneWidget);
 
-      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
-      await tester.pump();
-      expect(find.text('Diagnostics'), findsOneWidget);
-      expect(find.text('Event details'), findsNothing);
+        await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+        await tester.pump();
+        expect(find.text('Diagnostics'), findsOneWidget);
+        expect(find.text('Event details'), findsNothing);
+      } finally {
+        await tester.pumpWidget(const SizedBox.shrink());
+        await tester.pump();
+        await diagnostics.close();
+      }
     });
 
     testWidgets('clear keeps an unavailable source filter resettable', (
       tester,
     ) async {
-      final diagnostics = await _pumpPopulatedDiagnosticsPanel(tester);
-      diagnostics.reportError(
-        StateError('background refresh failed'),
-        StackTrace.fromString('refresh stack'),
-        operation: 'background refresh',
-        source: 'refresh',
-      );
-      await tester.pump();
+      final diagnostics = await _controller();
+      try {
+        await _pumpPopulatedDiagnosticsPanel(tester, diagnostics);
+        diagnostics.reportError(
+          StateError('background refresh failed'),
+          StackTrace.fromString('refresh stack'),
+          operation: 'background refresh',
+          source: 'refresh',
+        );
+        await tester.pump();
 
-      await tester.tap(find.byKey(const ValueKey('diagnostics-source-filter')));
-      await tester.pumpAndSettle();
-      await tester.tap(_diagnosticsMenuItem('Refresh'));
-      await tester.pumpAndSettle();
-      expect(diagnostics.panelState.sources, {'refresh'});
+        await tester.tap(
+          find.byKey(const ValueKey('diagnostics-source-filter')),
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(_diagnosticsMenuItem('Refresh'));
+        await tester.pumpAndSettle();
+        expect(diagnostics.panelState.sources, {'refresh'});
 
-      await tester.tap(find.byKey(const ValueKey('diagnostics-clear')));
-      await tester.pumpAndSettle();
-      expect(find.text('Clear diagnostics history?'), findsOneWidget);
-      await tester.tap(find.widgetWithText(FilledButton, 'Clear history'));
-      await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const ValueKey('diagnostics-clear')));
+        await tester.pumpAndSettle();
+        expect(find.text('Clear diagnostics history?'), findsOneWidget);
+        await tester.tap(find.widgetWithText(FilledButton, 'Clear history'));
+        await tester.pumpAndSettle();
 
-      expect(diagnostics.events, isEmpty);
-      expect(find.text('No diagnostics yet'), findsOneWidget);
-      await tester.tap(find.byKey(const ValueKey('diagnostics-source-filter')));
-      await tester.pumpAndSettle();
-      expect(_diagnosticsMenuItem('Refresh'), findsOneWidget);
-      await tester.tap(_diagnosticsMenuItem('Refresh'));
-      await tester.pumpAndSettle();
-      expect(diagnostics.panelState.sources, isEmpty);
+        expect(diagnostics.events, isEmpty);
+        expect(find.text('No diagnostics yet'), findsOneWidget);
+        await tester.tap(
+          find.byKey(const ValueKey('diagnostics-source-filter')),
+        );
+        await tester.pumpAndSettle();
+        expect(_diagnosticsMenuItem('Refresh'), findsOneWidget);
+        await tester.tap(_diagnosticsMenuItem('Refresh'));
+        await tester.pumpAndSettle();
+        expect(diagnostics.panelState.sources, isEmpty);
+      } finally {
+        await tester.pumpWidget(const SizedBox.shrink());
+        await tester.pump();
+        await diagnostics.close();
+      }
     });
   });
 
@@ -619,122 +723,146 @@ void main() {
     );
 
     final diagnostics = await _controller();
-    await _pumpApp(tester, const Size(1000, 800), diagnostics);
-    await tester.tap(find.byKey(const ValueKey('diagnostics-rail-button')));
-    await tester.pumpAndSettle();
-    await tester.ensureVisible(find.text('Scroll performance'));
-    await tester.tap(find.text('Scroll performance'));
-    await tester.pump();
+    try {
+      await _pumpApp(tester, const Size(1000, 800), diagnostics);
+      await tester.tap(find.byKey(const ValueKey('diagnostics-rail-button')));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text('Scroll performance'));
+      await tester.tap(find.text('Scroll performance'));
+      await tester.pump();
 
-    expect(
-      find.byKey(const ValueKey('topic-scroll-capture-panel')),
-      findsOneWidget,
-    );
-    await tester.scrollUntilVisible(
-      find.byKey(const ValueKey('topic-scroll-capture-start')),
-      150,
-      scrollable: find.descendant(
-        of: find.byKey(const ValueKey('topic-scroll-capture-panel')),
-        matching: find.byType(Scrollable),
-      ),
-    );
-    await tester.tap(find.byKey(const ValueKey('topic-scroll-capture-start')));
-    await tester.pumpAndSettle();
-
-    expect(diagnostics.topicScrollCapture.isRecording, isTrue);
-    expect(diagnostics.topicScrollCapture.state.frameBudgetMicroseconds, 8333);
-    expect(diagnostics.isPanelOpen, isFalse);
-    diagnostics.topicScrollCapture.recordTopicEvent(
-      'scroll.notification',
-      const {'pixels': 120.0},
-    );
-
-    await tester.tap(find.byKey(const ValueKey('diagnostics-rail-button')));
-    await tester.pumpAndSettle();
-    expect(find.text('Recording'), findsOneWidget);
-    await tester.scrollUntilVisible(
-      find.byKey(const ValueKey('topic-scroll-capture-stop')),
-      150,
-      scrollable: find.descendant(
-        of: find.byKey(const ValueKey('topic-scroll-capture-panel')),
-        matching: find.byType(Scrollable),
-      ),
-    );
-    // Stop creates the recording result that the real export isolate awaits.
-    // Keep that future outside the test clock, like the clipboard operation.
-    await tester.runAsync(
-      () => tester.tap(find.byKey(const ValueKey('topic-scroll-capture-stop'))),
-    );
-    await tester.pump();
-    expect(find.text('Capture ready'), findsOneWidget);
-
-    await tester.runAsync(() async {
-      final clipboardWrite = Completer<void>();
-      messenger.setMockMethodCallHandler(SystemChannels.platform, (call) async {
-        if (call.method == 'Clipboard.setData') {
-          copied.add(
-            (call.arguments as Map<Object?, Object?>)['text']! as String,
-          );
-          if (!clipboardWrite.isCompleted) clipboardWrite.complete();
-        }
-        return null;
-      });
-      await tester.tap(find.byKey(const ValueKey('topic-scroll-capture-copy')));
-      await clipboardWrite.future.timeout(
-        const Duration(seconds: 5),
-        onTimeout: () =>
-            fail('copying the capture never reached the platform clipboard'),
+      expect(
+        find.byKey(const ValueKey('topic-scroll-capture-panel')),
+        findsOneWidget,
       );
-    });
-    await tester.pump();
-
-    expect(copied, hasLength(1));
-    expect(copied.single, contains('"kind": "topic-scroll-capture"'));
-    expect(copied.single, contains('scroll.notification'));
-
-    await tester.runAsync(() async {
-      final clipboardWrite = Completer<void>();
-      messenger.setMockMethodCallHandler(SystemChannels.platform, (call) async {
-        if (call.method == 'Clipboard.setData') {
-          copied.add(
-            (call.arguments as Map<Object?, Object?>)['text']! as String,
-          );
-          if (!clipboardWrite.isCompleted) clipboardWrite.complete();
-        }
-        return null;
-      });
+      await tester.scrollUntilVisible(
+        find.byKey(const ValueKey('topic-scroll-capture-start')),
+        150,
+        scrollable: find.descendant(
+          of: find.byKey(const ValueKey('topic-scroll-capture-panel')),
+          matching: find.byType(Scrollable),
+        ),
+      );
       await tester.tap(
-        find.byKey(const ValueKey('topic-scroll-performance-copy')),
+        find.byKey(const ValueKey('topic-scroll-capture-start')),
       );
-      await clipboardWrite.future.timeout(const Duration(seconds: 5));
-    });
-    await tester.pump();
-    expect(copied, hasLength(2));
-    expect(copied.last, startsWith('Topic scrolling performance report'));
-    expect(copied.last, contains('120.0 Hz'));
-    expect(copied.last, contains('scroll.notification=1'));
+      await tester.pumpAndSettle();
+
+      expect(diagnostics.topicScrollCapture.isRecording, isTrue);
+      expect(
+        diagnostics.topicScrollCapture.state.frameBudgetMicroseconds,
+        8333,
+      );
+      expect(diagnostics.isPanelOpen, isFalse);
+      diagnostics.topicScrollCapture.recordTopicEvent(
+        'scroll.notification',
+        const {'pixels': 120.0},
+      );
+
+      await tester.tap(find.byKey(const ValueKey('diagnostics-rail-button')));
+      await tester.pumpAndSettle();
+      expect(find.text('Recording'), findsOneWidget);
+      await tester.scrollUntilVisible(
+        find.byKey(const ValueKey('topic-scroll-capture-stop')),
+        150,
+        scrollable: find.descendant(
+          of: find.byKey(const ValueKey('topic-scroll-capture-panel')),
+          matching: find.byType(Scrollable),
+        ),
+      );
+      // Stop creates the recording result that the real export isolate awaits.
+      // Keep that future outside the test clock, like the clipboard operation.
+      await tester.runAsync(
+        () =>
+            tester.tap(find.byKey(const ValueKey('topic-scroll-capture-stop'))),
+      );
+      await tester.pump();
+      expect(find.text('Capture ready'), findsOneWidget);
+
+      await tester.runAsync(() async {
+        final clipboardWrite = Completer<void>();
+        messenger.setMockMethodCallHandler(SystemChannels.platform, (
+          call,
+        ) async {
+          if (call.method == 'Clipboard.setData') {
+            copied.add(
+              (call.arguments as Map<Object?, Object?>)['text']! as String,
+            );
+            if (!clipboardWrite.isCompleted) clipboardWrite.complete();
+          }
+          return null;
+        });
+        await tester.tap(
+          find.byKey(const ValueKey('topic-scroll-capture-copy')),
+        );
+        await clipboardWrite.future.timeout(
+          const Duration(seconds: 5),
+          onTimeout: () =>
+              fail('copying the capture never reached the platform clipboard'),
+        );
+      });
+      await tester.pump();
+
+      expect(copied, hasLength(1));
+      expect(copied.single, contains('"kind": "topic-scroll-capture"'));
+      expect(copied.single, contains('scroll.notification'));
+
+      await tester.runAsync(() async {
+        final clipboardWrite = Completer<void>();
+        messenger.setMockMethodCallHandler(SystemChannels.platform, (
+          call,
+        ) async {
+          if (call.method == 'Clipboard.setData') {
+            copied.add(
+              (call.arguments as Map<Object?, Object?>)['text']! as String,
+            );
+            if (!clipboardWrite.isCompleted) clipboardWrite.complete();
+          }
+          return null;
+        });
+        await tester.tap(
+          find.byKey(const ValueKey('topic-scroll-performance-copy')),
+        );
+        await clipboardWrite.future.timeout(const Duration(seconds: 5));
+      });
+      await tester.pump();
+      expect(copied, hasLength(2));
+      expect(copied.last, startsWith('Topic scrolling performance report'));
+      expect(copied.last, contains('120.0 Hz'));
+      expect(copied.last, contains('scroll.notification=1'));
+    } finally {
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump();
+      await diagnostics.close();
+    }
   });
 
   testWidgets('Escape returns from details, then closes the panel', (
     tester,
   ) async {
     final diagnostics = await _controller();
-    _recordRequest(diagnostics);
-    await _pumpApp(tester, const Size(1000, 800), diagnostics);
-    await tester.tap(find.byKey(const ValueKey('diagnostics-rail-button')));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('https://example.test/t/42?token'));
-    await tester.pump();
+    try {
+      _recordRequest(diagnostics);
+      await _pumpApp(tester, const Size(1000, 800), diagnostics);
+      await tester.tap(find.byKey(const ValueKey('diagnostics-rail-button')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('https://example.test/t/42?token'));
+      await tester.pump();
 
-    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
-    await tester.pump();
-    expect(diagnostics.isPanelOpen, isTrue);
-    expect(find.text('Event details'), findsNothing);
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pump();
+      expect(diagnostics.isPanelOpen, isTrue);
+      expect(find.text('Event details'), findsNothing);
 
-    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
-    await tester.pumpAndSettle();
-    expect(diagnostics.isPanelOpen, isFalse);
-    expect(find.byKey(const ValueKey('diagnostics-panel')), findsNothing);
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+      expect(diagnostics.isPanelOpen, isFalse);
+      expect(find.byKey(const ValueKey('diagnostics-panel')), findsNothing);
+    } finally {
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump();
+      await diagnostics.close();
+    }
   });
 
   testWidgets('an old clear dialog cannot clear replacement diagnostics', (
@@ -782,22 +910,28 @@ void main() {
     tester,
   ) async {
     final diagnostics = await _controller();
-    await _pumpApp(tester, const Size(390, 844), diagnostics);
+    try {
+      await _pumpApp(tester, const Size(390, 844), diagnostics);
 
-    for (final size in const [
-      Size(390, 844),
-      Size(1000, 800),
-      Size(1440, 900),
-    ]) {
-      tester.view.physicalSize = size;
-      await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const ValueKey('diagnostics-rail-button')));
-      await tester.pumpAndSettle();
-      expect(diagnostics.isPanelOpen, isTrue, reason: 'open at $size');
+      for (final size in const [
+        Size(390, 844),
+        Size(1000, 800),
+        Size(1440, 900),
+      ]) {
+        tester.view.physicalSize = size;
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const ValueKey('diagnostics-rail-button')));
+        await tester.pumpAndSettle();
+        expect(diagnostics.isPanelOpen, isTrue, reason: 'open at $size');
 
-      await tester.binding.handlePopRoute();
-      await tester.pumpAndSettle();
-      expect(diagnostics.isPanelOpen, isFalse, reason: 'closed at $size');
+        await tester.binding.handlePopRoute();
+        await tester.pumpAndSettle();
+        expect(diagnostics.isPanelOpen, isFalse, reason: 'closed at $size');
+      }
+    } finally {
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump();
+      await diagnostics.close();
     }
   });
 
@@ -805,73 +939,87 @@ void main() {
     tester,
   ) async {
     final diagnostics = await _controller();
-    await _pumpApp(tester, const Size(1440, 900), diagnostics);
+    try {
+      await _pumpApp(tester, const Size(1440, 900), diagnostics);
 
-    await tester.tap(find.byKey(const ValueKey('diagnostics-rail-button')));
-    await tester.pumpAndSettle();
-    expect(
-      find.byKey(const ValueKey('diagnostics-docked-slot')),
-      findsOneWidget,
-    );
+      await tester.tap(find.byKey(const ValueKey('diagnostics-rail-button')));
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const ValueKey('diagnostics-docked-slot')),
+        findsOneWidget,
+      );
 
-    await tester.tap(find.byKey(const ValueKey('settings-rail-button')));
-    await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('settings-rail-button')));
+      await tester.pumpAndSettle();
 
-    expect(find.byType(AppSettingsModal), findsOneWidget);
-    expect(
-      find.byKey(const ValueKey('diagnostics-docked-slot')),
-      findsOneWidget,
-    );
-    expect(diagnostics.isPanelOpen, isTrue);
+      expect(find.byType(AppSettingsModal), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('diagnostics-docked-slot')),
+        findsOneWidget,
+      );
+      expect(diagnostics.isPanelOpen, isTrue);
 
-    await tester.tap(
-      find.byKey(const ValueKey('app-settings-form')),
-      buttons: kBackMouseButton,
-      kind: PointerDeviceKind.mouse,
-    );
-    await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(const ValueKey('app-settings-form')),
+        buttons: kBackMouseButton,
+        kind: PointerDeviceKind.mouse,
+      );
+      await tester.pumpAndSettle();
 
-    expect(find.byType(AppSettingsModal), findsNothing);
-    expect(
-      find.byKey(const ValueKey('diagnostics-docked-slot')),
-      findsOneWidget,
-    );
+      expect(find.byType(AppSettingsModal), findsNothing);
+      expect(
+        find.byKey(const ValueKey('diagnostics-docked-slot')),
+        findsOneWidget,
+      );
+    } finally {
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump();
+      await diagnostics.close();
+    }
   });
 
   testWidgets('HTTP events rebuild the panel but not the shell columns', (
     tester,
   ) async {
     final diagnostics = await _controller();
-    await _pumpApp(
-      tester,
-      const Size(1800, 900),
-      diagnostics,
-      store: FakeInstanceStore([instance('meta.discourse.org', title: 'Meta')]),
-    );
-    await tester.tap(find.byKey(const ValueKey('diagnostics-rail-button')));
-    await tester.pumpAndSettle();
+    try {
+      await _pumpApp(
+        tester,
+        const Size(1800, 900),
+        diagnostics,
+        store: FakeInstanceStore([
+          instance('meta.discourse.org', title: 'Meta'),
+        ]),
+      );
+      await tester.tap(find.byKey(const ValueKey('diagnostics-rail-button')));
+      await tester.pumpAndSettle();
 
-    final rail = tester.element(find.byType(InstanceRail));
-    final sidebar = tester.element(find.byType(InstanceSidebar));
-    final content = tester.element(find.byType(MainContent));
-    final panelListener = tester.element(
-      find.byKey(const ValueKey('diagnostics-events-listener')),
-    );
-    final rebuilt = <Element>{};
-    final previous = debugOnRebuildDirtyWidget;
-    debugOnRebuildDirtyWidget = (element, builtOnce) {
-      rebuilt.add(element);
-      previous?.call(element, builtOnce);
-    };
-    addTearDown(() => debugOnRebuildDirtyWidget = previous);
+      final rail = tester.element(find.byType(InstanceRail));
+      final sidebar = tester.element(find.byType(InstanceSidebar));
+      final content = tester.element(find.byType(MainContent));
+      final panelListener = tester.element(
+        find.byKey(const ValueKey('diagnostics-events-listener')),
+      );
+      final rebuilt = <Element>{};
+      final previous = debugOnRebuildDirtyWidget;
+      debugOnRebuildDirtyWidget = (element, builtOnce) {
+        rebuilt.add(element);
+        previous?.call(element, builtOnce);
+      };
+      addTearDown(() => debugOnRebuildDirtyWidget = previous);
 
-    _recordRequest(diagnostics);
-    await tester.pump();
+      _recordRequest(diagnostics);
+      await tester.pump();
 
-    expect(rebuilt, contains(panelListener));
-    expect(rebuilt, isNot(contains(rail)));
-    expect(rebuilt, isNot(contains(sidebar)));
-    expect(rebuilt, isNot(contains(content)));
+      expect(rebuilt, contains(panelListener));
+      expect(rebuilt, isNot(contains(rail)));
+      expect(rebuilt, isNot(contains(sidebar)));
+      expect(rebuilt, isNot(contains(content)));
+    } finally {
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump();
+      await diagnostics.close();
+    }
   }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
   for (final width in [390.0, 1000.0, 2428.0]) {
@@ -978,10 +1126,10 @@ List<String> _recordClipboardWrites(WidgetTester tester) {
   return copied;
 }
 
-Future<DiagnosticsController> _pumpPopulatedDiagnosticsPanel(
+Future<void> _pumpPopulatedDiagnosticsPanel(
   WidgetTester tester,
+  DiagnosticsController diagnostics,
 ) async {
-  final diagnostics = await _controller();
   _recordRequest(diagnostics);
   diagnostics.reportError(
     TimeoutException('topic load took too long'),
@@ -992,7 +1140,6 @@ Future<DiagnosticsController> _pumpPopulatedDiagnosticsPanel(
   await _pumpApp(tester, const Size(1000, 800), diagnostics);
   await tester.tap(find.byKey(const ValueKey('diagnostics-rail-button')));
   await tester.pumpAndSettle();
-  return diagnostics;
 }
 
 Future<DiagnosticsController> _controller() => DiagnosticsController.create(
@@ -1036,6 +1183,12 @@ void _recordRequest(DiagnosticsController diagnostics) {
   );
 }
 
+/// Mounts the app with [diagnostics].
+///
+/// Callers unmount the app and close [diagnostics] in a `finally` inside the
+/// test body. A close first reached from the tearDown registered here never
+/// completes, because it waits on futures created under the fake clock, which
+/// nothing drives once the body has returned.
 Future<void> _pumpApp(
   WidgetTester tester,
   Size size,
