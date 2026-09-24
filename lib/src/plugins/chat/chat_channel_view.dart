@@ -2244,6 +2244,7 @@ class _ChatPaginationSkeleton extends StatelessWidget {
     return DSkeletonRegion(
       expand: true,
       semanticsLabel: semanticsLabel,
+      color: skeletonFill(context),
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 6),
         child: Column(
@@ -2270,6 +2271,7 @@ class _ChatLoadingSkeleton extends StatelessWidget {
     return DSkeletonRegion(
       expand: true,
       semanticsLabel: 'Loading chat channel',
+      color: skeletonFill(context),
       child: LayoutBuilder(
         builder: (context, constraints) {
           final patternCount = constraints.hasBoundedHeight

@@ -183,6 +183,7 @@ export 'src/shell/site_emoji_image.dart' show SiteEmojiImage;
 export 'src/shell/site_emoji_text.dart' show SiteEmojiText;
 export 'src/shell/site_image.dart' show SiteImage;
 export 'src/shell/site_url.dart';
+export 'src/shell/skeleton_fill.dart' show SkeletonSurface, skeletonFill;
 export 'src/shell/stream_day_separator.dart' show StreamDaySeparator;
 export 'src/shell/syntax.dart' show highlightLines;
 export 'src/shell/time_gap.dart' show TimeGapNotice, timeGapDaysBetween;

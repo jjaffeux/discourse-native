@@ -3167,6 +3167,21 @@ Removing a site the user is not looking at leaves them where they are;
 `ShellController.removeInstance` follows the selected site to its new index
 rather than resetting to its default destination.
 
+### Loading placeholders
+
+Every loading region in the app, plugins included, sets its fill from
+`skeletonFill`, naming the surface it sits on: the page, a sidebar or side
+panel, a popover, or a row that highlights while selected, hovered or
+pressed. The UI kit skeleton's own `muted` fill is a forum's
+`--primary-very-low`, which is exactly what sidebars and panels paint, so
+their placeholders used to vanish, and on dark pages it sits only a few levels
+off the page before the pulse halves it. The fill instead mixes the text
+colour into the surface; light pages keep the border neutral. The kit default
+is unchanged. `skeleton_fill_test` holds every surface above a 1.08 contrast
+floor at the pulse trough on every built-in palette, and
+`skeleton_fill_adoption_test` fails when an app skeleton takes its fill from
+anywhere else.
+
 ### Chrome
 
 Two pieces of chrome sit outside the column structure, both assembled by

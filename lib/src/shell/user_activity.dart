@@ -17,6 +17,7 @@ import 'content_reading_lane.dart';
 import 'cooked_html.dart';
 import 'relative_time.dart';
 import 'shell_controller.dart';
+import 'skeleton_fill.dart';
 import 'topic_title.dart';
 
 class UserActivityView extends StatelessWidget {
@@ -403,6 +404,7 @@ class _ActivityLoadingSkeleton extends StatelessWidget {
   Widget build(BuildContext context) => DSkeletonRegion(
     expand: true,
     semanticsLabel: 'Loading activity',
+    color: skeletonFill(context),
     child: ContentReadingLane(
       basePadding: const EdgeInsets.fromLTRB(28, 28, 28, 24),
       builder: (context, lane) => ListView.separated(

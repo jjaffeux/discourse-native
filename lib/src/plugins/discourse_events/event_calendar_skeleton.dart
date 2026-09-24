@@ -1,3 +1,4 @@
+import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/widgets.dart';
 
@@ -20,6 +21,7 @@ final class EventCalendarSkeleton extends StatelessWidget {
     return SingleChildScrollView(
       child: DSkeletonRegion(
         semanticsLabel: 'Loading events',
+        color: skeletonFill(context),
         child: switch (view) {
           EventCalendarView.schedule ||
           EventCalendarView.year => _schedule(scaler),

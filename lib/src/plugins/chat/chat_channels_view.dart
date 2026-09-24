@@ -120,7 +120,11 @@ class ChatChannelsView extends StatelessWidget {
                             ),
                             const SizedBox(width: 8),
                             if (loading)
-                              const DSkeleton(width: 20, height: 12)
+                              DSkeleton(
+                                width: 20,
+                                height: 12,
+                                color: skeletonFill(context),
+                              )
                             else
                               Text(
                                 '${channels.length}',
@@ -224,6 +228,7 @@ class _ChatChannelListLoadingSkeleton extends StatelessWidget {
   Widget build(BuildContext context) => DSkeletonRegion(
     key: const ValueKey('chat-sidebar-loading-skeleton'),
     semanticsLabel: 'Loading chat channels',
+    color: skeletonFill(context),
     expand: true,
     child: ListView(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),

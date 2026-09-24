@@ -16,6 +16,7 @@ import 'external_link.dart';
 import 'inline_action.dart';
 import 'shell_controller.dart';
 import 'shell_scope.dart';
+import 'skeleton_fill.dart';
 import 'user_menu_message.dart';
 import 'user_status.dart';
 
@@ -434,6 +435,7 @@ class _CardSkeleton extends StatelessWidget {
   @override
   Widget build(BuildContext context) => DSkeletonRegion(
     semanticsLabel: 'Loading profile',
+    color: skeletonFill(context, on: SkeletonSurface.floating),
     child: Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,

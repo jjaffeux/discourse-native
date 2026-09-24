@@ -16,9 +16,10 @@ Import `package:discourse_native/discourse_ui.dart`.
 | `DSkeleton(width:, height:)` | Rectangular decorative shape. Omitted dimensions fill bounded axes and collapse on unbounded axes. Explicit dimensions obey parent constraints. |
 | `DSkeleton.circle(diameter:)` | Circular placeholder, subject to the parent's constraints. |
 | `borderRadius:` | Any `BorderRadiusGeometry`; directional corners resolve from the current direction. Defaults to the live site's base radius × 0.8, matching `rounded-md`. Use a large radius for pills or zero for square corners. |
-| `color:` | Optional local background override; defaults to `DTokens.muted` (`bg-muted`). Used by sidebar shapes because their backdrop is itself muted. |
+| `color:` | Optional local background override; defaults to the enclosing region's `color`, then `DTokens.muted` (`bg-muted`). |
 | `animate: false` | Static at full opacity. A shape can opt out of an animated region; it cannot override a region's disabled animation. |
 | `DSkeletonRegion(semanticsLabel:, child:)` | Synchronized animation with one caller-localized loading label. All descendant semantics, pointer interaction and keyboard focus are excluded. |
+| Region `color:` | Fill for every descendant shape that sets none of its own, including shapes in nested regions that set none either; defaults to the enclosing region's, then muted. The native equivalent of one background class for a whole composition, for a backdrop the muted fill disappears against. |
 | Region `liveRegion: false` | Exposes the label without requesting a live announcement. |
 | Region `expand: true` | Fills bounded axes while preserving natural size on unbounded axes. Useful for full loading panels; defaults to false for inline compositions. |
 
@@ -119,10 +120,18 @@ visual deviation.
 | Plum | #2B2030 | #211725 | #302336 | #261C2B |
 
 A temporary Flutter probe measured these live palette values. Skeleton is
-intentionally subtle; a text-contrast threshold is inappropriate. The concrete
-exception is the navigation sidebar: its background equals muted in all four
-palettes. Only those caller-owned shapes set `color: tokens.background`, the
-native equivalent of a background-class override. No shared palette is changed.
+intentionally subtle; a text-contrast threshold is inappropriate for the
+component, and its muted default is unchanged.
+
+The application overrides it on every loading region. Sidebars and panels
+paint muted themselves, so their placeholders matched them exactly, and on
+dark forum palettes muted sits a few levels off the page, 1.02–1.05 contrast
+at the pulse trough. Each region passes `skeletonFill` from
+`lib/src/shell/skeleton_fill.dart` as its region `color`, mixing the text
+colour into the surface it sits on. `test/skeleton_fill_test.dart` holds that
+at the trough across the app themes, Discourse's default schemes and every
+forum preset, and `test/skeleton_fill_adoption_test.dart` requires every
+application skeleton to take its fill from it.
 
 Narrow constraints shrink the compositions. The table scrolls only below 256px,
 where its fixed columns would otherwise leave almost no first column. Its scroll

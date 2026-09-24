@@ -166,9 +166,10 @@ class _ChatPinnedBarState extends State<ChatPinnedBar> {
             );
           }
           return state.loading
-              ? const DSkeletonRegion(
+              ? DSkeletonRegion(
                   semanticsLabel: 'Loading pinned messages',
-                  child: DSkeleton(height: 2),
+                  color: skeletonFill(context),
+                  child: const DSkeleton(height: 2),
                 )
               : const SizedBox.shrink();
         }
