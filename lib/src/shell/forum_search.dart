@@ -449,6 +449,7 @@ class _ForumSearchState extends State<ForumSearch> {
             )
             .toDouble();
         final editorLeft = math.max(0.0, _anchorLeft - surfaceLeft);
+        final surfaceTop = math.max(safe.top + 8, _anchorTop - 4);
         final height = mobile
             ? math.max(
                 160.0,
@@ -464,7 +465,7 @@ class _ForumSearchState extends State<ForumSearch> {
                   viewport.height -
                       MediaQuery.viewInsetsOf(context).bottom -
                       MediaQuery.paddingOf(context).bottom -
-                      math.max(_anchorTop - 4, 0) -
+                      surfaceTop -
                       8,
                 ),
               );
@@ -488,7 +489,7 @@ class _ForumSearchState extends State<ForumSearch> {
             alignCollision: DPopoverCollision.shift,
             placementResolver: (placement) => mobile
                 ? placement.boundary.topLeft
-                : Offset(surfaceLeft, placement.target.top - 4),
+                : Offset(surfaceLeft, surfaceTop),
             child: SizedBox(
               height: height,
               child: Column(
@@ -498,7 +499,7 @@ class _ForumSearchState extends State<ForumSearch> {
                         ? const EdgeInsets.symmetric(vertical: 8)
                         : EdgeInsets.fromLTRB(
                             editorLeft,
-                            4,
+                            math.max(0, _anchorTop - surfaceTop),
                             math.max(0.0, width - editorLeft - anchorWidth),
                             6,
                           ),
