@@ -277,6 +277,47 @@ final class AggregateFeedController extends FrameSafeNotifier {
     await _persistTabs();
   }
 
+  /// A forum added after a tab was narrowed stays out of that tab: its filters
+  /// were chosen without the forum, whose unfiltered latest topics would
+  /// otherwise bury what they select. A tab that was never narrowed follows
+  /// every forum and takes it in.
+  Future<void> admitForum(String siteUrl) async {
+    if (isDisposed) return;
+    bool narrowed(Set<String> excluded, Map<String, String> queries) =>
+        excluded.isNotEmpty || queries.isNotEmpty;
+
+    var changed = false;
+    for (final tab in _tabs.values) {
+      if (!narrowed(tab.excludedForums, tab.queries) ||
+          tab.excludedForums.contains(siteUrl)) {
+        continue;
+      }
+      tab.excludedForums = Set.unmodifiable({...tab.excludedForums, siteUrl});
+      tab.filterDrafts.remove(siteUrl);
+      changed = true;
+    }
+    for (var index = 0; index < _closedTabs.length; index++) {
+      final closed = _closedTabs[index];
+      final saved = closed.preferences;
+      if (!narrowed(saved.excludedForums, saved.queries) ||
+          saved.excludedForums.contains(siteUrl)) {
+        continue;
+      }
+      _closedTabs[index] = _ClosedAggregateTab(
+        preferences: AggregateTabPreferences(
+          id: saved.id,
+          name: saved.name,
+          excludedForums: {...saved.excludedForums, siteUrl},
+          queries: saved.queries,
+        ),
+        index: closed.index,
+      );
+    }
+    if (!changed) return;
+    notifySafely();
+    await _persistTabs();
+  }
+
   String? createTab() {
     if (!canCreateTab) return null;
     final tab = _AggregateTabSession(id: _nextTabId());

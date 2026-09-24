@@ -2059,6 +2059,7 @@ class ShellController extends FrameSafeNotifier
     try {
       await instanceStore.save(List.of(_instances));
       unawaited(aggregate.pruneForums(_instances));
+      unawaited(aggregate.admitForum(instance.url));
       return true;
     } catch (_) {
       if (isDisposed) return false;
@@ -2072,6 +2073,7 @@ class ShellController extends FrameSafeNotifier
         try {
           await instanceStore.save(List.of(_instances));
           unawaited(aggregate.pruneForums(_instances));
+          unawaited(aggregate.admitForum(instance.url));
           return true;
         } catch (_) {
           return false;

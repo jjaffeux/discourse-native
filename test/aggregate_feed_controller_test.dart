@@ -110,6 +110,72 @@ void main() {
     );
 
     test(
+      'a forum added after a tab was narrowed stays out of that tab',
+      () async {
+        const workflowsPath = '/filter.json?per_page=30&q=tag%3Aworkflows';
+        const followingPath = '/filter.json?per_page=15';
+        final api = _AggregateApi(pages: const {});
+        final credentials = FakeApiCredentialReader()
+          ..keys[_firstUrl] = 'one-key'
+          ..keys[_secondUrl] = 'two-key';
+        final persistence = MemoryAggregatePreferencesPersistence();
+        final controller = _controller(
+          api,
+          credentials,
+          preferences: AggregatePreferencesStore(persistence: persistence),
+        );
+        addTearDown(controller.dispose);
+        final first = _connected(_firstUrl, 'One');
+        final both = [first, _connected(_secondUrl, 'Two')];
+
+        final followingId = controller.activeTabId;
+        final closedId = controller.createTab()!;
+        await controller.setForumFilters(
+          allForums: [first],
+          includedConnectedForums: {_firstUrl},
+          queries: {_firstUrl: 'tag:ux'},
+        );
+        controller.closeTab(closedId);
+        final narrowedId = controller.createTab()!;
+        await controller.setForumFilters(
+          allForums: [first],
+          includedConnectedForums: {_firstUrl},
+          queries: {_firstUrl: 'tag:workflows'},
+        );
+
+        await controller.admitForum(_secondUrl);
+
+        await controller.refresh(both);
+        expect(api.sitePaths, ['$_firstUrl|$workflowsPath']);
+        expect(controller.includes(both.last), isFalse);
+        final restored = await AggregatePreferencesStore(
+          persistence: persistence,
+        ).load();
+        expect(
+          restored.tabs
+              .singleWhere((tab) => tab.id == narrowedId)
+              .excludedForums,
+          {_secondUrl},
+        );
+
+        api.sitePaths.clear();
+        controller.selectTab(followingId);
+        await controller.refresh(both);
+        expect(
+          api.sitePaths,
+          unorderedEquals([
+            '$_firstUrl|$followingPath',
+            '$_secondUrl|$followingPath',
+          ]),
+        );
+
+        expect(controller.reopenClosedTab(closedId), isTrue);
+        expect(controller.includes(both.last), isFalse);
+        expect(controller.queryFor(_firstUrl), 'tag:ux');
+      },
+    );
+
+    test(
       'keeps the forced refresh result when an older response finishes',
       () async {
         final api = _RefreshRaceApi();
