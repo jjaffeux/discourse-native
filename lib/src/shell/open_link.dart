@@ -52,7 +52,7 @@ Future<bool> openLink(
   }
 
   if (showUserCardForUrl(context, target, siteUrl: siteUrl)) return true;
-  if (controller?.openCoreListUrl(target) ?? false) return true;
+  if (controller?.openCorePageUrl(target) ?? false) return true;
   if (await controller?.openPluginUrl(
         target,
         origin: switch ((requestedPanel, newTab)) {
