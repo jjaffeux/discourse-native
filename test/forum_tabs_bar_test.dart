@@ -453,11 +453,13 @@ void main() {
       final selectionGesture = await tester.startGesture(
         Offset(secondTabRect.left + 20, secondTabRect.top + 1),
       );
-      // Native desktop tabs activate on pointer-down rather than waiting for the
-      // complete click gesture, and the full tab height is selectable.
+      // Tabs activate on release, so a press that becomes a drag leaves the
+      // current tab on screen; the full tab height is selectable.
+      expect(selected, isEmpty);
+      await selectionGesture.up();
       expect(selected, [second.id]);
       expect(closed, isEmpty);
-      await selectionGesture.up();
+      await tester.pumpAndSettle();
       expect(selected, [second.id]);
 
       final closeRect = tester.getRect(
@@ -526,6 +528,36 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(reordered, [(id: first.id, newIndex: 1)]);
+    });
+
+    testWidgets('dragging a background tab leaves the current tab selected', (
+      tester,
+    ) async {
+      final selected = <String>[];
+      final reordered = <({String id, int newIndex})>[];
+      await _pumpBar(
+        tester,
+        items: const [first, second],
+        selectedId: first.id,
+        onSelect: selected.add,
+        onReorder: (id, newIndex) =>
+            reordered.add((id: id, newIndex: newIndex)),
+      );
+
+      final firstTab = find.byKey(const ValueKey('forum-tab-item-topic-1'));
+      final secondTab = find.byKey(const ValueKey('forum-tab-item-chat-2'));
+      final drag = await tester.startGesture(
+        tester.getCenter(secondTab),
+        kind: PointerDeviceKind.mouse,
+      );
+      await drag.moveTo(tester.getCenter(firstTab));
+      await tester.pump();
+      expect(selected, isEmpty);
+      await drag.up();
+      await tester.pumpAndSettle();
+
+      expect(reordered, [(id: second.id, newIndex: 0)]);
+      expect(selected, isEmpty);
     });
 
     testWidgets('show the click cursor across every tab', (tester) async {
