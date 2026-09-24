@@ -108,6 +108,7 @@ final class DiscourseTopicApi {
     bool summary = false,
     String? apiKey,
     String? clientId,
+    Future<void>? abortTrigger,
   }) async {
     _requirePositiveId(id, 'id');
     if (postNumber != null) {
@@ -129,6 +130,7 @@ final class DiscourseTopicApi {
       ).replace(queryParameters: query.isEmpty ? null : query),
       siteUrl: siteUrl,
       apiKey: apiKey,
+      abortTrigger: abortTrigger,
       clientId: clientId,
     );
 
@@ -881,11 +883,13 @@ final class DiscourseTopicApi {
     required String siteUrl,
     String? apiKey,
     String? clientId,
+    Future<void>? abortTrigger,
   }) => _transport.getObject(
     url,
     siteUrl: siteUrl,
     apiKey: apiKey,
     clientId: clientId,
+    abortTrigger: abortTrigger,
   );
 
   static void _requirePositiveId(int value, String name) {

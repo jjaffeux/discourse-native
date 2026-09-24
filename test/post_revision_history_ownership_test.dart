@@ -450,6 +450,7 @@ class _RevisionApi extends FakeDiscourseApi {
     bool summary = false,
     String? apiKey,
     String? clientId,
+    Future<void>? abortTrigger,
   }) async => topicPayload(id: id, posts: [id == 7 ? _post : _otherPost]);
 
   @override

@@ -20,6 +20,14 @@ final itemExamples = ComponentExamples(
       'Dropdown Menu primitives with actual passive xs Items.',
   examples: [
     StyleguideExample(
+      title: 'Hover callback',
+      description:
+          'Pointer entry and exit can prepare content before activation. Keyboard focus and touch do not trigger the callback.',
+      code:
+          "DItem(onPressed: open, onHoverChanged: prepare, children: [DItemContent(children: [Text('Hover this item')])])",
+      builder: (_) => const _HoverExample(),
+    ),
+    StyleguideExample(
       title: 'Full-width rows',
       description:
           'Flush rows use a faint accent hover and a stronger selected tint with a leading edge. The edge follows the reading direction.',
@@ -825,4 +833,34 @@ class _ItemExampleState extends State<_ItemExample> {
 
   Widget _spaced(List<Widget> children) =>
       DItemGroup(spacing: 24, children: children);
+}
+
+class _HoverExample extends StatefulWidget {
+  const _HoverExample();
+
+  @override
+  State<_HoverExample> createState() => _HoverExampleState();
+}
+
+class _HoverExampleState extends State<_HoverExample> {
+  bool _hovered = false;
+  int _opened = 0;
+
+  @override
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    spacing: DSpacing.md,
+    children: [
+      DItem(
+        onPressed: () => setState(() => _opened++),
+        onHoverChanged: (hovered) => setState(() => _hovered = hovered),
+        children: const [
+          DItemContent(children: [Text('Hover this item')]),
+        ],
+      ),
+      Text(
+        '${_hovered ? 'Pointer inside' : 'Pointer outside'} · Opened $_opened times',
+      ),
+    ],
+  );
 }

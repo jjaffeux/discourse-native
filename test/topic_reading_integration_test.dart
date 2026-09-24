@@ -4772,6 +4772,7 @@ final class _ServerResumeTopicApi extends FakeDiscourseApi {
     bool summary = false,
     String? apiKey,
     String? clientId,
+    Future<void>? abortTrigger,
   }) async {
     topicsOpened.add(id);
     topicPostNumbersOpened.add(postNumber);

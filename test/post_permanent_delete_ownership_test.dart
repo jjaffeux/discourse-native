@@ -539,6 +539,7 @@ class _DeletionApi extends FakeDiscourseApi {
     bool summary = false,
     String? apiKey,
     String? clientId,
+    Future<void>? abortTrigger,
   }) async => payload(siteUrl);
 
   @override

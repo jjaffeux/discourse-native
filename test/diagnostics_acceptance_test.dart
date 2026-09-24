@@ -640,6 +640,7 @@ class _TimeoutApi extends FakeDiscourseApi {
     bool summary = false,
     String? apiKey,
     String? clientId,
+    Future<void>? abortTrigger,
   }) async {
     throw TimeoutException('forced diagnostics timeout while loading topic');
   }
@@ -710,11 +711,13 @@ final class _GatedTopicTimeoutApi extends _TimeoutApi {
     bool summary = false,
     String? apiKey,
     String? clientId,
+    Future<void>? abortTrigger,
   }) async {
     started.complete();
     await release.future;
     return super.topic(
       siteUrl: siteUrl,
+      abortTrigger: abortTrigger,
       slug: slug,
       id: id,
       postNumber: postNumber,

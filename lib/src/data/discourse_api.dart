@@ -522,12 +522,14 @@ class DiscourseApi
     bool summary = false,
     String? apiKey,
     String? clientId,
+    Future<void>? abortTrigger,
   }) async => _topic.topic(
     siteUrl: siteUrl,
     slug: slug,
     id: id,
     postNumber: postNumber,
     summary: summary,
+    abortTrigger: abortTrigger,
     apiKey: apiKey,
     clientId: clientId,
   );

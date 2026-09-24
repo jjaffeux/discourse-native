@@ -1189,6 +1189,7 @@ class _OneFailedRefreshApi extends FakeDiscourseApi {
     bool summary = false,
     String? apiKey,
     String? clientId,
+    Future<void>? abortTrigger,
   }) {
     if (topicsOpened.length == 1) {
       topicsOpened.add(id);
@@ -1197,6 +1198,7 @@ class _OneFailedRefreshApi extends FakeDiscourseApi {
     }
     return super.topic(
       siteUrl: siteUrl,
+      abortTrigger: abortTrigger,
       slug: slug,
       id: id,
       postNumber: postNumber,
