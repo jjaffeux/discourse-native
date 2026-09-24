@@ -18,6 +18,7 @@ import 'data/forum_settings_store.dart';
 import 'data/forum_tab_store.dart';
 import 'data/instance_store.dart';
 import 'data/notification_opens.dart';
+import 'data/recent_destinations_store.dart';
 import 'data/site_tracker.dart';
 import 'data/update_store.dart';
 import 'data/updater.dart';
@@ -90,6 +91,7 @@ class _DiscourseAppState extends State<DiscourseApp>
   late ForumSettingsStore _forumSettingsStore;
   late DraftStore _drafts;
   late ForumTabStore _forumTabs;
+  late RecentDestinationsStore _recentDestinations;
   late SiteTrackerFactory _trackers;
   late Updater _updater;
   late UpdateStore _updateStore;
@@ -142,6 +144,7 @@ class _DiscourseAppState extends State<DiscourseApp>
     forumSettingsStore: _forumSettingsStore,
     drafts: _drafts,
     forumTabs: _forumTabs,
+    recentDestinations: _recentDestinations,
     forumTabsEnabled: forumTabsEnabledForCurrentPlatform,
     mobileNavigationEnabled: usesMobileNavigation(defaultTargetPlatform),
     trackers: _trackers,
@@ -168,6 +171,7 @@ class _DiscourseAppState extends State<DiscourseApp>
     _forumSettingsStore = widget.forumSettingsStore ?? ForumSettingsStore();
     _drafts = widget.drafts ?? DraftStore();
     _forumTabs = widget.forumTabs ?? ForumTabStore();
+    _recentDestinations = RecentDestinationsStore();
     _trackers = widget.trackers ?? SiteTracker.new;
     _updater = widget.updater ?? const UnsupportedUpdater();
     _updateStore = widget.updateStore ?? UpdateStore();
