@@ -376,7 +376,7 @@ void main() {
       final panel = tester.getRect(find.byKey(ForumSearch.panelKey));
       expect(after.topLeft.dx, closeTo(before.topLeft.dx, .5));
       expect(after.topLeft.dy, closeTo(before.topLeft.dy, .5));
-      expect(panel.top, greaterThanOrEqualTo(8));
+      expect(panel.top, closeTo(2, .5));
       expect(panel.bottom, lessThanOrEqualTo(420));
       expect(_editor(tester).focusNode.hasFocus, isTrue);
       expect(tester.takeException(), isNull);

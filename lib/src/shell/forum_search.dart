@@ -449,7 +449,7 @@ class _ForumSearchState extends State<ForumSearch> {
             )
             .toDouble();
         final editorLeft = math.max(0.0, _anchorLeft - surfaceLeft);
-        final surfaceTop = math.max(safe.top + 8, _anchorTop - 4);
+        final surfaceTop = math.max(safe.top + 2, _anchorTop - 4);
         final height = mobile
             ? math.max(
                 160.0,
