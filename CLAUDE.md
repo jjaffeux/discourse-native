@@ -7,7 +7,10 @@ before changing a subsystem.
 
 ## Gates
 
-Every change must pass exactly what CI runs:
+Every change must pass exactly what CI runs. Locally, run everything below
+except the test line: instead of the full suite, run only the tests added for
+the task and those directly covering the changed code, by file path (see
+`AGENTS.md`). CI runs the full suite.
 
 ```sh
 flutter pub get --enforce-lockfile
@@ -19,7 +22,7 @@ dart format --output=none --set-exit-if-changed \
   packages/discourse_voice/lib \
   packages/discourse_voice/tool profiles/full/lib
 flutter analyze
-flutter test --test-randomize-ordering-seed=random
+flutter test --test-randomize-ordering-seed=random  # CI only
 (cd packages/discourse_voice && flutter analyze)
 (cd profiles/full && flutter analyze)
 ```
