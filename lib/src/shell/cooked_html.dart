@@ -325,14 +325,28 @@ class CookedHtml extends StatelessWidget {
         ? _CompactParagraphMargins()
         : null;
 
+    final displayedChecklist = html.contains('chcklst-box')
+        ? PostChecklistDocument(html)
+        : null;
+    final savedChecklist = post != null && post!.cooked.contains('chcklst-box')
+        ? PostChecklistDocument(post!.cooked)
+        : null;
+    final displayedTargets = displayedChecklist?.targets;
+    final savedTargets = savedChecklist?.targets;
+    final sameTargets =
+        displayedTargets != null &&
+        savedTargets != null &&
+        displayedTargets.length == savedTargets.length &&
+        displayedTargets.indexed.every((entry) {
+          final (index, displayed) = entry;
+          final saved = savedTargets[index];
+          return displayed.checked == saved.checked &&
+              displayed.permanent == saved.permanent &&
+              displayed.source == saved.source;
+        });
     final checklist = revisionDiff
         ? null
-        : checklistDocument ??
-              (post != null &&
-                      html == post!.cooked &&
-                      html.contains('chcklst-box')
-                  ? PostChecklistDocument(html)
-                  : null);
+        : checklistDocument ?? (sameTargets ? displayedChecklist : null);
     final shell = ShellScope.maybeRead(context);
     final canToggle =
         checklist != null &&
