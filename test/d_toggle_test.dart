@@ -7,6 +7,7 @@ import 'package:discourse_native/src/styleguide/styleguide_theme.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:discourse_native/src/ui/foundation/control_style.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show RenderParagraph;
 import 'package:flutter/semantics.dart' show SemanticsValidationResult;
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -125,6 +126,63 @@ void main() {
       }
     }
   });
+
+  testWidgets(
+    'a label keeps all the width its icon leaves before ellipsizing',
+    (tester) async {
+      const text = 'Darker sidebar';
+      RenderParagraph label() => tester.renderObject(
+        find.descendant(of: find.text(text), matching: find.byType(RichText)),
+      );
+      for (final rtl in [false, true]) {
+        for (final position in DToggleIconPosition.values) {
+          final reason = 'rtl=$rtl, iconPosition=$position';
+          Future<void> mountAt(double width) => mount(
+            tester,
+            Align(
+              alignment: AlignmentDirectional.centerStart,
+              child: DToggle(
+                iconPosition: position,
+                icon: const Icon(Icons.favorite),
+                child: const Text(text),
+              ),
+            ),
+            theme: AppTheme.light.copyWith(platform: TargetPlatform.macOS),
+            rtl: rtl,
+            width: width,
+          );
+          await mountAt(400);
+          final natural = tester.getSize(find.byType(DToggle)).width;
+          final labelWidth = label().size.width;
+          final iconWidth = tester.getSize(find.byIcon(Icons.favorite)).width;
+
+          // The label needs more than half the content width, which an even
+          // split of the row would have ellipsized.
+          await mountAt(natural);
+          expect(label().didExceedMaxLines, isFalse, reason: reason);
+          expect(label().size.width, labelWidth, reason: reason);
+
+          await mountAt(natural - 24);
+          expect(label().didExceedMaxLines, isTrue, reason: reason);
+          expect(
+            tester.getSize(find.byIcon(Icons.favorite)).width,
+            iconWidth,
+            reason: reason,
+          );
+          final icon = tester.getRect(find.byIcon(Icons.favorite));
+          final labelRect = tester.getRect(find.text(text));
+          expect(
+            (position == DToggleIconPosition.start) != rtl
+                ? icon.right <= labelRect.left
+                : icon.left >= labelRect.right,
+            isTrue,
+            reason: reason,
+          );
+          expect(tester.takeException(), isNull, reason: reason);
+        }
+      }
+    },
+  );
 
   testWidgets('reaction density grows for scaled counts in RTL', (
     tester,
