@@ -36,6 +36,35 @@ void main() {
     });
 
     group('creation', () {
+      test('recent destinations keep five distinct visits per forum', () {
+        for (var id = 1; id <= 6; id++) {
+          controller.openTopicUrl('/t/topic-$id/$id');
+        }
+        expect(
+          controller
+              .recentTopicsFor(forums.first.url)
+              .map((route) => route.topicId),
+          [6, 5, 4, 3, 2],
+        );
+
+        controller.openTopicUrl('/t/topic-3/3');
+        expect(
+          controller
+              .recentTopicsFor(forums.first.url)
+              .map((route) => route.topicId),
+          [3, 6, 5, 4, 2],
+        );
+
+        controller.openListUrl('/c/support/12', title: 'Support');
+        expect(
+          controller.recentCategoriesFor(forums.first.url).single.title,
+          'Support',
+        );
+        controller.selectInstance(1);
+        expect(controller.recentTopicsFor(forums.last.url), isEmpty);
+        expect(controller.recentCategoriesFor(forums.last.url), isEmpty);
+      });
+
       test('opens a topic in the background with its requested post', () async {
         controller.openTopicUrl('/t/another-topic/42/3');
         final original = controller.activeTab;
