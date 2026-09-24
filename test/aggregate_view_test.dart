@@ -12,7 +12,8 @@ import 'package:discourse_native/src/shell/site_emoji_image.dart';
 import 'package:discourse_native/src/shell/topic_filter_input.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/gestures.dart' show kDoubleTapMinTime;
+import 'package:flutter/gestures.dart'
+    show PointerDeviceKind, kDoubleTapMinTime;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -429,6 +430,56 @@ void main() {
       debugDefaultTargetPlatformOverride = previousPlatform;
     }
   });
+  testWidgets('reorders aggregate tabs behind the forum insertion bar', (
+    tester,
+  ) async {
+    final previousPlatform = debugDefaultTargetPlatformOverride;
+    debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+
+    try {
+      await _pumpMixedAggregateView(tester);
+      await tester.tap(find.byKey(const ValueKey('forum-tabs-add')));
+      await tester.pumpAndSettle();
+
+      List<String> order() => [
+        for (final item
+            in tester.widget<ForumTabsBar>(find.byType(ForumTabsBar)).items)
+          item.id,
+      ];
+      final [firstId, secondId] = order();
+      final first = find.byKey(ValueKey('forum-tab-item-$firstId'));
+      final second = find.byKey(ValueKey('forum-tab-item-$secondId'));
+      final indicator = find.byKey(
+        const ValueKey('forum-tab-drop-placeholder'),
+      );
+
+      final drag = await tester.startGesture(
+        tester.getCenter(first),
+        kind: PointerDeviceKind.mouse,
+      );
+      await drag.moveBy(const Offset(20, 0));
+      await tester.pump();
+      final secondRect = tester.getRect(second);
+      await drag.moveTo(Offset(secondRect.right - 2, secondRect.center.dy));
+      await tester.pumpAndSettle();
+
+      expect(indicator, findsOneWidget);
+      expect(
+        tester.getRect(indicator).left,
+        greaterThanOrEqualTo(secondRect.right),
+      );
+
+      await drag.up();
+      await tester.pumpAndSettle();
+
+      expect(indicator, findsNothing);
+      expect(order(), [secondId, firstId]);
+      expect(tester.takeException(), isNull);
+    } finally {
+      debugDefaultTargetPlatformOverride = previousPlatform;
+    }
+  });
+
   testWidgets('closing a tab releases the scroll controller of its list', (
     tester,
   ) async {
