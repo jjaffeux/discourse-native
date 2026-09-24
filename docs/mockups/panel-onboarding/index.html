@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Two panels · onboarding directions</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="review-header">
+    <div>
+      <p class="eyebrow">DISCOURSE NATIVE / DESIGN EXPLORATION</p>
+      <h1>Working with two panels</h1>
+      <p>Three ways to make the new-tab guide easier to scan and less dominant.</p>
+    </div>
+    <button class="theme-button" type="button" aria-label="Switch to light appearance" onclick="const root=document.documentElement; const light=root.dataset.theme!=='light'; root.dataset.theme=light?'light':'dark'; this.textContent=light?'Dark appearance':'Light appearance'; this.setAttribute('aria-label', 'Switch to '+(light?'dark':'light')+' appearance')">Light appearance</button>
+  </header>
+
+  <main class="gallery">
+    <section class="study" aria-labelledby="title-a">
+      <div class="study-heading"><span class="number">01</span><div><h2 id="title-a">Compact guide</h2><p>Shortest path to the shortcuts. Keeps the start page in view.</p></div><span class="recommendation">Recommended</span></div>
+      <div class="app-window">
+        <div class="window-bar"><span class="traffic" aria-hidden="true"><i></i><i></i><i></i></span><span>Discourse Meta</span><span class="window-actions">⌘ K &nbsp; ⋯</span></div>
+        <div class="app-body"><aside class="sidebar"><div class="site-avatar">D</div><div class="sidebar-line active">▤ <span>Latest</span></div><div class="sidebar-line">☆ <span>Bookmarks</span></div><div class="sidebar-line">▣ <span>Categories</span></div></aside><div class="page"><div class="tab-strip"><span class="tab active">New tab <b>×</b></span><span class="tab-add">＋</span></div><div class="page-content"><p class="page-kicker">START PAGE</p><h3>Discourse Meta</h3><div class="search"><span>⌕</span> Search topics, people, and more <span class="search-key">⌘ K</span></div>
+          <article class="guide guide-a"><div class="guide-intro"><div class="split-icon" aria-hidden="true"><span></span><span></span></div><div><h4>Work with two panels</h4><p>Open links beside what you’re reading.</p></div><button class="dismiss-icon" aria-label="Dismiss example">×</button></div>
+            <div class="shortcut-grid"><div><kbd>Shift</kbd><kbd>Click</kbd><span>Open in the other panel</span></div><div><kbd>Middle click</kbd><span>New tab here</span></div><div><kbd>Shift</kbd><kbd>Middle click</kbd><span>New tab in the other panel</span></div></div>
+            <div class="guide-footer"><span>Tip: right-click links or drag tabs to choose a panel.</span><button class="outline-button">Don’t show again</button></div>
+          </article>
+          <div class="recents"><div><strong>Categories</strong><span>Support</span><span>Feature</span></div><div><strong>Chat</strong><span>General</span><span>Design</span></div><div><strong>Latest topics</strong><span>Designing the new start page</span><span>Two-panel workflows</span></div></div>
+        </div></div></div>
+      </div>
+    </section>
+
+    <section class="study" aria-labelledby="title-b">
+      <div class="study-heading"><span class="number">02</span><div><h2 id="title-b">Show the destination</h2><p>A small diagram teaches the panel model before the shortcuts.</p></div></div>
+      <div class="app-window">
+        <div class="window-bar"><span class="traffic" aria-hidden="true"><i></i><i></i><i></i></span><span>Discourse Meta</span><span class="window-actions">⌘ K &nbsp; ⋯</span></div>
+        <div class="app-body"><aside class="sidebar"><div class="site-avatar">D</div><div class="sidebar-line active">▤ <span>Latest</span></div><div class="sidebar-line">☆ <span>Bookmarks</span></div><div class="sidebar-line">▣ <span>Categories</span></div></aside><div class="page"><div class="tab-strip"><span class="tab active">New tab <b>×</b></span><span class="tab-add">＋</span></div><div class="page-content"><p class="page-kicker">START PAGE</p><h3>Discourse Meta</h3><div class="search"><span>⌕</span> Search topics, people, and more <span class="search-key">⌘ K</span></div>
+          <article class="guide guide-b"><div class="guide-b-copy"><h4>Work with two panels</h4><div class="key-line"><kbd>Middle click</kbd><span>Opens a new tab in main panel</span></div><div class="key-line"><kbd>Shift</kbd><kbd>Click</kbd><span>Open in secondary panel</span></div><div class="key-line"><kbd>Shift</kbd><kbd>Middle click</kbd><span>Open in a new tab in secondary panel</span></div><button class="outline-button">Don’t show again</button></div><div class="panel-illustration" aria-label="Illustration of a main and secondary panel"><div class="illustration-top"><span>TWO PANELS</span></div><div class="illustration-columns"><div class="mini-panel"><div class="mini-tabs"><b>Main</b></div><div class="mini-content"><span></span><span></span><span></span></div></div><div class="mini-panel destination"><div class="mini-tabs"><b>Secondary</b></div><div class="mini-content"><span></span><span></span><span></span></div></div></div><div class="illustration-caption">Shift + click opens here</div></div></article>
+          <div class="recents"><div><strong>Categories</strong><span>Support</span><span>Feature</span></div><div><strong>Chat</strong><span>General</span><span>Design</span></div><div><strong>Latest topics</strong><span>Designing the new start page</span><span>Two-panel workflows</span></div></div>
+        </div></div></div>
+      </div>
+    </section>
+
+    <section class="study" aria-labelledby="title-c">
+      <div class="study-heading"><span class="number">03</span><div><h2 id="title-c">Quick reference</h2><p>A more explicit guide for people who want all the gestures together.</p></div></div>
+      <div class="app-window">
+        <div class="window-bar"><span class="traffic" aria-hidden="true"><i></i><i></i><i></i></span><span>Discourse Meta</span><span class="window-actions">⌘ K &nbsp; ⋯</span></div>
+        <div class="app-body"><aside class="sidebar"><div class="site-avatar">D</div><div class="sidebar-line active">▤ <span>Latest</span></div><div class="sidebar-line">☆ <span>Bookmarks</span></div><div class="sidebar-line">▣ <span>Categories</span></div></aside><div class="page"><div class="tab-strip"><span class="tab active">New tab <b>×</b></span><span class="tab-add">＋</span></div><div class="page-content"><p class="page-kicker">START PAGE</p><h3>Discourse Meta</h3><div class="search"><span>⌕</span> Search topics, people, and more <span class="search-key">⌘ K</span></div>
+          <article class="guide guide-c"><div class="reference-heading"><div><p class="small-label">TWO-PANEL WORKSPACE</p><h4>Choose where links open</h4><p>A regular click opens in this tab.</p></div><button class="dismiss-icon" aria-label="Dismiss example">×</button></div><div class="reference-columns"><div class="reference-group"><h5>Current panel</h5><div class="reference-row"><div><kbd>Middle click</kbd></div><span>Open a new tab</span></div></div><div class="reference-group other"><h5>Secondary panel</h5><div class="reference-row"><div><kbd>Shift</kbd><kbd>Click</kbd></div><span>Open there</span></div><div class="reference-row"><div><kbd>Shift</kbd><kbd>Middle click</kbd></div><span>Open a new tab there</span></div></div></div><div class="reference-bottom"><span>Right-click a link for more choices. Drag a tab between panels to move it.</span><button class="outline-button">Don’t show again</button></div></article>
+          <div class="recents"><div><strong>Categories</strong><span>Support</span><span>Feature</span></div><div><strong>Chat</strong><span>General</span><span>Design</span></div><div><strong>Latest topics</strong><span>Designing the new start page</span><span>Two-panel workflows</span></div></div>
+        </div></div></div>
+      </div>
+    </section>
+  </main>
+  <footer class="review-footer">Standalone HTML/CSS concepts for the existing Native new-tab tutorial. Controls in these previews are illustrative.</footer>
+</body>
+</html>

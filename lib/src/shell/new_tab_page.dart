@@ -142,45 +142,7 @@ class _NewTabPageState extends State<NewTabPage> {
                 if (_dismissed == false &&
                     (ShellScope.maybeRead(context)?.desktopPanelsEnabled ??
                         true))
-                  DCard(
-                    border: false,
-                    children: [
-                      Text(
-                        'Work with two panels',
-                        style: Theme.of(context).textTheme.titleLarge,
-                      ),
-                      const Text(
-                        'Choose where each link opens. A regular click stays in '
-                        'the current tab.',
-                      ),
-                      const _PanelGestureHint(
-                        keys: ['Middle click'],
-                        description: 'Open a new tab in the current panel',
-                      ),
-                      const _PanelGestureHint(
-                        keys: ['Shift', 'Click'],
-                        description: 'Open in the secondary panel',
-                      ),
-                      const _PanelGestureHint(
-                        keys: ['Shift', 'Middle click'],
-                        description: 'Open a new tab in the secondary panel',
-                      ),
-                      const Text(
-                        'Right-click a link to choose the main or secondary '
-                        'panel and whether to use a new tab. Drag a tab between '
-                        'panels, or right-click its tab to move it.',
-                      ),
-                      Align(
-                        alignment: AlignmentDirectional.centerStart,
-                        child: DButton(
-                          key: const ValueKey('dismiss-panel-tutorial'),
-                          onPressed: _dismiss,
-                          variant: DButtonVariant.outline,
-                          label: const Text("Don't show this again"),
-                        ),
-                      ),
-                    ],
-                  ),
+                  _PanelTutorial(onDismiss: _dismiss),
                 if (shell != null) ...[
                   LayoutBuilder(
                     builder: (context, constraints) {
@@ -389,6 +351,132 @@ class _LinkButton extends StatelessWidget {
     label: Text(label),
     onPressed: onPressed,
   );
+}
+
+class _PanelTutorial extends StatelessWidget {
+  const _PanelTutorial({required this.onDismiss});
+
+  final VoidCallback onDismiss;
+
+  @override
+  Widget build(BuildContext context) => ConstrainedBox(
+    constraints: const BoxConstraints(maxWidth: 920),
+    child: DCard(
+      spacing: 0,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final compact = constraints.maxWidth < 700;
+          final instructions = Padding(
+            padding: const EdgeInsets.all(DSpacing.xl),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              spacing: DSpacing.md,
+              children: [
+                Text(
+                  'Work with two panels',
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+                const _PanelGestureHint(
+                  keys: ['Middle click'],
+                  description: 'Opens a new tab in main panel',
+                ),
+                const _PanelGestureHint(
+                  keys: ['Shift', 'Click'],
+                  description: 'Open in secondary panel',
+                ),
+                const _PanelGestureHint(
+                  keys: ['Shift', 'Middle click'],
+                  description: 'Open in a new tab in secondary panel',
+                ),
+                const SizedBox(height: DSpacing.md),
+                DButton(
+                  key: const ValueKey('dismiss-panel-tutorial'),
+                  onPressed: onDismiss,
+                  variant: DButtonVariant.outline,
+                  label: const Text("Don't show again"),
+                ),
+              ],
+            ),
+          );
+          final diagram = _PanelTutorialDiagram();
+          if (compact) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [instructions, const DSeparator(), diagram],
+            );
+          }
+          return IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Expanded(child: instructions),
+                const DSeparator(orientation: Axis.vertical),
+                Expanded(child: diagram),
+              ],
+            ),
+          );
+        },
+      ),
+    ),
+  );
+}
+
+class _PanelTutorialDiagram extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    final tokens = DTokens.of(context);
+    return ColoredBox(
+      color: tokens.surface,
+      child: Padding(
+        padding: const EdgeInsets.all(DSpacing.xl),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          mainAxisAlignment: MainAxisAlignment.center,
+          spacing: DSpacing.md,
+          children: [
+            Text(
+              'TWO PANELS',
+              style: Theme.of(
+                context,
+              ).textTheme.labelSmall?.copyWith(color: tokens.mutedForeground),
+            ),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              spacing: DSpacing.sm,
+              children: [
+                const Expanded(
+                  child: DCard(
+                    size: DCardSize.small,
+                    children: [Text('Main'), DSeparator(), Text('This page')],
+                  ),
+                ),
+                Expanded(
+                  child: DCard(
+                    size: DCardSize.small,
+                    backgroundColor: tokens.selected,
+                    children: const [
+                      Text('Secondary'),
+                      DSeparator(),
+                      Text('Opened link'),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            Align(
+              alignment: AlignmentDirectional.centerEnd,
+              child: Text(
+                'Shift + click opens here',
+                style: Theme.of(
+                  context,
+                ).textTheme.bodySmall?.copyWith(color: tokens.mutedForeground),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 class _PanelGestureHint extends StatelessWidget {
