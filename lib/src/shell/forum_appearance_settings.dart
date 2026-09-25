@@ -186,7 +186,7 @@ class _ForumAppearanceSettingsState extends State<ForumAppearanceSettings> {
             key: const ValueKey('theme-use-everywhere'),
             label: const Text('Use on every forum'),
             variant: DButtonVariant.outline,
-            size: DButtonSize.small,
+            size: DButtonSize.regular,
             onPressed: () => unawaited(_useEverywhere(others)),
           ),
         ],
