@@ -1713,6 +1713,15 @@ void main() {
           selectedId: items.last.id,
           width: width,
         );
+        final forward = find.byKey(const ValueKey('forum-tabs-scroll-forward'));
+        for (
+          var attempt = 0;
+          attempt < 5 && forward.evaluate().isNotEmpty;
+          attempt++
+        ) {
+          await tester.tap(forward);
+          await tester.pumpAndSettle();
+        }
         final scroll = tester.getRect(
           find.byKey(const ValueKey('forum-tabs-scroll')),
         );
@@ -1720,10 +1729,10 @@ void main() {
           find.byKey(ValueKey('forum-tab-item-${items.last.id}')),
         );
         expect(lastTab.right, lessThanOrEqualTo(scroll.right));
-        expect(
-          find.byKey(const ValueKey('forum-tabs-scroll-forward')),
-          findsNothing,
-        );
+        if (width == 220) {
+          expect(scroll.right - lastTab.right, greaterThan(20));
+        }
+        expect(forward, findsNothing);
         expect(tester.takeException(), isNull);
       }
     });

@@ -217,6 +217,12 @@ class _ForumTabsBarState extends State<ForumTabsBar> {
   void _revealSelectedTab() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || !_tabsScrollController.hasClients) return;
+      if (widget.selectedId == widget.items.last.id) {
+        _tabsScrollController.jumpTo(
+          _tabsScrollController.position.maxScrollExtent,
+        );
+        return;
+      }
       final tabContext = _tabKeys[widget.selectedId]?.currentContext;
       if (tabContext != null) {
         Scrollable.ensureVisible(tabContext, alignment: .5);
@@ -670,7 +676,19 @@ class _ForumTabsBarState extends State<ForumTabsBar> {
                                                       _tabsScrollController,
                                                   scrollDirection:
                                                       Axis.horizontal,
-                                                  child: tabs,
+                                                  child: Row(
+                                                    mainAxisSize:
+                                                        MainAxisSize.min,
+                                                    children: [
+                                                      tabs,
+                                                      // Let the final tab move
+                                                      // past the overlaid arrow.
+                                                      SizedBox(
+                                                        width:
+                                                            scrollControlWidth,
+                                                      ),
+                                                    ],
+                                                  ),
                                                 ),
                                                 if (_canScrollBackward)
                                                   PositionedDirectional(
