@@ -546,6 +546,38 @@ void main() {
     expect(find.text('Recently visited'), findsNothing);
   });
 
+  testWidgets('Latest topics opens its feed from a new start page tab', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({
+      'discourse_native.panel_tutorial_dismissed': true,
+    });
+    final previousPlatform = debugDefaultTargetPlatformOverride;
+    debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+    try {
+      await pumpShell(tester, desktop, api: _apiWithLatestTopic());
+      final shell = ShellScope.read(
+        tester.element(find.byType(MainContent).first),
+      );
+      shell.openContentInNewTab(ContentRoute.newTab(), select: true);
+      await tester.pumpAndSettle();
+
+      expect(shell.activeTab?.rootDestinationId, 'new-tab');
+      expect(find.text('Recent topic'), findsOneWidget);
+      await tester.tap(find.text('Latest topics'));
+      await tester.pumpAndSettle();
+
+      expect(shell.currentContent?.id, 'latest');
+      expect(shell.currentFeedId, 'latest');
+      expect(shell.currentTopicListMode, TopicListMode.latest);
+      expect(shell.currentFeed?.topicIds, [42]);
+      expect(find.text('Not found'), findsNothing);
+      expect(find.text('Recent topic'), findsOneWidget);
+    } finally {
+      debugDefaultTargetPlatformOverride = previousPlatform;
+    }
+  });
+
   testWidgets('an unread chat channel opens from the start page', (
     tester,
   ) async {
