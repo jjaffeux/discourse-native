@@ -91,10 +91,11 @@ class ChatChannelsView extends StatelessWidget {
         final colors = Theme.of(context).colorScheme;
         return Column(
           children: [
-            Padding(
+            ContentReadingLaneBox(
               key: const ValueKey('chat-channel-list-list-heading'),
               padding: const EdgeInsets.fromLTRB(16, 10, 12, 8),
               child: ConstrainedBox(
+                key: const ValueKey('chat-channel-list-heading-content'),
                 constraints: BoxConstraints(
                   minHeight: MediaQuery.textScalerOf(context).scale(36),
                 ),
@@ -174,45 +175,54 @@ class ChatChannelsView extends StatelessWidget {
               ),
             ),
             Expanded(
-              child: loading
-                  ? const _ChatChannelListLoadingSkeleton()
-                  : channels.isEmpty
-                  ? Center(
-                      child: Padding(
-                        padding: const EdgeInsets.all(24),
-                        child: Text(
-                          filtered
-                              ? 'No channels match this filter.'
-                              : switch (kind) {
-                                  ChatChannelListKind.channels =>
-                                    'You have not joined any channels yet.',
-                                  ChatChannelListKind.starred =>
-                                    'You have no starred channels.',
-                                  ChatChannelListKind.directMessages =>
-                                    'You have no direct messages yet.',
-                                },
-                          textAlign: TextAlign.center,
+              child: ContentReadingLane(
+                basePadding: const EdgeInsets.fromLTRB(8, 0, 8, 12),
+                builder: (context, lane) => loading
+                    ? _ChatChannelListLoadingSkeleton(padding: lane.padding)
+                    : channels.isEmpty
+                    ? Padding(
+                        padding: lane.padding,
+                        child: Center(
+                          child: Padding(
+                            padding: const EdgeInsets.all(24),
+                            child: Text(
+                              filtered
+                                  ? 'No channels match this filter.'
+                                  : switch (kind) {
+                                      ChatChannelListKind.channels =>
+                                        'You have not joined any channels yet.',
+                                      ChatChannelListKind.starred =>
+                                        'You have no starred channels.',
+                                      ChatChannelListKind.directMessages =>
+                                        'You have no direct messages yet.',
+                                    },
+                              textAlign: TextAlign.center,
+                            ),
+                          ),
                         ),
+                      )
+                    : ListView.builder(
+                        key: PageStorageKey<ChatChannelListKind>(kind),
+                        padding: lane.padding,
+                        itemCount: channels.length,
+                        itemBuilder: (context, index) {
+                          final channel = channels[index];
+                          return ValueListenableBuilder<ChatChannel?>(
+                            key: ValueKey(channel.id),
+                            valueListenable: chat.channelRef(
+                              siteUrl,
+                              channel.id,
+                            ),
+                            builder: (context, current, _) =>
+                                _ChannelListChannelRow(
+                                  siteUrl: siteUrl,
+                                  channel: current ?? channel,
+                                  onTap: () => shell.openChannel(channel.id),
+                                ),
+                          );
+                        },
                       ),
-                    )
-                  : ListView.builder(
-                      key: PageStorageKey<ChatChannelListKind>(kind),
-                      padding: const EdgeInsets.fromLTRB(8, 0, 8, 12),
-                      itemCount: channels.length,
-                      itemBuilder: (context, index) {
-                        final channel = channels[index];
-                        return ValueListenableBuilder<ChatChannel?>(
-                          key: ValueKey(channel.id),
-                          valueListenable: chat.channelRef(siteUrl, channel.id),
-                          builder: (context, current, _) =>
-                              _ChannelListChannelRow(
-                                siteUrl: siteUrl,
-                                channel: current ?? channel,
-                                onTap: () => shell.openChannel(channel.id),
-                              ),
-                        );
-                      },
-                    ),
+              ),
             ),
           ],
         );
@@ -222,7 +232,9 @@ class ChatChannelsView extends StatelessWidget {
 }
 
 class _ChatChannelListLoadingSkeleton extends StatelessWidget {
-  const _ChatChannelListLoadingSkeleton();
+  const _ChatChannelListLoadingSkeleton({required this.padding});
+
+  final EdgeInsets padding;
 
   @override
   Widget build(BuildContext context) => DSkeletonRegion(
@@ -231,7 +243,7 @@ class _ChatChannelListLoadingSkeleton extends StatelessWidget {
     color: skeletonFill(context),
     expand: true,
     child: ListView(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+      padding: padding,
       children: [
         for (var row = 0; row < 5; row++)
           Padding(
