@@ -498,6 +498,7 @@ class _MobileForumRootState extends State<MobileForumRoot> {
         loading: action.loading,
         tooltip: action.label,
         shape: DButtonShape.pill,
+        density: DButtonDensity.mobileDockAction,
         onPressed: action.onPressed,
       );
     } else if (showReply) {
@@ -507,50 +508,31 @@ class _MobileForumRootState extends State<MobileForumRoot> {
         label: const Text('Reply'),
         tooltip: 'Reply to this topic',
         shape: DButtonShape.pill,
+        density: DButtonDensity.mobileDockAction,
         onPressed: shell.openReply,
       );
     } else if (showNewMessage) {
       primaryAction = MessageCreateButton(
         showLabel: showLabel,
         pill: true,
-        fillWidth: true,
+        dockAction: true,
       );
     } else if (panelAction != null) {
-      primaryAction = showLabel
-          ? DButton(
-              key: const ValueKey('mobile-panel-action'),
-              icon: DIcon(panelAction.icon),
-              label: Text(panelAction.label),
-              shape: DButtonShape.pill,
-              onPressed: panelAction.onPressed,
-            )
-          : DButton(
-              key: const ValueKey('mobile-panel-action'),
-              label: const SizedBox.shrink(),
-              semanticLabel: panelAction.label,
-              icon: DIcon(panelAction.icon),
-              tooltip: panelAction.label,
-              shape: DButtonShape.pill,
-              onPressed: panelAction.onPressed,
-            );
+      primaryAction = _dockAction(
+        key: const ValueKey('mobile-panel-action'),
+        icon: panelAction.icon,
+        label: panelAction.label,
+        showLabel: showLabel,
+        onPressed: panelAction.onPressed,
+      );
     } else if (showNewTopic) {
-      primaryAction = showLabel
-          ? DButton(
-              key: const ValueKey('mobile-new-topic'),
-              icon: const DIcon(DIcons.plus),
-              label: const Text('New topic'),
-              shape: DButtonShape.pill,
-              onPressed: () => unawaited(shell.openNewTopicFromSidebar()),
-            )
-          : DButton(
-              key: const ValueKey('mobile-new-topic'),
-              label: const SizedBox.shrink(),
-              semanticLabel: 'New topic',
-              icon: const DIcon(DIcons.plus),
-              tooltip: 'New topic',
-              shape: DButtonShape.pill,
-              onPressed: () => unawaited(shell.openNewTopicFromSidebar()),
-            );
+      primaryAction = _dockAction(
+        key: const ValueKey('mobile-new-topic'),
+        icon: DIcons.plus,
+        label: 'New topic',
+        showLabel: showLabel,
+        onPressed: () => unawaited(shell.openNewTopicFromSidebar()),
+      );
     }
     return Row(
       key: const ValueKey('mobile-bottom-bar'),
@@ -622,6 +604,30 @@ class _MobileForumRootState extends State<MobileForumRoot> {
       ],
     );
   }
+
+  Widget _dockAction({
+    required Key key,
+    required DIconData icon,
+    required String label,
+    required bool showLabel,
+    required VoidCallback onPressed,
+  }) => showLabel
+      ? DButton(
+          key: key,
+          icon: DIcon(icon),
+          label: Text(label),
+          shape: DButtonShape.pill,
+          density: DButtonDensity.mobileDockAction,
+          onPressed: onPressed,
+        )
+      : DButton.iconOnly(
+          key: key,
+          icon: DIcon(icon),
+          tooltip: label,
+          shape: DButtonShape.pill,
+          density: DButtonDensity.mobileDockAction,
+          onPressed: onPressed,
+        );
 
   bool _creationLabelFits(
     BuildContext context,

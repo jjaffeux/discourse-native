@@ -913,6 +913,33 @@ void main() {
     }
   });
 
+  _mobileTest('icon-only dock actions centre dock-sized artwork', (
+    tester,
+  ) async {
+    await pumpMobileShellFixture(tester);
+    for (final (tab, key) in [
+      ('topics', 'mobile-new-topic'),
+      ('messages', 'new-message-button'),
+      ('panel/chat', 'mobile-panel-action'),
+    ]) {
+      await _tapDockTab(tester, tab);
+      final action = find.byKey(ValueKey(key));
+      final icon = find.descendant(of: action, matching: find.byType(DIcon));
+      final dockIcon = find.descendant(
+        of: find.byKey(const ValueKey('mobile-mode-topics')),
+        matching: find.byType(DIcon),
+      );
+      expect(tester.widget<DButton>(action).label is! Text, isTrue);
+      expect(tester.getSize(action).width, greaterThan(48));
+      expect(tester.getSize(icon), tester.getSize(dockIcon));
+      expect(
+        tester.getCenter(icon).dx,
+        closeTo(tester.getCenter(action).dx, .5),
+      );
+      expect(tester.takeException(), isNull);
+    }
+  });
+
   _mobileTest('More opens groups, badges and bookmarks using shared pages', (
     tester,
   ) async {

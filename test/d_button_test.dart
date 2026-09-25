@@ -294,6 +294,39 @@ void main() {
     );
   }
 
+  testWidgets('an icon-only dock action fills its slot around a centred icon', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.dark.copyWith(platform: TargetPlatform.iOS),
+        home: Scaffold(
+          body: Center(
+            child: SizedBox(
+              width: 160,
+              child: DButton.iconOnly(
+                density: DButtonDensity.mobileDockAction,
+                shape: DButtonShape.pill,
+                icon: const Icon(Icons.add),
+                tooltip: 'New topic',
+                onPressed: () {},
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    final surface = find.byWidgetPredicate(
+      (widget) =>
+          widget is AnimatedContainer && widget.decoration is DButtonDecoration,
+    );
+    final icon = find.byIcon(Icons.add);
+    expect(tester.getSize(surface), const Size(160, 44));
+    expect(tester.getSize(icon), const Size(20, 20));
+    expect(tester.getCenter(icon), tester.getCenter(surface));
+    expect(tester.getSemantics(find.byType(DButton)).label, 'New topic');
+  });
+
   for (final platform in [
     TargetPlatform.iOS,
     TargetPlatform.android,
