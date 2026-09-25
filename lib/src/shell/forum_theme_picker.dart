@@ -163,27 +163,25 @@ class _ThemeChoiceRow extends StatefulWidget {
 
 class _ThemeChoiceRowState extends State<_ThemeChoiceRow> {
   bool _hovered = false;
-  bool _focusWithin = false;
 
   @override
   Widget build(BuildContext context) {
-    final showEdit = widget.chosen || _hovered || _focusWithin;
-    return Focus(
-      canRequestFocus: false,
-      onFocusChange: (focused) => setState(() => _focusWithin = focused),
-      child: DItem(
-        key: ValueKey(('theme-choice', widget.theme.id)),
-        size: DItemSize.sm,
-        selected: widget.chosen,
-        showSelectionIndicator: false,
-        onPressed: widget.onPressed,
-        onHoverChanged: (hovered) => setState(() => _hovered = hovered),
-        children: [
-          DItemMedia(child: ThemeThumbnail(theme: widget.previewTheme)),
-          DItemContent(children: [DItemTitle(child: Text(widget.theme.name))]),
-          DItemActions(
-            children: [
-              IgnorePointer(
+    final showEdit = widget.chosen || _hovered;
+    return DItem(
+      key: ValueKey(('theme-choice', widget.theme.id)),
+      size: DItemSize.sm,
+      selected: widget.chosen,
+      showSelectionIndicator: false,
+      onPressed: widget.onPressed,
+      onHoverChanged: (hovered) => setState(() => _hovered = hovered),
+      children: [
+        DItemMedia(child: ThemeThumbnail(theme: widget.previewTheme)),
+        DItemContent(children: [DItemTitle(child: Text(widget.theme.name))]),
+        DItemActions(
+          children: [
+            ExcludeFocus(
+              excluding: !showEdit,
+              child: IgnorePointer(
                 ignoring: !showEdit,
                 child: Opacity(
                   key: ValueKey(('edit-theme-visibility', widget.theme.id)),
@@ -198,10 +196,10 @@ class _ThemeChoiceRowState extends State<_ThemeChoiceRow> {
                   ),
                 ),
               ),
-            ],
-          ),
-        ],
-      ),
+            ),
+          ],
+        ),
+      ],
     );
   }
 }
