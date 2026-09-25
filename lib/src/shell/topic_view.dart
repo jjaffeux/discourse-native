@@ -810,9 +810,9 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
     if (!_restored || _restoring) return false;
     // A newly loaded or virtualized post can still be mounting its HTML.
     // Wait for its real height before landing on its last page.
-    if (_postContexts[postId] case StatefulElement(
-      state: _TopicPostItemState(:final bodyComplete),
-    ) when bodyComplete) {
+    if (_postContexts[postId]
+        case StatefulElement(state: _TopicPostItemState(:final bodyComplete))
+        when bodyComplete) {
       final bounds = _postViewportBounds(postId);
       final scroll = _scroll;
       if (bounds == null || scroll == null || !scroll.hasClients) return false;
@@ -1007,9 +1007,10 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
     }
   }
 
-  double _sidebarOverlayWidth(BuildContext context) => MediaQuery.sizeOf(
-    context,
-  ).width.clamp(0.0, _TopicSidebarPanel.dockedWidth).toDouble();
+  double _sidebarOverlayWidth(BuildContext context) =>
+      MediaQuery.sizeOf(context).width
+          .clamp(0.0, _TopicSidebarPanel.dockedWidth)
+          .toDouble();
 
   void _setRecommendationsSource(TopicRecommendationSourceId sourceId) {
     final siteUrl = _recommendationsSiteUrl;
@@ -1895,6 +1896,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
     ShellController controller,
     int totalPosts,
     TopicViewportSnapshot snapshot, {
+    required EdgeInsets lanePadding,
     Topic? loadingRow,
     bool loading = false,
   }) {
@@ -1911,6 +1913,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
       isConnected: widget.isConnected,
       bookmarkBusy: widget.bookmarkBusy,
       viewport: _viewportState,
+      lanePadding: lanePadding,
       totalPosts: totalPosts,
       canReply: widget.canReply,
       controller: controller,
@@ -2024,6 +2027,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
               controller,
               snapshot.streamIds.length,
               snapshot,
+              lanePadding: lanePadding,
               loadingRow: row,
               loading: true,
             ),
@@ -2609,6 +2613,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
               controller,
               snapshot.streamIds.length,
               snapshot,
+              lanePadding: readingLane.padding,
             ),
       overlaySidebar: showOverlaySidebar
           ? _TopicSidebarPanel(
@@ -2708,6 +2713,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
 class _TopicBottomBar extends StatelessWidget {
   const _TopicBottomBar({
     required this.viewport,
+    required this.lanePadding,
     required this.totalPosts,
     required this.canReply,
     required this.controller,
@@ -2723,6 +2729,7 @@ class _TopicBottomBar extends StatelessWidget {
   /// Only the progress control listens: the reading position changes with
   /// every post scrolled past, and the other controls never depend on it.
   final TopicViewportListenable viewport;
+  final EdgeInsets lanePadding;
   final int totalPosts;
   final bool canReply;
   final ShellController controller;
@@ -2775,7 +2782,7 @@ class _TopicBottomBar extends StatelessWidget {
         builder: (context, constraints) => ConstrainedBox(
           constraints: BoxConstraints(minHeight: topicBottomBarHeight(context)),
           child: Padding(
-            padding: topicBottomBarPadding,
+            padding: topicBottomBarPadding.add(lanePadding),
             child: Row(
               children: [
                 if (showReply ||
@@ -3927,9 +3934,8 @@ class _EmptyTopicProperty extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Text(
     label,
-    style: Theme.of(context).textTheme.labelMedium?.copyWith(
-      color: Theme.of(context).colorScheme.onSurfaceVariant,
-    ),
+    style: Theme.of(context).textTheme.labelMedium
+        ?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
   );
 }
 
@@ -4085,9 +4091,9 @@ class _MoreTopics extends StatelessWidget {
                     topic: selection.topics[index],
                     siteUrl: siteUrl,
                     onTap: inbox
-                        ? () => ShellScope.read(
-                            context,
-                          ).openTopicFromList(selection.topics[index])
+                        ? () =>
+                              ShellScope.read(context)
+                                  .openTopicFromList(selection.topics[index])
                         : null,
                   ),
                   if (index < selection.topics.length - 1)
@@ -4796,9 +4802,9 @@ class _PostTileState extends State<_PostTile> {
                                 topic: PluginContainingTopic(
                                   id: widget.topic.id,
                                   slug:
-                                      ShellScope.read(
-                                        context,
-                                      ).currentContent?.slug ??
+                                      ShellScope.read(context)
+                                          .currentContent
+                                          ?.slug ??
                                       'topic',
                                   archived: widget.topic.archived,
                                 ),
@@ -4834,9 +4840,9 @@ class _PostTileState extends State<_PostTile> {
                                         containingTopic: PluginContainingTopic(
                                           id: widget.topic.id,
                                           slug:
-                                              ShellScope.read(
-                                                context,
-                                              ).currentContent?.slug ??
+                                              ShellScope.read(context)
+                                                  .currentContent
+                                                  ?.slug ??
                                               'topic',
                                           archived: widget.topic.archived,
                                         ),
