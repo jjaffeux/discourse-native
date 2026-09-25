@@ -154,13 +154,14 @@ class _NewTabPageState extends State<NewTabPage> {
     final siteUrl = forum?.url;
     final pluginSections =
         registry?.sidebarSections(context) ?? const <SidebarSection>[];
-    final availableChannels = {
+    final unreadChannels = [
       for (final section in pluginSections)
         for (final destination in section.destinations)
           if (destination.enabled &&
-              RegExp(r'^chat-c-[1-9][0-9]*$').hasMatch(destination.id))
-            destination.id: destination,
-    };
+              RegExp(r'^chat-c-[1-9][0-9]*$').hasMatch(destination.id) &&
+              (destination.badge?.isVisible ?? false))
+            destination,
+    ];
     final hasChat = pluginSections.any(
       (section) =>
           section.id.startsWith('chat') || section.id == 'direct-messages',
@@ -175,19 +176,6 @@ class _NewTabPageState extends State<NewTabPage> {
     final categories = siteUrl == null
         ? <ContentRoute>[]
         : shell!.recentCategoriesFor(siteUrl);
-    final channels = siteUrl == null
-        ? <ContentRoute>[]
-        : shell!
-              .recentChannelsFor(siteUrl)
-              .where((route) => availableChannels.containsKey(route.id))
-              .toList();
-    final directMessages = [
-      for (final destination in availableChannels.values)
-        if ((destination.icon == DIcons.user ||
-                destination.icon == DIcons.users) &&
-            !channels.any((route) => route.id == destination.id))
-          destination,
-    ];
     final latest = siteUrl == null
         ? <Topic>[]
         : shell!.cachedLatestTopicsFor(siteUrl).take(4).toList();
@@ -222,24 +210,8 @@ class _NewTabPageState extends State<NewTabPage> {
       for (final route in categories.take(4))
         _StartPageEntry.fromRoute(route, () => _openRoute(context, route)),
     ];
-    final visibleChannels = channels.take(4).toList();
-    if (directMessages.isNotEmpty &&
-        !visibleChannels.any(
-          (route) =>
-              availableChannels[route.id]?.icon == DIcons.user ||
-              availableChannels[route.id]?.icon == DIcons.users,
-        ) &&
-        visibleChannels.length == 4) {
-      visibleChannels.removeLast();
-    }
     final chatRows = [
-      for (final route in visibleChannels)
-        _StartPageEntry.fromRoute(
-          route,
-          () => availableChannels[route.id]?.onTap?.call(),
-          destination: availableChannels[route.id],
-        ),
-      for (final destination in directMessages.take(4 - visibleChannels.length))
+      for (final destination in unreadChannels.take(4))
         _StartPageEntry.fromRoute(
           ContentRoute.fromDestination(destination),
           () => destination.onTap?.call(),
