@@ -1520,6 +1520,16 @@ class ShellController extends FrameSafeNotifier
   List<ContentRoute> recentTopicsFor(String siteUrl) =>
       recentDestinations.topicsFor(siteUrl, _recentAccountIdentity(siteUrl));
 
+  /// Uses a Latest feed already held by the shell. Opening the Start page must
+  /// not initiate another topic-list request.
+  List<Topic> cachedLatestTopicsFor(String siteUrl) {
+    final feed = topicFeeds.feedFor(siteUrl, TopicListMode.latest.routeId);
+    if (feed?.loaded != true) return const [];
+    return List.unmodifiable([
+      for (final id in feed!.topicIds) ?store.read<Topic>(siteUrl, id),
+    ]);
+  }
+
   void _rememberCurrentContent() {
     if (!loaded) return;
     final siteUrl = currentInstance?.url;

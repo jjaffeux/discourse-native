@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:discourse_native/discourse_ui.dart';
@@ -15,11 +16,13 @@ import '../theme/app_theme.dart';
 import '../theme/d_icons.dart';
 import 'avatar_image.dart';
 import 'emoji.dart';
+import 'open_link.dart';
 import 'panel_rail.dart';
 import 'shell_controller.dart';
 import 'shell_metrics.dart';
 import 'shell_scope.dart';
 import 'site_emoji_text.dart';
+import 'start_page_drag.dart';
 
 @immutable
 class ForumTabItem {
@@ -1758,119 +1761,135 @@ class CurrentForumTabsBar extends StatelessWidget {
   final String? incomingTabId;
 
   @override
-  Widget build(BuildContext context) =>
-      ShellSelector<_CurrentForumTabsSnapshot>(
-        select: _CurrentForumTabsSnapshot.of,
-        builder: (context, state, _) {
-          final siteUrl = state.siteUrl;
-          final forumName = state.forumName;
-          final activeTabId = state.activeTabId;
-          if (siteUrl == null ||
-              forumName == null ||
-              activeTabId == null ||
-              state.tabs.isEmpty) {
-            return const SizedBox.shrink();
-          }
+  Widget build(BuildContext context) => DragTarget<StartPageDrag>(
+    onWillAcceptWithDetails: (details) =>
+        details.data.siteUrl == ShellScope.read(context).currentInstance?.url,
+    onAcceptWithDetails: (details) => unawaited(
+      openLink(
+        context,
+        details.data.path,
+        title: details.data.title,
+        siteUrl: details.data.siteUrl,
+        newTab: true,
+        panel: panel,
+      ),
+    ),
+    builder: (context, candidates, rejected) =>
+        ShellSelector<_CurrentForumTabsSnapshot>(
+          select: _CurrentForumTabsSnapshot.of,
+          builder: (context, state, _) {
+            final siteUrl = state.siteUrl;
+            final forumName = state.forumName;
+            final activeTabId = state.activeTabId;
+            if (siteUrl == null ||
+                forumName == null ||
+                activeTabId == null ||
+                state.tabs.isEmpty) {
+              return const SizedBox.shrink();
+            }
 
-          final controller = ShellScope.read(context);
-          final tabs = state.tabs
-              .where((tab) => (panel == null || tab.panel == panel))
-              .toList();
-          final selectedId = panel == null
-              ? activeTabId
-              : controller.selectedTabIn(panel!)?.id;
-          final registry = PluginScope.of(context).registry;
-          return ListenableBuilder(
-            listenable: Listenable.merge(
-              registry.forumTabListenables(context, siteUrl),
-            ),
-            builder: (context, _) {
-              ForumTabItem itemFor(ForumTab tab) => _forumTabItem(
-                context,
-                controller: controller,
-                registry: registry,
-                siteUrl: siteUrl,
-                tab: tab,
-              );
-
-              ForumTabItem? itemForDrop(String id) {
-                final tab = controller.currentWorkspace?.tabById(id);
-                return panel != null && tab != null ? itemFor(tab) : null;
-              }
-
-              final incoming = incomingTabId == null
-                  ? null
-                  : controller.currentWorkspace
-                            ?.tabById(incomingTabId!)
-                            ?.panel ==
-                        panel
-                  ? null
-                  : itemForDrop(incomingTabId!);
-              if (tabs.isEmpty) {
-                return Row(
-                  children: [
-                    if (incoming != null) ...[
-                      _ForumTabDropPlaceholder(item: incoming),
-                      const SizedBox(width: DSpacing.controlGap),
-                    ],
-                    DButton.iconOnly(
-                      key: ValueKey('add-empty-${panel?.name}'),
-                      icon: const DIcon(DIcons.plus),
-                      tooltip: 'Open a new tab',
-                      variant: DButtonVariant.inline,
-                      onPressed: controller.canCreateTab
-                          ? () => controller.createTab(panel: panel)
-                          : null,
-                    ),
-                  ],
+            final controller = ShellScope.read(context);
+            final tabs = state.tabs
+                .where((tab) => (panel == null || tab.panel == panel))
+                .toList();
+            final selectedId = panel == null
+                ? activeTabId
+                : controller.selectedTabIn(panel!)?.id;
+            final registry = PluginScope.of(context).registry;
+            return ListenableBuilder(
+              listenable: Listenable.merge(
+                registry.forumTabListenables(context, siteUrl),
+              ),
+              builder: (context, _) {
+                ForumTabItem itemFor(ForumTab tab) => _forumTabItem(
+                  context,
+                  controller: controller,
+                  registry: registry,
+                  siteUrl: siteUrl,
+                  tab: tab,
                 );
-              }
 
-              return ForumTabsBar(
-                key: ValueKey(('forum-tabs', siteUrl, panel)),
-                forumName: forumName,
-                panel: panel,
-                onMoveToPanel: panel == null ? null : controller.moveTabToPanel,
-                showAdd: true,
-                incomingTab: incoming,
-                itemForDrop: itemForDrop,
-                items: [for (final tab in tabs) itemFor(tab)],
-                recentlyClosedItems: [
-                  for (final tab in state.recentlyClosedTabs)
-                    if (panel == null || tab.panel == panel) itemFor(tab),
-                ],
-                selectedId: tabs.any((tab) => tab.id == selectedId)
-                    ? selectedId!
-                    : tabs.first.id,
-                onAdd: controller.canCreateTab
-                    ? () => controller.createTab(panel: panel)
-                    : null,
-                acceptsTab: (id) =>
-                    controller.currentWorkspace?.tabById(id) != null,
-                onDropTab: panel == null
+                ForumTabItem? itemForDrop(String id) {
+                  final tab = controller.currentWorkspace?.tabById(id);
+                  return panel != null && tab != null ? itemFor(tab) : null;
+                }
+
+                final incoming = incomingTabId == null
                     ? null
-                    : (id, index) =>
-                          controller.moveTabToPanel(id, panel!, index: index),
-                onSelect: controller.selectTab,
-                onClose: controller.closeTab,
-                onReorder: (id, index) => controller.moveTab(
-                  id,
-                  state.tabs.indexWhere((tab) => tab.id == tabs[index].id),
-                ),
-                onCloseOthers: (id) =>
-                    controller.closeOtherTabs(id, panel: panel),
-                onReopen: controller.canCreateTab
-                    ? (id) {
-                        if (controller.reopenClosedTab(id)) {
-                          controller.selectTab(id);
+                    : controller.currentWorkspace
+                              ?.tabById(incomingTabId!)
+                              ?.panel ==
+                          panel
+                    ? null
+                    : itemForDrop(incomingTabId!);
+                if (tabs.isEmpty) {
+                  return Row(
+                    children: [
+                      if (incoming != null) ...[
+                        _ForumTabDropPlaceholder(item: incoming),
+                        const SizedBox(width: DSpacing.controlGap),
+                      ],
+                      DButton.iconOnly(
+                        key: ValueKey('add-empty-${panel?.name}'),
+                        icon: const DIcon(DIcons.plus),
+                        tooltip: 'Open a new tab',
+                        variant: DButtonVariant.inline,
+                        onPressed: controller.canCreateTab
+                            ? () => controller.createTab(panel: panel)
+                            : null,
+                      ),
+                    ],
+                  );
+                }
+
+                return ForumTabsBar(
+                  key: ValueKey(('forum-tabs', siteUrl, panel)),
+                  forumName: forumName,
+                  panel: panel,
+                  onMoveToPanel: panel == null
+                      ? null
+                      : controller.moveTabToPanel,
+                  showAdd: true,
+                  incomingTab: incoming,
+                  itemForDrop: itemForDrop,
+                  items: [for (final tab in tabs) itemFor(tab)],
+                  recentlyClosedItems: [
+                    for (final tab in state.recentlyClosedTabs)
+                      if (panel == null || tab.panel == panel) itemFor(tab),
+                  ],
+                  selectedId: tabs.any((tab) => tab.id == selectedId)
+                      ? selectedId!
+                      : tabs.first.id,
+                  onAdd: controller.canCreateTab
+                      ? () => controller.createTab(panel: panel)
+                      : null,
+                  acceptsTab: (id) =>
+                      controller.currentWorkspace?.tabById(id) != null,
+                  onDropTab: panel == null
+                      ? null
+                      : (id, index) =>
+                            controller.moveTabToPanel(id, panel!, index: index),
+                  onSelect: controller.selectTab,
+                  onClose: controller.closeTab,
+                  onReorder: (id, index) => controller.moveTab(
+                    id,
+                    state.tabs.indexWhere((tab) => tab.id == tabs[index].id),
+                  ),
+                  onCloseOthers: (id) =>
+                      controller.closeOtherTabs(id, panel: panel),
+                  onReopen: controller.canCreateTab
+                      ? (id) {
+                          if (controller.reopenClosedTab(id)) {
+                            controller.selectTab(id);
+                          }
                         }
-                      }
-                    : null,
-              );
-            },
-          );
-        },
-      );
+                      : null,
+                );
+              },
+            );
+          },
+        ),
+  );
 }
 
 ForumTabItem _forumTabItem(
