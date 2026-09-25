@@ -13,6 +13,7 @@
 # --- Sidebar and navigation
 layer-group
 house
+circle-nodes
 asterisk
 circle
 fire

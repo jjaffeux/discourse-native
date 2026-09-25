@@ -1756,6 +1756,7 @@ final class PluginRegistry
         onOpen: panel.onOpen,
         onClose: panel.onClose,
         badge: panel.badge,
+        mobileBadge: panel.mobileBadge,
         selectedDestinationId: panel.selectedDestinationId,
         // Auxiliary sections must not replace the primary owner's mobile root.
         mobileBuilder: panel.mobileBuilder,

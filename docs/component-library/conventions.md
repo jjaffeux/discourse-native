@@ -73,6 +73,10 @@ Mobile tab buttons use the approved `DButtonDensity.mobileNavigation` preset:
 44px artwork and full 18px glyphs on every platform, including desktop previews.
 The preset removes DIcon’s ordinary optical inset within the button.
 It supersedes the size preset, grows with text scaling and retains a 48px target.
+The labelled phone dock uses `DMobileDockItem`, backed by the
+`DButtonDensity.mobileDock` preset: a single 46px button with a 20px glyph in
+a 44×30px selected capsule, an 11px label and an optional inline count. The
+app owns which destinations fit and routes overflow through a Native menu.
 Mobile notification categories use the September 23 approved
 `DTabListVariant.outlinePill`: outlined capsule tabs, an accent-filled selected
 state and 6px gaps. Use the small control size; Tabs owns horizontal scrolling,

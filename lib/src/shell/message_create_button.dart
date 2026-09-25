@@ -9,10 +9,12 @@ class MessageCreateButton extends StatelessWidget {
     super.key,
     required this.showLabel,
     this.pill = false,
+    this.fillWidth = false,
   });
 
   final bool showLabel;
   final bool pill;
+  final bool fillWidth;
 
   void _compose(BuildContext context) {
     final controller = ShellScope.read(context);
@@ -39,6 +41,18 @@ class MessageCreateButton extends StatelessWidget {
               shape: pill ? DButtonShape.pill : DButtonShape.rounded,
               icon: DIcon(pill ? DIcons.plus : DIcons.farPenToSquare),
               tooltip: 'New message',
+              variant: DButtonVariant.primary,
+              size: DButtonSize.action,
+              onPressed: () => _compose(context),
+            )
+          : fillWidth
+          ? DButton(
+              key: const ValueKey('new-message-button'),
+              label: const SizedBox.shrink(),
+              semanticLabel: 'New message',
+              icon: DIcon(pill ? DIcons.plus : DIcons.farPenToSquare),
+              tooltip: 'New message',
+              shape: pill ? DButtonShape.pill : DButtonShape.rounded,
               variant: DButtonVariant.primary,
               size: DButtonSize.action,
               onPressed: () => _compose(context),

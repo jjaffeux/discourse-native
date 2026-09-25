@@ -445,6 +445,7 @@ class _AggregateTabsBar extends StatelessWidget {
           ForumTabItem(
             id: tabs[index].id,
             title: tabs[index].name ?? 'Aggregate ${index + 1}',
+            icon: DIcons.circleNodes,
           ),
         if (controller.aggregateSettingsOpen)
           const ForumTabItem(
@@ -455,7 +456,11 @@ class _AggregateTabsBar extends StatelessWidget {
       ],
       recentlyClosedItems: [
         for (final tab in controller.recentlyClosedAggregateTabs)
-          ForumTabItem(id: tab.id, title: tab.name ?? 'Aggregate tab'),
+          ForumTabItem(
+            id: tab.id,
+            title: tab.name ?? 'Aggregate tab',
+            icon: DIcons.circleNodes,
+          ),
       ],
       selectedId: controller.aggregateSettingsOpen
           ? 'settings'

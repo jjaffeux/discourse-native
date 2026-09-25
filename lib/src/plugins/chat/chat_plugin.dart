@@ -389,6 +389,19 @@ class ChatPlugin
               child: Text(unreadCount > 99 ? '99+' : '$unreadCount'),
             )
           : null,
+      mobileBadge: unreadCount > 0
+          ? DBadge.overlay(
+              key: const ValueKey('chat-mobile-unread-badge'),
+              backgroundColor: Theme.of(context).discourse.success,
+              foregroundColor: Theme.of(
+                context,
+              ).discourse.notificationForeground,
+              ringColor: Colors.transparent,
+              semanticLabel:
+                  '$unreadCount unread ${unreadCount == 1 ? 'message' : 'messages'}',
+              child: Text(unreadCount > 99 ? '99+' : '$unreadCount'),
+            )
+          : null,
       icon: DIcons.comment,
       active: ownsRouteId(shell.currentContent?.id),
       separateWhenActive: true,
