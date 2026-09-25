@@ -50,7 +50,7 @@ class _ChatPreferenceForm extends StatelessWidget {
     return DCard(
       spacing: 0,
       child: Padding(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.all(16),
         child: DSelect<ChatSeparateSidebarPreference>.controlled(
           size: DControlSize.preference,
           isExpanded: true,

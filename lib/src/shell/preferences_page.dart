@@ -8,7 +8,6 @@ import '../models/bookmark.dart';
 import '../models/discourse_instance.dart';
 import '../models/user_preferences.dart';
 import '../plugin_api/site_plugin_api.dart';
-import '../theme/app_theme.dart';
 import '../theme/d_icons.dart';
 import 'content_reading_lane.dart';
 import 'preferences_controller.dart';
@@ -25,8 +24,11 @@ class PreferencesPage extends StatefulWidget {
 }
 
 class _PreferencesPageState extends State<PreferencesPage> {
-  static const double _wideBreakpoint = 760;
   static const String _forumDefaultTimezoneLabel = 'Forum default';
+  static const DIconData _preferencesIcon = DIconData(
+    'sliders',
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 5H3"/><path d="M12 19H3"/><path d="M14 3v4"/><path d="M16 17v4"/><path d="M21 12h-9"/><path d="M21 19h-5"/><path d="M21 5h-7"/><path d="M8 10v4"/><path d="M8 12H3"/></svg>',
+  );
 
   final TextEditingController _timezone = TextEditingController();
   final FocusNode _timezoneFocus = FocusNode();
@@ -36,7 +38,6 @@ class _PreferencesPageState extends State<PreferencesPage> {
   ShellController? _shell;
   PreferencesController? _preferences;
   bool _hydrationScheduled = false;
-  PreferenceSection _selectedSection = PreferenceSection.notifications;
 
   @override
   void initState() {
@@ -68,7 +69,6 @@ class _PreferencesPageState extends State<PreferencesPage> {
   void didUpdateWidget(PreferencesPage oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.siteUrl == widget.siteUrl) return;
-    _selectedSection = PreferenceSection.notifications;
     _timezone.clear();
     _handlePreferencesChanged();
     final shell = _shell;
@@ -146,198 +146,140 @@ class _PreferencesPageState extends State<PreferencesPage> {
             ),
           );
     final sections = _sectionsFor(draft, pluginSections);
-    final selected = _visibleSection(sections);
-
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        if (constraints.maxWidth >= _wideBreakpoint) {
-          return Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              SizedBox(
-                width: 232,
-                child: _SectionRail(
-                  sections: sections,
-                  pluginSections: pluginSections,
-                  selected: selected,
-                  onSelected: _selectSection,
-                ),
-              ),
-              DSeparator(
-                orientation: Axis.vertical,
-                space: 1,
-                thickness: 1,
-                color: Theme.of(context).shell.divider,
-              ),
-              Expanded(
-                child: _SectionScroller(
-                  key: ValueKey((state!.accountIdentity, selected)),
-                  padding: const EdgeInsets.fromLTRB(32, 28, 32, 48),
-                  child: SizedBox(
-                    width: double.infinity,
-                    child: _buildSection(
-                      context,
-                      shell,
-                      instance,
-                      state,
-                      draft,
-                      selected,
-                      editable,
-                      pluginSections,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          );
-        }
-
-        return _SectionScroller(
-          key: ValueKey((state!.accountIdentity, selected)),
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 40),
-          child: SizedBox(
-            width: double.infinity,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                DSelect<PreferenceSection>.controlled(
-                  size: DControlSize.preference,
-                  isExpanded: true,
-                  key: ValueKey(('preferences-section', selected)),
-                  value: selected,
-                  label: const Text('Preference section'),
-                  entries: [
-                    for (final section in sections)
-                      DSelectOption(
-                        value: section,
-                        label: _sectionTitle(section, pluginSections),
-                        child: Text(_sectionTitle(section, pluginSections)),
-                      ),
-                  ],
-                  onChanged: (section) {
-                    if (section != null) _selectSection(section);
-                  },
-                  initialValue: selected,
-                ),
-                const SizedBox(height: 28),
-                _buildSection(
-                  context,
-                  shell,
-                  instance,
-                  state,
-                  draft,
-                  selected,
-                  editable,
-                  pluginSections,
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildSection(
-    BuildContext context,
-    ShellController shell,
-    DiscourseInstance? instance,
-    PreferencesState state,
-    UserPreferences draft,
-    PreferenceSection section,
-    bool editable,
-    List<PluginUserPreferenceSection> pluginSections,
-  ) {
-    final dirty = state.dirty(section);
+    final dirty = sections.any(state!.dirty);
     final canSave =
         instance?.isConnected == true && editable && dirty && !state.saving;
 
-    return FocusTraversalGroup(
-      policy: ReadingOrderTraversalPolicy(),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          _StatusAnnouncement(state: state, pluginSections: pluginSections),
-          if (state.error != null ||
-              state.loading ||
-              state.savedSection != null)
-            const SizedBox(height: 16),
-          switch (section) {
-            PreferenceSection.profile => _ProfileForm(
-              timezone: _timezone,
-              timezoneFocus: _timezoneFocus,
-              selectedTimezone: draft.timezone,
-              timezoneNames: _timezoneNames,
-              timezoneEntries: _timezoneEntries,
-              deviceTimezone: TimezoneEnvironment.instance.deviceTimezone,
-              enabled: editable,
-              onTimezoneChanged: (timezone) => shell.preferences.edit(
-                widget.siteUrl,
-                PreferenceSection.profile,
-                (current) => current.copyWith(timezone: timezone),
+    return _SectionScroller(
+      key: ValueKey(state.accountIdentity),
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 40),
+      child: FocusTraversalGroup(
+        policy: ReadingOrderTraversalPolicy(),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                DIcon(
+                  _preferencesIcon,
+                  size: 16,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+                const SizedBox(width: 9),
+                Text(
+                  'Preferences',
+                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w700,
+                    height: 1.25,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 22),
+            _StatusAnnouncement(state: state, pluginSections: pluginSections),
+            if (state.error != null ||
+                state.loading ||
+                state.savedSection != null)
+              const SizedBox(height: 16),
+            for (final section in sections) ...[
+              _PreferenceSectionHeading(
+                key: ValueKey('preferences-section-${section.keyName}'),
+                title: _sectionTitle(section, pluginSections),
+                icon: _sectionIcon(section, pluginSections),
               ),
-              onUseDeviceTimezone: _useDeviceTimezone,
-            ),
-            PreferenceSection.notifications => _NotificationsForm(
-              preferences: draft,
-              enabled: editable,
-              onChanged: (change) => shell.preferences.edit(
-                widget.siteUrl,
-                PreferenceSection.notifications,
-                change,
+              const SizedBox(height: 9),
+              _buildSection(shell, draft, section, editable, pluginSections),
+              const SizedBox(height: 22),
+            ],
+            Align(
+              alignment: AlignmentDirectional.centerStart,
+              child: DButton(
+                key: const ValueKey('preferences-save'),
+                label: const Text('Save changes'),
+                semanticLabel: state.saving
+                    ? 'Saving preferences'
+                    : 'Save preferences',
+                onPressed: canSave
+                    ? () => _saveAll(shell, instance!, sections)
+                    : null,
+                loading: state.saving,
+                loadingLabel: const Text('Saving changes…'),
+                variant: DButtonVariant.primary,
+                size: DButtonSize.regular,
               ),
             ),
-            PreferenceSection.tracking => _TrackingForm(
-              preferences: draft,
-              enabled: editable && draft.canChangeTrackingPreferences,
-              onChanged: (change) => shell.preferences.edit(
-                widget.siteUrl,
-                PreferenceSection.tracking,
-                change,
-              ),
-            ),
-            PreferenceSection.interface => _InterfaceForm(
-              preferences: draft,
-              enabled: editable,
-              onBookmarkChanged: (preference) => shell.preferences.edit(
-                widget.siteUrl,
-                PreferenceSection.interface,
-                (current) =>
-                    current.copyWith(bookmarkAutoDeletePreference: preference),
-              ),
-            ),
-            _ =>
-              _pluginSection(section, pluginSections)?.content ??
-                  const SizedBox.shrink(),
-          },
-          const SizedBox(height: 24),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: DButton(
-              key: ValueKey('preferences-save-${section.keyName}'),
-              label: const Text('Save changes'),
-              semanticLabel: state.saving
-                  ? 'Saving preferences'
-                  : 'Save ${_sectionTitle(section, pluginSections)} preferences',
-              onPressed: canSave
-                  ? () => _save(shell, instance!, section)
-                  : null,
-              loading: state.saving,
-              loadingLabel: const Text('Saving changes…'),
-              variant: DButtonVariant.primary,
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 
-  void _save(
+  Widget _buildSection(
+    ShellController shell,
+    UserPreferences draft,
+    PreferenceSection section,
+    bool editable,
+    List<PluginUserPreferenceSection> pluginSections,
+  ) => switch (section) {
+    PreferenceSection.profile => _ProfileForm(
+      timezone: _timezone,
+      timezoneFocus: _timezoneFocus,
+      selectedTimezone: draft.timezone,
+      timezoneNames: _timezoneNames,
+      timezoneEntries: _timezoneEntries,
+      deviceTimezone: TimezoneEnvironment.instance.deviceTimezone,
+      enabled: editable,
+      onTimezoneChanged: (timezone) => shell.preferences.edit(
+        widget.siteUrl,
+        PreferenceSection.profile,
+        (current) => current.copyWith(timezone: timezone),
+      ),
+      onUseDeviceTimezone: _useDeviceTimezone,
+    ),
+    PreferenceSection.notifications => _NotificationsForm(
+      preferences: draft,
+      enabled: editable,
+      onChanged: (change) => shell.preferences.edit(
+        widget.siteUrl,
+        PreferenceSection.notifications,
+        change,
+      ),
+    ),
+    PreferenceSection.tracking => _TrackingForm(
+      preferences: draft,
+      enabled: editable && draft.canChangeTrackingPreferences,
+      onChanged: (change) => shell.preferences.edit(
+        widget.siteUrl,
+        PreferenceSection.tracking,
+        change,
+      ),
+    ),
+    PreferenceSection.interface => _InterfaceForm(
+      preferences: draft,
+      enabled: editable,
+      onBookmarkChanged: (preference) => shell.preferences.edit(
+        widget.siteUrl,
+        PreferenceSection.interface,
+        (current) => current.copyWith(bookmarkAutoDeletePreference: preference),
+      ),
+    ),
+    _ =>
+      _pluginSection(section, pluginSections)?.content ??
+          const SizedBox.shrink(),
+  };
+
+  Future<void> _saveAll(
     ShellController shell,
     DiscourseInstance instance,
-    PreferenceSection section,
-  ) {
-    unawaited(shell.preferences.save(instance, section));
+    List<PreferenceSection> sections,
+  ) async {
+    for (final section in sections) {
+      if (shell.preferences.stateFor(widget.siteUrl)?.dirty(section) != true) {
+        continue;
+      }
+      if (!await shell.preferences.save(instance, section)) return;
+    }
   }
 
   void _useDeviceTimezone() {
@@ -377,11 +319,6 @@ class _PreferencesPageState extends State<PreferencesPage> {
     if (value != null) _synchronizeTimezone(value);
   }
 
-  PreferenceSection _visibleSection(List<PreferenceSection> sections) =>
-      sections.contains(_selectedSection)
-      ? _selectedSection
-      : PreferenceSection.notifications;
-
   List<PreferenceSection> _sectionsFor(
     UserPreferences preferences,
     List<PluginUserPreferenceSection> pluginSections,
@@ -392,11 +329,6 @@ class _PreferencesPageState extends State<PreferencesPage> {
     PreferenceSection.interface,
     for (final plugin in pluginSections) plugin.section,
   ];
-
-  void _selectSection(PreferenceSection section) {
-    if (_selectedSection == section) return;
-    setState(() => _selectedSection = section);
-  }
 
   @override
   void dispose() {
@@ -424,99 +356,49 @@ class _SectionScroller extends StatelessWidget {
     builder: (context, lane) => SingleChildScrollView(
       primary: true,
       padding: lane.padding,
-      child: Align(alignment: lane.alignment, child: child),
+      child: Align(
+        alignment: Alignment.topCenter,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 588),
+          child: SizedBox(width: double.infinity, child: child),
+        ),
+      ),
     ),
   );
 }
 
-class _SectionRail extends StatelessWidget {
-  const _SectionRail({
-    required this.sections,
-    required this.pluginSections,
-    required this.selected,
-    required this.onSelected,
-  });
-
-  final List<PreferenceSection> sections;
-  final List<PluginUserPreferenceSection> pluginSections;
-  final PreferenceSection selected;
-  final ValueChanged<PreferenceSection> onSelected;
-
-  @override
-  Widget build(BuildContext context) {
-    return ListView(
-      padding: const EdgeInsets.all(12),
-      children: [
-        for (final section in sections)
-          _SectionRailItem(
-            section: section,
-            title: _sectionTitle(section, pluginSections),
-            icon: _sectionIcon(section, pluginSections),
-            selected: selected == section,
-            onTap: () => onSelected(section),
-          ),
-      ],
-    );
-  }
-}
-
-class _SectionRailItem extends StatelessWidget {
-  const _SectionRailItem({
-    required this.section,
+class _PreferenceSectionHeading extends StatelessWidget {
+  const _PreferenceSectionHeading({
+    super.key,
     required this.title,
     required this.icon,
-    required this.selected,
-    required this.onTap,
   });
 
-  final PreferenceSection section;
   final String title;
   final DIconData icon;
-  final bool selected;
-  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final foreground = selected
-        ? theme.shell.selectedForeground
-        : theme.colorScheme.onSurfaceVariant;
     return Semantics(
-      selected: selected,
-      button: true,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 2),
-        child: InkWell(
-          key: ValueKey('preferences-section-${section.keyName}'),
-          onTap: onTap,
-          mouseCursor: SystemMouseCursors.click,
-          borderRadius: BorderRadius.circular(8),
-          child: Container(
-            constraints: const BoxConstraints(minHeight: 48),
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-            decoration: BoxDecoration(
-              color: selected ? theme.shell.selected : null,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Row(
-              children: [
-                ExcludeSemantics(
-                  child: DIcon(icon, size: 18, color: foreground),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    title,
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: foreground,
-                      fontWeight: selected ? FontWeight.w600 : null,
-                    ),
-                  ),
-                ),
-              ],
+      header: true,
+      child: Row(
+        children: [
+          ExcludeSemantics(
+            child: DIcon(
+              icon,
+              size: 12,
+              color: theme.colorScheme.onSurfaceVariant,
             ),
           ),
-        ),
+          const SizedBox(width: 8),
+          Text(
+            title,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -575,7 +457,7 @@ class _NotificationsForm extends StatelessWidget {
           initialValue: preferences.likeNotificationFrequency,
           enabled: enabled,
         ),
-        const SizedBox(height: 20),
+        const SizedBox(height: 18),
         DSwitchTile(
           size: DSwitchSize.preference,
           key: const ValueKey('notify-on-linked-posts'),
@@ -670,7 +552,7 @@ class _TrackingForm extends StatelessWidget {
           initialValue: preferences.newTopicDurationMinutes,
           enabled: enabled,
         ),
-        const SizedBox(height: 20),
+        const SizedBox(height: 18),
         DSelect<int>.controlled(
           size: DControlSize.preference,
           isExpanded: true,
@@ -738,7 +620,7 @@ class _TrackingForm extends StatelessWidget {
           initialValue: preferences.autoTrackTopicsAfterMsecs,
           enabled: enabled,
         ),
-        const SizedBox(height: 20),
+        const SizedBox(height: 18),
         DSelect<int>.controlled(
           size: DControlSize.preference,
           isExpanded: true,
@@ -953,7 +835,7 @@ class _PreferenceCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return DCard(
-      spacing: 20,
+      spacing: 16,
       children: [
         DCardContent(
           // Existing section adapters retain their 8/12/20px local spacing.
