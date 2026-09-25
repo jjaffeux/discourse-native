@@ -104,6 +104,8 @@ void main() {
               expect(decoration.color, colors.notificationIndicator);
               expect(tester.getSize(badgeFinder).height, 30);
             }
+          } else {
+            expect(rect.width, 216);
           }
         }
         await tester.tapAt(const Offset(15, 760));
