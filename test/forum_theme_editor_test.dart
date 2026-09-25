@@ -108,6 +108,11 @@ void main() {
       tester.widget<DInput>(find.byKey(const ValueKey('theme-name'))).hintText,
       'Name this theme',
     );
+    expect(find.text('Sidebar'), findsOneWidget);
+    final sidebarToggle = find.byKey(const ValueKey('theme-sidebar'));
+    await tester.ensureVisible(sidebarToggle);
+    expect(tester.getSize(sidebarToggle).width, lessThan(240));
+    await tapVisible(tester, find.text('Darker'));
     await tapVisible(tester, find.text('Paper'));
     final name = find.descendant(
       of: find.byKey(const ValueKey('theme-name')),
@@ -117,6 +122,14 @@ void main() {
     await tester.pumpAndSettle();
     await tapVisible(tester, find.byKey(const ValueKey('theme-save')));
     expect(shell.forumSettings.themesFor(site).customTheme?.name, 'My theme');
+    expect(
+      shell.forumSettings
+          .themesFor(site)
+          .customTheme
+          ?.forBrightness(Brightness.light)
+          .darkerSidebars,
+      isTrue,
+    );
     expect(
       shell.forumSettings
           .themesFor(site)
