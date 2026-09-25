@@ -87,6 +87,10 @@ void main() {
     );
     expect(find.byType(ForumThemeEditor), findsNothing);
     expect(find.byKey(const ValueKey('appearance-mode')), findsOneWidget);
+    final saved = shell.forumSettings.themesFor(site).customTheme!;
+    final edit = find.byKey(ValueKey(('edit-theme', saved.id)));
+    expect(tester.widget<DButton>(edit).variant, DButtonVariant.outline);
+    expect(find.byKey(ValueKey(('theme-actions', saved.id))), findsNothing);
   });
 
   testWidgets('editing a theme hides the appearance mode control', (
