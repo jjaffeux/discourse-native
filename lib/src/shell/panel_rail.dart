@@ -343,9 +343,9 @@ class _PanelRailState extends State<PanelRail>
                   child: SingleChildScrollView(
                     controller: _readOutScroll,
                     padding: const EdgeInsets.fromLTRB(
-                      0,
+                      4,
                       PanelRail._inset - 1,
-                      0,
+                      4,
                       PanelRail._inset - 1,
                     ),
                     child: Column(
