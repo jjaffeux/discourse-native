@@ -80,7 +80,8 @@ void main() {
   if (uLava > 0.5) {
     float n = (noise4(vec4(pixel / 600.0, 0.0, uTime * 0.018)) + 1.0) / 2.0;
     float distance = abs(n - floor(n * 4.0) / 4.0);
-    float alpha = (0.18 + max(0.0, 1.0 - distance / 0.1) * 0.4) * uIntensity;
+    // Keep the full Lava lamp slider within the former 15% range.
+    float alpha = (0.18 + max(0.0, 1.0 - distance / 0.1) * 0.4) * uIntensity * 0.15;
     fragColor = vec4(uAccent * alpha, alpha);
   } else {
     float scale = 0.3 * min(uSize.x, uSize.y) / 1080.0;
