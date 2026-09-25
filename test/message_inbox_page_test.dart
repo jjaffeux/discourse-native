@@ -570,24 +570,17 @@ void main() {
   }
 
   testWidgets(
-    'new personal message validates recipients and opens the native composer',
+    'new personal message opens the composer and selects recipients there',
     (tester) async {
       final setup = await _pumpInbox(tester);
       await tester.tap(find.byKey(const ValueKey('new-message-button')));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Continue'));
-      await tester.pumpAndSettle();
-      expect(find.text('Choose at least one recipient.'), findsOneWidget);
-      expect(setup.controller.visibleComposer, isNull);
-      await tester.enterText(
-        find.byKey(const ValueKey('new-message-recipients')),
-        'alex, sam',
-      );
-      await tester.tap(find.text('Continue'));
-      await tester.pumpAndSettle();
+      expect(setup.controller.visibleComposer?.target.targetRecipients, '');
+      expect(setup.controller.visibleComposer?.canSubmit, isFalse);
+      expect(find.text('Continue'), findsNothing);
       final target = setup.controller.visibleComposer!.target;
       expect(target.mode, ComposerMode.privateMessage);
-      expect(target.targetRecipients, 'alex,sam');
+      expect(target.targetRecipients, '');
       expect(target.originFeedId, 'messages');
       expect(setup.api.topicsCreated, isEmpty);
     },
@@ -600,7 +593,7 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('new-message-button')));
     await tester.pumpAndSettle();
     expect(setup.controller.visibleComposer?.target.targetRecipients, 'team');
-    expect(find.byKey(const ValueKey('new-message-recipients')), findsNothing);
+    expect(find.text('Continue'), findsNothing);
     expect(setup.api.topicsCreated, isEmpty);
   });
 
@@ -770,21 +763,12 @@ void main() {
 
       await tester.tap(find.byKey(const ValueKey('new-message-button')));
       await tester.pumpAndSettle();
-      await tester.enterText(
-        find.byKey(const ValueKey('new-message-recipients')),
-        'alex',
-      );
+      expect(shell.visibleComposer?.target.targetRecipients, '');
       await tester.sendKeyEvent(LogicalKeyboardKey.keyG);
       await tester.sendKeyEvent(LogicalKeyboardKey.keyJ);
       await tester.pumpAndSettle();
       expect(shell.currentContent?.topicId, 10);
-      await tester.enterText(
-        find.byKey(const ValueKey('new-message-recipients')),
-        'alex',
-      );
-      await tester.tap(find.text('Continue'));
-      await tester.pumpAndSettle();
-      expect(shell.visibleComposer?.target.targetRecipients, 'alex');
+      expect(shell.visibleComposer?.target.targetRecipients, '');
       expect(shell.visibleComposer?.target.originFeedId, 'messages');
       expect(tester.takeException(), isNull);
     },

@@ -843,14 +843,9 @@ void main() {
     expect(message, findsOneWidget);
     await tester.tap(message);
     await tester.pumpAndSettle();
-    await tester.enterText(
-      find.byKey(const ValueKey('new-message-recipients')),
-      'sam',
-    );
-    await tester.tap(find.text('Continue'));
-    await tester.pumpAndSettle();
     expect(shell.visibleComposer, isNotNull);
     expect(shell.visibleComposer!.target.isPrivateMessage, isTrue);
+    expect(shell.visibleComposer!.target.targetRecipients, '');
     expect(tester.takeException(), isNull);
   });
 
