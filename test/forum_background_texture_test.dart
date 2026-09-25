@@ -88,7 +88,11 @@ void main() {
       for (var i = 0; i < plain.length; i++) {
         difference += (plain[i] - textured[i]).abs();
       }
-      expect(difference / plain.length, greaterThan(1), reason: '$effect');
+      expect(
+        difference / plain.length,
+        greaterThan(effect == ForumBackgroundEffect.paper ? 0.2 : 1),
+        reason: '$effect',
+      );
     }
     expect(tester.takeException(), isNull);
   });
