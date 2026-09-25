@@ -37,12 +37,15 @@ void main() {
     await tester.pumpAndSettle();
 
     final page = find.byType(NewTabPage).first;
-    final wide = tester.getRect(page);
+    final content = find.byKey(const ValueKey('start-page-content'));
+    final wideViewport = tester.getRect(page);
+    final wide = tester.getRect(content);
     expect(wide.width, greaterThan(825));
 
     await shell.appSettings.setLimitContentSize(true);
     await tester.pumpAndSettle();
-    final normal = tester.getRect(page);
+    final normal = tester.getRect(content);
+    expect(tester.getRect(page), wideViewport);
     expect(normal.width, 825);
     expect(normal.center.dx, wide.center.dx);
   });

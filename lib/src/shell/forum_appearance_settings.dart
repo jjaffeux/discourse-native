@@ -250,101 +250,106 @@ class _ForumAppearanceSettingsState extends State<ForumAppearanceSettings> {
       final editing = _editing;
       return SingleChildScrollView(
         key: const PageStorageKey('theme-settings-scroll'),
-        padding: const EdgeInsets.all(16),
-        child: Align(
-          alignment: AlignmentDirectional.topStart,
-          child: SizedBox(
-            width: double.infinity,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              spacing: 18,
-              children: [
-                if (_error != null)
-                  DAlert(
-                    description: DAlertDescription(
-                      child: Row(
-                        children: [
-                          Expanded(child: Text(_error!)),
-                          DButton(
-                            label: const Text('Retry'),
-                            variant: DButtonVariant.outline,
-                            onPressed: _retry == null
-                                ? null
-                                : () => unawaited(_attempt(_retry!)),
-                          ),
-                        ],
+        child: DPageReadingLaneBox(
+          padding: const EdgeInsets.all(16),
+          widthLimit: DPageReadingLane.maxWidth - 32,
+          child: Align(
+            alignment: AlignmentDirectional.topStart,
+            child: SizedBox(
+              width: double.infinity,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                spacing: 18,
+                children: [
+                  if (_error != null)
+                    DAlert(
+                      description: DAlertDescription(
+                        child: Row(
+                          children: [
+                            Expanded(child: Text(_error!)),
+                            DButton(
+                              label: const Text('Retry'),
+                              variant: DButtonVariant.outline,
+                              onPressed: _retry == null
+                                  ? null
+                                  : () => unawaited(_attempt(_retry!)),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
-                  ),
-                if (editing == null)
-                  DToggleGroup<AppThemeMode>(
-                    key: const ValueKey('appearance-mode'),
-                    values: [mode],
-                    multiple: false,
-                    allowEmptySelection: false,
-                    expanded: true,
-                    inset: true,
-                    semanticLabel: 'Appearance mode',
-                    onChanged: (values) {
-                      if (values.isEmpty) return;
-                      final value = values.first;
-                      unawaited(settings.setThemeMode(widget.siteUrl, value));
-                      _show(null);
-                    },
-                    items: const [
-                      DToggleGroupItem(
-                        value: AppThemeMode.light,
-                        icon: ThemeIcon(ThemeIcons.sun, size: 12),
-                        child: Text('Light'),
-                      ),
-                      DToggleGroupItem(
-                        value: AppThemeMode.dark,
-                        icon: ThemeIcon(ThemeIcons.moon, size: 12),
-                        child: Text('Dark'),
-                      ),
-                      DToggleGroupItem(
-                        value: AppThemeMode.system,
-                        icon: ThemeIcon(ThemeIcons.automatic, size: 12),
-                        child: Text('Auto'),
-                      ),
-                    ],
-                  ),
-                if (editing != null)
-                  ForumThemeEditor(
-                    key: ValueKey(('theme-editor', editing.id)),
-                    theme: editing,
-                    creating: _creating,
-                    brightness: brightness,
-                    onChanged: (draft) {
-                      _draft = draft;
-                      _preview();
-                    },
-                    onSave: _saveEdit,
-                    onCancel: () => _edit(null),
-                  )
-                else
-                  SettingsSection(
-                    title: 'Theme',
-                    icon: const ThemeIcon(ThemeIcons.preset),
-                    child: ForumThemePicker(
-                      key: const ValueKey('theme-picker'),
-                      preferences: preferences,
-                      forum: _forumTheme(),
+                  if (editing == null)
+                    DToggleGroup<AppThemeMode>(
+                      key: const ValueKey('appearance-mode'),
+                      values: [mode],
+                      multiple: false,
+                      allowEmptySelection: false,
+                      expanded: true,
+                      inset: true,
+                      semanticLabel: 'Appearance mode',
+                      onChanged: (values) {
+                        if (values.isEmpty) return;
+                        final value = values.first;
+                        unawaited(settings.setThemeMode(widget.siteUrl, value));
+                        _show(null);
+                      },
+                      items: const [
+                        DToggleGroupItem(
+                          value: AppThemeMode.light,
+                          icon: ThemeIcon(ThemeIcons.sun, size: 12),
+                          child: Text('Light'),
+                        ),
+                        DToggleGroupItem(
+                          value: AppThemeMode.dark,
+                          icon: ThemeIcon(ThemeIcons.moon, size: 12),
+                          child: Text('Dark'),
+                        ),
+                        DToggleGroupItem(
+                          value: AppThemeMode.system,
+                          icon: ThemeIcon(ThemeIcons.automatic, size: 12),
+                          child: Text('Auto'),
+                        ),
+                      ],
+                    ),
+                  if (editing != null)
+                    ForumThemeEditor(
+                      key: ValueKey(('theme-editor', editing.id)),
+                      theme: editing,
+                      creating: _creating,
                       brightness: brightness,
-                      fontFamily: fontFamily,
-                      onForum: () => unawaited(
-                        _save(_preferences.withSource(ForumThemeSource.forum)),
+                      onChanged: (draft) {
+                        _draft = draft;
+                        _preview();
+                      },
+                      onSave: _saveEdit,
+                      onCancel: () => _edit(null),
+                    )
+                  else
+                    SettingsSection(
+                      title: 'Theme',
+                      icon: const ThemeIcon(ThemeIcons.preset),
+                      child: ForumThemePicker(
+                        key: const ValueKey('theme-picker'),
+                        preferences: preferences,
+                        forum: _forumTheme(),
+                        brightness: brightness,
+                        fontFamily: fontFamily,
+                        onForum: () => unawaited(
+                          _save(
+                            _preferences.withSource(ForumThemeSource.forum),
+                          ),
+                        ),
+                        onPreset: (mode, id) =>
+                            unawaited(_save(_preferences.withPreset(mode, id))),
+                        onTheme: (id) =>
+                            unawaited(_save(_preferences.useTheme(id))),
+                        onNewTheme: ({base}) => _newTheme(base: base),
+                        onEdit: _edit,
                       ),
-                      onPreset: (mode, id) =>
-                          unawaited(_save(_preferences.withPreset(mode, id))),
-                      onTheme: (id) =>
-                          unawaited(_save(_preferences.useTheme(id))),
-                      onNewTheme: ({base}) => _newTheme(base: base),
-                      onEdit: _edit,
                     ),
-                  ),
-                if (editing == null) _themeScope(others),
-              ],
+                  if (editing == null) _themeScope(others),
+                ],
+              ),
             ),
           ),
         ),

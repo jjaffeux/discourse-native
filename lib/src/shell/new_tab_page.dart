@@ -259,279 +259,285 @@ class _NewTabPageState extends State<NewTabPage> {
 
     final tokens = DTokens.of(context);
     return SingleChildScrollView(
-      child: Align(
-        alignment: AlignmentDirectional.topCenter,
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 1500),
-          child: Padding(
-            padding: const EdgeInsets.all(DSpacing.lg),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              spacing: DSpacing.lg,
-              children: [
-                Row(
-                  spacing: DSpacing.md,
-                  children: [
-                    if (forum != null) ForumIcon(forum: forum, size: 46),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            forum?.title ?? 'Start page',
-                            style: Theme.of(context).textTheme.headlineSmall,
-                          ),
-                          if (forum != null)
-                            Text(
-                              Uri.tryParse(forum.url)?.host ?? forum.url,
-                              style: Theme.of(context).textTheme.bodyMedium
-                                  ?.copyWith(color: tokens.mutedForeground),
-                            ),
-                        ],
-                      ),
-                    ),
-                    DToggleGroup<bool>(
-                      key: const ValueKey('start-page-density'),
-                      values: [_compact],
-                      onChanged: (values) {
-                        if (values.isNotEmpty) {
-                          setState(() => _compact = values.single);
-                        }
-                      },
-                      allowEmptySelection: false,
-                      inset: true,
-                      size: DToggleSize.small,
-                      items: const [
-                        DToggleGroupItem<bool>.iconOnly(
-                          value: false,
-                          icon: DIcon(DIcons.grip, size: 14),
-                          semanticLabel: 'Comfortable',
-                          tooltip: 'Comfortable',
-                        ),
-                        DToggleGroupItem<bool>.iconOnly(
-                          value: true,
-                          icon: DIcon(DIcons.list, size: 14),
-                          semanticLabel: 'Compact',
-                          tooltip: 'Compact',
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-                if (shell != null)
-                  ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 560),
-                    child: DInputGroup(
-                      size: DControlSize.large,
-                      children: [
-                        DInputGroupInput(
-                          key: const ValueKey('start-page-search-prompt'),
-                          focusNode: _searchPromptFocus,
-                          semanticLabel: 'Search this forum',
-                          hintText: 'Search this forum',
-                          readOnly: true,
-                          enableInteractiveSelection: false,
-                          onTap: _openTopBarSearch,
-                        ),
-                        const DInputGroupAddon(
-                          alignment: DInputGroupAddonAlignment.inlineStart,
-                          child: DIcon(DIcons.magnifyingGlass, size: 16),
-                        ),
-                        DInputGroupAddon(
-                          alignment: DInputGroupAddonAlignment.inlineEnd,
-                          child: DShortcutKeycaps(
-                            shortcut: DShortcut(
-                              searchShortcutForPlatform(defaultTargetPlatform),
-                            ),
-                            listenToKeyboard: false,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                if (_dismissed == false &&
-                    (ShellScope.maybeRead(context)?.desktopPanelsEnabled ??
-                        true))
-                  _PanelTutorial(onDismiss: _dismiss),
-                if (shell != null) ...[
-                  if (closedRows.isNotEmpty)
-                    _StartSection(
-                      title: 'Recently closed',
-                      icon: DIcons.arrowRotateLeft,
-                      rows: closedRows,
-                      compact: _compact,
-                      fullWidth: true,
-                      siteUrl: siteUrl!,
-                    ),
-                  LayoutBuilder(
-                    builder: (context, constraints) {
-                      final columns = constraints.maxWidth >= 1050
-                          ? 3
-                          : constraints.maxWidth >= 650
-                          ? 2
-                          : 1;
-                      final width =
-                          (constraints.maxWidth - (columns - 1) * DSpacing.lg) /
-                          columns;
-                      return Wrap(
-                        spacing: DSpacing.lg,
-                        runSpacing: DSpacing.xl,
-                        children: [
-                          if (bookmarkRows.isNotEmpty)
-                            SizedBox(
-                              width: width,
-                              child: _StartSection(
-                                title: 'Bookmarks',
-                                icon: DIcons.bookmark,
-                                rows: bookmarkRows,
-                                compact: _compact,
-                                siteUrl: siteUrl!,
-                                onHeading: openBookmarks,
-                              ),
-                            ),
-                          if (categoryRows.isNotEmpty)
-                            SizedBox(
-                              width: width,
-                              child: _StartSection(
-                                title: 'Categories',
-                                icon: DIcons.tag,
-                                rows: categoryRows,
-                                compact: _compact,
-                                siteUrl: siteUrl!,
-                                onHeading: openCategories,
-                              ),
-                            ),
-                          if (hasChat && chatRows.isNotEmpty)
-                            SizedBox(
-                              width: width,
-                              child: _StartSection(
-                                title: 'Chat',
-                                icon: DIcons.comment,
-                                rows: chatRows,
-                                compact: _compact,
-                                siteUrl: siteUrl!,
-                                onHeading: openChat,
-                              ),
-                            ),
-                          if (topicRows.isNotEmpty)
-                            SizedBox(
-                              width: width,
-                              child: _StartSection(
-                                title: 'Latest topics',
-                                icon: DIcons.layerGroup,
-                                rows: topicRows,
-                                compact: _compact,
-                                siteUrl: siteUrl!,
-                                onHeading: widget.onBrowseTopics,
-                              ),
-                            ),
-                          if (visitedRows.isNotEmpty)
-                            SizedBox(
-                              width: width,
-                              child: _StartSection(
-                                title: 'Recently visited',
-                                icon: DIcons.layerGroup,
-                                rows: visitedRows,
-                                compact: _compact,
-                                siteUrl: siteUrl!,
-                              ),
-                            ),
-                        ],
-                      );
-                    },
-                  ),
-                  _StartSection(
-                    title: 'Everything else',
-                    icon: DIcons.ellipsis,
-                    rows: const [],
-                    compact: _compact,
-                    siteUrl: siteUrl!,
-                    fullWidth: true,
-                  ),
-                  Wrap(
-                    key: const ValueKey('start-page-shortcuts'),
-                    spacing: DSpacing.sm,
-                    runSpacing: DSpacing.sm,
+      child: DPageReadingLaneBox(
+        child: Align(
+          alignment: AlignmentDirectional.topCenter,
+          child: ConstrainedBox(
+            key: const ValueKey('start-page-content'),
+            constraints: const BoxConstraints(maxWidth: 1500),
+            child: Padding(
+              padding: const EdgeInsets.all(DSpacing.lg),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                spacing: DSpacing.lg,
+                children: [
+                  Row(
+                    spacing: DSpacing.md,
                     children: [
-                      if (bookmarkRows.isEmpty && forum?.user != null)
-                        _LinkButton(
-                          label: 'Bookmarks',
-                          icon: DIcons.bookmark,
-                          onPressed: openBookmarks,
+                      if (forum != null) ForumIcon(forum: forum, size: 46),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              forum?.title ?? 'Start page',
+                              style: Theme.of(context).textTheme.headlineSmall,
+                            ),
+                            if (forum != null)
+                              Text(
+                                Uri.tryParse(forum.url)?.host ?? forum.url,
+                                style: Theme.of(context).textTheme.bodyMedium
+                                    ?.copyWith(color: tokens.mutedForeground),
+                              ),
+                          ],
                         ),
-                      if (topicRows.isEmpty)
-                        _LinkButton(
-                          label: 'Latest topics',
-                          icon: DIcons.layerGroup,
-                          url: '/latest',
-                          onPressed: widget.onBrowseTopics,
-                        ),
-                      if (categoryRows.isEmpty)
-                        _LinkButton(
-                          label: 'Categories',
-                          icon: DIcons.tag,
-                          url: '/categories',
-                          onPressed: openCategories,
-                        ),
-                      if (hasChat && chatRows.isEmpty)
-                        _LinkButton(
-                          label: 'Chat',
-                          icon: DIcons.comment,
-                          content: ContentRoute.fromDestination(
-                            chatDestination,
+                      ),
+                      DToggleGroup<bool>(
+                        key: const ValueKey('start-page-density'),
+                        values: [_compact],
+                        onChanged: (values) {
+                          if (values.isNotEmpty) {
+                            setState(() => _compact = values.single);
+                          }
+                        },
+                        allowEmptySelection: false,
+                        inset: true,
+                        size: DToggleSize.small,
+                        items: const [
+                          DToggleGroupItem<bool>.iconOnly(
+                            value: false,
+                            icon: DIcon(DIcons.grip, size: 14),
+                            semanticLabel: 'Comfortable',
+                            tooltip: 'Comfortable',
                           ),
-                          onPressed: openChat,
-                        ),
-                      if (forum?.user != null)
-                        _LinkButton(
-                          label: 'Messages',
-                          icon: DIcons.inbox,
-                          url: '/my/messages',
-                          onPressed: () => openLink(context, '/my/messages'),
-                        ),
-                      _LinkButton(
-                        label: 'Groups',
-                        icon: DIcons.users,
-                        url: '/g',
-                        onPressed: () => openLink(context, '/g'),
-                      ),
-                      _LinkButton(
-                        label: 'Badges',
-                        icon: DIcons.certificate,
-                        url: '/badges',
-                        onPressed: () => openLink(context, '/badges'),
-                      ),
-                      if (events != null)
-                        _LinkButton(
-                          label: 'Upcoming events',
-                          icon: events.icon,
-                          onPressed: () => shell.selectDestination(events),
-                        ),
-                      _LinkButton(
-                        label: 'Users',
-                        icon: DIcons.user,
-                        url: '/u',
-                        onPressed: () => openLink(context, '/u'),
-                      ),
-                      if (forum?.user != null)
-                        _LinkButton(
-                          label: 'Preferences',
-                          icon: DIcons.filter,
-                          onPressed: () => shell.openPreferences(siteUrl),
-                        ),
-                      _LinkButton(
-                        label: 'Settings',
-                        icon: DIcons.gear,
-                        onPressed: () => shell.openForumSettings(siteUrl),
+                          DToggleGroupItem<bool>.iconOnly(
+                            value: true,
+                            icon: DIcon(DIcons.list, size: 14),
+                            semanticLabel: 'Compact',
+                            tooltip: 'Compact',
+                          ),
+                        ],
                       ),
                     ],
                   ),
-                ] else if (_dismissed != null)
-                  DButton(
-                    onPressed: widget.onBrowseTopics,
-                    label: const Text('Browse latest topics'),
-                  ),
-              ],
+                  if (shell != null)
+                    ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 560),
+                      child: DInputGroup(
+                        size: DControlSize.large,
+                        children: [
+                          DInputGroupInput(
+                            key: const ValueKey('start-page-search-prompt'),
+                            focusNode: _searchPromptFocus,
+                            semanticLabel: 'Search this forum',
+                            hintText: 'Search this forum',
+                            readOnly: true,
+                            enableInteractiveSelection: false,
+                            onTap: _openTopBarSearch,
+                          ),
+                          const DInputGroupAddon(
+                            alignment: DInputGroupAddonAlignment.inlineStart,
+                            child: DIcon(DIcons.magnifyingGlass, size: 16),
+                          ),
+                          DInputGroupAddon(
+                            alignment: DInputGroupAddonAlignment.inlineEnd,
+                            child: DShortcutKeycaps(
+                              shortcut: DShortcut(
+                                searchShortcutForPlatform(
+                                  defaultTargetPlatform,
+                                ),
+                              ),
+                              listenToKeyboard: false,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  if (_dismissed == false &&
+                      (ShellScope.maybeRead(context)?.desktopPanelsEnabled ??
+                          true))
+                    _PanelTutorial(onDismiss: _dismiss),
+                  if (shell != null) ...[
+                    if (closedRows.isNotEmpty)
+                      _StartSection(
+                        title: 'Recently closed',
+                        icon: DIcons.arrowRotateLeft,
+                        rows: closedRows,
+                        compact: _compact,
+                        fullWidth: true,
+                        siteUrl: siteUrl!,
+                      ),
+                    LayoutBuilder(
+                      builder: (context, constraints) {
+                        final columns = constraints.maxWidth >= 1050
+                            ? 3
+                            : constraints.maxWidth >= 650
+                            ? 2
+                            : 1;
+                        final width =
+                            (constraints.maxWidth -
+                                (columns - 1) * DSpacing.lg) /
+                            columns;
+                        return Wrap(
+                          spacing: DSpacing.lg,
+                          runSpacing: DSpacing.xl,
+                          children: [
+                            if (bookmarkRows.isNotEmpty)
+                              SizedBox(
+                                width: width,
+                                child: _StartSection(
+                                  title: 'Bookmarks',
+                                  icon: DIcons.bookmark,
+                                  rows: bookmarkRows,
+                                  compact: _compact,
+                                  siteUrl: siteUrl!,
+                                  onHeading: openBookmarks,
+                                ),
+                              ),
+                            if (categoryRows.isNotEmpty)
+                              SizedBox(
+                                width: width,
+                                child: _StartSection(
+                                  title: 'Categories',
+                                  icon: DIcons.tag,
+                                  rows: categoryRows,
+                                  compact: _compact,
+                                  siteUrl: siteUrl!,
+                                  onHeading: openCategories,
+                                ),
+                              ),
+                            if (hasChat && chatRows.isNotEmpty)
+                              SizedBox(
+                                width: width,
+                                child: _StartSection(
+                                  title: 'Chat',
+                                  icon: DIcons.comment,
+                                  rows: chatRows,
+                                  compact: _compact,
+                                  siteUrl: siteUrl!,
+                                  onHeading: openChat,
+                                ),
+                              ),
+                            if (topicRows.isNotEmpty)
+                              SizedBox(
+                                width: width,
+                                child: _StartSection(
+                                  title: 'Latest topics',
+                                  icon: DIcons.layerGroup,
+                                  rows: topicRows,
+                                  compact: _compact,
+                                  siteUrl: siteUrl!,
+                                  onHeading: widget.onBrowseTopics,
+                                ),
+                              ),
+                            if (visitedRows.isNotEmpty)
+                              SizedBox(
+                                width: width,
+                                child: _StartSection(
+                                  title: 'Recently visited',
+                                  icon: DIcons.layerGroup,
+                                  rows: visitedRows,
+                                  compact: _compact,
+                                  siteUrl: siteUrl!,
+                                ),
+                              ),
+                          ],
+                        );
+                      },
+                    ),
+                    _StartSection(
+                      title: 'Everything else',
+                      icon: DIcons.ellipsis,
+                      rows: const [],
+                      compact: _compact,
+                      siteUrl: siteUrl!,
+                      fullWidth: true,
+                    ),
+                    Wrap(
+                      key: const ValueKey('start-page-shortcuts'),
+                      spacing: DSpacing.sm,
+                      runSpacing: DSpacing.sm,
+                      children: [
+                        if (bookmarkRows.isEmpty && forum?.user != null)
+                          _LinkButton(
+                            label: 'Bookmarks',
+                            icon: DIcons.bookmark,
+                            onPressed: openBookmarks,
+                          ),
+                        if (topicRows.isEmpty)
+                          _LinkButton(
+                            label: 'Latest topics',
+                            icon: DIcons.layerGroup,
+                            url: '/latest',
+                            onPressed: widget.onBrowseTopics,
+                          ),
+                        if (categoryRows.isEmpty)
+                          _LinkButton(
+                            label: 'Categories',
+                            icon: DIcons.tag,
+                            url: '/categories',
+                            onPressed: openCategories,
+                          ),
+                        if (hasChat && chatRows.isEmpty)
+                          _LinkButton(
+                            label: 'Chat',
+                            icon: DIcons.comment,
+                            content: ContentRoute.fromDestination(
+                              chatDestination,
+                            ),
+                            onPressed: openChat,
+                          ),
+                        if (forum?.user != null)
+                          _LinkButton(
+                            label: 'Messages',
+                            icon: DIcons.inbox,
+                            url: '/my/messages',
+                            onPressed: () => openLink(context, '/my/messages'),
+                          ),
+                        _LinkButton(
+                          label: 'Groups',
+                          icon: DIcons.users,
+                          url: '/g',
+                          onPressed: () => openLink(context, '/g'),
+                        ),
+                        _LinkButton(
+                          label: 'Badges',
+                          icon: DIcons.certificate,
+                          url: '/badges',
+                          onPressed: () => openLink(context, '/badges'),
+                        ),
+                        if (events != null)
+                          _LinkButton(
+                            label: 'Upcoming events',
+                            icon: events.icon,
+                            onPressed: () => shell.selectDestination(events),
+                          ),
+                        _LinkButton(
+                          label: 'Users',
+                          icon: DIcons.user,
+                          url: '/u',
+                          onPressed: () => openLink(context, '/u'),
+                        ),
+                        if (forum?.user != null)
+                          _LinkButton(
+                            label: 'Preferences',
+                            icon: DIcons.filter,
+                            onPressed: () => shell.openPreferences(siteUrl),
+                          ),
+                        _LinkButton(
+                          label: 'Settings',
+                          icon: DIcons.gear,
+                          onPressed: () => shell.openForumSettings(siteUrl),
+                        ),
+                      ],
+                    ),
+                  ] else if (_dismissed != null)
+                    DButton(
+                      onPressed: widget.onBrowseTopics,
+                      label: const Text('Browse latest topics'),
+                    ),
+                ],
+              ),
             ),
           ),
         ),

@@ -24,50 +24,60 @@ class _ForumSettingsPageState extends State<ForumSettingsPage> {
   @override
   Widget build(BuildContext context) {
     final appSettings = ShellScope.identityOf(context).appSettings;
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Wrap(
-            crossAxisAlignment: WrapCrossAlignment.center,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        DPageReadingLaneBox(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+          widthLimit: DPageReadingLane.maxWidth - 32,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const DIcon(DIcons.gear),
-              const SizedBox(width: 10),
-              Text(
-                'Settings',
-                style: Theme.of(context).textTheme.headlineSmall,
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          DTabs<String>.controlled(
-            value: _section,
-            onChanged: (value) {
-              if (value != null) setState(() => _section = value);
-            },
-            children: const [
-              DTabList<String>(
-                variant: DTabListVariant.line,
+              Wrap(
+                crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
-                  DTabTrigger(value: 'display', child: Text('Display')),
-                  DTabTrigger(value: 'themes', child: Text('Themes')),
-                  DTabTrigger(
-                    value: 'accessibility',
-                    child: Text('Accessibility'),
+                  const DIcon(DIcons.gear),
+                  const SizedBox(width: 10),
+                  Text(
+                    'Settings',
+                    style: Theme.of(context).textTheme.headlineSmall,
                   ),
                 ],
               ),
+              const SizedBox(height: 16),
+              DTabs<String>.controlled(
+                value: _section,
+                onChanged: (value) {
+                  if (value != null) setState(() => _section = value);
+                },
+                children: const [
+                  DTabList<String>(
+                    variant: DTabListVariant.line,
+                    children: [
+                      DTabTrigger(value: 'display', child: Text('Display')),
+                      DTabTrigger(value: 'themes', child: Text('Themes')),
+                      DTabTrigger(
+                        value: 'accessibility',
+                        child: Text('Accessibility'),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
             ],
           ),
-          const SizedBox(height: 16),
-          Expanded(
-            child: switch (_section) {
-              'display' => ForumDisplaySettings(
-                appSettings: appSettings,
-                forumSettings: ShellScope.identityOf(context).forumSettings,
-              ),
-              'accessibility' => ListenableBuilder(
+        ),
+        Expanded(
+          child: switch (_section) {
+            'display' => ForumDisplaySettings(
+              appSettings: appSettings,
+              forumSettings: ShellScope.identityOf(context).forumSettings,
+            ),
+            'accessibility' => DPageReadingLaneBox(
+              padding: const EdgeInsets.all(16),
+              widthLimit: DPageReadingLane.maxWidth - 32,
+              child: ListenableBuilder(
                 listenable: appSettings,
                 builder: (context, _) => DSwitchTile(
                   key: const ValueKey('disable-gif-animations-switch'),
@@ -83,14 +93,14 @@ class _ForumSettingsPageState extends State<ForumSettingsPage> {
                       unawaited(appSettings.setDisableGifAnimations(value)),
                 ),
               ),
-              _ => ForumAppearanceSettings(
-                key: ValueKey(widget.siteUrl),
-                siteUrl: widget.siteUrl,
-              ),
-            },
-          ),
-        ],
-      ),
+            ),
+            _ => ForumAppearanceSettings(
+              key: ValueKey(widget.siteUrl),
+              siteUrl: widget.siteUrl,
+            ),
+          },
+        ),
+      ],
     );
   }
 }

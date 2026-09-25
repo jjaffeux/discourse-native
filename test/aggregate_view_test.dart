@@ -60,6 +60,11 @@ void main() {
     expect(normal.width, 825);
     expect(normal.center.dx, wide.center.dx);
     expect(tester.getRect(row).center.dx, normal.center.dx);
+    final viewport = find.descendant(
+      of: find.byType(AggregateView),
+      matching: find.byType(CustomScrollView),
+    );
+    expect(tester.getSize(viewport.first).width, wide.width);
   });
 
   for (final empty in [false, true]) {
