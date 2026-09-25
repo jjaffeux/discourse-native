@@ -202,7 +202,15 @@ void main() {
     await shell.load();
     await pumpSettings(tester, shell);
     expect(find.text('Applies to Doggerel only.'), findsOneWidget);
-    expect(find.byKey(const ValueKey('theme-use-everywhere')), findsOneWidget);
+    final useEverywhere = find.byKey(const ValueKey('theme-use-everywhere'));
+    expect(useEverywhere, findsOneWidget);
+    final scopeRow = find
+        .ancestor(of: useEverywhere, matching: find.byType(Row))
+        .first;
+    expect(
+      tester.getTopRight(useEverywhere).dx,
+      tester.getTopRight(scopeRow).dx,
+    );
     await tapVisible(
       tester,
       find.byKey(const ValueKey(('theme-choice', 'wcag'))),

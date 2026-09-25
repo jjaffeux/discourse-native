@@ -177,13 +177,11 @@ class _ForumAppearanceSettingsState extends State<ForumAppearanceSettings> {
                   .firstOrNull
                   ?.title ??
               Uri.parse(site).host;
-    return Wrap(
-      spacing: DSpacing.md,
-      runSpacing: DSpacing.sm,
-      crossAxisAlignment: WrapCrossAlignment.center,
+    return Row(
       children: [
-        _HeadingNote('Applies to $forumName only.'),
+        Expanded(child: _HeadingNote('Applies to $forumName only.')),
         if (others.isNotEmpty) ...[
+          const SizedBox(width: DSpacing.md),
           DButton(
             key: const ValueKey('theme-use-everywhere'),
             label: const Text('Use on every forum'),
