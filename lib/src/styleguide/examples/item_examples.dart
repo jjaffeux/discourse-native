@@ -22,9 +22,9 @@ final itemExamples = ComponentExamples(
     StyleguideExample(
       title: 'Whole-row drag',
       description:
-          'Drag anywhere on the item into the target. Tap and keyboard activation still work.',
+          'Drag anywhere on the item into the target. The supplied preview follows the pointer; tap and keyboard activation still work.',
       code:
-          "DItem(dragData: 'topic', onPressed: open, children: [DItemContent(children: [Text('Drag this topic')])])",
+          "DItem(dragData: 'topic', dragFeedback: DCard(child: Text('Drag this topic')), onPressed: open, children: [DItemContent(children: [Text('Drag this topic')])])",
       builder: (_) => const _WholeRowDragExample(),
     ),
     StyleguideExample(
@@ -149,6 +149,7 @@ class _WholeRowDragExampleState extends State<_WholeRowDragExample> {
     children: [
       DItem(
         dragData: 'topic',
+        dragFeedback: const DCard(child: Text('Drag this topic')),
         onPressed: () => setState(() => status = 'Opened topic'),
         children: const [
           DItemContent(children: [Text('Drag this topic')]),

@@ -6036,6 +6036,7 @@ class ShellController extends FrameSafeNotifier
     String url, {
     String? title,
     ForumPanel? panel,
+    int? index,
   }) {
     final destination = _routeForLink(url, title: title);
     if (destination == null) return TabOpenResult.unsupported;
@@ -6043,6 +6044,7 @@ class ShellController extends FrameSafeNotifier
       destination.route,
       siteUrl: destination.siteUrl,
       panel: panel,
+      index: index,
       select: false,
       source: currentInstance?.url == destination.siteUrl ? activeTab : null,
     );
@@ -6145,6 +6147,7 @@ class ShellController extends FrameSafeNotifier
     ContentRoute route, {
     String? siteUrl,
     ForumPanel? panel,
+    int? index,
     bool? select,
     String? rootDestinationId,
     ForumTab? source,
@@ -6185,11 +6188,23 @@ class ShellController extends FrameSafeNotifier
             );
     final activate = select ?? desktopTopicTabs;
     _pendingHomepageTabs.remove(tab.id);
+    final tabs = [...workspace.tabs];
+    if (index == null) {
+      tabs.add(tab);
+    } else {
+      final destinationTabs = tabs
+          .where((item) => item.panel == tab.panel)
+          .toList();
+      final position = index.clamp(0, destinationTabs.length);
+      final insertion = position < destinationTabs.length
+          ? tabs.indexOf(destinationTabs[position])
+          : destinationTabs.isEmpty
+          ? tabs.length
+          : tabs.indexOf(destinationTabs.last) + 1;
+      tabs.insert(insertion, tab);
+    }
     _putWorkspace(
-      workspace.copyWith(
-        tabs: [...workspace.tabs, tab],
-        activeTabId: activate ? tab.id : null,
-      ),
+      workspace.copyWith(tabs: tabs, activeTabId: activate ? tab.id : null),
     );
     _rememberRoute(instance.url, workspace.accountIdentity, route);
     if (activate && currentInstance?.url == instance.url) {

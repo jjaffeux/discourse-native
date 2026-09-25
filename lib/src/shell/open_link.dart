@@ -20,6 +20,7 @@ Future<bool> openLink(
   String? siteUrl,
   bool newTab = false,
   ForumPanel? panel,
+  int? tabIndex,
 }) async {
   final controller = ShellScope.maybeRead(context);
 
@@ -40,6 +41,7 @@ Future<bool> openLink(
             target,
             title: title,
             panel: requestedPanel,
+            index: tabIndex,
           )
         : controller.openLinkInPanel(
             target,

@@ -98,6 +98,8 @@ class ForumTabsBar extends StatefulWidget {
     this.onDropTab,
     this.incomingTab,
     this.itemForDrop,
+    this.acceptsLink,
+    this.onDropLink,
     this.panel,
     this.onMoveToPanel,
   }) : assert(items.isNotEmpty),
@@ -121,6 +123,8 @@ class ForumTabsBar extends StatefulWidget {
   final void Function(String id, int index)? onDropTab;
   final ForumTabItem? incomingTab;
   final ForumTabItem? Function(String id)? itemForDrop;
+  final bool Function(StartPageDrag link)? acceptsLink;
+  final void Function(StartPageDrag link, int index)? onDropLink;
   final ForumPanel? panel;
   final void Function(String id, ForumPanel panel)? onMoveToPanel;
   final String forumName;
@@ -235,6 +239,35 @@ class _ForumTabsBarState extends State<ForumTabsBar> {
     return true;
   }
 
+  bool _startLinkDrop(DragTargetDetails<StartPageDrag> details) {
+    if (widget.onDropLink == null ||
+        !(widget.acceptsLink?.call(details.data) ?? false)) {
+      return false;
+    }
+    final item = ForumTabItem(
+      id: 'incoming-start-page-link',
+      title: details.data.title,
+      icon: DIcons.link,
+    );
+    _captureDropGeometry(item.id);
+    setState(() {
+      _dropItem = item;
+      _dropIndex = _indexAt(item.id, details.offset);
+      _contents = null;
+    });
+    return true;
+  }
+
+  void _moveLinkDrop(DragTargetDetails<StartPageDrag> details) {
+    if (_dropItem == null) return;
+    final index = _indexAt('incoming-start-page-link', details.offset);
+    if (index == _dropIndex) return;
+    setState(() {
+      _dropIndex = index;
+      _contents = null;
+    });
+  }
+
   void _moveDrop(DragTargetDetails<String> details) {
     if (_dropItem == null) return;
     final index = _indexAt(details.data, details.offset);
@@ -307,21 +340,31 @@ class _ForumTabsBarState extends State<ForumTabsBar> {
   }
 
   @override
-  Widget build(BuildContext context) => DragTarget<String>(
-    onWillAcceptWithDetails: _startDrop,
-    onMove: _moveDrop,
+  Widget build(BuildContext context) => DragTarget<StartPageDrag>(
+    onWillAcceptWithDetails: _startLinkDrop,
+    onMove: _moveLinkDrop,
     onLeave: (_) => _clearDrop(),
     onAcceptWithDetails: (details) {
-      final destination = _destinationFor(
-        details.data,
-        _indexAt(details.data, details.offset),
-      );
+      final index = _indexAt('incoming-start-page-link', details.offset);
       _clearDrop();
-      if (destination == null || _droppable(details.data) == null) return;
-      (widget.onDropTab ?? widget.onReorder)(details.data, destination);
+      widget.onDropLink?.call(details.data, index);
     },
-    builder: (context, candidates, rejected) =>
-        _contents ??= _buildContents(context),
+    builder: (context, links, rejectedLinks) => DragTarget<String>(
+      onWillAcceptWithDetails: _startDrop,
+      onMove: _moveDrop,
+      onLeave: (_) => _clearDrop(),
+      onAcceptWithDetails: (details) {
+        final destination = _destinationFor(
+          details.data,
+          _indexAt(details.data, details.offset),
+        );
+        _clearDrop();
+        if (destination == null || _droppable(details.data) == null) return;
+        (widget.onDropTab ?? widget.onReorder)(details.data, destination);
+      },
+      builder: (context, candidates, rejected) =>
+          _contents ??= _buildContents(context),
+    ),
   );
 
   Widget _buildContents(BuildContext context) {
@@ -1126,7 +1169,7 @@ class _ReorderableForumTab extends StatelessWidget {
         dragAnchorStrategy: pointerDragAnchorStrategy,
         feedback: Transform.translate(
           offset: Offset(DSpacing.md, ForumTabsBar.heightFor(context) / 2),
-          child: _ForumTabDragFeedback(
+          child: ForumTabDragFeedback(
             item: item,
             width: ForumTabsBar.maximumTabWidth,
           ),
@@ -1163,8 +1206,12 @@ class _ForumTabDropPlaceholder extends StatelessWidget {
   );
 }
 
-class _ForumTabDragFeedback extends StatelessWidget {
-  const _ForumTabDragFeedback({required this.item, required this.width});
+class ForumTabDragFeedback extends StatelessWidget {
+  const ForumTabDragFeedback({
+    super.key,
+    required this.item,
+    required this.width,
+  });
 
   final ForumTabItem item;
   final double width;
@@ -1761,134 +1808,151 @@ class CurrentForumTabsBar extends StatelessWidget {
   final String? incomingTabId;
 
   @override
-  Widget build(BuildContext context) => DragTarget<StartPageDrag>(
-    onWillAcceptWithDetails: (details) =>
-        details.data.siteUrl == ShellScope.read(context).currentInstance?.url,
-    onAcceptWithDetails: (details) => unawaited(
-      openLink(
-        context,
-        details.data.path,
-        title: details.data.title,
-        siteUrl: details.data.siteUrl,
-        newTab: true,
-        panel: panel,
-      ),
-    ),
-    builder: (context, candidates, rejected) =>
-        ShellSelector<_CurrentForumTabsSnapshot>(
-          select: _CurrentForumTabsSnapshot.of,
-          builder: (context, state, _) {
-            final siteUrl = state.siteUrl;
-            final forumName = state.forumName;
-            final activeTabId = state.activeTabId;
-            if (siteUrl == null ||
-                forumName == null ||
-                activeTabId == null ||
-                state.tabs.isEmpty) {
-              return const SizedBox.shrink();
-            }
+  Widget build(
+    BuildContext context,
+  ) => ShellSelector<_CurrentForumTabsSnapshot>(
+    select: _CurrentForumTabsSnapshot.of,
+    builder: (context, state, _) {
+      final siteUrl = state.siteUrl;
+      final forumName = state.forumName;
+      final activeTabId = state.activeTabId;
+      if (siteUrl == null ||
+          forumName == null ||
+          activeTabId == null ||
+          state.tabs.isEmpty) {
+        return const SizedBox.shrink();
+      }
 
-            final controller = ShellScope.read(context);
-            final tabs = state.tabs
-                .where((tab) => (panel == null || tab.panel == panel))
-                .toList();
-            final selectedId = panel == null
-                ? activeTabId
-                : controller.selectedTabIn(panel!)?.id;
-            final registry = PluginScope.of(context).registry;
-            return ListenableBuilder(
-              listenable: Listenable.merge(
-                registry.forumTabListenables(context, siteUrl),
-              ),
-              builder: (context, _) {
-                ForumTabItem itemFor(ForumTab tab) => _forumTabItem(
-                  context,
-                  controller: controller,
-                  registry: registry,
-                  siteUrl: siteUrl,
-                  tab: tab,
-                );
-
-                ForumTabItem? itemForDrop(String id) {
-                  final tab = controller.currentWorkspace?.tabById(id);
-                  return panel != null && tab != null ? itemFor(tab) : null;
-                }
-
-                final incoming = incomingTabId == null
-                    ? null
-                    : controller.currentWorkspace
-                              ?.tabById(incomingTabId!)
-                              ?.panel ==
-                          panel
-                    ? null
-                    : itemForDrop(incomingTabId!);
-                if (tabs.isEmpty) {
-                  return Row(
-                    children: [
-                      if (incoming != null) ...[
-                        _ForumTabDropPlaceholder(item: incoming),
-                        const SizedBox(width: DSpacing.controlGap),
-                      ],
-                      DButton.iconOnly(
-                        key: ValueKey('add-empty-${panel?.name}'),
-                        icon: const DIcon(DIcons.plus),
-                        tooltip: 'Open a new tab',
-                        variant: DButtonVariant.inline,
-                        onPressed: controller.canCreateTab
-                            ? () => controller.createTab(panel: panel)
-                            : null,
-                      ),
-                    ],
-                  );
-                }
-
-                return ForumTabsBar(
-                  key: ValueKey(('forum-tabs', siteUrl, panel)),
-                  forumName: forumName,
-                  panel: panel,
-                  onMoveToPanel: panel == null
-                      ? null
-                      : controller.moveTabToPanel,
-                  showAdd: true,
-                  incomingTab: incoming,
-                  itemForDrop: itemForDrop,
-                  items: [for (final tab in tabs) itemFor(tab)],
-                  recentlyClosedItems: [
-                    for (final tab in state.recentlyClosedTabs)
-                      if (panel == null || tab.panel == panel) itemFor(tab),
-                  ],
-                  selectedId: tabs.any((tab) => tab.id == selectedId)
-                      ? selectedId!
-                      : tabs.first.id,
-                  onAdd: controller.canCreateTab
-                      ? () => controller.createTab(panel: panel)
-                      : null,
-                  acceptsTab: (id) =>
-                      controller.currentWorkspace?.tabById(id) != null,
-                  onDropTab: panel == null
-                      ? null
-                      : (id, index) =>
-                            controller.moveTabToPanel(id, panel!, index: index),
-                  onSelect: controller.selectTab,
-                  onClose: controller.closeTab,
-                  onReorder: (id, index) => controller.moveTab(
-                    id,
-                    state.tabs.indexWhere((tab) => tab.id == tabs[index].id),
-                  ),
-                  onCloseOthers: (id) =>
-                      controller.closeOtherTabs(id, panel: panel),
-                  onReopen: controller.canCreateTab
-                      ? (id) {
-                          if (controller.reopenClosedTab(id)) {
-                            controller.selectTab(id);
-                          }
-                        }
-                      : null,
-                );
-              },
-            );
-          },
+      final controller = ShellScope.read(context);
+      final tabs = state.tabs
+          .where((tab) => (panel == null || tab.panel == panel))
+          .toList();
+      final selectedId = panel == null
+          ? activeTabId
+          : controller.selectedTabIn(panel!)?.id;
+      final registry = PluginScope.of(context).registry;
+      return ListenableBuilder(
+        listenable: Listenable.merge(
+          registry.forumTabListenables(context, siteUrl),
         ),
+        builder: (context, _) {
+          ForumTabItem itemFor(ForumTab tab) => _forumTabItem(
+            context,
+            controller: controller,
+            registry: registry,
+            siteUrl: siteUrl,
+            tab: tab,
+          );
+
+          ForumTabItem? itemForDrop(String id) {
+            final tab = controller.currentWorkspace?.tabById(id);
+            return panel != null && tab != null ? itemFor(tab) : null;
+          }
+
+          final incoming = incomingTabId == null
+              ? null
+              : controller.currentWorkspace?.tabById(incomingTabId!)?.panel ==
+                    panel
+              ? null
+              : itemForDrop(incomingTabId!);
+          if (tabs.isEmpty) {
+            return DragTarget<StartPageDrag>(
+              onWillAcceptWithDetails: (details) =>
+                  details.data.siteUrl == siteUrl && controller.canCreateTab,
+              onAcceptWithDetails: (details) => unawaited(
+                openLink(
+                  context,
+                  details.data.path,
+                  title: details.data.title,
+                  siteUrl: details.data.siteUrl,
+                  newTab: true,
+                  panel: panel,
+                  tabIndex: 0,
+                ),
+              ),
+              builder: (context, links, rejected) => Row(
+                children: [
+                  if (links.isNotEmpty || incoming != null) ...[
+                    _ForumTabDropPlaceholder(
+                      item:
+                          incoming ??
+                          ForumTabItem(
+                            id: 'incoming-start-page-link',
+                            title: links.first!.title,
+                          ),
+                    ),
+                    const SizedBox(width: DSpacing.controlGap),
+                  ],
+                  DButton.iconOnly(
+                    key: ValueKey('add-empty-${panel?.name}'),
+                    icon: const DIcon(DIcons.plus),
+                    tooltip: 'Open a new tab',
+                    variant: DButtonVariant.inline,
+                    onPressed: controller.canCreateTab
+                        ? () => controller.createTab(panel: panel)
+                        : null,
+                  ),
+                ],
+              ),
+            );
+          }
+
+          return ForumTabsBar(
+            key: ValueKey(('forum-tabs', siteUrl, panel)),
+            forumName: forumName,
+            panel: panel,
+            onMoveToPanel: panel == null ? null : controller.moveTabToPanel,
+            showAdd: true,
+            incomingTab: incoming,
+            itemForDrop: itemForDrop,
+            acceptsLink: (link) =>
+                link.siteUrl == siteUrl && controller.canCreateTab,
+            onDropLink: (link, index) => unawaited(
+              openLink(
+                context,
+                link.path,
+                title: link.title,
+                siteUrl: link.siteUrl,
+                newTab: true,
+                panel: panel,
+                tabIndex: index,
+              ),
+            ),
+            items: [for (final tab in tabs) itemFor(tab)],
+            recentlyClosedItems: [
+              for (final tab in state.recentlyClosedTabs)
+                if (panel == null || tab.panel == panel) itemFor(tab),
+            ],
+            selectedId: tabs.any((tab) => tab.id == selectedId)
+                ? selectedId!
+                : tabs.first.id,
+            onAdd: controller.canCreateTab
+                ? () => controller.createTab(panel: panel)
+                : null,
+            acceptsTab: (id) =>
+                controller.currentWorkspace?.tabById(id) != null,
+            onDropTab: panel == null
+                ? null
+                : (id, index) =>
+                      controller.moveTabToPanel(id, panel!, index: index),
+            onSelect: controller.selectTab,
+            onClose: controller.closeTab,
+            onReorder: (id, index) => controller.moveTab(
+              id,
+              state.tabs.indexWhere((tab) => tab.id == tabs[index].id),
+            ),
+            onCloseOthers: (id) => controller.closeOtherTabs(id, panel: panel),
+            onReopen: controller.canCreateTab
+                ? (id) {
+                    if (controller.reopenClosedTab(id)) {
+                      controller.selectTab(id);
+                    }
+                  }
+                : null,
+          );
+        },
+      );
+    },
   );
 }
 

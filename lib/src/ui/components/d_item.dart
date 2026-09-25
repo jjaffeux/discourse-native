@@ -50,6 +50,7 @@ class DItem extends StatefulWidget {
     this.padding,
     this.cornerAction,
     this.dragData,
+    this.dragFeedback,
   });
 
   final List<Widget> children;
@@ -109,6 +110,9 @@ class DItem extends StatefulWidget {
   /// Immutable payload offered when the entire row is dragged.
   /// Ordinary tap, focus, and link actions remain available.
   final Object? dragData;
+
+  /// Visual shown under the pointer while [dragData] is being dragged.
+  final Widget? dragFeedback;
 
   @override
   State<DItem> createState() => _DItemState();
@@ -379,7 +383,7 @@ class _DItemState extends State<DItem> {
     return Draggable<Object>(
       data: widget.dragData!,
       dragAnchorStrategy: pointerDragAnchorStrategy,
-      feedback: const SizedBox.shrink(),
+      feedback: widget.dragFeedback ?? const SizedBox.shrink(),
       child: item,
     );
   }
