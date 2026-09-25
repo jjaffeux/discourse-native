@@ -13,6 +13,7 @@ import 'content_reading_lane.dart';
 import 'platform.dart';
 import 'shell_controller.dart';
 import 'shell_scope.dart';
+import 'topic_list_bottom_bar.dart';
 import 'topic_list_filter_bar.dart';
 
 typedef _TopicListNavigationSnapshot = ({
@@ -273,16 +274,24 @@ class _TopicListNavigationControls extends StatelessWidget {
                       ],
                     ),
                   ),
+                  // The mobile dock keeps a fixed geometry, so these page
+                  // actions live with the list rather than beside it.
+                  if (controller.mobileNavigationEnabled) ...[
+                    const SizedBox(width: DSpacing.controlGap),
+                    const DismissNewTopicsButton(compact: true),
+                  ],
                   if (state.connected &&
                       state.siteUrl != null &&
                       state.route?.categoryId != null &&
                       state.route?.isMessages != true &&
-                      !context.isTouch) ...[
-                    const SizedBox(width: DSpacing.controlGap),
+                      (!context.isTouch ||
+                          controller.mobileNavigationEnabled)) ...[
+                    if (!controller.mobileNavigationEnabled)
+                      const SizedBox(width: DSpacing.controlGap),
                     CategoryNotificationLevelButton(
                       siteUrl: state.siteUrl!,
                       categoryId: state.route!.categoryId!,
-                      showChevron: true,
+                      showChevron: !controller.mobileNavigationEnabled,
                     ),
                   ],
                   if (trailing != null) ...[

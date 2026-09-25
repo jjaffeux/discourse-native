@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
@@ -8,7 +9,6 @@ import '../models/sidebar.dart';
 import '../plugin_api/plugin_scope.dart';
 import '../plugin_api/site_plugin_api.dart';
 import '../theme/d_icons.dart';
-import 'category_notifications.dart';
 import 'forum_search.dart';
 import 'forum_theme_surfaces.dart';
 import 'instance_rail.dart';
@@ -18,7 +18,6 @@ import 'mobile_footer_action.dart';
 import 'mobile_navigation.dart';
 import 'shell_controller.dart';
 import 'shell_scope.dart';
-import 'topic_list_bottom_bar.dart';
 import 'user_menu_button.dart';
 
 typedef _DockDestination = ({
@@ -221,15 +220,6 @@ class _MobileForumRootState extends State<MobileForumRoot> {
                   ?.panel
                   .mobileAction
             : null;
-        final showCategoryNotifications =
-            !widget.boundary &&
-            shell.currentContent?.isTopic != true &&
-            instance.isConnected &&
-            source?.categoryId != null;
-        final showDismiss =
-            !widget.boundary &&
-            shell.currentContent?.isTopic != true &&
-            (shell.canDismissNewTopics || shell.dismissingNewTopics);
         return Column(
           key: const ValueKey('mobile-root'),
           children: [
@@ -395,11 +385,6 @@ class _MobileForumRootState extends State<MobileForumRoot> {
                                   icon: DIcons.bookmark,
                                 ),
                             ],
-                            showDismiss: showDismiss,
-                            showCategoryNotifications:
-                                showCategoryNotifications,
-                            instanceUrl: instance.url,
-                            categoryId: source?.categoryId,
                             showReply: showReply,
                             showNewMessage: showNewMessage,
                             panelAction: panelAction,
@@ -426,58 +411,38 @@ class _MobileForumRootState extends State<MobileForumRoot> {
     required List<_DockDestination> destinations,
     required MobileTab selected,
     required List<SidebarDestination> moreDestinations,
-    required bool showDismiss,
-    required bool showCategoryNotifications,
-    required String instanceUrl,
-    required int? categoryId,
     required bool showReply,
     required bool showNewMessage,
     required SidebarPanelAction? panelAction,
     required bool showNewTopic,
     required ShellController shell,
   }) {
-    final fixedActions = <Widget>[
-      if (showDismiss) const DismissNewTopicsButton(compact: true),
-      if (showCategoryNotifications)
-        CategoryNotificationLevelButton(
-          siteUrl: instanceUrl,
-          categoryId: categoryId!,
-          showLabel: false,
-        ),
-    ];
     final pageAction = _footerAction.action;
-    final hasPrimary =
-        pageAction != null ||
-        showReply ||
-        showNewMessage ||
-        panelAction != null ||
-        showNewTopic;
     final labelGrowth = MediaQuery.textScalerOf(context).scale(11) - 11;
     final itemMin = 66.0 + labelGrowth * 2;
     final itemMax = 72.0 + labelGrowth * 2;
     const actionMin = 48.0;
     const gap = DSpacing.controlGap;
-    final reserved =
-        fixedActions.length * (48 + gap) + (hasPrimary ? actionMin + gap : 0);
-    final dockRoom = (constraints.maxWidth - reserved).clamp(
+    // The dock is sized from the width, the text scale and the destinations
+    // alone, always leaving room for one trailing action. Sizing it from the
+    // active tab's actions resized and re-spilled every slot on each switch.
+    final dockRoom = (constraints.maxWidth - actionMin - gap).clamp(
       0.0,
       double.infinity,
     );
     final fits = (dockRoom / itemMin).floor();
     final minimumSlots = labelGrowth > 3 ? 3 : 4;
-    final shownCount =
-        ((fixedActions.isEmpty && fits < minimumSlots ? minimumSlots : fits) -
-                1)
-            .clamp(1, destinations.length);
+    final shownCount = (math.max(fits, minimumSlots) - 1).clamp(
+      1,
+      destinations.length,
+    );
     final shown = destinations.take(shownCount).toList();
     final spilled = destinations.skip(shownCount).toList();
     final dockWidth = (itemMax * (shown.length + 1)).clamp(0.0, dockRoom);
-    final actionWidth =
-        (constraints.maxWidth -
-                dockWidth -
-                fixedActions.length * (48 + gap) -
-                gap)
-            .clamp(actionMin, 220.0);
+    final actionWidth = (constraints.maxWidth - dockWidth - gap).clamp(
+      actionMin,
+      220.0,
+    );
     final showLabel = _creationLabelFits(
       context,
       actionWidth,
@@ -616,7 +581,6 @@ class _MobileForumRootState extends State<MobileForumRoot> {
             ],
           ),
         ),
-        for (final action in fixedActions) action,
         if (primaryAction != null)
           SizedBox(width: actionWidth, child: primaryAction),
       ],
