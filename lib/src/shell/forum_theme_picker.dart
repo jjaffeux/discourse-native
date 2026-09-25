@@ -139,7 +139,7 @@ class _ForumThemePickerState extends State<ForumThemePicker> {
   );
 }
 
-class _ThemeChoiceRow extends StatelessWidget {
+class _ThemeChoiceRow extends StatefulWidget {
   const _ThemeChoiceRow({
     super.key,
     required this.theme,
@@ -158,27 +158,50 @@ class _ThemeChoiceRow extends StatelessWidget {
   final String editLabel;
 
   @override
-  Widget build(BuildContext context) => DItem(
-    key: ValueKey(('theme-choice', theme.id)),
-    size: DItemSize.sm,
-    selected: chosen,
-    showSelectionIndicator: false,
-    onPressed: onPressed,
-    children: [
-      DItemMedia(child: ThemeThumbnail(theme: previewTheme)),
-      DItemContent(children: [DItemTitle(child: Text(theme.name))]),
-      DItemActions(
+  State<_ThemeChoiceRow> createState() => _ThemeChoiceRowState();
+}
+
+class _ThemeChoiceRowState extends State<_ThemeChoiceRow> {
+  bool _hovered = false;
+  bool _focusWithin = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final showEdit = widget.chosen || _hovered || _focusWithin;
+    return Focus(
+      canRequestFocus: false,
+      onFocusChange: (focused) => setState(() => _focusWithin = focused),
+      child: DItem(
+        key: ValueKey(('theme-choice', widget.theme.id)),
+        size: DItemSize.sm,
+        selected: widget.chosen,
+        showSelectionIndicator: false,
+        onPressed: widget.onPressed,
+        onHoverChanged: (hovered) => setState(() => _hovered = hovered),
         children: [
-          DButton.iconOnly(
-            key: ValueKey(('edit-theme', theme.id)),
-            icon: const DIcon(DIcons.pencil),
-            tooltip: editLabel,
-            variant: DButtonVariant.outline,
-            size: DButtonSize.small,
-            onPressed: onEdit,
+          DItemMedia(child: ThemeThumbnail(theme: widget.previewTheme)),
+          DItemContent(children: [DItemTitle(child: Text(widget.theme.name))]),
+          DItemActions(
+            children: [
+              IgnorePointer(
+                ignoring: !showEdit,
+                child: Opacity(
+                  key: ValueKey(('edit-theme-visibility', widget.theme.id)),
+                  opacity: showEdit ? 1 : 0,
+                  child: DButton.iconOnly(
+                    key: ValueKey(('edit-theme', widget.theme.id)),
+                    icon: const DIcon(DIcons.pencil),
+                    tooltip: widget.editLabel,
+                    variant: DButtonVariant.outline,
+                    size: DButtonSize.small,
+                    onPressed: widget.onEdit,
+                  ),
+                ),
+              ),
+            ],
           ),
         ],
       ),
-    ],
-  );
+    );
+  }
 }
