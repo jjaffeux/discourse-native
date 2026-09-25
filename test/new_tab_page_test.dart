@@ -99,7 +99,7 @@ void main() {
     }
   });
 
-  testWidgets('recent topics support middle, Shift, and right click', (
+  testWidgets('Latest topics support middle, Shift, and right click', (
     tester,
   ) async {
     SharedPreferences.setMockInitialValues({
@@ -108,7 +108,7 @@ void main() {
     final previousPlatform = debugDefaultTargetPlatformOverride;
     debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
     try {
-      await pumpShell(tester, desktop);
+      await pumpShell(tester, desktop, api: _apiWithLatestTopic());
       final shell = ShellScope.read(
         tester.element(find.byType(MainContent).first),
       );
@@ -402,7 +402,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(
       find.byKey(const ValueKey('start-page-recent-topic-42')),
-      findsOneWidget,
+      findsNothing,
     );
     expect(
       tester
@@ -410,13 +410,50 @@ void main() {
           .variant,
       DButtonVariant.secondary,
     );
-    expect(find.text('Recently visited'), findsOneWidget);
+    expect(find.text('Recently visited'), findsNothing);
     expect(find.widgetWithText(DButton, 'Latest topics'), findsOneWidget);
     expect(shortcut('Categories'), findsOneWidget);
 
     await tester.tap(shortcut('Categories'));
     await tester.pumpAndSettle();
     expect(shell.currentContent?.id, 'all-categories');
+  });
+
+  testWidgets('Start page loads Latest instead of showing visited topics', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({
+      'discourse_native.panel_tutorial_dismissed': true,
+    });
+    final feeds = <String, List<Topic>>{};
+    final api = FakeDiscourseApi(feeds: feeds);
+    await pumpShell(tester, desktop, api: api);
+    final shell = ShellScope.read(
+      tester.element(find.byType(MainContent).first),
+    );
+    final before = api.feedPaths.where((path) => path == '/latest.json').length;
+    feeds['/latest.json'] = const [
+      Topic(id: 77, title: 'Actual latest topic', slug: 'actual-latest-topic'),
+    ];
+    shell.openTopicUrl('/t/previously-visited/42');
+    shell.pushContent(ContentRoute.newTab());
+    await tester.pumpAndSettle();
+
+    expect(
+      api.feedPaths.where((path) => path == '/latest.json').length,
+      before + 1,
+    );
+    expect(find.text('Latest topics'), findsOneWidget);
+    expect(find.text('Actual latest topic'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('start-page-recent-topic-77')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('start-page-recent-topic-42')),
+      findsNothing,
+    );
+    expect(find.text('Recently visited'), findsNothing);
   });
 
   testWidgets('an opened chat channel appears on the start page', (
@@ -652,7 +689,7 @@ void main() {
     SharedPreferences.setMockInitialValues({
       'discourse_native.panel_tutorial_dismissed': true,
     });
-    await pumpShell(tester, desktop);
+    await pumpShell(tester, desktop, api: _apiWithLatestTopic());
     final shell = ShellScope.read(
       tester.element(find.byType(MainContent).first),
     );
@@ -919,7 +956,7 @@ void main() {
       SharedPreferences.setMockInitialValues({
         'discourse_native.panel_tutorial_dismissed': true,
       });
-      await pumpShell(tester, desktop);
+      await pumpShell(tester, desktop, api: _apiWithLatestTopic());
       final shell = ShellScope.read(
         tester.element(find.byType(MainContent).first),
       );
@@ -973,7 +1010,7 @@ void main() {
       SharedPreferences.setMockInitialValues({
         'discourse_native.panel_tutorial_dismissed': true,
       });
-      await pumpShell(tester, desktop);
+      await pumpShell(tester, desktop, api: _apiWithLatestTopic());
       final shell = ShellScope.read(
         tester.element(find.byType(MainContent).first),
       );
@@ -1002,3 +1039,11 @@ void main() {
     }
   });
 }
+
+FakeDiscourseApi _apiWithLatestTopic() => FakeDiscourseApi(
+  feeds: const {
+    '/latest.json': [
+      Topic(id: 42, title: 'Recent topic', slug: 'recent-topic'),
+    ],
+  },
+);
