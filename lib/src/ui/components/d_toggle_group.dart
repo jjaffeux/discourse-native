@@ -573,11 +573,11 @@ class _DToggleGroupState<T extends Object> extends State<DToggleGroup<T>> {
           border: Border.all(
             color: widget.density == DToggleDensity.tile
                 ? tokens.border
-                : Color.lerp(tokens.background, tokens.foreground, .16)!,
+                : Color.lerp(tokens.background, tokens.foreground, .12)!,
           ),
           borderRadius: BorderRadius.circular(10),
         ),
-        child: Padding(padding: const EdgeInsets.all(2), child: group),
+        child: Padding(padding: const EdgeInsets.all(3), child: group),
       );
       group = Align(
         alignment: AlignmentDirectional.centerStart,
