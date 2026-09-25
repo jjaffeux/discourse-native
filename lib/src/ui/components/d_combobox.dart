@@ -14,6 +14,7 @@ import '../foundation/tokens.dart';
 import 'd_button.dart';
 import 'd_input_group.dart';
 import 'd_popover.dart';
+import 'd_separator.dart';
 
 bool _isComboboxTouchPlatform(BuildContext context) =>
     Theme.of(context).platform == TargetPlatform.iOS ||
@@ -1411,11 +1412,7 @@ class DComboboxSeparator extends StatelessWidget {
   const DComboboxSeparator({super.key});
 
   @override
-  Widget build(BuildContext context) => Container(
-    height: 1,
-    margin: const EdgeInsets.symmetric(horizontal: -4, vertical: 4),
-    color: DTokens.of(context).border,
-  );
+  Widget build(BuildContext context) => const DSeparator(space: 9);
 }
 
 class DComboboxChips<T> extends StatelessWidget {

@@ -41,6 +41,40 @@ DCombobox<String> _single({
 );
 
 void main() {
+  testWidgets('grouped options render a separator without layout errors', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _app(
+        DCombobox<String>(
+          options: const [],
+          groups: const [
+            DComboboxOptionGroup(
+              label: 'Users',
+              options: [DComboboxOption(value: 'alex', label: 'alex')],
+            ),
+            DComboboxOptionGroup(
+              label: 'Groups',
+              options: [DComboboxOption(value: 'team', label: 'team')],
+            ),
+          ],
+          anchor: const DComboboxInput<String>(),
+          content: const DComboboxContent(
+            children: [DComboboxList<String>()],
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.byType(TextField));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Users'), findsOneWidget);
+    expect(find.text('Groups'), findsOneWidget);
+    expect(find.byType(DComboboxSeparator), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('pointer highlight switches rows without an overlap frame', (
     tester,
   ) async {
