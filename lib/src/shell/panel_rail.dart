@@ -246,9 +246,14 @@ class _PanelRailState extends State<PanelRail>
         key: ValueKey('panel-rail-read-out-${entry.slot}'),
         label: entry.label ?? Text(entry.title),
         icon: entry.icon,
+        iconPosition: widget.opensTowardStart
+            ? DButtonIconPosition.end
+            : DButtonIconPosition.start,
         size: DControlSize.segment,
         variant: DButtonVariant.transparentBackground,
-        alignment: AlignmentDirectional.centerStart,
+        alignment: widget.opensTowardStart
+            ? AlignmentDirectional.centerEnd
+            : AlignmentDirectional.centerStart,
         backgroundColor: selected ? _mix(tokens, .10) : null,
         borderColor: selected ? _mix(tokens, .22) : null,
         foregroundColor: selected ? tokens.foreground : null,
@@ -333,15 +338,14 @@ class _PanelRailState extends State<PanelRail>
                 minWidth: width - 2,
                 maxWidth: width - 2,
                 child: ScrollConfiguration(
-                  behavior: ScrollConfiguration.of(
-                    context,
-                  ).copyWith(scrollbars: false),
+                  behavior: ScrollConfiguration.of(context)
+                      .copyWith(scrollbars: false),
                   child: SingleChildScrollView(
                     controller: _readOutScroll,
                     padding: const EdgeInsets.fromLTRB(
-                      4,
+                      0,
                       PanelRail._inset - 1,
-                      4,
+                      0,
                       PanelRail._inset - 1,
                     ),
                     child: Column(
@@ -388,9 +392,8 @@ class _PanelRailState extends State<PanelRail>
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(DRadius.pill),
                   child: ScrollConfiguration(
-                    behavior: ScrollConfiguration.of(
-                      context,
-                    ).copyWith(scrollbars: false),
+                    behavior: ScrollConfiguration.of(context)
+                        .copyWith(scrollbars: false),
                     child: SingleChildScrollView(
                       controller: _railScroll,
                       padding: const EdgeInsets.symmetric(
