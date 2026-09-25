@@ -207,4 +207,25 @@ void main() {
     );
     expect(shell.appSettings.disableGifAnimations, isTrue);
   });
+
+  testWidgets('Content width changes the Settings page immediately', (
+    tester,
+  ) async {
+    final shell = controller();
+    addTearDown(shell.dispose);
+    await pumpSettings(tester, shell, width: 1400, panelWidth: 1200);
+    await tapVisible(tester, find.text('Display'));
+
+    final toggle = find.byKey(const ValueKey('settings-content-width'));
+    final wide = tester.getRect(toggle);
+    expect(wide.width, 1168);
+
+    await tapVisible(tester, find.text('Normal'));
+    final normal = tester.getRect(toggle);
+    expect(normal.width, 825);
+    expect(normal.center.dx, wide.center.dx);
+
+    await tapVisible(tester, find.text('Wide'));
+    expect(tester.getRect(toggle), wide);
+  });
 }
