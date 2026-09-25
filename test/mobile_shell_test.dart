@@ -16,6 +16,7 @@ import 'package:discourse_native/src/plugins/voice/voice_module.dart';
 import 'package:discourse_native/src/plugins/voice/voice_services.dart';
 import 'package:discourse_native/src/plugins/voice/voice_settings.dart';
 import 'package:discourse_native/src/shell/bookmark_list.dart';
+import 'package:discourse_native/src/shell/category_notifications.dart';
 import 'package:discourse_native/src/shell/composer_panel.dart';
 import 'package:discourse_native/src/shell/forum_search.dart';
 import 'package:discourse_native/src/shell/forum_tabs_bar.dart';
@@ -160,6 +161,10 @@ Future<ShellController> pumpMobileShellFixture(
       },
       feeds: const {
         '/latest.json': [
+          Topic(id: 7, title: 'Shared topic card', slug: 'shared'),
+        ],
+        '/new.json': [Topic(id: 7, title: 'Shared topic card', slug: 'shared')],
+        '/c/support/42.json': [
           Topic(id: 7, title: 'Shared topic card', slug: 'shared'),
         ],
       },
@@ -873,6 +878,72 @@ void main() {
     expect(shell.visibleComposer, isNotNull);
     expect(shell.visibleComposer!.target.isPrivateMessage, isTrue);
     expect(shell.visibleComposer!.target.targetRecipients, '');
+    expect(tester.takeException(), isNull);
+  });
+
+  _mobileTest('dock slots keep their geometry across every tab', (
+    tester,
+  ) async {
+    await pumpMobileShellFixture(tester, events: true);
+    for (final width in [320.0, 390.0, 430.0]) {
+      tester.view.physicalSize = Size(width, 844);
+      await tester.pumpAndSettle();
+      Map<Key?, Rect>? expected;
+      // Start has no trailing action, Topics and Messages each have their
+      // own, and Chat carries its panel action: none may move a slot.
+      for (final tab in [
+        'start',
+        'topics',
+        'panel/chat',
+        'messages',
+        'start',
+      ]) {
+        await _tapDockTab(tester, tab);
+        final slots = {
+          for (final item
+              in find
+                  .descendant(of: _bar, matching: find.byType(DMobileDockItem))
+                  .evaluate())
+            item.widget.key: tester.getRect(
+              find.byElementPredicate((e) => e == item),
+            ),
+        };
+        expect(slots, expected ?? slots, reason: '$tab at $width');
+        expected ??= slots;
+      }
+    }
+    expect(tester.takeException(), isNull);
+  });
+
+  _mobileTest('list page actions sit with the list, not in the dock', (
+    tester,
+  ) async {
+    final shell = await pumpMobileShellFixture(tester);
+    final dock = tester.getRect(find.byKey(const ValueKey('mobile-mode-more')));
+    final row = find.byKey(const ValueKey('topic-list-feed-row'));
+
+    await shell.selectTopicListMode(TopicListMode.newActivity);
+    await tester.pumpAndSettle();
+    final dismiss = find.byKey(const ValueKey('dismiss-new-topics'));
+    expect(find.descendant(of: row, matching: dismiss), findsOneWidget);
+    expect(find.descendant(of: _bar, matching: dismiss), findsNothing);
+
+    shell.openCategory(
+      const TopicCategory(
+        id: 42,
+        name: 'Support',
+        slug: 'support',
+        color: '3188CC',
+      ),
+    );
+    await tester.pumpAndSettle();
+    final notifications = find.byType(CategoryNotificationLevelButton);
+    expect(find.descendant(of: row, matching: notifications), findsOneWidget);
+    expect(find.descendant(of: _bar, matching: notifications), findsNothing);
+    expect(
+      tester.getRect(find.byKey(const ValueKey('mobile-mode-more'))),
+      dock,
+    );
     expect(tester.takeException(), isNull);
   });
 
