@@ -49,6 +49,7 @@ class DItem extends StatefulWidget {
     this.semanticLabel,
     this.padding,
     this.cornerAction,
+    this.dragData,
   });
 
   final List<Widget> children;
@@ -104,6 +105,10 @@ class DItem extends StatefulWidget {
   /// accessible navigation keep it visible. Its focus, semantics and state stay
   /// mounted while hidden. Reserve this corner in the header's content.
   final Widget? cornerAction;
+
+  /// Immutable payload offered when the entire row is dragged.
+  /// Ordinary tap, focus, and link actions remain available.
+  final Object? dragData;
 
   @override
   State<DItem> createState() => _DItemState();
@@ -360,7 +365,7 @@ class _DItemState extends State<DItem> {
         child: result,
       );
     }
-    return Semantics(
+    final item = Semantics(
       container: true,
       button: widget.onPressed != null && !widget.link ? true : null,
       link: widget.link ? true : null,
@@ -369,6 +374,13 @@ class _DItemState extends State<DItem> {
       selected: widget.selected ? true : null,
       onTap: _active ? widget.onPressed : null,
       child: widget.enabled ? result : Opacity(opacity: .5, child: result),
+    );
+    if (!widget.enabled || widget.dragData == null) return item;
+    return Draggable<Object>(
+      data: widget.dragData!,
+      dragAnchorStrategy: pointerDragAnchorStrategy,
+      feedback: const SizedBox.shrink(),
+      child: item,
     );
   }
 }

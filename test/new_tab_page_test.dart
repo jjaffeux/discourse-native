@@ -1,10 +1,13 @@
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/src/models/bookmark.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/forum_workspace.dart';
+import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_notification_counter.dart';
 import 'package:discourse_native/src/shell/forum_search.dart';
+import 'package:discourse_native/src/shell/forum_tabs_bar.dart';
 import 'package:discourse_native/src/shell/main_content.dart';
 import 'package:discourse_native/src/shell/new_tab_page.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
@@ -375,8 +378,9 @@ void main() {
       tester
           .widget<DButton>(find.widgetWithText(DButton, 'Latest topics'))
           .variant,
-      DButtonVariant.transparentBackground,
+      DButtonVariant.secondary,
     );
+    expect(find.text('Recently visited'), findsOneWidget);
     expect(find.widgetWithText(DButton, 'Latest topics'), findsOneWidget);
     expect(shortcut('Categories'), findsOneWidget);
 
@@ -441,5 +445,195 @@ void main() {
     await tester.tap(find.text('General'));
     await tester.pumpAndSettle();
     expect(shell.currentContent?.id, 'chat-c-9');
+  });
+
+  testWidgets('cached bookmarks and Latest appear without extra requests', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({
+      'discourse_native.panel_tutorial_dismissed': true,
+    });
+    const site = 'https://meta.discourse.org';
+    const user = DiscourseUser(username: 'reader');
+    final api = FakeDiscourseApi(
+      user: user,
+      bookmarkList: const [
+        Bookmark(
+          id: 18,
+          title: 'Saved topic',
+          path: '/t/saved-topic/18',
+          bookmarkableType: 'Topic',
+        ),
+      ],
+      feeds: const {
+        '/latest.json': [
+          Topic(
+            id: 42,
+            title: 'Latest from the forum',
+            slug: 'latest-from-the-forum',
+            unreadPosts: 3,
+          ),
+        ],
+      },
+    );
+    await pumpShell(
+      tester,
+      desktop,
+      instances: [instance('meta.discourse.org').copyWith(user: user)],
+      authenticator: FakeAuthenticator()..keys[site] = 'key',
+      api: api,
+    );
+    final shell = ShellScope.read(
+      tester.element(find.byType(MainContent).first),
+    );
+    await shell.loadBookmarks(site);
+    await tester.pumpAndSettle();
+    final beforeFeeds = api.feedPaths.length;
+    final beforeBookmarks = api.bookmarksRequested.length;
+    shell.pushContent(ContentRoute.newTab());
+    await tester.pumpAndSettle();
+
+    expect(find.text('Saved topic'), findsOneWidget);
+    expect(find.text('Latest from the forum'), findsOneWidget);
+    expect(find.text('3'), findsWidgets);
+    expect(api.feedPaths, hasLength(beforeFeeds));
+    expect(api.bookmarksRequested, hasLength(beforeBookmarks));
+  });
+
+  testWidgets('density control switches between compact and comfortable rows', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({
+      'discourse_native.panel_tutorial_dismissed': true,
+    });
+    await pumpShell(tester, desktop);
+    final shell = ShellScope.read(
+      tester.element(find.byType(MainContent).first),
+    );
+    shell.openTopicUrl('/t/recent-topic/42');
+    shell.pushContent(ContentRoute.newTab());
+    await tester.pumpAndSettle();
+
+    final row = find.byKey(const ValueKey('start-page-recent-topic-42'));
+    expect(tester.widget<DItem>(row).size, DItemSize.xs);
+    await tester.tap(find.byTooltip('Comfortable'));
+    await tester.pumpAndSettle();
+    expect(tester.widget<DItem>(row).size, DItemSize.standard);
+    await tester.tap(find.byTooltip('Compact'));
+    await tester.pumpAndSettle();
+    expect(tester.widget<DItem>(row).size, DItemSize.xs);
+  });
+
+  testWidgets('cached direct messages join recent chat channels', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({
+      'discourse_native.panel_tutorial_dismissed': true,
+    });
+    const site = 'https://meta.discourse.org';
+    const user = DiscourseUser(username: 'reader');
+    final api = FakeDiscourseApi(
+      user: user,
+      totals: chatNotificationTotals(available: true),
+      feeds: const {'/latest.json': []},
+      chatChannelsBySite: {
+        site: const ChatChannels(
+          direct: [
+            ChatChannel(
+              id: 11,
+              title: 'Alex',
+              kind: ChatChannelKind.directMessage,
+              membership: ChatMembership(following: true),
+            ),
+          ],
+        ),
+      },
+    );
+    await pumpShell(
+      tester,
+      desktop,
+      instances: [instance('meta.discourse.org').copyWith(user: user)],
+      authenticator: FakeAuthenticator()..keys[site] = 'key',
+      api: api,
+    );
+    final shell = ShellScope.read(
+      tester.element(find.byType(MainContent).first),
+    );
+    shell.pushContent(ContentRoute.newTab());
+    await tester.pumpAndSettle();
+    expect(find.text('Alex'), findsOneWidget);
+    expect(find.text('Chat'), findsOneWidget);
+  });
+
+  testWidgets('recently closed tabs appear and reopen from Start page', (
+    tester,
+  ) async {
+    final previousPlatform = debugDefaultTargetPlatformOverride;
+    debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+    try {
+      SharedPreferences.setMockInitialValues({
+        'discourse_native.panel_tutorial_dismissed': true,
+      });
+      await pumpShell(tester, desktop);
+      final shell = ShellScope.read(
+        tester.element(find.byType(MainContent).first),
+      );
+      shell.selectInstance(0);
+      shell.pushContent(ContentRoute.newTab());
+      final closedId = shell.activeTabId!;
+      shell.closeTab(closedId);
+      expect(
+        shell.recentlyClosedTabsForCurrentForum.map((tab) => tab.id),
+        contains(closedId),
+      );
+      shell.pushContent(ContentRoute.newTab());
+      await tester.pumpAndSettle();
+
+      expect(find.text('Recently closed'), findsOneWidget);
+      expect(
+        find.byKey(ValueKey('start-page-recent-closed-$closedId')),
+        findsOneWidget,
+      );
+      await tester.tap(
+        find.byKey(ValueKey('start-page-recent-closed-$closedId')),
+      );
+      await tester.pumpAndSettle();
+      expect(shell.activeTabId, closedId);
+    } finally {
+      debugDefaultTargetPlatformOverride = previousPlatform;
+    }
+  });
+
+  testWidgets('dragging a Start page row onto tabs opens a new tab', (
+    tester,
+  ) async {
+    final previousPlatform = debugDefaultTargetPlatformOverride;
+    debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+    try {
+      SharedPreferences.setMockInitialValues({
+        'discourse_native.panel_tutorial_dismissed': true,
+      });
+      await pumpShell(tester, desktop);
+      final shell = ShellScope.read(
+        tester.element(find.byType(MainContent).first),
+      );
+      shell.selectInstance(0);
+      shell.openTopicUrl('/t/recent-topic/42');
+      shell.pushContent(ContentRoute.newTab());
+      await tester.pumpAndSettle();
+      final before = shell.tabsForCurrentForum.length;
+      final source = find.byKey(const ValueKey('start-page-recent-topic-42'));
+      expect(source, findsOneWidget);
+      final target = find.byType(CurrentForumTabsBar).first;
+      final gesture = await tester.startGesture(tester.getCenter(source));
+      await gesture.moveTo(tester.getCenter(target));
+      await tester.pump();
+      await gesture.up();
+      await tester.pumpAndSettle();
+      expect(shell.tabsForCurrentForum, hasLength(before + 1));
+      expect(shell.tabsForCurrentForum.last.currentContent.topicId, 42);
+    } finally {
+      debugDefaultTargetPlatformOverride = previousPlatform;
+    }
   });
 }

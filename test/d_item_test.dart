@@ -1143,4 +1143,44 @@ void main() {
       );
     },
   );
+
+  testWidgets('whole-row drag drops its payload and preserves tap', (
+    tester,
+  ) async {
+    var taps = 0;
+    String? dropped;
+    await tester.pumpWidget(
+      host(
+        Column(
+          children: [
+            DItem(
+              dragData: 'topic-42',
+              onPressed: () => taps++,
+              children: const [
+                DItemContent(children: [Text('Drag topic')]),
+              ],
+            ),
+            const SizedBox(height: 40),
+            DDragRegion<String>(
+              accepts: (data) => data == 'topic-42',
+              onMove: (_, _) {},
+              onDrop: (data, _) => dropped = data,
+              onLeave: () {},
+              child: const SizedBox(height: 100, child: Text('Target')),
+            ),
+          ],
+        ),
+      ),
+    );
+    await tester.tap(find.text('Drag topic'));
+    expect(taps, 1);
+    final gesture = await tester.startGesture(
+      tester.getCenter(find.text('Drag topic')),
+    );
+    await gesture.moveTo(tester.getCenter(find.text('Target')));
+    await gesture.up();
+    await tester.pump();
+    expect(dropped, 'topic-42');
+    expect(taps, 1);
+  });
 }

@@ -6,13 +6,18 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../app_shortcuts.dart';
+import '../models/bookmark.dart';
 import '../models/content_route.dart';
+import '../models/forum_workspace.dart';
 import '../models/sidebar.dart';
+import '../models/topic.dart';
 import '../plugin_api/plugin_scope.dart';
 import '../theme/d_icons.dart';
 import 'forum_icon.dart';
 import 'open_link.dart';
+import 'relative_time.dart';
 import 'shell_scope.dart';
+import 'start_page_drag.dart';
 
 /// The landing surface for an otherwise empty forum tab.
 class NewTabPage extends StatefulWidget {
@@ -28,6 +33,7 @@ class _NewTabPageState extends State<NewTabPage> {
   static const _dismissedKey = 'discourse_native.panel_tutorial_dismissed';
   final _searchPromptFocus = FocusNode(debugLabel: 'start page search prompt');
   bool? _dismissed;
+  bool _compact = true;
 
   @override
   void initState() {
@@ -81,6 +87,18 @@ class _NewTabPageState extends State<NewTabPage> {
   @override
   Widget build(BuildContext context) {
     final shell = ShellScope.maybeOf(context);
+    if (shell == null) return _buildPage(context);
+    return ListenableBuilder(
+      listenable: Listenable.merge([
+        shell.accountActivity.bookmarksListenable,
+        shell.topicFeeds,
+      ]),
+      builder: (context, _) => _buildPage(context),
+    );
+  }
+
+  Widget _buildPage(BuildContext context) {
+    final shell = ShellScope.maybeOf(context);
     final forum = shell?.currentInstance;
     final registry = PluginScope.maybeOf(context)?.registry;
     final siteUrl = forum?.url;
@@ -113,9 +131,28 @@ class _NewTabPageState extends State<NewTabPage> {
               .recentChannelsFor(siteUrl)
               .where((route) => availableChannels.containsKey(route.id))
               .toList();
-    final topics = siteUrl == null
-        ? <ContentRoute>[]
-        : shell!.recentTopicsFor(siteUrl);
+    final directMessages = [
+      for (final destination in availableChannels.values)
+        if ((destination.icon == DIcons.user ||
+                destination.icon == DIcons.users) &&
+            !channels.any((route) => route.id == destination.id))
+          destination,
+    ];
+    final latest = siteUrl == null
+        ? <Topic>[]
+        : shell!.cachedLatestTopicsFor(siteUrl).take(4).toList();
+    final bookmarks = siteUrl == null
+        ? <Bookmark>[]
+        : shell!.bookmarksFor(siteUrl).loaded
+        ? shell
+              .bookmarksFor(siteUrl)
+              .bookmarks
+              .where((b) => b.path != null)
+              .take(4)
+              .toList()
+        : <Bookmark>[];
+    final closed =
+        shell?.recentlyClosedTabsForCurrentForum ?? const <ForumTab>[];
     const chatDestination = SidebarDestination(
       id: 'chat-channels',
       label: 'Chat',
@@ -123,48 +160,166 @@ class _NewTabPageState extends State<NewTabPage> {
     );
     void openCategories() => openLink(context, '/categories');
     void openChat() => shell!.selectDestination(chatDestination);
+    void openBookmarks() => shell!.selectDestination(
+      const SidebarDestination(
+        id: 'user-bookmarks',
+        label: 'Bookmarks',
+        icon: DIcons.bookmark,
+      ),
+    );
 
+    final categoryRows = [
+      for (final route in categories.take(4))
+        _StartPageEntry.fromRoute(route, () => _openRoute(context, route)),
+    ];
+    final visibleChannels = channels.take(4).toList();
+    if (directMessages.isNotEmpty &&
+        !visibleChannels.any(
+          (route) =>
+              availableChannels[route.id]?.icon == DIcons.user ||
+              availableChannels[route.id]?.icon == DIcons.users,
+        ) &&
+        visibleChannels.length == 4) {
+      visibleChannels.removeLast();
+    }
+    final chatRows = [
+      for (final route in visibleChannels)
+        _StartPageEntry.fromRoute(
+          route,
+          () => availableChannels[route.id]?.onTap?.call(),
+          destination: availableChannels[route.id],
+        ),
+      for (final destination in directMessages.take(4 - visibleChannels.length))
+        _StartPageEntry(
+          id: destination.id,
+          title: destination.label,
+          icon: destination.icon,
+          count: destination.badge?.count,
+          path: _recentRouteUrl(ContentRoute.fromDestination(destination)),
+          onPressed: () => destination.onTap?.call(),
+        ),
+    ];
+    final topicRows = [
+      for (final topic in latest)
+        _StartPageEntry(
+          id: 'topic-${topic.id}',
+          title: topic.title,
+          icon: topic.pinned
+              ? DIcons.thumbtack
+              : topic.closed
+              ? DIcons.lock
+              : DIcons.layerGroup,
+          count: topic.unreadCount,
+          time: topic.bumpedAt == null ? null : relativeTime(topic.bumpedAt!),
+          description: topic.excerpt,
+          path: '/t/${topic.slug}/${topic.id}',
+          onPressed: () => openLink(context, '/t/${topic.slug}/${topic.id}'),
+        ),
+    ];
+    final visitedRows = latest.isNotEmpty || siteUrl == null
+        ? <_StartPageEntry>[]
+        : [
+            for (final route in shell!.recentTopicsFor(siteUrl).take(4))
+              _StartPageEntry.fromRoute(
+                route,
+                () => _openRoute(context, route),
+              ),
+          ];
+    final bookmarkRows = [
+      for (final bookmark in bookmarks)
+        _StartPageEntry(
+          id: 'bookmark-${bookmark.id}',
+          title: bookmark.title.isEmpty ? 'Bookmark' : bookmark.title,
+          icon: bookmark.coreTargetType == BookmarkTargetType.post
+              ? DIcons.reply
+              : bookmark.coreTargetType == BookmarkTargetType.topic
+              ? DIcons.layerGroup
+              : DIcons.bookmark,
+          time: bookmark.reminderAt == null
+              ? null
+              : bookmark.reminderAt!.isBefore(DateTime.now())
+              ? 'Due'
+              : 'Reminder',
+          description: bookmark.name,
+          path: bookmark.path,
+          onPressed: () => openLink(context, bookmark.path!),
+        ),
+    ];
+    final closedRows = [
+      for (final tab in closed.take(4))
+        _StartPageEntry(
+          id: 'closed-${tab.id}',
+          title: tab.currentContent.title,
+          icon: tab.currentContent.icon,
+          path: _recentRouteUrl(tab.currentContent),
+          onPressed: () => shell!.reopenClosedTab(tab.id),
+        ),
+    ];
+
+    final tokens = DTokens.of(context);
     return SingleChildScrollView(
       child: Align(
         alignment: AlignmentDirectional.topCenter,
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 1500),
           child: Padding(
-            padding: const EdgeInsets.all(DSpacing.xl),
+            padding: const EdgeInsets.all(DSpacing.lg),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               spacing: DSpacing.lg,
               children: [
-                if (forum != null)
-                  Row(
-                    spacing: DSpacing.md,
-                    children: [
-                      ForumIcon(forum: forum, size: 56),
-                      Flexible(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              forum.title,
-                              style: Theme.of(context).textTheme.headlineMedium,
-                            ),
+                Row(
+                  spacing: DSpacing.md,
+                  children: [
+                    if (forum != null) ForumIcon(forum: forum, size: 46),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            forum?.title ?? 'Start page',
+                            style: Theme.of(context).textTheme.headlineSmall,
+                          ),
+                          if (forum != null)
                             Text(
                               Uri.tryParse(forum.url)?.host ?? forum.url,
-                              style: Theme.of(context).textTheme.bodyMedium,
+                              style: Theme.of(context).textTheme.bodyMedium
+                                  ?.copyWith(color: tokens.mutedForeground),
                             ),
-                          ],
-                        ),
+                        ],
                       ),
-                    ],
-                  )
-                else
-                  Text(
-                    'Start page',
-                    style: Theme.of(context).textTheme.headlineMedium,
-                  ),
+                    ),
+                    DToggleGroup<bool>(
+                      key: const ValueKey('start-page-density'),
+                      values: [_compact],
+                      onChanged: (values) {
+                        if (values.isNotEmpty) {
+                          setState(() => _compact = values.single);
+                        }
+                      },
+                      allowEmptySelection: false,
+                      inset: true,
+                      size: DToggleSize.small,
+                      items: const [
+                        DToggleGroupItem<bool>.iconOnly(
+                          value: false,
+                          icon: DIcon(DIcons.grip, size: 14),
+                          semanticLabel: 'Comfortable',
+                          tooltip: 'Comfortable',
+                        ),
+                        DToggleGroupItem<bool>.iconOnly(
+                          value: true,
+                          icon: DIcon(DIcons.list, size: 14),
+                          semanticLabel: 'Compact',
+                          tooltip: 'Compact',
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
                 if (shell != null)
                   ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 680),
+                    constraints: const BoxConstraints(maxWidth: 560),
                     child: DInputGroup(
                       size: DControlSize.large,
                       children: [
@@ -198,98 +353,129 @@ class _NewTabPageState extends State<NewTabPage> {
                         true))
                   _PanelTutorial(onDismiss: _dismiss),
                 if (shell != null) ...[
-                  if (categories.isNotEmpty ||
-                      channels.isNotEmpty ||
-                      topics.isNotEmpty)
-                    LayoutBuilder(
-                      builder: (context, constraints) {
-                        final width = constraints.maxWidth;
-                        final columns = width >= 1050
-                            ? 3
-                            : width >= 650
-                            ? 2
-                            : 1;
-                        final columnWidth =
-                            (width - (columns - 1) * DSpacing.lg) / columns;
-                        return Wrap(
-                          spacing: DSpacing.lg,
-                          runSpacing: DSpacing.xl,
-                          children: [
-                            if (categories.isNotEmpty)
-                              SizedBox(
-                                width: columnWidth,
-                                child: _RecentSection(
-                                  title: 'Categories',
-                                  icon: DIcons.layerGroup,
-                                  onHeading: openCategories,
-                                  headingUrl: '/categories',
-                                  routes: categories,
-                                  onRoute: (route) =>
-                                      _openRoute(context, route),
-                                ),
-                              ),
-                            if (hasChat && channels.isNotEmpty)
-                              SizedBox(
-                                width: columnWidth,
-                                child: _RecentSection(
-                                  title: 'Chat',
-                                  icon: DIcons.comments,
-                                  onHeading: openChat,
-                                  headingContent: ContentRoute.fromDestination(
-                                    chatDestination,
-                                  ),
-                                  routes: channels,
-                                  onRoute: (route) =>
-                                      availableChannels[route.id]?.onTap
-                                          ?.call(),
-                                ),
-                              ),
-                            if (topics.isNotEmpty)
-                              SizedBox(
-                                width: columnWidth,
-                                child: _RecentSection(
-                                  title: 'Latest topics',
-                                  icon: DIcons.layerGroup,
-                                  onHeading: widget.onBrowseTopics,
-                                  headingUrl: '/latest',
-                                  routes: topics,
-                                  onRoute: (route) =>
-                                      _openRoute(context, route),
-                                ),
-                              ),
-                          ],
-                        );
-                      },
+                  if (closedRows.isNotEmpty)
+                    _StartSection(
+                      title: 'Recently closed',
+                      icon: DIcons.arrowRotateLeft,
+                      rows: closedRows,
+                      compact: _compact,
+                      fullWidth: true,
+                      siteUrl: siteUrl!,
                     ),
-                  Text(
-                    'Everything else',
-                    style: Theme.of(context).textTheme.titleLarge,
+                  LayoutBuilder(
+                    builder: (context, constraints) {
+                      final columns = constraints.maxWidth >= 1050
+                          ? 3
+                          : constraints.maxWidth >= 650
+                          ? 2
+                          : 1;
+                      final width =
+                          (constraints.maxWidth - (columns - 1) * DSpacing.lg) /
+                          columns;
+                      return Wrap(
+                        spacing: DSpacing.lg,
+                        runSpacing: DSpacing.xl,
+                        children: [
+                          if (bookmarkRows.isNotEmpty)
+                            SizedBox(
+                              width: width,
+                              child: _StartSection(
+                                title: 'Bookmarks',
+                                icon: DIcons.bookmark,
+                                rows: bookmarkRows,
+                                compact: _compact,
+                                siteUrl: siteUrl!,
+                                onHeading: openBookmarks,
+                              ),
+                            ),
+                          if (categoryRows.isNotEmpty)
+                            SizedBox(
+                              width: width,
+                              child: _StartSection(
+                                title: 'Categories',
+                                icon: DIcons.tag,
+                                rows: categoryRows,
+                                compact: _compact,
+                                siteUrl: siteUrl!,
+                                onHeading: openCategories,
+                              ),
+                            ),
+                          if (hasChat && chatRows.isNotEmpty)
+                            SizedBox(
+                              width: width,
+                              child: _StartSection(
+                                title: 'Chat',
+                                icon: DIcons.comment,
+                                rows: chatRows,
+                                compact: _compact,
+                                siteUrl: siteUrl!,
+                                onHeading: openChat,
+                              ),
+                            ),
+                          if (topicRows.isNotEmpty)
+                            SizedBox(
+                              width: width,
+                              child: _StartSection(
+                                title: 'Latest topics',
+                                icon: DIcons.layerGroup,
+                                rows: topicRows,
+                                compact: _compact,
+                                siteUrl: siteUrl!,
+                                onHeading: widget.onBrowseTopics,
+                              ),
+                            ),
+                          if (visitedRows.isNotEmpty)
+                            SizedBox(
+                              width: width,
+                              child: _StartSection(
+                                title: 'Recently visited',
+                                icon: DIcons.layerGroup,
+                                rows: visitedRows,
+                                compact: _compact,
+                                siteUrl: siteUrl!,
+                              ),
+                            ),
+                        ],
+                      );
+                    },
+                  ),
+                  _StartSection(
+                    title: 'Everything else',
+                    icon: DIcons.ellipsis,
+                    rows: const [],
+                    compact: _compact,
+                    siteUrl: siteUrl!,
+                    fullWidth: true,
                   ),
                   Wrap(
                     key: const ValueKey('start-page-shortcuts'),
                     spacing: DSpacing.sm,
                     runSpacing: DSpacing.sm,
                     children: [
-                      // A section with no history yet stays reachable here
-                      // instead of disappearing from the page.
-                      if (topics.isEmpty)
+                      if (bookmarkRows.isEmpty && forum?.user != null)
+                        _LinkButton(
+                          label: 'Bookmarks',
+                          icon: DIcons.bookmark,
+                          onPressed: openBookmarks,
+                        ),
+                      if (topicRows.isEmpty)
                         _LinkButton(
                           label: 'Latest topics',
                           icon: DIcons.layerGroup,
                           url: '/latest',
                           onPressed: widget.onBrowseTopics,
                         ),
-                      if (categories.isEmpty)
+                      if (categoryRows.isEmpty)
                         _LinkButton(
                           label: 'Categories',
-                          icon: DIcons.layerGroup,
+                          icon: DIcons.tag,
                           url: '/categories',
                           onPressed: openCategories,
                         ),
-                      if (hasChat && channels.isEmpty)
+                      if (hasChat && chatRows.isEmpty)
                         _LinkButton(
                           label: 'Chat',
-                          icon: DIcons.comments,
+                          icon: DIcons.comment,
                           content: ContentRoute.fromDestination(
                             chatDestination,
                           ),
@@ -322,16 +508,21 @@ class _NewTabPageState extends State<NewTabPage> {
                         ),
                       _LinkButton(
                         label: 'Users',
-                        icon: DIcons.users,
+                        icon: DIcons.user,
                         url: '/u',
                         onPressed: () => openLink(context, '/u'),
                       ),
                       if (forum?.user != null)
                         _LinkButton(
                           label: 'Preferences',
-                          icon: DIcons.gear,
-                          onPressed: () => shell.openPreferences(siteUrl!),
+                          icon: DIcons.filter,
+                          onPressed: () => shell.openPreferences(siteUrl),
                         ),
+                      _LinkButton(
+                        label: 'Settings',
+                        icon: DIcons.gear,
+                        onPressed: () => shell.openForumSettings(siteUrl),
+                      ),
                     ],
                   ),
                 ] else if (_dismissed != null)
@@ -369,77 +560,189 @@ String? _recentRouteUrl(ContentRoute route) {
   return channel == null ? null : '/chat/c/-/${channel.group(1)}';
 }
 
-class _RecentSection extends StatelessWidget {
-  const _RecentSection({
+class _StartPageEntry {
+  const _StartPageEntry({
+    required this.id,
     required this.title,
     required this.icon,
-    required this.onHeading,
-    this.headingUrl,
-    this.headingContent,
-    required this.routes,
-    required this.onRoute,
+    required this.onPressed,
+    this.color,
+    this.count,
+    this.time,
+    this.description,
+    this.path,
+  });
+
+  factory _StartPageEntry.fromRoute(
+    ContentRoute route,
+    VoidCallback onPressed, {
+    SidebarDestination? destination,
+  }) => _StartPageEntry(
+    id: route.id,
+    title: route.title,
+    icon: destination?.icon ?? route.icon,
+    color: destination?.iconColor ?? route.color,
+    count: destination?.badge?.count,
+    description: route.subtitle,
+    path: _recentRouteUrl(route),
+    onPressed: onPressed,
+  );
+
+  final String id;
+  final String title;
+  final DIconData icon;
+  final Color? color;
+  final int? count;
+  final String? time;
+  final String? description;
+  final String? path;
+  final VoidCallback? onPressed;
+}
+
+class _StartSection extends StatelessWidget {
+  const _StartSection({
+    required this.title,
+    required this.icon,
+    required this.rows,
+    required this.compact,
+    required this.siteUrl,
+    this.onHeading,
+    this.fullWidth = false,
   });
 
   final String title;
   final DIconData icon;
-  final VoidCallback onHeading;
-  final String? headingUrl;
-  final ContentRoute? headingContent;
-  final List<ContentRoute> routes;
-  final ValueChanged<ContentRoute> onRoute;
+  final List<_StartPageEntry> rows;
+  final bool compact;
+  final String siteUrl;
+  final VoidCallback? onHeading;
+  final bool fullWidth;
 
-  Widget _heading() {
-    final button = DButton(
-      variant: DButtonVariant.transparentBackground,
-      icon: DIcon(icon, size: 17),
-      label: Text(title),
-      onPressed: onHeading,
-    );
-    if (headingUrl case final url?) {
-      return LinkTarget(url: url, child: button);
-    }
-    if (headingContent case final content?) {
-      return LinkTarget.content(content: content, child: button);
-    }
-    return button;
-  }
-
-  Widget _row(ContentRoute route) {
-    final item = DItem(
-      key: ValueKey('start-page-recent-${route.id}'),
+  Widget _row(_StartPageEntry entry) {
+    final metadata = (entry.count ?? 0) > 0
+        ? DBadge(
+            size: DBadgeSize.compact,
+            variant: DBadgeVariant.secondary,
+            child: Text(entry.count.toString()),
+          )
+        : entry.time == null
+        ? null
+        : Text(
+            entry.time!,
+            style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w400),
+          );
+    final row = DItem(
+      key: ValueKey('start-page-recent-${entry.id}'),
       variant: DItemVariant.muted,
-      link: true,
-      onPressed: () => onRoute(route),
+      size: compact ? DItemSize.xs : DItemSize.standard,
+      link: entry.path != null,
+      onPressed: entry.onPressed,
+      dragData: entry.path == null
+          ? null
+          : StartPageDrag(
+              siteUrl: siteUrl,
+              path: entry.path!,
+              title: entry.title,
+            ),
       children: [
-        DIcon(route.icon, size: 17, color: route.color),
+        DIcon(entry.icon, size: compact ? 16 : 18, color: entry.color),
         DItemContent(
           children: [
-            DItemTitle(
-              child: Text(
-                route.title,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+            Text(
+              entry.title,
+              maxLines: compact ? 1 : 2,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: compact ? 13 : 13.5,
+                fontWeight: compact ? FontWeight.w500 : FontWeight.w600,
               ),
             ),
+            if (!compact && entry.description?.isNotEmpty == true)
+              DItemDescription(
+                child: Text(
+                  entry.description!,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
           ],
         ),
+        ?metadata,
       ],
     );
-    final url = _recentRouteUrl(route);
-    return url == null
-        ? LinkTarget.content(content: route, child: item)
-        : LinkTarget(url: url, title: route.title, child: item);
+    return entry.path == null
+        ? row
+        : LinkTarget(
+            url: entry.path!,
+            title: entry.title,
+            siteUrl: siteUrl,
+            child: row,
+          );
   }
 
   @override
-  Widget build(BuildContext context) => Column(
-    crossAxisAlignment: CrossAxisAlignment.stretch,
-    spacing: DSpacing.sm,
-    children: [
-      Align(alignment: AlignmentDirectional.centerStart, child: _heading()),
-      for (final route in routes) _row(route),
-    ],
-  );
+  Widget build(BuildContext context) {
+    final heading = onHeading == null
+        ? Padding(
+            padding: const EdgeInsets.symmetric(vertical: DSpacing.xs),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              spacing: DSpacing.sm,
+              children: [
+                DIcon(icon, size: 14),
+                Text(
+                  title,
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleSmall?.copyWith(fontSize: 13),
+                ),
+              ],
+            ),
+          )
+        : DButton(
+            variant: DButtonVariant.transparentBackground,
+            size: DButtonSize.small,
+            icon: DIcon(icon, size: 14),
+            label: Row(
+              mainAxisSize: MainAxisSize.min,
+              spacing: DSpacing.sm,
+              children: [
+                Text(title),
+                const DIcon(DIcons.chevronRight, size: 11),
+              ],
+            ),
+            onPressed: onHeading,
+          );
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      spacing: DSpacing.sm,
+      children: [
+        heading,
+        if (rows.isNotEmpty)
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final across = fullWidth
+                  ? (constraints.maxWidth / (compact ? 280 : 240))
+                        .floor()
+                        .clamp(1, 4)
+                  : compact
+                  ? 1
+                  : (constraints.maxWidth / 230).floor().clamp(1, 2);
+              final width =
+                  (constraints.maxWidth - (across - 1) * DSpacing.xs) / across;
+              return Wrap(
+                spacing: DSpacing.xs,
+                runSpacing: DSpacing.xs,
+                children: [
+                  for (final entry in rows)
+                    SizedBox(width: width, child: _row(entry)),
+                ],
+              );
+            },
+          ),
+      ],
+    );
+  }
 }
 
 class _LinkButton extends StatelessWidget {

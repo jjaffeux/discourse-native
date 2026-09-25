@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:discourse_native/discourse_ui.dart';
@@ -10,11 +11,13 @@ import 'adaptive_shell.dart';
 import 'forum_tabs_bar.dart';
 import 'forum_theme_surfaces.dart';
 import 'main_content.dart';
+import 'open_link.dart';
 import 'panel_rail.dart';
 import 'resizable_pane.dart';
 import 'shell_metrics.dart';
 import 'shell_panel.dart';
 import 'shell_scope.dart';
+import 'start_page_drag.dart';
 import 'topic_presentation.dart';
 import 'window_frame.dart';
 
@@ -594,67 +597,81 @@ class _DesktopPanel extends StatelessWidget {
       }
     }
 
-    return ForumTabScope(
-      tabId: tabId,
-      panel: panel,
-      child: DragTarget<String>(
-        onWillAcceptWithDetails: (details) {
-          final source = shell.currentWorkspace?.tabById(details.data);
-          return source != null && source.panel != panel;
-        },
-        onAcceptWithDetails: (details) =>
-            shell.moveTabToPanel(details.data, panel),
-        builder: (context, candidates, rejected) => WorkspacePanel(
-          key: ValueKey('desktop-panel-${panel.name}'),
-          atRightEdge: true,
-          child: Column(
-            children: [
-              if (showHeader)
-                TopicPanelTabs(
-                  panel: panel,
-                  incomingTabId: candidates.firstOrNull,
-                  trailing: action,
-                ),
-              Expanded(
-                child: Focus(
-                  canRequestFocus: false,
-                  onFocusChange: (focused) {
-                    if (focused) activate();
-                  },
-                  child: Listener(
-                    onPointerDown: (_) => activate(),
-                    child: tabId == null
-                        ? DPageSurface(
-                            border: false,
-                            backgroundColor: ForumWindowBackground.panelColor(
-                              context,
-                            ),
-                            child: Center(
-                              child: DEmpty(
-                                children: [
-                                  DEmptyHeader(
-                                    children: [
-                                      DEmptyTitle(
-                                        panel == ForumPanel.main
-                                            ? 'Main panel'
-                                            : 'Secondary panel',
-                                      ),
-                                      DEmptyDescription(
-                                        candidates.isNotEmpty
-                                            ? 'Drop this tab here'
-                                            : 'Drag a tab here or open a new tab.',
-                                      ),
-                                    ],
-                                  ),
-                                ],
+    return DragTarget<StartPageDrag>(
+      onWillAcceptWithDetails: (details) =>
+          details.data.siteUrl == shell.currentInstance?.url,
+      onAcceptWithDetails: (details) => unawaited(
+        openLink(
+          context,
+          details.data.path,
+          title: details.data.title,
+          siteUrl: details.data.siteUrl,
+          newTab: true,
+          panel: panel,
+        ),
+      ),
+      builder: (context, startPageItems, rejected) => ForumTabScope(
+        tabId: tabId,
+        panel: panel,
+        child: DragTarget<String>(
+          onWillAcceptWithDetails: (details) {
+            final source = shell.currentWorkspace?.tabById(details.data);
+            return source != null && source.panel != panel;
+          },
+          onAcceptWithDetails: (details) =>
+              shell.moveTabToPanel(details.data, panel),
+          builder: (context, candidates, rejected) => WorkspacePanel(
+            key: ValueKey('desktop-panel-${panel.name}'),
+            atRightEdge: true,
+            child: Column(
+              children: [
+                if (showHeader)
+                  TopicPanelTabs(
+                    panel: panel,
+                    incomingTabId: candidates.firstOrNull,
+                    trailing: action,
+                  ),
+                Expanded(
+                  child: Focus(
+                    canRequestFocus: false,
+                    onFocusChange: (focused) {
+                      if (focused) activate();
+                    },
+                    child: Listener(
+                      onPointerDown: (_) => activate(),
+                      child: tabId == null
+                          ? DPageSurface(
+                              border: false,
+                              backgroundColor: ForumWindowBackground.panelColor(
+                                context,
                               ),
-                            ),
-                          )
-                        : content!,
+                              child: Center(
+                                child: DEmpty(
+                                  children: [
+                                    DEmptyHeader(
+                                      children: [
+                                        DEmptyTitle(
+                                          panel == ForumPanel.main
+                                              ? 'Main panel'
+                                              : 'Secondary panel',
+                                        ),
+                                        DEmptyDescription(
+                                          candidates.isNotEmpty
+                                              ? 'Drop this tab here'
+                                              : 'Drag a tab here or open a new tab.',
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            )
+                          : content!,
+                    ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

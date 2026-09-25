@@ -20,6 +20,14 @@ final itemExamples = ComponentExamples(
       'Dropdown Menu primitives with actual passive xs Items.',
   examples: [
     StyleguideExample(
+      title: 'Whole-row drag',
+      description:
+          'Drag anywhere on the item into the target. Tap and keyboard activation still work.',
+      code:
+          "DItem(dragData: 'topic', onPressed: open, children: [DItemContent(children: [Text('Drag this topic')])])",
+      builder: (_) => const _WholeRowDragExample(),
+    ),
+    StyleguideExample(
       title: 'Hover callback',
       description:
           'Pointer entry and exit can prepare content before activation. Keyboard focus and touch do not trigger the callback.',
@@ -124,6 +132,39 @@ final itemExamples = ComponentExamples(
       ),
   ],
 );
+
+class _WholeRowDragExample extends StatefulWidget {
+  const _WholeRowDragExample();
+
+  @override
+  State<_WholeRowDragExample> createState() => _WholeRowDragExampleState();
+}
+
+class _WholeRowDragExampleState extends State<_WholeRowDragExample> {
+  String status = 'Drag into this target';
+
+  @override
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      DItem(
+        dragData: 'topic',
+        onPressed: () => setState(() => status = 'Opened topic'),
+        children: const [
+          DItemContent(children: [Text('Drag this topic')]),
+        ],
+      ),
+      const SizedBox(height: DSpacing.md),
+      DDragRegion<String>(
+        accepts: (data) => data == 'topic',
+        onMove: (_, _) {},
+        onDrop: (_, _) => setState(() => status = 'Dropped topic'),
+        onLeave: () {},
+        child: DCard(child: Text(status)),
+      ),
+    ],
+  );
+}
 
 class _CornerActionExample extends StatefulWidget {
   const _CornerActionExample();
