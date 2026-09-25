@@ -120,7 +120,7 @@ class _LikeCount extends StatelessWidget {
 
     return DToggle(
       pressed: post.liked,
-      size: DToggleSize.large,
+      size: DToggleSize.post,
       variant: DToggleVariant.outline,
       semanticLabel: post.likeCount == 1
           ? '1 like, from ${post.liked ? 'you' : 'someone else'}'

@@ -181,7 +181,7 @@ class _PostReactionButtonState extends State<PostReactionButton> {
                 child: DToggle.iconOnly(
                   pressed: mine != null,
                   enabled: enabled,
-                  size: DToggleSize.large,
+                  size: DToggleSize.post,
                   variant: DToggleVariant.outline,
                   semanticLabel: label,
                   semanticLongPressHint: 'choose a reaction',
@@ -190,7 +190,7 @@ class _PostReactionButtonState extends State<PostReactionButton> {
                   icon: mine != null
                       ? EmojiImage(
                           url: controller.emojiUrlFor(widget.siteUrl, mine),
-                          size: DToggle.iconDimensionFor(DToggleSize.large),
+                          size: 16,
                           alt: ':$mine:',
                         )
                       : DIcon(icon),

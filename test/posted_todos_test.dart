@@ -497,10 +497,12 @@ void main() {
     final savingChecklist = toggle(shell, 0, true);
     await tester.pumpAndSettle();
     expect(api.calls, hasLength(1));
-    final button = tester.widget<DButton>(
-      find.byKey(const ValueKey(('post-footer-action', 2, 'Bookmark'))),
+    await tester.tap(find.byKey(const ValueKey('post-more-actions-2')));
+    await tester.pumpAndSettle();
+    final item = tester.widget<DDropdownMenuItem>(
+      find.widgetWithText(DDropdownMenuItem, 'Bookmark'),
     );
-    expect(button.onPressed, isNotNull);
+    expect(item.onPressed, isNotNull);
     api.writeGates.single.complete();
     await tester.pumpAndSettle();
     expect(await savingChecklist, isNull);

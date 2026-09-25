@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/data/discourse_api.dart';
 import 'package:discourse_native/src/data/user_api_key.dart';
 import 'package:discourse_native/src/foundation/timezone_environment.dart';
@@ -576,11 +577,14 @@ class _Fixture {
   }
 
   Future<void> tapOpen(WidgetTester tester) async {
+    if (target == _Target.post) {
+      await tester.tap(find.byKey(const ValueKey('post-more-actions-2')));
+      await tester.pumpAndSettle();
+    }
     await tester.tap(switch (target) {
-      _Target.post => find.byTooltip(
-        currentBookmark == null
-            ? 'Bookmark this post'
-            : 'Edit this post bookmark',
+      _Target.post => find.widgetWithText(
+        DDropdownMenuItem,
+        currentBookmark == null ? 'Bookmark' : 'Edit bookmark',
       ),
       _Target.topic => find.byKey(const ValueKey('topic-bookmark-button')),
       _Target.chat => find.text('Chat bookmark'),

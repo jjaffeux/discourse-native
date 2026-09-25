@@ -24,6 +24,7 @@ icon aspect ratio and these insets rather than fixed text-button widths.
 | Segmented control inner action | `segment` | 28 | 13 / 19.5 | 10 |
 | Desktop back / forward / refresh | `chrome` | 25 | 13 / 19.5 | 7 |
 | Primary footer actions | `action` | 34 desktop, 44 touch | 13 / 19.5 | 14 |
+| Post reactions and actions | `post` | 30 | 13 / 19.5 | 12 |
 | Popup menu row | shared menu geometry | 33.5 | 13 / 19.5 | 8 |
 | Preference switch | `DSwitchSize.preference` | 22 (38 wide) | — | 2 (18px thumb) |
 
@@ -112,6 +113,9 @@ Choose by the control's role, consistently across pages:
   `compactToolbar` density over this preset.
 - Toolbars use `toolbar`, footer actions use `action`, and joined view controls
   use `segment`.
+- Post reactions, Reply and More use `post`: 30px artwork on every platform,
+  with an independent 48px touch target. Reply is icon-only; Edit and Bookmark
+  live in More.
 - Other controls use the general `small` / `regular` / `large` scale. Regular
   is the ordinary form/action default; small is for compact secondary actions;
   large needs a deliberate prominent-action role, not just a mobile viewport.

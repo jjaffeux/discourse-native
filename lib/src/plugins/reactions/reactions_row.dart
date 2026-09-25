@@ -66,7 +66,7 @@ class ReactionsRow extends StatelessWidget {
               Flexible(
                 child: DButton(
                   key: ValueKey('post-reaction-summary-${post.id}'),
-                  size: DButtonSize.large,
+                  size: DButtonSize.post,
                   variant: DButtonVariant.outline,
                   semanticLabel: '$count reactions. Show all reactions',
                   tooltip: 'Show all reactions',
@@ -76,13 +76,11 @@ class ReactionsRow extends StatelessWidget {
                     children: [
                       for (final entry in reactions.entries.take(2))
                         SizedBox.square(
-                          dimension: DToggle.iconDimensionFor(
-                            DToggleSize.large,
-                          ),
+                          dimension: 16,
                           child: SiteEmojiImage(
                             siteUrl: siteUrl,
                             name: entry.id,
-                            size: DToggle.iconDimensionFor(DToggleSize.large),
+                            size: 16,
                             alt: ':${entry.id}:',
                           ),
                         ),
@@ -110,7 +108,7 @@ class ReactionsRow extends StatelessWidget {
         for (final entry in reactions.entries)
           ReactionPill(
             key: ValueKey('post-reaction-${post.id}-${entry.id}'),
-            size: DToggleSize.large,
+            size: DToggleSize.post,
             siteUrl: siteUrl,
             reaction: entry.id,
             count: entry.count,

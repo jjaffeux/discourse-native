@@ -36,6 +36,9 @@ enum DControlSize {
 
   /// Footer actions: 34px on desktop, 44px on mobile, with 12px artwork.
   action,
+
+  /// Post reactions and actions: 30px artwork with a separate touch target.
+  post,
 }
 
 /// Shared geometry and outlined surfaces for action and selection controls.
@@ -91,6 +94,7 @@ abstract final class DControlStyle {
         DControlSize.segment => 28,
         DControlSize.chrome => 25,
         DControlSize.action => isTouch(context) ? 44 : 34,
+        DControlSize.post => 30,
       };
   static double fontSize(DControlSize size, {BuildContext? context}) =>
       switch (size) {
@@ -103,6 +107,7 @@ abstract final class DControlStyle {
         DControlSize.segment ||
         DControlSize.chrome ||
         DControlSize.action => labelFontSize,
+        DControlSize.post => labelFontSize,
         DControlSize.large => DiscourseTypography.sm,
         DControlSize.preference => DiscourseTypography.compact,
       };
@@ -120,6 +125,7 @@ abstract final class DControlStyle {
         DControlSize.large => iconSize,
         DControlSize.preference || DControlSize.segment => 13,
         DControlSize.chrome => 15,
+        DControlSize.post => 13,
       };
   static double contentGap(DControlSize size) => size == DControlSize.preference
       ? 8
@@ -134,6 +140,7 @@ abstract final class DControlStyle {
     DControlSize.preference => 12,
     DControlSize.chrome => 7,
     DControlSize.action => 14,
+    DControlSize.post => 12,
     _ => 10,
   };
 

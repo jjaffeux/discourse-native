@@ -111,18 +111,38 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('desktop retains separate reactions and labeled Reply', (
+  testWidgets('desktop matches the compact post actions in the mockup', (
     tester,
   ) async {
     await _pumpFooter(tester, width: 1000, platform: TargetPlatform.macOS);
     expect(find.byKey(const ValueKey('post-reaction-summary-1')), findsNothing);
     expect(find.text('124'), findsOneWidget);
-    expect(find.text('Reply'), findsOneWidget);
+    final heart = find.descendant(
+      of: find.byKey(const ValueKey('post-reaction-1-heart')),
+      matching: find.byType(DToggle),
+    );
+    expect(tester.getSize(heart).height, 30);
+    expect(
+      tester.getSize(find.byKey(const ValueKey('post-reaction-button-1'))),
+      const Size.square(30),
+    );
+    expect(find.text('Reply'), findsNothing);
+    final reply = find.byKey(
+      const ValueKey(('post-footer-action', 1, 'Reply')),
+    );
+    final more = find.byKey(const ValueKey('post-more-actions-1'));
+    expect(tester.getSize(reply), const Size.square(30));
+    expect(tester.getSize(more), const Size.square(30));
+    expect(tester.getRect(more).left, tester.getRect(reply).right + 6);
     expect(
       find.byKey(const ValueKey(('post-footer-action', 1, 'Edit'))),
-      findsOneWidget,
+      findsNothing,
     );
-    expect(find.byTooltip('Bookmark this post'), findsOneWidget);
+    expect(find.byTooltip('Bookmark this post'), findsNothing);
+    await tester.tap(more);
+    await tester.pumpAndSettle();
+    expect(find.widgetWithText(DDropdownMenuItem, 'Edit'), findsOneWidget);
+    expect(find.widgetWithText(DDropdownMenuItem, 'Bookmark'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 }

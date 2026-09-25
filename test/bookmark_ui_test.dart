@@ -58,10 +58,7 @@ void main() {
 
       await tester.tap(find.byKey(const ValueKey('post-more-actions-2')));
       await tester.pumpAndSettle();
-      expect(find.widgetWithText(DDropdownMenuItem, 'Bookmark'), findsNothing);
-      await tester.tap(find.byKey(const ValueKey('post-more-actions-2')));
-      await tester.pumpAndSettle();
-      await tester.tap(find.byTooltip('Bookmark this post'));
+      await tester.tap(find.widgetWithText(DDropdownMenuItem, 'Bookmark'));
       await tester.pumpAndSettle();
 
       expect(api.createdBookmarks, hasLength(1));
@@ -111,7 +108,7 @@ void main() {
     expect(find.text('Bookmarked!'), findsOneWidget);
   });
 
-  testWidgets('a saved bookmark stays tinted beside Reply', (tester) async {
+  testWidgets('a saved bookmark is available in More actions', (tester) async {
     final (controller, _) = await _controller();
     addTearDown(controller.dispose);
     const bookmarkedPost = Post(
@@ -135,30 +132,16 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    final action = find.byTooltip('Edit this post bookmark');
+    expect(find.byTooltip('Edit this post bookmark'), findsNothing);
+    await tester.tap(find.byKey(const ValueKey('post-more-actions-2')));
+    await tester.pumpAndSettle();
+    final action = find.widgetWithText(DDropdownMenuItem, 'Edit bookmark');
     expect(action, findsOneWidget);
-    final button = find.byKey(
-      const ValueKey(('post-footer-action', 2, 'Edit bookmark')),
-    );
     final icon = tester.widget<DIcon>(
-      find.descendant(of: button, matching: find.byType(DIcon)),
+      find.descendant(of: action, matching: find.byType(DIcon)),
     );
     expect(icon.icon, DIcons.bookmark);
     expect(icon.color, Theme.of(tester.element(action)).colorScheme.primary);
-    expect(
-      tester.getRect(button).left,
-      greaterThanOrEqualTo(tester.getRect(find.text('Reply')).right),
-    );
-    expect(
-      tester.getSize(button).width,
-      DButton.iconOnlyDimensionFor(DButtonSize.large),
-    );
-    await tester.tap(find.byKey(const ValueKey('post-more-actions-2')));
-    await tester.pumpAndSettle();
-    expect(
-      find.widgetWithText(DDropdownMenuItem, 'Edit bookmark'),
-      findsNothing,
-    );
   });
 
   testWidgets('editor prefill is local and cancel discards it', (tester) async {

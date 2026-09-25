@@ -25,7 +25,7 @@ final buttonExamples = ComponentExamples(
     StyleguideExample(
       title: 'Application control sizes',
       description:
-          'Mockup geometry on every platform: 30.75px filters, 35.5px search fields, 40.25px preferences and 24px chips. Touch targets remain at least 48px.',
+          'Mockup geometry on every platform: 30.75px filters, 35.5px search fields, 40.25px preferences, 24px chips and 30px post controls. Touch targets remain at least 48px.',
       code:
           "DSelect(size: DControlSize.filter, entries: entries, onChanged: select)",
       builder: (_) => const MockupControlSizesExample(),
