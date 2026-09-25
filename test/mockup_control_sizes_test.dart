@@ -8,6 +8,56 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  for (final platform in [TargetPlatform.macOS, TargetPlatform.iOS]) {
+    testWidgets('$platform post controls paint 30px with accessible targets', (
+      tester,
+    ) async {
+      await _mount(
+        tester,
+        platform,
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const DToggle(
+              key: Key('post-reaction'),
+              size: DControlSize.post,
+              variant: DToggleVariant.outline,
+              icon: Icon(Icons.favorite),
+              child: Text('3'),
+            ),
+            DButton.iconOnly(
+              key: const Key('post-reply'),
+              size: DControlSize.post,
+              variant: DButtonVariant.outline,
+              icon: const Icon(Icons.reply),
+              tooltip: 'Reply',
+              onPressed: () {},
+            ),
+          ],
+        ),
+      );
+      final reaction = find.descendant(
+        of: find.byKey(const Key('post-reaction')),
+        matching: find.byWidgetPredicate(
+          (widget) =>
+              widget is AnimatedContainer && widget.decoration is BoxDecoration,
+        ),
+      );
+      expect(tester.getSize(reaction).height, 30);
+      expect(
+        tester.getSize(_surface(const Key('post-reply'))),
+        const Size.square(30),
+      );
+      if (platform == TargetPlatform.iOS) {
+        expect(
+          tester.getSize(find.byKey(const Key('post-reaction'))).height,
+          48,
+        );
+        expect(tester.getSize(find.byKey(const Key('post-reply'))).height, 48);
+      }
+    });
+  }
+
   for (final platform in [
     TargetPlatform.macOS,
     TargetPlatform.iOS,

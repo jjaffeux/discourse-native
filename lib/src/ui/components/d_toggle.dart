@@ -360,7 +360,11 @@ class _DToggleState extends State<DToggle> {
                     ],
                   )
                 : _IconLabel(
-                    gap: segmented ? 7 : 4,
+                    gap: segmented
+                        ? 7
+                        : widget.size == DToggleSize.post
+                        ? 6
+                        : 4,
                     iconAtEnd: widget.iconPosition == DToggleIconPosition.end,
                     direction: direction,
                     icon: ExcludeSemantics(child: effectiveIcon),

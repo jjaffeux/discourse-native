@@ -3102,35 +3102,26 @@ void main() {
       (widget) => widget is CookedHtml && widget.post?.postNumber == 2,
     );
     expect(tester.getRect(reply).top, greaterThan(tester.getRect(body).bottom));
-    expect(edit.hitTestable(), findsOneWidget);
-    expect(
-      find.descendant(of: edit, matching: find.text('Edit')),
-      findsNothing,
-    );
-    expect(
-      tester.getRect(edit).left,
-      tester.getRect(reply).right + DSpacing.xs,
-    );
-    expect(
-      tester.getRect(edit).center.dy,
-      closeTo(tester.getRect(reply).center.dy, 1),
-    );
-    expect(bookmark.hitTestable(), findsOneWidget);
-    expect(
-      tester.getRect(bookmark).left,
-      tester.getRect(edit).right + DSpacing.xs,
-    );
-    expect(
-      tester.getRect(bookmark).center.dy,
-      closeTo(tester.getRect(reply).center.dy, 1),
-    );
+    expect(edit, findsNothing);
+    expect(bookmark, findsNothing);
     final more = find.byKey(const ValueKey('post-more-actions-2'));
     expect(more.hitTestable(), findsOneWidget);
     expect(
       tester.getRect(more).left,
-      tester.getRect(bookmark).right + DSpacing.xs,
+      tester.getRect(reply).right + DSpacing.controlGap,
     );
     expect(tester.getRect(more).right, closeTo(tester.getRect(body).right, 1));
+    expect(
+      find.descendant(of: reply, matching: find.text('Reply')),
+      findsNothing,
+    );
+
+    await tester.tap(more);
+    await tester.pumpAndSettle();
+    expect(find.widgetWithText(DDropdownMenuItem, 'Edit'), findsOneWidget);
+    expect(find.widgetWithText(DDropdownMenuItem, 'Bookmark'), findsOneWidget);
+    await tester.tap(more);
+    await tester.pumpAndSettle();
 
     await tester.tap(reply);
     await tester.pumpAndSettle();
@@ -3156,7 +3147,7 @@ void main() {
     expect(find.byKey(const ValueKey('post-more-actions-2')), findsOneWidget);
     expect(
       find.byKey(const ValueKey(('post-footer-action', 2, 'Bookmark'))),
-      findsOneWidget,
+      findsNothing,
     );
     expect(tester.takeException(), isNull);
   });

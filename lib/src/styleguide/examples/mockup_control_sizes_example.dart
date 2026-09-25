@@ -131,6 +131,36 @@ class _MockupControlSizesExampleState extends State<MockupControlSizesExample> {
           ),
         ],
       ),
+      const Text('Post controls · 30px'),
+      Wrap(
+        spacing: DSpacing.controlGap,
+        runSpacing: DSpacing.sm,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
+          const DToggle(
+            size: DControlSize.post,
+            variant: DToggleVariant.outline,
+            initialPressed: true,
+            semanticLabel: '3 likes',
+            icon: DIcon(DIcons.heart),
+            child: Text('3'),
+          ),
+          DButton.iconOnly(
+            size: DControlSize.post,
+            variant: DButtonVariant.outline,
+            icon: const DIcon(DIcons.reply),
+            tooltip: 'Reply to this post',
+            onPressed: () => setState(() => _result = 'Post reply activated'),
+          ),
+          DButton.iconOnly(
+            size: DControlSize.post,
+            variant: DButtonVariant.outline,
+            icon: const DIcon(DIcons.ellipsis),
+            tooltip: 'More post actions',
+            onPressed: () => setState(() => _result = 'More actions opened'),
+          ),
+        ],
+      ),
       Text(_result),
     ],
   );

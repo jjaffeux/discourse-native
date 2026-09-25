@@ -222,20 +222,20 @@ void main() {
 
     expect(find.byTooltip('Like this post'), findsOneWidget);
     expect(find.byTooltip('More actions'), findsOneWidget);
-    expect(find.byTooltip('Edit this post'), findsOneWidget);
+    expect(find.byTooltip('Edit this post'), findsNothing);
     expect(find.byTooltip('Delete this post'), findsNothing);
     expect(
       tester.getSize(find.byType(HoverActionToolbar)),
-      const Size(HoverActionButton.width * 3, HoverActionButton.height),
+      const Size(HoverActionButton.width * 2, HoverActionButton.height),
     );
 
     await tester.tap(find.byTooltip('More actions'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Edit'), findsNothing);
+    expect(find.text('Edit'), findsOneWidget);
     expect(find.text('Make wiki'), findsOneWidget);
     expect(find.text('Delete'), findsOneWidget);
-    expect(find.byTooltip('Edit this post'), findsOneWidget);
+    expect(find.byTooltip('Edit this post'), findsNothing);
     expect(
       find.byTooltip('Allow community members to edit this post'),
       findsNothing,

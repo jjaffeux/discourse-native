@@ -209,7 +209,6 @@ class _PostActionsState extends State<PostActions> {
     ShellController controller,
   ) {
     final post = widget.post;
-    final compact = MediaQuery.sizeOf(context).width < 600;
     final topic = controller.currentTopic;
     final registry =
         PluginScope.maybeOf(context)?.registry ?? PluginRegistry.empty;
@@ -260,10 +259,7 @@ class _PostActionsState extends State<PostActions> {
         if (!contribution.replacesLike && post.canToggleLike)
           PostAction(
             icon: post.liked ? DIcons.heart : DIcons.farHeart,
-            placement: compact
-                ? PostActionPlacement.trailing
-                : PostActionPlacement.toolbar,
-            showLabelInFooter: !compact,
+            placement: PostActionPlacement.toolbar,
             label: post.liked ? 'Remove like' : 'Like',
             tooltip: post.liked ? 'Remove your like' : 'Like this post',
             tint: post.liked ? Theme.of(context).discourse.love : null,
@@ -311,7 +307,7 @@ class _PostActionsState extends State<PostActions> {
           PostAction(
             icon: DIcons.reply,
             placement: PostActionPlacement.trailing,
-            showLabelInFooter: !compact,
+            showLabelInFooter: false,
             label: 'Reply',
             tooltip: 'Reply to this post',
             onInvoke: () => controller.openReply(
@@ -323,9 +319,7 @@ class _PostActionsState extends State<PostActions> {
         if (post.canEdit)
           PostAction(
             icon: DIcons.pencil,
-            placement: compact
-                ? PostActionPlacement.overflow
-                : PostActionPlacement.trailing,
+            placement: PostActionPlacement.overflow,
             showLabelInFooter: false,
             label: 'Edit',
             tooltip: 'Edit this post',
@@ -341,9 +335,7 @@ class _PostActionsState extends State<PostActions> {
               null => DIcons.farBookmark,
             },
             label: post.bookmark == null ? 'Bookmark' : 'Edit bookmark',
-            placement: compact
-                ? PostActionPlacement.overflow
-                : PostActionPlacement.trailing,
+            placement: PostActionPlacement.overflow,
             showLabelInFooter: false,
             tooltip: post.bookmark == null
                 ? 'Bookmark this post'
@@ -1036,7 +1028,7 @@ class PostActionsFooter extends StatelessWidget {
                     ));
                     final icon = action.leading(
                       context,
-                      size: 16,
+                      size: DControlStyle.iconDimension(DControlSize.post),
                       color: action.tint,
                     );
                     final onPressed = action.enabled
@@ -1049,7 +1041,7 @@ class PostActionsFooter extends StatelessWidget {
                             label: Text(action.label),
                             tooltip: action.tooltip,
                             variant: DButtonVariant.outline,
-                            size: DButtonSize.large,
+                            size: DButtonSize.post,
                             onPressed: onPressed,
                           )
                         : DButton.iconOnly(
@@ -1057,7 +1049,7 @@ class PostActionsFooter extends StatelessWidget {
                             icon: icon,
                             tooltip: action.tooltip,
                             variant: DButtonVariant.outline,
-                            size: DButtonSize.large,
+                            size: DButtonSize.post,
                             onPressed: onPressed,
                           );
                   },
@@ -1137,7 +1129,7 @@ class PostMoreActionsButton extends StatelessWidget {
             tooltip: 'More actions for post ${scope.postNumber}',
             semanticLabel: 'More actions for post ${scope.postNumber}',
             variant: DButtonVariant.outline,
-            size: DButtonSize.large,
+            size: DButtonSize.post,
             onPressed: state.toggle,
           ),
         ),
