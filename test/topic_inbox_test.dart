@@ -87,6 +87,25 @@ void main() {
       find.descendant(of: back, matching: find.text('Latest topics')),
       findsOneWidget,
     );
+    final backButton = tester.widget<DButton>(back);
+    expect(backButton.interactiveBackgroundColor, Colors.transparent);
+    final restForeground = buttonSurface(tester, of: back).color;
+    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    await mouse.addPointer(location: Offset.zero);
+    addTearDown(mouse.removePointer);
+    await mouse.moveTo(tester.getCenter(back));
+    await tester.pump();
+    expect(buttonSurface(tester, of: back).color, Colors.transparent);
+    expect(restForeground, Colors.transparent);
+    final paintedBackButton = tester.widget<FilledButton>(
+      find.descendant(of: back, matching: find.byType(FilledButton)),
+    );
+    expect(
+      paintedBackButton.style!.foregroundColor!.resolve({WidgetState.hovered}),
+      isNot(paintedBackButton.style!.foregroundColor!.resolve({})),
+    );
+    await mouse.moveTo(Offset.zero);
+    await tester.pump();
     expect(tester.getRect(back).bottom, lessThan(tester.getRect(title).top));
     expect(
       tester.getRect(title).bottom,

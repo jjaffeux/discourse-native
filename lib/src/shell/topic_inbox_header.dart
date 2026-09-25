@@ -488,6 +488,7 @@ class TopicCloseButton extends StatelessWidget {
           : 'Collapse $content',
       variant: DButtonVariant.transparentBackground,
       size: DButtonSize.chip,
+      interactiveBackgroundColor: Colors.transparent,
       onPressed: () {
         if (controller.topicListContent != null) {
           controller.closeTopicListReader();
