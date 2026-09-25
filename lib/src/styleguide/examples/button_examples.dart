@@ -108,7 +108,7 @@ final buttonExamples = ComponentExamples(
     StyleguideExample(
       title: 'Chat message action',
       description:
-          'A transparent 26px message action with an 11px icon and 6px corners.',
+          'A transparent 26px message action with a 16px icon and 6px corners.',
       code:
           "DButton.iconOnly(density: DButtonDensity.chatMessageAction, variant: DButtonVariant.transparentBackground, icon: DIcon(DIcons.farFaceSmile), tooltip: 'Add reaction', onPressed: addReaction)",
       builder: (_) => DButton.iconOnly(

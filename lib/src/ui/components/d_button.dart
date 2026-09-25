@@ -633,7 +633,7 @@ class DButton extends StatelessWidget {
     final spacingUnit = mobileNavigation
         ? 18.0
         : chatMessageAction
-        ? 11.0
+        ? 16.0
         : compactToolbar
         ? 14.0
         : DControlStyle.iconDimension(effectiveSize, context: context);

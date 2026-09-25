@@ -34,7 +34,7 @@ void main() {
     expect(tester.getSize(surface), const Size.square(26));
     expect(
       tester.getSize(find.byIcon(Icons.add_reaction)),
-      const Size.square(11),
+      const Size.square(16),
     );
     expect(buttonSurface(tester).borderRadius, BorderRadius.circular(6));
   });
