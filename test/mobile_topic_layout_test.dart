@@ -125,7 +125,7 @@ void main() {
     }
   }, variant: platforms);
 
-  testWidgets('private-message tags and actions share a row when they fit', (
+  testWidgets('private-message actions match the topic header\'s compact row', (
     tester,
   ) async {
     await pumpMobileShellFixture(
@@ -140,10 +140,18 @@ void main() {
     final actions = find.byKey(const ValueKey('topic-header-taxonomy'));
     final bookmark = find.byKey(const ValueKey('topic-header-bookmark-button'));
     final archive = find.byKey(const ValueKey('message-archive-button'));
+    final status = find.byKey(const ValueKey('topic-status-button'));
     expect(tag, findsOneWidget);
     expect(actions, findsOneWidget);
-    expect(tester.getRect(bookmark).top, tester.getRect(tag).top);
-    expect(tester.getRect(archive).top, tester.getRect(tag).top);
+    for (final action in [bookmark, archive, status]) {
+      expect(tester.getRect(action).top, tester.getRect(tag).top);
+      expect(tester.getSize(action), tester.getSize(bookmark));
+    }
+    expect(
+      find.descendant(of: archive, matching: find.text('Archive')),
+      findsNothing,
+    );
+    expect(find.byTooltip('Archive from your inboxes'), findsOneWidget);
     expect(tester.getRect(actions).right, lessThanOrEqualTo(430));
     expect(tester.takeException(), isNull);
   }, variant: platforms);

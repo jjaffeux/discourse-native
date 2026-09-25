@@ -13,10 +13,15 @@ class MessageArchiveButton extends StatefulWidget {
     super.key,
     required this.siteUrl,
     required this.topic,
+    this.compact = false,
   });
 
   final String siteUrl;
   final TopicDetail topic;
+
+  /// Draws an icon-only chip so it sits among the mobile topic header's
+  /// compact actions instead of beside the reader's Reply button.
+  final bool compact;
 
   @override
   State<MessageArchiveButton> createState() => _MessageArchiveButtonState();
@@ -46,32 +51,46 @@ class _MessageArchiveButtonState extends State<MessageArchiveButton> {
     ];
     final scope = inboxes.isEmpty ? 'your inboxes' : inboxes.join(' and ');
     final archived = topic.messageArchived;
+    final VoidCallback? onPressed = _busy
+        ? null
+        : () async {
+            final toasts = DToast.of(context);
+            final siteUrl = widget.siteUrl;
+            final topicId = widget.topic.id;
+            setState(() => _busy = true);
+            try {
+              await _moveMessage(
+                controller: controller,
+                toasts: toasts,
+                siteUrl: siteUrl,
+                topicId: topicId,
+                archived: !archived,
+                scope: scope,
+                offerUndo: true,
+              );
+            } finally {
+              if (mounted) setState(() => _busy = false);
+            }
+          };
+    final icon = DIcon(archived ? DIcons.envelope : DIcons.folder);
+    final tooltip = archived ? 'Move to $scope' : 'Archive from $scope';
+    if (widget.compact) {
+      return DButton.iconOnly(
+        key: const ValueKey('message-archive-button'),
+        onPressed: onPressed,
+        icon: icon,
+        tooltip: tooltip,
+        loading: _busy,
+        variant: DButtonVariant.outline,
+        size: DButtonSize.chip,
+      );
+    }
     return DButton(
       key: const ValueKey('message-archive-button'),
-      onPressed: _busy
-          ? null
-          : () async {
-              final toasts = DToast.of(context);
-              final siteUrl = widget.siteUrl;
-              final topicId = widget.topic.id;
-              setState(() => _busy = true);
-              try {
-                await _moveMessage(
-                  controller: controller,
-                  toasts: toasts,
-                  siteUrl: siteUrl,
-                  topicId: topicId,
-                  archived: !archived,
-                  scope: scope,
-                  offerUndo: true,
-                );
-              } finally {
-                if (mounted) setState(() => _busy = false);
-              }
-            },
-      icon: DIcon(archived ? DIcons.envelope : DIcons.folder),
+      onPressed: onPressed,
+      icon: icon,
       label: Text(archived ? 'Move to inbox' : 'Archive'),
-      tooltip: archived ? 'Move to $scope' : 'Archive from $scope',
+      tooltip: tooltip,
       loading: _busy,
       variant: DButtonVariant.outline,
       size: DButtonSize.regular,
