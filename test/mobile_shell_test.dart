@@ -30,9 +30,9 @@ import 'package:discourse_native/src/shell/title_bar.dart';
 import 'package:discourse_native/src/shell/user_menu_button.dart';
 import 'package:discourse_native/src/shell/users_page.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
+import 'package:discourse_native/src/theme/d_icon_glyph.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/badge_fixtures.dart';
@@ -525,7 +525,7 @@ void main() {
         expect(tester.getSize(icon), const Size(18, 18));
         final glyph = find.descendant(
           of: icon,
-          matching: find.byType(SvgPicture),
+          matching: find.byType(TintedIconGlyph),
         );
         expect(tester.getSize(glyph).longestSide, 18);
       }
