@@ -10,6 +10,58 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  testWidgets('compact inset keeps mockup artwork and mobile tap targets', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light.copyWith(platform: TargetPlatform.iOS),
+        home: const Scaffold(
+          body: Center(
+            child: DToggleGroup<bool>(
+              inset: true,
+              density: DToggleDensity.compactInset,
+              initialValues: [true],
+              allowEmptySelection: false,
+              items: [
+                DToggleGroupItem.iconOnly(
+                  value: false,
+                  semanticLabel: 'Comfortable',
+                  icon: Icon(Icons.grid_view),
+                ),
+                DToggleGroupItem.iconOnly(
+                  value: true,
+                  semanticLabel: 'Compact',
+                  icon: Icon(Icons.list),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+
+    final group = find.byType(DToggleGroup<bool>);
+    final frame = find.byKey(const ValueKey('toggle-group-compact-frame'));
+    final toggles = find.byType(DToggle);
+    expect(tester.getSize(frame), const Size(68, 32));
+    expect(tester.getSize(group), const Size(96, 48));
+    for (final toggle in toggles.evaluate()) {
+      expect(tester.getSize(find.byWidget(toggle.widget)), const Size(48, 48));
+    }
+    for (final artwork
+        in find
+            .descendant(of: group, matching: find.byType(AnimatedContainer))
+            .evaluate()) {
+      expect(tester.getSize(find.byWidget(artwork.widget)), const Size(30, 26));
+    }
+
+    await tester.tap(find.bySemanticsLabel('Comfortable'));
+    await tester.pump();
+    expect(tester.widget<DToggle>(toggles.first).pressed, isTrue);
+    expect(tester.widget<DToggle>(toggles.last).pressed, isFalse);
+  });
+
   testWidgets('expanded tiles fill their slots and retain keyboard selection', (
     tester,
   ) async {
@@ -711,6 +763,7 @@ void main() {
     (tester) async {
       expect(componentExamples['toggle-group'], same(toggleGroupExamples));
       expect(toggleGroupExamples.examples.map((example) => example.title), [
+        'Compact inset icon choices',
         'Appearance mode segments',
         'Texture tiles',
         'Inset layout selector',

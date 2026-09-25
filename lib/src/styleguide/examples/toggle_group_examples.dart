@@ -13,6 +13,32 @@ final toggleGroupExamples = ComponentExamples(
       'Accepted after independent rendered and native review. The frozen 2026-05-17 behavior uses 8px default spacing; spacing 0 joins edges, collapses inner outline borders and uses 8px horizontal padding. Inset standard groups have a recessed frame, muted inactive labels and a full-width active segment. DToggle remains the visual and activation owner. Values may be parent-controlled, borrowed from a DToggleGroupController, or internally owned. Arrow keys follow orientation and RTL, Home/End move to edges, disabled items are skipped, and loopFocus controls wrapping. The documented 64px font-weight tiles compose the accepted DField label and description around the group without transferring control ownership.',
   examples: [
     StyleguideExample(
+      title: 'Compact inset icon choices',
+      description:
+          'The Start page density control draws a 68×32px frame with two 30×26px choices. Each mobile choice keeps a separate 48×48px touch target.',
+      states: const ['Inset', 'Compact artwork', 'Mobile touch targets'],
+      code:
+          'DToggleGroup<bool>(inset: true, density: DToggleDensity.compactInset, allowEmptySelection: false, initialValues: const [true], items: const [DToggleGroupItem.iconOnly(value: false, semanticLabel: "Comfortable", icon: Icon(Icons.grid_view, size: 12)), DToggleGroupItem.iconOnly(value: true, semanticLabel: "Compact", icon: Icon(Icons.list, size: 12))])',
+      builder: (_) => const DToggleGroup<bool>(
+        inset: true,
+        density: DToggleDensity.compactInset,
+        allowEmptySelection: false,
+        initialValues: [true],
+        items: [
+          DToggleGroupItem.iconOnly(
+            value: false,
+            semanticLabel: 'Comfortable',
+            icon: Icon(Icons.grid_view, size: 12),
+          ),
+          DToggleGroupItem.iconOnly(
+            value: true,
+            semanticLabel: 'Compact',
+            icon: Icon(Icons.list, size: 12),
+          ),
+        ],
+      ),
+    ),
+    StyleguideExample(
       title: 'Appearance mode segments',
       description:
           'Equal-width inset choices use muted labels and a stronger selected segment. The icons and labels stay centered together.',

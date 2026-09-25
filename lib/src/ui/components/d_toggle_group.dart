@@ -118,7 +118,12 @@ class DToggleGroup<T extends Object> extends StatefulWidget {
     this.semanticLabel,
     this.scrollable = true,
   }) : assert(values == null || controller == null),
-       assert(spacing >= 0);
+       assert(spacing >= 0),
+       assert(
+         density != DToggleDensity.compactInset ||
+             (inset && orientation == Axis.horizontal && !expanded),
+         'Compact inset groups require two horizontal icon choices.',
+       );
 
   /// Draw a shared recessed frame around the choices. Standard density uses
   /// segmented colors, weight and full-width selection inside this frame.
@@ -435,12 +440,21 @@ class _DToggleGroupState<T extends Object> extends State<DToggleGroup<T>> {
   @override
   Widget build(BuildContext context) {
     assert(
+      widget.density != DToggleDensity.compactInset || widget.items.length == 2,
+      'Compact inset groups require exactly two choices.',
+    );
+    assert(
       widget.items.map((item) => item.value).toSet().length ==
           widget.items.length,
       'DToggleGroup item values must be unique.',
     );
     final selected = _currentValues.toSet();
-    final gap = widget.inset ? 2.0 : widget.spacing * 4;
+    final compactInset = widget.density == DToggleDensity.compactInset;
+    final gap = compactInset
+        ? 0.0
+        : widget.inset
+        ? 2.0
+        : widget.spacing * 4;
     final connected = gap == 0;
     final children = <Widget>[];
     for (var index = 0; index < widget.items.length; index++) {
@@ -448,7 +462,7 @@ class _DToggleGroupState<T extends Object> extends State<DToggleGroup<T>> {
       final variant =
           item.variant ??
           (widget.inset &&
-                  widget.density == DToggleDensity.standard &&
+                  (widget.density == DToggleDensity.standard || compactInset) &&
                   widget.variant == DToggleVariant.standard
               ? DToggleVariant.segmented
               : widget.variant);
@@ -484,10 +498,20 @@ class _DToggleGroupState<T extends Object> extends State<DToggleGroup<T>> {
           : baseStyle?.borderEdges ?? DToggleBorderEdges.all;
       final style = DToggleVisualStyle(
         borderRadius: widget.inset
-            ? BorderRadius.circular(8)
+            ? BorderRadius.circular(compactInset ? 7 : 8)
             : joinedRadius ?? baseStyle?.borderRadius,
         borderEdges: edges,
         expandArtwork: widget.expanded,
+        targetAlignment: compactInset
+            ? index == 0
+                  ? AlignmentDirectional.centerEnd
+                  : AlignmentDirectional.centerStart
+            : null,
+        targetPadding: compactInset
+            ? index == 0
+                  ? const EdgeInsetsDirectional.only(end: 1)
+                  : const EdgeInsetsDirectional.only(start: 1)
+            : EdgeInsets.zero,
       );
       final itemEnabled = _groupInteractive && item.enabled;
       _focusFor(item).skipTraversal = index != _rovingIndex;
@@ -567,18 +591,32 @@ class _DToggleGroupState<T extends Object> extends State<DToggleGroup<T>> {
     }
     if (widget.inset) {
       final tokens = DTokens.of(context);
-      group = DecoratedBox(
-        decoration: BoxDecoration(
-          color: Color.lerp(tokens.background, Colors.black, .14),
-          border: Border.all(
-            color: widget.density == DToggleDensity.tile
-                ? tokens.border
-                : Color.lerp(tokens.background, tokens.foreground, .12)!,
-          ),
-          borderRadius: BorderRadius.circular(10),
+      final decoration = BoxDecoration(
+        color: Color.lerp(tokens.background, Colors.black, .14),
+        border: Border.all(
+          color: widget.density == DToggleDensity.tile
+              ? tokens.border
+              : Color.lerp(tokens.background, tokens.foreground, .12)!,
         ),
-        child: Padding(padding: const EdgeInsets.all(3), child: group),
+        borderRadius: BorderRadius.circular(compactInset ? 9 : 10),
       );
+      group = compactInset
+          ? Stack(
+              alignment: Alignment.center,
+              children: [
+                SizedBox(
+                  key: const ValueKey('toggle-group-compact-frame'),
+                  width: 68,
+                  height: 32,
+                  child: DecoratedBox(decoration: decoration),
+                ),
+                group,
+              ],
+            )
+          : DecoratedBox(
+              decoration: decoration,
+              child: Padding(padding: const EdgeInsets.all(3), child: group),
+            );
       group = Align(
         alignment: AlignmentDirectional.centerStart,
         widthFactor: 1,
