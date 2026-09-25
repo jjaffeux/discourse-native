@@ -406,7 +406,7 @@ List<Widget> _mobileTopicHeaderActions(
     if (topic.privateMessage &&
         instance?.isConnected == true &&
         instance?.user?.canSendPrivateMessages == true)
-      MessageArchiveButton(siteUrl: siteUrl, topic: topic),
+      MessageArchiveButton(siteUrl: siteUrl, topic: topic, compact: true),
     if (registry.topicProperties(context, siteUrl, topic).isNotEmpty)
       _TopicHeaderProperties(
         siteUrl: siteUrl,
