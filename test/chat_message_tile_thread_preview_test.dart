@@ -6,6 +6,7 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/bookmark.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
+import 'package:discourse_native/src/models/forum_workspace.dart';
 import 'package:discourse_native/src/models/post_flag.dart';
 import 'package:discourse_native/src/models/site_emoji.dart';
 import 'package:discourse_native/src/models/user_flair.dart';
@@ -30,7 +31,8 @@ import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/site_emoji_image.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
-import 'package:flutter/gestures.dart' show PointerDeviceKind;
+import 'package:flutter/gestures.dart'
+    show PointerDeviceKind, kMiddleMouseButton, kSecondaryMouseButton;
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
@@ -626,6 +628,72 @@ void main() {
         findsNothing,
       );
       expect(find.text('0 replies'), findsNothing);
+    });
+
+    testWidgets('thread summary supports modified clicks and open menu', (
+      tester,
+    ) async {
+      final thread = _thread();
+      final controller = await _controller(_message(thread), signedIn: true);
+      addTearDown(controller.dispose);
+      controller.desktopTopicTabs = true;
+      var ordinaryOpens = 0;
+      await tester.pumpWidget(
+        _TestTile(controller: controller, onOpenThread: (_) => ordinaryOpens++),
+      );
+      await tester.pumpAndSettle();
+      final target = find.byKey(
+        ChatMessageTile.threadPreviewKey(thread.threadId),
+      );
+      expect(controller.desktopPanelsEnabled, isTrue);
+      final linkPoint =
+          tester.getRect(target).bottomLeft + const Offset(24, -8);
+      await tester.tapAt(linkPoint, kind: PointerDeviceKind.mouse);
+      await tester.pumpAndSettle();
+      expect(ordinaryOpens, 1);
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+      await tester.pump();
+      await tester.tapAt(linkPoint, kind: PointerDeviceKind.mouse);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+      await tester.pumpAndSettle();
+      expect(controller.activeTab?.panel, ForumPanel.secondary);
+      expect(controller.currentContent?.id, 'chat-c-9-t-3');
+
+      final beforeMiddleClick = controller.tabsForCurrentForum.length;
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+      await tester.pump();
+      await tester.tapAt(
+        linkPoint,
+        kind: PointerDeviceKind.mouse,
+        buttons: kMiddleMouseButton,
+      );
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+      await tester.pumpAndSettle();
+      expect(controller.tabsForCurrentForum, hasLength(beforeMiddleClick + 1));
+      expect(controller.tabsForCurrentForum.last.panel, ForumPanel.secondary);
+      expect(
+        controller.tabsForCurrentForum.last.currentContent.id,
+        'chat-c-9-t-3',
+      );
+
+      await tester.tapAt(
+        linkPoint,
+        kind: PointerDeviceKind.mouse,
+        buttons: kSecondaryMouseButton,
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Open in main panel'), findsOneWidget);
+      expect(find.text('Open in new secondary tab'), findsOneWidget);
+      final beforeMenuChoice = controller.tabsForCurrentForum.length;
+      await tester.tap(find.text('Open in new main tab'));
+      await tester.pumpAndSettle();
+      expect(controller.tabsForCurrentForum, hasLength(beforeMenuChoice + 1));
+      expect(controller.tabsForCurrentForum.last.panel, ForumPanel.main);
+      expect(
+        controller.tabsForCurrentForum.last.currentContent.id,
+        'chat-c-9-t-3',
+      );
     });
 
     testWidgets('suppresses the original message card in thread context', (
