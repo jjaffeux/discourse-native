@@ -449,9 +449,53 @@ void main() {
           expect(tester.getRect(send).right, lessThanOrEqualTo(width));
           expect(tester.takeException(), isNull);
         },
+        variant: const TargetPlatformVariant({TargetPlatform.macOS}),
       );
     }
   }
+
+  testWidgets(
+    'mobile composer keeps insertion actions in its card and Send below it',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(390, 720));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final fixture = await _fixture(
+        pages: {FakeDiscourseApi.chatMessagesKey(9): _emptyPage},
+      );
+      addTearDown(fixture.shell.dispose);
+      await tester.pumpWidget(_TestView(shell: fixture.shell));
+      await tester.pumpAndSettle();
+
+      final card = find.ancestor(
+        of: find.byKey(const ValueKey('chat-composer')),
+        matching: find.byType(DCard),
+      );
+      final send = find.byKey(const ValueKey('chat-composer-send'));
+      expect(card, findsOneWidget);
+      expect(
+        find.descendant(
+          of: card,
+          matching: find.byKey(const ValueKey('chat-composer-add')),
+        ),
+        findsOneWidget,
+      );
+      expect(find.descendant(of: card, matching: send), findsNothing);
+      expect(
+        tester.getRect(send).top,
+        greaterThan(tester.getRect(card).bottom),
+      );
+      await tester.enterText(_composerField(), 'A mobile message');
+      await tester.pumpAndSettle();
+      expect(tester.widget<DButton>(send).onPressed, isNotNull);
+      await tester.tap(send);
+      await tester.pumpAndSettle();
+      expect(fixture.api.chatMessagesSent.single.message, 'A mobile message');
+    },
+    variant: const TargetPlatformVariant({
+      TargetPlatform.iOS,
+      TargetPlatform.android,
+    }),
+  );
 
   group('inline replies', () {
     for (final kind in [
@@ -1421,7 +1465,7 @@ void main() {
 
       expect(tester.getRect(bar), before);
       expect(before.bottom, closeTo(588, 1));
-    });
+    }, variant: const TargetPlatformVariant({TargetPlatform.macOS}));
 
     testWidgets('focuses the field from any non-button composer space', (
       tester,
@@ -1473,7 +1517,7 @@ void main() {
 
       // Input-group addons focus the editor even when the send action is disabled.
       expect(field.focusNode!.hasFocus, isTrue);
-    });
+    }, variant: const TargetPlatformVariant({TargetPlatform.macOS}));
 
     for (final kind in [
       ChatChannelKind.category,
@@ -1510,7 +1554,7 @@ void main() {
               final hint = tester.getRect(
                 find.text(
                   kind == ChatChannelKind.directMessage
-                      ? 'Message @design'
+                      ? 'Message design'
                       : 'Message #design',
                 ),
               );
