@@ -1064,6 +1064,7 @@ class _Tile extends StatelessWidget {
 
   Widget _conversationMessage(BuildContext context, {required bool outgoing}) {
     final theme = Theme.of(context);
+    const joinedCorner = DRadius.chatBubble / 4;
     final reserveActions = message.isOptimistic && !context.isTouch;
     Widget? pendingAction(
       DIconData icon,
@@ -1305,16 +1306,24 @@ class _Tile extends StatelessWidget {
                             key: ValueKey('chat-message-bubble-${message.id}'),
                             borderRadius: BorderRadiusDirectional.only(
                               topStart: Radius.circular(
-                                outgoing || !chained ? DRadius.bubble : 0,
+                                outgoing || !chained
+                                    ? DRadius.chatBubble
+                                    : joinedCorner,
                               ),
                               topEnd: Radius.circular(
-                                outgoing && chained ? 0 : DRadius.bubble,
+                                outgoing && chained
+                                    ? joinedCorner
+                                    : DRadius.chatBubble,
                               ),
                               bottomStart: Radius.circular(
-                                outgoing || !joinsNext ? DRadius.bubble : 0,
+                                outgoing || !joinsNext
+                                    ? DRadius.chatBubble
+                                    : joinedCorner,
                               ),
                               bottomEnd: Radius.circular(
-                                outgoing && joinsNext ? 0 : DRadius.bubble,
+                                outgoing && joinsNext
+                                    ? joinedCorner
+                                    : DRadius.chatBubble,
                               ),
                             ),
                             trailingAction: more,

@@ -116,7 +116,21 @@ void main() {
         (tester) async {
           final authorId = outgoing ? 7 : 2;
           final messages = [
-            for (var id = 1; id <= 3; id++) _message(id, authorId: authorId),
+            _message(1, authorId: authorId),
+            _message(
+              2,
+              authorId: authorId,
+              reactions: const [ChatReaction(emoji: 'heart', count: 1)],
+            ),
+            _message(
+              3,
+              authorId: authorId,
+              cooked:
+                  '<p>I went through the whole flow this morning and the '
+                  'only part that felt wrong was the step where you pick a '
+                  'category. Everything either side of it is fine, it is '
+                  'that one screen.</p>',
+            ),
             _message(
               4,
               authorId: authorId,
@@ -164,10 +178,20 @@ void main() {
           final edge = outgoing
               ? (BorderRadius r) => (r.topRight.x, r.bottomRight.x)
               : (BorderRadius r) => (r.topLeft.x, r.bottomLeft.x);
-          expect(edge(radius(1)), (12, 0));
-          expect(edge(radius(2)), (0, 0));
-          expect(edge(radius(3)), (0, 12));
-          expect(edge(radius(4)), (12, 12));
+          expect(edge(radius(1)), (19, 4.75));
+          expect(edge(radius(2)), (4.75, 4.75));
+          expect(edge(radius(3)), (4.75, 19));
+          expect(edge(radius(4)), (19, 19));
+          expect(
+            tester
+                .getSize(find.byKey(const ValueKey('chat-message-bubble-3')))
+                .height,
+            greaterThan(
+              tester
+                  .getSize(find.byKey(const ValueKey('chat-message-bubble-1')))
+                  .height,
+            ),
+          );
         },
       );
     }

@@ -84,6 +84,7 @@ class _DesignScalePreview extends StatelessWidget {
               ('Popup · 10', DRadius.popover),
               ('Bubble · 12', DRadius.bubble),
               ('Panel · 14', DRadius.panel),
+              ('Chat bubble · 19', DRadius.chatBubble),
             ])
               DecoratedBox(
                 decoration: BoxDecoration(

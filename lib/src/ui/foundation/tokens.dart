@@ -156,6 +156,7 @@ abstract final class DRadius {
   static const double popover = 10;
   static const double bubble = 12;
   static const double panel = 14;
+  static const double chatBubble = 19;
   static const double pill = 999;
 }
 

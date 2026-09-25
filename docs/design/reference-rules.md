@@ -91,8 +91,9 @@ The styleguide Foundations → Application design scale renders the live roles.
 | 7 | Popup item highlight | `DRadius.menuItem` |
 | 8 | Standard button/input/select, navigation row, quote trailing edge | `DRadius.control` |
 | 10 | Popup/menu container, unread count capsule | `DRadius.popover` |
-| 12 | Chat bubble, active community tile | `DRadius.bubble` |
+| 12 | Standard bubble, active community tile | `DRadius.bubble` |
 | 14 | Main panels, sheets, detached footer, current mobile navigation tile | `DRadius.panel` |
+| 19 | Chat message bubble; joined corners use one quarter of this radius | `DRadius.chatBubble` |
 | 999 / 50% | Pills, tags, circular avatars, mobile primary action | `DRadius.pill` or circular avatar owner |
 
 Radii are fixed geometry, independent of forum palette radius settings. The
