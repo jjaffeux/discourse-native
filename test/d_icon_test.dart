@@ -2,6 +2,7 @@ import 'dart:ui' as ui;
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/plugins/discourse_ai/discourse_ai_icons.dart';
+import 'package:discourse_native/src/theme/d_icon_glyph.dart';
 import 'package:discourse_native/src/theme/d_icon_sets.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:discourse_native/src/theme/d_native_icons.dart';
@@ -103,15 +104,18 @@ void main() {
       );
 
       expect(tester.getSize(find.dIcon(DIcons.gear)), const Size(18, 18));
-      final picture = tester.widget<SvgPicture>(find.byType(SvgPicture));
       expect(
-        picture.colorFilter,
-        isNull,
+        tester.widget<TintedIconGlyph>(find.byType(TintedIconGlyph)).color,
+        const Color(0xFF00FF00),
+      );
+      expect(
+        find.byType(SvgPicture),
+        findsNothing,
         reason: 'runtime SVG color filters paint through Canvas.saveLayer',
       );
     });
 
-    testWidgets('bakes the tint into the picture without a paint-time layer', (
+    testWidgets('paints the tint into the glyph without a paint-time layer', (
       tester,
     ) async {
       const boundaryKey = ValueKey('tinted-icon-boundary');
@@ -139,8 +143,8 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      final picture = tester.widget<SvgPicture>(find.byType(SvgPicture));
-      expect(picture.colorFilter, isNull);
+      expect(find.byType(TintedIconGlyph), findsOneWidget);
+      expect(find.byType(SvgPicture), findsNothing);
 
       final boundary = tester.renderObject<RenderRepaintBoundary>(
         find.byKey(boundaryKey),

@@ -2,6 +2,7 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 import '../ui/foundation/tokens.dart';
+import 'd_icon_glyph.dart';
 import 'd_icon_sets.dart';
 
 // Mapping paints while compiling avoids a saveLayer for every icon paint.
@@ -171,26 +172,45 @@ class DIcon extends StatelessWidget {
     final resolvedTint = opacity == 1.0
         ? tint
         : tint.withValues(alpha: tint.a * opacity);
+    final glyphHeight =
+        box * glyphScale * (replacement == null ? 1 : set.scale);
+    final glyph = resolvedIcon.preserveColors
+        ? null
+        : TintableGlyph.of(
+            resolvedIcon.svg,
+            resolvedTint.toARGB32() >>> 24,
+            () => resolvedIcon.tintableSvg,
+          );
 
     return SizedBox(
       width: width,
       height: box,
       child: Center(
-        child: SvgPicture.string(
-          _svg(context, resolvedIcon),
-          width: width * glyphScale * (replacement == null ? 1 : set.scale),
-          height: box * glyphScale * (replacement == null ? 1 : set.scale),
-          fit: BoxFit.contain,
-          theme: SvgTheme(
-            currentColor: resolvedIcon.preserveColors ? tint : resolvedTint,
-          ),
-          colorMapper: _DIconColorMapper(
-            resolvedTint,
-            preserveColors: resolvedIcon.preserveColors,
-            opacity: opacity,
-          ),
-          semanticsLabel: semanticLabel,
-        ),
+        child: glyph != null
+            ? TintedIconGlyph(
+                glyph: glyph,
+                color: resolvedTint,
+                height: glyphHeight,
+                semanticLabel: semanticLabel,
+              )
+            : SvgPicture.string(
+                _svg(context, resolvedIcon),
+                width:
+                    width * glyphScale * (replacement == null ? 1 : set.scale),
+                height: glyphHeight,
+                fit: BoxFit.contain,
+                theme: SvgTheme(
+                  currentColor: resolvedIcon.preserveColors
+                      ? tint
+                      : resolvedTint,
+                ),
+                colorMapper: _DIconColorMapper(
+                  resolvedTint,
+                  preserveColors: resolvedIcon.preserveColors,
+                  opacity: opacity,
+                ),
+                semanticsLabel: semanticLabel,
+              ),
       ),
     );
   }

@@ -38,11 +38,11 @@ import 'package:discourse_native/src/shell/user_menu_button.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:discourse_native/src/theme/d_native_icons.dart';
+import 'package:discourse_native/src/theme/d_icon_glyph.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -1160,7 +1160,7 @@ void _registerTopicReadingTests() {
       final lock = find.descendant(of: row, matching: find.dIcon(DIcons.lock));
       final lockGlyph = find.descendant(
         of: lock,
-        matching: find.byType(SvgPicture),
+        matching: find.byType(TintedIconGlyph),
       );
       final categoryBlock = find.descendant(
         of: row,
