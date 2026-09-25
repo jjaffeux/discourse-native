@@ -120,7 +120,8 @@ class DToggleGroup<T extends Object> extends StatefulWidget {
   }) : assert(values == null || controller == null),
        assert(spacing >= 0);
 
-  /// Draw a shared recessed frame around the choices, as in layout selectors.
+  /// Draw a shared recessed frame around the choices. Standard density uses
+  /// segmented colors, weight and full-width selection inside this frame.
   final bool inset;
   final List<DToggleGroupItem<T>> items;
 
@@ -444,7 +445,13 @@ class _DToggleGroupState<T extends Object> extends State<DToggleGroup<T>> {
     final children = <Widget>[];
     for (var index = 0; index < widget.items.length; index++) {
       final item = widget.items[index];
-      final variant = item.variant ?? widget.variant;
+      final variant =
+          item.variant ??
+          (widget.inset &&
+                  widget.density == DToggleDensity.standard &&
+                  widget.variant == DToggleVariant.standard
+              ? DToggleVariant.segmented
+              : widget.variant);
       final size = item.size ?? widget.size;
       final baseStyle = item.visualStyle;
       final groupRadius = BorderRadius.circular(DRadius.control);
@@ -477,11 +484,10 @@ class _DToggleGroupState<T extends Object> extends State<DToggleGroup<T>> {
           : baseStyle?.borderEdges ?? DToggleBorderEdges.all;
       final style = DToggleVisualStyle(
         borderRadius: widget.inset
-            ? BorderRadius.circular(
-                widget.density == DToggleDensity.tile ? 8 : 6,
-              )
+            ? BorderRadius.circular(8)
             : joinedRadius ?? baseStyle?.borderRadius,
         borderEdges: edges,
+        expandArtwork: widget.expanded,
       );
       final itemEnabled = _groupInteractive && item.enabled;
       _focusFor(item).skipTraversal = index != _rovingIndex;
@@ -563,13 +569,13 @@ class _DToggleGroupState<T extends Object> extends State<DToggleGroup<T>> {
       final tokens = DTokens.of(context);
       group = DecoratedBox(
         decoration: BoxDecoration(
-          color: widget.density == DToggleDensity.tile
-              ? Color.lerp(tokens.background, Colors.black, .14)
-              : tokens.background,
-          border: Border.all(color: tokens.border),
-          borderRadius: BorderRadius.circular(
-            widget.density == DToggleDensity.tile ? 10 : 8,
+          color: Color.lerp(tokens.background, Colors.black, .14),
+          border: Border.all(
+            color: widget.density == DToggleDensity.tile
+                ? tokens.border
+                : Color.lerp(tokens.background, tokens.foreground, .12)!,
           ),
+          borderRadius: BorderRadius.circular(10),
         ),
         child: Padding(padding: const EdgeInsets.all(2), child: group),
       );
