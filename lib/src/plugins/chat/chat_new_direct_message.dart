@@ -17,15 +17,43 @@ Future<void> showChatNewDirectMessageDialog({
   required String siteUrl,
   required ChatController chat,
   required ChatShellService shell,
-}) => showDDialog<void>(
-  context: context,
-  builder: (context, dialog) => _ChatNewDirectMessageDialog(
-    siteUrl: siteUrl,
-    chat: chat,
-    shell: shell,
-    dialog: dialog,
-  ),
-);
+}) {
+  final searchFocus = FocusNode(debugLabel: 'Start chatting search');
+  Widget content(DDialogController<void> dialog, {required bool sheet}) =>
+      _ChatNewDirectMessageDialog(
+        siteUrl: siteUrl,
+        chat: chat,
+        shell: shell,
+        dialog: dialog,
+        searchFocus: searchFocus,
+        sheet: sheet,
+      );
+  // Touch keeps the search focused, so the picker takes the whole height above
+  // the keyboard the same way the emoji picker does.
+  if (context.isTouch) {
+    return showDSheet<void>(
+      context: context,
+      side: DSheetSide.bottom,
+      inset: true,
+      fillAvailableHeight: true,
+      initialFocusNode: searchFocus,
+      barrierLabel: 'Dismiss start chatting',
+      builder: (context, sheet) => DSheetContent(
+        key: const ValueKey('chat-new-direct-message-sheet'),
+        side: DSheetSide.bottom,
+        semanticLabel: 'Start chatting',
+        topBottomMaxHeightFactor: 1,
+        scrollWholeSheet: false,
+        showCloseButton: false,
+        children: [Expanded(child: content(sheet, sheet: true))],
+      ),
+    );
+  }
+  return showDDialog<void>(
+    context: context,
+    builder: (context, dialog) => content(dialog, sheet: false),
+  );
+}
 
 class _ChatNewDirectMessageDialog extends StatefulWidget {
   const _ChatNewDirectMessageDialog({
@@ -33,12 +61,19 @@ class _ChatNewDirectMessageDialog extends StatefulWidget {
     required this.chat,
     required this.shell,
     required this.dialog,
+    required this.searchFocus,
+    required this.sheet,
   });
 
   final String siteUrl;
   final ChatController chat;
   final ChatShellService shell;
   final DDialogController<void> dialog;
+
+  /// Owned by this state: the route holds it as its initial focus until the
+  /// route, and with it this state, is disposed.
+  final FocusNode searchFocus;
+  final bool sheet;
 
   @override
   State<_ChatNewDirectMessageDialog> createState() =>
@@ -48,7 +83,7 @@ class _ChatNewDirectMessageDialog extends StatefulWidget {
 class _ChatNewDirectMessageDialogState
     extends State<_ChatNewDirectMessageDialog> {
   static const _newGroupValue = 'new-group';
-  final _searchFocus = FocusNode(debugLabel: 'Start chatting search');
+  late final _searchFocus = widget.searchFocus;
   final _command = DCommandController<String>();
   final _search = TextEditingController();
   bool _resettingSearch = false;
@@ -357,197 +392,235 @@ class _ChatNewDirectMessageDialogState
       };
 
   @override
-  Widget build(BuildContext context) {
-    final tokens = DTokens.of(context);
-    final desktop = switch (Theme.of(context).platform) {
-      TargetPlatform.android || TargetPlatform.iOS => false,
-      _ => true,
-    };
-    return CallbackShortcuts(
-      bindings: {
-        newDirectMessageShortcutForPlatform(Theme.of(context).platform):
-            widget.dialog.close,
-      },
-      child: DDialogContent(
-        key: const ValueKey('chat-new-direct-message-dialog'),
-        maxWidth: 520,
-        showCloseButton: false,
-        contentPadding: EdgeInsets.zero,
-        verticalPadding: 0,
-        spacing: 0,
-        children: [
-          Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Padding(
-                padding: const EdgeInsets.all(DSpacing.lg),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      child: DDialogHeader(
-                        children: [
-                          DDialogTitle(
-                            child: Text(
-                              _composingGroup
-                                  ? 'New group chat'
-                                  : 'Start chatting',
-                            ),
-                          ),
-                          DDialogDescription(
-                            child: Text(
-                              _composingGroup
-                                  ? 'Bring a few people into the conversation.'
-                                  : 'Pick up a conversation or find someone new.',
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: DSpacing.sm),
-                    DButton.iconOnly(
-                      icon: const DIcon(DIcons.xmark),
-                      variant: DButtonVariant.transparentBackground,
-                      onPressed: widget.dialog.close,
-                      tooltip: 'Close',
-                      semanticLabel: 'Close start chatting',
-                    ),
-                  ],
-                ),
-              ),
-              if (_composingGroup)
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(
-                    DSpacing.lg,
-                    0,
-                    DSpacing.lg,
-                    DSpacing.sm,
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      DInput(
-                        key: const ValueKey('chat-new-group-name'),
-                        controller: _groupName,
-                        enabled: !_opening,
-                        hintText: 'Group name (optional)',
-                        semanticLabel: 'Group name (optional)',
-                      ),
-                      const SizedBox(height: DSpacing.sm),
-                      _buildMembers(),
-                    ],
-                  ),
-                ),
-              DCommand<String>(
-                key: const ValueKey('chat-destination-command'),
-                controller: _command,
-                shouldFilter: false,
-                loop: true,
-                vimBindings: false,
-                loading: _searching || _opening,
-                semanticLabel: 'Chat destinations',
-                onQueryChanged: _scheduleSearch,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: DSpacing.md,
-                      ),
-                      child: DCommandInput<String>(
-                        key: const ValueKey('chat-new-direct-message-search'),
-                        controller: _search,
-                        focusNode: _searchFocus,
-                        enabled: !_opening,
-                        semanticLabel: 'Search chat recipients',
-                        placeholder: _composingGroup
-                            ? 'Search users or groups'
-                            : 'Search users, groups, or channels',
-                      ),
-                    ),
-                    _buildResults(),
-                  ],
-                ),
-              ),
-              if (_error case final error?)
-                Padding(
-                  padding: const EdgeInsets.all(DSpacing.md),
-                  child: DAlert(
-                    key: const ValueKey('chat-new-direct-message-error'),
-                    variant: DAlertVariant.destructive,
-                    description: DAlertDescription(child: Text(error)),
-                  ),
-                ),
-              DCardFooter(
-                backgroundColor: tokens.footerBackground,
-                borderColor: tokens.footerBorder,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: DSpacing.lg,
-                  vertical: DSpacing.sm,
-                ),
-                child: LayoutBuilder(
-                  builder: (context, constraints) {
-                    final showHints =
-                        desktop &&
-                        constraints.maxWidth >=
-                            MediaQuery.textScalerOf(
-                              context,
-                            ).scale(_composingGroup ? 420 : 280);
-                    return Row(
-                      children: [
-                        if (showHints) Expanded(child: _keyboardHints()),
-                        if (_composingGroup)
-                          Expanded(
-                            child: Wrap(
-                              alignment: WrapAlignment.end,
-                              spacing: DSpacing.controlGap,
-                              runSpacing: DSpacing.sm,
-                              children: [
-                                DButton(
-                                  label: const Text('Back'),
-                                  variant: DButtonVariant.outline,
-                                  onPressed: _opening ? null : _cancelGroup,
-                                ),
-                                DButton(
-                                  key: const ValueKey(
-                                    'chat-create-group-direct-message',
-                                  ),
-                                  label: const Text('Start group chat'),
-                                  variant: DButtonVariant.primary,
-                                  loading: _opening,
-                                  onPressed: _opening || _members.isEmpty
-                                      ? null
-                                      : () => unawaited(_createGroup()),
-                                ),
-                              ],
-                            ),
-                          )
-                        else if (showHints)
-                          _keyHint(const [DKbd('Esc')], 'close')
-                        else
-                          Expanded(
-                            child: Align(
-                              alignment: AlignmentDirectional.centerEnd,
-                              child: DButton(
-                                label: const Text('Cancel'),
-                                variant: DButtonVariant.outline,
-                                onPressed: widget.dialog.close,
-                              ),
-                            ),
-                          ),
-                      ],
-                    );
-                  },
-                ),
-              ),
-            ],
+  Widget build(BuildContext context) => CallbackShortcuts(
+    bindings: {
+      newDirectMessageShortcutForPlatform(Theme.of(context).platform):
+          widget.dialog.close,
+    },
+    child: widget.sheet ? _buildSheet() : _buildDialog(),
+  );
+
+  Widget _buildSheet() => Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      Padding(
+        padding: const EdgeInsets.symmetric(
+          horizontal: DSpacing.lg,
+          vertical: DSpacing.xs,
+        ),
+        child: Row(
+          children: [
+            Expanded(child: DSheetTitle(child: Text(_title))),
+            _closeButton(),
+          ],
+        ),
+      ),
+      if (_composingGroup) _buildGroupFields(),
+      // Keyed so the group fields appearing above do not remount the command.
+      Expanded(
+        key: const ValueKey('chat-destination-command-slot'),
+        child: _buildCommand(fill: true),
+      ),
+      ?_buildError(),
+      if (_composingGroup)
+        Padding(
+          padding: const EdgeInsets.fromLTRB(
+            DSpacing.lg,
+            DSpacing.sm,
+            DSpacing.lg,
+            0,
           ),
+          child: _groupActions(),
+        ),
+    ],
+  );
+
+  Widget _buildDialog() {
+    final tokens = DTokens.of(context);
+    final desktop = !context.isTouch;
+    return DDialogContent(
+      key: const ValueKey('chat-new-direct-message-dialog'),
+      maxWidth: 520,
+      showCloseButton: false,
+      contentPadding: EdgeInsets.zero,
+      verticalPadding: 0,
+      spacing: 0,
+      children: [
+        Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(DSpacing.lg),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: DDialogHeader(
+                      children: [
+                        DDialogTitle(child: Text(_title)),
+                        DDialogDescription(
+                          child: Text(
+                            _composingGroup
+                                ? 'Bring a few people into the conversation.'
+                                : 'Pick up a conversation or find someone new.',
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: DSpacing.sm),
+                  _closeButton(),
+                ],
+              ),
+            ),
+            if (_composingGroup) _buildGroupFields(),
+            _buildCommand(fill: false),
+            ?_buildError(),
+            DCardFooter(
+              backgroundColor: tokens.footerBackground,
+              borderColor: tokens.footerBorder,
+              padding: const EdgeInsets.symmetric(
+                horizontal: DSpacing.lg,
+                vertical: DSpacing.sm,
+              ),
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final showHints =
+                      desktop &&
+                      constraints.maxWidth >=
+                          MediaQuery.textScalerOf(
+                            context,
+                          ).scale(_composingGroup ? 420 : 280);
+                  return Row(
+                    children: [
+                      if (showHints) Expanded(child: _keyboardHints()),
+                      if (_composingGroup)
+                        Expanded(child: _groupActions())
+                      else if (showHints)
+                        _keyHint(const [DKbd('Esc')], 'close')
+                      else
+                        Expanded(
+                          child: Align(
+                            alignment: AlignmentDirectional.centerEnd,
+                            child: DButton(
+                              label: const Text('Cancel'),
+                              variant: DButtonVariant.outline,
+                              onPressed: widget.dialog.close,
+                            ),
+                          ),
+                        ),
+                    ],
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  String get _title => _composingGroup ? 'New group chat' : 'Start chatting';
+
+  Widget _closeButton() => DButton.iconOnly(
+    icon: const DIcon(DIcons.xmark),
+    variant: DButtonVariant.transparentBackground,
+    onPressed: widget.dialog.close,
+    tooltip: 'Close',
+    semanticLabel: 'Close start chatting',
+  );
+
+  Widget _buildGroupFields() => Padding(
+    padding: const EdgeInsets.fromLTRB(
+      DSpacing.lg,
+      0,
+      DSpacing.lg,
+      DSpacing.sm,
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        DInput(
+          key: const ValueKey('chat-new-group-name'),
+          controller: _groupName,
+          enabled: !_opening,
+          hintText: 'Group name (optional)',
+          semanticLabel: 'Group name (optional)',
+        ),
+        const SizedBox(height: DSpacing.sm),
+        _buildMembers(),
+      ],
+    ),
+  );
+
+  Widget _buildCommand({required bool fill}) {
+    final results = _buildResults(fill: fill);
+    return DCommand<String>(
+      key: const ValueKey('chat-destination-command'),
+      controller: _command,
+      shouldFilter: false,
+      loop: true,
+      vimBindings: false,
+      loading: _searching || _opening,
+      semanticLabel: 'Chat destinations',
+      onQueryChanged: _scheduleSearch,
+      child: Column(
+        mainAxisSize: fill ? MainAxisSize.max : MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: DSpacing.md),
+            child: DCommandInput<String>(
+              key: const ValueKey('chat-new-direct-message-search'),
+              controller: _search,
+              focusNode: _searchFocus,
+              enabled: !_opening,
+              semanticLabel: 'Search chat recipients',
+              placeholder: _composingGroup
+                  ? 'Search users or groups'
+                  : 'Search users, groups, or channels',
+            ),
+          ),
+          if (fill) Expanded(child: results) else results,
         ],
       ),
     );
   }
+
+  Widget? _buildError() => switch (_error) {
+    final error? => Padding(
+      padding: const EdgeInsets.all(DSpacing.md),
+      child: DAlert(
+        key: const ValueKey('chat-new-direct-message-error'),
+        variant: DAlertVariant.destructive,
+        description: DAlertDescription(child: Text(error)),
+      ),
+    ),
+    null => null,
+  };
+
+  Widget _groupActions() => Wrap(
+    alignment: WrapAlignment.end,
+    spacing: DSpacing.controlGap,
+    runSpacing: DSpacing.sm,
+    children: [
+      DButton(
+        label: const Text('Back'),
+        variant: DButtonVariant.outline,
+        onPressed: _opening ? null : _cancelGroup,
+      ),
+      DButton(
+        key: const ValueKey('chat-create-group-direct-message'),
+        label: const Text('Start group chat'),
+        variant: DButtonVariant.primary,
+        loading: _opening,
+        onPressed: _opening || _members.isEmpty
+            ? null
+            : () => unawaited(_createGroup()),
+      ),
+    ],
+  );
 
   Widget _keyboardHints() => Wrap(
     spacing: DSpacing.md,
@@ -621,7 +694,7 @@ class _ChatNewDirectMessageDialogState
         ChatDirectMessageChannel(:final channel) => channel.title,
       };
 
-  Widget _buildResults() {
+  Widget _buildResults({required bool fill}) {
     final query = _search.text.trim();
     final results = [
       if (!_opening && !_searching)
@@ -654,8 +727,11 @@ class _ChatNewDirectMessageDialogState
       key: const ValueKey('chat-new-direct-message-results'),
       // Results are replaced on every keystroke; a fixed height keeps the
       // dialog, its input and its footer from moving while typing. A third of
-      // the window keeps the group footer on screen in short windows.
-      height: math.min(288, MediaQuery.sizeOf(context).height / 3),
+      // the window keeps the group footer on screen in short windows. The
+      // sheet is already fixed by the keyboard, so its list takes what is left.
+      height: fill
+          ? double.infinity
+          : math.min(288, MediaQuery.sizeOf(context).height / 3),
       semanticLabel: 'Chat recipients and conversations',
       children: [
         DCommandLoading(
