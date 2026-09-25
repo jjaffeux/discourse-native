@@ -665,7 +665,7 @@ void main() {
   ) async {
     final strategy = FocusManager.instance.highlightStrategy;
     FocusManager.instance.highlightStrategy =
-        FocusHighlightStrategy.alwaysTraditional;
+        FocusHighlightStrategy.alwaysTouch;
     addTearDown(() => FocusManager.instance.highlightStrategy = strategy);
     for (final theme in [AppTheme.light, AppTheme.dark]) {
       var changes = 0;
