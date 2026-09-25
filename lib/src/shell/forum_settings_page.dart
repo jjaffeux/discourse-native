@@ -77,21 +77,28 @@ class _ForumSettingsPageState extends State<ForumSettingsPage> {
             'accessibility' => DPageReadingLaneBox(
               padding: const EdgeInsets.all(16),
               widthLimit: DPageReadingLane.maxWidth - 32,
-              child: ListenableBuilder(
-                listenable: appSettings,
-                builder: (context, _) => DSwitchTile(
-                  key: const ValueKey('disable-gif-animations-switch'),
-                  hoverHighlight: true,
-                  title: const DLabel(child: Text('Disable GIF animations')),
-                  subtitle: const DFieldDescription(
-                    child: Text(
-                      'Pause GIFs by default in posts and chat messages.',
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  ListenableBuilder(
+                    listenable: appSettings,
+                    builder: (context, _) => DSwitchTile(
+                      key: const ValueKey('disable-gif-animations-switch'),
+                      hoverHighlight: true,
+                      title: const DLabel(
+                        child: Text('Disable GIF animations'),
+                      ),
+                      subtitle: const DFieldDescription(
+                        child: Text(
+                          'Pause GIFs by default in posts and chat messages.',
+                        ),
+                      ),
+                      value: appSettings.disableGifAnimations,
+                      onChanged: (value) =>
+                          unawaited(appSettings.setDisableGifAnimations(value)),
                     ),
                   ),
-                  value: appSettings.disableGifAnimations,
-                  onChanged: (value) =>
-                      unawaited(appSettings.setDisableGifAnimations(value)),
-                ),
+                ],
               ),
             ),
             _ => ForumAppearanceSettings(
