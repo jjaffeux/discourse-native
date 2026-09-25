@@ -878,6 +878,10 @@ class _StartSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final tokens = DTokens.of(context);
+    final headingStyle = Theme.of(
+      context,
+    ).textTheme.titleSmall?.copyWith(fontSize: 13, color: tokens.foreground);
     final heading = onHeading == null
         ? Padding(
             padding: const EdgeInsets.symmetric(vertical: DSpacing.xs),
@@ -885,26 +889,26 @@ class _StartSection extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               spacing: DSpacing.sm,
               children: [
-                DIcon(icon, size: 14),
-                Text(
-                  title,
-                  style: Theme.of(
-                    context,
-                  ).textTheme.titleSmall?.copyWith(fontSize: 13),
-                ),
+                DIcon(icon, size: 14, color: tokens.mutedForeground),
+                Text(title, style: headingStyle),
               ],
             ),
           )
         : DButton(
             variant: DButtonVariant.transparentBackground,
             size: DButtonSize.small,
-            icon: DIcon(icon, size: 14),
+            foregroundColor: tokens.foreground,
+            icon: DIcon(icon, size: 14, color: tokens.mutedForeground),
             label: Row(
               mainAxisSize: MainAxisSize.min,
               spacing: DSpacing.sm,
               children: [
-                Text(title),
-                const DIcon(DIcons.chevronRight, size: 11),
+                Text(title, style: headingStyle),
+                DIcon(
+                  DIcons.chevronRight,
+                  size: 11,
+                  color: tokens.mutedForeground,
+                ),
               ],
             ),
             onPressed: onHeading,
