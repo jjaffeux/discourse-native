@@ -101,12 +101,17 @@ void main() {
       greaterThan(tester.getRect(bookmark).left),
     );
     for (final action in [bookmark, notifications, assignment, status]) {
-      expect(tester.widget<DButton>(action).size, DButtonSize.filter, reason: '$action');
+      expect(
+        tester.widget<DButton>(action).size,
+        DButtonSize.filter,
+        reason: '$action',
+      );
       expect(
         tester.getRect(action).center.dy,
         closeTo(tester.getRect(taxonomy).center.dy, 1),
       );
     }
+    expect(tester.widget<DButton>(assignment).variant, DButtonVariant.outline);
     expect(
       find.descendant(
         of: header,
