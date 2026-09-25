@@ -148,6 +148,7 @@ class ChatComposer extends StatefulWidget {
     this.onEditMessage,
     this.onEditFinished,
     this.pickFiles = pickComposerFiles,
+    this.pickImages = pickComposerImages,
   });
 
   final String siteUrl;
@@ -158,6 +159,7 @@ class ChatComposer extends StatefulWidget {
   final ValueChanged<ChatMessage>? onEditMessage;
   final VoidCallback? onEditFinished;
   final ComposerFilePicker pickFiles;
+  final ComposerImagePicker pickImages;
 
   /// A counter lets repeated Reply actions refocus an already-open composer.
   final int focusRequest;
@@ -802,7 +804,14 @@ class _ChatComposerState extends State<ChatComposer> {
     }
   }
 
-  Future<void> _pickFiles() async {
+  Future<void> _pickFiles() => _pickUpload(widget.pickFiles, photos: false);
+
+  Future<void> _pickImages() => _pickUpload(widget.pickImages, photos: true);
+
+  Future<void> _pickUpload(
+    ComposerFilePicker picker, {
+    required bool photos,
+  }) async {
     final host = _host;
     final composer = _composer;
     final sourceKey = _sourceKey;
@@ -824,21 +833,27 @@ class _ChatComposerState extends State<ChatComposer> {
         : composer.text.text.length;
     setState(() => _pickingFiles = true);
     try {
-      final files = await widget.pickFiles();
+      final files = await picker();
       if (!_ownsComposer(host, composer, sourceKey)) return;
       composer.addFiles(files, offset);
     } catch (error, stackTrace) {
       _diagnostics!.reportError(
         error,
         stackTrace,
-        operation: 'chatComposer.pickFiles',
+        operation: photos
+            ? 'chatComposer.pickImages'
+            : 'chatComposer.pickFiles',
         source: 'platform',
         severity: DiagnosticSeverity.warning,
         handled: true,
         degraded: true,
       );
       if (_ownsComposer(host, composer, sourceKey)) {
-        composer.showNotice("Couldn't open the file picker.");
+        composer.showNotice(
+          photos
+              ? "Couldn't open the photo library."
+              : "Couldn't open the file picker.",
+        );
       }
     } finally {
       if (mounted) setState(() => _pickingFiles = false);
@@ -1226,7 +1241,7 @@ class _ChatComposerState extends State<ChatComposer> {
                               return [
                                 if (enabled && composer.canUpload)
                                   ComposerSlashAction(
-                                    label: 'Upload',
+                                    label: 'Files',
                                     icon: DIcons.paperclip,
                                     keywords: const [
                                       'image',
@@ -1234,6 +1249,17 @@ class _ChatComposerState extends State<ChatComposer> {
                                       'attachment',
                                     ],
                                     onInvoke: () => unawaited(_pickFiles()),
+                                  ),
+                                if (enabled && composer.canUpload)
+                                  ComposerSlashAction(
+                                    label: 'Photo Library',
+                                    icon: DIcons.paperclip,
+                                    keywords: const [
+                                      'image',
+                                      'photo',
+                                      'upload',
+                                    ],
+                                    onInvoke: () => unawaited(_pickImages()),
                                   ),
                                 if (enabled &&
                                     widget.editingMessage == null &&
@@ -1361,7 +1387,25 @@ class _ChatComposerState extends State<ChatComposer> {
                                                 }
                                               }
                                             : null,
-                                        child: const Text('Upload'),
+                                        child: const Text('Files'),
+                                      ),
+                                    if (canUpload)
+                                      DDropdownMenuItem(
+                                        key: const ValueKey(
+                                          'chat-composer-photos',
+                                        ),
+                                        leading: const DIcon(DIcons.paperclip),
+                                        onPressed: enabled
+                                            ? () {
+                                                if (identical(
+                                                  _composer,
+                                                  composer,
+                                                )) {
+                                                  unawaited(_pickImages());
+                                                }
+                                              }
+                                            : null,
+                                        child: const Text('Photo Library'),
                                       ),
                                     if (canInsertGif)
                                       DDropdownMenuItem(

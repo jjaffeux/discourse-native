@@ -1,7 +1,7 @@
 import 'package:file_selector/file_selector.dart' as selector;
+import 'package:image_picker/image_picker.dart' as image_picker;
 
 import '../models/composer_upload.dart';
-import '../models/site_config.dart';
 
 typedef ComposerFilePicker = Future<List<ComposerUploadFile>> Function();
 typedef ComposerImagePicker = ComposerFilePicker;
@@ -14,9 +14,8 @@ Future<List<ComposerUploadFile>> pickComposerFiles() async {
 }
 
 Future<List<ComposerUploadFile>> pickComposerImages() async {
-  final files = await selector.openFiles(
-    acceptedTypeGroups: [_composerImageTypes],
-    confirmButtonText: 'Upload',
+  final files = await image_picker.ImagePicker().pickMultiImage(
+    requestFullMetadata: false,
   );
   return composerUploadFilesFromSelection(files);
 }
@@ -33,14 +32,3 @@ List<ComposerUploadFile> composerUploadFilesFromSelection(
       ),
   ]);
 }
-
-final _composerImageTypes = selector.XTypeGroup(
-  label: 'Images',
-  extensions: SiteConfig.imageExtensions.toList(growable: false),
-  // iOS requires a UTI while Android and Linux use MIME types/extensions.
-  // Supplying each platform's native vocabulary keeps one picker definition
-  // valid everywhere this app runs.
-  mimeTypes: const ['image/*'],
-  uniformTypeIdentifiers: const ['public.image'],
-  webWildCards: const ['image/*'],
-);

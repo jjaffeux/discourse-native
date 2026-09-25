@@ -510,6 +510,7 @@ class ComposerPanel extends StatelessWidget {
                         onCancel: discard,
                         sideDocked: placement.isSide,
                         pickFiles: pickFiles,
+                        pickImages: pickImages,
                         message:
                             error?.message ??
                             notice ??
@@ -3979,10 +3980,15 @@ class _FormattingToolbar extends StatelessWidget {
 }
 
 class _Toolbar extends StatelessWidget {
-  const _Toolbar({required this.composer, required this.pickFiles});
+  const _Toolbar({
+    required this.composer,
+    required this.pickFiles,
+    required this.pickImages,
+  });
 
   final ComposerController composer;
   final ComposerFilePicker pickFiles;
+  final ComposerImagePicker pickImages;
 
   @override
   Widget build(BuildContext context) => ShellSelector<int>(
@@ -4014,7 +4020,11 @@ class _Toolbar extends StatelessWidget {
           child: DSeparator(orientation: Axis.vertical, length: 20),
         ),
         if (uploadsEnabled)
-          _ComposerUploadButton(composer: composer, pickFiles: pickFiles),
+          _ComposerUploadButton(
+            composer: composer,
+            pickFiles: pickFiles,
+            pickImages: pickImages,
+          ),
         if (emojiEnabled)
           EmojiPickerAnchor(
             child: Builder(
@@ -4269,10 +4279,12 @@ class _ComposerUploadButton extends StatefulWidget {
   const _ComposerUploadButton({
     required this.composer,
     required this.pickFiles,
+    required this.pickImages,
   });
 
   final ComposerController composer;
   final ComposerFilePicker pickFiles;
+  final ComposerImagePicker pickImages;
 
   @override
   State<_ComposerUploadButton> createState() => _ComposerUploadButtonState();
@@ -4281,7 +4293,7 @@ class _ComposerUploadButton extends StatefulWidget {
 class _ComposerUploadButtonState extends State<_ComposerUploadButton> {
   bool _picking = false;
 
-  Future<void> _pick() async {
+  Future<void> _pick(ComposerFilePicker picker, {required bool photos}) async {
     final composer = widget.composer;
     if (!composer.canUpload || _picking) return;
     final selection = composer.text.selection;
@@ -4290,7 +4302,7 @@ class _ComposerUploadButtonState extends State<_ComposerUploadButton> {
         : composer.text.text.length;
     setState(() => _picking = true);
     try {
-      final files = await widget.pickFiles();
+      final files = await picker();
       if (!mounted ||
           !identical(widget.composer, composer) ||
           !composer.canUpload) {
@@ -4301,7 +4313,7 @@ class _ComposerUploadButtonState extends State<_ComposerUploadButton> {
       DiagnosticsSink.current.reportError(
         error,
         stackTrace,
-        operation: 'composer.pickFiles',
+        operation: photos ? 'composer.pickImages' : 'composer.pickFiles',
         source: 'platform',
         severity: DiagnosticSeverity.warning,
         handled: true,
@@ -4310,7 +4322,11 @@ class _ComposerUploadButtonState extends State<_ComposerUploadButton> {
       if (mounted &&
           identical(widget.composer, composer) &&
           composer.canUpload) {
-        composer.showNotice("Couldn't open the file picker.");
+        composer.showNotice(
+          photos
+              ? "Couldn't open the photo library."
+              : "Couldn't open the file picker.",
+        );
       }
     } finally {
       if (mounted) {
@@ -4323,16 +4339,43 @@ class _ComposerUploadButtonState extends State<_ComposerUploadButton> {
   }
 
   @override
-  Widget build(BuildContext context) => DButton.iconOnly(
-    key: const ValueKey('composer-upload'),
-    tooltip: 'Upload',
-    onPressed: !widget.composer.canUpload || _picking
-        ? null
-        : () => unawaited(_pick()),
-    icon: const DIcon(DIcons.paperclip),
-    variant: DButtonVariant.transparentBackground,
-    foregroundColor: _composerToolForeground(context),
-    size: DButtonSize.toolbar,
+  Widget build(BuildContext context) => DDropdownMenu(
+    content: DDropdownMenuContent(
+      semanticLabel: 'Upload',
+      side: DPopoverSide.top,
+      children: [
+        DDropdownMenuItem(
+          key: const ValueKey('composer-upload-files'),
+          onPressed: widget.composer.canUpload && !_picking
+              ? () => unawaited(_pick(widget.pickFiles, photos: false))
+              : null,
+          child: const Text('Files'),
+        ),
+        DDropdownMenuItem(
+          key: const ValueKey('composer-upload-photos'),
+          onPressed: widget.composer.canUpload && !_picking
+              ? () => unawaited(_pick(widget.pickImages, photos: true))
+              : null,
+          child: const Text('Photo Library'),
+        ),
+      ],
+    ),
+    child: DDropdownMenuTrigger(
+      builder: (context, trigger) => DButton.iconOnly(
+        key: const ValueKey('composer-upload'),
+        tooltip: 'Upload',
+        onPressed: !widget.composer.canUpload || _picking
+            ? null
+            : trigger.toggle,
+        focusNode: trigger.focusNode,
+        hasPopup: true,
+        expanded: trigger.open,
+        icon: const DIcon(DIcons.paperclip),
+        variant: DButtonVariant.transparentBackground,
+        foregroundColor: _composerToolForeground(context),
+        size: DButtonSize.toolbar,
+      ),
+    ),
   );
 }
 
@@ -4374,6 +4417,7 @@ class _Footer extends StatelessWidget {
     required this.onCancel,
     required this.sideDocked,
     required this.pickFiles,
+    required this.pickImages,
     required this.message,
     required this.isError,
     required this.busy,
@@ -4385,6 +4429,7 @@ class _Footer extends StatelessWidget {
   final VoidCallback onCancel;
   final bool sideDocked;
   final ComposerFilePicker pickFiles;
+  final ComposerImagePicker pickImages;
   final String? message;
   final bool isError;
   final bool busy;
@@ -4419,7 +4464,11 @@ class _Footer extends StatelessWidget {
           );
     final toolbar = composer.target.isTaxonomyEdit
         ? null
-        : _Toolbar(composer: composer, pickFiles: pickFiles);
+        : _Toolbar(
+            composer: composer,
+            pickFiles: pickFiles,
+            pickImages: pickImages,
+          );
     final controls = LayoutBuilder(
       builder: (context, constraints) {
         final compact =

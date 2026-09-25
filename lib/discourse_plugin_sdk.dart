@@ -122,7 +122,11 @@ export 'src/shell/composer_marks.dart' show ComposerMark;
 export 'src/shell/composer_panel.dart' show ComposerEditor, ComposerUploadQueue;
 export 'src/shell/composer_slash_menu.dart' show ComposerSlashAction;
 export 'src/shell/composer_upload_picker.dart'
-    show ComposerFilePicker, pickComposerFiles;
+    show
+        ComposerFilePicker,
+        ComposerImagePicker,
+        pickComposerFiles,
+        pickComposerImages;
 export 'src/shell/content_reading_lane.dart'
     show
         ContentReadingLane,

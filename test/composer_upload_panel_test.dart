@@ -92,6 +92,10 @@ void main() {
         expect((button.icon! as DIcon).icon, DIcons.paperclip);
         await tester.tap(find.byKey(const ValueKey('composer-upload')));
         await tester.pumpAndSettle();
+        expect(find.text('Photo Library'), findsOneWidget);
+        expect(find.text('Files'), findsOneWidget);
+        await tester.tap(find.byKey(const ValueKey('composer-upload-files')));
+        await tester.pumpAndSettle();
 
         expect(uploaded, [
           'photo.png',
@@ -651,7 +655,7 @@ void main() {
         tester,
         shell,
         composer,
-        pickFiles: () {
+        pickImages: () {
           pickerCalls++;
           return pickerResult.future;
         },
@@ -659,6 +663,8 @@ void main() {
 
       expect(find.byTooltip('Upload'), findsOneWidget);
       await tester.tap(find.byKey(const ValueKey('composer-upload')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('composer-upload-photos')));
       await tester.pump();
       expect(pickerCalls, 1);
       expect(
