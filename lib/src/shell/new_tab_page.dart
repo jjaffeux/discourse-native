@@ -37,12 +37,31 @@ class _NewTabPageState extends State<NewTabPage> {
   final _searchPromptFocus = FocusNode(debugLabel: 'start page search prompt');
   bool? _dismissed;
   bool _compact = true;
+  String? _requestedLatestSite;
 
   @override
   void initState() {
     super.initState();
     _searchPromptFocus.addListener(_onSearchPromptFocus);
     unawaited(_loadPreference());
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final instance = ShellScope.maybeOf(context)?.currentInstance;
+    if (instance == null || (instance.loginRequired && !instance.isConnected)) {
+      _requestedLatestSite = null;
+      return;
+    }
+    if (_requestedLatestSite == instance.url) return;
+    _requestedLatestSite = instance.url;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final shell = ShellScope.maybeRead(context);
+      if (shell?.currentInstance?.url != instance.url) return;
+      unawaited(shell!.loadFeed(TopicListMode.latest.routeId));
+    });
   }
 
   @override
@@ -217,15 +236,6 @@ class _NewTabPageState extends State<NewTabPage> {
           onPressed: () => openLink(context, '/t/${topic.slug}/${topic.id}'),
         ),
     ];
-    final visitedRows = latest.isNotEmpty || siteUrl == null
-        ? <_StartPageEntry>[]
-        : [
-            for (final route in shell!.recentTopicsFor(siteUrl).take(4))
-              _StartPageEntry.fromRoute(
-                route,
-                () => _openRoute(context, route),
-              ),
-          ];
     final bookmarkRows = [
       for (final bookmark in bookmarks)
         _StartPageEntry(
@@ -296,14 +306,6 @@ class _NewTabPageState extends State<NewTabPage> {
                 compact: _compact,
                 siteUrl: siteUrl,
                 onHeading: widget.onBrowseTopics,
-              ),
-            if (visitedRows.isNotEmpty)
-              _StartSection(
-                title: 'Recently visited',
-                icon: DIcons.layerGroup,
-                rows: visitedRows,
-                compact: _compact,
-                siteUrl: siteUrl,
               ),
           ];
 
