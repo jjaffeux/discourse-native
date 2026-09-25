@@ -200,26 +200,25 @@ class _ForumThemeEditorState extends State<ForumThemeEditor> {
             variant: DAlertVariant.destructive,
             description: DAlertDescription(child: Text(error)),
           ),
-        if (widget.creating)
-          const DFieldDescription(
-            child: Text('Starts from the theme in use. Name it to keep it.'),
-          ),
-        Wrap(
+        Row(
           spacing: DSpacing.controlGap,
-          runSpacing: DSpacing.controlGap,
           children: [
+            if (widget.creating)
+              const Expanded(
+                child: DFieldDescription(
+                  child: Text(
+                    'Starts from the theme in use. Name it to keep it.',
+                  ),
+                ),
+              )
+            else
+              const Spacer(),
             DButton(
               key: const ValueKey('theme-save'),
               label: Text(widget.creating ? 'Create theme' : 'Save theme'),
               loading: _saving,
               loadingSemanticLabel: 'Saving theme',
               onPressed: _name.text.trim().isEmpty ? null : _save,
-            ),
-            DButton(
-              key: const ValueKey('theme-cancel'),
-              label: const Text('Cancel'),
-              variant: DButtonVariant.outline,
-              onPressed: _saving ? null : widget.onCancel,
             ),
           ],
         ),
