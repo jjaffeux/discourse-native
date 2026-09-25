@@ -162,3 +162,11 @@ The September 23 fixed Native radius scale (see `conventions.md`) supersedes
 the September 19 8px selected radius: inactive tabs, including their hover
 fill, use the pill radius and the selected tab uses the 14px panel radius,
 independently of the site radius. `d_document_tab_test.dart` pins both.
+
+## Stable forum tab widths — September 25, 2026
+
+The forum strip reserves the close action's width in every tab. Inactive close
+actions remain hidden until hover or keyboard focus, while selecting a tab
+keeps its width and its neighbors' widths unchanged. When the available width
+would make tabs narrower than 110px, the tab lane scrolls horizontally and
+keeps the selected tab visible. The add action remains outside that lane.

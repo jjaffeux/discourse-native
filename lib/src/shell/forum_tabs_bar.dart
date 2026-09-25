@@ -151,14 +151,38 @@ class ForumTabsBar extends StatefulWidget {
 class _ForumTabsBarState extends State<ForumTabsBar> {
   static const _tabGap = 6.0;
   static const _switcherGap = 8.0;
+  static const _minimumTabWidth = 110.0;
   Widget? _contents;
   final _barKey = GlobalKey();
   final _tabKeys = <String, GlobalKey>{};
+  final _tabsScrollController = ScrollController();
   ForumTabItem? _dropItem;
   int _dropIndex = 0;
   String? _geometryTabId;
   List<double> _tabCenters = const [];
   List<Rect> _tabRects = const [];
+
+  @override
+  void initState() {
+    super.initState();
+    _revealSelectedTab();
+  }
+
+  @override
+  void dispose() {
+    _tabsScrollController.dispose();
+    super.dispose();
+  }
+
+  void _revealSelectedTab() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_tabsScrollController.hasClients) return;
+      final tabContext = _tabKeys[widget.selectedId]?.currentContext;
+      if (tabContext != null) {
+        Scrollable.ensureVisible(tabContext, alignment: .5);
+      }
+    });
+  }
 
   void _captureDropGeometry(String id) {
     if (_geometryTabId == id) return;
@@ -304,6 +328,7 @@ class _ForumTabsBarState extends State<ForumTabsBar> {
   void didUpdateWidget(ForumTabsBar oldWidget) {
     super.didUpdateWidget(oldWidget);
     _tabKeys.removeWhere((id, _) => !widget.items.any((tab) => tab.id == id));
+    if (widget.selectedId != oldWidget.selectedId) _revealSelectedTab();
     if (widget.incomingTab case final item?) {
       _captureDropGeometry(item.id);
     } else if (oldWidget.incomingTab != null) {
@@ -449,18 +474,82 @@ class _ForumTabsBarState extends State<ForumTabsBar> {
                           scaler,
                           context: context,
                         );
-                        // Reserve the active tab's close action and outer
-                        // insets before sharing the remaining width. Otherwise
-                        // crowded tabs can squeeze the close button past its row.
-                        final selectedWidth =
+                        // Every tab reserves its close action, even while the
+                        // action is hidden, so selection cannot change widths.
+                        final closeSlotWidth =
                             closeWidth + 2 * ForumTabsBar._tabContentInset;
                         final labelWidth = math.max(
                           0.0,
                           (constraints.maxWidth -
                                   (widget.showAdd ? addWidth + 6 : 0) -
                                   _tabGap * (tabCount - 1) -
-                                  selectedWidth) /
+                                  closeSlotWidth * tabCount) /
                               tabCount,
+                        );
+                        final availableTabWidth = labelWidth + closeSlotWidth;
+                        final scrollTabs = availableTabWidth < _minimumTabWidth;
+                        final tabMaxWidth = math.min(
+                          ForumTabsBar.maximumTabWidth,
+                          math.max(_minimumTabWidth, availableTabWidth),
+                        );
+                        final tabs = Semantics(
+                          role: SemanticsRole.tabBar,
+                          container: true,
+                          explicitChildNodes: true,
+                          label: 'Open tabs in ${widget.forumName}',
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              for (final (index, item)
+                                  in widget.items.indexed) ...[
+                                ConstrainedBox(
+                                  key: _tabKeys.putIfAbsent(
+                                    item.id,
+                                    () => GlobalKey(),
+                                  ),
+                                  constraints: BoxConstraints(
+                                    maxWidth: tabMaxWidth,
+                                  ),
+                                  child: _ReorderableForumTab(
+                                    item: item,
+                                    index: index,
+                                    itemCount: widget.items.length,
+                                    movesBetweenStrips:
+                                        widget.onDropTab != null,
+                                    selected: item.id == widget.selectedId,
+                                    onSelect: () => widget.onSelect(item.id),
+                                    onClose: () => widget.onClose(item.id),
+                                    onReorder: (id, index) =>
+                                        widget.onReorder(id, index),
+                                    onCloseOthers: widget.items.length == 1
+                                        ? null
+                                        : () => widget.onCloseOthers(item.id),
+                                    onRename: widget.onRename == null
+                                        ? null
+                                        : (title) =>
+                                              widget.onRename!(item.id, title),
+                                    moveToPanel:
+                                        widget.panel == null ||
+                                            widget.onMoveToPanel == null
+                                        ? null
+                                        : () => widget.onMoveToPanel!(
+                                            item.id,
+                                            widget.panel == ForumPanel.main
+                                                ? ForumPanel.secondary
+                                                : ForumPanel.main,
+                                          ),
+                                    moveToPanelLabel: widget.panel == null
+                                        ? null
+                                        : widget.panel == ForumPanel.main
+                                        ? 'Move to secondary panel'
+                                        : 'Move to main panel',
+                                  ),
+                                ),
+                                if (index != widget.items.length - 1)
+                                  const SizedBox(width: _tabGap),
+                              ],
+                            ],
+                          ),
                         );
                         return Row(
                           children: [
@@ -469,89 +558,13 @@ class _ForumTabsBarState extends State<ForumTabsBar> {
                                 padding: const EdgeInsets.symmetric(
                                   vertical: 10.5,
                                 ),
-                                child: Semantics(
-                                  role: SemanticsRole.tabBar,
-                                  container: true,
-                                  explicitChildNodes: true,
-                                  label: 'Open tabs in ${widget.forumName}',
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      for (
-                                        var index = 0;
-                                        index < widget.items.length;
-                                        index++
-                                      ) ...[
-                                        ConstrainedBox(
-                                          key: _tabKeys.putIfAbsent(
-                                            widget.items[index].id,
-                                            () => GlobalKey(),
-                                          ),
-                                          constraints: BoxConstraints(
-                                            maxWidth: math.min(
-                                              ForumTabsBar.maximumTabWidth,
-                                              labelWidth +
-                                                  (widget.items[index].id ==
-                                                          widget.selectedId
-                                                      ? selectedWidth
-                                                      : 0),
-                                            ),
-                                          ),
-                                          child: _ReorderableForumTab(
-                                            item: widget.items[index],
-                                            index: index,
-                                            itemCount: widget.items.length,
-                                            movesBetweenStrips:
-                                                widget.onDropTab != null,
-                                            selected:
-                                                widget.items[index].id ==
-                                                widget.selectedId,
-                                            onSelect: () => widget.onSelect(
-                                              widget.items[index].id,
-                                            ),
-                                            onClose: () => widget.onClose(
-                                              widget.items[index].id,
-                                            ),
-                                            onReorder: (id, index) =>
-                                                widget.onReorder(id, index),
-                                            onCloseOthers:
-                                                widget.items.length == 1
-                                                ? null
-                                                : () => widget.onCloseOthers(
-                                                    widget.items[index].id,
-                                                  ),
-                                            onRename: widget.onRename == null
-                                                ? null
-                                                : (title) => widget.onRename!(
-                                                    widget.items[index].id,
-                                                    title,
-                                                  ),
-                                            moveToPanel:
-                                                widget.panel == null ||
-                                                    widget.onMoveToPanel == null
-                                                ? null
-                                                : () => widget.onMoveToPanel!(
-                                                    widget.items[index].id,
-                                                    widget.panel ==
-                                                            ForumPanel.main
-                                                        ? ForumPanel.secondary
-                                                        : ForumPanel.main,
-                                                  ),
-                                            moveToPanelLabel:
-                                                widget.panel == null
-                                                ? null
-                                                : widget.panel ==
-                                                      ForumPanel.main
-                                                ? 'Move to secondary panel'
-                                                : 'Move to main panel',
-                                          ),
-                                        ),
-                                        if (index != widget.items.length - 1)
-                                          const SizedBox(width: _tabGap),
-                                      ],
-                                    ],
-                                  ),
-                                ),
+                                child: scrollTabs
+                                    ? SingleChildScrollView(
+                                        controller: _tabsScrollController,
+                                        scrollDirection: Axis.horizontal,
+                                        child: tabs,
+                                      )
+                                    : tabs,
                               ),
                             ),
                             if (widget.showAdd) ...[
@@ -1187,13 +1200,11 @@ class _ReorderableForumTab extends StatelessWidget {
         if (event.buttons == kPrimaryButton &&
             event.localPosition.dx <
                 (context.findRenderObject()! as RenderBox).size.width -
-                    (selected
-                        ? DControlStyle.scaledHeight(
-                            DControlSize.tabClose,
-                            MediaQuery.textScalerOf(context),
-                            context: context,
-                          )
-                        : 0) -
+                    DControlStyle.scaledHeight(
+                      DControlSize.tabClose,
+                      MediaQuery.textScalerOf(context),
+                      context: context,
+                    ) -
                     ForumTabsBar._tabContentInset) {
           onSelect();
         }
@@ -1653,7 +1664,6 @@ class _ForumTabState extends State<_ForumTab> {
             pointerKey: ValueKey('forum-tab-pointer-${widget.item.id}'),
             closeKey: ValueKey('forum-tab-close-${widget.item.id}'),
             selected: widget.selected,
-            closeOnlyWhenSelected: true,
             onSelect: _handleTap,
             onTapDown: _handleTapDown,
             onTapCancel: _handleTapCancel,
@@ -1685,14 +1695,12 @@ class _ForumTabState extends State<_ForumTab> {
           horizontal:
               ForumTabsBar._tabContentInset +
               8 +
-              (widget.selected
-                  ? DControlStyle.scaledHeight(
-                          DControlSize.tabClose,
-                          MediaQuery.textScalerOf(context),
-                          context: context,
-                        ) /
-                        2
-                  : 0),
+              DControlStyle.scaledHeight(
+                    DControlSize.tabClose,
+                    MediaQuery.textScalerOf(context),
+                    context: context,
+                  ) /
+                  2,
         ),
       ),
     ),
