@@ -708,6 +708,44 @@ void main() {
     expect(tester.widget<DItem>(cards.first).shape, DItemShape.card);
   });
 
+  testWidgets('clickable section headings match passive section headings', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({
+      'discourse_native.panel_tutorial_dismissed': true,
+    });
+    await pumpShell(tester, desktop);
+    final shell = ShellScope.read(
+      tester.element(find.byType(MainContent).first),
+    );
+    shell.openListUrl('/c/support/12', title: 'Support');
+    shell.pushContent(ContentRoute.newTab());
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Comfortable'));
+    await tester.pumpAndSettle();
+
+    final content = find.byKey(const ValueKey('start-page-content'));
+    final categories = find.descendant(
+      of: content,
+      matching: find.text('Categories'),
+    );
+    final everythingElse = find.descendant(
+      of: content,
+      matching: find.text('Everything else'),
+    );
+    expect(
+      tester.widget<Text>(categories).style,
+      tester.widget<Text>(everythingElse).style,
+    );
+    final button = tester.widget<DButton>(
+      find.ancestor(of: categories, matching: find.byType(DButton)),
+    );
+    expect(
+      button.foregroundColor,
+      DTokens.of(tester.element(categories)).foreground,
+    );
+  });
+
   testWidgets('cached direct messages join recent chat channels', (
     tester,
   ) async {
