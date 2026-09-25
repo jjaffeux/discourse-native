@@ -197,12 +197,10 @@ class _ForumThemeEditorState extends State<ForumThemeEditor> {
             DToggleGroupItem(value: true, child: Text('Darker')),
           ],
         ),
-        ForumTintField(
-          value: palette.tint,
-          onChanged: (value) => _palette = palette.copyWith(tint: value),
-        ),
         ForumAppearanceEffects(
           effects: palette.background ?? const ForumBackground.appearance(),
+          tint: palette.tint,
+          onTintChanged: (value) => _palette = palette.copyWith(tint: value),
           onChanged: (change) => _palette = palette.copyWith(
             background: change(
               palette.background ?? const ForumBackground.appearance(),
