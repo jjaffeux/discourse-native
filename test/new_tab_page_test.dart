@@ -456,7 +456,7 @@ void main() {
     expect(find.text('Recently visited'), findsNothing);
   });
 
-  testWidgets('an opened chat channel appears on the start page', (
+  testWidgets('an unread chat channel opens from the start page', (
     tester,
   ) async {
     SharedPreferences.setMockInitialValues({
@@ -494,22 +494,7 @@ void main() {
     );
     shell.pushContent(ContentRoute.newTab());
     await tester.pumpAndSettle();
-    final chatShortcut = find.descendant(
-      of: find.byKey(const ValueKey('start-page-shortcuts')),
-      matching: find.widgetWithText(DButton, 'Chat'),
-    );
-    expect(chatShortcut, findsOneWidget);
-    await tester.tap(chatShortcut);
-    await tester.pumpAndSettle();
-    expect(shell.currentContent?.id, 'chat-channels');
-
-    expect(await shell.openPluginUrl('$site/chat/c/-/9'), isTrue);
-    shell.pushContent(ContentRoute.newTab());
-    await tester.pumpAndSettle();
-
-    expect(shell.recentChannelsFor(site).single.id, 'chat-c-9');
     expect(find.text('Chat'), findsOneWidget);
-    expect(chatShortcut, findsNothing);
     expect(find.text('General'), findsOneWidget);
     await tester.tap(find.byTooltip('Comfortable'));
     await tester.pumpAndSettle();
@@ -527,6 +512,88 @@ void main() {
     await tester.tap(find.text('General'));
     await tester.pumpAndSettle();
     expect(shell.currentContent?.id, 'chat-c-9');
+  });
+
+  testWidgets('Chat shows latest unread channels without fetching again', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({
+      'discourse_native.panel_tutorial_dismissed': true,
+    });
+    const site = 'https://meta.discourse.org';
+    const user = DiscourseUser(username: 'reader');
+    final api = FakeDiscourseApi(
+      user: user,
+      totals: chatNotificationTotals(available: true),
+      feeds: const {'/latest.json': []},
+      chatChannelsBySite: {
+        site: ChatChannels(
+          public: [
+            ChatChannel(
+              id: 1,
+              title: 'Read channel',
+              kind: ChatChannelKind.category,
+              membership: const ChatMembership(following: true),
+              lastMessageAt: DateTime.utc(2026, 9, 25, 12),
+            ),
+            ChatChannel(
+              id: 2,
+              title: 'Older unread',
+              kind: ChatChannelKind.category,
+              membership: const ChatMembership(following: true),
+              tracking: const ChatTracking(unreadCount: 2),
+              lastMessageAt: DateTime.utc(2026, 9, 25, 10),
+              lastMessagePreview: 'Earlier message',
+            ),
+          ],
+          direct: [
+            ChatChannel(
+              id: 3,
+              title: 'Newest unread',
+              kind: ChatChannelKind.directMessage,
+              membership: const ChatMembership(following: true),
+              tracking: const ChatTracking(unreadCount: 4),
+              lastMessageAt: DateTime.utc(2026, 9, 25, 11),
+              lastMessagePreview: 'Latest message',
+            ),
+          ],
+        ),
+      },
+    );
+    await pumpShell(
+      tester,
+      desktop,
+      instances: [instance('meta.discourse.org').copyWith(user: user)],
+      authenticator: FakeAuthenticator()..keys[site] = 'key',
+      api: api,
+    );
+    final requestsBefore = api.chatChannelsRequested.length;
+    final shell = ShellScope.read(
+      tester.element(find.byType(MainContent).first),
+    );
+    shell.pushContent(ContentRoute.newTab());
+    await tester.pumpAndSettle();
+
+    final newest = find.byKey(const ValueKey('start-page-recent-chat-c-3'));
+    final older = find.byKey(const ValueKey('start-page-recent-chat-c-2'));
+    expect(newest, findsOneWidget);
+    expect(older, findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('start-page-recent-chat-c-1')),
+      findsNothing,
+    );
+    expect(tester.getTopLeft(newest).dy, lessThan(tester.getTopLeft(older).dy));
+    expect(api.chatChannelsRequested, hasLength(requestsBefore));
+    await tester.tap(find.byTooltip('Comfortable'));
+    await tester.pumpAndSettle();
+    expect(
+      find.descendant(of: newest, matching: find.text('4')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: newest, matching: find.text('Latest message')),
+      findsOneWidget,
+    );
   });
 
   testWidgets('cached bookmarks and Latest appear without extra requests', (
@@ -625,6 +692,7 @@ void main() {
               title: 'Alex :wave:',
               kind: ChatChannelKind.directMessage,
               membership: ChatMembership(following: true),
+              tracking: ChatTracking(unreadCount: 1),
               lastMessagePreview: 'No worries! :slight_smile:',
             ),
           ],
@@ -821,7 +889,7 @@ void main() {
     );
   });
 
-  testWidgets('cached direct messages join recent chat channels', (
+  testWidgets('cached unread direct messages update on the Start page', (
     tester,
   ) async {
     SharedPreferences.setMockInitialValues({
@@ -904,6 +972,27 @@ void main() {
     );
     expect(
       find.descendant(of: directCard, matching: find.text('See you tomorrow.')),
+      findsOneWidget,
+    );
+
+    channelsBySite[site] = const ChatChannels(
+      direct: [
+        ChatChannel(
+          id: 11,
+          title: 'Alex',
+          kind: ChatChannelKind.directMessage,
+          membership: ChatMembership(following: true),
+        ),
+      ],
+    );
+    await chat.loadChannels(site, force: true);
+    await tester.pumpAndSettle();
+    expect(directCard, findsNothing);
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('start-page-shortcuts')),
+        matching: find.widgetWithText(DButton, 'Chat'),
+      ),
       findsOneWidget,
     );
   });
