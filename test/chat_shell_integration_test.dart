@@ -23,6 +23,7 @@ import 'package:discourse_native/src/plugins/chat/chat_channel_view.dart';
 import 'package:discourse_native/src/plugins/chat/chat_composer.dart';
 import 'package:discourse_native/src/plugins/chat/chat_global_search.dart';
 import 'package:discourse_native/src/plugins/chat/chat_header_button.dart';
+import 'package:discourse_native/src/plugins/chat/chat_inbox.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message_tile.dart';
 import 'package:discourse_native/src/plugins/chat/chat_notification_counter.dart';
@@ -1416,17 +1417,18 @@ void _registerChatShellTests() {
         );
         await tester.pump();
 
-        expect(find.widgetWithText(DSidebarMenuButton, 'Chat'), findsNothing);
         final placeholder = find.byKey(
-          const ValueKey('sidebar-loading-skeleton'),
+          const ValueKey('chat-inbox-loading-skeleton'),
         );
-        expect(placeholder, findsWidgets);
+        expect(placeholder, findsOneWidget);
+        // The filters are already final; only the rows are placeholders.
         expect(
-          find.descendant(
-            of: placeholder,
-            matching: find.byType(DSidebarMenuSkeleton),
-          ),
-          findsWidgets,
+          find.byKey(const ValueKey('chat-inbox-activity-filter')),
+          findsOneWidget,
+        );
+        expect(
+          find.byKey(const ValueKey('chat-inbox-kind-filter')),
+          findsOneWidget,
         );
 
         final shell = ShellScope.read(
@@ -1440,10 +1442,7 @@ void _registerChatShellTests() {
         gate.complete();
         await tester.pumpAndSettle();
 
-        expect(
-          find.byKey(const ValueKey('sidebar-loading-skeleton')),
-          findsNothing,
-        );
+        expect(placeholder, findsNothing);
         expect(sidebarDestination('Bugs'), findsOneWidget);
         expect(
           find.byKey(const ValueKey('sidebar-panel-switch-chat')),
@@ -1684,26 +1683,105 @@ void _registerChatShellTests() {
         expect(api.chatMessagesRequested.last.targetMessageId, 40);
       }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
-      testWidgets('lists the public channels above the direct messages', (
+      testWidgets('mixes channels and direct messages by recent activity', (
         tester,
       ) async {
         await pumpChat(
           tester,
-          public: [channel(9, title: 'Bugs')],
+          public: [
+            channel(
+              9,
+              title: 'Bugs',
+              starred: true,
+              lastMessageId: 50,
+              lastMessageAt: DateTime.utc(2026, 8, 8, 10),
+            ),
+            channel(
+              10,
+              title: 'Design',
+              lastMessageId: 51,
+              lastMessageAt: DateTime.utc(2026, 8, 8, 12),
+            ),
+          ],
+          direct: [
+            dm(
+              12,
+              title: 'hawk',
+              lastMessageId: 52,
+              lastMessageAt: DateTime.utc(2026, 8, 8, 11),
+            ),
+          ],
+        );
+
+        for (final title in ['Starred channels', 'Chat', 'Direct messages']) {
+          expect(find.widgetWithText(DSidebarMenuButton, title), findsNothing);
+        }
+        final rows = [
+          'Design',
+          'hawk',
+          'Bugs',
+        ].map((title) => tester.getTopLeft(sidebarDestination(title)).dy);
+        expect(rows, orderedEquals([...rows]..sort()));
+      }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
+
+      testWidgets('keeps the inbox filters while switching sidebar panels', (
+        tester,
+      ) async {
+        await pumpChat(
+          tester,
+          public: [channel(9, title: 'Bugs', unread: 2)],
           direct: [dm(12, title: 'hawk')],
         );
 
-        final chatHeading = tester
-            .getTopLeft(find.widgetWithText(DSidebarMenuButton, 'Chat'))
-            .dy;
-        final dmHeading = tester
-            .getTopLeft(
-              find.widgetWithText(DSidebarMenuButton, 'Direct messages'),
-            )
-            .dy;
-        expect(chatHeading, lessThan(dmHeading));
+        await tester.tap(
+          find.byKey(const ValueKey('chat-inbox-activity-filter')),
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Unread').last);
+        await tester.pumpAndSettle();
         expect(sidebarDestination('Bugs'), findsOneWidget);
-        expect(sidebarDestination('hawk'), findsOneWidget);
+        expect(sidebarDestination('hawk'), findsNothing);
+
+        await tester.tap(
+          find.byKey(const ValueKey('sidebar-panel-switch-main')),
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(
+          find.byKey(const ValueKey('sidebar-panel-switch-chat')),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.text('Unread'), findsOneWidget);
+        expect(sidebarDestination('Bugs'), findsOneWidget);
+        expect(sidebarDestination('hawk'), findsNothing);
+
+        await tester.tap(find.byKey(const ValueKey('chat-inbox-kind-filter')));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Direct messages').last);
+        await tester.pumpAndSettle();
+        expect(sidebarDestination('Bugs'), findsNothing);
+        expect(find.text('No unread conversations.'), findsOneWidget);
+      }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
+
+      testWidgets('marks the open conversation in the inbox', (tester) async {
+        await pumpChat(
+          tester,
+          public: [channel(9, title: 'Bugs')],
+          direct: [dm(12, title: 'hawk')],
+          messages: {
+            key(9): page([msg(1)]),
+          },
+        );
+        DItem row(int id) => tester.widget<DItem>(
+          find.byKey(ValueKey('chat-inbox-channel-$id')),
+        );
+        expect(row(9).selected, isFalse);
+
+        await tester.tap(sidebarDestination('Bugs'));
+        await tester.pumpAndSettle();
+
+        expect(row(9).selected, isTrue);
+        expect(row(12).selected, isFalse);
       }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
       for (final directMessage in [false, true]) {
@@ -1947,10 +2025,8 @@ void _registerChatShellTests() {
           expect(api.chatChannelStarsUpdated, const [
             (channelId: 9, starred: true),
           ]);
-          expect(
-            find.widgetWithText(DSidebarMenuButton, 'Starred channels'),
-            findsOneWidget,
-          );
+          // The inbox orders by activity alone, so starring keeps the row.
+          expect(sidebarDestination('Bugs'), findsOneWidget);
         } finally {
           debugDefaultTargetPlatformOverride = previous;
         }
@@ -2155,7 +2231,7 @@ void _registerChatShellTests() {
           },
         );
         await pumpChat(tester, api: api);
-        await tester.tap(sidebarDestination('Browse channels'));
+        await tester.tap(find.byKey(const ValueKey('chat-inbox-browse')));
         await tester.pumpAndSettle();
         await tester.enterText(
           find.byKey(const ValueKey('chat-browse-filter')),
@@ -2217,7 +2293,7 @@ void _registerChatShellTests() {
         );
         await pumpChat(tester, api: api);
 
-        await tester.tap(sidebarDestination('Browse channels'));
+        await tester.tap(find.byKey(const ValueKey('chat-inbox-browse')));
         await tester.pumpAndSettle();
 
         expect(find.text('Ask the community for help.'), findsOneWidget);
@@ -2266,7 +2342,7 @@ void _registerChatShellTests() {
       ) async {
         await pumpChat(tester);
 
-        await tester.tap(sidebarDestination('Browse channels'));
+        await tester.tap(find.byKey(const ValueKey('chat-inbox-browse')));
         await tester.pumpAndSettle();
         await tester.tap(find.byKey(const ValueKey('chat-browse-filter')));
         await tester.sendKeyEvent(LogicalKeyboardKey.tab);
@@ -2337,72 +2413,6 @@ void _registerChatShellTests() {
       }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
       testWidgets(
-        'lists starred public channels and DMs first without duplicating them',
-        (tester) async {
-          await pumpChat(
-            tester,
-            public: [
-              channel(9, title: 'Alpha', starred: true),
-              channel(10, title: 'Bugs'),
-            ],
-            direct: [
-              dm(12, title: 'Zoe', starred: true),
-              dm(13, title: 'Alice', starred: true),
-              dm(14, title: 'hawk'),
-            ],
-          );
-
-          final starredHeading = tester
-              .getTopLeft(
-                find.widgetWithText(DSidebarMenuButton, 'Starred channels'),
-              )
-              .dy;
-          final chatHeading = tester
-              .getTopLeft(find.widgetWithText(DSidebarMenuButton, 'Chat'))
-              .dy;
-          final dmHeading = tester
-              .getTopLeft(
-                find.widgetWithText(DSidebarMenuButton, 'Direct messages'),
-              )
-              .dy;
-          expect(starredHeading, lessThan(chatHeading));
-          expect(chatHeading, lessThan(dmHeading));
-
-          final alpha = tester.getTopLeft(sidebarDestination('Alpha')).dy;
-          final alice = tester.getTopLeft(sidebarDestination('Alice')).dy;
-          final zoe = tester.getTopLeft(sidebarDestination('Zoe')).dy;
-          expect(alpha, lessThan(alice));
-          expect(alice, lessThan(zoe));
-          expect(sidebarDestination('Alpha'), findsOneWidget);
-          expect(sidebarDestination('Alice'), findsOneWidget);
-          expect(sidebarDestination('Zoe'), findsOneWidget);
-
-          final mouse = await tester.createGesture(
-            kind: PointerDeviceKind.mouse,
-          );
-          await mouse.addPointer(location: Offset.zero);
-          try {
-            for (final title in [
-              'Starred channels',
-              'Chat',
-              'Direct messages',
-            ]) {
-              await mouse.moveTo(
-                tester.getCenter(
-                  find.widgetWithText(DSidebarMenuButton, title),
-                ),
-              );
-              await tester.pumpAndSettle();
-              expect(find.text('Collapse $title'), findsNothing);
-            }
-          } finally {
-            await mouse.removePointer();
-          }
-        },
-        variant: TargetPlatformVariant.only(TargetPlatform.linux),
-      );
-
-      testWidgets(
         'draws a channel emoji where an ordinary entry draws an icon',
         (tester) async {
           await pumpChat(tester, public: [channel(9, emoji: 'bug')]);
@@ -2447,9 +2457,10 @@ void _registerChatShellTests() {
           );
           expect(avatar, findsOneWidget);
           expect(chatAvatar, findsOneWidget);
-          // Touch rows use 22px identity artwork inside the larger hit target.
-          final size = tester.getSize(avatar);
-          expect(size, const Size.square(18));
+          expect(
+            tester.getSize(avatar),
+            const Size.square(ChatInboxRow.compactAvatarSize),
+          );
         },
         variant: TargetPlatformVariant.only(TargetPlatform.linux),
       );
@@ -2468,7 +2479,10 @@ void _registerChatShellTests() {
           matching: find.byKey(ChatUserAvatar.onlineRingKey(2)),
         );
         expect(ring, findsOneWidget);
-        expect(tester.getSize(ring), const Size.square(18));
+        expect(
+          tester.getSize(ring),
+          const Size.square(ChatInboxRow.compactAvatarSize),
+        );
 
         final tracker = FakeSiteTracker.built.single;
         tracker.deliverPluginMessage('/presence/chat/online', {
@@ -2479,66 +2493,29 @@ void _registerChatShellTests() {
         expect(ring, findsNothing);
       }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
-      testWidgets('draws a dot rather than a number, however much is unread', (
-        tester,
-      ) async {
-        await pumpChat(tester, public: [channel(9, unread: 42)]);
-
-        expect(
-          find.descendant(
-            of: find.ancestor(
-              of: sidebarDestination('Bugs'),
-              matching: find.byType(DSidebarMenuButton),
-            ),
-            matching: find.text('42'),
-          ),
-          findsNothing,
-        );
-        expect(sidebarDestination('Bugs'), findsOneWidget);
-      }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
-
-      testWidgets('uses core sidebar colors for unread and urgent dots', (
+      testWidgets('an unread conversation leads with what is new', (
         tester,
       ) async {
         await pumpChat(
           tester,
-          public: [channel(9, unread: 1)],
-          direct: [dm(12, unread: 1)],
+          public: [
+            channel(9, title: 'Bugs', unread: 42),
+            channel(10, title: 'Design', mentions: 1),
+          ],
+          direct: [dm(12, title: 'hawk', lastMessagePreview: 'See you')],
         );
 
-        const unreadKey = ValueKey('sidebar-badge-chat-c-9');
-        const urgentKey = ValueKey('sidebar-badge-chat-c-12');
-        final theme = Theme.of(tester.element(find.byKey(urgentKey)));
-        Color? dotColor(Key key) =>
-            (tester
-                        .widget<DecoratedBox>(
-                          find.descendant(
-                            of: find.byKey(key),
-                            matching: find.byType(DecoratedBox),
-                          ),
-                        )
-                        .decoration
-                    as BoxDecoration)
-                .color;
-
-        expect(dotColor(unreadKey), theme.discourse.unreadIndicator);
-        expect(dotColor(urgentKey), theme.discourse.success);
-      }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
-
-      testWidgets('keeps the unread dot beside the channel label', (
-        tester,
-      ) async {
-        await pumpChat(
-          tester,
-          public: [channel(9, title: 'Pulse-Inbox', unread: 1)],
+        Finder preview(String text) => find.descendant(
+          of: find.byType(InstanceSidebar),
+          matching: find.text(text, findRichText: true),
         );
-
-        final label = tester.getRect(sidebarDestination('Pulse-Inbox'));
-        final dot = tester.getRect(
-          find.byKey(const ValueKey('sidebar-badge-chat-c-9')),
-        );
-
-        expect(dot.left - label.right, inInclusiveRange(0, 8));
+        expect(preview('42 new messages'), findsOneWidget);
+        expect(preview('1 new mention'), findsOneWidget);
+        expect(preview('See you'), findsOneWidget);
+        FontWeight? weight(String title) =>
+            tester.widget<Text>(sidebarDestination(title)).style?.fontWeight;
+        expect(weight('Bugs'), FontWeight.w700);
+        expect(weight('hawk'), FontWeight.w500);
       }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
       testWidgets('an open channel tab mirrors live channel presentation', (

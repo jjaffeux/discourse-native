@@ -9,8 +9,6 @@ import 'chat_browse_channels_view.dart';
 import 'chat_channel.dart';
 import 'chat_channel_actions.dart';
 import 'chat_channel_info_view.dart';
-import 'chat_channel_list_actions.dart';
-import 'chat_channel_list_preferences.dart';
 import 'chat_channel_star_button.dart';
 import 'chat_channel_threads_view.dart';
 import 'chat_channel_view.dart';
@@ -18,6 +16,8 @@ import 'chat_channels_view.dart';
 import 'chat_emoji_usage.dart';
 import 'chat_global_search.dart';
 import 'chat_header_button.dart';
+import 'chat_inbox.dart';
+import 'chat_inbox_filters.dart';
 import 'chat_mobile_sidebar.dart';
 import 'chat_my_threads_view.dart';
 import 'chat_new_direct_message.dart';
@@ -299,151 +299,40 @@ class ChatPlugin
     if (siteUrl == null) return const [];
     final chat = PluginUiScope.require(context, chatControllerService);
 
-    final starred = chat.channelList(
-      siteUrl,
-      ChatChannelListSection.starred,
-      activeChannelId: shell.visibleChannelId,
-    );
-    final public = chat.channelList(
-      siteUrl,
-      ChatChannelListSection.channels,
-      activeChannelId: shell.visibleChannelId,
-    );
-    final direct = chat.channelList(
-      siteUrl,
-      ChatChannelListSection.directMessages,
-      activeChannelId: shell.visibleChannelId,
-    );
-    Widget actions(ChatChannelListSection section) => ChatChannelListActions(
-      controller: chat.channelListPreferences,
-      siteUrl: siteUrl,
-      section: section,
-      showFilterToggle: switch (section) {
-        ChatChannelListSection.channels => public.isEmpty,
-        ChatChannelListSection.starred => starred.isEmpty,
-        ChatChannelListSection.directMessages => direct.isEmpty,
-      },
-    );
-    final settings = chat.siteConfigFor(siteUrl).chatSettings;
     final chatAvailable = shell.chatAvailable(siteUrl);
     final authenticatedChatAvailable =
         chatAvailable && shell.currentUser != null;
     final publicChannelsEnabled =
-        chatAvailable && settings.publicChannelsEnabled;
-    final myThreadsEnabled =
-        authenticatedChatAvailable &&
-        settings.threadsEnabled &&
-        chat.hasThreads(siteUrl);
-    final canCreateDirectMessage =
-        authenticatedChatAvailable &&
-        (shell.currentUser?.staff == true ||
-            shell.currentUser?.canDirectMessage == true);
-    final navigationDestinations = [
-      if (authenticatedChatAvailable && settings.publicChannelsEnabled)
-        SidebarDestination(
-          id: browseRouteId,
-          label: 'Browse channels',
-          icon: DIcons.list,
-          onTap: shell.openBrowseChannels,
-        ),
-      if (myThreadsEnabled)
-        SidebarDestination(
-          id: myThreadsRouteId,
-          label: 'My threads',
-          icon: DIcons.comments,
-          onTap: shell.openMyThreads,
-        ),
-    ];
+        chatAvailable &&
+        chat.siteConfigFor(siteUrl).chatSettings.publicChannelsEnabled;
+    final actions = _panelActions(shell, siteUrl);
 
     return [
-      if (navigationDestinations.isNotEmpty)
+      if (authenticatedChatAvailable ||
+          (publicChannelsEnabled && chat.publicChannels(siteUrl).isNotEmpty))
         SidebarSection(
-          id: 'chat-navigation',
-          title: '',
+          id: 'chat-inbox',
+          title: 'Conversations',
           showHeader: false,
           collapsible: false,
-          destinations: navigationDestinations,
-        ),
-      if (authenticatedChatAvailable &&
-          !chat.channelsLoaded(siteUrl) &&
-          chat.channelsError(siteUrl) == null)
-        const SidebarSection(
-          id: 'chat-loading',
-          title: 'chat channels',
-          showHeader: false,
-          collapsible: false,
-          loading: true,
-          destinations: [],
-        ),
-      if (authenticatedChatAvailable &&
-          chat.starredChannels(siteUrl).isNotEmpty)
-        SidebarSection(
-          id: 'chat-starred-channels',
-          title: 'Starred channels',
-          unreadCount: chat.unreadMessageCount(
-            siteUrl,
-            section: ChatChannelListSection.starred,
-          ),
-          headerActionsBuilder: (_) => actions(ChatChannelListSection.starred),
-          destinations: [
-            for (final channel in starred)
-              destination(
-                channel,
-                siteUrl: siteUrl,
-                onTap: () => shell.openChannel(channel.id),
-              ),
-          ],
-        ),
-      if (publicChannelsEnabled &&
-          chat.unstarredPublicChannels(siteUrl).isNotEmpty)
-        SidebarSection(
-          id: 'chat',
-          title: 'Chat',
-          unreadCount: chat.unreadMessageCount(
-            siteUrl,
-            section: ChatChannelListSection.channels,
-          ),
-          headerActionsBuilder: (_) => actions(ChatChannelListSection.channels),
-          destinations: [
-            for (final channel in public)
-              destination(
-                channel,
-                siteUrl: siteUrl,
-                onTap: () => shell.openChannel(channel.id),
-              ),
-          ],
-        ),
-      if (authenticatedChatAvailable &&
-          chat.channelsLoaded(siteUrl) &&
-          (chat.unstarredDirectChannels(siteUrl).isNotEmpty ||
-              canCreateDirectMessage))
-        SidebarSection(
-          id: 'direct-messages',
-          title: 'Direct messages',
-          unreadCount: chat.unreadMessageCount(
-            siteUrl,
-            section: ChatChannelListSection.directMessages,
-          ),
-          headerActionsBuilder: (_) =>
-              actions(ChatChannelListSection.directMessages),
-          actionIcon: canCreateDirectMessage ? DIcons.plus : null,
-          actionLabel: canCreateDirectMessage ? 'Start a direct message' : null,
-          actionAboveHeader: true,
-          actionShortcut: canCreateDirectMessage
+          // The footer draws this action; the section still owns its
+          // keyboard shortcut, which the shell reads from every section.
+          actionIcon: actions.startMessage ? DIcons.plus : null,
+          actionLabel: actions.startMessage ? 'Start a message' : null,
+          actionShortcut: actions.startMessage
               ? newDirectMessageShortcutForPlatform(Theme.of(context).platform)
               : null,
-          onAction: canCreateDirectMessage
-              ? () => unawaited(
-                  showChatNewDirectMessageDialog(
-                    context: context,
-                    siteUrl: siteUrl,
-                    chat: chat,
-                    shell: shell,
-                  ),
-                )
+          onAction: actions.startMessage
+              ? () => _startMessage(context, shell, siteUrl)
               : null,
+          bodyBuilder: (_) =>
+              ChatSidebarInbox(key: ValueKey(siteUrl), siteUrl: siteUrl),
           destinations: [
-            for (final channel in direct)
+            for (final channel in chatInboxConversations(
+              chat,
+              siteUrl,
+              const ChatInboxFilter(),
+            ))
               destination(
                 channel,
                 siteUrl: siteUrl,
@@ -463,10 +352,30 @@ class ChatPlugin
     if (!shell.chatAvailable(siteUrl)) return null;
 
     final unreadCount = shell.chat.unreadMessageCount(siteUrl);
+    final actions = _panelActions(shell, siteUrl);
     return SidebarPanelContribution(
       label: 'Chat',
       mobileBuilder: (_) =>
           ChatMobileSidebar(key: ValueKey(siteUrl), siteUrl: siteUrl),
+      mobileAction: actions.startMessage
+          ? SidebarPanelAction(
+              label: 'Start a message',
+              icon: DIcons.plus,
+              onPressed: () => _startMessage(context, shell, siteUrl),
+            )
+          : null,
+      footerBuilder: actions.startMessage || actions.browse || actions.myThreads
+          ? (context) => ChatSidebarFooter(
+              browse: actions.browse,
+              myThreads: actions.myThreads,
+              onStartMessage: actions.startMessage
+                  ? () => _startMessage(context, shell, siteUrl)
+                  : null,
+              startMessageShortcut: newDirectMessageShortcutForPlatform(
+                Theme.of(context).platform,
+              ),
+            )
+          : null,
       badge: unreadCount > 0
           ? DBadge(
               key: const ValueKey('chat-sidebar-unread-badge'),
@@ -489,6 +398,35 @@ class ChatPlugin
       onClose: shell.closeSidebarPanel,
     );
   }
+
+  static ({bool browse, bool myThreads, bool startMessage}) _panelActions(
+    ChatShellService shell,
+    String siteUrl,
+  ) {
+    final user = shell.currentUser;
+    if (user == null || !shell.chatAvailable(siteUrl)) {
+      return (browse: false, myThreads: false, startMessage: false);
+    }
+    final settings = shell.chat.siteConfigFor(siteUrl).chatSettings;
+    return (
+      browse: settings.publicChannelsEnabled,
+      myThreads: settings.threadsEnabled && shell.chat.hasThreads(siteUrl),
+      startMessage: user.staff || user.canDirectMessage == true,
+    );
+  }
+
+  static void _startMessage(
+    BuildContext context,
+    ChatShellService shell,
+    String siteUrl,
+  ) => unawaited(
+    showChatNewDirectMessageDialog(
+      context: context,
+      siteUrl: siteUrl,
+      chat: shell.chat,
+      shell: shell,
+    ),
+  );
 
   @override
   Listenable sidebarPanelListenable(BuildContext context) => Listenable.merge([

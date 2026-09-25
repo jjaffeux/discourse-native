@@ -190,7 +190,7 @@ void main() {
     },
   );
 
-  _desktopTest('section unread totals stay visible when collapsed and update', (
+  _desktopTest('the Chat tab total replaces per-section totals and updates', (
     tester,
   ) async {
     final channels = {
@@ -240,29 +240,14 @@ void main() {
     await tester.tap(tab('chat'));
     await tester.pumpAndSettle();
 
-    Finder badge(String id) =>
-        find.byKey(ValueKey('sidebar-section-unread-$id'));
-    for (final (id, title, count) in [
-      ('chat-starred-channels', 'Starred channels', '6'),
-      ('chat', 'Chat', '25'),
-      ('direct-messages', 'Direct messages', '7'),
-    ]) {
-      await tester.ensureVisible(badge(id));
-      expect(
-        find.descendant(of: badge(id), matching: find.text(count)),
-        findsOneWidget,
-      );
-      await tester.tap(
-        find.ancestor(of: badge(id), matching: find.byType(DSidebarMenuButton)),
-      );
-      await tester.pumpAndSettle();
-      expect(badge(id), findsOneWidget);
-      final button = tester.widget<DSidebarMenuButton>(
-        find.ancestor(of: badge(id), matching: find.byType(DSidebarMenuButton)),
-      );
-      expect(button.expanded, isFalse);
-      expect(button.semanticLabel, 'Expand $title, $count unread messages');
+    final total = find.byKey(const ValueKey('chat-sidebar-unread-badge'));
+    Finder inTotal(String text) =>
+        find.descendant(of: total, matching: find.text(text));
+    expect(inTotal('${chat.unreadMessageCount(site)}'), findsOneWidget);
+    for (final title in ['Starred channels', 'Chat', 'Direct messages']) {
+      expect(find.widgetWithText(DSidebarMenuButton, title), findsNothing);
     }
+    expect(find.byKey(const ValueKey('chat-inbox-channel-11')), findsOneWidget);
 
     channels[site] = ChatChannels(
       public: [
@@ -278,13 +263,8 @@ void main() {
     );
     await chat.loadChannels(site, force: true);
     await tester.pumpAndSettle();
-    expect(badge('chat'), findsNothing);
-    for (final id in ['chat-starred-channels', 'direct-messages']) {
-      expect(
-        find.descendant(of: badge(id), matching: find.text('1')),
-        findsOneWidget,
-      );
-    }
+    expect(chat.unreadMessageCount(site), 2);
+    expect(inTotal('2'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 

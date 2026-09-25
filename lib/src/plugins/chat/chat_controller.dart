@@ -14,6 +14,7 @@ import 'chat_channel_list_preferences.dart';
 import 'chat_channel_refresh.dart';
 import 'chat_cooking_coordinator.dart';
 import 'chat_direct_message_search.dart';
+import 'chat_inbox_filters.dart';
 import 'chat_live_sync_coordinator.dart';
 import 'chat_message.dart';
 import 'chat_message_summary.dart';
@@ -793,6 +794,7 @@ class ChatController extends FrameSafeNotifier {
       !isDisposed && lease.isCurrent && ownsRequest();
 
   late final ChatChannelListController channelListPreferences;
+  final ChatInboxFilters inboxFilters = ChatInboxFilters();
 
   List<ChatChannel> channelList(
     String siteUrl,
@@ -6314,6 +6316,7 @@ class ChatController extends FrameSafeNotifier {
     _cookingLocaleRevisions.remove(siteUrl);
     _messageCookingTokens.removeWhere((key, _) => key.$1 == siteUrl);
     channelListPreferences.forget(siteUrl);
+    inboxFilters.forget(siteUrl);
     _channelRefreshes.remove(siteUrl);
     _liveSync.forget(siteUrl);
     _releaseMessagePinsForSite(siteUrl);
@@ -6431,6 +6434,7 @@ class ChatController extends FrameSafeNotifier {
     _cookingLocales.clear();
     _cookingLocaleRevisions.clear();
     channelListPreferences.dispose();
+    inboxFilters.dispose();
     _channelRefreshes.clear();
     _liveSync.dispose();
     for (final pins in _messagePins.values) {

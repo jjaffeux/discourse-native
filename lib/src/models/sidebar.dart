@@ -142,6 +142,7 @@ class SidebarSection {
     this.onAction,
     this.actionAboveHeader = false,
     this.headerActionsBuilder,
+    this.bodyBuilder,
     this.unreadCount = 0,
     this.loading = false,
     this.remoteId,
@@ -248,4 +249,9 @@ class SidebarSection {
 
   /// App-owned Native controls composed into the sidebar action slot.
   final WidgetBuilder? headerActionsBuilder;
+
+  /// A plugin-owned sliver drawn in place of the destination rows. The
+  /// section's [destinations] still describe it to readers that do not draw
+  /// it, such as the new-tab page, so keep them complete.
+  final WidgetBuilder? bodyBuilder;
 }

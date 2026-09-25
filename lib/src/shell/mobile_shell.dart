@@ -272,6 +272,13 @@ class _MobileForumRootState extends State<MobileForumRoot> {
             shell.currentContent?.isMessages == true &&
             instance.isConnected &&
             instance.user?.canSendPrivateMessages == true;
+        final panelAction = panelRoot
+            ? panels
+                  .where((p) => p.owner.value == panelOwner)
+                  .firstOrNull
+                  ?.panel
+                  .mobileAction
+            : null;
         final showCategoryNotifications =
             !widget.boundary &&
             shell.currentContent?.isTopic != true &&
@@ -448,7 +455,7 @@ class _MobileForumRootState extends State<MobileForumRoot> {
                               ? 'Reply'
                               : showNewMessage
                               ? 'New message'
-                              : 'New topic',
+                              : panelAction?.label ?? 'New topic',
                         );
                         return Row(
                           key: const ValueKey('mobile-bottom-bar'),
@@ -477,6 +484,23 @@ class _MobileForumRootState extends State<MobileForumRoot> {
                                 showLabel: showLabel,
                                 pill: true,
                               )
+                            else if (panelAction != null)
+                              if (showLabel)
+                                DButton(
+                                  key: const ValueKey('mobile-panel-action'),
+                                  icon: DIcon(panelAction.icon),
+                                  label: Text(panelAction.label),
+                                  shape: DButtonShape.pill,
+                                  onPressed: panelAction.onPressed,
+                                )
+                              else
+                                DButton.iconOnly(
+                                  key: const ValueKey('mobile-panel-action'),
+                                  icon: DIcon(panelAction.icon),
+                                  tooltip: panelAction.label,
+                                  shape: DButtonShape.pill,
+                                  onPressed: panelAction.onPressed,
+                                )
                             else if (showNewTopic)
                               if (showLabel)
                                 DButton(

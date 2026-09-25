@@ -1861,9 +1861,25 @@ conversation capability: dependent room UIs observe messages and request
 refresh, older pages, and sends without duplicating Chat paging, read receipts,
 timeline merging, or MessageBus subscriptions.
 
+The Chat sidebar is one inbox on every layout: channels and direct messages
+mixed together, most recent activity first, with a Recent/Unread dropdown, an
+All/Channels/DMs dropdown and the reader's presence on one line above it. Each
+row leads with what is new ("3 new messages", "1 new mention") and otherwise
+shows the last message. Starring does not pin a row, and the inbox ignores the
+channel-list preferences below: it answers "what happened lately", not "where
+is everything". The chosen filters are held per site beside the chat
+controller (`ChatInboxFilters`), not in a widget, so they survive switching
+sidebar tabs, visiting a conversation and crossing the mobile breakpoint.
+Mobile draws the inbox as its Chat root; desktop draws the same filters and
+rows as a sliver inside the Chat panel, so Voice rooms still scroll beneath it,
+and pins Start a message, Browse and Threads to the bottom of the sidebar
+through the panel's `footerBuilder`. On mobile, Start a message is the tab bar's
+`+` while the Chat tab is at its root. While channels load, the filters are
+drawn as they will stay and only the rows are placeholders.
+
 Channel-list menus provide independent filters and sorts for public channels,
 starred channels and DMs. Preferences save per site/account through Discourse's
-user-options API and apply to the sidebar, drawer and full-page lists. Show all
+user-options API and apply to the drawer and full-page lists. Show all
 temporarily bypasses one filter while retaining its saved value and sort;
 Reapply filter restores it. Older servers retain their existing ordering and
 receive no unsupported options. See [channel-list preferences](docs/chat-channel-list-preferences.md)
@@ -1880,8 +1896,7 @@ subscriptions, so a newly joined channel opens natively without a second list
 fetch.
 
 **New direct messages** use the same permission and target search as core Chat.
-The Direct messages section appears after the channel snapshot even when it is
-empty, but its `+` action exists only when the current-user payload says
+Start a message exists only when the current-user payload says
 `can_direct_message` (staff retain core's override). The picker queries
 `GET /chat/api/chatables` for users, visible groups, existing direct-message
 channels, and public channels, keeps core's match-quality/type ordering, and
@@ -1917,15 +1932,10 @@ though `chat_enabled` is a client setting: it arrives late, it can be refused,
 and it is not scoped to this reader's own preference, so it would put a Chat
 heading in front of someone who turned chat off.
 
-There is no loading state and no empty heading for channel-derived sections,
-for the reason `SiteConfig` has neither: a heading that appears and then
-vanishes is worse than one that arrives late, and a section with a spinner in
-it says something untrue about how many channels there are. The permission-
-backed Direct messages action is the exception: it remains useful before the
-reader has any conversations.
-
-A section emptied by a user-selected channel filter retains its heading and
-Show all action, so the reader can recover the hidden channels.
+A full-page channel list emptied by a user-selected filter retains its heading
+and Show all action, so the reader can recover the hidden channels. An inbox
+emptied by its own filters says so ("No unread conversations.") beneath the
+filters that caused it.
 
 Search is the deliberate exception to the final presentation rule above. The
 separate, headerless Search row and the channel-header action require all of the
@@ -2141,8 +2151,8 @@ does the same.
 The channel header also completes the sidebar's starred-channel loop. Its
 filled/outlined star updates the current membership optimistically and writes
 the web client's `PUT /chat/api/channels/{id}/memberships/me` contract; success
-moves the channel between ordinary and Starred sections immediately, while a
-refusal restores the original membership and bucket.
+moves the channel between the ordinary and Starred full-page lists immediately,
+while a refusal restores the original membership and bucket.
 The adjacent notification control mirrors the web sidebar's two independent
 membership settings. Push delivery can be Never, Mentions or All activity,
 while Mute separately suppresses unread indicators and alerts. Each choice is
@@ -3185,9 +3195,9 @@ retain their native arrow-key behavior, and every shell shortcut stays idle
 while a dialog, sheet or picker is open above the shell, whether or not the
 modal's content takes focus.
 
-Command+K opens the new direct-message dialog exposed by the plus button in
-the Direct messages sidebar section. Linux and Windows use Control+K, and the
-same shortcut is shown in the button's tooltip.
+Command+K opens the new direct-message dialog exposed by Start a message at the
+foot of the Chat sidebar. Linux and Windows use Control+K, and the same
+shortcut is shown in the button's tooltip.
 
 ### Removing a site
 

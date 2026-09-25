@@ -144,7 +144,11 @@ Chat and Reactions retain all endpoints, wire parsing, permissions, and state.
   Voting own their forum-search extensions, including the latter two's modules.
 - Mobile navigation renders registered sidebar panels and destinations that
   provide a `mobileNavigationLabel`. Identity and animation order derive from
-  those contributions; core contains no Chat or Events tab cases.
+  those contributions; core contains no Chat or Events tab cases. A panel's
+  `mobileAction` takes the tab bar's creation slot while its root is shown,
+  and its desktop `footerBuilder` is pinned beneath the scrolling sections. A
+  section's `bodyBuilder` replaces its rows with a plugin-owned sliver while
+  its destinations still describe it to readers such as the new-tab page.
 - `TopicListPresentationPlugin` adds display actions and a presentation
   listenable. Assign owns its visibility store, including the legacy storage
   key, so an app without Assign never reads or writes that preference.

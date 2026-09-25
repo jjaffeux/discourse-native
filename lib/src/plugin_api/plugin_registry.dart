@@ -429,6 +429,12 @@ final class PluginRegistry
                 plugin,
                 section.headerActionsBuilder!(_uiContext(context, plugin)),
               ),
+        bodyBuilder: section.bodyBuilder == null
+            ? null
+            : (context) => _owned(
+                plugin,
+                section.bodyBuilder!(_uiContext(context, plugin)),
+              ),
       );
 
   List<OwnedPluginGroupTab> ownedGroupTabs(PluginGroupContext group) =>
@@ -1762,6 +1768,8 @@ final class PluginRegistry
         selectedDestinationId: panel.selectedDestinationId,
         // Auxiliary sections must not replace the primary owner's mobile root.
         mobileBuilder: panel.mobileBuilder,
+        mobileAction: panel.mobileAction,
+        footerBuilder: panel.footerBuilder,
       ),
     );
   }

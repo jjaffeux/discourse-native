@@ -203,14 +203,14 @@ void _mobileTest(String name, WidgetTesterCallback callback) => testWidgets(
 );
 
 Future<void> _selectChatKind(WidgetTester tester, String label) async {
-  await tester.tap(find.byKey(const ValueKey('mobile-chat-kind-filter')));
+  await tester.tap(find.byKey(const ValueKey('chat-inbox-kind-filter')));
   await tester.pumpAndSettle();
   await tester.tap(find.text(label).last);
   await tester.pumpAndSettle();
 }
 
 Future<void> _selectChatActivity(WidgetTester tester, String label) async {
-  await tester.tap(find.byKey(const ValueKey('mobile-chat-activity-filter')));
+  await tester.tap(find.byKey(const ValueKey('chat-inbox-activity-filter')));
   await tester.pumpAndSettle();
   await tester.tap(find.text(label).last);
   await tester.pumpAndSettle();
@@ -231,8 +231,8 @@ void main() {
     // Check painted geometry separately from the invisible touch targets.
     // A missing size on either custom trigger used to inflate it to 44px.
     for (final (key, height) in [
-      ('mobile-chat-activity-filter', 30.75),
-      ('mobile-chat-kind-filter', 30.75),
+      ('chat-inbox-activity-filter', 30.75),
+      ('chat-inbox-kind-filter', 30.75),
       ('user-presence-menu', 24.0),
     ]) {
       final control = find.byKey(ValueKey(key));
@@ -259,6 +259,32 @@ void main() {
     expect(find.text('No unread conversations.'), findsOneWidget);
     await _selectChatActivity(tester, 'Recent');
     expect(find.text('sam'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  _mobileTest('the Chat tab offers Start a message in the tab bar', (
+    tester,
+  ) async {
+    await pumpMobileShellFixture(tester);
+    final action = find.byKey(const ValueKey('mobile-panel-action'));
+    expect(action, findsNothing);
+
+    await tester.tap(find.byKey(const ValueKey('mobile-mode-panel/chat')));
+    await tester.pumpAndSettle();
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('mobile-bottom-bar')),
+        matching: action,
+      ),
+      findsOneWidget,
+    );
+
+    await tester.tap(action);
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const ValueKey('chat-new-direct-message-dialog')),
+      findsOneWidget,
+    );
     expect(tester.takeException(), isNull);
   });
 
@@ -305,7 +331,7 @@ void main() {
     );
     await tester.tap(find.byKey(const ValueKey('mobile-mode-panel/chat')));
     await tester.pumpAndSettle();
-    Finder row(int id) => find.byKey(ValueKey('mobile-chat-channel-$id'));
+    Finder row(int id) => find.byKey(ValueKey('chat-inbox-channel-$id'));
     final positions = [
       4,
       2,
@@ -1416,7 +1442,7 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('mobile-mode-panel/chat')));
     await tester.pumpAndSettle();
     await _selectChatKind(tester, 'Direct messages');
-    expect(find.byKey(const ValueKey('mobile-chat-browse')), findsOneWidget);
+    expect(find.byKey(const ValueKey('chat-inbox-browse')), findsOneWidget);
     expect(find.byKey(const ValueKey('mobile-forum-settings')), findsNothing);
     expect(find.byKey(const ValueKey('mobile-new-topic')), findsNothing);
     await tester.tap(find.byKey(const ValueKey('forum-identity-header')));

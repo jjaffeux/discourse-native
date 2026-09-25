@@ -1016,7 +1016,7 @@ void main() {
     });
 
     group('sidebar workflows', () {
-      testWidgets('groups primary chat links into one sidebar section', (
+      testWidgets('pins the primary chat actions beneath the inbox', (
         tester,
       ) async {
         await shell.chat.loadChannels(_site);
@@ -1028,26 +1028,38 @@ void main() {
               theme: AppTheme.light,
               home: PluginUiScope.own(
                 chatPluginId,
-                Builder(
-                  builder: (context) {
-                    sections = const ChatPlugin().sidebarSections(context);
-                    return const SizedBox.shrink();
-                  },
+                Scaffold(
+                  body: Builder(
+                    builder: (context) {
+                      const plugin = ChatPlugin();
+                      sections = plugin.sidebarSections(context);
+                      return plugin.sidebarPanel(context)!.footerBuilder!(
+                        context,
+                      );
+                    },
+                  ),
                 ),
               ),
             ),
           ),
         );
 
-        final navigation = sections.singleWhere(
-          (section) => section.id == 'chat-navigation',
-        );
-        expect(navigation.showHeader, isFalse);
-        expect(navigation.collapsible, isFalse);
-        expect(navigation.destinations.map((destination) => destination.id), [
-          ChatPlugin.browseRouteId,
-          ChatPlugin.myThreadsRouteId,
-        ]);
+        final inbox = sections.single;
+        expect(inbox.id, 'chat-inbox');
+        expect(inbox.showHeader, isFalse);
+        expect(inbox.collapsible, isFalse);
+        expect(inbox.actionAboveHeader, isFalse);
+        final footer = find.byKey(const ValueKey('chat-sidebar-footer'));
+        for (final key in [
+          'chat-sidebar-start-message',
+          'chat-inbox-browse',
+          'chat-inbox-my-threads',
+        ]) {
+          expect(
+            find.descendant(of: footer, matching: find.byKey(ValueKey(key))),
+            findsOneWidget,
+          );
+        }
       });
 
       testWidgets(
@@ -1081,7 +1093,7 @@ void main() {
             );
             await tester.pumpAndSettle();
             final action = tester.widget<DButton>(
-              find.widgetWithText(DButton, 'Start a direct message'),
+              find.widgetWithText(DButton, 'Start a message'),
             );
             final shortcut = action.shortcut![0];
             expect(shortcut.trigger, LogicalKeyboardKey.keyK);
@@ -1114,7 +1126,6 @@ void main() {
         );
         expect(shell.currentTotals?.hasChatEnabled, isTrue);
         expect(shell.chat.hasThreads(_site), isTrue);
-        late List<SidebarSection> sections;
         await tester.pumpWidget(
           ShellScope(
             controller: shell,
@@ -1122,21 +1133,20 @@ void main() {
               theme: AppTheme.light,
               home: PluginUiScope.own(
                 chatPluginId,
-                Builder(
-                  builder: (context) {
-                    sections = const ChatPlugin().sidebarSections(context);
-                    return const SizedBox.shrink();
-                  },
+                Scaffold(
+                  body: Builder(
+                    builder: (context) => const ChatPlugin()
+                        .sidebarPanel(context)!
+                        .footerBuilder!(context),
+                  ),
                 ),
               ),
             ),
           ),
         );
         expect(
-          sections
-              .expand((section) => section.destinations)
-              .map((destination) => destination.id),
-          contains(ChatPlugin.myThreadsRouteId),
+          find.byKey(const ValueKey('chat-inbox-my-threads')),
+          findsOneWidget,
         );
 
         shell.selectDestination(
@@ -1357,9 +1367,7 @@ void main() {
                     builder: (context) {
                       directMessages = const ChatPlugin()
                           .sidebarSections(context)
-                          .singleWhere(
-                            (section) => section.id == 'direct-messages',
-                          );
+                          .singleWhere((section) => section.id == 'chat-inbox');
                       return const SizedBox.shrink();
                     },
                   ),
@@ -1369,8 +1377,7 @@ void main() {
           ),
         );
 
-        expect(directMessages.destinations, isEmpty);
-        expect(directMessages.actionLabel, 'Start a direct message');
+        expect(directMessages.actionLabel, 'Start a message');
         directMessages.onAction!();
         await tester.pumpAndSettle();
 
@@ -1465,9 +1472,7 @@ void main() {
                     builder: (context) {
                       directMessages = const ChatPlugin()
                           .sidebarSections(context)
-                          .singleWhere(
-                            (section) => section.id == 'direct-messages',
-                          );
+                          .singleWhere((section) => section.id == 'chat-inbox');
                       return const SizedBox.shrink();
                     },
                   ),
