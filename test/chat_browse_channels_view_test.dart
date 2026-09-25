@@ -6,6 +6,7 @@ import 'package:discourse_native/src/plugin_api/plugin_scope.dart';
 import 'package:discourse_native/src/plugins/chat/chat_browse_channels_view.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_services.dart';
+import 'package:discourse_native/src/shell/content_reading_lane.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
@@ -21,6 +22,33 @@ const _emptyMessage = 'No channels match these filters.';
 
 void main() {
   group('ChatBrowseChannelsView', () {
+    testWidgets('filters and channel cards follow the content size setting', (
+      tester,
+    ) async {
+      await tester.binding.setSurfaceSize(const Size(1400, 800));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final api = _BrowseApi(
+        chatBrowsePagesByKey: {
+          FakeDiscourseApi.chatBrowseKey(): ChatChannelBrowsePage(
+            channels: [_channel(1)],
+          ),
+        },
+      );
+      final controller = await _pumpBrowse(tester, api);
+      final filter = find.byKey(const ValueKey('chat-browse-filter'));
+      final card = _card(1);
+
+      for (final limited in [false, true, false]) {
+        await controller.appSettings.setLimitContentSize(limited);
+        await tester.pumpAndSettle();
+        final filterRect = tester.getRect(filter);
+        final cardRect = tester.getRect(card);
+        expect(filterRect.left, closeTo(cardRect.left, 0.01));
+        expect(filterRect.width, closeTo(cardRect.width, 0.01));
+        expect(filterRect.width, closeTo(limited ? 825 : 1376, 0.01));
+      }
+    });
+
     testWidgets('advances by server rows after filtering malformed channels', (
       tester,
     ) async {
@@ -412,7 +440,10 @@ Future<void> _selectMembership(WidgetTester tester, String label) async {
   await tester.pumpAndSettle();
 }
 
-Future<void> _pumpBrowse(WidgetTester tester, FakeDiscourseApi api) async {
+Future<ShellController> _pumpBrowse(
+  WidgetTester tester,
+  FakeDiscourseApi api,
+) async {
   final authenticator = FakeAuthenticator()..keys[_site] = 'key';
   final controller = ShellController(
     plugins: installedPlugins,
@@ -429,16 +460,20 @@ Future<void> _pumpBrowse(WidgetTester tester, FakeDiscourseApi api) async {
   await tester.pumpWidget(
     ShellScope(
       controller: controller,
-      child: PluginUiScope.own(
-        chatPluginId,
-        MaterialApp(
-          theme: AppTheme.light,
-          home: const Scaffold(body: ChatBrowseChannelsView(siteUrl: _site)),
+      child: ContentSettingsScope(
+        controller: controller.appSettings,
+        child: PluginUiScope.own(
+          chatPluginId,
+          MaterialApp(
+            theme: AppTheme.light,
+            home: const Scaffold(body: ChatBrowseChannelsView(siteUrl: _site)),
+          ),
         ),
       ),
     ),
   );
   await tester.pumpAndSettle();
+  return controller;
 }
 
 Completer<void> _holdPage(_BrowseApi api, {required int offset}) {

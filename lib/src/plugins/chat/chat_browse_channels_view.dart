@@ -142,7 +142,7 @@ class _ChatBrowseChannelsViewState extends State<ChatBrowseChannelsView> {
     children: [
       FocusTraversalGroup(
         policy: WidgetOrderTraversalPolicy(),
-        child: Padding(
+        child: ContentReadingLaneBox(
           padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
           child: Column(
             children: [
