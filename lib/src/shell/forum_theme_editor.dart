@@ -106,6 +106,7 @@ class _ForumThemeEditorState extends State<ForumThemeEditor> {
           key: const ValueKey('theme-name'),
           controller: _name,
           labelText: 'Name',
+          hintText: 'Name this theme',
           maxLength: 48,
           readOnly: _saving,
           onChanged: (_) => setState(() {}),
