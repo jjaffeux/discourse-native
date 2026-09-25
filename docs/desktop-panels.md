@@ -13,11 +13,13 @@ narrow windows, which show one panel anyway, offer no minimize action. If the
 minimized panel held the active tab, the other panel's selected tab becomes
 active, so keyboard input and sidebar navigation never go to a hidden panel.
 
-A minimized panel is a rail docked at the top of the column it held: a restore
+A docked panel is a narrow rail at the edge of the column it held: a restore
 button, a button per tab with the selected one raised, and a new-tab button
 (`PanelRail`, fed by `CurrentForumTabsRail`). Pointing at the rail reads it out
 over the neighbouring panel, with each tab's name, rather than pushing that
-panel along; the read-out grows from the rail's width and opens at once when
+panel along. The left panel's read-out keeps icons before labels; the right
+panel's read-out keeps icons at the right edge, aligned with its rail. The
+read-out grows from the rail's width and opens at once when
 motion is reduced. A rail that appears under the pointer, as it does when the
 secondary panel's minimize action sat where the rail now is, does not read
 itself out until the pointer has left it. The read-out repeats the rail for the

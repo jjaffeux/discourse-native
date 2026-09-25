@@ -75,6 +75,29 @@ void main() {
         } else {
           expect(open.left, rail.left);
         }
+
+        final railButton = find.byKey(const ValueKey('panel-rail-tab-baking'));
+        final readOutButton = find.byKey(
+          const ValueKey('panel-rail-read-out-tab-baking'),
+        );
+        final button = tester.widget<DButton>(readOutButton);
+        expect(
+          button.iconPosition,
+          towardStart ? DButtonIconPosition.end : DButtonIconPosition.start,
+        );
+        final railIcon = find.descendant(
+          of: railButton,
+          matching: find.byType(DIcon),
+        );
+        final readOutIcon = find.descendant(
+          of: readOutButton,
+          matching: find.byType(DIcon),
+        );
+        expect(
+          tester.getCenter(readOutIcon).dx,
+          closeTo(tester.getCenter(railIcon).dx, 1),
+          reason: 'the read-out icon stays over its rail icon',
+        );
       });
     }
   }
