@@ -920,8 +920,8 @@ class _AggregateRailButtonState extends State<_AggregateRailButton> {
               selected: widget.selected,
               child: DButton.iconOnly(
                 key: const ValueKey('aggregate-rail-button'),
-                icon: const DIcon(DIcons.house),
-                tooltip: 'Aggregate',
+                icon: const DIcon(DIcons.circleNodes),
+                tooltip: 'All forums',
                 tooltipSide: DTooltipSide.right,
                 shortcut: widget.shortcutKey == null
                     ? null

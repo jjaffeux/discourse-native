@@ -55,6 +55,34 @@ final _user = DiscourseUser(
 final _bar = find.byKey(const ValueKey('mobile-bottom-bar'));
 final _header = find.byKey(const ValueKey('mobile-header'));
 
+Future<void> _tapDockTab(
+  WidgetTester tester,
+  String tab, {
+  bool settle = true,
+}) async {
+  final button = find.byKey(ValueKey('mobile-mode-$tab'));
+  if (button.evaluate().isNotEmpty) {
+    await tester.tap(button);
+  } else {
+    final label = switch (tab) {
+      'panel/chat' => 'Chat',
+      'messages' => 'Messages',
+      'users' => 'Users',
+      'destination/events-upcoming' => 'Events',
+      _ => throw StateError('No dock menu label for $tab'),
+    };
+    await tester.tap(find.byKey(const ValueKey('mobile-mode-more')));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.descendant(
+        of: find.byType(DDropdownMenuItem),
+        matching: find.text(label),
+      ),
+    );
+  }
+  if (settle) await tester.pumpAndSettle();
+}
+
 Future<ShellController> pumpMobileShellFixture(
   WidgetTester tester, {
   Size size = phone,
@@ -534,32 +562,29 @@ void main() {
       expect(find.byType(InstanceRail), findsNothing);
       expect(find.byKey(const ValueKey('topic-card-7')), findsOneWidget);
       double right = -1;
-      for (final tab in [
-        'start',
-        'topics',
-        'panel/chat',
-        'messages',
-        'users',
-        'destination/events-upcoming',
-        'more',
-      ]) {
+      for (final tab in ['start', 'topics', 'panel/chat', 'more']) {
         final button = find.byKey(ValueKey('mobile-mode-$tab'));
         final rect = tester.getRect(button);
-        expect(rect.left, greaterThan(right));
+        expect(rect.left, greaterThanOrEqualTo(right));
         expect(rect.right, lessThanOrEqualTo(phone.width));
         right = rect.right;
         expect(
-          tester.widget<DButton>(button).density,
-          DButtonDensity.mobileNavigation,
+          find.descendant(of: button, matching: find.byType(DButton)),
+          findsOneWidget,
         );
+        expect(tester.widget<DMobileDockItem>(button).label, isNotEmpty);
         final icon = find.descendant(of: button, matching: find.byType(DIcon));
-        expect(tester.getSize(icon), const Size(18, 18));
+        expect(tester.getSize(icon), const Size(20, 20));
         final glyph = find.descendant(
           of: icon,
           matching: find.byType(TintedIconGlyph),
         );
-        expect(tester.getSize(glyph).longestSide, 18);
+        expect(tester.getSize(glyph).longestSide, 20);
       }
+      expect(find.text('Start'), findsOneWidget);
+      expect(find.text('Topics'), findsWidgets);
+      expect(find.text('Chat'), findsOneWidget);
+      expect(find.text('More'), findsOneWidget);
       expect(
         find.descendant(of: _bar, matching: find.byType(DTabList<String>)),
         findsNothing,
@@ -612,83 +637,55 @@ void main() {
     },
   );
 
-  _mobileTest(
-    'tab unread counts sit at the bottom center and pass taps through',
-    (tester) async {
-      final shell = await pumpMobileShellFixture(tester, chatUnreadCount: 32);
-      final button = find.byKey(const ValueKey('mobile-mode-panel/chat'));
-      final badge = find.byKey(const ValueKey('chat-sidebar-unread-badge'));
-      void expectPosition() {
-        final buttonRect = tester.getRect(button);
-        final badgeRect = tester.getRect(badge);
-        expect(badgeRect.center.dx, buttonRect.center.dx);
-        expect(badgeRect.bottom, buttonRect.bottom - DSpacing.xxs);
-      }
+  _mobileTest('tab unread counts sit beside the label within one tap target', (
+    tester,
+  ) async {
+    final shell = await pumpMobileShellFixture(tester, chatUnreadCount: 32);
+    final button = find.byKey(const ValueKey('mobile-mode-panel/chat'));
+    final badge = find.byKey(const ValueKey('chat-mobile-unread-badge'));
+    void expectPosition() {
+      final buttonRect = tester.getRect(button);
+      final badgeRect = tester.getRect(badge);
+      final labelRect = tester.getRect(
+        find.descendant(of: button, matching: find.text('Chat')),
+      );
+      expect(badgeRect.left, greaterThanOrEqualTo(labelRect.right));
+      expect(badgeRect.center.dy, closeTo(labelRect.center.dy, 1));
+      expect(badgeRect.right, lessThanOrEqualTo(buttonRect.right));
+    }
 
-      expectPosition();
-      expect(find.text('32'), findsOneWidget);
-      await tester.tapAt(tester.getCenter(badge));
-      await tester.pumpAndSettle();
-      expect(shell.mobileNavigation.tab, const MobileTab.panel('chat'));
-      expectPosition();
-      expect(tester.takeException(), isNull);
-    },
-  );
+    expectPosition();
+    expect(find.text('32'), findsOneWidget);
+    await tester.tapAt(tester.getCenter(badge));
+    await tester.pumpAndSettle();
+    expect(shell.mobileNavigation.tab, const MobileTab.panel('chat'));
+    expectPosition();
+    expect(tester.takeException(), isNull);
+  });
 
   _mobileTest(
-    'tab buttons visibly morph throughout selection and deselection',
+    'tab icon capsule fills when selected and clears when deselected',
     (tester) async {
       await pumpMobileShellFixture(tester);
       final button = find.byKey(const ValueKey('mobile-mode-panel/chat'));
-      final surface = find.descendant(
+      final capsule = find.descendant(
         of: button,
-        matching: find.byWidgetPredicate(
-          (widget) =>
-              widget is AnimatedContainer &&
-              widget.decoration is DButtonDecoration,
-        ),
+        matching: find.byKey(const ValueKey('mobile-dock-capsule')),
       );
-      final painted = find.descendant(
-        of: button,
-        matching: find.byWidgetPredicate(
-          (widget) =>
-              widget is DecoratedBox && widget.decoration is DButtonDecoration,
-        ),
-      );
-      double radius() =>
-          (tester.widget<DecoratedBox>(painted).decoration as DButtonDecoration)
-              .borderRadius
-              .topLeft
-              .x;
-
-      final circleRadius = radius();
-      expect(circleRadius, 22);
-      expect(
-        tester.widget<AnimatedContainer>(surface).duration,
-        const Duration(milliseconds: 240),
-      );
+      Color? fill() =>
+          (tester.widget<AnimatedContainer>(capsule).decoration
+                  as BoxDecoration)
+              .color;
+      expect(fill(), Colors.transparent);
 
       await tester.tap(button);
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 60));
-      final earlyRadius = radius();
-      expect(earlyRadius, inExclusiveRange(14, 22));
-      await tester.pump(const Duration(milliseconds: 60));
-      final halfwayRadius = radius();
-      expect(halfwayRadius, lessThan(earlyRadius));
       await tester.pumpAndSettle();
-      final selectedRadius = radius();
-
-      expect(selectedRadius, lessThan(halfwayRadius));
-      expect(halfwayRadius, lessThan(circleRadius));
-      expect(selectedRadius, 14);
+      expect(fill(), isNot(Colors.transparent));
+      expect(tester.getSize(capsule), const Size(44, 30));
 
       await tester.tap(find.byKey(const ValueKey('mobile-mode-topics')));
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 60));
-      expect(radius(), inExclusiveRange(14, 22));
       await tester.pumpAndSettle();
-      expect(radius(), 22);
+      expect(fill(), Colors.transparent);
       expect(tester.takeException(), isNull);
     },
   );
@@ -868,8 +865,7 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('mobile-mode-panel/chat')));
     await tester.pumpAndSettle();
     expect(topic, findsNothing);
-    await tester.tap(find.byKey(const ValueKey('mobile-mode-messages')));
-    await tester.pumpAndSettle();
+    await _tapDockTab(tester, 'messages');
     final message = find.byKey(const ValueKey('new-message-button'));
     expect(message, findsOneWidget);
     await tester.tap(message);
@@ -885,36 +881,33 @@ void main() {
   ) async {
     await pumpMobileShellFixture(tester, events: true);
     for (final tab in ['topics', 'messages']) {
-      await tester.tap(find.byKey(ValueKey('mobile-mode-$tab')));
-      await tester.pumpAndSettle();
+      await _tapDockTab(tester, tab);
       final action = find.byKey(
         ValueKey(tab == 'topics' ? 'mobile-new-topic' : 'new-message-button'),
       );
       for (final width in [600.0, 390.0, 320.0]) {
         tester.view.physicalSize = Size(width, 844);
         await tester.pumpAndSettle();
-        expect(tester.widget<DButton>(action).label is! Text, width < 600);
+        expect(tester.widget<DButton>(action).label is! Text, isTrue);
         expect(tester.getCenter(action).dy, tester.getCenter(_bar).dy);
         expect(tester.getRect(action).right, tester.getRect(_bar).right);
         expect(tester.getSize(action).width, greaterThanOrEqualTo(48));
-        for (final name in [
-          'topics',
-          'panel/chat',
-          'messages',
-          'users',
-          'destination/events-upcoming',
-          'more',
-        ]) {
-          final button = find.byKey(ValueKey('mobile-mode-$name'));
-          expect(tester.getCenter(button).dy, tester.getCenter(action).dy);
+        for (final button
+            in find
+                .descendant(of: _bar, matching: find.byType(DMobileDockItem))
+                .evaluate()) {
+          expect(
+            tester.getCenter(find.byElementPredicate((e) => e == button)).dy,
+            tester.getCenter(action).dy,
+          );
         }
         expect(tester.takeException(), isNull);
       }
-      // At narrow widths the tab row scrolls while creation stays pinned right.
+      // At narrow widths More retains the spilled destinations and creation
+      // stays pinned on the right.
       final more = find.byKey(const ValueKey('mobile-mode-more'));
-      await tester.ensureVisible(more);
-      await tester.pumpAndSettle();
       expect(tester.getRect(more).right, lessThan(tester.getRect(action).left));
+      expect(find.byKey(const ValueKey('mobile-mode-users')), findsNothing);
       tester.view.physicalSize = phone;
       await tester.pumpAndSettle();
     }
@@ -963,16 +956,91 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  _mobileTest('More owns spilled destinations until the dock has room', (
+    tester,
+  ) async {
+    final shell = await pumpMobileShellFixture(tester, events: true);
+    expect(find.byKey(const ValueKey('mobile-mode-users')), findsNothing);
+    await tester.tap(find.byKey(const ValueKey('mobile-mode-more')));
+    await tester.pumpAndSettle();
+    for (final label in ['Messages', 'Users', 'Events']) {
+      expect(
+        find.descendant(
+          of: find.byType(DDropdownMenuItem),
+          matching: find.text(label),
+        ),
+        findsOneWidget,
+      );
+    }
+    await tester.tap(
+      find.descendant(
+        of: find.byType(DDropdownMenuItem),
+        matching: find.text('Users'),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(shell.mobileNavigation.tab, MobileTab.users);
+    expect(
+      tester
+          .widget<DMobileDockItem>(
+            find.byKey(const ValueKey('mobile-mode-more')),
+          )
+          .selected,
+      isTrue,
+    );
+
+    tester.view.physicalSize = const Size(700, 844);
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('mobile-mode-users')), findsOneWidget);
+    expect(
+      tester
+          .widget<DMobileDockItem>(
+            find.byKey(const ValueKey('mobile-mode-users')),
+          )
+          .selected,
+      isTrue,
+    );
+    expect(
+      tester
+          .widget<DMobileDockItem>(
+            find.byKey(const ValueKey('mobile-mode-more')),
+          )
+          .selected,
+      isFalse,
+    );
+    expect(tester.takeException(), isNull);
+  });
+
+  _mobileTest('large labels spill into More without clipping the action', (
+    tester,
+  ) async {
+    tester.platformDispatcher.textScaleFactorTestValue = 2;
+    addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+    await pumpMobileShellFixture(tester, size: const Size(320, 720));
+    final more = find.byKey(const ValueKey('mobile-mode-more'));
+    final action = find.byKey(const ValueKey('mobile-new-topic'));
+    expect(more, findsOneWidget);
+    expect(tester.getRect(more).right, lessThan(tester.getRect(action).left));
+    expect(tester.getSize(action).width, greaterThanOrEqualTo(48));
+    await tester.tap(more);
+    await tester.pumpAndSettle();
+    expect(
+      find.descendant(
+        of: find.byType(DDropdownMenuItem),
+        matching: find.text('Chat'),
+      ),
+      findsOneWidget,
+    );
+    expect(tester.takeException(), isNull);
+  });
+
   _mobileTest('users and events keep their own page headings', (tester) async {
     await pumpMobileShellFixture(tester, events: true);
     for (final (tab, heading, duplicate) in [
       ('users', 'Users', 'Users'),
       ('destination/events-upcoming', 'Events', 'Upcoming events'),
     ]) {
-      final button = find.byKey(ValueKey('mobile-mode-$tab'));
-      await tester.ensureVisible(button);
-      await tester.tap(button);
-      await tester.pumpAndSettle();
+      await _tapDockTab(tester, tab);
       expect(
         find.descendant(
           of: find.byType(MainContent),
@@ -1036,10 +1104,7 @@ void main() {
       ),
     );
     final shell = ShellScope.read(tester.element(find.byType(MobileForumRoot)));
-    await tester.tap(
-      find.byKey(const ValueKey('mobile-mode-destination/events-upcoming')),
-    );
-    await tester.pumpAndSettle();
+    await _tapDockTab(tester, 'destination/events-upcoming');
     expect(
       shell.mobileNavigation.tab,
       const MobileTab.destination('events-upcoming'),
@@ -1110,10 +1175,9 @@ void main() {
         ('messages', 'users', 1),
         ('destination/events-upcoming', 'topics', -1),
       ]) {
-        await tester.tap(find.byKey(ValueKey('mobile-mode-$from')));
-        await tester.pumpAndSettle();
+        await _tapDockTab(tester, from);
         final restingPanel = tester.getRect(panel);
-        await tester.tap(find.byKey(ValueKey('mobile-mode-$to')));
+        await _tapDockTab(tester, to, settle: false);
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 80));
         final incoming = tester.widget<Transform>(
@@ -1292,8 +1356,7 @@ void main() {
       expect(shell.handleForward(), isTrue);
       await tester.pumpAndSettle();
       expect(shell.currentContent?.topicId, 7);
-      await tester.tap(find.byKey(const ValueKey('mobile-mode-users')));
-      await tester.pumpAndSettle();
+      await _tapDockTab(tester, 'users');
       expect(find.byType(UsersPage), findsOneWidget);
       expect(shell.canPopContent, isFalse);
       expect(shell.canForwardContent, isFalse);

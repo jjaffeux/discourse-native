@@ -21,6 +21,14 @@ import 'shell_scope.dart';
 import 'topic_list_bottom_bar.dart';
 import 'user_menu_button.dart';
 
+typedef _DockDestination = ({
+  MobileTab tab,
+  String label,
+  DIconData icon,
+  Widget? badge,
+  VoidCallback onPressed,
+});
+
 /// Persistent mobile chrome around one live feature renderer.
 class MobileForumRoot extends StatefulWidget {
   const MobileForumRoot({
@@ -125,134 +133,68 @@ class _MobileForumRootState extends State<MobileForumRoot> {
             !widget.boundary &&
             shell.mobileNavigation.atRoot &&
             panelOwner != null;
-        final buttons = <Widget>[
-          _tabButton(
-            context,
-            MobileTab.start,
-            'Start',
-            DIcons.grip,
-            () => shell.selectMobileDestination(
+        final dockDestinations = <_DockDestination>[
+          (
+            tab: MobileTab.start,
+            label: 'Start',
+            icon: DIcons.house,
+            badge: null,
+            onPressed: () => shell.selectMobileDestination(
               MobileTab.start,
               const SidebarDestination(
                 id: 'new-tab',
                 label: 'Start page',
-                icon: DIcons.grip,
+                icon: DIcons.house,
               ),
             ),
           ),
-          _tabButton(
-            context,
-            MobileTab.topics,
-            'Topics',
-            DIcons.layerGroup,
-            () => shell.selectMobileDestination(
+          (
+            tab: MobileTab.topics,
+            label: 'Topics',
+            icon: DIcons.layerGroup,
+            badge: null,
+            onPressed: () => shell.selectMobileDestination(
               MobileTab.topics,
               instance.defaultDestination,
             ),
           ),
           for (final entry in panels)
-            Stack(
-              clipBehavior: Clip.none,
-              children: [
-                _tabButton(
-                  context,
-                  MobileTab.panel(entry.owner.value),
-                  entry.panel.label,
-                  entry.panel.icon,
-                  () => shell.selectMobilePanel(entry.owner.value),
-                ),
-                if (entry.panel.badge case final badge?)
-                  Positioned(
-                    bottom: DSpacing.xxs,
-                    left: 0,
-                    right: 0,
-                    child: Center(child: IgnorePointer(child: badge)),
-                  ),
-              ],
+            (
+              tab: MobileTab.panel(entry.owner.value),
+              label: entry.panel.label,
+              icon: entry.panel.icon,
+              badge: entry.panel.mobileBadge ?? entry.panel.badge,
+              onPressed: () => shell.selectMobilePanel(entry.owner.value),
             ),
           if (destination('messages') case final messages?)
-            _tabButton(
-              context,
-              MobileTab.messages,
-              'Messages',
-              DIcons.inbox,
-              () => shell.selectMobileDestination(MobileTab.messages, messages),
+            (
+              tab: MobileTab.messages,
+              label: 'Inbox',
+              icon: DIcons.inbox,
+              badge: null,
+              onPressed: () =>
+                  shell.selectMobileDestination(MobileTab.messages, messages),
             ),
           if (destination('users') case final users?)
-            _tabButton(
-              context,
-              MobileTab.users,
-              'Users',
-              DIcons.user,
-              () => shell.selectMobileDestination(MobileTab.users, users),
+            (
+              tab: MobileTab.users,
+              label: 'Users',
+              icon: DIcons.user,
+              badge: null,
+              onPressed: () =>
+                  shell.selectMobileDestination(MobileTab.users, users),
             ),
           for (final shortcut in shortcuts)
-            _tabButton(
-              context,
-              MobileTab.destination(shortcut.id),
-              shortcut.mobileNavigationLabel!,
-              shortcut.icon,
-              () => shell.selectMobileDestination(
+            (
+              tab: MobileTab.destination(shortcut.id),
+              label: shortcut.mobileNavigationLabel!,
+              icon: shortcut.icon,
+              badge: null,
+              onPressed: () => shell.selectMobileDestination(
                 MobileTab.destination(shortcut.id),
                 shortcut,
               ),
             ),
-          DDropdownMenu(
-            content: DDropdownMenuContent(
-              semanticLabel: 'More destinations',
-              side: DPopoverSide.top,
-              align: DPopoverAlign.end,
-              children: [
-                for (final id in ['groups', 'badges'])
-                  if (destination(id) case final entry?)
-                    DDropdownMenuItem(
-                      leading: DIcon(entry.icon),
-                      onPressed: () =>
-                          shell.selectMobileDestination(MobileTab.more, entry),
-                      child: Text(entry.label),
-                    ),
-                if (instance.isConnected)
-                  DDropdownMenuItem(
-                    leading: const DIcon(DIcons.bookmark),
-                    onPressed: () => shell.selectMobileDestination(
-                      MobileTab.more,
-                      const SidebarDestination(
-                        id: 'user-bookmarks',
-                        label: 'Bookmarks',
-                        icon: DIcons.bookmark,
-                      ),
-                    ),
-                    child: const Text('Bookmarks'),
-                  ),
-              ],
-            ),
-            child: DDropdownMenuTrigger(
-              builder: (context, state) => Semantics(
-                selected: selected == MobileTab.more,
-                child: DButton.iconOnly(
-                  key: const ValueKey('mobile-mode-more'),
-                  animationDuration: const Duration(milliseconds: 240),
-                  density: DButtonDensity.mobileNavigation,
-                  icon: const DIcon(DIcons.ellipsisVertical),
-                  tooltip: 'More',
-                  onPressed: state.toggle,
-                  focusNode: state.focusNode,
-                  hasPopup: true,
-                  expanded: state.open,
-                  shape: DButtonShape.pill,
-                  borderRadius: selected == MobileTab.more
-                      ? BorderRadius.circular(DRadius.panel)
-                      : null,
-                  variant: selected == MobileTab.more
-                      ? DButtonVariant.primary
-                      : DButtonVariant.ghost,
-                  backgroundColor: selected == MobileTab.more
-                      ? null
-                      : DTokens.of(context).muted,
-                ),
-              ),
-            ),
-          ),
         ];
         final source = shell.topicListContent;
         final showReply =
@@ -441,7 +383,18 @@ class _MobileForumRootState extends State<MobileForumRoot> {
                           builder: (context, _) => _buildBottomBar(
                             context,
                             constraints,
-                            buttons: buttons,
+                            destinations: dockDestinations,
+                            selected: selected,
+                            moreDestinations: [
+                              for (final id in ['groups', 'badges'])
+                                ?destination(id),
+                              if (instance.isConnected)
+                                const SidebarDestination(
+                                  id: 'user-bookmarks',
+                                  label: 'Bookmarks',
+                                  icon: DIcons.bookmark,
+                                ),
+                            ],
                             showDismiss: showDismiss,
                             showCategoryNotifications:
                                 showCategoryNotifications,
@@ -470,7 +423,9 @@ class _MobileForumRootState extends State<MobileForumRoot> {
   Widget _buildBottomBar(
     BuildContext context,
     BoxConstraints constraints, {
-    required List<Widget> buttons,
+    required List<_DockDestination> destinations,
+    required MobileTab selected,
+    required List<SidebarDestination> moreDestinations,
     required bool showDismiss,
     required bool showCategoryNotifications,
     required String instanceUrl,
@@ -481,8 +436,7 @@ class _MobileForumRootState extends State<MobileForumRoot> {
     required bool showNewTopic,
     required ShellController shell,
   }) {
-    final actions = [
-      ...buttons,
+    final fixedActions = <Widget>[
       if (showDismiss) const DismissNewTopicsButton(compact: true),
       if (showCategoryNotifications)
         CategoryNotificationLevelButton(
@@ -491,82 +445,180 @@ class _MobileForumRootState extends State<MobileForumRoot> {
           showLabel: false,
         ),
     ];
+    final pageAction = _footerAction.action;
+    final hasPrimary =
+        pageAction != null ||
+        showReply ||
+        showNewMessage ||
+        panelAction != null ||
+        showNewTopic;
+    final labelGrowth = MediaQuery.textScalerOf(context).scale(11) - 11;
+    final itemMin = 66.0 + labelGrowth * 2;
+    final itemMax = 72.0 + labelGrowth * 2;
+    const actionMin = 48.0;
+    const gap = DSpacing.controlGap;
+    final reserved =
+        fixedActions.length * (48 + gap) + (hasPrimary ? actionMin + gap : 0);
+    final dockRoom = (constraints.maxWidth - reserved).clamp(
+      0.0,
+      double.infinity,
+    );
+    final fits = (dockRoom / itemMin).floor();
+    final minimumSlots = labelGrowth > 3 ? 3 : 4;
+    final shownCount =
+        ((fixedActions.isEmpty && fits < minimumSlots ? minimumSlots : fits) -
+                1)
+            .clamp(1, destinations.length);
+    final shown = destinations.take(shownCount).toList();
+    final spilled = destinations.skip(shownCount).toList();
+    final dockWidth = (itemMax * (shown.length + 1)).clamp(0.0, dockRoom);
+    final actionWidth =
+        (constraints.maxWidth -
+                dockWidth -
+                fixedActions.length * (48 + gap) -
+                gap)
+            .clamp(actionMin, 220.0);
     final showLabel = _creationLabelFits(
       context,
-      constraints.maxWidth,
-      actions.length,
+      actionWidth,
+      0,
       showReply
           ? 'Reply'
           : showNewMessage
           ? 'New message'
           : panelAction?.label ?? 'New topic',
     );
-    return Row(
-      key: const ValueKey('mobile-bottom-bar'),
-      spacing: DSpacing.controlGap,
-      children: [
-        Expanded(
-          child: SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(spacing: DSpacing.controlGap, children: actions),
-          ),
-        ),
-        if (_footerAction.action case final action?)
-          DButton(
-            key: action.key ?? const ValueKey('mobile-page-action'),
-            icon: DIcon(action.icon),
-            label: Text(action.label),
-            loadingLabel: Text(action.label),
-            loading: action.loading,
-            tooltip: action.label,
-            shape: DButtonShape.pill,
-            onPressed: action.onPressed,
-          )
-        else if (showReply)
-          DButton(
-            key: const ValueKey('mobile-topic-reply'),
-            icon: const DIcon(DIcons.reply),
-            label: const Text('Reply'),
-            tooltip: 'Reply to this topic',
-            shape: DButtonShape.pill,
-            onPressed: shell.openReply,
-          )
-        else if (showNewMessage)
-          MessageCreateButton(showLabel: showLabel, pill: true)
-        else if (panelAction != null)
-          if (showLabel)
-            DButton(
+    Widget? primaryAction;
+    if (pageAction case final action?) {
+      primaryAction = DButton(
+        key: action.key ?? const ValueKey('mobile-page-action'),
+        icon: DIcon(action.icon),
+        label: Text(action.label),
+        loadingLabel: Text(action.label),
+        loading: action.loading,
+        tooltip: action.label,
+        shape: DButtonShape.pill,
+        onPressed: action.onPressed,
+      );
+    } else if (showReply) {
+      primaryAction = DButton(
+        key: const ValueKey('mobile-topic-reply'),
+        icon: const DIcon(DIcons.reply),
+        label: const Text('Reply'),
+        tooltip: 'Reply to this topic',
+        shape: DButtonShape.pill,
+        onPressed: shell.openReply,
+      );
+    } else if (showNewMessage) {
+      primaryAction = MessageCreateButton(
+        showLabel: showLabel,
+        pill: true,
+        fillWidth: true,
+      );
+    } else if (panelAction != null) {
+      primaryAction = showLabel
+          ? DButton(
               key: const ValueKey('mobile-panel-action'),
               icon: DIcon(panelAction.icon),
               label: Text(panelAction.label),
               shape: DButtonShape.pill,
               onPressed: panelAction.onPressed,
             )
-          else
-            DButton.iconOnly(
+          : DButton(
               key: const ValueKey('mobile-panel-action'),
+              label: const SizedBox.shrink(),
+              semanticLabel: panelAction.label,
               icon: DIcon(panelAction.icon),
               tooltip: panelAction.label,
               shape: DButtonShape.pill,
               onPressed: panelAction.onPressed,
-            )
-        else if (showNewTopic)
-          if (showLabel)
-            DButton(
+            );
+    } else if (showNewTopic) {
+      primaryAction = showLabel
+          ? DButton(
               key: const ValueKey('mobile-new-topic'),
               icon: const DIcon(DIcons.plus),
               label: const Text('New topic'),
               shape: DButtonShape.pill,
               onPressed: () => unawaited(shell.openNewTopicFromSidebar()),
             )
-          else
-            DButton.iconOnly(
+          : DButton(
               key: const ValueKey('mobile-new-topic'),
+              label: const SizedBox.shrink(),
+              semanticLabel: 'New topic',
               icon: const DIcon(DIcons.plus),
               tooltip: 'New topic',
               shape: DButtonShape.pill,
               onPressed: () => unawaited(shell.openNewTopicFromSidebar()),
-            ),
+            );
+    }
+    return Row(
+      key: const ValueKey('mobile-bottom-bar'),
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        SizedBox(
+          width: dockWidth,
+          child: Row(
+            children: [
+              for (final item in shown)
+                Expanded(
+                  child: DMobileDockItem(
+                    key: ValueKey('mobile-mode-${item.tab.name}'),
+                    icon: DIcon(item.icon),
+                    label: item.label,
+                    badge: item.badge,
+                    selected: selected == item.tab,
+                    onPressed: item.onPressed,
+                  ),
+                ),
+              Expanded(
+                child: DDropdownMenu(
+                  content: DDropdownMenuContent(
+                    semanticLabel: 'More destinations',
+                    side: DPopoverSide.top,
+                    align: DPopoverAlign.end,
+                    children: [
+                      for (final item in spilled)
+                        DDropdownMenuItem(
+                          leading: DIcon(item.icon),
+                          onPressed: item.onPressed,
+                          child: Text(
+                            item.label == 'Inbox' ? 'Messages' : item.label,
+                          ),
+                        ),
+                      for (final entry in moreDestinations)
+                        DDropdownMenuItem(
+                          leading: DIcon(entry.icon),
+                          onPressed: () => shell.selectMobileDestination(
+                            MobileTab.more,
+                            entry,
+                          ),
+                          child: Text(entry.label),
+                        ),
+                    ],
+                  ),
+                  child: DDropdownMenuTrigger(
+                    builder: (context, state) => DMobileDockItem(
+                      key: const ValueKey('mobile-mode-more'),
+                      icon: const DIcon(DIcons.ellipsisVertical),
+                      label: 'More',
+                      selected:
+                          selected == MobileTab.more ||
+                          spilled.any((item) => item.tab == selected),
+                      focusNode: state.focusNode,
+                      hasPopup: true,
+                      expanded: state.open,
+                      onPressed: state.toggle,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        for (final action in fixedActions) action,
+        if (primaryAction != null)
+          SizedBox(width: actionWidth, child: primaryAction),
       ],
     );
   }
@@ -606,31 +658,6 @@ class _MobileForumRootState extends State<MobileForumRoot> {
     text.dispose();
     return width >=
         actionCount * (controlWidth + DSpacing.controlGap) + labelWidth;
-  }
-
-  Widget _tabButton(
-    BuildContext context,
-    MobileTab tab,
-    String label,
-    DIconData icon,
-    VoidCallback onPressed,
-  ) {
-    final selected = ShellScope.read(context).mobileNavigation.tab == tab;
-    return Semantics(
-      selected: selected,
-      child: DButton.iconOnly(
-        key: ValueKey('mobile-mode-${tab.name}'),
-        density: DButtonDensity.mobileNavigation,
-        icon: DIcon(icon),
-        tooltip: label,
-        onPressed: onPressed,
-        shape: selected ? DButtonShape.rounded : DButtonShape.pill,
-        borderRadius: selected ? BorderRadius.circular(DRadius.panel) : null,
-        animationDuration: const Duration(milliseconds: 240),
-        variant: selected ? DButtonVariant.primary : DButtonVariant.ghost,
-        backgroundColor: selected ? null : DTokens.of(context).muted,
-      ),
-    );
   }
 }
 

@@ -234,8 +234,11 @@ class ContentRoute {
     icon: DIcons.gear,
   );
 
-  factory ContentRoute.newTab() =>
-      const ContentRoute(id: 'new-tab', title: 'Start page', icon: DIcons.grip);
+  factory ContentRoute.newTab() => const ContentRoute(
+    id: 'new-tab',
+    title: 'Start page',
+    icon: DIcons.house,
+  );
 
   bool get isNewTab => id == 'new-tab';
 
@@ -759,7 +762,7 @@ class ContentRoute {
       // Upgrade the speech bubble saved by older topic tabs without changing
       // the durable icon of routes that deliberately chose another glyph.
       icon:
-          (id == 'new-tab' ? DIcons.grip : null) ??
+          (id == 'new-tab' ? DIcons.house : null) ??
           DNativeIcons.byName[iconName] ??
           (topicId != null && iconName == DIcons.comments.name
               ? DNativeIcons.topic

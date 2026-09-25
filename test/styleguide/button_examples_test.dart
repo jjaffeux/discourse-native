@@ -9,6 +9,7 @@ void main() {
   test('registers every documented section in reference order', () {
     expect(buttonExamples.examples.map((example) => example.title), [
       'Application control sizes',
+      'Mobile dock destinations',
       'Redesign button families',
       'Dashed creation tile',
       'Pill toolbar action',

@@ -398,6 +398,23 @@ void main() {
         tester.widget<ForumTabsBar>(find.byType(ForumTabsBar)).items,
         hasLength(1),
       );
+      expect(
+        tester
+            .widget<ForumTabsBar>(find.byType(ForumTabsBar))
+            .items
+            .single
+            .icon,
+        DIcons.circleNodes,
+      );
+      expect(
+        find.descendant(
+          of: find.byKey(const ValueKey('aggregate-rail-button')),
+          matching: find.byWidgetPredicate(
+            (widget) => widget is DIcon && widget.icon == DIcons.circleNodes,
+          ),
+        ),
+        findsOneWidget,
+      );
       final heroFinder = find.byKey(const ValueKey('aggregate-hero'));
       expect(tester.getCenter(heroFinder).dx, closeTo(500, 0.5));
       expect(tester.getCenter(heroFinder).dy, closeTo(24, 0.5));

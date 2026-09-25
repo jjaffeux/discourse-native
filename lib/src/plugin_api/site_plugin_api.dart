@@ -625,6 +625,7 @@ final class SidebarPanelContribution {
     required this.onClose,
     this.selectedDestinationId,
     this.badge,
+    this.mobileBadge,
     this.mobileBuilder,
     this.mobileAction,
     this.footerBuilder,
@@ -637,6 +638,9 @@ final class SidebarPanelContribution {
 
   /// Optional plugin-owned status displayed beside the tab label.
   final Widget? badge;
+
+  /// Compact count beside the label in the mobile dock. Defaults to [badge].
+  final Widget? mobileBadge;
 
   /// Optional mobile root presentation of this sidebar's existing data.
   /// Route commands still use the shared navigation host; the mobile shell

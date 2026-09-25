@@ -6,10 +6,10 @@ import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  test('start page uses six dots and upgrades saved new tabs', () {
+  test('start page uses house and upgrades saved new tabs', () {
     final route = ContentRoute.newTab();
     expect(route.tabTitle, 'Start page');
-    expect(route.icon, DIcons.grip);
+    expect(route.icon, DIcons.house);
     expect(ContentRoute.fromJson(route.toJson()), route);
 
     final restored = ContentRoute.fromJson({
@@ -18,7 +18,7 @@ void main() {
       'icon': DIcons.house.name,
     });
     expect(restored.tabTitle, 'Start page');
-    expect(restored.icon, DIcons.grip);
+    expect(restored.icon, DIcons.house);
   });
 
   test(

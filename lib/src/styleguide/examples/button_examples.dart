@@ -31,6 +31,50 @@ final buttonExamples = ComponentExamples(
       builder: (_) => const MockupControlSizesExample(),
     ),
     StyleguideExample(
+      title: 'Mobile dock destinations',
+      description:
+          'One tap target per icon and label. Selection fills only the icon capsule and unread counts sit beside the label.',
+      code:
+          "DMobileDockItem(icon: DIcon(DIcons.comment), label: 'Chat', selected: true, badge: DBadge.overlay(child: Text('32')), onPressed: openChat)",
+      builder: (_) => SizedBox(
+        width: 288,
+        child: Row(
+          children: [
+            Expanded(
+              child: DMobileDockItem(
+                icon: const DIcon(DIcons.house),
+                label: 'Start',
+                onPressed: () {},
+              ),
+            ),
+            Expanded(
+              child: DMobileDockItem(
+                icon: const DIcon(DIcons.layerGroup),
+                label: 'Topics',
+                onPressed: () {},
+              ),
+            ),
+            Expanded(
+              child: DMobileDockItem(
+                icon: const DIcon(DIcons.comment),
+                label: 'Chat',
+                selected: true,
+                badge: const DBadge.overlay(child: Text('32')),
+                onPressed: () {},
+              ),
+            ),
+            Expanded(
+              child: DMobileDockItem(
+                icon: const DIcon(DIcons.ellipsisVertical),
+                label: 'More',
+                onPressed: () {},
+              ),
+            ),
+          ],
+        ),
+      ),
+    ),
+    StyleguideExample(
       title: 'Redesign button families',
       description:
           'Colored primary actions, outlined secondary actions and transparent toolbar actions.',

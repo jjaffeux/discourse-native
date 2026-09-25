@@ -1125,7 +1125,7 @@ void main() {
         const start = ForumTabItem(
           id: 'start',
           title: 'Start page',
-          icon: DIcons.grip,
+          icon: DIcons.house,
         );
         const baking = ForumTabItem(
           id: 'baking',
