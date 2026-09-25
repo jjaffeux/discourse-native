@@ -11,6 +11,7 @@ import 'support/shell_test_harness.dart';
 TopicPayload mobileTopicPayload({
   bool canReply = true,
   bool canEditTags = true,
+  bool privateMessage = false,
 }) => (
   detail: TopicDetail(
     id: 7,
@@ -22,7 +23,10 @@ TopicPayload mobileTopicPayload({
     canCreatePost: canReply,
     canEditTags: canEditTags,
     canCloseTopic: true,
-    tags: const [TopicTag(id: 1, name: 'show-and-tell')],
+    privateMessage: privateMessage,
+    tags: privateMessage
+        ? const []
+        : const [TopicTag(id: 1, name: 'show-and-tell')],
     participants: const [
       TopicParticipant(username: 'mira'),
       TopicParticipant(username: 'solene'),
@@ -70,7 +74,7 @@ void main() {
   ) async {
     await pumpMobileTopicFixture(tester);
     final bar = find.byKey(const ValueKey('mobile-bottom-bar'));
-    final actions = find.byKey(const ValueKey('mobile-topic-header-actions'));
+    final actions = find.byKey(const ValueKey('topic-header-taxonomy'));
     final progress = find.byKey(const ValueKey('topic-progress-button'));
     final reply = find.byKey(const ValueKey('mobile-topic-reply'));
     for (final (width, scale) in [
@@ -96,8 +100,8 @@ void main() {
       );
       expect(tester.getRect(reply).right, tester.getRect(bar).right);
       for (final key in [
-        'topic-bookmark-button',
-        'topic-notification-level-button',
+        'topic-header-bookmark-button',
+        'topic-header-notification-button',
         'topic-status-button',
       ]) {
         final button = find.byKey(ValueKey(key));
@@ -121,6 +125,29 @@ void main() {
     }
   }, variant: platforms);
 
+  testWidgets('private-message tags and actions share a row when they fit', (
+    tester,
+  ) async {
+    await pumpMobileShellFixture(
+      tester,
+      size: const Size(430, 900),
+      topic: mobileTopicPayload(privateMessage: true),
+    );
+    await tester.tap(find.byKey(const ValueKey('topic-card-7')));
+    await tester.pumpAndSettle();
+
+    final tag = find.byKey(const ValueKey('topic-header-edit-tags'));
+    final actions = find.byKey(const ValueKey('topic-header-taxonomy'));
+    final bookmark = find.byKey(const ValueKey('topic-header-bookmark-button'));
+    final archive = find.byKey(const ValueKey('message-archive-button'));
+    expect(tag, findsOneWidget);
+    expect(actions, findsOneWidget);
+    expect(tester.getRect(bookmark).top, tester.getRect(tag).top);
+    expect(tester.getRect(archive).top, tester.getRect(tag).top);
+    expect(tester.getRect(actions).right, lessThanOrEqualTo(430));
+    expect(tester.takeException(), isNull);
+  }, variant: platforms);
+
   testWidgets(
     'mobile topic actions edit, navigate posts, and reply to the current topic',
     (tester) async {
@@ -137,14 +164,16 @@ void main() {
       await tester.tap(find.byTooltip('Close'));
       await tester.pumpAndSettle();
 
-      await tester.tap(find.byKey(const ValueKey('topic-bookmark-button')));
+      await tester.tap(
+        find.byKey(const ValueKey('topic-header-bookmark-button')),
+      );
       await tester.pumpAndSettle();
       expect(find.text('Bookmark topic'), findsOneWidget);
       await tester.tapAt(const Offset(3, 3));
       await tester.pumpAndSettle();
 
       await tester.tap(
-        find.byKey(const ValueKey('topic-notification-level-button')),
+        find.byKey(const ValueKey('topic-header-notification-button')),
       );
       await tester.pumpAndSettle();
       await tester.tap(find.text('Watching'));
