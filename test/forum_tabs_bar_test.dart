@@ -409,6 +409,43 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
+    testWidgets('regrows the strip when the text size changes', (tester) async {
+      await _pumpBar(
+        tester,
+        items: const [first, second],
+        selectedId: first.id,
+      );
+      final bar = find.byKey(const ValueKey('forum-tabs-bar'));
+      expect(tester.getSize(bar).height, ForumTabsBar.height);
+
+      await _pumpBar(
+        tester,
+        items: const [first, second],
+        selectedId: first.id,
+        textScaler: const TextScaler.linear(2),
+      );
+
+      final barRect = tester.getRect(bar);
+      expect(barRect.height, ForumTabsBar.heightFor(tester.element(bar)));
+      expect(barRect.height, greaterThan(ForumTabsBar.height));
+      for (final item in [first, second]) {
+        final tab = tester.getRect(
+          find.byKey(ValueKey('forum-tab-item-${item.id}')),
+        );
+        expect(
+          tab.height,
+          DControlStyle.scaledHeight(
+            DControlSize.regular,
+            const TextScaler.linear(2),
+          ),
+        );
+        expect(
+          tester.getSize(find.text(item.title)).height,
+          lessThanOrEqualTo(tab.height),
+        );
+      }
+    });
+
     testWidgets('spaces document tabs without separators', (tester) async {
       await _pumpBar(
         tester,
