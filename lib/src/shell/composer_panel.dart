@@ -70,6 +70,11 @@ SingleActivator _formattingShortcut(LogicalKeyboardKey key) => SingleActivator(
   control: !_usesCommandModifier,
 );
 
+Color _composerToolForeground(BuildContext context) {
+  final tokens = DTokens.of(context);
+  return Color.lerp(tokens.background, tokens.foreground, .5)!;
+}
+
 class ComposerPanel extends StatelessWidget {
   const ComposerPanel({
     super.key,
@@ -625,8 +630,9 @@ class _MobileComposerViewportState extends State<_MobileComposerViewport> {
               controller: _scroll,
               showScrollbar: false,
               child: ScrollConfiguration(
-                behavior: ScrollConfiguration.of(context)
-                    .copyWith(scrollbars: false),
+                behavior: ScrollConfiguration.of(
+                  context,
+                ).copyWith(scrollbars: false),
                 child: CustomScrollView(
                   key: const ValueKey('composer-mobile-scroll'),
                   controller: _scroll,
@@ -3916,7 +3922,7 @@ class _FormattingToolbar extends StatelessWidget {
         label: 'Formatting',
         child: Row(
           mainAxisSize: MainAxisSize.min,
-          spacing: DSpacing.controlGap,
+          spacing: 2,
           children: [
             for (final (label, icon, mark, key) in [
               ('Bold', DIcons.bold, ComposerMark.bold, LogicalKeyboardKey.keyB),
@@ -3937,9 +3943,8 @@ class _FormattingToolbar extends StatelessWidget {
                 key: ValueKey('composer-format-${mark.name}'),
                 tooltip: label,
                 shortcut: DShortcut(_formattingShortcut(key)),
-                variant: context.isTouch
-                    ? DButtonVariant.transparentBackground
-                    : DButtonVariant.outline,
+                variant: DButtonVariant.transparentBackground,
+                foregroundColor: _composerToolForeground(context),
                 size: DButtonSize.toolbar,
                 icon: DIcon(icon),
                 onPressed: composer.isEditing && !composer.loadingBody
@@ -3953,9 +3958,8 @@ class _FormattingToolbar extends StatelessWidget {
               key: const ValueKey('composer-format-link'),
               tooltip: 'Link',
               shortcut: DShortcut(_formattingShortcut(LogicalKeyboardKey.keyL)),
-              variant: context.isTouch
-                  ? DButtonVariant.transparentBackground
-                  : DButtonVariant.outline,
+              variant: DButtonVariant.transparentBackground,
+              foregroundColor: _composerToolForeground(context),
               size: DButtonSize.toolbar,
               icon: const DIcon(DIcons.link),
               onPressed: composer.isEditing && !composer.loadingBody
@@ -3998,14 +4002,17 @@ class _Toolbar extends StatelessWidget {
     final options = registry.composerOptions(context, composer);
     final emojiEnabled =
         !composer.target.isTaxonomyEdit &&
-        ShellScope.read(context)
-            .siteConfigFor(composer.target.siteUrl)
-            .emojiEnabled;
+        ShellScope.read(
+          context,
+        ).siteConfigFor(composer.target.siteUrl).emojiEnabled;
     final uploadsEnabled = composer.imageUploader != null;
     return _ComposerToolbarOverflow(
       children: [
         _FormattingToolbar(composer: this.composer),
-        const DSeparator(orientation: Axis.vertical, length: 20),
+        const Padding(
+          padding: EdgeInsets.symmetric(horizontal: 6),
+          child: DSeparator(orientation: Axis.vertical, length: 20),
+        ),
         if (uploadsEnabled)
           _ComposerUploadButton(composer: composer, pickFiles: pickFiles),
         if (emojiEnabled)
@@ -4014,9 +4021,8 @@ class _Toolbar extends StatelessWidget {
               builder: (buttonContext) => DButton.iconOnly(
                 key: const ValueKey('composer-emoji-picker'),
                 tooltip: 'Add emoji',
-                variant: context.isTouch
-                    ? DButtonVariant.transparentBackground
-                    : DButtonVariant.outline,
+                variant: DButtonVariant.transparentBackground,
+                foregroundColor: _composerToolForeground(context),
                 size: DButtonSize.toolbar,
                 onPressed: !composer.isEditing
                     ? null
@@ -4026,7 +4032,7 @@ class _Toolbar extends StatelessWidget {
                           composer: composer,
                         ),
                       ),
-                icon: const DIcon(DIcons.discourseEmojis),
+                icon: const DIcon(DIcons.farFaceSmile),
               ),
             ),
           ),
@@ -4072,9 +4078,8 @@ class _Toolbar extends StatelessWidget {
                 hasPopup: true,
                 expanded: trigger.open,
                 focusNode: trigger.focusNode,
-                variant: context.isTouch
-                    ? DButtonVariant.transparentBackground
-                    : DButtonVariant.outline,
+                variant: DButtonVariant.transparentBackground,
+                foregroundColor: _composerToolForeground(context),
                 size: DButtonSize.toolbar,
                 onPressed: composer.isEditing ? trigger.toggle : null,
                 icon: const DIcon(DIcons.plus),
@@ -4096,9 +4101,8 @@ class _Toolbar extends StatelessWidget {
                 hasPopup: true,
                 expanded: trigger.open,
                 focusNode: trigger.focusNode,
-                variant: context.isTouch
-                    ? DButtonVariant.transparentBackground
-                    : DButtonVariant.outline,
+                variant: DButtonVariant.transparentBackground,
+                foregroundColor: _composerToolForeground(context),
                 size: DButtonSize.toolbar,
                 onPressed: composer.isEditing ? trigger.toggle : null,
                 icon: const DIcon(DIcons.ellipsis),
@@ -4186,7 +4190,7 @@ class _ComposerToolbarOverflowState extends State<_ComposerToolbarOverflow> {
           scrollDirection: Axis.horizontal,
           child: Row(
             mainAxisSize: MainAxisSize.min,
-            spacing: DSpacing.controlGap,
+            spacing: 2,
             children: widget.children,
           ),
         ),
@@ -4253,9 +4257,8 @@ class _ComposerToolbarScrollButton extends StatelessWidget {
             : 'Show previous composer tools',
         onPressed: onPressed,
         icon: DIcon(pointsRight ? DIcons.chevronRight : DIcons.chevronLeft),
-        variant: context.isTouch
-            ? DButtonVariant.transparentBackground
-            : DButtonVariant.outline,
+        variant: DButtonVariant.transparentBackground,
+        foregroundColor: _composerToolForeground(context),
         size: DButtonSize.toolbar,
       ),
     );
@@ -4327,9 +4330,8 @@ class _ComposerUploadButtonState extends State<_ComposerUploadButton> {
         ? null
         : () => unawaited(_pick()),
     icon: const DIcon(DIcons.paperclip),
-    variant: context.isTouch
-        ? DButtonVariant.transparentBackground
-        : DButtonVariant.outline,
+    variant: DButtonVariant.transparentBackground,
+    foregroundColor: _composerToolForeground(context),
     size: DButtonSize.toolbar,
   );
 }
@@ -4363,11 +4365,7 @@ class ComposerUploadQueue extends StatelessWidget {
 Color _composerFooterColor(BuildContext context) =>
     ForumWindowBackground.footerColor(
       context,
-      Color.alphaBlend(
-        DTokens.of(context).foreground
-            .withValues(alpha: context.isTouch ? 0.04 : 0.025),
-        Theme.of(context).shell.content,
-      ),
+      DTokens.of(context).footerBackground,
     );
 
 class _Footer extends StatelessWidget {
@@ -4404,6 +4402,7 @@ class _Footer extends StatelessWidget {
 
   Widget _buildFooter(BuildContext context) {
     final theme = Theme.of(context);
+    final tokens = DTokens.of(context);
     final registry =
         PluginScope.maybeOf(context)?.registry ?? PluginRegistry.empty;
     final pluginControls = registry.composerFooter(context, composer);
@@ -4458,7 +4457,7 @@ class _Footer extends StatelessWidget {
                       child: compact
                           ? DButton.iconOnly(
                               key: const ValueKey('composer-submit'),
-                              size: DButtonSize.toolbar,
+                              size: DButtonSize.action,
                               tooltip: label,
                               semanticLabel: label,
                               onPressed: busy ? null : onSubmit,
@@ -4475,7 +4474,7 @@ class _Footer extends StatelessWidget {
                             )
                           : DButton(
                               key: const ValueKey('composer-submit'),
-                              size: DButtonSize.toolbar,
+                              size: DButtonSize.action,
                               onPressed: busy ? null : onSubmit,
                               loading: busy,
                               semanticLabel: label,
@@ -4491,11 +4490,28 @@ class _Footer extends StatelessWidget {
                               label: Text(label),
                             ),
                     ),
-                    const SizedBox(width: DSpacing.controlGap),
+                    const SizedBox(width: 8),
                     DButton.iconOnly(
                       key: const ValueKey('composer-cancel'),
                       onPressed: onCancel,
-                      variant: DButtonVariant.transparentBackground,
+                      variant: DButtonVariant.destructive,
+                      shape: DButtonShape.pill,
+                      size: DButtonSize.action,
+                      backgroundColor: Color.lerp(
+                        tokens.background,
+                        tokens.destructive,
+                        .25,
+                      ),
+                      interactiveBackgroundColor: Color.lerp(
+                        tokens.background,
+                        tokens.destructive,
+                        .32,
+                      ),
+                      foregroundColor: Color.lerp(
+                        tokens.foreground,
+                        tokens.destructive,
+                        .5,
+                      ),
                       tooltip: 'Discard',
                       icon: const DIcon(DIcons.trashCan),
                     ),
@@ -4535,9 +4551,9 @@ class _Footer extends StatelessWidget {
             : null,
         border: context.isTouch
             ? null
-            : Border(top: BorderSide(color: theme.shell.divider)),
+            : Border(top: BorderSide(color: tokens.footerBorder)),
       ),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
