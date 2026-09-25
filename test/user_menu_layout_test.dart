@@ -106,6 +106,20 @@ void main() {
             }
           } else {
             expect(rect.width, 216);
+            final separators = find.descendant(
+              of: surface,
+              matching: find.byType(DDropdownMenuSeparator),
+            );
+            expect(separators, findsNWidgets(2));
+            for (final separator in separators.evaluate()) {
+              final line = find.descendant(
+                of: find.byWidget(separator.widget),
+                matching: find.byType(ColoredBox),
+              );
+              final lineRect = tester.getRect(line);
+              expect(lineRect.left - rect.left, 14);
+              expect(rect.right - lineRect.right, 14);
+            }
           }
         }
         await tester.tapAt(const Offset(15, 760));

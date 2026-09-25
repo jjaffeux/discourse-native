@@ -794,7 +794,10 @@ class DDropdownMenuLabel extends StatelessWidget {
 }
 
 class DDropdownMenuSeparator extends StatelessWidget {
-  const DDropdownMenuSeparator({super.key});
+  const DDropdownMenuSeparator({super.key, this.inset = false});
+
+  /// Aligns the rule with menu item content instead of the popup edges.
+  final bool inset;
 
   @override
   Widget build(BuildContext context) {
@@ -825,8 +828,8 @@ class DDropdownMenuSeparator extends StatelessWidget {
           clipBehavior: Clip.none,
           children: [
             PositionedDirectional(
-              start: -DInsets.menu.left,
-              end: -DInsets.menu.right,
+              start: inset ? DInsets.menuItem.start : -DInsets.menu.left,
+              end: inset ? DInsets.menuItem.end : -DInsets.menu.right,
               top: 4,
               height: 1,
               child: ColoredBox(color: color),

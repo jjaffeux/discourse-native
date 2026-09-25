@@ -860,7 +860,7 @@ class UserProfileMenuItems extends StatelessWidget {
                   },
                 )
               else ...[
-                if (row.isSummary) const DDropdownMenuSeparator(),
+                if (row.isSummary) const DDropdownMenuSeparator(inset: true),
                 DDropdownMenuItem(
                   key: ValueKey('user-menu-row-${row.id}'),
                   leading: row.isUserStatus && row.status != null
@@ -882,7 +882,7 @@ class UserProfileMenuItems extends StatelessWidget {
                 ),
               ],
             if (!statusOnly) ...[
-              const DDropdownMenuSeparator(),
+              const DDropdownMenuSeparator(inset: true),
               DDropdownMenuItem(
                 variant: DDropdownMenuItemVariant.destructive,
                 leading: const DIcon(DIcons.rightFromBracket, size: 16),
