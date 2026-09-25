@@ -13,6 +13,7 @@ import 'package:discourse_native/src/models/shared_appearance.dart';
 import 'package:discourse_native/src/models/site_appearance.dart';
 import 'package:discourse_native/src/shell/forum_settings_controller.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
+import 'package:discourse_native/src/theme/d_icon_sets.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -314,6 +315,7 @@ void main() {
       'safely', () {
     const shared = SharedAppearance(
       font: ForumFont.lato,
+      iconSet: DIconSet.phosphor,
       effects: ForumBackground.appearance(
         effect: ForumBackgroundEffect.paper,
         transparency: .2,
@@ -330,11 +332,22 @@ void main() {
     );
     expect(
       SharedAppearance.fromJson({...shared.toJson(), 'effects': 'damaged'}),
-      const SharedAppearance(font: ForumFont.lato),
+      const SharedAppearance(font: ForumFont.lato, iconSet: DIconSet.phosphor),
     );
     expect(
       SharedAppearance.fromJson({...shared.toJson(), 'font': 'unknown'}).font,
       ForumFont.system,
+    );
+    expect(
+      SharedAppearance.fromJson({
+        ...shared.toJson(),
+        'iconSet': 'unknown',
+      }).iconSet,
+      DIconSet.defaultSet,
+    );
+    expect(
+      SharedAppearance.fromJson(const {'version': 1, 'font': 'lato'}).iconSet,
+      DIconSet.defaultSet,
     );
     expect(
       () => SharedAppearance.fromJson(const {'version': 2}),

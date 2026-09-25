@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 
+import '../theme/d_icon_sets.dart';
 import 'forum_background.dart';
 import 'forum_font.dart';
 
@@ -11,6 +12,7 @@ import 'forum_font.dart';
 final class SharedAppearance {
   const SharedAppearance({
     this.font = ForumFont.system,
+    this.iconSet = DIconSet.defaultSet,
     this.effects = const ForumBackground.appearance(),
   });
 
@@ -30,6 +32,7 @@ final class SharedAppearance {
     }
     return SharedAppearance(
       font: ForumFont.fromName(json['font']),
+      iconSet: DIconSet.fromName(json['iconSet']),
       effects: effects,
     );
   }
@@ -37,20 +40,26 @@ final class SharedAppearance {
   static const defaults = SharedAppearance();
 
   final ForumFont font;
+  final DIconSet iconSet;
 
   /// Opacity and texture, drawn over whichever colours a forum uses. Its
   /// strength is never drawn: a theme carries its own [ForumTheme.tint].
   final ForumBackground effects;
 
-  SharedAppearance copyWith({ForumFont? font, ForumBackground? effects}) =>
-      SharedAppearance(
-        font: font ?? this.font,
-        effects: effects ?? this.effects,
-      );
+  SharedAppearance copyWith({
+    ForumFont? font,
+    DIconSet? iconSet,
+    ForumBackground? effects,
+  }) => SharedAppearance(
+    font: font ?? this.font,
+    iconSet: iconSet ?? this.iconSet,
+    effects: effects ?? this.effects,
+  );
 
   Map<String, dynamic> toJson() => {
     'version': 1,
     'font': font.name,
+    'iconSet': iconSet.name,
     'effects': effects.toJson(),
   };
 
@@ -58,8 +67,9 @@ final class SharedAppearance {
   bool operator ==(Object other) =>
       other is SharedAppearance &&
       other.font == font &&
+      other.iconSet == iconSet &&
       other.effects == effects;
 
   @override
-  int get hashCode => Object.hash(font, effects);
+  int get hashCode => Object.hash(font, iconSet, effects);
 }
