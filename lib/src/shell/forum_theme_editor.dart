@@ -184,26 +184,23 @@ class _ForumThemeEditorState extends State<ForumThemeEditor> {
         DField(
           children: [
             const DFieldLabel(child: Text('Sidebar')),
-            Align(
-              alignment: AlignmentDirectional.centerStart,
-              child: DToggleGroup<bool>(
-                key: const ValueKey('theme-sidebar'),
-                values: [palette.darkerSidebars],
-                size: DToggleSize.segment,
-                inset: true,
-                scrollable: false,
-                allowEmptySelection: false,
-                semanticLabel: 'Sidebar',
-                onChanged: (values) {
-                  if (values.isNotEmpty) {
-                    _palette = palette.copyWith(darkerSidebars: values.first);
-                  }
-                },
-                items: const [
-                  DToggleGroupItem(value: false, child: Text('Neutral')),
-                  DToggleGroupItem(value: true, child: Text('Darker')),
-                ],
-              ),
+            DToggleGroup<bool>(
+              key: const ValueKey('theme-sidebar'),
+              values: [palette.darkerSidebars],
+              size: DToggleSize.segment,
+              expanded: true,
+              inset: true,
+              allowEmptySelection: false,
+              semanticLabel: 'Sidebar',
+              onChanged: (values) {
+                if (values.isNotEmpty) {
+                  _palette = palette.copyWith(darkerSidebars: values.first);
+                }
+              },
+              items: const [
+                DToggleGroupItem(value: false, child: Text('Neutral')),
+                DToggleGroupItem(value: true, child: Text('Darker')),
+              ],
             ),
           ],
         ),
