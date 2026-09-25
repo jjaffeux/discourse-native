@@ -2,6 +2,7 @@ import 'dart:ui' show PointerDeviceKind;
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/app_settings.dart';
+import 'package:discourse_native/src/models/forum_font.dart';
 import 'package:discourse_native/src/models/forum_theme_presets.dart';
 import 'package:discourse_native/src/shell/forum_theme_editor.dart';
 import 'package:flutter/material.dart';
@@ -10,6 +11,63 @@ import 'package:flutter_test/flutter_test.dart';
 import 'support/theme_settings.dart';
 
 void main() {
+  testWidgets('Display changes the shared font, icons, and text scale', (
+    tester,
+  ) async {
+    final shell = controller();
+    addTearDown(shell.dispose);
+    await pumpSettings(tester, shell);
+    await tester.tap(find.text('Display'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const ValueKey('display-font-lato')));
+    await tester.pumpAndSettle();
+    expect(shell.forumSettings.shared.font, ForumFont.lato);
+
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('display-icon-set-lucide')),
+    );
+    await tester.tap(find.byKey(const ValueKey('display-icon-set-lucide')));
+    await tester.pumpAndSettle();
+    expect(shell.forumSettings.shared.iconSet, DIconSet.lucide);
+
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('text-size-increase')),
+    );
+    await tester.tap(find.byKey(const ValueKey('text-size-increase')));
+    await tester.pumpAndSettle();
+    expect(shell.appSettings.textScale, AppTextScale.percent110);
+    await tester.tap(find.byKey(const ValueKey('text-size-reset')));
+    await tester.pumpAndSettle();
+    expect(shell.appSettings.textScale, AppTextScale.percent100);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('Display remains usable at narrow width with large RTL text', (
+    tester,
+  ) async {
+    final shell = controller();
+    addTearDown(shell.dispose);
+    await pumpSettings(
+      tester,
+      shell,
+      width: 360,
+      panelWidth: 360,
+      scale: 2,
+      direction: TextDirection.rtl,
+    );
+    await tester.tap(find.text('Display'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('display-font-system')), findsOneWidget);
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('display-icon-set-tabler')),
+    );
+    await tester.tap(find.byKey(const ValueKey('display-icon-set-tabler')));
+    await tester.pumpAndSettle();
+    expect(shell.forumSettings.shared.iconSet, DIconSet.tabler);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets(
     'the forum default has no editing controls or duplicate mode switch',
     (tester) async {

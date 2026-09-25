@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import '../theme/d_icons.dart';
 import 'content_reading_lane.dart';
 import 'forum_appearance_settings.dart';
+import 'forum_display_settings.dart';
 import 'shell_scope.dart';
 
 /// Forum settings occupy the normal content panel so the surrounding workspace
@@ -65,38 +66,9 @@ class _ForumSettingsPageState extends State<ForumSettingsPage> {
             const SizedBox(height: 16),
             Expanded(
               child: switch (_section) {
-                'display' => ListenableBuilder(
-                  listenable: appSettings,
-                  builder: (context, _) => SingleChildScrollView(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        const Text('Content width'),
-                        const SizedBox(height: 8),
-                        DToggleGroup<bool>(
-                          key: const ValueKey('settings-content-width'),
-                          values: [appSettings.limitContentSize],
-                          expanded: true,
-                          inset: true,
-                          allowEmptySelection: false,
-                          onChanged: (values) {
-                            if (values.isNotEmpty) {
-                              unawaited(
-                                appSettings.setLimitContentSize(values.first),
-                              );
-                            }
-                          },
-                          items: const [
-                            DToggleGroupItem(
-                              value: true,
-                              child: Text('Normal'),
-                            ),
-                            DToggleGroupItem(value: false, child: Text('Wide')),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
+                'display' => ForumDisplaySettings(
+                  appSettings: appSettings,
+                  forumSettings: ShellScope.identityOf(context).forumSettings,
                 ),
                 'accessibility' => ListenableBuilder(
                   listenable: appSettings,

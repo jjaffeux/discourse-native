@@ -2,6 +2,7 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 import '../ui/foundation/tokens.dart';
+import 'd_icon_sets.dart';
 
 // Mapping paints while compiling avoids a saveLayer for every icon paint.
 @immutable
@@ -124,9 +125,9 @@ class DIcon extends StatelessWidget {
     r'var\(\s*--([\w-]+)\s*(?:,\s*([^()]+))?\)',
   );
 
-  String _svg(BuildContext context) {
-    final svg = icon.tintableSvg;
-    if (!icon.preserveColors || !svg.contains('var(')) return svg;
+  String _svg(BuildContext context, DIconData resolvedIcon) {
+    final svg = resolvedIcon.tintableSvg;
+    if (!resolvedIcon.preserveColors || !svg.contains('var(')) return svg;
     final tokens = DTokens.of(context);
     return svg.replaceAllMapped(_colorVariable, (match) {
       final color = switch (match[1]) {
@@ -148,11 +149,18 @@ class DIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final set = DIconSetScope.of(context);
+    final replacement = icon.preserveColors
+        ? null
+        : alternateIconSvg(set, icon.name);
+    final resolvedIcon = replacement == null
+        ? icon
+        : DIconData(icon.name, replacement);
     final iconTheme = IconTheme.of(context);
     final box = size ?? iconTheme.size ?? 24;
     final glyphScale = DIconGlyphTheme.scaleOf(context);
     final viewBox = DIconGlyphTheme.naturalWidthOf(context)
-        ? _viewBox.firstMatch(icon.svg)
+        ? _viewBox.firstMatch(resolvedIcon.svg)
         : null;
     final width = viewBox == null
         ? box
@@ -169,16 +177,16 @@ class DIcon extends StatelessWidget {
       height: box,
       child: Center(
         child: SvgPicture.string(
-          _svg(context),
-          width: width * glyphScale,
-          height: box * glyphScale,
+          _svg(context, resolvedIcon),
+          width: width * glyphScale * (replacement == null ? 1 : set.scale),
+          height: box * glyphScale * (replacement == null ? 1 : set.scale),
           fit: BoxFit.contain,
           theme: SvgTheme(
-            currentColor: icon.preserveColors ? tint : resolvedTint,
+            currentColor: resolvedIcon.preserveColors ? tint : resolvedTint,
           ),
           colorMapper: _DIconColorMapper(
             resolvedTint,
-            preserveColors: icon.preserveColors,
+            preserveColors: resolvedIcon.preserveColors,
             opacity: opacity,
           ),
           semanticsLabel: semanticLabel,

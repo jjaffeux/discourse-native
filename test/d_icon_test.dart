@@ -2,6 +2,7 @@ import 'dart:ui' as ui;
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/plugins/discourse_ai/discourse_ai_icons.dart';
+import 'package:discourse_native/src/theme/d_icon_sets.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:discourse_native/src/theme/d_native_icons.dart';
 import 'package:flutter/material.dart';
@@ -14,6 +15,45 @@ import 'support/pixel_samples.dart';
 
 void main() {
   group('DIcon', () {
+    testWidgets('alternate families render mapped icons and retain fallback', (
+      tester,
+    ) async {
+      for (final set in DIconSet.values.skip(1)) {
+        expect(alternateIconSvg(set, 'gear'), isNotNull);
+        expect(alternateIconSvg(set, 'unmapped-icon'), isNull);
+        await tester.pumpWidget(
+          MaterialApp(
+            home: DIconSetScope(
+              iconSet: set,
+              child: const Row(
+                children: [DIcon(DIcons.gear), DIcon(DIcons.asterisk)],
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(tester.takeException(), isNull, reason: set.name);
+      }
+    });
+
+    testWidgets('every mapped alternate SVG parses', (tester) async {
+      for (final set in DIconSet.values.skip(1)) {
+        for (final name in DIcons.byName.keys) {
+          if (alternateIconSvg(set, name) == null) continue;
+          await tester.pumpWidget(
+            MaterialApp(
+              home: DIconSetScope(
+                iconSet: set,
+                child: Center(child: DIcon(DIcons.byName[name]!)),
+              ),
+            ),
+          );
+          await tester.pumpAndSettle();
+          expect(tester.takeException(), isNull, reason: '${set.name}/$name');
+        }
+      }
+    });
+
     testWidgets('every bundled icon renders', (tester) async {
       // A malformed generated or app-specific SVG fails at parse time, inside
       // a future, where nothing else would notice.

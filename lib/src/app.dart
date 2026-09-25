@@ -560,20 +560,23 @@ class _DiscourseAppState extends State<DiscourseApp>
                 final shown = _controller.forumSettings.previewBrightnessFor(
                   selection.siteUrl ?? ForumSettingsController.homeSite,
                 );
-                return _materialApp(
-                  theme: lightTheme,
-                  darkTheme: darkTheme,
-                  themeMode: switch (shown) {
-                    Brightness.light => ThemeMode.light,
-                    Brightness.dark => ThemeMode.dark,
-                    null => switch (_controller.forumSettings.themeModeFor(
-                      selection.siteUrl ?? ForumSettingsController.homeSite,
-                    )) {
-                      AppThemeMode.system => ThemeMode.system,
-                      AppThemeMode.light => ThemeMode.light,
-                      AppThemeMode.dark => ThemeMode.dark,
+                return DIconSetScope(
+                  iconSet: _controller.forumSettings.shared.iconSet,
+                  child: _materialApp(
+                    theme: lightTheme,
+                    darkTheme: darkTheme,
+                    themeMode: switch (shown) {
+                      Brightness.light => ThemeMode.light,
+                      Brightness.dark => ThemeMode.dark,
+                      null => switch (_controller.forumSettings.themeModeFor(
+                        selection.siteUrl ?? ForumSettingsController.homeSite,
+                      )) {
+                        AppThemeMode.system => ThemeMode.system,
+                        AppThemeMode.light => ThemeMode.light,
+                        AppThemeMode.dark => ThemeMode.dark,
+                      },
                     },
-                  },
+                  ),
                 );
               },
             );
