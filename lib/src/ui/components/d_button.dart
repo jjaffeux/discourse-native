@@ -16,6 +16,10 @@ import 'd_tooltip.dart';
 /// Legacy names remain source-compatible aliases for external plugin callers.
 enum DButtonVariant {
   outline,
+
+  /// Creation tile with a dashed frame and framed leading icon. Give it a
+  /// tight width constraint when the whole row should activate the action.
+  dashedTile,
   secondary,
   ghost,
 
@@ -552,6 +556,19 @@ class DButton extends StatelessWidget {
         expanded: buttons.primary.hover,
       ),
       DButtonVariant.outline || DButtonVariant.secondary => outline,
+      DButtonVariant.dashedTile => DButtonVariantStyle(
+        enabled: state(
+          Colors.transparent,
+          tokens.mutedForeground,
+          tokens.border,
+        ),
+        interactive: state(
+          buttons.accent.hover,
+          tokens.foreground,
+          tokens.border,
+        ),
+        focused: state(Colors.transparent, tokens.foreground, tokens.border),
+      ),
       DButtonVariant.ghost ||
       DButtonVariant.transparentBackground => DButtonVariantStyle(
         enabled: state(Colors.transparent, subduedForeground),
@@ -594,6 +611,7 @@ class DButton extends StatelessWidget {
     final variantStyle = _referenceStyle(tokens, dark);
     final mobileNavigation = density == DButtonDensity.mobileNavigation;
     final compactToolbar = density == DButtonDensity.compactToolbar;
+    final dashedTile = variant == DButtonVariant.dashedTile;
     final intrinsicIcon =
         _iconOnly &&
         (size == DControlSize.chip || size == DControlSize.chrome) &&
@@ -604,18 +622,25 @@ class DButton extends StatelessWidget {
         : mobileNavigation || composerBlock
         ? DButtonSize.regular
         : size;
-    final fontSize = DControlStyle.fontSize(effectiveSize, context: context);
+    final fontSize = dashedTile
+        ? DControlStyle.fontSize(DButtonSize.large, context: context)
+        : DControlStyle.fontSize(effectiveSize, context: context);
     final spacingUnit = mobileNavigation
         ? 18.0
         : compactToolbar
         ? 14.0
         : DControlStyle.iconDimension(effectiveSize, context: context);
-    final gap = DControlStyle.contentGap(effectiveSize);
-    final visualDimension = DControlStyle.scaledHeight(
+    final gap = dashedTile ? 12.0 : DControlStyle.contentGap(effectiveSize);
+    final standardDimension = DControlStyle.scaledHeight(
       effectiveSize,
       MediaQuery.textScalerOf(context),
       context: compactToolbar ? null : context,
     ).clamp(mobileNavigation ? 44.0 : 0.0, double.infinity);
+    final visualDimension = dashedTile
+        ? 50 +
+              (MediaQuery.textScalerOf(context).scale(fontSize) - fontSize) *
+                  1.5
+        : standardDimension;
     final touch =
         mobileNavigation || compactToolbar || DControlStyle.isTouch(context);
     final enabled = onPressed != null && !loading;
@@ -624,6 +649,8 @@ class DButton extends StatelessWidget {
         BorderRadius.circular(
           shape == DButtonShape.pill || variant == DButtonVariant.primary
               ? DRadius.pill
+              : dashedTile
+              ? DRadius.bubble
               : DRadius.control,
         );
     final direction = Directionality.of(context);
@@ -729,6 +756,8 @@ class DButton extends StatelessWidget {
       padding: WidgetStatePropertyAll(
         (_iconOnly && !intrinsicIcon
             ? EdgeInsets.zero
+            : dashedTile
+            ? const EdgeInsetsDirectional.fromSTEB(10, 8, 10, 8)
             : variant == DButtonVariant.inline
             ? const EdgeInsets.symmetric(vertical: 1)
             : DControlStyle.isApplicationSize(effectiveSize)
@@ -754,10 +783,12 @@ class DButton extends StatelessWidget {
       textStyle: WidgetStateProperty.resolveWith(
         (states) => theme.textTheme.labelLarge!.copyWith(
           fontSize: fontSize,
-          height:
-              DControlStyle.lineHeight(effectiveSize, context: context) /
-              fontSize,
-          fontWeight: _visualVariant == DButtonVariant.primary
+          height: dashedTile
+              ? DControlStyle.lineHeight(DButtonSize.large, context: context) /
+                    fontSize
+              : DControlStyle.lineHeight(effectiveSize, context: context) /
+                    fontSize,
+          fontWeight: _visualVariant == DButtonVariant.primary || dashedTile
               ? FontWeight.w600
               : FontWeight.w400,
           letterSpacing: 0,
@@ -825,6 +856,7 @@ class DButton extends StatelessWidget {
             ringWidth: focused || invalid ? DControlStyle.focusWidth : 0,
             ringOffset: DControlStyle.focusOffset,
             strokeWidth: 1,
+            dashed: dashedTile,
             joinedAxis: joined?.omitsLeadingBorder ?? false
                 ? joined!.axis
                 : null,
@@ -835,13 +867,29 @@ class DButton extends StatelessWidget {
       },
     );
 
+    final leadingIcon = dashedTile && icon != null
+        ? SizedBox(
+            width: 34,
+            height: 34,
+            child: DecoratedBox(
+              decoration: DButtonDecoration(
+                color: Colors.transparent,
+                borderColor: tokens.border,
+                borderRadius: BorderRadius.circular(DRadius.control),
+                strokeWidth: 1,
+                dashed: true,
+              ),
+              child: Center(child: icon),
+            ),
+          )
+        : icon;
     Widget child = _iconOnly
         ? ExcludeSemantics(child: icon!)
         : DefaultTextStyle.merge(
             maxLines: 1,
             softWrap: false,
             overflow: TextOverflow.ellipsis,
-            child: icon == null
+            child: leadingIcon == null
                 ? ExcludeSemantics(
                     excluding: semanticLabel != null,
                     child: label,
@@ -850,7 +898,7 @@ class DButton extends StatelessWidget {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       if (iconPosition == DButtonIconPosition.start) ...[
-                        ExcludeSemantics(child: icon!),
+                        ExcludeSemantics(child: leadingIcon),
                         SizedBox(width: gap),
                       ],
                       Flexible(
@@ -861,7 +909,7 @@ class DButton extends StatelessWidget {
                       ),
                       if (iconPosition == DButtonIconPosition.end) ...[
                         SizedBox(width: gap),
-                        ExcludeSemantics(child: icon!),
+                        ExcludeSemantics(child: leadingIcon),
                       ],
                     ],
                   ),

@@ -114,17 +114,14 @@ class _ForumThemePickerState extends State<ForumThemePicker> {
               onCustomize: () => widget.onNewTheme(base: option.id),
             ),
         ]),
-        Align(
-          alignment: AlignmentDirectional.centerStart,
+        SizedBox(
+          width: double.infinity,
           child: DButton(
             key: const ValueKey('new-theme'),
-            label: Text(
-              widget.brightness == Brightness.dark
-                  ? 'New dark theme'
-                  : 'New light theme',
-            ),
+            label: const Text('New theme'),
             icon: const DIcon(DIcons.plus),
-            variant: DButtonVariant.outline,
+            variant: DButtonVariant.dashedTile,
+            alignment: AlignmentDirectional.centerStart,
             onPressed: widget.onNewTheme,
           ),
         ),

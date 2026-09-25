@@ -66,6 +66,23 @@ final buttonExamples = ComponentExamples(
       ),
     ),
     StyleguideExample(
+      title: 'Dashed creation tile',
+      description:
+          'A full-width action with a dashed frame and a framed leading icon.',
+      code:
+          "DButton(label: Text('New theme'), icon: DIcon(DIcons.plus), variant: DButtonVariant.dashedTile, alignment: AlignmentDirectional.centerStart, onPressed: createTheme)",
+      builder: (_) => SizedBox(
+        width: double.infinity,
+        child: DButton(
+          label: const Text('New theme'),
+          icon: const DIcon(DIcons.plus),
+          variant: DButtonVariant.dashedTile,
+          alignment: AlignmentDirectional.centerStart,
+          onPressed: () {},
+        ),
+      ),
+    ),
+    StyleguideExample(
       title: 'Pill toolbar action',
       description:
           'Round actions share the normal button focus, hover and target size.',
