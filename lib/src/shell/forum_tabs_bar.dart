@@ -1070,6 +1070,7 @@ Widget? _tabPrefix(
   Color foreground, {
   double size = 15,
   double? avatarSize,
+  double? squareSize,
 }) {
   final theme = Theme.of(context);
 
@@ -1102,10 +1103,11 @@ Widget? _tabPrefix(
 
   if (item.color case final color?) {
     final parentColor = item.parentColor;
+    final dimension = squareSize ?? size - 3;
     return Container(
       key: ValueKey('forum-tab-prefix-${item.id}'),
-      width: size - 3,
-      height: size - 3,
+      width: dimension,
+      height: dimension,
       decoration: BoxDecoration(
         color: parentColor == null ? color : null,
         gradient: parentColor == null
@@ -1504,8 +1506,9 @@ class _ForumTabState extends State<_ForumTab> {
     final painter = TextPainter(
       text: TextSpan(
         text: '${badge.count}',
-        style: Theme.of(context).textTheme.labelSmall
-            ?.copyWith(fontWeight: FontWeight.w700),
+        style: Theme.of(
+          context,
+        ).textTheme.labelSmall?.copyWith(fontWeight: FontWeight.w700),
       ),
       textDirection: DDirection.of(context),
       textScaler: MediaQuery.textScalerOf(context),
@@ -1525,16 +1528,16 @@ class _ForumTabState extends State<_ForumTab> {
     // Keep the title readable before spending narrow-tab space on adornments.
     final compact =
         constraints.maxWidth < MediaQuery.textScalerOf(context).scale(60);
-    final hasAvatar =
-        widget.item.avatarUrl != null && widget.item.prefixBuilder == null;
+    final hasAvatar = widget.item.avatarUrl != null;
     final prefixSize = hasAvatar ? 16.0 : 12.0;
     final prefix = !compact
         ? _tabPrefix(
             context,
             widget.item,
             foreground,
-            size: 12,
+            size: prefixSize,
             avatarSize: prefixSize,
+            squareSize: 12,
           )
         : null;
     // Tab labels are controls: the same role as DDocumentTab's own default

@@ -11,6 +11,7 @@ import 'package:discourse_native/src/models/forum_workspace.dart';
 import 'package:discourse_native/src/models/sidebar.dart';
 import 'package:discourse_native/src/models/site_emoji.dart';
 import 'package:discourse_native/src/shell/avatar_image.dart';
+import 'package:discourse_native/src/shell/emoji.dart';
 import 'package:discourse_native/src/shell/forum_tabs_bar.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
@@ -264,6 +265,56 @@ void main() {
             tester.getRect(tab).left,
         2 + 10 + 16 + 7,
       );
+    });
+
+    testWidgets('passes the mockup avatar size to a chat tab prefix builder', (
+      tester,
+    ) async {
+      final requestedSizes = <double>[];
+      final item = ForumTabItem(
+        id: 'chat-dm',
+        title: 'tynaut',
+        avatarUrl: 'https://meta.example/avatars/tynaut.png',
+        prefixBuilder: (_, size) {
+          requestedSizes.add(size);
+          return DAvatar(
+            dimension: size,
+            child: const ColoredBox(color: Colors.green),
+          );
+        },
+      );
+      await _pumpBar(tester, items: [item], selectedId: item.id);
+
+      final tab = find.byKey(const ValueKey('forum-tab-item-chat-dm'));
+      final avatar = find.descendant(of: tab, matching: find.byType(DAvatar));
+      expect(requestedSizes, contains(16));
+      expect(tester.getSize(avatar), const Size.square(16));
+    });
+
+    testWidgets('keeps emoji tab artwork at 12 pixels', (tester) async {
+      installTestMediaPipeline(
+        client: MockClient((_) async => http.Response('', 404)),
+      );
+      await _pumpBar(
+        tester,
+        items: const [
+          ForumTabItem(
+            id: 'emoji',
+            title: 'Emoji tab',
+            emojiUrl: 'https://meta.example/images/emoji/smile.png',
+            emojiName: 'smile',
+          ),
+        ],
+        selectedId: 'emoji',
+      );
+
+      final emoji = tester.widget<EmojiImage>(
+        find.descendant(
+          of: find.byKey(const ValueKey('forum-tab-item-emoji')),
+          matching: find.byType(EmojiImage),
+        ),
+      );
+      expect(emoji.size, 12);
     });
 
     testWidgets('matches shell geometry and places add after the final tab', (
@@ -1387,6 +1438,12 @@ void main() {
       final theme = Theme.of(tester.element(urgentDot));
 
       expect((gradient as LinearGradient).colors, [parentColor, childColor]);
+      expect(
+        tester.getSize(
+          find.byKey(const ValueKey('forum-tab-prefix-category-3')),
+        ),
+        const Size.square(12),
+      );
       expect(longTitle.maxLines, 1);
       expect(longTitle.overflow, TextOverflow.ellipsis);
       expect(find.text('3'), findsOneWidget);
@@ -1401,16 +1458,16 @@ void main() {
         theme.discourse.success,
       );
 
-      final urgentIcon = tester.widget<DIcon>(
-        find.descendant(
-          of: find.byKey(const ValueKey('forum-tab-item-urgent-4')),
-          matching: find.byWidgetPredicate(
-            (widget) => widget is DIcon && widget.icon == DIcons.comments,
-          ),
+      final urgentIconFinder = find.descendant(
+        of: find.byKey(const ValueKey('forum-tab-item-urgent-4')),
+        matching: find.byWidgetPredicate(
+          (widget) => widget is DIcon && widget.icon == DIcons.comments,
         ),
       );
+      final urgentIcon = tester.widget<DIcon>(urgentIconFinder);
       expect(urgentIcon.color, iconColor);
       expect(urgentIcon.size, 12);
+      expect(DIconGlyphTheme.scaleOf(tester.element(urgentIconFinder)), 1);
     });
 
     testWidgets('keep unread dots beside the title', (tester) async {
