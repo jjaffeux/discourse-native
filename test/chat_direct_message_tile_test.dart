@@ -372,7 +372,7 @@ void main() {
               final mouse = await hover(tester);
               expect(triggerOpacity(tester), 1);
               expect(find.byType(HoverActionToolbar), findsNothing);
-              expect(find.byType(DButton), findsNWidgets(2));
+              expect(find.byType(DButton), findsNWidgets(3));
               expect(tester.getRect(find.byType(DBubbleContent)), bubble);
               expect(
                 tester.element(find.byKey(ChatMessageTile.bodySelectionKey(7))),
@@ -1043,6 +1043,7 @@ void main() {
     expect(find.text('Copy link'), findsOneWidget);
     expect(find.text('React'), findsOneWidget);
     expect(find.byKey(const ValueKey('chat-message-react-7')), findsNothing);
+    expect(find.byTooltip('Reply'), findsNothing);
     expect(find.byType(DSheetContent), findsOneWidget);
   });
 }

@@ -116,7 +116,11 @@ class ChatMessageTile extends StatelessWidget {
       builder: (context, message, _) {
         // The stream may lag one frame behind permanent deletion.
         if (message == null) return const SizedBox.shrink();
-        Widget tile([Widget? messageActions, Widget? messageReaction]) => _Tile(
+        Widget tile([
+          Widget? messageActions,
+          Widget? messageReaction,
+          Widget? messageReply,
+        ]) => _Tile(
           siteUrl: siteUrl,
           message: message,
           chained: chained,
@@ -127,6 +131,7 @@ class ChatMessageTile extends StatelessWidget {
           showThreadSummary: showThreadSummary,
           messageActions: messageActions,
           messageReaction: messageReaction,
+          messageReply: messageReply,
         );
         if (selecting) {
           return DMessageSurface(
@@ -240,7 +245,11 @@ class _ChatMessageActions extends StatefulWidget {
   final bool canCopyText;
   final List<PostFlagType> flagTypes;
   final VoidCallback? onSelect;
-  final Widget Function(Widget? messageActions, Widget? messageReaction)
+  final Widget Function(
+    Widget? messageActions,
+    Widget? messageReaction,
+    Widget? messageReply,
+  )
   childBuilder;
 
   @override
@@ -526,6 +535,29 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
           (context.isTouch ||
               _reactionPickerOpening ||
               (!_hoverSuppressed && (_hovered || _focused)));
+      return Opacity(
+        opacity: visible ? 1 : 0,
+        child: IgnorePointer(
+          ignoring: !visible,
+          child: ExcludeSemantics(excluding: !visible, child: child!),
+        ),
+      );
+    },
+  );
+
+  Widget _messageReply() => ListenableBuilder(
+    listenable: _interaction,
+    child: DButton.iconOnly(
+      key: ValueKey('chat-message-reply-action-${widget.message.id}'),
+      tooltip: 'Reply',
+      icon: const DIcon(DIcons.reply),
+      size: DButtonSize.regular,
+      density: DButtonDensity.chatMessageAction,
+      variant: DButtonVariant.transparentBackground,
+      onPressed: _reply,
+    ),
+    builder: (context, child) {
+      final visible = !_hoverSuppressed && (_hovered || _focused);
       return Opacity(
         opacity: visible ? 1 : 0,
         child: IgnorePointer(
@@ -907,6 +939,11 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
                   canAddReaction && !context.isTouch
                       ? _messageReaction(enabled: true)
                       : null,
+                  widget.onReply != null &&
+                          !context.isTouch &&
+                          chat.canReplyToMessage(widget.siteUrl, widget.message)
+                      ? _messageReply()
+                      : null,
                 ),
               ),
             ),
@@ -946,6 +983,7 @@ class _Tile extends StatelessWidget {
     required this.showThreadSummary,
     this.messageActions,
     this.messageReaction,
+    this.messageReply,
   });
 
   final String siteUrl;
@@ -958,6 +996,7 @@ class _Tile extends StatelessWidget {
   final bool showThreadSummary;
   final Widget? messageActions;
   final Widget? messageReaction;
+  final Widget? messageReply;
 
   @override
   Widget build(BuildContext context) =>
@@ -1053,6 +1092,14 @@ class _Tile extends StatelessWidget {
           DIcons.farFaceSmile,
           DButtonSize.regular,
           'Add reaction',
+          density: DButtonDensity.chatMessageAction,
+        );
+    final reply =
+        messageReply ??
+        pendingAction(
+          DIcons.reply,
+          DButtonSize.regular,
+          'Reply',
           density: DButtonDensity.chatMessageAction,
         );
     final bubbleAlign = outgoing ? DBubbleAlign.end : DBubbleAlign.start;
@@ -1244,6 +1291,7 @@ class _Tile extends StatelessWidget {
                       mainAxisSize: MainAxisSize.min,
                       spacing: DSpacing.controlGap,
                       children: [
+                        if (outgoing && reply != null) reply,
                         if (outgoing && react != null) react,
                         Flexible(
                           child: DBubbleContent(
@@ -1304,6 +1352,7 @@ class _Tile extends StatelessWidget {
                           ),
                         ),
                         if (!outgoing && react != null) react,
+                        if (!outgoing && reply != null) reply,
                       ],
                     ),
                   ],
