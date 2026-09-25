@@ -2231,7 +2231,8 @@ void main() {
 
         expect(find.byType(DDropdownMenuContent), findsOneWidget);
         expect(tester.widget<DButton>(add).expanded, isTrue);
-        expect(find.text('Upload'), findsOneWidget);
+        expect(find.text('Photo Library'), findsOneWidget);
+        expect(find.text('Files'), findsOneWidget);
         expect(find.text('Insert GIF'), findsOneWidget);
         expect(
           find.byKey(const ValueKey('chat-composer-upload')),
@@ -2342,7 +2343,8 @@ void main() {
         await tester.tap(find.byKey(const ValueKey('chat-composer-add')));
         await tester.pumpAndSettle();
         final action = find.byKey(const ValueKey('chat-composer-upload'));
-        expect(find.text('Upload'), findsOneWidget);
+        expect(find.text('Photo Library'), findsOneWidget);
+        expect(find.text('Files'), findsOneWidget);
         expect(
           (tester.widget<DDropdownMenuItem>(action).leading! as DIcon).icon,
           DIcons.paperclip,
@@ -2395,6 +2397,39 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(pickerCalls, 1);
+      expect(_field(tester).focusNode!.hasFocus, isTrue);
+    });
+
+    testWidgets('opens the photo library from the add menu', (tester) async {
+      var photoPickerCalls = 0;
+      var filePickerCalls = 0;
+      final fixture = await _fixture(
+        pages: {FakeDiscourseApi.chatMessagesKey(9): _emptyPage},
+      );
+      addTearDown(fixture.shell.dispose);
+      await tester.pumpWidget(
+        _ComposerView(
+          shell: fixture.shell,
+          channelId: 9,
+          pickFiles: () async {
+            filePickerCalls++;
+            return const [];
+          },
+          pickImages: () async {
+            photoPickerCalls++;
+            return const [];
+          },
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const ValueKey('chat-composer-add')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('chat-composer-photos')));
+      await tester.pumpAndSettle();
+
+      expect(photoPickerCalls, 1);
+      expect(filePickerCalls, 0);
       expect(_field(tester).focusNode!.hasFocus, isTrue);
     });
 
@@ -3389,11 +3424,13 @@ final class _ComposerView extends StatelessWidget {
     required this.shell,
     required this.channelId,
     this.pickFiles = pickComposerFiles,
+    this.pickImages = pickComposerImages,
   });
 
   final ShellController shell;
   final int channelId;
   final ComposerFilePicker pickFiles;
+  final ComposerImagePicker pickImages;
 
   @override
   Widget build(BuildContext context) => ShellScope(
@@ -3407,6 +3444,7 @@ final class _ComposerView extends StatelessWidget {
             siteUrl: _site,
             channelId: channelId,
             pickFiles: pickFiles,
+            pickImages: pickImages,
           ),
         ),
       ),
