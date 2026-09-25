@@ -8,8 +8,8 @@ import '../../theme/d_icon.dart';
 import '../foundation/control_style.dart';
 import '../foundation/tokens.dart';
 
-/// The two base-nova Toggle surface treatments.
-enum DToggleVariant { standard, outline }
+/// Toggle surface treatments, including the inset group's segmented choices.
+enum DToggleVariant { standard, outline, segmented }
 
 /// Reaction chips keep compact artwork, including on touch platforms.
 enum DToggleDensity { standard, reaction, tile }
@@ -49,10 +49,14 @@ class DToggleVisualStyle {
   const DToggleVisualStyle({
     this.borderRadius,
     this.borderEdges = DToggleBorderEdges.all,
+    this.expandArtwork = false,
   });
 
   final BorderRadiusGeometry? borderRadius;
   final DToggleBorderEdges borderEdges;
+
+  /// Fill the width assigned by a parent group instead of hugging the label.
+  final bool expandArtwork;
 }
 
 /// A two-state button with native pressed-toggle semantics.
@@ -234,10 +238,15 @@ class _DToggleState extends State<DToggle> {
     final tokens = DTokens.of(context);
     final dark = theme.brightness == Brightness.dark;
     final outlined = widget.variant == DToggleVariant.outline;
+    final segmented = widget.variant == DToggleVariant.segmented;
     final outline = tokens.buttonTheme.outline;
     final reaction = widget.density == DToggleDensity.reaction;
     final tile = widget.density == DToggleDensity.tile;
-    final foreground = outlined
+    final foreground = segmented
+        ? (_current
+              ? tokens.foreground
+              : Color.lerp(tokens.background, tokens.foreground, .5)!)
+        : outlined
         ? outline.foreground
         : tile && !_current
         ? tokens.mutedForeground
@@ -323,7 +332,9 @@ class _DToggleState extends State<DToggle> {
               color: foreground,
               fontSize: fontSize,
               height: lineHeight / fontSize,
-              fontWeight: tile
+              fontWeight: segmented
+                  ? (_current ? FontWeight.w600 : FontWeight.w400)
+                  : tile
                   ? (_current ? FontWeight.w600 : FontWeight.w400)
                   : FontWeight.w500,
               letterSpacing: 0,
@@ -349,6 +360,7 @@ class _DToggleState extends State<DToggle> {
                     ],
                   )
                 : _IconLabel(
+                    gap: segmented ? 7 : 4,
                     iconAtEnd: widget.iconPosition == DToggleIconPosition.end,
                     direction: direction,
                     icon: ExcludeSemantics(child: effectiveIcon),
@@ -386,7 +398,15 @@ class _DToggleState extends State<DToggle> {
               iconPosition: widget.iconPosition,
             )),
       decoration: BoxDecoration(
-        color: outlined
+        color: segmented
+            ? activeSurface
+                  ? Color.lerp(
+                      Color.lerp(tokens.background, Colors.black, .14)!,
+                      tokens.foreground,
+                      _current ? .13 : .08,
+                    )
+                  : Colors.transparent
+            : outlined
             ? (activeSurface ? outline.hover : outline.background)
             : activeSurface
             ? tile
@@ -405,7 +425,9 @@ class _DToggleState extends State<DToggle> {
         ringOffset: DControlStyle.focusOffset,
       ),
       child: Center(
-        widthFactor: tile ? null : 1,
+        widthFactor: tile || widget.visualStyle?.expandArtwork == true
+            ? null
+            : 1,
         heightFactor: 1,
         child: content,
       ),
@@ -417,7 +439,11 @@ class _DToggleState extends State<DToggle> {
     );
     final target = ConstrainedBox(
       constraints: targetConstraints,
-      child: Center(widthFactor: 1, heightFactor: 1, child: artwork),
+      child: Center(
+        widthFactor: widget.visualStyle?.expandArtwork == true ? null : 1,
+        heightFactor: 1,
+        child: artwork,
+      ),
     );
 
     return MergeSemantics(
@@ -498,22 +524,25 @@ class _IconLabel extends MultiChildRenderObjectWidget {
   _IconLabel({
     required this.iconAtEnd,
     required this.direction,
+    required this.gap,
     required Widget icon,
     required Widget label,
   }) : super(children: [icon, label]);
 
   final bool iconAtEnd;
   final TextDirection direction;
+  final double gap;
 
   @override
   _RenderIconLabel createRenderObject(BuildContext context) =>
-      _RenderIconLabel(iconAtEnd, direction);
+      _RenderIconLabel(iconAtEnd, direction, gap);
 
   @override
   void updateRenderObject(BuildContext context, _RenderIconLabel renderObject) {
     renderObject
       ..iconAtEnd = iconAtEnd
-      ..direction = direction;
+      ..direction = direction
+      ..gap = gap;
   }
 }
 
@@ -532,9 +561,14 @@ class _RenderIconLabel extends RenderBox
     with
         ContainerRenderObjectMixin<RenderBox, _IconLabelParentData>,
         RenderBoxContainerDefaultsMixin<RenderBox, _IconLabelParentData> {
-  _RenderIconLabel(this._iconAtEnd, this._direction);
+  _RenderIconLabel(this._iconAtEnd, this._direction, this._gap);
 
-  static const _gap = 4.0;
+  double _gap;
+  set gap(double value) {
+    if (value == _gap) return;
+    _gap = value;
+    markNeedsLayout();
+  }
 
   bool _iconAtEnd;
   set iconAtEnd(bool value) {

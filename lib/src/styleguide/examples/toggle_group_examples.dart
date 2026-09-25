@@ -1,6 +1,7 @@
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
+import '../../shell/theme_icons.dart';
 import '../styleguide_example.dart';
 import 'toggle_reference_icons.dart';
 
@@ -9,8 +10,48 @@ final toggleGroupExamples = ComponentExamples(
       'A shared single- or multiple-selection state for two-state buttons.',
   status: ComponentStatus.implemented,
   notes:
-      'Accepted after independent rendered and native review. The frozen 2026-05-17 behavior uses 8px default spacing; spacing 0 joins edges, collapses inner outline borders and uses 8px horizontal padding. DToggle remains the visual and activation owner. Values may be parent-controlled, borrowed from a DToggleGroupController, or internally owned. Arrow keys follow orientation and RTL, Home/End move to edges, disabled items are skipped, and loopFocus controls wrapping. The documented 64px font-weight tiles compose the accepted DField label and description around the group without transferring control ownership.',
+      'Accepted after independent rendered and native review. The frozen 2026-05-17 behavior uses 8px default spacing; spacing 0 joins edges, collapses inner outline borders and uses 8px horizontal padding. Inset standard groups have a recessed frame, muted inactive labels and a full-width active segment. DToggle remains the visual and activation owner. Values may be parent-controlled, borrowed from a DToggleGroupController, or internally owned. Arrow keys follow orientation and RTL, Home/End move to edges, disabled items are skipped, and loopFocus controls wrapping. The documented 64px font-weight tiles compose the accepted DField label and description around the group without transferring control ownership.',
   examples: [
+    StyleguideExample(
+      title: 'Appearance mode segments',
+      description:
+          'Equal-width inset choices use muted labels and a stronger selected segment. The icons and labels stay centered together.',
+      states: const ['Inset', 'Equal width', 'Icons', 'Keyboard'],
+      code: '''DToggleGroup<String>(
+  inset: true,
+  expanded: true,
+  allowEmptySelection: false,
+  initialValues: const ['auto'],
+  items: const [
+    DToggleGroupItem(value: 'light', icon: ThemeIcon(ThemeIcons.sun, size: 12), child: Text('Light')),
+    DToggleGroupItem(value: 'dark', icon: ThemeIcon(ThemeIcons.moon, size: 12), child: Text('Dark')),
+    DToggleGroupItem(value: 'auto', icon: ThemeIcon(ThemeIcons.automatic, size: 12), child: Text('Auto')),
+  ],
+)''',
+      builder: (_) => const DToggleGroup<String>(
+        inset: true,
+        expanded: true,
+        allowEmptySelection: false,
+        initialValues: ['auto'],
+        items: [
+          DToggleGroupItem(
+            value: 'light',
+            icon: ThemeIcon(ThemeIcons.sun, size: 12),
+            child: Text('Light'),
+          ),
+          DToggleGroupItem(
+            value: 'dark',
+            icon: ThemeIcon(ThemeIcons.moon, size: 12),
+            child: Text('Dark'),
+          ),
+          DToggleGroupItem(
+            value: 'auto',
+            icon: ThemeIcon(ThemeIcons.automatic, size: 12),
+            child: Text('Auto'),
+          ),
+        ],
+      ),
+    ),
     StyleguideExample(
       title: 'Texture tiles',
       description:

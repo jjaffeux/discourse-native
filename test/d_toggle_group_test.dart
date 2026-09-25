@@ -107,6 +107,65 @@ void main() {
       .flagsCollection
       .isToggled;
 
+  testWidgets('inset segments match the theme selector treatment', (
+    tester,
+  ) async {
+    await mount(
+      tester,
+      const DToggleGroup<String>(
+        inset: true,
+        expanded: true,
+        initialValues: ['auto'],
+        items: [
+          DToggleGroupItem(value: 'light', child: Text('Light')),
+          DToggleGroupItem(value: 'dark', child: Text('Dark')),
+          DToggleGroupItem(value: 'auto', child: Text('Auto')),
+        ],
+      ),
+      theme: AppTheme.dark.copyWith(platform: TargetPlatform.macOS),
+    );
+
+    final group = find.byType(DToggleGroup<String>);
+    final toggles = find.descendant(of: group, matching: find.byType(DToggle));
+    expect(toggles, findsNWidgets(3));
+    expect(
+      tester.widgetList<DToggle>(toggles).map((toggle) => toggle.variant),
+      everyElement(DToggleVariant.segmented),
+    );
+    final frame = tester.widget<DecoratedBox>(
+      find.descendant(of: group, matching: find.byType(DecoratedBox)).first,
+    );
+    final decoration = frame.decoration as BoxDecoration;
+    expect(decoration.borderRadius, BorderRadius.circular(10));
+    expect(decoration.border, isNotNull);
+
+    BoxDecoration artwork(int index) =>
+        tester
+                .widget<AnimatedContainer>(
+                  find
+                      .descendant(
+                        of: toggles.at(index),
+                        matching: find.byType(AnimatedContainer),
+                      )
+                      .first,
+                )
+                .decoration!
+            as BoxDecoration;
+    expect(artwork(0).color, Colors.transparent);
+    expect(artwork(2).color, isNot(Colors.transparent));
+    final selectedArtwork = find
+        .descendant(of: toggles.at(2), matching: find.byType(AnimatedContainer))
+        .first;
+    expect(
+      tester.getSize(selectedArtwork).width,
+      tester.getSize(toggles.at(2)).width,
+    );
+    expect(
+      tester.getSize(toggles.at(0)).width,
+      tester.getSize(toggles.at(2)).width,
+    );
+  });
+
   testWidgets(
     'inset choices retain selection when reopening selected options',
     (tester) async {
@@ -631,6 +690,7 @@ void main() {
     (tester) async {
       expect(componentExamples['toggle-group'], same(toggleGroupExamples));
       expect(toggleGroupExamples.examples.map((example) => example.title), [
+        'Appearance mode segments',
         'Texture tiles',
         'Inset layout selector',
         'Default and composition',

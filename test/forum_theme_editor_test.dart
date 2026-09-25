@@ -34,6 +34,17 @@ void main() {
     addTearDown(shell.dispose);
     await shell.load();
     await pumpSettings(tester, shell);
+    expect(
+      tester
+          .widgetList<DIcon>(
+            find.descendant(
+              of: find.byKey(const ValueKey('appearance-mode')),
+              matching: find.byType(DIcon),
+            ),
+          )
+          .map((icon) => icon.icon.name),
+      ['theme-sun', 'theme-moon', 'theme-automatic'],
+    );
     await tapVisible(
       tester,
       find.descendant(
