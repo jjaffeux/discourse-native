@@ -266,7 +266,7 @@ class _AccountMenuPopover extends StatelessWidget {
         content: DDropdownMenuContent(
           semanticLabel: 'Profile',
           align: DPopoverAlign.end,
-          width: 260,
+          width: 216,
           children: [UserProfileMenuItems(onDismiss: controller.close)],
         ),
         child: DDropdownMenuTrigger(builder: buildTrigger),
