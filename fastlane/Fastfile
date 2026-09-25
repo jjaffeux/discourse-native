@@ -85,6 +85,12 @@ def prune_testflight_artifacts(version:, ios_build:, macos_build:)
   end
 end
 
+def prune_full_profile_build_cache
+  %w[build .dart_tool].each do |name|
+    FileUtils.rm_rf(File.join(FULL_PROFILE_ROOT, name))
+  end
+end
+
 private_lane :quality_checks do
   Dir.chdir(PROJECT_ROOT) do
     sh("flutter", "pub", "get", "--enforce-lockfile")
@@ -270,6 +276,7 @@ lane :beta do |options|
     ios_build: ios_build,
     macos_build: macos_build
   )
+  prune_full_profile_build_cache
   UI.success(
     "Uploaded iOS #{version} (#{ios_build}) and macOS #{version} (#{macos_build}) to TestFlight"
   )
