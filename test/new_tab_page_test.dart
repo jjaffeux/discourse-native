@@ -483,12 +483,14 @@ void main() {
     const user = DiscourseUser(username: 'reader');
     final api = FakeDiscourseApi(
       user: user,
-      bookmarkList: const [
+      bookmarkList: [
         Bookmark(
           id: 18,
           title: 'Saved topic',
           path: '/t/saved-topic/18',
-          bookmarkableType: 'Topic',
+          bookmarkableType: 'Post',
+          postNumber: 2,
+          reminderAt: DateTime(2030, 1, 2, 8),
         ),
       ],
       feeds: const {
@@ -524,6 +526,10 @@ void main() {
     expect(find.text('3'), findsWidgets);
     expect(api.feedPaths, hasLength(beforeFeeds));
     expect(api.bookmarksRequested, hasLength(beforeBookmarks));
+    await tester.tap(find.byTooltip('Comfortable'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('2030'), findsOneWidget);
+    expect(find.text('Post #2'), findsOneWidget);
   });
 
   testWidgets('density control switches between compact and comfortable rows', (
@@ -548,6 +554,44 @@ void main() {
     await tester.tap(find.byTooltip('Compact'));
     await tester.pumpAndSettle();
     expect(tester.widget<DItem>(row).size, DItemSize.xs);
+  });
+
+  testWidgets('comfortable mode shows four cards across a full-width section', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({
+      'discourse_native.panel_tutorial_dismissed': true,
+    });
+    await pumpShell(tester, const Size(1800, 900));
+    final shell = ShellScope.read(
+      tester.element(find.byType(MainContent).first),
+    );
+    for (final (id, title) in [
+      (1, 'Baking'),
+      (2, 'Plants'),
+      (3, 'Keyboards'),
+      (4, 'Travel'),
+    ]) {
+      shell.openListUrl('/c/${title.toLowerCase()}/$id', title: title);
+    }
+    shell.pushContent(ContentRoute.newTab());
+    await shell.appSettings.setLimitContentSize(false);
+    await tester.pumpAndSettle();
+
+    final cards = [
+      for (final route in shell.recentCategoriesFor(shell.currentInstance!.url))
+        find.byKey(ValueKey('start-page-recent-${route.id}')),
+    ];
+    expect(cards, hasLength(4));
+    await tester.tap(find.byTooltip('Comfortable'));
+    await tester.pumpAndSettle();
+
+    final rects = [for (final card in cards) tester.getRect(card)];
+    expect(rects.map((rect) => rect.top).toSet(), hasLength(1));
+    expect(rects.map((rect) => rect.left).toSet(), hasLength(4));
+    expect(rects.every((rect) => rect.width > 280), isTrue);
+    expect(rects.every((rect) => rect.height >= 160), isTrue);
+    expect(tester.widget<DItem>(cards.first).shape, DItemShape.card);
   });
 
   testWidgets('cached direct messages join recent chat channels', (
