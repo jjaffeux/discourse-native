@@ -1021,6 +1021,64 @@ void main() {
       expect(replies, [same(message)]);
     });
 
+    for (final outgoing in [false, true]) {
+      testWidgets(
+        'desktop hover puts Reply beside React (outgoing: $outgoing)',
+        (tester) async {
+          final message = _message(_thread(), authorId: outgoing ? 1 : 99);
+          final controller = await _controller(
+            message,
+            signedIn: true,
+            api: FakeDiscourseApi(
+              user: const DiscourseUser(id: 1, username: 'reader'),
+            ),
+          );
+          final replies = <ChatMessage>[];
+          addTearDown(controller.dispose);
+
+          await tester.pumpWidget(
+            _TestTile(
+              controller: controller,
+              onOpenThread: (_) {},
+              onReply: replies.add,
+            ),
+          );
+          await tester.pumpAndSettle();
+          expect(find.byTooltip('Reply').hitTestable(), findsNothing);
+
+          await _hoverMessage(tester);
+          final reply = find.byTooltip('Reply').hitTestable();
+          final react = find.byTooltip('Add reaction').hitTestable();
+          expect(reply, findsOneWidget);
+          expect(react, findsOneWidget);
+          expect(
+            tester
+                .widget<DButton>(
+                  find.byKey(const ValueKey('chat-message-reply-action-7')),
+                )
+                .density,
+            DButtonDensity.chatMessageAction,
+          );
+          final bubble = tester.getRect(
+            find.byKey(const ValueKey('chat-message-bubble-7')),
+          );
+          final replyBounds = tester.getRect(reply);
+          final reactBounds = tester.getRect(react);
+          if (outgoing) {
+            expect(replyBounds.right, lessThan(reactBounds.left));
+            expect(reactBounds.right, lessThan(bubble.left));
+          } else {
+            expect(bubble.right, lessThan(reactBounds.left));
+            expect(reactBounds.right, lessThan(replyBounds.left));
+          }
+
+          await tester.tap(reply);
+          await tester.pump();
+          expect(replies, [same(message)]);
+        },
+      );
+    }
+
     testWidgets(
       'layout-triggered scrolling hides actions until the pointer moves again',
       (tester) async {
@@ -1897,7 +1955,7 @@ void main() {
 
         await _hoverMessage(tester);
 
-        expect(find.byTooltip('Reply'), findsNothing);
+        expect(find.byTooltip('Reply').hitTestable(), findsNothing);
         expect(_replySemanticsOwner(), findsNothing);
         expect(replies, isEmpty);
       });
