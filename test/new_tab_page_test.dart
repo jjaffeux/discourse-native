@@ -622,16 +622,37 @@ void main() {
       shell.pushContent(ContentRoute.newTab());
       await tester.pumpAndSettle();
       final before = shell.tabsForCurrentForum.length;
+      final existingIds = shell.tabsForCurrentForum
+          .map((tab) => tab.id)
+          .toSet();
       final source = find.byKey(const ValueKey('start-page-recent-topic-42'));
       expect(source, findsOneWidget);
       final target = find.byType(CurrentForumTabsBar).first;
       final gesture = await tester.startGesture(tester.getCenter(source));
       await gesture.moveTo(tester.getCenter(target));
       await tester.pump();
+      expect(
+        find.byKey(const ValueKey('start-page-drag-feedback')),
+        findsOneWidget,
+      );
+      final placeholder = find.byKey(
+        const ValueKey('forum-tab-drop-placeholder'),
+      );
+      expect(placeholder, findsOneWidget);
+      final tabBar = tester.getRect(find.byType(ForumTabsBar).first);
+      await gesture.moveTo(Offset(tabBar.left + 8, tabBar.center.dy));
+      await tester.pump();
+      final leftInsertion = tester.getRect(placeholder).left;
+      await gesture.moveTo(Offset(tabBar.right - 8, tabBar.center.dy));
+      await tester.pump();
+      expect(tester.getRect(placeholder).left, greaterThan(leftInsertion));
+      await gesture.moveTo(Offset(tabBar.left + 8, tabBar.center.dy));
+      await tester.pump();
       await gesture.up();
       await tester.pumpAndSettle();
       expect(shell.tabsForCurrentForum, hasLength(before + 1));
-      expect(shell.tabsForCurrentForum.last.currentContent.topicId, 42);
+      expect(existingIds, isNot(contains(shell.tabsForCurrentForum.first.id)));
+      expect(shell.tabsForCurrentForum.first.currentContent.topicId, 42);
     } finally {
       debugDefaultTargetPlatformOverride = previousPlatform;
     }

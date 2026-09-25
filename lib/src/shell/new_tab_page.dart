@@ -14,6 +14,7 @@ import '../models/topic.dart';
 import '../plugin_api/plugin_scope.dart';
 import '../theme/d_icons.dart';
 import 'forum_icon.dart';
+import 'forum_tabs_bar.dart';
 import 'open_link.dart';
 import 'relative_time.dart';
 import 'shell_scope.dart';
@@ -643,6 +644,21 @@ class _StartSection extends StatelessWidget {
               siteUrl: siteUrl,
               path: entry.path!,
               title: entry.title,
+            ),
+      dragFeedback: entry.path == null
+          ? null
+          : Transform.translate(
+              offset: const Offset(DSpacing.md, 20),
+              child: ForumTabDragFeedback(
+                key: const ValueKey('start-page-drag-feedback'),
+                item: ForumTabItem(
+                  id: entry.id,
+                  title: entry.title,
+                  icon: entry.icon,
+                  iconColor: entry.color,
+                ),
+                width: ForumTabsBar.maximumTabWidth,
+              ),
             ),
       children: [
         DIcon(entry.icon, size: compact ? 16 : 18, color: entry.color),
