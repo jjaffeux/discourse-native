@@ -245,9 +245,10 @@ void main() {
           final progress = tester.getRect(
             find.byKey(const ValueKey('topic-progress-button')),
           );
-          expect(footer.width, 1056);
-          expect(reply.left - footer.left, closeTo(laneLeft + 8, 0.001));
-          expect(footer.right - progress.right, closeTo(laneLeft + 8, 0.001));
+          expect(footer.left, closeTo(laneLeft, 0.001));
+          expect(footer.width, closeTo(alignment ? 825 : 1056, 0.001));
+          expect(reply.left - footer.left, closeTo(8, 0.001));
+          expect(footer.right - progress.right, closeTo(8, 0.001));
           expect(topicPostList(tester).controller, same(scroll));
         }
 

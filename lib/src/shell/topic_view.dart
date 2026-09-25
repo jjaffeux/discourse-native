@@ -810,9 +810,9 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
     if (!_restored || _restoring) return false;
     // A newly loaded or virtualized post can still be mounting its HTML.
     // Wait for its real height before landing on its last page.
-    if (_postContexts[postId]
-        case StatefulElement(state: _TopicPostItemState(:final bodyComplete))
-        when bodyComplete) {
+    if (_postContexts[postId] case StatefulElement(
+      state: _TopicPostItemState(:final bodyComplete),
+    ) when bodyComplete) {
       final bounds = _postViewportBounds(postId);
       final scroll = _scroll;
       if (bounds == null || scroll == null || !scroll.hasClients) return false;
@@ -1007,10 +1007,9 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
     }
   }
 
-  double _sidebarOverlayWidth(BuildContext context) =>
-      MediaQuery.sizeOf(context).width
-          .clamp(0.0, _TopicSidebarPanel.dockedWidth)
-          .toDouble();
+  double _sidebarOverlayWidth(BuildContext context) => MediaQuery.sizeOf(
+    context,
+  ).width.clamp(0.0, _TopicSidebarPanel.dockedWidth).toDouble();
 
   void _setRecommendationsSource(TopicRecommendationSourceId sourceId) {
     final siteUrl = _recommendationsSiteUrl;
@@ -2765,125 +2764,130 @@ class _TopicBottomBar extends StatelessWidget {
     bool showLabel(BoxConstraints constraints) =>
         constraints.maxWidth >= 580 &&
         MediaQuery.textScalerOf(context).scale(13) <= 13;
-    return DCardFooter(
-      key: const ValueKey('topic-bottom-bar'),
-      backgroundColor: context.isTouch
-          ? (topic == null && !loading
-                ? theme.shell.panel
-                : theme.shell.content)
-          : ForumWindowBackground.footerColor(
-              context,
-              DTokens.of(context).footerBackground,
+    return Padding(
+      padding: lanePadding,
+      child: DCardFooter(
+        key: const ValueKey('topic-bottom-bar'),
+        backgroundColor: context.isTouch
+            ? (topic == null && !loading
+                  ? theme.shell.panel
+                  : theme.shell.content)
+            : ForumWindowBackground.footerColor(
+                context,
+                DTokens.of(context).footerBackground,
+              ),
+        borderColor: context.isTouch ? null : DTokens.of(context).footerBorder,
+        rounded: !context.isTouch,
+        padding: EdgeInsets.zero,
+        child: ForumTabLayoutBuilder(
+          builder: (context, constraints) => ConstrainedBox(
+            constraints: BoxConstraints(
+              minHeight: topicBottomBarHeight(context),
             ),
-      borderColor: context.isTouch ? null : DTokens.of(context).footerBorder,
-      rounded: !context.isTouch,
-      padding: EdgeInsets.zero,
-      child: ForumTabLayoutBuilder(
-        builder: (context, constraints) => ConstrainedBox(
-          constraints: BoxConstraints(minHeight: topicBottomBarHeight(context)),
-          child: Padding(
-            padding: topicBottomBarPadding.add(lanePadding),
-            child: Row(
-              children: [
-                if (showReply ||
-                    showArchive ||
-                    showBookmark ||
-                    showNotifications)
-                  Expanded(
-                    child: Wrap(
-                      key: const ValueKey('topic-footer-actions'),
-                      spacing: DSpacing.controlGap,
-                      runSpacing: DSpacing.controlGap,
-                      crossAxisAlignment: WrapCrossAlignment.center,
-                      children: [
-                        if (showReply)
-                          DButtonGroup(
-                            children: [
-                              DButton(
-                                key: ValueKey(
-                                  canReply
-                                      ? 'topic-reply-button'
-                                      : 'topic-reply-placeholder',
-                                ),
-                                onPressed: canReply ? onReplyPressed : null,
-                                icon: const DIcon(DIcons.reply),
-                                label: const Text('Reply'),
-                                tooltip: 'Reply to this topic',
-                                shortcut: const DShortcut(topicReplyShortcut),
-                                variant: DButtonVariant.primary,
-                                size: DButtonSize.action,
-                              ),
-                            ],
-                          ),
-                        if (showArchive)
-                          hasTopic
-                              ? MessageArchiveButton(
+            child: Padding(
+              padding: topicBottomBarPadding,
+              child: Row(
+                children: [
+                  if (showReply ||
+                      showArchive ||
+                      showBookmark ||
+                      showNotifications)
+                    Expanded(
+                      child: Wrap(
+                        key: const ValueKey('topic-footer-actions'),
+                        spacing: DSpacing.controlGap,
+                        runSpacing: DSpacing.controlGap,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: [
+                          if (showReply)
+                            DButtonGroup(
+                              children: [
+                                DButton(
                                   key: ValueKey(
-                                    'message-archive-$siteUrl-${topic!.id}',
+                                    canReply
+                                        ? 'topic-reply-button'
+                                        : 'topic-reply-placeholder',
                                   ),
-                                  siteUrl: siteUrl!,
-                                  topic: topic!,
-                                )
-                              : const MessageArchiveButtonPlaceholder(),
-                        if (showBookmark || showNotifications)
-                          DButtonGroup(
-                            semanticLabel: 'Topic management',
-                            children: [
-                              if (showBookmark)
-                                hasTopic
-                                    ? TopicBookmarkButton(
-                                        siteUrl: siteUrl!,
-                                        topic: topic!,
-                                        busy: bookmarkBusy,
-                                        variant: DButtonVariant.outline,
-                                        size: DButtonSize.regular,
-                                      )
-                                    : const TopicBookmarkButtonPlaceholder(
-                                        variant: DButtonVariant.outline,
-                                        size: DButtonSize.regular,
-                                      ),
-                              if (showNotifications)
-                                hasTopic
-                                    ? TopicNotificationLevelButton(
-                                        siteUrl: siteUrl!,
-                                        topic: topic!,
-                                        showLabel: showLabel(constraints),
-                                        variant: DButtonVariant.outline,
-                                        size: DButtonSize.regular,
-                                      )
-                                    : TopicNotificationLevelPlaceholder(
-                                        showLabel: showLabel(constraints),
-                                        variant: DButtonVariant.outline,
-                                        size: DButtonSize.regular,
-                                      ),
-                            ],
-                          ),
-                      ],
-                    ),
-                  )
-                else
-                  const Spacer(),
-                ListenableBuilder(
-                  listenable: viewport.progressPositionListenable,
-                  builder: (context, _) {
-                    final position = viewport.progressPosition;
-                    if (position == null || totalPosts <= 1) {
-                      return const SizedBox.shrink();
-                    }
-                    return Align(
-                      alignment: AlignmentDirectional.centerEnd,
-                      child: Padding(
-                        padding: const EdgeInsetsDirectional.only(start: 8),
-                        child: TopicProgressPopover(
-                          controller: controller,
-                          position: position,
-                          total: totalPosts,
-                        ),
+                                  onPressed: canReply ? onReplyPressed : null,
+                                  icon: const DIcon(DIcons.reply),
+                                  label: const Text('Reply'),
+                                  tooltip: 'Reply to this topic',
+                                  shortcut: const DShortcut(topicReplyShortcut),
+                                  variant: DButtonVariant.primary,
+                                  size: DButtonSize.action,
+                                ),
+                              ],
+                            ),
+                          if (showArchive)
+                            hasTopic
+                                ? MessageArchiveButton(
+                                    key: ValueKey(
+                                      'message-archive-$siteUrl-${topic!.id}',
+                                    ),
+                                    siteUrl: siteUrl!,
+                                    topic: topic!,
+                                  )
+                                : const MessageArchiveButtonPlaceholder(),
+                          if (showBookmark || showNotifications)
+                            DButtonGroup(
+                              semanticLabel: 'Topic management',
+                              children: [
+                                if (showBookmark)
+                                  hasTopic
+                                      ? TopicBookmarkButton(
+                                          siteUrl: siteUrl!,
+                                          topic: topic!,
+                                          busy: bookmarkBusy,
+                                          variant: DButtonVariant.outline,
+                                          size: DButtonSize.regular,
+                                        )
+                                      : const TopicBookmarkButtonPlaceholder(
+                                          variant: DButtonVariant.outline,
+                                          size: DButtonSize.regular,
+                                        ),
+                                if (showNotifications)
+                                  hasTopic
+                                      ? TopicNotificationLevelButton(
+                                          siteUrl: siteUrl!,
+                                          topic: topic!,
+                                          showLabel: showLabel(constraints),
+                                          variant: DButtonVariant.outline,
+                                          size: DButtonSize.regular,
+                                        )
+                                      : TopicNotificationLevelPlaceholder(
+                                          showLabel: showLabel(constraints),
+                                          variant: DButtonVariant.outline,
+                                          size: DButtonSize.regular,
+                                        ),
+                              ],
+                            ),
+                        ],
                       ),
-                    );
-                  },
-                ),
-              ],
+                    )
+                  else
+                    const Spacer(),
+                  ListenableBuilder(
+                    listenable: viewport.progressPositionListenable,
+                    builder: (context, _) {
+                      final position = viewport.progressPosition;
+                      if (position == null || totalPosts <= 1) {
+                        return const SizedBox.shrink();
+                      }
+                      return Align(
+                        alignment: AlignmentDirectional.centerEnd,
+                        child: Padding(
+                          padding: const EdgeInsetsDirectional.only(start: 8),
+                          child: TopicProgressPopover(
+                            controller: controller,
+                            position: position,
+                            total: totalPosts,
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -3934,8 +3938,9 @@ class _EmptyTopicProperty extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Text(
     label,
-    style: Theme.of(context).textTheme.labelMedium
-        ?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
+    style: Theme.of(context).textTheme.labelMedium?.copyWith(
+      color: Theme.of(context).colorScheme.onSurfaceVariant,
+    ),
   );
 }
 
@@ -4091,9 +4096,9 @@ class _MoreTopics extends StatelessWidget {
                     topic: selection.topics[index],
                     siteUrl: siteUrl,
                     onTap: inbox
-                        ? () =>
-                              ShellScope.read(context)
-                                  .openTopicFromList(selection.topics[index])
+                        ? () => ShellScope.read(
+                            context,
+                          ).openTopicFromList(selection.topics[index])
                         : null,
                   ),
                   if (index < selection.topics.length - 1)
@@ -4802,9 +4807,9 @@ class _PostTileState extends State<_PostTile> {
                                 topic: PluginContainingTopic(
                                   id: widget.topic.id,
                                   slug:
-                                      ShellScope.read(context)
-                                          .currentContent
-                                          ?.slug ??
+                                      ShellScope.read(
+                                        context,
+                                      ).currentContent?.slug ??
                                       'topic',
                                   archived: widget.topic.archived,
                                 ),
@@ -4840,9 +4845,9 @@ class _PostTileState extends State<_PostTile> {
                                         containingTopic: PluginContainingTopic(
                                           id: widget.topic.id,
                                           slug:
-                                              ShellScope.read(context)
-                                                  .currentContent
-                                                  ?.slug ??
+                                              ShellScope.read(
+                                                context,
+                                              ).currentContent?.slug ??
                                               'topic',
                                           archived: widget.topic.archived,
                                         ),
