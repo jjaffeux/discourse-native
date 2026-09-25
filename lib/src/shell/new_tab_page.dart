@@ -375,17 +375,18 @@ class _NewTabPageState extends State<NewTabPage> {
                         },
                         allowEmptySelection: false,
                         inset: true,
+                        density: DToggleDensity.compactInset,
                         size: DToggleSize.small,
                         items: const [
                           DToggleGroupItem<bool>.iconOnly(
                             value: false,
-                            icon: DIcon(DIcons.grip, size: 14),
+                            icon: DIcon(DIcons.grip, size: 12),
                             semanticLabel: 'Comfortable',
                             tooltip: 'Comfortable',
                           ),
                           DToggleGroupItem<bool>.iconOnly(
                             value: true,
-                            icon: DIcon(DIcons.list, size: 14),
+                            icon: DIcon(DIcons.list, size: 12),
                             semanticLabel: 'Compact',
                             tooltip: 'Compact',
                           ),

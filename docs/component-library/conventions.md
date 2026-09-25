@@ -88,6 +88,9 @@ Chat reaction chips use the explicitly approved `DToggleDensity.reaction`:
 horizontal padding. This density supersedes the size preset, grows with text
 scaling and retains the 48px touch target. Emoji adapters inherit the toggle's
 IconTheme so raster artwork follows the actual control metrics.
+Start page density choices use `DToggleDensity.compactInset`: a 68×32px inset
+frame around two 30×26px icon surfaces, matching the mobile mockup. The Native
+group retains separate 48×48px mobile touch targets around those surfaces.
 Topic header tags opt into `DBadgeSize.control`, which uses the filter control
 height, label and artwork metrics on each platform. Other badges retain their
 regular or compact status/count geometry.

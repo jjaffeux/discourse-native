@@ -11,8 +11,8 @@ import '../foundation/tokens.dart';
 /// Toggle surface treatments, including the inset group's segmented choices.
 enum DToggleVariant { standard, outline, segmented }
 
-/// Reaction chips keep compact artwork, including on touch platforms.
-enum DToggleDensity { standard, reaction, tile }
+/// Application artwork presets retain separate touch targets.
+enum DToggleDensity { standard, reaction, tile, compactInset }
 
 /// The shared button height scale.
 typedef DToggleSize = DControlSize;
@@ -50,6 +50,8 @@ class DToggleVisualStyle {
     this.borderRadius,
     this.borderEdges = DToggleBorderEdges.all,
     this.expandArtwork = false,
+    this.targetAlignment,
+    this.targetPadding = EdgeInsets.zero,
   });
 
   final BorderRadiusGeometry? borderRadius;
@@ -57,6 +59,10 @@ class DToggleVisualStyle {
 
   /// Fill the width assigned by a parent group instead of hugging the label.
   final bool expandArtwork;
+
+  /// Position compact artwork inside its larger interaction target.
+  final AlignmentGeometry? targetAlignment;
+  final EdgeInsetsGeometry targetPadding;
 }
 
 /// A two-state button with native pressed-toggle semantics.
@@ -242,6 +248,7 @@ class _DToggleState extends State<DToggle> {
     final outline = tokens.buttonTheme.outline;
     final reaction = widget.density == DToggleDensity.reaction;
     final tile = widget.density == DToggleDensity.tile;
+    final compactInset = widget.density == DToggleDensity.compactInset;
     final foreground = segmented
         ? (_current
               ? tokens.foreground
@@ -252,15 +259,20 @@ class _DToggleState extends State<DToggle> {
         ? tokens.mutedForeground
         : tokens.foreground;
     final scaler = MediaQuery.textScalerOf(context);
-    final visualDimension = tile
+    final visualDimension = compactInset
+        ? 26.0
+        : tile
         ? 54.0
         : reaction
         ? (scaler.scale(12) * (16 / 12) + 10).clamp(28.0, double.infinity)
         : DControlStyle.scaledHeight(widget.size, scaler, context: context);
+    final visualWidth = compactInset ? 30.0 : visualDimension;
     final iconDimension = tile
         ? 20.0
         : reaction
         ? 18.0
+        : compactInset
+        ? 12.0
         : DControlStyle.iconDimension(widget.size, context: context);
     final fontSize = tile
         ? 11.5
@@ -387,7 +399,7 @@ class _DToggleState extends State<DToggle> {
       duration: Duration.zero,
       curve: const Cubic(.4, 0, .2, 1),
       constraints: BoxConstraints(
-        minWidth: visualDimension,
+        minWidth: visualWidth,
         minHeight: visualDimension,
       ),
       padding: (widget._iconOnly
@@ -438,15 +450,19 @@ class _DToggleState extends State<DToggle> {
     );
 
     final targetConstraints = BoxConstraints(
-      minWidth: touch ? DSpacing.touchTarget : visualDimension,
+      minWidth: touch ? DSpacing.touchTarget : visualWidth,
       minHeight: touch ? DSpacing.touchTarget : visualDimension,
     );
     final target = ConstrainedBox(
       constraints: targetConstraints,
-      child: Center(
-        widthFactor: widget.visualStyle?.expandArtwork == true ? null : 1,
-        heightFactor: 1,
-        child: artwork,
+      child: Padding(
+        padding: widget.visualStyle?.targetPadding ?? EdgeInsets.zero,
+        child: Align(
+          alignment: widget.visualStyle?.targetAlignment ?? Alignment.center,
+          widthFactor: widget.visualStyle?.expandArtwork == true ? null : 1,
+          heightFactor: 1,
+          child: artwork,
+        ),
       ),
     );
 
