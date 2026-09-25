@@ -1,9 +1,10 @@
 # Chat channel sort and filter preferences
 
-The sidebar and channel lists use independent public-channel, starred-channel,
-and direct-message preferences. Their Native menus save immediately through
-the existing `PUT /u/{username}.json` user-options endpoint. Only the changed
-field is sent. The six fields are:
+The drawer and full-page channel lists use independent public-channel,
+starred-channel, and direct-message preferences. The sidebar inbox does not
+read them; it orders by recent activity with its own filters. The lists'
+Native menus save immediately through the existing `PUT /u/{username}.json`
+user-options endpoint. Only the changed field is sent. The six fields are:
 
 | Section | Filter | Sort |
 | --- | --- | --- |
@@ -37,16 +38,13 @@ without either field keeps its previous native sidebar/drawer ordering.
   browser-locale collation can differ for case, accents and punctuation. Starred
   alphabetical lists group public channels before DMs; other starred sorts cross
   both types.
-- Sidebar public/DM sections exclude starred channels. Drawer and full-page
-  public/DM lists include them. Preference-enabled DM lists show 50 rows after
-  filtering and sorting. The sidebar replaces its last row with the active DM
-  when necessary; the drawer retains core's simple 50-row slice.
+- Drawer and full-page public/DM lists include starred channels.
+  Preference-enabled DM lists show 50 rows after filtering and sorting; the
+  drawer retains core's simple 50-row slice.
 
 Show all temporarily bypasses one section's filter, preserving its stored
 filter and selected sort. Reapply filter restores it without a request.
-Sidebar headers expose this action when the filtered section is empty or the
-filter is bypassed; drawer/full-page headings expose it for any non-default
-filter. A filtered-out section retains its heading and options. A new filter
+Drawer/full-page headings expose this action for any non-default filter. A filtered-out section retains its heading and options. A new filter
 selection clears bypass, including reselecting the same filter. If the save
 fails, the previous filter and bypass are restored. Changing sort leaves bypass
 alone. Bypass ends when the account's plugin session is forgotten.

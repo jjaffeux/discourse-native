@@ -393,6 +393,14 @@ class _SidebarPanelBodyState extends State<_SidebarPanelBody> {
       width: width,
       collapsible: DSidebarCollapsible.none,
       semanticLabel: '${activePanel?.panel.label ?? 'Forum'} navigation',
+      footer: switch (activePanel) {
+        final panel? when !widget.mobile && panel.panel.footerBuilder != null =>
+          PluginUiScope.own(
+            panel.owner,
+            Builder(builder: panel.panel.footerBuilder!),
+          ),
+        _ => null,
+      },
       header: widget.mobile
           ? showCoreSections
                 ? DSidebarHeader(
@@ -1355,7 +1363,10 @@ class _SectionState extends State<_Section> {
             : menu,
       );
     }
-    final content = SliverMainAxisGroup(slivers: menus);
+    final content = switch (section.bodyBuilder) {
+      final builder? => Builder(builder: builder),
+      null => SliverMainAxisGroup(slivers: menus),
+    };
     final header = _SectionHeader(
       section: section,
       collapsed: _collapsed,

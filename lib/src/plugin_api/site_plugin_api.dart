@@ -591,6 +591,20 @@ abstract interface class CommunitySidebarPlugin {
   Listenable? communitySidebarListenable(BuildContext context);
 }
 
+/// A panel's creation action, such as starting a conversation.
+@immutable
+final class SidebarPanelAction {
+  const SidebarPanelAction({
+    required this.label,
+    required this.icon,
+    required this.onPressed,
+  });
+
+  final String label;
+  final DIconData icon;
+  final VoidCallback onPressed;
+}
+
 /// Describes one plugin-owned sidebar panel and how it composes with the main
 /// forum panel. The shell owns panel rendering and navigation snapshots; the
 /// plugin owns the policy which decides when its sections are combined or
@@ -609,6 +623,8 @@ final class SidebarPanelContribution {
     this.selectedDestinationId,
     this.badge,
     this.mobileBuilder,
+    this.mobileAction,
+    this.footerBuilder,
     this.groupId,
   });
 
@@ -624,6 +640,14 @@ final class SidebarPanelContribution {
   /// supplies its header and bottom navigation around this bounded content.
   /// Grouped panels retain the primary owner's mobile presentation.
   final WidgetBuilder? mobileBuilder;
+
+  /// Offered in the mobile tab bar while this panel's root is shown, where
+  /// the forum's own creation action (New topic) would otherwise sit.
+  final SidebarPanelAction? mobileAction;
+
+  /// Desktop actions pinned beneath the panel's scrolling sections, so they
+  /// stay in reach however long the lists grow. Mobile uses [mobileBuilder].
+  final WidgetBuilder? footerBuilder;
 
   final String label;
   final DIconData icon;

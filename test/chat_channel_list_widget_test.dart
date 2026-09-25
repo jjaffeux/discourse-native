@@ -104,44 +104,55 @@ Finder _sidebar(Finder finder) =>
 
 void main() {
   testWidgets(
-    'sidebar saves are isolated and show-all is shared with the channel list without writes',
+    'channel list saves are isolated and leave the sidebar inbox alone',
     (tester) async {
       final api = await _pump(tester);
       final shell = ShellScope.read(tester.element(find.byType(MainContent)));
       final chat = shell.pluginSession.require(chatControllerService);
       final navigation = shell.pluginSession.require(chatShellService);
+
+      // The inbox orders by activity alone and exposes no list preferences.
+      expect(
+        _sidebar(find.byKey(const ValueKey('chat-list-options-channels'))),
+        findsNothing,
+      );
+      navigation.openChannels();
+      await tester.pumpAndSettle();
       var shellNotifications = 0;
       void notified() => shellNotifications++;
       shell.addListener(notified);
       addTearDown(() => shell.removeListener(notified));
+      final channelList = find.byType(ChatChannelsView);
+      Finder inList(Finder finder) =>
+          find.descendant(of: channelList, matching: finder);
+      Future<void> choose(String option) async {
+        await tester.tap(
+          inList(find.byKey(const ValueKey('chat-list-options-channels'))),
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(find.text(option));
+        await tester.pumpAndSettle();
+        await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+        await tester.pumpAndSettle();
+      }
 
       expect(
-        tester.getTopLeft(_sidebar(find.text('Alpha'))).dy,
-        lessThan(tester.getTopLeft(_sidebar(find.text('Beta'))).dy),
+        tester.getTopLeft(inList(find.text('Alpha'))).dy,
+        lessThan(tester.getTopLeft(inList(find.text('Beta'))).dy),
       );
-      await tester.tap(
-        _sidebar(find.byKey(const ValueKey('chat-list-options-channels'))),
-      );
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Recent activity'));
-      await tester.pumpAndSettle();
-      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
-      await tester.pumpAndSettle();
+      await choose('Recent activity');
       expect(
-        tester.getTopLeft(_sidebar(find.text('Beta'))).dy,
-        lessThan(tester.getTopLeft(_sidebar(find.text('Alpha'))).dy),
+        tester.getTopLeft(inList(find.text('Beta'))).dy,
+        lessThan(tester.getTopLeft(inList(find.text('Alpha'))).dy),
       );
-      await tester.tap(
-        _sidebar(find.byKey(const ValueKey('chat-list-options-channels'))),
+      await choose('Mentions');
+      expect(inList(find.text('Alpha')), findsNothing);
+      expect(
+        inList(find.text('No channels match this filter.')),
+        findsOneWidget,
       );
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Mentions'));
-      await tester.pumpAndSettle();
-      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
-      await tester.pumpAndSettle();
-      expect(_sidebar(find.text('Alpha')), findsNothing);
-      expect(_sidebar(find.text('Starred')), findsOneWidget);
-      expect(_sidebar(find.text('Sam')), findsOneWidget);
+      expect(_sidebar(find.text('Alpha')), findsOneWidget);
+      expect(_sidebar(find.text('Beta')), findsOneWidget);
       expect(shellNotifications, 0);
       expect(api.userPreferenceUpdates.map((write) => write.values), [
         {'chat_channel_list_sort': 'recent_activity'},
@@ -152,49 +163,22 @@ void main() {
             .filterFor(_channels),
         ChatChannelListFilter.mentions,
       );
-      await tester.tap(
-        _sidebar(find.byKey(const ValueKey('chat-filter-toggle-channels'))),
-      );
-      await tester.pumpAndSettle();
-      expect(_sidebar(find.text('Alpha')), findsOneWidget);
-      expect(chat.channelListPreferences.bypassed(_site, _channels), isTrue);
-      expect(shellNotifications, 0);
 
-      navigation.openChannels();
-      await tester.pumpAndSettle();
-      final channelList = find.byType(ChatChannelsView);
-      expect(channelList, findsOneWidget);
-      expect(
-        find.descendant(of: channelList, matching: find.text('Alpha')),
-        findsOneWidget,
-      );
       await tester.tap(
-        find.descendant(
-          of: channelList,
-          matching: find.byKey(const ValueKey('chat-filter-toggle-channels')),
-        ),
+        inList(find.byKey(const ValueKey('chat-filter-toggle-channels'))),
       );
       await tester.pumpAndSettle();
-      expect(
-        find.descendant(
-          of: channelList,
-          matching: find.text('No channels match this filter.'),
-        ),
-        findsOneWidget,
-      );
-      expect(_sidebar(find.text('Alpha')), findsNothing);
+      expect(inList(find.text('Alpha')), findsOneWidget);
+      expect(chat.channelListPreferences.bypassed(_site, _channels), isTrue);
       expect(api.userPreferenceUpdates, hasLength(2));
-      expect(
-        chat.channelListPreferences.preferencesFor(_site).sortFor(_channels),
-        ChatChannelListSort.recentActivity,
-      );
+      expect(shellNotifications, 0);
       expect(tester.takeException(), isNull);
     },
     variant: TargetPlatformVariant.only(TargetPlatform.macOS),
   );
 
   testWidgets(
-    'active channels stay visible through filtering and starring without changing navigation',
+    'active channels stay listed through filtering and starring without changing navigation',
     (tester) async {
       await _pump(tester);
       final shell = ShellScope.read(tester.element(find.byType(MainContent)));
@@ -228,12 +212,9 @@ void main() {
             .map((c) => (c.id, c.title)),
         [(1, 'Alpha')],
       );
-      expect(_sidebar(find.text('Alpha')), findsOneWidget);
-      expect(_sidebar(find.text('Beta')), findsNothing);
       final route = navigation.currentContent;
       expect(await chat.updateChannelStarred(_site, 1, true), isNull);
       await tester.pumpAndSettle();
-      expect(_sidebar(find.text('Alpha')), findsOneWidget);
       expect(navigation.currentContent, route);
       expect(
         chat
@@ -247,11 +228,8 @@ void main() {
       );
       expect(await chat.updateChannelStarred(_site, 1, false), isNull);
       await tester.pumpAndSettle();
-      expect(_sidebar(find.text('Alpha')), findsOneWidget);
       expect(navigation.currentContent, route);
-      navigation.openChannels();
-      await tester.pumpAndSettle();
-      expect(_sidebar(find.text('Alpha')), findsNothing);
+      expect(_sidebar(find.text('Alpha')), findsOneWidget);
       expect(tester.takeException(), isNull);
     },
     variant: TargetPlatformVariant.only(TargetPlatform.macOS),
@@ -261,37 +239,21 @@ void main() {
     'older servers expose no options and retain the direct-message action',
     (tester) async {
       final api = await _pump(tester, supported: false);
+      final shell = ShellScope.read(tester.element(find.byType(MainContent)));
+      final action = find.byKey(const ValueKey('chat-sidebar-start-message'));
+      expect(tester.widget<DButton>(action).variant, DButtonVariant.primary);
+      // Pinned beneath the inbox rather than above its filters.
+      expect(
+        tester.getRect(action).top,
+        greaterThan(tester.getRect(_sidebar(find.text('Sam'))).bottom),
+      );
+
+      shell.pluginSession.require(chatShellService).openChannels();
+      await tester.pumpAndSettle();
       expect(
         find.byKey(const ValueKey('chat-list-options-channels')),
         findsNothing,
       );
-      expect(
-        _sidebar(find.byTooltip('Start a direct message')),
-        findsOneWidget,
-      );
-      final action = find.byKey(
-        const ValueKey('sidebar-section-action-direct-messages'),
-      );
-      expect(tester.widget<DButton>(action).variant, DButtonVariant.primary);
-      final header = _sidebar(find.text('Direct messages'));
-      expect(
-        tester.getRect(action).bottom,
-        lessThanOrEqualTo(tester.getRect(header).top),
-      );
-      final headerRow = find.ancestor(
-        of: header,
-        matching: find.byType(DSidebarMenuItem),
-      );
-      expect(
-        find.descendant(
-          of: headerRow,
-          matching: find.byType(DSidebarMenuAction),
-        ),
-        findsNothing,
-      );
-      await tester.tap(header);
-      await tester.pumpAndSettle();
-      expect(action, findsOneWidget);
       await tester.tap(action);
       await tester.pumpAndSettle();
       expect(find.text('Start chatting'), findsOneWidget);

@@ -1,7 +1,7 @@
 # Sidebar panel tabs
 
 The sidebar uses Native line tabs below the forum identity. Forum contains
-forum navigation, Chat contains the Chat plugin's channel sections, and Voice
+forum navigation, Chat contains the Chat plugin's inbox, and Voice
 contains the Voice plugin's rooms. A tab changes the sidebar only; selecting a
 channel or room keeps its existing navigation/join behavior. Incoming navigation
 selects the corresponding panel. Switching sites or losing access reconciles the
@@ -35,9 +35,7 @@ keeping the full count in its accessibility label.
   `disappears while chat is active on a compact shell` and
   `stacks grouped channel details on a phone`.
 
-Chat section headers show the same unread-message badge while expanded or
-collapsed. Starred channels (including starred DMs), Chat, and Direct messages
-count their own unfiltered channels, so their totals do not overlap.
-
-The Direct messages compose action uses a primary Native button above its header,
-remaining available when collapsed and retaining the platform keyboard shortcut.
+The Chat tab's badge is the only unread total: the inbox has no section
+headers to carry one. A panel may pin actions beneath its scrolling sections
+with `footerBuilder`; Chat pins Start a message (a primary button with the
+platform keyboard shortcut) above equal-width Browse and Threads buttons.
