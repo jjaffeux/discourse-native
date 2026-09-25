@@ -225,6 +225,7 @@ class _AccountMenuPopover extends StatelessWidget {
     }
 
     Widget buildTrigger(BuildContext context, DPopoverTriggerState trigger) {
+      final isProfile = view == UserMenuView.profile;
       if (notificationCount > 0 && !connecting) {
         return headerNotificationButton(
           context,
@@ -243,16 +244,16 @@ class _AccountMenuPopover extends StatelessWidget {
         );
       }
       return DButton.iconOnly(
-        key: view == UserMenuView.profile
-            ? UserMenuButton.avatarKey
-            : UserMenuButton.bellKey,
+        key: isProfile ? UserMenuButton.avatarKey : UserMenuButton.bellKey,
         icon: ExcludeSemantics(child: icon),
         tooltip: connecting ? 'Connecting…' : tooltip,
         semanticLabel: semanticLabel,
-        variant: view == UserMenuView.notifications
-            ? DButtonVariant.transparentBackground
-            : DButtonVariant.ghost,
-        size: compact ? DButtonSize.regular : DButtonSize.large,
+        variant: DButtonVariant.transparentBackground,
+        size: compact || isProfile ? DButtonSize.regular : DButtonSize.large,
+        shape: isProfile ? DButtonShape.pill : DButtonShape.rounded,
+        backgroundColor: isProfile ? Colors.transparent : null,
+        interactiveBackgroundColor: isProfile ? Colors.transparent : null,
+        borderColor: isProfile ? DTokens.of(context).border : null,
         hasPopup: true,
         expanded: trigger.open,
         focusNode: trigger.focusNode,
