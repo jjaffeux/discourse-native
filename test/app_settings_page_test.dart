@@ -1,3 +1,5 @@
+import 'dart:ui' show PointerDeviceKind;
+
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/data/app_settings_store.dart';
 import 'package:discourse_native/src/data/forum_settings_store.dart';
@@ -29,6 +31,37 @@ Finder _textSize(String value) => find.descendant(
 );
 
 void main() {
+  testWidgets('settings switch row responds to mouse hover in the modal', (
+    tester,
+  ) async {
+    final strategy = FocusManager.instance.highlightStrategy;
+    FocusManager.instance.highlightStrategy =
+        FocusHighlightStrategy.alwaysTouch;
+    addTearDown(() => FocusManager.instance.highlightStrategy = strategy);
+    final controller = _controller();
+    addTearDown(controller.dispose);
+    await _pumpPage(tester, controller);
+
+    final tile = find.byKey(const ValueKey('limit-content-size-switch'));
+    final row = find
+        .descendant(of: tile, matching: find.byType(AnimatedContainer))
+        .first;
+    Color? fill() =>
+        (tester.widget<AnimatedContainer>(row).decoration! as BoxDecoration)
+            .color;
+    expect(fill(), isNull);
+
+    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    await mouse.addPointer(location: Offset.zero);
+    await mouse.moveTo(tester.getCenter(find.text('Limit content size')));
+    await tester.pumpAndSettle();
+    expect(fill(), isNotNull);
+    await mouse.moveTo(Offset.zero);
+    await tester.pumpAndSettle();
+    expect(fill(), isNull);
+    await mouse.removePointer();
+  });
+
   testWidgets('the app settings form is centered and updates immediately', (
     tester,
   ) async {

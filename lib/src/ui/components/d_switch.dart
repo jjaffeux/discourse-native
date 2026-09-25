@@ -118,7 +118,6 @@ class _DSwitchState extends State<DSwitch> {
               : widget.readOnly
               ? SystemMouseCursors.basic
               : SystemMouseCursors.click,
-          onShowHoverHighlight: (value) => setState(() => _hovered = value),
           onShowFocusHighlight: (value) =>
               setState(() => _focusVisible = value),
           shortcuts: const {
@@ -133,32 +132,40 @@ class _DSwitchState extends State<DSwitch> {
               },
             ),
           },
-          child: GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            excludeFromSemantics: true,
-            onTapDown: _enabled ? (_) => setState(() => _pressed = true) : null,
-            onTapUp: _enabled ? (_) => setState(() => _pressed = false) : null,
-            onTapCancel: () => setState(() => _pressed = false),
-            onTap: _enabled
-                ? () {
-                    _focus.requestFocus();
-                    _toggle();
-                  }
-                : null,
-            child: Opacity(
-              opacity: _enabled ? 1 : 0.5,
-              child:
-                  widget._content?.call(
-                    context,
-                    artwork,
-                    _focusVisible,
-                    _hovered,
-                  ) ??
-                  SizedBox(
-                    width: 48,
-                    height: 48,
-                    child: Center(child: artwork),
-                  ),
+          child: MouseRegion(
+            onEnter: (_) => setState(() => _hovered = true),
+            onExit: (_) => setState(() => _hovered = false),
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              excludeFromSemantics: true,
+              onTapDown: _enabled
+                  ? (_) => setState(() => _pressed = true)
+                  : null,
+              onTapUp: _enabled
+                  ? (_) => setState(() => _pressed = false)
+                  : null,
+              onTapCancel: () => setState(() => _pressed = false),
+              onTap: _enabled
+                  ? () {
+                      _focus.requestFocus();
+                      _toggle();
+                    }
+                  : null,
+              child: Opacity(
+                opacity: _enabled ? 1 : 0.5,
+                child:
+                    widget._content?.call(
+                      context,
+                      artwork,
+                      _focusVisible,
+                      _hovered,
+                    ) ??
+                    SizedBox(
+                      width: 48,
+                      height: 48,
+                      child: Center(child: artwork),
+                    ),
+              ),
             ),
           ),
         ),
