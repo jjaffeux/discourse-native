@@ -13,7 +13,6 @@ import 'package:discourse_native/src/plugin_api/site_plugin_api.dart';
 import 'package:discourse_native/src/plugins/assign/assign_icons.dart';
 import 'package:discourse_native/src/plugins/assign/assign_notifications.dart';
 import 'package:discourse_native/src/plugins/assign/assign_plugin.dart';
-import 'package:discourse_native/src/plugins/assign/assign_services.dart';
 import 'package:discourse_native/src/plugins/assign/assign_user_menu.dart';
 import 'package:discourse_native/src/plugins/assign/assignment_sheet.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
@@ -443,9 +442,7 @@ void main() {
   });
 
   group('topic assignment presentation', () {
-    testWidgets('both list presentations read live assignment visibility', (
-      tester,
-    ) async {
+    testWidgets('both list presentations show assignments', (tester) async {
       final shell = ShellController(
         plugins: installedPlugins,
         instanceStore: FakeInstanceStore([]),
@@ -467,51 +464,33 @@ void main() {
           'assigned_to_user': {'username': 'sam', 'name': 'Sam'},
         }, _siteUrl),
       );
-      Future<void> check(bool visible) async {
-        await tester.pumpWidget(
-          MaterialApp(
-            theme: AppTheme.light,
-            home: PluginScope(
-              session: shell.pluginSession,
-              registry: registry,
-              child: Builder(
-                builder: (context) {
-                  expect(
-                    registry
-                        .topicListMetadata(context, _siteUrl, topic)
-                        .isNotEmpty,
-                    visible,
-                  );
-                  expect(
-                    registry
-                        .compactTopicListMetadata(
-                          context,
-                          _siteUrl,
-                          topic,
-                          ({property}) {},
-                        )
-                        .isNotEmpty,
-                    visible,
-                  );
-                  return const SizedBox.shrink();
-                },
-              ),
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light,
+          home: PluginScope(
+            session: shell.pluginSession,
+            registry: registry,
+            child: Builder(
+              builder: (context) {
+                expect(
+                  registry.topicListMetadata(context, _siteUrl, topic),
+                  isNotEmpty,
+                );
+                expect(
+                  registry.compactTopicListMetadata(
+                    context,
+                    _siteUrl,
+                    topic,
+                    ({property}) {},
+                  ),
+                  isNotEmpty,
+                );
+                return const SizedBox.shrink();
+              },
             ),
           ),
-        );
-      }
-
-      await check(true);
-      await shell.pluginSession
-          .servicesFor(assignPluginId)
-          .require(assignTopicListPreferencesService)
-          .setShowAssignments(false);
-      await check(false);
-      await shell.pluginSession
-          .servicesFor(assignPluginId)
-          .require(assignTopicListPreferencesService)
-          .setShowAssignments(true);
-      await check(true);
+        ),
+      );
     });
 
     testWidgets(

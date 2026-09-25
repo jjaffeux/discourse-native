@@ -249,9 +249,8 @@ class _TopicListViewState extends State<TopicListView> {
     _scroll = ScrollController();
     _list = ListController();
     _keyboardMoveToken = null;
-    final saved = PageStorage.maybeOf(
-      context,
-    )?.readState(context, identifier: ('topic-list-keyboard', feedIdentity));
+    final saved = PageStorage.maybeOf(context)
+        ?.readState(context, identifier: ('topic-list-keyboard', feedIdentity));
     _cursor = ValueNotifier(saved is _TopicListCursor ? saved : null);
   }
 
@@ -1313,19 +1312,7 @@ class _TopicRowBody extends StatelessWidget {
     child: _buildBody(context),
   );
 
-  Widget _buildBody(BuildContext context) {
-    final settings = ShellScope.maybeIdentityOf(context)?.appSettings;
-    if (settings == null) return _ConversationTopicCard(row: this);
-    return ListenableBuilder(
-      listenable: Listenable.merge([
-        settings,
-        ...?(PluginScope.maybeOf(
-          context,
-        )?.registry.topicListPresentationListenables(context)),
-      ]),
-      builder: (context, _) => _ConversationTopicCard(row: this),
-    );
-  }
+  Widget _buildBody(BuildContext context) => _ConversationTopicCard(row: this);
 }
 
 class _CategoryBreadcrumb extends StatelessWidget {

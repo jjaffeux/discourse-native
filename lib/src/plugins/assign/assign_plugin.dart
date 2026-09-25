@@ -25,7 +25,6 @@ export 'assign_data.dart';
 final class AssignPlugin
     implements
         SitePlugin,
-        TopicListPresentationPlugin,
         GlobalSearchPlugin,
         IconCatalogPlugin,
         SiteSettingsPlugin<AssignSettings>,
@@ -50,26 +49,6 @@ final class AssignPlugin
   List<GlobalSearchContribution> get searchContributions => const [
     AssignGlobalSearch(),
   ];
-
-  @override
-  Listenable? topicListPresentationListenable(BuildContext context) =>
-      PluginUiScope.maybe(context, assignTopicListPreferencesService);
-
-  @override
-  List<Widget> topicListDisplayActions(BuildContext context) {
-    final preferences = PluginUiScope.maybe(
-      context,
-      assignTopicListPreferencesService,
-    );
-    if (preferences == null) return const [];
-    return [
-      DDropdownMenuCheckboxItem(
-        checked: preferences.showAssignments,
-        onChanged: preferences.setShowAssignments,
-        child: const Text('Show assignments'),
-      ),
-    ];
-  }
 
   const AssignPlugin();
 
@@ -203,13 +182,6 @@ final class AssignPlugin
     String siteUrl,
     Topic topic,
   ) {
-    if (PluginUiScope.maybe(
-          context,
-          assignTopicListPreferencesService,
-        )?.showAssignments ==
-        false) {
-      return const [];
-    }
     final assignments = topic.plugins.get(assignmentsDataKey);
     if (assignments == null || !assignments.hasAssignments) return const [];
     final style = Theme.of(context).textTheme.labelMedium;
@@ -274,13 +246,6 @@ final class AssignPlugin
     Topic topic,
     void Function({String? property}) onOpen,
   ) {
-    if (PluginUiScope.maybe(
-          context,
-          assignTopicListPreferencesService,
-        )?.showAssignments ==
-        false) {
-      return const [];
-    }
     final assignments = topic.plugins.get(assignmentsDataKey);
     if (assignments == null || !assignments.hasAssignments) return const [];
     return [
@@ -827,9 +792,8 @@ class _PostAssignmentLedger extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final dividerColor = Theme.of(
-      context,
-    ).colorScheme.outlineVariant.withValues(alpha: 0.55);
+    final dividerColor = Theme.of(context).colorScheme.outlineVariant
+        .withValues(alpha: 0.55);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [

@@ -21,14 +21,6 @@ abstract interface class AppSettingsPersistence {
 
   Future<bool> writeThemeMode(String value);
 
-  Future<bool?> readTopicListLargerText();
-  Future<bool?> readTopicListShowTags();
-  Future<bool?> readTopicListShowLastPoster();
-
-  Future<bool> writeTopicListLargerText(bool value);
-  Future<bool> writeTopicListShowTags(bool value);
-  Future<bool> writeTopicListShowLastPoster(bool value);
-
   Future<String?> readTopicListMode();
 
   Future<bool> writeTopicListMode(String value);
@@ -37,43 +29,6 @@ abstract interface class AppSettingsPersistence {
 final class SharedPreferencesAppSettingsPersistence
     implements AppSettingsPersistence {
   const SharedPreferencesAppSettingsPersistence();
-
-  @override
-  Future<bool?> readTopicListLargerText() async =>
-      (await SharedPreferences.getInstance()).getBool(
-        AppSettingsStore.topicListLargerTextKey,
-      );
-
-  @override
-  Future<bool> writeTopicListLargerText(bool value) async =>
-      (await SharedPreferences.getInstance()).setBool(
-        AppSettingsStore.topicListLargerTextKey,
-        value,
-      );
-
-  @override
-  Future<bool?> readTopicListShowTags() async =>
-      (await SharedPreferences.getInstance()).getBool(
-        AppSettingsStore.topicListShowTagsKey,
-      );
-  @override
-  Future<bool?> readTopicListShowLastPoster() async =>
-      (await SharedPreferences.getInstance()).getBool(
-        AppSettingsStore.topicListShowLastPosterKey,
-      );
-
-  @override
-  Future<bool> writeTopicListShowTags(bool value) async =>
-      (await SharedPreferences.getInstance()).setBool(
-        AppSettingsStore.topicListShowTagsKey,
-        value,
-      );
-  @override
-  Future<bool> writeTopicListShowLastPoster(bool value) async =>
-      (await SharedPreferences.getInstance()).setBool(
-        AppSettingsStore.topicListShowLastPosterKey,
-        value,
-      );
 
   @override
   Future<String?> readTopicListMode() async =>
@@ -147,9 +102,6 @@ final class MemoryAppSettingsPersistence implements AppSettingsPersistence {
     this.disableGifAnimations,
     this.textScale,
     this.themeMode,
-    this.topicListLargerText,
-    this.topicListShowTags,
-    this.topicListShowLastPoster,
     this.topicListMode,
   });
 
@@ -157,35 +109,7 @@ final class MemoryAppSettingsPersistence implements AppSettingsPersistence {
   bool? disableGifAnimations;
   String? textScale;
   String? themeMode;
-  bool? topicListLargerText;
-  bool? topicListShowTags;
-  bool? topicListShowLastPoster;
   String? topicListMode;
-
-  @override
-  Future<bool?> readTopicListLargerText() async => topicListLargerText;
-  @override
-  Future<bool?> readTopicListShowTags() async => topicListShowTags;
-  @override
-  Future<bool?> readTopicListShowLastPoster() async => topicListShowLastPoster;
-
-  @override
-  Future<bool> writeTopicListLargerText(bool value) async {
-    topicListLargerText = value;
-    return true;
-  }
-
-  @override
-  Future<bool> writeTopicListShowTags(bool value) async {
-    topicListShowTags = value;
-    return true;
-  }
-
-  @override
-  Future<bool> writeTopicListShowLastPoster(bool value) async {
-    topicListShowLastPoster = value;
-    return true;
-  }
 
   @override
   Future<String?> readTopicListMode() async => topicListMode;
@@ -243,12 +167,6 @@ final class AppSettingsStore {
       'discourse_native.disable_gif_animations';
   static const String textScaleKey = 'discourse_native.text_scale';
   static const String themeModeKey = 'discourse_native.theme_mode';
-  static const String topicListLargerTextKey =
-      'discourse_native.topic_list_larger_text';
-  static const String topicListShowTagsKey =
-      'discourse_native.topic_list_show_tags';
-  static const String topicListShowLastPosterKey =
-      'discourse_native.topic_list_show_last_poster';
   static const String topicListModeKey = 'discourse_native.topic_list_mode';
   static const String _operationKey = 'discourse_native.app_settings';
   static const AppSettingsPersistence _defaultPersistence =
@@ -261,9 +179,6 @@ final class AppSettingsStore {
   bool? _sessionDisableGifAnimations;
   AppTextScale? _sessionTextScale;
   AppThemeMode? _sessionThemeMode;
-  bool? _sessionTopicListLargerText;
-  bool? _sessionTopicListShowTags;
-  bool? _sessionTopicListShowLastPoster;
   TopicListDisplayMode? _sessionTopicListMode;
   AppSettings? _lastReadSettings;
 
@@ -272,9 +187,6 @@ final class AppSettingsStore {
       _sessionDisableGifAnimations != null ||
       _sessionTextScale != null ||
       _sessionThemeMode != null ||
-      _sessionTopicListLargerText != null ||
-      _sessionTopicListShowTags != null ||
-      _sessionTopicListShowLastPoster != null ||
       _sessionTopicListMode != null;
 
   Future<AppSettings> read() async {
@@ -286,9 +198,6 @@ final class AppSettingsStore {
         _sessionDisableGifAnimations != null &&
         _sessionTextScale != null &&
         _sessionThemeMode != null &&
-        _sessionTopicListLargerText != null &&
-        _sessionTopicListShowTags != null &&
-        _sessionTopicListShowLastPoster != null &&
         _sessionTopicListMode != null) {
       return _withSessionSettings(AppSettings.defaults);
     }
@@ -311,9 +220,6 @@ final class AppSettingsStore {
     disableGifAnimations: _sessionDisableGifAnimations,
     textScale: _sessionTextScale,
     themeMode: _sessionThemeMode,
-    topicListLargerText: _sessionTopicListLargerText,
-    topicListShowTags: _sessionTopicListShowTags,
-    topicListShowLastPoster: _sessionTopicListShowLastPoster,
     topicListMode: _sessionTopicListMode,
   );
 
@@ -322,9 +228,6 @@ final class AppSettingsStore {
     var disableGifAnimations = false;
     var textScale = AppTextScale.percent100;
     var themeMode = AppThemeMode.system;
-    var topicListLargerText = false;
-    var topicListShowTags = true;
-    var topicListShowLastPoster = true;
     var topicListMode = TopicListDisplayMode.card;
     try {
       limitContentSize = await _persistence.readLimitContentSize() ?? false;
@@ -369,43 +272,11 @@ final class AppSettingsStore {
     } catch (error, stackTrace) {
       reportStorageFailure(error, stackTrace, 'appSettings.readTopicListMode');
     }
-    try {
-      topicListLargerText =
-          await _persistence.readTopicListLargerText() ?? false;
-    } catch (error, stackTrace) {
-      reportStorageFailure(
-        error,
-        stackTrace,
-        'appSettings.readTopicListLargerText',
-      );
-    }
-    try {
-      topicListShowTags = await _persistence.readTopicListShowTags() ?? true;
-    } catch (error, stackTrace) {
-      reportStorageFailure(
-        error,
-        stackTrace,
-        'appSettings.readTopicListShowTags',
-      );
-    }
-    try {
-      topicListShowLastPoster =
-          await _persistence.readTopicListShowLastPoster() ?? true;
-    } catch (error, stackTrace) {
-      reportStorageFailure(
-        error,
-        stackTrace,
-        'appSettings.readTopicListShowLastPoster',
-      );
-    }
     return AppSettings(
       limitContentSize: limitContentSize,
       disableGifAnimations: disableGifAnimations,
       textScale: textScale,
       themeMode: themeMode,
-      topicListLargerText: topicListLargerText,
-      topicListShowTags: topicListShowTags,
-      topicListShowLastPoster: topicListShowLastPoster,
       topicListMode: topicListMode,
     );
   }
@@ -415,9 +286,6 @@ final class AppSettingsStore {
     disableGifAnimations: settings.disableGifAnimations,
     textScale: settings.textScale,
     themeMode: settings.themeMode,
-    topicListLargerText: settings.topicListLargerText,
-    topicListShowTags: settings.topicListShowTags,
-    topicListShowLastPoster: settings.topicListShowLastPoster,
     topicListMode: settings.topicListMode,
   );
 
@@ -428,9 +296,6 @@ final class AppSettingsStore {
     bool? disableGifAnimations,
     AppTextScale? textScale,
     AppThemeMode? themeMode,
-    bool? topicListLargerText,
-    bool? topicListShowTags,
-    bool? topicListShowLastPoster,
     TopicListDisplayMode? topicListMode,
   }) {
     _sessionLimitContentSize = limitContentSize ?? _sessionLimitContentSize;
@@ -438,11 +303,6 @@ final class AppSettingsStore {
         disableGifAnimations ?? _sessionDisableGifAnimations;
     _sessionTextScale = textScale ?? _sessionTextScale;
     _sessionThemeMode = themeMode ?? _sessionThemeMode;
-    _sessionTopicListLargerText =
-        topicListLargerText ?? _sessionTopicListLargerText;
-    _sessionTopicListShowTags = topicListShowTags ?? _sessionTopicListShowTags;
-    _sessionTopicListShowLastPoster =
-        topicListShowLastPoster ?? _sessionTopicListShowLastPoster;
     _sessionTopicListMode = topicListMode ?? _sessionTopicListMode;
     return _operations.write<void>(
       owner: _persistence,
@@ -452,9 +312,6 @@ final class AppSettingsStore {
         disableGifAnimations: disableGifAnimations,
         textScale: textScale,
         themeMode: themeMode,
-        topicListLargerText: topicListLargerText,
-        topicListShowTags: topicListShowTags,
-        topicListShowLastPoster: topicListShowLastPoster,
         topicListMode: topicListMode,
       ),
     );
@@ -465,49 +322,8 @@ final class AppSettingsStore {
     bool? disableGifAnimations,
     AppTextScale? textScale,
     AppThemeMode? themeMode,
-    bool? topicListLargerText,
-    bool? topicListShowTags,
-    bool? topicListShowLastPoster,
     TopicListDisplayMode? topicListMode,
   }) async {
-    try {
-      if (topicListLargerText != null &&
-          !await _persistence.writeTopicListLargerText(topicListLargerText)) {
-        throw StateError('Could not persist topicListLargerText.');
-      }
-    } catch (error, stackTrace) {
-      reportStorageFailure(
-        error,
-        stackTrace,
-        'appSettings.writeTopicListLargerText',
-      );
-    }
-    try {
-      if (topicListShowTags != null &&
-          !await _persistence.writeTopicListShowTags(topicListShowTags)) {
-        throw StateError('Could not persist topicListShowTags.');
-      }
-    } catch (error, stackTrace) {
-      reportStorageFailure(
-        error,
-        stackTrace,
-        'appSettings.writeTopicListShowTags',
-      );
-    }
-    try {
-      if (topicListShowLastPoster != null &&
-          !await _persistence.writeTopicListShowLastPoster(
-            topicListShowLastPoster,
-          )) {
-        throw StateError('Could not persist topicListShowLastPoster.');
-      }
-    } catch (error, stackTrace) {
-      reportStorageFailure(
-        error,
-        stackTrace,
-        'appSettings.writeTopicListShowLastPoster',
-      );
-    }
     try {
       if (limitContentSize != null &&
           !await _persistence.writeLimitContentSize(limitContentSize)) {

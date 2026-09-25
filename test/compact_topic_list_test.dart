@@ -12,7 +12,6 @@ import 'package:discourse_native/src/plugin_api/plugin_registry.dart';
 import 'package:discourse_native/src/plugin_api/plugin_runtime.dart';
 import 'package:discourse_native/src/plugins/assign/assign_module.dart';
 import 'package:discourse_native/src/plugins/assign/assign_plugin.dart';
-import 'package:discourse_native/src/plugins/assign/assign_services.dart';
 import 'package:discourse_native/src/plugins/discourse_events/discourse_events_module.dart';
 import 'package:discourse_native/src/plugins/discourse_events/discourse_events_plugin.dart';
 import 'package:discourse_native/src/plugins/discourse_events/event_data.dart';
@@ -20,7 +19,6 @@ import 'package:discourse_native/src/shell/emoji.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/site_emoji_image.dart';
-import 'package:discourse_native/src/shell/topic_list_actions.dart';
 import 'package:discourse_native/src/shell/topic_list_view.dart';
 import 'package:discourse_native/src/shell/topic_title.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
@@ -85,10 +83,8 @@ void main() {
     }
   }
 
-  testWidgets('metadata display choices update rows independently', (
-    tester,
-  ) async {
-    final shell = await _setup(tester, enableEvents: true);
+  testWidgets('topic metadata is visible by default', (tester) async {
+    await _setup(tester, enableEvents: true);
     final row = find.byKey(const ValueKey('topic-card-1'));
     final tag = find.descendant(of: row, matching: find.text('design'));
     final assignments = find.descendant(
@@ -109,38 +105,6 @@ void main() {
     );
     expect(poster, findsOneWidget);
     expect(avatar, findsOneWidget);
-    await shell.appSettings.setTopicListShowLastPoster(false);
-    await tester.pumpAndSettle();
-    expect(poster, findsNothing);
-    expect(avatar, findsNothing);
-    expect(tag, findsOneWidget);
-    expect(assignments, findsOneWidget);
-    await shell.appSettings.setTopicListShowLastPoster(true);
-    await tester.pumpAndSettle();
-    expect(poster, findsOneWidget);
-    expect(avatar, findsOneWidget);
-    await shell.appSettings.setTopicListShowTags(false);
-    await tester.pumpAndSettle();
-    expect(tag, findsNothing);
-    expect(assignments, findsOneWidget);
-    await shell.pluginSession
-        .servicesFor(assignPluginId)
-        .require(assignTopicListPreferencesService)
-        .setShowAssignments(false);
-    await tester.pumpAndSettle();
-    expect(assignments, findsNothing);
-    expect(
-      find.descendant(of: row, matching: find.text('Community')),
-      findsOneWidget,
-    );
-    await shell.appSettings.setTopicListShowTags(true);
-    await shell.pluginSession
-        .servicesFor(assignPluginId)
-        .require(assignTopicListPreferencesService)
-        .setShowAssignments(true);
-    await tester.pumpAndSettle();
-    expect(tag, findsOneWidget);
-    expect(assignments, findsOneWidget);
   });
 
   for (final (width, scale) in [(780.0, 1.0), (1200.0, 1.0), (1200.0, 2.0)]) {
@@ -249,50 +213,12 @@ void main() {
     testWidgets('one full-width layout ignores legacy mode at $width', (
       tester,
     ) async {
-      final shell = await _setup(tester, width: width);
+      await _setup(tester, width: width);
       final row = find.byKey(const ValueKey('topic-card-1'));
       expect(tester.getRect(row).left, 0);
       expect(tester.getRect(row).width, width);
       expect(find.byType(DTable), findsNothing);
-      await tester.pumpWidget(
-        ShellScope(
-          controller: shell,
-          child: MaterialApp(
-            theme: AppTheme.light,
-            home: const Scaffold(body: TopicListActions()),
-          ),
-        ),
-      );
-      await tester.tap(find.byKey(const ValueKey('topic-list-display')));
-      await tester.pumpAndSettle();
-      expect(find.text('Compact'), findsNothing);
-      expect(find.text('Card'), findsNothing);
-      expect(find.text('Larger text'), findsOneWidget);
-      expect(find.text('Show tags'), findsOneWidget);
-      expect(find.text('Show last poster'), findsOneWidget);
-      await tester.tap(find.text('Show last poster'));
-      await tester.pumpAndSettle();
-      expect(shell.appSettings.topicListShowLastPoster, isFalse);
-      await tester.tap(find.text('Show last poster'));
-      await tester.pumpAndSettle();
-      expect(shell.appSettings.topicListShowLastPoster, isTrue);
-      expect(find.text('Show assignments'), findsOneWidget);
-      await tester.tap(find.text('Show tags'));
-      await tester.pumpAndSettle();
-      expect(shell.appSettings.topicListShowTags, isFalse);
-      if (find.text('Show assignments').evaluate().isEmpty) {
-        await tester.tap(find.byKey(const ValueKey('topic-list-display')));
-        await tester.pumpAndSettle();
-      }
-      await tester.tap(find.text('Show assignments'));
-      await tester.pumpAndSettle();
-      expect(
-        shell.pluginSession
-            .servicesFor(assignPluginId)
-            .require(assignTopicListPreferencesService)
-            .showAssignments,
-        isFalse,
-      );
+      expect(find.byKey(const ValueKey('topic-list-display')), findsNothing);
       expect(tester.takeException(), isNull);
     });
   }
@@ -338,11 +264,6 @@ void main() {
         tester.getRect(age).right,
         closeTo(tester.getRect(card).right - 16, 1),
       );
-      await shell.appSettings.setTopicListShowLastPoster(false);
-      await shell.appSettings.setTopicListShowTags(false);
-      await tester.pumpAndSettle();
-      expect(author, findsNothing);
-      expect(tags, findsNothing);
       expect(within(find.text('24 replies')), findsOneWidget);
       await tester.tap(date);
       await tester.pumpAndSettle();

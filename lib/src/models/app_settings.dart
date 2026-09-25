@@ -27,9 +27,6 @@ final class AppSettings {
     this.disableGifAnimations = false,
     this.textScale = AppTextScale.percent100,
     this.themeMode = AppThemeMode.system,
-    this.topicListLargerText = false,
-    this.topicListShowTags = true,
-    this.topicListShowLastPoster = true,
     this.topicListMode = TopicListDisplayMode.card,
   });
 
@@ -40,9 +37,6 @@ final class AppSettings {
   final AppTextScale textScale;
   // Legacy app-wide choice used only to seed existing forums on migration.
   final AppThemeMode themeMode;
-  final bool topicListLargerText;
-  final bool topicListShowTags;
-  final bool topicListShowLastPoster;
   final TopicListDisplayMode topicListMode;
 
   AppSettings copyWith({
@@ -50,19 +44,12 @@ final class AppSettings {
     bool? disableGifAnimations,
     AppTextScale? textScale,
     AppThemeMode? themeMode,
-    bool? topicListLargerText,
-    bool? topicListShowTags,
-    bool? topicListShowLastPoster,
     TopicListDisplayMode? topicListMode,
   }) => AppSettings(
     limitContentSize: limitContentSize ?? this.limitContentSize,
     disableGifAnimations: disableGifAnimations ?? this.disableGifAnimations,
     textScale: textScale ?? this.textScale,
     themeMode: themeMode ?? this.themeMode,
-    topicListLargerText: topicListLargerText ?? this.topicListLargerText,
-    topicListShowTags: topicListShowTags ?? this.topicListShowTags,
-    topicListShowLastPoster:
-        topicListShowLastPoster ?? this.topicListShowLastPoster,
     topicListMode: topicListMode ?? this.topicListMode,
   );
 
@@ -73,9 +60,6 @@ final class AppSettings {
       other.disableGifAnimations == disableGifAnimations &&
       other.textScale == textScale &&
       other.themeMode == themeMode &&
-      other.topicListLargerText == topicListLargerText &&
-      other.topicListShowTags == topicListShowTags &&
-      other.topicListShowLastPoster == topicListShowLastPoster &&
       other.topicListMode == topicListMode;
 
   @override
@@ -84,9 +68,6 @@ final class AppSettings {
     disableGifAnimations,
     textScale,
     themeMode,
-    topicListLargerText,
-    topicListShowTags,
-    topicListShowLastPoster,
     topicListMode,
   );
 }

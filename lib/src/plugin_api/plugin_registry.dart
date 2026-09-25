@@ -580,18 +580,6 @@ final class PluginRegistry
     PluginNotificationCounterId id,
   ) => notificationCounters.where((counter) => counter.id == id).firstOrNull;
 
-  List<Widget> topicListDisplayActions(BuildContext context) => [
-    for (final plugin in plugins.whereType<TopicListPresentationPlugin>())
-      for (final action in plugin.topicListDisplayActions(
-        _uiContext(context, plugin),
-      ))
-        _owned(plugin, action),
-  ];
-  List<Listenable> topicListPresentationListenables(BuildContext context) => [
-    for (final plugin in plugins.whereType<TopicListPresentationPlugin>())
-      ?plugin.topicListPresentationListenable(_uiContext(context, plugin)),
-  ];
-
   bool compactEmojiAncestor(dom.Element element) => plugins
       .whereType<CompactEmojiPlugin>()
       .any((plugin) => plugin.compactEmojiAncestor(element));

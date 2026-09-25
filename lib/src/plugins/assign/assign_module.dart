@@ -1,10 +1,7 @@
-import 'dart:async';
-
 import 'package:discourse_native/discourse_plugin_sdk.dart';
 
 import 'assign_api.dart';
 import 'assign_plugin.dart';
-import 'assign_preferences.dart';
 import 'assign_services.dart';
 import 'assign_shell_service.dart';
 import 'assigned_group_api.dart';
@@ -27,10 +24,6 @@ final class AssignModule implements PluginModule {
     registrar.addRouteNamespace('assign');
     registrar.addSession(
       (bindings, _) {
-        final preferences = AssignPreferences(
-          diagnostics: bindings.require(pluginDiagnosticsReporterPort),
-        );
-        unawaited(preferences.load());
         final targetHost = bindings.require(corePluginTargetPort);
         final freshAccount = bindings.require(corePluginFreshAccountPort);
         final topicRefresh = bindings.require(corePluginTopicRefreshPort);
@@ -105,16 +98,8 @@ final class AssignModule implements PluginModule {
           diagnostics: bindings.require(pluginDiagnosticsReporterPort),
         );
         return PluginSessionContribution(
-          lifecycle: _AssignSessionLifecycle(
-            controller,
-            assignedGroups,
-            preferences,
-          ),
+          lifecycle: _AssignSessionLifecycle(controller, assignedGroups),
           services: [
-            PluginService<Object>(
-              assignTopicListPreferencesService,
-              preferences,
-            ),
             PluginService<Object>(assignmentControllerService, controller),
             PluginService<Object>(
               assignedGroupControllerService,
@@ -146,13 +131,7 @@ final class AssignModule implements PluginModule {
 }
 
 final class _AssignSessionLifecycle extends PluginSessionLifecycle {
-  _AssignSessionLifecycle(
-    this.controller,
-    this.assignedGroups,
-    this.preferences,
-  );
-
-  final AssignPreferences preferences;
+  _AssignSessionLifecycle(this.controller, this.assignedGroups);
 
   final AssignmentController controller;
   final AssignedGroupController assignedGroups;
@@ -165,7 +144,6 @@ final class _AssignSessionLifecycle extends PluginSessionLifecycle {
 
   @override
   void close() {
-    preferences.dispose();
     controller.dispose();
     assignedGroups.dispose();
   }
