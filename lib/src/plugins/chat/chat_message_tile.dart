@@ -27,6 +27,7 @@ class ChatMessageTile extends StatelessWidget {
     required this.siteUrl,
     required this.messageId,
     required this.chained,
+    this.joinsNext = false,
     this.endsGroup = true,
     this.followsReactions = false,
     this.contextThreadId,
@@ -48,6 +49,9 @@ class ChatMessageTile extends StatelessWidget {
   final int? contextThreadId;
 
   final bool chained;
+
+  /// Whether the following bubble continues this visible sender run.
+  final bool joinsNext;
 
   /// Whether this is the last visible message in a consecutive-sender run.
   /// Adds breathing room after the final bubble; avatars mark the first row.
@@ -124,6 +128,7 @@ class ChatMessageTile extends StatelessWidget {
           siteUrl: siteUrl,
           message: message,
           chained: chained,
+          joinsNext: joinsNext,
           endsGroup: endsGroup,
           followsReactions: followsReactions,
           onOpenThread: onOpenThread,
@@ -976,6 +981,7 @@ class _Tile extends StatelessWidget {
     required this.siteUrl,
     required this.message,
     required this.chained,
+    required this.joinsNext,
     required this.endsGroup,
     required this.followsReactions,
     required this.onOpenThread,
@@ -989,6 +995,7 @@ class _Tile extends StatelessWidget {
   final String siteUrl;
   final ChatMessage message;
   final bool chained;
+  final bool joinsNext;
   final bool endsGroup;
   final bool followsReactions;
   final ValueChanged<ChatThreadPreview>? onOpenThread;
@@ -1296,6 +1303,20 @@ class _Tile extends StatelessWidget {
                         Flexible(
                           child: DBubbleContent(
                             key: ValueKey('chat-message-bubble-${message.id}'),
+                            borderRadius: BorderRadiusDirectional.only(
+                              topStart: Radius.circular(
+                                outgoing || !chained ? DRadius.bubble : 0,
+                              ),
+                              topEnd: Radius.circular(
+                                outgoing && chained ? 0 : DRadius.bubble,
+                              ),
+                              bottomStart: Radius.circular(
+                                outgoing || !joinsNext ? DRadius.bubble : 0,
+                              ),
+                              bottomEnd: Radius.circular(
+                                outgoing && joinsNext ? 0 : DRadius.bubble,
+                              ),
+                            ),
                             trailingAction: more,
                             quote: switch (message.replyTo) {
                               final reply? => _ReplyIndicator(
@@ -1314,9 +1335,8 @@ class _Tile extends StatelessWidget {
                                 if (hasBody)
                                   Builder(
                                     builder: (context) {
-                                      final style = DefaultTextStyle.of(
-                                        context,
-                                      ).style;
+                                      final style = DefaultTextStyle.of(context)
+                                          .style;
                                       return _MessageBodySelection(
                                         selectionKey:
                                             ChatMessageTile.bodySelectionKey(
@@ -1763,9 +1783,8 @@ class _AvatarFallback extends StatelessWidget {
           final name? => name.characters.first.toUpperCase(),
           null => '?',
         },
-        style: Theme.of(
-          context,
-        ).textTheme.labelSmall?.copyWith(fontWeight: FontWeight.w700),
+        style: Theme.of(context).textTheme.labelSmall
+            ?.copyWith(fontWeight: FontWeight.w700),
       ),
     ),
   );

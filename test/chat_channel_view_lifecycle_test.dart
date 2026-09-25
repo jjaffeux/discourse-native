@@ -110,6 +110,68 @@ void main() {
   }
 
   group('DM sender groups', () {
+    for (final outgoing in [false, true]) {
+      testWidgets(
+        'chat bubble corners follow a ${outgoing ? 'sent' : 'received'} run',
+        (tester) async {
+          final authorId = outgoing ? 7 : 2;
+          final messages = [
+            for (var id = 1; id <= 3; id++) _message(id, authorId: authorId),
+            _message(
+              4,
+              authorId: authorId,
+              createdAt: DateTime.utc(2026, 1, 1, 0, 40),
+            ),
+          ];
+          final controller = await _controller(
+            _ChatApi(
+              user: const DiscourseUser(id: 7, username: 'reader'),
+              openPages: const {},
+            ),
+            sites: const [firstSite],
+            user: const DiscourseUser(id: 7, username: 'reader'),
+          );
+          addTearDown(controller.dispose);
+          controller.chatRecords
+            ..put(firstSite, _channel(lastRead: 4))
+            ..putAll(firstSite, messages);
+
+          await tester.pumpWidget(
+            _TestStreamView(
+              controller: controller,
+              messages: messages,
+              stream: const ChatStreamState(
+                messageIds: [1, 2, 3, 4],
+                fetchedOnce: true,
+                fetches: 1,
+              ),
+            ),
+          );
+          await tester.pumpAndSettle();
+
+          BorderRadius radius(int id) {
+            final bubble = find.byKey(ValueKey('chat-message-bubble-$id'));
+            final surface = tester.widget<AnimatedContainer>(
+              find.descendant(
+                of: bubble,
+                matching: find.byType(AnimatedContainer),
+              ),
+            );
+            return (surface.decoration! as BoxDecoration).borderRadius!
+                as BorderRadius;
+          }
+
+          final edge = outgoing
+              ? (BorderRadius r) => (r.topRight.x, r.bottomRight.x)
+              : (BorderRadius r) => (r.topLeft.x, r.bottomLeft.x);
+          expect(edge(radius(1)), (12, 0));
+          expect(edge(radius(2)), (0, 0));
+          expect(edge(radius(3)), (0, 12));
+          expect(edge(radius(4)), (12, 12));
+        },
+      );
+    }
+
     testWidgets('compact rows show the avatar on the first bubble', (
       tester,
     ) async {

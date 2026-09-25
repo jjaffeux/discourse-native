@@ -125,6 +125,39 @@ void main() {
     },
   );
 
+  testWidgets('custom directional corners follow text direction', (
+    tester,
+  ) async {
+    const corners = BorderRadiusDirectional.only(
+      topStart: Radius.zero,
+      topEnd: Radius.circular(12),
+      bottomStart: Radius.circular(12),
+      bottomEnd: Radius.zero,
+    );
+    for (final direction in [TextDirection.ltr, TextDirection.rtl]) {
+      await tester.pumpWidget(
+        host(
+          const DBubble(
+            children: [
+              DBubbleContent(borderRadius: corners, child: Text('Message')),
+            ],
+          ),
+          direction: direction,
+        ),
+      );
+      final surface = tester.widget<AnimatedContainer>(
+        find.descendant(
+          of: find.byType(DBubbleContent),
+          matching: find.byType(AnimatedContainer),
+        ),
+      );
+      expect(
+        (surface.decoration! as BoxDecoration).borderRadius,
+        corners.resolve(direction),
+      );
+    }
+  });
+
   testWidgets('matches content geometry, width, alignment and group spacing', (
     tester,
   ) async {

@@ -184,6 +184,7 @@ class DBubbleContent extends StatefulWidget {
     super.key,
     required this.child,
     this.compact = false,
+    this.borderRadius,
     this.trailingAction,
     this.quote,
     this.action,
@@ -216,6 +217,10 @@ class DBubbleContent extends StatefulWidget {
   /// Uses 4px vertical padding instead of 8px for compact conversations.
   /// Horizontal padding remains 12px; ghost bubbles remain unpadded.
   final bool compact;
+
+  /// Overrides the surface corners. Directional radii follow the text direction.
+  /// Defaults to the variant's usual shape.
+  final BorderRadiusGeometry? borderRadius;
   final DBubbleContentAction? action;
   final VoidCallback? onPressed;
   final bool disabled;
@@ -376,9 +381,9 @@ class _DBubbleContentState extends State<DBubbleContent> {
         scope.quote ||
         scope.variant == DBubbleVariant.accent ||
         scope.variant == DBubbleVariant.neutral;
-    final radius = ghost
-        ? BorderRadius.zero
-        : BorderRadius.circular(DRadius.bubble);
+    final radius =
+        widget.borderRadius?.resolve(Directionality.of(context)) ??
+        (ghost ? BorderRadius.zero : BorderRadius.circular(DRadius.bubble));
     final status = widget.busy
         ? DSpinner(size: 14, semanticLabel: null, color: style.foreground)
         : widget.invalid

@@ -1509,6 +1509,10 @@ class _StreamState extends State<ChatMessageStream>
                             siteUrl: siteUrl,
                             messageId: id,
                             chained: chained,
+                            joinsNext: switch (_itemAt(row - 1)) {
+                              ChatStreamMessage(:final chained) => chained,
+                              _ => false,
+                            },
                             endsGroup: _endsSenderGroup(context, row, id),
                             followsReactions: switch (_itemAt(row + 1)) {
                               ChatStreamMessage(:final id) =>
