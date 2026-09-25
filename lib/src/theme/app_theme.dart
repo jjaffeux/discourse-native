@@ -451,16 +451,28 @@ extension ShellColorsAccess on ThemeData {
 }
 
 abstract final class AppTheme {
-  static ThemeData forBrightness(Brightness brightness, {String? fontFamily}) =>
-      _build(
-        brightness,
-        brightness == Brightness.dark ? ShellColors.dark : ShellColors.light,
-        brightness == Brightness.dark ? CodeColors.dark : CodeColors.light,
-        brightness == Brightness.dark
-            ? DiscourseColors.dark
-            : DiscourseColors.light,
-        fontFamily: fontFamily,
-      );
+  static ThemeData forBrightness(
+    Brightness brightness, {
+    String? fontFamily,
+    ForumBackground? background,
+  }) {
+    final theme = _build(
+      brightness,
+      brightness == Brightness.dark ? ShellColors.dark : ShellColors.light,
+      brightness == Brightness.dark ? CodeColors.dark : CodeColors.light,
+      brightness == Brightness.dark
+          ? DiscourseColors.dark
+          : DiscourseColors.light,
+      fontFamily: fontFamily,
+    );
+    if (background == null || background.isPlain) return theme;
+    return theme.copyWith(
+      extensions: [
+        ...theme.extensions.values,
+        ForumThemeEffects(background: background),
+      ],
+    );
+  }
 
   static ThemeData get light => _build(
     Brightness.light,

@@ -27,6 +27,7 @@ import 'diagnostics/surface_opening_trace.dart';
 import 'foundation/bounded_lru_cache.dart';
 import 'foundation/timezone_environment.dart';
 import 'models/app_settings.dart';
+import 'models/forum_background.dart';
 import 'models/site_appearance.dart';
 import 'plugin_api/core_plugin_manifest.dart';
 import 'plugin_api/plugin_runtime.dart';
@@ -117,7 +118,13 @@ class _DiscourseAppState extends State<DiscourseApp>
   // defaults, including typography and tap targets.
   final _themes =
       BoundedLruCache<
-        (ResolvedSitePalette?, Brightness, TargetPlatform, String?),
+        (
+          ResolvedSitePalette?,
+          Brightness,
+          TargetPlatform,
+          String?,
+          ForumBackground,
+        ),
         ThemeData
       >(32);
 
@@ -125,14 +132,25 @@ class _DiscourseAppState extends State<DiscourseApp>
     SiteAppearance? appearance,
     Brightness brightness,
     String? fontFamily,
+    ForumBackground effects,
   ) {
     final palette = appearance?.paletteForBrightness(brightness);
-    final key = (palette, brightness, defaultTargetPlatform, fontFamily);
+    final key = (
+      palette,
+      brightness,
+      defaultTargetPlatform,
+      fontFamily,
+      effects,
+    );
     final cached = _themes.read(key);
     if (cached != null) return cached;
     final theme = palette != null
         ? AppTheme.fromPalette(palette, fontFamily: fontFamily)
-        : AppTheme.forBrightness(brightness, fontFamily: fontFamily);
+        : AppTheme.forBrightness(
+            brightness,
+            fontFamily: fontFamily,
+            background: effects,
+          );
     _themes.put(key, theme);
     return theme;
   }
@@ -546,15 +564,18 @@ class _DiscourseAppState extends State<DiscourseApp>
                   selection.appearance,
                 );
                 final fontFamily = _controller.forumSettings.shared.font.family;
+                final effects = _controller.forumSettings.shared.effects;
                 final lightTheme = _themeFor(
                   appearance,
                   Brightness.light,
                   fontFamily,
+                  effects,
                 );
                 final darkTheme = _themeFor(
                   appearance,
                   Brightness.dark,
                   fontFamily,
+                  effects,
                 );
                 SurfaceOpeningTrace.mark('forum.theme.end');
                 final shown = _controller.forumSettings.previewBrightnessFor(

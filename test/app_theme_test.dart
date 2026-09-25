@@ -1,6 +1,8 @@
 import 'package:discourse_native/discourse_plugin_sdk.dart' as sdk;
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/site_appearance.dart';
+import 'package:discourse_native/src/models/forum_background.dart';
+import 'package:discourse_native/src/shell/forum_theme_surfaces.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:discourse_native/src/theme/discourse_typography.dart' as leaf;
 import 'package:flutter/cupertino.dart';
@@ -75,6 +77,41 @@ double paintedContrast(
 }
 
 void main() {
+  test('fallback themes retain shared texture effects', () {
+    for (final brightness in Brightness.values) {
+      for (final effect in [
+        ForumBackgroundEffect.paper,
+        ForumBackgroundEffect.gradient,
+        ForumBackgroundEffect.lava,
+      ]) {
+        final background = ForumBackground.appearance(effect: effect);
+        final theme = AppTheme.forBrightness(
+          brightness,
+          background: background,
+        );
+        expect(theme.extension<ForumThemeEffects>()?.background, background);
+      }
+    }
+  });
+
+  testWidgets('fallback gradient reaches the window canvas', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.forBrightness(
+          Brightness.light,
+          background: const ForumBackground.appearance(
+            effect: ForumBackgroundEffect.gradient,
+          ),
+        ),
+        home: const ForumWindowBackground(child: SizedBox.expand()),
+      ),
+    );
+    expect(
+      find.byKey(const ValueKey('forum-gradient-texture')),
+      findsOneWidget,
+    );
+  });
+
   test('chosen font reaches light, dark, palette and control typography', () {
     for (final brightness in Brightness.values) {
       for (final theme in [
