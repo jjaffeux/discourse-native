@@ -406,6 +406,76 @@ void main() {
     expect(focus.hasFocus, isTrue);
   });
 
+  testWidgets('a fixed height holds while results change and centres states', (
+    tester,
+  ) async {
+    final controller = DCommandController<String>();
+    final editing = TextEditingController();
+    var loading = false;
+    late StateSetter setLoading;
+    addTearDown(controller.dispose);
+    addTearDown(editing.dispose);
+    final list = find.byKey(const ValueKey('fixed-list'));
+    await tester.pumpWidget(
+      _host(
+        StatefulBuilder(
+          builder: (context, setState) {
+            setLoading = setState;
+            return DCommand<String>(
+              controller: controller,
+              loading: loading,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  DCommandInput<String>(controller: editing),
+                  DCommandList<String>(
+                    key: const ValueKey('fixed-list'),
+                    height: 200,
+                    children: [
+                      const DCommandLoading(child: Text('Loading results…')),
+                      const DCommandEmpty(child: Text('No results found.')),
+                      DCommandGroup<String>(
+                        items: [
+                          for (final value in ['Calendar', 'Calculator'])
+                            DCommandItem(value: value, child: Text(value)),
+                        ],
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            );
+          },
+        ),
+      ),
+    );
+    await tester.pump();
+    final bounds = tester.getRect(list);
+    expect(bounds.height, 200);
+    expect(
+      tester.getTopLeft(find.text('Calendar')).dy - bounds.top,
+      lessThan(bounds.height / 4),
+    );
+
+    for (final query in ['Calen', 'zzz']) {
+      await tester.enterText(find.byType(EditableText), query);
+      await tester.pump();
+      expect(tester.getRect(list), bounds, reason: query);
+    }
+    expect(
+      tester.getCenter(find.text('No results found.')).dy,
+      moreOrLessEquals(bounds.center.dy, epsilon: 1),
+    );
+
+    setLoading(() => loading = true);
+    await tester.pump();
+    expect(tester.getRect(list), bounds);
+    expect(
+      tester.getCenter(find.text('Loading results…')).dy,
+      moreOrLessEquals(bounds.center.dy, epsilon: 1),
+    );
+  });
+
   testWidgets('disabled rows are skipped by keyboard and cannot be tapped', (
     tester,
   ) async {
