@@ -36,6 +36,15 @@ enum DControlSize {
 
   /// Footer actions: 34px on desktop, 44px on mobile, with 12px artwork.
   action,
+
+  /// Desktop workspace document tab: 35px artwork and 13px label.
+  documentTab,
+
+  /// Desktop workspace tab switcher and new-tab actions.
+  tabAction,
+
+  /// The close action inside a workspace document tab.
+  tabClose,
 }
 
 /// Shared geometry and outlined surfaces for action and selection controls.
@@ -91,6 +100,9 @@ abstract final class DControlStyle {
         DControlSize.segment => 28,
         DControlSize.chrome => 25,
         DControlSize.action => isTouch(context) ? 44 : 34,
+        DControlSize.documentTab => 35,
+        DControlSize.tabAction => 30,
+        DControlSize.tabClose => 18,
       };
   static double fontSize(DControlSize size, {BuildContext? context}) =>
       switch (size) {
@@ -103,6 +115,9 @@ abstract final class DControlStyle {
         DControlSize.segment ||
         DControlSize.chrome ||
         DControlSize.action => labelFontSize,
+        DControlSize.documentTab ||
+        DControlSize.tabAction ||
+        DControlSize.tabClose => labelFontSize,
         DControlSize.large => DiscourseTypography.sm,
         DControlSize.preference => DiscourseTypography.compact,
       };
@@ -120,6 +135,9 @@ abstract final class DControlStyle {
         DControlSize.large => iconSize,
         DControlSize.preference || DControlSize.segment => 13,
         DControlSize.chrome => 15,
+        DControlSize.documentTab => 12,
+        DControlSize.tabAction => 12,
+        DControlSize.tabClose => 11,
       };
   static double contentGap(DControlSize size) => size == DControlSize.preference
       ? 8
@@ -134,6 +152,8 @@ abstract final class DControlStyle {
     DControlSize.preference => 12,
     DControlSize.chrome => 7,
     DControlSize.action => 14,
+    DControlSize.documentTab => 10,
+    DControlSize.tabAction || DControlSize.tabClose => 0,
     _ => 10,
   };
 

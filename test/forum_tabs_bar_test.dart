@@ -202,14 +202,14 @@ void main() {
         final closeRect = tester.getRect(close);
         final tabRect = tester.getRect(short);
 
-        expect(tabRect.width, lessThan(136));
+        expect(tabRect.width, lessThan(150));
         expect(
           tester.getSize(suffix).width,
           closeTo(tabRect.width + 17 - ForumTabsBar.closeTargetWidth, .01),
         );
         expect(tester.getSize(long).width, ForumTabsBar.maximumTabWidth);
-        expect(labelRect.left - tabRect.left, 2 + 8 + 15 + 7);
-        expect(closeRect.left - labelRect.right, closeTo(8, .01));
+        expect(labelRect.left - tabRect.left, 2 + 10 + 12 + 7);
+        expect(closeRect.left - labelRect.right, closeTo(10, .01));
         expect(tabRect.right - closeRect.right, 2);
         expect(tester.takeException(), isNull);
       }
@@ -233,8 +233,8 @@ void main() {
       final ordinary = find.byKey(const ValueKey('forum-tab-item-chat-2'));
       final theme = Theme.of(tester.element(bar));
 
-      expect(ForumTabsBar.height, 38);
-      expect(tester.getSize(bar).height, 38);
+      expect(ForumTabsBar.height, 56);
+      expect(tester.getSize(bar).height, 56);
       expect(tester.getSize(bar).width, 560);
       expect(
         tester.getSize(add),
@@ -256,10 +256,10 @@ void main() {
       final ordinaryRect = tester.getRect(ordinary);
       expect(
         selectedRect.left,
-        barRect.left + 4 + ForumTabsBar.minimumActionTarget + 4,
+        barRect.left + 10 + ForumTabsBar.minimumActionTarget + 8,
       );
-      expect(selectedRect.top, barRect.top + 5);
-      expect(selectedRect.bottom, barRect.bottom - 5);
+      expect(selectedRect.top, barRect.top + 10.5);
+      expect(selectedRect.bottom, barRect.bottom - 10.5);
       expect(ordinaryRect.top, selectedRect.top);
       expect(ordinaryRect.bottom, selectedRect.bottom);
 
@@ -292,7 +292,7 @@ void main() {
       );
 
       final addRect = tester.getRect(add);
-      expect(addRect.left, ordinaryRect.right + 4);
+      expect(addRect.left, ordinaryRect.right + 6);
       expect(addRect.center.dy, barRect.center.dy);
 
       // Selected tabs have an outline; the strip and inactive corners stay clear.
@@ -318,10 +318,7 @@ void main() {
 
       final close = find.byKey(const ValueKey('forum-tab-close-topic-1'));
       expect(tester.getSize(close).width, ForumTabsBar.closeTargetWidth);
-      expect(
-        tester.getSize(close).height,
-        greaterThanOrEqualTo(DControlStyle.smallHeight),
-      );
+      expect(tester.getSize(close).height, ForumTabsBar.closeTargetWidth);
     });
 
     testWidgets('labels tabs, their editor and drag feedback as controls', (
@@ -435,7 +432,7 @@ void main() {
         expect(
           tab.height,
           DControlStyle.scaledHeight(
-            DControlSize.regular,
+            DControlSize.documentTab,
             const TextScaler.linear(2),
           ),
         );
@@ -457,7 +454,7 @@ void main() {
       final secondTab = find.byKey(const ValueKey('forum-tab-item-chat-2'));
       expect(
         tester.getRect(secondTab).left - tester.getRect(firstTab).right,
-        4,
+        6,
       );
       expect(
         find.byKey(const ValueKey('forum-tab-divider-topic-1')),
@@ -775,11 +772,8 @@ void main() {
       final restingIconColor = iconColor();
 
       expect(tester.getSize(close).width, ForumTabsBar.closeTargetWidth);
-      expect(
-        tester.getSize(close).height,
-        greaterThanOrEqualTo(DControlStyle.smallHeight),
-      );
-      expect(tester.getSize(surface), const Size.square(24));
+      expect(tester.getSize(close).height, ForumTabsBar.closeTargetWidth);
+      expect(tester.getSize(surface), const Size.square(18));
       expect(buttonSurface(tester, of: surface).color, Colors.transparent);
       expect(_closeOpacity(tester, first.id), 1);
       expect(_closeOpacity(tester, second.id), 0);
@@ -799,7 +793,7 @@ void main() {
 
       expect(buttonSurface(tester, of: surface).color, Colors.transparent);
       expect(iconColor(), isNot(restingIconColor));
-      expect(tester.getSize(surface), const Size.square(24));
+      expect(tester.getSize(surface), const Size.square(18));
 
       await pointer.moveTo(tester.getCenter(find.text(second.title)));
       await tester.pumpAndSettle();
@@ -947,8 +941,8 @@ void main() {
         final tab = find.byKey(const ValueKey('forum-tab-item-topic-1'));
         final add = find.byKey(addKey);
         final before = tester.getRect(add);
-        expect(before.size, const Size.square(DControlStyle.regularHeight));
-        expect(before.left, tester.getRect(tab).right + 4);
+        expect(before.size, const Size.square(30));
+        expect(before.left, tester.getRect(tab).right + 6);
         expect(tester.widget<DButton>(add).variant, DButtonVariant.inline);
         final fill = buttonSurface(tester, of: add).color;
         final pointer = await tester.createGesture(
@@ -973,7 +967,7 @@ void main() {
 
       final switcher = find.byKey(const ValueKey('forum-tabs-switcher'));
       final before = tester.getRect(switcher);
-      expect(before.size, const Size.square(DControlStyle.regularHeight));
+      expect(before.size, const Size.square(30));
       expect(tester.widget<DButton>(switcher).variant, DButtonVariant.outline);
       final pointer = await tester.createGesture(kind: PointerDeviceKind.mouse);
       addTearDown(pointer.removePointer);
@@ -1184,7 +1178,7 @@ void main() {
         tester,
         items: items,
         selectedId: items.first.id,
-        width: 280,
+        width: 320,
       );
 
       final swatch = tester.widget<Container>(
@@ -1222,7 +1216,7 @@ void main() {
         ),
       );
       expect(urgentIcon.color, iconColor);
-      expect(urgentIcon.size, 15);
+      expect(urgentIcon.size, 12);
     });
 
     testWidgets('keep unread dots beside the title', (tester) async {
@@ -1282,7 +1276,7 @@ void main() {
         find.byKey(const ValueKey('plugin-tab-label-suffix')),
         findsOneWidget,
       );
-      expect(prefixSize, 15);
+      expect(prefixSize, 12);
       expect(suffixSize, 13);
       expect(
         find.bySemanticsLabel('Plugin route, feature state'),
@@ -1354,7 +1348,7 @@ void main() {
         for (final item in [first, second]) {
           final title = find.text(item.title);
           expect(tester.widget<Text>(title).overflow, TextOverflow.clip);
-          expect(tester.getSize(title).width, greaterThan(28));
+          expect(tester.getSize(title).width, greaterThan(20));
           expect(
             find.byKey(ValueKey('forum-tab-prefix-${item.id}')),
             findsNothing,

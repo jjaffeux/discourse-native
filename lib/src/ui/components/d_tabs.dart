@@ -1297,7 +1297,8 @@ class DDocumentTab extends StatefulWidget {
     this.surfaceKey,
     this.pointerKey,
     this.closeKey,
-  });
+    this.size = DControlSize.regular,
+  }) : assert(size == DControlSize.regular || size == DControlSize.documentTab);
 
   final bool selected;
   final Widget child;
@@ -1320,6 +1321,9 @@ class DDocumentTab extends StatefulWidget {
   final Key? surfaceKey;
   final Key? pointerKey;
   final Key? closeKey;
+
+  /// Use [DControlSize.documentTab] for the mockup workspace strip.
+  final DControlSize size;
 
   @override
   State<DDocumentTab> createState() => _DDocumentTabState();
@@ -1351,7 +1355,9 @@ class _DDocumentTabState extends State<DDocumentTab> {
         Color.lerp(tokens.background, tokens.foreground, amount)!;
     final foreground = widget.selected || _hovered ? mix(.9) : mix(.5);
     final radius = BorderRadius.circular(
-      widget.selected ? DRadius.panel : DRadius.pill,
+      widget.selected && widget.size != DControlSize.documentTab
+          ? DRadius.panel
+          : DRadius.pill,
     );
     final fontSize = DControlStyle.fontSize(
       DControlSize.regular,
@@ -1374,7 +1380,7 @@ class _DDocumentTabState extends State<DDocumentTab> {
       child: Container(
         key: widget.surfaceKey,
         height: DControlStyle.scaledHeight(
-          DControlSize.regular,
+          widget.size,
           MediaQuery.textScalerOf(context),
           context: context,
         ),
@@ -1425,7 +1431,9 @@ class _DDocumentTabState extends State<DDocumentTab> {
                                     widget.onTapCancel?.call(),
                                 child: DButton(
                                   onPressed: widget.onSelect,
-                                  size: DButtonSize.small,
+                                  size: widget.size == DControlSize.documentTab
+                                      ? DControlSize.documentTab
+                                      : DButtonSize.small,
                                   focusNode: _selectionFocus,
                                   variant: DButtonVariant.ghost,
                                   alignment: AlignmentDirectional.centerStart,
@@ -1461,7 +1469,9 @@ class _DDocumentTabState extends State<DDocumentTab> {
                           tooltip: widget.closeLabel,
                           shortcut: widget.closeShortcut,
                           focusNode: _closeFocus,
-                          size: DButtonSize.small,
+                          size: widget.size == DControlSize.documentTab
+                              ? DControlSize.tabClose
+                              : DButtonSize.small,
                           variant: DButtonVariant.inline,
                           icon: const DIcon(DIcons.xmark),
                           onPressed: widget.onClose,

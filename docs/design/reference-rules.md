@@ -235,7 +235,7 @@ border and spacing. Inline code in the app retains the approved stronger
 | Chat thread | Thread preview pill, 18px overlapping avatars; indented replies, bounded reply field; 12–13px metadata | Existing inline thread composition |
 | Composer | Docked left/right/bottom or full-screen; title 17px; body 14/22.4 (mobile reference 14.5/22.475); category/tag row; 34px tools, 8px tool gap | Native editor uses 14/23.1 and 17px title on every platform; owns focus/selection and draft state |
 | Sidebar | 14px destinations, 12px counts, 13px icons; same text in expanded/mobile sidebar; collapse/category hierarchy | Sidebar presets and existing shell ownership |
-| Desktop tab strip | 13px labels, 34px controls, 8px tab corners, 18px close button with 4px corners; selected label reserves bold width | Document Tabs and existing tab model |
+| Desktop tab strip | 56px row, 35px pill tabs with 13px labels and 12px icons; 30px recent-tabs and add buttons; 18px close action; 6px tab gaps and 170px width cap | Document Tabs and existing tab model |
 | Community rail | Circular/rounded community tiles, active 12px corners, text initials proportional to tile | Existing avatar/site switcher |
 | Mobile navigation | 44px primary pill; active tile14px vs inactive pill; header and safe-area-aware bottom dock | Native mobile shell, accessible targets |
 | Notifications | Bounded popup, 13px title/text, 12.5px filters, 13/17.55 row copy, 11px count markers | Existing notification adapters and popup roles |

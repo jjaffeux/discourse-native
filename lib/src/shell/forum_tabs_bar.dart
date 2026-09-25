@@ -110,13 +110,13 @@ class ForumTabsBar extends StatefulWidget {
   static double heightFor(BuildContext context) =>
       workspaceTabStripHeightFor(context);
 
-  static const double minimumActionTarget = DControlStyle.regularHeight;
+  static const double minimumActionTarget = 30;
 
   static const double _tabContentInset = 2;
 
-  static const double maximumTabWidth = 160;
+  static const double maximumTabWidth = 170;
 
-  static const double closeTargetWidth = 24;
+  static const double closeTargetWidth = 18;
 
   final bool showAdd;
   final bool Function(String id)? acceptsTab;
@@ -144,8 +144,8 @@ class ForumTabsBar extends StatefulWidget {
 }
 
 class _ForumTabsBarState extends State<ForumTabsBar> {
-  static const _tabGap = 4.0;
-  static const _switcherGap = 4.0;
+  static const _tabGap = 6.0;
+  static const _switcherGap = 8.0;
   Widget? _contents;
   final _barKey = GlobalKey();
   final _tabKeys = <String, GlobalKey>{};
@@ -410,7 +410,7 @@ class _ForumTabsBarState extends State<ForumTabsBar> {
             // leaves, so they center on the full strip instead of being
             // squashed into the tab lane.
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(4, 0, 5, 0),
+              padding: const EdgeInsets.fromLTRB(10, 0, 10, 0),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
@@ -434,12 +434,12 @@ class _ForumTabsBarState extends State<ForumTabsBar> {
                       builder: (context, constraints) {
                         final scaler = MediaQuery.textScalerOf(context);
                         final closeWidth = DControlStyle.scaledHeight(
-                          DControlSize.small,
+                          DControlSize.tabClose,
                           scaler,
                           context: context,
                         );
                         final addWidth = DControlStyle.scaledHeight(
-                          DControlSize.regular,
+                          DControlSize.tabAction,
                           scaler,
                           context: context,
                         );
@@ -451,7 +451,7 @@ class _ForumTabsBarState extends State<ForumTabsBar> {
                         final labelWidth = math.max(
                           0.0,
                           (constraints.maxWidth -
-                                  (widget.showAdd ? addWidth + 4 : 0) -
+                                  (widget.showAdd ? addWidth + 6 : 0) -
                                   _tabGap * (tabCount - 1) -
                                   selectedWidth) /
                               tabCount,
@@ -461,7 +461,7 @@ class _ForumTabsBarState extends State<ForumTabsBar> {
                             Flexible(
                               child: Padding(
                                 padding: const EdgeInsets.symmetric(
-                                  vertical: 5,
+                                  vertical: 10.5,
                                 ),
                                 child: Semantics(
                                   role: SemanticsRole.tabBar,
@@ -549,7 +549,7 @@ class _ForumTabsBarState extends State<ForumTabsBar> {
                               ),
                             ),
                             if (widget.showAdd) ...[
-                              const SizedBox(width: 4),
+                              const SizedBox(width: 6),
                               _NewTabButton(
                                 onPressed: widget.onAdd == null
                                     ? null
@@ -791,6 +791,7 @@ class _ForumTabSwitcherState extends State<_ForumTabSwitcher> {
               semanticLabel: 'Browse tabs in ${widget.forumName}',
               tooltip: 'Browse tabs',
               variant: DButtonVariant.outline,
+              size: DControlSize.tabAction,
               icon: const DIcon(DIcons.chevronDown),
               focusNode: state.focusNode,
               hasPopup: true,
@@ -1156,7 +1157,7 @@ class _ReorderableForumTab extends StatelessWidget {
                 (context.findRenderObject()! as RenderBox).size.width -
                     (selected
                         ? DControlStyle.scaledHeight(
-                            DControlSize.small,
+                            DControlSize.tabClose,
                             MediaQuery.textScalerOf(context),
                             context: context,
                           )
@@ -1226,8 +1227,9 @@ class ForumTabDragFeedback extends StatelessWidget {
       type: MaterialType.transparency,
       child: SizedBox(
         width: width,
-        height: ForumTabsBar.heightFor(context) - 10,
+        height: ForumTabsBar.heightFor(context) - 21,
         child: DDocumentTab(
+          size: DControlSize.documentTab,
           selected: true,
           onSelect: () {},
           onClose: () {},
@@ -1235,7 +1237,7 @@ class ForumTabDragFeedback extends StatelessWidget {
           child: Row(
             children: [
               if (item.icon case final icon?) ...[
-                DIcon(icon, size: 15, color: item.iconColor),
+                DIcon(icon, size: 12, color: item.iconColor),
                 const SizedBox(width: 7),
               ],
               Expanded(
@@ -1275,6 +1277,7 @@ class _NewTabButton extends StatelessWidget {
               ),
             ),
       variant: DButtonVariant.inline,
+      size: DControlSize.tabAction,
       icon: const DIcon(DIcons.plus),
       onPressed: onPressed,
     ),
@@ -1494,7 +1497,7 @@ class _ForumTabState extends State<_ForumTab> {
     final compact =
         constraints.maxWidth < MediaQuery.textScalerOf(context).scale(60);
     final prefix = !compact
-        ? _tabPrefix(context, widget.item, foreground)
+        ? _tabPrefix(context, widget.item, foreground, size: 12)
         : null;
     // Tab labels are controls: the same role as DDocumentTab's own default
     // and the drag feedback, so a dragged tab keeps its size.
@@ -1520,7 +1523,7 @@ class _ForumTabState extends State<_ForumTab> {
     return Row(
       children: [
         if (prefix != null) ...[
-          SizedBox.square(dimension: 15, child: Center(child: prefix)),
+          SizedBox.square(dimension: 12, child: Center(child: prefix)),
           const SizedBox(width: 7),
         ],
         Expanded(
@@ -1600,6 +1603,7 @@ class _ForumTabState extends State<_ForumTab> {
           moveToPanel: widget.moveToPanel,
           moveToPanelLabel: widget.moveToPanelLabel,
           child: DDocumentTab(
+            size: DControlSize.documentTab,
             excludeSelectionSemantics: true,
             surfaceKey: ValueKey('forum-tab-item-${widget.item.id}'),
             pointerKey: ValueKey('forum-tab-pointer-${widget.item.id}'),
@@ -1639,7 +1643,7 @@ class _ForumTabState extends State<_ForumTab> {
               8 +
               (widget.selected
                   ? DControlStyle.scaledHeight(
-                          DControlSize.small,
+                          DControlSize.tabClose,
                           MediaQuery.textScalerOf(context),
                           context: context,
                         ) /

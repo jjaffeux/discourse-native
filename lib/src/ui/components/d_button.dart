@@ -649,6 +649,8 @@ class DButton extends StatelessWidget {
         BorderRadius.circular(
           shape == DButtonShape.pill || variant == DButtonVariant.primary
               ? DRadius.pill
+              : effectiveSize == DControlSize.tabAction
+              ? 9
               : dashedTile
               ? DRadius.bubble
               : DRadius.control,

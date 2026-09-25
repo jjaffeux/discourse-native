@@ -81,10 +81,10 @@ final tabsExamples = ComponentExamples(
     StyleguideExample(
       title: 'Document tabs',
       description:
-          'Workspace tabs compose Native buttons for selection and closing, with an 8px rounded, raised selected surface and a subtle outline. Inactive tabs stay transparent. The selected tab keeps its close action visible; inactive tabs give that space to their labels.',
+          'Workspace tabs use 35px pill surfaces with 13px labels and an 18px close action. The selected tab has a raised fill and subtle outline. Inactive tabs stay transparent and give their close space to the label.',
       states: const ['Selected', 'Hover', 'Close', 'Keyboard'],
       code:
-          "DDocumentTab(selected: true, closeOnlyWhenSelected: true, onSelect: select, onClose: close, closeLabel: 'Close Side chat', child: Text('Side chat'))",
+          "DDocumentTab(size: DControlSize.documentTab, selected: true, closeOnlyWhenSelected: true, onSelect: select, onClose: close, closeLabel: 'Close Side chat', child: Text('Side chat'))",
       builder: (_) => const _DocumentTabs(),
     ),
     StyleguideExample(
@@ -640,18 +640,17 @@ class _DocumentTabsState extends State<_DocumentTabs> {
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
       SizedBox(
-        height:
-            28 +
-            (MediaQuery.textScalerOf(context).scale(12) - 12).clamp(
-                  0,
-                  double.infinity,
-                ) *
-                1.5,
+        height: DControlStyle.scaledHeight(
+          DControlSize.documentTab,
+          MediaQuery.textScalerOf(context),
+          context: context,
+        ),
         child: Row(
           children: [
             for (final title in _tabs) ...[
               Expanded(
                 child: DDocumentTab(
+                  size: DControlSize.documentTab,
                   selected: _selected == title,
                   closeOnlyWhenSelected: true,
                   onSelect: () => setState(() => _selected = title),
@@ -664,9 +663,9 @@ class _DocumentTabsState extends State<_DocumentTabs> {
                     children: [
                       DIcon(
                         title == 'Review' ? DIcons.layerGroup : DIcons.comment,
-                        size: 16,
+                        size: 12,
                       ),
-                      const SizedBox(width: 8),
+                      const SizedBox(width: 7),
                       Expanded(
                         child: Text(title, overflow: TextOverflow.ellipsis),
                       ),
@@ -674,7 +673,7 @@ class _DocumentTabsState extends State<_DocumentTabs> {
                   ),
                 ),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: 6),
             ],
           ],
         ),

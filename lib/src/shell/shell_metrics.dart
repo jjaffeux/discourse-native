@@ -12,7 +12,7 @@ const double workspaceEdgeInset = 6;
 const double shellHeaderHeight = 52;
 const double readerHeaderHeight = 44;
 
-const double workspaceTabStripHeight = 38;
+const double workspaceTabStripHeight = 56;
 const workspaceTabsPadding = EdgeInsets.fromLTRB(8, 8, 8, 4);
 
 /// Grows with the forum tab label role so scaled tab labels keep their inset.
