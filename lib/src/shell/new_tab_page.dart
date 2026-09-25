@@ -1,12 +1,10 @@
 import 'dart:async';
 
 import 'package:discourse_native/discourse_ui.dart';
-import 'package:flutter/foundation.dart' show defaultTargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../app_shortcuts.dart';
 import '../models/bookmark.dart';
 import '../models/content_route.dart';
 import '../models/forum_workspace.dart';
@@ -35,7 +33,6 @@ class NewTabPage extends StatefulWidget {
 class _NewTabPageState extends State<NewTabPage> {
   static const _dismissedKey = 'discourse_native.panel_tutorial_dismissed';
   static const _compactKey = 'discourse_native.start_page_compact';
-  final _searchPromptFocus = FocusNode(debugLabel: 'start page search prompt');
   bool? _dismissed;
   bool _compact = true;
   bool _compactChanged = false;
@@ -44,7 +41,6 @@ class _NewTabPageState extends State<NewTabPage> {
   @override
   void initState() {
     super.initState();
-    _searchPromptFocus.addListener(_onSearchPromptFocus);
     unawaited(_loadPreferences());
   }
 
@@ -64,24 +60,6 @@ class _NewTabPageState extends State<NewTabPage> {
       if (shell?.currentInstance?.url != instance.url) return;
       unawaited(shell!.loadFeed(TopicListMode.latest.routeId));
     });
-  }
-
-  @override
-  void dispose() {
-    _searchPromptFocus
-      ..removeListener(_onSearchPromptFocus)
-      ..dispose();
-    super.dispose();
-  }
-
-  void _onSearchPromptFocus() {
-    if (_searchPromptFocus.hasFocus) _openTopBarSearch();
-  }
-
-  void _openTopBarSearch() {
-    // Keep the placeholder out of focus history when the search panel closes.
-    _searchPromptFocus.unfocus();
-    if (mounted) ShellScope.maybeRead(context)?.search.requestFocus();
   }
 
   Future<void> _loadPreferences() async {
@@ -346,17 +324,17 @@ class _NewTabPageState extends State<NewTabPage> {
                             if (siteUrl == null)
                               Text(
                                 'Start page',
-                                style: Theme.of(
-                                  context,
-                                ).textTheme.headlineSmall,
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .headlineSmall,
                               )
                             else
                               SiteEmojiText.plain(
                                 forum!.title,
                                 siteUrl: siteUrl,
-                                style: Theme.of(
-                                  context,
-                                ).textTheme.headlineSmall,
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .headlineSmall,
                               ),
                             if (forum != null)
                               Text(
@@ -394,39 +372,6 @@ class _NewTabPageState extends State<NewTabPage> {
                       ),
                     ],
                   ),
-                  if (shell != null)
-                    ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 560),
-                      child: DInputGroup(
-                        size: DControlSize.large,
-                        children: [
-                          DInputGroupInput(
-                            key: const ValueKey('start-page-search-prompt'),
-                            focusNode: _searchPromptFocus,
-                            semanticLabel: 'Search this forum',
-                            hintText: 'Search this forum',
-                            readOnly: true,
-                            enableInteractiveSelection: false,
-                            onTap: _openTopBarSearch,
-                          ),
-                          const DInputGroupAddon(
-                            alignment: DInputGroupAddonAlignment.inlineStart,
-                            child: DIcon(DIcons.magnifyingGlass, size: 16),
-                          ),
-                          DInputGroupAddon(
-                            alignment: DInputGroupAddonAlignment.inlineEnd,
-                            child: DShortcutKeycaps(
-                              shortcut: DShortcut(
-                                searchShortcutForPlatform(
-                                  defaultTargetPlatform,
-                                ),
-                              ),
-                              listenToKeyboard: false,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
                   if (_dismissed == false &&
                       (ShellScope.maybeRead(context)?.desktopPanelsEnabled ??
                           true))
@@ -1132,9 +1077,8 @@ class _PanelTutorialDiagram extends StatelessWidget {
           children: [
             Text(
               'TWO PANELS',
-              style: Theme.of(
-                context,
-              ).textTheme.labelSmall?.copyWith(color: tokens.mutedForeground),
+              style: Theme.of(context).textTheme.labelSmall
+                  ?.copyWith(color: tokens.mutedForeground),
             ),
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -1154,9 +1098,8 @@ class _PanelTutorialDiagram extends StatelessWidget {
               alignment: AlignmentDirectional.centerEnd,
               child: Text(
                 'Shift + click opens here',
-                style: Theme.of(
-                  context,
-                ).textTheme.bodySmall?.copyWith(color: tokens.mutedForeground),
+                style: Theme.of(context).textTheme.bodySmall
+                    ?.copyWith(color: tokens.mutedForeground),
               ),
             ),
           ],

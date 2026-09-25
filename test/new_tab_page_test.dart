@@ -260,7 +260,7 @@ void main() {
     }
   });
 
-  testWidgets('Start page search opens the top bar search on focus and Cmd+F', (
+  testWidgets('Start page has no search input and Cmd+F opens top bar search', (
     tester,
   ) async {
     SharedPreferences.setMockInitialValues({
@@ -276,11 +276,11 @@ void main() {
       shell.pushContent(ContentRoute.newTab());
       await tester.pumpAndSettle();
 
-      final prompt = find.byKey(const ValueKey('start-page-search-prompt'));
-      expect(prompt, findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('start-page-search-prompt')),
+        findsNothing,
+      );
       expect(find.byType(ForumSearch), findsOneWidget);
-      final promptField = tester.widget<DInputGroupInput>(prompt);
-      expect(promptField.readOnly, isTrue);
 
       await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
       expect(await tester.sendKeyEvent(LogicalKeyboardKey.keyF), isTrue);
@@ -294,93 +294,6 @@ void main() {
             .hasFocus,
         isTrue,
       );
-
-      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
-      await tester.pumpAndSettle();
-      await tester.tap(prompt);
-      await tester.pumpAndSettle();
-      expect(find.byKey(ForumSearch.panelKey), findsOneWidget);
-      expect(promptField.focusNode!.hasFocus, isFalse);
-      expect(
-        tester
-            .widget<DInputGroupInput>(find.byKey(ForumSearch.inputKey))
-            .focusNode!
-            .hasFocus,
-        isTrue,
-      );
-      expect(
-        tester
-            .getRect(find.byType(ShellTitleBar))
-            .contains(tester.getCenter(find.byKey(ForumSearch.inputKey))),
-        isTrue,
-      );
-
-      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
-      await tester.pumpAndSettle();
-      promptField.focusNode!.requestFocus();
-      await tester.pumpAndSettle();
-      expect(find.byKey(ForumSearch.panelKey), findsOneWidget);
-      expect(promptField.focusNode!.hasFocus, isFalse);
-      expect(
-        tester
-            .widget<DInputGroupInput>(find.byKey(ForumSearch.inputKey))
-            .focusNode!
-            .hasFocus,
-        isTrue,
-      );
-    } finally {
-      debugDefaultTargetPlatformOverride = previousPlatform;
-    }
-  });
-
-  testWidgets('outside click dismisses Start page search without reopening', (
-    tester,
-  ) async {
-    SharedPreferences.setMockInitialValues({
-      'discourse_native.panel_tutorial_dismissed': true,
-    });
-    final previousPlatform = debugDefaultTargetPlatformOverride;
-    debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
-    try {
-      await pumpShell(tester, desktop);
-      final shell = ShellScope.read(
-        tester.element(find.byType(MainContent).first),
-      );
-      shell.pushContent(ContentRoute.newTab());
-      await tester.pumpAndSettle();
-
-      final prompt = find.byKey(const ValueKey('start-page-search-prompt'));
-      final promptFocus = tester.widget<DInputGroupInput>(prompt).focusNode!;
-      final content = tester.getRect(find.byType(MainContent).first);
-
-      Future<void> dismissOutside() async {
-        await tester.tapAt(content.bottomCenter - const Offset(0, 20));
-        await tester.pumpAndSettle();
-        expect(find.byKey(ForumSearch.panelKey), findsNothing);
-        expect(shell.search.panelOpen, isFalse);
-        expect(promptFocus.hasFocus, isFalse);
-      }
-
-      await tester.tap(prompt);
-      await tester.pumpAndSettle();
-      expect(find.byKey(ForumSearch.panelKey), findsOneWidget);
-      await dismissOutside();
-
-      promptFocus.requestFocus();
-      await tester.pumpAndSettle();
-      expect(find.byKey(ForumSearch.panelKey), findsOneWidget);
-      await dismissOutside();
-
-      await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
-      await tester.sendKeyEvent(LogicalKeyboardKey.keyF);
-      await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
-      await tester.pumpAndSettle();
-      expect(find.byKey(ForumSearch.panelKey), findsOneWidget);
-      await dismissOutside();
-
-      await tester.tap(prompt);
-      await tester.pumpAndSettle();
-      expect(find.byKey(ForumSearch.panelKey), findsOneWidget);
     } finally {
       debugDefaultTargetPlatformOverride = previousPlatform;
     }
@@ -400,9 +313,8 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         builder: (context, child) => MediaQuery(
-          data: MediaQuery.of(
-            context,
-          ).copyWith(textScaler: const TextScaler.linear(2)),
+          data: MediaQuery.of(context)
+              .copyWith(textScaler: const TextScaler.linear(2)),
           child: child!,
         ),
         home: Scaffold(body: NewTabPage(onBrowseTopics: () {})),
