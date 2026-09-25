@@ -51,6 +51,9 @@ class SidebarDestination {
     this.routeColor,
     this.prefixBadgeIcon,
     this.badge,
+    this.unreadCount,
+    this.preview,
+    this.lastActivityAt,
     this.onTap,
     this.trailingLabel,
     this.indent = 0,
@@ -103,6 +106,11 @@ class SidebarDestination {
 
   /// Null delegates the live badge lookup to the shell.
   final SidebarBadge? badge;
+
+  /// Optional activity details for surfaces that show more than a navigation row.
+  final int? unreadCount;
+  final String? preview;
+  final DateTime? lastActivityAt;
 
   final VoidCallback? onTap;
 

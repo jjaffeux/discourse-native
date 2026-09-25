@@ -748,6 +748,9 @@ class ChatPlugin
           ? DIcons.lock
           : null,
       badge: channel.badge,
+      unreadCount: channel.tracking.unreadCount,
+      preview: channel.lastMessagePreview,
+      lastActivityAt: channel.lastMessageAt,
       onTap: onTap,
       contextMenuBuilder: siteUrl == null
           ? null

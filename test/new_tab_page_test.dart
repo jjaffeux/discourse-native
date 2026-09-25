@@ -4,8 +4,10 @@ import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/forum_workspace.dart';
 import 'package:discourse_native/src/models/topic.dart';
+import 'package:discourse_native/src/plugin_api/plugin_scope.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_notification_counter.dart';
+import 'package:discourse_native/src/plugins/chat/chat_services.dart';
 import 'package:discourse_native/src/shell/forum_search.dart';
 import 'package:discourse_native/src/shell/forum_tabs_bar.dart';
 import 'package:discourse_native/src/shell/main_content.dart';
@@ -440,6 +442,8 @@ void main() {
                 title: 'General',
                 kind: ChatChannelKind.category,
                 membership: ChatMembership(following: true),
+                tracking: ChatTracking(unreadCount: 7),
+                lastMessagePreview: 'Back later.',
               ),
             ],
           ),
@@ -468,6 +472,19 @@ void main() {
     expect(find.text('Chat'), findsOneWidget);
     expect(chatShortcut, findsNothing);
     expect(find.text('General'), findsOneWidget);
+    await tester.tap(find.byTooltip('Comfortable'));
+    await tester.pumpAndSettle();
+    final channelCard = find.byKey(
+      const ValueKey('start-page-recent-chat-c-9'),
+    );
+    expect(
+      find.descendant(of: channelCard, matching: find.text('7')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: channelCard, matching: find.text('Back later.')),
+      findsOneWidget,
+    );
     await tester.tap(find.text('General'));
     await tester.pumpAndSettle();
     expect(shell.currentContent?.id, 'chat-c-9');
@@ -602,22 +619,25 @@ void main() {
     });
     const site = 'https://meta.discourse.org';
     const user = DiscourseUser(username: 'reader');
+    final channelsBySite = <String, ChatChannels>{
+      site: const ChatChannels(
+        direct: [
+          ChatChannel(
+            id: 11,
+            title: 'Alex',
+            kind: ChatChannelKind.directMessage,
+            membership: ChatMembership(following: true),
+            tracking: ChatTracking(unreadCount: 3),
+            lastMessagePreview: 'Thanks for looking.',
+          ),
+        ],
+      ),
+    };
     final api = FakeDiscourseApi(
       user: user,
       totals: chatNotificationTotals(available: true),
       feeds: const {'/latest.json': []},
-      chatChannelsBySite: {
-        site: const ChatChannels(
-          direct: [
-            ChatChannel(
-              id: 11,
-              title: 'Alex',
-              kind: ChatChannelKind.directMessage,
-              membership: ChatMembership(following: true),
-            ),
-          ],
-        ),
-      },
+      chatChannelsBySite: channelsBySite,
     );
     await pumpShell(
       tester,
@@ -633,6 +653,49 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Alex'), findsOneWidget);
     expect(find.text('Chat'), findsOneWidget);
+    await tester.tap(find.byTooltip('Comfortable'));
+    await tester.pumpAndSettle();
+    final directCard = find.byKey(
+      const ValueKey('start-page-recent-chat-c-11'),
+    );
+    expect(
+      find.descendant(of: directCard, matching: find.text('3')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(
+        of: directCard,
+        matching: find.text('Thanks for looking.'),
+      ),
+      findsOneWidget,
+    );
+
+    channelsBySite[site] = const ChatChannels(
+      direct: [
+        ChatChannel(
+          id: 11,
+          title: 'Alex',
+          kind: ChatChannelKind.directMessage,
+          membership: ChatMembership(following: true),
+          tracking: ChatTracking(unreadCount: 5),
+          lastMessagePreview: 'See you tomorrow.',
+        ),
+      ],
+    );
+    final chat = PluginUiScope.require(
+      PluginUiScope.contextFor(tester.element(directCard), chatPluginId),
+      chatControllerService,
+    );
+    await chat.loadChannels(site, force: true);
+    await tester.pumpAndSettle();
+    expect(
+      find.descendant(of: directCard, matching: find.text('5')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: directCard, matching: find.text('See you tomorrow.')),
+      findsOneWidget,
+    );
   });
 
   testWidgets('recently closed tabs appear and reopen from Start page', (
