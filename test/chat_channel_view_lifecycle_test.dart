@@ -51,6 +51,21 @@ void main() {
   const firstSite = 'https://one.example';
   const secondSite = 'https://two.example';
 
+  testWidgets('opening a channel focuses its composer', (tester) async {
+    final controller = await _controller(
+      _ChatApi(openPages: {firstSite: [_messagesPage(1, 1)]}),
+      sites: const [firstSite],
+    );
+    addTearDown(controller.dispose);
+    controller.chatRecords.put(firstSite, _channel(lastRead: 0));
+
+    await tester.pumpWidget(_TestView(controller: controller));
+    await tester.pumpAndSettle();
+
+    final field = tester.widget<TextField>(find.byType(TextField));
+    expect(field.focusNode!.hasPrimaryFocus, isTrue);
+  });
+
   for (final target in const <ChatStreamTarget>[
     ChatChannelTarget(9),
     ChatThreadTarget(channelId: 9, threadId: 3),

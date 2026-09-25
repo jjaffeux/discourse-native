@@ -156,6 +156,7 @@ class _ChatThreadSplitState extends State<_ChatThreadSplit> {
                         child: ChatChannelView(
                           channelId: widget.target.channelId,
                           autofocusMessageStream: false,
+                          autofocusComposer: false,
                         ),
                       ),
                     ],
