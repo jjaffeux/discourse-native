@@ -333,7 +333,7 @@ class _NewTabPageState extends State<NewTabPage> {
               padding: const EdgeInsets.all(DSpacing.lg),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
-                spacing: _compact ? DSpacing.lg : DSpacing.xxl,
+                spacing: DSpacing.lg,
                 children: [
                   Row(
                     spacing: DSpacing.md,
@@ -444,18 +444,15 @@ class _NewTabPageState extends State<NewTabPage> {
                     if (_compact)
                       LayoutBuilder(
                         builder: (context, constraints) {
-                          final columns = constraints.maxWidth >= 1050
-                              ? 3
-                              : constraints.maxWidth >= 650
-                              ? 2
-                              : 1;
+                          final columns = ((constraints.maxWidth + 18) / 256)
+                              .floor()
+                              .clamp(1, 6);
                           final width =
-                              (constraints.maxWidth -
-                                  (columns - 1) * DSpacing.lg) /
+                              (constraints.maxWidth - (columns - 1) * 18) /
                               columns;
                           return Wrap(
-                            spacing: DSpacing.lg,
-                            runSpacing: DSpacing.xl,
+                            spacing: 18,
+                            runSpacing: 28,
                             children: [
                               for (final section in primarySections)
                                 SizedBox(width: width, child: section),
@@ -472,84 +469,89 @@ class _NewTabPageState extends State<NewTabPage> {
                       compact: _compact,
                       siteUrl: siteUrl!,
                       fullWidth: true,
-                    ),
-                    Wrap(
-                      key: const ValueKey('start-page-shortcuts'),
-                      spacing: DSpacing.sm,
-                      runSpacing: DSpacing.sm,
-                      children: [
-                        if (bookmarkRows.isEmpty && forum?.user != null)
-                          _LinkButton(
-                            label: 'Bookmarks',
-                            icon: DIcons.bookmark,
-                            onPressed: openBookmarks,
-                          ),
-                        if (topicRows.isEmpty)
-                          _LinkButton(
-                            label: 'Latest topics',
-                            icon: DIcons.layerGroup,
-                            url: '/latest',
-                            onPressed: widget.onBrowseTopics,
-                          ),
-                        if (categoryRows.isEmpty)
-                          _LinkButton(
-                            label: 'Categories',
-                            icon: DIcons.tag,
-                            url: '/categories',
-                            onPressed: openCategories,
-                          ),
-                        if (hasChat && chatRows.isEmpty)
-                          _LinkButton(
-                            label: 'Chat',
-                            icon: DIcons.comment,
-                            content: ContentRoute.fromDestination(
-                              chatDestination,
+                      content: Padding(
+                        padding: const EdgeInsets.all(12),
+                        child: Wrap(
+                          key: const ValueKey('start-page-shortcuts'),
+                          spacing: 7,
+                          runSpacing: 7,
+                          children: [
+                            if (bookmarkRows.isEmpty && forum?.user != null)
+                              _LinkButton(
+                                label: 'Bookmarks',
+                                icon: DIcons.bookmark,
+                                onPressed: openBookmarks,
+                              ),
+                            if (topicRows.isEmpty)
+                              _LinkButton(
+                                label: 'Latest topics',
+                                icon: DIcons.layerGroup,
+                                url: '/latest',
+                                onPressed: widget.onBrowseTopics,
+                              ),
+                            if (categoryRows.isEmpty)
+                              _LinkButton(
+                                label: 'Categories',
+                                icon: DIcons.tag,
+                                url: '/categories',
+                                onPressed: openCategories,
+                              ),
+                            if (hasChat && chatRows.isEmpty)
+                              _LinkButton(
+                                label: 'Chat',
+                                icon: DIcons.comment,
+                                content: ContentRoute.fromDestination(
+                                  chatDestination,
+                                ),
+                                onPressed: openChat,
+                              ),
+                            if (forum?.user != null)
+                              _LinkButton(
+                                label: 'Messages',
+                                icon: DIcons.inbox,
+                                url: '/my/messages',
+                                onPressed: () =>
+                                    openLink(context, '/my/messages'),
+                              ),
+                            _LinkButton(
+                              label: 'Groups',
+                              icon: DIcons.users,
+                              url: '/g',
+                              onPressed: () => openLink(context, '/g'),
                             ),
-                            onPressed: openChat,
-                          ),
-                        if (forum?.user != null)
-                          _LinkButton(
-                            label: 'Messages',
-                            icon: DIcons.inbox,
-                            url: '/my/messages',
-                            onPressed: () => openLink(context, '/my/messages'),
-                          ),
-                        _LinkButton(
-                          label: 'Groups',
-                          icon: DIcons.users,
-                          url: '/g',
-                          onPressed: () => openLink(context, '/g'),
+                            _LinkButton(
+                              label: 'Badges',
+                              icon: DIcons.certificate,
+                              url: '/badges',
+                              onPressed: () => openLink(context, '/badges'),
+                            ),
+                            if (events != null)
+                              _LinkButton(
+                                label: 'Upcoming events',
+                                icon: events.icon,
+                                onPressed: () =>
+                                    shell.selectDestination(events),
+                              ),
+                            _LinkButton(
+                              label: 'Users',
+                              icon: DIcons.user,
+                              url: '/u',
+                              onPressed: () => openLink(context, '/u'),
+                            ),
+                            if (forum?.user != null)
+                              _LinkButton(
+                                label: 'Preferences',
+                                icon: DIcons.filter,
+                                onPressed: () => shell.openPreferences(siteUrl),
+                              ),
+                            _LinkButton(
+                              label: 'Settings',
+                              icon: DIcons.gear,
+                              onPressed: () => shell.openForumSettings(siteUrl),
+                            ),
+                          ],
                         ),
-                        _LinkButton(
-                          label: 'Badges',
-                          icon: DIcons.certificate,
-                          url: '/badges',
-                          onPressed: () => openLink(context, '/badges'),
-                        ),
-                        if (events != null)
-                          _LinkButton(
-                            label: 'Upcoming events',
-                            icon: events.icon,
-                            onPressed: () => shell.selectDestination(events),
-                          ),
-                        _LinkButton(
-                          label: 'Users',
-                          icon: DIcons.user,
-                          url: '/u',
-                          onPressed: () => openLink(context, '/u'),
-                        ),
-                        if (forum?.user != null)
-                          _LinkButton(
-                            label: 'Preferences',
-                            icon: DIcons.filter,
-                            onPressed: () => shell.openPreferences(siteUrl),
-                          ),
-                        _LinkButton(
-                          label: 'Settings',
-                          icon: DIcons.gear,
-                          onPressed: () => shell.openForumSettings(siteUrl),
-                        ),
-                      ],
+                      ),
                     ),
                   ] else if (_dismissed != null)
                     DButton(
@@ -656,6 +658,7 @@ class _StartSection extends StatelessWidget {
     required this.siteUrl,
     this.onHeading,
     this.fullWidth = false,
+    this.content,
   });
 
   final String title;
@@ -665,9 +668,11 @@ class _StartSection extends StatelessWidget {
   final String siteUrl;
   final VoidCallback? onHeading;
   final bool fullWidth;
+  final Widget? content;
 
   Widget _row(BuildContext context, _StartPageEntry entry) {
     if (!compact) return _comfortableRow(context, entry);
+    final tokens = DTokens.of(context);
     final metadata = (entry.count ?? 0) > 0
         ? DBadge(
             size: DBadgeSize.compact,
@@ -682,7 +687,7 @@ class _StartSection extends StatelessWidget {
           );
     final row = DItem(
       key: ValueKey('start-page-recent-${entry.id}'),
-      variant: DItemVariant.muted,
+      variant: DItemVariant.standard,
       size: compact ? DItemSize.xs : DItemSize.standard,
       link: entry.path != null,
       onPressed: entry.onPressed,
@@ -736,13 +741,20 @@ class _StartSection extends StatelessWidget {
         ?metadata,
       ],
     );
+    final card = DCard(
+      spacing: 0,
+      border: false,
+      borderRadius: BorderRadius.circular(9),
+      backgroundColor: tokens.footerBackground,
+      child: row,
+    );
     return entry.path == null
-        ? row
+        ? card
         : LinkTarget(
             url: entry.path!,
             title: entry.title,
             siteUrl: siteUrl,
-            child: row,
+            child: card,
           );
   }
 
@@ -754,7 +766,7 @@ class _StartSection extends StatelessWidget {
         : (entry.count ?? 0) > 0
         ? DBadge(
             size: DBadgeSize.compact,
-            variant: DBadgeVariant.secondary,
+            variant: DBadgeVariant.primary,
             child: Text(entry.count.toString()),
           )
         : entry.time == null
@@ -762,12 +774,13 @@ class _StartSection extends StatelessWidget {
         : Text(
             entry.time!,
             maxLines: 1,
-            style: TextStyle(color: tokens.mutedForeground),
+            style: TextStyle(fontSize: 11.5, color: tokens.mutedForeground),
           );
     final row = DItem(
       key: ValueKey('start-page-recent-${entry.id}'),
-      variant: DItemVariant.muted,
+      variant: DItemVariant.standard,
       shape: DItemShape.card,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
       link: entry.path != null,
       onPressed: entry.onPressed,
       dragData: entry.path == null
@@ -794,46 +807,49 @@ class _StartSection extends StatelessWidget {
             ),
       children: [
         DItemContent(
-          spacing: DSpacing.lg,
+          spacing: 7,
           children: [
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 DItemMedia(
                   child: Container(
-                    width: 44,
-                    height: 44,
+                    width: 29,
+                    height: 29,
                     alignment: Alignment.center,
                     decoration: BoxDecoration(
-                      color: accent.withValues(alpha: .16),
-                      borderRadius: BorderRadius.circular(DRadius.panel),
+                      color: Color.lerp(tokens.background, accent, .2),
+                      borderRadius: BorderRadius.circular(9),
                     ),
-                    child: DIcon(entry.icon, size: 22, color: accent),
+                    child: DIcon(entry.icon, size: 13, color: accent),
                   ),
                 ),
-                const SizedBox(width: DSpacing.md),
+                const SizedBox(width: 9),
                 Expanded(
-                  child: DItemTitle(
-                    maxLines: 2,
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(minHeight: 36),
                     child: SiteEmojiText.plain(
                       entry.title,
                       siteUrl: siteUrl,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 13.5,
+                        height: 18 / 13.5,
+                        fontWeight: FontWeight.w600,
+                        color: tokens.foreground,
+                      ),
                     ),
                   ),
                 ),
-                if (metadata != null) ...[
-                  const SizedBox(width: DSpacing.sm),
-                  metadata,
-                ],
+                if (metadata != null) ...[const SizedBox(width: 4), metadata],
               ],
             ),
             if (entry.reminderAt case final reminder?)
               DItemDescription(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
-                  spacing: DSpacing.xs,
+                  spacing: 2,
                   children: [
                     Row(
                       children: [
@@ -871,15 +887,21 @@ class _StartSection extends StatelessWidget {
                   siteUrl: siteUrl,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 12.5, height: 1.38),
                 ),
               ),
           ],
         ),
       ],
     );
-    final card = ConstrainedBox(
-      constraints: const BoxConstraints(minHeight: 160),
-      child: row,
+    final card = DCard(
+      spacing: 0,
+      border: false,
+      backgroundColor: tokens.footerBackground,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: 100),
+        child: row,
+      ),
     );
     return entry.path == null
         ? card
@@ -894,17 +916,24 @@ class _StartSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tokens = DTokens.of(context);
-    final headingStyle = Theme.of(
-      context,
-    ).textTheme.titleSmall?.copyWith(fontSize: 13, color: tokens.foreground);
+    final headingStyle = Theme.of(context).textTheme.titleSmall?.copyWith(
+      fontSize: 13,
+      fontWeight: FontWeight.w700,
+      color: tokens.foreground,
+    );
     final heading = onHeading == null
-        ? Padding(
-            padding: const EdgeInsets.symmetric(vertical: DSpacing.xs),
+        ? SizedBox(
+            height: 24,
             child: Row(
               mainAxisSize: MainAxisSize.min,
-              spacing: DSpacing.sm,
+              spacing: 9,
               children: [
-                DIcon(icon, size: 14, color: tokens.mutedForeground),
+                SizedBox(
+                  width: 20,
+                  child: Center(
+                    child: DIcon(icon, size: 12, color: tokens.mutedForeground),
+                  ),
+                ),
                 Text(title, style: headingStyle),
               ],
             ),
@@ -913,10 +942,15 @@ class _StartSection extends StatelessWidget {
             variant: DButtonVariant.transparentBackground,
             size: DButtonSize.small,
             foregroundColor: tokens.foreground,
-            icon: DIcon(icon, size: 14, color: tokens.mutedForeground),
+            icon: SizedBox(
+              width: 20,
+              child: Center(
+                child: DIcon(icon, size: 12, color: tokens.mutedForeground),
+              ),
+            ),
             label: Row(
               mainAxisSize: MainAxisSize.min,
-              spacing: DSpacing.sm,
+              spacing: 9,
               children: [
                 Text(title, style: headingStyle),
                 DIcon(
@@ -930,21 +964,24 @@ class _StartSection extends StatelessWidget {
           );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
-      spacing: compact ? DSpacing.sm : DSpacing.lg,
+      spacing: 9,
       children: [
         heading,
         if (rows.isNotEmpty)
           LayoutBuilder(
             builder: (context, constraints) {
-              final gap = compact ? DSpacing.xs : DSpacing.lg;
+              final gap = compact ? 4.0 : 10.0;
               final across = compact && !fullWidth
                   ? 1
-                  : ((constraints.maxWidth + gap) / (280 + gap)).floor().clamp(
-                      1,
-                      4,
-                    );
-              final width =
+                  : ((constraints.maxWidth + gap) /
+                            ((compact ? 250 : 190) + gap))
+                        .floor()
+                        .clamp(compact ? 1 : 2, 100);
+              final columnWidth =
                   (constraints.maxWidth - (across - 1) * gap) / across;
+              final width = compact && fullWidth
+                  ? columnWidth.clamp(0.0, 280.0)
+                  : columnWidth;
               return Wrap(
                 spacing: gap,
                 runSpacing: gap,
@@ -955,6 +992,7 @@ class _StartSection extends StatelessWidget {
               );
             },
           ),
+        ?content,
       ],
     );
   }

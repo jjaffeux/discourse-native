@@ -936,9 +936,23 @@ void main() {
     final rects = [for (final card in cards) tester.getRect(card)];
     expect(rects.map((rect) => rect.top).toSet(), hasLength(1));
     expect(rects.map((rect) => rect.left).toSet(), hasLength(4));
-    expect(rects.every((rect) => rect.width > 280), isTrue);
-    expect(rects.every((rect) => rect.height >= 160), isTrue);
+    expect(
+      rects.every((rect) => rect.width >= 190 && rect.width < 230),
+      isTrue,
+    );
+    expect(
+      rects.every((rect) => rect.height >= 100 && rect.height < 120),
+      isTrue,
+    );
     expect(tester.widget<DItem>(cards.first).shape, DItemShape.card);
+    final surface = find.ancestor(
+      of: cards.first,
+      matching: find.byType(DCard),
+    );
+    expect(
+      tester.widget<DCard>(surface.first).backgroundColor,
+      DTokens.of(tester.element(cards.first)).footerBackground,
+    );
   });
 
   testWidgets('clickable section headings match passive section headings', (
