@@ -1910,7 +1910,6 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
       privateMessage: loadingRow?.privateMessage ?? false,
       siteUrl: snapshot.siteUrl,
       isConnected: widget.isConnected,
-      bookmarkBusy: widget.bookmarkBusy,
       viewport: _viewportState,
       totalPosts: totalPosts,
       canReply: widget.canReply,
@@ -2718,7 +2717,6 @@ class _TopicBottomBar extends StatelessWidget {
     this.privateMessage = false,
     this.siteUrl,
     this.isConnected = false,
-    this.bookmarkBusy = false,
   });
 
   /// Only the progress control listens: the reading position changes with
@@ -2737,7 +2735,6 @@ class _TopicBottomBar extends StatelessWidget {
   final bool privateMessage;
   final String? siteUrl;
   final bool isConnected;
-  final bool bookmarkBusy;
 
   @override
   Widget build(BuildContext context) {
@@ -2748,17 +2745,10 @@ class _TopicBottomBar extends StatelessWidget {
         ? null
         : controller.instanceFor(siteUrl!)?.user;
     final showReply = canReply || (placeholders && user != null);
-    final showBookmark =
-        (hasTopic || placeholders) &&
-        ShellScope.read(context).currentInstance?.user != null;
-    final showNotifications = (hasTopic || placeholders) && isConnected;
     final showArchive =
         isConnected &&
         (hasTopic ? topic!.privateMessage : placeholders && privateMessage) &&
         user?.canSendPrivateMessages == true;
-    bool showLabel(BoxConstraints constraints) =>
-        constraints.maxWidth >= 580 &&
-        MediaQuery.textScalerOf(context).scale(13) <= 13;
     return DCardFooter(
       key: const ValueKey('topic-bottom-bar'),
       backgroundColor: context.isTouch
@@ -2773,16 +2763,13 @@ class _TopicBottomBar extends StatelessWidget {
       rounded: !context.isTouch,
       padding: EdgeInsets.zero,
       child: ForumTabLayoutBuilder(
-        builder: (context, constraints) => ConstrainedBox(
+        builder: (context, _) => ConstrainedBox(
           constraints: BoxConstraints(minHeight: topicBottomBarHeight(context)),
           child: Padding(
             padding: topicBottomBarPadding,
             child: Row(
               children: [
-                if (showReply ||
-                    showArchive ||
-                    showBookmark ||
-                    showNotifications)
+                if (showReply || showArchive)
                   Expanded(
                     child: Wrap(
                       key: const ValueKey('topic-footer-actions'),
@@ -2819,39 +2806,6 @@ class _TopicBottomBar extends StatelessWidget {
                                   topic: topic!,
                                 )
                               : const MessageArchiveButtonPlaceholder(),
-                        if (showBookmark || showNotifications)
-                          DButtonGroup(
-                            semanticLabel: 'Topic management',
-                            children: [
-                              if (showBookmark)
-                                hasTopic
-                                    ? TopicBookmarkButton(
-                                        siteUrl: siteUrl!,
-                                        topic: topic!,
-                                        busy: bookmarkBusy,
-                                        variant: DButtonVariant.outline,
-                                        size: DButtonSize.regular,
-                                      )
-                                    : const TopicBookmarkButtonPlaceholder(
-                                        variant: DButtonVariant.outline,
-                                        size: DButtonSize.regular,
-                                      ),
-                              if (showNotifications)
-                                hasTopic
-                                    ? TopicNotificationLevelButton(
-                                        siteUrl: siteUrl!,
-                                        topic: topic!,
-                                        showLabel: showLabel(constraints),
-                                        variant: DButtonVariant.outline,
-                                        size: DButtonSize.regular,
-                                      )
-                                    : TopicNotificationLevelPlaceholder(
-                                        showLabel: showLabel(constraints),
-                                        variant: DButtonVariant.outline,
-                                        size: DButtonSize.regular,
-                                      ),
-                            ],
-                          ),
                       ],
                     ),
                   )

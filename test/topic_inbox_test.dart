@@ -412,8 +412,8 @@ void main() {
               .onPressed,
           isNull,
         );
-        expect(find.byType(TopicBookmarkButtonPlaceholder), findsOneWidget);
-        expect(find.byType(TopicNotificationLevelPlaceholder), findsOneWidget);
+        expect(find.byType(TopicBookmarkButtonPlaceholder), findsNothing);
+        expect(find.byType(TopicNotificationLevelPlaceholder), findsNothing);
         expect(
           find.byKey(const ValueKey('topic-loading-skeleton')),
           findsOneWidget,
@@ -1866,14 +1866,14 @@ void main() {
       final footer = find.byKey(const ValueKey('topic-bottom-bar'));
       expect(
         find.descendant(of: footer, matching: find.byType(TopicBookmarkButton)),
-        findsOneWidget,
+        findsNothing,
       );
       expect(
         find.descendant(
           of: footer,
           matching: find.byType(TopicNotificationLevelButton),
         ),
-        findsOneWidget,
+        findsNothing,
       );
       expect(tester.takeException(), isNull);
     },
@@ -2450,104 +2450,66 @@ void main() {
     }),
   );
 
-  testWidgets(
-    'footer actions stay joined at wide and compact widths and remain usable',
-    (tester) async {
-      final setup = await _setup(tester);
-      setup.controller.openTopicFromList(setup.rows.first);
+  testWidgets('bookmark and notification controls appear only in the header', (
+    tester,
+  ) async {
+    final setup = await _setup(tester);
+    setup.controller.openTopicFromList(setup.rows.first);
+    await tester.pumpAndSettle();
+    final footer = find.byKey(const ValueKey('topic-bottom-bar'));
+    final reply = find.byKey(const ValueKey('topic-reply-button'));
+    final bookmark = find.byKey(const ValueKey('topic-header-bookmark-button'));
+    final notifications = find.byKey(
+      const ValueKey('topic-header-notification-button'),
+    );
+    for (final width in [2000.0, 500.0]) {
+      tester.view.physicalSize = Size(width, 800);
       await tester.pumpAndSettle();
-      final group = find.byKey(const ValueKey('topic-footer-actions'));
-      final reply = find.byKey(const ValueKey('topic-reply-button'));
-      final bookmark = find.byKey(const ValueKey('topic-bookmark-button'));
-      final notifications = find.byKey(
-        const ValueKey('topic-notification-level-button'),
+      expect(reply.hitTestable(), findsOneWidget);
+      expect(bookmark.hitTestable(), findsOneWidget);
+      expect(notifications.hitTestable(), findsOneWidget);
+      expect(
+        find.descendant(of: footer, matching: find.byType(TopicBookmarkButton)),
+        findsNothing,
       );
-      for (final width in [2000.0, 500.0]) {
-        tester.view.physicalSize = Size(width, 800);
-        await tester.pumpAndSettle();
-        expect(group, findsOneWidget);
-        final controls = [reply, bookmark, notifications];
-        for (final control in controls) {
-          expect(control.hitTestable(), findsOneWidget);
-          expect(
-            tester.widget<DButton>(control).variant,
-            control == reply ? DButtonVariant.primary : DButtonVariant.outline,
-          );
-          final controls = DTokens.of(tester.element(control)).buttonTheme;
-          expect(
-            buttonSurface(tester, of: control).color,
-            control == reply
-                ? controls.primary.background
-                : controls.outline.background,
-          );
-          expect(
-            buttonSurface(tester, of: control).borderColor,
-            control == reply
-                ? controls.primary.border
-                : controls.outline.border,
-          );
-          expect(tester.getSize(control).height, tester.getSize(reply).height);
-        }
-        expect(
-          tester.getRect(bookmark).left - tester.getRect(reply).right,
-          DSpacing.xs,
-        );
-        expect(
-          tester.getRect(bookmark).right,
-          tester.getRect(notifications).left,
-        );
-        expect(
-          buttonSurface(tester, of: reply).borderRadius.topRight,
-          Radius.circular(DTokens.of(tester.element(reply)).buttonTheme.radius),
-        );
-        expect(
-          buttonSurface(tester, of: bookmark).borderRadius,
-          BorderRadius.horizontal(
-            left: Radius.circular(
-              DTokens.of(tester.element(bookmark)).buttonTheme.radius,
-            ),
-          ),
-        );
-        expect(
-          buttonSurface(tester, of: notifications).borderRadius.topLeft,
-          Radius.zero,
-        );
-        expect(
-          find.descendant(of: notifications, matching: find.text('Normal')),
-          width == 2000 ? findsOneWidget : findsNothing,
-        );
-        expect(tester.takeException(), isNull);
-      }
-      await tester.tap(notifications);
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Watching'));
-      await tester.pumpAndSettle();
-      expect(setup.api.topicNotificationLevelsUpdated, [
-        (topicId: 1, notificationLevel: TopicNotificationLevel.watching),
-      ]);
-      await tester.tap(bookmark);
-      await tester.pumpAndSettle();
-      expect(find.text('Bookmark topic'), findsOneWidget);
-      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
-      await tester.pumpAndSettle();
-      await tester.tap(reply);
-      await tester.pumpAndSettle();
-      expect(setup.controller.visibleComposer?.target.topicId, 1);
-      expect(tester.takeException(), isNull);
-    },
-    variant: TargetPlatformVariant.only(TargetPlatform.macOS),
-  );
+      expect(
+        find.descendant(
+          of: footer,
+          matching: find.byType(TopicNotificationLevelButton),
+        ),
+        findsNothing,
+      );
+    }
+    await tester.tap(notifications);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Watching'));
+    await tester.pumpAndSettle();
+    expect(setup.api.topicNotificationLevelsUpdated, [
+      (topicId: 1, notificationLevel: TopicNotificationLevel.watching),
+    ]);
+    await tester.tap(bookmark);
+    await tester.pumpAndSettle();
+    expect(find.text('Bookmark topic'), findsOneWidget);
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+    await tester.tap(reply);
+    await tester.pumpAndSettle();
+    expect(setup.controller.visibleComposer?.target.topicId, 1);
+    expect(tester.takeException(), isNull);
+  }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 
   for (final theme in [AppTheme.light, AppTheme.dark]) {
     testWidgets(
-      'saved bookmark retains its joined outline (${theme.brightness.name})',
+      'header bookmark retains its joined outline (${theme.brightness.name})',
       (tester) async {
         final setup = await _setup(tester, theme: theme);
         setup.controller.openTopicFromList(setup.rows.first);
         await tester.pumpAndSettle();
-        final bookmark = find.byKey(const ValueKey('topic-bookmark-button'));
+        final bookmark = find.byKey(
+          const ValueKey('topic-header-bookmark-button'),
+        );
         final notifications = find.byKey(
-          const ValueKey('topic-notification-level-button'),
+          const ValueKey('topic-header-notification-button'),
         );
         final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
         await mouse.addPointer(location: Offset.zero);
@@ -2608,7 +2570,7 @@ void main() {
                     find.descendant(of: bookmark, matching: find.byType(DIcon)),
                   )
                   .icon,
-              saved ? DNativeIcons.bookmarkCheck : DNativeIcons.bookmark,
+              saved ? DNativeIcons.bookmarkCheck : DIcons.bookmark,
             );
             expect(tester.widget<DButton>(bookmark).hasPopup, isTrue);
             if (saved) {
