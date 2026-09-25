@@ -362,8 +362,12 @@ class _ForumTabsBarState extends State<ForumTabsBar> {
         if (destination == null || _droppable(details.data) == null) return;
         (widget.onDropTab ?? widget.onReorder)(details.data, destination);
       },
-      builder: (context, candidates, rejected) =>
-          _contents ??= _buildContents(context),
+      // Build against this State's context: its inherited reads (text scale,
+      // theme, direction) must reach didChangeDependencies, which is what
+      // discards the cached contents. The builder's own context would only
+      // rebuild the builder and keep returning the stale strip.
+      builder: (_, candidates, rejected) =>
+          _contents ??= _buildContents(this.context),
     ),
   );
 
