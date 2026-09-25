@@ -94,6 +94,7 @@ class _NewTabPageState extends State<NewTabPage> {
       listenable: Listenable.merge([
         shell.accountActivity.bookmarksListenable,
         shell.topicFeeds,
+        ...?PluginScope.maybeOf(context)?.registry.sidebarListenables(context),
       ]),
       builder: (context, _) => _buildPage(context),
     );
@@ -192,13 +193,10 @@ class _NewTabPageState extends State<NewTabPage> {
           destination: availableChannels[route.id],
         ),
       for (final destination in directMessages.take(4 - visibleChannels.length))
-        _StartPageEntry(
-          id: destination.id,
-          title: destination.label,
-          icon: destination.icon,
-          count: destination.badge?.count,
-          path: _recentRouteUrl(ContentRoute.fromDestination(destination)),
-          onPressed: () => destination.onTap?.call(),
+        _StartPageEntry.fromRoute(
+          ContentRoute.fromDestination(destination),
+          () => destination.onTap?.call(),
+          destination: destination,
         ),
     ];
     final topicRows = [
@@ -600,8 +598,11 @@ class _StartPageEntry {
     title: route.title,
     icon: destination?.icon ?? route.icon,
     color: destination?.iconColor ?? route.color,
-    count: destination?.badge?.count,
-    description: route.subtitle,
+    count: destination?.unreadCount ?? destination?.badge?.count,
+    time: destination?.lastActivityAt == null
+        ? null
+        : relativeTime(destination!.lastActivityAt!),
+    description: destination?.preview ?? route.subtitle,
     path: _recentRouteUrl(route),
     onPressed: onPressed,
   );
