@@ -55,6 +55,7 @@ class ForumDisplaySettings extends StatelessWidget {
     listenable: Listenable.merge([appSettings, forumSettings]),
     builder: (context, _) {
       final theme = Theme.of(context);
+      final tokens = DTokens.of(context);
       final systemFamily = ThemeData(
         platform: theme.platform,
       ).textTheme.bodyLarge!.fontFamily;
@@ -92,6 +93,7 @@ class ForumDisplaySettings extends StatelessWidget {
                             tooltip: 'Decrease text size',
                             semanticLabel: 'Decrease text size',
                             variant: DButtonVariant.outline,
+                            size: DButtonSize.segment,
                           ),
                           DButtonGroupText(
                             child: Semantics(
@@ -116,6 +118,7 @@ class ForumDisplaySettings extends StatelessWidget {
                             tooltip: 'Increase text size',
                             semanticLabel: 'Increase text size',
                             variant: DButtonVariant.outline,
+                            size: DButtonSize.segment,
                           ),
                         ],
                       ),
@@ -139,14 +142,21 @@ class ForumDisplaySettings extends StatelessWidget {
                     DItem(
                       key: ValueKey('display-font-${font.name}'),
                       selected: forumSettings.shared.font == font,
-                      selectionStyle: DItemSelectionStyle.neutral,
+                      selectionStyle: DItemSelectionStyle.tinted,
                       showSelectionIndicator: false,
                       variant: DItemVariant.outline,
                       onPressed: () => unawaited(_setFont(context, font)),
                       children: [
                         DItemContent(
                           children: [
-                            Text(font.label, style: theme.textTheme.bodySmall),
+                            Text(
+                              font.label,
+                              style: theme.textTheme.bodySmall!.copyWith(
+                                color: forumSettings.shared.font == font
+                                    ? tokens.foreground
+                                    : tokens.mutedForeground,
+                              ),
+                            ),
                             Text(
                               'The quick brown fox jumps over the lazy dog.',
                               style: theme.textTheme.bodyLarge!.copyWith(
@@ -185,7 +195,7 @@ class ForumDisplaySettings extends StatelessWidget {
                             child: DItem(
                               key: ValueKey('display-icon-set-${set.name}'),
                               selected: forumSettings.shared.iconSet == set,
-                              selectionStyle: DItemSelectionStyle.neutral,
+                              selectionStyle: DItemSelectionStyle.tinted,
                               showSelectionIndicator: false,
                               variant: DItemVariant.outline,
                               onPressed: () =>
@@ -193,7 +203,18 @@ class ForumDisplaySettings extends StatelessWidget {
                               children: [
                                 DItemContent(
                                   children: [
-                                    Center(child: Text(set.label)),
+                                    Center(
+                                      child: Text(
+                                        set.label,
+                                        style: TextStyle(
+                                          color:
+                                              forumSettings.shared.iconSet ==
+                                                  set
+                                              ? tokens.foreground
+                                              : tokens.mutedForeground,
+                                        ),
+                                      ),
+                                    ),
                                     const SizedBox(height: DSpacing.sm),
                                     const _IconSetPreview(),
                                   ],
@@ -237,19 +258,25 @@ class _IconSetPreview extends StatelessWidget {
   const _IconSetPreview();
 
   @override
-  Widget build(BuildContext context) => const Wrap(
-    alignment: WrapAlignment.spaceEvenly,
+  Widget build(BuildContext context) => const Column(
     spacing: DSpacing.sm,
-    runSpacing: DSpacing.sm,
     children: [
-      DIcon(DIcons.layerGroup),
-      DIcon(DIcons.bell),
-      DIcon(DIcons.bookmark),
-      DIcon(DIcons.magnifyingGlass),
-      DIcon(DIcons.users),
-      DIcon(DIcons.tag),
-      DIcon(DIcons.reply),
-      DIcon(DIcons.gear),
+      Row(
+        children: [
+          Expanded(child: Center(child: DIcon(DIcons.layerGroup))),
+          Expanded(child: Center(child: DIcon(DIcons.bell))),
+          Expanded(child: Center(child: DIcon(DIcons.bookmark))),
+          Expanded(child: Center(child: DIcon(DIcons.magnifyingGlass))),
+        ],
+      ),
+      Row(
+        children: [
+          Expanded(child: Center(child: DIcon(DIcons.users))),
+          Expanded(child: Center(child: DIcon(DIcons.tag))),
+          Expanded(child: Center(child: DIcon(DIcons.reply))),
+          Expanded(child: Center(child: DIcon(DIcons.gear))),
+        ],
+      ),
     ],
   );
 }

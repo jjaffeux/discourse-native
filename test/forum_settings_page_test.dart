@@ -20,16 +20,57 @@ void main() {
     await tester.tap(find.text('Display'));
     await tester.pumpAndSettle();
 
+    final systemFont = find.byKey(const ValueKey('display-font-system'));
+    expect(tester.widget<DItem>(systemFont).selected, isTrue);
+    expect(
+      tester.widget<DItem>(systemFont).selectionStyle,
+      DItemSelectionStyle.tinted,
+    );
+    expect(
+      tester.getSize(find.byKey(const ValueKey('text-size-decrease'))).height,
+      28,
+    );
+
     await tester.tap(find.byKey(const ValueKey('display-font-lato')));
     await tester.pumpAndSettle();
     expect(shell.forumSettings.shared.font, ForumFont.lato);
+    expect(tester.widget<DItem>(systemFont).selected, isFalse);
+    expect(
+      tester
+          .widget<DItem>(find.byKey(const ValueKey('display-font-lato')))
+          .selected,
+      isTrue,
+    );
 
     await tester.ensureVisible(
       find.byKey(const ValueKey('display-icon-set-lucide')),
     );
+    final defaultIcons = find.byKey(
+      const ValueKey('display-icon-set-defaultSet'),
+    );
+    expect(tester.widget<DItem>(defaultIcons).selected, isTrue);
+    expect(
+      tester.widget<DItem>(defaultIcons).selectionStyle,
+      DItemSelectionStyle.tinted,
+    );
+    final previewIcons = find.descendant(
+      of: defaultIcons,
+      matching: find.byType(DIcon),
+    );
+    expect(previewIcons, findsNWidgets(8));
+    final centers = [
+      for (var index = 0; index < 8; index++)
+        tester.getCenter(previewIcons.at(index)),
+    ];
+    for (var index = 0; index < 4; index++) {
+      expect(centers[index].dx, closeTo(centers[index + 4].dx, 0.001));
+      expect(centers[index].dy, closeTo(centers[0].dy, 0.001));
+      expect(centers[index + 4].dy, closeTo(centers[4].dy, 0.001));
+    }
     await tester.tap(find.byKey(const ValueKey('display-icon-set-lucide')));
     await tester.pumpAndSettle();
     expect(shell.forumSettings.shared.iconSet, DIconSet.lucide);
+    expect(tester.widget<DItem>(defaultIcons).selected, isFalse);
 
     await tester.ensureVisible(
       find.byKey(const ValueKey('text-size-increase')),
