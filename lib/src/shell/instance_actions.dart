@@ -194,13 +194,6 @@ class _InstanceActionsState extends State<InstanceActions> {
     }
 
     return [
-      DContextMenuItem(
-        leading: const DIcon(DIcons.gear, size: 16),
-        onPressed: () =>
-            ShellScope.read(context).openForumSettings(widget.instance.url),
-        child: const Text('Appearance'),
-      ),
-      const DContextMenuSeparator(),
       if (widget.onMoveUp != null)
         DContextMenuItem(
           leading: const DIcon(DIcons.arrowUp, size: 16),

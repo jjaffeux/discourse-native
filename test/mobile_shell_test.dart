@@ -1447,11 +1447,8 @@ void main() {
     expect(find.byKey(const ValueKey('mobile-new-topic')), findsNothing);
     await tester.tap(find.byKey(const ValueKey('forum-identity-header')));
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey('forum-identity-settings')));
-    await tester.pumpAndSettle();
-    expect(find.byType(DSheetContent), findsOneWidget);
-    expect(find.text('Appearance'), findsOneWidget);
-    await tester.tap(find.byKey(const ValueKey('forum-settings-close')));
+    expect(find.byKey(const ValueKey('forum-identity-settings')), findsNothing);
+    await tester.tap(find.byKey(const ValueKey('forum-identity-header')));
     await tester.pumpAndSettle();
     expect(shell.mobileNavigation.panelOwner, 'chat');
     await tester.tap(find.byKey(const ValueKey('mobile-search-button')));

@@ -13,6 +13,8 @@ import '../models/shared_appearance.dart';
 import '../models/site_appearance.dart';
 
 final class ForumSettingsController extends FrameSafeNotifier {
+  /// Local appearance identity for the Aggregate home workspace.
+  static const homeSite = 'https://discourse.native.invalid/home';
   ForumSettingsController({required this.store});
 
   final ForumSettingsStore store;
@@ -33,7 +35,7 @@ final class ForumSettingsController extends FrameSafeNotifier {
       _themes.peek(requireStoredForumBase(siteUrl)) ??
       ForumThemePreferences.defaults;
 
-  /// The font, opacity and texture, which are the same in every forum.
+  /// Legacy shared font and effects; custom themes can override the effects.
   SharedAppearance get shared =>
       _shared.peek(_everyForum) ?? SharedAppearance.defaults;
 
@@ -88,7 +90,11 @@ final class ForumSettingsController extends FrameSafeNotifier {
         return effects.isPlain ? forum : forum?.withEffects(effects);
       }
       return theme
-          .copyWith(background: effects)
+          .copyWith(
+            background: preferences.source == ForumThemeSource.custom
+                ? theme.background ?? effects
+                : effects,
+          )
           .resolve(
             brightness,
             forumPalette:

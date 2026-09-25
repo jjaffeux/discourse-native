@@ -241,8 +241,8 @@ class ContentRoute {
 
   factory ContentRoute.appearance() => const ContentRoute(
     id: 'appearance',
-    title: 'Appearance',
-    icon: DIcons.display,
+    title: 'Settings',
+    icon: DIcons.gear,
   );
 
   factory ContentRoute.group(

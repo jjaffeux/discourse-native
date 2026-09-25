@@ -498,24 +498,24 @@ void _registerShellNavigationTests() {
       variant: TargetPlatformVariant.only(TargetPlatform.linux),
     );
 
-    testWidgets('mouse Back closes the app Settings modal', (tester) async {
+    testWidgets('mouse Back closes the Settings tab', (tester) async {
       await pumpShell(tester, desktop);
       final shell = ShellScope.read(tester.element(find.byType(MainContent)));
 
       await tester.tap(find.byKey(const ValueKey('settings-rail-button')));
       await tester.pumpAndSettle();
       expect(shell.rootMode, ShellRootMode.forum);
-      expect(shell.appSettingsModalOpen, isTrue);
+      expect(shell.currentContent?.isAppearance, isTrue);
 
       await tester.tap(
-        find.byKey(const ValueKey('app-settings-form')),
+        find.byType(MainContent),
         buttons: kBackMouseButton,
         kind: PointerDeviceKind.mouse,
       );
       await tester.pumpAndSettle();
 
       expect(shell.rootMode, ShellRootMode.forum);
-      expect(shell.appSettingsModalOpen, isFalse);
+      expect(shell.currentContent?.isAppearance, isNot(true));
       expect(find.byType(MainContent), findsOneWidget);
     }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 

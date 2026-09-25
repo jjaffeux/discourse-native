@@ -1,523 +1,72 @@
-import 'dart:async';
-
-import 'package:discourse_native/discourse_ui.dart';
-import 'package:discourse_native/src/data/app_settings_store.dart';
-import 'package:discourse_native/src/data/instance_store.dart';
+import 'package:discourse_native/src/data/forum_settings_store.dart';
 import 'package:discourse_native/src/models/app_settings.dart';
-import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
-import 'package:discourse_native/src/models/discourse_user.dart';
-import 'package:discourse_native/src/models/topic.dart';
-import 'package:discourse_native/src/shell/adaptive_shell.dart';
-import 'package:discourse_native/src/shell/app_settings_page.dart';
+import 'package:discourse_native/src/shell/forum_settings_controller.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
-import 'package:discourse_native/src/shell/shell_scope.dart';
-import 'package:discourse_native/src/shell/topic_list_view.dart';
-import 'package:discourse_native/src/theme/app_theme.dart';
-import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:super_sliver_list/super_sliver_list.dart';
 
-import 'support/fakes.dart';
+import 'support/theme_settings.dart';
 
 void main() {
-  TestWidgetsFlutterBinding.ensureInitialized();
-
-  group('Settings modal', () {
-    test('leaves Aggregate selected before sites have loaded', () async {
-      final controller = _controller(
-        instanceStore: FakeInstanceStore(),
-        initialRootMode: ShellRootMode.aggregate,
+  test(
+    'rail Settings opens a tab in the current forum without switching forums',
+    () async {
+      final shell = controller(
+        instances: const [
+          DiscourseInstance(url: 'https://a.example', title: 'A'),
+          DiscourseInstance(url: 'https://b.example', title: 'B'),
+        ],
       );
-      addTearDown(controller.dispose);
+      addTearDown(shell.dispose);
+      await shell.load();
+      final original = shell.currentInstance!.url;
+      shell.openCurrentSettings();
+      expect(shell.rootMode, ShellRootMode.forum);
+      expect(shell.currentInstance!.url, original);
+      expect(shell.currentContent?.isAppearance, isTrue);
+      expect(shell.currentContent?.title, 'Settings');
+    },
+  );
 
-      expect(controller.openAppSettingsModal(), isTrue);
-      expect(controller.appSettingsModalOpen, isTrue);
-      expect(controller.rootMode, ShellRootMode.aggregate);
-      expect(controller.mobilePane, MobilePane.sidebar);
-
-      await controller.load();
-      expect(controller.rootMode, ShellRootMode.aggregate);
-
-      controller.closeAppSettingsModal();
-      expect(controller.appSettingsModalOpen, isFalse);
-      expect(controller.rootMode, ShellRootMode.aggregate);
-      expect(controller.mobilePane, MobilePane.sidebar);
-    });
-
-    test('size limit changes do not notify the shell controller', () async {
-      final controller = _controller(instanceStore: FakeInstanceStore());
-      addTearDown(controller.dispose);
-      var shellNotifications = 0;
-      controller.addListener(() => shellNotifications++);
-
-      await controller.appSettings.setLimitContentSize(true);
-
-      expect(controller.appSettings.limitContentSize, true);
-      expect(shellNotifications, 0);
-    });
-
-    test('does not change the compact forum pane or workspace', () async {
-      final controller = await _loadedController();
-      addTearDown(controller.dispose);
-
-      controller.pushContent(
-        ContentRoute.topic(topicId: 42, slug: 'kept', title: 'Kept topic'),
-      );
-      controller.saveTopicScrollPost(42, 17, viewportOffset: 23);
-      final workspace = controller.currentWorkspace;
-      final activeTabId = controller.activeTabId;
-      final routes = List<ContentRoute>.of(controller.contentStack);
-
-      expect(controller.mobilePane, MobilePane.content);
-
-      expect(controller.openAppSettingsModal(), isTrue);
-      expect(controller.openAppSettingsModal(), isFalse);
-
-      expect(controller.rootMode, ShellRootMode.forum);
-      expect(controller.mobilePane, MobilePane.content);
-      controller.closeAppSettingsModal();
-      expect(controller.rootMode, ShellRootMode.forum);
-      expect(controller.mobilePane, MobilePane.content);
-      expect(controller.currentWorkspace, same(workspace));
-      expect(controller.activeTabId, activeTabId);
-      expect(controller.contentStack, routes);
-      expect(controller.topicScrollPostNumber(42), 17);
-      expect(controller.topicScrollPostOffset(42), 23);
-
-      controller.selectInstance(0);
-      expect(controller.mobilePane, MobilePane.sidebar);
-
-      expect(controller.openAppSettingsModal(), isTrue);
-      expect(controller.openAppSettingsModal(), isFalse);
-      controller.closeAppSettingsModal();
-
-      expect(controller.rootMode, ShellRootMode.forum);
-      expect(controller.mobilePane, MobilePane.sidebar);
-      expect(controller.currentWorkspace, same(workspace));
-      expect(controller.activeTabId, activeTabId);
-      expect(controller.contentStack, routes);
-    });
-
-    test('does not change the Aggregate root', () async {
-      final controller = await _loadedController();
-      addTearDown(controller.dispose);
-      final workspace = controller.currentWorkspace;
-
-      controller.selectAggregate();
-      expect(controller.rootMode, ShellRootMode.aggregate);
-
-      expect(controller.openAppSettingsModal(), isTrue);
-      expect(controller.openAppSettingsModal(), isFalse);
-      controller.closeAppSettingsModal();
-
-      expect(controller.rootMode, ShellRootMode.aggregate);
-      expect(controller.mobilePane, MobilePane.content);
-      expect(controller.currentWorkspace, same(workspace));
-    });
-
-    testWidgets('keeps the forum scroll subtree mounted behind the modal', (
-      tester,
-    ) async {
-      final topics = [
-        for (var id = 1; id <= 40; id++)
-          Topic(id: id, title: 'Topic $id', slug: 'topic-$id'),
-      ];
-      final controller = _controller(
-        instanceStore: FakeInstanceStore([_connected('one.example')]),
-        api: FakeDiscourseApi(feeds: {'/latest.json': topics}),
-      );
-      addTearDown(controller.dispose);
-      await controller.load();
-      await controller.loadFeed('latest');
-      await tester.binding.setSurfaceSize(const Size(1200, 700));
-      addTearDown(() => tester.binding.setSurfaceSize(null));
-      await tester.pumpWidget(
-        ShellScope(
-          controller: controller,
-          child: MaterialApp(
-            theme: AppTheme.light,
-            home: const AdaptiveShell(),
-          ),
-        ),
-      );
-      await tester.pumpAndSettle();
-
-      final visibleList = find.byType(SuperListView);
-      final scroll = tester.widget<SuperListView>(visibleList).controller!;
-      await tester.drag(visibleList, const Offset(0, -400));
-      await tester.pumpAndSettle();
-      final offset = scroll.offset;
-      expect(offset, greaterThan(0));
-
-      await tester.tap(find.byKey(const ValueKey('settings-rail-button')));
-      await tester.pumpAndSettle();
-
-      expect(find.byType(AppSettingsModal), findsOneWidget);
-      expect(find.byType(ModalBarrier), findsWidgets);
-      expect(controller.rootMode, ShellRootMode.forum);
-      expect(controller.appSettingsModalOpen, isTrue);
-      final retainedList = find.byType(SuperListView, skipOffstage: false);
-      expect(retainedList, findsOneWidget);
-      expect(
-        tester.widget<SuperListView>(retainedList).controller,
-        same(scroll),
-      );
-      expect(scroll.offset, offset);
-
-      await tester.sendKeyEvent(LogicalKeyboardKey.end);
-      await tester.pumpAndSettle();
-      expect(
-        scroll.offset,
-        offset,
-        reason: 'the obscured topic list must not consume boundary shortcuts',
-      );
-
-      await tester.tap(find.byKey(const ValueKey('app-settings-close')));
-      await tester.pumpAndSettle();
-
-      expect(find.byType(AppSettingsModal), findsNothing);
-      expect(controller.appSettingsModalOpen, isFalse);
-      expect(find.byType(TopicListView), findsOneWidget);
-      expect(
-        tester.widget<SuperListView>(visibleList).controller,
-        same(scroll),
-      );
-      expect(scroll.offset, offset);
-    });
-
-    testWidgets('dismissal removes the modal controls from the widget tree', (
-      tester,
-    ) async {
-      final controller = _controller(
-        instanceStore: FakeInstanceStore([_connected('one.example')]),
-      );
-      addTearDown(controller.dispose);
-      await controller.load();
-      controller.pushContent(
-        ContentRoute.topic(topicId: 42, slug: 'kept', title: 'Kept topic'),
-      );
-      await tester.binding.setSurfaceSize(const Size(1200, 700));
-      addTearDown(() => tester.binding.setSurfaceSize(null));
-      await tester.pumpWidget(
-        ShellScope(
-          controller: controller,
-          child: MaterialApp(
-            theme: AppTheme.light,
-            home: const AdaptiveShell(),
-          ),
-        ),
-      );
-      await tester.pumpAndSettle();
-
-      await tester.tap(find.byKey(const ValueKey('settings-rail-button')));
-      await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const ValueKey('app-settings-close')));
-      await tester.pumpAndSettle();
-
-      final stack = List<ContentRoute>.of(controller.contentStack);
-      expect(find.byType(AppSettingsModal, skipOffstage: false), findsNothing);
-      expect(
-        find.byKey(
-          const ValueKey('limit-content-size-switch'),
-          skipOffstage: false,
-        ),
-        findsNothing,
-      );
-
-      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
-      await tester.pump();
-      expect(controller.contentStack, stack);
-    });
-
-    testWidgets('system Back dismisses the modal before content navigation', (
-      tester,
-    ) async {
-      final controller = _controller(
-        instanceStore: FakeInstanceStore([_connected('one.example')]),
-      );
-      addTearDown(controller.dispose);
-      await controller.load();
-      controller.pushContent(
-        ContentRoute.topic(topicId: 42, slug: 'kept', title: 'Kept topic'),
-      );
-      final stack = List<ContentRoute>.of(controller.contentStack);
-      await tester.binding.setSurfaceSize(const Size(1200, 700));
-      addTearDown(() => tester.binding.setSurfaceSize(null));
-      await tester.pumpWidget(
-        ShellScope(
-          controller: controller,
-          child: MaterialApp(
-            theme: AppTheme.light,
-            home: const AdaptiveShell(),
-          ),
-        ),
-      );
-      await tester.pumpAndSettle();
-
-      await tester.tap(find.byKey(const ValueKey('settings-rail-button')));
-      await tester.pumpAndSettle();
-      expect(find.byType(AppSettingsModal), findsOneWidget);
-
-      await tester.binding.handlePopRoute();
-      await tester.pumpAndSettle();
-
-      expect(find.byType(AppSettingsModal), findsNothing);
-      expect(controller.appSettingsModalOpen, isFalse);
-      expect(controller.contentStack, stack);
-    });
+  test('Aggregate Settings is a separate closable tab', () async {
+    final shell = controller(
+      instances: const [
+        DiscourseInstance(url: 'https://a.example', title: 'A'),
+      ],
+    );
+    addTearDown(shell.dispose);
+    await shell.load();
+    shell.selectAggregate();
+    final feedTab = shell.activeAggregateTabId;
+    shell.openCurrentSettings();
+    expect(shell.rootMode, ShellRootMode.aggregate);
+    expect(shell.aggregateSettingsOpen, isTrue);
+    expect(shell.activeAggregateTabId, feedTab);
+    await shell.forumSettings.setThemeMode(
+      ForumSettingsController.homeSite,
+      shell.forumSettings.themeModeFor('https://a.example'),
+    );
+    shell.closeAggregateSettings();
+    expect(shell.aggregateSettingsOpen, isFalse);
+    expect(shell.activeAggregateTabId, feedTab);
   });
 
-  group('Settings modal availability', () {
-    testWidgets('startup size limit edits retain saved GIF and text settings', (
-      tester,
-    ) async {
-      final persistence = _GatedAppSettingsPersistence();
-      final controller = _controller(
-        instanceStore: FakeInstanceStore(),
-        appSettingsPersistence: persistence,
-      );
-      addTearDown(controller.dispose);
-      final loading = controller.load();
-      await tester.binding.setSurfaceSize(const Size(700, 600));
-      addTearDown(() => tester.binding.setSurfaceSize(null));
-      await tester.pumpWidget(
-        ShellScope(
-          controller: controller,
-          child: MaterialApp(
-            theme: AppTheme.light,
-            home: const AdaptiveShell(),
-          ),
-        ),
-      );
-      await tester.pump();
-      expect(controller.loadStatus, InstanceLoadStatus.loading);
-      expect(controller.appSettings.loaded, isFalse);
-
-      await tester.tap(find.byKey(const ValueKey('settings-rail-button')));
-      await tester.pump(const Duration(milliseconds: 300));
-      await tester.tap(find.text('Limit content size'));
-      await tester.pump();
-
-      expect(
-        tester
-            .widget<DSwitchTile>(
-              find.byKey(const ValueKey('limit-content-size-switch')),
-            )
-            .value,
-        true,
-      );
-      expect(controller.appSettings.limitContentSize, true);
-
-      persistence.readGate.complete();
-      await tester.pump();
-      await loading;
-      await tester.pump();
-
-      const expected = AppSettings(
-        limitContentSize: true,
-        disableGifAnimations: true,
-        textScale: AppTextScale.percent175,
-      );
-      expect(controller.appSettings.settings, expected);
-      expect(find.text('175%'), findsOneWidget);
-      expect(
-        tester
-            .widget<DSwitchTile>(
-              find.byKey(const ValueKey('disable-gif-animations-switch')),
-            )
-            .value,
-        isTrue,
-      );
-      expect(await AppSettingsStore(persistence: persistence).read(), expected);
-
-      await tester.tap(find.byKey(const ValueKey('app-settings-close')));
-      await tester.pumpAndSettle();
-    });
-
-    testWidgets('opens over the loading shell', (tester) async {
-      final load = Completer<List<DiscourseInstance>>();
-      final controller = _controller(instanceStore: _GatedInstanceStore(load));
-      addTearDown(controller.dispose);
-      unawaited(controller.load());
-
-      expect(controller.loadStatus, InstanceLoadStatus.loading);
-      await _openSettingsFromRail(tester, controller);
-
-      load.complete(const []);
-      await tester.pump();
-    });
-
-    testWidgets('opens over the empty ready shell', (tester) async {
-      final controller = _controller(instanceStore: FakeInstanceStore());
-      addTearDown(controller.dispose);
-      await controller.load();
-
-      expect(controller.loadStatus, InstanceLoadStatus.ready);
-      expect(controller.hasInstances, isFalse);
-      await _openSettingsFromRail(tester, controller);
-    });
-
-    testWidgets('opens over the failed shell', (tester) async {
-      final controller = _controller(
-        instanceStore: const _FailingInstanceStore(),
-      );
-      addTearDown(controller.dispose);
-      await controller.load();
-
-      expect(controller.loadStatus, InstanceLoadStatus.failed);
-      await _openSettingsFromRail(tester, controller);
-    });
+  test('Home theme mode persists separately from forum mode', () async {
+    final store = ForumSettingsStore.memory();
+    final first = ForumSettingsController(store: store);
+    addTearDown(first.dispose);
+    await first.load(ForumSettingsController.homeSite);
+    await first.setThemeMode(
+      ForumSettingsController.homeSite,
+      AppThemeMode.dark,
+    );
+    final second = ForumSettingsController(store: store);
+    addTearDown(second.dispose);
+    await second.load(ForumSettingsController.homeSite);
+    expect(
+      second.themeModeFor(ForumSettingsController.homeSite),
+      AppThemeMode.dark,
+    );
+    expect(second.themeModeFor('https://a.example'), AppThemeMode.system);
   });
-}
-
-Future<ShellController> _loadedController() async {
-  final controller = _controller(
-    instanceStore: FakeInstanceStore([
-      _connected('one.example'),
-      _connected('two.example'),
-    ]),
-  );
-  await controller.load();
-  return controller;
-}
-
-ShellController _controller({
-  required InstanceStore instanceStore,
-  ShellRootMode initialRootMode = ShellRootMode.forum,
-  FakeDiscourseApi? api,
-  AppSettingsPersistence? appSettingsPersistence,
-}) => ShellController(
-  instanceStore: instanceStore,
-  api: api ?? FakeDiscourseApi(feeds: const {'/latest.json': []}),
-  authenticator: FakeAuthenticator(),
-  drafts: FakeDraftStore(),
-  forumTabs: FakeForumTabStore(),
-  trackers: FakeSiteTracker.reset(),
-  updateStore: FakeUpdateStore(),
-  initialRootMode: initialRootMode,
-  appSettingsStore: AppSettingsStore(
-    persistence: appSettingsPersistence ?? MemoryAppSettingsPersistence(),
-  ),
-);
-
-DiscourseInstance _connected(String host) => instance(
-  host,
-).copyWith(user: const DiscourseUser(id: 1, username: 'reader'));
-
-Future<void> _openSettingsFromRail(
-  WidgetTester tester,
-  ShellController controller,
-) async {
-  await tester.binding.setSurfaceSize(const Size(700, 600));
-  addTearDown(() => tester.binding.setSurfaceSize(null));
-  await tester.pumpWidget(
-    ShellScope(
-      controller: controller,
-      child: MaterialApp(theme: AppTheme.light, home: const AdaptiveShell()),
-    ),
-  );
-  await tester.pump();
-
-  final settingsButton = find.byKey(const ValueKey('settings-rail-button'));
-  expect(settingsButton, findsOneWidget);
-
-  await tester.tap(settingsButton);
-  // The loading rail intentionally contains an indefinitely animated
-  // activity indicator, so settling the entire shell can never complete.
-  // A finite pump is enough to finish the modal transition while keeping
-  // this test independent of the load state.
-  await tester.pump(const Duration(milliseconds: 300));
-
-  expect(controller.appSettingsModalOpen, isTrue);
-  expect(find.byType(AppSettingsModal), findsOneWidget);
-  expect(find.text('Limit content size'), findsOneWidget);
-
-  await tester.tap(find.byKey(const ValueKey('app-settings-close')));
-  await tester.pump(const Duration(milliseconds: 300));
-  expect(controller.appSettingsModalOpen, isFalse);
-}
-
-final class _GatedInstanceStore implements InstanceStore {
-  const _GatedInstanceStore(this.loadCompleter);
-
-  final Completer<List<DiscourseInstance>> loadCompleter;
-
-  @override
-  Future<List<DiscourseInstance>> load() => loadCompleter.future;
-
-  @override
-  Future<void> save(List<DiscourseInstance> instances) async {}
-}
-
-final class _GatedAppSettingsPersistence implements AppSettingsPersistence {
-  @override
-  Future<bool?> readTopicListLargerText() async => null;
-  @override
-  Future<bool> writeTopicListLargerText(bool value) async => true;
-  @override
-  Future<bool?> readTopicListShowTags() async => null;
-  @override
-  Future<bool?> readTopicListShowLastPoster() async => null;
-  @override
-  Future<bool> writeTopicListShowTags(bool value) async => true;
-  @override
-  Future<bool> writeTopicListShowLastPoster(bool value) async => true;
-
-  final readGate = Completer<void>();
-  final _delegate = MemoryAppSettingsPersistence(
-    limitContentSize: false,
-    disableGifAnimations: true,
-    textScale: AppTextScale.percent175.name,
-  );
-
-  @override
-  Future<bool?> readLimitContentSize() async {
-    final stored = await _delegate.readLimitContentSize();
-    await readGate.future;
-    return stored;
-  }
-
-  @override
-  Future<bool?> readDisableGifAnimations() =>
-      _delegate.readDisableGifAnimations();
-
-  @override
-  Future<String?> readTextScale() => _delegate.readTextScale();
-
-  @override
-  Future<String?> readTopicListMode() => _delegate.readTopicListMode();
-
-  @override
-  Future<bool> writeTopicListMode(String value) =>
-      _delegate.writeTopicListMode(value);
-
-  @override
-  Future<String?> readThemeMode() => _delegate.readThemeMode();
-
-  @override
-  Future<bool> writeThemeMode(String value) => _delegate.writeThemeMode(value);
-
-  @override
-  Future<bool> writeLimitContentSize(bool value) =>
-      _delegate.writeLimitContentSize(value);
-
-  @override
-  Future<bool> writeDisableGifAnimations(bool value) =>
-      _delegate.writeDisableGifAnimations(value);
-
-  @override
-  Future<bool> writeTextScale(String value) => _delegate.writeTextScale(value);
-}
-
-final class _FailingInstanceStore implements InstanceStore {
-  const _FailingInstanceStore();
-
-  @override
-  Future<List<DiscourseInstance>> load() =>
-      Future<List<DiscourseInstance>>.error(StateError('load failed'));
-
-  @override
-  Future<void> save(List<DiscourseInstance> instances) async {}
 }

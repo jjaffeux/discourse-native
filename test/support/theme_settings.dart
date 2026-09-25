@@ -80,4 +80,6 @@ Future<void> pumpSettings(
     ),
   );
   await tester.pumpAndSettle();
+  await tester.tap(find.text('Themes'));
+  await tester.pumpAndSettle();
 }

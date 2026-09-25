@@ -11,6 +11,8 @@ import '../theme/d_native_icons.dart';
 import '../utils/pagination.dart';
 import 'aggregate_feed_controller.dart';
 import 'content_reading_lane.dart';
+import 'forum_settings_controller.dart';
+import 'forum_settings_page.dart';
 import 'forum_tabs_bar.dart';
 import 'platform.dart';
 import 'shell_controller.dart';
@@ -109,110 +111,120 @@ class AggregateViewState extends State<AggregateView> {
       child: ColoredBox(
         color: theme.shell.content,
         child: ListenableBuilder(
-          listenable: controller.aggregate,
+          listenable: Listenable.merge([controller.aggregate, controller]),
           builder: (context, _) {
             _releaseClosedTabScrolls(controller);
             final state = controller.aggregate.state;
             final tabId = controller.activeAggregateTabId;
+            final settingsOpen = controller.aggregateSettingsOpen;
             return DPageSurface(
               border: false,
               borderRadius: WorkspacePanelCorner.borderRadiusOf(context),
-              identity: tabId,
+              identity: settingsOpen ? 'settings' : tabId,
               framed: !context.isTouch,
               limitContentSize: ContentSettingsScope.limitContentSizeOf(
                 context,
               ),
-              tabs: controller.forumTabsEnabled
+              tabs: controller.forumTabsEnabled || settingsOpen
                   ? _AggregateTabsBar(controller: controller)
                   : null,
-              header: Column(
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Row(
+              header: settingsOpen
+                  ? null
+                  : Column(
                       children: [
-                        Expanded(
-                          child: Text(
-                            'Topics',
-                            style: theme.textTheme.titleMedium,
+                        Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  'Topics',
+                                  style: theme.textTheme.titleMedium,
+                                ),
+                              ),
+                              TopicListActions(
+                                filter: _AggregateInlineFilters(
+                                  key: ValueKey(('aggregate-filters', tabId)),
+                                  controller: controller,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
-                        TopicListActions(
-                          filter: _AggregateInlineFilters(
-                            key: ValueKey(('aggregate-filters', tabId)),
-                            controller: controller,
-                          ),
+                        const DSeparator(
+                          key: ValueKey('topic-list-heading-separator'),
                         ),
                       ],
                     ),
-                  ),
-                  const DSeparator(
-                    key: ValueKey('topic-list-heading-separator'),
-                  ),
-                ],
-              ),
-              child: ContentReadingLane(
-                widthLimit: topicListContentWidth,
-                basePadding: const EdgeInsets.symmetric(
-                  horizontal: topicListHorizontalPadding,
-                  vertical: 8,
-                ),
-                builder: (context, lane) => CustomScrollView(
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  key: PageStorageKey(('aggregate-topic-list', tabId)),
-                  controller: _scrollFor(tabId),
-                  slivers: [
-                    if (state.loading && state.topics.isEmpty)
-                      const SliverToBoxAdapter(child: SizedBox.shrink())
-                    else if (state.isEmpty)
-                      SliverToBoxAdapter(
-                        child: _AggregateEmptyState(
-                          icon: DIcons.inbox,
-                          title: state.includedForums == 0
-                              ? 'No forums selected'
-                              : 'No matching topics',
-                          message: '',
-                          actionLabel: state.includedForums == 0
-                              ? 'Choose forums'
-                              : 'Refresh',
-                          onAction: state.includedForums == 0
-                              ? () => controller.aggregate.setFiltersCollapsed(
-                                  false,
-                                )
-                              : () => unawaited(controller.refreshAggregate()),
-                        ),
-                      )
-                    else ...[
-                      if (state.failures.isNotEmpty)
-                        SliverToBoxAdapter(
-                          child: _PartialFailureBanner(
-                            failed: state.failures.length,
-                            onRetry: () =>
-                                unawaited(controller.refreshAggregate()),
-                          ),
-                        ),
-                      SliverPadding(
-                        padding: lane.padding.copyWith(top: 0),
-                        sliver: SliverList.separated(
-                          itemCount: state.topics.length,
-                          separatorBuilder: (_, _) => const DSeparator(),
-                          itemBuilder: (_, index) {
-                            final reference = state.topics[index];
-                            return _AggregateTopicRow(
-                              key: ValueKey(
-                                'aggregate-topic-card-${reference.siteUrl}-${reference.topicId}',
-                              ),
-                              reference: reference,
-                            );
-                          },
-                        ),
+              child: settingsOpen
+                  ? const ForumSettingsPage(
+                      siteUrl: ForumSettingsController.homeSite,
+                    )
+                  : ContentReadingLane(
+                      widthLimit: topicListContentWidth,
+                      basePadding: const EdgeInsets.symmetric(
+                        horizontal: topicListHorizontalPadding,
+                        vertical: 8,
                       ),
-                      if (state.loadingMore)
-                        const SliverToBoxAdapter(child: SizedBox.shrink()),
-                    ],
-                  ],
-                ),
-              ),
+                      builder: (context, lane) => CustomScrollView(
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        key: PageStorageKey(('aggregate-topic-list', tabId)),
+                        controller: _scrollFor(tabId),
+                        slivers: [
+                          if (state.loading && state.topics.isEmpty)
+                            const SliverToBoxAdapter(child: SizedBox.shrink())
+                          else if (state.isEmpty)
+                            SliverToBoxAdapter(
+                              child: _AggregateEmptyState(
+                                icon: DIcons.inbox,
+                                title: state.includedForums == 0
+                                    ? 'No forums selected'
+                                    : 'No matching topics',
+                                message: '',
+                                actionLabel: state.includedForums == 0
+                                    ? 'Choose forums'
+                                    : 'Refresh',
+                                onAction: state.includedForums == 0
+                                    ? () => controller.aggregate
+                                          .setFiltersCollapsed(false)
+                                    : () => unawaited(
+                                        controller.refreshAggregate(),
+                                      ),
+                              ),
+                            )
+                          else ...[
+                            if (state.failures.isNotEmpty)
+                              SliverToBoxAdapter(
+                                child: _PartialFailureBanner(
+                                  failed: state.failures.length,
+                                  onRetry: () =>
+                                      unawaited(controller.refreshAggregate()),
+                                ),
+                              ),
+                            SliverPadding(
+                              padding: lane.padding.copyWith(top: 0),
+                              sliver: SliverList.separated(
+                                itemCount: state.topics.length,
+                                separatorBuilder: (_, _) => const DSeparator(),
+                                itemBuilder: (_, index) {
+                                  final reference = state.topics[index];
+                                  return _AggregateTopicRow(
+                                    key: ValueKey(
+                                      'aggregate-topic-card-${reference.siteUrl}-${reference.topicId}',
+                                    ),
+                                    reference: reference,
+                                  );
+                                },
+                              ),
+                            ),
+                            if (state.loadingMore)
+                              const SliverToBoxAdapter(
+                                child: SizedBox.shrink(),
+                              ),
+                          ],
+                        ],
+                      ),
+                    ),
             );
           },
         ),
@@ -436,20 +448,38 @@ class _AggregateTabsBar extends StatelessWidget {
             id: tabs[index].id,
             title: tabs[index].name ?? 'Aggregate ${index + 1}',
           ),
+        if (controller.aggregateSettingsOpen)
+          const ForumTabItem(
+            id: 'settings',
+            title: 'Settings',
+            icon: DIcons.gear,
+          ),
       ],
       recentlyClosedItems: [
         for (final tab in controller.recentlyClosedAggregateTabs)
           ForumTabItem(id: tab.id, title: tab.name ?? 'Aggregate tab'),
       ],
-      selectedId: controller.activeAggregateTabId,
+      selectedId: controller.aggregateSettingsOpen
+          ? 'settings'
+          : controller.activeAggregateTabId,
       onAdd: controller.canCreateAggregateTab
           ? controller.createAggregateTab
           : null,
-      onSelect: controller.selectAggregateTab,
-      onClose: controller.closeAggregateTab,
-      onReorder: controller.moveAggregateTab,
-      onRename: controller.renameAggregateTab,
-      onCloseOthers: controller.closeOtherAggregateTabs,
+      onSelect: (id) => id == 'settings'
+          ? controller.openCurrentSettings()
+          : controller.selectAggregateTab(id),
+      onClose: (id) => id == 'settings'
+          ? controller.closeAggregateSettings()
+          : controller.closeAggregateTab(id),
+      onReorder: (id, index) {
+        if (id != 'settings') controller.moveAggregateTab(id, index);
+      },
+      onRename: (id, name) {
+        if (id != 'settings') controller.renameAggregateTab(id, name);
+      },
+      onCloseOthers: (id) {
+        if (id != 'settings') controller.closeOtherAggregateTabs(id);
+      },
       onReopen: controller.canCreateAggregateTab
           ? (id) => controller.reopenClosedAggregateTab(id)
           : null,

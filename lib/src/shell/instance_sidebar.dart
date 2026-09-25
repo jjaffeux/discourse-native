@@ -799,13 +799,6 @@ class ForumIdentityHeader extends StatelessWidget {
             onPressed: () => unawaited(openExternalLink(siteUrl)),
             child: const Text('Open forum in browser'),
           ),
-          DDropdownMenuItem(
-            key: const ValueKey('forum-identity-settings'),
-            leading: const DIcon(DIcons.gear, size: 16),
-            onPressed: () =>
-                ShellScope.read(context).openForumSettings(siteUrl),
-            child: const Text('Appearance'),
-          ),
           const DDropdownMenuSeparator(),
           DDropdownMenuItem(
             key: const ValueKey('forum-identity-remove'),

@@ -34,6 +34,7 @@ import 'plugin_api/site_plugin_api.dart';
 import 'shell/adaptive_shell.dart';
 import 'shell/app_text_scale.dart';
 import 'shell/content_reading_lane.dart';
+import 'shell/forum_settings_controller.dart';
 import 'shell/platform.dart';
 import 'shell/shell_controller.dart';
 import 'shell/shell_scope.dart';
@@ -540,12 +541,10 @@ class _DiscourseAppState extends State<DiscourseApp>
               listenable: _controller.forumSettings,
               builder: (context, _) {
                 SurfaceOpeningTrace.mark('forum.theme.start');
-                final appearance = selection.siteUrl == null
-                    ? selection.appearance
-                    : _controller.forumSettings.appearanceFor(
-                        selection.siteUrl!,
-                        selection.appearance,
-                      );
+                final appearance = _controller.forumSettings.appearanceFor(
+                  selection.siteUrl ?? ForumSettingsController.homeSite,
+                  selection.appearance,
+                );
                 final fontFamily = _controller.forumSettings.shared.font.family;
                 final lightTheme = _themeFor(
                   appearance,
@@ -558,22 +557,18 @@ class _DiscourseAppState extends State<DiscourseApp>
                   fontFamily,
                 );
                 SurfaceOpeningTrace.mark('forum.theme.end');
-                final shown = selection.siteUrl == null
-                    ? null
-                    : _controller.forumSettings.previewBrightnessFor(
-                        selection.siteUrl!,
-                      );
+                final shown = _controller.forumSettings.previewBrightnessFor(
+                  selection.siteUrl ?? ForumSettingsController.homeSite,
+                );
                 return _materialApp(
                   theme: lightTheme,
                   darkTheme: darkTheme,
                   themeMode: switch (shown) {
                     Brightness.light => ThemeMode.light,
                     Brightness.dark => ThemeMode.dark,
-                    null => switch (selection.siteUrl == null
-                        ? AppThemeMode.system
-                        : _controller.forumSettings.themeModeFor(
-                            selection.siteUrl!,
-                          )) {
+                    null => switch (_controller.forumSettings.themeModeFor(
+                      selection.siteUrl ?? ForumSettingsController.homeSite,
+                    )) {
                       AppThemeMode.system => ThemeMode.system,
                       AppThemeMode.light => ThemeMode.light,
                       AppThemeMode.dark => ThemeMode.dark,
