@@ -274,7 +274,7 @@ void main() {
 
     await tapVisible(tester, find.text('Normal'));
     final normal = tester.getRect(toggle);
-    expect(normal.width, 825);
+    expect(normal.width, 793);
     expect(normal.center.dx, wide.center.dx);
 
     await tapVisible(tester, find.text('Wide'));

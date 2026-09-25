@@ -176,6 +176,7 @@ class _MainContentBody extends StatelessWidget {
         borderRadius: WorkspacePanelCorner.borderRadiusOf(context),
         backgroundColor: ForumWindowBackground.panelColor(context),
         framed: !context.isTouch,
+        limitContentSize: ContentSettingsScope.limitContentSizeOf(context),
         tabs: forumTabsEnabled ? const TopicPanelTabs() : null,
         child: NewTabPage(onBrowseTopics: () => openLink(context, '/latest')),
       );

@@ -24,6 +24,29 @@ import 'support/fakes.dart';
 import 'support/shell_test_harness.dart';
 
 void main() {
+  testWidgets('the app width setting applies to tab content', (tester) async {
+    SharedPreferences.setMockInitialValues({
+      'discourse_native.panel_tutorial_dismissed': true,
+    });
+    await pumpShell(tester, const Size(3000, 900));
+    final shell = ShellScope.read(
+      tester.element(find.byType(MainContent).first),
+    );
+    shell.pushContent(ContentRoute.newTab());
+    await shell.appSettings.setLimitContentSize(false);
+    await tester.pumpAndSettle();
+
+    final page = find.byType(NewTabPage).first;
+    final wide = tester.getRect(page);
+    expect(wide.width, greaterThan(825));
+
+    await shell.appSettings.setLimitContentSize(true);
+    await tester.pumpAndSettle();
+    final normal = tester.getRect(page);
+    expect(normal.width, 825);
+    expect(normal.center.dx, wide.center.dx);
+  });
+
   testWidgets('recent categories and Start page links expose panel actions', (
     tester,
   ) async {

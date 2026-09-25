@@ -181,7 +181,11 @@ void main() {
       await mount(limited: true);
       expect(tester.element(find.byKey(_viewport)), same(viewport));
       expect(scroll.offset, 160);
-      expect(tester.getSize(find.byKey(_viewport)).width, 1400);
+      expect(tester.getSize(find.byKey(_tabs)).width, 1400);
+      expect(tester.getSize(find.byKey(_header)).width, 825);
+      expect(tester.getSize(find.byKey(_viewport)).width, 825);
+      expect(tester.getSize(find.byKey(_footer)).width, 825);
+      expect(tester.getRect(find.byKey(_header)).center.dx, 700);
       expect(tester.getSize(find.byKey(const ValueKey('row-4'))).width, 825);
       await _wheel(tester, find.byKey(_viewport), -100);
       expect(find.byKey(_header).hitTestable(), findsOneWidget);

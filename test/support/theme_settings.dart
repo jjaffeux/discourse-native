@@ -2,7 +2,6 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/data/forum_settings_store.dart';
 import 'package:discourse_native/src/models/app_settings.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
-import 'package:discourse_native/src/shell/content_reading_lane.dart';
 import 'package:discourse_native/src/shell/forum_settings_page.dart';
 import 'package:discourse_native/src/shell/forum_theme_surfaces.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
@@ -42,50 +41,46 @@ Future<void> pumpSettings(
   await tester.pumpWidget(
     ShellScope(
       controller: shell,
-      child: ContentSettingsScope(
-        controller: shell.appSettings,
-        child: ListenableBuilder(
-          listenable: shell.forumSettings,
-          builder: (context, _) {
-            final mode = shell.forumSettings.themeModeFor(_site);
-            final brightness =
-                shell.forumSettings.previewBrightnessFor(_site) ??
-                (mode == AppThemeMode.dark
-                    ? Brightness.dark
-                    : Brightness.light);
-            final font = shell.forumSettings.shared.font;
-            final palette = shell.forumSettings
-                .appearanceFor(_site, null)
-                ?.paletteForBrightness(brightness);
-            final theme = palette == null
-                ? AppTheme.forBrightness(brightness, fontFamily: font.family)
-                : AppTheme.fromPalette(palette, fontFamily: font.family);
-            return MaterialApp(
-              theme: theme.copyWith(platform: platform),
-              // The app hosts toasts above every page.
-              builder: (context, child) => DToaster(
-                child: MediaQuery(
-                  data: MediaQuery.of(context)
-                      .copyWith(textScaler: TextScaler.linear(scale)),
-                  child: Directionality(
-                    textDirection: direction,
-                    child: child!,
-                  ),
-                ),
+      child: ListenableBuilder(
+        listenable: Listenable.merge([shell.forumSettings, shell.appSettings]),
+        builder: (context, _) {
+          final mode = shell.forumSettings.themeModeFor(_site);
+          final brightness =
+              shell.forumSettings.previewBrightnessFor(_site) ??
+              (mode == AppThemeMode.dark ? Brightness.dark : Brightness.light);
+          final font = shell.forumSettings.shared.font;
+          final palette = shell.forumSettings
+              .appearanceFor(_site, null)
+              ?.paletteForBrightness(brightness);
+          final theme = palette == null
+              ? AppTheme.forBrightness(brightness, fontFamily: font.family)
+              : AppTheme.fromPalette(palette, fontFamily: font.family);
+          return MaterialApp(
+            theme: theme.copyWith(platform: platform),
+            // The app hosts toasts above every page.
+            builder: (context, child) => DToaster(
+              child: MediaQuery(
+                data: MediaQuery.of(
+                  context,
+                ).copyWith(textScaler: TextScaler.linear(scale)),
+                child: Directionality(textDirection: direction, child: child!),
               ),
-              home: ForumWindowBackground(
-                child: Scaffold(
-                  body: Center(
-                    child: SizedBox(
-                      width: panelWidth,
+            ),
+            home: ForumWindowBackground(
+              child: Scaffold(
+                body: Center(
+                  child: SizedBox(
+                    width: panelWidth,
+                    child: DPageSurface(
+                      limitContentSize: shell.appSettings.limitContentSize,
                       child: const ForumSettingsPage(siteUrl: _site),
                     ),
                   ),
                 ),
               ),
-            );
-          },
-        ),
+            ),
+          );
+        },
       ),
     ),
   );
