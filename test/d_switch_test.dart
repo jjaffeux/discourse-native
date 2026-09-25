@@ -697,7 +697,15 @@ void main() {
       await mouse.addPointer(location: Offset.zero);
       await mouse.moveTo(tester.getCenter(find.text('Disable GIF animations')));
       await tester.pumpAndSettle();
-      expect(decoration().color, tokens.muted.withValues(alpha: .5));
+      final hoverColor = decoration().color!;
+      expect(hoverColor, tokens.foreground.withValues(alpha: .08));
+      final hoveredSurface = Color.alphaBlend(hoverColor, tokens.background);
+      expect(
+        (hoveredSurface.computeLuminance() -
+                tokens.background.computeLuminance())
+            .abs(),
+        greaterThan(.01),
+      );
       await tester.tapAt(tester.getTopLeft(row) + const Offset(4, 4));
       expect(changes, 1);
       await mouse.moveTo(Offset.zero);
