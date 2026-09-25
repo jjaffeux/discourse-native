@@ -51,6 +51,11 @@ accept widgets rather than coupling the generic component to one icon package.
 The styleguide uses Flutter's available outline icons to demonstrate the exact
 slot geometry; production callers retain their own app icon vocabulary.
 
+`DDropdownMenuSeparator(inset: true)` aligns its rule with menu item content,
+14px inside each popup edge (6px outer padding plus 8px item inset). The
+profile menu uses this opt-in treatment; other dropdown separators retain the
+full-width default.
+
 ## 2026-09-10 parity follow-up
 
 The live Base UI page and registry were rechecked against the supplied dark
