@@ -42,6 +42,8 @@ void main() {
       ),
     );
     expect(shell.forumSettings.themeModeFor(site), AppThemeMode.dark);
+    expect(find.text('New theme'), findsOneWidget);
+    expect(find.text('New dark theme'), findsNothing);
     expect(
       shell.forumSettings.themeModeFor('https://b.example'),
       AppThemeMode.system,
@@ -63,6 +65,12 @@ void main() {
     final shell = controller();
     addTearDown(shell.dispose);
     await pumpSettings(tester, shell);
+    final newTheme = find.byKey(const ValueKey('new-theme'));
+    expect(
+      find.descendant(of: newTheme, matching: find.text('New theme')),
+      findsOneWidget,
+    );
+    expect(tester.widget<DButton>(newTheme).variant, DButtonVariant.dashedTile);
     await tapVisible(tester, find.byKey(const ValueKey('new-theme')));
     expect(find.byType(ForumThemeEditor), findsOneWidget);
     expect(find.byKey(const ValueKey('appearance-mode')), findsNothing);

@@ -8,8 +8,11 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   test('registers every documented section in reference order', () {
     expect(buttonExamples.examples.map((example) => example.title), [
+      'Application control sizes',
       'Redesign button families',
+      'Dashed creation tile',
       'Pill toolbar action',
+      'Compact toolbar',
       'Mobile navigation',
       'Variants',
       'Size',

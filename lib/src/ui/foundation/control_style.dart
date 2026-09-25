@@ -213,6 +213,7 @@ class DControlDecoration extends Decoration {
     this.shadowColor = const Color(0x00000000),
     this.joinedAxis,
     this.strokeWidth = borderWidth,
+    this.dashed = false,
   }) : assert(ringWidth >= 0),
        assert(strokeWidth >= 0);
 
@@ -229,6 +230,7 @@ class DControlDecoration extends Decoration {
 
   /// Buttons use 1px; existing editable controls retain their 0.5px frame.
   final double strokeWidth;
+  final bool dashed;
 
   @override
   BoxPainter createBoxPainter([VoidCallback? onChanged]) =>
@@ -246,6 +248,7 @@ class DControlDecoration extends Decoration {
           shadowColor: Color.lerp(a.shadowColor, shadowColor, t)!,
           joinedAxis: t < .5 ? a.joinedAxis : joinedAxis,
           strokeWidth: lerpDouble(a.strokeWidth, strokeWidth, t)!,
+          dashed: t < .5 ? a.dashed : dashed,
         )
       : super.lerpFrom(a, t);
 
@@ -257,6 +260,7 @@ class DControlDecoration extends Decoration {
   bool operator ==(Object other) =>
       other is DControlDecoration &&
       other.strokeWidth == strokeWidth &&
+      other.dashed == dashed &&
       other.color == color &&
       other.borderColor == borderColor &&
       other.borderRadius == borderRadius &&
@@ -269,6 +273,7 @@ class DControlDecoration extends Decoration {
   @override
   int get hashCode => Object.hash(
     strokeWidth,
+    dashed,
     color,
     borderColor,
     borderRadius,
@@ -324,15 +329,34 @@ class _DControlPainter extends BoxPainter {
       );
     }
     if (decoration.borderColor.a > 0) {
-      // The shared edge leaves the inner and outer paths touching, which an
-      // even-odd path difference handles where drawDRRect is undefined.
-      canvas.drawPath(
-        Path()
-          ..fillType = PathFillType.evenOdd
-          ..addRRect(outer)
-          ..addRRect(inner),
-        Paint()..color = decoration.borderColor,
-      );
+      if (decoration.dashed) {
+        final outline = Path()..addRRect(outer.deflate(width / 2));
+        final paint = Paint()
+          ..color = decoration.borderColor
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = width;
+        for (final metric in outline.computeMetrics()) {
+          for (double distance = 0; distance < metric.length; distance += 6) {
+            canvas.drawPath(
+              metric.extractPath(
+                distance,
+                math.min(distance + 3, metric.length),
+              ),
+              paint,
+            );
+          }
+        }
+      } else {
+        // The shared edge leaves the inner and outer paths touching, which an
+        // even-odd path difference handles where drawDRRect is undefined.
+        canvas.drawPath(
+          Path()
+            ..fillType = PathFillType.evenOdd
+            ..addRRect(outer)
+            ..addRRect(inner),
+          Paint()..color = decoration.borderColor,
+        );
+      }
     }
     if (decoration.color.a > 0) {
       canvas.drawRRect(

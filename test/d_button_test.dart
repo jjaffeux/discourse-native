@@ -8,6 +8,56 @@ import 'package:flutter_test/flutter_test.dart';
 import 'support/button_surface.dart';
 
 void main() {
+  testWidgets('dashed tile fills its row and keeps one button target', (
+    tester,
+  ) async {
+    var presses = 0;
+    Future<void> pump(double scale) => tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.dark.copyWith(platform: TargetPlatform.macOS),
+        home: MediaQuery(
+          data: MediaQueryData(textScaler: TextScaler.linear(scale)),
+          child: Scaffold(
+            body: SizedBox(
+              width: 320,
+              child: DButton(
+                label: const Text('New theme'),
+                icon: const Icon(Icons.add),
+                variant: DButtonVariant.dashedTile,
+                alignment: AlignmentDirectional.centerStart,
+                onPressed: () => presses++,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await pump(1);
+    final button = find.byType(DButton);
+    expect(tester.getSize(button), const Size(320, 50));
+    expect(buttonSurface(tester).dashed, isTrue);
+    final iconFrame = find.descendant(
+      of: button,
+      matching: find.byWidgetPredicate(
+        (widget) =>
+            widget is DecoratedBox &&
+            widget.decoration is DButtonDecoration &&
+            (widget.decoration as DButtonDecoration).dashed,
+      ),
+    );
+    expect(tester.getSize(iconFrame.last), const Size(34, 34));
+    await tester.tapAt(tester.getRect(button).centerRight - const Offset(2, 0));
+    await tester.pump();
+    expect(presses, 1);
+    await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+    await tester.pump();
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pump();
+    expect(presses, 2);
+    await pump(2);
+    expect(tester.getSize(button).height, greaterThan(50));
+  });
+
   for (final platform in [
     TargetPlatform.macOS,
     TargetPlatform.iOS,
