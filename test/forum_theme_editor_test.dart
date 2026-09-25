@@ -62,6 +62,7 @@ void main() {
     await pumpSettings(tester, shell);
     await tapVisible(tester, find.byKey(const ValueKey('new-theme')));
     expect(find.byType(ForumThemeEditor), findsOneWidget);
+    expect(find.byKey(const ValueKey('appearance-mode')), findsNothing);
     expect(find.byKey(const ValueKey('all-themes')), findsOneWidget);
     expect(find.byKey(const ValueKey('theme-opacity')), findsOneWidget);
     expect(find.byKey(const ValueKey('theme-texture')), findsOneWidget);
@@ -85,6 +86,29 @@ void main() {
       ForumBackgroundEffect.paper,
     );
     expect(find.byType(ForumThemeEditor), findsNothing);
+    expect(find.byKey(const ValueKey('appearance-mode')), findsOneWidget);
+  });
+
+  testWidgets('editing a theme hides the appearance mode control', (
+    tester,
+  ) async {
+    final shell = controller();
+    addTearDown(shell.dispose);
+    await pumpSettings(tester, shell);
+    await tapVisible(tester, find.byKey(const ValueKey('new-theme')));
+    final name = find.descendant(
+      of: find.byKey(const ValueKey('theme-name')),
+      matching: find.byType(EditableText),
+    );
+    await tester.enterText(name, 'My theme');
+    await tester.pumpAndSettle();
+    await tapVisible(tester, find.byKey(const ValueKey('theme-save')));
+    final theme = shell.forumSettings.themesFor(site).customTheme!;
+    await tapVisible(tester, find.byKey(ValueKey(('edit-theme', theme.id))));
+    expect(find.byType(ForumThemeEditor), findsOneWidget);
+    expect(find.byKey(const ValueKey('appearance-mode')), findsNothing);
+    await tapVisible(tester, find.byKey(const ValueKey('theme-cancel')));
+    expect(find.byKey(const ValueKey('appearance-mode')), findsOneWidget);
   });
 
   testWidgets('Use on every forum copies the selected theme to Home too', (

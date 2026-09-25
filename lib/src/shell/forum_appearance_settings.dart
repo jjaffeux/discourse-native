@@ -326,34 +326,35 @@ class _ForumAppearanceSettingsState extends State<ForumAppearanceSettings> {
                       ),
                     ),
                   ),
-                DToggleGroup<AppThemeMode>(
-                  key: const ValueKey('appearance-mode'),
-                  values: [mode],
-                  multiple: false,
-                  allowEmptySelection: false,
-                  expanded: true,
-                  inset: true,
-                  onChanged: (values) {
-                    if (values.isEmpty) return;
-                    final value = values.first;
-                    unawaited(settings.setThemeMode(widget.siteUrl, value));
-                    _show(null);
-                  },
-                  items: const [
-                    DToggleGroupItem(
-                      value: AppThemeMode.light,
-                      child: Text('Light'),
-                    ),
-                    DToggleGroupItem(
-                      value: AppThemeMode.dark,
-                      child: Text('Dark'),
-                    ),
-                    DToggleGroupItem(
-                      value: AppThemeMode.system,
-                      child: Text('Auto'),
-                    ),
-                  ],
-                ),
+                if (editing == null)
+                  DToggleGroup<AppThemeMode>(
+                    key: const ValueKey('appearance-mode'),
+                    values: [mode],
+                    multiple: false,
+                    allowEmptySelection: false,
+                    expanded: true,
+                    inset: true,
+                    onChanged: (values) {
+                      if (values.isEmpty) return;
+                      final value = values.first;
+                      unawaited(settings.setThemeMode(widget.siteUrl, value));
+                      _show(null);
+                    },
+                    items: const [
+                      DToggleGroupItem(
+                        value: AppThemeMode.light,
+                        child: Text('Light'),
+                      ),
+                      DToggleGroupItem(
+                        value: AppThemeMode.dark,
+                        child: Text('Dark'),
+                      ),
+                      DToggleGroupItem(
+                        value: AppThemeMode.system,
+                        child: Text('Auto'),
+                      ),
+                    ],
+                  ),
                 if (editing != null)
                   ForumThemeEditor(
                     key: ValueKey(('theme-editor', editing.id)),
