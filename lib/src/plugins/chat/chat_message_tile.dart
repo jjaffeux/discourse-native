@@ -528,6 +528,7 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
           size: DButtonSize.regular,
           density: DButtonDensity.chatMessageAction,
           variant: DButtonVariant.transparentBackground,
+          interactiveBackgroundColor: Colors.transparent,
           onPressed: !enabled || _reactionPickerOpening
               ? null
               : () => unawaited(_pickReaction(anchorContext)),
@@ -559,6 +560,7 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
       size: DButtonSize.regular,
       density: DButtonDensity.chatMessageAction,
       variant: DButtonVariant.transparentBackground,
+      interactiveBackgroundColor: Colors.transparent,
       onPressed: _reply,
     ),
     builder: (context, child) {
