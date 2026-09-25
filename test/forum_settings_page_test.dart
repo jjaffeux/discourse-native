@@ -14,11 +14,11 @@ void main() {
       await pumpSettings(tester, shell);
       expect(
         tester
-            .widget<DRadioGroup<AppThemeMode>>(
+            .widget<DToggleGroup<AppThemeMode>>(
               find.byKey(const ValueKey('appearance-mode')),
             )
-            .groupValue,
-        AppThemeMode.system,
+            .values,
+        [AppThemeMode.system],
       );
       // The font is an app setting, chosen in Settings.
       expect(find.text('Font'), findsNothing);

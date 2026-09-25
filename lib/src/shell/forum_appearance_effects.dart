@@ -4,10 +4,8 @@ import 'package:flutter/material.dart';
 import '../models/forum_background.dart';
 import 'theme_icons.dart';
 
-/// The controls for the window effects every forum shares, drawn over
-/// whichever colours it uses. They are chosen outside any theme so they are
-/// found without making one, and so moving between forums never changes them.
-/// The tint is a theme's own; see [ForumTintField].
+/// Window effect controls shared by a theme editor or appearance settings.
+/// The tint is edited separately; see [ForumTintField].
 class ForumAppearanceEffects extends StatelessWidget {
   const ForumAppearanceEffects({
     super.key,

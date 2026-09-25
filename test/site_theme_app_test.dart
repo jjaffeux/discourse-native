@@ -23,6 +23,7 @@ import 'package:discourse_native/src/models/site_appearance.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/shell/adaptive_shell.dart';
 import 'package:discourse_native/src/shell/avatar_image.dart';
+import 'package:discourse_native/src/shell/forum_settings_controller.dart';
 import 'package:discourse_native/src/shell/forum_settings_page.dart';
 import 'package:discourse_native/src/shell/instance_rail.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
@@ -44,6 +45,33 @@ import 'support/site_appearance_fixtures.dart';
 void main() {
   const siteA = 'https://a.example';
   const siteB = 'https://b.example';
+
+  testWidgets('rail Settings opens Home before any forum is connected', (
+    tester,
+  ) async {
+    await _pumpApp(tester, store: FakeInstanceStore(), api: FakeDiscourseApi());
+    await tester.tap(find.byKey(const ValueKey('settings-rail-button')));
+    await tester.pumpAndSettle();
+    expect(find.byType(ForumSettingsPage), findsOneWidget);
+  }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
+
+  testWidgets('forum logo menu no longer offers theme settings', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1200, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await _pumpApp(
+      tester,
+      store: FakeInstanceStore([
+        const DiscourseInstance(url: siteA, title: 'A'),
+      ]),
+      api: FakeDiscourseApi(),
+    );
+    await tester.tap(find.byKey(const ValueKey('forum-identity-header')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('forum-identity-settings')), findsNothing);
+  }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 
   testWidgets('plain forum window chrome matches the panel gutters', (
     tester,
@@ -427,7 +455,7 @@ void main() {
     await _openForumSettings(tester);
     expect(find.byType(ForumSettingsPage), findsOneWidget);
     expect(controller.currentInstance!.title, 'B');
-    expect(find.text('System'), findsOneWidget);
+    expect(find.text('Auto'), findsOneWidget);
     await tester.tap(
       find
           .descendant(
@@ -525,7 +553,7 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('settings-rail-button')));
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
-      expect(find.text('200%'), findsOneWidget);
+      expect(find.byType(ForumSettingsPage), findsOneWidget);
     }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
   }
 
@@ -733,7 +761,7 @@ void main() {
           );
         }
 
-        final system = find.text('System');
+        final system = find.text('Auto');
         await tester.ensureVisible(system);
         await tester.tap(system);
         await tester.pumpAndSettle();
@@ -823,7 +851,7 @@ void main() {
       );
     }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 
-    testWidgets('uses the neutral app palette inside Settings', (tester) async {
+    testWidgets('Settings previews the current forum palette', (tester) async {
       final forumAppearance = siteAppearance(
         accent: const Color(0xFFAA2200),
         alternateAccent: const Color(0xFF00AACC),
@@ -844,16 +872,15 @@ void main() {
 
       expect(controller.rootMode, ShellRootMode.forum);
       expect(_materialApp(tester).themeMode, ThemeMode.system);
+      expect(find.byType(ForumSettingsPage), findsOneWidget);
       expect(
         Theme.of(
-          tester.element(find.byKey(const ValueKey('app-settings-form'))),
+          tester.element(find.byType(ForumSettingsPage)),
         ).colorScheme.primary,
-        AppTheme.light.colorScheme.primary,
+        forumAppearance.base?.tertiary,
       );
-
-      await tester.tap(find.byKey(const ValueKey('app-settings-close')));
+      controller.handleBack(canReturnToSidebar: true);
       await tester.pumpAndSettle();
-
       expect(_materialApp(tester).themeMode, ThemeMode.system);
       expect(
         _materialApp(tester).theme?.colorScheme.primary,
@@ -903,6 +930,40 @@ void main() {
         _materialApp(tester).theme?.colorScheme.primary,
         forumAppearance.base?.tertiary,
       );
+    }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
+
+    testWidgets('Aggregate Settings themes only Home until shared', (
+      tester,
+    ) async {
+      await _pumpApp(
+        tester,
+        store: FakeInstanceStore([
+          const DiscourseInstance(url: siteA, title: 'A'),
+        ]),
+        api: FakeDiscourseApi(),
+      );
+      final controller = _controller(tester);
+      controller.selectAggregate();
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('settings-rail-button')));
+      await tester.pumpAndSettle();
+      expect(find.byType(ForumSettingsPage), findsOneWidget);
+      expect(find.byKey(const ValueKey('aggregate-tabs')), findsOneWidget);
+      await tester.tap(find.text('Themes'));
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.descendant(
+          of: find.byKey(const ValueKey('appearance-mode')),
+          matching: find.text('Dark'),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        controller.forumSettings.themeModeFor(ForumSettingsController.homeSite),
+        AppThemeMode.dark,
+      );
+      expect(controller.forumSettings.themeModeFor(siteA), AppThemeMode.system);
+      expect(_materialApp(tester).themeMode, ThemeMode.dark);
     }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 
     testWidgets('uses the forum dark preference in navigator overlays', (
@@ -1316,9 +1377,9 @@ double _contrast(Color first, Color second) {
 }
 
 Future<void> _openForumSettings(WidgetTester tester) async {
-  await tester.tap(find.byKey(const ValueKey('forum-identity-button')));
+  await tester.tap(find.byKey(const ValueKey('settings-rail-button')));
   await tester.pumpAndSettle();
-  await tester.tap(find.byKey(const ValueKey('forum-identity-settings')));
+  await tester.tap(find.text('Themes'));
   await tester.pumpAndSettle();
 }
 

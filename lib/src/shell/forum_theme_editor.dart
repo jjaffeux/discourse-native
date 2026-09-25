@@ -1,21 +1,19 @@
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
+import '../models/forum_background.dart';
 import '../models/forum_theme.dart';
 import 'forum_appearance_effects.dart';
-import 'settings_section.dart';
-import 'theme_icons.dart';
 
 /// Edits a draft of one of the user's own themes. The app shows the draft as
 /// it changes, and nothing is stored until Save. Light and dark keep separate
-/// palettes, each with its sidebar tone and tint; the other window effects
-/// are the app's, chosen in Settings.
+/// palettes, each with its sidebar tone, tint, and window effects.
 class ForumThemeEditor extends StatefulWidget {
   const ForumThemeEditor({
     super.key,
     required this.theme,
+    this.creating = false,
     required this.brightness,
-    required this.onBrightnessChanged,
     required this.onChanged,
     required this.onSave,
     required this.onCancel,
@@ -23,10 +21,10 @@ class ForumThemeEditor extends StatefulWidget {
 
   /// The theme as it was saved, or the starting point of a new one.
   final ForumTheme theme;
+  final bool creating;
 
   /// The mode whose colours are edited, and the app shows.
   final Brightness brightness;
-  final ValueChanged<Brightness> onBrightnessChanged;
 
   /// The draft after each change to how it looks.
   final ValueChanged<ForumTheme> onChanged;
@@ -38,7 +36,9 @@ class ForumThemeEditor extends StatefulWidget {
 }
 
 class _ForumThemeEditorState extends State<ForumThemeEditor> {
-  late final _name = TextEditingController(text: widget.theme.name);
+  late final _name = TextEditingController(
+    text: widget.creating ? '' : widget.theme.name,
+  );
   late final _palettes = {
     for (final mode in Brightness.values)
       mode: widget.theme.forBrightness(mode),
@@ -67,7 +67,7 @@ class _ForumThemeEditorState extends State<ForumThemeEditor> {
     return ForumTheme.fromJson({
       ...part(Brightness.light),
       'alternate': part(Brightness.dark),
-    }, id: widget.theme.id).colours;
+    }, id: widget.theme.id);
   }
 
   Future<void> _save() async {
@@ -89,149 +89,141 @@ class _ForumThemeEditorState extends State<ForumThemeEditor> {
   @override
   Widget build(BuildContext context) {
     final palette = _palette;
-    return SettingsSection(
-      title: 'Theme',
-      icon: const ThemeIcon(ThemeIcons.preset),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        spacing: 16,
-        children: [
-          DInput(
-            key: const ValueKey('theme-name'),
-            controller: _name,
-            labelText: 'Name',
-            maxLength: 48,
-            readOnly: _saving,
-            onChanged: (_) => setState(() {}),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      spacing: 16,
+      children: [
+        Align(
+          alignment: AlignmentDirectional.centerStart,
+          child: DButton(
+            key: const ValueKey('all-themes'),
+            label: const Text('All themes'),
+            variant: DButtonVariant.ghost,
+            onPressed: widget.onCancel,
           ),
-          DTabs<Brightness>.controlled(
-            key: const ValueKey('appearance-theme-select'),
-            value: widget.brightness,
-            onActivated: widget.onBrightnessChanged,
-            children: const [
-              DTabList<Brightness>(
-                variant: DTabListVariant.line,
-                children: [
-                  DTabTrigger(value: Brightness.light, child: Text('Light')),
-                  DTabTrigger(value: Brightness.dark, child: Text('Dark')),
-                ],
+        ),
+        DInput(
+          key: const ValueKey('theme-name'),
+          controller: _name,
+          labelText: 'Name',
+          maxLength: 48,
+          readOnly: _saving,
+          onChanged: (_) => setState(() {}),
+        ),
+        LayoutBuilder(
+          builder: (context, bounds) {
+            final minimum =
+                150 * MediaQuery.textScalerOf(context).scale(13) / 13;
+            final columns = ((bounds.maxWidth + 14) / (minimum + 14))
+                .floor()
+                .clamp(1, 3);
+            final fields = <(String, Color, ValueChanged<Color>)>[
+              (
+                'Background',
+                palette.secondary,
+                (c) => _palette = palette.copyWith(secondary: c),
               ),
-            ],
-          ),
-          LayoutBuilder(
-            builder: (context, bounds) {
-              final minimum =
-                  150 * MediaQuery.textScalerOf(context).scale(13) / 13;
-              final columns = ((bounds.maxWidth + 14) / (minimum + 14))
-                  .floor()
-                  .clamp(1, 3);
-              final fields = <(String, Color, ValueChanged<Color>)>[
-                (
-                  'Background',
-                  palette.secondary,
-                  (c) => _palette = palette.copyWith(secondary: c),
-                ),
-                (
-                  'Text',
-                  palette.primary,
-                  (c) => _palette = palette.copyWith(primary: c),
-                ),
-                (
-                  'Accent',
-                  palette.tertiary,
-                  (c) => _palette = palette.copyWith(tertiary: c),
-                ),
-                (
-                  'Highlight',
-                  palette.quaternary,
-                  (c) => _palette = palette.copyWith(quaternary: c),
-                ),
-                (
-                  'Success',
-                  palette.success,
-                  (c) => _palette = palette.copyWith(success: c),
-                ),
-                (
-                  'Attention',
-                  palette.danger,
-                  (c) => _palette = palette.copyWith(danger: c),
-                ),
-              ];
-              return Wrap(
-                spacing: 14,
-                runSpacing: 14,
-                children: [
-                  for (final field in fields)
-                    SizedBox(
-                      width: (bounds.maxWidth - 14 * (columns - 1)) / columns,
-                      child: _ColorField(
-                        key: ValueKey((widget.brightness, field.$1)),
-                        label: field.$1,
-                        color: field.$2,
-                        onChanged: field.$3,
-                      ),
-                    ),
-                ],
-              );
-            },
-          ),
-          DRadioGroup<bool>.controlled(
-            key: const ValueKey('theme-sidebar'),
-            groupValue: palette.darkerSidebars,
-            onChanged: (value) {
-              if (value != null) {
-                _palette = palette.copyWith(darkerSidebars: value);
-              }
-            },
-            child: const SettingsChoiceCards(
+              (
+                'Text',
+                palette.primary,
+                (c) => _palette = palette.copyWith(primary: c),
+              ),
+              (
+                'Accent',
+                palette.tertiary,
+                (c) => _palette = palette.copyWith(tertiary: c),
+              ),
+              (
+                'Highlight',
+                palette.quaternary,
+                (c) => _palette = palette.copyWith(quaternary: c),
+              ),
+              (
+                'Success',
+                palette.success,
+                (c) => _palette = palette.copyWith(success: c),
+              ),
+              (
+                'Attention',
+                palette.danger,
+                (c) => _palette = palette.copyWith(danger: c),
+              ),
+            ];
+            return Wrap(
+              spacing: 14,
+              runSpacing: 14,
               children: [
-                DRadioGroupItem(
-                  key: ValueKey(('theme-sidebar', false)),
-                  value: false,
-                  card: true,
-                  label: Text('Neutral sidebar'),
-                  description: Text('Matches the background'),
-                ),
-                DRadioGroupItem(
-                  key: ValueKey(('theme-sidebar', true)),
-                  value: true,
-                  card: true,
-                  label: Text('Darker sidebar'),
-                  description: Text('Sets navigation apart'),
-                ),
+                for (final field in fields)
+                  SizedBox(
+                    width: (bounds.maxWidth - 14 * (columns - 1)) / columns,
+                    child: _ColorField(
+                      key: ValueKey((widget.brightness, field.$1)),
+                      label: field.$1,
+                      color: field.$2,
+                      onChanged: field.$3,
+                    ),
+                  ),
               ],
+            );
+          },
+        ),
+        DToggleGroup<bool>(
+          key: const ValueKey('theme-sidebar'),
+          values: [palette.darkerSidebars],
+          expanded: true,
+          inset: true,
+          allowEmptySelection: false,
+          onChanged: (values) {
+            if (values.isNotEmpty) {
+              _palette = palette.copyWith(darkerSidebars: values.first);
+            }
+          },
+          items: const [
+            DToggleGroupItem(value: false, child: Text('Neutral')),
+            DToggleGroupItem(value: true, child: Text('Darker')),
+          ],
+        ),
+        ForumTintField(
+          value: palette.tint,
+          onChanged: (value) => _palette = palette.copyWith(tint: value),
+        ),
+        ForumAppearanceEffects(
+          effects: palette.background ?? const ForumBackground.appearance(),
+          onChanged: (change) => _palette = palette.copyWith(
+            background: change(
+              palette.background ?? const ForumBackground.appearance(),
             ),
           ),
-          ForumTintField(
-            value: palette.tint,
-            onChanged: (value) => _palette = palette.copyWith(tint: value),
+        ),
+        if (_error case final error?)
+          DAlert(
+            variant: DAlertVariant.destructive,
+            description: DAlertDescription(child: Text(error)),
           ),
-          if (_error case final error?)
-            DAlert(
-              variant: DAlertVariant.destructive,
-              description: DAlertDescription(child: Text(error)),
+        if (widget.creating)
+          const DFieldDescription(
+            child: Text('Starts from the theme in use. Name it to keep it.'),
+          ),
+        Wrap(
+          spacing: DSpacing.controlGap,
+          runSpacing: DSpacing.controlGap,
+          children: [
+            DButton(
+              key: const ValueKey('theme-save'),
+              label: Text(widget.creating ? 'Create theme' : 'Save theme'),
+              loading: _saving,
+              loadingSemanticLabel: 'Saving theme',
+              onPressed: _name.text.trim().isEmpty ? null : _save,
             ),
-          Wrap(
-            spacing: DSpacing.controlGap,
-            runSpacing: DSpacing.controlGap,
-            children: [
-              DButton(
-                key: const ValueKey('theme-save'),
-                label: const Text('Save'),
-                loading: _saving,
-                loadingSemanticLabel: 'Saving theme',
-                onPressed: _name.text.trim().isEmpty ? null : _save,
-              ),
-              DButton(
-                key: const ValueKey('theme-cancel'),
-                label: const Text('Cancel'),
-                variant: DButtonVariant.outline,
-                onPressed: _saving ? null : widget.onCancel,
-              ),
-            ],
-          ),
-        ],
-      ),
+            DButton(
+              key: const ValueKey('theme-cancel'),
+              label: const Text('Cancel'),
+              variant: DButtonVariant.outline,
+              onPressed: _saving ? null : widget.onCancel,
+            ),
+          ],
+        ),
+      ],
     );
   }
 }

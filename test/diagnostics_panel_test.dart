@@ -1,5 +1,5 @@
 import 'dart:async';
-import 'dart:ui' show PointerDeviceKind, SemanticsAction;
+import 'dart:ui' show SemanticsAction;
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/app.dart';
@@ -9,7 +9,6 @@ import 'package:discourse_native/src/diagnostics/diagnostics.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/post.dart';
-import 'package:discourse_native/src/shell/app_settings_page.dart';
 import 'package:discourse_native/src/shell/diagnostics_panel.dart';
 import 'package:discourse_native/src/shell/instance_rail.dart';
 import 'package:discourse_native/src/shell/instance_sidebar.dart';
@@ -21,7 +20,6 @@ import 'package:discourse_native/src/shell/topic_view.dart';
 import 'package:discourse_native/src/shell/user_menu_button.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/gestures.dart' show kBackMouseButton;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -935,9 +933,7 @@ void main() {
     }
   });
 
-  testWidgets('Settings opens above a docked diagnostics panel', (
-    tester,
-  ) async {
+  testWidgets('Settings keeps a docked diagnostics panel open', (tester) async {
     final diagnostics = await _controller();
     try {
       await _pumpApp(tester, const Size(1440, 900), diagnostics);
@@ -949,24 +945,22 @@ void main() {
         findsOneWidget,
       );
 
+      final shell = ShellScope.read(
+        tester.element(find.byKey(const ValueKey('settings-rail-button'))),
+      );
       await tester.tap(find.byKey(const ValueKey('settings-rail-button')));
       await tester.pumpAndSettle();
-
-      expect(find.byType(AppSettingsModal), findsOneWidget);
+      expect(shell.aggregateSettingsOpen, isTrue);
       expect(
         find.byKey(const ValueKey('diagnostics-docked-slot')),
         findsOneWidget,
       );
       expect(diagnostics.isPanelOpen, isTrue);
 
-      await tester.tap(
-        find.byKey(const ValueKey('app-settings-form')),
-        buttons: kBackMouseButton,
-        kind: PointerDeviceKind.mouse,
-      );
+      shell.closeAggregateSettings();
       await tester.pumpAndSettle();
 
-      expect(find.byType(AppSettingsModal), findsNothing);
+      expect(shell.aggregateSettingsOpen, isFalse);
       expect(
         find.byKey(const ValueKey('diagnostics-docked-slot')),
         findsOneWidget,

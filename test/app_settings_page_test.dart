@@ -380,12 +380,9 @@ void main() {
       await tester.tap(settings);
       await tester.pumpAndSettle();
 
-      expect(controller.rootMode, ShellRootMode.forum);
-      expect(controller.appSettingsModalOpen, isTrue);
-      expect(find.byType(AppSettingsModal), findsOneWidget);
-
-      await tester.tap(find.byKey(const ValueKey('app-settings-close')));
-      await tester.pumpAndSettle();
+      expect(controller.rootMode, ShellRootMode.aggregate);
+      expect(controller.aggregateSettingsOpen, isTrue);
+      expect(controller.appSettingsModalOpen, isFalse);
     } finally {
       await diagnostics.close();
       semantics.dispose();

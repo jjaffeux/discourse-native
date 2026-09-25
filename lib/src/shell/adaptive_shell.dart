@@ -344,6 +344,11 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
   }
 
   bool _closeCurrentTab(ShellController controller) {
+    if (controller.rootMode == ShellRootMode.aggregate &&
+        controller.aggregateSettingsOpen) {
+      controller.closeAggregateSettings();
+      return true;
+    }
     if (!controller.forumTabsEnabled) return false;
     final tabCount = switch (controller.rootMode) {
       ShellRootMode.aggregate => controller.aggregateTabs.length,
@@ -913,12 +918,14 @@ class _MobileShell extends StatelessWidget {
               ({
                 InstanceLoadStatus loadStatus,
                 bool hasInstances,
+                bool aggregateSettingsOpen,
                 ShellRootMode rootMode,
               })
             >(
               select: (shell) => (
                 loadStatus: shell.loadStatus,
                 hasInstances: shell.hasInstances,
+                aggregateSettingsOpen: shell.aggregateSettingsOpen,
                 rootMode: shell.rootMode,
               ),
               builder: (context, state, _) {
@@ -934,7 +941,7 @@ class _MobileShell extends StatelessWidget {
                 if (state.loadStatus == InstanceLoadStatus.failed) {
                   return homeStatus(const _ShellLoadFailure());
                 }
-                if (!state.hasInstances) {
+                if (!state.hasInstances && !state.aggregateSettingsOpen) {
                   return homeStatus(const EmptyState());
                 }
                 return _PageComposerDock(
@@ -1032,12 +1039,14 @@ class _WideShellState extends State<_WideShell> {
                       ({
                         InstanceLoadStatus loadStatus,
                         bool hasInstances,
+                        bool aggregateSettingsOpen,
                         ShellRootMode rootMode,
                       })
                     >(
                       select: (controller) => (
                         loadStatus: controller.loadStatus,
                         hasInstances: controller.hasInstances,
+                        aggregateSettingsOpen: controller.aggregateSettingsOpen,
                         rootMode: controller.rootMode,
                       ),
                       builder: (context, state, _) => switch (state
@@ -1046,7 +1055,8 @@ class _WideShellState extends State<_WideShell> {
                           const _ShellLoadProgress(),
                         InstanceLoadStatus.failed => const _ShellLoadFailure(),
                         InstanceLoadStatus.ready
-                            when state.hasInstances &&
+                            when (state.hasInstances ||
+                                    state.aggregateSettingsOpen) &&
                                 state.rootMode == ShellRootMode.aggregate =>
                           const AggregateView(),
                         InstanceLoadStatus.ready when state.hasInstances =>

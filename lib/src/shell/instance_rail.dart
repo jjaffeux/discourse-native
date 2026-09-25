@@ -16,7 +16,6 @@ import '../theme/app_theme.dart';
 import '../theme/color_contrast.dart';
 import '../theme/d_icons.dart';
 import 'add_instance_sheet.dart';
-import 'app_settings_page.dart';
 import 'avatar_image.dart';
 import 'forum_theme_surfaces.dart';
 import 'instance_actions.dart';
@@ -1019,7 +1018,7 @@ class _RailFooter extends StatelessWidget {
           padding: const EdgeInsets.symmetric(vertical: 2),
           child: Center(
             child: _SettingsButton(
-              onTap: () => unawaited(showAppSettingsModal(context)),
+              onTap: () => ShellScope.read(context).openCurrentSettings(),
             ),
           ),
         ),

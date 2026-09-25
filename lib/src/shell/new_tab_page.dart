@@ -326,11 +326,6 @@ class _NewTabPageState extends State<NewTabPage> {
                         url: '/u',
                         onPressed: () => openLink(context, '/u'),
                       ),
-                      _LinkButton(
-                        label: 'Themes',
-                        icon: DIcons.layerGroup,
-                        onPressed: () => shell.openForumSettings(siteUrl!),
-                      ),
                       if (forum?.user != null)
                         _LinkButton(
                           label: 'Preferences',

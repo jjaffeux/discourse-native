@@ -1961,6 +1961,7 @@ class ShellController extends FrameSafeNotifier
     }
     await Future.wait([
       aggregate.loadPreferences(stored),
+      forumSettings.load(ForumSettingsController.homeSite),
       for (final instance in stored)
         forumSettings.load(instance.url, initialMode: appSettings.themeMode),
       forumSettings.loadShared([for (final instance in stored) instance.url]),
@@ -14535,6 +14536,33 @@ class ShellController extends FrameSafeNotifier
     unawaited(aggregate.open(_instances));
   }
 
+  bool _aggregateSettingsOpen = false;
+  bool get aggregateSettingsOpen => _aggregateSettingsOpen;
+
+  void openCurrentSettings() {
+    if (_rootMode == ShellRootMode.aggregate) {
+      _aggregateSettingsOpen = true;
+      _mobilePane = MobilePane.content;
+      _notify();
+      return;
+    }
+    final siteUrl = currentInstance?.url;
+    if (siteUrl != null) {
+      openForumSettings(siteUrl);
+    } else {
+      _rootMode = ShellRootMode.aggregate;
+      _aggregateSettingsOpen = true;
+      _mobilePane = MobilePane.content;
+      _notify();
+    }
+  }
+
+  void closeAggregateSettings() {
+    if (!_aggregateSettingsOpen) return;
+    _aggregateSettingsOpen = false;
+    _notify();
+  }
+
   bool openAppSettingsModal() {
     if (isDisposed || _appSettingsModalOpen) return false;
     _appSettingsModalOpen = true;
@@ -14562,6 +14590,7 @@ class ShellController extends FrameSafeNotifier
   }
 
   void selectAggregateTab(String id) {
+    if (_aggregateSettingsOpen) closeAggregateSettings();
     if (!forumTabsEnabled || !aggregate.selectTab(id)) return;
     unawaited(aggregate.open(_instances));
   }

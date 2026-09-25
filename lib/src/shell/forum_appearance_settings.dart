@@ -12,7 +12,6 @@ import '../theme/discourse_typography.dart';
 import 'forum_settings_controller.dart';
 import 'forum_theme_clipboard.dart';
 import 'forum_theme_editor.dart';
-import 'forum_theme_new_dialog.dart';
 import 'forum_theme_picker.dart';
 import 'settings_section.dart';
 import 'shell_scope.dart';
@@ -33,6 +32,7 @@ class _ForumAppearanceSettingsState extends State<ForumAppearanceSettings> {
 
   /// The theme being edited. It is saved only from the editor.
   ForumTheme? _editing;
+  bool _creating = false;
 
   /// The editor's latest draft, which the app shows until Save or Cancel.
   ForumTheme? _draft;
@@ -72,9 +72,21 @@ class _ForumAppearanceSettingsState extends State<ForumAppearanceSettings> {
     _preview();
   }
 
-  void _edit(ForumTheme? theme) {
+  void _edit(ForumTheme? theme, {bool creating = false}) {
+    if (theme != null) {
+      final effects = settings.shared.effects;
+      final light = theme.forBrightness(Brightness.light);
+      final dark = theme.forBrightness(Brightness.dark);
+      theme = ForumTheme.fromJson({
+        ...light.copyWith(background: light.background ?? effects).toJson(),
+        'alternate': dark
+            .copyWith(background: dark.background ?? effects)
+            .toJson(),
+      }, id: theme.id);
+    }
     setState(() {
       _editing = _draft = theme;
+      _creating = creating;
       if (theme == null) _shownBrightness = null;
     });
     _preview();
@@ -89,6 +101,8 @@ class _ForumAppearanceSettingsState extends State<ForumAppearanceSettings> {
   List<String> _otherForums() {
     final site = requireStoredForumBase(widget.siteUrl);
     return [
+      if (site != ForumSettingsController.homeSite)
+        ForumSettingsController.homeSite,
       for (final instance in ShellScope.identityOf(context).instances)
         if (requireStoredForumBase(instance.url) != site) instance.url,
     ];
@@ -106,9 +120,9 @@ class _ForumAppearanceSettingsState extends State<ForumAppearanceSettings> {
   /// The forum's own palette for each mode, or the neutral preset where the
   /// forum has not published one.
   Map<Brightness, ForumTheme> _forumPalettes() {
-    final forum = ShellScope.identityOf(
-      context,
-    ).siteAppearanceFor(widget.siteUrl);
+    final forum = widget.siteUrl == ForumSettingsController.homeSite
+        ? null
+        : ShellScope.identityOf(context).siteAppearanceFor(widget.siteUrl);
     return {
       for (final mode in Brightness.values)
         mode: switch (forum?.paletteForBrightness(mode)) {
@@ -116,7 +130,12 @@ class _ForumAppearanceSettingsState extends State<ForumAppearanceSettings> {
           null =>
             forumThemePresets.first
                 .forBrightness(mode)
-                .copyWith(id: 'forum', name: 'Forum default'),
+                .copyWith(
+                  id: 'forum',
+                  name: widget.siteUrl == ForumSettingsController.homeSite
+                      ? 'Home default'
+                      : 'Forum default',
+                ),
         },
     };
   }
@@ -159,12 +178,24 @@ class _ForumAppearanceSettingsState extends State<ForumAppearanceSettings> {
     })) {
       return const _HeadingNote('Used on all forums');
     }
-    return DButton(
-      key: const ValueKey('theme-use-everywhere'),
-      label: const Text('Use on all forums'),
-      variant: DButtonVariant.outline,
-      size: DButtonSize.small,
-      onPressed: () => unawaited(_useEverywhere(others)),
+    return Wrap(
+      spacing: DSpacing.md,
+      runSpacing: DSpacing.sm,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        _HeadingNote(
+          widget.siteUrl == ForumSettingsController.homeSite
+              ? 'Applies to Home only.'
+              : 'Applies to this forum only.',
+        ),
+        DButton(
+          key: const ValueKey('theme-use-everywhere'),
+          label: const Text('Use on every forum'),
+          variant: DButtonVariant.outline,
+          size: DButtonSize.small,
+          onPressed: () => unawaited(_useEverywhere(others)),
+        ),
+      ],
     );
   }
 
@@ -173,27 +204,26 @@ class _ForumAppearanceSettingsState extends State<ForumAppearanceSettings> {
     if (mounted) DToast.show(context, 'Every forum now uses these colours.');
   });
 
-  Future<void> _newTheme({String? base}) async {
-    final start = await showDDialog<ForumThemeStart>(
-      context: context,
-      builder: (context, controller) => ForumThemeNewDialog(
-        controller: controller,
-        brightness: _brightness(),
-        forum: _forumTheme(),
-        saved: _preferences.customThemes,
-        initial: base,
-      ),
-    );
-    if (start == null || !mounted) return;
+  void _newTheme({String? base}) {
+    final available = [
+      _forumTheme(),
+      ...forumThemePresets,
+      ..._preferences.customThemes,
+    ];
+    final selected =
+        available.where((theme) => theme.id == base).firstOrNull ??
+        _preferences.themeFor(_brightness()) ??
+        _forumTheme();
     Map<String, dynamic> part(Brightness mode) => {
-      ...start.base.forBrightness(mode).toJson(),
-      'name': start.name,
+      ...selected.forBrightness(mode).toJson(),
+      'name': 'New theme',
     };
     _edit(
       ForumTheme.fromJson({
         ...part(Brightness.light),
         'alternate': part(Brightness.dark),
-      }, id: 'custom-${DateTime.now().microsecondsSinceEpoch}').colours,
+      }, id: 'custom-${DateTime.now().microsecondsSinceEpoch}'),
+      creating: true,
     );
   }
 
@@ -213,7 +243,7 @@ class _ForumAppearanceSettingsState extends State<ForumAppearanceSettings> {
             'name': name,
             if (theme.alternate case final alternate?)
               'alternate': {...alternate.toJson(), 'name': name},
-          }, id: 'custom-${DateTime.now().microsecondsSinceEpoch}').colours,
+          }, id: 'custom-${DateTime.now().microsecondsSinceEpoch}'),
         ),
       ),
     );
@@ -279,30 +309,6 @@ class _ForumAppearanceSettingsState extends State<ForumAppearanceSettings> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               spacing: 18,
               children: [
-                Row(
-                  spacing: 9,
-                  children: [
-                    ThemeIcon(
-                      ThemeIcons.palette,
-                      size: 16,
-                      color: DTokens.of(context).mutedForeground,
-                    ),
-                    Expanded(
-                      child: Semantics(
-                        headingLevel: 1,
-                        child: Text(
-                          'Appearance',
-                          style: TextStyle(
-                            fontSize: 22,
-                            height: 1.25,
-                            fontWeight: FontWeight.w700,
-                            color: DTokens.of(context).foreground,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
                 if (_error != null)
                   DAlert(
                     description: DAlertDescription(
@@ -320,43 +326,40 @@ class _ForumAppearanceSettingsState extends State<ForumAppearanceSettings> {
                       ),
                     ),
                   ),
-                DRadioGroup<AppThemeMode>.controlled(
+                DToggleGroup<AppThemeMode>(
                   key: const ValueKey('appearance-mode'),
-                  groupValue: mode,
-                  onChanged: (value) {
-                    if (value == null) return;
+                  values: [mode],
+                  multiple: false,
+                  allowEmptySelection: false,
+                  expanded: true,
+                  inset: true,
+                  onChanged: (values) {
+                    if (values.isEmpty) return;
+                    final value = values.first;
                     unawaited(settings.setThemeMode(widget.siteUrl, value));
                     _show(null);
                   },
-                  child: const SettingsChoiceCards(
-                    children: [
-                      DRadioGroupItem(
-                        value: AppThemeMode.light,
-                        card: true,
-                        label: Text('Light'),
-                        description: Text('Always use light colours'),
-                      ),
-                      DRadioGroupItem(
-                        value: AppThemeMode.dark,
-                        card: true,
-                        label: Text('Dark'),
-                        description: Text('Always use dark colours'),
-                      ),
-                      DRadioGroupItem(
-                        value: AppThemeMode.system,
-                        card: true,
-                        label: Text('System'),
-                        description: Text('Follow the device setting'),
-                      ),
-                    ],
-                  ),
+                  items: const [
+                    DToggleGroupItem(
+                      value: AppThemeMode.light,
+                      child: Text('Light'),
+                    ),
+                    DToggleGroupItem(
+                      value: AppThemeMode.dark,
+                      child: Text('Dark'),
+                    ),
+                    DToggleGroupItem(
+                      value: AppThemeMode.system,
+                      child: Text('Auto'),
+                    ),
+                  ],
                 ),
                 if (editing != null)
                   ForumThemeEditor(
                     key: ValueKey(('theme-editor', editing.id)),
                     theme: editing,
+                    creating: _creating,
                     brightness: brightness,
-                    onBrightnessChanged: _show,
                     onChanged: (draft) {
                       _draft = draft;
                       _preview();
@@ -368,7 +371,6 @@ class _ForumAppearanceSettingsState extends State<ForumAppearanceSettings> {
                   SettingsSection(
                     title: 'Theme',
                     icon: const ThemeIcon(ThemeIcons.preset),
-                    trailing: _themeScope(preferences, others),
                     child: ForumThemePicker(
                       key: const ValueKey('theme-picker'),
                       preferences: preferences,
@@ -382,7 +384,7 @@ class _ForumAppearanceSettingsState extends State<ForumAppearanceSettings> {
                           unawaited(_save(_preferences.withPreset(mode, id))),
                       onTheme: (id) =>
                           unawaited(_save(_preferences.useTheme(id))),
-                      onNewTheme: ({base}) => unawaited(_newTheme(base: base)),
+                      onNewTheme: ({base}) => _newTheme(base: base),
                       onEdit: _edit,
                       onDuplicate: _duplicate,
                       onCopy: (theme) =>
@@ -390,6 +392,12 @@ class _ForumAppearanceSettingsState extends State<ForumAppearanceSettings> {
                       onDelete: (theme) => unawaited(_delete(theme)),
                     ),
                   ),
+                if (editing == null)
+                  if (_themeScope(preferences, others) case final scope?)
+                    Align(
+                      alignment: AlignmentDirectional.centerEnd,
+                      child: scope,
+                    ),
               ],
             ),
           ),

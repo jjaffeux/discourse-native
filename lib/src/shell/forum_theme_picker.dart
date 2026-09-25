@@ -71,16 +71,6 @@ class _ForumThemePickerState extends State<ForumThemePicker> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       spacing: DSpacing.md,
       children: [
-        Align(
-          alignment: AlignmentDirectional.centerStart,
-          child: DButton(
-            key: const ValueKey('new-theme'),
-            label: const Text('New theme'),
-            icon: const DIcon(DIcons.plus),
-            variant: DButtonVariant.outline,
-            onPressed: widget.onNewTheme,
-          ),
-        ),
         _list([
           for (final theme in preferences.customThemes)
             _row(
@@ -124,6 +114,20 @@ class _ForumThemePickerState extends State<ForumThemePicker> {
               onCustomize: () => widget.onNewTheme(base: option.id),
             ),
         ]),
+        Align(
+          alignment: AlignmentDirectional.centerStart,
+          child: DButton(
+            key: const ValueKey('new-theme'),
+            label: Text(
+              widget.brightness == Brightness.dark
+                  ? 'New dark theme'
+                  : 'New light theme',
+            ),
+            icon: const DIcon(DIcons.plus),
+            variant: DButtonVariant.outline,
+            onPressed: widget.onNewTheme,
+          ),
+        ),
       ],
     );
   }
