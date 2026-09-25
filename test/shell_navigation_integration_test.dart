@@ -583,7 +583,7 @@ void _registerShellNavigationTests() {
 
   for (final connected in [true, false]) {
     testWidgets(
-      'opens forum More links for ${connected ? 'connected' : 'anonymous'} readers and updates them on site switch',
+      'opens Shortcuts links for ${connected ? 'connected' : 'anonymous'} readers and updates them on site switch',
       (tester) async {
         final launched = watchBrowser(tester);
         final site = DiscourseInstance(
@@ -640,30 +640,49 @@ void _registerShellNavigationTests() {
           tester
               .widgetList<DDropdownMenuItem>(find.byType(DDropdownMenuItem))
               .map((button) => (button.child as Text).data),
-          ['About this forum', 'Roadmap', 'Handbook', 'Teams', 'Badges'],
+          ['Teams', 'Badges'],
         );
+        await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+        await tester.pumpAndSettle();
+
+        final shortcuts = find.byKey(
+          const ValueKey('sidebar-panel-switch-shortcuts'),
+        );
+        Future<void> showShortcuts() async {
+          await tester.ensureVisible(shortcuts);
+          await tester.pumpAndSettle();
+          await tester.tapAt(
+            tester.getRect(shortcuts).centerLeft + const Offset(8, 0),
+          );
+          await tester.pumpAndSettle();
+        }
+
+        await showShortcuts();
+        expect(sidebarDestination('About this forum'), findsOneWidget);
+        expect(sidebarDestination('Roadmap'), findsOneWidget);
         expect(
           find.descendant(
-            of: find.widgetWithText(DDropdownMenuItem, 'Handbook'),
+            of: find
+                .ancestor(
+                  of: sidebarDestination('Handbook'),
+                  matching: find.byType(DSidebarMenuButton),
+                )
+                .first,
             matching: find.dIcon(DIcons.fire),
           ),
           findsOneWidget,
         );
 
-        await tester.tap(find.widgetWithText(DDropdownMenuItem, 'Roadmap'));
+        await tester.tap(sidebarDestination('Roadmap'));
         await tester.pumpAndSettle();
         expect(api.topicsOpened, [900]);
 
-        await tester.tap(sidebarDestination('More'));
-        await tester.pumpAndSettle();
-        await tester.tap(find.widgetWithText(DDropdownMenuItem, 'Handbook'));
+        await showShortcuts();
+        await tester.tap(sidebarDestination('Handbook'));
         await tester.pumpAndSettle();
 
-        await tester.tap(sidebarDestination('More'));
-        await tester.pumpAndSettle();
-        await tester.tap(
-          find.widgetWithText(DDropdownMenuItem, 'About this forum'),
-        );
+        await showShortcuts();
+        await tester.tap(sidebarDestination('About this forum'));
         await tester.pumpAndSettle();
         expect(launched, [
           'https://docs.example.com/handbook',
@@ -691,18 +710,18 @@ void _registerShellNavigationTests() {
           ];
           await controller.disconnectCurrentInstance();
           await tester.pumpAndSettle();
-          await tester.tap(sidebarDestination('More'));
-          await tester.pumpAndSettle();
-          expect(
-            tester
-                .widgetList<DDropdownMenuItem>(find.byType(DDropdownMenuItem))
-                .map((button) => (button.child as Text).data),
-            ['Public guidelines', 'Groups', 'Badges'],
-          );
-          await tester.sendKeyEvent(LogicalKeyboardKey.escape);
-          await tester.pumpAndSettle();
+          await showShortcuts();
+          expect(sidebarDestination('Public guidelines'), findsOneWidget);
         }
         controller.selectInstance(1);
+        await tester.pumpAndSettle();
+        expect(sidebarDestination('Public guidelines'), findsNothing);
+        final forum = find.byKey(const ValueKey('sidebar-panel-switch-main'));
+        await tester.ensureVisible(forum);
+        await tester.pumpAndSettle();
+        await tester.tapAt(
+          tester.getRect(forum).centerRight - const Offset(8, 0),
+        );
         await tester.pumpAndSettle();
         await tester.tap(sidebarDestination('More'));
         await tester.pumpAndSettle();
@@ -905,51 +924,47 @@ void _registerShellNavigationTests() {
     await tester.tap(find.byKey(const ValueKey('rail-sidebar-toggle')));
     await tester.pumpAndSettle();
 
+    expect(find.text('Projects'), findsNothing);
+    expect(sidebarDestination('Roadmap'), findsNothing);
+    final shortcuts = find.byKey(
+      const ValueKey('sidebar-panel-switch-shortcuts'),
+    );
+    await tester.ensureVisible(shortcuts);
+    await tester.pumpAndSettle();
+    await tester.tapAt(
+      tester.getRect(shortcuts).centerLeft + const Offset(8, 0),
+    );
+    await tester.pumpAndSettle();
+
     expect(find.text('Projects'), findsOneWidget);
     expect(sidebarDestination('Roadmap'), findsOneWidget);
-    final moreTile = find
-        .ancestor(
-          of: sidebarDestination('More'),
-          matching: find.byType(DSidebarMenuButton),
-        )
-        .first;
+    expect(sidebarDestination('Topics'), findsNothing);
     final projectsHeader = find
         .ancestor(
           of: find.text('Projects'),
           matching: find.byType(DSidebarMenuButton),
         )
         .first;
-    expect(
-      tester.getRect(projectsHeader).top - tester.getRect(moreTile).bottom,
-      closeTo(19, 0.01),
-    );
     final roadmapTile = find
         .ancestor(
           of: sidebarDestination('Roadmap'),
           matching: find.byType(DSidebarMenuButton),
         )
         .first;
-    final categoriesHeader = find
-        .ancestor(
-          of: find.text('Categories'),
-          matching: find.byType(DSidebarMenuButton),
-        )
-        .first;
     expect(
-      tester.getRect(categoriesHeader).top - tester.getRect(roadmapTile).bottom,
+      tester.getRect(roadmapTile).top - tester.getRect(projectsHeader).bottom,
       closeTo(2, 0.01),
     );
     expect(
-      tester.getSize(projectsHeader).height,
-      tester.getSize(moreTile).height,
+      tester.getSize(roadmapTile).height,
+      closeTo(
+        DControlStyle.height(
+          DSidebarMenuButtonSize.large,
+          context: tester.element(roadmapTile),
+        ),
+        0.01,
+      ),
     );
-    expect(tester.getSize(roadmapTile).height, closeTo(32, 0.01));
-    final separator = find.descendant(
-      of: find.byType(InstanceSidebar),
-      matching: find.byType(DSeparator),
-    );
-    expect(separator, findsOneWidget);
-    expect(tester.getRect(separator).top, tester.getRect(moreTile).bottom + 10);
     final sectionStyle = DefaultTextStyle.of(
       tester.element(find.text('Projects')),
     );
@@ -991,7 +1006,7 @@ void _registerShellNavigationTests() {
     final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
     await mouse.addPointer(location: Offset.zero);
     try {
-      for (final title in ['Projects', 'Categories']) {
+      for (final title in ['Projects']) {
         await mouse.moveTo(
           tester.getCenter(find.widgetWithText(DSidebarMenuButton, title)),
         );

@@ -1,6 +1,7 @@
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
+import 'package:discourse_native/src/models/sidebar.dart';
 import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/plugin_api/plugin_data.dart';
 import 'package:discourse_native/src/plugin_api/plugin_runtime.dart';
@@ -39,6 +40,7 @@ Future<ShellController> pumpTabs(
   bool installed = true,
   bool rooms = true,
   Map<String, ChatChannels>? channels,
+  List<SidebarSection>? customSections,
 }) async {
   final config = SiteConfig(
     plugins: PluginData.none
@@ -70,6 +72,7 @@ Future<ShellController> pumpTabs(
       totals: chatNotificationTotals(available: chat),
       feeds: const {'/latest.json': []},
       siteConfigs: {site: config},
+      customSidebarSectionsBySite: {site: ?customSections},
       chatChannelsBySite:
           channels ??
           {
@@ -120,6 +123,62 @@ void _desktopTest(String name, WidgetTesterCallback callback) => testWidgets(
 
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
+
+  _desktopTest('Shortcuts owns custom sections and configured links', (
+    tester,
+  ) async {
+    final shell = await pumpTabs(
+      tester,
+      installed: false,
+      customSections: const [
+        SidebarSection(
+          id: 'community',
+          title: 'Community',
+          destinations: [],
+          moreDestinations: [
+            SidebarDestination(
+              id: 'community-1-1',
+              label: 'About this forum',
+              icon: DIcons.link,
+              url: '/about',
+            ),
+          ],
+        ),
+        SidebarSection(
+          id: 'custom-2',
+          title: 'Projects',
+          destinations: [
+            SidebarDestination(
+              id: 'custom-2-20',
+              label: 'Roadmap',
+              icon: DIcons.link,
+              url: '/c/roadmap/4',
+            ),
+          ],
+        ),
+      ],
+    );
+    final route = shell.currentContent;
+    expect(tabs, findsOneWidget);
+    expect(tab('chat'), findsNothing);
+    expect(tab('shortcuts'), findsOneWidget);
+    expect(sidebarDestination('Topics'), findsOneWidget);
+    expect(sidebarDestination('Roadmap'), findsNothing);
+    expect(sidebarDestination('About this forum'), findsNothing);
+
+    await tester.tap(tab('shortcuts'));
+    await tester.pumpAndSettle();
+    expect(tester.widget<DTabs<String>>(tabs).value, 'shortcuts');
+    expect(sidebarDestination('Topics'), findsNothing);
+    expect(sidebarDestination('Roadmap'), findsOneWidget);
+    expect(sidebarDestination('About this forum'), findsOneWidget);
+    expect(shell.currentContent, route);
+
+    await tester.tap(tab('main'));
+    await tester.pumpAndSettle();
+    expect(sidebarDestination('Topics'), findsOneWidget);
+    expect(sidebarDestination('Roadmap'), findsNothing);
+  });
 
   _desktopTest(
     'chat tab counts unread messages and updates without navigation',
@@ -363,7 +422,8 @@ void main() {
         connected: scenario.connected,
         installed: scenario.installed,
       );
-      expect(tabs, scenario.hasVoice ? findsOneWidget : findsNothing);
+      expect(tabs, findsOneWidget);
+      expect(tab('shortcuts'), findsOneWidget);
       expect(tab('voice'), findsNothing);
       expect(tab('chat'), scenario.hasVoice ? findsOneWidget : findsNothing);
       expect(sidebarDestination('Topics'), findsOneWidget);

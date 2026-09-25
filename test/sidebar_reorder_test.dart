@@ -92,6 +92,16 @@ Future<FakeDiscourseApi> _pump(
   if (size == phone) {
     await tester.tap(find.text('Shortcuts'));
     await tester.pumpAndSettle();
+  } else {
+    final shortcuts = find.byKey(
+      const ValueKey('sidebar-panel-switch-shortcuts'),
+    );
+    await tester.ensureVisible(shortcuts);
+    await tester.pumpAndSettle();
+    await tester.tapAt(
+      tester.getRect(shortcuts).centerLeft + const Offset(8, 0),
+    );
+    await tester.pumpAndSettle();
   }
   return api;
 }
