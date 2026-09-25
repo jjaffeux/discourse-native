@@ -129,8 +129,22 @@ void main() {
     expect(find.text('Sidebar'), findsOneWidget);
     final sidebarToggle = find.byKey(const ValueKey('theme-sidebar'));
     await tester.ensureVisible(sidebarToggle);
-    expect(tester.getSize(sidebarToggle).width, lessThan(240));
+    final neutral = find.byKey(const ValueKey(('toggle-group-item', false)));
+    final darker = find.byKey(const ValueKey(('toggle-group-item', true)));
+    expect(tester.getSize(sidebarToggle).width, greaterThan(400));
+    expect(tester.getSize(neutral).width, tester.getSize(darker).width);
+    final selectedSurface = find
+        .descendant(of: neutral, matching: find.byType(AnimatedContainer))
+        .first;
+    expect(
+      tester.getSize(selectedSurface).width,
+      tester.getSize(neutral).width,
+    );
     await tapVisible(tester, find.text('Darker'));
+    final darkerSurface = find
+        .descendant(of: darker, matching: find.byType(AnimatedContainer))
+        .first;
+    expect(tester.getSize(darkerSurface).width, tester.getSize(darker).width);
     final save = find.byKey(const ValueKey('theme-save'));
     final description = find.text(
       'Starts from the theme in use. Name it to keep it.',
