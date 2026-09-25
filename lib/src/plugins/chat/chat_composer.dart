@@ -7,6 +7,7 @@ import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../shell/mobile_footer_action.dart';
 import '../gifs/gifs_contract.dart';
 import 'chat_channel.dart';
 import 'chat_controller.dart';
@@ -189,6 +190,9 @@ class _ChatComposerState extends State<ChatComposer> {
   bool _savingEdit = false;
   final Object _editCookingOwner = Object();
   final _replyChanges = FrameSafeValueNotifier<ChatReplyTo?>(null);
+  final Object _mobileActionOwner = Object();
+  MobileFooterActionController? _mobileActionController;
+  late final VoidCallback _mobileSubmit = _sendFromMobileFooter;
 
   ChatReplyTo? get _replyTo =>
       widget.threadId == null ? _retainedDraft?.value?.replyTo : null;
@@ -517,6 +521,10 @@ class _ChatComposerState extends State<ChatComposer> {
 
   @override
   void dispose() {
+    final mobileActionController = _mobileActionController;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      mobileActionController?.clear(_mobileActionOwner);
+    });
     _cancelEditCooking();
     if (_chatAccountListener case final listener?) {
       _chat?.removeListener(listener);
@@ -582,6 +590,54 @@ class _ChatComposerState extends State<ChatComposer> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted && identical(_composer, composer)) {
         composer.focus.requestFocus();
+      }
+    });
+  }
+
+  bool _canSend(ComposerController composer) =>
+      !_pickingGif &&
+      !_pickingFiles &&
+      !_pickingEmoji &&
+      !_savingEdit &&
+      composer.canSubmit &&
+      !composer.hasActiveUploads &&
+      (_chat?.canSendMessageTo(widget.siteUrl, _target) ?? false);
+
+  bool get _sending =>
+      _savingEdit ||
+      (_chat
+              ?.messagesFor(widget.siteUrl, _target)
+              .any(
+                (message) => message.delivery == ChatMessageDelivery.sending,
+              ) ??
+          false);
+
+  void _sendFromMobileFooter() {
+    final composer = _composer;
+    if (composer != null && _canSend(composer)) _send(composer);
+  }
+
+  void _publishMobileAction(BuildContext context, ComposerController composer) {
+    final controller = MobileFooterActionScope.maybeOf(context);
+    if (controller == null && _mobileActionController == null) return;
+    final visible = context.isTouch && TickerMode.valuesOf(context).enabled;
+    final action = MobileFooterAction(
+      key: const ValueKey('chat-composer-send'),
+      label: widget.editingMessage == null ? 'Send' : 'Save',
+      icon: DIcons.paperPlane,
+      onPressed: _canSend(composer) ? _mobileSubmit : null,
+      loading: _sending,
+    );
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !identical(_composer, composer)) return;
+      if (!identical(_mobileActionController, controller)) {
+        _mobileActionController?.clear(_mobileActionOwner);
+        _mobileActionController = controller;
+      }
+      if (visible) {
+        controller?.publish(_mobileActionOwner, action);
+      } else {
+        controller?.clear(_mobileActionOwner);
       }
     });
   }
@@ -900,6 +956,9 @@ class _ChatComposerState extends State<ChatComposer> {
       builder: (context, channel, _) {
         if (channel != null &&
             !(_chat?.canSendMessageTo(widget.siteUrl, _target) ?? false)) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) _mobileActionController?.clear(_mobileActionOwner);
+          });
           return _composerLane(
             Container(
               key: const ValueKey('chat-composer-read-only'),
@@ -926,6 +985,9 @@ class _ChatComposerState extends State<ChatComposer> {
             composer,
             _replyChanges,
             _chat!.streamListenableFor(widget.siteUrl, _target),
+            for (final id
+                in _chat!.streamFor(widget.siteUrl, _target).localMessageIds)
+              _chat!.messageRef(widget.siteUrl, id),
           ]),
           builder: (context, _) => _composerLane(
             Column(
@@ -1083,8 +1145,12 @@ class _ChatComposerState extends State<ChatComposer> {
     final hint = channel == null
         ? 'Message chat'
         : channel.isDirectMessage
-        ? 'Message @${channel.title}'
+        ? 'Message ${channel.title}'
         : 'Message #${channel.title}';
+    final mobile = context.isTouch;
+    final actionInShell =
+        mobile && MobileFooterActionScope.maybeOf(context) != null;
+    _publishMobileAction(context, composer);
 
     return CallbackShortcuts(
       bindings: {
@@ -1107,303 +1173,336 @@ class _ChatComposerState extends State<ChatComposer> {
         else if (_replyTo != null)
           const SingleActivator(LogicalKeyboardKey.escape): _clearReply,
       },
-      child: DInputGroup(
-        key: const ValueKey('chat-composer'),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          DInputGroupControl(
-            focusNode: composer.focus,
-            multiline: true,
-            builder: (context, focusNode) => GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              excludeFromSemantics: true,
-              onTap: focusNode.requestFocus,
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(minHeight: 48),
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(
-                    maxHeight: MediaQuery.sizeOf(context).height * 0.25,
-                  ),
-                  child: Focus(
-                    canRequestFocus: false,
-                    skipTraversal: true,
-                    onKeyEvent: (_, event) =>
-                        _handleEditLastMessage(event, composer),
-                    child: ComposerEditor(
-                      composer: composer,
-                      onKeyEvent: (event) =>
-                          _handleComposerKey(event, composer),
-                      enableBlockReordering: false,
-                      slashActions: (context) {
-                        final gifs = PluginUiScope.maybe(
-                          context,
-                          chatGifsService,
-                        );
-                        final enabled =
-                            !_pickingGif &&
-                            !_pickingFiles &&
-                            !_pickingEmoji &&
-                            !_savingEdit &&
-                            (_chat?.canSendMessageTo(widget.siteUrl, _target) ??
-                                false);
-                        return [
-                          if (enabled && composer.canUpload)
-                            ComposerSlashAction(
-                              label: 'Upload',
-                              icon: DIcons.paperclip,
-                              keywords: const ['image', 'file', 'attachment'],
-                              onInvoke: () => unawaited(_pickFiles()),
-                            ),
-                          if (enabled &&
-                              widget.editingMessage == null &&
-                              (gifs?.isAvailable(widget.siteUrl) ?? false))
-                            ComposerSlashAction(
-                              label: 'Insert GIF',
-                              icon: gifsPickerIcon,
-                              onInvoke: () => unawaited(_pickGif()),
-                            ),
-                          if (enabled &&
-                              host
-                                  .siteConfigFor(composer.target.siteUrl)
-                                  .emojiEnabled)
-                            ComposerSlashAction(
-                              label: 'Emoji',
-                              icon: DIcons.discourseEmojis,
-                              keywords: const ['reaction', 'smile'],
-                              onInvoke: () =>
-                                  unawaited(_pickEmoji(pickerContext: context)),
-                            ),
-                        ];
-                      },
-                      expands: false,
-                      enableDropTarget: widget.uploadDropController == null,
-                      onSuggestionAction:
-                          ({
-                            required context,
-                            required composer,
-                            required suggestion,
-                            anchor,
-                          }) async {
-                            if (suggestion.action !=
-                                ComposerSuggestionAction.openEmojiPicker) {
-                              return;
-                            }
-                            await _pickEmoji(
-                              pickerContext: context,
-                              initialQuery:
-                                  composer.autocomplete.trigger?.query ??
-                                  suggestion.value,
-                              anchor: anchor,
-                            );
-                          },
-                      hintText: hint,
-                      textStyle: theme.textTheme.bodyLarge,
-                      hintStyle: theme.textTheme.bodyLarge?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-          if (_replyTo case final reply? when widget.editingMessage == null)
-            DInputGroupAddon(
-              alignment: DInputGroupAddonAlignment.blockStart,
-              child: _replyPreview(context, reply),
-            ),
-          DInputGroupAddon(
-            alignment: DInputGroupAddonAlignment.blockEnd,
-            child: Row(
-              spacing: DSpacing.xs,
+          DCard(
+            border: false,
+            spacing: 0,
+            backgroundColor: DTokens.of(context).footerBackground,
+            child: DInputGroup(
+              key: const ValueKey('chat-composer'),
+              borderless: true,
               children: [
-                ValueListenableBuilder<SiteConfig>(
-                  valueListenable: host.siteConfigListenableFor(
-                    composer.target.siteUrl,
-                  ),
-                  builder: (context, _, _) {
-                    final gifs = PluginUiScope.maybe(context, chatGifsService);
-                    final canUpload = composer.imageUploader != null;
-                    final canInsertGif =
-                        widget.editingMessage == null &&
-                        (gifs?.isAvailable(widget.siteUrl) ?? false);
-                    if (!canUpload && !canInsertGif) {
-                      return const SizedBox.shrink();
-                    }
-
-                    final enabled =
-                        !_pickingGif &&
-                        !_pickingFiles &&
-                        !_pickingEmoji &&
-                        !_savingEdit &&
-                        (_chat?.canSendMessageTo(widget.siteUrl, _target) ??
-                            false);
-                    return Center(
-                      heightFactor: 1,
-                      child: Semantics(
-                        container: true,
-                        explicitChildNodes: true,
-                        child: DDropdownMenu(
-                          key: ValueKey((composer, widget.editingMessage?.id)),
-                          content: DDropdownMenuContent(
-                            semanticLabel: 'Add to message',
-                            side: DPopoverSide.top,
-                            width: 192,
-                            children: [
-                              if (canUpload)
-                                DDropdownMenuItem(
-                                  key: const ValueKey('chat-composer-upload'),
-                                  leading: const DIcon(DIcons.paperclip),
-                                  onPressed: enabled
-                                      ? () {
-                                          if (identical(_composer, composer)) {
-                                            unawaited(_pickFiles());
-                                          }
-                                        }
-                                      : null,
-                                  child: const Text('Upload'),
-                                ),
-                              if (canInsertGif)
-                                DDropdownMenuItem(
-                                  key: const ValueKey('chat-composer-gif'),
-                                  leading: const DIcon(gifsPickerIcon),
-                                  onPressed: enabled
-                                      ? () {
-                                          if (identical(_composer, composer)) {
-                                            unawaited(_pickGif());
-                                          }
-                                        }
-                                      : null,
-                                  child: const Text('Insert GIF'),
-                                ),
-                            ],
-                          ),
-                          child: DDropdownMenuTrigger(
-                            builder: (context, state) => DButton.iconOnly(
-                              key: const ValueKey('chat-composer-add'),
-                              onPressed: enabled ? state.toggle : null,
-                              focusNode: state.focusNode,
-                              hasPopup: true,
-                              expanded: state.open,
-                              icon: const DIcon(
-                                DIcons.plus,
-                                key: ValueKey('chat-composer-add-icon'),
-                              ),
-                              tooltip: 'Add to message',
-                              variant: DButtonVariant.ghost,
+                DInputGroupControl(
+                  focusNode: composer.focus,
+                  multiline: true,
+                  builder: (context, focusNode) => GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    excludeFromSemantics: true,
+                    onTap: focusNode.requestFocus,
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(minHeight: 40),
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(
+                          maxHeight: MediaQuery.sizeOf(context).height * 0.25,
+                        ),
+                        child: Focus(
+                          canRequestFocus: false,
+                          skipTraversal: true,
+                          onKeyEvent: (_, event) =>
+                              _handleEditLastMessage(event, composer),
+                          child: ComposerEditor(
+                            composer: composer,
+                            onKeyEvent: (event) =>
+                                _handleComposerKey(event, composer),
+                            enableBlockReordering: false,
+                            slashActions: (context) {
+                              final gifs = PluginUiScope.maybe(
+                                context,
+                                chatGifsService,
+                              );
+                              final enabled =
+                                  !_pickingGif &&
+                                  !_pickingFiles &&
+                                  !_pickingEmoji &&
+                                  !_savingEdit &&
+                                  (_chat?.canSendMessageTo(
+                                        widget.siteUrl,
+                                        _target,
+                                      ) ??
+                                      false);
+                              return [
+                                if (enabled && composer.canUpload)
+                                  ComposerSlashAction(
+                                    label: 'Upload',
+                                    icon: DIcons.paperclip,
+                                    keywords: const [
+                                      'image',
+                                      'file',
+                                      'attachment',
+                                    ],
+                                    onInvoke: () => unawaited(_pickFiles()),
+                                  ),
+                                if (enabled &&
+                                    widget.editingMessage == null &&
+                                    (gifs?.isAvailable(widget.siteUrl) ??
+                                        false))
+                                  ComposerSlashAction(
+                                    label: 'Insert GIF',
+                                    icon: gifsPickerIcon,
+                                    onInvoke: () => unawaited(_pickGif()),
+                                  ),
+                                if (enabled &&
+                                    host
+                                        .siteConfigFor(composer.target.siteUrl)
+                                        .emojiEnabled)
+                                  ComposerSlashAction(
+                                    label: 'Emoji',
+                                    icon: DIcons.discourseEmojis,
+                                    keywords: const ['reaction', 'smile'],
+                                    onInvoke: () => unawaited(
+                                      _pickEmoji(pickerContext: context),
+                                    ),
+                                  ),
+                              ];
+                            },
+                            expands: false,
+                            enableDropTarget:
+                                widget.uploadDropController == null,
+                            onSuggestionAction:
+                                ({
+                                  required context,
+                                  required composer,
+                                  required suggestion,
+                                  anchor,
+                                }) async {
+                                  if (suggestion.action !=
+                                      ComposerSuggestionAction
+                                          .openEmojiPicker) {
+                                    return;
+                                  }
+                                  await _pickEmoji(
+                                    pickerContext: context,
+                                    initialQuery:
+                                        composer.autocomplete.trigger?.query ??
+                                        suggestion.value,
+                                    anchor: anchor,
+                                  );
+                                },
+                            hintText: hint,
+                            textStyle: theme.textTheme.bodyLarge,
+                            hintStyle: theme.textTheme.bodyLarge?.copyWith(
+                              color: theme.colorScheme.onSurfaceVariant,
                             ),
                           ),
                         ),
                       ),
-                    );
-                  },
-                ),
-                ValueListenableBuilder<SiteConfig>(
-                  valueListenable: host.siteConfigListenableFor(
-                    composer.target.siteUrl,
-                  ),
-                  builder: (context, config, _) {
-                    final emojiEnabled = config.emojiEnabled;
-                    _closeDisabledEmojiAutocomplete(emojiEnabled);
-                    _updateMarkdownLinkify(config);
-                    return emojiEnabled
-                        ? EmojiPickerAnchor(
-                            child: Center(
-                              heightFactor: 1,
-                              child: Builder(
-                                builder: (buttonContext) => DButton.iconOnly(
-                                  key: const ValueKey('chat-composer-emoji'),
-                                  onPressed:
-                                      _pickingGif ||
-                                          _pickingFiles ||
-                                          _pickingEmoji ||
-                                          _savingEdit ||
-                                          !(_chat?.canSendMessage(
-                                                widget.siteUrl,
-                                                widget.channelId,
-                                              ) ??
-                                              false)
-                                      ? null
-                                      : () => unawaited(
-                                          _pickEmoji(
-                                            pickerContext: buttonContext,
-                                          ),
-                                        ),
-                                  icon: const DIcon(DIcons.discourseEmojis),
-                                  tooltip: 'Add emoji',
-                                  variant: DButtonVariant.ghost,
-                                ),
-                              ),
-                            ),
-                          )
-                        : const SizedBox.shrink();
-                  },
-                ),
-                const Spacer(),
-                if (widget.editingMessage != null)
-                  Center(
-                    heightFactor: 1,
-                    child: DButton.iconOnly(
-                      key: const ValueKey('chat-composer-edit-cancel'),
-                      onPressed: _savingEdit ? null : _cancelEdit,
-                      icon: const DIcon(DIcons.xmark),
-                      tooltip: 'Cancel edit',
-                      variant: DButtonVariant.ghost,
                     ),
                   ),
-                Center(
-                  heightFactor: 1,
-                  child: ListenableBuilder(
-                    listenable: Listenable.merge([
-                      for (final id
-                          in _chat!
-                              .streamFor(widget.siteUrl, _target)
-                              .localMessageIds)
-                        _chat!.messageRef(widget.siteUrl, id),
-                    ]),
-                    builder: (context, _) => DButton(
-                      key: const ValueKey('chat-composer-send'),
-                      label: Text(
-                        widget.editingMessage == null ? 'Send' : 'Save',
-                      ),
-                      loadingLabel: Text(
-                        widget.editingMessage == null ? 'Send' : 'Save',
-                      ),
-                      onPressed:
-                          _pickingGif ||
-                              _pickingFiles ||
-                              _pickingEmoji ||
-                              _savingEdit ||
-                              !composer.canSubmit ||
-                              composer.hasActiveUploads ||
-                              !(_chat?.canSendMessageTo(
+                ),
+                if (_replyTo case final reply?
+                    when widget.editingMessage == null)
+                  DInputGroupAddon(
+                    alignment: DInputGroupAddonAlignment.blockStart,
+                    child: _replyPreview(context, reply),
+                  ),
+                DInputGroupAddon(
+                  alignment: DInputGroupAddonAlignment.blockEnd,
+                  child: Row(
+                    spacing: DSpacing.xs,
+                    children: [
+                      ValueListenableBuilder<SiteConfig>(
+                        valueListenable: host.siteConfigListenableFor(
+                          composer.target.siteUrl,
+                        ),
+                        builder: (context, _, _) {
+                          final gifs = PluginUiScope.maybe(
+                            context,
+                            chatGifsService,
+                          );
+                          final canUpload = composer.imageUploader != null;
+                          final canInsertGif =
+                              widget.editingMessage == null &&
+                              (gifs?.isAvailable(widget.siteUrl) ?? false);
+                          if (!canUpload && !canInsertGif) {
+                            return const SizedBox.shrink();
+                          }
+
+                          final enabled =
+                              !_pickingGif &&
+                              !_pickingFiles &&
+                              !_pickingEmoji &&
+                              !_savingEdit &&
+                              (_chat?.canSendMessageTo(
                                     widget.siteUrl,
                                     _target,
                                   ) ??
-                                  false)
-                          ? null
-                          : () => _send(composer),
-                      loading:
-                          _savingEdit ||
-                          _chat!
-                              .messagesFor(widget.siteUrl, _target)
-                              .any(
-                                (message) =>
-                                    message.delivery ==
-                                    ChatMessageDelivery.sending,
+                                  false);
+                          return Center(
+                            heightFactor: 1,
+                            child: Semantics(
+                              container: true,
+                              explicitChildNodes: true,
+                              child: DDropdownMenu(
+                                key: ValueKey((
+                                  composer,
+                                  widget.editingMessage?.id,
+                                )),
+                                content: DDropdownMenuContent(
+                                  semanticLabel: 'Add to message',
+                                  side: DPopoverSide.top,
+                                  width: 192,
+                                  children: [
+                                    if (canUpload)
+                                      DDropdownMenuItem(
+                                        key: const ValueKey(
+                                          'chat-composer-upload',
+                                        ),
+                                        leading: const DIcon(DIcons.paperclip),
+                                        onPressed: enabled
+                                            ? () {
+                                                if (identical(
+                                                  _composer,
+                                                  composer,
+                                                )) {
+                                                  unawaited(_pickFiles());
+                                                }
+                                              }
+                                            : null,
+                                        child: const Text('Upload'),
+                                      ),
+                                    if (canInsertGif)
+                                      DDropdownMenuItem(
+                                        key: const ValueKey(
+                                          'chat-composer-gif',
+                                        ),
+                                        leading: const DIcon(gifsPickerIcon),
+                                        onPressed: enabled
+                                            ? () {
+                                                if (identical(
+                                                  _composer,
+                                                  composer,
+                                                )) {
+                                                  unawaited(_pickGif());
+                                                }
+                                              }
+                                            : null,
+                                        child: const Text('Insert GIF'),
+                                      ),
+                                  ],
+                                ),
+                                child: DDropdownMenuTrigger(
+                                  builder: (context, state) => DButton.iconOnly(
+                                    key: const ValueKey('chat-composer-add'),
+                                    onPressed: enabled ? state.toggle : null,
+                                    focusNode: state.focusNode,
+                                    hasPopup: true,
+                                    expanded: state.open,
+                                    icon: const DIcon(
+                                      DIcons.plus,
+                                      key: ValueKey('chat-composer-add-icon'),
+                                    ),
+                                    tooltip: 'Add to message',
+                                    variant: DButtonVariant.ghost,
+                                  ),
+                                ),
                               ),
-                      icon: const DIcon(DIcons.paperPlane, size: 16),
-                      tooltip: widget.editingMessage == null
-                          ? 'Send message'
-                          : 'Save edit',
-                      variant: DButtonVariant.primary,
-                    ),
+                            ),
+                          );
+                        },
+                      ),
+                      ValueListenableBuilder<SiteConfig>(
+                        valueListenable: host.siteConfigListenableFor(
+                          composer.target.siteUrl,
+                        ),
+                        builder: (context, config, _) {
+                          final emojiEnabled = config.emojiEnabled;
+                          _closeDisabledEmojiAutocomplete(emojiEnabled);
+                          _updateMarkdownLinkify(config);
+                          return emojiEnabled
+                              ? EmojiPickerAnchor(
+                                  child: Center(
+                                    heightFactor: 1,
+                                    child: Builder(
+                                      builder: (buttonContext) =>
+                                          DButton.iconOnly(
+                                            key: const ValueKey(
+                                              'chat-composer-emoji',
+                                            ),
+                                            onPressed:
+                                                _pickingGif ||
+                                                    _pickingFiles ||
+                                                    _pickingEmoji ||
+                                                    _savingEdit ||
+                                                    !(_chat?.canSendMessage(
+                                                          widget.siteUrl,
+                                                          widget.channelId,
+                                                        ) ??
+                                                        false)
+                                                ? null
+                                                : () => unawaited(
+                                                    _pickEmoji(
+                                                      pickerContext:
+                                                          buttonContext,
+                                                    ),
+                                                  ),
+                                            icon: const DIcon(
+                                              DIcons.discourseEmojis,
+                                            ),
+                                            tooltip: 'Add emoji',
+                                            variant: DButtonVariant.ghost,
+                                          ),
+                                    ),
+                                  ),
+                                )
+                              : const SizedBox.shrink();
+                        },
+                      ),
+                      const Spacer(),
+                      if (widget.editingMessage != null)
+                        Center(
+                          heightFactor: 1,
+                          child: DButton.iconOnly(
+                            key: const ValueKey('chat-composer-edit-cancel'),
+                            onPressed: _savingEdit ? null : _cancelEdit,
+                            icon: const DIcon(DIcons.xmark),
+                            tooltip: 'Cancel edit',
+                            variant: DButtonVariant.ghost,
+                          ),
+                        ),
+                      if (!mobile)
+                        Center(
+                          heightFactor: 1,
+                          child: ListenableBuilder(
+                            listenable: Listenable.merge([
+                              for (final id
+                                  in _chat!
+                                      .streamFor(widget.siteUrl, _target)
+                                      .localMessageIds)
+                                _chat!.messageRef(widget.siteUrl, id),
+                            ]),
+                            builder: (context, _) => _sendButton(composer),
+                          ),
+                        ),
+                    ],
                   ),
                 ),
               ],
             ),
           ),
+          if (mobile && !actionInShell)
+            Padding(
+              padding: const EdgeInsets.only(top: DSpacing.xs),
+              child: Align(
+                alignment: AlignmentDirectional.centerEnd,
+                child: _sendButton(composer),
+              ),
+            ),
         ],
       ),
     );
   }
+
+  Widget _sendButton(ComposerController composer) => DButton(
+    key: const ValueKey('chat-composer-send'),
+    label: Text(widget.editingMessage == null ? 'Send' : 'Save'),
+    loadingLabel: Text(widget.editingMessage == null ? 'Send' : 'Save'),
+    onPressed: _canSend(composer) ? () => _send(composer) : null,
+    loading: _sending,
+    icon: const DIcon(DIcons.paperPlane, size: 16),
+    tooltip: widget.editingMessage == null ? 'Send message' : 'Save edit',
+    variant: DButtonVariant.primary,
+  );
 }

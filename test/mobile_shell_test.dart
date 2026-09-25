@@ -185,8 +185,8 @@ Future<ShellController> pumpMobileShellFixture(
   return shell;
 }
 
-void _expectPage({bool focusedChat = false}) {
-  expect(_bar, focusedChat ? findsNothing : findsOneWidget);
+void _expectPage() {
+  expect(_bar, findsOneWidget);
   expect(_header, findsOneWidget);
   expect(find.byType(InstanceRail), findsNothing);
   expect(find.byType(ShellTitleBar), findsNothing);
@@ -1302,7 +1302,7 @@ void main() {
     },
   );
 
-  _mobileTest('chat focus collapses tabs and blur restores them', (
+  _mobileTest('chat focus keeps navigation and Send in the bottom bar', (
     tester,
   ) async {
     final shell = await pumpMobileShellFixture(tester);
@@ -1320,12 +1320,24 @@ void main() {
     final panel = find.byKey(const ValueKey('mobile-content-panel'));
     final initialHeight = tester.getSize(panel).height;
     composer.focus.requestFocus();
-    await tester.pump();
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 90));
-    expect(tester.getSize(panel).height, greaterThan(initialHeight));
     await tester.pumpAndSettle();
-    expect(_bar, findsNothing);
+    expect(tester.getSize(panel).height, initialHeight);
+    expect(_bar, findsOneWidget);
+    final send = find.byKey(const ValueKey('chat-composer-send'));
+    expect(find.descendant(of: _bar, matching: send), findsOneWidget);
+    expect(tester.widget<DButton>(send).onPressed, isNull);
+    await tester.enterText(
+      find.descendant(
+        of: find.byType(ComposerEditor),
+        matching: find.byType(TextField),
+      ),
+      'Hello from mobile',
+    );
+    await tester.pumpAndSettle();
+    expect(tester.widget<DButton>(send).onPressed, isNotNull);
+    await tester.tap(send);
+    await tester.pumpAndSettle();
+    expect(composer.text.text, isEmpty);
     expect(composer.focus.hasFocus, isTrue);
     composer.focus.unfocus();
     await tester.pumpAndSettle();
@@ -1353,7 +1365,14 @@ void main() {
       expect(find.text('sam'), findsWidgets);
       await tester.tap(find.text('sam').first);
       await tester.pumpAndSettle();
-      _expectPage(focusedChat: true);
+      _expectPage();
+      expect(
+        find.descendant(
+          of: _bar,
+          matching: find.byKey(const ValueKey('chat-composer-send')),
+        ),
+        findsOneWidget,
+      );
       expect(shell.currentContent?.id, contains('10'));
       shell.pushContent(
         ContentRoute.topic(
@@ -1364,9 +1383,17 @@ void main() {
       );
       await tester.pumpAndSettle();
       _expectPage();
+      expect(find.byKey(const ValueKey('chat-composer-send')), findsNothing);
       expect(shell.handleBack(), isTrue);
       await tester.pumpAndSettle();
-      _expectPage(focusedChat: true);
+      _expectPage();
+      expect(
+        find.descendant(
+          of: _bar,
+          matching: find.byKey(const ValueKey('chat-composer-send')),
+        ),
+        findsOneWidget,
+      );
       expect(shell.currentContent?.id, contains('10'));
       shell.handleBack();
       await tester.pumpAndSettle();

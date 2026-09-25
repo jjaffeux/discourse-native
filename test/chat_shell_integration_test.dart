@@ -782,32 +782,38 @@ void _registerChatShellTests() {
         expect(shell.chat.channel(site, 9)?.membership.lastViewedAt, isNotNull);
       }, variant: TargetPlatformVariant.only(TargetPlatform.fuchsia));
 
-      testWidgets(
-        'shows the mobile Chat mode only while its sidebar is visible',
-        (tester) async {
-          await pumpChat(
-            tester,
-            size: phone,
-            public: [channel(9)],
-            messages: {key(9): page(const [])},
-          );
-          expect(
-            find.byKey(const ValueKey('mobile-mode-panel/chat')),
-            findsOneWidget,
-          );
+      testWidgets('keeps the mobile Chat mode beside an open channel', (
+        tester,
+      ) async {
+        await pumpChat(
+          tester,
+          size: phone,
+          public: [channel(9)],
+          messages: {key(9): page(const [])},
+        );
+        expect(
+          find.byKey(const ValueKey('mobile-mode-panel/chat')),
+          findsOneWidget,
+        );
 
-          await selectChatSidebar(tester);
-          await tester.tap(sidebarDestination('Bugs'));
-          await tester.pumpAndSettle();
+        await selectChatSidebar(tester);
+        await tester.tap(sidebarDestination('Bugs'));
+        await tester.pumpAndSettle();
 
-          expect(find.byType(ChatChannelView), findsOneWidget);
-          expect(shortcut, findsNothing);
-          expect(
-            find.byKey(const ValueKey('mobile-mode-panel/chat')),
-            findsNothing,
-          );
-        },
-      );
+        expect(find.byType(ChatChannelView), findsOneWidget);
+        expect(shortcut, findsNothing);
+        expect(
+          find.byKey(const ValueKey('mobile-mode-panel/chat')),
+          findsOneWidget,
+        );
+        expect(
+          find.descendant(
+            of: find.byKey(const ValueKey('mobile-bottom-bar')),
+            matching: find.byKey(const ValueKey('chat-composer-send')),
+          ),
+          findsOneWidget,
+        );
+      });
     });
 
     group('in the sidebar', () {
