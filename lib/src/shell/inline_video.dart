@@ -241,7 +241,7 @@ class _InlineVideoState extends State<InlineVideo> {
             key: const ValueKey('inline-video-download'),
             onPressed: downloading ? null : () => unawaited(_download(context)),
             variant: DButtonVariant.secondary,
-            size: DButtonSize.large,
+            size: DButtonSize.post,
             tooltip: downloading ? 'Downloading video…' : 'Download video',
             loading: downloading,
             icon: const DIcon(DIcons.download),
@@ -383,7 +383,7 @@ class _InlineVideoState extends State<InlineVideo> {
                   onPressed: _load,
                   tooltip: 'Play video',
                   variant: DButtonVariant.secondary,
-                  size: DButtonSize.large,
+                  size: DButtonSize.post,
                   icon: const DIcon(DIcons.play),
                 ),
               ),
@@ -873,7 +873,7 @@ class _PlaybackControls extends StatelessWidget {
               builder: (context, isPlaying) => DButton.iconOnly(
                 onPressed: onTogglePlayback,
                 variant: DButtonVariant.secondary,
-                size: DButtonSize.large,
+                size: DButtonSize.post,
                 tooltip: isPlaying ? 'Pause' : 'Play',
                 icon: Icon(
                   isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
@@ -888,7 +888,7 @@ class _PlaybackControls extends StatelessWidget {
                 key: const ValueKey('inline-video-fullscreen-close'),
                 onPressed: exit,
                 variant: DButtonVariant.secondary,
-                size: DButtonSize.large,
+                size: DButtonSize.post,
                 tooltip: 'Exit full screen',
                 icon: const Icon(Icons.fullscreen_exit_rounded),
               )
@@ -897,7 +897,7 @@ class _PlaybackControls extends StatelessWidget {
                 key: const ValueKey('inline-video-fullscreen'),
                 onPressed: onEnterFullscreen,
                 variant: DButtonVariant.secondary,
-                size: DButtonSize.large,
+                size: DButtonSize.post,
                 tooltip: 'Enter full screen',
                 icon: const DIcon(DIcons.expand),
               )
@@ -1036,7 +1036,7 @@ class _OpenVideoButton extends StatelessWidget {
         child: DButton.iconOnly(
           onPressed: open,
           variant: DButtonVariant.secondary,
-          size: DButtonSize.large,
+          size: DButtonSize.post,
           tooltip: 'Open video',
           icon: const DIcon(DIcons.upRightFromSquare),
         ),
@@ -1067,11 +1067,13 @@ class _VideoFailure extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               DButton(
+                size: DButtonSize.post,
                 label: const Text('Try again'),
                 onPressed: onRetry,
                 variant: DButtonVariant.link,
               ),
               DButton(
+                size: DButtonSize.post,
                 label: const Text('Open video'),
                 onPressed: () =>
                     unawaited(openExternalLink(data.source.toString())),

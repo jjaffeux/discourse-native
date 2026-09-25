@@ -169,10 +169,12 @@ class _EmbeddedOneboxState extends State<EmbeddedOnebox> {
                         spacing: DSpacing.controlGap,
                         children: [
                           DButton(
+                            size: DButtonSize.post,
                             label: const Text('Load embed'),
                             onPressed: () => setState(() => _activated = true),
                           ),
                           DButton(
+                            size: DButtonSize.post,
                             variant: DButtonVariant.outline,
                             label: const Text('Open in browser'),
                             onPressed: () => unawaited(

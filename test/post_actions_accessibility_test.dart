@@ -64,10 +64,7 @@ void main() {
       buttonSurface(tester, of: button).color,
       tokens.buttonTheme.accent.hover,
     );
-    expect(
-      filledButton.style!.fixedSize!.resolve({}),
-      const Size.square(DControlStyle.regularHeight),
-    );
+    expect(filledButton.style!.fixedSize!.resolve({}), const Size.square(30));
   });
 
   testWidgets('post actions ignore non-finite transformed anchors', (

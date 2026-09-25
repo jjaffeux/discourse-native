@@ -170,6 +170,7 @@ class TwitterOnebox extends StatelessWidget {
                         Align(
                           alignment: AlignmentDirectional.centerStart,
                           child: DButton(
+                            size: DButtonSize.post,
                             variant: DButtonVariant.inline,
                             isLink: true,
                             label: Text(timestamp, softWrap: true, maxLines: 3),
@@ -263,6 +264,7 @@ class _Author extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               DButton(
+                size: DButtonSize.post,
                 variant: DButtonVariant.inline,
                 foregroundColor: tokens.foreground,
                 isLink: true,
@@ -290,6 +292,7 @@ class _Author extends StatelessWidget {
                     ),
                     Text('·', style: TextStyle(color: tokens.mutedForeground)),
                     DButton(
+                      size: DButtonSize.post,
                       variant: DButtonVariant.inline,
                       foregroundColor: tokens.primary,
                       label: const Text(
@@ -313,7 +316,7 @@ class _Author extends StatelessWidget {
         const SizedBox(width: DSpacing.sm),
         DButton.iconOnly(
           variant: DButtonVariant.transparentBackground,
-          size: DButtonSize.large,
+          size: DButtonSize.post,
           icon: DIcon(_xLogo, color: tokens.foreground),
           tooltip: 'View post on X',
           isLink: true,
@@ -367,6 +370,7 @@ class _QuotedPost extends StatelessWidget {
             Align(
               alignment: AlignmentDirectional.centerStart,
               child: DButton(
+                size: DButtonSize.post,
                 variant: DButtonVariant.inline,
                 foregroundColor: DTokens.of(context).foreground,
                 isLink: true,
@@ -447,7 +451,7 @@ class _PostActionsState extends State<_PostActions> {
             if (data.likes case final likes?)
               DButton(
                 variant: DButtonVariant.transparentBackground,
-                size: DButtonSize.large,
+                size: DButtonSize.post,
                 icon: const DIcon(DIcons.heart, color: Color(0xfff91880)),
                 label: Text(
                   likes,
@@ -465,7 +469,7 @@ class _PostActionsState extends State<_PostActions> {
             if (data.reposts case final reposts?)
               DButton(
                 variant: DButtonVariant.transparentBackground,
-                size: DButtonSize.large,
+                size: DButtonSize.post,
                 icon: const Icon(Icons.repeat),
                 label: Text(reposts),
                 semanticLabel: '$reposts reposts. View post on X',
@@ -475,7 +479,7 @@ class _PostActionsState extends State<_PostActions> {
             if (url != null) ...[
               DButton(
                 variant: DButtonVariant.transparentBackground,
-                size: DButtonSize.large,
+                size: DButtonSize.post,
                 icon: DIcon(DIcons.comment, color: tokens.primary),
                 label: const Text(
                   'Reply',
@@ -489,7 +493,7 @@ class _PostActionsState extends State<_PostActions> {
               ),
               DButton(
                 variant: DButtonVariant.transparentBackground,
-                size: DButtonSize.large,
+                size: DButtonSize.post,
                 icon: DIcon(_copied ? DIcons.check : DIcons.link),
                 label: Text(
                   _copied ? 'Copied!' : 'Copy link',
@@ -504,7 +508,7 @@ class _PostActionsState extends State<_PostActions> {
           const SizedBox(height: DSpacing.sm),
           DButton(
             variant: DButtonVariant.outline,
-            size: DButtonSize.large,
+            size: DButtonSize.post,
             shape: DButtonShape.pill,
             foregroundColor: tokens.primary,
             backgroundColor: tokens.background,

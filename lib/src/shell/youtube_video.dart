@@ -605,7 +605,7 @@ class _YoutubePoster extends StatelessWidget {
               child: DButton.iconOnly(
                 onPressed: openOnYoutube,
                 variant: DButtonVariant.secondary,
-                size: DButtonSize.large,
+                size: DButtonSize.post,
                 tooltip: 'Open on YouTube',
                 icon: const DIcon(DIcons.upRightFromSquare),
               ),
@@ -779,6 +779,7 @@ class _YoutubePlayerSurfaceState extends State<YoutubePlayerSurface> {
               ),
               const SizedBox(height: 8),
               DButton(
+                size: DButtonSize.post,
                 label: const Text('Open on YouTube'),
                 onPressed: () => unawaited(
                   openExternalLink(widget.data.watchUri.toString()),

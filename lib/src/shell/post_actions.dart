@@ -943,6 +943,7 @@ class _PostActionsMenu extends StatelessWidget {
                     hasPopup: true,
                     expanded: state.open,
                     variant: DButtonVariant.ghost,
+                    size: DButtonSize.post,
                     key: const ValueKey('post-actions-overflow'),
 
                     tooltip: 'More actions',

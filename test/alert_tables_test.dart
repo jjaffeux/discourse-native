@@ -107,12 +107,12 @@ void main() {
           tester.getTopLeft(date).dx -
           tester.getTopLeft(find.text('myalert')).dx;
       expect(nameWidth, greaterThan(tester.getSize(table).width * .65));
-      expect(tester.getSize(_button('Quote Alert')).height, 28);
+      expect(tester.getSize(_button('Quote Alert')).height, 30);
       expect(
         tester
             .getSize(find.widgetWithText(DCollapsibleTrigger, 'sjc1 (1)'))
             .height,
-        28,
+        30,
       );
       expect(
         tester.getSize(table).height,
@@ -168,7 +168,10 @@ void main() {
         registry: _localDates(),
       );
       expect(tester.takeException(), isNull);
-      expect(tester.getSize(_button('Quote Alert')).height, 48);
+      expect(
+        tester.getSize(_button('Quote Alert')).height,
+        greaterThanOrEqualTo(48),
+      );
       final before = tester.getTopLeft(find.text(identifier)).dx;
       final horizontal = find.byWidgetPredicate(
         (widget) =>

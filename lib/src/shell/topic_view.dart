@@ -4965,6 +4965,7 @@ class _PostInboundLinks extends StatelessWidget {
               child: DButton(
                 onPressed: onExpand,
                 variant: DButtonVariant.ghost,
+                size: DButtonSize.post,
                 label: Text(
                   '$remaining more ${remaining == 1 ? 'link' : 'links'}',
                 ),

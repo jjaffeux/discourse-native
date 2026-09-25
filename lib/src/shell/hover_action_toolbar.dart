@@ -37,8 +37,8 @@ class HoverActionButton extends StatelessWidget {
     this.color,
   });
 
-  static const double width = DControlStyle.regularHeight;
-  static const double height = DControlStyle.regularHeight;
+  static const double width = 30;
+  static const double height = 30;
   static const Size size = Size(width, height);
 
   final String tooltip;
@@ -55,6 +55,7 @@ class HoverActionButton extends StatelessWidget {
       focusNode: focusNode,
       onPressed: onPressed,
       tooltip: tooltip,
+      size: DButtonSize.post,
       variant: color == theme.colorScheme.error
           ? DButtonVariant.destructive
           : DButtonVariant.ghost,

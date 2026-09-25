@@ -151,6 +151,7 @@ class _CookedTableState extends State<_CookedTable> {
             sortDirection: header.sortDirection,
             onSortChanged: header.onSortChanged,
             onHide: () => header.onVisibilityChanged!(false),
+            size: DControlSize.post,
           ),
           cellBuilder: (context, cell) => DefaultTextStyle.merge(
             style: TextStyle(
@@ -174,6 +175,7 @@ class _CookedTableState extends State<_CookedTable> {
             DButton.iconOnly(
               tooltip: _copied ? 'Table copied' : 'Copy table',
               variant: DButtonVariant.outline,
+              size: DButtonSize.post,
               icon: DIcon(_copied ? DIcons.check : DIcons.copy, size: 16),
               onPressed: _copyTable,
             ),
@@ -184,6 +186,7 @@ class _CookedTableState extends State<_CookedTable> {
               onChanged: (hidden) => setState(() {
                 _state = _state.copyWith(hiddenColumnIds: hidden);
               }),
+              size: DControlSize.post,
             ),
           ],
         ),
