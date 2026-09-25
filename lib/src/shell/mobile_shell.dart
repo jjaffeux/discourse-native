@@ -102,6 +102,7 @@ class _MobileForumRootState extends State<MobileForumRoot> {
             destinations.where((entry) => entry.id == id).firstOrNull;
         final selected = shell.mobileNavigation.tab;
         final tabOrder = [
+          MobileTab.start,
           MobileTab.topics,
           for (final entry in panels) MobileTab.panel(entry.owner.value),
           if (destination('messages') != null) MobileTab.messages,
@@ -140,6 +141,20 @@ class _MobileForumRootState extends State<MobileForumRoot> {
             shell.mobileNavigation.atRoot &&
             panelOwner != null;
         final buttons = <Widget>[
+          _tabButton(
+            context,
+            MobileTab.start,
+            'Start',
+            DIcons.grip,
+            () => shell.selectMobileDestination(
+              MobileTab.start,
+              const SidebarDestination(
+                id: 'new-tab',
+                label: 'Start page',
+                icon: DIcons.grip,
+              ),
+            ),
+          ),
           _tabButton(
             context,
             MobileTab.topics,
