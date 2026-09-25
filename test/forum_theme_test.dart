@@ -173,6 +173,44 @@ void main() {
     expect(await settings.store.loadThemes(site), stored);
   });
 
+  test('a new theme previews its own texture before it is saved', () async {
+    final settings = ForumSettingsController(
+      store: ForumSettingsStore.memory(),
+    );
+    addTearDown(settings.dispose);
+    const paper = ForumBackground.appearance(
+      effect: ForumBackgroundEffect.paper,
+      noiseIntensity: 1,
+    );
+    final draft = ForumTheme.fromJson({
+      ...dracula
+          .forBrightness(Brightness.light)
+          .copyWith(background: paper)
+          .toJson(),
+      'alternate': dracula
+          .forBrightness(Brightness.dark)
+          .copyWith(background: paper)
+          .toJson(),
+    }, id: 'custom-preview');
+    final owner = Object();
+
+    settings.preview(site, owner, draft: draft);
+    for (final mode in Brightness.values) {
+      expect(
+        settings
+            .appearanceFor(site, null)!
+            .paletteForBrightness(mode)!
+            .background,
+        paper,
+      );
+    }
+
+    settings.preview(site, owner);
+    expect(settings.appearanceFor(site, null), isNull);
+    await settings.setThemes(site, ForumThemePreferences().save(draft));
+    expect(settings.appearanceFor(site, null)!.base!.background, paper);
+  });
+
   test('live palettes are visible before persistence completes', () async {
     final persistence = _Persistence()..gate = Completer<void>();
     final settings = ForumSettingsController(
@@ -573,11 +611,8 @@ void main() {
         settings.appearanceFor(site, forum)!.base,
         legacy
             .forBrightness(Brightness.light)
-            .copyWith(background: effects)
             .resolve(Brightness.light, forumPalette: published),
-        reason:
-            'a saved theme\'s own effects, tint included, no longer '
-            'apply',
+        reason: 'a saved custom theme keeps its own effects',
       );
 
       final tinted = custom.copyWith(id: 'custom-tinted', tint: 1);

@@ -25,6 +25,7 @@ import 'package:discourse_native/src/shell/adaptive_shell.dart';
 import 'package:discourse_native/src/shell/avatar_image.dart';
 import 'package:discourse_native/src/shell/forum_settings_controller.dart';
 import 'package:discourse_native/src/shell/forum_settings_page.dart';
+import 'package:discourse_native/src/shell/forum_texture.dart';
 import 'package:discourse_native/src/shell/instance_rail.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
@@ -218,6 +219,59 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(tester.element(find.byType(TopicView).first), same(topicElement));
+  }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
+
+  testWidgets('new theme texture choices update the live window', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1200, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    tester.platformDispatcher.accessibilityFeaturesTestValue =
+        const FakeAccessibilityFeatures(disableAnimations: true);
+    addTearDown(tester.platformDispatcher.clearAccessibilityFeaturesTestValue);
+    await _pumpApp(
+      tester,
+      store: FakeInstanceStore([
+        const DiscourseInstance(url: siteA, title: 'A'),
+      ]),
+      api: FakeDiscourseApi(),
+    );
+    await _openForumSettings(tester);
+    final newTheme = find.byKey(const ValueKey('new-theme'));
+    await tester.ensureVisible(newTheme);
+    await tester.tap(newTheme);
+    await tester.pumpAndSettle();
+
+    for (final (label, effect) in [
+      ('Paper', ForumBackgroundEffect.paper),
+      ('Lava lamp', ForumBackgroundEffect.lava),
+      ('Gradient', ForumBackgroundEffect.gradient),
+    ]) {
+      final choice = find.text(label);
+      await tester.ensureVisible(choice);
+      await tester.tap(choice);
+      await tester.pump();
+      expect(
+        _activeTheme(tester).extension<ForumThemeEffects>()?.background?.effect,
+        effect,
+        reason: label,
+      );
+      if (effect == ForumBackgroundEffect.gradient) {
+        expect(
+          find.byKey(const ValueKey('forum-gradient-texture')),
+          findsOneWidget,
+        );
+      } else {
+        expect(
+          tester
+              .widget<ForumTexture>(find.byType(ForumTexture))
+              .background
+              .effect,
+          effect,
+        );
+      }
+    }
   }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 
   testWidgets('mobile pages share one custom background painter', (
