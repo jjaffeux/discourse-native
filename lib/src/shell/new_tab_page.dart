@@ -176,6 +176,12 @@ class _NewTabPageState extends State<NewTabPage> {
     final categories = siteUrl == null
         ? <ContentRoute>[]
         : shell!.recentCategoriesFor(siteUrl);
+    final categoryDetails = siteUrl == null
+        ? <int, TopicCategory>{}
+        : {
+            for (final category in shell!.topicComposerCategories(siteUrl))
+              category.id: category,
+          };
     final latest = siteUrl == null
         ? <Topic>[]
         : shell!.cachedLatestTopicsFor(siteUrl).take(4).toList();
@@ -208,7 +214,14 @@ class _NewTabPageState extends State<NewTabPage> {
 
     final categoryRows = [
       for (final route in categories.take(4))
-        _StartPageEntry.fromRoute(route, () => _openRoute(context, route)),
+        _StartPageEntry.fromRoute(
+          route,
+          () => _openRoute(context, route),
+          count: route.categoryId == null
+              ? null
+              : shell!.categoryActivityCountFor(siteUrl!, route.categoryId!),
+          description: categoryDetails[route.categoryId]?.descriptionExcerpt,
+        ),
     ];
     final chatRows = [
       for (final destination in unreadChannels.take(4))
@@ -604,16 +617,18 @@ class _StartPageEntry {
     ContentRoute route,
     VoidCallback onPressed, {
     SidebarDestination? destination,
+    int? count,
+    String? description,
   }) => _StartPageEntry(
     id: route.id,
     title: route.title,
     icon: destination?.icon ?? route.icon,
     color: destination?.iconColor ?? route.color,
-    count: destination?.unreadCount ?? destination?.badge?.count,
+    count: count ?? destination?.unreadCount ?? destination?.badge?.count,
     time: destination?.lastActivityAt == null
         ? null
         : relativeTime(destination!.lastActivityAt!),
-    description: destination?.preview ?? route.subtitle,
+    description: description ?? destination?.preview ?? route.subtitle,
     path: _recentRouteUrl(route),
     onPressed: onPressed,
   );

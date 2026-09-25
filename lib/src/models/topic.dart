@@ -737,6 +737,7 @@ class TopicCategory with Storable<TopicCategory> {
     this.emoji,
     this.readRestricted = false,
     this.topicCount = 0,
+    this.descriptionExcerpt,
     this.position,
     this.isUncategorized = false,
     this.notificationLevel = CategoryNotificationLevel.normal,
@@ -758,6 +759,9 @@ class TopicCategory with Storable<TopicCategory> {
     emoji: jsonText(json['emoji']),
     readRestricted: json['read_restricted'] == true,
     topicCount: jsonInt(json['topic_count']),
+    descriptionExcerpt:
+        jsonText(json['description_excerpt']) ??
+        jsonText(json['description_text']),
     position: jsonIntOrNull(json['position']),
     isUncategorized: json['is_uncategorized'] == true,
     notificationLevel: CategoryNotificationLevel.fromJson(
@@ -787,6 +791,7 @@ class TopicCategory with Storable<TopicCategory> {
 
   final bool readRestricted;
   final int topicCount;
+  final String? descriptionExcerpt;
   final int? position;
 
   final bool isUncategorized;
@@ -812,6 +817,7 @@ class TopicCategory with Storable<TopicCategory> {
         emoji: emoji,
         readRestricted: readRestricted,
         topicCount: topicCount,
+        descriptionExcerpt: descriptionExcerpt,
         position: position,
         isUncategorized: isUncategorized,
         notificationLevel: level,
@@ -843,6 +849,7 @@ class TopicCategory with Storable<TopicCategory> {
           other.emoji == emoji &&
           other.readRestricted == readRestricted &&
           other.topicCount == topicCount &&
+          other.descriptionExcerpt == descriptionExcerpt &&
           other.position == position &&
           other.isUncategorized == isUncategorized &&
           other.notificationLevel == notificationLevel &&
@@ -862,6 +869,7 @@ class TopicCategory with Storable<TopicCategory> {
     emoji,
     readRestricted,
     topicCount,
+    descriptionExcerpt,
     position,
     isUncategorized,
     notificationLevel,

@@ -1517,6 +1517,27 @@ class ShellController extends FrameSafeNotifier
 
   List<ContentRoute> recentCategoriesFor(String siteUrl) => recentDestinations
       .categoriesFor(siteUrl, _recentAccountIdentity(siteUrl));
+
+  /// Uses the loaded topic tracking snapshot and live updates, with the same
+  /// category counting rules as sidebar badges.
+  int categoryActivityCountFor(String siteUrl, int categoryId) {
+    final user = _instanceAt(siteUrl)?.user;
+    final tracking = _topicTrackingBySite[siteUrl];
+    if (user == null ||
+        tracking == null ||
+        !_topicTrackingSnapshotsLoaded.contains(siteUrl)) {
+      return 0;
+    }
+    return tracking
+        .categoryBadge(
+          categoryId: categoryId,
+          categories: _categoriesBySite[siteUrl] ?? const [],
+          unifiedNew: user.unifiedNewEnabled,
+          showCount: true,
+        )
+        .count;
+  }
+
   List<ContentRoute> recentChannelsFor(String siteUrl) =>
       recentDestinations.channelsFor(siteUrl, _recentAccountIdentity(siteUrl));
   List<ContentRoute> recentTopicsFor(String siteUrl) =>
