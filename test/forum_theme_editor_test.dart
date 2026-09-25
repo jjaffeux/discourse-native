@@ -5,6 +5,9 @@ import 'package:discourse_native/src/models/forum_background.dart';
 import 'package:discourse_native/src/models/forum_theme_preferences.dart';
 import 'package:discourse_native/src/shell/forum_settings_controller.dart';
 import 'package:discourse_native/src/shell/forum_theme_editor.dart';
+import 'package:discourse_native/src/shell/forum_theme_thumbnail.dart';
+import 'package:discourse_native/src/theme/app_theme.dart';
+import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -64,6 +67,36 @@ void main() {
     expect(find.byType(ForumThemeEditor), findsOneWidget);
     expect(find.byKey(const ValueKey('appearance-mode')), findsNothing);
     expect(find.byKey(const ValueKey('all-themes')), findsOneWidget);
+    final backButton = tester.widget<DButton>(
+      find.byKey(const ValueKey('all-themes')),
+    );
+    expect(backButton.variant, DButtonVariant.inline);
+    expect((backButton.icon! as DIcon).icon, DIcons.chevronLeft);
+    final thumbnail = find.byKey(const ValueKey('theme-editor-thumbnail'));
+    expect(tester.getSize(thumbnail), const Size(34, 34));
+    expect(
+      tester.getTopLeft(thumbnail).dx,
+      greaterThan(
+        tester.getTopRight(find.byKey(const ValueKey('all-themes'))).dx,
+      ),
+    );
+    final originalBackground = tester
+        .widget<ThemeThumbnail>(thumbnail)
+        .theme
+        .shell
+        .content;
+    await tester.enterText(
+      find.descendant(
+        of: find.byKey(const ValueKey('theme-color-background')),
+        matching: find.byType(EditableText),
+      ),
+      '#112233',
+    );
+    await tester.pumpAndSettle();
+    expect(
+      tester.widget<ThemeThumbnail>(thumbnail).theme.shell.content,
+      isNot(originalBackground),
+    );
     expect(find.byKey(const ValueKey('theme-opacity')), findsOneWidget);
     expect(find.byKey(const ValueKey('theme-texture')), findsOneWidget);
     expect(find.byKey(const ValueKey('theme-save')), findsOneWidget);

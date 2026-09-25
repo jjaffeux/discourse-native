@@ -72,7 +72,6 @@ void main() {
                       child: ForumThemeEditor(
                         theme: forumThemePresets.first,
                         brightness: brightness,
-                        onBrightnessChanged: (_) {},
                         onChanged: (_) {},
                         onSave: (_) async {},
                         onCancel: () {},
