@@ -90,7 +90,7 @@ void main() {
       }
       expect(
         difference / plain.length,
-        greaterThan(effect == ForumBackgroundEffect.paper ? 0.2 : 1),
+        greaterThan(0.2),
         reason: '$effect',
       );
     }
