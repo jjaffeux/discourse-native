@@ -12,7 +12,6 @@ import '../plugin_api/plugin_registry.dart';
 import '../plugin_api/site_plugin_api.dart';
 import '../theme/app_theme.dart';
 import '../theme/d_icons.dart';
-import '../theme/d_native_icons.dart';
 import 'anchored_picker.dart';
 import 'avatar_image.dart';
 import 'category_icon.dart';
@@ -25,13 +24,11 @@ import 'relative_time.dart';
 import 'shell_metrics.dart';
 import 'shell_scope.dart';
 import 'skeleton_fill.dart';
-import 'title_bar.dart';
 import 'topic_actions.dart';
 import 'topic_category_picker.dart';
 import 'topic_header_tags.dart';
 import 'topic_skeleton.dart';
 import 'topic_title.dart';
-import 'user_menu_button.dart';
 
 /// Fixed topic title, actions and taxonomy above the post viewport.
 /// [bodyBuilder] supplies the virtualized post list below the retracting header.
@@ -101,11 +98,6 @@ class TopicInboxHeader extends StatelessWidget {
             categories: preview?.privateMessage != true,
           )
         : null;
-    final Widget? activity = hasTopic
-        ? TopicActivitySummary(siteUrl: siteUrl, topic: topic)
-        : placeholders
-        ? TopicActivityPlaceholder(row: preview)
-        : null;
     final rows = [
       _TopicHeaderToolbar(header: this),
       if (taxonomy != null)
@@ -116,16 +108,9 @@ class TopicInboxHeader extends StatelessWidget {
           ),
           child: _TopicHeaderReadingLane(
             child: Padding(
-              padding: const EdgeInsets.only(bottom: DSpacing.sm),
+              padding: const EdgeInsets.only(top: 16, bottom: 16),
               child: taxonomy,
             ),
-          ),
-        ),
-      if (activity != null)
-        _TopicHeaderReadingLane(
-          child: Padding(
-            padding: const EdgeInsets.only(top: 8, bottom: 20),
-            child: activity,
           ),
         ),
     ];
@@ -147,10 +132,9 @@ class TopicInboxHeader extends StatelessWidget {
   }
 }
 
-/// The desktop taxonomy row is as tall as its tallest possible control, so a
-/// plugin property such as Assign, or its placeholder, never changes it.
+/// The taxonomy and actions share the mockup's compact control height.
 double _taxonomyRowHeight(BuildContext context) => DControlStyle.scaledHeight(
-  DControlSize.regular,
+  DControlSize.filter,
   MediaQuery.textScalerOf(context),
   context: context,
 );
@@ -188,6 +172,10 @@ class _TopicHeaderTaxonomyPlaceholder extends StatelessWidget {
             children: [
               if (categories) ...[chip(112), chip(88)],
               chip(104),
+              const TopicStatusButtonPlaceholder(
+                variant: DButtonVariant.outline,
+                size: DButtonSize.filter,
+              ),
             ],
           ),
         ),
@@ -272,23 +260,7 @@ class _TopicHeaderToolbar extends StatelessWidget {
         availableWidth: constraints.maxWidth,
       );
       final padding = lane.padding.add(
-        EdgeInsets.symmetric(
-          horizontal: 16,
-          vertical: context.isTouch ? 4 : 12,
-        ),
-      );
-      final firstLineConstraints = BoxConstraints(
-        minHeight: math.max(
-          readerHeaderHeight - padding.vertical,
-          math.max(
-            context.isTouch ? DSpacing.touchTarget : 0,
-            DControlStyle.scaledHeight(
-              DControlSize.regular,
-              MediaQuery.textScalerOf(context),
-              context: context,
-            ),
-          ),
-        ),
+        const EdgeInsetsDirectional.only(start: 16, end: 16, top: 16),
       );
       return ColoredBox(
         color: ForumWindowBackground.surfaceColor(
@@ -300,47 +272,17 @@ class _TopicHeaderToolbar extends StatelessWidget {
           constraints: const BoxConstraints(minHeight: readerHeaderHeight),
           child: Padding(
             padding: padding,
-            child: Row(
+            child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                if (!header.keepTopicListOpen ||
-                    context.isTouch ||
-                    !ShellScope.read(context).forumTabsEnabled)
-                  ConstrainedBox(
-                    constraints: firstLineConstraints,
-                    child: Padding(
-                      padding: const EdgeInsetsDirectional.only(
-                        end: DSpacing.sm,
-                      ),
-                      child: Align(
-                        alignment: AlignmentDirectional.centerStart,
-                        widthFactor: 1,
-                        heightFactor: 1,
-                        child: TopicCloseButton(
-                          canReturnToSidebar: header.canReturnToSidebar,
-                          backToList: !header.keepTopicListOpen,
-                        ),
-                      ),
-                    ),
-                  ),
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsetsDirectional.only(end: 8),
-                    child: ConstrainedBox(
-                      constraints: firstLineConstraints,
-                      child: Align(
-                        alignment: AlignmentDirectional.centerStart,
-                        heightFactor: 1,
-                        child: _TopicHeaderTitle(header: header),
-                      ),
-                    ),
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: TopicCloseButton(
+                    canReturnToSidebar: header.canReturnToSidebar,
+                    backToList: !header.keepTopicListOpen,
                   ),
                 ),
-                if (!ShellScope.read(context).mobileNavigationEnabled)
-                  ConstrainedBox(
-                    constraints: firstLineConstraints,
-                    child: _TopicHeaderActions(header: header),
-                  ),
+                _TopicHeaderTitle(header: header),
               ],
             ),
           ),
@@ -436,36 +378,6 @@ class _TopicHeaderTitle extends StatelessWidget {
   }
 }
 
-class _TopicHeaderActions extends StatelessWidget {
-  const _TopicHeaderActions({required this.header});
-
-  final TopicInboxHeader header;
-
-  @override
-  Widget build(BuildContext context) {
-    final topic = header.topic;
-    final siteUrl = header.siteUrl;
-    return Row(
-      key: const ValueKey('topic-header-common-actions'),
-      mainAxisSize: MainAxisSize.min,
-      spacing: DSpacing.controlGap,
-      children: [
-        if (topic != null && siteUrl != null)
-          TopicStatusButton(
-            siteUrl: siteUrl,
-            topic: topic,
-            topicFlags: ShellScope.read(
-              context,
-            ).availableTopicFlagTypes(siteUrl, topic),
-          )
-        else if (header.loading)
-          const TopicStatusButtonPlaceholder(),
-        if (ShellTitleBar.columnsCarryUserMenu) const UserMenuButton(),
-      ],
-    );
-  }
-}
-
 class _MobileTopicHeaderActions extends StatelessWidget {
   const _MobileTopicHeaderActions({
     required this.siteUrl,
@@ -513,6 +425,7 @@ class _MobileTopicHeaderActions extends StatelessWidget {
             ),
             variant: DButtonVariant.outline,
             size: DControlSize.chip,
+            buttonKey: const ValueKey('topic-header-bookmark-button'),
           ),
         if (instance?.isConnected == true)
           TopicNotificationLevelButton(
@@ -521,6 +434,7 @@ class _MobileTopicHeaderActions extends StatelessWidget {
             topic: topic,
             variant: DButtonVariant.outline,
             size: DControlSize.chip,
+            buttonKey: const ValueKey('topic-header-notification-button'),
           ),
         if (topic.privateMessage &&
             instance?.isConnected == true &&
@@ -560,16 +474,20 @@ class TopicCloseButton extends StatelessWidget {
     final content = controller.topicListContent?.isMessages == true
         ? 'message'
         : 'topic';
-    return DButton.iconOnly(
+    final source = controller.topicListContent;
+    final sourceTitle = source?.tabTitle ?? 'Back';
+    final label = sourceTitle == 'Latest' ? 'Latest topics' : sourceTitle;
+    return DButton(
       key: const ValueKey('topic-close-reader'),
-      icon: DIcon(backToList ? DIcons.arrowLeft : DNativeIcons.closeTopicPane),
+      icon: const DIcon(DIcons.chevronLeft),
+      label: Text(label),
       tooltip: controller.mobileNavigationEnabled
           ? 'Back'
           : backToList
           ? 'Back to $content list'
           : 'Collapse $content',
       variant: DButtonVariant.transparentBackground,
-      size: DButtonSize.regular,
+      size: DButtonSize.chip,
       onPressed: () {
         if (controller.topicListContent != null) {
           controller.closeTopicListReader();
@@ -804,16 +722,14 @@ class _TopicHeaderTaxonomy extends StatelessWidget {
                           : .42))
                   .clamp(56.0, 200.0);
           // Reserve room for category artwork, the privacy lock, and saving.
-          // Add the browse button and roomier padding only when each chip fits.
           final scale = MediaQuery.textScalerOf(context).scale(12) / 12;
           final compressed = categoryWidth < 140 * scale;
-          final showBrowse =
-              categoryWidth >= (context.isTouch ? 152 : 104) * scale;
           final tags = TopicHeaderTags(
             key: const ValueKey('topic-header-tags'),
             siteUrl: siteUrl,
             topic: topic,
             editOnTap: mobile,
+            showEditAction: false,
             onTagNavigate: (tag, {newTab = false, panel}) => shell.openTopicTag(
               tag,
               siteUrl: siteUrl,
@@ -869,12 +785,16 @@ class _TopicHeaderTaxonomy extends StatelessWidget {
               ],
             );
           }
+          final instance = shell.instanceFor(siteUrl);
           return ConstrainedBox(
             constraints: BoxConstraints(minHeight: _taxonomyRowHeight(context)),
-            child: Row(
+            child: Wrap(
               key: const ValueKey('topic-header-taxonomy'),
+              spacing: 8,
+              runSpacing: 8,
+              crossAxisAlignment: WrapCrossAlignment.center,
               children: [
-                if (hasCategories) ...[
+                if (hasCategories)
                   ConstrainedBox(
                     constraints: BoxConstraints(maxWidth: categoryWidth),
                     child: _TopicCategoryControl(
@@ -885,42 +805,76 @@ class _TopicHeaderTaxonomy extends StatelessWidget {
                       subcategory: false,
                       keepTopicListOpen: keepTopicListOpen,
                       compressed: compressed,
-                      showBrowseButton: showBrowse,
+                      showBrowseButton: false,
                     ),
                   ),
-                  if (hasSubcategory) ...[
-                    const SizedBox(width: 7),
-                    ConstrainedBox(
-                      constraints: BoxConstraints(maxWidth: categoryWidth),
-                      child: _TopicCategoryControl(
-                        key: const ValueKey('topic-header-category'),
-                        siteUrl: siteUrl,
-                        topic: topic,
-                        category: parent == null ? null : category,
-                        subcategory: true,
-                        parentCategoryId: root?.id,
-                        keepTopicListOpen: keepTopicListOpen,
-                        compressed: compressed,
-                        showBrowseButton: showBrowse,
-                      ),
+                if (hasSubcategory)
+                  ConstrainedBox(
+                    constraints: BoxConstraints(maxWidth: categoryWidth),
+                    child: _TopicCategoryControl(
+                      key: const ValueKey('topic-header-category'),
+                      siteUrl: siteUrl,
+                      topic: topic,
+                      category: parent == null ? null : category,
+                      subcategory: true,
+                      parentCategoryId: root?.id,
+                      keepTopicListOpen: keepTopicListOpen,
+                      compressed: compressed,
+                      showBrowseButton: false,
                     ),
-                  ],
-                ],
-                if (hasTags) ...[
-                  if (hasCategories)
-                    const DSeparator(
-                      orientation: Axis.vertical,
-                      length: 20,
-                      space: 17,
+                  ),
+                if (hasTags)
+                  ConstrainedBox(
+                    constraints: BoxConstraints(
+                      maxWidth: math.min(148 * scale, constraints.maxWidth),
                     ),
-                  Flexible(child: tags),
-                ],
+                    child: tags,
+                  ),
+                if (instance?.user != null || instance?.isConnected == true)
+                  DButtonGroup(
+                    semanticLabel: 'Topic reminders',
+                    children: [
+                      if (instance?.user != null)
+                        TopicBookmarkButton(
+                          siteUrl: siteUrl,
+                          topic: topic,
+                          busy: shell.bookmarkWriteInFlight(
+                            siteUrl: siteUrl,
+                            topicId: topic.id,
+                            targetType: BookmarkTargetType.topic,
+                            targetId: topic.id,
+                          ),
+                          variant: DButtonVariant.outline,
+                          size: DButtonSize.filter,
+                          buttonKey: const ValueKey(
+                            'topic-header-bookmark-button',
+                          ),
+                        ),
+                      if (instance?.isConnected == true)
+                        TopicNotificationLevelButton(
+                          showChevron: true,
+                          siteUrl: siteUrl,
+                          topic: topic,
+                          variant: DButtonVariant.outline,
+                          size: DButtonSize.filter,
+                          buttonKey: const ValueKey(
+                            'topic-header-notification-button',
+                          ),
+                        ),
+                    ],
+                  ),
                 _TopicHeaderProperties(
                   siteUrl: siteUrl,
                   topic: topic,
                   registry: registry,
-                  compact: constraints.maxWidth < 620,
-                  showSeparator: hasCategories || hasTags,
+                  compact: true,
+                ),
+                TopicStatusButton(
+                  siteUrl: siteUrl,
+                  topic: topic,
+                  topicFlags: shell.availableTopicFlagTypes(siteUrl, topic),
+                  variant: DButtonVariant.outline,
+                  size: DButtonSize.filter,
                 ),
               ],
             ),
@@ -981,7 +935,7 @@ class _TopicCategoryControl extends StatelessWidget {
                 keepTopicOpen: keepTopicListOpen,
               );
         final browseOnly = !showBrowseButton && !topic.canEdit;
-        return _CategoryChip(
+        final chip = _CategoryChip(
           category: value,
           siteUrl: siteUrl,
           label: value?.name ?? (subcategory ? '+ Subcategory' : '+ Category'),
@@ -998,6 +952,14 @@ class _TopicCategoryControl extends StatelessWidget {
               : 'Edit topic category',
           navigate: showBrowseButton ? browse : null,
         );
+        return browseOnly && value != null
+            ? LinkTarget(
+                url: '/c/${value.id}',
+                title: value.name,
+                siteUrl: siteUrl,
+                child: chip,
+              )
+            : chip;
       },
     );
   }
@@ -1087,10 +1049,6 @@ class _CategoryChip extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
-                  if (!compact && edit != null && category != null) ...[
-                    const SizedBox(width: 5),
-                    const DIcon(DIcons.chevronDown),
-                  ],
                 ],
               ),
             ),
@@ -1125,13 +1083,11 @@ class _TopicHeaderProperties extends StatelessWidget {
     required this.topic,
     required this.registry,
     this.compact = false,
-    this.showSeparator = false,
   });
   final String siteUrl;
   final TopicDetail topic;
   final PluginRegistry registry;
   final bool compact;
-  final bool showSeparator;
 
   @override
   Widget build(BuildContext context) {
@@ -1160,14 +1116,7 @@ class _TopicHeaderProperties extends StatelessWidget {
               runSpacing: 6,
               children: children,
             );
-      return Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (showSeparator)
-            const DSeparator(orientation: Axis.vertical, length: 20, space: 17),
-          content,
-        ],
-      );
+      return Row(mainAxisSize: MainAxisSize.min, children: [content]);
     }
 
     final rebuildOn = registry.topicPropertiesRebuildOn(
@@ -1263,7 +1212,7 @@ class _TopicPropertyPopoverState extends State<_TopicPropertyPopover> {
           DButton.iconOnly(
             icon: const DIcon(DIcons.ellipsis),
             tooltip: section.label,
-            size: DButtonSize.chip,
+            size: context.isTouch ? DButtonSize.chip : DButtonSize.filter,
             variant: DButtonVariant.ghost,
             hasPopup: true,
             expanded: expanded,

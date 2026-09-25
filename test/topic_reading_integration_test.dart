@@ -36,9 +36,9 @@ import 'package:discourse_native/src/shell/topic_title.dart';
 import 'package:discourse_native/src/shell/topic_view.dart';
 import 'package:discourse_native/src/shell/user_menu_button.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
+import 'package:discourse_native/src/theme/d_icon_glyph.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:discourse_native/src/theme/d_native_icons.dart';
-import 'package:discourse_native/src/theme/d_icon_glyph.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -2929,7 +2929,12 @@ void _registerTopicReadingTests() {
         'More topic actions',
         'Reply to this topic',
       ]) {
-        final trigger = find.byTooltip(tooltip);
+        final trigger = tooltip == 'Bookmark this topic'
+            ? find.descendant(
+                of: find.byKey(const ValueKey('topic-bottom-bar')),
+                matching: find.byTooltip(tooltip),
+              )
+            : find.byTooltip(tooltip);
         expect(trigger, findsOneWidget, reason: tooltip);
         final button = find.ancestor(
           of: trigger,
@@ -3435,10 +3440,8 @@ void _registerTopicReadingTests() {
       await tester.tap(contentText('A real topic'));
       await tester.pumpAndSettle();
 
-      final trigger = find.byWidgetPredicate(
-        (widget) =>
-            widget is DButton &&
-            widget.tooltip?.startsWith('Topic notifications:') == true,
+      final trigger = find.byKey(
+        const ValueKey('topic-notification-level-button'),
       );
       expect(trigger, findsOneWidget);
       DIconData triggerIcon() => tester
@@ -3527,11 +3530,7 @@ void _registerTopicReadingTests() {
       await tester.tap(contentText('A real topic'));
       await tester.pumpAndSettle();
       await tester.tap(
-        find.byWidgetPredicate(
-          (widget) =>
-              widget is DButton &&
-              widget.tooltip?.startsWith('Topic notifications:') == true,
-        ),
+        find.byKey(const ValueKey('topic-notification-level-button')),
       );
       await tester.pumpAndSettle();
       await tester.tap(

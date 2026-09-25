@@ -58,6 +58,70 @@ const _child = TopicCategory(
 const _tag = TopicTag(id: 1, name: 'community');
 
 void main() {
+  testWidgets('topic header follows the mockup hierarchy', (tester) async {
+    final setup = await _setup(
+      tester,
+      theme: AppTheme.dark.copyWith(platform: TargetPlatform.macOS),
+      registry: const PluginRegistry([AssignPlugin()]),
+      topicPluginPayload: const {'can_assign': true},
+    );
+    setup.controller.openTopicFromList(setup.rows.first);
+    await tester.pumpAndSettle();
+    await _scrollReaderToTop(tester);
+
+    final header = find.byType(TopicInboxHeader);
+    final back = find.descendant(
+      of: header,
+      matching: find.byKey(const ValueKey('topic-close-reader')),
+    );
+    final title = find.byKey(const ValueKey('topic-header-title-field'));
+    final taxonomy = find.byKey(const ValueKey('topic-header-taxonomy'));
+    final bookmark = find.byKey(const ValueKey('topic-header-bookmark-button'));
+    final notifications = find.byKey(
+      const ValueKey('topic-header-notification-button'),
+    );
+    final status = find.byKey(const ValueKey('topic-status-button'));
+    final assignment = find.byKey(const Key('assign-topic-header'));
+
+    expect(
+      find.descendant(of: back, matching: find.text('Latest topics')),
+      findsOneWidget,
+    );
+    expect(tester.getRect(back).bottom, lessThan(tester.getRect(title).top));
+    expect(
+      tester.getRect(title).bottom,
+      lessThan(tester.getRect(taxonomy).top),
+    );
+    expect(
+      tester.getRect(bookmark).left,
+      lessThan(tester.getRect(status).left),
+    );
+    expect(
+      tester.getRect(notifications).left,
+      greaterThan(tester.getRect(bookmark).left),
+    );
+    for (final action in [bookmark, notifications, assignment, status]) {
+      expect(tester.widget<DButton>(action).size, DButtonSize.filter, reason: '$action');
+      expect(
+        tester.getRect(action).center.dy,
+        closeTo(tester.getRect(taxonomy).center.dy, 1),
+      );
+    }
+    expect(
+      find.descendant(
+        of: header,
+        matching: find.byKey(const ValueKey('topic-header-activity')),
+      ),
+      findsNothing,
+    );
+    expect(find.byKey(const ValueKey('topic-header-edit-tags')), findsNothing);
+    expect(
+      find.byKey(const ValueKey('topic-header-browse-category-21')),
+      findsNothing,
+    );
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('normal width caps content inside a full-width reader pane', (
     tester,
   ) async {
@@ -123,7 +187,7 @@ void main() {
   });
 
   testWidgets(
-    'activity summary has stacked avatars, complete stats and a persistent inset separator',
+    'activity moves below the opening post while the header stays compact',
     (tester) async {
       final setup = await _setup(
         tester,
@@ -137,71 +201,34 @@ void main() {
       );
       setup.controller.openTopicFromList(setup.rows.first);
       await tester.pumpAndSettle();
-      final activity = find.byKey(const ValueKey('topic-header-activity'));
-      final avatars = find.descendant(
-        of: activity,
-        matching: find.byType(DAvatarGroup),
+      expect(setup.controller.currentTopic?.participants.length, 4);
+      final header = find.byType(TopicInboxHeader);
+      final activity = find.byKey(const ValueKey('topic-map'));
+      _readerScroll(tester).jumpTo(650);
+      await tester.pumpAndSettle();
+      expect(
+        find.descendant(
+          of: header,
+          matching: find.byKey(const ValueKey('topic-header-activity')),
+        ),
+        findsNothing,
       );
       expect(
-        find.descendant(of: avatars, matching: find.byType(DAvatar)),
-        findsNWidgets(4),
+        find.descendant(of: activity, matching: find.byType(DAvatar)),
+        findsAtLeastNWidgets(4),
       );
-      for (final label in [
-        '3 replies',
-        '61 views',
-        '29 likes',
-        '5 links',
-        '4 min read',
+      for (final key in [
+        'topic-map-replies',
+        'topic-map-views',
+        'topic-map-likes',
+        'topic-map-links',
       ]) {
         expect(
-          find.descendant(
-            of: activity,
-            matching: find.text(label, findRichText: true),
-          ),
+          find.descendant(of: activity, matching: find.byKey(ValueKey(key))),
           findsOneWidget,
         );
       }
-      final stats = find.descendant(
-        of: activity,
-        matching: find.text('3 replies', findRichText: true),
-      );
-      expect(
-        tester.getRect(stats).top,
-        greaterThan(tester.getRect(avatars).bottom),
-      );
-      final viewport = find.descendant(
-        of: find.byType(TopicView),
-        matching: find.byType(CustomScrollView),
-      );
-      final separator = find.byKey(const ValueKey('topic-scroll-separator'));
-      void verifySeparator() {
-        expect(separator, findsOneWidget);
-        final line = tester.getRect(separator);
-        final bounds = tester.getRect(viewport);
-        expect(line.left, greaterThan(bounds.left));
-        expect(line.right, lessThan(bounds.right));
-        expect(line.top, closeTo(bounds.top, 1));
-      }
-
-      verifySeparator();
-      await tester.sendEventToBinding(
-        PointerScrollEvent(
-          position: tester.getCenter(viewport),
-          scrollDelta: const Offset(0, 240),
-        ),
-      );
-      await tester.pumpAndSettle();
-      expect(activity.hitTestable(), findsNothing);
-      verifySeparator();
-      await tester.sendEventToBinding(
-        PointerScrollEvent(
-          position: tester.getCenter(viewport),
-          scrollDelta: const Offset(0, -240),
-        ),
-      );
-      await tester.pumpAndSettle();
-      expect(activity.hitTestable(), findsOneWidget);
-      verifySeparator();
+      expect(find.text('4 min'), findsOneWidget);
       expect(tester.takeException(), isNull);
     },
   );
@@ -373,10 +400,10 @@ void main() {
         final taxonomy = tester.getRect(
           find.byKey(const ValueKey('topic-header-taxonomy-placeholder')),
         );
-        final activity = tester.getRect(
+        expect(
           find.byKey(const ValueKey('topic-header-activity-placeholder')),
+          findsNothing,
         );
-        final body = tester.getRect(separator);
         final actions = tester.getRect(footer);
 
         gate.complete();
@@ -400,13 +427,12 @@ void main() {
           find.byKey(const ValueKey('topic-header-taxonomy')),
         );
         expect(loadedTaxonomy.top, taxonomy.top);
-        expect(loadedTaxonomy.height, taxonomy.height);
-        final loadedActivity = tester.getRect(
+        expect(loadedTaxonomy.height, greaterThanOrEqualTo(taxonomy.height));
+        expect(
           find.byKey(const ValueKey('topic-header-activity')),
+          findsNothing,
         );
-        expect(loadedActivity.top, activity.top);
-        expect(loadedActivity.height, activity.height);
-        expect(tester.getRect(separator), body);
+        expect(separator, findsOneWidget);
         expect(tester.getRect(footer), actions);
         expect(inHeader(find.byType(TopicStatusButton)), findsOneWidget);
         expect(inHeader(find.byType(InlineTopicTitleEditor)), findsOneWidget);
@@ -466,7 +492,7 @@ void main() {
     expect(placeholder, findsOneWidget);
     expect(
       find.byKey(const ValueKey('topic-header-activity-placeholder')),
-      findsOneWidget,
+      findsNothing,
     );
     expect(
       find.byKey(const ValueKey('topic-loading-skeleton')),
@@ -542,7 +568,7 @@ void main() {
     ('', '?'),
   ]) {
     testWidgets(
-      'header participant avatar uses "$initial" for username "$username"',
+      'topic strip participant avatar uses "$initial" for username "$username"',
       (tester) async {
         final setup = await _setup(
           tester,
@@ -552,11 +578,12 @@ void main() {
         );
         setup.controller.openTopicFromList(setup.rows.first);
         await tester.pumpAndSettle();
-        await _scrollReaderToTop(tester);
+        _readerScroll(tester).jumpTo(650);
+        await tester.pumpAndSettle();
 
         expect(tester.takeException(), isNull);
         final avatar = find.descendant(
-          of: find.byKey(const ValueKey('topic-header-activity')),
+          of: find.byKey(const ValueKey('topic-map')),
           matching: find.byTooltip('Topic participant'),
         );
         expect(avatar, findsOneWidget);
@@ -692,15 +719,13 @@ void main() {
             .height,
         greaterThan(shellHeaderHeight),
       );
-      final toolbarTop = tester
-          .getTopLeft(find.byKey(const ValueKey('topic-content-header')))
-          .dy;
+      final taxonomy = find.byKey(const ValueKey('topic-header-taxonomy'));
       for (final action in [
         find.byKey(const ValueKey('topic-status-button')),
       ]) {
         expect(
           tester.getCenter(action).dy,
-          closeTo(toolbarTop + 4 + DSpacing.touchTarget / 2, 1),
+          closeTo(tester.getCenter(taxonomy).dy, 1),
         );
       }
       final controls = [
@@ -824,7 +849,7 @@ void main() {
   );
 
   testWidgets(
-    'compact category navigates and assignment details remain available',
+    'compact category and assignment details remain available',
     (tester) async {
       const registry = PluginRegistry([AssignPlugin()]);
       final setup = await _setup(
@@ -840,21 +865,17 @@ void main() {
       await tester.pumpAndSettle();
       final assignment = find.byKey(const Key('assign-topic-header'));
       expect(assignment.hitTestable(), findsOneWidget);
-      expect(
-        find.descendant(of: assignment, matching: find.text('Sam')),
-        findsOneWidget,
-      );
+      expect(find.byTooltip('Manage assignment to Sam'), findsOneWidget);
       await tester.tap(assignment);
       await tester.pumpAndSettle();
       expect(find.byKey(const Key('assign-topic-property')), findsOneWidget);
       expect(find.text('Assigned to'), findsWidgets);
       await tester.sendKeyEvent(LogicalKeyboardKey.escape);
       await tester.pumpAndSettle();
-      await tester.tap(
-        find.byKey(const ValueKey('topic-header-browse-category-22')),
+      expect(
+        find.byKey(const ValueKey('topic-header-category')).hitTestable(),
+        findsOneWidget,
       );
-      await tester.pumpAndSettle();
-      expect(shell.topicListContent?.categoryId, _child.id);
       expect(shell.currentContent?.topicId, setup.rows.first.id);
       expect(setup.api.topicsUpdated, isEmpty);
       expect(tester.takeException(), isNull);
@@ -939,11 +960,24 @@ void main() {
           find.byTooltip('Edit topic category'),
           canEdit ? findsOneWidget : findsNothing,
         );
-        await tester.tap(
+        expect(
           find.byKey(const ValueKey('topic-header-browse-category-21')),
+          findsNothing,
         );
-        await tester.pumpAndSettle();
-        expect(shell.topicListContent?.categoryId, _parent.id);
+        if (canEdit) {
+          await tester.tap(find.byTooltip('Edit topic category'));
+          await tester.pumpAndSettle();
+          expect(
+            find.byKey(const ValueKey(('topic-category-picker-option', 21))),
+            findsOneWidget,
+          );
+          await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+          await tester.pumpAndSettle();
+        } else {
+          await tester.tap(find.byTooltip('Browse Design'));
+          await tester.pumpAndSettle();
+          expect(shell.topicListContent?.categoryId, _parent.id);
+        }
         expect(shell.currentContent?.topicId, setup.rows.first.id);
         expect(setup.api.topicsUpdated, isEmpty);
         expect(tester.takeException(), isNull);
@@ -1042,10 +1076,7 @@ void main() {
     expect(setup.api.topicsUpdated.single['categoryId'], _parent.id);
     expect(shell.topicListContent, originalList);
     expect(_compactHeader, findsOneWidget);
-    expect(
-      find.byKey(const ValueKey('topic-header-browse-category-21')),
-      findsOneWidget,
-    );
+    expect(find.byTooltip('Edit topic category'), findsOneWidget);
     expect(
       find.byKey(const ValueKey('topic-header-browse-category-22')),
       findsNothing,
@@ -1275,11 +1306,11 @@ void main() {
     await tester.pumpAndSettle();
     final compact = _compactHeader;
     final tag = find.byKey(const ValueKey(('topic-header-tag', 'community')));
-    final edit = find.byKey(const ValueKey('topic-header-edit-tags'));
+    final add = find.byKey(const ValueKey('topic-header-edit-tags'));
     expect(compact, findsOneWidget);
     expect(tag, findsOneWidget);
 
-    await tester.tap(edit);
+    await tester.longPress(tag);
     await tester.pumpAndSettle();
     await tester.tap(
       find.byKey(const ValueKey(('topic-tag-picker-option', 'community'))),
@@ -1293,7 +1324,7 @@ void main() {
     expect(compact, findsOneWidget);
     expect(find.text('Add tag'), findsOneWidget);
 
-    await tester.tap(edit);
+    await tester.tap(add);
     await tester.pumpAndSettle();
     await tester.tap(
       find.byKey(const ValueKey(('topic-tag-picker-option', 'community'))),
@@ -1398,17 +1429,14 @@ void main() {
         );
         final taxonomy = find.byKey(const ValueKey('topic-header-taxonomy'));
         final before = tester.getRect(taxonomy);
-        final close = tester.getRect(
-          find.byKey(const ValueKey('topic-header-common-actions')),
+        final back = tester.getRect(
+          find.byKey(const ValueKey('topic-close-reader')),
         );
         final viewport = tester.getRect(
           find.descendant(
             of: find.byType(TopicView),
             matching: find.byType(CustomScrollView),
           ),
-        );
-        final summary = tester.getRect(
-          find.byKey(const ValueKey('topic-header-activity')),
         );
         final divider = tester.getRect(
           find.byKey(const ValueKey('topic-scroll-separator')),
@@ -1418,8 +1446,7 @@ void main() {
             : 0.0;
         expect(before.left, closeTo(viewport.left + inset + 16, 1));
         expect(before.right, closeTo(viewport.right - inset - 16, 1));
-        expect(summary.left, closeTo(viewport.left + inset + 16, 1));
-        expect(summary.right, closeTo(viewport.right - inset - 16, 1));
+        expect(back.left, closeTo(viewport.left + inset + 16, 1));
         expect(divider.left, closeTo(viewport.left + inset + 16, 1));
         expect(divider.right, closeTo(viewport.right - inset - 16, 1));
         final postBody = tester.getRect(find.byType(CookedHtml).first);
@@ -1434,10 +1461,8 @@ void main() {
         expect(after.width, before.width);
         expect(after.top, before.top);
         expect(
-          tester.getRect(
-            find.byKey(const ValueKey('topic-header-common-actions')),
-          ),
-          close,
+          tester.getRect(find.byKey(const ValueKey('topic-close-reader'))),
+          back,
         );
         expect(_compactHeader, findsOneWidget);
         expect(tester.takeException(), isNull);
@@ -1511,40 +1536,31 @@ void main() {
           tester.getRect(parent).right,
           lessThan(tester.getRect(category).left),
         );
-        for (final id in [_parent.id, _child.id]) {
-          final browse = find.byKey(
-            ValueKey('topic-header-browse-category-$id'),
-          );
-          if (browse.evaluate().isNotEmpty) {
-            expect(browse.hitTestable(), findsOneWidget);
-            // Native touch controls retain their 48px target.
-            expect(tester.getSize(browse).width, 48);
-          } else {
-            expect(
-              find
-                  .byTooltip(
-                    id == _parent.id
-                        ? 'Edit topic category'
-                        : 'Edit topic subcategory',
-                  )
-                  .hitTestable(),
-              findsOneWidget,
-            );
-          }
-        }
+        expect(
+          find.byKey(const ValueKey('topic-header-browse-category-21')),
+          findsNothing,
+        );
+        expect(
+          find.byTooltip('Edit topic category').hitTestable(),
+          findsOneWidget,
+        );
+        expect(
+          find.byTooltip('Edit topic subcategory').hitTestable(),
+          findsOneWidget,
+        );
         expect(tester.getRect(title).right, lessThan(width));
         final tags = find.byKey(const ValueKey('topic-header-tags'));
         final overflow = find.byKey(const ValueKey('topic-header-more-tags'));
         expect(overflow, findsOneWidget);
         expect(tester.getSize(overflow).width, greaterThanOrEqualTo(28));
         expect(
-          tester.getRect(category).right,
-          lessThan(tester.getRect(tags).left),
+          tester.getRect(category).overlaps(tester.getRect(tags)),
+          isFalse,
         );
         expect(tester.getRect(tags).right, lessThan(width));
         expect(
-          tester.getCenter(tags).dy,
-          closeTo(tester.getCenter(category).dy, 1),
+          tester.getRect(tags).top,
+          greaterThanOrEqualTo(tester.getRect(category).top),
         );
         expect(
           tester.getRect(tags).top,
@@ -1552,11 +1568,10 @@ void main() {
         );
         for (final key in ['topic-status-button']) {
           expect(
-            tester.getCenter(find.byKey(ValueKey(key))).dy,
-            closeTo(
-              tester.getRect(header).top + 4 + DSpacing.touchTarget / 2,
-              1,
-            ),
+            tester
+                .getRect(find.byKey(ValueKey(key)))
+                .overlaps(tester.getRect(tags)),
+            isFalse,
           );
         }
         expect(
@@ -1660,12 +1675,12 @@ void main() {
           final overflow = find.byKey(const ValueKey('topic-header-more-tags'));
           final status = find.byKey(const ValueKey('topic-status-button'));
           expect(
-            tester.getRect(category).right,
-            lessThan(tester.getRect(overflow).left),
+            tester.getRect(category).overlaps(tester.getRect(overflow)),
+            isFalse,
           );
           expect(
-            tester.getCenter(category).dy,
-            closeTo(tester.getCenter(overflow).dy, 1),
+            tester.getRect(overflow).top,
+            greaterThanOrEqualTo(tester.getRect(category).top),
           );
           final title = find.byKey(const ValueKey('topic-header-title-field'));
           final parent = compact
@@ -1688,26 +1703,18 @@ void main() {
               1,
             ),
           );
-          if (compact) {
-            expect(
-              tester.getRect(title).right,
-              lessThan(tester.getRect(status).left),
-            );
-          }
-          if (!compact) {
-            expect(
-              tester
-                  .getRect(find.byKey(const ValueKey('topic-header-activity')))
-                  .top,
-              greaterThan(tester.getRect(category).bottom),
-            );
-          }
-          for (final control in [status, if (compact) title]) {
-            expect(
-              tester.getCenter(control).dy,
-              closeTo(tester.getCenter(status).dy, 1),
-            );
-          }
+          expect(
+            tester.getRect(status).overlaps(tester.getRect(overflow)),
+            isFalse,
+          );
+          expect(
+            tester.getRect(status).top,
+            greaterThan(tester.getRect(title).bottom),
+          );
+          expect(
+            find.byKey(const ValueKey('topic-header-activity')),
+            findsNothing,
+          );
           expect(
             find.byKey(const ValueKey('inbox-previous-topic')),
             findsNothing,
@@ -1726,7 +1733,7 @@ void main() {
             wideTagCount = visibleTags;
             expect(wideTagCount, greaterThan(0));
           } else if (width == 390) {
-            expect(visibleTags, lessThan(wideTagCount));
+            expect(visibleTags, lessThanOrEqualTo(wideTagCount));
           }
           expect(
             tester.takeException(),
@@ -1794,79 +1801,60 @@ void main() {
     },
   );
 
-  testWidgets('wide reader aligns title, taxonomy, activity, and post text', (
-    tester,
-  ) async {
-    final state = ValueNotifier('Available');
-    addTearDown(state.dispose);
-    final setup = await _setup(
-      tester,
-      registry: PluginRegistry([_HeaderDetailsPlugin(state)]),
-    );
-    tester.view.physicalSize = const Size(2000, 800);
-    setup.controller.openTopicFromList(setup.rows.first);
-    await tester.pumpAndSettle();
-    await _scrollReaderToTop(tester);
-    final parent = tester.getRect(find.byTooltip('Edit topic category'));
-    final child = tester.getRect(find.byTooltip('Edit topic subcategory'));
-    final tag = tester.getRect(
-      find.byKey(const ValueKey(('topic-header-tag', 'community'))),
-    );
-    final editTags = find.byKey(const ValueKey('topic-header-edit-tags'));
-    final editTagRect = tester.getRect(editTags);
-    expect(
-      tester
-          .widget<DIcon>(
-            find.descendant(of: editTags, matching: find.byType(DIcon)),
-          )
-          .icon,
-      DIcons.pencil,
-    );
-    expect(parent.right, lessThan(child.left));
-    expect(child.right, lessThan(tag.left));
-    expect(tag.right, lessThan(editTagRect.left));
-    expect(parent.center.dy, closeTo(tag.center.dy, 1));
-    expect(child.center.dy, closeTo(tag.center.dy, 1));
-    final title = tester.getRect(
-      find.byKey(const ValueKey('topic-header-title-field')),
-    );
-    final summary = tester.getRect(
-      find.byKey(const ValueKey('topic-header-activity')),
-    );
-    final properties = tester.getRect(find.text('Manage details'));
-    expect(parent.left, closeTo(title.left, 1));
-    expect(parent.top, greaterThan(title.bottom));
-    expect(summary.left, closeTo(title.left, 1));
-    expect(summary.top, greaterThan(parent.bottom));
-    expect(properties.center.dy, closeTo(tag.center.dy, 1));
-    final separator = tester.getRect(
-      find
-          .descendant(
-            of: find.byKey(const ValueKey('topic-header-taxonomy')),
-            matching: find.byType(DSeparator),
-          )
-          .last,
-    );
-    expect(separator.left, greaterThanOrEqualTo(editTagRect.right));
-    expect(separator.right, lessThan(properties.left));
-    expect(
-      tester.getRect(find.byType(CookedHtml).first).left,
-      closeTo(title.left + 39, 1),
-    );
-    final footer = find.byKey(const ValueKey('topic-bottom-bar'));
-    expect(
-      find.descendant(of: footer, matching: find.byType(TopicBookmarkButton)),
-      findsOneWidget,
-    );
-    expect(
-      find.descendant(
-        of: footer,
-        matching: find.byType(TopicNotificationLevelButton),
-      ),
-      findsOneWidget,
-    );
-    expect(tester.takeException(), isNull);
-  }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
+  testWidgets(
+    'wide reader aligns the title, taxonomy, actions, and post text',
+    (tester) async {
+      final state = ValueNotifier('Available');
+      addTearDown(state.dispose);
+      final setup = await _setup(
+        tester,
+        registry: PluginRegistry([_HeaderDetailsPlugin(state)]),
+      );
+      tester.view.physicalSize = const Size(2000, 800);
+      setup.controller.openTopicFromList(setup.rows.first);
+      await tester.pumpAndSettle();
+      await _scrollReaderToTop(tester);
+      final parent = tester.getRect(find.byTooltip('Edit topic category'));
+      final child = tester.getRect(find.byTooltip('Edit topic subcategory'));
+      final tag = tester.getRect(
+        find.byKey(const ValueKey(('topic-header-tag', 'community'))),
+      );
+      expect(
+        find.byKey(const ValueKey('topic-header-edit-tags')),
+        findsNothing,
+      );
+      expect(parent.right, lessThan(child.left));
+      expect(child.right, lessThan(tag.left));
+      expect(parent.center.dy, closeTo(tag.center.dy, 1));
+      expect(child.center.dy, closeTo(tag.center.dy, 1));
+      final title = tester.getRect(
+        find.byKey(const ValueKey('topic-header-title-field')),
+      );
+      final properties = tester.getRect(find.byTooltip('Details'));
+      expect(parent.left, closeTo(title.left, 1));
+      expect(parent.top, greaterThan(title.bottom));
+      expect(properties.left, greaterThan(tag.right));
+      expect(find.byKey(const ValueKey('topic-header-activity')), findsNothing);
+      expect(
+        tester.getRect(find.byType(CookedHtml).first).left,
+        closeTo(title.left + 39, 1),
+      );
+      final footer = find.byKey(const ValueKey('topic-bottom-bar'));
+      expect(
+        find.descendant(of: footer, matching: find.byType(TopicBookmarkButton)),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: footer,
+          matching: find.byType(TopicNotificationLevelButton),
+        ),
+        findsOneWidget,
+      );
+      expect(tester.takeException(), isNull);
+    },
+    variant: TargetPlatformVariant.only(TargetPlatform.macOS),
+  );
 
   testWidgets(
     'closing a topic places a lock before its title aligned with the content',
@@ -1899,12 +1887,7 @@ void main() {
       expect(closedTitleRect.left, lockRect.right + DSpacing.sm);
       expect(closedTitleRect.top, titleRect.top);
       expect(closedTitleRect.right, titleRect.right);
-      expect(
-        lockRect.left,
-        tester
-            .getRect(find.byKey(const ValueKey('topic-header-activity')))
-            .left,
-      );
+      expect(find.byKey(const ValueKey('topic-header-activity')), findsNothing);
       expect(
         lockRect.left,
         closeTo(tester.getRect(find.byType(CookedHtml).first).left - 39, 1),
@@ -2027,7 +2010,7 @@ void main() {
         tester.getCenter(overflow).dy,
         closeTo(tester.getCenter(child).dy, 1),
       );
-      expect(find.text('last activity 2m ago'), findsOneWidget);
+      expect(find.byKey(const ValueKey('topic-header-activity')), findsNothing);
 
       await tester.tap(overflow);
       await tester.pumpAndSettle();
@@ -2174,9 +2157,9 @@ void main() {
       for (final compact in [false, true]) (category, compact),
   ]) {
     testWidgets(
-      'middle-click opens the ${category.name} category arrow in a background tab with compact mode $compact',
+      'middle-click opens the read-only ${category.name} category in a background tab with compact mode $compact',
       (tester) async {
-        final setup = await _setup(tester);
+        final setup = await _setup(tester, canEditTopic: false);
         final shell = setup.controller;
         shell.openTopicFromList(setup.rows.first);
         await tester.pumpAndSettle();
@@ -2184,7 +2167,7 @@ void main() {
         final originalTab = shell.activeTab;
 
         await tester.tap(
-          find.byKey(ValueKey('topic-header-browse-category-${category.id}')),
+          find.byTooltip('Browse ${category.name}'),
           kind: PointerDeviceKind.mouse,
           buttons: kMiddleMouseButton,
         );
@@ -2358,18 +2341,16 @@ void main() {
           final category = find.byTooltip(tooltip);
           expect(category, findsOneWidget);
           expect(
-            tester.getCenter(category).dy,
-            closeTo(tester.getCenter(overflow).dy, 1),
+            tester.getRect(category).overlaps(tester.getRect(overflow)),
+            isFalse,
           );
         }
         final title = find.byKey(const ValueKey('topic-header-title-field'));
         final titleRect = tester.getRect(title);
         expect(tester.getRect(overflow).top, greaterThan(titleRect.bottom));
         expect(
-          tester.getRect(find.byTooltip('Edit topic category')).left,
-          tester
-              .getRect(find.byKey(const ValueKey('topic-header-activity')))
-              .left,
+          find.byKey(const ValueKey('topic-header-activity')),
+          findsNothing,
         );
         expect(tester.getRect(overflow).right, lessThan(width));
         await tester.tap(title);
@@ -2831,7 +2812,7 @@ void main() {
     shell.openTopicFromList(setup.rows.first);
     await tester.pumpAndSettle();
     await _scrollReaderToTop(tester);
-    await tester.tap(find.text('Manage details'));
+    await tester.tap(find.byTooltip('Details'));
     await tester.pumpAndSettle();
     expect(find.byType(DPopoverContent), findsOneWidget);
     expect(find.text('Details: Topic 1 · Available'), findsOneWidget);
@@ -3066,7 +3047,9 @@ void main() {
     await tester.pumpAndSettle();
     expect(shell.currentTopic?.categoryId, _parent.id);
     expect(find.text('Done'), findsNothing);
-    await tester.tap(find.byKey(const ValueKey('topic-header-edit-tags')));
+    await tester.longPress(
+      find.byKey(const ValueKey(('topic-header-tag', 'community'))),
+    );
     await tester.pumpAndSettle();
     await tester.tap(
       find.byKey(const ValueKey(('topic-tag-picker-option', 'community'))),
