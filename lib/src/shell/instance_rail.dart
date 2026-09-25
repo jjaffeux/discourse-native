@@ -76,6 +76,8 @@ class InstanceRail extends StatelessWidget {
                             ? 'Collapse sidebar'
                             : 'Expand sidebar',
                         variant: DButtonVariant.transparentBackground,
+                        backgroundColor: Colors.transparent,
+                        interactiveBackgroundColor: Colors.transparent,
                         foregroundColor: sidebarExpanded
                             ? theme.shell.railForeground
                             : theme.shell.railForeground.withValues(alpha: 0.6),
@@ -930,6 +932,8 @@ class _AggregateRailButtonState extends State<_AggregateRailButton> {
                         ),
                       ),
                 variant: DButtonVariant.transparentBackground,
+                backgroundColor: Colors.transparent,
+                interactiveBackgroundColor: Colors.transparent,
                 size: DButtonSize.large,
                 foregroundColor: foreground,
                 onPressed: widget.onTap,
