@@ -411,6 +411,7 @@ class _PollCardState extends State<PollCard> {
                       Align(
                         alignment: Alignment.centerLeft,
                         child: DButton(
+                          size: DButtonSize.post,
                           key: ValueKey<String>('poll-${_poll.name}-cast'),
                           onPressed: _canVote && _multipleSelectionValid
                               ? _castMultiple
@@ -462,6 +463,7 @@ class _PollCardState extends State<PollCard> {
                       Align(
                         alignment: Alignment.centerLeft,
                         child: DButton(
+                          size: DButtonSize.post,
                           variant: DButtonVariant.outline,
                           isLink: true,
                           key: ValueKey<String>('poll-${_poll.name}-web'),
@@ -477,6 +479,7 @@ class _PollCardState extends State<PollCard> {
                       Align(
                         alignment: Alignment.centerLeft,
                         child: DButton(
+                          size: DButtonSize.post,
                           variant: DButtonVariant.link,
                           key: ValueKey<String>('poll-${_poll.name}-connect'),
                           onPressed: widget.onConnectAccount,

@@ -966,6 +966,7 @@ class DDataTableColumnHeader extends StatelessWidget {
     this.ascendingLabel = 'Sort ascending',
     this.descendingLabel = 'Sort descending',
     this.hideLabel = 'Hide column',
+    this.size = DControlSize.small,
   });
 
   final String title;
@@ -975,6 +976,7 @@ class DDataTableColumnHeader extends StatelessWidget {
   final String ascendingLabel;
   final String descendingLabel;
   final String hideLabel;
+  final DControlSize size;
 
   @override
   Widget build(BuildContext context) {
@@ -1045,7 +1047,7 @@ class DDataTableColumnHeader extends StatelessWidget {
             },
             iconPosition: DButtonIconPosition.end,
             variant: DButtonVariant.ghost,
-            size: DButtonSize.small,
+            size: size,
             hasPopup: true,
             expanded: trigger.open,
             focusNode: trigger.focusNode,

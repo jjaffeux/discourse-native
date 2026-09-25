@@ -311,6 +311,7 @@ class _PlaceholderField extends StatelessWidget {
                           onChanged: change,
                         )
                       : DSelect<String>.controlled(
+                          size: DSelectSize.post,
                           focusNode: field.focus,
                           isExpanded: true,
                           value: options.contains(value) || value == 'none'

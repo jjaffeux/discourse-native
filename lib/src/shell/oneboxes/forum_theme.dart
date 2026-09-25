@@ -242,6 +242,7 @@ class _ForumThemeOneboxState extends State<ForumThemeOnebox> {
                     runSpacing: DSpacing.controlGap,
                     children: [
                       DButton(
+                        size: DButtonSize.post,
                         key: const ValueKey('use-shared-theme'),
                         label: Text(using ? 'Using theme' : 'Use theme'),
                         icon: DIcon(using ? DIcons.check : DIcons.chevronRight),
@@ -260,6 +261,7 @@ class _ForumThemeOneboxState extends State<ForumThemeOnebox> {
                       ),
                       if (using && _canUndo)
                         DButton(
+                          size: DButtonSize.post,
                           label: const Text('Undo'),
                           variant: DButtonVariant.transparentBackground,
                           onPressed: _busy

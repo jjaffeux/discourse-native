@@ -164,6 +164,7 @@ class _EventCardState extends State<EventCard> {
                             selected: selected == status,
                             child: DDropdownMenuTrigger(
                               builder: (triggerContext, state) => DButton(
+                                size: DButtonSize.post,
                                 label: Text(eventResponseLabel(status)),
                                 tooltip: 'Choose recurring attendance',
                                 variant: selected == status
@@ -213,6 +214,7 @@ class _EventCardState extends State<EventCard> {
     final participants = onParticipants == null
         ? _Detail(icon: Icons.people_outline, child: participantLabel)
         : DButton(
+            size: DButtonSize.post,
             onPressed: pending ? null : onParticipants,
             variant: DButtonVariant.inline,
             alignment: AlignmentDirectional.centerStart,
@@ -232,6 +234,7 @@ class _EventCardState extends State<EventCard> {
             url: resolveSitePath(siteUrl, 'chat/c/-/$channelId'),
             siteUrl: siteUrl,
             child: DButton(
+              size: DButtonSize.post,
               onPressed: () => unawaited(
                 openLink(
                   context,
@@ -292,6 +295,7 @@ class _EventCardState extends State<EventCard> {
                               title
                             else
                               DButton(
+                                size: DButtonSize.post,
                                 label: title,
                                 isLink: true,
                                 variant: DButtonVariant.inline,
@@ -395,6 +399,7 @@ class _EventCardState extends State<EventCard> {
                                 child: DDropdownMenuTrigger(
                                   builder: (triggerContext, state) =>
                                       DButton.iconOnly(
+                                        size: DButtonSize.post,
                                         tooltip: 'Event actions',
                                         variant: DButtonVariant.ghost,
                                         icon: const Icon(Icons.more_vert),
@@ -441,6 +446,7 @@ class _EventCardState extends State<EventCard> {
                         url: eventLinkUrl(url),
                         siteUrl: siteUrl,
                         child: DButton(
+                          size: DButtonSize.post,
                           variant: DButtonVariant.inline,
                           alignment: AlignmentDirectional.centerStart,
                           isLink: true,
@@ -507,6 +513,7 @@ class _EventCardState extends State<EventCard> {
                       url: link,
                       siteUrl: siteUrl,
                       child: DButton(
+                        size: DButtonSize.post,
                         onPressed: () => unawaited(
                           openLink(context, link, siteUrl: siteUrl),
                         ),
@@ -532,6 +539,7 @@ class _EventCardState extends State<EventCard> {
                       !event.flag('is_expired') &&
                       !event.flag('is_closed'))
                     DButton(
+                      size: DButtonSize.post,
                       label: const Text('Connect to respond'),
                       onPressed: onConnect,
                     ),
@@ -554,6 +562,7 @@ class _EventCardState extends State<EventCard> {
                             ),
                             if (onRetry != null)
                               DButton(
+                                size: DButtonSize.post,
                                 onPressed: onRetry,
                                 variant: DButtonVariant.inline,
                                 label: const Text('Refresh event'),
@@ -653,6 +662,7 @@ class _EventDescriptionState extends State<_EventDescription> {
                     Semantics(
                       expanded: _expanded,
                       child: DButton(
+                        size: DButtonSize.post,
                         onPressed: () => setState(() => _expanded = !_expanded),
                         variant: DButtonVariant.inline,
                         iconPosition: DButtonIconPosition.end,
@@ -688,6 +698,7 @@ class _ResponseButton extends StatelessWidget {
   final VoidCallback onTap;
   @override
   Widget build(BuildContext context) => DToggle(
+    size: DToggleSize.post,
     pressed: selected,
     enabled: enabled,
     variant: DToggleVariant.outline,
@@ -949,12 +960,14 @@ class EventUnavailableCard extends StatelessWidget {
             children: [
               if (onRetry != null)
                 DButton(
+                  size: DButtonSize.post,
                   onPressed: onRetry,
                   variant: DButtonVariant.link,
                   label: const Text('Refresh event'),
                 ),
               if (onWeb != null)
                 DButton(
+                  size: DButtonSize.post,
                   onPressed: onWeb,
                   variant: DButtonVariant.link,
                   label: const Text('Open event on web'),

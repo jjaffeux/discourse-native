@@ -365,13 +365,14 @@ class _AlertLinkButton extends StatelessWidget {
   );
 }
 
-double _actionSize(BuildContext context) => context.isTouch
-    ? DSpacing.touchTarget
-    : DControlStyle.scaledHeight(
-        DControlSize.regular,
-        MediaQuery.textScalerOf(context),
-        context: context,
-      );
+double _actionSize(BuildContext context) => math.max(
+  context.isTouch ? DSpacing.touchTarget : 30,
+  DControlStyle.scaledHeight(
+    DControlSize.post,
+    MediaQuery.textScalerOf(context),
+    context: context,
+  ),
+);
 
 class _AlertActionButton extends StatelessWidget {
   const _AlertActionButton({
@@ -388,6 +389,7 @@ class _AlertActionButton extends StatelessWidget {
   Widget build(BuildContext context) => DButton.iconOnly(
     onPressed: onPressed,
     variant: DButtonVariant.ghost,
+    size: DButtonSize.post,
     tooltip: label,
     icon: DIcon(icon),
   );

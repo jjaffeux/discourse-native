@@ -68,6 +68,7 @@ class _ReactionPickerButtonState extends State<ReactionPickerButton> {
           tooltip: 'Add reaction',
           icon: const DIcon(DIcons.farFaceSmile),
           variant: DButtonVariant.transparentBackground,
+          size: DButtonSize.post,
           onPressed: widget.enabled && !_opening
               ? () => _open(buttonContext)
               : null,

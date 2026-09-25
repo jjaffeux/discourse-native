@@ -82,6 +82,39 @@ void main() {
       ),
     );
     await _pump(tester, _html);
+    expect(
+      tester
+          .widgetList<DDataTableColumnHeader>(
+            find.byType(DDataTableColumnHeader),
+          )
+          .map((header) => header.size),
+      everyElement(DControlSize.post),
+    );
+    expect(
+      tester
+          .widget<DDataTableColumnToggle<int>>(
+            find.byType(DDataTableColumnToggle<int>),
+          )
+          .size,
+      DControlSize.post,
+    );
+    expect(
+      tester
+          .widget<DButton>(
+            find.byWidgetPredicate(
+              (widget) => widget is DButton && widget.tooltip == 'Copy table',
+            ),
+          )
+          .size,
+      DButtonSize.post,
+    );
+    final copyButton = find.byWidgetPredicate(
+      (widget) => widget is DButton && widget.tooltip == 'Copy table',
+    );
+    final paintedCopy = tester.widget<FilledButton>(
+      find.descendant(of: copyButton, matching: find.byType(FilledButton)),
+    );
+    expect(paintedCopy.style!.fixedSize!.resolve({}), const Size(30, 30));
     await _sort(tester, 'Days', 'ascending');
     await tester.tap(find.text('Notes'));
     await tester.pumpAndSettle();
