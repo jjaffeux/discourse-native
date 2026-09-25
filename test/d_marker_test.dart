@@ -291,7 +291,7 @@ void main() {
         tester,
         StreamDaySeparator(day: DateTime.now(), onTap: () => calls++),
       );
-      expect(tester.getSize(find.byType(StreamDaySeparator)).height, 44);
+      expect(tester.getSize(find.byType(StreamDaySeparator)).height, 48);
       await tester.tap(find.text('Today'));
       await tester.pump();
       expect(calls, 1);

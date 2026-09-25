@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import '../foundation/calendar_day.dart';
 import '../theme/app_theme.dart';
 
-class StreamDaySeparator extends StatefulWidget {
+class StreamDaySeparator extends StatelessWidget {
   const StreamDaySeparator({
     super.key,
     required this.day,
@@ -13,7 +13,7 @@ class StreamDaySeparator extends StatefulWidget {
     this.onTap,
   });
 
-  static const double height = 44;
+  static const double height = 48;
 
   final DateTime day;
   final bool floating;
@@ -22,93 +22,58 @@ class StreamDaySeparator extends StatefulWidget {
   final VoidCallback? onTap;
 
   @override
-  State<StreamDaySeparator> createState() => _StreamDaySeparatorState();
-}
-
-class _StreamDaySeparatorState extends State<StreamDaySeparator> {
-  bool _hovered = false;
-  bool _focused = false;
-
-  void _setHovered(bool value) {
-    if (_hovered == value) return;
-    setState(() => _hovered = value);
-  }
-
-  void _setFocused(bool value) {
-    if (_focused == value) return;
-    setState(() => _focused = value);
-  }
-
-  @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final label = dayLabel(widget.day, now: DateTime.now());
-    // Core's pinned date uses primary-50 against a primary-200 border. The
-    // matching Material roles preserve that contrast for each site palette.
-    final idleBackground = widget.floating
-        ? theme.colorScheme.surfaceContainerLow
-        : theme.shell.content;
-    final background = _hovered || _focused
-        ? theme.shell.hover
-        : idleBackground;
+    final label = dayLabel(day, now: DateTime.now());
+    // Match the mockup's raised pill and subtle rule using the live forum
+    // palette, including custom themes.
+    final background = Color.lerp(
+      theme.shell.content,
+      theme.colorScheme.onSurface,
+      .10,
+    )!;
+    final border = Color.lerp(
+      theme.shell.content,
+      theme.colorScheme.onSurface,
+      .12,
+    )!;
+    final foreground = Color.lerp(
+      theme.shell.content,
+      theme.colorScheme.onSurface,
+      .50,
+    )!;
 
-    Widget date = MouseRegion(
-      cursor: widget.onTap == null
-          ? MouseCursor.defer
-          : SystemMouseCursors.click,
-      onEnter: (_) => _setHovered(true),
-      onExit: (_) => _setHovered(false),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+    Widget date;
+    if (onTap case final onTap?) {
+      final actionLabel = 'Go to start of $label';
+      date = DButton(
+        label: Text(label, style: const TextStyle(fontWeight: FontWeight.w600)),
+        onPressed: onTap,
+        semanticLabel: actionLabel,
+        tooltip: actionLabel,
+        variant: DButtonVariant.outline,
+        size: DButtonSize.small,
+        shape: DButtonShape.pill,
+        backgroundColor: background,
+        interactiveBackgroundColor: theme.shell.hover,
+        foregroundColor: foreground,
+        borderColor: border,
+      );
+    } else {
+      date = Container(
+        padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 3),
         decoration: BoxDecoration(
           color: background,
-          border: Border.all(
-            color: widget.floating
-                ? theme.colorScheme.surfaceContainerHigh
-                : Colors.transparent,
-          ),
-          borderRadius: BorderRadius.circular(4),
-          boxShadow: widget.floating
-              ? const [
-                  BoxShadow(
-                    color: Color(0x1F000000),
-                    blurRadius: 3,
-                    offset: Offset(0, 1),
-                  ),
-                ]
-              : null,
+          border: Border.all(color: border),
+          borderRadius: BorderRadius.circular(999),
         ),
         child: Text(
           label,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           style: theme.textTheme.labelSmall?.copyWith(
-            color: theme.colorScheme.onSurfaceVariant,
+            color: foreground,
             fontWeight: FontWeight.w600,
-          ),
-        ),
-      ),
-    );
-
-    if (widget.onTap case final onTap?) {
-      final actionLabel = 'Go to start of $label';
-      date = Semantics(
-        container: true,
-        button: true,
-        label: actionLabel,
-        onTap: onTap,
-        excludeSemantics: true,
-        child: DTooltip(
-          message: actionLabel,
-          excludeFromSemantics: true,
-          child: Material(
-            type: MaterialType.transparency,
-            child: InkWell(
-              borderRadius: BorderRadius.circular(4),
-              onTap: onTap,
-              onFocusChange: _setFocused,
-              child: date,
-            ),
           ),
         ),
       );
@@ -116,20 +81,16 @@ class _StreamDaySeparatorState extends State<StreamDaySeparator> {
 
     return ConstrainedBox(
       constraints: BoxConstraints(
-        minHeight: !widget.floating && !widget.showDivider
-            ? 28
-            : StreamDaySeparator.height,
+        minHeight: !floating && !showDivider ? 28 : StreamDaySeparator.height,
       ),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16),
         child: DMarker(
-          variant: !widget.floating && widget.showDivider
+          variant: !floating && showDivider
               ? DMarkerVariant.separator
               : DMarkerVariant.inline,
-          axis: widget.floating || !widget.showDivider
-              ? Axis.vertical
-              : Axis.horizontal,
-          borderColor: theme.shell.divider,
+          axis: floating || !showDivider ? Axis.vertical : Axis.horizontal,
+          borderColor: border,
           child: DMarkerContent(child: date),
         ),
       ),

@@ -1,7 +1,7 @@
 import 'dart:ui' as ui;
 
 import 'package:discourse_native/discourse_ui.dart'
-    show DMarker, DMarkerVariant;
+    show DButton, DButtonShape, DMarker, DMarkerVariant;
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/post.dart';
@@ -16,6 +16,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'support/button_surface.dart';
 import 'support/fakes.dart';
 import 'support/topic_post_list.dart';
 
@@ -72,7 +73,7 @@ void main() {
     final separator = find.byType(StreamDaySeparator);
     final button = find.descendant(
       of: separator,
-      matching: find.byType(InkWell),
+      matching: find.byType(DButton),
     );
     final date = find.descendant(
       of: separator,
@@ -81,9 +82,10 @@ void main() {
     final separatorRect = tester.getRect(separator);
     final buttonRect = tester.getRect(button);
 
-    expect(buttonRect.height, lessThan(separatorRect.height));
+    expect(buttonRect.height, lessThanOrEqualTo(separatorRect.height));
+    expect(tester.widget<DButton>(button).shape, DButtonShape.pill);
 
-    await tester.tapAt(Offset(separatorRect.center.dx, separatorRect.top + 1));
+    await tester.tapAt(separatorRect.centerLeft + const Offset(20, 0));
     await tester.pump();
     expect(taps, 0);
 
@@ -359,42 +361,27 @@ void main() {
       ValueKey(('topic-floating-day', firstDay)),
     );
     expect(floatingFirst, findsOneWidget);
-    expect(tester.getSize(floatingFirst).height, 44);
-    final floatingDecoration = tester
-        .widgetList<Container>(
-          find.descendant(of: floatingFirst, matching: find.byType(Container)),
-        )
-        .map((container) => container.decoration)
-        .whereType<BoxDecoration>()
-        .where(
-          (decoration) =>
-              decoration.border ==
-              Border.all(color: theme.colorScheme.surfaceContainerHigh),
-        )
-        .single;
-    expect(floatingDecoration.color, theme.colorScheme.surfaceContainerLow);
-    expect(
-      floatingDecoration.border,
-      Border.all(color: theme.colorScheme.surfaceContainerHigh),
-    );
+    expect(tester.getSize(floatingFirst).height, StreamDaySeparator.height);
+    final expectedBackground = Color.lerp(
+      theme.shell.content,
+      theme.colorScheme.onSurface,
+      .10,
+    )!;
+    final expectedBorder = Color.lerp(
+      theme.shell.content,
+      theme.colorScheme.onSurface,
+      .12,
+    )!;
+    final floatingDecoration = buttonSurface(tester, of: floatingFirst);
+    expect(floatingDecoration.color, expectedBackground);
+    expect(floatingDecoration.borderColor, expectedBorder);
     final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
     await mouse.addPointer(location: Offset.zero);
     addTearDown(mouse.removePointer);
     await mouse.moveTo(tester.getCenter(floatingFirst));
     await tester.pump();
 
-    final hoveredDecoration = tester
-        .widgetList<Container>(
-          find.descendant(of: floatingFirst, matching: find.byType(Container)),
-        )
-        .map((container) => container.decoration)
-        .whereType<BoxDecoration>()
-        .where(
-          (decoration) =>
-              decoration.border ==
-              Border.all(color: theme.colorScheme.surfaceContainerHigh),
-        )
-        .single;
+    final hoveredDecoration = buttonSurface(tester, of: floatingFirst);
     expect(hoveredDecoration.color, theme.shell.hover);
 
     await mouse.moveTo(Offset.zero);
@@ -409,7 +396,11 @@ void main() {
       matchesSemantics(
         label: 'Go to start of 2 January 2020',
         isButton: true,
+        hasEnabledState: true,
+        isEnabled: true,
+        isFocusable: true,
         hasTapAction: true,
+        hasFocusAction: true,
       ),
     );
 
