@@ -204,6 +204,7 @@ void main() {
     expect(find.text('Applies to Doggerel only.'), findsOneWidget);
     final useEverywhere = find.byKey(const ValueKey('theme-use-everywhere'));
     expect(useEverywhere, findsOneWidget);
+    expect(tester.widget<DButton>(useEverywhere).size, DButtonSize.regular);
     final scopeRow = find
         .ancestor(of: useEverywhere, matching: find.byType(Row))
         .first;
