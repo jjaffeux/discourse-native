@@ -333,6 +333,7 @@ class _ForumAppearanceSettingsState extends State<ForumAppearanceSettings> {
                   allowEmptySelection: false,
                   expanded: true,
                   inset: true,
+                  semanticLabel: 'Appearance mode',
                   onChanged: (values) {
                     if (values.isEmpty) return;
                     final value = values.first;
@@ -342,14 +343,17 @@ class _ForumAppearanceSettingsState extends State<ForumAppearanceSettings> {
                   items: const [
                     DToggleGroupItem(
                       value: AppThemeMode.light,
+                      icon: ThemeIcon(ThemeIcons.sun, size: 12),
                       child: Text('Light'),
                     ),
                     DToggleGroupItem(
                       value: AppThemeMode.dark,
+                      icon: ThemeIcon(ThemeIcons.moon, size: 12),
                       child: Text('Dark'),
                     ),
                     DToggleGroupItem(
                       value: AppThemeMode.system,
+                      icon: ThemeIcon(ThemeIcons.automatic, size: 12),
                       child: Text('Auto'),
                     ),
                   ],
