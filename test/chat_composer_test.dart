@@ -2737,6 +2737,64 @@ void main() {
       expect(find.text('**hello** chat'), findsNothing);
     });
 
+    testWidgets('keeps one keyboard session open across consecutive sends', (
+      tester,
+    ) async {
+      final fixture = await _fixture(
+        pages: {FakeDiscourseApi.chatMessagesKey(9): _emptyPage},
+      );
+      addTearDown(fixture.shell.dispose);
+      await tester.pumpWidget(_TestView(shell: fixture.shell));
+      await tester.pumpAndSettle();
+
+      final field = find.byType(TextField);
+      final send = find.byKey(const ValueKey('chat-composer-send'));
+      await tester.enterText(field, 'first message');
+      await tester.pump();
+      final focus = tester.widget<TextField>(field).focusNode!;
+      var focusLost = false;
+      void observeFocus() {
+        if (!focus.hasFocus) focusLost = true;
+      }
+
+      focus.addListener(observeFocus);
+      tester.testTextInput.log.clear();
+
+      await tester.tap(send);
+      await tester.pumpAndSettle();
+      // No tap on the field: the session that typed the first message
+      // must still be the one receiving keystrokes.
+      tester.testTextInput.enterText('second message');
+      await tester.pump();
+      await tester.tap(send);
+      await tester.pumpAndSettle();
+      focus.removeListener(observeFocus);
+
+      expect(focusLost, isFalse);
+      // On iOS, closing or replacing the client starts the keyboard's
+      // dismissal even when focus returns on the next frame.
+      expect(
+        tester.testTextInput.log.map((call) => call.method),
+        everyElement(
+          isNot(
+            isIn([
+              'TextInput.clearClient',
+              'TextInput.hide',
+              'TextInput.setClient',
+            ]),
+          ),
+        ),
+      );
+      expect(fixture.api.chatMessagesSent.map((sent) => sent.message), [
+        'first message',
+        'second message',
+      ]);
+      expect(
+        tester.widget<TextField>(field).controller!.value,
+        const TextEditingValue(selection: TextSelection.collapsed(offset: 0)),
+      );
+    });
+
     testWidgets('stages immediately without clearing the next draft', (
       tester,
     ) async {

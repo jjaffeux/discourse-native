@@ -586,8 +586,10 @@ class _ChatComposerState extends State<ChatComposer> {
     if (accepted == null) return;
 
     // Once a row exists, it owns delivery; clear the document before queued I/O.
+    // Focus must never leave the field here: on iOS even a one-frame gap
+    // starts the keyboard's dismissal. The refocus only recovers a send
+    // triggered from a control that took focus.
     _clearReply(refocus: false);
-    composer.focus.unfocus();
     composer.clearDocument();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted && identical(_composer, composer)) {

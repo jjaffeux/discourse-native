@@ -2766,6 +2766,13 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
     _notify();
   }
 
+  /// Empties the document in place for the next message.
+  ///
+  /// Unlike a document replacement, this keeps [fieldGeneration]: the mounted
+  /// field and its native input session survive, so a focused composer keeps
+  /// its keyboard. A remount would close the session and iOS would start
+  /// dismissing the keyboard before focus could reopen it. Undo already lives
+  /// in [history], which the replacement resets.
   void clearDocument() {
     if (_disposed) return;
     _clearTagRemovalNotice();
@@ -2773,12 +2780,15 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
     _state = ComposerState.editing;
     _error = null;
     _notice = null;
-    _replaceDocument(TextEditingValue.empty);
+    // A valid caret, as TextEditingController.clear leaves it: the live input
+    // session keeps typing into this value without a focus change to place it.
+    _replaceDocument(
+      const TextEditingValue(selection: TextSelection.collapsed(offset: 0)),
+    );
     _clearUploads();
     _recomputeCanSubmit();
     _typing.reset();
     _openedAt = _now();
-    _fieldGeneration++;
     _notify();
   }
 
