@@ -10,6 +10,7 @@ final switchExamples = ComponentExamples(
       'Source and native review complete. '
       'DSwitch accepts controlled value/onChanged or uncontrolled initialValue. '
       'DSwitchTile associates wrapping title/subtitle with a single row action. '
+      'Use hoverHighlight for padded settings rows with a rounded hover fill. '
       'DSwitchFormField supports validation/save/reset. Read-only retains focus; '
       'disabled prevents activation. Space and Enter toggle; Tab moves focus. '
       'Default artwork is 32×18.4 with a 16px thumb; small is 24×14 with a 12px '
@@ -27,11 +28,9 @@ final switchExamples = ComponentExamples(
     ),
     StyleguideExample(
       title: 'Description',
-      description:
-          'The description wraps with the inherited text scale. Activate anywhere in the row.',
+      description: 'The description wraps with the inherited text scale. Activate anywhere in the row.',
       states: const ['Description', 'Wrapping'],
-      code:
-          '''DSwitchTile(value: share, onChanged: (value) => setState(() => share = value),
+      code: '''DSwitchTile(value: share, onChanged: (value) => setState(() => share = value),
   title: const Text('Share across devices'),
   subtitle: const Text('Focus is shared across devices, and turns off when you leave the app.'))''',
       builder: (_) => const _SwitchDemo(kind: 'description'),
@@ -47,9 +46,18 @@ final switchExamples = ComponentExamples(
       builder: (_) => const _SwitchDemo(kind: 'card'),
     ),
     StyleguideExample(
+      title: 'Settings row hover',
+      description: 'Move over the row to reveal its rounded hover surface.',
+      states: const ['Hover', 'Checked', 'Unchecked'],
+      code: '''DSwitchTile(hoverHighlight: true, value: disabled,
+  onChanged: (value) => setState(() => disabled = value),
+  title: const Text('Disable GIF animations'),
+  subtitle: const Text('Pause GIFs by default in posts and chat messages.'))''',
+      builder: (_) => const _SwitchDemo(kind: 'settings'),
+    ),
+    StyleguideExample(
       title: 'Disabled and read-only',
-      description:
-          'Disabled switches leave traversal. Read-only switches retain focus without edits.',
+      description: 'Disabled switches leave traversal. Read-only switches retain focus without edits.',
       states: const ['Disabled', 'Read-only'],
       code: '''const DSwitch(value: false, semanticLabel: 'Disabled');
 const DSwitch(initialValue: true, enabled: false, semanticLabel: 'Disabled checked');
@@ -77,17 +85,14 @@ const DSwitch(initialValue: true, readOnly: true, semanticLabel: 'Read-only');''
     ),
     StyleguideExample(
       title: 'Invalid',
-      description:
-          'The reference invalid state keeps the description muted and marks the switch and title.',
+      description: 'The reference invalid state keeps the description muted and marks the switch and title.',
       states: const ['Invalid', 'Description'],
-      code:
-          "DSwitchTile(invalid: true, value: accepted, onChanged: (value) => setState(() => accepted = value), title: const Text('Accept terms and conditions'), subtitle: const Text('You must accept the terms and conditions to continue.'))",
+      code: "DSwitchTile(invalid: true, value: accepted, onChanged: (value) => setState(() => accepted = value), title: const Text('Accept terms and conditions'), subtitle: const Text('You must accept the terms and conditions to continue.'))",
       builder: (_) => const _SwitchDemo(kind: 'invalid'),
     ),
     StyleguideExample(
       title: 'Invalid and Form',
-      description:
-          'Submit without accepting, then accept and save. Reset restores the original value.',
+      description: 'Submit without accepting, then accept and save. Reset restores the original value.',
       states: const ['Invalid', 'Form', 'Save', 'Reset'],
       code: '''DSwitchFormField(initialValue: false,
   title: const Text('Accept terms and conditions'),
@@ -99,8 +104,7 @@ const DSwitch(initialValue: true, readOnly: true, semanticLabel: 'Read-only');''
     ),
     StyleguideExample(
       title: 'Size',
-      description:
-          'Small and default keep their exact artwork inside accessible targets.',
+      description: 'Small and default keep their exact artwork inside accessible targets.',
       states: const ['Small', 'Default', 'Associated label'],
       code: '''DSwitchTile(leading: true, size: DSwitchSize.small, value: small,
   onChanged: (value) => setState(() => small = value),
@@ -125,11 +129,9 @@ DSwitchTile(leading: true, value: standard,
     ),
     StyleguideExample(
       title: 'Controlled updates',
-      description:
-          'An external action updates the same setting; rebuilding preserves local example state.',
+      description: 'An external action updates the same setting; rebuilding preserves local example state.',
       states: const ['Controlled', 'External update'],
-      code:
-          '''DSwitchTile(value: enabled, onChanged: (value) => setState(() => enabled = value),
+      code: '''DSwitchTile(value: enabled, onChanged: (value) => setState(() => enabled = value),
   title: const Text('Enable notifications'));
 DButton(label: const Text('Change externally'), onPressed: () => setState(() => enabled = !enabled));''',
       builder: (_) => const _SwitchDemo(kind: 'controlled'),
@@ -157,6 +159,7 @@ class _SwitchDemoState extends State<_SwitchDemo> {
           value: _value,
           onChanged: (value) => setState(() => _value = value),
           choiceCard: kind == 'card',
+          hoverHighlight: kind == 'settings',
           invalid: kind == 'invalid',
           leading: kind == 'default',
           title: Text(
@@ -168,6 +171,8 @@ class _SwitchDemoState extends State<_SwitchDemo> {
                 ? 'المشاركة عبر الأجهزة'
                 : kind == 'controlled'
                 ? 'Enable notifications'
+                : kind == 'settings'
+                ? 'Disable GIF animations'
                 : 'Share across devices',
           ),
           subtitle: kind == 'default' || kind == 'controlled'
@@ -177,6 +182,8 @@ class _SwitchDemoState extends State<_SwitchDemo> {
                       ? 'You must accept the terms and conditions to continue.'
                       : kind == 'rtl'
                       ? 'يتم مشاركة التركيز عبر الأجهزة، ويتم إيقاف تشغيله عند مغادرة التطبيق.'
+                      : kind == 'settings'
+                      ? 'Pause GIFs by default in posts and chat messages.'
                       : 'Focus is shared across devices, and turns off when you leave the app.',
                 ),
         ),

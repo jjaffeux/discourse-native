@@ -72,7 +72,7 @@ class AppSettingsModal extends StatelessWidget {
               children: [
                 DSwitchTile(
                   key: const ValueKey('limit-content-size-switch'),
-                  contentPadding: EdgeInsets.zero,
+                  hoverHighlight: true,
                   title: const DLabel(child: Text('Limit content size')),
                   subtitle: const DFieldDescription(
                     child: Text(
@@ -105,7 +105,7 @@ class AppSettingsModal extends StatelessWidget {
                 const DFieldSeparator(),
                 DSwitchTile(
                   key: const ValueKey('disable-gif-animations-switch'),
-                  contentPadding: EdgeInsets.zero,
+                  hoverHighlight: true,
                   title: const DLabel(child: Text('Disable GIF animations')),
                   subtitle: const DFieldDescription(
                     child: Text(

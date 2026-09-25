@@ -660,6 +660,79 @@ void main() {
     },
   );
 
+  testWidgets('settings row highlights only while an enabled tile is hovered', (
+    tester,
+  ) async {
+    final strategy = FocusManager.instance.highlightStrategy;
+    FocusManager.instance.highlightStrategy =
+        FocusHighlightStrategy.alwaysTraditional;
+    addTearDown(() => FocusManager.instance.highlightStrategy = strategy);
+    for (final theme in [AppTheme.light, AppTheme.dark]) {
+      var changes = 0;
+      await mount(
+        tester,
+        DSwitchTile(
+          value: false,
+          onChanged: (_) => changes++,
+          hoverHighlight: true,
+          title: const Text('Disable GIF animations'),
+          subtitle: const Text('Pause GIFs by default.'),
+        ),
+        theme: theme,
+      );
+      await tester.pumpAndSettle();
+      final row = find
+          .descendant(
+            of: find.byType(DSwitch),
+            matching: find.byType(AnimatedContainer),
+          )
+          .first;
+      BoxDecoration decoration() =>
+          tester.widget<AnimatedContainer>(row).decoration! as BoxDecoration;
+      final tokens = DTokens.of(tester.element(row));
+      expect(decoration().color, isNull);
+      expect(decoration().borderRadius, BorderRadius.circular(tokens.radius));
+
+      final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      await mouse.addPointer(location: Offset.zero);
+      await mouse.moveTo(tester.getCenter(find.text('Disable GIF animations')));
+      await tester.pumpAndSettle();
+      expect(decoration().color, tokens.muted.withValues(alpha: .5));
+      await tester.tapAt(tester.getTopLeft(row) + const Offset(4, 4));
+      expect(changes, 1);
+      await mouse.moveTo(Offset.zero);
+      await tester.pumpAndSettle();
+      expect(decoration().color, isNull);
+      await mouse.removePointer();
+    }
+
+    await mount(
+      tester,
+      const DSwitchTile(
+        value: false,
+        onChanged: null,
+        hoverHighlight: true,
+        title: Text('Disabled'),
+      ),
+    );
+    final row = find
+        .descendant(
+          of: find.byType(DSwitch),
+          matching: find.byType(AnimatedContainer),
+        )
+        .first;
+    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    await mouse.addPointer(location: Offset.zero);
+    await mouse.moveTo(tester.getCenter(find.text('Disabled')));
+    await tester.pumpAndSettle();
+    expect(
+      (tester.widget<AnimatedContainer>(row).decoration! as BoxDecoration)
+          .color,
+      isNull,
+    );
+    await mouse.removePointer();
+  });
+
   testWidgets('read-only choice card does not advertise pointer activation', (
     tester,
   ) async {
@@ -818,9 +891,8 @@ void main() {
           await mouse.moveTo(Offset.zero);
           await tester.pumpAndSettle();
         }
-        final tokens = DTokens.fromTheme(
-          base,
-        ).copyWith(border: const Color(0x66551122));
+        final tokens = DTokens.fromTheme(base)
+            .copyWith(border: const Color(0x66551122));
         await mount(
           tester,
           DSwitchTile(
