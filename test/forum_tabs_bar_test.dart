@@ -32,11 +32,13 @@ void main() {
   const first = ForumTabItem(
     id: 'topic-1',
     title: 'A long-running topic',
+    kind: ForumTabKind.topic,
     icon: DIcons.comment,
   );
   const second = ForumTabItem(
     id: 'chat-2',
     title: 'Team chat',
+    kind: ForumTabKind.chat,
     icon: DIcons.comments,
   );
   const third = ForumTabItem(
@@ -92,8 +94,18 @@ void main() {
 
         update(() {
           items = [
-            ForumTabItem(id: first.id, title: first.title, icon: first.icon),
-            ForumTabItem(id: second.id, title: second.title, icon: second.icon),
+            ForumTabItem(
+              id: first.id,
+              title: first.title,
+              kind: first.kind,
+              icon: first.icon,
+            ),
+            ForumTabItem(
+              id: second.id,
+              title: second.title,
+              kind: second.kind,
+              icon: second.icon,
+            ),
           ];
           onSelect = (id) => selected = 'new:$id';
         });
@@ -108,6 +120,7 @@ void main() {
             ForumTabItem(
               id: 'chat-2',
               title: 'Renamed chat',
+              kind: ForumTabKind.chat,
               icon: DIcons.comments,
               badge: SidebarBadge.count(3),
             ),
@@ -960,6 +973,124 @@ void main() {
   });
 
   group('tab switcher', () {
+    testWidgets(
+      'matches mockup groups, selected row, width, and close action',
+      (tester) async {
+        const category = ForumTabItem(
+          id: 'category',
+          title: 'flourpower',
+          color: Color(0xFFE9A23B),
+        );
+        const start = ForumTabItem(
+          id: 'start',
+          title: 'Start page',
+          icon: DIcons.grip,
+        );
+        const baking = ForumTabItem(
+          id: 'baking',
+          title: 'baking',
+          kind: ForumTabKind.chat,
+        );
+        final closed = <String>[];
+        final selected = <String>[];
+        await _pumpBar(
+          tester,
+          items: const [category, start],
+          selectedId: start.id,
+          recentlyClosedItems: const [baking],
+          onClose: closed.add,
+          onSelect: selected.add,
+        );
+
+        await tester.tap(find.byKey(const ValueKey('forum-tabs-switcher')));
+        await tester.pumpAndSettle();
+
+        final popup = find.byType(DPopoverContent);
+        expect(tester.getSize(popup).width, 420);
+        expect(tester.widget<DPopoverContent>(popup).cornerRadius, 12);
+        expect(find.text('Lists 2'), findsOneWidget);
+        expect(find.text('Chats 1'), findsNothing);
+        expect(find.text('Recently closed 1'), findsOneWidget);
+        expect(
+          find.byKey(const ValueKey('forum-tabs-switcher-recent-baking')),
+          findsOneWidget,
+        );
+        final selectedRow = find.byKey(
+          const ValueKey('forum-tabs-switcher-open-start'),
+        );
+        final item = tester.widget<DItem>(
+          find.descendant(of: selectedRow, matching: find.byType(DItem)),
+        );
+        expect(item.selected, isTrue);
+        expect(item.shape, DItemShape.menu);
+        expect(item.selectionStyle, DItemSelectionStyle.strongNeutral);
+        expect(item.showSelectionIndicator, isFalse);
+
+        await tester.tap(
+          find.descendant(of: selectedRow, matching: find.byType(DButton)),
+        );
+        await tester.pumpAndSettle();
+        expect(closed, [start.id]);
+        expect(selected, isEmpty);
+        expect(
+          find.byKey(const ValueKey('forum-tabs-switcher-menu')),
+          findsOneWidget,
+        );
+      },
+    );
+
+    testWidgets('reverses tab groups in the secondary panel', (tester) async {
+      await _pumpBar(
+        tester,
+        items: const [third, second, first],
+        selectedId: first.id,
+        panel: ForumPanel.secondary,
+      );
+      await tester.tap(find.byKey(const ValueKey('forum-tabs-switcher')));
+      await tester.pumpAndSettle();
+
+      final topics = tester.getTopLeft(find.text('Topics 1')).dy;
+      final chats = tester.getTopLeft(find.text('Chats 1')).dy;
+      final lists = tester.getTopLeft(find.text('Lists 1')).dy;
+      expect(topics, lessThan(chats));
+      expect(chats, lessThan(lists));
+    });
+
+    testWidgets('arrow keys move from search through visible tab rows', (
+      tester,
+    ) async {
+      final selected = <String>[];
+      await _pumpBar(
+        tester,
+        items: const [third, second, first],
+        selectedId: third.id,
+        onSelect: selected.add,
+      );
+      await tester.tap(find.byKey(const ValueKey('forum-tabs-switcher')));
+      await tester.pumpAndSettle();
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.pump();
+      DItem row(String id) => tester.widget<DItem>(
+        find.descendant(
+          of: find.byKey(ValueKey('forum-tabs-switcher-open-$id')),
+          matching: find.byType(DItem),
+        ),
+      );
+      expect(row(third.id).focusNode!.hasFocus, isTrue);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.pump();
+      expect(row(second.id).focusNode!.hasFocus, isTrue);
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pumpAndSettle();
+      expect(selected, [second.id]);
+      expect(
+        find.byKey(const ValueKey('forum-tabs-switcher-menu')),
+        findsNothing,
+      );
+    });
+
     testWidgets('uses the shared outline surface without moving on hover', (
       tester,
     ) async {
@@ -1000,11 +1131,12 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('forum-tabs-switcher')));
       await tester.pumpAndSettle();
 
-      expect(find.text('Open tabs  2'), findsOneWidget);
-      expect(find.text('Recently closed  1'), findsOneWidget);
+      expect(find.text('Topics 1'), findsOneWidget);
+      expect(find.text('Chats 1'), findsOneWidget);
+      expect(find.text('Recently closed 1'), findsOneWidget);
       expect(
         find.byKey(const ValueKey('forum-tabs-switcher-recent-updates-3')),
-        findsNothing,
+        findsOneWidget,
       );
       final rowTitle = tester.widget<Text>(
         find.descendant(
@@ -1012,7 +1144,7 @@ void main() {
           matching: find.text(first.title),
         ),
       );
-      expect(rowTitle.style?.fontSize, DiscourseTypography.sm);
+      expect(rowTitle.style?.fontSize, 14);
       expect(find.textContaining('Scoped to'), findsNothing);
       expect(
         find.descendant(
@@ -1024,9 +1156,6 @@ void main() {
         findsOneWidget,
       );
 
-      await tester.tap(
-        find.byKey(const ValueKey('forum-tabs-switcher-history')),
-      );
       await tester.enterText(
         find.byKey(const ValueKey('forum-tabs-switcher-search')),
         'updates',
@@ -1041,6 +1170,19 @@ void main() {
         find.byKey(const ValueKey('forum-tabs-switcher-recent-updates-3')),
         findsOneWidget,
       );
+      expect(find.text('Topics 1'), findsNothing);
+      await tester.tap(
+        find.byKey(const ValueKey('forum-tabs-switcher-history')),
+      );
+      await tester.pump();
+      expect(
+        find.byKey(const ValueKey('forum-tabs-switcher-recent-updates-3')),
+        findsNothing,
+      );
+      await tester.tap(
+        find.byKey(const ValueKey('forum-tabs-switcher-history')),
+      );
+      await tester.pump();
 
       await tester.tap(
         find.byKey(const ValueKey('forum-tabs-switcher-recent-updates-3')),
@@ -1054,6 +1196,20 @@ void main() {
 
       await tester.tap(find.byKey(const ValueKey('forum-tabs-switcher')));
       await tester.pumpAndSettle();
+      expect(
+        tester
+            .widget<DInput>(
+              find.byKey(const ValueKey('forum-tabs-switcher-search')),
+            )
+            .controller!
+            .text,
+        'updates',
+      );
+      await tester.enterText(
+        find.byKey(const ValueKey('forum-tabs-switcher-search')),
+        '',
+      );
+      await tester.pump();
       await tester.tap(
         find.byKey(const ValueKey('forum-tabs-switcher-open-chat-2')),
       );
@@ -1061,7 +1217,7 @@ void main() {
       expect(selected, [second.id]);
     });
 
-    testWidgets('hides empty history and sizes the menu to its results', (
+    testWidgets('shows empty history count and sizes the menu to its results', (
       tester,
     ) async {
       await _pumpBar(tester, items: const [first], selectedId: first.id);
@@ -1071,9 +1227,9 @@ void main() {
 
       expect(
         find.byKey(const ValueKey('forum-tabs-switcher-history')),
-        findsNothing,
+        findsOneWidget,
       );
-      expect(find.text('No matching recently closed tabs'), findsNothing);
+      expect(find.text('Recently closed 0'), findsOneWidget);
       final menu = find.byKey(const ValueKey('forum-tabs-switcher-menu'));
       expect(tester.getSize(menu).height, lessThan(200));
 
@@ -1083,7 +1239,7 @@ void main() {
       );
       await tester.pump();
 
-      expect(find.text('No matching open tabs'), findsOneWidget);
+      expect(find.text('Topics 1'), findsNothing);
       expect(tester.getSize(menu).height, lessThan(200));
     });
 

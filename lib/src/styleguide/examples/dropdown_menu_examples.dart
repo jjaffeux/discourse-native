@@ -59,6 +59,25 @@ final dropdownMenuExamples = ComponentExamples(
       ),
     ),
     StyleguideExample(
+      title: 'Custom popup corners',
+      description:
+          'The popup can use a 12px radius while menu rows retain their Native interaction and focus styling.',
+      code:
+          "DDropdownMenu(content: DDropdownMenuContent(cornerRadius: 12, children: [DDropdownMenuItem(onPressed: action, child: Text('Start page'))]), child: DDropdownMenuTrigger.button(label: Text('Browse tabs')))",
+      builder: (_) => DDropdownMenu(
+        content: DDropdownMenuContent(
+          cornerRadius: 12,
+          children: [
+            DDropdownMenuItem(
+              onPressed: () {},
+              child: const Text('Start page'),
+            ),
+          ],
+        ),
+        child: DDropdownMenuTrigger.button(label: const Text('Browse tabs')),
+      ),
+    ),
+    StyleguideExample(
       title: 'Sheet on mobile',
       description:
           'Uses a bottom sheet on mobile platforms and an anchored menu on desktop.',

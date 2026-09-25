@@ -41,6 +41,42 @@ void main() {
     await tester.pumpAndSettle();
   }
 
+  testWidgets('forwards an explicit popup radius to the Native surface', (
+    tester,
+  ) async {
+    await pumpMenu(
+      tester,
+      child: DDropdownMenu(
+        content: const DDropdownMenuContent(
+          cornerRadius: 12,
+          children: [
+            DDropdownMenuItem(onPressed: _noop, child: Text('Action')),
+          ],
+        ),
+        child: DDropdownMenuTrigger.button(label: const Text('Open')),
+      ),
+    );
+    await open(tester);
+
+    expect(
+      tester.widget<DPopoverContent>(find.byType(DPopoverContent)).cornerRadius,
+      12,
+    );
+    expect(
+      tester
+          .widgetList<DecoratedBox>(
+            find.descendant(
+              of: find.byType(DPopoverContent),
+              matching: find.byType(DecoratedBox),
+            ),
+          )
+          .map((box) => box.decoration)
+          .whereType<BoxDecoration>()
+          .any((box) => box.borderRadius == BorderRadius.circular(12)),
+      isTrue,
+    );
+  });
+
   for (final dark in [false, true]) {
     for (final variant in [
       DButtonVariant.outline,

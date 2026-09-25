@@ -494,6 +494,38 @@ void main() {
   });
 
   testWidgets(
+    'strong neutral menu selection keeps a 13% fill and 8px corners',
+    (tester) async {
+      await tester.pumpWidget(
+        host(
+          const DItem(
+            shape: DItemShape.menu,
+            selected: true,
+            selectionStyle: DItemSelectionStyle.strongNeutral,
+            showSelectionIndicator: false,
+            children: [
+              DItemContent(children: [Text('Start page')]),
+            ],
+          ),
+        ),
+      );
+
+      final decoration = tester
+          .widgetList<DecoratedBox>(
+            find.descendant(
+              of: find.byType(DItem),
+              matching: find.byType(DecoratedBox),
+            ),
+          )
+          .map((box) => box.decoration)
+          .whereType<BoxDecoration>()
+          .firstWhere((box) => box.color?.a == .13);
+      expect(decoration.color!.a, .13);
+      expect(decoration.borderRadius, BorderRadius.circular(8));
+    },
+  );
+
+  testWidgets(
     'outline selection and pointer hover stay independent of keyboard focus',
     (tester) async {
       final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
@@ -558,6 +590,7 @@ void main() {
           BorderRadius.circular(switch (shape) {
             DItemShape.card => DRadius.panel,
             DItemShape.fullWidth => 0,
+            DItemShape.menu => 8,
             DItemShape.standard => 10,
           }),
         );

@@ -14,10 +14,16 @@ enum DItemVariant { standard, outline, muted }
 
 enum DItemSize { standard, sm, xs }
 
-/// Card follows Card surface corners; fullWidth keeps flush square edges.
-enum DItemShape { standard, card, fullWidth }
+/// Card follows Card surface corners, menu uses 8px, and fullWidth stays flush.
+enum DItemShape { standard, card, menu, fullWidth }
 
-enum DItemSelectionStyle { tinted, outline, neutral, leadingAccent }
+enum DItemSelectionStyle {
+  tinted,
+  outline,
+  neutral,
+  strongNeutral,
+  leadingAccent,
+}
 
 enum DItemMediaVariant { standard, icon, avatar, image }
 
@@ -82,8 +88,9 @@ class DItem extends StatefulWidget {
   /// with a fainter accent tint on hover. Combine with fullWidth for flush rows.
   /// Outline selection keeps the normal surface and paints a 2px accent border
   /// without moving the content, with a subtle neutral fill on hover. Neutral
-  /// selection uses a subtle surface tint and no accent border. Both use broader
-  /// theme-relative corners and retain keyboard focus styling.
+  /// selection uses a subtle surface tint and no accent border. Strong neutral
+  /// selection uses the same treatment at menu-selected emphasis (13%). Both
+  /// retain keyboard focus styling.
   final DItemSelectionStyle selectionStyle;
 
   /// Shows a checkmark when selected. Selection styling and semantics remain
@@ -156,18 +163,24 @@ class _DItemState extends State<DItem> {
     final outlineSelection =
         widget.selectionStyle == DItemSelectionStyle.outline;
     final neutralSelection =
-        widget.selectionStyle == DItemSelectionStyle.neutral;
+        widget.selectionStyle == DItemSelectionStyle.neutral ||
+        widget.selectionStyle == DItemSelectionStyle.strongNeutral;
+    final strongNeutralSelection =
+        widget.selectionStyle == DItemSelectionStyle.strongNeutral;
     final leadingSelection =
         widget.selectionStyle == DItemSelectionStyle.leadingAccent;
     final radius = switch (widget.shape) {
       DItemShape.fullWidth => 0.0,
       DItemShape.card => DRadius.panel,
+      DItemShape.menu => 8.0,
       DItemShape.standard => DRadius.popover,
     };
     final borderRadius = BorderRadius.circular(radius);
     final background = widget.selected && !outlineSelection
         ? neutralSelection
-              ? tokens.foreground.withValues(alpha: .05)
+              ? tokens.foreground.withValues(
+                  alpha: strongNeutralSelection ? .13 : .05,
+                )
               : tokens.primary.withValues(alpha: .12)
         : _active && (_hover || _pressed)
         ? leadingSelection
