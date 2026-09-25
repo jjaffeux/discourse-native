@@ -23,9 +23,6 @@ class ForumThemePicker extends StatefulWidget {
     required this.onTheme,
     required this.onNewTheme,
     required this.onEdit,
-    required this.onDuplicate,
-    required this.onCopy,
-    required this.onDelete,
     this.fontFamily,
   });
 
@@ -41,9 +38,6 @@ class ForumThemePicker extends StatefulWidget {
   /// Starts a theme of the user's own, from the named theme when given.
   final void Function({String? base}) onNewTheme;
   final ValueChanged<ForumTheme> onEdit;
-  final ValueChanged<ForumTheme> onDuplicate;
-  final ValueChanged<ForumTheme> onCopy;
-  final ValueChanged<ForumTheme> onDelete;
   final String? fontFamily;
 
   @override
@@ -79,30 +73,16 @@ class _ForumThemePickerState extends State<ForumThemePicker> {
                   preferences.source == ForumThemeSource.custom &&
                   theme.id == preferences.customId,
               onPressed: () => widget.onTheme(theme.id),
-              actions: [
-                DButton.iconOnly(
-                  key: ValueKey(('edit-theme', theme.id)),
-                  icon: const DIcon(DIcons.pencil),
-                  tooltip: 'Edit',
-                  semanticLabel: 'Edit ${theme.name}',
-                  variant: DButtonVariant.ghost,
-                  size: DButtonSize.small,
-                  onPressed: () => widget.onEdit(theme),
-                ),
-                _ThemeActions(
-                  theme: theme,
-                  onDuplicate: widget.onDuplicate,
-                  onCopy: widget.onCopy,
-                  onDelete: widget.onDelete,
-                ),
-              ],
+              onEdit: () => widget.onEdit(theme),
+              editLabel: 'Edit ${theme.name}',
             ),
           _row(
             widget.forum,
             // Whatever leaves this mode without a palette shows the forum's.
             chosen: preferences.themeFor(widget.brightness) == null,
             onPressed: widget.onForum,
-            onCustomize: () => widget.onNewTheme(base: widget.forum.id),
+            onEdit: () => widget.onNewTheme(base: widget.forum.id),
+            editLabel: 'Create theme based on ${widget.forum.name}',
           ),
           for (final option in forumThemePresetsFor(widget.brightness))
             _row(
@@ -111,7 +91,8 @@ class _ForumThemePickerState extends State<ForumThemePicker> {
                   preferences.source == ForumThemeSource.preset &&
                   option.id == preset?.id,
               onPressed: () => widget.onPreset(widget.brightness, option.id),
-              onCustomize: () => widget.onNewTheme(base: option.id),
+              onEdit: () => widget.onNewTheme(base: option.id),
+              editLabel: 'Create theme based on ${option.name}',
             ),
         ]),
         Align(
@@ -145,145 +126,59 @@ class _ForumThemePickerState extends State<ForumThemePicker> {
     ForumTheme theme, {
     required bool chosen,
     required VoidCallback onPressed,
-    VoidCallback? onCustomize,
-    List<Widget> actions = const [],
+    required VoidCallback onEdit,
+    required String editLabel,
   }) => _ThemeChoiceRow(
     key: ValueKey(('theme-row', theme.id)),
     theme: theme,
     previewTheme: _theme(theme.forBrightness(widget.brightness)),
     chosen: chosen,
     onPressed: onPressed,
-    onCustomize: onCustomize,
-    actions: actions,
+    onEdit: onEdit,
+    editLabel: editLabel,
   );
 }
 
-class _ThemeChoiceRow extends StatefulWidget {
+class _ThemeChoiceRow extends StatelessWidget {
   const _ThemeChoiceRow({
     super.key,
     required this.theme,
     required this.previewTheme,
     required this.chosen,
     required this.onPressed,
-    required this.onCustomize,
-    required this.actions,
+    required this.onEdit,
+    required this.editLabel,
   });
 
   final ForumTheme theme;
   final ThemeData previewTheme;
   final bool chosen;
   final VoidCallback onPressed;
-  final VoidCallback? onCustomize;
-  final List<Widget> actions;
+  final VoidCallback onEdit;
+  final String editLabel;
 
   @override
-  State<_ThemeChoiceRow> createState() => _ThemeChoiceRowState();
-}
-
-class _ThemeChoiceRowState extends State<_ThemeChoiceRow> {
-  bool _hovered = false;
-  bool _focusWithin = false;
-
-  @override
-  Widget build(BuildContext context) {
-    final touch = switch (Theme.of(context).platform) {
-      TargetPlatform.iOS || TargetPlatform.android => true,
-      _ => false,
-    };
-    final showCustomize =
-        _hovered ||
-        _focusWithin ||
-        touch ||
-        MediaQuery.accessibleNavigationOf(context);
-    return Focus(
-      canRequestFocus: false,
-      onFocusChange: widget.onCustomize == null
-          ? null
-          : (focused) => setState(() => _focusWithin = focused),
-      child: DItem(
-        key: ValueKey(('theme-choice', widget.theme.id)),
-        size: DItemSize.sm,
-        selected: widget.chosen,
-        showSelectionIndicator: false,
-        onPressed: widget.onPressed,
-        onHoverChanged: widget.onCustomize == null
-            ? null
-            : (hovered) => setState(() => _hovered = hovered),
+  Widget build(BuildContext context) => DItem(
+    key: ValueKey(('theme-choice', theme.id)),
+    size: DItemSize.sm,
+    selected: chosen,
+    showSelectionIndicator: false,
+    onPressed: onPressed,
+    children: [
+      DItemMedia(child: ThemeThumbnail(theme: previewTheme)),
+      DItemContent(children: [DItemTitle(child: Text(theme.name))]),
+      DItemActions(
         children: [
-          DItemMedia(child: ThemeThumbnail(theme: widget.previewTheme)),
-          DItemContent(children: [DItemTitle(child: Text(widget.theme.name))]),
-          if (widget.onCustomize != null || widget.actions.isNotEmpty)
-            DItemActions(
-              children: [
-                if (widget.onCustomize case final customize?)
-                  Opacity(
-                    opacity: showCustomize ? 1 : 0,
-                    alwaysIncludeSemantics: true,
-                    child: DButton(
-                      key: ValueKey(('customize-theme', widget.theme.id)),
-                      label: const Text('Customize'),
-                      semanticLabel: 'Customize ${widget.theme.name}',
-                      variant: DButtonVariant.outline,
-                      size: DButtonSize.small,
-                      onPressed: customize,
-                    ),
-                  ),
-                ...widget.actions,
-              ],
-            ),
+          DButton.iconOnly(
+            key: ValueKey(('edit-theme', theme.id)),
+            icon: const DIcon(DIcons.pencil),
+            tooltip: editLabel,
+            variant: DButtonVariant.outline,
+            size: DButtonSize.small,
+            onPressed: onEdit,
+          ),
         ],
       ),
-    );
-  }
-}
-
-class _ThemeActions extends StatelessWidget {
-  const _ThemeActions({
-    required this.theme,
-    required this.onDuplicate,
-    required this.onCopy,
-    required this.onDelete,
-  });
-
-  final ForumTheme theme;
-  final ValueChanged<ForumTheme> onDuplicate;
-  final ValueChanged<ForumTheme> onCopy;
-  final ValueChanged<ForumTheme> onDelete;
-
-  @override
-  Widget build(BuildContext context) => DDropdownMenu(
-    sheetOnMobile: true,
-    content: DDropdownMenuContent(
-      semanticLabel: '${theme.name} actions',
-      children: [
-        DDropdownMenuItem(
-          key: ValueKey(('duplicate-theme', theme.id)),
-          onPressed: () => onDuplicate(theme),
-          child: const Text('Duplicate'),
-        ),
-        DDropdownMenuItem(
-          key: ValueKey(('copy-theme', theme.id)),
-          onPressed: () => onCopy(theme),
-          child: const Text('Copy theme'),
-        ),
-        DDropdownMenuItem(
-          key: ValueKey(('delete-theme', theme.id)),
-          onPressed: () => onDelete(theme),
-          child: const Text('Delete'),
-        ),
-      ],
-    ),
-    child: DDropdownMenuTrigger(
-      builder: (context, trigger) => DButton.iconOnly(
-        key: ValueKey(('theme-actions', theme.id)),
-        icon: const DIcon(DIcons.ellipsis),
-        tooltip: 'More actions for ${theme.name}',
-        variant: DButtonVariant.ghost,
-        size: DButtonSize.small,
-        hasPopup: true,
-        focusNode: trigger.focusNode,
-        onPressed: trigger.toggle,
-      ),
-    ),
+    ],
   );
 }

@@ -1,5 +1,7 @@
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/app_settings.dart';
+import 'package:discourse_native/src/models/forum_theme_presets.dart';
+import 'package:discourse_native/src/shell/forum_theme_editor.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -31,9 +33,13 @@ void main() {
             .selected,
         isTrue,
       );
+      final editButton = tester.widget<DButton>(
+        find.byKey(const ValueKey(('edit-theme', 'forum'))),
+      );
+      expect(editButton.variant, DButtonVariant.outline);
       expect(
-        find.byKey(const ValueKey(('customize-theme', 'forum'))),
-        findsOneWidget,
+        find.byKey(const ValueKey(('theme-actions', 'forum'))),
+        findsNothing,
       );
       for (final control in ['appearance-theme-select', 'theme-sidebar']) {
         expect(find.byKey(ValueKey(control)), findsNothing, reason: control);
@@ -61,6 +67,31 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
+
+  testWidgets('each theme row keeps one outlined pencil action visible', (
+    tester,
+  ) async {
+    final shell = controller();
+    addTearDown(shell.dispose);
+    await pumpSettings(tester, shell);
+
+    for (final id in [
+      'forum',
+      for (final preset in forumThemePresetsFor(Brightness.light)) preset.id,
+    ]) {
+      final pencil = find.byKey(ValueKey(('edit-theme', id)));
+      expect(pencil, findsOneWidget);
+      expect(tester.widget<DButton>(pencil).variant, DButtonVariant.outline);
+      expect(find.byKey(ValueKey(('theme-actions', id))), findsNothing);
+    }
+    expect(find.text('Customize'), findsNothing);
+
+    final preset = find.byKey(const ValueKey(('edit-theme', 'wcag')));
+    await tester.ensureVisible(preset);
+    await tester.tap(preset);
+    await tester.pumpAndSettle();
+    expect(find.byType(ForumThemeEditor), findsOneWidget);
+  });
 
   for (final brightness in Brightness.values) {
     for (final platform in [TargetPlatform.macOS, TargetPlatform.iOS]) {

@@ -85,6 +85,12 @@ void main() {
       ForumBackgroundEffect.paper,
     );
     expect(find.byType(ForumThemeEditor), findsNothing);
+    final saved = shell.forumSettings.themesFor(site).customTheme!;
+    final edit = find.byKey(ValueKey(('edit-theme', saved.id)));
+    expect(tester.widget<DButton>(edit).variant, DButtonVariant.outline);
+    expect(find.byKey(ValueKey(('theme-actions', saved.id))), findsNothing);
+    await tapVisible(tester, edit);
+    expect(find.byType(ForumThemeEditor), findsOneWidget);
   });
 
   testWidgets('Use on every forum copies the selected theme to Home too', (

@@ -10,7 +10,6 @@ import '../models/forum_theme_preferences.dart';
 import '../models/forum_theme_presets.dart';
 import '../theme/discourse_typography.dart';
 import 'forum_settings_controller.dart';
-import 'forum_theme_clipboard.dart';
 import 'forum_theme_editor.dart';
 import 'forum_theme_picker.dart';
 import 'settings_section.dart';
@@ -232,62 +231,6 @@ class _ForumAppearanceSettingsState extends State<ForumAppearanceSettings> {
     if (mounted) _edit(null);
   }
 
-  void _duplicate(ForumTheme theme) {
-    final copy = '${theme.name} copy';
-    final name = copy.length <= 48 ? copy : copy.substring(0, 48).trimRight();
-    unawaited(
-      _save(
-        _preferences.add(
-          ForumTheme.fromJson({
-            ...theme.toJson(),
-            'name': name,
-            if (theme.alternate case final alternate?)
-              'alternate': {...alternate.toJson(), 'name': name},
-          }, id: 'custom-${DateTime.now().microsecondsSinceEpoch}'),
-        ),
-      ),
-    );
-  }
-
-  Future<void> _delete(ForumTheme theme) async {
-    final preferences = _preferences;
-    final inUse =
-        preferences.source == ForumThemeSource.custom &&
-        preferences.customId == theme.id;
-    final confirmed = await showDAlertDialog<bool>(
-      context: context,
-      builder: (context, close) => DAlertDialogContent(
-        semanticLabel: 'Delete theme',
-        children: [
-          DAlertDialogHeader(
-            title: Text('Delete “${theme.name}”?'),
-            description: Text(
-              inUse
-                  ? 'This removes the theme from your saved themes. The '
-                        'forum’s own colours are used until you choose '
-                        'another.'
-                  : 'This removes the theme from your saved themes. Your '
-                        'current appearance will stay as it is.',
-            ),
-          ),
-          const DAlertDialogFooter(
-            children: [
-              DAlertDialogCancel<bool>(label: Text('Cancel'), result: false),
-              DAlertDialogAction<bool>(
-                label: Text('Delete'),
-                result: true,
-                variant: DButtonVariant.destructive,
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-    if (confirmed == true && mounted) {
-      unawaited(_save(_preferences.remove(theme.id)));
-    }
-  }
-
   @override
   Widget build(BuildContext context) => ListenableBuilder(
     listenable: settings,
@@ -386,10 +329,6 @@ class _ForumAppearanceSettingsState extends State<ForumAppearanceSettings> {
                           unawaited(_save(_preferences.useTheme(id))),
                       onNewTheme: ({base}) => _newTheme(base: base),
                       onEdit: _edit,
-                      onDuplicate: _duplicate,
-                      onCopy: (theme) =>
-                          unawaited(copyForumTheme(context, theme)),
-                      onDelete: (theme) => unawaited(_delete(theme)),
                     ),
                   ),
                 if (editing == null)
