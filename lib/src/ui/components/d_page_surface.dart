@@ -6,8 +6,9 @@ import 'd_card.dart';
 import 'd_page_reading_lane.dart';
 
 /// A bounded page with a shared border, fixed tabs and footer, and a retracting
-/// header. The width policy applies to the header, body, and footer as one
-/// column; DPageReadingLane can add padding within that column. Only deliberate
+/// header. The width policy aligns the header, body content, and footer while
+/// leaving the scrolling viewport at the pane edge. DPageReadingLane constrains
+/// content inside that viewport. Only deliberate
 /// scrolling in the body retracts the header; restoration and nested scrolls
 /// leave it alone. The header follows scroll distance without a timed animation.
 class DPageSurface extends StatefulWidget {
@@ -51,9 +52,9 @@ class DPageSurface extends StatefulWidget {
   /// Optional outline and clip for the enclosing Card; ignored when unframed.
   final BorderRadiusGeometry? borderRadius;
 
-  /// Centers the page header, body, and footer in an 825px-wide column.
-  /// Tabs and the outer surface remain full width. Null inherits the enclosing
-  /// page policy; the default is full width.
+  /// Centers the header, scrolling content, and footer in an 825px-wide lane.
+  /// Tabs, the outer surface, and the scroll viewport remain full width. Null
+  /// inherits the enclosing page policy; the default is full width.
   final bool? limitContentSize;
   final Widget child;
   final Object? identity;
@@ -184,26 +185,38 @@ class _DPageSurfaceState extends State<DPageSurface> {
   Widget build(BuildContext context) {
     final limited =
         widget.limitContentSize ?? DPageContentSettings.limitOf(context);
-    final content = Column(
+    Widget fixedContent(Widget child) => Align(
+      alignment: Alignment.topCenter,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxWidth: limited ? DPageReadingLane.maxWidth : double.infinity,
+        ),
+        child: SizedBox(width: double.infinity, child: child),
+      ),
+    );
+    final page = Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        ?widget.tabs,
         if (widget.header != null)
-          ClipRect(
-            child: _ScrollHeaderExtent(
-              hiddenExtent: widget.hideHeaderOnScroll ? _hiddenExtent : 0,
-              child: ExcludeSemantics(
-                excluding: _hiddenExtent > 0,
-                child: ExcludeFocus(
+          fixedContent(
+            ClipRect(
+              child: _ScrollHeaderExtent(
+                hiddenExtent: widget.hideHeaderOnScroll ? _hiddenExtent : 0,
+                child: ExcludeSemantics(
                   excluding: _hiddenExtent > 0,
-                  child: IgnorePointer(
-                    ignoring: _hiddenExtent > 0,
-                    child: TickerMode(
-                      enabled: _hiddenExtent == 0,
-                      child: SizedBox(
-                        width: double.infinity,
-                        child: Focus(
-                          focusNode: _headerFocus,
-                          child: widget.header!,
+                  child: ExcludeFocus(
+                    excluding: _hiddenExtent > 0,
+                    child: IgnorePointer(
+                      ignoring: _hiddenExtent > 0,
+                      child: TickerMode(
+                        enabled: _hiddenExtent == 0,
+                        child: SizedBox(
+                          width: double.infinity,
+                          child: Focus(
+                            focusNode: _headerFocus,
+                            child: widget.header!,
+                          ),
                         ),
                       ),
                     ),
@@ -218,23 +231,7 @@ class _DPageSurfaceState extends State<DPageSurface> {
             child: widget.child,
           ),
         ),
-        ?widget.footer,
-      ],
-    );
-    final page = Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        ?widget.tabs,
-        Expanded(
-          child: Center(
-            child: ConstrainedBox(
-              constraints: BoxConstraints(
-                maxWidth: limited ? DPageReadingLane.maxWidth : double.infinity,
-              ),
-              child: SizedBox(width: double.infinity, child: content),
-            ),
-          ),
-        ),
+        if (widget.footer case final footer?) fixedContent(footer),
       ],
     );
     return DPageContentSettings(

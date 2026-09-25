@@ -78,8 +78,16 @@ void main() {
     await tester.pumpAndSettle();
     final normal = tester.getRect(reader);
     expect(tester.getRect(pane), paneRect);
-    expect(normal.width, 825);
+    expect(normal.width, paneRect.width);
     expect(normal.center.dx, paneRect.center.dx);
+    final header = find.byKey(const ValueKey('topic-content-header'));
+    expect(tester.getSize(header).width, 825);
+    expect(tester.getRect(header).center.dx, paneRect.center.dx);
+    final scrollbar = find.descendant(
+      of: pane,
+      matching: find.byType(DScrollBar),
+    );
+    expect(tester.getRect(scrollbar.first).right, paneRect.right);
   });
 
   testWidgets('window corner follows topic panel opening and closing', (

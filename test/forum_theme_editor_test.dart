@@ -3,6 +3,8 @@ import 'package:discourse_native/src/models/app_settings.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/forum_background.dart';
 import 'package:discourse_native/src/models/forum_theme_preferences.dart';
+import 'package:discourse_native/src/shell/forum_appearance_settings.dart';
+import 'package:discourse_native/src/shell/forum_display_settings.dart';
 import 'package:discourse_native/src/shell/forum_settings_controller.dart';
 import 'package:discourse_native/src/shell/forum_theme_editor.dart';
 import 'package:discourse_native/src/shell/forum_theme_thumbnail.dart';
@@ -302,6 +304,24 @@ void main() {
     final normal = tester.getRect(toggle);
     expect(normal.width, 793);
     expect(normal.center.dx, wide.center.dx);
+    final viewport = find.descendant(
+      of: find.byType(ForumDisplaySettings),
+      matching: find.byType(SingleChildScrollView),
+    );
+    expect(tester.getSize(viewport).width, 1200);
+
+    await tapVisible(tester, find.text('Themes'));
+    final themeViewport = find.descendant(
+      of: find.byType(ForumAppearanceSettings),
+      matching: find.byType(SingleChildScrollView),
+    );
+    expect(tester.getSize(themeViewport).width, 1200);
+    expect(
+      tester.getSize(find.byKey(const ValueKey('appearance-mode'))).width,
+      793,
+    );
+
+    await tapVisible(tester, find.text('Display'));
 
     await tapVisible(tester, find.text('Wide'));
     expect(tester.getRect(toggle), wide);
