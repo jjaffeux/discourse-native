@@ -46,6 +46,18 @@ void main() {
           expect(tester.getCenter(control).dy, closeTo(y, .1));
           expect(tester.getSize(control).height, greaterThanOrEqualTo(48));
         }
+        final replySurface = find.descendant(
+          of: reply,
+          matching: find.byType(AnimatedContainer),
+        );
+        final moreSurface = find.descendant(
+          of: more,
+          matching: find.byType(AnimatedContainer),
+        );
+        expect(
+          tester.getRect(moreSurface).left - tester.getRect(replySurface).right,
+          closeTo(DSpacing.controlGap, .1),
+        );
         expect(find.text('Reply'), findsNothing);
         expect(find.text('161'), findsOneWidget);
         expect(

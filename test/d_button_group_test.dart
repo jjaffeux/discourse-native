@@ -10,6 +10,57 @@ import 'package:flutter_test/flutter_test.dart';
 import 'support/button_surface.dart';
 
 void main() {
+  for (final platform in [TargetPlatform.iOS, TargetPlatform.macOS]) {
+    testWidgets('spaced post controls use a visible gap on $platform', (
+      tester,
+    ) async {
+      final activations = <String>[];
+      await _pump(
+        tester,
+        DButtonGroup.spaced(
+          size: DControlSize.post,
+          children: [
+            DButton.iconOnly(
+              size: DControlSize.post,
+              variant: DButtonVariant.outline,
+              icon: const Icon(Icons.reply),
+              tooltip: 'Reply',
+              onPressed: () => activations.add('Reply'),
+            ),
+            DButton.iconOnly(
+              size: DControlSize.post,
+              variant: DButtonVariant.outline,
+              icon: const Icon(Icons.more_horiz),
+              tooltip: 'More',
+              onPressed: () => activations.add('More'),
+            ),
+          ],
+        ),
+        platform: platform,
+      );
+      final buttons = find.byType(DButton);
+      final surfaces = find.byWidgetPredicate(
+        (widget) =>
+            widget is AnimatedContainer &&
+            widget.decoration is DButtonDecoration,
+      );
+      expect(
+        tester.getRect(surfaces.last).left -
+            tester.getRect(surfaces.first).right,
+        DSpacing.controlGap,
+      );
+      for (final button in buttons.evaluate()) {
+        final finder = find.byWidget(button.widget);
+        expect(
+          tester.getSize(finder).width,
+          platform == TargetPlatform.iOS ? 48 : 30,
+        );
+        await tester.tap(finder);
+      }
+      expect(activations, ['Reply', 'More']);
+    });
+  }
+
   for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
     for (final orientation in DButtonGroupOrientation.values) {
       testWidgets('touch group surfaces join on $platform $orientation', (

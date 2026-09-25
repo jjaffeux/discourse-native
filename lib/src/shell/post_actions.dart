@@ -1015,9 +1015,8 @@ class PostActionsFooter extends StatelessWidget {
         const SizedBox(width: 8),
         Padding(
           padding: const EdgeInsets.only(top: 10),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            spacing: DSpacing.controlGap,
+          child: DButtonGroup.spaced(
+            size: DControlSize.post,
             children: [
               for (final action in actions)
                 Builder(
@@ -1055,7 +1054,10 @@ class PostActionsFooter extends StatelessWidget {
                           );
                   },
                 ),
-              const PostMoreActionsButton(),
+              if (scope.actions.any(
+                (action) => action.placement != PostActionPlacement.trailing,
+              ))
+                const PostMoreActionsButton(),
             ],
           ),
         ),

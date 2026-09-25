@@ -23,7 +23,21 @@ class DButtonGroup extends StatefulWidget {
     this.orientation = DButtonGroupOrientation.horizontal,
     this.semanticLabel,
     this.mainAxisSize = MainAxisSize.min,
-  }) : assert(semanticLabel == null || semanticLabel != '');
+  }) : spacedSize = null,
+       assert(semanticLabel == null || semanticLabel != '');
+
+  /// Places equal-sized icon buttons with [DSpacing.controlGap] between their
+  /// painted surfaces. On touch platforms their 48px targets may overlap in
+  /// the gap, while each button retains its normal size and semantics.
+  const DButtonGroup.spaced({
+    super.key,
+    required this.children,
+    required DControlSize size,
+    this.semanticLabel,
+  }) : orientation = DButtonGroupOrientation.horizontal,
+       mainAxisSize = MainAxisSize.min,
+       spacedSize = size,
+       assert(semanticLabel == null || semanticLabel != '');
 
   final List<Widget> children;
   final DButtonGroupOrientation orientation;
@@ -31,6 +45,7 @@ class DButtonGroup extends StatefulWidget {
   /// Localized group name. Individual children still need their own labels.
   final String? semanticLabel;
   final MainAxisSize mainAxisSize;
+  final DControlSize? spacedSize;
 
   @override
   State<DButtonGroup> createState() => _DButtonGroupState();
@@ -54,6 +69,33 @@ class _DButtonGroupState extends State<DButtonGroup> {
     assert(
       widget.semanticLabel == null || widget.semanticLabel!.trim().isNotEmpty,
     );
+    if (widget.spacedSize case final size?) {
+      final visualSize = DControlStyle.scaledHeight(
+        size,
+        MediaQuery.textScalerOf(context),
+        context: context,
+      );
+      final targetSize = DControlStyle.isTouch(context)
+          ? visualSize.clamp(DSpacing.touchTarget, double.infinity)
+          : visualSize;
+      final step = visualSize + DSpacing.controlGap;
+      return Semantics(
+        container: true,
+        explicitChildNodes: true,
+        label: widget.semanticLabel,
+        child: SizedBox(
+          width: targetSize + (children.length - 1) * step,
+          height: targetSize,
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              for (final (index, child) in children.indexed)
+                PositionedDirectional(start: index * step, child: child),
+            ],
+          ),
+        ),
+      );
+    }
     final axis = widget.orientation == DButtonGroupOrientation.horizontal
         ? Axis.horizontal
         : Axis.vertical;

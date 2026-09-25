@@ -1,4 +1,5 @@
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/material.dart';
 
 import '../styleguide_example.dart';
@@ -56,6 +57,44 @@ final buttonGroupExamples = ComponentExamples(
   ],
 )''',
       builder: (_) => const _OrientationGroup(),
+    ),
+    StyleguideExample(
+      title: 'Separate post actions',
+      description:
+          'Reply and More keep a 6px gap between their visible outlines. '
+          'On touch platforms, their larger targets overlap without changing '
+          'the 30px artwork.',
+      states: const ['Post size', 'Visible 6px gap', 'Touch targets'],
+      code: '''DButtonGroup.spaced(
+  size: DControlSize.post,
+  children: [
+    DButton.iconOnly(size: DControlSize.post,
+      variant: DButtonVariant.outline,
+      icon: DIcon(DIcons.reply), tooltip: 'Reply', onPressed: reply),
+    DButton.iconOnly(size: DControlSize.post,
+      variant: DButtonVariant.outline,
+      icon: DIcon(DIcons.ellipsis), tooltip: 'More', onPressed: more),
+  ],
+)''',
+      builder: (_) => DButtonGroup.spaced(
+        size: DControlSize.post,
+        children: [
+          DButton.iconOnly(
+            size: DControlSize.post,
+            variant: DButtonVariant.outline,
+            icon: const DIcon(DIcons.reply),
+            tooltip: 'Reply',
+            onPressed: () {},
+          ),
+          DButton.iconOnly(
+            size: DControlSize.post,
+            variant: DButtonVariant.outline,
+            icon: const DIcon(DIcons.ellipsis),
+            tooltip: 'More',
+            onPressed: () {},
+          ),
+        ],
+      ),
     ),
     StyleguideExample(
       title: 'Sizes',
