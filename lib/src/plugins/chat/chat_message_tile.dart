@@ -8,6 +8,7 @@ import 'package:flutter/scheduler.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
 
+import '../../models/forum_workspace.dart';
 import 'chat_bookmark_ui.dart';
 import 'chat_channel.dart';
 import 'chat_controller.dart';
@@ -1135,6 +1136,7 @@ class _Tile extends StatelessWidget {
           when showThreadSummary && thread.replyCount > 0)
         _ThreadSummaryCard(
           siteUrl: siteUrl,
+          channelId: message.channelId,
           thread: thread,
           onOpen: onOpenThread == null ? null : () => onOpenThread!(thread),
           bubbleAlign: bubbleAlign,
@@ -1637,34 +1639,58 @@ class _ChatReactorList extends StatelessWidget {
 class _ThreadSummaryCard extends StatelessWidget {
   const _ThreadSummaryCard({
     required this.siteUrl,
+    required this.channelId,
     required this.thread,
     required this.onOpen,
     this.bubbleAlign,
   });
 
   final String siteUrl;
+  final int channelId;
   final ChatThreadPreview thread;
   final VoidCallback? onOpen;
   final DBubbleAlign? bubbleAlign;
 
   @override
-  Widget build(BuildContext context) => DBubble(
-    align: bubbleAlign ?? DBubbleAlign.start,
-    variant: DBubbleVariant.neutral,
-    maximumWidthFactor: .95,
-    children: [
-      DBubbleContent(
-        compact: true,
-        key: ChatMessageTile.threadPreviewKey(thread.threadId),
-        action: DBubbleContentAction.link,
-        onPressed: onOpen,
-        semanticLabel: _semanticsLabel,
-        child: ExcludeSemantics(
-          child: _ThreadSummaryContents(siteUrl: siteUrl, thread: thread),
-        ),
+  Widget build(BuildContext context) {
+    final content = DBubbleContent(
+      compact: true,
+      key: ChatMessageTile.threadPreviewKey(thread.threadId),
+      action: DBubbleContentAction.link,
+      onPressed: onOpen,
+      semanticLabel: _semanticsLabel,
+      child: ExcludeSemantics(
+        child: _ThreadSummaryContents(siteUrl: siteUrl, thread: thread),
       ),
-    ],
-  );
+    );
+    final desktop = switch (Theme.of(context).platform) {
+      TargetPlatform.android ||
+      TargetPlatform.iOS ||
+      TargetPlatform.fuchsia => false,
+      _ => true,
+    };
+    final bubble = DBubble(
+      align: bubbleAlign ?? DBubbleAlign.start,
+      variant: DBubbleVariant.neutral,
+      maximumWidthFactor: .95,
+      children: [content],
+    );
+    if (!desktop || onOpen == null) return bubble;
+    return LinkTarget.action(
+      action: ({required newTab, panel}) {
+        PluginUiScope.require(context, chatShellService).openThread(
+          siteUrl: siteUrl,
+          channelId: channelId,
+          threadId: thread.threadId,
+          messageId: thread.lastReplyId,
+          mainPanel: panel == ForumPanel.main,
+          secondaryPanel: panel == ForumPanel.secondary,
+          newTab: newTab,
+        );
+      },
+      child: bubble,
+    );
+  }
 
   String get _semanticsLabel {
     final replies = _replyCountLabel(thread.replyCount);

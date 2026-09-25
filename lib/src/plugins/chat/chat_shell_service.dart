@@ -460,6 +460,9 @@ final class ChatShellService
     required int threadId,
     int? messageId,
     bool focusComposer = false,
+    bool mainPanel = false,
+    bool secondaryPanel = false,
+    bool newTab = false,
   }) {
     if (channelId <= 0 ||
         threadId <= 0 ||
@@ -476,6 +479,9 @@ final class ChatShellService
       ChatRoute.thread(channelId: channelId, threadId: threadId),
       messageId: messageId,
       focusComposer: focusComposer,
+      mainPanel: mainPanel,
+      secondaryPanel: secondaryPanel,
+      newTab: newTab,
     );
   }
 
