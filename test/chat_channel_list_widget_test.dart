@@ -1,17 +1,19 @@
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/plugin_api/plugin_data.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel_list_preferences.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channels_view.dart';
 import 'package:discourse_native/src/plugins/chat/chat_notification_counter.dart';
+import 'package:discourse_native/src/plugins/chat/chat_plugin.dart';
 import 'package:discourse_native/src/plugins/chat/chat_plugin_data.dart';
 import 'package:discourse_native/src/plugins/chat/chat_services.dart';
 import 'package:discourse_native/src/plugins/chat/chat_shell_service.dart';
 import 'package:discourse_native/src/shell/instance_sidebar.dart';
 import 'package:discourse_native/src/shell/main_content.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
-import 'package:flutter/foundation.dart';
+import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -103,6 +105,48 @@ Finder _sidebar(Finder finder) =>
     find.descendant(of: find.byType(InstanceSidebar), matching: finder);
 
 void main() {
+  testWidgets('channel heading and rows follow the shared content width', (
+    tester,
+  ) async {
+    await _pump(tester);
+    tester.view.physicalSize = const Size(2000, 900);
+    final shell = ShellScope.read(tester.element(find.byType(MainContent)));
+    shell.pushContent(
+      const ContentRoute(
+        id: ChatPlugin.channelsRouteId,
+        title: 'Chat',
+        icon: DIcons.comments,
+        openInSecondaryPanel: true,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final page = find.byType(ChatChannelsView);
+    const headingKey = ValueKey('chat-channel-list-heading-content');
+    const rowKey = ValueKey('chat-channel-list-channel-1');
+    const listKey = PageStorageKey<ChatChannelListKind>(
+      ChatChannelListKind.channels,
+    );
+    final pageWidth = tester.getSize(page).width;
+    expect(pageWidth, greaterThan(DPageReadingLane.maxWidth + 28));
+
+    for (final limited in [false, true, false]) {
+      await shell.appSettings.setLimitContentSize(limited);
+      await tester.pumpAndSettle();
+
+      final heading = tester.getRect(find.byKey(headingKey));
+      final row = tester.getRect(find.byKey(rowKey));
+      expect(tester.getSize(find.byKey(listKey)).width, pageWidth);
+      expect(
+        heading.width,
+        limited ? DPageReadingLane.maxWidth : pageWidth - 28,
+      );
+      expect(row.width, limited ? DPageReadingLane.maxWidth : pageWidth - 16);
+      expect(heading.center.dx, closeTo(row.center.dx, 2.1));
+      expect(tester.takeException(), isNull);
+    }
+  }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
+
   testWidgets(
     'channel list saves are isolated and leave the sidebar inbox alone',
     (tester) async {
