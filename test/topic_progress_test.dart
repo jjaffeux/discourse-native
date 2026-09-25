@@ -89,7 +89,7 @@ void main() {
           );
           expect(
             tester.widget<DButton>(button).variant,
-            DButtonVariant.outline,
+            DButtonVariant.transparentBackground,
           );
           expect(
             find.bySemanticsLabel(
