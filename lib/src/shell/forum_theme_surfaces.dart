@@ -145,7 +145,10 @@ class _ForumWindowBackgroundState extends State<ForumWindowBackground>
               ),
             // Keep moving gradients behind text, icons and reading surfaces.
             // Blending above them modulates glyph edges every animation frame.
-            widget.child,
+            KeyedSubtree(
+              key: const ValueKey('forum-window-content'),
+              child: widget.child,
+            ),
             if (!gradient)
               Positioned.fill(
                 child: ForumTexture(

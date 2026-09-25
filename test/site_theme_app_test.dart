@@ -56,6 +56,36 @@ void main() {
     expect(find.byType(ForumSettingsPage), findsOneWidget);
   }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 
+  testWidgets('Home theme texture choices keep the Themes tab open', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1200, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    tester.platformDispatcher.accessibilityFeaturesTestValue =
+        const FakeAccessibilityFeatures(disableAnimations: true);
+    addTearDown(tester.platformDispatcher.clearAccessibilityFeaturesTestValue);
+    await _pumpApp(tester, store: FakeInstanceStore(), api: FakeDiscourseApi());
+    await tester.tap(find.byKey(const ValueKey('settings-rail-button')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Themes'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('new-theme')));
+    await tester.pumpAndSettle();
+
+    for (final label in ['Paper', 'Gradient', 'Lava lamp', 'Gradient']) {
+      final choice = find.text(label);
+      await tester.ensureVisible(choice);
+      await tester.tap(choice);
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const ValueKey('theme-name')),
+        findsOneWidget,
+        reason: label,
+      );
+    }
+  }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
+
   testWidgets('forum logo menu no longer offers theme settings', (
     tester,
   ) async {
@@ -251,7 +281,13 @@ void main() {
       final choice = find.text(label);
       await tester.ensureVisible(choice);
       await tester.tap(choice);
-      await tester.pump();
+      await tester.pumpAndSettle();
+      expect(find.byType(ForumSettingsPage), findsOneWidget, reason: label);
+      expect(
+        find.byKey(const ValueKey('theme-name')),
+        findsOneWidget,
+        reason: label,
+      );
       expect(
         _activeTheme(tester).extension<ForumThemeEffects>()?.background?.effect,
         effect,
