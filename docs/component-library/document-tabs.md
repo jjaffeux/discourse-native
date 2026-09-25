@@ -1,5 +1,19 @@
 # Document tabs
 
+## Workspace mockup parity — September 25, 2026
+
+The forum workspace strip uses the mockup's 56px row, 35px pill tabs,
+30px recent-tabs and add buttons, and 18px close action. Tab labels remain
+13px; leading icons are 12px. The strip has a 10px leading inset, 8px after
+the recent-tabs button, 6px between tabs, and a 170px tab width cap.
+`DControlSize.documentTab`, `tabAction`, and `tabClose` keep these metrics in
+the Native kit. `DDocumentTab.size` opts the forum strip into the taller pill
+while the default Document Tab presentation remains available to other callers.
+
+Focused Forum Tabs Bar, Document Tab, platform, and integration tests pass.
+The macOS fixture could not launch: the build ran out of disk space during
+packaging. Its generated build directory was removed afterward.
+
 The September 14, 2026 Codex screenshot reference replaces the forum strip's
 page-connected selected tab and accent hover fill with independent rounded tabs.
 The user explicitly authorized extending the Native library for this design.
