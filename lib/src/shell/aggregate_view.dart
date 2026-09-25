@@ -19,7 +19,6 @@ import 'shell_controller.dart';
 import 'shell_panel.dart';
 import 'shell_scope.dart';
 import 'topic_filter_input.dart';
-import 'topic_list_actions.dart';
 import 'topic_list_layout.dart';
 import 'topic_list_view.dart';
 
@@ -143,11 +142,9 @@ class AggregateViewState extends State<AggregateView> {
                                   style: theme.textTheme.titleMedium,
                                 ),
                               ),
-                              TopicListActions(
-                                filter: _AggregateInlineFilters(
-                                  key: ValueKey(('aggregate-filters', tabId)),
-                                  controller: controller,
-                                ),
+                              _AggregateInlineFilters(
+                                key: ValueKey(('aggregate-filters', tabId)),
+                                controller: controller,
                               ),
                             ],
                           ),

@@ -1,6 +1,5 @@
 import 'package:discourse_native/discourse_plugin_sdk.dart';
 
-import 'assign_preferences.dart';
 import 'assign_shell_service.dart';
 import 'assigned_group_controller.dart';
 import 'assignment_controller.dart';
@@ -28,8 +27,3 @@ const assignNotificationHostService =
       owner: assignPluginId,
       name: 'notification-feed-host',
     );
-
-const assignTopicListPreferencesService = PluginServiceKey<AssignPreferences>(
-  owner: assignPluginId,
-  name: 'topic-list-preferences',
-);

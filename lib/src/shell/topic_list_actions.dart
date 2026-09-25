@@ -4,81 +4,11 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
 import '../models/topic_filter.dart';
-import '../plugin_api/plugin_registry.dart';
-import '../plugin_api/plugin_scope.dart';
 import '../theme/d_native_icons.dart';
 import 'shell_controller.dart';
 import 'shell_scope.dart';
 import 'topic_filter_controller.dart';
 import 'topic_filter_input.dart';
-
-/// The same list presentation controls are used in every topic source.
-class TopicListActions extends StatelessWidget {
-  const TopicListActions({super.key, this.filter});
-  final Widget? filter;
-
-  @override
-  Widget build(BuildContext context) {
-    final settings = ShellScope.maybeIdentityOf(context)?.appSettings;
-    if (settings == null) return filter ?? const SizedBox.shrink();
-    final registry =
-        PluginScope.maybeOf(context)?.registry ?? PluginRegistry.empty;
-    return ListenableBuilder(
-      listenable: Listenable.merge([
-        settings,
-        ...registry.topicListPresentationListenables(context),
-      ]),
-      builder: (context, _) => Row(
-        mainAxisSize: MainAxisSize.min,
-        spacing: DSpacing.controlGap,
-        children: [
-          ?filter,
-          DDropdownMenu(
-            content: DDropdownMenuContent(
-              width: 280,
-              semanticLabel: 'Display topics',
-              children: [
-                const DDropdownMenuLabel(child: Text('Display')),
-                DDropdownMenuCheckboxItem(
-                  checked: settings.topicListLargerText,
-                  onChanged: (value) =>
-                      unawaited(settings.setTopicListLargerText(value)),
-                  child: const Text('Larger text'),
-                ),
-                DDropdownMenuCheckboxItem(
-                  checked: settings.topicListShowTags,
-                  onChanged: (value) =>
-                      unawaited(settings.setTopicListShowTags(value)),
-                  child: const Text('Show tags'),
-                ),
-                DDropdownMenuCheckboxItem(
-                  checked: settings.topicListShowLastPoster,
-                  onChanged: (value) =>
-                      unawaited(settings.setTopicListShowLastPoster(value)),
-                  child: const Text('Show last poster'),
-                ),
-                ...registry.topicListDisplayActions(context),
-              ],
-            ),
-            child: DDropdownMenuTrigger(
-              builder: (context, trigger) => DButton.iconOnly(
-                key: const ValueKey('topic-list-display'),
-                tooltip: 'Display',
-                icon: const DIcon(DNativeIcons.sliders),
-                size: DButtonSize.large,
-                variant: DButtonVariant.transparentBackground,
-                focusNode: trigger.focusNode,
-                hasPopup: true,
-                expanded: trigger.open,
-                onPressed: trigger.toggle,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
 
 /// Loads the server's autocomplete vocabulary only when the menu is opened.
 /// A route/account change disposes this menu before a late lookup can apply.
@@ -146,9 +76,8 @@ class _TopicListFilterMenuState extends State<TopicListFilterMenu> {
   Future<void> _load() async {
     if (_retired || _loading || _options != null) return;
     setState(() => _loading = true);
-    final options = await ShellScope.read(
-      context,
-    ).loadTopicFilterOptions(widget.siteUrl);
+    final options = await ShellScope.read(context)
+        .loadTopicFilterOptions(widget.siteUrl);
     if (mounted && !_retired) {
       setState(() {
         _options = options;
@@ -198,9 +127,8 @@ class _TopicListFilterMenuState extends State<TopicListFilterMenu> {
             siteUrl: widget.siteUrl,
             initialQuery: _query,
             options: _options ?? const [],
-            categories: ShellScope.read(
-              context,
-            ).filterCategoriesFor(widget.siteUrl),
+            categories: ShellScope.read(context)
+                .filterCategoriesFor(widget.siteUrl),
             hintText: 'Add a filter…',
             tokenized: true,
             multiline: true,

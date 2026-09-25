@@ -10,12 +10,11 @@ import 'assigned_group.dart';
 import 'assigned_group_controller.dart';
 import 'assigned_group_presentation.dart';
 
-typedef AssignedGroupPresentationFactory =
-    AssignedGroupPresentation Function(
-      String siteUrl,
-      String groupName,
-      String? subsection,
-    );
+typedef AssignedGroupPresentationFactory = AssignedGroupPresentation Function(
+  String siteUrl,
+  String groupName,
+  String? subsection,
+);
 
 class AssignedGroupView extends StatefulWidget {
   const AssignedGroupView({
@@ -176,36 +175,34 @@ class AssignedGroupPresentationView extends StatelessWidget {
                 style: Theme.of(context).textTheme.titleMedium,
               ),
             ),
-            TopicListActions(
-              filter: DPopover(
-                content: DPopoverContent(
-                  align: DPopoverAlign.end,
-                  width: 320,
-                  child: DInput(
-                    key: const ValueKey('assigned-topic-search'),
-                    initialValue: state.query.search,
-                    labelText: 'Filter assignments',
-                    hintText: 'Words in the topic title',
-                    onSubmitted: (search) => onQueryChanged(
-                      AssignedGroupTopicQuery(
-                        order: state.query.order,
-                        ascending: state.query.ascending,
-                        search: search,
-                      ),
+            DPopover(
+              content: DPopoverContent(
+                align: DPopoverAlign.end,
+                width: 320,
+                child: DInput(
+                  key: const ValueKey('assigned-topic-search'),
+                  initialValue: state.query.search,
+                  labelText: 'Filter assignments',
+                  hintText: 'Words in the topic title',
+                  onSubmitted: (search) => onQueryChanged(
+                    AssignedGroupTopicQuery(
+                      order: state.query.order,
+                      ascending: state.query.ascending,
+                      search: search,
                     ),
                   ),
                 ),
-                child: DPopoverTrigger(
-                  builder: (context, trigger) => DButton.iconOnly(
-                    icon: const DIcon(DIcons.filter),
-                    key: const ValueKey('assigned-query-menu'),
-                    tooltip: 'Filter assignments',
-                    variant: DButtonVariant.secondary,
-                    focusNode: trigger.focusNode,
-                    hasPopup: true,
-                    expanded: trigger.open,
-                    onPressed: trigger.toggle,
-                  ),
+              ),
+              child: DPopoverTrigger(
+                builder: (context, trigger) => DButton.iconOnly(
+                  icon: const DIcon(DIcons.filter),
+                  key: const ValueKey('assigned-query-menu'),
+                  tooltip: 'Filter assignments',
+                  variant: DButtonVariant.secondary,
+                  focusNode: trigger.focusNode,
+                  hasPopup: true,
+                  expanded: trigger.open,
+                  onPressed: trigger.toggle,
                 ),
               ),
             ),

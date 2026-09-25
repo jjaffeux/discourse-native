@@ -5,13 +5,13 @@ the approved design reference. All controls compose the public Native UI kit.
 
 - Topic, message, aggregate and assignment lists use the available pane width.
   Card and Compact share the same column structure and differ in row spacing.
-- Heading actions contain filtering, display and reader presentation. Search,
+- Heading actions contain filtering and reader presentation. Search,
   refresh and account actions belong to the shell. A shared shell toolbar also
   keeps search and account access available on platforms without macOS chrome.
 - Feed selection contains the Top periods directly. Counts occupy the trailing
   edge of the menu; category/subcategory colors and tag selection remain.
-- Larger text is persisted. Compact/Card lives in Display, with
-  the duplicate field removed from app settings.
+- The topic-list Display menu and its presentation preferences were later
+  removed. Rows use their default text and metadata presentation.
 - Advanced filtering is a Topics feed with the existing autocomplete parser,
   server vocabulary, remote category/tag/group/user lookups and account/session
   guards. The separate Filter page and built-in sidebar link are removed;

@@ -5,14 +5,13 @@ Widget _topicRowCategory(BuildContext context, _TopicRowBody row) =>
       parent: row.parentCategory,
       category: row.category!,
       siteUrl: row.siteUrl,
-      onOpen: (category) => ShellScope.maybeRead(
-        context,
-      )?.openCategory(category, siteUrl: row.siteUrl),
+      onOpen: (category) =>
+          ShellScope.maybeRead(context)
+              ?.openCategory(category, siteUrl: row.siteUrl),
     );
 
 List<Widget> _topicRowTags(BuildContext context, _TopicRowBody row) {
   final controller = ShellScope.maybeRead(context);
-  if (controller?.appSettings.topicListShowTags == false) return [];
   return [
     for (final tag in row.topic.tags.take(2))
       _TopicTag(
@@ -43,12 +42,7 @@ class _TopicListTitle extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final topic = row.topic;
-    final large =
-        ShellScope.maybeIdentityOf(context)?.appSettings.topicListLargerText ==
-        true;
-    final style =
-        row.titleStyle ??
-        (large ? theme.textTheme.titleMedium : theme.textTheme.titleSmall);
+    final style = row.titleStyle ?? theme.textTheme.titleSmall;
     final largeText = MediaQuery.textScalerOf(context).scale(14) > 21;
     return DItemTitle(
       maxLines: largeText ? null : 2,
@@ -75,9 +69,8 @@ class _TopicListTitle extends StatelessWidget {
             if (shown)
               SizedBox(
                 height:
-                    MediaQuery.textScalerOf(
-                      context,
-                    ).scale(style?.fontSize ?? DiscourseTypography.sm) *
+                    MediaQuery.textScalerOf(context)
+                        .scale(style?.fontSize ?? DiscourseTypography.sm) *
                     (style?.height ?? 1.5),
                 child: Center(
                   child: DIcon(

@@ -52,7 +52,7 @@ void main() {
         const ValueKey('topic-list-heading-separator'),
       );
       final filterAction = find.byKey(const ValueKey('topic-list-filter'));
-      final displayAction = find.byKey(const ValueKey('topic-list-display'));
+      expect(find.byKey(const ValueKey('topic-list-display')), findsNothing);
       expect(tester.widget<Text>(title).data, 'Latest topics');
       expect(
         find.descendant(of: tabs, matching: find.byType(DSeparator)),
@@ -74,17 +74,9 @@ void main() {
       );
       expect(tester.getRect(separator).left, tester.getRect(filters).left);
       expect(tester.getRect(separator).right, tester.getRect(filters).right);
-      expect(
-        tester.getCenter(filterAction).dy,
-        tester.getCenter(displayAction).dy,
-      );
       expect(tester.getCenter(filterAction).dy, tester.getCenter(title).dy);
       expect(
         tester.widget<DButton>(filterAction).variant,
-        DButtonVariant.transparentBackground,
-      );
-      expect(
-        tester.widget<DButton>(displayAction).variant,
         DButtonVariant.transparentBackground,
       );
 
@@ -194,13 +186,6 @@ void main() {
       );
       expect(h.shell.appSettings.topicListMode, TopicListDisplayMode.compact);
       expect(tester.state(_allLists), same(listState));
-
-      await tester.tap(find.byKey(const ValueKey('topic-list-display')));
-      await tester.pumpAndSettle();
-      expect(find.byKey(const ValueKey('topic-display-card')), findsNothing);
-      expect(find.byKey(const ValueKey('topic-display-compact')), findsNothing);
-      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
-      await tester.pumpAndSettle();
 
       await tester.tap(find.byKey(const ValueKey('minimize-panel-main')));
       await tester.pumpAndSettle();
@@ -547,35 +532,25 @@ void main() {
     expect(tester.takeException(), isNull);
   }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 
-  testWidgets(
-    'moving topics between panels preserves tabs and display choices',
-    (tester) async {
-      final h = await _setup(tester);
-      final listId = h.shell.activeTabId!;
-      _openTopicTab(h.shell, h.topics.first);
-      await tester.pumpAndSettle();
-      final topicId = h.shell.activeTabId!;
-      h.shell.moveTabToPanel(topicId, ForumPanel.main);
-      await tester.pumpAndSettle();
-      expect(h.shell.tabsForCurrentForum, hasLength(2));
-      expect(find.byType(TopicListView).hitTestable(), findsNothing);
-      h.shell.selectTab(listId);
-      await tester.pumpAndSettle();
-      expect(find.byType(TopicListView).hitTestable(), findsOneWidget);
-      await tester.tap(find.byKey(const ValueKey('topic-list-display')));
-      await tester.pumpAndSettle();
-      expect(find.text('Open topics'), findsNothing);
-      expect(find.text('Beside the list'), findsNothing);
-      expect(find.text('In a dialog'), findsNothing);
-      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
-      h.shell.moveTabToPanel(topicId, ForumPanel.secondary);
-      await tester.pumpAndSettle();
-      expect(h.shell.currentContent?.topicId, 1);
-      expect(h.shell.selectedTabIn(ForumPanel.main)?.id, listId);
-      expect(tester.takeException(), isNull);
-    },
-    variant: TargetPlatformVariant.only(TargetPlatform.macOS),
-  );
+  testWidgets('moving topics between panels preserves tabs', (tester) async {
+    final h = await _setup(tester);
+    final listId = h.shell.activeTabId!;
+    _openTopicTab(h.shell, h.topics.first);
+    await tester.pumpAndSettle();
+    final topicId = h.shell.activeTabId!;
+    h.shell.moveTabToPanel(topicId, ForumPanel.main);
+    await tester.pumpAndSettle();
+    expect(h.shell.tabsForCurrentForum, hasLength(2));
+    expect(find.byType(TopicListView).hitTestable(), findsNothing);
+    h.shell.selectTab(listId);
+    await tester.pumpAndSettle();
+    expect(find.byType(TopicListView).hitTestable(), findsOneWidget);
+    h.shell.moveTabToPanel(topicId, ForumPanel.secondary);
+    await tester.pumpAndSettle();
+    expect(h.shell.currentContent?.topicId, 1);
+    expect(h.shell.selectedTabIn(ForumPanel.main)?.id, listId);
+    expect(tester.takeException(), isNull);
+  }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 
   testWidgets(
     'list visibility reserves 320 pixels for the topic after composer sizing',

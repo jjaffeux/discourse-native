@@ -16,9 +16,6 @@ final class AppSettingsController extends FrameSafeNotifier {
   bool get disableGifAnimations => _settings.disableGifAnimations;
   AppTextScale get textScale => _settings.textScale;
   AppThemeMode get themeMode => _settings.themeMode;
-  bool get topicListLargerText => _settings.topicListLargerText;
-  bool get topicListShowTags => _settings.topicListShowTags;
-  bool get topicListShowLastPoster => _settings.topicListShowLastPoster;
   TopicListDisplayMode get topicListMode => _settings.topicListMode;
   double get textScaleFactor => textScale.factor;
 
@@ -29,9 +26,6 @@ final class AppSettingsController extends FrameSafeNotifier {
   bool? _selectedDisableGifAnimations;
   AppTextScale? _selectedTextScale;
   AppThemeMode? _selectedThemeMode;
-  bool? _selectedTopicListLargerText;
-  bool? _selectedTopicListShowTags;
-  bool? _selectedTopicListShowLastPoster;
   TopicListDisplayMode? _selectedTopicListMode;
   Future<void>? _loadTask;
 
@@ -58,9 +52,6 @@ final class AppSettingsController extends FrameSafeNotifier {
       disableGifAnimations: _selectedDisableGifAnimations,
       textScale: _selectedTextScale,
       themeMode: _selectedThemeMode,
-      topicListLargerText: _selectedTopicListLargerText,
-      topicListShowTags: _selectedTopicListShowTags,
-      topicListShowLastPoster: _selectedTopicListShowLastPoster,
       topicListMode: _selectedTopicListMode,
     );
     _loaded = true;
@@ -120,48 +111,6 @@ final class AppSettingsController extends FrameSafeNotifier {
     _selectedThemeMode = mode;
     _settings = _settings.copyWith(themeMode: mode);
     final saving = store.update(themeMode: mode);
-    unawaited(load());
-    notifySafely();
-    return saving;
-  }
-
-  Future<void> setTopicListLargerText(bool value) {
-    if (isDisposed ||
-        ((_loaded || _selectedTopicListLargerText != null) &&
-            value == topicListLargerText)) {
-      return Future<void>.value();
-    }
-    _selectedTopicListLargerText = value;
-    _settings = _settings.copyWith(topicListLargerText: value);
-    final saving = store.update(topicListLargerText: value);
-    unawaited(load());
-    notifySafely();
-    return saving;
-  }
-
-  Future<void> setTopicListShowTags(bool value) {
-    if (isDisposed ||
-        ((_loaded || _selectedTopicListShowTags != null) &&
-            value == topicListShowTags)) {
-      return Future<void>.value();
-    }
-    _selectedTopicListShowTags = value;
-    _settings = _settings.copyWith(topicListShowTags: value);
-    final saving = store.update(topicListShowTags: value);
-    unawaited(load());
-    notifySafely();
-    return saving;
-  }
-
-  Future<void> setTopicListShowLastPoster(bool value) {
-    if (isDisposed ||
-        ((_loaded || _selectedTopicListShowLastPoster != null) &&
-            value == topicListShowLastPoster)) {
-      return Future<void>.value();
-    }
-    _selectedTopicListShowLastPoster = value;
-    _settings = _settings.copyWith(topicListShowLastPoster: value);
-    final saving = store.update(topicListShowLastPoster: value);
     unawaited(load());
     notifySafely();
     return saving;

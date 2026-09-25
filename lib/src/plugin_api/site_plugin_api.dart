@@ -165,8 +165,10 @@ final class PluginUserMenuRenderContext {
   final VoidCallback onDismiss;
 }
 
-typedef PluginUserMenuSectionBuilder =
-    Widget Function(BuildContext context, PluginUserMenuRenderContext actions);
+typedef PluginUserMenuSectionBuilder = Widget Function(
+  BuildContext context,
+  PluginUserMenuRenderContext actions,
+);
 
 @immutable
 final class PluginUserMenuSection {
@@ -261,8 +263,10 @@ abstract interface class PostBodyPlugin {
 }
 
 /// Continues rendering within a transform's inherited widget scope.
-typedef PluginPostBodyBuilder =
-    Widget Function(BuildContext context, String displayedCooked);
+typedef PluginPostBodyBuilder = Widget Function(
+  BuildContext context,
+  String displayedCooked,
+);
 
 /// Transforms a topic-stream post's presentation without mutating its record.
 ///
@@ -517,11 +521,10 @@ abstract interface class UserPreferencesPlugin {
   List<UserPreferenceCodec> get userPreferenceCodecs;
 }
 
-typedef PluginUserPreferenceEdit =
-    void Function(
-      PreferenceSection section,
-      UserPreferences Function(UserPreferences current) change,
-    );
+typedef PluginUserPreferenceEdit = void Function(
+  PreferenceSection section,
+  UserPreferences Function(UserPreferences current) change,
+);
 
 @immutable
 final class PluginUserPreferenceContext {
@@ -903,12 +906,6 @@ final class PluginDraftPresentation {
   const PluginDraftPresentation({required this.label, required this.icon});
   final String label;
   final DIconData icon;
-}
-
-/// Additional menu entries and rebuild signals for topic-list presentation.
-abstract interface class TopicListPresentationPlugin {
-  List<Widget> topicListDisplayActions(BuildContext context);
-  Listenable? topicListPresentationListenable(BuildContext context);
 }
 
 /// Plugin markup can opt its ancestors into compact inline emoji presentation.

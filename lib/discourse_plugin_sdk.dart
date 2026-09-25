@@ -188,7 +188,6 @@ export 'src/shell/stream_day_separator.dart' show StreamDaySeparator;
 export 'src/shell/syntax.dart' show highlightLines;
 export 'src/shell/time_gap.dart' show TimeGapNotice, timeGapDaysBetween;
 export 'src/shell/title_bar.dart' show ShellTitleBar;
-export 'src/shell/topic_list_actions.dart' show TopicListActions;
 export 'src/shell/topic_list_footer.dart' show TopicSourceFooter;
 export 'src/shell/topic_list_view.dart' show TopicListRow;
 export 'src/shell/user_card.dart' show UserCardTarget;

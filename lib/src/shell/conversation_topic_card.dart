@@ -21,9 +21,8 @@ class _ConversationTopicCardState extends State<_ConversationTopicCard> {
   void _hoverChanged(bool hovered) {
     _stopHover();
     if (hovered && TickerMode.valuesOf(context).enabled) {
-      _releaseHover = ShellScope.maybeRead(
-        context,
-      )?.hoverTopic(row.siteUrl, row.topic);
+      _releaseHover = ShellScope.maybeRead(context)
+          ?.hoverTopic(row.siteUrl, row.topic);
     }
   }
 
@@ -136,8 +135,7 @@ class _ConversationTopicCardState extends State<_ConversationTopicCard> {
                 child: child,
               ),
             ),
-          if (topic.lastPosterUsername case final username?
-              when shell?.appSettings.topicListShowLastPoster != false) ...[
+          if (topic.lastPosterUsername case final username?) ...[
             WidgetSpan(
               alignment: PlaceholderAlignment.middle,
               child: Padding(
@@ -247,12 +245,7 @@ class _ConversationTopicCardState extends State<_ConversationTopicCard> {
                       ),
                     ),
                   if (mobile)
-                    _MobileTopicDetails(
-                      row: row,
-                      taxonomyItems: taxonomyItems,
-                      showLastPoster:
-                          shell?.appSettings.topicListShowLastPoster != false,
-                    )
+                    _MobileTopicDetails(row: row, taxonomyItems: taxonomyItems)
                   else
                     desktopDetails(),
                   if (compactMetadata.isNotEmpty)
@@ -279,23 +272,17 @@ class _ConversationTopicCardState extends State<_ConversationTopicCard> {
 }
 
 class _MobileTopicDetails extends StatelessWidget {
-  const _MobileTopicDetails({
-    required this.row,
-    required this.taxonomyItems,
-    required this.showLastPoster,
-  });
+  const _MobileTopicDetails({required this.row, required this.taxonomyItems});
 
   final _TopicRowBody row;
   final List<Widget> taxonomyItems;
-  final bool showLastPoster;
 
   @override
   Widget build(BuildContext context) {
     final topic = row.topic;
-    final style = Theme.of(context).textTheme.labelSmall?.copyWith(
-      color: DTokens.of(context).mutedForeground,
-    );
-    final username = showLastPoster ? topic.lastPosterUsername : null;
+    final style = Theme.of(context).textTheme.labelSmall
+        ?.copyWith(color: DTokens.of(context).mutedForeground);
+    final username = topic.lastPosterUsername;
     final replies = '${topic.replyCount} replies';
     final activityText = 'Last post by $username · $replies';
     final avatar = username == null
@@ -391,9 +378,8 @@ class _TopicCardField extends StatelessWidget {
   Widget build(BuildContext context) => onSort == null
       ? Text(
           label,
-          style: Theme.of(context).textTheme.labelSmall?.copyWith(
-            color: DTokens.of(context).mutedForeground,
-          ),
+          style: Theme.of(context).textTheme.labelSmall
+              ?.copyWith(color: DTokens.of(context).mutedForeground),
         )
       : DButton(
           key: ValueKey('topic-sort-$column'),

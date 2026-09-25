@@ -7,26 +7,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
-  test('topic metadata choices default on and persist independently', () async {
-    SharedPreferences.setMockInitialValues({});
-    final store = AppSettingsStore();
-    expect((await store.read()).topicListShowTags, isTrue);
-    expect((await store.read()).topicListShowLastPoster, isTrue);
-    await store.update(topicListShowTags: false);
-    await store.update(topicListShowLastPoster: false);
-    var restored = await AppSettingsStore().read();
-    expect(restored.topicListShowTags, isFalse);
-    expect(restored.topicListShowLastPoster, isFalse);
-    restored = await AppSettingsStore().read();
-    expect(restored.topicListShowTags, isFalse);
-    expect(restored.topicListShowLastPoster, isFalse);
-    await store.update(topicListShowTags: true);
-    await store.update(topicListShowLastPoster: true);
-    restored = await AppSettingsStore().read();
-    expect(restored.topicListShowTags, isTrue);
-    expect(restored.topicListShowLastPoster, isTrue);
-  });
-
   test(
     'topic list mode defaults to cards and survives a fresh store',
     () async {
@@ -60,22 +40,6 @@ void main() {
     });
     expect(await platformStore.read(), AppSettings.defaults);
   });
-
-  test(
-    'display preferences survive restart and unrelated setting changes',
-    () async {
-      final store = AppSettingsStore();
-      await store.update(topicListLargerText: true);
-      await store.update(topicListMode: TopicListDisplayMode.compact);
-      final restored = await AppSettingsStore().read();
-      expect(restored.topicListLargerText, isTrue);
-      expect(restored.topicListMode, TopicListDisplayMode.compact);
-      await store.update(topicListLargerText: false);
-      final updated = await AppSettingsStore().read();
-      expect(updated.topicListLargerText, isFalse);
-      expect(updated.topicListMode, TopicListDisplayMode.compact);
-    },
-  );
 
   test('defines the bounded browser-like text scale', () {
     expect(AppTextScale.values.map((scale) => scale.factor), [
@@ -447,19 +411,6 @@ Matcher _isStorageFailure(String operation, String errorType) =>
 
 final class _ControlledAppSettingsPersistence
     implements AppSettingsPersistence {
-  @override
-  Future<bool?> readTopicListLargerText() async => null;
-  @override
-  Future<bool> writeTopicListLargerText(bool value) async => true;
-  @override
-  Future<bool?> readTopicListShowTags() async => null;
-  @override
-  Future<bool?> readTopicListShowLastPoster() async => null;
-  @override
-  Future<bool> writeTopicListShowTags(bool value) async => true;
-  @override
-  Future<bool> writeTopicListShowLastPoster(bool value) async => true;
-
   _ControlledAppSettingsPersistence({
     this.limitContentSize,
     this.disableGifAnimations,
