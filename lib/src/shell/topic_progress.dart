@@ -39,6 +39,8 @@ class TopicProgressButton extends StatelessWidget {
       variant: floating
           ? DButtonVariant.outline
           : DButtonVariant.transparentBackground,
+      backgroundColor: floating ? null : Colors.transparent,
+      interactiveBackgroundColor: floating ? null : Colors.transparent,
       shape: floating ? DButtonShape.pill : DButtonShape.rounded,
       size: DButtonSize.regular,
       icon: const DIcon(DIcons.chevronDown),
