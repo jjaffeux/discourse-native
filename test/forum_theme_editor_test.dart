@@ -67,6 +67,10 @@ void main() {
     expect(find.byKey(const ValueKey('theme-opacity')), findsOneWidget);
     expect(find.byKey(const ValueKey('theme-texture')), findsOneWidget);
     expect(find.byKey(const ValueKey('theme-save')), findsOneWidget);
+    expect(
+      tester.widget<DInput>(find.byKey(const ValueKey('theme-name'))).hintText,
+      'Name this theme',
+    );
     await tapVisible(tester, find.text('Paper'));
     final name = find.descendant(
       of: find.byKey(const ValueKey('theme-name')),
