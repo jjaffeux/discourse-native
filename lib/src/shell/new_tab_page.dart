@@ -19,6 +19,7 @@ import 'forum_tabs_bar.dart';
 import 'open_link.dart';
 import 'relative_time.dart';
 import 'shell_scope.dart';
+import 'site_emoji_text.dart';
 import 'start_page_drag.dart';
 
 /// The landing surface for an otherwise empty forum tab.
@@ -328,10 +329,21 @@ class _NewTabPageState extends State<NewTabPage> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
-                              forum?.title ?? 'Start page',
-                              style: Theme.of(context).textTheme.headlineSmall,
-                            ),
+                            if (siteUrl == null)
+                              Text(
+                                'Start page',
+                                style: Theme.of(
+                                  context,
+                                ).textTheme.headlineSmall,
+                              )
+                            else
+                              SiteEmojiText.plain(
+                                forum!.title,
+                                siteUrl: siteUrl,
+                                style: Theme.of(
+                                  context,
+                                ).textTheme.headlineSmall,
+                              ),
                             if (forum != null)
                               Text(
                                 Uri.tryParse(forum.url)?.host ?? forum.url,
@@ -685,8 +697,9 @@ class _StartSection extends StatelessWidget {
         DIcon(entry.icon, size: compact ? 16 : 18, color: entry.color),
         DItemContent(
           children: [
-            Text(
+            SiteEmojiText.plain(
               entry.title,
+              siteUrl: siteUrl,
               maxLines: compact ? 1 : 2,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
@@ -696,8 +709,9 @@ class _StartSection extends StatelessWidget {
             ),
             if (!compact && entry.description?.isNotEmpty == true)
               DItemDescription(
-                child: Text(
+                child: SiteEmojiText.plain(
                   entry.description!,
+                  siteUrl: siteUrl,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -786,7 +800,12 @@ class _StartSection extends StatelessWidget {
                 Expanded(
                   child: DItemTitle(
                     maxLines: 2,
-                    child: Text(entry.title, overflow: TextOverflow.ellipsis),
+                    child: SiteEmojiText.plain(
+                      entry.title,
+                      siteUrl: siteUrl,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
                 ),
                 if (metadata != null) ...[
@@ -816,13 +835,14 @@ class _StartSection extends StatelessWidget {
                     ),
                     if (entry.postNumber != null ||
                         entry.description?.isNotEmpty == true)
-                      Text(
+                      SiteEmojiText.plain(
                         [
                           if (entry.postNumber case final number?)
                             'Post #$number',
                           if (entry.description?.isNotEmpty == true)
                             entry.description!,
                         ].join(' · '),
+                        siteUrl: siteUrl,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -831,8 +851,9 @@ class _StartSection extends StatelessWidget {
               )
             else if (entry.description?.isNotEmpty == true)
               DItemDescription(
-                child: Text(
+                child: SiteEmojiText.plain(
                   entry.description!,
+                  siteUrl: siteUrl,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
