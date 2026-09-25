@@ -82,13 +82,6 @@ class TopicInboxHeader extends StatelessWidget {
             topic: topic,
             keepTopicListOpen: keepTopicListOpen,
             registry: registry,
-            mobileActions: ShellScope.read(context).mobileNavigationEnabled
-                ? _MobileTopicHeaderActions(
-                    siteUrl: siteUrl,
-                    topic: topic,
-                    registry: registry,
-                  )
-                : null,
           )
         : placeholders &&
               !(preview != null &&
@@ -378,84 +371,56 @@ class _TopicHeaderTitle extends StatelessWidget {
   }
 }
 
-class _MobileTopicHeaderActions extends StatelessWidget {
-  const _MobileTopicHeaderActions({
-    required this.siteUrl,
-    required this.topic,
-    required this.registry,
-  });
-
-  final String siteUrl;
-  final TopicDetail topic;
-  final PluginRegistry registry;
-
-  @override
-  Widget build(BuildContext context) {
-    final rebuildOn = registry.topicPropertiesRebuildOn(
-      context,
-      siteUrl,
-      topic,
-    );
-    return rebuildOn == null
-        ? _buildActions(context)
-        : ListenableBuilder(
-            listenable: rebuildOn,
-            builder: (context, _) => _buildActions(context),
-          );
-  }
-
-  Widget _buildActions(BuildContext context) {
-    final shell = ShellScope.of(context);
-    final instance = shell.instanceFor(siteUrl);
-    return Wrap(
-      key: const ValueKey('mobile-topic-header-actions'),
-      spacing: DSpacing.controlGap,
-      runSpacing: DSpacing.controlGap,
-      crossAxisAlignment: WrapCrossAlignment.center,
-      children: [
-        if (instance?.user != null)
-          TopicBookmarkButton(
-            siteUrl: siteUrl,
-            topic: topic,
-            busy: shell.bookmarkWriteInFlight(
-              siteUrl: siteUrl,
-              topicId: topic.id,
-              targetType: BookmarkTargetType.topic,
-              targetId: topic.id,
-            ),
-            variant: DButtonVariant.outline,
-            size: DControlSize.chip,
-            buttonKey: const ValueKey('topic-header-bookmark-button'),
-          ),
-        if (instance?.isConnected == true)
-          TopicNotificationLevelButton(
-            showChevron: true,
-            siteUrl: siteUrl,
-            topic: topic,
-            variant: DButtonVariant.outline,
-            size: DControlSize.chip,
-            buttonKey: const ValueKey('topic-header-notification-button'),
-          ),
-        if (topic.privateMessage &&
-            instance?.isConnected == true &&
-            instance?.user?.canSendPrivateMessages == true)
-          MessageArchiveButton(siteUrl: siteUrl, topic: topic),
-        if (registry.topicProperties(context, siteUrl, topic).isNotEmpty)
-          _TopicHeaderProperties(
-            siteUrl: siteUrl,
-            topic: topic,
-            registry: registry,
-            compact: true,
-          ),
-        TopicStatusButton(
+List<Widget> _mobileTopicHeaderActions(
+  BuildContext context, {
+  required String siteUrl,
+  required TopicDetail topic,
+  required PluginRegistry registry,
+}) {
+  final shell = ShellScope.of(context);
+  final instance = shell.instanceFor(siteUrl);
+  return [
+    if (instance?.user != null)
+      TopicBookmarkButton(
+        siteUrl: siteUrl,
+        topic: topic,
+        busy: shell.bookmarkWriteInFlight(
           siteUrl: siteUrl,
-          topic: topic,
-          topicFlags: shell.availableTopicFlagTypes(siteUrl, topic),
-          variant: DButtonVariant.outline,
+          topicId: topic.id,
+          targetType: BookmarkTargetType.topic,
+          targetId: topic.id,
         ),
-      ],
-    );
-  }
+        variant: DButtonVariant.outline,
+        size: DControlSize.chip,
+        buttonKey: const ValueKey('topic-header-bookmark-button'),
+      ),
+    if (instance?.isConnected == true)
+      TopicNotificationLevelButton(
+        showChevron: true,
+        siteUrl: siteUrl,
+        topic: topic,
+        variant: DButtonVariant.outline,
+        size: DControlSize.chip,
+        buttonKey: const ValueKey('topic-header-notification-button'),
+      ),
+    if (topic.privateMessage &&
+        instance?.isConnected == true &&
+        instance?.user?.canSendPrivateMessages == true)
+      MessageArchiveButton(siteUrl: siteUrl, topic: topic),
+    if (registry.topicProperties(context, siteUrl, topic).isNotEmpty)
+      _TopicHeaderProperties(
+        siteUrl: siteUrl,
+        topic: topic,
+        registry: registry,
+        compact: true,
+      ),
+    TopicStatusButton(
+      siteUrl: siteUrl,
+      topic: topic,
+      topicFlags: shell.availableTopicFlagTypes(siteUrl, topic),
+      variant: DButtonVariant.outline,
+    ),
+  ];
 }
 
 class TopicCloseButton extends StatelessWidget {
@@ -684,13 +649,11 @@ class _TopicHeaderTaxonomy extends StatelessWidget {
     required this.topic,
     required this.keepTopicListOpen,
     required this.registry,
-    this.mobileActions,
   });
   final String siteUrl;
   final TopicDetail topic;
   final bool keepTopicListOpen;
   final PluginRegistry registry;
-  final Widget? mobileActions;
 
   @override
   Widget build(BuildContext context) => ShellSelector<Object>(
@@ -740,7 +703,7 @@ class _TopicHeaderTaxonomy extends StatelessWidget {
             ),
           );
           if (mobile) {
-            return Wrap(
+            Widget mobileTaxonomy(BuildContext context) => Wrap(
               key: const ValueKey('topic-header-taxonomy'),
               spacing: DSpacing.controlGap,
               runSpacing: DSpacing.sm,
@@ -782,9 +745,25 @@ class _TopicHeaderTaxonomy extends StatelessWidget {
                     ),
                     child: tags,
                   ),
-                ?mobileActions,
+                ..._mobileTopicHeaderActions(
+                  context,
+                  siteUrl: siteUrl,
+                  topic: topic,
+                  registry: registry,
+                ),
               ],
             );
+            final rebuildOn = registry.topicPropertiesRebuildOn(
+              context,
+              siteUrl,
+              topic,
+            );
+            return rebuildOn == null
+                ? mobileTaxonomy(context)
+                : ListenableBuilder(
+                    listenable: rebuildOn,
+                    builder: (context, _) => mobileTaxonomy(context),
+                  );
           }
           final instance = shell.instanceFor(siteUrl);
           return ConstrainedBox(
