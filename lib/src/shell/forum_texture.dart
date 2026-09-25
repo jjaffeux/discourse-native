@@ -145,12 +145,7 @@ class _TexturePainter extends CustomPainter {
       ..setFloat(5, accent.r)
       ..setFloat(6, accent.g)
       ..setFloat(7, accent.b);
-    canvas.drawRect(
-      Offset.zero & size,
-      Paint()
-        ..shader = shader
-        ..blendMode = BlendMode.overlay,
-    );
+    canvas.drawRect(Offset.zero & size, Paint()..shader = shader);
   }
 
   @override
