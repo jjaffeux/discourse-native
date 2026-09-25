@@ -16,8 +16,9 @@ final pageSurfaceExamples = ComponentExamples(
       'the header. Use framed: false inside an existing page frame or touch shell. '
       'Use border: false to retain the rounded surface without an outer outline. '
       'backgroundColor changes the frame fill without changing descendant tokens. '
-      'DPageReadingLane supplies padding inside a full-width viewport; its width '
-      'policy inherits from the page. This app composition is separate from the '
+      'The width setting centers the header, scroll body, and footer together; '
+      'tabs and the outer frame stay full width. DPageReadingLane adds optional '
+      'padding inside that shared column. This app composition is separate from the '
       'frozen upstream catalogue.',
   examples: [
     StyleguideExample(
@@ -82,7 +83,7 @@ class _PageExampleState extends State<_PageExample> {
         ),
       ],
     ),
-    header: DPageReadingLaneBox(
+    header: Padding(
       padding: const EdgeInsets.all(DSpacing.lg),
       child: Text(_page, style: Theme.of(context).textTheme.titleLarge),
     ),

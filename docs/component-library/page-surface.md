@@ -14,12 +14,13 @@ protection, and route-identity reset are preserved. Horizontal viewports around
 a main vertical table are supported; embedded vertical scrollers do not control
 the page header. Tabs and footers stay outside the retracting region.
 
-`limitContentSize` provides the page's width policy. `DPageReadingLane` computes
-content padding within a full-width scroll viewport: unlimited by default and
-centered at up to 825px when enabled. It also supports fixed sidebars and
-non-scrolling content. The shell's `ContentReadingLane` adapters supply app
-settings and retain desktop text-zoom breakpoint calculations. The generic
-Native components do not depend on shell controllers or settings stores.
+`limitContentSize` centers the page header, scroll body, and footer together in
+an 825px-wide column when enabled. The outer frame and tab strip remain full
+width. `DPageReadingLane` still computes padding for content inside that column
+and supports fixed sidebars and non-scrolling content. The shell's
+`ContentReadingLane` adapters supply app settings and retain desktop text-zoom
+breakpoint calculations. The generic Native components do not depend on shell
+controllers or settings stores.
 
 ## Adoption
 
@@ -38,6 +39,12 @@ Native components do not depend on shell controllers or settings stores.
 The application catalogue includes an interactive **Page surface** styleguide
 example with tabs, width toggle, scrolling, and a fixed footer. The frozen
 upstream component catalogue is unchanged.
+
+## Width behavior — 2026-09-25
+
+Normal now constrains the page header, body, and footer in one centered column.
+The tab strip and panel frame keep their full width. New tabs use the same page
+policy, and nested list and reader pages inherit it from their enclosing pane.
 
 ## Verification — 2026-09-19
 
