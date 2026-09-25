@@ -85,7 +85,8 @@ void main() {
   } else {
     float scale = 0.3 * min(uSize.x, uSize.y) / 1080.0;
     float n = noise2(pixel / max(scale, 0.0001));
-    float alpha = min(abs(n) * uIntensity * 0.42, 0.42);
+    // Keep the full Paper slider within the former 25% range.
+    float alpha = min(abs(n) * uIntensity * 0.105, 0.105);
     fragColor = vec4(vec3(n > 0.0 ? alpha : 0.0), alpha);
   }
 }
