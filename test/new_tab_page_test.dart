@@ -5,6 +5,7 @@ import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/forum_workspace.dart';
 import 'package:discourse_native/src/models/site_emoji.dart';
 import 'package:discourse_native/src/models/topic.dart';
+import 'package:discourse_native/src/models/topic_tracking_state.dart';
 import 'package:discourse_native/src/plugin_api/plugin_scope.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_notification_counter.dart';
@@ -98,6 +99,95 @@ void main() {
       debugDefaultTargetPlatformOverride = previousPlatform;
     }
   });
+
+  testWidgets(
+    'cached category description and live activity appear without a request',
+    (tester) async {
+      SharedPreferences.setMockInitialValues({
+        'discourse_native.panel_tutorial_dismissed': true,
+      });
+      const site = 'https://meta.discourse.org';
+      const user = DiscourseUser(id: 7, username: 'reader');
+      final api = FakeDiscourseApi(
+        user: user,
+        categoryList: [
+          TopicCategory.fromJson(const {
+            'id': 12,
+            'name': 'Plants',
+            'slug': 'plants',
+            'color': '00aa44',
+            'description_excerpt': 'Growing things :seedling:',
+          }),
+        ],
+        trackingState: TopicTrackingState.fromJson(const [
+          {
+            'topic_id': 41,
+            'category_id': 12,
+            'highest_post_number': 1,
+            'created_in_new_period': true,
+          },
+        ]),
+        feeds: const {'/latest.json': []},
+      );
+      await pumpShell(
+        tester,
+        desktop,
+        instances: [instance('meta.discourse.org').copyWith(user: user)],
+        authenticator: FakeAuthenticator()..keys[site] = 'key',
+        api: api,
+      );
+      final shell = ShellScope.read(
+        tester.element(find.byType(MainContent).first),
+      );
+      shell.openListUrl('/c/plants/12', title: 'Plants');
+      final categoryRequests = api.categoryRequests.length;
+      final trackingRequests = api.topicTrackingRequests.length;
+      shell.pushContent(ContentRoute.newTab());
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('Comfortable'));
+      await tester.pumpAndSettle();
+
+      final card = find.byKey(
+        ValueKey(
+          'start-page-recent-${shell.recentCategoriesFor(site).single.id}',
+        ),
+      );
+      expect(
+        find.descendant(of: card, matching: find.text('Plants')),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: card,
+          matching: find.text('Growing things :seedling:'),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(of: card, matching: find.text('1')),
+        findsOneWidget,
+      );
+      expect(api.categoryRequests, hasLength(categoryRequests));
+      expect(api.topicTrackingRequests, hasLength(trackingRequests));
+
+      FakeSiteTracker.built.single.deliver({
+        'topic_id': 42,
+        'message_type': 'new_topic',
+        'payload': {
+          'category_id': 12,
+          'highest_post_number': 1,
+          'created_in_new_period': true,
+        },
+      });
+      await tester.pumpAndSettle();
+      expect(
+        find.descendant(of: card, matching: find.text('2')),
+        findsOneWidget,
+      );
+      expect(api.categoryRequests, hasLength(categoryRequests));
+      expect(api.topicTrackingRequests, hasLength(trackingRequests));
+    },
+  );
 
   testWidgets('Latest topics support middle, Shift, and right click', (
     tester,
