@@ -91,11 +91,13 @@ void main() {
     tester,
   ) async {
     final shell = controller(
-      instances: const [DiscourseInstance(url: site, title: 'A')],
+      instances: const [DiscourseInstance(url: site, title: 'Doggerel')],
     );
     addTearDown(shell.dispose);
     await shell.load();
     await pumpSettings(tester, shell);
+    expect(find.text('Applies to Doggerel only.'), findsOneWidget);
+    expect(find.byKey(const ValueKey('theme-use-everywhere')), findsOneWidget);
     await tapVisible(
       tester,
       find.byKey(const ValueKey(('theme-choice', 'wcag'))),
@@ -111,6 +113,8 @@ void main() {
           ?.id,
       'wcag',
     );
+    expect(find.text('Applies to Doggerel only.'), findsOneWidget);
+    expect(find.byKey(const ValueKey('theme-use-everywhere')), findsOneWidget);
   });
 
   testWidgets('Display and Accessibility controls use Native settings', (

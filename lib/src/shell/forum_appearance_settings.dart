@@ -167,34 +167,30 @@ class _ForumAppearanceSettingsState extends State<ForumAppearanceSettings> {
   Future<void> _save(ForumThemePreferences preferences) =>
       _attempt(() => settings.setThemes(widget.siteUrl, preferences));
 
-  /// Nothing with one forum, a note once every forum shows these colours,
-  /// and otherwise the action that makes them. The colours stay each forum's
-  /// own, so the note says they are used everywhere rather than shared.
-  Widget? _themeScope(ForumThemePreferences preferences, List<String> others) {
-    if (others.isEmpty) return null;
-    if (others.every((forum) {
-      final theirs = settings.themesFor(forum);
-      return theirs.showing(preferences) == theirs;
-    })) {
-      return const _HeadingNote('Used on all forums');
-    }
-    return Wrap(
-      spacing: DSpacing.md,
-      runSpacing: DSpacing.sm,
-      crossAxisAlignment: WrapCrossAlignment.center,
+  Widget _themeScope(List<String> others) {
+    final site = requireStoredForumBase(widget.siteUrl);
+    final forumName = site == ForumSettingsController.homeSite
+        ? 'Home'
+        : ShellScope.identityOf(context).instances
+                  .where(
+                    (instance) => requireStoredForumBase(instance.url) == site,
+                  )
+                  .firstOrNull
+                  ?.title ??
+              Uri.parse(site).host;
+    return Row(
       children: [
-        _HeadingNote(
-          widget.siteUrl == ForumSettingsController.homeSite
-              ? 'Applies to Home only.'
-              : 'Applies to this forum only.',
-        ),
-        DButton(
-          key: const ValueKey('theme-use-everywhere'),
-          label: const Text('Use on every forum'),
-          variant: DButtonVariant.outline,
-          size: DButtonSize.small,
-          onPressed: () => unawaited(_useEverywhere(others)),
-        ),
+        Expanded(child: _HeadingNote('Applies to $forumName only.')),
+        if (others.isNotEmpty) ...[
+          const SizedBox(width: DSpacing.md),
+          DButton(
+            key: const ValueKey('theme-use-everywhere'),
+            label: const Text('Use on every forum'),
+            variant: DButtonVariant.outline,
+            size: DButtonSize.small,
+            onPressed: () => unawaited(_useEverywhere(others)),
+          ),
+        ],
       ],
     );
   }
@@ -392,12 +388,7 @@ class _ForumAppearanceSettingsState extends State<ForumAppearanceSettings> {
                       onDelete: (theme) => unawaited(_delete(theme)),
                     ),
                   ),
-                if (editing == null)
-                  if (_themeScope(preferences, others) case final scope?)
-                    Align(
-                      alignment: AlignmentDirectional.centerEnd,
-                      child: scope,
-                    ),
+                if (editing == null) _themeScope(others),
               ],
             ),
           ),
