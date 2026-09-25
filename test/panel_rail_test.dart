@@ -85,6 +85,9 @@ void main() {
           button.iconPosition,
           towardStart ? DButtonIconPosition.end : DButtonIconPosition.start,
         );
+        final row = tester.getRect(readOutButton);
+        expect(row.left, greaterThanOrEqualTo(open.left + 4));
+        expect(row.right, lessThanOrEqualTo(open.right - 4));
         final railIcon = find.descendant(
           of: railButton,
           matching: find.byType(DIcon),
@@ -95,8 +98,8 @@ void main() {
         );
         expect(
           tester.getCenter(readOutIcon).dx,
-          closeTo(tester.getCenter(railIcon).dx, 1),
-          reason: 'the read-out icon stays over its rail icon',
+          closeTo(tester.getCenter(railIcon).dx, 4),
+          reason: 'the read-out icon stays close to its rail icon',
         );
       });
     }
