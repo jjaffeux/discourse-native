@@ -3,6 +3,7 @@ import 'package:discourse_native/src/models/bookmark.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/forum_workspace.dart';
+import 'package:discourse_native/src/models/site_emoji.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/plugin_api/plugin_scope.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
@@ -13,6 +14,7 @@ import 'package:discourse_native/src/shell/forum_tabs_bar.dart';
 import 'package:discourse_native/src/shell/main_content.dart';
 import 'package:discourse_native/src/shell/new_tab_page.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
+import 'package:discourse_native/src/shell/site_emoji_image.dart';
 import 'package:discourse_native/src/shell/title_bar.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart'
@@ -547,6 +549,101 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.textContaining('2030'), findsOneWidget);
     expect(find.text('Post #2'), findsOneWidget);
+  });
+
+  testWidgets('Start page renders emoji in titles and previews', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({
+      'discourse_native.panel_tutorial_dismissed': true,
+    });
+    const site = 'https://meta.discourse.org';
+    const user = DiscourseUser(username: 'reader');
+    final api = FakeDiscourseApi(
+      user: user,
+      totals: chatNotificationTotals(available: true),
+      bookmarkList: const [
+        Bookmark(
+          id: 18,
+          title: 'Saved :tada:',
+          name: 'Remember :sparkles:',
+          path: '/t/saved/18',
+        ),
+      ],
+      feeds: const {
+        '/latest.json': [
+          Topic(
+            id: 42,
+            title: 'Trip to :spain:',
+            excerpt: 'Hello :wave:',
+            slug: 'trip-to-spain',
+          ),
+        ],
+      },
+      chatChannelsBySite: {
+        site: const ChatChannels(
+          direct: [
+            ChatChannel(
+              id: 11,
+              title: 'Alex :wave:',
+              kind: ChatChannelKind.directMessage,
+              membership: ChatMembership(following: true),
+              lastMessagePreview: 'No worries! :slight_smile:',
+            ),
+          ],
+        ),
+      },
+      emojisBySite: {
+        site: const [
+          SiteEmoji(name: 'tada', url: '/emoji/tada.png'),
+          SiteEmoji(name: 'sparkles', url: '/emoji/sparkles.png'),
+          SiteEmoji(name: 'spain', url: '/emoji/spain.png'),
+          SiteEmoji(name: 'wave', url: '/emoji/wave.png'),
+          SiteEmoji(name: 'slight_smile', url: '/emoji/slight_smile.png'),
+        ],
+      },
+    );
+    await pumpShell(
+      tester,
+      desktop,
+      instances: [
+        instance(
+          'meta.discourse.org',
+          title: 'Meta :sparkles:',
+        ).copyWith(user: user),
+      ],
+      authenticator: FakeAuthenticator()..keys[site] = 'key',
+      api: api,
+    );
+    final shell = ShellScope.read(
+      tester.element(find.byType(MainContent).first),
+    );
+    await shell.loadBookmarks(site);
+    shell.openListUrl('/c/plants/12', title: 'Plants :tada:');
+    shell.pushContent(ContentRoute.newTab());
+    await tester.pumpAndSettle();
+
+    List<String> emojiIn(String id) => tester
+        .widgetList<SiteEmojiImage>(
+          find.descendant(
+            of: find.byKey(ValueKey('start-page-recent-$id')),
+            matching: find.byType(SiteEmojiImage),
+          ),
+        )
+        .map((emoji) => emoji.name)
+        .toList();
+
+    expect(emojiIn('bookmark-18'), ['tada']);
+    expect(emojiIn('topic-42'), ['spain']);
+    expect(emojiIn('chat-c-11'), ['wave']);
+    expect(emojiIn(shell.recentCategoriesFor(site).single.id), ['tada']);
+    expect(find.bySemanticsLabel('Meta :sparkles:'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('Comfortable'));
+    await tester.pumpAndSettle();
+    expect(emojiIn('bookmark-18'), ['tada', 'sparkles']);
+    expect(emojiIn('topic-42'), ['spain', 'wave']);
+    expect(emojiIn('chat-c-11'), ['wave', 'slight_smile']);
   });
 
   testWidgets('density control switches between compact and comfortable rows', (
