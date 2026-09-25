@@ -177,20 +177,31 @@ class _ForumAppearanceSettingsState extends State<ForumAppearanceSettings> {
                   .firstOrNull
                   ?.title ??
               Uri.parse(site).host;
-    return Row(
-      children: [
-        Expanded(child: _HeadingNote('Applies to $forumName only.')),
-        if (others.isNotEmpty) ...[
-          const SizedBox(width: DSpacing.md),
-          DButton(
-            key: const ValueKey('theme-use-everywhere'),
-            label: const Text('Use on every forum'),
-            variant: DButtonVariant.outline,
-            size: DButtonSize.regular,
-            onPressed: () => unawaited(_useEverywhere(others)),
-          ),
-        ],
-      ],
+    final note = _HeadingNote('Applies to $forumName only.');
+    Widget action() => DButton(
+      key: const ValueKey('theme-use-everywhere'),
+      label: const Text('Use on every forum'),
+      variant: DButtonVariant.outline,
+      size: DButtonSize.regular,
+      onPressed: () => unawaited(_useEverywhere(others)),
+    );
+    return LayoutBuilder(
+      builder: (context, constraints) => constraints.maxWidth < 500
+          ? Wrap(
+              spacing: DSpacing.md,
+              runSpacing: DSpacing.sm,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [note, if (others.isNotEmpty) action()],
+            )
+          : Row(
+              children: [
+                Expanded(child: note),
+                if (others.isNotEmpty) ...[
+                  const SizedBox(width: DSpacing.md),
+                  action(),
+                ],
+              ],
+            ),
     );
   }
 
