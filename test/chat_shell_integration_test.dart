@@ -2634,6 +2634,40 @@ void _registerChatShellTests() {
 
     group('a channel', () {
       setUp(() => startOnChatSidebar = true);
+      testWidgets('channel header separator follows the page reading lane', (
+        tester,
+      ) async {
+        tester.view.physicalSize = const Size(1600, 900);
+        addTearDown(tester.view.resetPhysicalSize);
+        await pumpChat(
+          tester,
+          direct: [dm(12)],
+          messages: {key(12): page(const [])},
+        );
+        await tester.tap(sidebarDestination('hawk'));
+        await tester.pumpAndSettle();
+
+        final separator = find.byKey(
+          const ValueKey('content-header-separator'),
+        );
+        final pageSurface = find
+            .ancestor(of: separator, matching: find.byType(DPageSurface))
+            .first;
+        final shell = ShellScope.read(tester.element(find.byType(MainContent)));
+
+        for (final limited in [false, true]) {
+          await shell.appSettings.setLimitContentSize(limited);
+          await tester.pumpAndSettle();
+          final pageRect = tester.getRect(pageSurface);
+          final lineRect = tester.getRect(separator);
+          final inset = limited && pageRect.width > DPageReadingLane.maxWidth
+              ? (pageRect.width - DPageReadingLane.maxWidth) / 2
+              : 0.0;
+          expect(lineRect.left, closeTo(pageRect.left + inset + 16, 1));
+          expect(lineRect.right, closeTo(pageRect.right - inset - 16, 1));
+        }
+      });
+
       testWidgets(
         'shows a direct-message status after the channel star and its text on hover',
         (tester) async {

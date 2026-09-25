@@ -293,19 +293,33 @@ class _MainContentBody extends StatelessWidget {
                   !route.isTopic &&
                   !hideDirectoryHeader &&
                   !(usesTopicToolbar && ShellTitleBar.isSupported)
-              ? _ContentHeader(
-                  layout: layout,
-                  route: route,
-                  siteUrl: state.siteUrl,
-                  canPop: state.canPop,
-                  showCreateTopicAction:
-                      pluginContent == null &&
-                      !usesTopicToolbar &&
-                      !ShellScope.read(context).mobileNavigationEnabled,
-                  searchOnly: usesTopicToolbar || pageOwnsTitle,
-                  isConnected: state.isConnected,
-                  registry: registry,
-                  groupPages: groupPages,
+              ? Stack(
+                  children: [
+                    _ContentHeader(
+                      layout: layout,
+                      route: route,
+                      siteUrl: state.siteUrl,
+                      canPop: state.canPop,
+                      showCreateTopicAction:
+                          pluginContent == null &&
+                          !usesTopicToolbar &&
+                          !ShellScope.read(context).mobileNavigationEnabled,
+                      searchOnly: usesTopicToolbar || pageOwnsTitle,
+                      isConnected: state.isConnected,
+                      registry: registry,
+                      groupPages: groupPages,
+                    ),
+                    Positioned(
+                      left: 16,
+                      right: 16,
+                      bottom: 0,
+                      child: DSeparator(
+                        key: const ValueKey('content-header-separator'),
+                        color: theme.shell.divider,
+                        space: 1,
+                      ),
+                    ),
+                  ],
                 )
               : null,
           child: KeyedSubtree(
@@ -976,9 +990,6 @@ class _ContentHeader extends StatelessWidget {
     return Container(
       height: shellHeaderHeight,
       padding: const EdgeInsets.symmetric(horizontal: 8),
-      decoration: BoxDecoration(
-        border: Border(bottom: BorderSide(color: theme.shell.divider)),
-      ),
       child: ForumTabLayoutBuilder(
         builder: (context, constraints) {
           final carriesSearch =
