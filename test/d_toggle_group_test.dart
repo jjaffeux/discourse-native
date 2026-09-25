@@ -61,6 +61,21 @@ void main() {
       );
       expect(tester.getSize(artwork).height, greaterThanOrEqualTo(54));
     }
+    final frame = find
+        .descendant(
+          of: find.byType(DToggleGroup<String>),
+          matching: find.byType(DecoratedBox),
+        )
+        .first;
+    final selectedArtwork = find.descendant(
+      of: toggles.first,
+      matching: find.byType(AnimatedContainer),
+    );
+    expect(
+      tester.getSize(frame).height -
+          tester.getSize(selectedArtwork.first).height,
+      6,
+    );
     await tester.tap(find.text('None'));
     await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
     await tester.sendKeyEvent(LogicalKeyboardKey.space);
@@ -132,9 +147,10 @@ void main() {
       tester.widgetList<DToggle>(toggles).map((toggle) => toggle.variant),
       everyElement(DToggleVariant.segmented),
     );
-    final frame = tester.widget<DecoratedBox>(
-      find.descendant(of: group, matching: find.byType(DecoratedBox)).first,
-    );
+    final frameFinder = find
+        .descendant(of: group, matching: find.byType(DecoratedBox))
+        .first;
+    final frame = tester.widget<DecoratedBox>(frameFinder);
     final decoration = frame.decoration as BoxDecoration;
     expect(decoration.borderRadius, BorderRadius.circular(10));
     expect(decoration.border, isNotNull);
@@ -159,6 +175,11 @@ void main() {
     expect(
       tester.getSize(selectedArtwork).width,
       tester.getSize(toggles.at(2)).width,
+    );
+    expect(
+      tester.getSize(frameFinder).height -
+          tester.getSize(selectedArtwork).height,
+      6,
     );
     expect(
       tester.getSize(toggles.at(0)).width,
