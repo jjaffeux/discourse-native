@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'dart:ui' show SemanticsRole;
 
 import 'package:flutter/material.dart';
@@ -627,12 +628,20 @@ class DCommandList<T> extends StatefulWidget {
     required this.children,
     this.controller,
     this.maxHeight = 288,
+    this.height,
     this.semanticLabel = 'Command results',
-  }) : assert(maxHeight > 0);
+  }) : assert(maxHeight > 0),
+       assert(height == null || height > 0);
 
   final List<Widget> children;
   final ScrollController? controller;
   final double maxHeight;
+
+  /// When set, the list occupies exactly this height whatever its results,
+  /// with empty and loading states centred in it, so a surface whose results
+  /// change on every keystroke keeps its geometry. Otherwise the list
+  /// shrink-wraps its rows up to [maxHeight].
+  final double? height;
   final String semanticLabel;
 
   @override
@@ -779,32 +788,54 @@ class _DCommandListState<T> extends State<DCommandList<T>> {
         final rendered = <Widget>[];
         if (scope.loading) rendered.addAll(loadingNodes);
         if (entries.isEmpty && !scope.loading) rendered.addAll(emptyNodes);
-        if (!scope.loading || entries.isNotEmpty) {
+        final showsResults = !scope.loading || entries.isNotEmpty;
+        if (showsResults) {
           for (final node in resultNodes) {
             rendered.add(node.build(context, scope, _itemKeys));
           }
         }
+        const padding = EdgeInsets.symmetric(vertical: DSpacing.xs);
+        Widget scroll({double minHeight = 0}) => DScrollBar(
+          backgroundColor: DTokens.of(context).surface,
+          controller: _scroll,
+          thumbVisibility: false,
+          child: SingleChildScrollView(
+            controller: _scroll,
+            padding: padding,
+            child: ConstrainedBox(
+              constraints: BoxConstraints(minHeight: minHeight),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                mainAxisAlignment: showsResults && resultNodes.isNotEmpty
+                    ? MainAxisAlignment.start
+                    : MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: rendered,
+              ),
+            ),
+          ),
+        );
         return Semantics(
           container: true,
           explicitChildNodes: true,
           label: widget.semanticLabel,
-          child: ConstrainedBox(
-            constraints: BoxConstraints(maxHeight: widget.maxHeight),
-            child: DScrollBar(
-              backgroundColor: DTokens.of(context).surface,
-              controller: _scroll,
-              thumbVisibility: false,
-              child: SingleChildScrollView(
-                controller: _scroll,
-                padding: const EdgeInsets.symmetric(vertical: DSpacing.xs),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: rendered,
+          child: switch (widget.height) {
+            final height? => SizedBox(
+              height: height,
+              child: LayoutBuilder(
+                builder: (context, constraints) => scroll(
+                  minHeight: math.max(
+                    0,
+                    constraints.maxHeight - padding.vertical,
+                  ),
                 ),
               ),
             ),
-          ),
+            null => ConstrainedBox(
+              constraints: BoxConstraints(maxHeight: widget.maxHeight),
+              child: scroll(),
+            ),
+          },
         );
       },
     );

@@ -325,6 +325,22 @@ void main() {
     expect(find.byType(DAlert), findsNothing);
   });
 
+  testWidgets('typing never resizes or moves the dialog', (tester) async {
+    await pump(tester);
+    final bounds = tester.getRect(dialog);
+    final input = tester.getRect(search);
+    for (final text in ['m', 'maya', 'nobody', '']) {
+      await tester.enterText(search, text);
+      await tester.pump();
+      expect(tester.getRect(dialog), bounds, reason: 'searching "$text"');
+      await tester.pump(const Duration(milliseconds: 350));
+      await tester.pumpAndSettle();
+      expect(tester.getRect(dialog), bounds, reason: 'results for "$text"');
+      expect(tester.getRect(search), input, reason: 'results for "$text"');
+    }
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('narrow RTL and large text keep group controls reachable', (
     tester,
   ) async {

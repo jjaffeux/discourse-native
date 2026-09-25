@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_ui.dart';
@@ -651,6 +652,10 @@ class _ChatNewDirectMessageDialogState
     }
     return DCommandList<String>(
       key: const ValueKey('chat-new-direct-message-results'),
+      // Results are replaced on every keystroke; a fixed height keeps the
+      // dialog, its input and its footer from moving while typing. A third of
+      // the window keeps the group footer on screen in short windows.
+      height: math.min(288, MediaQuery.sizeOf(context).height / 3),
       semanticLabel: 'Chat recipients and conversations',
       children: [
         DCommandLoading(
