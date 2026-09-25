@@ -3075,9 +3075,17 @@ void main() {
     expect(bookmark, findsNothing);
     final more = find.byKey(const ValueKey('post-more-actions-2'));
     expect(more.hitTestable(), findsOneWidget);
+    final replySurface = find.descendant(
+      of: reply,
+      matching: find.byType(AnimatedContainer),
+    );
+    final moreSurface = find.descendant(
+      of: more,
+      matching: find.byType(AnimatedContainer),
+    );
     expect(
-      tester.getRect(more).left,
-      tester.getRect(reply).right + DSpacing.controlGap,
+      tester.getRect(moreSurface).left,
+      tester.getRect(replySurface).right + DSpacing.controlGap,
     );
     expect(tester.getRect(more).right, closeTo(tester.getRect(body).right, 1));
     expect(

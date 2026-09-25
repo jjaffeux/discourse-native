@@ -166,6 +166,9 @@ for the reference, persistence model and verification.
 
 Use `DSpacing.controlGap` (6 logical pixels) between separate adjacent buttons,
 toggles, toggle groups, selectors and menu triggers in action rows and toolbars.
+The gap is measured between painted control surfaces. For compact icon actions
+with larger touch targets, use `DButtonGroup.spaced` so the targets do not add
+invisible padding to the visible gap.
 Use it with `Row(spacing: ...)`, `Wrap(spacing: ...)` or a `SizedBox` between
 conditional children. Dialog action footers use the same horizontal gap.
 Use the general spacing scale for wrapped-row spacing, content, section gaps
