@@ -9,12 +9,14 @@ class MessageCreateButton extends StatelessWidget {
     super.key,
     required this.showLabel,
     this.pill = false,
-    this.fillWidth = false,
+    this.dockAction = false,
   });
 
   final bool showLabel;
   final bool pill;
-  final bool fillWidth;
+
+  /// Presents the button as the mobile dock's primary action.
+  final bool dockAction;
 
   void _compose(BuildContext context) {
     final controller = ShellScope.read(context);
@@ -34,6 +36,9 @@ class MessageCreateButton extends StatelessWidget {
         controller.currentInstance?.user?.canSendPrivateMessages == true,
     builder: (context, permitted, _) {
       if (!permitted) return const SizedBox.shrink();
+      final density = dockAction
+          ? DButtonDensity.mobileDockAction
+          : DButtonDensity.standard;
       final button = showLabel
           ? DButton(
               key: const ValueKey('new-message-button'),
@@ -43,18 +48,7 @@ class MessageCreateButton extends StatelessWidget {
               tooltip: 'New message',
               variant: DButtonVariant.primary,
               size: DButtonSize.action,
-              onPressed: () => _compose(context),
-            )
-          : fillWidth
-          ? DButton(
-              key: const ValueKey('new-message-button'),
-              label: const SizedBox.shrink(),
-              semanticLabel: 'New message',
-              icon: DIcon(pill ? DIcons.plus : DIcons.farPenToSquare),
-              tooltip: 'New message',
-              shape: pill ? DButtonShape.pill : DButtonShape.rounded,
-              variant: DButtonVariant.primary,
-              size: DButtonSize.action,
+              density: density,
               onPressed: () => _compose(context),
             )
           : DButton.iconOnly(
@@ -64,6 +58,7 @@ class MessageCreateButton extends StatelessWidget {
               tooltip: 'New message',
               variant: DButtonVariant.primary,
               size: DButtonSize.action,
+              density: density,
               onPressed: () => _compose(context),
             );
       return button;

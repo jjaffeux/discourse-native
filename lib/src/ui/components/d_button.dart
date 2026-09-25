@@ -60,6 +60,11 @@ enum DButtonDensity {
   /// The caller supplies the icon capsule and label within the Native kit.
   mobileDock,
 
+  /// The primary action beside a mobile dock: a 44px pill with a 20px icon
+  /// matching the dock's artwork. Icon-only, it fills the slot its parent
+  /// gives it and centres the icon, rather than staying square.
+  mobileDockAction,
+
   /// Short toolbar surfaces: 24px high, 32px wide for icon-only actions,
   /// with 14px icons and at least 48px targets on every platform.
   compactToolbar,
@@ -430,6 +435,8 @@ class DButton extends StatelessWidget {
   /// regular typography. It retains a 48px target and grows with text scaling.
   /// Mobile dock supersedes [size] with a 46px clear surface and 11px label;
   /// DMobileDockItem supplies its selected icon capsule and inline count.
+  /// Mobile dock action supersedes [size] with a 44px surface and 20px icon;
+  /// icon-only, it takes its parent's width with the icon centred.
   /// Compact toolbar supersedes [size] with small typography, 14px icons and
   /// 24px artwork (32px wide for icon-only actions), retaining a 48px target.
   /// Chat message actions use 26px artwork, 11px icons and 6px corners.
@@ -621,6 +628,8 @@ class DButton extends StatelessWidget {
     final variantStyle = _referenceStyle(tokens, dark);
     final mobileNavigation = density == DButtonDensity.mobileNavigation;
     final mobileDock = density == DButtonDensity.mobileDock;
+    final mobileDockAction = density == DButtonDensity.mobileDockAction;
+    final fillsSlot = _iconOnly && mobileDockAction;
     final compactToolbar = density == DButtonDensity.compactToolbar;
     final chatMessageAction = density == DButtonDensity.chatMessageAction;
     final dashedTile = variant == DButtonVariant.dashedTile;
@@ -631,13 +640,13 @@ class DButton extends StatelessWidget {
     final composerBlock = _iconOnly && density == DButtonDensity.composerBlock;
     final effectiveSize = compactToolbar
         ? DButtonSize.small
-        : mobileNavigation || mobileDock || composerBlock
+        : mobileNavigation || mobileDock || mobileDockAction || composerBlock
         ? DButtonSize.regular
         : size;
     final fontSize = dashedTile
         ? DControlStyle.fontSize(DButtonSize.large, context: context)
         : DControlStyle.fontSize(effectiveSize, context: context);
-    final spacingUnit = mobileDock
+    final spacingUnit = mobileDock || mobileDockAction
         ? 20.0
         : mobileNavigation
         ? 18.0
@@ -655,7 +664,7 @@ class DButton extends StatelessWidget {
         ).clamp(
           mobileDock
               ? 46.0
-              : mobileNavigation
+              : mobileNavigation || mobileDockAction
               ? 44.0
               : 0.0,
           double.infinity,
@@ -672,6 +681,7 @@ class DButton extends StatelessWidget {
     final touch =
         mobileNavigation ||
         mobileDock ||
+        mobileDockAction ||
         compactToolbar ||
         DControlStyle.isTouch(context);
     final enabled = onPressed != null && !loading;
@@ -784,17 +794,21 @@ class DButton extends StatelessWidget {
 
     final style = ButtonStyle(
       minimumSize: WidgetStatePropertyAll(
-        _iconOnly && !intrinsicIcon
+        fillsSlot
+            ? Size(48, surfaceHeight)
+            : _iconOnly && !intrinsicIcon
             ? iconOnlySurfaceSize
             : Size(
                 touch && joined?.axis == Axis.horizontal ? 48 : 0,
                 surfaceHeight,
               ),
       ),
-      fixedSize: _iconOnly && !intrinsicIcon
+      fixedSize: _iconOnly && !intrinsicIcon && !fillsSlot
           ? WidgetStatePropertyAll(iconOnlySurfaceSize)
           : null,
-      maximumSize: _iconOnly && !intrinsicIcon
+      maximumSize: fillsSlot
+          ? WidgetStatePropertyAll(Size(double.infinity, surfaceHeight))
+          : _iconOnly && !intrinsicIcon
           ? WidgetStatePropertyAll(iconOnlySurfaceSize)
           : const WidgetStatePropertyAll(Size.infinite),
       padding: WidgetStatePropertyAll(
@@ -966,6 +980,7 @@ class DButton extends StatelessWidget {
           );
     if (mobileNavigation ||
         mobileDock ||
+        mobileDockAction ||
         DControlStyle.isApplicationSize(effectiveSize)) {
       child = DIconGlyphTheme(
         scale: 1,
