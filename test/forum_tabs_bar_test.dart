@@ -10,6 +10,7 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/forum_workspace.dart';
 import 'package:discourse_native/src/models/sidebar.dart';
 import 'package:discourse_native/src/models/site_emoji.dart';
+import 'package:discourse_native/src/shell/avatar_image.dart';
 import 'package:discourse_native/src/shell/forum_tabs_bar.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
@@ -213,6 +214,43 @@ void main() {
         expect(tabRect.right - closeRect.right, 2);
         expect(tester.takeException(), isNull);
       }
+    });
+
+    testWidgets('shows a direct-message avatar at the mockup tab size', (
+      tester,
+    ) async {
+      installTestMediaPipeline(
+        client: MockClient((_) async => http.Response('', 404)),
+      );
+      await _pumpBar(
+        tester,
+        items: const [
+          ForumTabItem(
+            id: 'dm',
+            title: 'tynaut',
+            avatarUrl: 'https://meta.example/avatars/tynaut.png',
+          ),
+        ],
+        selectedId: 'dm',
+      );
+
+      final tab = find.byKey(const ValueKey('forum-tab-item-dm'));
+      final avatar = find.descendant(of: tab, matching: find.byType(DAvatar));
+      final image = find.descendant(
+        of: tab,
+        matching: find.byType(AvatarImage),
+      );
+      expect(tester.getSize(avatar), const Size.square(16));
+      expect(tester.getSize(image), const Size.square(16));
+      expect(
+        tester
+                .getRect(
+                  find.descendant(of: tab, matching: find.text('tynaut')),
+                )
+                .left -
+            tester.getRect(tab).left,
+        2 + 10 + 16 + 7,
+      );
     });
 
     testWidgets('matches shell geometry and places add after the final tab', (

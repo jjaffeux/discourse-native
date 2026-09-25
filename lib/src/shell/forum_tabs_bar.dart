@@ -884,9 +884,8 @@ class _TabSwitcherEmpty extends StatelessWidget {
     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
     child: Text(
       label,
-      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-        color: Theme.of(context).colorScheme.onSurfaceVariant,
-      ),
+      style: Theme.of(context).textTheme.bodySmall
+          ?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
     ),
   );
 }
@@ -1041,6 +1040,7 @@ Widget? _tabPrefix(
   ForumTabItem item,
   Color foreground, {
   double size = 15,
+  double? avatarSize,
 }) {
   final theme = Theme.of(context);
 
@@ -1049,12 +1049,13 @@ Widget? _tabPrefix(
   }
 
   if (item.avatarUrl case final url?) {
+    final dimension = avatarSize ?? size + 1;
     return DAvatar.frame(
       child: SizedBox.square(
-        dimension: size + 1,
+        dimension: dimension,
         child: AvatarImage(
           url: url,
-          size: size + 1,
+          size: dimension,
           fallback: ColoredBox(color: theme.shell.floating),
         ),
       ),
@@ -1474,9 +1475,8 @@ class _ForumTabState extends State<_ForumTab> {
     final painter = TextPainter(
       text: TextSpan(
         text: '${badge.count}',
-        style: Theme.of(
-          context,
-        ).textTheme.labelSmall?.copyWith(fontWeight: FontWeight.w700),
+        style: Theme.of(context).textTheme.labelSmall
+            ?.copyWith(fontWeight: FontWeight.w700),
       ),
       textDirection: DDirection.of(context),
       textScaler: MediaQuery.textScalerOf(context),
@@ -1496,8 +1496,17 @@ class _ForumTabState extends State<_ForumTab> {
     // Keep the title readable before spending narrow-tab space on adornments.
     final compact =
         constraints.maxWidth < MediaQuery.textScalerOf(context).scale(60);
+    final hasAvatar =
+        widget.item.avatarUrl != null && widget.item.prefixBuilder == null;
+    final prefixSize = hasAvatar ? 16.0 : 12.0;
     final prefix = !compact
-        ? _tabPrefix(context, widget.item, foreground, size: 12)
+        ? _tabPrefix(
+            context,
+            widget.item,
+            foreground,
+            size: 12,
+            avatarSize: prefixSize,
+          )
         : null;
     // Tab labels are controls: the same role as DDocumentTab's own default
     // and the drag feedback, so a dragged tab keeps its size.
@@ -1523,7 +1532,10 @@ class _ForumTabState extends State<_ForumTab> {
     return Row(
       children: [
         if (prefix != null) ...[
-          SizedBox.square(dimension: 12, child: Center(child: prefix)),
+          SizedBox.square(
+            dimension: prefixSize,
+            child: Center(child: prefix),
+          ),
           const SizedBox(width: 7),
         ],
         Expanded(
