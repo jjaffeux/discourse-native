@@ -670,6 +670,44 @@ void main() {
     expect(tester.widget<DItem>(row).size, DItemSize.xs);
   });
 
+  testWidgets('Start page remembers its density across page instances', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    final density = find.byKey(const ValueKey('start-page-density'));
+    Future<void> showPage(String key) => tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: NewTabPage(key: ValueKey(key), onBrowseTopics: () {}),
+        ),
+      ),
+    );
+
+    await showPage('first');
+    await tester.pumpAndSettle();
+    expect(tester.widget<DToggleGroup<bool>>(density).values, [true]);
+
+    await tester.tap(find.byTooltip('Comfortable'));
+    await tester.pumpAndSettle();
+    expect(tester.widget<DToggleGroup<bool>>(density).values, [false]);
+    expect(
+      (await SharedPreferences.getInstance()).getBool(
+        'discourse_native.start_page_compact',
+      ),
+      false,
+    );
+
+    await showPage('second');
+    await tester.pumpAndSettle();
+    expect(tester.widget<DToggleGroup<bool>>(density).values, [false]);
+
+    await tester.tap(find.byTooltip('Compact'));
+    await tester.pumpAndSettle();
+    await showPage('third');
+    await tester.pumpAndSettle();
+    expect(tester.widget<DToggleGroup<bool>>(density).values, [true]);
+  });
+
   testWidgets('comfortable mode shows four cards across a full-width section', (
     tester,
   ) async {

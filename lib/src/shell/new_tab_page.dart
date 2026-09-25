@@ -34,15 +34,17 @@ class NewTabPage extends StatefulWidget {
 
 class _NewTabPageState extends State<NewTabPage> {
   static const _dismissedKey = 'discourse_native.panel_tutorial_dismissed';
+  static const _compactKey = 'discourse_native.start_page_compact';
   final _searchPromptFocus = FocusNode(debugLabel: 'start page search prompt');
   bool? _dismissed;
   bool _compact = true;
+  bool _compactChanged = false;
 
   @override
   void initState() {
     super.initState();
     _searchPromptFocus.addListener(_onSearchPromptFocus);
-    unawaited(_loadPreference());
+    unawaited(_loadPreferences());
   }
 
   @override
@@ -63,16 +65,41 @@ class _NewTabPageState extends State<NewTabPage> {
     if (mounted) ShellScope.maybeRead(context)?.search.requestFocus();
   }
 
-  Future<void> _loadPreference() async {
+  Future<void> _loadPreferences() async {
     bool dismissed;
+    bool compact;
     try {
-      dismissed =
-          (await SharedPreferences.getInstance()).getBool(_dismissedKey) ??
-          false;
+      final preferences = await SharedPreferences.getInstance();
+      dismissed = preferences.getBool(_dismissedKey) ?? false;
+      compact = preferences.getBool(_compactKey) ?? true;
     } catch (_) {
       dismissed = false;
+      compact = true;
     }
-    if (mounted) setState(() => _dismissed = dismissed);
+    if (mounted) {
+      setState(() {
+        _dismissed = dismissed;
+        if (!_compactChanged) _compact = compact;
+      });
+    }
+  }
+
+  void _setCompact(bool compact) {
+    if (_compact == compact) return;
+    _compactChanged = true;
+    setState(() => _compact = compact);
+    unawaited(_saveCompact(compact));
+  }
+
+  Future<void> _saveCompact(bool compact) async {
+    try {
+      await (await SharedPreferences.getInstance()).setBool(
+        _compactKey,
+        compact,
+      );
+    } catch (_) {
+      // Keep the selected layout for this page if storage is unavailable.
+    }
   }
 
   Future<void> _dismiss() async {
@@ -357,9 +384,7 @@ class _NewTabPageState extends State<NewTabPage> {
                         key: const ValueKey('start-page-density'),
                         values: [_compact],
                         onChanged: (values) {
-                          if (values.isNotEmpty) {
-                            setState(() => _compact = values.single);
-                          }
+                          if (values.isNotEmpty) _setCompact(values.single);
                         },
                         allowEmptySelection: false,
                         inset: true,
