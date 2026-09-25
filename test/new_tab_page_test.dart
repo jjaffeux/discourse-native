@@ -683,4 +683,42 @@ void main() {
       debugDefaultTargetPlatformOverride = previousPlatform;
     }
   });
+
+  testWidgets('releasing a Start page link below the tab bar opens no tab', (
+    tester,
+  ) async {
+    final previousPlatform = debugDefaultTargetPlatformOverride;
+    debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+    try {
+      SharedPreferences.setMockInitialValues({
+        'discourse_native.panel_tutorial_dismissed': true,
+      });
+      await pumpShell(tester, desktop);
+      final shell = ShellScope.read(
+        tester.element(find.byType(MainContent).first),
+      );
+      shell.selectInstance(0);
+      shell.openTopicUrl('/t/recent-topic/42');
+      shell.pushContent(ContentRoute.newTab());
+      await tester.pumpAndSettle();
+      final before = shell.tabsForCurrentForum.length;
+      final source = find.byKey(const ValueKey('start-page-recent-topic-42'));
+      final tabBar = tester.getRect(find.byType(ForumTabsBar).first);
+      final gesture = await tester.startGesture(tester.getCenter(source));
+      await gesture.moveTo(tabBar.center);
+      await tester.pump();
+      final placeholder = find.byKey(
+        const ValueKey('forum-tab-drop-placeholder'),
+      );
+      expect(placeholder, findsOneWidget);
+      await gesture.moveTo(Offset(tabBar.center.dx, tabBar.bottom + 80));
+      await tester.pump();
+      expect(placeholder, findsNothing);
+      await gesture.up();
+      await tester.pumpAndSettle();
+      expect(shell.tabsForCurrentForum, hasLength(before));
+    } finally {
+      debugDefaultTargetPlatformOverride = previousPlatform;
+    }
+  });
 }
