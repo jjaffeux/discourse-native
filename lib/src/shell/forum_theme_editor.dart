@@ -3,7 +3,10 @@ import 'package:flutter/material.dart';
 
 import '../models/forum_background.dart';
 import '../models/forum_theme.dart';
+import '../theme/app_theme.dart';
+import '../theme/d_icons.dart';
 import 'forum_appearance_effects.dart';
+import 'forum_theme_thumbnail.dart';
 
 /// Edits a draft of one of the user's own themes. The app shows the draft as
 /// it changes, and nothing is stored until Save. Light and dark keep separate
@@ -93,14 +96,24 @@ class _ForumThemeEditorState extends State<ForumThemeEditor> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       spacing: 16,
       children: [
-        Align(
-          alignment: AlignmentDirectional.centerStart,
-          child: DButton(
-            key: const ValueKey('all-themes'),
-            label: const Text('All themes'),
-            variant: DButtonVariant.ghost,
-            onPressed: widget.onCancel,
-          ),
+        Row(
+          children: [
+            DButton(
+              key: const ValueKey('all-themes'),
+              label: const Text('All themes'),
+              icon: const DIcon(DIcons.chevronLeft, size: 11),
+              variant: DButtonVariant.inline,
+              size: DButtonSize.small,
+              onPressed: widget.onCancel,
+            ),
+            const Spacer(),
+            ThemeThumbnail(
+              key: const ValueKey('theme-editor-thumbnail'),
+              theme: AppTheme.fromPalette(
+                palette.colours.resolve(widget.brightness),
+              ),
+            ),
+          ],
         ),
         DInput(
           key: const ValueKey('theme-name'),

@@ -11,55 +11,38 @@ class ThemeThumbnail extends StatelessWidget {
   @override
   Widget build(BuildContext context) => ExcludeSemantics(
     child: SizedBox(
-      width: 44,
-      height: 36,
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(DTokens.of(context).radius),
-        child: ColoredBox(
+      width: 34,
+      height: 34,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
           color: theme.shell.content,
-          child: Padding(
-            padding: const EdgeInsets.all(4),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                SizedBox(
-                  width: 9,
-                  child: ColoredBox(
-                    color:
-                        (theme.extension<ForumThemeEffects>()?.sidebarTheme ??
-                                theme)
-                            .shell
-                            .sidebar,
-                  ),
-                ),
-                const SizedBox(width: 3),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    spacing: 3,
-                    children: [
-                      for (var i = 0; i < 4; i++)
-                        FractionallySizedBox(
-                          alignment: AlignmentDirectional.centerStart,
-                          widthFactor: i.isEven ? 1 : .6,
-                          child: SizedBox(
-                            height: 3,
-                            child: ColoredBox(
-                              color: i == 0
-                                  ? theme.colorScheme.primary
-                                  : theme.colorScheme.onSurface.withValues(
-                                      alpha: .24,
-                                    ),
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
+          border: Border.all(color: DTokens.of(context).border),
+          borderRadius: BorderRadius.circular(9),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 6),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            spacing: 3,
+            children: [
+              _line(20, 3, theme.colorScheme.primary),
+              _line(10, 2, theme.colorScheme.onSurface.withValues(alpha: .45)),
+              _line(16, 2, theme.colorScheme.onSurface.withValues(alpha: .45)),
+            ],
           ),
         ),
+      ),
+    ),
+  );
+
+  Widget _line(double width, double height, Color color) => SizedBox(
+    width: width,
+    height: height,
+    child: DecoratedBox(
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(2),
       ),
     ),
   );
