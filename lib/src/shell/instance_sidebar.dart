@@ -333,6 +333,7 @@ class _SidebarPanelBodyState extends State<_SidebarPanelBody> {
     if (_navigation != navigation) {
       _navigation = navigation;
       _selectedOwner = routedPanel?.owner.value;
+      if (routedPanel != null) _shortcuts = false;
     }
     if (widget.mobile) _selectedOwner = widget.panelOwner;
     final selectedPanel = panels
@@ -342,6 +343,7 @@ class _SidebarPanelBodyState extends State<_SidebarPanelBody> {
     if (selectedPanel == null) _selectedOwner = null;
     final activePanel = selectedPanel;
     final showCoreSections = activePanel == null;
+    final showShortcuts = showCoreSections && _shortcuts;
 
     if (activePanel?.panel.mobileBuilder case final builder?
         when widget.mobile) {
@@ -361,8 +363,9 @@ class _SidebarPanelBodyState extends State<_SidebarPanelBody> {
     };
     // A custom mobile root owns the primary plugin's content. Keep its
     // auxiliary plugins reachable through the main navigation instead.
-    bool includeSidebarOwner(PluginId owner) =>
-        widget.mobile && showCoreSections
+    bool includeSidebarOwner(PluginId owner) => showShortcuts && !widget.mobile
+        ? false
+        : widget.mobile && showCoreSections
         ? mobileNavigationOwners.contains(owner)
         : includePluginOwner(owner);
 
@@ -375,15 +378,36 @@ class _SidebarPanelBodyState extends State<_SidebarPanelBody> {
               (destination) => destination.url != null,
             ))
           SidebarSection(
-            id: 'mobile-shortcuts',
-            title: 'Shortcuts',
-            showHeader: false,
-            collapsible: false,
+            id: widget.mobile ? 'mobile-shortcuts' : 'community-shortcuts',
+            title: section.title,
+            showHeader: !widget.mobile,
+            collapsible: !widget.mobile,
             destinations: section.moreDestinations
                 .where((destination) => destination.url != null)
                 .toList(),
           ),
     ];
+    final forumSections = widget.mobile
+        ? <SidebarSection>[]
+        : [
+            for (final section in sidebar.sections)
+              if (section.id == 'community' &&
+                  section.moreDestinations.any(
+                    (destination) => destination.url != null,
+                  ))
+                SidebarSection(
+                  id: section.id,
+                  title: section.title,
+                  destinations: section.destinations,
+                  moreDestinations: section.moreDestinations
+                      .where((destination) => destination.url == null)
+                      .toList(),
+                  showHeader: section.showHeader,
+                  collapsible: section.collapsible,
+                )
+              else if (!section.id.startsWith('custom-'))
+                section,
+          ];
 
     return DSidebar(
       backgroundColor: ForumWindowBackground.surfaceColor(
@@ -392,7 +416,8 @@ class _SidebarPanelBodyState extends State<_SidebarPanelBody> {
       ),
       width: width,
       collapsible: DSidebarCollapsible.none,
-      semanticLabel: '${activePanel?.panel.label ?? 'Forum'} navigation',
+      semanticLabel:
+          '${showShortcuts ? 'Shortcuts' : activePanel?.panel.label ?? 'Forum'} navigation',
       footer: switch (activePanel) {
         final panel? when !widget.mobile && panel.panel.footerBuilder != null =>
           PluginUiScope.own(
@@ -433,21 +458,26 @@ class _SidebarPanelBodyState extends State<_SidebarPanelBody> {
                     accentColor: sidebar.accentColor!,
                   ),
                 ),
-                if (panels.any((panel) => panel.panel.showSwitch))
-                  DSidebarHeader(
-                    child: _SidebarPanelTabs(
-                      panels: panels,
-                      selectedPanel: selectedPanel,
-                      onSelected: (owner) =>
-                          setState(() => _selectedOwner = owner),
-                    ),
+                DSidebarHeader(
+                  child: _SidebarPanelTabs(
+                    panels: panels,
+                    selectedPanel: selectedPanel,
+                    shortcutsSelected: _shortcuts,
+                    onSelected: (owner) => setState(() {
+                      _shortcuts = owner == 'shortcuts';
+                      _selectedOwner = owner == 'forum' || _shortcuts
+                          ? null
+                          : owner;
+                    }),
                   ),
+                ),
               ],
             ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          if (showUserMenu && showCoreSections) const _SidebarSearchRow(),
+          if (showUserMenu && showCoreSections && !showShortcuts)
+            const _SidebarSearchRow(),
           Expanded(
             child: DSidebarReorderScope(
               key: ValueKey(sidebar.siteUrl),
@@ -473,15 +503,13 @@ class _SidebarPanelBodyState extends State<_SidebarPanelBody> {
                               slivers: [
                                 for (final (sections, loading) in [
                                   (
-                                    widget.mobile
-                                        ? (_shortcuts
-                                              ? customSections
-                                              : <SidebarSection>[])
-                                        : sidebar.sections,
+                                    showShortcuts
+                                        ? customSections
+                                        : forumSections,
                                     false,
                                   ),
                                   (
-                                    widget.mobile && _shortcuts
+                                    showShortcuts
                                         ? <SidebarSection>[]
                                         : sidebar.navigationSections,
                                     sidebar.navigationLoading,
@@ -590,9 +618,10 @@ class _SidebarPanelBodyState extends State<_SidebarPanelBody> {
                               ],
                             ),
                           ),
-                        if (!widget.mobile ||
-                            !showCoreSections ||
-                            mobileNavigationOwners.isNotEmpty)
+                        if ((!widget.mobile ||
+                                !showCoreSections ||
+                                mobileNavigationOwners.isNotEmpty) &&
+                            !showShortcuts)
                           ListenableBuilder(
                             listenable: Listenable.merge(
                               registry.sidebarListenables(
@@ -673,19 +702,25 @@ class _SidebarPanelTabs extends StatelessWidget {
   const _SidebarPanelTabs({
     required this.panels,
     required this.selectedPanel,
+    required this.shortcutsSelected,
     required this.onSelected,
   });
 
   final List<OwnedSidebarPanel> panels;
   final OwnedSidebarPanel? selectedPanel;
-  final ValueChanged<String?> onSelected;
+  final bool shortcutsSelected;
+  final ValueChanged<String> onSelected;
 
   @override
   Widget build(BuildContext context) {
     return DTabs<String>.controlled(
       key: const ValueKey('sidebar-panel-tabs'),
-      value: selectedPanel?.owner.value ?? 'forum',
-      onChanged: (value) => onSelected(value == 'forum' ? null : value),
+      value: shortcutsSelected
+          ? 'shortcuts'
+          : selectedPanel?.owner.value ?? 'forum',
+      onChanged: (value) {
+        if (value != null) onSelected(value);
+      },
       children: [
         DTabList<String>(
           variant: DTabListVariant.line,
@@ -711,6 +746,11 @@ class _SidebarPanelTabs extends StatelessWidget {
                     ],
                   ),
                 ),
+            const DTabTrigger(
+              key: ValueKey('sidebar-panel-switch-shortcuts'),
+              value: 'shortcuts',
+              child: Text('Shortcuts'),
+            ),
           ],
         ),
       ],
