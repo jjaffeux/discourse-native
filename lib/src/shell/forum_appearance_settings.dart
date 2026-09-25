@@ -12,7 +12,6 @@ import '../theme/discourse_typography.dart';
 import 'forum_settings_controller.dart';
 import 'forum_theme_editor.dart';
 import 'forum_theme_picker.dart';
-import 'settings_section.dart';
 import 'shell_scope.dart';
 import 'theme_icons.dart';
 
@@ -325,27 +324,21 @@ class _ForumAppearanceSettingsState extends State<ForumAppearanceSettings> {
                       onCancel: () => _edit(null),
                     )
                   else
-                    SettingsSection(
-                      title: 'Theme',
-                      icon: const ThemeIcon(ThemeIcons.preset),
-                      child: ForumThemePicker(
-                        key: const ValueKey('theme-picker'),
-                        preferences: preferences,
-                        forum: _forumTheme(),
-                        brightness: brightness,
-                        fontFamily: fontFamily,
-                        onForum: () => unawaited(
-                          _save(
-                            _preferences.withSource(ForumThemeSource.forum),
-                          ),
-                        ),
-                        onPreset: (mode, id) =>
-                            unawaited(_save(_preferences.withPreset(mode, id))),
-                        onTheme: (id) =>
-                            unawaited(_save(_preferences.useTheme(id))),
-                        onNewTheme: ({base}) => _newTheme(base: base),
-                        onEdit: _edit,
+                    ForumThemePicker(
+                      key: const ValueKey('theme-picker'),
+                      preferences: preferences,
+                      forum: _forumTheme(),
+                      brightness: brightness,
+                      fontFamily: fontFamily,
+                      onForum: () => unawaited(
+                        _save(_preferences.withSource(ForumThemeSource.forum)),
                       ),
+                      onPreset: (mode, id) =>
+                          unawaited(_save(_preferences.withPreset(mode, id))),
+                      onTheme: (id) =>
+                          unawaited(_save(_preferences.useTheme(id))),
+                      onNewTheme: ({base}) => _newTheme(base: base),
+                      onEdit: _edit,
                     ),
                   if (editing == null) _themeScope(others),
                 ],
