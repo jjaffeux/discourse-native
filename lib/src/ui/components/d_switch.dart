@@ -255,6 +255,7 @@ class _SwitchArtwork extends StatelessWidget {
 /// links in [title] or [subtitle]. Those belong outside this merged control.
 /// [choiceCard] adds the documented clickable border/card composition; this is
 /// a switch composition, not a replacement for the general Field component.
+/// [hoverHighlight] adds a padded, rounded hover surface for settings rows.
 class DSwitchTile extends StatelessWidget {
   const DSwitchTile({
     super.key,
@@ -266,6 +267,7 @@ class DSwitchTile extends StatelessWidget {
     this.readOnly = false,
     this.invalid = false,
     this.choiceCard = false,
+    this.hoverHighlight = false,
     this.leading = false,
     this.size = DSwitchSize.standard,
     this.contentPadding = EdgeInsets.zero,
@@ -280,6 +282,7 @@ class DSwitchTile extends StatelessWidget {
   final bool readOnly;
   final bool invalid;
   final bool choiceCard;
+  final bool hoverHighlight;
   final bool leading;
   final DSwitchSize size;
   final EdgeInsetsGeometry contentPadding;
@@ -312,6 +315,11 @@ class DSwitchTile extends StatelessWidget {
         ),
         padding: choiceCard
             ? const EdgeInsets.all(10).add(contentPadding)
+            : hoverHighlight
+            ? const EdgeInsets.symmetric(
+                horizontal: 14,
+                vertical: 16,
+              ).add(contentPadding)
             : contentPadding,
         decoration: choiceCard
             ? BoxDecoration(
@@ -327,6 +335,13 @@ class DSwitchTile extends StatelessWidget {
                     ? _multiplyAlpha(tokens.muted, 0.5)
                     : value
                     ? _multiplyAlpha(tokens.primary, dark ? 0.1 : 0.05)
+                    : null,
+              )
+            : hoverHighlight
+            ? BoxDecoration(
+                borderRadius: BorderRadius.circular(tokens.radius),
+                color: hovered && enabled && !readOnly && onChanged != null
+                    ? _multiplyAlpha(tokens.muted, 0.5)
                     : null,
               )
             : null,
