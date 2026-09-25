@@ -1,5 +1,7 @@
 opt_out_usage
 
+require "fileutils"
+
 APP_IDENTIFIER = "org.discourse.native"
 DEVELOPER_TEAM_ID = "6T3LU73T8S"
 PROJECT_ROOT = File.expand_path("..", __dir__)
@@ -65,6 +67,22 @@ rescue ArgumentError
   UI.user_error!(
     "The latest #{platform} build number (#{value.inspect}) is not an integer"
   )
+end
+
+def prune_testflight_artifacts(version:, ios_build:, macos_build:)
+  { "ios" => ios_build, "macos" => macos_build }.each do |platform, build|
+    directory = File.join(TESTFLIGHT_OUTPUT, platform)
+    next unless Dir.exist?(directory)
+
+    current = "#{version}-#{build}"
+    Dir.children(directory).each do |name|
+      next if name == "Discourse.app"
+      next unless name.match?(/\A(?:Runner-|Discourse-)/)
+      next if name.start_with?("Runner-#{current}.", "Discourse-#{current}.")
+
+      FileUtils.rm_rf(File.join(directory, name))
+    end
+  end
 end
 
 private_lane :quality_checks do
@@ -247,6 +265,11 @@ lane :beta do |options|
     )
   end
 
+  prune_testflight_artifacts(
+    version: version,
+    ios_build: ios_build,
+    macos_build: macos_build
+  )
   UI.success(
     "Uploaded iOS #{version} (#{ios_build}) and macOS #{version} (#{macos_build}) to TestFlight"
   )
