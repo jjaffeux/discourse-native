@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/plugins/chat/chat_direct_message_search.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
+import 'package:flutter/foundation.dart' show defaultTargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -14,6 +15,7 @@ void main() {
   late StartChattingApi api;
   late ShellController shell;
   final dialog = find.byKey(const ValueKey('chat-new-direct-message-dialog'));
+  final sheet = find.byKey(const ValueKey('chat-new-direct-message-sheet'));
   final search = find.byKey(const ValueKey('chat-new-direct-message-search'));
   final startGroup = find.byKey(
     const ValueKey('chat-new-group-direct-message'),
@@ -325,21 +327,76 @@ void main() {
     expect(find.byType(DAlert), findsNothing);
   });
 
-  testWidgets('typing never resizes or moves the dialog', (tester) async {
+  testWidgets(
+    'typing never resizes or moves the picker',
+    (tester) async {
+      await pump(tester);
+      final surface = defaultTargetPlatform == TargetPlatform.iOS
+          ? sheet
+          : dialog;
+      final bounds = tester.getRect(surface);
+      final input = tester.getRect(search);
+      for (final text in ['m', 'maya', 'nobody', '']) {
+        await tester.enterText(search, text);
+        await tester.pump();
+        expect(tester.getRect(surface), bounds, reason: 'searching "$text"');
+        await tester.pump(const Duration(milliseconds: 350));
+        await tester.pumpAndSettle();
+        expect(tester.getRect(surface), bounds, reason: 'results for "$text"');
+        expect(tester.getRect(search), input, reason: 'results for "$text"');
+      }
+      expect(tester.takeException(), isNull);
+    },
+    variant: const TargetPlatformVariant({
+      TargetPlatform.macOS,
+      TargetPlatform.iOS,
+    }),
+  );
+
+  testWidgets('touch opens a full-height sheet above the keyboard', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
     await pump(tester);
-    final bounds = tester.getRect(dialog);
-    final input = tester.getRect(search);
-    for (final text in ['m', 'maya', 'nobody', '']) {
-      await tester.enterText(search, text);
-      await tester.pump();
-      expect(tester.getRect(dialog), bounds, reason: 'searching "$text"');
-      await tester.pump(const Duration(milliseconds: 350));
-      await tester.pumpAndSettle();
-      expect(tester.getRect(dialog), bounds, reason: 'results for "$text"');
-      expect(tester.getRect(search), input, reason: 'results for "$text"');
-    }
+    final input = find.descendant(
+      of: search,
+      matching: find.byType(EditableText),
+    );
+    expect(dialog, findsNothing);
+    expect(tester.getSize(sheet).height, greaterThan(700));
+    expect(tester.getTopLeft(sheet).dy, closeTo(844 * .11, .1));
+    expect(tester.getTopLeft(sheet).dx, DSpacing.md);
+    expect(tester.widget<EditableText>(input).focusNode.hasFocus, isTrue);
+    expect(tester.testTextInput.isVisible, isTrue);
+
+    tester.view.viewInsets = const FakeViewPadding(bottom: 300);
+    await tester.pumpAndSettle();
+    expect(tester.getTopLeft(sheet).dy, closeTo(844 * .11, .1));
+    expect(tester.getBottomLeft(sheet).dy, lessThanOrEqualTo(544));
+    final list = find.byKey(const ValueKey('chat-new-direct-message-results'));
+    expect(tester.getBottomLeft(list).dy, lessThanOrEqualTo(544));
+    expect(
+      tester.getSize(list).height,
+      greaterThan(tester.getSize(sheet).height / 2),
+      reason: 'results take the space the keyboard leaves',
+    );
+
+    await tester.tap(startGroup);
+    await tester.pumpAndSettle();
+    await query(tester, 'maya');
+    await tester.tap(user('maya'));
+    await tester.pumpAndSettle();
+    expect(tester.getBottomLeft(createGroup).dy, lessThanOrEqualTo(544));
+    expect(tester.widget<DButton>(createGroup).onPressed, isNotNull);
+    expect(tester.widget<EditableText>(input).focusNode.hasFocus, isTrue);
+
+    await tester.tap(find.byTooltip('Close'));
+    await tester.pumpAndSettle();
+    expect(sheet, findsNothing);
     expect(tester.takeException(), isNull);
-  });
+  }, variant: TargetPlatformVariant.only(TargetPlatform.iOS));
 
   testWidgets('narrow RTL and large text keep group controls reachable', (
     tester,

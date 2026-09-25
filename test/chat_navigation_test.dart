@@ -1382,7 +1382,7 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(
-          find.byKey(const ValueKey('chat-new-direct-message-dialog')),
+          find.byKey(const ValueKey('chat-new-direct-message-sheet')),
           findsOneWidget,
         );
         await tester.enterText(
@@ -1401,7 +1401,7 @@ void main() {
         expect(api.directMessageChannelsRequested, ['sam']);
         expect(shell.currentContent?.id, 'chat-c-55');
         expect(
-          find.byKey(const ValueKey('chat-new-direct-message-dialog')),
+          find.byKey(const ValueKey('chat-new-direct-message-sheet')),
           findsNothing,
         );
 

@@ -315,8 +315,12 @@ void main() {
     await tester.tap(action);
     await tester.pumpAndSettle();
     expect(
-      find.byKey(const ValueKey('chat-new-direct-message-dialog')),
+      find.byKey(const ValueKey('chat-new-direct-message-sheet')),
       findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('chat-new-direct-message-dialog')),
+      findsNothing,
     );
     expect(tester.takeException(), isNull);
   });
