@@ -80,14 +80,12 @@ void main() {
   if (uLava > 0.5) {
     float n = (noise4(vec4(pixel / 600.0, 0.0, uTime * 0.018)) + 1.0) / 2.0;
     float distance = abs(n - floor(n * 4.0) / 4.0);
-    float alpha = max(0.0, 1.0 - distance / 0.1) * uIntensity * 0.8;
-    if (alpha < 0.01) alpha = 0.0;
-    alpha = floor(alpha * 255.0 + 0.5) / 255.0 * 0.5;
+    float alpha = (0.18 + max(0.0, 1.0 - distance / 0.1) * 0.4) * uIntensity;
     fragColor = vec4(uAccent * alpha, alpha);
   } else {
     float scale = 0.3 * min(uSize.x, uSize.y) / 1080.0;
     float n = noise2(pixel / max(scale, 0.0001));
-    float alpha = floor(pow(abs(n), 2.2) * uIntensity * 255.0 * 0.5) / 255.0 * 0.5;
+    float alpha = min(abs(n) * uIntensity * 0.42, 0.42);
     fragColor = vec4(vec3(n > 0.0 ? alpha : 0.0), alpha);
   }
 }

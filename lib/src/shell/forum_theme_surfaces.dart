@@ -78,9 +78,9 @@ class _ForumWindowBackgroundState extends State<ForumWindowBackground>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    final background = Theme.of(
-      context,
-    ).extension<ForumThemeEffects>()?.background;
+    final background = Theme.of(context)
+        .extension<ForumThemeEffects>()
+        ?.background;
     final animate =
         context.dependOnInheritedWidgetOfExactType<_ForumCanvas>() == null &&
         background?.effect == ForumBackgroundEffect.gradient &&
@@ -203,7 +203,6 @@ class _GradientPainter extends CustomPainter {
         center,
         radius,
         Paint()
-          ..blendMode = BlendMode.overlay
           ..shader = RadialGradient(
             colors: [
               tint.withValues(alpha: intensity * .55),
