@@ -206,7 +206,10 @@ void main() {
         );
 
         await tester.pumpWidget(
-          _shellSurface(controller, const TopicView(showSidebar: true)),
+          _shellSurface(
+            controller,
+            const TopicView(showSidebar: true, canReply: true),
+          ),
         );
         await tester.pumpAndSettle();
 
@@ -232,6 +235,19 @@ void main() {
             tester.getSize(post).width,
             closeTo(alignment ? 825 : 1056, 0.001),
           );
+          final laneLeft = _laneLeft(1056, alignment);
+          final footer = tester.getRect(
+            find.byKey(const ValueKey('topic-bottom-bar')),
+          );
+          final reply = tester.getRect(
+            find.byKey(const ValueKey('topic-reply-button')),
+          );
+          final progress = tester.getRect(
+            find.byKey(const ValueKey('topic-progress-button')),
+          );
+          expect(footer.width, 1056);
+          expect(reply.left - footer.left, closeTo(laneLeft + 8, 0.001));
+          expect(footer.right - progress.right, closeTo(laneLeft + 8, 0.001));
           expect(topicPostList(tester).controller, same(scroll));
         }
 
