@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/foundation.dart' show defaultTargetPlatform;
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../app_shortcuts.dart';
@@ -242,6 +243,8 @@ class _NewTabPageState extends State<NewTabPage> {
               ? 'Due'
               : 'Reminder',
           description: bookmark.name,
+          reminderAt: bookmark.reminderAt,
+          postNumber: bookmark.postNumber,
           path: bookmark.path,
           onPressed: () => openLink(context, bookmark.path!),
         ),
@@ -256,6 +259,54 @@ class _NewTabPageState extends State<NewTabPage> {
           onPressed: () => shell!.reopenClosedTab(tab.id),
         ),
     ];
+    final primarySections = siteUrl == null
+        ? <_StartSection>[]
+        : <_StartSection>[
+            if (bookmarkRows.isNotEmpty)
+              _StartSection(
+                title: 'Bookmarks',
+                icon: DIcons.bookmark,
+                rows: bookmarkRows,
+                compact: _compact,
+                siteUrl: siteUrl,
+                onHeading: openBookmarks,
+              ),
+            if (categoryRows.isNotEmpty)
+              _StartSection(
+                title: 'Categories',
+                icon: DIcons.tag,
+                rows: categoryRows,
+                compact: _compact,
+                siteUrl: siteUrl,
+                onHeading: openCategories,
+              ),
+            if (hasChat && chatRows.isNotEmpty)
+              _StartSection(
+                title: 'Chat',
+                icon: DIcons.comment,
+                rows: chatRows,
+                compact: _compact,
+                siteUrl: siteUrl,
+                onHeading: openChat,
+              ),
+            if (topicRows.isNotEmpty)
+              _StartSection(
+                title: 'Latest topics',
+                icon: DIcons.layerGroup,
+                rows: topicRows,
+                compact: _compact,
+                siteUrl: siteUrl,
+                onHeading: widget.onBrowseTopics,
+              ),
+            if (visitedRows.isNotEmpty)
+              _StartSection(
+                title: 'Recently visited',
+                icon: DIcons.layerGroup,
+                rows: visitedRows,
+                compact: _compact,
+                siteUrl: siteUrl,
+              ),
+          ];
 
     final tokens = DTokens.of(context);
     return SingleChildScrollView(
@@ -269,7 +320,7 @@ class _NewTabPageState extends State<NewTabPage> {
               padding: const EdgeInsets.all(DSpacing.lg),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
-                spacing: DSpacing.lg,
+                spacing: _compact ? DSpacing.lg : DSpacing.xxl,
                 children: [
                   Row(
                     spacing: DSpacing.md,
@@ -367,84 +418,30 @@ class _NewTabPageState extends State<NewTabPage> {
                         fullWidth: true,
                         siteUrl: siteUrl!,
                       ),
-                    LayoutBuilder(
-                      builder: (context, constraints) {
-                        final columns = constraints.maxWidth >= 1050
-                            ? 3
-                            : constraints.maxWidth >= 650
-                            ? 2
-                            : 1;
-                        final width =
-                            (constraints.maxWidth -
-                                (columns - 1) * DSpacing.lg) /
-                            columns;
-                        return Wrap(
-                          spacing: DSpacing.lg,
-                          runSpacing: DSpacing.xl,
-                          children: [
-                            if (bookmarkRows.isNotEmpty)
-                              SizedBox(
-                                width: width,
-                                child: _StartSection(
-                                  title: 'Bookmarks',
-                                  icon: DIcons.bookmark,
-                                  rows: bookmarkRows,
-                                  compact: _compact,
-                                  siteUrl: siteUrl!,
-                                  onHeading: openBookmarks,
-                                ),
-                              ),
-                            if (categoryRows.isNotEmpty)
-                              SizedBox(
-                                width: width,
-                                child: _StartSection(
-                                  title: 'Categories',
-                                  icon: DIcons.tag,
-                                  rows: categoryRows,
-                                  compact: _compact,
-                                  siteUrl: siteUrl!,
-                                  onHeading: openCategories,
-                                ),
-                              ),
-                            if (hasChat && chatRows.isNotEmpty)
-                              SizedBox(
-                                width: width,
-                                child: _StartSection(
-                                  title: 'Chat',
-                                  icon: DIcons.comment,
-                                  rows: chatRows,
-                                  compact: _compact,
-                                  siteUrl: siteUrl!,
-                                  onHeading: openChat,
-                                ),
-                              ),
-                            if (topicRows.isNotEmpty)
-                              SizedBox(
-                                width: width,
-                                child: _StartSection(
-                                  title: 'Latest topics',
-                                  icon: DIcons.layerGroup,
-                                  rows: topicRows,
-                                  compact: _compact,
-                                  siteUrl: siteUrl!,
-                                  onHeading: widget.onBrowseTopics,
-                                ),
-                              ),
-                            if (visitedRows.isNotEmpty)
-                              SizedBox(
-                                width: width,
-                                child: _StartSection(
-                                  title: 'Recently visited',
-                                  icon: DIcons.layerGroup,
-                                  rows: visitedRows,
-                                  compact: _compact,
-                                  siteUrl: siteUrl!,
-                                ),
-                              ),
-                          ],
-                        );
-                      },
-                    ),
+                    if (_compact)
+                      LayoutBuilder(
+                        builder: (context, constraints) {
+                          final columns = constraints.maxWidth >= 1050
+                              ? 3
+                              : constraints.maxWidth >= 650
+                              ? 2
+                              : 1;
+                          final width =
+                              (constraints.maxWidth -
+                                  (columns - 1) * DSpacing.lg) /
+                              columns;
+                          return Wrap(
+                            spacing: DSpacing.lg,
+                            runSpacing: DSpacing.xl,
+                            children: [
+                              for (final section in primarySections)
+                                SizedBox(width: width, child: section),
+                            ],
+                          );
+                        },
+                      )
+                    else
+                      ...primarySections,
                     _StartSection(
                       title: 'Everything else',
                       icon: DIcons.ellipsis,
@@ -567,6 +564,18 @@ String? _recentRouteUrl(ContentRoute route) {
   return channel == null ? null : '/chat/c/-/${channel.group(1)}';
 }
 
+String _reminderDate(DateTime date) {
+  final local = date.toLocal();
+  final today = DateUtils.dateOnly(DateTime.now());
+  final day = DateUtils.dateOnly(local);
+  final label = day == today
+      ? 'Today'
+      : day == today.add(const Duration(days: 1))
+      ? 'Tomorrow'
+      : DateFormat.yMMMd().format(local);
+  return '$label at ${DateFormat.jm().format(local)}';
+}
+
 class _StartPageEntry {
   const _StartPageEntry({
     required this.id,
@@ -577,6 +586,8 @@ class _StartPageEntry {
     this.count,
     this.time,
     this.description,
+    this.reminderAt,
+    this.postNumber,
     this.path,
   });
 
@@ -602,6 +613,8 @@ class _StartPageEntry {
   final int? count;
   final String? time;
   final String? description;
+  final DateTime? reminderAt;
+  final int? postNumber;
   final String? path;
   final VoidCallback? onPressed;
 }
@@ -625,7 +638,8 @@ class _StartSection extends StatelessWidget {
   final VoidCallback? onHeading;
   final bool fullWidth;
 
-  Widget _row(_StartPageEntry entry) {
+  Widget _row(BuildContext context, _StartPageEntry entry) {
+    if (!compact) return _comfortableRow(context, entry);
     final metadata = (entry.count ?? 0) > 0
         ? DBadge(
             size: DBadgeSize.compact,
@@ -702,6 +716,144 @@ class _StartSection extends StatelessWidget {
           );
   }
 
+  Widget _comfortableRow(BuildContext context, _StartPageEntry entry) {
+    final tokens = DTokens.of(context);
+    final accent = entry.color ?? tokens.primary;
+    final metadata = entry.reminderAt != null
+        ? null
+        : (entry.count ?? 0) > 0
+        ? DBadge(
+            size: DBadgeSize.compact,
+            variant: DBadgeVariant.secondary,
+            child: Text(entry.count.toString()),
+          )
+        : entry.time == null
+        ? null
+        : Text(
+            entry.time!,
+            maxLines: 1,
+            style: TextStyle(color: tokens.mutedForeground),
+          );
+    final row = DItem(
+      key: ValueKey('start-page-recent-${entry.id}'),
+      variant: DItemVariant.muted,
+      shape: DItemShape.card,
+      link: entry.path != null,
+      onPressed: entry.onPressed,
+      dragData: entry.path == null
+          ? null
+          : StartPageDrag(
+              siteUrl: siteUrl,
+              path: entry.path!,
+              title: entry.title,
+            ),
+      dragFeedback: entry.path == null
+          ? null
+          : Transform.translate(
+              offset: const Offset(DSpacing.md, 20),
+              child: ForumTabDragFeedback(
+                key: const ValueKey('start-page-drag-feedback'),
+                item: ForumTabItem(
+                  id: entry.id,
+                  title: entry.title,
+                  icon: entry.icon,
+                  iconColor: entry.color,
+                ),
+                width: ForumTabsBar.maximumTabWidth,
+              ),
+            ),
+      children: [
+        DItemContent(
+          spacing: DSpacing.lg,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                DItemMedia(
+                  child: Container(
+                    width: 44,
+                    height: 44,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: accent.withValues(alpha: .16),
+                      borderRadius: BorderRadius.circular(DRadius.panel),
+                    ),
+                    child: DIcon(entry.icon, size: 22, color: accent),
+                  ),
+                ),
+                const SizedBox(width: DSpacing.md),
+                Expanded(
+                  child: DItemTitle(
+                    maxLines: 2,
+                    child: Text(entry.title, overflow: TextOverflow.ellipsis),
+                  ),
+                ),
+                if (metadata != null) ...[
+                  const SizedBox(width: DSpacing.sm),
+                  metadata,
+                ],
+              ],
+            ),
+            if (entry.reminderAt case final reminder?)
+              DItemDescription(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  spacing: DSpacing.xs,
+                  children: [
+                    Row(
+                      children: [
+                        const DIcon(DIcons.farClock, size: 13),
+                        const SizedBox(width: DSpacing.sm),
+                        Flexible(
+                          child: Text(
+                            _reminderDate(reminder),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                    if (entry.postNumber != null ||
+                        entry.description?.isNotEmpty == true)
+                      Text(
+                        [
+                          if (entry.postNumber case final number?)
+                            'Post #$number',
+                          if (entry.description?.isNotEmpty == true)
+                            entry.description!,
+                        ].join(' · '),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                  ],
+                ),
+              )
+            else if (entry.description?.isNotEmpty == true)
+              DItemDescription(
+                child: Text(
+                  entry.description!,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+          ],
+        ),
+      ],
+    );
+    final card = ConstrainedBox(
+      constraints: const BoxConstraints(minHeight: 160),
+      child: row,
+    );
+    return entry.path == null
+        ? card
+        : LinkTarget(
+            url: entry.path!,
+            title: entry.title,
+            siteUrl: siteUrl,
+            child: card,
+          );
+  }
+
   @override
   Widget build(BuildContext context) {
     final heading = onHeading == null
@@ -737,27 +889,27 @@ class _StartSection extends StatelessWidget {
           );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
-      spacing: DSpacing.sm,
+      spacing: compact ? DSpacing.sm : DSpacing.lg,
       children: [
         heading,
         if (rows.isNotEmpty)
           LayoutBuilder(
             builder: (context, constraints) {
-              final across = fullWidth
-                  ? (constraints.maxWidth / (compact ? 280 : 240))
-                        .floor()
-                        .clamp(1, 4)
-                  : compact
+              final gap = compact ? DSpacing.xs : DSpacing.lg;
+              final across = compact && !fullWidth
                   ? 1
-                  : (constraints.maxWidth / 230).floor().clamp(1, 2);
+                  : ((constraints.maxWidth + gap) / (280 + gap)).floor().clamp(
+                      1,
+                      4,
+                    );
               final width =
-                  (constraints.maxWidth - (across - 1) * DSpacing.xs) / across;
+                  (constraints.maxWidth - (across - 1) * gap) / across;
               return Wrap(
-                spacing: DSpacing.xs,
-                runSpacing: DSpacing.xs,
+                spacing: gap,
+                runSpacing: gap,
                 children: [
                   for (final entry in rows)
-                    SizedBox(width: width, child: _row(entry)),
+                    SizedBox(width: width, child: _row(context, entry)),
                 ],
               );
             },
