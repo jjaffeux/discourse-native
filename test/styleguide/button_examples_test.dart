@@ -13,6 +13,7 @@ void main() {
       'Dashed creation tile',
       'Pill toolbar action',
       'Compact toolbar',
+      'Chat message action',
       'Mobile navigation',
       'Variants',
       'Size',

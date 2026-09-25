@@ -201,7 +201,9 @@ class _ReactionPillState extends State<ReactionPill> {
             builder: (context) => SiteEmojiImage(
               siteUrl: widget.siteUrl,
               name: widget.reaction,
-              size: widget.size == DToggleSize.post
+              size: widget.density == DToggleDensity.chatReaction
+                  ? 12
+                  : widget.size == DToggleSize.post
                   ? 16
                   : IconTheme.of(context).size!,
               alt: ':${widget.reaction}:',

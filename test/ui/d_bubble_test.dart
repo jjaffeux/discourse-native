@@ -54,6 +54,41 @@ void main() {
   );
 
   testWidgets(
+    'neutral conversation bubble has the mockup raised fill and subtle border',
+    (tester) async {
+      await tester.pumpWidget(
+        host(
+          const DBubble(
+            variant: DBubbleVariant.neutral,
+            children: [DBubbleContent(child: Text('Message'))],
+          ),
+        ),
+      );
+      final surface = tester.widget<AnimatedContainer>(
+        find
+            .descendant(
+              of: find.byType(DBubbleContent),
+              matching: find.byType(AnimatedContainer),
+            )
+            .first,
+      );
+      final decoration = surface.decoration! as BoxDecoration;
+      final tokens = DTokens.of(tester.element(find.byType(DBubbleContent)));
+      expect(
+        decoration.color,
+        Color.lerp(tokens.background, tokens.foreground, .10),
+      );
+      expect(
+        decoration.border,
+        Border.all(
+          color: Color.lerp(tokens.background, tokens.foreground, .12)!,
+        ),
+      );
+      expect(decoration.borderRadius, BorderRadius.circular(DRadius.bubble));
+    },
+  );
+
+  testWidgets(
     'compact bubbles reduce height while preserving width and centering',
     (tester) async {
       await tester.pumpWidget(

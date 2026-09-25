@@ -8,6 +8,37 @@ import 'package:flutter_test/flutter_test.dart';
 import 'support/button_surface.dart';
 
 void main() {
+  testWidgets('chat message action matches compact mockup geometry', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light.copyWith(platform: TargetPlatform.macOS),
+        home: Scaffold(
+          body: Center(
+            child: DButton.iconOnly(
+              density: DButtonDensity.chatMessageAction,
+              variant: DButtonVariant.transparentBackground,
+              icon: const Icon(Icons.add_reaction),
+              tooltip: 'Add reaction',
+              onPressed: () {},
+            ),
+          ),
+        ),
+      ),
+    );
+    final surface = find.byWidgetPredicate(
+      (widget) =>
+          widget is AnimatedContainer && widget.decoration is DButtonDecoration,
+    );
+    expect(tester.getSize(surface), const Size.square(26));
+    expect(
+      tester.getSize(find.byIcon(Icons.add_reaction)),
+      const Size.square(11),
+    );
+    expect(buttonSurface(tester).borderRadius, BorderRadius.circular(6));
+  });
+
   testWidgets('dashed tile fills its row and keeps one button target', (
     tester,
   ) async {

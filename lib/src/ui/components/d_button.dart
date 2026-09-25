@@ -62,6 +62,9 @@ enum DButtonDensity {
 
   /// Narrow desktop block actions, retaining regular icons and height.
   composerBlock,
+
+  /// Chat message actions: 26px artwork, 11px icon and 6px corners.
+  chatMessageAction,
 }
 
 @immutable
@@ -423,6 +426,7 @@ class DButton extends StatelessWidget {
   /// regular typography. It retains a 48px target and grows with text scaling.
   /// Compact toolbar supersedes [size] with small typography, 14px icons and
   /// 24px artwork (32px wide for icon-only actions), retaining a 48px target.
+  /// Chat message actions use 26px artwork, 11px icons and 6px corners.
   final DButtonDensity density;
 
   final bool loading;
@@ -611,6 +615,7 @@ class DButton extends StatelessWidget {
     final variantStyle = _referenceStyle(tokens, dark);
     final mobileNavigation = density == DButtonDensity.mobileNavigation;
     final compactToolbar = density == DButtonDensity.compactToolbar;
+    final chatMessageAction = density == DButtonDensity.chatMessageAction;
     final dashedTile = variant == DButtonVariant.dashedTile;
     final intrinsicIcon =
         _iconOnly &&
@@ -627,6 +632,8 @@ class DButton extends StatelessWidget {
         : DControlStyle.fontSize(effectiveSize, context: context);
     final spacingUnit = mobileNavigation
         ? 18.0
+        : chatMessageAction
+        ? 11.0
         : compactToolbar
         ? 14.0
         : DControlStyle.iconDimension(effectiveSize, context: context);
@@ -640,6 +647,10 @@ class DButton extends StatelessWidget {
         ? 50 +
               (MediaQuery.textScalerOf(context).scale(fontSize) - fontSize) *
                   1.5
+        : chatMessageAction
+        ? 26 +
+              (MediaQuery.textScalerOf(context).scale(fontSize) - fontSize) *
+                  1.5
         : standardDimension;
     final touch =
         mobileNavigation || compactToolbar || DControlStyle.isTouch(context);
@@ -649,6 +660,8 @@ class DButton extends StatelessWidget {
         BorderRadius.circular(
           shape == DButtonShape.pill || variant == DButtonVariant.primary
               ? DRadius.pill
+              : chatMessageAction
+              ? 6
               : effectiveSize == DControlSize.tabAction
               ? 9
               : dashedTile

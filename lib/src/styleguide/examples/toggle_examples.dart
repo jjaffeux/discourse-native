@@ -32,6 +32,20 @@ final toggleExamples = ComponentExamples(
       ),
     ),
     StyleguideExample(
+      title: 'Chat reaction',
+      description:
+          'A 24px outlined pill with 12px emoji and count, matching chat messages.',
+      code:
+          "DToggle(density: DToggleDensity.chatReaction, variant: DToggleVariant.outline, icon: Icon(Icons.favorite), child: Text('1'))",
+      builder: (_) => const DToggle(
+        density: DToggleDensity.chatReaction,
+        variant: DToggleVariant.outline,
+        semanticLabel: '1 heart reaction',
+        icon: Icon(Icons.favorite),
+        child: Text('1'),
+      ),
+    ),
+    StyleguideExample(
       title: 'Default',
       description:
           'The frozen lead example: a small outline bookmark toggle with a filled pressed icon.',

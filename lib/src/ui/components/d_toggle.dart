@@ -12,7 +12,8 @@ import '../foundation/tokens.dart';
 enum DToggleVariant { standard, outline, segmented }
 
 /// Reaction chips keep compact artwork, including on touch platforms.
-enum DToggleDensity { standard, reaction, tile }
+/// [chatReaction] matches the chat mockup's 24px pill and 999px radius.
+enum DToggleDensity { standard, reaction, chatReaction, tile }
 
 /// The shared button height scale.
 typedef DToggleSize = DControlSize;
@@ -141,8 +142,9 @@ class DToggle extends StatefulWidget {
   final DToggleVariant variant;
   final DToggleSize size;
 
-  /// Reaction density uses 28px artwork, 18px icons and 12px labels instead
-  /// of [size]. Touch targets remain at least 48px and text scaling grows
+  /// Reaction densities supersede [size]. Chat reactions use 24px artwork,
+  /// 12px emoji/counts and pill corners; ordinary reactions use 28px artwork,
+  /// 18px icons and 12px counts. Touch targets remain at least 48px and scaling grows
   /// the artwork to fit its content.
   final DToggleDensity density;
   final String? semanticLabel;
@@ -241,11 +243,14 @@ class _DToggleState extends State<DToggle> {
     final segmented = widget.variant == DToggleVariant.segmented;
     final outline = tokens.buttonTheme.outline;
     final reaction = widget.density == DToggleDensity.reaction;
+    final chatReaction = widget.density == DToggleDensity.chatReaction;
     final tile = widget.density == DToggleDensity.tile;
     final foreground = segmented
         ? (_current
               ? tokens.foreground
               : Color.lerp(tokens.background, tokens.foreground, .5)!)
+        : chatReaction
+        ? Color.lerp(tokens.background, tokens.foreground, .62)!
         : outlined
         ? outline.foreground
         : tile && !_current
@@ -254,21 +259,29 @@ class _DToggleState extends State<DToggle> {
     final scaler = MediaQuery.textScalerOf(context);
     final visualDimension = tile
         ? 54.0
+        : chatReaction
+        ? (scaler.scale(12) * 1.5 + 6).clamp(24.0, double.infinity)
         : reaction
         ? (scaler.scale(12) * (16 / 12) + 10).clamp(28.0, double.infinity)
         : DControlStyle.scaledHeight(widget.size, scaler, context: context);
     final iconDimension = tile
         ? 20.0
+        : chatReaction
+        ? 12.0
         : reaction
         ? 18.0
         : DControlStyle.iconDimension(widget.size, context: context);
     final fontSize = tile
         ? 11.5
+        : chatReaction
+        ? 12.0
         : reaction
         ? 12.0
         : DControlStyle.fontSize(widget.size, context: context);
     final lineHeight = tile
         ? 17.0
+        : chatReaction
+        ? 18.0
         : reaction
         ? 16.0
         : DControlStyle.lineHeight(widget.size, context: context);
@@ -284,6 +297,12 @@ class _DToggleState extends State<DToggle> {
         ? tokens.destructive.withValues(
             alpha: tokens.destructive.a * (dark ? .5 : 1),
           )
+        : chatReaction && outlined
+        ? Color.lerp(
+            tokens.background,
+            tokens.foreground,
+            activeSurface ? .32 : .22,
+          )!
         : outlined
         ? (activeSurface ? outline.hoverBorder : outline.border)
         : _focusVisible
@@ -300,7 +319,9 @@ class _DToggleState extends State<DToggle> {
     final radius =
         (widget.visualStyle?.borderRadius ??
                 BorderRadius.circular(
-                  outlined
+                  chatReaction
+                      ? 999
+                      : outlined
                       ? tokens.buttonTheme.radius
                       : DControlStyle.radius(tokens, widget.size),
                 ))
@@ -362,6 +383,8 @@ class _DToggleState extends State<DToggle> {
                 : _IconLabel(
                     gap: segmented
                         ? 7
+                        : chatReaction
+                        ? 6
                         : widget.size == DToggleSize.post
                         ? 6
                         : 4,
@@ -394,6 +417,8 @@ class _DToggleState extends State<DToggle> {
           ? EdgeInsets.zero
           : tile
           ? const EdgeInsets.symmetric(horizontal: 4, vertical: 7)
+          : chatReaction
+          ? const EdgeInsets.symmetric(horizontal: 9, vertical: 2)
           : reaction
           ? const EdgeInsets.symmetric(horizontal: 8)
           : DToggle._paddingFor(
@@ -410,6 +435,12 @@ class _DToggleState extends State<DToggle> {
                       _current ? .13 : .08,
                     )
                   : Colors.transparent
+            : chatReaction && outlined
+            ? Color.lerp(
+                tokens.background,
+                tokens.foreground,
+                activeSurface ? .15 : .10,
+              )
             : outlined
             ? (activeSurface ? outline.hover : outline.background)
             : activeSurface
