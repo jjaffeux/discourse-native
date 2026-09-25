@@ -281,6 +281,7 @@ void main() {
     expect(shell.appSettings.limitContentSize, isTrue);
     await tapVisible(tester, find.text('Accessibility'));
     expect(find.byType(DSwitchTile), findsOneWidget);
+    expect(tester.getSize(find.byType(DSwitchTile)).height, lessThan(100));
     await tapVisible(
       tester,
       find.byKey(const ValueKey('disable-gif-animations-switch')),
