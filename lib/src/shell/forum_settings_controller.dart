@@ -91,7 +91,8 @@ final class ForumSettingsController extends FrameSafeNotifier {
       }
       return theme
           .copyWith(
-            background: preferences.source == ForumThemeSource.custom
+            background:
+                draft != null || preferences.source == ForumThemeSource.custom
                 ? theme.background ?? effects
                 : effects,
           )
