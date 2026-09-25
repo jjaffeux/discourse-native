@@ -1637,6 +1637,10 @@ void main() {
       expect(forward, findsOneWidget);
       expect(backward, findsNothing);
       expect(
+        tester.getRect(scroll).right,
+        lessThanOrEqualTo(tester.getRect(forward).left),
+      );
+      expect(
         tester
             .widget<DButton>(
               find.descendant(of: forward, matching: find.byType(DButton)),
@@ -1649,12 +1653,27 @@ void main() {
       await tester.pumpAndSettle();
       expect(position.pixels, greaterThan(0));
       expect(backward, findsOneWidget);
+      expect(
+        tester.getRect(backward).right,
+        lessThanOrEqualTo(tester.getRect(scroll).left),
+      );
       expect(tester.getRect(add), addRect);
 
-      position.jumpTo(position.maxScrollExtent);
-      await tester.pumpAndSettle();
+      for (
+        var attempt = 0;
+        attempt < 30 && forward.evaluate().isNotEmpty;
+        attempt++
+      ) {
+        await tester.tap(forward);
+        await tester.pumpAndSettle();
+      }
+      expect(position.pixels, closeTo(position.maxScrollExtent, 2));
       expect(forward, findsNothing);
       expect(backward, findsOneWidget);
+      final lastTab = tester.getRect(
+        find.byKey(ValueKey('forum-tab-item-${items.last.id}')),
+      );
+      expect(lastTab.right, lessThanOrEqualTo(tester.getRect(scroll).right));
       await tester.tap(backward);
       await tester.pumpAndSettle();
       expect(position.pixels, lessThan(position.maxScrollExtent));
@@ -1677,6 +1696,36 @@ void main() {
         find.byKey(const ValueKey('forum-tabs-scroll-backward')),
         findsNothing,
       );
+    });
+
+    testWidgets('selected final tab is fully visible without a forward arrow', (
+      tester,
+    ) async {
+      final items = [
+        for (var index = 0; index < 12; index++)
+          ForumTabItem(id: 'tab-$index', title: 'Forum tab $index'),
+      ];
+      for (final width in [220.0, 320.0]) {
+        await tester.pumpWidget(const SizedBox.shrink());
+        await _pumpBar(
+          tester,
+          items: items,
+          selectedId: items.last.id,
+          width: width,
+        );
+        final scroll = tester.getRect(
+          find.byKey(const ValueKey('forum-tabs-scroll')),
+        );
+        final lastTab = tester.getRect(
+          find.byKey(ValueKey('forum-tab-item-${items.last.id}')),
+        );
+        expect(lastTab.right, lessThanOrEqualTo(scroll.right));
+        expect(
+          find.byKey(const ValueKey('forum-tabs-scroll-forward')),
+          findsNothing,
+        );
+        expect(tester.takeException(), isNull);
+      }
     });
 
     for (final scale in [2.0, 3.0]) {

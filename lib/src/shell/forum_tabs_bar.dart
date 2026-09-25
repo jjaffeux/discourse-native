@@ -514,6 +514,15 @@ class _ForumTabsBarState extends State<ForumTabsBar> {
                           scaler,
                           context: context,
                         );
+                        final scrollControlWidth = addWidth + 8;
+                        final tabLaneWidth =
+                            constraints.maxWidth -
+                            (widget.showAdd ? addWidth + 6 : 0);
+                        // Keep the arrows beside the viewport when a full
+                        // tab can still fit between them.
+                        final controlsBesideTabs =
+                            tabLaneWidth >=
+                            2 * scrollControlWidth + _minimumTabWidth;
                         // Every tab reserves its close action, even while the
                         // action is hidden, so selection cannot change widths.
                         final closeSlotWidth =
@@ -600,48 +609,103 @@ class _ForumTabsBarState extends State<ForumTabsBar> {
                                   vertical: 10.5,
                                 ),
                                 child: scrollTabs
-                                    ? Stack(
-                                        alignment:
-                                            AlignmentDirectional.centerEnd,
-                                        children: [
-                                          SingleChildScrollView(
-                                            key: const ValueKey(
-                                              'forum-tabs-scroll',
-                                            ),
-                                            controller: _tabsScrollController,
-                                            scrollDirection: Axis.horizontal,
-                                            child: tabs,
-                                          ),
-                                          if (_canScrollBackward)
-                                            PositionedDirectional(
-                                              start: 0,
-                                              top: 0,
-                                              bottom: 0,
-                                              child: _ForumTabScrollButton(
-                                                key: const ValueKey(
-                                                  'forum-tabs-scroll-backward',
+                                    ? controlsBesideTabs
+                                          ? Row(
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.stretch,
+                                              children: [
+                                                SizedBox(
+                                                  width: scrollControlWidth,
+                                                  child: _canScrollBackward
+                                                      ? _ForumTabScrollButton(
+                                                          key: const ValueKey(
+                                                            'forum-tabs-scroll-backward',
+                                                          ),
+                                                          forward: false,
+                                                          onPressed: () =>
+                                                              unawaited(
+                                                                _scrollTabs(-1),
+                                                              ),
+                                                        )
+                                                      : null,
                                                 ),
-                                                forward: false,
-                                                onPressed: () =>
-                                                    unawaited(_scrollTabs(-1)),
-                                              ),
-                                            ),
-                                          if (_canScrollForward)
-                                            PositionedDirectional(
-                                              end: 0,
-                                              top: 0,
-                                              bottom: 0,
-                                              child: _ForumTabScrollButton(
-                                                key: const ValueKey(
-                                                  'forum-tabs-scroll-forward',
+                                                Expanded(
+                                                  child: SingleChildScrollView(
+                                                    key: const ValueKey(
+                                                      'forum-tabs-scroll',
+                                                    ),
+                                                    controller:
+                                                        _tabsScrollController,
+                                                    scrollDirection:
+                                                        Axis.horizontal,
+                                                    child: tabs,
+                                                  ),
                                                 ),
-                                                forward: true,
-                                                onPressed: () =>
-                                                    unawaited(_scrollTabs(1)),
-                                              ),
-                                            ),
-                                        ],
-                                      )
+                                                SizedBox(
+                                                  width: scrollControlWidth,
+                                                  child: _canScrollForward
+                                                      ? _ForumTabScrollButton(
+                                                          key: const ValueKey(
+                                                            'forum-tabs-scroll-forward',
+                                                          ),
+                                                          forward: true,
+                                                          onPressed: () =>
+                                                              unawaited(
+                                                                _scrollTabs(1),
+                                                              ),
+                                                        )
+                                                      : null,
+                                                ),
+                                              ],
+                                            )
+                                          : Stack(
+                                              alignment: AlignmentDirectional
+                                                  .centerEnd,
+                                              children: [
+                                                SingleChildScrollView(
+                                                  key: const ValueKey(
+                                                    'forum-tabs-scroll',
+                                                  ),
+                                                  controller:
+                                                      _tabsScrollController,
+                                                  scrollDirection:
+                                                      Axis.horizontal,
+                                                  child: tabs,
+                                                ),
+                                                if (_canScrollBackward)
+                                                  PositionedDirectional(
+                                                    start: 0,
+                                                    top: 0,
+                                                    bottom: 0,
+                                                    child: _ForumTabScrollButton(
+                                                      key: const ValueKey(
+                                                        'forum-tabs-scroll-backward',
+                                                      ),
+                                                      forward: false,
+                                                      onPressed: () =>
+                                                          unawaited(
+                                                            _scrollTabs(-1),
+                                                          ),
+                                                    ),
+                                                  ),
+                                                if (_canScrollForward)
+                                                  PositionedDirectional(
+                                                    end: 0,
+                                                    top: 0,
+                                                    bottom: 0,
+                                                    child: _ForumTabScrollButton(
+                                                      key: const ValueKey(
+                                                        'forum-tabs-scroll-forward',
+                                                      ),
+                                                      forward: true,
+                                                      onPressed: () =>
+                                                          unawaited(
+                                                            _scrollTabs(1),
+                                                          ),
+                                                    ),
+                                                  ),
+                                              ],
+                                            )
                                     : tabs,
                               ),
                             ),
