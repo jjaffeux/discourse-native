@@ -1,4 +1,5 @@
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/src/models/composer_placement.dart';
 import 'package:discourse_native/src/models/found_user.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/topic.dart';
@@ -772,7 +773,12 @@ void main() {
         final shell = await _shell();
         addTearDown(composer.dispose);
         addTearDown(shell.dispose);
-        await _pumpPanel(tester, shell, composer);
+        await _pumpPanel(
+          tester,
+          shell,
+          composer,
+          placement: ComposerPlacement.bottom,
+        );
         await tester.pump();
 
         final panel = tester.getRect(find.byType(ComposerPanel));
@@ -786,11 +792,61 @@ void main() {
         final cancel = tester.getRect(
           find.byKey(const ValueKey('composer-cancel')),
         );
-        expect(submit.left, closeTo(panel.left + 12, 1));
-        expect(cancel.left, closeTo(submit.right + 6, 1));
+        final footer = tester.getRect(
+          find.byKey(const ValueKey('composer-footer')),
+        );
+        expect(submit.height, closeTo(34, 1));
+        expect(cancel.height, closeTo(34, 1));
+        expect(footer.bottom - submit.bottom, closeTo(10, 1));
+        expect(submit.left, closeTo(panel.left + 16, 1));
+        expect(cancel.left, closeTo(submit.right + 8, 1));
         expect(cancel.center.dy, closeTo(submit.center.dy, 1));
-        expect(toolbar.right, closeTo(panel.right - 12, 1));
+        expect(toolbar.right, closeTo(panel.right - 16, 1));
         expect(toolbar.left, greaterThan(cancel.right));
+
+        final submitButton = tester.widget<DButton>(
+          find.byKey(const ValueKey('composer-submit')),
+        );
+        final cancelButton = tester.widget<DButton>(
+          find.byKey(const ValueKey('composer-cancel')),
+        );
+        expect(submitButton.variant, DButtonVariant.primary);
+        expect(submitButton.size, DButtonSize.action);
+        expect(cancelButton.variant, DButtonVariant.destructive);
+        expect(cancelButton.shape, DButtonShape.pill);
+        expect(cancelButton.size, DButtonSize.action);
+        final tokens = DTokens.of(
+          tester.element(find.byKey(const ValueKey('composer-footer'))),
+        );
+        expect(
+          cancelButton.backgroundColor,
+          Color.lerp(tokens.background, tokens.destructive, .25),
+        );
+        expect(
+          cancelButton.foregroundColor,
+          Color.lerp(tokens.foreground, tokens.destructive, .5),
+        );
+
+        final bold = find.byKey(const ValueKey('composer-format-bold'));
+        final italic = find.byKey(const ValueKey('composer-format-italic'));
+        expect(
+          tester.widget<DButton>(bold).variant,
+          DButtonVariant.transparentBackground,
+        );
+        expect(
+          tester.widget<DButton>(bold).foregroundColor,
+          Color.lerp(tokens.background, tokens.foreground, .5),
+        );
+        expect(
+          tester.getRect(italic).left - tester.getRect(bold).right,
+          closeTo(2, 1),
+        );
+        expect(
+          tester
+              .widget<DButton>(find.byKey(const ValueKey('composer-upload')))
+              .variant,
+          DButtonVariant.transparentBackground,
+        );
         expect(tester.takeException(), isNull);
       },
     );
@@ -1034,6 +1090,7 @@ Future<void> _pumpPanel(
   Size size = const Size(900, 650),
   TextScaler textScaler = TextScaler.noScaling,
   double height = 500,
+  ComposerPlacement placement = ComposerPlacement.right,
 }) async {
   await tester.binding.setSurfaceSize(size);
   addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -1051,7 +1108,11 @@ Future<void> _pumpPanel(
         child: Scaffold(
           body: Align(
             alignment: Alignment.bottomCenter,
-            child: ComposerPanel(composer: composer, height: height),
+            child: ComposerPanel(
+              composer: composer,
+              height: height,
+              placement: placement,
+            ),
           ),
         ),
       ),
