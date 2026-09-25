@@ -573,7 +573,7 @@ class _DToggleGroupState<T extends Object> extends State<DToggleGroup<T>> {
           border: Border.all(
             color: widget.density == DToggleDensity.tile
                 ? tokens.border
-                : Color.lerp(tokens.background, tokens.foreground, .12)!,
+                : Color.lerp(tokens.background, tokens.foreground, .16)!,
           ),
           borderRadius: BorderRadius.circular(10),
         ),
