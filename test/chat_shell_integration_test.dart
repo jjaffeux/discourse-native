@@ -2605,7 +2605,7 @@ void _registerChatShellTests() {
             matching: find.byKey(ChatUserAvatar.onlineRingKey(2)),
           );
           expect(ring, findsOneWidget);
-          expect(tester.getSize(ring), const Size.square(15));
+          expect(tester.getSize(ring), const Size.square(16));
         } finally {
           debugDefaultTargetPlatformOverride = previous;
         }
