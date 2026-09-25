@@ -27,6 +27,7 @@ class TopicBookmarkButton extends StatelessWidget {
     this.variant,
     this.size = DButtonSize.chip,
     this.density = DButtonDensity.standard,
+    this.buttonKey = const ValueKey('topic-bookmark-button'),
   });
 
   final String siteUrl;
@@ -36,6 +37,7 @@ class TopicBookmarkButton extends StatelessWidget {
   final DButtonVariant? variant;
   final DButtonSize size;
   final DButtonDensity density;
+  final Key buttonKey;
 
   @override
   Widget build(BuildContext context) {
@@ -71,7 +73,7 @@ class TopicBookmarkButton extends StatelessWidget {
 
     if (showLabel) {
       return DButton(
-        key: const ValueKey('topic-bookmark-button'),
+        key: buttonKey,
         onPressed: busy ? null : open,
         icon: icon,
         label: Text(topic.hasBookmarks ? 'Bookmarked' : 'Bookmark'),
@@ -88,7 +90,7 @@ class TopicBookmarkButton extends StatelessWidget {
       );
     }
     return DButton.iconOnly(
-      key: const ValueKey('topic-bookmark-button'),
+      key: buttonKey,
       onPressed: busy ? null : open,
       icon: icon,
       tooltip: tooltip,
@@ -211,6 +213,7 @@ class TopicStatusButton extends StatefulWidget {
     this.topicFlags = const [],
     this.variant = DButtonVariant.transparentBackground,
     this.density = DButtonDensity.standard,
+    this.size = DButtonSize.chip,
   });
 
   final String siteUrl;
@@ -218,6 +221,7 @@ class TopicStatusButton extends StatefulWidget {
   final List<PostFlagType> topicFlags;
   final DButtonVariant variant;
   final DButtonDensity density;
+  final DButtonSize size;
 
   @override
   State<TopicStatusButton> createState() => _TopicStatusButtonState();
@@ -485,6 +489,7 @@ class _TopicStatusButtonState extends State<TopicStatusButton> {
             loading: busy,
             variant: widget.variant,
             density: widget.density,
+            size: widget.size,
           ),
         ),
       ),
@@ -499,14 +504,16 @@ class TopicStatusButtonPlaceholder extends StatelessWidget {
     super.key,
     this.variant = DButtonVariant.transparentBackground,
     this.density = DButtonDensity.standard,
+    this.size = DButtonSize.chip,
   });
 
   final DButtonVariant variant;
   final DButtonDensity density;
+  final DButtonSize size;
 
   @override
   Widget build(BuildContext context) =>
-      _topicStatusTrigger(variant: variant, density: density);
+      _topicStatusTrigger(variant: variant, density: density, size: size);
 }
 
 Widget _topicStatusTrigger({
@@ -517,6 +524,7 @@ Widget _topicStatusTrigger({
   bool loading = false,
   required DButtonVariant variant,
   required DButtonDensity density,
+  required DButtonSize size,
 }) => DButton.iconOnly(
   key: key,
   tooltip: 'More topic actions',
@@ -526,7 +534,7 @@ Widget _topicStatusTrigger({
   onPressed: onPressed,
   loading: loading,
   variant: variant,
-  size: DButtonSize.chip,
+  size: size,
   density: density,
   icon: const DIcon(DIcons.wrench, size: 14),
 );
@@ -544,6 +552,7 @@ class TopicNotificationLevelButton extends StatelessWidget {
     this.backgroundColor,
     this.borderColor,
     this.interactiveBackgroundColor,
+    this.buttonKey = const ValueKey('topic-notification-level-button'),
   });
 
   final String siteUrl;
@@ -556,6 +565,7 @@ class TopicNotificationLevelButton extends StatelessWidget {
   final Color? backgroundColor;
   final Color? borderColor;
   final Color? interactiveBackgroundColor;
+  final Key buttonKey;
 
   static const _options = [
     DNotificationLevelOption(
@@ -596,7 +606,7 @@ class TopicNotificationLevelButton extends StatelessWidget {
         return DNotificationLevelMenu<TopicNotificationLevel>(
           key: ValueKey((controller, siteUrl, topic.id, lease.session)),
           semanticLabel: 'Topic notifications',
-          buttonKey: const ValueKey('topic-notification-level-button'),
+          buttonKey: buttonKey,
           showLabel: showLabel,
           showChevron: showChevron,
           variant: variant,

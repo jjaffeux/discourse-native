@@ -20,12 +20,14 @@ class TopicHeaderTags extends StatelessWidget {
     required this.topic,
     required this.onTagNavigate,
     this.editOnTap = false,
+    this.showEditAction = true,
   });
 
   final String siteUrl;
   final TopicDetail topic;
   final TopicTagNavigationCallback onTagNavigate;
   final bool editOnTap;
+  final bool showEditAction;
 
   @override
   Widget build(BuildContext context) => TopicTagMenuAnchor(
@@ -99,6 +101,7 @@ class TopicHeaderTags extends StatelessWidget {
               );
         // The overflow editor keeps editing available in narrow readers.
         final showEdit =
+            showEditAction &&
             !editOnTap &&
             topic.canEditTags &&
             constraints.maxWidth >=
@@ -114,7 +117,8 @@ class TopicHeaderTags extends StatelessWidget {
               labelWidth('# ${tag.name}'),
             ),
         ];
-        var visible = topic.canEditTags && !showEdit && !editOnTap
+        var visible =
+            showEditAction && topic.canEditTags && !showEdit && !editOnTap
             ? 0
             : widths.length;
         while (visible > 0) {
@@ -152,6 +156,7 @@ class TopicHeaderTags extends StatelessWidget {
           final built = GestureDetector(
             behavior: HitTestBehavior.opaque,
             excludeFromSemantics: true,
+            onLongPress: !showEditAction && topic.canEditTags ? open : null,
             onTertiaryTapUp: tag == null
                 ? null
                 : (_) => onTagNavigate(tag, newTab: true),

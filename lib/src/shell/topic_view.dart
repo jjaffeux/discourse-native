@@ -5031,11 +5031,7 @@ class _TopicMap extends StatelessWidget {
     required this.readTimeWordCount,
   });
 
-  static const int _minimumPostsForMapDetails = 3;
-  static const int _minimumLikes = 5;
-  static const int _minimumParticipantCount = 5;
   static const int _maximumVisibleParticipants = 5;
-  static const int _minimumReadMinutes = 3;
 
   final String siteUrl;
   final TopicDetail topic;
@@ -5048,14 +5044,8 @@ class _TopicMap extends StatelessWidget {
     final postMinutes = topic.postsCount * 4 / 60;
     final minutes = (wordMinutes > postMinutes ? wordMinutes : postMinutes)
         .ceil();
-    return minutes > _minimumReadMinutes ? minutes : null;
+    return minutes > 0 ? minutes : null;
   }
-
-  bool get _showLikes =>
-      topic.likeCount > _minimumLikes &&
-      topic.postsCount > _minimumPostsForMapDetails;
-
-  bool get _showUsers => topic.participantCount > _minimumParticipantCount;
 
   Future<void> _toggleSummary(BuildContext context) async {
     final error = await ShellScope.read(context).toggleTopicSummary();
@@ -5070,14 +5060,14 @@ class _TopicMap extends StatelessWidget {
       label: topic.views <= 1 ? 'view' : 'views',
       tooltip: 'Topic views',
     ),
-    if (topic.isNestedView)
+    if (topic.replyCount > 0)
       _TopicMapStat(
         key: const ValueKey('topic-map-replies'),
         value: topic.replyCount,
         label: topic.replyCount == 1 ? 'reply' : 'replies',
         tooltip: 'Replies',
       ),
-    if (_showLikes)
+    if (topic.likeCount > 0)
       _TopicMapStat(
         key: const ValueKey('topic-map-likes'),
         value: topic.likeCount,
@@ -5118,7 +5108,7 @@ class _TopicMap extends StatelessWidget {
             ),
         ],
       ),
-    if (_showUsers)
+    if (topic.participantCount > 0)
       _TopicMapStat(
         key: const ValueKey('topic-map-users'),
         value: topic.participantCount,
@@ -5148,7 +5138,6 @@ class _TopicMap extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final readTime = _readTimeMinutes;
     final pluginActions =
         (PluginScope.maybeOf(context)?.registry ?? PluginRegistry.empty)
@@ -5156,20 +5145,14 @@ class _TopicMap extends StatelessWidget {
 
     return Container(
       key: const ValueKey('topic-map'),
-      padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
-      decoration: BoxDecoration(
-        border: Border(top: BorderSide(color: theme.shell.divider)),
-      ),
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 18),
       child: ForumTabLayoutBuilder(
         builder: (context, constraints) {
           final breakpointWidth = ContentReadingLane.breakpointWidthOf(
             context,
             constraints.maxWidth,
           );
-          final showAvatars =
-              breakpointWidth >= 520 &&
-              topic.postsCount >= _minimumPostsForMapDetails &&
-              topic.participants.length >= 2;
+          final showAvatars = topic.participants.isNotEmpty;
           final details = Wrap(
             spacing: 12,
             runSpacing: 8,
@@ -5183,6 +5166,7 @@ class _TopicMap extends StatelessWidget {
                   _TopicParticipantAvatar(
                     participant: participant,
                     siteUrl: siteUrl,
+                    size: 24,
                   ),
             ],
           );
@@ -5311,7 +5295,7 @@ class _TopicParticipantAvatar extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final avatar = DTooltip(
-      message: '@${participant.username}',
+      message: participant.displayName,
       child: DAvatar.frame(
         child: SizedBox.square(
           dimension: size,
@@ -5322,7 +5306,9 @@ class _TopicParticipantAvatar extends StatelessWidget {
               color: theme.shell.floating,
               child: Center(
                 child: Text(
-                  participant.username.characters.first.toUpperCase(),
+                  participant.username.isEmpty
+                      ? '?'
+                      : participant.username.characters.first.toUpperCase(),
                   style: theme.textTheme.labelMedium?.copyWith(
                     fontWeight: FontWeight.w700,
                   ),

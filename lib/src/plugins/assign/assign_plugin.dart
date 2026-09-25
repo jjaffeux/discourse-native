@@ -449,7 +449,7 @@ final class AssignPlugin
               : canAssign
               ? 'Assign topic'
               : 'Manage assignments',
-          size: DButtonSize.chip,
+          size: anchorContext.isTouch ? DButtonSize.chip : DButtonSize.filter,
           variant: anchorContext.isTouch
               ? DButtonVariant.outline
               : DButtonVariant.ghost,
