@@ -103,7 +103,6 @@ void main() {
     expect(tester.getTopLeft(tint).dx, lessThan(tester.getTopLeft(opacity).dx));
     expect(find.byKey(const ValueKey('theme-opacity')), findsOneWidget);
     expect(find.byKey(const ValueKey('theme-texture')), findsOneWidget);
-    expect(find.byKey(const ValueKey('theme-save')), findsOneWidget);
     expect(
       tester.widget<DInput>(find.byKey(const ValueKey('theme-name'))).hintText,
       'Name this theme',
@@ -113,14 +112,37 @@ void main() {
     await tester.ensureVisible(sidebarToggle);
     expect(tester.getSize(sidebarToggle).width, lessThan(240));
     await tapVisible(tester, find.text('Darker'));
+    final save = find.byKey(const ValueKey('theme-save'));
+    final description = find.text(
+      'Starts from the theme in use. Name it to keep it.',
+    );
+    expect(tester.widget<DButton>(save).variant, DButtonVariant.primary);
+    expect(tester.widget<DButton>(save).onPressed, isNull);
+    expect(find.byKey(const ValueKey('theme-cancel')), findsNothing);
+    final footerRow = find.byWidgetPredicate(
+      (widget) =>
+          widget is Row &&
+          widget.children.any(
+            (child) =>
+                child is DButton && child.key == const ValueKey('theme-save'),
+          ),
+    );
+    expect(
+      find.descendant(of: footerRow, matching: description),
+      findsOneWidget,
+    );
     await tapVisible(tester, find.text('Paper'));
     final name = find.descendant(
       of: find.byKey(const ValueKey('theme-name')),
       matching: find.byType(EditableText),
     );
+    await tester.enterText(name, '   ');
+    await tester.pumpAndSettle();
+    expect(tester.widget<DButton>(save).onPressed, isNull);
     await tester.enterText(name, 'My theme');
     await tester.pumpAndSettle();
-    await tapVisible(tester, find.byKey(const ValueKey('theme-save')));
+    expect(tester.widget<DButton>(save).onPressed, isNotNull);
+    await tapVisible(tester, save);
     expect(shell.forumSettings.themesFor(site).customTheme?.name, 'My theme');
     expect(
       shell.forumSettings
@@ -165,7 +187,8 @@ void main() {
     await tapVisible(tester, find.byKey(ValueKey(('edit-theme', theme.id))));
     expect(find.byType(ForumThemeEditor), findsOneWidget);
     expect(find.byKey(const ValueKey('appearance-mode')), findsNothing);
-    await tapVisible(tester, find.byKey(const ValueKey('theme-cancel')));
+    expect(find.byKey(const ValueKey('theme-cancel')), findsNothing);
+    await tapVisible(tester, find.byKey(const ValueKey('all-themes')));
     expect(find.byKey(const ValueKey('appearance-mode')), findsOneWidget);
   });
 
