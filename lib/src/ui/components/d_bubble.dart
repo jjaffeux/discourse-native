@@ -279,7 +279,7 @@ class _DBubbleContentState extends State<DBubbleContent> {
         background: mix(
           tokens.background,
           tokens.foreground,
-          active ? .10 : .06,
+          active ? .14 : .10,
         ),
         foreground: tokens.foreground,
         border: mix(tokens.background, tokens.foreground, .12),

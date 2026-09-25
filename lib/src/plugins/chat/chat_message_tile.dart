@@ -512,6 +512,7 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
           tooltip: 'Add reaction',
           icon: const DIcon(DIcons.farFaceSmile),
           size: DButtonSize.regular,
+          density: DButtonDensity.chatMessageAction,
           variant: DButtonVariant.transparentBackground,
           onPressed: !enabled || _reactionPickerOpening
               ? null
@@ -1018,8 +1019,12 @@ class _Tile extends StatelessWidget {
   Widget _conversationMessage(BuildContext context, {required bool outgoing}) {
     final theme = Theme.of(context);
     final reserveActions = message.isOptimistic && !context.isTouch;
-    Widget? pendingAction(DIconData icon, DButtonSize size, String label) =>
-        reserveActions
+    Widget? pendingAction(
+      DIconData icon,
+      DButtonSize size,
+      String label, {
+      DButtonDensity density = DButtonDensity.standard,
+    }) => reserveActions
         ? Visibility(
             visible: false,
             maintainSize: true,
@@ -1029,6 +1034,7 @@ class _Tile extends StatelessWidget {
               icon: DIcon(icon),
               tooltip: label,
               size: size,
+              density: density,
               variant: DButtonVariant.transparentBackground,
               onPressed: null,
             ),
@@ -1043,7 +1049,12 @@ class _Tile extends StatelessWidget {
         );
     final react =
         messageReaction ??
-        pendingAction(DIcons.farFaceSmile, DButtonSize.regular, 'Add reaction');
+        pendingAction(
+          DIcons.farFaceSmile,
+          DButtonSize.regular,
+          'Add reaction',
+          density: DButtonDensity.chatMessageAction,
+        );
     final bubbleAlign = outgoing ? DBubbleAlign.end : DBubbleAlign.start;
     final target = message.threadId == null
         ? ChatChannelTarget(message.channelId)
@@ -1452,7 +1463,7 @@ class _Reactions extends StatelessWidget {
       for (final reaction in message.reactions)
         ReactionPill(
           key: ValueKey('chat-reaction-pill-${message.id}-${reaction.emoji}'),
-          density: DToggleDensity.reaction,
+          density: DToggleDensity.chatReaction,
           siteUrl: siteUrl,
           reaction: reaction.emoji,
           count: reaction.count,

@@ -98,6 +98,32 @@ void main() {
     });
   }
 
+  testWidgets('chat reaction density matches the mockup pill', (tester) async {
+    await mount(
+      tester,
+      const DToggle(
+        density: DToggleDensity.chatReaction,
+        variant: DToggleVariant.outline,
+        icon: Icon(Icons.favorite),
+        child: Text('2'),
+      ),
+    );
+    final artwork = find.descendant(
+      of: find.byType(DToggle),
+      matching: find.byType(AnimatedContainer),
+    );
+    expect(tester.getSize(artwork).height, 24);
+    final decoration =
+        tester.widget<AnimatedContainer>(artwork).decoration! as BoxDecoration;
+    expect(decoration.borderRadius, BorderRadius.circular(999));
+    expect(
+      tester.getRect(find.byIcon(Icons.favorite)).left -
+          tester.getRect(artwork).left,
+      10,
+    );
+    expect(tester.getSize(find.byIcon(Icons.favorite)).width, 12);
+  });
+
   testWidgets('icon toggles fit collapsing widths in both directions', (
     tester,
   ) async {
@@ -769,6 +795,7 @@ void main() {
     expect(componentExamples['toggle'], same(toggleExamples));
     expect(toggleExamples.examples.map((example) => example.title), [
       'Reaction',
+      'Chat reaction',
       'Default',
       'Outline',
       'With Text',

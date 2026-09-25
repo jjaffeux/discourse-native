@@ -782,16 +782,30 @@ void main() {
       final pill = find.byType(ReactionPill);
       expect(
         tester.widget<ReactionPill>(pill).density,
-        DToggleDensity.reaction,
+        DToggleDensity.chatReaction,
       );
       final emoji = find.descendant(
         of: pill,
         matching: find.byType(SiteEmojiImage),
       );
-      expect(tester.widget<SiteEmojiImage>(emoji).size, 18);
+      expect(tester.widget<SiteEmojiImage>(emoji).size, 12);
+      final toggle = find.descendant(of: pill, matching: find.byType(DToggle));
+      final artwork = find.descendant(
+        of: toggle,
+        matching: find.byType(AnimatedContainer),
+      );
+      expect(tester.getSize(artwork).height, 24);
+      final decoration =
+          tester.widget<AnimatedContainer>(artwork).decoration!
+              as BoxDecoration;
+      expect(decoration.borderRadius, BorderRadius.circular(999));
 
       await _hoverMessage(tester);
       expect(find.bySemanticsLabel('Add reaction'), findsOneWidget);
+      final reactionAction = tester.widget<DButton>(
+        find.byKey(const ValueKey('chat-message-react-7')),
+      );
+      expect(reactionAction.density, DButtonDensity.chatMessageAction);
       expect(
         tester.getSemantics(find.bySemanticsLabel('2 clap reactions')),
         isSemantics(hint: 'add this reaction'),
@@ -841,7 +855,7 @@ void main() {
 
         final action = find.byTooltip('Add reaction');
         expect(action, findsOneWidget);
-        expect(tester.getSize(action), HoverActionButton.size);
+        expect(tester.getSize(action), const Size.square(26));
         expect(
           tester
               .widget<DIcon>(
