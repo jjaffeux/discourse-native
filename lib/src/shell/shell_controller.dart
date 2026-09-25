@@ -54,6 +54,7 @@ import '../models/discourse_instance.dart';
 import '../models/discourse_user.dart';
 import '../models/do_not_disturb.dart';
 import '../models/forum_workspace.dart';
+import '../models/found_group.dart';
 import '../models/found_hashtag.dart';
 import '../models/found_user.dart';
 import '../models/group_route.dart';
@@ -465,12 +466,13 @@ class ShellController extends FrameSafeNotifier
     );
   }
 
-  static Iterable<int> _cookingTopicIds(String raw) => RegExp(r'topic:(\d+)')
-      .allMatches(raw)
-      .take(128)
-      .map((match) => int.tryParse(match[1]!))
-      .whereType<int>()
-      .toSet();
+  static Iterable<int> _cookingTopicIds(String raw) =>
+      RegExp(r'topic:(\d+)')
+          .allMatches(raw)
+          .take(128)
+          .map((match) => int.tryParse(match[1]!))
+          .whereType<int>()
+          .toSet();
 
   static Set<String> _cookingUsernames(String raw) => {
     for (final match in RegExp(
@@ -8432,8 +8434,7 @@ class ShellController extends FrameSafeNotifier
         instance?.user?.canSendPrivateMessages != true ||
         route?.isTopic != false ||
         tabId == null ||
-        feedId == null ||
-        recipients.isEmpty) {
+        feedId == null) {
       return;
     }
 
@@ -8452,7 +8453,7 @@ class ShellController extends FrameSafeNotifier
     _setComposer(composer);
     _notify();
     _composerDrafts.startRestore(composer);
-    composer.requestFocus();
+    if (recipients.isNotEmpty) composer.requestFocus();
   }
 
   Future<void> openNewTopic() =>
@@ -8905,9 +8906,8 @@ class ShellController extends FrameSafeNotifier
       selectedTagIds: composer.tags.map((tag) => tag.id).whereType<int>(),
       // Core rejects a page larger than the site's own setting outright, so
       // the site sets this and the client only caps what it will render.
-      limit: siteConfigFor(
-        target.siteUrl,
-      ).maxTagSearchResults.clamp(1, TopicTagSearch.maximumResults),
+      limit: siteConfigFor(target.siteUrl).maxTagSearchResults
+          .clamp(1, TopicTagSearch.maximumResults),
     );
   }
 
@@ -8930,9 +8930,8 @@ class ShellController extends FrameSafeNotifier
       term: term,
       categoryId: categoryId,
       selectedTagIds: selectedTags.map((tag) => tag.id).whereType<int>(),
-      limit: siteConfigFor(
-        siteUrl,
-      ).maxTagSearchResults.clamp(1, TopicTagSearch.maximumResults),
+      limit: siteConfigFor(siteUrl).maxTagSearchResults
+          .clamp(1, TopicTagSearch.maximumResults),
     );
   }
 
@@ -8966,9 +8965,9 @@ class ShellController extends FrameSafeNotifier
     ComposerController composer,
     int? categoryId,
   ) async {
-    final category = topicComposerCategories(
-      composer.target.siteUrl,
-    ).where((category) => category.id == categoryId).firstOrNull;
+    final category = topicComposerCategories(composer.target.siteUrl)
+        .where((category) => category.id == categoryId)
+        .firstOrNull;
     composer.setCategory(
       categoryId,
       minimumRequiredTags: category?.minimumRequiredTags ?? 0,
@@ -9393,9 +9392,8 @@ class ShellController extends FrameSafeNotifier
           term: tag.name,
           categoryId: categoryId,
           selectedTagIds: selected.map((item) => item.id).whereType<int>(),
-          limit: siteConfigFor(
-            siteUrl,
-          ).maxTagSearchResults.clamp(1, TopicTagSearch.maximumResults),
+          limit: siteConfigFor(siteUrl).maxTagSearchResults
+              .clamp(1, TopicTagSearch.maximumResults),
         );
         final match = result.results
             .where(
@@ -9660,9 +9658,8 @@ class ShellController extends FrameSafeNotifier
 
     var match = raw.indexOf(firstLine);
     if (match < 0) {
-      match = _plainQuoteCharacters(
-        raw,
-      ).indexOf(_plainQuoteCharacters(firstLine));
+      match = _plainQuoteCharacters(raw)
+          .indexOf(_plainQuoteCharacters(firstLine));
     }
     return match < 0 ? 0 : raw.lastIndexOf('\n', match - 1) + 1;
   }
@@ -13441,6 +13438,42 @@ class ShellController extends FrameSafeNotifier
       }
     } finally {
       if (!isDisposed) lease.commit(() => inFlight.removeAll(ask));
+    }
+  }
+
+  Future<FoundUsersAndGroups> searchMessageRecipients({
+    required String siteUrl,
+    required String term,
+  }) async {
+    final lease = lifecycle.capture(siteUrl);
+    try {
+      final credential = await _readSessionValue(
+        lease,
+        () => authenticator.apiKeyFor(siteUrl),
+      );
+      if (credential == null) return const FoundUsersAndGroups();
+      final identity = await _readSessionValue(lease, authenticator.clientId);
+      if (identity == null || !lease.isCurrent) {
+        return const FoundUsersAndGroups();
+      }
+      final found = await api.search.searchUsersAndGroups(
+        siteUrl: siteUrl,
+        term: term,
+        limit: 20,
+        apiKey: credential.value,
+        clientId: identity.value,
+      );
+      return lease.isCurrent ? found : const FoundUsersAndGroups();
+    } catch (error, stackTrace) {
+      if (!isDisposed && lease.isCurrent) {
+        _reportOperationalError(
+          error,
+          stackTrace,
+          'message.recipients.search',
+          severity: DiagnosticSeverity.warning,
+        );
+      }
+      return const FoundUsersAndGroups();
     }
   }
 

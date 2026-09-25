@@ -729,6 +729,50 @@ void main() {
   });
 
   group('private message drafts', () {
+    test(
+      'recipients can be chosen after opening and restored from a draft',
+      () {
+        final composer = ComposerController(
+          const ComposerTarget(
+            siteUrl: 'https://meta.discourse.org',
+            topicId: 0,
+            slug: '',
+            topicTitle: 'New message',
+            mode: ComposerMode.privateMessage,
+            targetRecipients: '',
+          ),
+        );
+        addTearDown(composer.dispose);
+
+        composer.title.text = 'A private subject';
+        composer.text.text = 'Hello team';
+        expect(composer.canSubmit, isFalse);
+        composer.setRecipients(['alex', 'sam', 'alex']);
+        expect(composer.target.targetRecipients, 'alex,sam');
+        expect(composer.draft.recipients, 'alex,sam');
+        expect(composer.canSubmit, isTrue);
+        composer.setRecipients([]);
+        expect(composer.canSubmit, isFalse);
+
+        final restored = ComposerController(composer.target);
+        addTearDown(restored.dispose);
+        expect(
+          restored.restore(
+            const ComposerDraft(
+              reply: 'Hello team',
+              title: 'A private subject',
+              action: ComposerDraft.privateMessageAction,
+              archetypeId: ComposerDraft.privateMessageArchetype,
+              recipients: 'alex,sam',
+            ),
+          ),
+          isTrue,
+        );
+        expect(restored.target.targetRecipients, 'alex,sam');
+        expect(restored.canSubmit, isTrue);
+      },
+    );
+
     testWidgets('retain their recipient in a portable draft', (tester) async {
       final composer = ComposerController(
         const ComposerTarget(

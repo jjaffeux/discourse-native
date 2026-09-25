@@ -40,6 +40,7 @@ import 'composer_lists.dart';
 import 'composer_marks.dart';
 import 'composer_media_editing_coordinator.dart';
 import 'composer_quotes.dart';
+import 'composer_recipients.dart';
 import 'composer_reply_context.dart';
 import 'composer_selection_menu.dart';
 import 'composer_slash_menu.dart';
@@ -280,24 +281,7 @@ class ComposerPanel extends StatelessWidget {
                                   ),
                                 ),
                               if (target.isPrivateMessage)
-                                Padding(
-                                  padding: const EdgeInsets.fromLTRB(
-                                    16,
-                                    2,
-                                    16,
-                                    6,
-                                  ),
-                                  child: InputDecorator(
-                                    key: const ValueKey(
-                                      'composer-private-message-recipients',
-                                    ),
-                                    decoration: const InputDecoration(
-                                      isDense: true,
-                                      labelText: 'To',
-                                    ),
-                                    child: Text(target.targetRecipients!),
-                                  ),
-                                ),
+                                ComposerRecipients(composer: composer),
                               if ((!mobile &&
                                       (target.isNewTopic ||
                                           target.editsTopicMetadata)) ||
@@ -641,9 +625,8 @@ class _MobileComposerViewportState extends State<_MobileComposerViewport> {
               controller: _scroll,
               showScrollbar: false,
               child: ScrollConfiguration(
-                behavior: ScrollConfiguration.of(
-                  context,
-                ).copyWith(scrollbars: false),
+                behavior: ScrollConfiguration.of(context)
+                    .copyWith(scrollbars: false),
                 child: CustomScrollView(
                   key: const ValueKey('composer-mobile-scroll'),
                   controller: _scroll,
@@ -4015,9 +3998,9 @@ class _Toolbar extends StatelessWidget {
     final options = registry.composerOptions(context, composer);
     final emojiEnabled =
         !composer.target.isTaxonomyEdit &&
-        ShellScope.read(
-          context,
-        ).siteConfigFor(composer.target.siteUrl).emojiEnabled;
+        ShellScope.read(context)
+            .siteConfigFor(composer.target.siteUrl)
+            .emojiEnabled;
     final uploadsEnabled = composer.imageUploader != null;
     return _ComposerToolbarOverflow(
       children: [
@@ -4381,9 +4364,8 @@ Color _composerFooterColor(BuildContext context) =>
     ForumWindowBackground.footerColor(
       context,
       Color.alphaBlend(
-        DTokens.of(
-          context,
-        ).foreground.withValues(alpha: context.isTouch ? 0.04 : 0.025),
+        DTokens.of(context).foreground
+            .withValues(alpha: context.isTouch ? 0.04 : 0.025),
         Theme.of(context).shell.content,
       ),
     );

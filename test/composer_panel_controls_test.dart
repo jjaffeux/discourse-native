@@ -1,4 +1,5 @@
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/src/models/found_user.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/shell/avatar_image.dart';
@@ -941,6 +942,48 @@ void main() {
       expect(find.text('Category'), findsNothing);
       expect(find.text('Tag'), findsNothing);
       expect(find.text('Write your message…'), findsOneWidget);
+    });
+
+    testWidgets('selects message recipients inside the composer', (
+      tester,
+    ) async {
+      final composer = ComposerController(
+        _privateMessageTarget.withRecipients(''),
+      );
+      final api = FakeDiscourseApi(
+        userSearches: {
+          'alex': [const FoundUser(username: 'alex')],
+        },
+      );
+      final shell = ShellController(
+        instanceStore: FakeInstanceStore(),
+        api: api,
+        authenticator: FakeAuthenticator()
+          ..keys['https://meta.discourse.org'] = 'api-key',
+        drafts: FakeDraftStore(),
+        trackers: FakeSiteTracker.reset(),
+      );
+      await shell.load();
+      addTearDown(composer.dispose);
+      addTearDown(shell.dispose);
+      await _pumpPanel(tester, shell, composer);
+
+      expect(composer.target.targetRecipients, '');
+      expect(composer.canSubmit, isFalse);
+      await tester.enterText(
+        find.byKey(const ValueKey('composer-recipients-input')),
+        'alex',
+      );
+      await tester.pumpAndSettle();
+      expect(
+        api.userSearchesRequested,
+        contains((term: 'alex', topicId: null)),
+      );
+      await tester.tap(find.text('alex').last);
+      await tester.pumpAndSettle();
+      expect(composer.target.targetRecipients, 'alex');
+      expect(composer.draft.recipients, 'alex');
+      expect(find.text('alex'), findsWidgets);
     });
   });
 }

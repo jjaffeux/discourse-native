@@ -79,8 +79,9 @@ final class ComposerValidationContext {
   final int completedUploadCount;
 }
 
-typedef ComposerTargetValidator =
-    bool Function(ComposerValidationContext context);
+typedef ComposerTargetValidator = bool Function(
+  ComposerValidationContext context,
+);
 
 @immutable
 final class ComposerTargetPolicy {
@@ -248,6 +249,19 @@ class ComposerTarget {
       draftKey: _draftKey,
     );
   }
+
+  ComposerTarget withRecipients(String recipients) => ComposerTarget(
+    siteUrl: siteUrl,
+    tabId: tabId,
+    topicId: topicId,
+    slug: slug,
+    topicTitle: topicTitle,
+    mode: mode,
+    originFeedId: originFeedId,
+    originTopicId: originTopicId,
+    targetRecipients: recipients,
+    draftKey: _draftKey,
+  );
 }
 
 @immutable
@@ -365,6 +379,7 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
        _categoryId = _target.initialCategoryId,
        _tags = List.unmodifiable(_target.initialTags),
        _originalTitle = _target.editsTopicMetadata ? _target.topicTitle : '',
+       _originalRecipients = _target.targetRecipients ?? '',
        _originalCategoryId = _target.initialCategoryId,
        _originalTags = List.unmodifiable(_target.initialTags),
        _whisper = _target.replyingToWhisper,
@@ -511,6 +526,7 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
   void toggleWhisper() => setWhisper(!_whisper);
 
   String _originalTitle;
+  final String _originalRecipients;
   int? _originalCategoryId;
   List<TopicTag> _originalTags;
   int _minimumRequiredTags;
@@ -526,6 +542,8 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
   /// whether Discard needs confirmation.
   bool get hasChanges =>
       text.text.trim() != (_originalRaw ?? '').trim() ||
+      (_target.isPrivateMessage &&
+          _target.targetRecipients != _originalRecipients) ||
       ((_target.createsTopic || _target.editsTopicMetadata) &&
           title.text.trim() != _originalTitle.trim());
 
@@ -561,7 +579,9 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
       !_disposed &&
       (!_target.isPrivateMessage ||
           (draft.archetypeId == ComposerDraft.privateMessageArchetype &&
-              draft.recipients?.trim() == _target.targetRecipients?.trim()));
+              (_target.targetRecipients?.isEmpty == true ||
+                  draft.recipients?.trim() ==
+                      _target.targetRecipients?.trim())));
 
   bool _discarding = false;
   bool get discarding => _discarding;
@@ -688,6 +708,18 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
 
   ComposerTarget _target;
   ComposerTarget get target => _target;
+
+  void setRecipients(Iterable<String> values) {
+    if (_disposed || !_target.isPrivateMessage || !isEditing) return;
+    final recipients = values
+        .map((value) => value.trim())
+        .where((value) => value.isNotEmpty)
+        .toSet()
+        .join(',');
+    if (recipients == _target.targetRecipients) return;
+    _target = _target.withRecipients(recipients);
+    _onMetadataChanged();
+  }
 
   @override
   String get siteUrl => _target.siteUrl;
@@ -1453,9 +1485,8 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
         ? old.selection.extentOffset
         : old.text.length;
     final start = caret == 0 ? 0 : old.text.lastIndexOf('\n', caret - 1) + 1;
-    final prefix = RegExp(
-      r'^ {0,3}#{1,6}(?:[ \t]+|$)',
-    ).firstMatch(old.text.substring(start));
+    final prefix = RegExp(r'^ {0,3}#{1,6}(?:[ \t]+|$)')
+        .firstMatch(old.text.substring(start));
     final end = start + (prefix?.end ?? 0);
     final marker = '${'#' * level} ';
     text.value = old.copyWith(
@@ -1850,9 +1881,9 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
       selection: TextSelection.collapsed(offset: galleryEnd),
       composing: TextRange.empty,
     );
-    final updated = parseComposerImageGalleries(
-      text.text,
-    ).where((candidate) => candidate.start == galleryStart).firstOrNull;
+    final updated = parseComposerImageGalleries(text.text)
+        .where((candidate) => candidate.start == galleryStart)
+        .firstOrNull;
     _retargetPendingGalleryUploads(
       affectedUploads,
       updated,
@@ -2240,9 +2271,9 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
       composing: TextRange.empty,
     );
     final updated = preservePendingTarget
-        ? parseComposerImageGalleries(
-            text.text,
-          ).where((candidate) => candidate.start == current.start).firstOrNull
+        ? parseComposerImageGalleries(text.text)
+              .where((candidate) => candidate.start == current.start)
+              .firstOrNull
         : null;
     _retargetPendingGalleryUploads(
       affectedUploads,
@@ -2391,6 +2422,11 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
     }
     if (!canRestoreDraft(draft)) return false;
     _restoredDraft = true;
+    if (_target.isPrivateMessage &&
+        _target.targetRecipients?.isEmpty == true &&
+        draft.recipients != null) {
+      _target = _target.withRecipients(draft.recipients!);
+    }
     _replaceDocument(
       TextEditingValue(
         text: draft.reply,
