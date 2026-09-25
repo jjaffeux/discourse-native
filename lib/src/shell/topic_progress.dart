@@ -37,6 +37,9 @@ class TopicProgressButton extends StatelessWidget {
       tooltip: 'Topic progress',
       semanticLabel: 'Topic progress, post $boundedPosition of $boundedTotal',
       variant: DButtonVariant.outline,
+      borderColor: floating
+          ? null
+          : DTokens.of(context).buttonTheme.outline.hoverBorder,
       shape: floating ? DButtonShape.pill : DButtonShape.rounded,
       size: DButtonSize.regular,
       icon: const DIcon(DIcons.chevronDown),
