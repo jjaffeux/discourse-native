@@ -348,7 +348,7 @@ class DSwitchTile extends StatelessWidget {
             ? BoxDecoration(
                 borderRadius: BorderRadius.circular(tokens.radius),
                 color: hovered && enabled && !readOnly && onChanged != null
-                    ? _multiplyAlpha(tokens.muted, 0.5)
+                    ? _multiplyAlpha(tokens.foreground, 0.08)
                     : null,
               )
             : null,
