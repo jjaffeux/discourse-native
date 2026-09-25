@@ -131,6 +131,7 @@ class AggregateViewState extends State<AggregateView> {
               header: settingsOpen
                   ? null
                   : Column(
+                      key: const ValueKey('aggregate-page-header'),
                       children: [
                         Padding(
                           padding: const EdgeInsets.all(16),

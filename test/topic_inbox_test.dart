@@ -58,6 +58,30 @@ const _child = TopicCategory(
 const _tag = TopicTag(id: 1, name: 'community');
 
 void main() {
+  testWidgets('normal width caps content inside a full-width reader pane', (
+    tester,
+  ) async {
+    final setup = await _setup(tester);
+    final shell = setup.controller;
+    tester.view.physicalSize = const Size(2000, 800);
+    shell.openTopicFromList(setup.rows.first);
+    await shell.appSettings.setLimitContentSize(false);
+    await tester.pumpAndSettle();
+
+    final pane = find.byKey(const ValueKey('inbox-topic-reader-pane'));
+    final reader = find.byType(TopicView);
+    final paneRect = tester.getRect(pane);
+    final wide = tester.getRect(reader);
+    expect(wide.width, paneRect.width);
+
+    await shell.appSettings.setLimitContentSize(true);
+    await tester.pumpAndSettle();
+    final normal = tester.getRect(reader);
+    expect(tester.getRect(pane), paneRect);
+    expect(normal.width, 825);
+    expect(normal.center.dx, paneRect.center.dx);
+  });
+
   testWidgets('window corner follows topic panel opening and closing', (
     tester,
   ) async {

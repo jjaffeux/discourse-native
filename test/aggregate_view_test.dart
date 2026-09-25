@@ -8,6 +8,7 @@ import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/models/topic_filter.dart';
 import 'package:discourse_native/src/shell/aggregate_view.dart';
 import 'package:discourse_native/src/shell/forum_tabs_bar.dart';
+import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/site_emoji_image.dart';
 import 'package:discourse_native/src/shell/topic_filter_input.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
@@ -40,6 +41,26 @@ const _filterOptions = [
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+
+  testWidgets('aggregate header and rows share the page width', (tester) async {
+    await _pumpMixedAggregateView(tester);
+    tester.view.physicalSize = const Size(2000, 800);
+    final shell = ShellScope.read(tester.element(find.byType(AggregateView)));
+    await shell.appSettings.setLimitContentSize(false);
+    await tester.pumpAndSettle();
+
+    final header = find.byKey(const ValueKey('aggregate-page-header'));
+    final row = find.byKey(const ValueKey('topic-card-42')).first;
+    final wide = tester.getRect(header);
+    expect(wide.width, greaterThan(825));
+
+    await shell.appSettings.setLimitContentSize(true);
+    await tester.pumpAndSettle();
+    final normal = tester.getRect(header);
+    expect(normal.width, 825);
+    expect(normal.center.dx, wide.center.dx);
+    expect(tester.getRect(row).center.dx, normal.center.dx);
+  });
 
   for (final empty in [false, true]) {
     testWidgets(
