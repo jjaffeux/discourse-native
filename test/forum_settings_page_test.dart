@@ -1,3 +1,5 @@
+import 'dart:ui' show PointerDeviceKind;
+
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/app_settings.dart';
 import 'package:discourse_native/src/models/forum_theme_presets.dart';
@@ -68,7 +70,7 @@ void main() {
     },
   );
 
-  testWidgets('each theme row keeps one outlined pencil action visible', (
+  testWidgets('theme pencils appear on hover or for the selected row', (
     tester,
   ) async {
     final shell = controller();
@@ -82,13 +84,36 @@ void main() {
       final pencil = find.byKey(ValueKey(('edit-theme', id)));
       expect(pencil, findsOneWidget);
       expect(tester.widget<DButton>(pencil).variant, DButtonVariant.outline);
+      expect(
+        tester
+            .widget<Opacity>(
+              find.byKey(ValueKey(('edit-theme-visibility', id))),
+            )
+            .opacity,
+        id == 'forum' ? 1 : 0,
+      );
       expect(find.byKey(ValueKey(('theme-actions', id))), findsNothing);
     }
     expect(find.text('Customize'), findsNothing);
 
-    final preset = find.byKey(const ValueKey(('edit-theme', 'wcag')));
-    await tester.ensureVisible(preset);
-    await tester.tap(preset);
+    final presetRow = find.byKey(const ValueKey(('theme-choice', 'wcag')));
+    final presetVisibility = find.byKey(
+      const ValueKey(('edit-theme-visibility', 'wcag')),
+    );
+    await tester.ensureVisible(presetRow);
+    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    addTearDown(mouse.removePointer);
+    await mouse.moveTo(tester.getCenter(presetRow));
+    await tester.pump();
+    expect(tester.widget<Opacity>(presetVisibility).opacity, 1);
+    await mouse.moveTo(Offset.zero);
+    await tester.pump();
+    expect(tester.widget<Opacity>(presetVisibility).opacity, 0);
+
+    await tester.tap(presetRow);
+    await tester.pumpAndSettle();
+    expect(tester.widget<Opacity>(presetVisibility).opacity, 1);
+    await tester.tap(find.byKey(const ValueKey(('edit-theme', 'wcag'))));
     await tester.pumpAndSettle();
     expect(find.byType(ForumThemeEditor), findsOneWidget);
   });
