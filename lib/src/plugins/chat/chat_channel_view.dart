@@ -26,10 +26,12 @@ class ChatChannelView extends StatelessWidget {
     super.key,
     required this.channelId,
     this.autofocusMessageStream = true,
+    this.autofocusComposer = true,
   });
 
   final int channelId;
   final bool autofocusMessageStream;
+  final bool autofocusComposer;
 
   @override
   Widget build(BuildContext context) {
@@ -47,6 +49,7 @@ class ChatChannelView extends StatelessWidget {
           showTimeGapDays: shell.showTimeGapDaysFor(siteUrl),
           chat: chat,
           autofocusMessageStream: autofocusMessageStream,
+          autofocusComposer: autofocusComposer,
         );
       },
     );
@@ -61,6 +64,7 @@ class _ChatChannelBody extends StatefulWidget {
     required this.showTimeGapDays,
     required this.chat,
     required this.autofocusMessageStream,
+    required this.autofocusComposer,
   });
 
   final String siteUrl;
@@ -68,6 +72,7 @@ class _ChatChannelBody extends StatefulWidget {
   final int showTimeGapDays;
   final ChatController chat;
   final bool autofocusMessageStream;
+  final bool autofocusComposer;
 
   @override
   State<_ChatChannelBody> createState() => _ChatChannelBodyState();
@@ -292,7 +297,8 @@ class _ChatChannelBodyState extends State<_ChatChannelBody> {
                 siteUrl: widget.siteUrl,
                 channelId: widget.channelId,
                 uploadDropController: _uploadDropController,
-                focusRequest: _composerFocusRequest,
+                focusRequest:
+                    _composerFocusRequest + (widget.autofocusComposer ? 1 : 0),
                 editingMessage: _editingMessage,
                 onEditMessage: _editMessage,
                 onEditFinished: _finishEditing,
