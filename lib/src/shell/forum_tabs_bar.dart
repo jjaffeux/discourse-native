@@ -156,6 +156,8 @@ class _ForumTabsBarState extends State<ForumTabsBar> {
   final _barKey = GlobalKey();
   final _tabKeys = <String, GlobalKey>{};
   final _tabsScrollController = ScrollController();
+  bool _canScrollBackward = false;
+  bool _canScrollForward = false;
   ForumTabItem? _dropItem;
   int _dropIndex = 0;
   String? _geometryTabId;
@@ -165,13 +167,51 @@ class _ForumTabsBarState extends State<ForumTabsBar> {
   @override
   void initState() {
     super.initState();
+    _tabsScrollController.addListener(_updateScrollControls);
     _revealSelectedTab();
   }
 
   @override
   void dispose() {
+    _tabsScrollController.removeListener(_updateScrollControls);
     _tabsScrollController.dispose();
     super.dispose();
+  }
+
+  void _scheduleScrollControlsUpdate() {
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => _updateScrollControls(),
+    );
+  }
+
+  void _updateScrollControls() {
+    if (!mounted || !_tabsScrollController.hasClients) return;
+    final position = _tabsScrollController.position;
+    if (!position.hasContentDimensions) return;
+    final canScrollBackward = position.pixels > position.minScrollExtent + 2;
+    final canScrollForward = position.pixels < position.maxScrollExtent - 2;
+    if (_canScrollBackward == canScrollBackward &&
+        _canScrollForward == canScrollForward) {
+      return;
+    }
+    setState(() {
+      _canScrollBackward = canScrollBackward;
+      _canScrollForward = canScrollForward;
+      _contents = null;
+    });
+  }
+
+  Future<void> _scrollTabs(double direction) async {
+    if (!_tabsScrollController.hasClients) return;
+    final position = _tabsScrollController.position;
+    final target = (position.pixels + direction * position.viewportDimension)
+        .clamp(position.minScrollExtent, position.maxScrollExtent)
+        .toDouble();
+    await _tabsScrollController.animateTo(
+      target,
+      duration: const Duration(milliseconds: 180),
+      curve: Curves.easeOut,
+    );
   }
 
   void _revealSelectedTab() {
@@ -488,6 +528,7 @@ class _ForumTabsBarState extends State<ForumTabsBar> {
                         );
                         final availableTabWidth = labelWidth + closeSlotWidth;
                         final scrollTabs = availableTabWidth < _minimumTabWidth;
+                        if (scrollTabs) _scheduleScrollControlsUpdate();
                         final tabMaxWidth = math.min(
                           ForumTabsBar.maximumTabWidth,
                           math.max(_minimumTabWidth, availableTabWidth),
@@ -559,10 +600,47 @@ class _ForumTabsBarState extends State<ForumTabsBar> {
                                   vertical: 10.5,
                                 ),
                                 child: scrollTabs
-                                    ? SingleChildScrollView(
-                                        controller: _tabsScrollController,
-                                        scrollDirection: Axis.horizontal,
-                                        child: tabs,
+                                    ? Stack(
+                                        alignment:
+                                            AlignmentDirectional.centerEnd,
+                                        children: [
+                                          SingleChildScrollView(
+                                            key: const ValueKey(
+                                              'forum-tabs-scroll',
+                                            ),
+                                            controller: _tabsScrollController,
+                                            scrollDirection: Axis.horizontal,
+                                            child: tabs,
+                                          ),
+                                          if (_canScrollBackward)
+                                            PositionedDirectional(
+                                              start: 0,
+                                              top: 0,
+                                              bottom: 0,
+                                              child: _ForumTabScrollButton(
+                                                key: const ValueKey(
+                                                  'forum-tabs-scroll-backward',
+                                                ),
+                                                forward: false,
+                                                onPressed: () =>
+                                                    unawaited(_scrollTabs(-1)),
+                                              ),
+                                            ),
+                                          if (_canScrollForward)
+                                            PositionedDirectional(
+                                              end: 0,
+                                              top: 0,
+                                              bottom: 0,
+                                              child: _ForumTabScrollButton(
+                                                key: const ValueKey(
+                                                  'forum-tabs-scroll-forward',
+                                                ),
+                                                forward: true,
+                                                onPressed: () =>
+                                                    unawaited(_scrollTabs(1)),
+                                              ),
+                                            ),
+                                        ],
                                       )
                                     : tabs,
                               ),
@@ -1325,6 +1403,48 @@ class _NewTabButton extends StatelessWidget {
       onPressed: onPressed,
     ),
   );
+}
+
+class _ForumTabScrollButton extends StatelessWidget {
+  const _ForumTabScrollButton({
+    super.key,
+    required this.forward,
+    required this.onPressed,
+  });
+
+  final bool forward;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final pointsRight =
+        forward == (Directionality.of(context) == TextDirection.ltr);
+    final background = Theme.of(context).shell.sidebar;
+    final buttonWidth = DControlStyle.scaledHeight(
+      DControlSize.tabAction,
+      MediaQuery.textScalerOf(context),
+      context: context,
+    );
+    return Container(
+      width: buttonWidth + 8,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: pointsRight ? Alignment.centerLeft : Alignment.centerRight,
+          end: pointsRight ? Alignment.centerRight : Alignment.centerLeft,
+          colors: [background.withValues(alpha: 0), background, background],
+          stops: const [0, .55, 1],
+        ),
+      ),
+      alignment: pointsRight ? Alignment.centerRight : Alignment.centerLeft,
+      child: DButton.iconOnly(
+        tooltip: forward ? 'Show more tabs' : 'Show previous tabs',
+        onPressed: onPressed,
+        icon: DIcon(pointsRight ? DIcons.chevronRight : DIcons.chevronLeft),
+        variant: DButtonVariant.outline,
+        size: DControlSize.tabAction,
+      ),
+    );
+  }
 }
 
 class _ForumTab extends StatefulWidget {

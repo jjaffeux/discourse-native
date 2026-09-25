@@ -170,3 +170,6 @@ actions remain hidden until hover or keyboard focus, while selecting a tab
 keeps its width and its neighbors' widths unchanged. When the available width
 would make tabs narrower than 110px, the tab lane scrolls horizontally and
 keeps the selected tab visible. The add action remains outside that lane.
+Like the mobile composer toolbar, edge chevrons appear only while there are
+more tabs in that direction. They scroll one viewport at a time, follow RTL
+direction, and leave the add action fixed beside the lane.

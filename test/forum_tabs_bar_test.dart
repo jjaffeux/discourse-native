@@ -1608,6 +1608,134 @@ void main() {
   });
 
   group('overflow layout', () {
+    testWidgets('scroll buttons reveal tabs and stay beside the tab lane', (
+      tester,
+    ) async {
+      final items = [
+        for (var index = 0; index < 12; index++)
+          ForumTabItem(id: 'tab-$index', title: 'Forum tab $index'),
+      ];
+      await _pumpBar(
+        tester,
+        items: items,
+        selectedId: items.first.id,
+        width: 320,
+      );
+
+      final forward = find.byKey(const ValueKey('forum-tabs-scroll-forward'));
+      final backward = find.byKey(const ValueKey('forum-tabs-scroll-backward'));
+      final scroll = find.byKey(const ValueKey('forum-tabs-scroll'));
+      final scrollable = find.descendant(
+        of: scroll,
+        matching: find.byType(Scrollable),
+      );
+      final position = tester.state<ScrollableState>(scrollable).position;
+      final add = find.byKey(const ValueKey('forum-tabs-add'));
+      final addRect = tester.getRect(add);
+
+      expect(position.maxScrollExtent, greaterThan(0));
+      expect(forward, findsOneWidget);
+      expect(backward, findsNothing);
+      expect(
+        tester
+            .widget<DButton>(
+              find.descendant(of: forward, matching: find.byType(DButton)),
+            )
+            .tooltip,
+        'Show more tabs',
+      );
+
+      await tester.tap(forward);
+      await tester.pumpAndSettle();
+      expect(position.pixels, greaterThan(0));
+      expect(backward, findsOneWidget);
+      expect(tester.getRect(add), addRect);
+
+      position.jumpTo(position.maxScrollExtent);
+      await tester.pumpAndSettle();
+      expect(forward, findsNothing);
+      expect(backward, findsOneWidget);
+      await tester.tap(backward);
+      await tester.pumpAndSettle();
+      expect(position.pixels, lessThan(position.maxScrollExtent));
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('scroll controls are absent when tabs fit', (tester) async {
+      await _pumpBar(
+        tester,
+        items: const [first, second],
+        selectedId: first.id,
+        width: 800,
+      );
+      expect(find.byKey(const ValueKey('forum-tabs-scroll')), findsNothing);
+      expect(
+        find.byKey(const ValueKey('forum-tabs-scroll-forward')),
+        findsNothing,
+      );
+      expect(
+        find.byKey(const ValueKey('forum-tabs-scroll-backward')),
+        findsNothing,
+      );
+    });
+
+    for (final scale in [2.0, 3.0]) {
+      testWidgets('scroll controls remain usable at ${scale}x text', (
+        tester,
+      ) async {
+        final items = [
+          for (var index = 0; index < 8; index++)
+            ForumTabItem(id: 'tab-$index', title: 'Forum tab $index'),
+        ];
+        await _pumpBar(
+          tester,
+          items: items,
+          selectedId: items.first.id,
+          width: 320,
+          textScaler: TextScaler.linear(scale),
+        );
+        final forward = find.byKey(const ValueKey('forum-tabs-scroll-forward'));
+        final add = find.byKey(const ValueKey('forum-tabs-add'));
+        expect(forward.hitTestable(), findsOneWidget);
+        expect(add.hitTestable(), findsOneWidget);
+        await tester.tap(forward);
+        await tester.pumpAndSettle();
+        expect(
+          find.byKey(const ValueKey('forum-tabs-scroll-backward')),
+          findsOneWidget,
+        );
+        expect(tester.takeException(), isNull);
+      });
+    }
+
+    testWidgets('RTL scroll buttons point toward available tabs', (
+      tester,
+    ) async {
+      final items = [
+        for (var index = 0; index < 8; index++)
+          ForumTabItem(id: 'tab-$index', title: 'Forum tab $index'),
+      ];
+      await _pumpBar(
+        tester,
+        items: items,
+        selectedId: items.first.id,
+        width: 320,
+        textDirection: TextDirection.rtl,
+      );
+      final forward = find.byKey(const ValueKey('forum-tabs-scroll-forward'));
+      final icon = find.descendant(of: forward, matching: find.byType(DIcon));
+      expect(tester.widget<DIcon>(icon).icon, DIcons.chevronLeft);
+      await tester.tap(forward);
+      await tester.pumpAndSettle();
+      final backward = find.byKey(const ValueKey('forum-tabs-scroll-backward'));
+      final backwardIcon = find.descendant(
+        of: backward,
+        matching: find.byType(DIcon),
+      );
+      expect(tester.widget<DIcon>(backwardIcon).icon, DIcons.chevronRight);
+      expect(tester.takeException(), isNull);
+    });
+
     testWidgets(
       'crowded tabs keep the selected close action inside its surface',
       (tester) async {
@@ -1947,14 +2075,22 @@ Future<void> _pumpBar(
   ForumPanel? panel,
   void Function(String id, ForumPanel panel)? onMoveToPanel,
   TextScaler? textScaler,
+  TextDirection textDirection = TextDirection.ltr,
 }) async {
   Widget child = MaterialApp(
     theme: (theme ?? AppTheme.light).copyWith(platform: TargetPlatform.macOS),
-    builder: textScaler == null
+    builder: textScaler == null && textDirection == TextDirection.ltr
         ? null
-        : (context, child) => MediaQuery(
-            data: MediaQuery.of(context).copyWith(textScaler: textScaler),
-            child: child!,
+        : (context, child) => Directionality(
+            textDirection: textDirection,
+            child: textScaler == null
+                ? child!
+                : MediaQuery(
+                    data: MediaQuery.of(
+                      context,
+                    ).copyWith(textScaler: textScaler),
+                    child: child!,
+                  ),
           ),
     home: Scaffold(
       body: Align(
