@@ -3149,7 +3149,10 @@ class ShellController extends FrameSafeNotifier
         ? topicListContent ?? currentContent
         : currentContent;
     if (route?.isMessages == true) return route!.id;
-    if (route != null && route.feedPath != null) return route.id;
+    if (route != null &&
+        (route.feedPath != null || TopicListMode.fromRoute(route) != null)) {
+      return route.id;
+    }
     return topicListTab?.rootDestinationId;
   }
 
@@ -3185,13 +3188,14 @@ class ShellController extends FrameSafeNotifier
     if (tab == null) return null;
 
     final route = topicListContent ?? tab.currentContent;
+    final mode = TopicListMode.fromRoute(route);
+    if (mode != null) return mode;
     if (tab.rootDestinationId != 'latest' &&
         route.categoryId == null &&
         route.tagName == null) {
       return null;
     }
-    return TopicListMode.fromRoute(route) ??
-        (route.isTopicListFilter ? TopicListMode.latest : null);
+    return route.isTopicListFilter ? TopicListMode.latest : null;
   }
 
   /// The current document owns its source list even when another panel shows
