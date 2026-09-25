@@ -933,10 +933,12 @@ class DPopoverContent extends StatelessWidget {
     this.padding = const EdgeInsets.all(10),
     this.scrollable = true,
     this.shadow = DPopoverShadow.none,
+    this.cornerRadius,
     this.placementResolver,
     this.sizeAnimationDuration,
     this.sizeAnimationCurve = Curves.easeOut,
   }) : assert(width == null || width > 0),
+       assert(cornerRadius == null || cornerRadius >= 0),
        assert(sideOffset >= 0),
        assert(collisionPadding >= 0);
 
@@ -957,6 +959,9 @@ class DPopoverContent extends StatelessWidget {
   final BoxConstraints constraints;
   final EdgeInsetsGeometry padding;
   final DPopoverShadow shadow;
+
+  /// Uniform popup corner radius. Null keeps the Native popover default.
+  final double? cornerRadius;
 
   /// Smoothly interpolates the popup surface when its content size changes.
   ///
@@ -989,7 +994,7 @@ class DPopoverContent extends StatelessWidget {
       letterSpacing: 0,
       decoration: TextDecoration.none,
     );
-    const radius = DRadius.popover;
+    final radius = cornerRadius ?? DRadius.popover;
     final shadowColor = Colors.black.withValues(alpha: .125);
     final shadows = [
       BoxShadow(color: shadowColor, offset: const Offset(0, 3), blurRadius: 8),

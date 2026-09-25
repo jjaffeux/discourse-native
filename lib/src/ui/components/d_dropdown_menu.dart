@@ -77,6 +77,7 @@ class DDropdownMenu extends StatelessWidget {
         collisionPadding: content.collisionPadding,
         collisionBoundary: content.collisionBoundary,
         width: content.width,
+        cornerRadius: content.cornerRadius,
         constraints: content.constraints,
         padding: EdgeInsets.zero,
         // The menu adds a popup-local viewport only when its rows overflow.
@@ -158,10 +159,12 @@ class DDropdownMenuContent extends StatefulWidget {
     this.collisionPadding = 5,
     this.collisionBoundary,
     this.width = 160,
+    this.cornerRadius,
     this.constraints = const BoxConstraints(minWidth: 128),
     this.isSubmenu = false,
     this.autofocus = true,
   }) : assert(width == null || width >= 96),
+       assert(cornerRadius == null || cornerRadius >= 0),
        assert(sideOffset >= 0),
        assert(collisionPadding >= 0);
 
@@ -176,6 +179,9 @@ class DDropdownMenuContent extends StatefulWidget {
   final double collisionPadding;
   final Rect? collisionBoundary;
   final double? width;
+
+  /// Uniform popup corner radius. Null keeps the Native menu default.
+  final double? cornerRadius;
   final BoxConstraints constraints;
   final bool isSubmenu;
 

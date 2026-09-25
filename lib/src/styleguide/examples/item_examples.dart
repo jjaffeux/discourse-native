@@ -72,6 +72,18 @@ final itemExamples = ComponentExamples(
           const _SelectionExample(style: DItemSelectionStyle.neutral),
     ),
     StyleguideExample(
+      title: 'Menu selection',
+      description:
+          'Compact menu rows use 8px corners and a stronger neutral selected fill. Choose either row to move selection.',
+      code:
+          "DItem(size: DItemSize.xs, shape: DItemShape.menu, selected: selected, selectionStyle: DItemSelectionStyle.strongNeutral, showSelectionIndicator: false, onPressed: select, children: [DItemContent(children: [Text('Start page')])])",
+      builder: (_) => const _SelectionExample(
+        style: DItemSelectionStyle.strongNeutral,
+        shape: DItemShape.menu,
+        size: DItemSize.xs,
+      ),
+    ),
+    StyleguideExample(
       title: 'Outline selection',
       description:
           'Topic selection uses a 2px accent outline, the normal background, '
@@ -261,9 +273,15 @@ class _CardSelectionExampleState extends State<_CardSelectionExample> {
 }
 
 class _SelectionExample extends StatefulWidget {
-  const _SelectionExample({required this.style});
+  const _SelectionExample({
+    required this.style,
+    this.shape = DItemShape.standard,
+    this.size = DItemSize.standard,
+  });
 
   final DItemSelectionStyle style;
+  final DItemShape shape;
+  final DItemSize size;
 
   @override
   State<_SelectionExample> createState() => _SelectionExampleState();
@@ -282,7 +300,8 @@ class _SelectionExampleState extends State<_SelectionExample> {
         DItem(
           shape: widget.style == DItemSelectionStyle.leadingAccent
               ? DItemShape.fullWidth
-              : DItemShape.standard,
+              : widget.shape,
+          size: widget.size,
           selected: index == selected,
           selectionStyle: widget.style,
           showSelectionIndicator: false,

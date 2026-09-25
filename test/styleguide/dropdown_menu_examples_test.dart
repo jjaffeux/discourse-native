@@ -28,6 +28,7 @@ void main() {
       'Complex',
       'RTL',
       'Grouped guide',
+      'Custom popup corners',
       'Sheet on mobile',
     ]);
   });
