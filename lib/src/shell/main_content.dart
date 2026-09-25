@@ -291,6 +291,7 @@ class _MainContentBody extends StatelessWidget {
           header:
               !pluginOwnsChrome &&
                   !route.isTopic &&
+                  !route.isPreferences &&
                   !hideDirectoryHeader &&
                   !(usesTopicToolbar && ShellTitleBar.isSupported)
               ? Stack(
