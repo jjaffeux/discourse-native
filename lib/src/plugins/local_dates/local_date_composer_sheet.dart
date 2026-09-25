@@ -59,10 +59,16 @@ Future<LocalDateComposerSheetAction?> showLocalDateComposerSheet({
               child: Row(
                 children: [
                   Expanded(
-                    child: DText(
-                      title,
-                      variant: DTextVariant.h4,
-                      headingLevel: 1,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        DText(title, variant: DTextVariant.h4, headingLevel: 1),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Choose the date, then check how it will appear.',
+                          style: Theme.of(dialogContext).textTheme.bodySmall,
+                        ),
+                      ],
                     ),
                   ),
                   DButton.iconOnly(
@@ -190,40 +196,76 @@ class _LocalDateComposerSheetState extends State<LocalDateComposerSheet> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _dateTimeRow(
-            date: _startDate,
-            time: _startTime,
-            label: 'Start',
-            hasTime: _hasStartTime,
-            onTimeEnabled: (value) => setState(() => _hasStartTime = value),
-          ),
-          const SizedBox(height: 8),
-          DSwitchTile(
-            contentPadding: EdgeInsets.zero,
-            title: const DLabel(child: Text('End date and time')),
-            value: _hasEnd,
-            onChanged: (value) => setState(() {
-              _hasEnd = value;
-              if (!value) _hasEndTime = false;
-            }),
-          ),
-          if (_hasEnd)
-            _dateTimeRow(
-              date: _endDate,
-              time: _endTime,
-              label: 'End',
-              hasTime: _hasEndTime,
-              onTimeEnabled: (value) => setState(() => _hasEndTime = value),
+          DCard(
+            size: DCardSize.small,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const DCardTitle(child: Text('When')),
+                  const SizedBox(height: 12),
+                  _dateTimeRow(
+                    date: _startDate,
+                    time: _startTime,
+                    label: 'Start',
+                    hasTime: _hasStartTime,
+                    onTimeEnabled: (value) =>
+                        setState(() => _hasStartTime = value),
+                  ),
+                  const SizedBox(height: 12),
+                  DSeparator(color: theme.shell.divider, space: 1),
+                  DSwitchTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const DLabel(child: Text('Add end date and time')),
+                    value: _hasEnd,
+                    onChanged: (value) => setState(() {
+                      _hasEnd = value;
+                      if (!value) _hasEndTime = false;
+                    }),
+                  ),
+                  if (_hasEnd) ...[
+                    const SizedBox(height: 8),
+                    _dateTimeRow(
+                      date: _endDate,
+                      time: _endTime,
+                      label: 'End',
+                      hasTime: _hasEndTime,
+                      onTimeEnabled: (value) =>
+                          setState(() => _hasEndTime = value),
+                    ),
+                  ],
+                ],
+              ),
             ),
+          ),
           const SizedBox(height: 16),
-          _TimezoneMenu(
-            key: const ValueKey('local-date-source-timezone'),
-            label: 'Source timezone',
-            zones: _zones,
-            initial: _timezone,
-            onSelected: (zone) {
-              if (zone != null) setState(() => _timezone = zone);
-            },
+          DCard(
+            size: DCardSize.small,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const DCardTitle(child: Text('Timezone')),
+                  const SizedBox(height: 12),
+                  _TimezoneMenu(
+                    key: const ValueKey('local-date-source-timezone'),
+                    label: 'Source timezone',
+                    zones: _zones,
+                    initial: _timezone,
+                    onSelected: (zone) {
+                      if (zone != null) setState(() => _timezone = zone);
+                    },
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'This is the timezone in which the date and time were entered.',
+                    style: theme.textTheme.bodySmall,
+                  ),
+                ],
+              ),
+            ),
           ),
           const SizedBox(height: 16),
           _preview(),
@@ -402,6 +444,8 @@ class _LocalDateComposerSheetState extends State<LocalDateComposerSheet> {
             ),
           ],
           const SizedBox(height: 20),
+          DSeparator(color: theme.shell.divider, space: 1),
+          const SizedBox(height: 16),
           _actions(),
         ],
       ),
@@ -418,45 +462,70 @@ class _LocalDateComposerSheetState extends State<LocalDateComposerSheet> {
     crossAxisAlignment: CrossAxisAlignment.stretch,
     children: [
       LayoutBuilder(
-        builder: (context, constraints) => DDatePickerInput(
-          controller: date,
-          initialValue: _civilDate(date.text),
-          label: '$label date',
-          width: constraints.maxWidth,
-          startMonth: DCalendarDate(1900, 1, 1),
-          endMonth: DCalendarDate(2200, 12, 31),
-          dateCodec: const DIntlDateTextCodec(
-            formatPattern: 'yyyy-MM-dd',
-            useLocaleDateOrder: false,
-          ),
-        ),
+        builder: (context, constraints) {
+          Widget dateField(double width) => DDatePickerInput(
+            controller: date,
+            initialValue: _civilDate(date.text),
+            label: '$label date',
+            width: width,
+            startMonth: DCalendarDate(1900, 1, 1),
+            endMonth: DCalendarDate(2200, 12, 31),
+            dateCodec: const DIntlDateTextCodec(
+              formatPattern: 'yyyy-MM-dd',
+              useLocaleDateOrder: false,
+            ),
+          );
+          final timeField = Row(
+            children: [
+              Expanded(
+                child: DInput(
+                  controller: time,
+                  keyboardType: TextInputType.datetime,
+                  labelText: '$label time',
+                  hintText: '09:00:00',
+                ),
+              ),
+              DButton.iconOnly(
+                onPressed: () => unawaited(_pickTime(time)),
+                variant: DButtonVariant.ghost,
+                tooltip: 'Choose $label time',
+                icon: const Icon(Icons.schedule),
+              ),
+            ],
+          );
+          if (constraints.maxWidth < 430) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                dateField(constraints.maxWidth),
+                if (hasTime) ...[const SizedBox(height: 12), timeField],
+              ],
+            );
+          }
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                flex: 3,
+                child: LayoutBuilder(
+                  builder: (context, size) => dateField(size.maxWidth),
+                ),
+              ),
+              if (hasTime) ...[
+                const SizedBox(width: 12),
+                Expanded(flex: 2, child: timeField),
+              ],
+            ],
+          );
+        },
       ),
+      const SizedBox(height: 8),
       DCheckbox(
         contentPadding: EdgeInsets.zero,
-
-        title: DLabel(child: Text('$label time')),
+        title: DLabel(child: Text('Include ${label.toLowerCase()} time')),
         value: hasTime,
         onChanged: (value) => onTimeEnabled(value ?? false),
       ),
-      if (hasTime)
-        Row(
-          children: [
-            Expanded(
-              child: DInput(
-                controller: time,
-                keyboardType: TextInputType.datetime,
-                labelText: '$label time',
-                hintText: '09:00:00',
-              ),
-            ),
-            DButton.iconOnly(
-              onPressed: () => unawaited(_pickTime(time)),
-              variant: DButtonVariant.ghost,
-              tooltip: 'Choose $label time',
-              icon: const Icon(Icons.schedule),
-            ),
-          ],
-        ),
     ],
   );
 
@@ -466,18 +535,20 @@ class _LocalDateComposerSheetState extends State<LocalDateComposerSheet> {
     final text = validation.isValid
         ? _previewText(draft)
         : validation.firstError ?? 'Complete the date to see a preview.';
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(8),
-      ),
+    return DCard(
+      size: DCardSize.small,
+      backgroundColor: Theme.of(context).colorScheme.surfaceContainerLow,
       child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Row(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Icon(Icons.public, size: 18),
-            const SizedBox(width: 8),
-            Expanded(child: Text(text)),
+            Text(text),
+            const SizedBox(height: 2),
+            Text(
+              'Preview of the rendered date',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
           ],
         ),
       ),
