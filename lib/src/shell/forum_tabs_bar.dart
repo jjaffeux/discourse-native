@@ -1523,6 +1523,7 @@ class _ForumTabScrollButton extends StatelessWidget {
         onPressed: onPressed,
         icon: DIcon(pointsRight ? DIcons.chevronRight : DIcons.chevronLeft),
         variant: DButtonVariant.outline,
+        shape: DButtonShape.pill,
         size: DControlSize.tabAction,
       ),
     );
