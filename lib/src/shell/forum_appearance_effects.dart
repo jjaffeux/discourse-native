@@ -5,19 +5,22 @@ import '../models/forum_background.dart';
 import 'theme_icons.dart';
 
 /// Window effect controls shared by a theme editor or appearance settings.
-/// The tint is edited separately; see [ForumTintField].
 class ForumAppearanceEffects extends StatelessWidget {
   const ForumAppearanceEffects({
     super.key,
     required this.effects,
     required this.onChanged,
-  });
+    this.tint,
+    this.onTintChanged,
+  }) : assert((tint == null) == (onTintChanged == null));
 
   final ForumBackground effects;
 
   /// Receives each choice as a change to whatever the effects are when it
   /// lands, so two choices made before a redraw are both kept.
   final ValueChanged<ForumBackground Function(ForumBackground)> onChanged;
+  final double? tint;
+  final ValueChanged<double>? onTintChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -27,23 +30,19 @@ class ForumAppearanceEffects extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       spacing: 16,
       children: [
-        _RampField(
-          label: 'Opacity',
-          value: 1 - effects.transparency / ForumBackground.maxTransparency,
-          readout: '${((1 - effects.transparency) * 100).round()}%',
-          ramp: DSliderRamp(
-            startColor: tokens.background.withValues(
-              alpha: 1 - ForumBackground.maxTransparency,
-            ),
-            endColor: tokens.background,
-            pattern: DSliderRampPattern.checkerboard,
-          ),
-          onChanged: (v) => onChanged(
-            (e) => e.copyWith(
-              transparency: (1 - v) * ForumBackground.maxTransparency,
-            ),
-          ),
-        ),
+        if (tint case final tint?)
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            spacing: 16,
+            children: [
+              Expanded(
+                child: ForumTintField(value: tint, onChanged: onTintChanged!),
+              ),
+              Expanded(child: _opacityField(tokens)),
+            ],
+          )
+        else
+          _opacityField(tokens),
         DField(
           children: [
             const DFieldLabel(child: Text('Texture')),
@@ -96,6 +95,23 @@ class ForumAppearanceEffects extends StatelessWidget {
       ],
     );
   }
+
+  Widget _opacityField(DTokens tokens) => _RampField(
+    label: 'Opacity',
+    value: 1 - effects.transparency / ForumBackground.maxTransparency,
+    readout: '${((1 - effects.transparency) * 100).round()}%',
+    ramp: DSliderRamp(
+      startColor: tokens.background.withValues(
+        alpha: 1 - ForumBackground.maxTransparency,
+      ),
+      endColor: tokens.background,
+      pattern: DSliderRampPattern.checkerboard,
+    ),
+    onChanged: (v) => onChanged(
+      (e) =>
+          e.copyWith(transparency: (1 - v) * ForumBackground.maxTransparency),
+    ),
+  );
 }
 
 /// How far a theme's surfaces and text lean toward its accent, as a share of

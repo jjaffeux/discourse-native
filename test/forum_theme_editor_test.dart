@@ -64,6 +64,10 @@ void main() {
     expect(find.byType(ForumThemeEditor), findsOneWidget);
     expect(find.byKey(const ValueKey('appearance-mode')), findsNothing);
     expect(find.byKey(const ValueKey('all-themes')), findsOneWidget);
+    final tint = find.byKey(const ValueKey('theme-tint'));
+    final opacity = find.byKey(const ValueKey('theme-opacity'));
+    expect(tester.getTopLeft(tint).dy, tester.getTopLeft(opacity).dy);
+    expect(tester.getTopLeft(tint).dx, lessThan(tester.getTopLeft(opacity).dx));
     expect(find.byKey(const ValueKey('theme-opacity')), findsOneWidget);
     expect(find.byKey(const ValueKey('theme-texture')), findsOneWidget);
     expect(find.byKey(const ValueKey('theme-save')), findsOneWidget);
