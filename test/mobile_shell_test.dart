@@ -29,8 +29,8 @@ import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/title_bar.dart';
 import 'package:discourse_native/src/shell/user_menu_button.dart';
 import 'package:discourse_native/src/shell/users_page.dart';
-import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:discourse_native/src/theme/d_icon_glyph.dart';
+import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -491,6 +491,36 @@ void main() {
     expect(find.byKey(const ValueKey('topic-card-7')), findsOneWidget);
   });
 
+  _mobileTest('Start opens the start page from another mobile tab', (
+    tester,
+  ) async {
+    final shell = await pumpMobileShellFixture(tester);
+    final start = find.byKey(const ValueKey('mobile-mode-start'));
+    expect(start, findsOneWidget);
+    expect(
+      tester.getRect(start).left,
+      lessThan(
+        tester.getRect(find.byKey(const ValueKey('mobile-mode-topics'))).left,
+      ),
+    );
+
+    await tester.tap(find.byKey(const ValueKey('mobile-mode-panel/chat')));
+    await tester.pumpAndSettle();
+    await tester.tap(start);
+    await tester.pumpAndSettle();
+
+    expect(shell.mobileNavigation.tab, MobileTab.start);
+    expect(shell.currentContent?.isNewTab, isTrue);
+    expect(find.byKey(const ValueKey('start-page-content')), findsOneWidget);
+    expect(shell.canPopContent, isFalse);
+
+    await tester.tap(find.byKey(const ValueKey('mobile-mode-topics')));
+    await tester.pumpAndSettle();
+    expect(shell.mobileNavigation.tab, MobileTab.topics);
+    expect(find.byKey(const ValueKey('topic-card-7')), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   _mobileTest(
     'persistent header and independent buttons surround the content',
     (tester) async {
@@ -505,6 +535,7 @@ void main() {
       expect(find.byKey(const ValueKey('topic-card-7')), findsOneWidget);
       double right = -1;
       for (final tab in [
+        'start',
         'topics',
         'panel/chat',
         'messages',

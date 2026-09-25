@@ -14803,7 +14803,7 @@ class ShellController extends FrameSafeNotifier
       unawaited(userDirectory.load(instance, refresh: refresh));
     } else if (destination.id == 'all-tags') {
       if (refresh) unawaited(loadTags(instance.url, force: true));
-    } else {
+    } else if (!content.isNewTab) {
       if (content.id == 'all-categories') {
         unawaited(loadCategories(instance.url, force: refresh));
       } else {

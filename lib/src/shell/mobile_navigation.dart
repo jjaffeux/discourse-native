@@ -9,6 +9,7 @@ final class MobileTab {
   const MobileTab.destination(String id)
     : name = 'destination/$id',
       panelOwner = null;
+  static const start = MobileTab._('start');
   static const topics = MobileTab._('topics');
   static const messages = MobileTab._('messages');
   static const users = MobileTab._('users');
