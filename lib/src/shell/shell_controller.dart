@@ -2355,7 +2355,11 @@ class ShellController extends FrameSafeNotifier
   }
 
   @override
-  Rect? get readerContentBounds => _readerContentBounds;
+  Rect? get readerContentBounds => _readerContentBounds.value;
+
+  @override
+  ValueListenable<Rect?> get readerContentBoundsListenable =>
+      _readerContentBounds;
 
   int railBadgeFor(DiscourseInstance instance) =>
       accountActivity.totalsFor(instance.url)?.badge ?? 0;
@@ -8265,7 +8269,9 @@ class ShellController extends FrameSafeNotifier
   Iterable<ComposerController> get liveComposers =>
       List.unmodifiable(_composers.values);
 
-  Rect? _readerContentBounds;
+  // Reported after every frame the reader moves; kept off the facade so a
+  // resize or dock drag does not re-run every shell selector.
+  final _readerContentBounds = FrameSafeValueNotifier<Rect?>(null);
 
   late final ComposerDraftCoordinator _composerDrafts =
       ComposerDraftCoordinator(
@@ -8332,9 +8338,8 @@ class ShellController extends FrameSafeNotifier
 
   /// Painted reader space, excluding the docked composer and navigation.
   void reportReaderContentBounds(Rect? bounds) {
-    if (isDisposed || bounds == _readerContentBounds) return;
-    _readerContentBounds = bounds;
-    _notify();
+    if (isDisposed) return;
+    _readerContentBounds.value = bounds;
   }
 
   bool get canReplyHere => currentTopic?.canCreatePost ?? false;
@@ -16068,6 +16073,7 @@ class ShellController extends FrameSafeNotifier
     }
     _trackers.clear();
     _trackerStartRequests.clear();
+    _readerContentBounds.dispose();
     if (ownsApi) api.close();
     super.dispose();
   }
@@ -16431,6 +16437,10 @@ final class _ShellPluginNavigationHost implements PluginNavigationHost {
 
   @override
   Rect? get readerContentBounds => _shell.readerContentBounds;
+
+  @override
+  ValueListenable<Rect?> get readerContentBoundsListenable =>
+      _shell.readerContentBoundsListenable;
 
   @override
   void selectInstance(int index) => _shell.selectInstance(index);
