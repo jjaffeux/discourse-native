@@ -609,12 +609,7 @@ class _ChatComposerState extends State<ChatComposer> {
 
   bool get _sending =>
       _savingEdit ||
-      (_chat
-              ?.messagesFor(widget.siteUrl, _target)
-              .any(
-                (message) => message.delivery == ChatMessageDelivery.sending,
-              ) ??
-          false);
+      (_chat?.hasSendingMessage(widget.siteUrl, _target) ?? false);
 
   void _sendFromMobileFooter() {
     final composer = _composer;

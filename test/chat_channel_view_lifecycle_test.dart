@@ -845,24 +845,27 @@ void main() {
         },
         gatedOlder: older,
       );
-      final store = _CountingStore();
+      final reads = _MessageReads();
       final controller = await _controller(
         api,
         sites: const [firstSite],
-        store: store,
+        messageReads: reads,
       );
       addTearDown(controller.dispose);
       controller.chatRecords.put(firstSite, _channel(lastRead: 50));
 
       await tester.pumpWidget(_TestView(controller: controller));
       await tester.pumpAndSettle();
-      store.messageReads = 0;
+      // Opening reads the page it stores, so the zeros below come from the
+      // store Chat actually reads rather than from one it no longer uses.
+      expect(reads.count, greaterThan(0));
+      reads.count = 0;
 
       final request = controller.chat.loadOlder(firstSite, 9);
       await tester.pump();
 
       expect(controller.chat.stream(firstSite, 9).loadingOlder, isTrue);
-      expect(store.messageReads, 0);
+      expect(reads.count, 0);
 
       older.complete(_messagesPage(-1, 1));
       await request;
@@ -871,71 +874,96 @@ void main() {
       // The page seam is resolved through the rows' stable refs; the fifty-message
       // window already projected is never scanned again. This is the bound that
       // keeps repeated backscrolling from becoming progressively more expensive.
-      expect(store.messageReads, 0);
+      expect(reads.count, 0);
     });
 
     testWidgets('a live message does not reproject the held window', (
       tester,
     ) async {
-      const reader = DiscourseUser(id: 7, username: 'reader');
-      final api = _ChatApi(
-        user: reader,
-        chatChannelsBySite: {
-          firstSite: ChatChannels(
-            public: [
-              ChatChannel(
-                id: 9,
-                title: 'Chat',
-                kind: ChatChannelKind.category,
-                membership: const ChatMembership(
-                  following: true,
-                  lastReadMessageId: 50,
+      // Admission legitimately reads the arriving record and the newest one it
+      // is ordered against; anything proportional to the window is a rescan.
+      Future<int> liveArrivalReads(int window) async {
+        const reader = DiscourseUser(id: 7, username: 'reader');
+        final newestAt = DateTime.utc(2026, 1, 1, 0, window);
+        final api = _ChatApi(
+          user: reader,
+          chatChannelsBySite: {
+            firstSite: ChatChannels(
+              public: [
+                ChatChannel(
+                  id: 9,
+                  title: 'Chat',
+                  kind: ChatChannelKind.category,
+                  membership: ChatMembership(
+                    following: true,
+                    lastReadMessageId: window,
+                  ),
+                  lastMessageId: window,
+                  lastMessageAt: newestAt,
                 ),
-                lastMessageId: 50,
-                lastMessageAt: DateTime.utc(2026, 1, 1, 0, 50),
-              ),
-            ],
-          ),
-        },
-        openPages: {
-          firstSite: [_messagesPage(1, 50)],
-        },
-      );
-      final store = _CountingStore();
-      final controller = await _controller(
-        api,
-        sites: const [firstSite],
-        store: store,
-        user: reader,
-      );
-      addTearDown(controller.dispose);
-      await controller.chat.loadChannels(firstSite);
-      await controller.chat.openChannel(firstSite, 9);
-      await tester.pumpWidget(_TestView(controller: controller));
-      await tester.pumpAndSettle();
-      store.messageReads = 0;
+              ],
+            ),
+          },
+          openPages: {
+            firstSite: [_messagesPage(1, window)],
+          },
+        );
+        final reads = _MessageReads();
+        final controller = await _controller(
+          api,
+          sites: const [firstSite],
+          messageReads: reads,
+          user: reader,
+        );
+        try {
+          await controller.chat.loadChannels(firstSite);
+          await controller.chat.openChannel(firstSite, 9);
+          await tester.pumpWidget(_TestView(controller: controller));
+          await tester.pumpAndSettle();
+          expect(
+            controller.chat.stream(firstSite, 9).messageIds,
+            hasLength(window),
+          );
+          // The count below is only meaningful from the store Chat reads.
+          expect(reads.count, greaterThan(0));
+          reads.count = 0;
 
-      final tracker = FakeSiteTracker.built.singleWhere(
-        (tracker) => tracker.siteUrl == firstSite,
-      );
-      tracker.deliverPluginMessage('/chat/9/new-messages', {
-        'type': 'channel',
-        'channel_id': 9,
-        'message': {
-          'id': 51,
-          'chat_channel_id': 9,
-          'message': 'hello',
-          'cooked': '<p>hello</p>',
-          'created_at': '2026-01-01T00:51:00.000Z',
-          'user': {'id': 2, 'username': 'sam'},
-        },
-      });
-      await tester.pump();
+          final tracker = FakeSiteTracker.built.singleWhere(
+            (tracker) => tracker.siteUrl == firstSite,
+          );
+          tracker.deliverPluginMessage('/chat/9/new-messages', {
+            'type': 'channel',
+            'channel_id': 9,
+            'message': {
+              'id': window + 1,
+              'chat_channel_id': 9,
+              'message': 'hello',
+              'cooked': '<p>hello</p>',
+              'created_at': newestAt
+                  .add(const Duration(minutes: 1))
+                  .toIso8601String(),
+              'user': {'id': 2, 'username': 'sam'},
+            },
+          });
+          await tester.pump();
 
-      expect(controller.chat.stream(firstSite, 9).messageIds.last, 51);
+          expect(
+            controller.chat.stream(firstSite, 9).messageIds.last,
+            window + 1,
+          );
+          return reads.count;
+        } finally {
+          await tester.pumpWidget(const SizedBox.shrink());
+          controller.dispose();
+        }
+      }
+
+      final small = await liveArrivalReads(50);
+      final large = await liveArrivalReads(400);
+
       // The seam is resolved through the rows' stable refs; a live arrival
-      // never scans the fifty-message window already projected.
-      expect(store.messageReads, 0);
+      // never scans the window already projected, however long it has grown.
+      expect(large, small);
     });
 
     testWidgets('message skeletons represent paging in either direction', (
@@ -2658,15 +2686,21 @@ Future<void> _startSelectingNewestMessage(WidgetTester tester) async {
 Future<ShellController> _controller(
   _ChatApi api, {
   List<String> sites = const ['https://one.example', 'https://two.example'],
-  Store? store,
+  _MessageReads? messageReads,
   DiscourseUser? user,
 }) async {
   final authenticator = _SynchronousAuthenticator();
   for (final siteUrl in sites) {
     authenticator.keys[siteUrl] = 'key';
   }
+  final plugins = messageReads == null
+      ? installedPlugins
+      : installBundledPluginsWithChatStore(
+          (policy) => _CountingStore(policy, messageReads),
+        );
+  if (messageReads != null) addTearDown(plugins.close);
   final controller = ShellController(
-    plugins: installedPlugins,
+    plugins: plugins,
     instanceStore: FakeInstanceStore([
       for (final siteUrl in sites)
         DiscourseInstance(
@@ -2679,7 +2713,6 @@ Future<ShellController> _controller(
     api: api,
     authenticator: authenticator,
     drafts: FakeDraftStore(),
-    store: store,
     trackers: FakeSiteTracker.reset(),
   );
   await controller.load();
@@ -2846,12 +2879,19 @@ final class _ChatApi extends FakeDiscourseApi {
   }
 }
 
+final class _MessageReads {
+  int count = 0;
+}
+
+/// Chat's private store, counting the message reads that also reorder its LRU.
 final class _CountingStore extends Store {
-  int messageReads = 0;
+  _CountingStore(StorePolicy policy, this._reads) : super(policy: policy);
+
+  final _MessageReads _reads;
 
   @override
   T? read<T extends Storable<T>>(String siteUrl, Object id) {
-    if (T == ChatMessage) messageReads++;
+    if (T == ChatMessage) _reads.count++;
     return super.read<T>(siteUrl, id);
   }
 }

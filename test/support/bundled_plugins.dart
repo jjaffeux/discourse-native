@@ -63,3 +63,18 @@ PluginRegistry get pluginRegistry => installedPlugins.registry;
 List<SitePlugin> get sitePlugins => pluginRegistry.plugins;
 
 final PluginManifest bundledWidgetTestManifest = _testBundledPluginManifest;
+
+/// A fresh install of the bundled test plugins whose Chat session keeps its
+/// records in the store [chatStore] builds, for tests that observe what Chat
+/// reads. The caller owns the install and closes it.
+InstalledPlugins installBundledPluginsWithChatStore(
+  ChatStoreFactory chatStore,
+) => PluginInstaller.install(
+  PluginManifest([
+    for (final module in _testBundledPluginManifest.modules)
+      if (module is ChatModule)
+        ChatModule(apiFactory: _chatApi, storeFactory: chatStore)
+      else
+        module,
+  ]),
+);
