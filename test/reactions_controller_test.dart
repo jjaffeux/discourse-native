@@ -10,11 +10,18 @@ import 'package:discourse_native/src/plugin_api/emoji_preferences.dart';
 import 'package:discourse_native/src/plugin_api/emoji_usage.dart';
 import 'package:discourse_native/src/plugin_api/plugin_data.dart';
 import 'package:discourse_native/src/plugins/reactions/post_reactors.dart';
+import 'package:discourse_native/src/plugins/reactions/reaction.dart';
+import 'package:discourse_native/src/plugins/reactions/reaction_picker.dart';
 import 'package:discourse_native/src/plugins/reactions/reactions_api.dart';
 import 'package:discourse_native/src/plugins/reactions/reactions_controller.dart';
+import 'package:discourse_native/src/theme/app_theme.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 
 import 'support/fakes.dart';
+import 'support/media_pipeline.dart';
 
 const _siteUrl = 'https://meta.discourse.org';
 
@@ -148,9 +155,32 @@ final class _UnusedEmojiPreferences implements EmojiPreferenceStore {
   }) async {}
 }
 
+PluginEmojiHost _emojiHost({required PluginEmojiCatalogLoader loadCatalog}) =>
+    PluginEmojiHost(
+      preferences: _UnusedEmojiPreferences(),
+      siteConfigFor: (_) => const SiteConfig.unknown(),
+      loadCatalog: loadCatalog,
+      loadSearchAliases: (_, {refresh = false}) async => null,
+      resolveUrl: (siteUrl, name) => '$siteUrl/$name',
+    );
+
+/// Answers the way the shell's presentation controller does once a site's
+/// catalog request has failed: immediately, with nothing, until a refresh.
+final class _MissingEmojiCatalog {
+  int loads = 0;
+
+  late final PluginEmojiHost host = _emojiHost(
+    loadCatalog: (_, {refresh = false}) {
+      loads++;
+      return Future.value(null);
+    },
+  );
+}
+
 ReactionsController _controller({
   required ReactionsApi api,
   required PluginRequestHost requests,
+  PluginEmojiHost? emoji,
 }) => ReactionsController(
   api: api,
   requests: requests,
@@ -160,13 +190,7 @@ ReactionsController _controller({
     siteConfigFor: (_) => const SiteConfig.unknown(),
   ),
   resolveSiteConfig: (_) async => null,
-  emoji: PluginEmojiHost(
-    preferences: _UnusedEmojiPreferences(),
-    siteConfigFor: (_) => const SiteConfig.unknown(),
-    loadCatalog: (_, {refresh = false}) async => null,
-    loadSearchAliases: (_, {refresh = false}) async => null,
-    resolveUrl: (siteUrl, name) => '$siteUrl/$name',
-  ),
+  emoji: emoji ?? _emojiHost(loadCatalog: (_, {refresh = false}) async => null),
 );
 
 void main() {
@@ -255,6 +279,126 @@ void main() {
           ],
         ),
       );
+    });
+  });
+
+  group('emoji catalog', () {
+    test('a read that finds no catalog does not wake its readers', () async {
+      final catalog = _MissingEmojiCatalog();
+      final controller = _controller(
+        api: _SequencedReactorsApi([]),
+        requests: FakePluginRequestHost(),
+        emoji: catalog.host,
+      );
+      addTearDown(controller.dispose);
+      var notifications = 0;
+      // A notification marks a ListenableBuilder dirty; its builder reads the
+      // URL again on the next frame, which the timer queue stands in for.
+      controller.addListener(() {
+        notifications++;
+        Timer.run(() => controller.emojiUrlFor(_siteUrl, 'clap'));
+      });
+
+      expect(
+        controller.emojiUrlFor(_siteUrl, 'clap'),
+        const SiteConfig.unknown().emojiUrl('clap', siteUrl: _siteUrl),
+      );
+      await pumpEventQueue();
+
+      expect(catalog.loads, 1);
+      expect(notifications, 0);
+    });
+
+    test('a catalog found after a miss is adopted by the next read', () async {
+      final answers = <SiteEmojiCatalog?>[
+        null,
+        SiteEmojiCatalog(
+          groups: [
+            SiteEmojiGroup(
+              id: 'default',
+              emojis: const [
+                SiteEmoji(name: 'clap', url: '$_siteUrl/custom/clap.png'),
+              ],
+            ),
+          ],
+        ),
+      ];
+      var loads = 0;
+      final controller = _controller(
+        api: _SequencedReactorsApi([]),
+        requests: FakePluginRequestHost(),
+        emoji: _emojiHost(
+          loadCatalog: (_, {refresh = false}) => Future.value(answers[loads++]),
+        ),
+      );
+      addTearDown(controller.dispose);
+      var notifications = 0;
+      controller.addListener(() => notifications++);
+
+      controller.emojiUrlFor(_siteUrl, 'clap');
+      await pumpEventQueue();
+      expect(notifications, 0);
+
+      controller.emojiUrlFor(_siteUrl, 'clap');
+      await pumpEventQueue();
+
+      expect(loads, 2);
+      expect(notifications, 1);
+      expect(
+        controller.emojiUrlFor(_siteUrl, 'clap'),
+        '$_siteUrl/custom/clap.png',
+      );
+      expect(loads, 2);
+    });
+
+    testWidgets('a held reaction settles while its site has no catalog', (
+      tester,
+    ) async {
+      installTestMediaPipeline(
+        client: MockClient((_) async => http.Response('', 404)),
+      );
+      final catalog = _MissingEmojiCatalog();
+      final controller = _controller(
+        api: _SequencedReactorsApi([]),
+        requests: FakePluginRequestHost(),
+        emoji: catalog.host,
+      );
+      addTearDown(controller.dispose);
+      final post = Post(
+        id: 7,
+        postNumber: 1,
+        username: 'author',
+        cooked: '<p>Post</p>',
+        plugins: PluginData.none.withValue(
+          reactionsDataKey,
+          const Reactions(
+            entries: [Reaction(id: 'clap', count: 1)],
+            mine: Reaction(id: 'clap', count: 1, canUndo: true),
+            userCount: 1,
+          ),
+        ),
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light.copyWith(platform: TargetPlatform.macOS),
+          home: Scaffold(
+            body: Center(
+              child: PostReactionButton(
+                controller: controller,
+                emoji: catalog.host,
+                siteUrl: _siteUrl,
+                post: post,
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.bySemanticsLabel('Remove your clap reaction'), findsOne);
+      // Settling only proves something if the held emoji asked for a catalog.
+      expect(catalog.loads, isPositive);
     });
   });
 
