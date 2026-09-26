@@ -119,16 +119,14 @@ final class DiscourseTransport {
     required Future<void> abortTrigger,
     String? clientId,
     Duration requestTimeout = const Duration(minutes: 5),
-  }) async {
+  }) {
     var sent = 0;
-    final timeoutAbort = Completer<void>();
-    final timer = Timer(requestTimeout, timeoutAbort.complete);
+    // The deadline belongs to [send], which starts it when the origin admits
+    // the request: time queued behind other uploads or a cooldown is not
+    // charged to the transfer, and expiry surfaces as a timeout rather than
+    // as the user's abort.
     final request =
-        http.AbortableMultipartRequest(
-            'POST',
-            url,
-            abortTrigger: Future.any<void>([abortTrigger, timeoutAbort.future]),
-          )
+        http.AbortableMultipartRequest('POST', url, abortTrigger: abortTrigger)
           ..fields['upload_type'] = uploadType
           ..files.add(
             http.MultipartFile(
@@ -145,17 +143,13 @@ final class DiscourseTransport {
             ),
           );
 
-    try {
-      return await sendAuthenticated(
-        request,
-        siteUrl: siteUrl,
-        apiKey: apiKey,
-        clientId: clientId,
-        requestTimeout: requestTimeout,
-      );
-    } finally {
-      timer.cancel();
-    }
+    return sendAuthenticated(
+      request,
+      siteUrl: siteUrl,
+      apiKey: apiKey,
+      clientId: clientId,
+      requestTimeout: requestTimeout,
+    );
   }
 
   Future<SiteAppearance?> siteAppearance({
@@ -184,6 +178,12 @@ final class DiscourseTransport {
           timeout: requestTimeout ?? timeout,
           maxBodyBytes: _maxResponseBytes,
         ),
+        // The HTTP client only sees the trigger once the request is admitted;
+        // until then only the gate can withdraw it from the origin's backlog.
+        abortTrigger: switch (request) {
+          http.Abortable(:final abortTrigger) => abortTrigger,
+          _ => null,
+        },
       );
     } on UnsafeHttpTransportException catch (error, stackTrace) {
       throw SiteLookupException(
