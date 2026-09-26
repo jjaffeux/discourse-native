@@ -456,6 +456,65 @@ void main() {
         expect(cancelled, isTrue);
       },
     );
+
+    test(
+      'the deadline aborts a multipart upload that is still sending',
+      () async {
+        final file = http.MultipartFile(
+          'file',
+          const Stream<List<int>>.empty(),
+          0,
+          filename: 'photo.png',
+        );
+        final request =
+            http.MultipartRequest(
+                'POST',
+                Uri.https('forum.example', '/uploads.json'),
+              )
+              ..fields['upload_type'] = 'composer'
+              ..files.add(file)
+              ..headers['user-api-key'] = 'key';
+        final aborted = Completer<void>();
+        late http.BaseRequest sent;
+        final timers = <_ManualTimer>[];
+
+        final result = _withManualTimers(
+          timers,
+          () => sendBoundedHttpRequest(
+            _Client((request) async {
+              sent = request;
+              await switch (request) {
+                http.Abortable(:final abortTrigger?) => abortTrigger,
+                _ => Completer<void>().future,
+              };
+              aborted.complete();
+              throw http.RequestAbortedException(request.url);
+            }),
+            request,
+            timeout: const Duration(minutes: 5),
+            maxBodyBytes: 10,
+          ),
+        );
+        final timesOut = expectLater(result, throwsA(isA<TimeoutException>()));
+        expect(timers.single.delay, const Duration(minutes: 5));
+        timers.single.fire();
+        await timesOut;
+        await _expectSignal(
+          aborted,
+          reason: 'the deadline left the multipart body streaming',
+        );
+
+        expect(
+          sent,
+          isA<http.MultipartRequest>()
+              .having((sent) => sent.fields, 'fields', {
+                'upload_type': 'composer',
+              })
+              .having((sent) => sent.files, 'files', [same(file)])
+              .having((sent) => sent.headers['user-api-key'], 'API key', 'key'),
+        );
+      },
+    );
   });
 }
 

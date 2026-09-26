@@ -275,6 +275,92 @@ void main() {
   }
 
   testWidgets(
+    'an upload that outlives its deadline fails as a timeout, not a cancellation',
+    (tester) async {
+      final client = _InFlightClient();
+      final api = DiscourseApi(transport: _transport(tester, client));
+      addTearDown(api.close);
+      Object? failure;
+      unawaited(
+        _upload(
+          api,
+        ).then<void>((_) {}, onError: (Object error) => failure = error),
+      );
+      await tester.pump();
+      expect(client.sent, ['POST /uploads.json']);
+
+      await tester.pump(const Duration(minutes: 5));
+
+      expect(failure, _uploadError("Couldn't upload photo.png."));
+      // The deadline closes the connection rather than leaving the file
+      // streaming behind a failed row.
+      expect(client.aborted, ['POST /uploads.json']);
+    },
+  );
+
+  testWidgets(
+    'cancelling an upload queued behind a busy origin settles it unsent',
+    (tester) async {
+      final client = _InFlightClient();
+      final transport = _transport(tester, client, maxConcurrentPerOrigin: 1);
+      final api = DiscourseApi(transport: transport);
+      addTearDown(api.close);
+      final read = _holdSlot(transport);
+      final abort = Completer<void>();
+      Object? failure;
+      unawaited(
+        _upload(
+          api,
+          abortTrigger: abort.future,
+        ).then<void>((_) {}, onError: (Object error) => failure = error),
+      );
+      await tester.pump();
+      expect(client.sent, ['GET /latest.json']);
+
+      abort.complete();
+      await tester.pump();
+      expect(failure, _uploadError('Upload cancelled.'));
+
+      client.release.complete(_emptyObject());
+      await tester.pump();
+      expect((await read).statusCode, 200);
+      expect(client.sent, ['GET /latest.json']);
+    },
+  );
+
+  testWidgets("an upload's deadline starts when its origin admits it", (
+    tester,
+  ) async {
+    final client = _InFlightClient();
+    final transport = _transport(tester, client, maxConcurrentPerOrigin: 1);
+    final api = DiscourseApi(transport: transport);
+    addTearDown(api.close);
+    final read = _holdSlot(transport);
+    Object? failure;
+    unawaited(
+      _upload(
+        api,
+      ).then<void>((_) {}, onError: (Object error) => failure = error),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(minutes: 4));
+    expect(client.sent, ['GET /latest.json']);
+
+    client.release.complete(_emptyObject());
+    await tester.pump();
+    expect((await read).statusCode, 200);
+    expect(client.sent, ['GET /latest.json', 'POST /uploads.json']);
+
+    await tester.pump(const Duration(minutes: 5) - const Duration(seconds: 1));
+    expect(failure, isNull);
+    expect(client.aborted, isEmpty);
+
+    await tester.pump(const Duration(seconds: 1));
+    expect(failure, _uploadError("Couldn't upload photo.png."));
+    expect(client.aborted, ['POST /uploads.json']);
+  });
+
+  testWidgets(
     'rate-limited first upload retains the completed sibling and batch order',
     (tester) async {
       final first = Completer<http.Response>();
@@ -303,18 +389,23 @@ void main() {
 DiscourseApi _api(
   WidgetTester tester,
   Future<http.Response> Function(http.Request) send,
-) {
+) => DiscourseApi(transport: _transport(tester, MockClient(send)));
+
+DiscourseTransport _transport(
+  WidgetTester tester,
+  http.Client client, {
+  int maxConcurrentPerOrigin = 4,
+}) {
   final start = tester.binding.clock.now();
-  return DiscourseApi(
-    transport: DiscourseTransport(
-      SafeHttpClient.owned(MockClient(send)),
-      const Duration(seconds: 10),
-      1024 * 1024,
-      coordinator: DiscourseRequestCoordinator(
-        clock: tester.binding.clock.now,
-        cooldownFactory: () => OriginCooldown(
-          clock: () => tester.binding.clock.now().difference(start),
-        ),
+  return DiscourseTransport(
+    SafeHttpClient.owned(client),
+    const Duration(seconds: 10),
+    1024 * 1024,
+    coordinator: DiscourseRequestCoordinator(
+      maxConcurrentPerOrigin: maxConcurrentPerOrigin,
+      clock: tester.binding.clock.now,
+      cooldownFactory: () => OriginCooldown(
+        clock: () => tester.binding.clock.now().difference(start),
       ),
     ),
   );
@@ -323,13 +414,52 @@ DiscourseApi _api(
 Future<ComposerUploadResult> _upload(
   DiscourseApi api, {
   ComposerUploadFile? file,
+  Future<void>? abortTrigger,
 }) => api.uploadComposerImage(
   siteUrl: 'https://example.com',
   apiKey: 'key',
   file: file ?? _file,
   onProgress: (_) {},
-  abortTrigger: Completer<void>().future,
+  abortTrigger: abortTrigger ?? Completer<void>().future,
 );
+
+/// A read that holds the origin's only slot until [_InFlightClient.release].
+Future<http.Response> _holdSlot(DiscourseTransport transport) => transport.get(
+  Uri.parse('https://example.com/latest.json'),
+  siteUrl: 'https://example.com',
+  requestTimeout: const Duration(hours: 1),
+);
+
+Matcher _uploadError(String message) => isA<ComposerUploadException>().having(
+  (error) => error.message,
+  'message',
+  message,
+);
+
+/// Records each request as the network would see it. A GET waits for
+/// [release]; an upload stays in flight until its abort trigger fires and then
+/// fails the way IOClient reports an aborted request.
+final class _InFlightClient extends http.BaseClient {
+  final sent = <String>[];
+  final aborted = <String>[];
+  final release = Completer<http.StreamedResponse>();
+
+  @override
+  Future<http.StreamedResponse> send(http.BaseRequest request) async {
+    final route = '${request.method} ${request.url.path}';
+    sent.add(route);
+    if (request.method == 'GET') return release.future;
+    await switch (request) {
+      http.Abortable(:final abortTrigger?) => abortTrigger,
+      _ => Completer<void>().future,
+    };
+    aborted.add(route);
+    throw http.RequestAbortedException(request.url);
+  }
+}
+
+http.StreamedResponse _emptyObject() =>
+    http.StreamedResponse(Stream.value(utf8.encode('{}')), 200);
 
 ComposerController _composer(DiscourseApi api) => ComposerController(
   const ComposerTarget(

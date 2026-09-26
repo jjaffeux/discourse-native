@@ -152,7 +152,6 @@ http.BaseRequest _withAbortTrigger(
   http.BaseRequest request,
   Future<void> timeoutAbort,
 ) {
-  if (request is! http.Request) return request;
   final existingAbort = switch (request) {
     http.Abortable(:final abortTrigger?) => abortTrigger,
     _ => null,
@@ -160,12 +159,29 @@ http.BaseRequest _withAbortTrigger(
   final abortTrigger = existingAbort == null
       ? timeoutAbort
       : Future.any<void>([existingAbort, timeoutAbort]);
-  return http.AbortableRequest(
-      request.method,
-      request.url,
-      abortTrigger: abortTrigger,
-    )
-    ..bodyBytes = request.bodyBytes
+  final http.BaseRequest abortable;
+  switch (request) {
+    case http.Request():
+      abortable = http.AbortableRequest(
+        request.method,
+        request.url,
+        abortTrigger: abortTrigger,
+      )..bodyBytes = request.bodyBytes;
+    case http.MultipartRequest():
+      // A file part's stream can be read once, by whichever request finalizes
+      // first. The caller's request is never finalized, so the parts move.
+      abortable =
+          http.AbortableMultipartRequest(
+              request.method,
+              request.url,
+              abortTrigger: abortTrigger,
+            )
+            ..fields.addAll(request.fields)
+            ..files.addAll(request.files);
+    default:
+      return request;
+  }
+  return abortable
     ..headers.addAll(request.headers)
     ..followRedirects = request.followRedirects
     ..maxRedirects = request.maxRedirects
