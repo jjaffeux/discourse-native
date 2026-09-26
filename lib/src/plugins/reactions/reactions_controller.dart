@@ -95,6 +95,12 @@ class ReactionsController extends FrameSafeNotifier {
         siteConfigFor(siteUrl).emojiUrl(name, siteUrl: siteUrl);
   }
 
+  /// Started from [emojiUrlFor], which runs inside builders listening to this
+  /// controller, so only a stored catalog may notify: waking them after a
+  /// miss would have them read again and start the next load, every frame.
+  /// A miss is not remembered here; the host keeps a failed site's answer
+  /// without traffic until a refresh, and asking again on a later read is
+  /// what picks up the catalog that refresh finds.
   Future<void> _loadEmojiCatalog(String siteUrl) async {
     if (isDisposed || _emojiCatalogRequests.containsKey(siteUrl)) return;
     final request = Object();
@@ -103,8 +109,9 @@ class ReactionsController extends FrameSafeNotifier {
     try {
       final catalog = await _emoji.loadCatalog(siteUrl, refresh: false);
       if (!_ownsCatalogRequest(siteUrl, request) || !lease.isCurrent) return;
-      if (catalog != null) {
-        lease.commit(() => _emojiCatalogs[siteUrl] = catalog);
+      if (catalog != null &&
+          lease.commit(() => _emojiCatalogs[siteUrl] = catalog)) {
+        notifySafely();
       }
     } catch (error, stackTrace) {
       if (lease.isCurrent && _ownsCatalogRequest(siteUrl, request)) {
@@ -113,7 +120,6 @@ class ReactionsController extends FrameSafeNotifier {
     } finally {
       if (_ownsCatalogRequest(siteUrl, request)) {
         _emojiCatalogRequests.remove(siteUrl);
-        notifySafely();
       }
     }
   }
