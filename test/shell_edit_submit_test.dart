@@ -159,6 +159,37 @@ void main() {
     },
   );
 
+  test('an edit opened after a newer revision arrived loads that revision\'s '
+      'markdown', () async {
+    final held = controller.store.read<Post>(_siteUrl, 2)!;
+    controller.store.put(
+      _siteUrl,
+      held
+          .copyWith(updatedAt: DateTime.utc(2026, 1, 1, 12))
+          .withRaw('Original reply body'),
+    );
+    controller.store.put(
+      _siteUrl,
+      held.copyWith(
+        cooked: '<p>Moderated reply body</p>',
+        version: 2,
+        updatedAt: DateTime.utc(2026, 1, 1, 13),
+      ),
+    );
+    api.rawById[2] = 'Moderated reply body';
+
+    controller.openEdit(controller.store.read<Post>(_siteUrl, 2)!);
+    await pumpEventQueue();
+
+    final composer = controller.visibleComposer!;
+    expect(composer.originalRaw, 'Moderated reply body');
+    expect(composer.raw, 'Moderated reply body');
+    expect(api.postFetches, [
+      [2],
+    ]);
+    expect(api.postFetchIncludesRaw, [true]);
+  });
+
   test('a post edit whose body never loaded cannot replace the post', () async {
     controller.openEdit(controller.store.read<Post>(_siteUrl, 2)!);
     await pumpEventQueue();
@@ -207,6 +238,32 @@ final class _EditApi extends FakeDiscourseApi {
 
   Future<void> Function()? beforePostReply;
   Future<void> Function()? beforeTopicReply;
+
+  /// Markdown the site answers with, only when a read asks for it.
+  final rawById = <int, String>{};
+
+  @override
+  Future<List<Post>> posts({
+    required String siteUrl,
+    required int topicId,
+    required List<int> ids,
+    bool includeRaw = false,
+    String? apiKey,
+    String? clientId,
+  }) async => [
+    for (final post in await super.posts(
+      siteUrl: siteUrl,
+      topicId: topicId,
+      ids: ids,
+      includeRaw: includeRaw,
+      apiKey: apiKey,
+      clientId: clientId,
+    ))
+      switch (includeRaw ? rawById[post.id] : null) {
+        final raw? => post.withRaw(raw),
+        null => post,
+      },
+  ];
 
   @override
   Future<Post> updatePost({

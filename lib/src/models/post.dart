@@ -275,9 +275,16 @@ class Post with Storable<Post> {
   @override
   Object get storeId => id;
 
+  /// A copy without `raw` was read without asking for it, so the held markdown
+  /// survives — but only while it is the source of the incoming revision. An
+  /// edit inside Discourse's grace period keeps the version and moves only
+  /// `updated_at`; markdown from any other revision would open the editor on
+  /// text the reader no longer sees and send it back as `original_text`.
   @override
   Post merge(Post incoming) {
-    final merged = incoming.raw == null && raw != null
+    final sameRevision =
+        incoming.version == version && incoming.updatedAt == updatedAt;
+    final merged = incoming.raw == null && raw != null && sameRevision
         ? incoming.withRaw(raw!)
         : incoming;
     return this == merged ? this : merged;
