@@ -14590,9 +14590,17 @@ class ShellController extends FrameSafeNotifier
     final traceGeneration = ++_forumSwitchTraceGeneration;
     _rootMode = ShellRootMode.forum;
     if (mobileNavigationEnabled) mobileNavigation.reset();
-    if (index != _instanceIndex) {
-      _instanceIndex = index;
+    final switched = index != _instanceIndex;
+    _instanceIndex = index;
+    // Every mobile selection lands on the forum's default route. Restoring the
+    // persisted workspace first would activate the site a second time and
+    // request a route that is replaced before it is ever shown.
+    if (mobileNavigationEnabled) {
+      _resetToInstanceDefault();
+    } else if (switched) {
       _restoreInstanceWorkspace();
+    }
+    if (switched) {
       SurfaceOpeningTrace.mark('forum.workspaceRestored');
       final selected = currentInstance;
       if (selected != null && selected.isConnected) {
@@ -14604,7 +14612,6 @@ class ShellController extends FrameSafeNotifier
         );
       }
     }
-    if (mobileNavigationEnabled) _resetToInstanceDefault();
     _mobilePane = MobilePane.sidebar;
     _notify();
     SurfaceOpeningTrace.mark('forum.notified');
