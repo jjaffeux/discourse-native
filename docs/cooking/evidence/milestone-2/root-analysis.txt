@@ -1,5 +1,0 @@
-Analyzing discourse-native...
-
-   info • Use 'const' literals as arguments to constructors of '@immutable' classes. Try adding 'const' before the literal • test/content_route_test.dart:19:17 • prefer_const_literals_to_create_immutables
-
-1 issue found. (ran in 4.8s)

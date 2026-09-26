@@ -1,5 +1,0 @@
-root-ios-simulator-debug: final bundle SHA in Dart kernel; native cooking framework and all five exports verified
-full-ios-simulator-debug: final bundle SHA in Dart kernel; native cooking framework and all five exports verified
-root-macos-unsigned-debug: final bundle SHA in Dart kernel; native cooking framework and all five exports verified
-full-macos-unsigned-debug: final bundle SHA in Dart kernel; native cooking framework and all five exports verified
-Artifact manifest: /tmp/cooking-m5-apple-final-artifact-manifest.json

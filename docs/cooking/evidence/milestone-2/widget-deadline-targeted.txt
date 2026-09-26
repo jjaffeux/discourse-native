@@ -1,6 +1,0 @@
-Shuffling test order with --test-randomize-ordering-seed=67214
-00:00 +0: loading /Users/joffreyjaffeux/.codex/worktrees/0493/discourse-native/test/cooking_widget_lifecycle_test.dart
-00:00 +0: /Users/joffreyjaffeux/.codex/worktrees/0493/discourse-native/test/diagnostics_panel_test.dart: starts, stops, and copies a topic scroll capture
-00:00 +1: /Users/joffreyjaffeux/.codex/worktrees/0493/discourse-native/test/diagnostics_panel_test.dart: starts, stops, and copies a topic scroll capture
-00:01 +2: /Users/joffreyjaffeux/.codex/worktrees/0493/discourse-native/test/discourse_ai_proofreading_test.dart: a later composer restores the remembered choice
-00:01 +3: All tests passed!
