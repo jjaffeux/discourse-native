@@ -182,6 +182,22 @@ class ChecklistBookmarkApi extends ChecklistApi {
   }
 }
 
+/// Every whole-post checklist parse starts by reading the saved cooked HTML.
+class _CookedReadCountingPost extends Post {
+  const _CookedReadCountingPost({
+    required super.cooked,
+    required this.onCookedRead,
+  }) : super(id: 22, postNumber: 2, username: 'author');
+
+  final VoidCallback onCookedRead;
+
+  @override
+  String get cooked {
+    onCookedRead();
+    return super.cooked;
+  }
+}
+
 bool bookmarkBusy(ShellController shell) => shell.bookmarkWriteInFlight(
   siteUrl: site,
   topicId: 7,
@@ -836,5 +852,55 @@ void main() {
     expect(api.calls, hasLength(1));
     api.writeGates.single.complete();
     await tester.pumpAndSettle();
+  });
+
+  testWidgets('a checklist reads its saved post once, not once per task', (
+    tester,
+  ) async {
+    // Each task, table cell and disclosure body is its own nested renderer, so
+    // re-deriving the whole post's checklist in every one of them makes the
+    // first frame of a long checklist quadratic in its length.
+    Future<int> cookedReads(int tasks) async {
+      final source = cooked(
+        List.generate(tasks, (index) => '[ ] Task $index').join('\n'),
+      );
+      var reads = 0;
+      final counted = _CookedReadCountingPost(
+        cooked: source,
+        onCookedRead: () => reads += 1,
+      );
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light,
+          home: Scaffold(
+            body: SingleChildScrollView(
+              child: CookedHtml(
+                html: source,
+                post: counted,
+                siteUrl: site,
+                buildAsync: false,
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        find.byType(CookedHtml),
+        findsNWidgets(tasks + 1),
+        reason: 'every task must reach a nested renderer for this to count',
+      );
+      expect(find.byType(DCheckbox), findsNWidgets(tasks));
+      await tester.pumpWidget(const SizedBox());
+      return reads;
+    }
+
+    final short = await cookedReads(8);
+    final long = await cookedReads(64);
+    expect(
+      long,
+      short,
+      reason: 'eight times the tasks read the post $long times against $short',
+    );
   });
 }

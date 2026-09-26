@@ -325,28 +325,12 @@ class CookedHtml extends StatelessWidget {
         ? _CompactParagraphMargins()
         : null;
 
-    final displayedChecklist = html.contains('chcklst-box')
-        ? PostChecklistDocument(html)
-        : null;
-    final savedChecklist = post != null && post!.cooked.contains('chcklst-box')
-        ? PostChecklistDocument(post!.cooked)
-        : null;
-    final displayedTargets = displayedChecklist?.targets;
-    final savedTargets = savedChecklist?.targets;
-    final sameTargets =
-        displayedTargets != null &&
-        savedTargets != null &&
-        displayedTargets.length == savedTargets.length &&
-        displayedTargets.indexed.every((entry) {
-          final (index, displayed) = entry;
-          final saved = savedTargets[index];
-          return displayed.checked == saved.checked &&
-              displayed.permanent == saved.permanent &&
-              displayed.source == saved.source;
-        });
+    // Nested renderers, one per task, table cell and disclosure body, inherit
+    // the outer document: parsing the whole post again in each would make a
+    // checklist's first frame quadratic in its length.
     final checklist = revisionDiff
         ? null
-        : checklistDocument ?? (sameTargets ? displayedChecklist : null);
+        : checklistDocument ?? _displayedChecklist(html, post);
     final shell = ShellScope.maybeRead(context);
     final canToggle =
         checklist != null &&
@@ -460,6 +444,32 @@ class CookedHtml extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Displayed markup keeps the saved post's checkbox indices only while it
+/// presents the same targets in the same order.
+PostChecklistDocument? _displayedChecklist(String html, Post? post) {
+  final savedHtml = post?.cooked;
+  if (savedHtml == null ||
+      !html.contains('chcklst-box') ||
+      !savedHtml.contains('chcklst-box')) {
+    return null;
+  }
+  final document = PostChecklistDocument(html);
+  // Identical markup has identical targets, so it needs no second parse.
+  if (html == savedHtml) return document;
+  final displayedTargets = document.targets;
+  final savedTargets = PostChecklistDocument(savedHtml).targets;
+  final sameTargets =
+      displayedTargets.length == savedTargets.length &&
+      displayedTargets.indexed.every((entry) {
+        final (index, displayed) = entry;
+        final saved = savedTargets[index];
+        return displayed.checked == saved.checked &&
+            displayed.permanent == saved.permanent &&
+            displayed.source == saved.source;
+      });
+  return sameTargets ? document : null;
 }
 
 class _CompactParagraphMargins {
