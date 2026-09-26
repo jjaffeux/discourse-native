@@ -8,12 +8,21 @@ import 'package:flutter_test/flutter_test.dart';
 
 const site = 'https://meta.discourse.org';
 
-Post post(int id, int number, {String? raw}) => Post(
+Post post(
+  int id,
+  int number, {
+  String? raw,
+  String? cooked,
+  int version = 1,
+  DateTime? updatedAt,
+}) => Post(
   id: id,
   postNumber: number,
   username: 'sam',
-  cooked: '<p>$id</p>',
+  cooked: cooked ?? '<p>$id</p>',
   raw: raw,
+  version: version,
+  updatedAt: updatedAt,
 );
 
 TopicDetail detail({
@@ -725,15 +734,76 @@ void main() {
       expect(notifications, 1);
     });
 
-    test('a re-read does not take back markdown already in hand', () {
+    test('a re-read of the same revision keeps markdown already in hand', () {
       // `raw` is only sent when it was asked for, so a null in a later copy
       // means "not requested" rather than "no longer has one".
       final store = Store();
-      store.put(site, post(1, 1, raw: 'the source'));
-      store.put(site, post(1, 1));
+      final edited = DateTime.utc(2026, 1, 1, 12);
+      store.put(
+        site,
+        post(1, 1, raw: 'the source', version: 2, updatedAt: edited),
+      );
+      store.put(site, post(1, 1, version: 2, updatedAt: edited));
 
       expect(store.read<Post>(site, 1)?.raw, 'the source');
     });
+
+    test('a re-read of a newer revision drops markdown from the older one', () {
+      final store = Store();
+      store.put(
+        site,
+        post(
+          1,
+          1,
+          raw: 'the source',
+          version: 1,
+          updatedAt: DateTime.utc(2026, 1, 1, 12),
+        ),
+      );
+      store.put(
+        site,
+        post(
+          1,
+          1,
+          cooked: '<p>moderated</p>',
+          version: 2,
+          updatedAt: DateTime.utc(2026, 1, 1, 13),
+        ),
+      );
+
+      final held = store.read<Post>(site, 1)!;
+      expect(held.cooked, '<p>moderated</p>');
+      expect(held.raw, isNull);
+    });
+
+    test(
+      'a re-read after an edit inside the grace period drops markdown too',
+      () {
+        // Discourse folds an edit made inside the grace period into the current
+        // version, so only `updated_at` says the source changed.
+        final store = Store();
+        store.put(
+          site,
+          post(
+            1,
+            1,
+            raw: 'the source',
+            updatedAt: DateTime.utc(2026, 1, 1, 12),
+          ),
+        );
+        store.put(
+          site,
+          post(
+            1,
+            1,
+            cooked: '<p>typo fixed</p>',
+            updatedAt: DateTime.utc(2026, 1, 1, 12, 3),
+          ),
+        );
+
+        expect(store.read<Post>(site, 1)?.raw, isNull);
+      },
+    );
 
     test('what the topic draws is the stream, minus what has not arrived', () {
       final store = Store();
