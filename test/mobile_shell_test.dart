@@ -1,12 +1,14 @@
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
+import 'package:discourse_native/src/models/forum_workspace.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/sidebar.dart';
 import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/plugin_api/plugin_data.dart';
 import 'package:discourse_native/src/plugin_api/plugin_runtime.dart';
+import 'package:discourse_native/src/plugin_api/shell_extensions.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_mobile_sidebar.dart';
 import 'package:discourse_native/src/plugins/chat/chat_notification_counter.dart';
@@ -249,7 +251,142 @@ Future<void> _selectChatActivity(WidgetTester tester, String label) async {
   await tester.pumpAndSettle();
 }
 
+const _teamUrl = 'https://team.discourse.org';
+final _persistedTopic = ContentRoute.topic(
+  topicId: 42,
+  slug: 'persisted',
+  title: 'Persisted topic',
+);
+
+/// A mobile shell on the first of [twoSites], with a persisted workspace for
+/// the second one that shows a topic above a non-default feed.
+Future<
+  ({
+    ShellController shell,
+    FakeDiscourseApi api,
+    _RecordingSiteActivator activator,
+  })
+>
+_forumSwitchFixture() async {
+  final api = FakeDiscourseApi(
+    feeds: const {'/latest.json': [], '/hot.json': []},
+    topics: {42: topicPayload(id: 42, title: 'Persisted topic')},
+  );
+  final activator = _RecordingSiteActivator();
+  final plugins = PluginInstaller.install(
+    PluginManifest([_SiteActivationModule(activator)]),
+  );
+  final shell = ShellController(
+    instanceStore: FakeInstanceStore(twoSites),
+    api: api,
+    authenticator: FakeAuthenticator(),
+    drafts: FakeDraftStore(),
+    forumTabs: FakeForumTabStore([
+      ForumWorkspace(
+        siteUrl: _teamUrl,
+        accountIdentity: 'anonymous',
+        activeTabId: 'persisted',
+        tabs: [
+          ForumTab(
+            id: 'persisted',
+            rootDestinationId: 'hot',
+            contentStack: [
+              ContentRoute.topicList(TopicListMode.popular),
+              _persistedTopic,
+            ],
+          ),
+        ],
+      ),
+    ]),
+    forumTabsEnabled: false,
+    mobileNavigationEnabled: true,
+    trackers: FakeSiteTracker.reset(),
+    updater: FakeUpdater(),
+    updateStore: FakeUpdateStore(),
+    plugins: plugins,
+  );
+  addTearDown(() async {
+    shell.dispose();
+    await plugins.close();
+  });
+  await shell.load();
+  await pumpEventQueue();
+  return (shell: shell, api: api, activator: activator);
+}
+
+final class _SiteActivationModule implements PluginModule {
+  const _SiteActivationModule(this.activator);
+
+  final _RecordingSiteActivator activator;
+
+  @override
+  PluginDescriptor get descriptor =>
+      const PluginDescriptor(id: PluginId('site-activation-test'));
+
+  @override
+  void register(PluginRegistrar registrar) {
+    registrar.addSession(
+      (_, _) => PluginSessionContribution(
+        lifecycle: _SiteActivationLifecycle(),
+        capabilities: [activator],
+      ),
+      requires: const [],
+    );
+  }
+}
+
+final class _SiteActivationLifecycle extends PluginSessionLifecycle {}
+
+final class _RecordingSiteActivator implements PluginSiteActivator {
+  final List<String> sites = [];
+
+  @override
+  void activatePluginSite(String siteUrl, {required bool connected}) =>
+      sites.add(siteUrl);
+}
+
 void main() {
+  group('forum switching', () {
+    test(
+      'activates the site once and never loads the replaced persisted route',
+      () async {
+        final (:shell, :api, :activator) = await _forumSwitchFixture();
+        final feedsBeforeSwitch = api.feedPaths.length;
+        activator.sites.clear();
+
+        shell.selectInstance(1);
+        await pumpEventQueue();
+
+        expect(shell.currentContent?.id, 'latest');
+        expect(api.feedPaths.sublist(feedsBeforeSwitch), ['/latest.json']);
+        expect(api.topicsOpened, isEmpty);
+        expect(activator.sites, [_teamUrl]);
+      },
+    );
+
+    test(
+      'returns to the default route when the current forum is reselected',
+      () async {
+        final (:shell, :api, :activator) = await _forumSwitchFixture();
+        shell.selectInstance(1);
+        shell.pushContent(_persistedTopic);
+        await pumpEventQueue();
+        expect(shell.currentContent?.id, _persistedTopic.id);
+        final feedsBeforeReselect = api.feedPaths.length;
+        final topicsBeforeReselect = api.topicsOpened.length;
+        activator.sites.clear();
+
+        shell.selectInstance(1);
+        await pumpEventQueue();
+
+        expect(shell.currentContent?.id, 'latest');
+        expect(api.feedPaths.sublist(feedsBeforeReselect), ['/latest.json']);
+        expect(api.topicsOpened, hasLength(topicsBeforeReselect));
+        expect(activator.sites, [_teamUrl]);
+      },
+    );
+  });
+
   _mobileTest('Voice keeps the redesigned Chat inbox and its filters', (
     tester,
   ) async {
