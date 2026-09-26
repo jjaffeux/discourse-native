@@ -7171,6 +7171,158 @@ void main() {
       expect(subject.store.read<ChatMessage>(site, 50), isNull);
       expect(subject.chat.stream(site, 9), same(before));
     });
+
+    // An ordinary reader keeps a hidden row's id as a paging slot with no
+    // record behind it. Growing the window must not mistake that slot for a
+    // record the store evicted and cut the window down to one side of it.
+    group('a hidden row’s slot', () {
+      Map<String, dynamic> arrivalEvent(int id, {required int minute}) => {
+        'type': 'sent',
+        'chat_message': {
+          'id': id,
+          'chat_channel_id': 9,
+          'cooked': '<p>$id</p>',
+          'created_at': DateTime.utc(2026, 5, 5, 10, minute).toIso8601String(),
+          'user': {'id': 2, 'username': 'sam'},
+        },
+      };
+
+      Future<FakeSiteTracker> openViewed(
+        ({ChatController chat, FakeDiscourseApi api, Store store}) subject,
+      ) async {
+        subject.store.put(site, channel(9));
+        final tracker = attachTracker(subject.chat);
+        await subject.chat.openChannel(site, 9);
+        final view = subject.chat.beginViewingChannel(site, 9);
+        addTearDown(() => subject.chat.endViewingChannel(site, 9, view));
+        return tracker;
+      }
+
+      List<int> visible(ChatController chat) => [
+        for (final message in chat.messages(site, 9)) message.id,
+      ];
+
+      final window = {
+        key(9): page([
+          message(1),
+          message(2, minute: 1),
+          message(3, minute: 2),
+        ]),
+      };
+
+      test('survives a live arrival after it', () async {
+        final subject = build(currentUser: currentUser, messages: window);
+        final tracker = await openViewed(subject);
+
+        tracker.deliverPluginMessage('/chat/9', deleteEvent(2));
+        tracker.deliverPluginMessage('/chat/9', arrivalEvent(4, minute: 3));
+
+        final stream = subject.chat.stream(site, 9);
+        expect(stream.messageIds, [1, 2, 3, 4]);
+        expect(stream.canLoadMorePast, isFalse);
+        expect(visible(subject.chat), [1, 3, 4]);
+      });
+
+      test('survives a live arrival when it was the newest row', () async {
+        final subject = build(currentUser: currentUser, messages: window);
+        final tracker = await openViewed(subject);
+
+        tracker.deliverPluginMessage('/chat/9', deleteEvent(3));
+        tracker.deliverPluginMessage('/chat/9', arrivalEvent(4, minute: 3));
+
+        final stream = subject.chat.stream(site, 9);
+        expect(stream.messageIds, [1, 2, 3, 4]);
+        expect(stream.canLoadMorePast, isFalse);
+        expect(visible(subject.chat), [1, 2, 4]);
+      });
+
+      test('keeps the present edge through a page of history', () async {
+        final subject = build(
+          currentUser: currentUser,
+          messages: {
+            key(9): page([
+              message(2, minute: 1),
+              message(3, minute: 2),
+            ], canLoadMorePast: true),
+            key(9, before: 2): page([message(1)]),
+          },
+        );
+        final tracker = await openViewed(subject);
+
+        tracker.deliverPluginMessage('/chat/9', deleteEvent(3));
+        await subject.chat.loadOlder(site, 9);
+
+        var stream = subject.chat.stream(site, 9);
+        expect(stream.messageIds, [1, 2, 3]);
+        expect(stream.atPresent, isTrue);
+        expect(visible(subject.chat), [1, 2]);
+
+        tracker.deliverPluginMessage('/chat/9', arrivalEvent(4, minute: 3));
+
+        stream = subject.chat.stream(site, 9);
+        expect(stream.messageIds, [1, 2, 3, 4]);
+        expect(stream.pendingNewMessages, 0);
+      });
+
+      test('takes the row back on a restore after later arrivals', () async {
+        final subject = build(currentUser: currentUser, messages: window);
+        final tracker = await openViewed(subject);
+
+        tracker.deliverPluginMessage('/chat/9', deleteEvent(2));
+        tracker.deliverPluginMessage('/chat/9', arrivalEvent(4, minute: 3));
+        tracker.deliverPluginMessage('/chat/9', restoreEvent(2));
+
+        expect(subject.chat.stream(site, 9).messageIds, [1, 2, 3, 4]);
+        expect(visible(subject.chat), [1, 2, 3, 4]);
+      });
+
+      test('is still held when the channel is opened again', () async {
+        var now = DateTime.utc(2026, 5, 5, 11);
+        final pages = {...window};
+        final subject = build(
+          currentUser: currentUser,
+          messages: pages,
+          clock: () => now,
+        );
+        final tracker = await openViewed(subject);
+        tracker.deliverPluginMessage('/chat/9', deleteEvent(2));
+
+        await subject.chat.openChannel(site, 9);
+
+        expect(subject.api.chatMessagesRequested, hasLength(1));
+
+        pages[key(9)] = page([message(1), message(3, minute: 2)]);
+        now = now.add(const Duration(seconds: 30));
+        final emitted = <ChatStreamState>[];
+        final listenable = subject.chat.streamListenable(site, 9);
+        void record() => emitted.add(listenable.value);
+        listenable.addListener(record);
+        addTearDown(() => listenable.removeListener(record));
+
+        await subject.chat.openChannel(site, 9);
+
+        expect(subject.api.chatMessagesRequested, hasLength(2));
+        expect(emitted, isNotEmpty);
+        for (final state in emitted) {
+          expect(state.messageIds, isNotEmpty);
+        }
+        expect(subject.chat.stream(site, 9).messageIds, [1, 3]);
+      });
+
+      test('stops standing in once a restore stores the row again', () async {
+        final subject = build(currentUser: currentUser, messages: window);
+        final tracker = await openViewed(subject);
+        tracker.deliverPluginMessage('/chat/9', deleteEvent(2));
+        tracker.deliverPluginMessage('/chat/9', restoreEvent(2));
+
+        // Losing the restored record any other way — here standing in for
+        // store eviction — is a hole again, which the cooldown must not hide.
+        subject.store.remove<ChatMessage>(site, 2);
+        await subject.chat.openChannel(site, 9);
+
+        expect(subject.api.chatMessagesRequested, hasLength(2));
+      });
+    });
   });
 
   group('a bus payload the site should never send', () {
