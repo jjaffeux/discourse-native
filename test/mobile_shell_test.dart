@@ -817,6 +817,31 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  _mobileTest('an open topic subscribes to its live channels until left', (
+    tester,
+  ) async {
+    final shell = await pumpMobileShellFixture(tester);
+    final tracker = FakeSiteTracker.built.singleWhere(
+      (tracker) => tracker.siteUrl == _site,
+    );
+    expect(shell.desktopPanelsEnabled, isFalse);
+    expect(tracker.watchedTopic, isNull);
+
+    await tester.tap(find.byKey(const ValueKey('topic-card-7')));
+    await tester.pumpAndSettle();
+
+    expect(shell.currentContent?.topicId, 7);
+    expect(tracker.watchedTopic, 7);
+    expect(tracker.watchedChannels, contains('/topic/7'));
+
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+
+    expect(tracker.watchedTopic, isNull);
+    expect(tracker.watchedChannels, isEmpty);
+    expect(tester.takeException(), isNull);
+  });
+
   for (final width in [320.0, 600.0]) {
     _mobileTest('navigation uses the full $width viewport with large text', (
       tester,
