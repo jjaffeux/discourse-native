@@ -735,6 +735,11 @@ class ChatController extends FrameSafeNotifier {
   final Map<String, DateTime> _windowAttemptedAt = {};
   final Map<String, Object> _pageRequests = {};
   final Map<String, Set<int>> _pendingLiveMessageIds = {};
+
+  /// Per site, message id to channel id for rows a delete hid from this
+  /// reader. Their ids stay in held windows as paging slots with no record
+  /// behind them, so only a record lost any other way is a hole.
+  final Map<String, Map<int, int>> _hiddenDeletedMessageChannelIds = {};
   final Map<String, Timer> _streamNoticeTimers = {};
   final Map<
     String,
@@ -3313,6 +3318,7 @@ class ChatController extends FrameSafeNotifier {
           : incoming,
     );
     for (final message in incoming) {
+      _forgetHiddenDelete(siteUrl, message.id);
       _updateChannelMessagePreview(siteUrl, message);
     }
   }
@@ -3659,6 +3665,10 @@ class ChatController extends FrameSafeNotifier {
       siteUrl,
       (message) => message.channelId == channelId,
     );
+    if (_hiddenDeletedMessageChannelIds[siteUrl] case final hidden?) {
+      hidden.removeWhere((_, heldChannelId) => heldChannelId == channelId);
+      if (hidden.isEmpty) _hiddenDeletedMessageChannelIds.remove(siteUrl);
+    }
     _threadDetailRuns.removeWhere((key, _) => key.startsWith(threadPrefix));
     _threadDetailRequests.removeWhere((key, _) => key.startsWith(threadPrefix));
     _threadDetailDirty.removeWhere((key) => key.startsWith(threadPrefix));
@@ -3778,6 +3788,7 @@ class ChatController extends FrameSafeNotifier {
         ? message.withBookmarkOf(replaced)
         : message;
     _store.put(siteUrl, effective);
+    _forgetHiddenDelete(siteUrl, message.id);
     _updateChannelMessagePreview(siteUrl, effective);
     if (replaced != null &&
         (replaced.isDeleted != effective.isDeleted ||
@@ -3903,8 +3914,9 @@ class ChatController extends FrameSafeNotifier {
   }
 
   /// Applies one deleted id from a delete event. A reader allowed to inspect
-  /// the tombstone keeps the row; anyone else loses it. Answers the message
-  /// as it was held, or null when it was not held at all.
+  /// the tombstone keeps the row; anyone else loses the record but keeps its
+  /// paging slot until a restore stores it again. Answers the message as it
+  /// was held, or null when it was not held at all.
   ChatMessage? _applyDeletedId(
     String siteUrl,
     Map<String, dynamic> data,
@@ -3922,10 +3934,23 @@ class ChatController extends FrameSafeNotifier {
       );
     } else {
       _store.remove<ChatMessage>(siteUrl, deletedId);
+      (_hiddenDeletedMessageChannelIds[siteUrl] ??= {})[deletedId] =
+          message.channelId;
     }
     if (!message.isDeleted) _bumpStreamsHolding(siteUrl, deletedId);
     return message;
   }
+
+  void _forgetHiddenDelete(String siteUrl, int messageId) {
+    final hidden = _hiddenDeletedMessageChannelIds[siteUrl];
+    if (hidden == null || hidden.remove(messageId) == null) return;
+    if (hidden.isEmpty) _hiddenDeletedMessageChannelIds.remove(siteUrl);
+  }
+
+  bool _holdsMessageSlot(String siteUrl, int messageId) =>
+      _store.containsRecord<ChatMessage>(siteUrl, messageId) ||
+      (_hiddenDeletedMessageChannelIds[siteUrl]?.containsKey(messageId) ??
+          false);
 
   void _applyDeleteEvent(
     String siteUrl,
@@ -4267,14 +4292,12 @@ class ChatController extends FrameSafeNotifier {
     final runs = <({int start, int end})>[];
     var index = 0;
     while (index < ids.length) {
-      while (index < ids.length &&
-          !_store.containsRecord<ChatMessage>(siteUrl, ids[index])) {
+      while (index < ids.length && !_holdsMessageSlot(siteUrl, ids[index])) {
         index++;
       }
       if (index == ids.length) break;
       final start = index;
-      while (index < ids.length &&
-          _store.containsRecord<ChatMessage>(siteUrl, ids[index])) {
+      while (index < ids.length && _holdsMessageSlot(siteUrl, ids[index])) {
         index++;
       }
       runs.add((start: start, end: index));
@@ -5194,9 +5217,7 @@ class ChatController extends FrameSafeNotifier {
   }
 
   bool _canonicalWindowIsBacked(String siteUrl, ChatStreamState stream) =>
-      stream.messageIds.every(
-        (id) => _store.containsRecord<ChatMessage>(siteUrl, id),
-      );
+      stream.messageIds.every((id) => _holdsMessageSlot(siteUrl, id));
 
   void _discardStaleCanonicalWindow(
     String siteUrl,
@@ -6374,6 +6395,7 @@ class ChatController extends FrameSafeNotifier {
     _windowAttemptedAt.removeWhere((key, _) => key.startsWith('$siteUrl~'));
     _pageRequests.removeWhere((key, _) => key.startsWith('$siteUrl~'));
     _pendingLiveMessageIds.removeWhere((key, _) => key.startsWith('$siteUrl~'));
+    _hiddenDeletedMessageChannelIds.remove(siteUrl);
     for (final key
         in _streamNoticeTimers.keys
             .where((key) => key.startsWith('$siteUrl~'))
@@ -6449,6 +6471,7 @@ class ChatController extends FrameSafeNotifier {
     _channelDetailRuns.clear();
     _windowAttemptedAt.clear();
     _pendingLiveMessageIds.clear();
+    _hiddenDeletedMessageChannelIds.clear();
     for (final timer in _streamNoticeTimers.values) {
       timer.cancel();
     }
