@@ -79,9 +79,8 @@ final class ComposerValidationContext {
   final int completedUploadCount;
 }
 
-typedef ComposerTargetValidator = bool Function(
-  ComposerValidationContext context,
-);
+typedef ComposerTargetValidator =
+    bool Function(ComposerValidationContext context);
 
 @immutable
 final class ComposerTargetPolicy {
@@ -1485,8 +1484,9 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
         ? old.selection.extentOffset
         : old.text.length;
     final start = caret == 0 ? 0 : old.text.lastIndexOf('\n', caret - 1) + 1;
-    final prefix = RegExp(r'^ {0,3}#{1,6}(?:[ \t]+|$)')
-        .firstMatch(old.text.substring(start));
+    final prefix = RegExp(
+      r'^ {0,3}#{1,6}(?:[ \t]+|$)',
+    ).firstMatch(old.text.substring(start));
     final end = start + (prefix?.end ?? 0);
     final marker = '${'#' * level} ';
     text.value = old.copyWith(
@@ -1881,9 +1881,9 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
       selection: TextSelection.collapsed(offset: galleryEnd),
       composing: TextRange.empty,
     );
-    final updated = parseComposerImageGalleries(text.text)
-        .where((candidate) => candidate.start == galleryStart)
-        .firstOrNull;
+    final updated = parseComposerImageGalleries(
+      text.text,
+    ).where((candidate) => candidate.start == galleryStart).firstOrNull;
     _retargetPendingGalleryUploads(
       affectedUploads,
       updated,
@@ -2271,9 +2271,9 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
       composing: TextRange.empty,
     );
     final updated = preservePendingTarget
-        ? parseComposerImageGalleries(text.text)
-              .where((candidate) => candidate.start == current.start)
-              .firstOrNull
+        ? parseComposerImageGalleries(
+            text.text,
+          ).where((candidate) => candidate.start == current.start).firstOrNull
         : null;
     _retargetPendingGalleryUploads(
       affectedUploads,
@@ -2909,29 +2909,20 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
 
   void _moveUploadAnchors(String before, String after) {
     if (_pendingUploads.isEmpty || before == after) return;
-    var prefix = 0;
-    final shared = before.length < after.length ? before.length : after.length;
-    while (prefix < shared && before[prefix] == after[prefix]) {
-      prefix++;
-    }
-    var suffix = 0;
-    while (suffix < before.length - prefix &&
-        suffix < after.length - prefix &&
-        before[before.length - suffix - 1] ==
-            after[after.length - suffix - 1]) {
-      suffix++;
-    }
-    final oldEnd = before.length - suffix;
-    final newEnd = after.length - suffix;
-    final delta = newEnd - oldEnd;
+    final edit = _TextEdit.between(before, after);
     for (final pending in _pendingUploads.values) {
-      pending.anchor = switch (pending.anchor) {
-        final anchor when anchor < prefix => anchor,
-        final anchor when anchor > oldEnd => anchor + delta,
-        _ => newEnd,
-      };
+      pending.anchor = edit.move(pending.anchor);
     }
   }
+
+  /// Moves [offset], measured against [measuredAgainst], to the same place in
+  /// the current text, as a pending upload's anchor would have moved.
+  ///
+  /// An insertion point captured before an asynchronous platform read must be
+  /// rebased before use: an earlier upload finishing meanwhile rewrites its
+  /// placeholder, and the raw offset would then split that upload's Markdown.
+  int rebaseOffset(String measuredAgainst, int offset) =>
+      _TextEdit.between(measuredAgainst, text.text).move(offset);
 
   void _onMetadataChanged() {
     if (_disposed || _replacingDocument) return;
@@ -3041,6 +3032,41 @@ class _PendingGalleryUploadTarget {
 }
 
 enum _ComposerUploadDestination { standalone, newGallery, gallery }
+
+/// The one span two texts differ in, bounded by their common prefix and
+/// suffix. An offset before the span stays, one after it shifts by the length
+/// change, and one inside it moves to the end of the replacement, so a moved
+/// offset never lands inside text the edit introduced.
+class _TextEdit {
+  factory _TextEdit.between(String before, String after) {
+    var prefix = 0;
+    final shared = before.length < after.length ? before.length : after.length;
+    while (prefix < shared &&
+        before.codeUnitAt(prefix) == after.codeUnitAt(prefix)) {
+      prefix++;
+    }
+    var suffix = 0;
+    while (suffix < before.length - prefix &&
+        suffix < after.length - prefix &&
+        before.codeUnitAt(before.length - suffix - 1) ==
+            after.codeUnitAt(after.length - suffix - 1)) {
+      suffix++;
+    }
+    return _TextEdit._(prefix, before.length - suffix, after.length - suffix);
+  }
+
+  const _TextEdit._(this.start, this.oldEnd, this.newEnd);
+
+  final int start;
+  final int oldEnd;
+  final int newEnd;
+
+  int move(int offset) => offset < start
+      ? offset
+      : offset > oldEnd
+      ? offset + newEnd - oldEnd
+      : newEnd;
+}
 
 class _ComposerTextReplacement {
   const _ComposerTextReplacement(this.start, this.end, this.replacement);

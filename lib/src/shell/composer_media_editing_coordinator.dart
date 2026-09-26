@@ -475,10 +475,13 @@ final class ComposerMediaEditingCoordinator extends FrameSafeNotifier
       return false;
     }
     final lifecycle = _lifecycleGeneration;
+    // Paste belongs at the caret it was invoked from, not a later selection,
+    // but later edits to the text still move that place.
     final selection = composer.text.selection;
+    final measuredAgainst = composer.text.text;
     final offset = selection.isValid
         ? selection.extentOffset
-        : composer.text.text.length;
+        : measuredAgainst.length;
 
     List<ComposerUploadFile> files;
     try {
@@ -498,7 +501,7 @@ final class ComposerMediaEditingCoordinator extends FrameSafeNotifier
     if (!_isCurrent(composer, lifecycle) || !composer.canUpload) return true;
     if (files.isEmpty) return false;
 
-    composer.addFiles(files, offset);
+    composer.addFiles(files, composer.rebaseOffset(measuredAgainst, offset));
     composer.focus.requestFocus();
     return true;
   }

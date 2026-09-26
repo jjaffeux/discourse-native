@@ -706,6 +706,84 @@ void main() {
       expect(composer.focus.hasFocus, isTrue);
     });
 
+    testWidgets(
+      'the upload button carries its caret through uploads finishing meanwhile',
+      (tester) async {
+        final pickerResult = Completer<List<ComposerUploadFile>>();
+        final calls = <_PanelUploadCall>[];
+        final composer = ComposerController(
+          _target,
+          imageUploader: (file, {required onProgress, required abortTrigger}) {
+            final call = _PanelUploadCall(onProgress);
+            calls.add(call);
+            return call.result.future;
+          },
+        );
+        final shell = await _shell();
+        addTearDown(composer.dispose);
+        addTearDown(shell.dispose);
+        composer.text.value = const TextEditingValue(
+          text: 'Before',
+          selection: TextSelection.collapsed(offset: 6),
+        );
+        composer.addImages([_file], 6);
+        await _pumpPanel(
+          tester,
+          shell,
+          composer,
+          pickImages: () => pickerResult.future,
+        );
+
+        // The pending upload's progress keeps animating, so the menu is
+        // pumped open rather than settled.
+        await tester.tap(find.byKey(const ValueKey('composer-upload')));
+        await tester.pump();
+        await tester.pump(const Duration(seconds: 1));
+        await tester.tap(find.byKey(const ValueKey('composer-upload-photos')));
+        await tester.pump();
+
+        // The earlier upload swaps its placeholder for longer Markdown while
+        // the dialog is open, so the caret captured at Upload has moved.
+        calls.single.result.complete(
+          const ComposerUploadResult(
+            id: 1,
+            originalFilename: 'first.png',
+            shortUrl: 'upload://first',
+            url: 'https://meta.discourse.org/uploads/first.png',
+            thumbnailWidth: 640,
+            thumbnailHeight: 480,
+          ),
+        );
+        await tester.pump();
+        expect(
+          composer.text.text,
+          'Before\n![first|640x480](upload://first)\n',
+        );
+
+        pickerResult.complete([_file]);
+        await tester.pump();
+        expect(calls, hasLength(2));
+        calls.last.result.complete(
+          const ComposerUploadResult(
+            id: 2,
+            originalFilename: 'photo.png',
+            shortUrl: 'upload://photo',
+            url: 'https://meta.discourse.org/uploads/photo.png',
+            thumbnailWidth: 640,
+            thumbnailHeight: 480,
+          ),
+        );
+        await tester.pump();
+
+        expect(
+          composer.text.text,
+          'Before\n'
+          '![first|640x480](upload://first)\n'
+          '![photo|640x480](upload://photo)\n',
+        );
+      },
+    );
+
     testWidgets('the upload button follows composer availability', (
       tester,
     ) async {
