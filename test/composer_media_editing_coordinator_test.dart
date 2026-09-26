@@ -134,6 +134,53 @@ void main() {
     );
 
     test(
+      'clipboard files follow their caret through edits during the read',
+      () async {
+        final clipboard = Completer<List<ComposerUploadFile>>();
+        final uploads = <Completer<ComposerUploadResult>>[];
+        final composer = _composer(
+          onUpload: () {
+            final upload = Completer<ComposerUploadResult>();
+            uploads.add(upload);
+            return upload.future;
+          },
+        );
+        final coordinator = ComposerMediaEditingCoordinator(composer);
+        addTearDown(composer.dispose);
+        addTearDown(coordinator.dispose);
+        composer.text.value = const TextEditingValue(
+          text: 'Before',
+          selection: TextSelection.collapsed(offset: 6),
+        );
+        composer.addImages([_file], 6);
+
+        final operation = coordinator.pasteClipboardFiles(
+          () => clipboard.future,
+        );
+        // The earlier upload swaps its placeholder for longer Markdown while
+        // the platform read is outstanding.
+        uploads.single.complete(_result('first'));
+        await pumpEventQueue();
+        expect(
+          composer.text.text,
+          'Before\n![first|640x480](upload://first)\n',
+        );
+
+        clipboard.complete([_file]);
+        expect(await operation, isTrue);
+        uploads.last.complete(_result('photo'));
+        await pumpEventQueue();
+
+        expect(
+          composer.text.text,
+          'Before\n'
+          '![first|640x480](upload://first)\n'
+          '![photo|640x480](upload://photo)\n',
+        );
+      },
+    );
+
+    test(
       'disposal invalidates a pending gallery picker without a binding',
       () async {
         final picker = Completer<List<ComposerUploadFile>>();
@@ -183,4 +230,13 @@ final _file = ComposerUploadFile(
   name: 'photo.png',
   length: () async => 3,
   openRead: () => Stream.value(const [1, 2, 3]),
+);
+
+ComposerUploadResult _result(String name) => ComposerUploadResult(
+  id: name.hashCode,
+  originalFilename: '$name.png',
+  shortUrl: 'upload://$name',
+  url: 'https://meta.discourse.org/uploads/$name.png',
+  thumbnailWidth: 640,
+  thumbnailHeight: 480,
 );

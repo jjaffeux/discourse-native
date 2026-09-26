@@ -4296,10 +4296,13 @@ class _ComposerUploadButtonState extends State<_ComposerUploadButton> {
   Future<void> _pick(ComposerFilePicker picker, {required bool photos}) async {
     final composer = widget.composer;
     if (!composer.canUpload || _picking) return;
+    // The dialog takes focus, so a later selection is not where the user
+    // asked for the files; later edits to the text still move that place.
     final selection = composer.text.selection;
+    final measuredAgainst = composer.text.text;
     final offset = selection.isValid
         ? selection.extentOffset
-        : composer.text.text.length;
+        : measuredAgainst.length;
     setState(() => _picking = true);
     try {
       final files = await picker();
@@ -4308,7 +4311,7 @@ class _ComposerUploadButtonState extends State<_ComposerUploadButton> {
           !composer.canUpload) {
         return;
       }
-      composer.addFiles(files, offset);
+      composer.addFiles(files, composer.rebaseOffset(measuredAgainst, offset));
     } catch (error, stackTrace) {
       DiagnosticsSink.current.reportError(
         error,
