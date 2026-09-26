@@ -49,15 +49,17 @@ void main() {
       fixture.host._changes.notifyListeners();
       expect(changes, 1);
 
-      fixture.host.bounds = const Rect.fromLTWH(0, 0, 600, 800);
+      // Reader bounds move on every frame of a resize or dock drag, and no
+      // chat surface is laid out from them.
+      fixture.host.bounds.value = const Rect.fromLTWH(0, 0, 600, 800);
       fixture.host._changes.notifyListeners();
-      expect(changes, 2);
+      expect(changes, 1);
 
       fixture.host.instance = fixture.host.instance.copyWith(
         title: 'Renamed forum',
       );
       fixture.host._changes.notifyListeners();
-      expect(changes, 3);
+      expect(changes, 2);
     },
   );
 
@@ -199,7 +201,7 @@ final class _NavigationHost implements PluginNavigationHost {
 
   DiscourseInstance instance;
   final NotificationTotals totals;
-  Rect? bounds;
+  final ValueNotifier<Rect?> bounds = ValueNotifier(null);
   final ChangeNotifier _changes = ChangeNotifier();
   List<ContentRoute> _contentStack;
   List<ContentRoute>? _mainPaneStack;
@@ -235,7 +237,10 @@ final class _NavigationHost implements PluginNavigationHost {
   PluginVisibleTopicContext? get visibleTopicContext => null;
 
   @override
-  Rect? get readerContentBounds => bounds;
+  Rect? get readerContentBounds => bounds.value;
+
+  @override
+  ValueListenable<Rect?> get readerContentBoundsListenable => bounds;
 
   @override
   void selectInstance(int index) {}
@@ -291,6 +296,7 @@ final class _NavigationHost implements PluginNavigationHost {
 
   void dispose() {
     _disposed = true;
+    bounds.dispose();
     _changes.dispose();
   }
 }

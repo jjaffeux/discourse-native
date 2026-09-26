@@ -99,7 +99,12 @@ abstract interface class PluginNavigationHost {
 
   /// Remaining reader bounds in main-view global logical coordinates,
   /// excluding shell navigation and a docked composer.
+  ///
+  /// The bounds move on every frame of a window resize or composer dock drag,
+  /// so [changes] does not report them; observe
+  /// [readerContentBoundsListenable] instead.
   Rect? get readerContentBounds;
+  ValueListenable<Rect?> get readerContentBoundsListenable;
 
   void selectInstance(int index);
   void pushContent(ContentRoute route, {bool newTab = false});

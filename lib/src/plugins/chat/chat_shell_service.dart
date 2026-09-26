@@ -67,7 +67,6 @@ final class ChatShellService
     _host.currentContent,
     _host.currentTotals,
     _host.forumActive,
-    _host.readerContentBounds,
     _currentSiteCanUseChat,
     currentSiteUrl == null ? false : doNotDisturbActive(currentSiteUrl!),
     separateSidebarMode,
