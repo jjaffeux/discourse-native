@@ -4189,6 +4189,75 @@ void main() {
       expect(await sending.settled, ChatSendResult.sent);
     });
 
+    test('reports a send only while its local row is on the wire', () async {
+      final sendGate = Completer<void>();
+      final subject = build(
+        messages: {
+          key(9): page([message(1), message(2)]),
+        },
+        currentUser: currentUser,
+        sendGate: sendGate,
+        sentMessageId: 42,
+      );
+      addTearDown(subject.chat.dispose);
+      await subject.chat.openChannel(site, 9);
+      const target = ChatChannelTarget(9);
+      const thread = ChatThreadTarget(channelId: 9, threadId: 31);
+      expect(subject.chat.hasSendingMessage(site, target), isFalse);
+
+      final sending = subject.chat.sendMessage(
+        site,
+        9,
+        OutgoingChatMessage.text('hello'),
+      )!;
+
+      expect(subject.chat.hasSendingMessage(site, target), isTrue);
+      expect(subject.chat.hasSendingMessage(site, thread), isFalse);
+
+      sendGate.complete();
+      expect(await sending.settled, ChatSendResult.sent);
+
+      // Accepted but not yet echoed: the row remains, no longer on the wire.
+      expect(subject.chat.stream(site, 9).localMessageIds, [sending.localId]);
+      expect(subject.chat.hasSendingMessage(site, target), isFalse);
+    });
+
+    test(
+      'a failed send reports again only while its retry is on the wire',
+      () async {
+        final subject = build(
+          currentUser: currentUser,
+          sendFailure: const WriteException(
+            WriteFailure.rateLimited,
+            retryAfter: Duration.zero,
+          ),
+          sentMessageId: 42,
+        );
+        addTearDown(subject.chat.dispose);
+        const target = ChatChannelTarget(9);
+        final first = subject.chat.sendMessageTo(
+          site,
+          target,
+          OutgoingChatMessage.text('hello chat'),
+        )!;
+        expect(subject.chat.hasSendingMessage(site, target), isTrue);
+
+        expect(await first.settled, ChatSendResult.failed);
+        expect(subject.chat.hasSendingMessage(site, target), isFalse);
+
+        final gate = Completer<void>();
+        subject.api.chatSendFailure = null;
+        subject.api.chatSendGate = gate;
+        final retry = subject.chat.retryMessage(site, target, first.stagedId)!;
+
+        expect(subject.chat.hasSendingMessage(site, target), isTrue);
+
+        gate.complete();
+        expect(await retry.settled, ChatSendResult.sent);
+        expect(subject.chat.hasSendingMessage(site, target), isFalse);
+      },
+    );
+
     test('pins an optimistic row through unrelated store eviction', () async {
       final sendGate = Completer<void>();
       final store = Store(

@@ -4570,6 +4570,19 @@ class ChatController extends FrameSafeNotifier {
         !streamFor(siteUrl, target).threadUnavailable;
   }
 
+  /// Whether one of this client's own messages to [target] is on the wire.
+  ///
+  /// Only a staged local row is ever `sending`, so this reads the local
+  /// overlay alone: a composer asks on every stream change, and reading the
+  /// canonical window would cost a record per held message each time.
+  bool hasSendingMessage(String siteUrl, ChatStreamTarget target) {
+    for (final id in streamFor(siteUrl, target).localMessageIds) {
+      final local = _store.read<ChatMessage>(siteUrl, id);
+      if (local?.delivery == ChatMessageDelivery.sending) return true;
+    }
+    return false;
+  }
+
   bool _canCreateThread(String siteUrl, int channelId) {
     final held = channel(siteUrl, channelId);
     return !isDisposed &&

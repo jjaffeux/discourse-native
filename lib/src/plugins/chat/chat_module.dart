@@ -25,10 +25,14 @@ const _chatEntityStorePolicy = StorePolicy(
 
 typedef ChatApiFactory = ChatApi Function(PluginApiTransport transport);
 
+/// Builds Chat's private record store under the policy Chat sizes it with.
+typedef ChatStoreFactory = Store Function(StorePolicy policy);
+
 final class ChatModule implements PluginModule {
-  const ChatModule({this.apiFactory});
+  const ChatModule({this.apiFactory, this.storeFactory});
 
   final ChatApiFactory? apiFactory;
+  final ChatStoreFactory? storeFactory;
 
   @override
   PluginDescriptor get descriptor => PluginDescriptor(
@@ -54,7 +58,9 @@ final class ChatModule implements PluginModule {
       (bindings, dependencies) {
         final transport = bindings.require(corePluginTransportPort);
         final requests = bindings.require(corePluginRequestPort);
-        final store = Store(policy: _chatEntityStorePolicy);
+        final store =
+            storeFactory?.call(_chatEntityStorePolicy) ??
+            Store(policy: _chatEntityStorePolicy);
         final siteState = bindings.require(corePluginSiteStatePort);
         final timezone = bindings.require(corePluginTimezonePort);
         final accountEvents = bindings.require(corePluginAccountEventsPort);
