@@ -4034,14 +4034,16 @@ class ShellController extends FrameSafeNotifier
   }
 
   void _syncTopicWatch(String siteUrl, SiteTracker tracker) {
+    // Every panel's selected document is on screen, so each keeps its topic
+    // live. Without panels (touch layouts, phones) only the active tab is.
+    final visible = desktopPanelsEnabled
+        ? [
+            for (final panel in ForumPanel.values)
+              selectedTabIn(panel)?.currentContent,
+          ]
+        : [currentContent];
     final routes = <int, ContentRoute>{
-      if (desktopPanelsEnabled)
-        for (final panel in ForumPanel.values)
-          if (selectedTabIn(panel)?.currentContent case final route?
-              when route.topicId != null)
-            route.topicId!: route
-          else if (currentContent case final route? when route.topicId != null)
-            route.topicId!: route,
+      for (final route in visible.nonNulls) ?route.topicId: route,
     };
     if (routes.isEmpty) {
       tracker.unwatchTopic();
