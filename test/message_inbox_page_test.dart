@@ -651,7 +651,11 @@ void main() {
       findsOneWidget,
     );
     expect(find.byKey(const ValueKey('topic-reply-button')), findsOneWidget);
-    expect(find.byKey(const ValueKey('topic-bookmark-button')), findsOneWidget);
+    // Bookmarking lives in the reader header; the footer keeps replying.
+    expect(
+      find.byKey(const ValueKey('topic-header-bookmark-button')),
+      findsOneWidget,
+    );
     await tester.tap(find.byTooltip('Collapse message'));
     await tester.pumpAndSettle();
     expect(find.byType(TopicView), findsNothing);
@@ -680,6 +684,9 @@ void main() {
         .controller!;
     final scroll = listScroll();
 
+    // Middle-click opens each reader in a background tab, so the list keeps
+    // its element and scroll position while readers open.
+    final listTabId = shell.activeTabId;
     await tester.tap(
       find.byKey(const ValueKey('topic-card-1')),
       kind: PointerDeviceKind.mouse,
@@ -689,7 +696,9 @@ void main() {
     expect(tester.element(list), same(listElement));
     expect(listScroll(), same(scroll));
     await tester.pumpAndSettle();
-    final firstReaderTabId = shell.activeTabId!;
+    expect(shell.activeTabId, listTabId);
+    final firstReaderTabId = shell.tabsForCurrentForum.last.id;
+    expect(firstReaderTabId, isNot(listTabId));
 
     scroll.jumpTo(350);
     await tester.pumpAndSettle();
@@ -717,14 +726,16 @@ void main() {
     expectRetainedList();
     await tester.pumpAndSettle();
     expectRetainedList();
-    expect(shell.currentContent?.topicId, 14);
-    expect(shell.activeTabId, isNot(firstReaderTabId));
+    expect(shell.activeTabId, listTabId);
+    final secondReaderTabId = shell.tabsForCurrentForum.last.id;
+    expect(secondReaderTabId, isNot(firstReaderTabId));
 
-    shell.selectTab(firstReaderTabId);
-    await tester.pump();
-    expectRetainedList();
+    // Each reader tab is its own document.
+    shell.selectTab(secondReaderTabId);
     await tester.pumpAndSettle();
-    expectRetainedList();
+    expect(shell.currentContent?.topicId, 14);
+    shell.selectTab(firstReaderTabId);
+    await tester.pumpAndSettle();
     expect(shell.currentContent?.topicId, 1);
     expect(tester.takeException(), isNull);
   }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
@@ -761,11 +772,9 @@ void main() {
       await tester.pumpAndSettle();
       expect(shell.currentContent?.topicId, 10);
 
+      // Recipients are chosen inside the composer, which this MainContent
+      // harness does not host; the composer keeps the source feed.
       await tester.tap(find.byKey(const ValueKey('new-message-button')));
-      await tester.pumpAndSettle();
-      expect(shell.visibleComposer?.target.targetRecipients, '');
-      await tester.sendKeyEvent(LogicalKeyboardKey.keyG);
-      await tester.sendKeyEvent(LogicalKeyboardKey.keyJ);
       await tester.pumpAndSettle();
       expect(shell.currentContent?.topicId, 10);
       expect(shell.visibleComposer?.target.targetRecipients, '');

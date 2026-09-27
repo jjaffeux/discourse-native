@@ -1097,7 +1097,13 @@ void main() {
     await tester.pump();
 
     expect(find.text('Product › Feature requests'), findsOneWidget);
-    final badge = tester.widget<CategorySquare>(find.byType(CategorySquare));
+    // The category filter trigger carries its own swatch.
+    final badge = tester.widget<CategorySquare>(
+      find.descendant(
+        of: find.byKey(const ValueKey('topic-filter-suggestion-0')),
+        matching: find.byType(CategorySquare),
+      ),
+    );
     expect(badge.color, const Color(0xFF0088CC));
     expect(badge.parentColor, const Color(0xFFFF0000));
   }, variant: TargetPlatformVariant.only(TargetPlatform.linux));

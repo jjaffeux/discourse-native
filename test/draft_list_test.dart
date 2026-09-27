@@ -212,22 +212,6 @@ void main() {
         findsOneWidget,
       );
     }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
-
-    testWidgets('keep the label below the small breakpoint', (tester) async {
-      await _pump(tester, size: const Size(390, 844));
-      await tester.tap(find.byKey(const ValueKey('latest')));
-      await tester.pumpAndSettle();
-
-      expect(find.byKey(TopicCreateButton.buttonKey), findsOneWidget);
-      expect(find.text('New topic'), findsOneWidget);
-      expect(
-        find.descendant(
-          of: find.byKey(TopicCreateButton.buttonKey),
-          matching: find.byType(DTooltip),
-        ),
-        findsOneWidget,
-      );
-    }, variant: TargetPlatformVariant.only(TargetPlatform.android));
   });
 
   group('recent-draft menu', () {
@@ -515,6 +499,10 @@ void main() {
       final gate = Completer<void>();
       await _pump(tester, userDraftGate: gate);
       final semantics = tester.ensureSemantics();
+      // The main panel is a list column beside the secondary one; drafts get
+      // their wide rows once the main panel has the window to itself.
+      await tester.tap(find.byKey(const ValueKey('minimize-panel-secondary')));
+      await tester.pumpAndSettle();
 
       try {
         await tester.tap(
@@ -649,12 +637,11 @@ void main() {
       await _pump(tester, size: const Size(390, 844), userDraftGate: gate);
 
       try {
-        await tester.tap(
-          find.descendant(
-            of: find.byType(InstanceSidebar),
-            matching: find.text('Drafts'),
-          ),
-        );
+        // The phone sidebar no longer lists Drafts; open the page directly.
+        ShellScope.read(
+          tester.element(find.byType(MaterialApp)),
+        ).openDrafts(_siteUrl);
+        await tester.pump();
         await tester.pump();
 
         final skeletonRows = find.descendant(

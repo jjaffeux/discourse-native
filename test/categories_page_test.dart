@@ -220,9 +220,11 @@ void main() {
             matching: find.text('Ordinary topic'),
           ),
         );
-        expect(categoryTitle.style?.fontSize, DiscourseTypography.base);
+        // Category names and featured topics are row titles in the shared
+        // type scale.
+        expect(categoryTitle.style?.fontSize, DiscourseTypography.rowTitle);
         expect(categoryTitle.style?.fontWeight, FontWeight.w700);
-        expect(featuredTitle.style?.fontSize, DiscourseTypography.base);
+        expect(featuredTitle.style?.fontSize, DiscourseTypography.rowTitle);
         expect(
           featuredTitle.style?.color,
           AppTheme.light.colorScheme.onSurface,

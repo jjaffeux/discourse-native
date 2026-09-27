@@ -12,6 +12,7 @@ void main() {
     expect(componentExamples['data-table'], same(dataTableExamples));
     expect(dataTableExamples.status, ComponentStatus.implemented);
     expect(dataTableExamples.examples.map((example) => example.title), [
+      'Borderless page table',
       'Soft header',
       'Resizable virtual directory',
       'Basic table and cell formatting',

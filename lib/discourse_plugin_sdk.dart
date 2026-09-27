@@ -52,7 +52,7 @@ export 'src/models/composer_upload.dart'
 export 'src/models/content_route.dart';
 export 'src/models/discourse_instance.dart' show DiscourseInstance;
 export 'src/models/discourse_user.dart' show DiscourseUser;
-export 'src/models/forum_workspace.dart' show ForumTab;
+export 'src/models/forum_workspace.dart' show ForumPanel, ForumTab;
 export 'src/models/group_route.dart' show GroupRoute;
 export 'src/models/json.dart';
 export 'src/models/live_refresh_id.dart' show liveRefreshId;
@@ -166,6 +166,11 @@ export 'src/shell/markdown_highlight.dart'
         markdownBlocks,
         markdownPairs,
         scanMarkdown;
+export 'src/shell/mobile_footer_action.dart'
+    show
+        MobileFooterAction,
+        MobileFooterActionController,
+        MobileFooterActionScope;
 export 'src/shell/notification_list.dart' show PluginNotificationsSection;
 export 'src/shell/oneboxes/embedded.dart' show embeddedOneboxWidgetBuilder;
 export 'src/shell/oneboxes/markup.dart' show digitsIn, oneLineText;

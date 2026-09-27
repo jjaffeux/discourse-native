@@ -3,6 +3,7 @@ import 'package:discourse_native/src/models/bookmark.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/forum_workspace.dart';
+import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/models/site_emoji.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/models/topic_tracking_state.dart';
@@ -25,6 +26,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'support/bundled_plugins.dart';
 import 'support/fakes.dart';
 import 'support/shell_test_harness.dart';
 
@@ -103,6 +105,54 @@ void main() {
     } finally {
       debugDefaultTargetPlatformOverride = previousPlatform;
     }
+  });
+
+  testWidgets('Start page links to upcoming events when the site offers them', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({
+      'discourse_native.panel_tutorial_dismissed': true,
+    });
+    SiteConfig config({required bool events}) =>
+        installedPlugins.models.siteConfig({
+          'discourse_events_enabled': events,
+          'discourse_post_event_enabled': true,
+          'sidebar_show_upcoming_events': true,
+        }, 'https://forum.example');
+    final sites = [
+      instance('events.example').copyWith(config: config(events: true)),
+      instance('plain.example').copyWith(config: config(events: false)),
+    ];
+    await pumpShell(
+      tester,
+      desktop,
+      instances: sites,
+      api: FakeDiscourseApi(
+        siteConfigs: {for (final site in sites) site.url: site.config},
+      ),
+    );
+    final shell = ShellScope.read(
+      tester.element(find.byType(MainContent).first),
+    );
+    final shortcuts = find.byKey(const ValueKey('start-page-shortcuts'));
+    final events = find.descendant(
+      of: shortcuts,
+      matching: find.widgetWithText(DButton, 'Upcoming events'),
+    );
+
+    shell.pushContent(ContentRoute.newTab());
+    await tester.pumpAndSettle();
+    expect(events, findsOneWidget);
+    await tester.tap(events);
+    await tester.pumpAndSettle();
+    expect(shell.destinationId, 'events-upcoming');
+
+    shell.selectInstance(1);
+    await tester.pumpAndSettle();
+    shell.pushContent(ContentRoute.newTab());
+    await tester.pumpAndSettle();
+    expect(shortcuts, findsOneWidget);
+    expect(events, findsNothing);
   });
 
   testWidgets(

@@ -8,6 +8,7 @@ import 'package:discourse_native/src/models/notification.dart';
 import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/models/user_activity.dart';
 import 'package:discourse_native/src/shell/bookmark_list.dart';
+import 'package:discourse_native/src/shell/content_navigation_controls.dart';
 import 'package:discourse_native/src/shell/invite_list.dart';
 import 'package:discourse_native/src/shell/notification_list.dart';
 import 'package:discourse_native/src/shell/preferences_page.dart';
@@ -487,7 +488,8 @@ void main() {
           (siteUrl: _metaUrl, username: 'meta-user', clientId: 'test-client'),
         ]);
 
-        await tester.tap(find.byTooltip('Back'));
+        // Preferences has no page header; Back is the desktop chrome control.
+        await tester.tap(find.byKey(ContentNavigationControls.backKey));
         await tester.pumpAndSettle();
 
         expect(find.byType(PreferencesPage), findsNothing);

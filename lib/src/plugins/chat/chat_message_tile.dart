@@ -9,7 +9,6 @@ import 'package:flutter/scheduler.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
 
-import '../../models/forum_workspace.dart';
 import 'chat_bookmark_ui.dart';
 import 'chat_channel.dart';
 import 'chat_controller.dart';
