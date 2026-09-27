@@ -674,6 +674,7 @@ class FakeDiscourseApi
     this.chatPinFailure,
     this.chatPinGate,
     this.chatPinsByChannel = const {},
+    this.chatPinnedMessagesGate,
     this.chatFlagFailure,
     this.chatFlagGate,
     this.composerUploadResult,
@@ -1382,6 +1383,8 @@ class FakeDiscourseApi
   final List<({int channelId, int messageId, bool pinned})>
   chatMessagePinsUpdated = [];
   final Map<int, ChatPins> chatPinsByChannel;
+  final Completer<void>? chatPinnedMessagesGate;
+  final List<int> chatPinnedMessagesRequested = [];
   final List<int> chatPinsRead = [];
 
   final WriteException? chatFlagFailure;
@@ -3607,6 +3610,8 @@ class FakeDiscourseApi
     required int channelId,
     String? clientId,
   }) async {
+    chatPinnedMessagesRequested.add(channelId);
+    await chatPinnedMessagesGate?.future;
     return chatPinsByChannel[channelId] ??
         (pins: const <ChatPin>[], membership: null);
   }
