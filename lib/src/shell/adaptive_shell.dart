@@ -143,16 +143,18 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
       unawaited(controller.refreshCurrentTab());
       return true;
     }
-    if (contentBackShortcutForPlatform(
-      defaultTargetPlatform,
-    ).accepts(event, keyboard)) {
+    final backShortcut = contentBackShortcutForPlatform(defaultTargetPlatform);
+    if (backShortcut.accepts(event, keyboard)) {
+      if (_focusOwnsHistoryShortcut(backShortcut)) return false;
       return controller.rootMode == ShellRootMode.forum &&
           controller.canPopContent &&
           controller.handleBack(canReturnToSidebar: false);
     }
-    if (contentForwardShortcutForPlatform(
+    final forwardShortcut = contentForwardShortcutForPlatform(
       defaultTargetPlatform,
-    ).accepts(event, keyboard)) {
+    );
+    if (forwardShortcut.accepts(event, keyboard)) {
+      if (_focusOwnsHistoryShortcut(forwardShortcut)) return false;
       return controller.handleForward();
     }
     if (newTopicShortcut.accepts(event, keyboard)) {
@@ -436,6 +438,13 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
   // Navigator's scope. Editable controls still own their keyboard input.
   bool get _formControlHasFocus =>
       !navigationShortcutsAllowed(context, matchFocusRoute: false);
+
+  // Off macOS the history chords are Alt+Arrow, which text fields also bind
+  // to caret movement. Handlers here run before the focus tree, not instead
+  // of it, so claiming the chord would move the caret and leave the page in
+  // one keystroke.
+  bool _focusOwnsHistoryShortcut(SingleActivator shortcut) =>
+      shortcut.alt && _formControlHasFocus;
 
   // The composer binds the close chord to closing itself. Handlers here run
   // before the focus tree, not instead of it, so claiming the chord as well

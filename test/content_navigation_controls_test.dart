@@ -5,6 +5,7 @@ import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/topic.dart';
+import 'package:discourse_native/src/shell/composer_panel.dart';
 import 'package:discourse_native/src/shell/content_navigation_controls.dart';
 import 'package:discourse_native/src/shell/forum_search.dart';
 import 'package:discourse_native/src/shell/main_content.dart';
@@ -333,6 +334,112 @@ void main() {
             .topicId,
         other.id,
       );
+    },
+  );
+
+  _testOnPlatform(
+    TargetPlatform.linux,
+    'linux Alt+Arrow in a focused text field moves the caret, not history',
+    (tester) async {
+      const user = DiscourseUser(id: 7, username: 'sam');
+      const topic = Topic(
+        id: 42,
+        title: 'Current topic',
+        slug: 'current-topic',
+      );
+      final api = FakeDiscourseApi(
+        user: user,
+        feeds: const {
+          '/latest.json': [topic],
+        },
+        topics: {
+          topic.id: topicPayload(
+            id: topic.id,
+            title: topic.title,
+            canCreatePost: true,
+            posts: const [
+              Post(
+                id: 4200,
+                postNumber: 1,
+                username: 'sam',
+                cooked: '<p>Post body</p>',
+              ),
+            ],
+          ),
+        },
+      );
+      await pumpShell(
+        tester,
+        desktop,
+        api: api,
+        instances: [instance('meta.example').copyWith(user: user)],
+      );
+      final shell = _shell(tester);
+      shell.openTopic(topic);
+      await tester.pumpAndSettle();
+      shell.pushContent(
+        const ContentRoute(
+          id: 'navigation-test',
+          title: 'Navigation test',
+          icon: DIcons.comments,
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(ContentNavigationControls.backKey));
+      await tester.pumpAndSettle();
+      expect(shell.currentContent?.topicId, topic.id);
+
+      shell.openReply();
+      await tester.pumpAndSettle();
+      final body = find
+          .descendant(
+            of: find.byType(ComposerPanel),
+            matching: find.byType(EditableText),
+          )
+          .first;
+      await tester.tap(body);
+      await tester.enterText(body, 'hello');
+      final text = tester.widget<EditableText>(body).controller;
+      text.selection = const TextSelection.collapsed(offset: 2);
+      await tester.pump();
+
+      await _press(
+        tester,
+        LogicalKeyboardKey.arrowLeft,
+        modifier: LogicalKeyboardKey.altLeft,
+      );
+      await tester.pumpAndSettle();
+      expect(text.selection.isCollapsed, isTrue);
+      expect(text.selection.baseOffset, 0);
+      expect(shell.currentContent?.topicId, topic.id);
+
+      await _press(
+        tester,
+        LogicalKeyboardKey.arrowRight,
+        modifier: LogicalKeyboardKey.altLeft,
+      );
+      await tester.pumpAndSettle();
+      expect(text.selection.isCollapsed, isTrue);
+      expect(text.selection.baseOffset, 5);
+      expect(shell.currentContent?.topicId, topic.id);
+
+      FocusManager.instance.primaryFocus?.unfocus();
+      await tester.pump();
+      await _press(
+        tester,
+        LogicalKeyboardKey.arrowLeft,
+        modifier: LogicalKeyboardKey.altLeft,
+      );
+      await tester.pumpAndSettle();
+      expect(shell.currentContent?.id, 'latest');
+      await _press(
+        tester,
+        LogicalKeyboardKey.arrowRight,
+        modifier: LogicalKeyboardKey.altLeft,
+      );
+      await tester.pumpAndSettle();
+      expect(shell.currentContent?.topicId, topic.id);
+      expect(text.text, 'hello');
     },
   );
 
