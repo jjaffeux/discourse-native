@@ -3867,10 +3867,17 @@ final class VoiceController extends ChangeNotifier {
   /// through the chat_session endpoint (which re-checks this user's access)
   /// and follow the thread it names now. Deliberately not [_openChat]: no
   /// loading state, so the panel does not blink on every rollover.
+  ///
+  /// An open still in flight is restarted instead. Its read may predate the
+  /// change, and a read of this kind would take its request token and with
+  /// it the open's settling: clearing [_VoiceChatAssociation.loading],
+  /// showing its failure and loading the thread. The panel already shows
+  /// loading, so the restart costs no blink.
   Future<void> _refreshChatSession(String siteUrl, int roomId) async {
     final key = '$siteUrl#$roomId';
     final state = _chats[key];
     if (state == null || !state.visible) return;
+    if (state.loading) return _openChat(siteUrl, roomId, force: true);
     final siteSession = _siteSession(siteUrl);
     final request = Object();
     _chatRequests[key] = request;
