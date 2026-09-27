@@ -120,6 +120,57 @@ void main() {
     }
   }
 
+  testWidgets('archiving is offered on a topic but not a private message', (
+    tester,
+  ) async {
+    final archive = find.byKey(const ValueKey('topic-status-archived'));
+    final shell = await _fixture(tester, _MenuApi());
+    await _open(tester);
+    expect(archive, findsOneWidget);
+    await tester.tapAt(const Offset(700, 500));
+    await tester.pumpAndSettle();
+
+    for (final archived in [false, true]) {
+      shell.store.put(
+        _site,
+        shell.currentTopic!.copyWith(privateMessage: true, archived: archived),
+      );
+      await _pumpButton(tester, shell);
+      await _open(tester);
+      expect(archive, findsNothing);
+      expect(find.text('Close topic'), findsOneWidget);
+      await tester.tapAt(const Offset(700, 500));
+      await tester.pumpAndSettle();
+    }
+  });
+
+  testWidgets(
+    'an old Archive topic choice does nothing once the topic is a message',
+    (tester) async {
+      final api = _MenuApi();
+      final shell = await _fixture(tester, api);
+      await _open(tester);
+      shell.store.put(
+        _site,
+        shell.currentTopic!.copyWith(privateMessage: true),
+      );
+      await _choose(tester, 'Archive topic');
+      expect(api.writes, isEmpty);
+
+      expect(
+        await shell.updateTopicStatus(
+          _site,
+          7,
+          TopicStatusProperty.archived,
+          true,
+        ),
+        isNotNull,
+      );
+      expect(api.writes, isEmpty);
+      expect(shell.currentTopic?.archived, isFalse);
+    },
+  );
+
   for (final pinned in [false, true]) {
     final label = pinned ? 'Pin topic' : 'Unpin topic';
     testWidgets('$label keeps its intent after a live pin refresh', (
