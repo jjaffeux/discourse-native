@@ -33,9 +33,20 @@ final class AiProofreadingController extends FrameSafeNotifier
   final Map<String, Future<void>> _siteLoads = {};
   final Map<String, int> _siteRevisions = {};
 
+  /// Composers whose author has been told proofreading could not run, so their
+  /// retries post without it, as that message promises. The site preference
+  /// stays on: the next composer proofreads once the site offers it again.
+  final Expando<bool> _postingWithout = Expando<bool>(
+    'ai-proofreading-posting-without',
+  );
+
+  /// The site preference only ever applies to these composers: every other
+  /// one posts exactly as written.
+  static bool _covers(ComposerEditorHost composer) =>
+      !composer.isPluginTarget && (composer.isNewTopic || composer.isReply);
+
   bool isAvailable(ComposerEditorHost composer) {
-    if (!composer.isCurrent || composer.isPluginTarget) return false;
-    if (!composer.isNewTopic && !composer.isReply) return false;
+    if (!composer.isCurrent || !_covers(composer)) return false;
     final settings = _siteState
         .siteConfigFor(composer.siteUrl)
         .plugins
@@ -50,13 +61,20 @@ final class AiProofreadingController extends FrameSafeNotifier
 
   bool isEnabled(ComposerEditorHost composer) {
     unawaited(_ensurePreferenceLoaded(composer.siteUrl));
-    return _enabledBySite[composer.siteUrl] == true;
+    return _enabledFor(composer);
   }
+
+  bool _enabledFor(ComposerEditorHost composer) =>
+      _enabledBySite[composer.siteUrl] == true &&
+      _postingWithout[composer] != true;
 
   void setEnabled(ComposerEditorHost composer, bool enabled) {
     if (!composer.isEditing || (enabled && !isAvailable(composer))) return;
+    final resumed = enabled && _postingWithout[composer] == true;
+    if (resumed) _postingWithout[composer] = null;
     final siteUrl = composer.siteUrl;
     if (_enabledBySite[siteUrl] == enabled && _loadedSites.contains(siteUrl)) {
+      if (resumed) notifySafely();
       return;
     }
     _siteRevisions.update(
@@ -74,16 +92,24 @@ final class AiProofreadingController extends FrameSafeNotifier
   Future<PluginComposerSubmitPreparation> prepareComposerSubmit(
     ComposerEditorHost composer,
   ) async {
-    await _ensurePreferenceLoaded(composer.siteUrl);
-    if (_enabledBySite[composer.siteUrl] != true) {
+    if (!_covers(composer)) {
       return const PluginComposerSubmitPreparation.proceed();
     }
+    await _ensurePreferenceLoaded(composer.siteUrl);
+    if (!_enabledFor(composer)) {
+      return const PluginComposerSubmitPreparation.proceed();
+    }
+    // Availability that is only unknown so far (the account record refreshes
+    // after launch) is treated like withdrawn availability: an explicit
+    // preference is never skipped silently, and saying so costs one tap.
     if (!isAvailable(composer)) {
+      _postingWithout[composer] = true;
+      notifySafely();
       return const PluginComposerSubmitPreparation.failed(
         WriteException(
           WriteFailure.validation,
           errors: [
-            'Proofreading is no longer available. Nothing was posted. Try again to post without it.',
+            "Proofreading isn't available right now. Nothing was posted. Try again to post without it.",
           ],
         ),
       );

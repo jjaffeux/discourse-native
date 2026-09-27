@@ -61,10 +61,21 @@ const _newTopicTarget = ComposerTarget(
   mode: ComposerMode.newTopic,
 );
 
-final class _FreshAccountHost implements PluginFreshAccountHost {
-  const _FreshAccountHost(this.data);
+const _messageTarget = ComposerTarget(
+  siteUrl: _siteUrl,
+  topicId: 0,
+  slug: '',
+  topicTitle: 'New message',
+  mode: ComposerMode.privateMessage,
+  targetRecipients: 'sam',
+);
 
-  final PluginData data;
+const _userWithoutAssistant = DiscourseUser(id: 7, username: 'reader');
+
+final class _FreshAccountHost implements PluginFreshAccountHost {
+  _FreshAccountHost(this.data);
+
+  PluginData data;
 
   @override
   PluginFreshAccountProfile? profileFor(String siteUrl) => null;
@@ -114,6 +125,7 @@ AiProofreadingController _controller({
   DiscourseUser? user,
   FakeDiscourseApi? api,
   SiteLifecycle? lifecycle,
+  _FreshAccountHost? freshAccount,
   AiProofreadingPreferenceStore preferences =
       const AiProofreadingPreferenceStore(),
 }) {
@@ -137,7 +149,8 @@ AiProofreadingController _controller({
       currentUserFor: (_) => user,
       siteConfigFor: (_) => config ?? _enabledConfig,
     ),
-    freshAccount: _FreshAccountHost((user ?? _allowedUser).plugins),
+    freshAccount:
+        freshAccount ?? _FreshAccountHost((user ?? _allowedUser).plugins),
     preferences: preferences,
   );
 }
@@ -238,16 +251,7 @@ void main() {
     addTearDown(controller.dispose);
     final reply = ComposerController(_replyTarget);
     final newTopic = ComposerController(_newTopicTarget);
-    final message = ComposerController(
-      const ComposerTarget(
-        siteUrl: _siteUrl,
-        topicId: 0,
-        slug: '',
-        topicTitle: 'New message',
-        mode: ComposerMode.privateMessage,
-        targetRecipients: 'sam',
-      ),
-    );
+    final message = ComposerController(_messageTarget);
     final edit = ComposerController(
       const ComposerTarget(
         siteUrl: _siteUrl,
@@ -271,9 +275,7 @@ void main() {
 
   test('stays hidden without both AI settings and user permission', () {
     final disabled = _controller(config: const SiteConfig.unknown());
-    final disallowed = _controller(
-      user: const DiscourseUser(id: 7, username: 'reader'),
-    );
+    final disallowed = _controller(user: _userWithoutAssistant);
     final composer = ComposerController(_replyTarget);
     addTearDown(disabled.dispose);
     addTearDown(disallowed.dispose);
@@ -367,6 +369,123 @@ void main() {
 
       expect(result.failure?.failure, WriteFailure.conflict);
       expect(composer.raw, 'The original reply.');
+    },
+  );
+
+  test('a remembered choice never holds up a private message', () async {
+    final api = FakeDiscourseApi(
+      pluginResponses: const {
+        'POST $aiProofreadingPath': {
+          'suggestions': ['A polished message.'],
+        },
+      },
+    );
+    final controller = _controller(api: api);
+    final reply = ComposerController(_replyTarget);
+    final message = ComposerController(_messageTarget);
+    addTearDown(controller.dispose);
+    addTearDown(reply.dispose);
+    addTearDown(message.dispose);
+    controller.setEnabled(reply, true);
+    message.text.text = 'a message with typo';
+
+    final result = await controller.prepareComposerSubmit(message);
+
+    expect(result.failure, isNull);
+    expect(result.changed, isFalse);
+    expect(message.raw, 'a message with typo');
+    expect(api.pluginWrites, isEmpty);
+    expect(controller.isEnabled(reply), isTrue);
+  });
+
+  test(
+    'unavailable proofreading holds the first submit and lets retries post',
+    () async {
+      const store = AiProofreadingPreferenceStore();
+      await store.write(siteUrl: _siteUrl, enabled: true);
+      final api = FakeDiscourseApi();
+      final controller = _controller(api: api, user: _userWithoutAssistant);
+      final composer = ComposerController(_replyTarget);
+      addTearDown(controller.dispose);
+      addTearDown(composer.dispose);
+      composer.text.text = 'a reply with typo';
+
+      final first = await controller.prepareComposerSubmit(composer);
+
+      expect(first.failure?.failure, WriteFailure.validation);
+      for (var retry = 0; retry < 2; retry++) {
+        final result = await controller.prepareComposerSubmit(composer);
+
+        expect(result.failure, isNull);
+        expect(result.changed, isFalse);
+      }
+      expect(composer.raw, 'a reply with typo');
+      expect(api.pluginWrites, isEmpty);
+      expect(await store.read(siteUrl: _siteUrl), isTrue);
+    },
+  );
+
+  test('posting without proofreading is agreed per composer', () async {
+    await const AiProofreadingPreferenceStore().write(
+      siteUrl: _siteUrl,
+      enabled: true,
+    );
+    final controller = _controller(user: _userWithoutAssistant);
+    final told = ComposerController(_replyTarget);
+    final next = ComposerController(_newTopicTarget);
+    addTearDown(controller.dispose);
+    addTearDown(told.dispose);
+    addTearDown(next.dispose);
+
+    final first = await controller.prepareComposerSubmit(told);
+    final retry = await controller.prepareComposerSubmit(told);
+    final other = await controller.prepareComposerSubmit(next);
+
+    expect(first.failure?.failure, WriteFailure.validation);
+    expect(retry.failure, isNull);
+    expect(other.failure?.failure, WriteFailure.validation);
+  });
+
+  test(
+    'a composer that posts without proofreading keeps that until re-enabled',
+    () async {
+      await const AiProofreadingPreferenceStore().write(
+        siteUrl: _siteUrl,
+        enabled: true,
+      );
+      final account = _FreshAccountHost(PluginData.none);
+      final api = FakeDiscourseApi(
+        pluginResponses: const {
+          'POST $aiProofreadingPath': {
+            'suggestions': ['A polished reply.'],
+          },
+        },
+      );
+      final controller = _controller(api: api, freshAccount: account);
+      final composer = ComposerController(_replyTarget);
+      final later = ComposerController(_replyTarget);
+      addTearDown(controller.dispose);
+      addTearDown(composer.dispose);
+      addTearDown(later.dispose);
+      composer.text.text = 'a reply with typo';
+
+      final first = await controller.prepareComposerSubmit(composer);
+      account.data = _allowedUser.plugins;
+      final retry = await controller.prepareComposerSubmit(composer);
+
+      expect(first.failure?.failure, WriteFailure.validation);
+      expect(retry.failure, isNull);
+      expect(api.pluginWrites, isEmpty);
+      expect(controller.isEnabled(composer), isFalse);
+      expect(controller.isEnabled(later), isTrue);
+
+      controller.setEnabled(composer, true);
+      final proofread = await controller.prepareComposerSubmit(composer);
+
+      expect(controller.isEnabled(composer), isTrue);
+      expect(proofread.failure, isNull);
+      expect(proofread.changed, isTrue);
+      expect(composer.raw, 'A polished reply.');
     },
   );
 
@@ -553,6 +672,32 @@ void main() {
 
     expect(fixture.api.pluginWrites, hasLength(1));
     expect(fixture.api.created.single['raw'], 'This is the polished reply.');
+  });
+
+  testWidgets('a remembered choice the site no longer offers posts on retry', (
+    tester,
+  ) async {
+    await tester.runAsync(
+      () => const AiProofreadingPreferenceStore().write(
+        siteUrl: _siteUrl,
+        enabled: true,
+      ),
+    );
+    final fixture = await _openReply(config: const SiteConfig());
+    addTearDown(fixture.shell.dispose);
+    final composer = fixture.shell.visibleComposer!;
+    composer.text.text = 'this is the original reply';
+
+    await fixture.shell.submitComposer();
+
+    expect(composer.error?.failure, WriteFailure.validation);
+    expect(fixture.api.created, isEmpty);
+
+    await fixture.shell.submitComposer();
+
+    expect(fixture.api.pluginWrites, isEmpty);
+    expect(fixture.api.created.single['raw'], 'this is the original reply');
+    expect(fixture.shell.visibleComposer, isNull);
   });
 
   for (final scenario in [
