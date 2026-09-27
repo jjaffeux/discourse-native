@@ -145,6 +145,7 @@ void main() {
       final random = Random(4815);
       var withImages = 0;
       var withoutImages = 0;
+      var withoutOpeners = 0;
       for (var sample = 0; sample < 6000; sample += 1) {
         final source = List.generate(
           1 + random.nextInt(20),
@@ -155,9 +156,12 @@ void main() {
         } else {
           withoutImages += 1;
         }
+        if (!source.contains('![')) withoutOpeners += 1;
       }
       expect(withImages, greaterThan(1000));
       expect(withoutImages, greaterThan(1000));
+      // Sources with no opener skip the scan, and must still agree.
+      expect(withoutOpeners, greaterThan(500));
     });
   });
 

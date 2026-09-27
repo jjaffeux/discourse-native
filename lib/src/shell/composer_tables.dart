@@ -118,7 +118,10 @@ class ComposerTableBlock {
 /// Code blocks, quoted/list tables and HTML tables retain their existing owner.
 List<ComposerTableBlock> parseComposerTables(String source) {
   if (!source.contains('|')) return const [];
-  final code = CodeRanges.of(
+  // The projection and its input formatter both parse every edit. A pipe in
+  // prose is not a table: scan for code only once a header and delimiter
+  // pair has to be checked against it.
+  late final code = CodeRanges.of(
     scanMarkdown(source).where((run) => run.has(Md.codeBlock)).toList(),
   );
   final lines = <_TableLine?>[];
@@ -136,10 +139,10 @@ List<ComposerTableBlock> parseComposerTables(String source) {
     final delimiter = lines[index + 1];
     if (header == null ||
         delimiter == null ||
-        code.contains(header.start) ||
-        code.contains(delimiter.start) ||
         header.cells.length != delimiter.cells.length ||
-        !delimiter.cells.every((cell) => _delimiter.hasMatch(cell.text))) {
+        !delimiter.cells.every((cell) => _delimiter.hasMatch(cell.text)) ||
+        code.contains(header.start) ||
+        code.contains(delimiter.start)) {
       continue;
     }
     final rows = [header, delimiter];
