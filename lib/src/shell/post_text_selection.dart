@@ -115,6 +115,7 @@ class _PostTextSelectionState extends State<PostTextSelection> {
     post: widget.post,
     topicId: widget.topicId,
     contents: _selectedText,
+    config: ShellScope.read(context).siteConfigFor(widget.siteUrl),
   );
 
   String get _selectedText => _selection.markdown;

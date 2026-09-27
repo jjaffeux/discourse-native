@@ -693,7 +693,12 @@ class ShellController extends FrameSafeNotifier
             }
             await openQuote(
               post,
-              buildPostQuote(post: post, topicId: topic.id, contents: contents),
+              buildPostQuote(
+                post: post,
+                topicId: topic.id,
+                contents: contents,
+                config: siteConfigFor(siteUrl),
+              ),
             );
           },
         ),
