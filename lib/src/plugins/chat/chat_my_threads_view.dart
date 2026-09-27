@@ -4,11 +4,15 @@ import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
+import 'chat_browse_navigation.dart';
+import 'chat_chrome_scroll_view.dart';
 import 'chat_controller.dart';
 import 'chat_message.dart';
+import 'chat_plugin.dart';
 import 'chat_services.dart';
 import 'chat_shell_service.dart';
 import 'chat_thread.dart';
+import 'chat_thread_directory.dart';
 import 'chat_user_avatar.dart';
 
 class ChatMyThreadsView extends StatefulWidget {
@@ -23,6 +27,8 @@ class ChatMyThreadsView extends StatefulWidget {
 class _ChatMyThreadsViewState extends State<ChatMyThreadsView> {
   late final ChatController _chat;
   late final ScrollController _scroll;
+  late final ChatThreadDirectory _directory;
+  VoidCallback? _unregisterRefresher;
   bool _ready = false;
 
   @override
@@ -36,12 +42,22 @@ class _ChatMyThreadsViewState extends State<ChatMyThreadsView> {
     super.didChangeDependencies();
     if (_ready) return;
     _chat = PluginUiScope.require(context, chatControllerService);
+    _channelId = _chat.inboxFilters.browseFor(widget.siteUrl).threadChannelId;
     _ready = true;
-    unawaited(_chat.loadMyThreads(widget.siteUrl));
+    _directory = ChatThreadDirectory(_chat, widget.siteUrl);
+    _unregisterRefresher = PluginUiScope.require(context, chatShellService)
+        .registerRouteRefresher(
+          widget.siteUrl,
+          ChatPlugin.myThreadsRouteId,
+          () => _directory.load(reset: true),
+        );
+    unawaited(_directory.load());
   }
 
   @override
   void dispose() {
+    _unregisterRefresher?.call();
+    if (_ready) _directory.dispose();
     _scroll.dispose();
     super.dispose();
   }
@@ -50,86 +66,291 @@ class _ChatMyThreadsViewState extends State<ChatMyThreadsView> {
   // update near the end would otherwise resend it as soon as it fails.
   void _maybeLoadMore() {
     if (!_scroll.hasClients ||
-        _chat.myThreadsError(widget.siteUrl) != null ||
+        _directory.error != null ||
         _scroll.position.extentAfter >
             paginationPrefetchDistance(_scroll.position)) {
       return;
     }
-    unawaited(_chat.loadMyThreads(widget.siteUrl, more: true));
+    unawaited(_directory.load(channelId: _channelId));
   }
 
+  int? _channelId;
+
   @override
-  Widget build(BuildContext context) => AnimatedBuilder(
-    animation: _chat,
+  Widget build(BuildContext context) => ListenableBuilder(
+    listenable: _directory,
     builder: (context, _) {
-      final threads = _chat.myThreads(widget.siteUrl);
-      final error = _chat.myThreadsError(widget.siteUrl);
-      if (_chat.myThreadsLoading(widget.siteUrl)) {
-        return const SizedBox.shrink();
-      }
-      if (threads.isEmpty && error != null) {
-        return ChatThreadListMessage(
-          icon: DIcons.triangleExclamation,
-          message: error,
-          action: 'Try again',
-          onAction: () =>
-              unawaited(_chat.loadMyThreads(widget.siteUrl, force: true)),
-        );
-      }
-      if (threads.isEmpty && _chat.myThreadsLoaded(widget.siteUrl)) {
-        return const ChatThreadListMessage(
-          icon: DIcons.comments,
-          message: 'You do not have any chat threads yet.',
+      final all = _directory.threads;
+      final channels = _directory.channels;
+      final threads = [
+        for (final thread in all)
+          if (_channelId == null || thread.channelId == _channelId) thread,
+      ];
+      final error = _directory.error;
+      final hasMore = _directory.hasMore(_channelId);
+      final hasFooter = _directory.loading || error != null || hasMore;
+      Widget item(BuildContext context, int index) {
+        if (index < threads.length) {
+          return Column(
+            children: [
+              const DSeparator(),
+              ChatBrowseThreadRow(
+                siteUrl: widget.siteUrl,
+                thread: threads[index],
+              ),
+            ],
+          );
+        }
+        if (_directory.loading) {
+          return const Padding(
+            padding: EdgeInsets.all(16),
+            child: DSpinner(semanticLabel: 'Loading threads'),
+          );
+        }
+        return Padding(
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (error != null) Text(error),
+              DButton(
+                label: Text(error == null ? 'Load more' : 'Try again'),
+                onPressed: () =>
+                    unawaited(_directory.load(channelId: _channelId)),
+              ),
+            ],
+          ),
         );
       }
 
-      final hasFooter =
-          _chat.myThreadsLoadingMore(widget.siteUrl) ||
-          error != null ||
-          _chat.myThreadsHaveMore(widget.siteUrl);
-      return ContentReadingLane(
-        basePadding: const EdgeInsets.symmetric(vertical: 8),
-        builder: (context, lane) => ListView.separated(
-          key: const PageStorageKey('chat-my-threads'),
-          controller: _scroll,
-          physics: const AlwaysScrollableScrollPhysics(),
-          padding: lane.padding,
-          itemCount: threads.length + (hasFooter ? 1 : 0),
-          separatorBuilder: (_, _) => const DSeparator(space: 1),
-          itemBuilder: (context, index) {
-            if (index < threads.length) {
-              return ChatThreadListRow(
+      return ChatChromeScrollView(
+        header: ContentReadingLaneBox(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            spacing: DSpacing.md,
+            children: [
+              ChatBrowseNavigation(
                 siteUrl: widget.siteUrl,
-                thread: threads[index],
-                nestedPreview: true,
-              );
-            }
-            if (_chat.myThreadsLoadingMore(widget.siteUrl)) {
-              return const SizedBox.shrink();
-            }
-            return Padding(
-              padding: const EdgeInsets.all(12),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (error case final message?) ...[
-                    Text(message, textAlign: TextAlign.center),
-                    const SizedBox(height: 8),
-                  ],
-                  DButton(
-                    label: Text(error == null ? 'Load more' : 'Try again'),
-                    onPressed: () => unawaited(
-                      _chat.loadMyThreads(widget.siteUrl, more: true),
+                page: ChatBrowsePage.threads,
+              ),
+              ChatBrowseFilter<int>(
+                key: const ValueKey('chat-threads-channel-filter'),
+                label: _channelId == null
+                    ? 'Channel'
+                    : channels
+                              .where((c) => c.id == _channelId)
+                              .firstOrNull
+                              ?.title ??
+                          'Channel',
+                semanticLabel: 'Channel',
+                icon: Text(
+                  '■',
+                  style: TextStyle(
+                    color:
+                        channels
+                            .where((c) => c.id == _channelId)
+                            .firstOrNull
+                            ?.categoryColor ??
+                        DTokens.of(context).mutedForeground,
+                  ),
+                ),
+                emphasized: _channelId != null,
+                value: _channelId ?? 0,
+                entries: [
+                  const DSelectOption(
+                    value: 0,
+                    label: 'All channels',
+                    child: Text('All channels'),
+                  ),
+                  for (final channel in channels)
+                    DSelectOption(
+                      value: channel.id,
+                      label: channel.title,
+                      child: Text(channel.title),
+                    ),
+                ],
+                onChanged: (id) {
+                  setState(() => _channelId = id == 0 ? null : id);
+                  _chat.inboxFilters.browseFor(widget.siteUrl).threadChannelId =
+                      _channelId;
+                },
+              ),
+            ],
+          ),
+        ),
+        list: (context, lazy) {
+          if (_directory.loading && !_directory.loaded) {
+            return const Center(
+              child: DSpinner(semanticLabel: 'Loading threads'),
+            );
+          }
+          if (threads.isEmpty && !hasFooter) {
+            return ChatThreadListMessage(
+              icon: DIcons.comments,
+              message: _channelId == null
+                  ? 'No chat threads yet.'
+                  : 'No threads in this channel.',
+            );
+          }
+          final count = threads.length + (hasFooter ? 1 : 0);
+          return ContentReadingLane(
+            basePadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            builder: (context, lane) => lazy
+                ? ListView.builder(
+                    key: const PageStorageKey('chat-my-threads'),
+                    controller: _scroll,
+                    padding: lane.padding,
+                    itemCount: count,
+                    itemBuilder: item,
+                  )
+                : Padding(
+                    padding: lane.padding,
+                    child: Column(
+                      children: [
+                        for (var index = 0; index < count; index++)
+                          item(context, index),
+                      ],
                     ),
                   ),
-                ],
-              ),
-            );
-          },
-        ),
+          );
+        },
       );
     },
   );
+}
+
+class ChatBrowseThreadRow extends StatelessWidget {
+  const ChatBrowseThreadRow({
+    super.key,
+    required this.siteUrl,
+    required this.thread,
+  });
+  final String siteUrl;
+  final ChatThread thread;
+
+  @override
+  Widget build(BuildContext context) {
+    final chat = PluginUiScope.require(context, chatControllerService);
+    final channel = chat.channel(siteUrl, thread.channelId);
+    final preview = thread.preview;
+    final original = thread.originalMessage;
+    final author =
+        preview?.lastReplyUser ?? (preview == null ? original?.author : null);
+    final title =
+        _text(thread.title) ??
+        _text(original?.excerpt) ??
+        _text(original?.message) ??
+        'Thread';
+    final excerpt =
+        _text(preview?.lastReplyExcerpt) ??
+        (preview == null
+            ? _text(original?.excerpt) ?? _text(original?.message)
+            : null) ??
+        'No replies yet';
+    final unread =
+        thread.tracking.unreadCount > 0 ||
+        thread.tracking.mentionCount > 0 ||
+        thread.tracking.watchedThreadsUnreadCount > 0;
+    return DItem(
+      key: ValueKey('chat-my-thread-${thread.id}'),
+      shape: DItemShape.fullWidth,
+      semanticLabel:
+          'Open thread $title${channel == null ? '' : ' in ${channel.title}'}, ${_replyCountLabel(thread.replyCount)}${unread ? ', unread' : ''}',
+      onPressed: () => unawaited(_open(context, chat)),
+      children: [
+        DItemContent(
+          spacing: DSpacing.xs,
+          children: [
+            Row(
+              spacing: DSpacing.xs,
+              children: [
+                const Text('#'),
+                Expanded(
+                  child: Text(
+                    channel?.title ?? 'Chat',
+                    style: TextStyle(
+                      color: DTokens.of(context).mutedForeground,
+                    ),
+                  ),
+                ),
+                if (unread)
+                  DNotificationDot(
+                    key: ValueKey('chat-my-thread-unread-${thread.id}'),
+                    color: _threadIndicatorColor(context, thread),
+                    semanticLabel: 'Unread',
+                  ),
+              ],
+            ),
+            DItemTitle(
+              child: Text(
+                title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontWeight: FontWeight.w600),
+              ),
+            ),
+            Row(
+              spacing: DSpacing.controlGap,
+              children: [
+                ChatUserAvatar(
+                  siteUrl: siteUrl,
+                  userId: author?.id ?? 0,
+                  url: author?.avatarUrl ?? preview?.lastReplyAvatarUrl,
+                  size: 18,
+                  fallback: DAvatarFallback(
+                    child: Text(
+                      (author?.displayName ?? preview?.lastReplyUsername ?? '?')
+                          .characters
+                          .first
+                          .toUpperCase(),
+                    ),
+                  ),
+                ),
+                Expanded(
+                  child: DItemDescription(
+                    child: Text(
+                      excerpt,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ),
+                Text(
+                  _replyCountLabel(thread.replyCount),
+                  key: ValueKey('chat-my-thread-replies-${thread.id}'),
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: DTokens.of(context).mutedForeground,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Future<void> _open(BuildContext context, ChatController chat) async {
+    try {
+      final channel = await chat.ensureChannel(siteUrl, thread.channelId);
+      if (!context.mounted) return;
+      if (channel == null) throw StateError('Channel unavailable');
+      PluginUiScope.require(context, chatShellService).openThread(
+        siteUrl: siteUrl,
+        channelId: channel.id,
+        threadId: thread.id,
+      );
+    } catch (_) {
+      if (context.mounted) {
+        DToast.show(
+          context,
+          'Could not open this chat thread.',
+          type: DToastType.error,
+        );
+      }
+    }
+  }
 }
 
 class ChatThreadListRow extends StatelessWidget {

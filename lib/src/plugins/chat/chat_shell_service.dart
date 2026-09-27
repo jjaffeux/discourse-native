@@ -424,6 +424,17 @@ final class ChatShellService
     if (message != null) await chat.reconcileMessageBookmark(siteUrl, message);
   }
 
+  void openChats() {
+    _activateSeparatedPane();
+    _host.selectDestination(
+      const SidebarDestination(
+        id: ChatPlugin.inboxRouteId,
+        label: 'Browse chats',
+        icon: DIcons.comment,
+      ),
+    );
+  }
+
   void openChannels() {
     _activateSeparatedPane();
     _host.selectDestination(
@@ -451,7 +462,7 @@ final class ChatShellService
     _host.selectDestination(
       const SidebarDestination(
         id: ChatPlugin.myThreadsRouteId,
-        label: 'My threads',
+        label: 'Browse threads',
         icon: DIcons.comments,
       ),
     );
@@ -649,7 +660,7 @@ final class ChatShellService
     if (channel != null) {
       _openRoute(siteUrl, ChatRoute.channel(channel.id));
     } else {
-      openBrowseChannels();
+      openChats();
     }
   }
 

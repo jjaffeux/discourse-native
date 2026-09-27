@@ -4,10 +4,11 @@ import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
+import 'chat_browse_navigation.dart';
 import 'chat_channel.dart';
 import 'chat_chrome_scroll_view.dart';
 import 'chat_inbox.dart';
-import 'chat_plugin_data.dart';
+import 'chat_inbox_rooms.dart';
 import 'chat_services.dart';
 import 'chat_shell_service.dart';
 
@@ -22,12 +23,13 @@ class ChatMobileSidebar extends StatelessWidget {
     final chat = PluginUiScope.require(context, chatControllerService);
     final shell = PluginUiScope.require(context, chatShellService);
     final filters = chat.inboxFilters;
+    final roomService = PluginUiScope.optional(context, chatInboxRoomsService);
     return ListenableBuilder(
-      listenable: Listenable.merge([chat, filters]),
+      listenable: Listenable.merge([chat, filters, roomService]),
       builder: (context, _) {
-        final settings = chat.siteConfigFor(siteUrl).chatSettings;
         final filter = filters.filterFor(siteUrl);
         final channels = chatInboxConversations(chat, siteUrl, filter);
+        final rooms = roomService?.rooms(siteUrl) ?? const <ChatInboxRoom>[];
         final error = chat.channelsError(siteUrl);
         final loading = !chat.channelsLoaded(siteUrl) && error == null;
         final colors = DTokens.of(context);
@@ -40,16 +42,16 @@ class ChatMobileSidebar extends StatelessWidget {
             onPressed: () => shell.openChannel(channel.id),
           ),
         );
-        final shortcuts =
-            settings.publicChannelsEnabled ||
-            (settings.threadsEnabled && chat.hasThreads(siteUrl));
         return ChatChromeScrollView(
-          header: Padding(
+          header: ContentReadingLaneBox(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Chat', style: Theme.of(context).textTheme.headlineSmall),
+                ChatBrowseNavigation(
+                  siteUrl: siteUrl,
+                  page: ChatBrowsePage.chats,
+                ),
                 const SizedBox(height: DSpacing.md),
                 ChatInboxFilterBar(siteUrl: siteUrl, filters: filters),
                 const SizedBox(height: DSpacing.sm),
@@ -57,56 +59,70 @@ class ChatMobileSidebar extends StatelessWidget {
               ],
             ),
           ),
-          list: (context, lazy) => loading
-              ? const Center(
-                  child: DSpinner(semanticLabel: 'Loading conversations'),
-                )
-              : error != null && channels.isEmpty
-              ? ChatInboxError(
-                  onRetry: () =>
-                      unawaited(chat.loadChannels(siteUrl, force: true)),
-                )
-              : channels.isEmpty
-              ? Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(DSpacing.lg),
-                    child: Text(
-                      chatInboxEmptyMessage(filter),
-                      textAlign: TextAlign.center,
+          list: (context, lazy) => ContentReadingLane(
+            basePadding: const EdgeInsets.symmetric(horizontal: 16),
+            builder: (context, lane) => loading
+                ? const Center(
+                    child: DSpinner(semanticLabel: 'Loading conversations'),
+                  )
+                : error != null && channels.isEmpty && rooms.isEmpty
+                ? ChatInboxError(
+                    onRetry: () =>
+                        unawaited(chat.loadChannels(siteUrl, force: true)),
+                  )
+                : channels.isEmpty && rooms.isEmpty
+                ? Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(DSpacing.lg),
+                      child: Text(
+                        chatInboxEmptyMessage(filter),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  )
+                : lazy
+                ? ListView.separated(
+                    key: PageStorageKey(('mobile-chat-list', siteUrl, filter)),
+                    padding: lane.padding,
+                    itemCount:
+                        channels.length +
+                        rooms.length +
+                        (rooms.isNotEmpty && channels.isNotEmpty ? 1 : 0),
+                    separatorBuilder: (context, _) =>
+                        DSeparator(color: colors.border),
+                    itemBuilder: (context, index) {
+                      if (index < channels.length) return row(channels[index]);
+                      final roomIndex = index - channels.length;
+                      if (channels.isNotEmpty && roomIndex == 0) {
+                        return const Padding(
+                          padding: EdgeInsets.all(16),
+                          child: Text('Voice rooms'),
+                        );
+                      }
+                      return ChatInboxRoomRow(
+                        room: rooms[roomIndex - (channels.isEmpty ? 0 : 1)],
+                      );
+                    },
+                  )
+                : Padding(
+                    padding: lane.padding,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        for (final (index, channel) in channels.indexed) ...[
+                          if (index > 0) DSeparator(color: colors.border),
+                          row(channel),
+                        ],
+                        if (rooms.isNotEmpty && channels.isNotEmpty)
+                          const Padding(
+                            padding: EdgeInsets.all(16),
+                            child: Text('Voice rooms'),
+                          ),
+                        for (final room in rooms) ChatInboxRoomRow(room: room),
+                      ],
                     ),
                   ),
-                )
-              : lazy
-              ? ListView.separated(
-                  key: PageStorageKey(('mobile-chat-list', siteUrl, filter)),
-                  padding: EdgeInsets.zero,
-                  itemCount: channels.length,
-                  separatorBuilder: (context, _) =>
-                      DSeparator(color: colors.border),
-                  itemBuilder: (context, index) => row(channels[index]),
-                )
-              : Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    for (final (index, channel) in channels.indexed) ...[
-                      if (index > 0) DSeparator(color: colors.border),
-                      row(channel),
-                    ],
-                  ],
-                ),
-          footer: shortcuts
-              ? DCardFooter(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 8,
-                  ),
-                  child: ChatInboxShortcuts(
-                    browse: settings.publicChannelsEnabled,
-                    myThreads:
-                        settings.threadsEnabled && chat.hasThreads(siteUrl),
-                  ),
-                )
-              : null,
+          ),
         );
       },
     );

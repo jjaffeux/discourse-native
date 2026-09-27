@@ -6,6 +6,7 @@ import 'chat_api_client.dart';
 import 'chat_bookmark.dart';
 import 'chat_controller.dart';
 import 'chat_conversation.dart';
+import 'chat_inbox_rooms.dart';
 import 'chat_notification_counter.dart';
 import 'chat_plugin.dart';
 import 'chat_preview_contract.dart';
@@ -97,6 +98,7 @@ final class ChatModule implements PluginModule {
             );
           },
         );
+        final inboxRooms = ChatInboxRooms(controller.inboxFilters);
         final conversations = ChatControllerConversationCapability(controller);
         final searchController = ChatSearchController(
           api: chatApi,
@@ -114,10 +116,12 @@ final class ChatModule implements PluginModule {
         return PluginSessionContribution(
           lifecycle: _ChatSessionLifecycle(
             controller: controller,
+            inboxRooms: inboxRooms,
             searchController: searchController,
             shell: shell,
           ),
           services: [
+            PluginService<Object>(chatInboxRoomsService, inboxRooms),
             PluginService<Object>(chatConversationService, conversations),
             PluginService<Object>(chatControllerService, controller),
             PluginService<Object>(
@@ -170,11 +174,13 @@ final class ChatModule implements PluginModule {
 final class _ChatSessionLifecycle extends PluginSessionLifecycle {
   _ChatSessionLifecycle({
     required this.controller,
+    required this.inboxRooms,
     required this.searchController,
     required this.shell,
   });
 
   final ChatController controller;
+  final ChatInboxRooms inboxRooms;
   final ChatSearchController searchController;
   final ChatShellService shell;
 
@@ -186,6 +192,7 @@ final class _ChatSessionLifecycle extends PluginSessionLifecycle {
 
   @override
   void close() {
+    inboxRooms.dispose();
     shell.dispose();
     controller.dispose();
     searchController.dispose();
