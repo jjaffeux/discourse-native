@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:discourse_native/src/models/content_route.dart';
+import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
@@ -14,6 +15,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'support/fakes.dart';
 
 const _site = 'https://one.example';
+const _reader = DiscourseUser(id: 7, username: 'reader');
 const _rows = [
   Topic(
     id: 1,
@@ -30,12 +32,14 @@ void main() {
     WidgetTester tester, {
     TargetPlatform platform = TargetPlatform.macOS,
     bool panels = false,
+    bool signedIn = false,
     FakeAuthenticator? authenticator,
   }) async {
     final api = _Api();
+    final forum = instance('one.example');
     final controller = ShellController(
       instanceStore: FakeInstanceStore([
-        instance('one.example'),
+        if (signedIn) forum.copyWith(user: _reader) else forum,
         instance('two.example'),
       ]),
       api: api,
@@ -168,8 +172,9 @@ void main() {
   testWidgets('cancelled credential lookup does not block the next hover', (
     tester,
   ) async {
-    final auth = _DelayedAuthenticator();
-    final (_, api) = await setup(tester, authenticator: auth);
+    // Only a signed-in forum reads its stored key, so the lookup can block.
+    final auth = _DelayedAuthenticator()..keys[_site] = 'api-key';
+    final (_, api) = await setup(tester, signedIn: true, authenticator: auth);
     final blocked = Completer<String?>();
     auth.pending = blocked;
     final mouse = await hover(tester, 1);
