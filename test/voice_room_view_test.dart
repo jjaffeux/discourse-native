@@ -703,6 +703,77 @@ void main() {
       expect(find.text('Join room'), findsOneWidget);
     });
 
+    testWidgets(
+      'stops drawing released media while the leave request is pending',
+      (tester) async {
+        final room = _room(
+          participants: const [
+            VoiceParticipant(
+              id: 1,
+              username: 'sam',
+              role: VoiceRole.participant,
+            ),
+            VoiceParticipant(
+              id: 2,
+              username: 'lee',
+              role: VoiceRole.participant,
+            ),
+          ],
+        );
+        final leaveGate = Completer<Map<String, dynamic>>();
+        final tracker = RecordingPluginLiveChannels();
+        final harness = _Harness(
+          tracker: tracker,
+          discourseApi: RecordingPluginTransport(
+            responses: {
+              'POST /voice/rooms/7/join.json': _joinPayload(room),
+              'POST /voice/rooms/7/state.json': const {},
+            },
+            responders: {
+              'DELETE /voice/rooms/7/leave.json': (_) => leaveGate.future,
+            },
+          ),
+        );
+        addTearDown(harness.dispose);
+        await tester.pumpWidget(
+          _app(harness.controller, room: room, followCall: true),
+        );
+        await tester.tap(find.text('Join room'));
+        await tester.pumpAndSettle();
+        final media = harness.media.sessions.single;
+        media.setVideoTrack(2, Object());
+        await tester.pump();
+        expect(find.byType(VoiceVideoSurface), findsOneWidget);
+
+        final leaving = harness.controller.leave();
+        await tester.pump();
+
+        expect(harness.controller.call?.status, VoiceCallStatus.leaving);
+        expect(media.disposeCount, 1);
+        expect(find.byType(VoiceVideoSurface), findsNothing);
+
+        tracker.deliver('/voice/rooms/7', {
+          'type': 'participants',
+          'participants': [
+            {'id': 2, 'username': 'lee', 'role': 'participant'},
+            {'id': 3, 'username': 'kim', 'role': 'participant'},
+          ],
+        }, messageId: 100);
+        await tester.pump();
+
+        expect(
+          find.byKey(const ValueKey(('voice-participant', 3))),
+          findsOneWidget,
+        );
+
+        leaveGate.complete({});
+        await leaving;
+        await tester.pumpAndSettle();
+        expect(harness.controller.call, isNull);
+        expect(find.text('Join room'), findsOneWidget);
+      },
+    );
+
     testWidgets('hides moderator-only participant actions from listeners', (
       tester,
     ) async {

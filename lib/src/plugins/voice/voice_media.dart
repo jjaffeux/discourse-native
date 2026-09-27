@@ -2188,8 +2188,26 @@ final class MeshVoiceMediaSession extends _VoiceMediaNotifier {
   Future<void> dispose() async {
     if (_closing || disposed) return;
     _closing = true;
+    Set<rtc.MediaStream> captureStreams() => Set<rtc.MediaStream>.identity()
+      ..addAll(_ownedLocalStreams)
+      ..addAll([?_localStream, ?_screenStream]);
+    // Peers stay open until a pending mutation drains, and a session being
+    // left must not keep transmitting meanwhile. Every capture goes silent
+    // first, and again after the drain in case the mutation attached one.
+    void silenceCapture() {
+      for (final stream in captureStreams()) {
+        for (final track in stream.getTracks()) {
+          try {
+            track.enabled = false;
+          } catch (_) {}
+        }
+      }
+    }
+
     try {
+      silenceCapture();
       await _mutationTail;
+      silenceCapture();
       _speakingTimer?.cancel();
       _speakingTimer = null;
       _rawStatsTimer?.cancel();
@@ -2204,10 +2222,7 @@ final class MeshVoiceMediaSession extends _VoiceMediaNotifier {
           await _closePeer(id);
         } catch (_) {}
       }
-      final streams = Set<rtc.MediaStream>.identity()
-        ..addAll(_ownedLocalStreams);
-      if (_localStream case final stream?) streams.add(stream);
-      if (_screenStream case final stream?) streams.add(stream);
+      final streams = captureStreams();
       final tracks = Set<rtc.MediaStreamTrack>.identity();
       for (final stream in streams) {
         tracks.addAll(stream.getTracks());
@@ -3367,6 +3382,17 @@ final class LiveKitVoiceMediaSession extends _VoiceMediaNotifier {
     // A caller may start disposing without awaiting it and then race another
     // connect attempt in the same event-loop turn.
     _closing = true;
+    // Room.disconnect keeps local tracks published until the engine reports
+    // the disconnect, up to seconds later; nothing may be sent meanwhile.
+    try {
+      for (final publication in [
+        ...?_room.localParticipant?.trackPublications.values,
+      ]) {
+        try {
+          publication.track?.mediaStreamTrack.enabled = false;
+        } catch (_) {}
+      }
+    } catch (_) {}
     _rawStatsTimer?.cancel();
     _rawStatsTimer = null;
     _reconnect.cancel();

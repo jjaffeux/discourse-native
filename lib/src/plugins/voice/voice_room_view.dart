@@ -309,6 +309,11 @@ class _VoiceRoomContentState extends State<VoiceRoomContent> {
       return const Center(child: Text('This voice room is unavailable.'));
     }
     final active = widget.call;
+    // Leaving releases the call's media before the server confirms the leave,
+    // so tiles stop reading and listening to it as soon as leaving starts.
+    final media = active?.status == VoiceCallStatus.leaving
+        ? null
+        : active?.media;
     final siteUrl = widget.siteUrl;
     final siteName = widget.siteName;
     final currentUserId = widget.currentUserId;
@@ -368,7 +373,7 @@ class _VoiceRoomContentState extends State<VoiceRoomContent> {
                       controller: controller,
                       participant: participant,
                       siteUrl: siteUrl,
-                      media: active?.media,
+                      media: media,
                       canManage: active?.room.canManage ?? false,
                       canKick:
                           active?.room.canManage == true &&

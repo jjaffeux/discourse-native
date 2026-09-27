@@ -358,6 +358,38 @@ void main() {
     },
   );
 
+  test('silences every published capture as soon as teardown starts', () async {
+    await media.connect();
+    final stream = await rtc.navigator.mediaDevices.getUserMedia({
+      'audio': true,
+      'video': false,
+    });
+    // Construct the other audio source with the same mocked native boundary.
+    // ignore: invalid_use_of_internal_member
+    final screenAudio = lk.LocalAudioTrack(
+      lk.TrackSource.screenShareAudio,
+      stream,
+      stream.getAudioTracks().single,
+      const lk.AudioCaptureOptions(deviceId: 'screen-audio'),
+    );
+    await adapter.room.localParticipant!.publishAudioTrack(screenAudio);
+    final captures = [
+      adapter.microphone.track!.mediaStreamTrack,
+      screenAudio.mediaStreamTrack,
+    ];
+    expect(captures.map((track) => track.enabled), everyElement(isTrue));
+    final cleanup = Completer<void>();
+    adapter.cleanup = cleanup;
+
+    final disposing = media.dispose();
+    try {
+      expect(captures.map((track) => track.enabled), everyElement(isFalse));
+    } finally {
+      cleanup.complete();
+      await disposing;
+    }
+  });
+
   test(
     'ignores selection as soon as teardown starts and after it finishes',
     () async {
@@ -369,6 +401,9 @@ void main() {
       final defaults = adapter.room.roomOptions.defaultAudioCaptureOptions;
       final disposing = media.dispose();
       try {
+        // Teardown silences the published microphone; selection adds nothing.
+        await pumpEventQueue();
+        nativeCalls.clear();
         await media.selectAudioInput('during-teardown');
 
         expect(nativeCalls, isEmpty);

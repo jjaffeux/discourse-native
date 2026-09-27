@@ -4507,6 +4507,150 @@ void main() {
       );
     }
 
+    _ControlledVoiceTransport heldLeaveTransport({
+      Map<String, Map<String, dynamic>> extraResponses = const {},
+    }) => _ControlledVoiceTransport(
+      responses: {
+        'GET /voice/rooms.json': fixture('directory'),
+        'POST /voice/rooms/7/join.json': fixture('join_mesh'),
+        'POST /voice/rooms/7/heartbeat.json': <String, dynamic>{},
+        'DELETE /voice/rooms/7/leave.json': <String, dynamic>{},
+        'POST /voice/rooms/7/state.json': <String, dynamic>{},
+        ...extraResponses,
+      },
+    )..heldPluginWritePaths.add('/voice/rooms/7/leave.json');
+
+    test('stops local media before the leave request settles', () async {
+      final controlled = heldLeaveTransport();
+      useTransport(controlled);
+      await controller.ensureLoaded(firstSite);
+      await controller.join(
+        siteUrl: firstSite,
+        siteName: 'One',
+        room: controller.room(firstSite, 7)!,
+      );
+      final media = mediaFactory.sessions.single;
+
+      final leaving = controller.leave();
+      addTearDown(() async {
+        for (final write in controlled.pendingPluginWrites) {
+          if (!write.response.isCompleted) write.response.complete({});
+        }
+        await leaving;
+      });
+      await controlled.waitForPendingPluginWrites(1);
+      await pumpEventQueue();
+
+      expect(controller.call?.status, VoiceCallStatus.leaving);
+      expect(media.disposeCount, 1);
+      expect(systemCall.ends, 0);
+
+      controlled.pendingPluginWrites.single.response.complete({});
+      await leaving;
+
+      expect(controller.call, isNull);
+      expect(systemCall.ends, 1);
+      expect(controlled.pendingPluginWrites.map((write) => write.path), [
+        '/voice/rooms/7/leave.json',
+      ]);
+      expect(
+        controlled.writes.where((write) => write.path.endsWith('/leave.json')),
+        isEmpty,
+      );
+    });
+
+    test('ignores call controls once leaving starts', () async {
+      final controlled = heldLeaveTransport();
+      useTransport(controlled);
+      await controller.ensureLoaded(firstSite);
+      await controller.join(
+        siteUrl: firstSite,
+        siteName: 'One',
+        room: controller.room(firstSite, 7)!,
+      );
+      final media = mediaFactory.sessions.single;
+      await controller.setMuted(true);
+
+      final leaving = controller.leave();
+      addTearDown(() async {
+        for (final write in controlled.pendingPluginWrites) {
+          if (!write.response.isCompleted) write.response.complete({});
+        }
+        await leaving;
+      });
+      await controlled.waitForPendingPluginWrites(1);
+      await controller.setMuted(false);
+      await controller.setScreenSharing(true);
+      await controller.setDeafened(true);
+
+      expect(media.muted, isTrue);
+      expect(media.screen, isFalse);
+      expect(media.deafened, isFalse);
+      expect(controller.call?.muted, isTrue);
+      expect(controller.call?.screenSharing, isFalse);
+      expect(controller.call?.deafened, isFalse);
+
+      controlled.pendingPluginWrites.single.response.complete({});
+      await leaving;
+      expect(controller.call, isNull);
+    });
+
+    test(
+      'stops the previous room media before its leave request settles on a room switch',
+      () async {
+        final breakroomPayload = fixture('join_mesh');
+        final breakroomJson = breakroomPayload['room'] as Map<String, dynamic>;
+        breakroomJson
+          ..['id'] = 8
+          ..['name'] = 'Breakroom'
+          ..['slug'] = 'breakroom';
+        final controlled = heldLeaveTransport(
+          extraResponses: {
+            'POST /voice/rooms/8/join.json': breakroomPayload,
+            'POST /voice/rooms/8/state.json': <String, dynamic>{},
+          },
+        );
+        useTransport(controlled);
+        await controller.ensureLoaded(firstSite);
+        await controller.join(
+          siteUrl: firstSite,
+          siteName: 'One',
+          room: controller.room(firstSite, 7)!,
+        );
+        final previousMedia = mediaFactory.sessions.single;
+
+        final switching = controller.join(
+          siteUrl: firstSite,
+          siteName: 'One',
+          room: VoiceRoom.fromJson(breakroomJson),
+        );
+        addTearDown(() async {
+          for (final write in controlled.pendingPluginWrites) {
+            if (!write.response.isCompleted) write.response.complete({});
+          }
+          await switching;
+        });
+        await controlled.waitForPendingPluginWrites(1);
+        await pumpEventQueue();
+
+        expect(controller.call?.room.id, 7);
+        expect(controller.call?.status, VoiceCallStatus.leaving);
+        expect(previousMedia.disposeCount, 1);
+        expect(mediaFactory.sessions, hasLength(1));
+
+        controlled.pendingPluginWrites.single.response.complete({});
+        await switching;
+
+        expect(controller.call?.room.id, 8);
+        expect(controller.call?.status, VoiceCallStatus.connected);
+        expect(mediaFactory.sessions, hasLength(2));
+        expect(mediaFactory.sessions.last.disposeCount, 0);
+        expect(controlled.pendingPluginWrites.map((write) => write.path), [
+          '/voice/rooms/7/leave.json',
+        ]);
+      },
+    );
+
     test('removes the local participant after media fails to join', () async {
       await controller.ensureLoaded(firstSite);
       final connectGate = Completer<void>();
@@ -4698,9 +4842,12 @@ void main() {
         expect(completed, isFalse);
 
         await controlled.waitForPendingPluginWrites(1);
-        expect(media.disposeCount, 0);
-        controlled.pendingPluginWrites.single.response.complete({});
+        // Capture stops without waiting for the server to accept the leave.
         await mediaDisposeStarted.future;
+        expect(media.disposeCount, 1);
+        controlled.pendingPluginWrites.single.response.complete({});
+        await pumpEventQueue();
+        expect(endStarted.isCompleted, isFalse);
         expect(completed, isFalse);
 
         mediaDisposeGate.complete();

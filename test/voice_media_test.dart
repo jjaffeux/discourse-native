@@ -249,6 +249,64 @@ void main() {
         expect(stream.disposed, isTrue);
       });
 
+      test(
+        'session disposal silences capture before a pending mutation drains',
+        () async {
+          final microphone = _FakeTrack('microphone', 'audio');
+          final camera = _FakeTrack('camera', 'video');
+          final screenVideo = _FakeTrack('screen-video', 'video');
+          final screenAudio = _FakeTrack('screen-audio', 'audio');
+          final replacement = _FakeTrack('replacement-microphone', 'audio');
+          final replacementRequested = Completer<void>();
+          final replacementGate = Completer<void>();
+          final captures = <Future<rtc.MediaStream> Function()>[
+            () async => _FakeStream('microphone-stream', [microphone]),
+            () async => _FakeStream('camera-stream', [camera]),
+            () async {
+              replacementRequested.complete();
+              await replacementGate.future;
+              return _FakeStream('replacement-stream', [replacement]);
+            },
+          ];
+          final peer = _FakePeerConnection();
+          final media = _meshSession(
+            peer: peer,
+            audioPublishingAllowed: true,
+            getUserMedia: (_) => captures.removeAt(0)(),
+            getDisplayMedia: (_) async =>
+                _FakeStream('screen-stream', [screenVideo, screenAudio]),
+          );
+          addTearDown(() async {
+            if (!replacementGate.isCompleted) replacementGate.complete();
+            await media.dispose();
+          });
+          await media.connect();
+          await media.setCameraEnabled(true);
+          await media.setScreenShareEnabled(true);
+          final switching = media.selectAudioInput('headset');
+          await replacementRequested.future;
+
+          final disposing = media.dispose();
+
+          final published = [microphone, camera, screenVideo, screenAudio];
+          for (final track in published) {
+            expect(track.enabled, isFalse, reason: track.id);
+            expect(track.stopped, isFalse, reason: track.id);
+          }
+          expect(peer.teardownCalls, isEmpty);
+
+          replacementGate.complete();
+          await switching;
+          await disposing;
+
+          for (final track in [...published, replacement]) {
+            expect(track.enabled, isFalse, reason: track.id);
+            expect(track.stopped, isTrue, reason: track.id);
+          }
+          expect(peer.teardownCalls, ['close', 'dispose']);
+        },
+      );
+
       for (final (label, registered) in [
         ('transceiver setup', false),
         ('offer signaling', true),
