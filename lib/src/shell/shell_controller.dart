@@ -4250,12 +4250,7 @@ class ShellController extends FrameSafeNotifier
         if (fresh.isEmpty && gone.isEmpty) return;
         store.putAll(siteUrl, fresh);
         for (final id in gone) {
-          store.remove<Post>(siteUrl, id);
-          store.update<TopicDetail>(
-            siteUrl,
-            topicId,
-            (detail) => detail.withoutPostId(id),
-          );
+          _removeTopicPost(siteUrl, topicId, id);
         }
         _notify();
       });
@@ -6804,6 +6799,7 @@ class ShellController extends FrameSafeNotifier
         final elapsed = Stopwatch()..start();
         final bookmarkVersion = _bookmarkVersion(siteUrl, topic.id);
         final archiveVersion = _messageArchiveVersion(siteUrl, topic.id);
+        final postRemovalVersion = _topicPostRemovalVersion(siteUrl, topic.id);
         try {
           final credential = await _awaitTopicLoadStage(
             Future.any<_SessionValue<String?>?>([
@@ -6833,7 +6829,12 @@ class ShellController extends FrameSafeNotifier
           if (isDisposed || !lease.isCurrent || cancellation.isCancelled) {
             return null;
           }
-          return PrefetchedTopic(payload, bookmarkVersion, archiveVersion);
+          return PrefetchedTopic(
+            payload,
+            bookmarkVersion,
+            archiveVersion,
+            postRemovalVersion,
+          );
         } catch (_) {
           cancellation.cancel();
           return null;
@@ -6941,6 +6942,7 @@ class ShellController extends FrameSafeNotifier
     final prefetched = _topicPrefetch.take(prefetchKey);
     var bookmarkVersion = _bookmarkVersion(instance.url, topicId);
     var messageArchiveVersion = _messageArchiveVersion(instance.url, topicId);
+    var postRemovalVersion = _topicPostRemovalVersion(instance.url, topicId);
 
     _topicsLoading.add(key);
     _notify();
@@ -6966,6 +6968,7 @@ class ShellController extends FrameSafeNotifier
       if (warmed != null) {
         bookmarkVersion = warmed.bookmarkVersion;
         messageArchiveVersion = warmed.archiveVersion;
+        postRemovalVersion = warmed.postRemovalVersion;
       }
       final fetched =
           warmed?.payload ??
@@ -7011,6 +7014,7 @@ class ShellController extends FrameSafeNotifier
           fetched,
           bookmarkVersionAtDispatch: bookmarkVersion,
           messageArchiveVersionAtDispatch: messageArchiveVersion,
+          postRemovalVersionAtDispatch: postRemovalVersion,
         );
         _ensureMessageListParent(instance.url, tabId, detail);
         if (currentInstance?.url == instance.url) {
@@ -7180,12 +7184,73 @@ class ShellController extends FrameSafeNotifier
     if (changed) _putWorkspace(workspace.copyWith(tabs: tabs));
   }
 
+  /// Advances each time this reader takes a post out of a topic.
+  final Map<String, int> _topicPostRemovalVersions = {};
+
+  /// The removal version at which each removed post left its topic.
+  final Map<String, Map<int, int>> _removedTopicPosts = {};
+
+  int _topicPostRemovalVersion(String siteUrl, int topicId) =>
+      _topicPostRemovalVersions[_topicKey(siteUrl, topicId)] ?? 0;
+
+  void _removeTopicPost(String siteUrl, int topicId, int postId) {
+    final key = _topicKey(siteUrl, topicId);
+    final version = _topicPostRemovalVersion(siteUrl, topicId) + 1;
+    _topicPostRemovalVersions[key] = version;
+    (_removedTopicPosts[key] ??= {})[postId] = version;
+    store.remove<Post>(siteUrl, postId);
+    store.update<TopicDetail>(
+      siteUrl,
+      topicId,
+      (detail) => detail.withoutPostId(postId),
+    );
+  }
+
+  /// A stream read that left before a removal still carries the removed post.
+  /// Stored, it would be back, and `TopicDetail.merge` keeps a held id the
+  /// server omits, so no later read would take it out again. The rest of the
+  /// read stands; a read that leaves after the removal, such as the one a
+  /// recovery starts, restores the post.
+  TopicPayload _withoutPostsRemovedSince(
+    String siteUrl,
+    TopicPayload payload,
+    int? versionAtDispatch,
+  ) {
+    final topicId = payload.detail.id;
+    if (versionAtDispatch == null ||
+        versionAtDispatch == _topicPostRemovalVersion(siteUrl, topicId)) {
+      return payload;
+    }
+    final removals =
+        _removedTopicPosts[_topicKey(siteUrl, topicId)] ?? const {};
+    final removed = {
+      for (final MapEntry(key: postId, value: version) in removals.entries)
+        if (version > versionAtDispatch) postId,
+    };
+    return (
+      detail: removed.fold(
+        payload.detail,
+        (detail, postId) => detail.withoutPostId(postId),
+      ),
+      posts: [
+        for (final post in payload.posts)
+          if (!removed.contains(post.id)) post,
+      ],
+    );
+  }
+
   TopicDetail _absorb(
     String siteUrl,
-    TopicPayload payload, {
+    TopicPayload response, {
     int? bookmarkVersionAtDispatch,
     int? messageArchiveVersionAtDispatch,
+    int? postRemovalVersionAtDispatch,
   }) {
+    final payload = _withoutPostsRemovedSince(
+      siteUrl,
+      response,
+      postRemovalVersionAtDispatch,
+    );
     final preserveBookmarks =
         bookmarkVersionAtDispatch != null &&
         bookmarkVersionAtDispatch !=
@@ -12218,12 +12283,7 @@ class ShellController extends FrameSafeNotifier
       for (final postId in postIds) {
         final fresh = freshById[postId];
         if (fresh == null) {
-          store.remove<Post>(siteUrl, postId);
-          store.update<TopicDetail>(
-            siteUrl,
-            topicId,
-            (detail) => detail.withoutPostId(postId),
-          );
+          _removeTopicPost(siteUrl, topicId, postId);
         } else {
           store.put(siteUrl, fresh);
           store.update<TopicDetail>(
@@ -12268,12 +12328,7 @@ class ShellController extends FrameSafeNotifier
     lease.commit(() {
       final fresh = fetched.where((p) => p.id == postId).firstOrNull;
       if (fresh == null) {
-        store.remove<Post>(siteUrl, postId);
-        store.update<TopicDetail>(
-          siteUrl,
-          topicId,
-          (detail) => detail.withoutPostId(postId),
-        );
+        _removeTopicPost(siteUrl, topicId, postId);
       } else {
         store.put(siteUrl, fresh);
         store.update<TopicDetail>(
@@ -13206,6 +13261,7 @@ class ShellController extends FrameSafeNotifier
     final lease = lifecycle.capture(siteUrl);
     final bookmarkVersion = _bookmarkVersion(siteUrl, topicId);
     final messageArchiveVersion = _messageArchiveVersion(siteUrl, topicId);
+    final postRemovalVersion = _topicPostRemovalVersion(siteUrl, topicId);
     _topicsLoading.add(key);
 
     try {
@@ -13227,6 +13283,7 @@ class ShellController extends FrameSafeNotifier
           topic,
           bookmarkVersionAtDispatch: bookmarkVersion,
           messageArchiveVersionAtDispatch: messageArchiveVersion,
+          postRemovalVersionAtDispatch: postRemovalVersion,
         ),
       );
     } catch (error, stackTrace) {
@@ -14412,6 +14469,10 @@ class ShellController extends FrameSafeNotifier
     _messageArchiveVersions.removeWhere(
       (key, _) => key.startsWith('$siteUrl#'),
     );
+    _topicPostRemovalVersions.removeWhere(
+      (key, _) => key.startsWith('$siteUrl#'),
+    );
+    _removedTopicPosts.removeWhere((key, _) => key.startsWith('$siteUrl#'));
     _topicDeletionWrites.removeWhere((key) => key.startsWith('$siteUrl#'));
     _topicJumpRuns.removeWhere((key, _) => key.startsWith('$siteUrl#'));
     _topicReads.forget(siteUrl);

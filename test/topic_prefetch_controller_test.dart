@@ -13,7 +13,8 @@ void main() {
     topicId: id,
     postNumber: postNumber,
   );
-  PrefetchedTopic result(int id) => PrefetchedTopic(topicPayload(id: id), 0, 0);
+  PrefetchedTopic result(int id) =>
+      PrefetchedTopic(topicPayload(id: id), 0, 0, 0);
 
   testWidgets('brief crossings send nothing; the latest row starts at 40 ms', (
     tester,
