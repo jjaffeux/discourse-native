@@ -3,11 +3,13 @@ import 'dart:async';
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
+import 'package:discourse_native/src/models/forum_workspace.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/models/topic_tracking_state.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
+import 'package:discourse_native/src/shell/topic_list_view.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -120,8 +122,7 @@ void main() {
     ) async {
       final (shell, api, rows) = await _setup(tester, mode: mode, count: 3);
       expect(shell.newReplyCount, 3);
-      shell.openTopicFromList(rows[0]);
-      await tester.pumpAndSettle();
+      await _openBeside(tester, _card(1));
       await shell.markTopicRead(_site, 1, 10, caughtUp: true);
       await tester.pumpAndSettle();
       expect(_card(1), findsOneWidget);
@@ -130,8 +131,7 @@ void main() {
       expect(shell.topicListNewCounts.replies, 2);
       expect(shell.currentFeed!.topicIds, [1, 2, 3]);
 
-      await tester.tap(_card(2));
-      await tester.pumpAndSettle();
+      await _openBeside(tester, _card(2));
       expect(_card(1), findsNothing);
       expect(tester.widget<DItem>(_card(2)).selected, isTrue);
       expect(shell.currentContent?.topicId, 2);
@@ -158,9 +158,8 @@ void main() {
   testWidgets('last read topic stays open until the reader closes', (
     tester,
   ) async {
-    final (shell, _, rows) = await _setup(tester, count: 1);
-    shell.openTopicFromList(rows.single);
-    await tester.pumpAndSettle();
+    final (shell, _, _) = await _setup(tester, count: 1);
+    await _openBeside(tester, _card(1));
     await shell.markTopicRead(_site, 1, 10, caughtUp: true);
     await tester.pumpAndSettle();
     expect(shell.currentContent?.topicId, 1);
@@ -177,8 +176,7 @@ void main() {
     tester,
   ) async {
     final (shell, _, rows) = await _setup(tester, count: 3);
-    shell.openTopicFromList(rows.first);
-    await tester.pumpAndSettle();
+    await _openBeside(tester, _card(1));
     await shell.markTopicRead(_site, 1, 10, caughtUp: true);
     FakeSiteTracker.built.single.deliverTopicTracking(const {
       'topic_id': 1,
@@ -201,8 +199,7 @@ void main() {
     'a new reply restores a removed topic without changing the reader',
     (tester) async {
       final (shell, _, rows) = await _setup(tester, count: 3);
-      shell.openTopicFromList(rows.first);
-      await tester.pumpAndSettle();
+      await _openBeside(tester, _card(1));
       await shell.markTopicRead(_site, 1, 10, caughtUp: true);
       shell.openTopicFromList(rows[1]);
       await tester.pumpAndSettle();
@@ -239,9 +236,8 @@ void main() {
   testWidgets(
     'read messages clear inactive rows while preserving the selection',
     (tester) async {
-      final (shell, _, rows) = await _setup(tester, count: 3);
-      shell.openTopicFromList(rows[1]);
-      await tester.pumpAndSettle();
+      await _setup(tester, count: 3);
+      await _openBeside(tester, _card(2));
       FakeSiteTracker.built.single.deliverTopicTracking(const {
         'topic_id': 1,
         'message_type': 'read',
@@ -278,9 +274,18 @@ void main() {
     'removal keeps a scrolled selection in place and keyboard order follows IDs',
     (tester) async {
       final (shell, _, rows) = await _setup(tester, count: 30);
-      shell.openTopicFromList(rows[9]);
+      shell.openLinkInPanel(
+        '/t/${rows[9].slug}/${rows[9].id}',
+        title: rows[9].title,
+        panel: ForumPanel.secondary,
+      );
       await tester.pumpAndSettle();
-      final list = tester.widget<SuperListView>(find.byType(SuperListView));
+      final list = tester.widget<SuperListView>(
+        find.descendant(
+          of: find.byType(TopicListView),
+          matching: find.byType(SuperListView),
+        ),
+      );
       list.listController!.jumpToItem(
         index: 18,
         scrollController: list.controller!,
@@ -291,8 +296,7 @@ void main() {
       final before = tester.getTopLeft(_card(11)).dy;
       await shell.markTopicRead(_site, 10, 10, caughtUp: true);
       await tester.pumpAndSettle();
-      await tester.tap(_card(11));
-      await tester.pumpAndSettle();
+      await _openBeside(tester, _card(11));
       expect(_card(10), findsNothing);
       expect(tester.getTopLeft(_card(11)).dy, closeTo(before, 1));
       expect(tester.widget<DItem>(_card(11)).selected, isTrue);
@@ -301,10 +305,11 @@ void main() {
       await tester.sendKeyEvent(LogicalKeyboardKey.keyJ);
       await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
       await tester.pumpAndSettle();
+      expect(tester.widget<DItem>(_card(12)).selected, isTrue);
+      // The list cursor opens its topic in the list's own panel.
       await tester.sendKeyEvent(LogicalKeyboardKey.enter);
       await tester.pumpAndSettle();
       expect(shell.currentContent?.topicId, 12);
-      expect(tester.widget<DItem>(_card(12)).selected, isTrue);
       expect(tester.takeException(), isNull);
     },
     variant: TargetPlatformVariant.only(TargetPlatform.linux),
@@ -365,6 +370,17 @@ void main() {
 }
 
 Finder _card(int id) => find.byKey(ValueKey('topic-card-$id'));
+
+// Desktop panels keep a list beside its reader only when the reader opens in
+// the secondary panel; a plain click reads in the list's own tab, and a
+// shift-click is the pointer's way to read beside the list.
+Future<void> _openBeside(WidgetTester tester, Finder row) async {
+  await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+  await tester.pump();
+  await tester.tap(row, warnIfMissed: false);
+  await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+  await tester.pumpAndSettle();
+}
 
 Future<(ShellController, FakeDiscourseApi, List<Topic>)> _setup(
   WidgetTester tester, {

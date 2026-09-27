@@ -3217,9 +3217,10 @@ class ShellController extends FrameSafeNotifier
     if (instance == null || feedId == null) return null;
     final feed = topicFeeds.feedFor(instance.url, feedId);
     if (feed == null || !currentFeedIsUnread) return feed;
+    // The topic being read may sit in the other desktop panel.
     return _unreadTopicFeed.project(
       feed,
-      selectedTopicId: currentContent?.topicId,
+      selectedTopicId: readingTopicId,
       isRead: (id) => UnreadTopicFeed.isRead(
         topic: store.read<Topic>(instance.url, id),
         tracking: _topicTrackingBySite[instance.url]?.topic(id),
