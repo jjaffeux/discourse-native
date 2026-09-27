@@ -19,6 +19,24 @@ abstract interface class PluginApiTransport {
   });
 }
 
+/// Optional writes whose server does slow work before it answers, such as
+/// generating text with a language model inside the request. The plugin states
+/// how long that work may take in [requestTimeout], which replaces the host's
+/// ordinary write deadline for this request only; every other rule of
+/// [PluginApiTransport.pluginWriteJson] still applies, including that a write
+/// is never retried.
+abstract interface class PluginLongRunningWriteTransport {
+  Future<Map<String, dynamic>> pluginLongRunningWriteJson({
+    required String siteUrl,
+    required String path,
+    required String method,
+    required String apiKey,
+    required Map<String, Object?> body,
+    required Duration requestTimeout,
+    String? clientId,
+  });
+}
+
 abstract interface class PluginJsonListTransport {
   Future<List<Map<String, dynamic>>> pluginGetJsonList({
     required String siteUrl,

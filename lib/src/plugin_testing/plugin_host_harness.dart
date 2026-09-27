@@ -315,6 +315,38 @@ final class _PluginHostApi extends DiscourseApi {
     clientId: clientId,
   );
 
+  /// The inherited implementation would send through the no-network client;
+  /// a supplied transport without the capability answers as an ordinary write.
+  @override
+  Future<Map<String, dynamic>> pluginLongRunningWriteJson({
+    required String siteUrl,
+    required String path,
+    required String method,
+    required String apiKey,
+    required Map<String, Object?> body,
+    required Duration requestTimeout,
+    String? clientId,
+  }) => switch (_pluginTransport) {
+    final PluginLongRunningWriteTransport transport =>
+      transport.pluginLongRunningWriteJson(
+        siteUrl: siteUrl,
+        path: path,
+        method: method,
+        apiKey: apiKey,
+        body: body,
+        requestTimeout: requestTimeout,
+        clientId: clientId,
+      ),
+    final transport => transport.pluginWriteJson(
+      siteUrl: siteUrl,
+      path: path,
+      method: method,
+      apiKey: apiKey,
+      body: body,
+      clientId: clientId,
+    ),
+  };
+
   @override
   Future<TopicList> topicList({
     required String siteUrl,

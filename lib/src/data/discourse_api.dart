@@ -60,6 +60,7 @@ class DiscourseApi
         ShellApiCapabilities,
         DiscourseApiConfiguration,
         PluginJsonQueryTransport,
+        PluginLongRunningWriteTransport,
         PluginTextTransport {
   DiscourseApi({
     http.Client? client,
@@ -1574,6 +1575,7 @@ class DiscourseApi
     required String apiKey,
     required Map<String, Object?> body,
     String? clientId,
+    Duration? requestTimeout,
   }) => _transport.write(
     url,
     siteUrl: siteUrl,
@@ -1581,6 +1583,7 @@ class DiscourseApi
     apiKey: apiKey,
     body: body,
     clientId: clientId,
+    requestTimeout: requestTimeout,
   );
 
   Future<http.Response> _get(
@@ -1709,6 +1712,25 @@ class DiscourseApi
     apiKey: apiKey,
     clientId: clientId,
     body: body,
+  );
+
+  @override
+  Future<Map<String, dynamic>> pluginLongRunningWriteJson({
+    required String siteUrl,
+    required String path,
+    required String method,
+    required String apiKey,
+    required Map<String, Object?> body,
+    required Duration requestTimeout,
+    String? clientId,
+  }) async => _write(
+    _resolvePluginPath(siteUrl, path),
+    siteUrl: siteUrl,
+    method: method,
+    apiKey: apiKey,
+    clientId: clientId,
+    body: body,
+    requestTimeout: requestTimeout,
   );
 
   static Uri _resolvePluginPath(String siteUrl, String path) {
