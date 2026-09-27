@@ -1,5 +1,10 @@
+import 'dart:convert';
+import 'dart:math';
+
 import 'package:discourse_native/src/shell/composer_blocks.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+import 'support/scaling_benchmark.dart';
 
 void main() {
   ComposerBlockIndex parse(String raw) => ComposerBlockIndex.parse(raw);
@@ -407,4 +412,237 @@ void main() {
     );
     expect(after.blocks.map((b) => b.id), before.blocks.map((b) => b.id));
   });
+
+  group('block IDs after an edit', () {
+    List<int> ids(ComposerBlockIndex index) => [
+      for (final block in index.blocks) block.id,
+    ];
+    ComposerBlockIndex edit(ComposerBlockIndex previous, String source) =>
+        ComposerBlockIndex.parse(source, previous: previous);
+
+    test('are fresh only for an inserted block', () {
+      final before = parse('Alpha\n\nBeta\n\nGamma');
+      expect(ids(edit(before, 'Alpha\n\nBeta\n\nNew\n\nGamma')), [0, 1, 3, 2]);
+    });
+
+    test('survive on both sides of a deleted block', () {
+      final before = parse('Alpha\n\nBeta\n\nGamma');
+      expect(ids(edit(before, 'Alpha\n\nGamma')), [0, 2]);
+    });
+
+    test('survive typing anywhere inside a block', () {
+      final before = parse('Alpha\n\nBeta\n\nGamma');
+      expect(ids(edit(before, 'Alpha\n\nxBeta\n\nGamma')), [0, 1, 2]);
+      expect(ids(edit(before, 'Alpha\n\nBe-ta\n\nGamma')), [0, 1, 2]);
+      expect(ids(edit(before, 'Alpha\n\nBeta and more\n\nGamma')), [0, 1, 2]);
+    });
+
+    test('are fresh for every pasted block, in document order', () {
+      final before = parse('Alpha\n\nOmega');
+      final pasted = [for (var i = 0; i < 5; i++) 'Pasted $i'].join('\n\n');
+      final after = edit(before, 'Alpha\n\n$pasted\n\nOmega');
+      expect(ids(after), [0, 2, 3, 4, 5, 6, 1]);
+    });
+
+    test('are fresh for both halves of a split block', () {
+      final before = parse('Alpha\n\nBetaGamma\n\nDelta');
+      final after = edit(before, 'Alpha\n\nBeta\n\nGamma\n\nDelta');
+      expect(ids(after), [0, 3, 4, 2]);
+    });
+
+    test('are fresh for two blocks joined into one', () {
+      final before = parse('Alpha\n\nBeta\n\nGamma\n\nDelta');
+      expect(ids(edit(before, 'Alpha\n\nBetaGamma\n\nDelta')), [0, 4, 3]);
+    });
+
+    test('are fresh for a block whose kind changes', () {
+      final before = parse('Alpha\n\nBeta\n\nGamma');
+      final after = edit(before, 'Alpha\n\n# Beta\n\nGamma');
+      expect(after.blocks[1].kind, ComposerBlockKind.heading);
+      expect(ids(after), [0, 3, 2]);
+    });
+
+    test('follow duplicate blocks by position', () {
+      final before = parse('Same\n\nSame');
+      expect(ids(edit(before, 'New\n\nSame\n\nSame')), [2, 0, 1]);
+      expect(ids(edit(before, 'Same\n\nSame\n\nSame')), [0, 1, 2]);
+      expect(ids(edit(before, 'Same\n\nNew\n\nSame')), [0, 2, 1]);
+    });
+
+    test('keep an order a move gave them, above which fresh IDs start', () {
+      final moved = parse('Alpha\n\nBeta\n\nGamma').move(2, 0)!.after;
+      expect(ids(moved), [2, 0, 1]);
+      expect(ids(edit(moved, 'Gamma\n\nAlpha\n\nNew\n\nBeta')), [2, 0, 3, 1]);
+    });
+
+    test('match a search of every previous block for generated edits', () {
+      // Retention is positional: a block keeps an ID when it is unchanged but
+      // shifted by the edit, or when it contains the whole edit and starts
+      // where it did. The corpus mixes every block kind and duplicates, moves
+      // put IDs out of document order, and it must reach both rules and
+      // fresh IDs.
+      const blocks = [
+        'Paragraph',
+        'Same',
+        '# Heading',
+        '- item\n- item',
+        '> quote',
+        '```\ncode\n```',
+        '[ ] to-do',
+        '---',
+        '[details]\nhidden\n[/details]',
+      ];
+      const pieces = [
+        '',
+        'x',
+        '\n',
+        '\n\n',
+        '\n\nSame\n\n',
+        '# ',
+        '- ',
+        '> ',
+        '```',
+        '[ ] ',
+        '[wrap]',
+        '[/wrap]',
+        '<div>',
+        '\r\n',
+      ];
+      final random = Random(2718);
+      final reached = <_Retention, int>{
+        for (final rule in _Retention.values) rule: 0,
+      };
+      var outOfOrder = 0;
+      ComposerBlockIndex? previous;
+      for (var round = 0; round < 4000; round++) {
+        if (previous == null || round % 25 == 0) {
+          previous = parse(
+            [
+              for (var i = random.nextInt(12); i >= 0; i--)
+                blocks[random.nextInt(blocks.length)],
+            ].join('\n\n'),
+          );
+        }
+        if (random.nextInt(4) == 0 && previous.blocks.isNotEmpty) {
+          final id = previous.blocks[random.nextInt(previous.blocks.length)].id;
+          final gap = random.nextInt(previous.blocks.length + 1);
+          previous = previous.move(id, gap)?.after ?? previous;
+        }
+        final order = ids(previous);
+        for (var i = 1; i < order.length; i++) {
+          if (order[i] < order[i - 1]) {
+            outOfOrder++;
+            break;
+          }
+        }
+        final source = previous.source;
+        final first = random.nextInt(source.length + 1);
+        final second = random.nextInt(source.length + 1);
+        final start = min(first, second);
+        final end = random.nextInt(3) == 0 ? max(first, second) : start;
+        final replacement = random.nextInt(4) == 0
+            ? source.substring(start, end)
+            : pieces[random.nextInt(pieces.length)];
+        final edited = source.replaceRange(start, end, replacement);
+        final next = edit(previous, edited);
+        expect(
+          ids(next),
+          _searchedIds(previous, next, reached),
+          reason: 'from ${jsonEncode(source)} to ${jsonEncode(edited)}',
+        );
+        previous = next;
+      }
+      expect(
+        reached.values,
+        everyElement(greaterThan(100)),
+        reason: '$reached',
+      );
+      expect(outOfOrder, greaterThan(100));
+    });
+
+    test('cost the block count, not its square', () {
+      // Every keystroke parses against the previous index. This is timed at
+      // the parse, where no snapshot cache can answer a repeated text, and an
+      // eightfold document separates one walk from a search per new block.
+      (ComposerBlockIndex, String) typing(int count) {
+        final source = [
+          for (var i = 0; i < count; i++) 'Paragraph $i',
+        ].join('\n\n');
+        final middle = source.indexOf('Paragraph ${count ~/ 2}');
+        return (parse(source), source.replaceRange(middle, middle, 'x'));
+      }
+
+      final (smallPrevious, smallSource) = typing(1000);
+      final (largePrevious, largeSource) = typing(8000);
+      final (:small, :large) = measureScaling(
+        () => edit(smallPrevious, smallSource).blocks.length,
+        () => edit(largePrevious, largeSource).blocks.length,
+      );
+
+      expect(
+        large,
+        lessThan(small * 25),
+        reason: 'eight times the blocks took ${large / small} times as long',
+      );
+    });
+  });
+}
+
+enum _Retention { shifted, containsEdit, fresh }
+
+/// The retention rule stated as a search of every previous block, in document
+/// order, for each new block.
+List<int> _searchedIds(
+  ComposerBlockIndex previous,
+  ComposerBlockIndex next,
+  Map<_Retention, int> reached,
+) {
+  final before = previous.source;
+  final after = next.source;
+  var prefix = 0;
+  while (prefix < before.length &&
+      prefix < after.length &&
+      before.codeUnitAt(prefix) == after.codeUnitAt(prefix)) {
+    prefix++;
+  }
+  var oldSuffix = before.length;
+  var newSuffix = after.length;
+  while (oldSuffix > prefix &&
+      newSuffix > prefix &&
+      before.codeUnitAt(oldSuffix - 1) == after.codeUnitAt(newSuffix - 1)) {
+    oldSuffix--;
+    newSuffix--;
+  }
+  var fresh = previous.blocks.fold(0, (id, block) => max(id, block.id + 1));
+  final used = <int>{};
+  final ids = <int>[];
+  for (final block in next.blocks) {
+    int? retained;
+    for (final old in previous.blocks) {
+      if (used.contains(old.id) || old.kind != block.kind) continue;
+      final shifted = old.start >= oldSuffix
+          ? old.start + newSuffix - oldSuffix
+          : old.start;
+      if ((old.end <= prefix || old.start >= oldSuffix) &&
+          shifted == block.start &&
+          old.source == block.source) {
+        reached.update(_Retention.shifted, (n) => n + 1);
+        retained = old.id;
+        break;
+      }
+      if (old.start <= prefix &&
+          old.end >= oldSuffix &&
+          block.start == old.start &&
+          block.end >= newSuffix) {
+        reached.update(_Retention.containsEdit, (n) => n + 1);
+        retained = old.id;
+        break;
+      }
+    }
+    if (retained == null) reached.update(_Retention.fresh, (n) => n + 1);
+    final id = retained ?? fresh++;
+    used.add(id);
+    ids.add(id);
+  }
+  return ids;
 }
