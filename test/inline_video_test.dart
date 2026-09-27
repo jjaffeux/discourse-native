@@ -870,10 +870,16 @@ void main() {
     sessions.single.completeReady();
     await tester.pump();
 
+    // A blurred desktop window is still on screen, so playback continues.
     tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+    await tester.pump();
+    expect(sessions.single.pauseCount, 0);
+
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.hidden);
     await tester.pump();
     expect(sessions.single.pauseCount, 1);
 
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
     tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
     await tester.pump();
     expect(sessions.single.pauseCount, 1);
