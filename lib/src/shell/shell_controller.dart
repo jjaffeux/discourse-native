@@ -4209,6 +4209,7 @@ class ShellController extends FrameSafeNotifier
           final coreChannel = '/topic/$topicId';
           if (channel == coreChannel) {
             _applyTopicNotificationMessage(siteUrl, topicId, data, lease);
+            _applyTopicStatsMessage(siteUrl, topicId, data, lease);
           }
           final core = channel == coreChannel
               ? _coreTopicMessageInvalidation(siteUrl, data)
@@ -4286,6 +4287,89 @@ class ShellController extends FrameSafeNotifier
     );
   }
 
+  /// The newest `posts_count` a core `stats` message carried while a
+  /// deletion's re-read of the topic was out, by [_topicKey]. Core publishes
+  /// that count right after the deletion, and a re-read that then omits the
+  /// post lowers the held count for it again, so the count waits for the
+  /// re-read to decide.
+  final Map<String, int> _deferredTopicPostsCounts = {};
+
+  /// `Topic.publish_stats_to_clients!`: the topic's totals after a like, a new
+  /// post, a deletion or a recovery. As on the web client, each total the
+  /// message carries replaces the held one; nothing is read again for it. Its
+  /// last-post fields have no held counterpart: a row's activity time is
+  /// `bumped_at`, which this message does not carry.
+  void _applyTopicStatsMessage(
+    String siteUrl,
+    int topicId,
+    Object? data,
+    SiteLease lease,
+  ) {
+    if (!lease.isCurrent || isDisposed) return;
+    if (data is! Map || data['type'] != 'stats') return;
+    int? total(Object? value) => value is int && value >= 0 ? value : null;
+    final likeCount = total(data['like_count']);
+    var postsCount = total(data['posts_count']);
+    if (postsCount != null && _awaitsTopicDeletionRead(siteUrl, topicId)) {
+      _deferredTopicPostsCounts[_topicKey(siteUrl, topicId)] = postsCount;
+      postsCount = null;
+    }
+    _setTopicTotals(
+      siteUrl,
+      topicId,
+      likeCount: likeCount,
+      postsCount: postsCount,
+    );
+  }
+
+  bool _awaitsTopicDeletionRead(String siteUrl, int topicId) =>
+      _postRefreshDeletions.any(
+        (key) =>
+            key.startsWith('$siteUrl~') && _postRefreshTopics[key] == topicId,
+      );
+
+  void _releaseDeferredTopicPostsCount(String siteUrl, int topicId) {
+    final key = _topicKey(siteUrl, topicId);
+    if (!_deferredTopicPostsCounts.containsKey(key) ||
+        _awaitsTopicDeletionRead(siteUrl, topicId)) {
+      return;
+    }
+    _setTopicTotals(
+      siteUrl,
+      topicId,
+      postsCount: _deferredTopicPostsCounts.remove(key),
+    );
+  }
+
+  void _setTopicTotals(
+    String siteUrl,
+    int topicId, {
+    int? likeCount,
+    int? postsCount,
+  }) {
+    if (likeCount == null && postsCount == null) return;
+    bool holds(int held, int? next) => next == null || next == held;
+    var changed = false;
+    store.update<TopicDetail>(siteUrl, topicId, (topic) {
+      if (holds(topic.likeCount, likeCount) &&
+          holds(topic.postsCount, postsCount)) {
+        return topic;
+      }
+      changed = true;
+      return topic.copyWith(likeCount: likeCount, postsCount: postsCount);
+    });
+    // A list row listens to its own ref, so only the topic needs the shell.
+    store.update<Topic>(
+      siteUrl,
+      topicId,
+      (row) =>
+          holds(row.likeCount, likeCount) && holds(row.postsCount, postsCount)
+          ? row
+          : row.copyWith(likeCount: likeCount, postsCount: postsCount),
+    );
+    if (changed && !isDisposed && currentInstance?.url == siteUrl) _notify();
+  }
+
   Future<void> _refreshPosts(
     String siteUrl,
     int topicId,
@@ -4312,6 +4396,9 @@ class ShellController extends FrameSafeNotifier
         eligible.add(id);
       }
     }
+    // A deleted post that a write's own re-read already took out holds no
+    // count back.
+    _releaseDeferredTopicPostsCount(siteUrl, topicId);
     final wanted = <int>[];
     for (final id in eligible.take(TopicDetail.maximumInitialPosts)) {
       final key = _postKey(siteUrl, id);
@@ -4403,6 +4490,7 @@ class ShellController extends FrameSafeNotifier
             }
           }
         }
+        _releaseDeferredTopicPostsCount(siteUrl, topicId);
       });
       if (retry.isNotEmpty) {
         unawaited(_refreshPosts(siteUrl, topicId, retry));
@@ -14679,6 +14767,9 @@ class ShellController extends FrameSafeNotifier
     _postRefreshPending.removeWhere((key) => key.startsWith('$siteUrl~'));
     _postRefreshTopics.removeWhere((key, _) => key.startsWith('$siteUrl~'));
     _postRefreshDeletions.removeWhere((key) => key.startsWith('$siteUrl~'));
+    _deferredTopicPostsCounts.removeWhere(
+      (key, _) => key.startsWith('$siteUrl#'),
+    );
     _topicsLoading.removeWhere((key) => key.startsWith('$siteUrl#'));
     _topicRefreshPending.removeWhere((key) => key.startsWith('$siteUrl#'));
     _topicRefreshPostNumbers.removeWhere(

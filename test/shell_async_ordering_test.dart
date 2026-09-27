@@ -1251,6 +1251,183 @@ void main() {
       expect(shell.currentTopic?.stream, [1, 2, 3]);
       expect(shell.currentTopic?.postsCount, 3);
     });
+
+    test('takes the totals core publishes without reading again', () async {
+      final api = _PostOrderingApi();
+      final shell = await _loadShell(api);
+      addTearDown(shell.dispose);
+      api.topics[7] = topicPayload(
+        id: 7,
+        title: 'A topic',
+        posts: [_post('initial'), _reply],
+      );
+      final tracker = await _openTopic(shell);
+      expect(shell.store.read<Topic>(_siteUrl, 7)?.postsCount, 2);
+
+      // What core sends after a like, then after a reply.
+      tracker.deliverTopicMessage('/topic/7', const {
+        'type': 'stats',
+        'id': 7,
+        'like_count': 4,
+      });
+      expect(shell.currentTopic?.likeCount, 4);
+      expect(shell.currentTopic?.postsCount, 2);
+      expect(shell.store.read<Topic>(_siteUrl, 7)?.likeCount, 4);
+
+      tracker.deliverTopicMessage('/topic/7', const {
+        'type': 'stats',
+        'id': 7,
+        'posts_count': 3,
+        'last_posted_at': '2026-09-27T12:00:00.000Z',
+        'last_poster': {'id': 2, 'username': 'replier'},
+      });
+      await pumpEventQueue();
+
+      expect(shell.currentTopic?.postsCount, 3);
+      expect(shell.currentTopic?.replyCount, 2);
+      expect(shell.currentTopic?.likeCount, 4);
+      final row = shell.store.read<Topic>(_siteUrl, 7);
+      expect(row?.postsCount, 3);
+      expect(row?.likeCount, 4);
+      expect(api.topicsOpened, [7]);
+      expect(api.postRequests, isEmpty);
+    });
+
+    test('ignores stats totals that are not counts', () async {
+      final api = _PostOrderingApi();
+      final shell = await _loadShell(api);
+      addTearDown(shell.dispose);
+      final tracker = await _openTopic(shell);
+      final topic = shell.currentTopic;
+      final row = shell.store.read<Topic>(_siteUrl, 7);
+      expect(row, isNotNull);
+
+      for (final value in const <Object?>[
+        '4',
+        4.5,
+        -1,
+        true,
+        null,
+        {'count': 4},
+      ]) {
+        tracker.deliverTopicMessage('/topic/7', {
+          'type': 'stats',
+          'like_count': value,
+          'posts_count': value,
+        });
+      }
+      tracker.deliverTopicMessage('/topic/7', const {'type': 'stats'});
+      tracker.deliverTopicMessage('/topic/7', const {
+        'like_count': 4,
+        'posts_count': 4,
+      });
+      await pumpEventQueue();
+
+      expect(shell.currentTopic, same(topic));
+      expect(shell.store.read<Topic>(_siteUrl, 7), same(row));
+      expect(api.topicsOpened, [7]);
+      expect(api.postRequests, isEmpty);
+    });
+
+    for (final visible in const [false, true]) {
+      final reader = visible ? 'still sees' : 'no longer sees';
+      test('a deletion the reader $reader lowers the total once', () async {
+        final api = _PostOrderingApi();
+        // Core's own handling only: the Topic Calendar also reads the stream
+        // again after a deletion.
+        final plugins = PluginInstaller.install(const PluginManifest([]));
+        addTearDown(plugins.close);
+        final shell = await _loadShell(api, plugins: plugins);
+        addTearDown(shell.dispose);
+        api.topics[7] = topicPayload(
+          id: 7,
+          title: 'A topic',
+          posts: [_post('initial'), _reply],
+        );
+        final tracker = await _openTopic(shell);
+        expect(shell.currentTopic?.postsCount, 2);
+
+        // Core announces the deletion, then the totals that already omit it.
+        tracker.deliverTopicMessage('/topic/7', const {
+          'type': 'deleted',
+          'id': 2,
+        });
+        tracker.deliverTopicMessage('/topic/7', const {
+          'type': 'stats',
+          'id': 7,
+          'posts_count': 1,
+        });
+        await api.waitForPostRequests(1);
+        api.postRequests.single.response.complete([
+          if (visible)
+            Post(
+              id: 2,
+              postNumber: 2,
+              username: 'replier',
+              cooked: 'reply',
+              deletedAt: DateTime.utc(2026, 9, 27),
+            ),
+        ]);
+        await pumpEventQueue();
+
+        expect(shell.currentTopic?.stream, visible ? [1, 2] : [1]);
+        expect(shell.currentTopic?.postsCount, 1);
+        expect(shell.store.read<Topic>(_siteUrl, 7)?.postsCount, 1);
+        expect(api.topicsOpened, [7]);
+      });
+    }
+
+    test('a permanent deletion keeps the total core sends for it', () async {
+      final deletedReply = Post(
+        id: 2,
+        postNumber: 2,
+        username: 'replier',
+        cooked: 'reply',
+        deletedAt: DateTime.utc(2026, 9, 27),
+        canPermanentlyDelete: true,
+      );
+      final api = _PostOrderingApi();
+      final plugins = PluginInstaller.install(const PluginManifest([]));
+      addTearDown(plugins.close);
+      final shell = await _loadShell(api, plugins: plugins);
+      addTearDown(shell.dispose);
+      // Core stopped counting the post when it was deleted; staff still see it.
+      api.topics[7] = topicPayload(
+        id: 7,
+        title: 'A topic',
+        posts: [_post('initial'), deletedReply],
+        postsCount: 1,
+      );
+      final tracker = await _openTopic(shell);
+
+      final deleting = shell.permanentlyDeletePost(
+        shell.capturePostPermanentDeleteTarget(
+          siteUrl: _siteUrl,
+          topicId: 7,
+          post: deletedReply,
+        ),
+      );
+      // Core tells every reader while the deleting one's own re-read, which is
+      // what takes the post out, is still out.
+      await api.waitForPostRequests(1);
+      tracker.deliverTopicMessage('/topic/7', const {
+        'type': 'destroyed',
+        'id': 2,
+      });
+      tracker.deliverTopicMessage('/topic/7', const {
+        'type': 'stats',
+        'id': 7,
+        'posts_count': 1,
+      });
+      api.postRequests.single.response.complete(const []);
+      expect(await deleting, isNull);
+      await pumpEventQueue();
+
+      expect(shell.currentTopic?.stream, [1]);
+      expect(shell.currentTopic?.postsCount, 1);
+      expect(shell.store.read<Topic>(_siteUrl, 7)?.postsCount, 1);
+      expect(api.postRequests, hasLength(1));
+    });
   });
 
   group('session replacement', () {
