@@ -501,6 +501,44 @@ void main() {
       expect(provider.allowUpscaling, isFalse);
     });
 
+    testWidgets(
+      'draws the thumbnail from its srcset and opens the full image',
+      (tester) async {
+        tester.view.devicePixelRatio = 2;
+        addTearDown(tester.view.reset);
+        const optimized =
+            'https://meta.discourse.org/uploads/optimized/4X/a/b/c';
+        await pumpCooked(
+          tester,
+          singleImage.replaceFirst(
+            'data-dominant-color',
+            'srcset="$optimized/thumb.png, $optimized/thumb_1035.png 1.5x, '
+                '$optimized/thumb_1380.png 2x" data-dominant-color',
+          ),
+        );
+
+        expect(
+          tester
+              .widget<SiteImage>(
+                find.descendant(
+                  of: find.byType(LightboxTile),
+                  matching: find.byType(SiteImage),
+                ),
+              )
+              .url,
+          '$optimized/thumb_1380.png',
+        );
+
+        await tester.tap(thumbnail());
+        await tester.pumpAndSettle();
+
+        expect(
+          tester.widget<SiteImage>(fullImageAt(0)).url,
+          'https://meta.discourse.org/uploads/original/4X/a/b/c/full.png',
+        );
+      },
+    );
+
     testWidgets('lays out an image whose markup declared no size', (
       tester,
     ) async {

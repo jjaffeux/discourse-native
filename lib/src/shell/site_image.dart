@@ -638,12 +638,12 @@ final class SiteImageWidgetFactory extends WidgetFactory {
       inline = _InlineImageBytes.of(src.url);
       // Unreadable data reads as its alt text.
       if (inline == null) return null;
-    } else if (Uri.tryParse(src.url)
-        case null || Uri(scheme: 'asset' || 'data' || 'file')) {
+    } else if (_isRefusedSource(src.url)) {
       // The providers above refuse each of these, so it reads as its alt text.
       return super.buildImageWidget(tree, src);
     }
 
+    final srcset = tree.element.attributes['srcset'];
     final metadata = src.image;
     final semanticLabel = metadata?.alt ?? metadata?.title;
     return LayoutBuilder(
@@ -679,7 +679,7 @@ final class SiteImageWidgetFactory extends WidgetFactory {
           );
         }
         return SiteImage(
-          url: src.url,
+          url: _densitySource(context, src.url, srcset),
           siteUrl: siteUrl,
           fit: BoxFit.fill,
           cacheWidth: cacheWidth,
@@ -696,6 +696,25 @@ final class SiteImageWidgetFactory extends WidgetFactory {
       },
     );
   }
+
+  /// The [srcsetCandidate] for this screen, resolved the way the package
+  /// resolved `src`. A candidate the providers above would refuse keeps
+  /// `src`.
+  String _densitySource(BuildContext context, String src, String? srcset) {
+    final candidate = urlFull(
+      srcsetCandidate(
+        src: src,
+        srcset: srcset,
+        devicePixelRatio: MediaQuery.devicePixelRatioOf(context),
+      ),
+    );
+    return candidate == null || _isRefusedSource(candidate) ? src : candidate;
+  }
+
+  static bool _isRefusedSource(String url) => switch (Uri.tryParse(url)) {
+    null || Uri(scheme: 'asset' || 'data' || 'file') => true,
+    _ => false,
+  };
 }
 
 /// The bytes of recently drawn inline `data:image/` sources, by URI.

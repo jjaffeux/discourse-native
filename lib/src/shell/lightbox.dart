@@ -72,6 +72,7 @@ class LightboxImage {
     required this.width,
     required this.height,
     required this.heroTag,
+    this.thumbnailSrcset,
     this.fullWidth,
     this.fullHeight,
   });
@@ -79,6 +80,10 @@ class LightboxImage {
   final String fullSrc;
 
   final String? thumbnailSrc;
+
+  /// Larger copies of [thumbnailSrc] by screen density, as in the markup's
+  /// `srcset`; see [srcsetCandidate].
+  final String? thumbnailSrcset;
 
   final String? title;
 
@@ -152,6 +157,7 @@ class LightboxImage {
     return LightboxImage(
       fullSrc: fullSrc,
       thumbnailSrc: img?.attributes['src'].orNull,
+      thumbnailSrcset: img?.attributes['srcset'].orNull,
       title: anchorTitle ?? alt ?? imageTitle,
       description: alt ?? imageTitle ?? anchorTitle,
       details: informations?.text.trim().orNull,
@@ -310,6 +316,7 @@ class LightboxTile extends StatelessWidget {
           _ => 'Open image',
         };
         void activate() => open(context);
+        final thumbnail = image.thumbnailSrc;
 
         return DImagePreview(
           semanticLabel: label,
@@ -319,7 +326,13 @@ class LightboxTile extends StatelessWidget {
           child: Hero(
             tag: image.heroTag,
             child: SiteImage(
-              url: image.thumbnailSrc ?? image.fullSrc,
+              url: thumbnail == null
+                  ? image.fullSrc
+                  : srcsetCandidate(
+                      src: thumbnail,
+                      srcset: image.thumbnailSrcset,
+                      devicePixelRatio: MediaQuery.devicePixelRatioOf(context),
+                    ),
               siteUrl: siteUrl,
               fit: fit,
               width: double.infinity,

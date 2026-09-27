@@ -96,6 +96,115 @@ void main() {
     }, hasLength(8));
   });
 
+  group('srcsetCandidate', () {
+    const src = 'https://example.com/a_690x388.png';
+    const oneAndAHalf = 'https://example.com/a_1035x582.png';
+    const two = 'https://example.com/a_1380x776.png';
+    // What Discourse's post processor writes by default.
+    const discourse = '$src, $oneAndAHalf 1.5x, $two 2x';
+
+    String at(double ratio, {String? srcset = discourse}) =>
+        srcsetCandidate(src: src, srcset: srcset, devicePixelRatio: ratio);
+
+    test('takes the smallest density that covers the screen', () {
+      expect(at(1), src);
+      expect(at(1.25), oneAndAHalf);
+      expect(at(1.5), oneAndAHalf);
+      expect(at(1.75), two);
+      expect(at(2), two);
+    });
+
+    test('takes the largest density on a denser screen', () {
+      expect(at(3), two);
+    });
+
+    test('keeps a ratio that rounds past a density on that density', () {
+      expect(at(1.0000001), src);
+      expect(at(1.5000001), oneAndAHalf);
+      expect(at(1.02), oneAndAHalf);
+    });
+
+    test('stands src in for a 1x the srcset does not list', () {
+      expect(at(1, srcset: '$two 2x'), src);
+      expect(at(2, srcset: '$two 2x'), two);
+      expect(
+        at(1, srcset: 'https://example.com/listed.png 1x, $two 2x'),
+        'https://example.com/listed.png',
+      );
+    });
+
+    test('keeps the first candidate of each density', () {
+      expect(at(2, srcset: '$two 2x, https://example.com/later.png 2.0x'), two);
+    });
+
+    test('returns a relative candidate as written', () {
+      expect(
+        at(2, srcset: '/uploads/a_690x388.png, /uploads/a_1380x776.png 2x'),
+        '/uploads/a_1380x776.png',
+      );
+    });
+
+    test('reads a URL up to whitespace, commas and all', () {
+      const srcset =
+          'https://example.com/a,1.png 1x,https://example.com/a,2.png 2x';
+
+      expect(at(1, srcset: srcset), 'https://example.com/a,1.png');
+      expect(at(2, srcset: srcset), 'https://example.com/a,2.png');
+    });
+
+    test('ends a URL at trailing commas, leaving it 1x', () {
+      const srcset = 'https://example.com/one.png,, $two 2x';
+
+      expect(at(1, srcset: srcset), 'https://example.com/one.png');
+      expect(at(2, srcset: srcset), two);
+    });
+
+    test('keeps a comma within parentheses inside its descriptor', () {
+      // Split at every comma, `syntax)` would be a 1x candidate.
+      const srcset =
+          'https://example.com/bad.png 1.5x (future, syntax), $two 2x';
+
+      expect(at(1, srcset: srcset), src);
+      expect(at(1.5, srcset: srcset), two);
+    });
+
+    test('skips candidates the standard rejects', () {
+      for (final descriptor in [
+        '2',
+        '2X',
+        'x',
+        '2.x',
+        '-2x',
+        'NaNx',
+        '1e999x',
+        '2x 3x',
+        '2x 100h',
+        '100h',
+        '(2x)',
+        '2x (future)',
+      ]) {
+        expect(
+          at(3, srcset: 'https://example.com/bad.png $descriptor'),
+          src,
+          reason: descriptor,
+        );
+      }
+      expect(at(3, srcset: 'https://example.com/bad.png 3X, $two 2x'), two);
+    });
+
+    test('falls back to src for width descriptors', () {
+      expect(at(2, srcset: '$src 690w, $two 1380w'), src);
+      expect(at(2, srcset: '$two 2x, $oneAndAHalf 1035w'), src);
+      expect(at(2, srcset: '$two 2x, $oneAndAHalf 1035w 582h'), src);
+    });
+
+    test('falls back to src without a usable srcset', () {
+      for (final srcset in [null, '', ' , ,, ', 'not a srcset, at all']) {
+        expect(at(2, srcset: srcset), src, reason: srcset);
+      }
+    });
+  });
+
   testWidgets('layout decode widths are coarse physical widths', (
     tester,
   ) async {
