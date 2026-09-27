@@ -6,7 +6,6 @@ import 'package:discourse_native/discourse_plugin_test.dart';
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/plugins/discourse_events/event_card.dart';
 import 'package:discourse_native/src/plugins/discourse_events/event_data.dart';
-import 'package:discourse_native/src/plugins/discourse_events/event_directory.dart';
 import 'package:discourse_native/src/plugins/discourse_events/event_navigation.dart';
 import 'package:file_selector_platform_interface/file_selector_platform_interface.dart';
 import 'package:flutter/material.dart';
@@ -18,323 +17,282 @@ import 'support/event_fixtures.dart';
 const _calendar = 'BEGIN:VCALENDAR\r\nEND:VCALENDAR\r\n';
 const _failure = 'Unable to load this event. Try again.';
 
-enum _View { card, directory }
-
 void main() {
-  for (final view in _View.values) {
-    group('${view.name} calendar export', () {
-      late _CalendarTransport transport;
-      late EventTestPorts ports;
-      late List<EventTestPorts> owners;
-      late EventExportFileSelector selector;
-      late FileSelectorPlatform previousSelector;
-      late String site;
-      late int eventId;
-      late bool mine;
+  group('card calendar export', () {
+    late _CalendarTransport transport;
+    late EventTestPorts ports;
+    late List<EventTestPorts> owners;
+    late EventExportFileSelector selector;
+    late FileSelectorPlatform previousSelector;
+    late String site;
+    late int eventId;
 
-      setUp(() {
-        transport = _CalendarTransport();
-        ports = EventTestPorts(transport: transport);
-        owners = [ports];
-        site = eventSite;
-        eventId = 42;
-        mine = false;
-        selector = EventExportFileSelector();
-        previousSelector = FileSelectorPlatform.instance;
-        FileSelectorPlatform.instance = selector;
-      });
+    setUp(() {
+      transport = _CalendarTransport();
+      ports = EventTestPorts(transport: transport);
+      owners = [ports];
+      site = eventSite;
+      eventId = 42;
+      selector = EventExportFileSelector();
+      previousSelector = FileSelectorPlatform.instance;
+      FileSelectorPlatform.instance = selector;
+    });
 
-      tearDown(() {
-        FileSelectorPlatform.instance = previousSelector;
-        for (final owner in owners) {
-          owner.close();
-        }
-      });
+    tearDown(() {
+      FileSelectorPlatform.instance = previousSelector;
+      for (final owner in owners) {
+        owner.close();
+      }
+    });
 
-      Future<void> pump(WidgetTester tester) async {
-        final navigation = EventNavigation(
-          host: _Routes(),
-          editor: PluginPostEditorHost(open: (_, _, {focusText}) => false),
-          controller: ports.controller,
-        );
-        await tester.pumpWidget(
-          MaterialApp(
-            builder: (context, child) => DToaster(child: child!),
-            home: Scaffold(
-              body: view == _View.card
-                  ? SingleChildScrollView(
-                      child: PostEventCard(
-                        site: site,
-                        event: PostEvent.decode(_event(eventId))!,
-                        controller: ports.controller,
-                        navigation: navigation,
-                      ),
-                    )
-                  : EventDirectory(
-                      site: site,
-                      mine: mine,
-                      controller: ports.controller,
-                      navigation: navigation,
-                    ),
+    Future<void> pump(WidgetTester tester) async {
+      final navigation = EventNavigation(
+        host: _Routes(),
+        editor: PluginPostEditorHost(open: (_, _, {focusText}) => false),
+        controller: ports.controller,
+      );
+      await tester.pumpWidget(
+        MaterialApp(
+          builder: (context, child) => DToaster(child: child!),
+          home: Scaffold(
+            body: SingleChildScrollView(
+              child: PostEventCard(
+                site: site,
+                event: PostEvent.decode(_event(eventId))!,
+                controller: ports.controller,
+                navigation: navigation,
+              ),
             ),
           ),
-        );
+        ),
+      );
+      await tester.pumpAndSettle();
+    }
+
+    VoidCallback? export(WidgetTester tester) =>
+        tester.widget<EventCard>(find.byType(EventCard)).onExport;
+
+    void replace(String change) {
+      switch (change) {
+        case 'event':
+          eventId = 43;
+        case 'site':
+          site = 'https://other.example';
+        case 'controller':
+          ports = EventTestPorts(transport: transport);
+          owners.add(ports);
+        case 'account refresh':
+          ports.controller.pluginCurrentUserRefreshed(site);
+        case 'account reset':
+          ports.requests.forget(site);
+          ports.controller.forget(site);
+        default:
+          throw ArgumentError.value(change);
+      }
+    }
+
+    final changes = [
+      'event',
+      'site',
+      'controller',
+      'account refresh',
+      'account reset',
+    ];
+    for (final change in changes) {
+      _testDesktopWidgets('drops a fetched calendar after $change', (
+        tester,
+      ) async {
+        await pump(tester);
+        export(tester)!();
+        await tester.pump();
+        expect(transport.exports, hasLength(1));
+
+        replace(change);
+        await pump(tester);
+        transport.exports.single.complete(_calendar);
         await tester.pumpAndSettle();
-      }
 
-      VoidCallback? export(WidgetTester tester) {
-        if (view == _View.card) {
-          return tester.widget<EventCard>(find.byType(EventCard)).onExport;
-        }
-        final menu = tester
-            .widgetList<DDropdownMenu>(find.byType(DDropdownMenu))
-            .singleWhere(
-              (menu) => menu.content.semanticLabel == 'Calendar actions',
-            );
-        return menu.content.children
-            .whereType<DDropdownMenuItem>()
-            .firstWhere(
-              (item) =>
-                  item.child is Text &&
-                  ((item.child as Text).data ?? '').startsWith('Export'),
-            )
-            .onPressed;
-      }
+        expect(selector.filenames, isEmpty);
+        expect(find.text(_failure), findsNothing);
+        expect(export(tester), isNotNull);
+        expect(tester.takeException(), isNull);
+      });
 
-      void replace(String change) {
-        switch (change) {
-          case 'event':
-            eventId = 43;
-          case 'filter':
-            mine = true;
-          case 'site':
-            site = 'https://other.example';
-          case 'controller':
-            ports = EventTestPorts(transport: transport);
-            owners.add(ports);
-          case 'account refresh':
-            ports.controller.pluginCurrentUserRefreshed(site);
-          case 'account reset':
-            ports.requests.forget(site);
-            ports.controller.forget(site);
-          default:
-            throw ArgumentError.value(change);
-        }
-      }
-
-      final changes = [
-        view == _View.card ? 'event' : 'filter',
-        'site',
-        'controller',
-        'account refresh',
-        'account reset',
-      ];
-      for (final change in changes) {
-        _testDesktopWidgets('drops a fetched calendar after $change', (
-          tester,
-        ) async {
-          await pump(tester);
-          export(tester)!();
-          await tester.pump();
-          expect(transport.exports, hasLength(1));
-
-          replace(change);
-          await pump(tester);
-          transport.exports.single.complete(_calendar);
-          await tester.pumpAndSettle();
-
-          expect(selector.filenames, isEmpty);
-          expect(find.text(_failure), findsNothing);
-          expect(export(tester), isNotNull);
-          expect(tester.takeException(), isNull);
-        });
-
-        _testDesktopWidgets('a selected file is never written after $change', (
-          tester,
-        ) async {
-          final writes = <(String, List<int>)>[];
-          final location = Completer<String?>();
-          selector.choosePath = () => location.future;
-          await pump(tester);
-          // Override only this operation's I/O, so the byte-write boundary is
-          // observable without racing the test clock against the filesystem.
-          IOOverrides.runZoned(
-            export(tester)!,
-            createFile: (path) => _SavedFile(path, writes),
-          );
-          await tester.pump();
-          transport.exports.single.complete(_calendar);
-          await tester.pump();
-          expect(selector.filenames, hasLength(1));
-
-          replace(change);
-          await pump(tester);
-          location.complete('/selected/calendar.ics');
-          await tester.pumpAndSettle();
-          expect(writes, isEmpty);
-          expect(find.text(_failure), findsNothing);
-          expect(export(tester), isNotNull);
-        });
-      }
-
-      _testDesktopWidgets('writes one current export at the selected path', (
+      _testDesktopWidgets('a selected file is never written after $change', (
         tester,
       ) async {
         final writes = <(String, List<int>)>[];
-        selector.choosePath = () async => '/selected/calendar.ics';
+        final location = Completer<String?>();
+        selector.choosePath = () => location.future;
         await pump(tester);
+        // Override only this operation's I/O, so the byte-write boundary is
+        // observable without racing the test clock against the filesystem.
         IOOverrides.runZoned(
           export(tester)!,
           createFile: (path) => _SavedFile(path, writes),
         );
         await tester.pump();
         transport.exports.single.complete(_calendar);
-        await tester.pumpAndSettle();
-        expect(writes, hasLength(1));
-        expect(writes.single.$1, '/selected/calendar.ics');
-        expect(writes.single.$2, _calendar.codeUnits);
-        expect(export(tester), isNotNull);
-      });
-
-      _testDesktopWidgets('reports a current failure and allows a retry', (
-        tester,
-      ) async {
-        await pump(tester);
-        export(tester)!();
         await tester.pump();
-        transport.exports.single.completeError(StateError('Current failure'));
-        await tester.pumpAndSettle();
-        expect(find.text(_failure), findsOneWidget);
-        expect(export(tester), isNotNull);
-        export(tester)!();
-        await tester.pump();
-        transport.exports.last.complete(_calendar);
-        await tester.pumpAndSettle();
         expect(selector.filenames, hasLength(1));
+
+        replace(change);
+        await pump(tester);
+        location.complete('/selected/calendar.ics');
+        await tester.pumpAndSettle();
+        expect(writes, isEmpty);
+        expect(find.text(_failure), findsNothing);
+        expect(export(tester), isNotNull);
       });
+    }
 
-      if (view == _View.card) {
-        for (final change in ['event', 'account refresh']) {
-          _testDesktopWidgets(
-            'ignores a menu callback captured before $change',
-            (tester) async {
-              await pump(tester);
-              final oldCallback = export(tester)!;
-              replace(change);
-              await pump(tester);
-              oldCallback();
-              await tester.pumpAndSettle();
-              expect(transport.exports, isEmpty);
-              expect(export(tester), isNotNull);
-            },
-          );
-        }
-      }
+    _testDesktopWidgets('writes one current export at the selected path', (
+      tester,
+    ) async {
+      final writes = <(String, List<int>)>[];
+      selector.choosePath = () async => '/selected/calendar.ics';
+      await pump(tester);
+      IOOverrides.runZoned(
+        export(tester)!,
+        createFile: (path) => _SavedFile(path, writes),
+      );
+      await tester.pump();
+      transport.exports.single.complete(_calendar);
+      await tester.pumpAndSettle();
+      expect(writes, hasLength(1));
+      expect(writes.single.$1, '/selected/calendar.ics');
+      expect(writes.single.$2, _calendar.codeUnits);
+      expect(export(tester), isNotNull);
+    });
 
-      _testDesktopWidgets('admits only one export before the next frame', (
+    _testDesktopWidgets('reports a current failure and allows a retry', (
+      tester,
+    ) async {
+      await pump(tester);
+      export(tester)!();
+      await tester.pump();
+      transport.exports.single.completeError(StateError('Current failure'));
+      await tester.pumpAndSettle();
+      expect(find.text(_failure), findsOneWidget);
+      expect(export(tester), isNotNull);
+      export(tester)!();
+      await tester.pump();
+      transport.exports.last.complete(_calendar);
+      await tester.pumpAndSettle();
+      expect(selector.filenames, hasLength(1));
+    });
+
+    for (final change in ['event', 'account refresh']) {
+      _testDesktopWidgets('ignores a menu callback captured before $change', (
         tester,
       ) async {
         await pump(tester);
-        final start = export(tester)!;
-        start();
-        start();
-        await tester.pump();
-        final requests = transport.exports.length;
-        for (final request in transport.exports) {
-          request.complete(_calendar);
-        }
+        final oldCallback = export(tester)!;
+        replace(change);
+        await pump(tester);
+        oldCallback();
         await tester.pumpAndSettle();
-        expect(requests, 1);
-        expect(selector.filenames, [
-          view == _View.card ? 'event-42.ics' : 'upcoming-events.ics',
-        ]);
+        expect(transport.exports, isEmpty);
         expect(export(tester), isNotNull);
       });
+    }
 
-      _testDesktopWidgets(
-        'an old failure cannot publish or finish a newer export',
-        (tester) async {
-          await pump(tester);
-          export(tester)!();
-          await tester.pump();
-          replace(view == _View.card ? 'event' : 'filter');
-          await pump(tester);
-          final next = export(tester);
-          // Complete all admitted work even when a broken busy flag blocks B.
-          next?.call();
-          await tester.pump();
-          transport.exports.first.completeError(
-            StateError('Old export failed'),
-          );
-          await tester.pump();
-          final busy = export(tester) == null;
-          final oldFailure = find.text(_failure).evaluate().length;
-          if (transport.exports.length > 1) {
-            transport.exports.last.complete(_calendar);
-          }
-          await tester.pumpAndSettle();
-
-          expect(next, isNotNull);
-          expect(busy, isTrue);
-          expect(oldFailure, 0);
-          expect(selector.filenames, [
-            view == _View.card ? 'event-43.ics' : 'my-events.ics',
-          ]);
-          expect(export(tester), isNotNull);
-        },
-      );
-
-      for (final change in ['site', 'account refresh', 'account reset']) {
-        _testDesktopWidgets(
-          'a save dialog failure stays silent after $change',
-          (tester) async {
-            final location = Completer<String?>();
-            selector.choosePath = () => location.future;
-            await pump(tester);
-            export(tester)!();
-            await tester.pump();
-            transport.exports.single.complete(_calendar);
-            await tester.pump();
-            expect(selector.filenames, hasLength(1));
-
-            replace(change);
-            await pump(tester);
-            final next = export(tester);
-            next?.call();
-            await tester.pump();
-            location.completeError(StateError('Old save dialog failed'));
-            await tester.pump();
-            final busy = export(tester) == null;
-            final oldFailure = find.text(_failure).evaluate().length;
-            selector.choosePath = () async => null;
-            if (transport.exports.length > 1) {
-              transport.exports.last.complete(_calendar);
-            }
-            await tester.pumpAndSettle();
-            expect(next, isNotNull);
-            expect(busy, isTrue);
-            expect(oldFailure, 0);
-            expect(find.text(_failure), findsNothing);
-            expect(export(tester), isNotNull);
-            expect(tester.takeException(), isNull);
-          },
-        );
+    _testDesktopWidgets('admits only one export before the next frame', (
+      tester,
+    ) async {
+      await pump(tester);
+      final start = export(tester)!;
+      start();
+      start();
+      await tester.pump();
+      final requests = transport.exports.length;
+      for (final request in transport.exports) {
+        request.complete(_calendar);
       }
+      await tester.pumpAndSettle();
+      expect(requests, 1);
+      expect(selector.filenames, ['event-42.ics']);
+      expect(export(tester), isNotNull);
+    });
 
-      _testDesktopWidgets('a disposed view never opens a save dialog', (
-        tester,
-      ) async {
+    _testDesktopWidgets(
+      'an old failure cannot publish or finish a newer export',
+      (tester) async {
         await pump(tester);
         export(tester)!();
         await tester.pump();
-        await tester.pumpWidget(const SizedBox.shrink());
-        transport.exports.single.complete(_calendar);
+        replace('event');
+        await pump(tester);
+        final next = export(tester);
+        // Complete all admitted work even when a broken busy flag blocks B.
+        next?.call();
+        await tester.pump();
+        transport.exports.first.completeError(StateError('Old export failed'));
+        await tester.pump();
+        final busy = export(tester) == null;
+        final oldFailure = find.text(_failure).evaluate().length;
+        if (transport.exports.length > 1) {
+          transport.exports.last.complete(_calendar);
+        }
         await tester.pumpAndSettle();
-        expect(selector.filenames, isEmpty);
+
+        expect(next, isNotNull);
+        expect(busy, isTrue);
+        expect(oldFailure, 0);
+        expect(selector.filenames, ['event-43.ics']);
+        expect(export(tester), isNotNull);
+      },
+    );
+
+    for (final change in ['site', 'account refresh', 'account reset']) {
+      _testDesktopWidgets('a save dialog failure stays silent after $change', (
+        tester,
+      ) async {
+        final location = Completer<String?>();
+        selector.choosePath = () => location.future;
+        await pump(tester);
+        export(tester)!();
+        await tester.pump();
+        transport.exports.single.complete(_calendar);
+        await tester.pump();
+        expect(selector.filenames, hasLength(1));
+
+        replace(change);
+        await pump(tester);
+        final next = export(tester);
+        next?.call();
+        await tester.pump();
+        location.completeError(StateError('Old save dialog failed'));
+        await tester.pump();
+        final busy = export(tester) == null;
+        final oldFailure = find.text(_failure).evaluate().length;
+        selector.choosePath = () async => null;
+        if (transport.exports.length > 1) {
+          transport.exports.last.complete(_calendar);
+        }
+        await tester.pumpAndSettle();
+        expect(next, isNotNull);
+        expect(busy, isTrue);
+        expect(oldFailure, 0);
+        expect(find.text(_failure), findsNothing);
+        expect(export(tester), isNotNull);
         expect(tester.takeException(), isNull);
       });
+    }
+
+    _testDesktopWidgets('a disposed view never opens a save dialog', (
+      tester,
+    ) async {
+      await pump(tester);
+      export(tester)!();
+      await tester.pump();
+      await tester.pumpWidget(const SizedBox.shrink());
+      transport.exports.single.complete(_calendar);
+      await tester.pumpAndSettle();
+      expect(selector.filenames, isEmpty);
+      expect(tester.takeException(), isNull);
     });
-  }
+  });
 }
 
 final class _SavedFile extends Fake implements File {
