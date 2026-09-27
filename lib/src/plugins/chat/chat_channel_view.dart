@@ -36,21 +36,9 @@ class ChatChannelView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) =>
-      PluginServiceSelector<ChatShellService, _ChannelShellInputs>(
+      PluginServiceSelector<ChatShellService, ChatPaneShellInputs?>(
         service: chatShellService,
-        // Notification totals, the current route and forum focus also notify
-        // the service, and redrawing the pane for them redrew every held
-        // message. Beyond the pane's own inputs, the account and the flag
-        // catalog are read by message rows that have no listener for them.
-        select: (shell) => switch (shell.currentSiteUrl) {
-          null => null,
-          final siteUrl => (
-            siteUrl: siteUrl,
-            showTimeGapDays: shell.showTimeGapDaysFor(siteUrl),
-            account: shell.currentUser,
-            flagTypes: shell.postFlagTypesFor(siteUrl),
-          ),
-        },
+        select: selectChatPaneShellInputs,
         builder: (context, inputs, _) {
           if (inputs == null) return const SizedBox.shrink();
           final chat = PluginUiScope.require(context, chatControllerService);
@@ -67,12 +55,32 @@ class ChatChannelView extends StatelessWidget {
       );
 }
 
-typedef _ChannelShellInputs = ({
+/// What a chat pane and the message rows it holds read from the shell.
+///
+/// Notification totals, the current route and forum focus also notify
+/// [ChatShellService], and redrawing a pane for them redrew every message it
+/// held. Beyond a pane's own inputs, the account and the flag catalog are read
+/// by message rows that have no listener for them. The channel pane and the
+/// thread workspace both select this, so a shell input that either pane or its
+/// rows come to read belongs here.
+typedef ChatPaneShellInputs = ({
   String siteUrl,
   int showTimeGapDays,
   DiscourseUser? account,
   List<PostFlagType> flagTypes,
-})?;
+});
+
+/// Null while no site is current.
+ChatPaneShellInputs? selectChatPaneShellInputs(ChatShellService shell) =>
+    switch (shell.currentSiteUrl) {
+      null => null,
+      final siteUrl => (
+        siteUrl: siteUrl,
+        showTimeGapDays: shell.showTimeGapDaysFor(siteUrl),
+        account: shell.currentUser,
+        flagTypes: shell.postFlagTypesFor(siteUrl),
+      ),
+    };
 
 class _ChatChannelBody extends StatefulWidget {
   const _ChatChannelBody({

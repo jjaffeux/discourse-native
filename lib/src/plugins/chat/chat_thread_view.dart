@@ -31,12 +31,19 @@ class ChatThreadWorkspace extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final shell = PluginUiScope.require(context, chatShellService);
-    return ListenableBuilder(
-      listenable: shell,
-      builder: (context, _) {
-        final siteUrl = shell.currentSiteUrl;
-        if (siteUrl == null) return const SizedBox.shrink();
+    return PluginServiceSelector<ChatShellService, _WorkspaceShellInputs>(
+      service: chatShellService,
+      // Redrawing the workspace redraws every message its panes hold, so it
+      // follows only what the panes and their rows read, and the setting that
+      // chooses between one pane and two.
+      select: (shell) => (
+        pane: selectChatPaneShellInputs(shell),
+        desktopPanels: shell.desktopPanelsEnabled,
+      ),
+      builder: (context, inputs, _) {
+        final pane = inputs.pane;
+        if (pane == null) return const SizedBox.shrink();
+        final siteUrl = pane.siteUrl;
         final chat = PluginUiScope.require(context, chatControllerService);
         final target = ChatThreadTarget(
           channelId: route.channelId,
@@ -45,7 +52,7 @@ class ChatThreadWorkspace extends StatelessWidget {
         return LayoutBuilder(
           builder: (context, constraints) {
             final expanded =
-                !shell.desktopPanelsEnabled &&
+                !inputs.desktopPanels &&
                 ShellLayout.forWidth(MediaQuery.sizeOf(context).width) ==
                     ShellLayout.expanded &&
                 constraints.maxWidth >= _ChatThreadSplit.minimumTotalWidth;
@@ -62,6 +69,7 @@ class ChatThreadWorkspace extends StatelessWidget {
                       siteUrl: siteUrl,
                       target: target,
                       chat: chat,
+                      showTimeGapDays: pane.showTimeGapDays,
                     ),
                   ),
                 ],
@@ -71,6 +79,7 @@ class ChatThreadWorkspace extends StatelessWidget {
               siteUrl: siteUrl,
               target: target,
               chat: chat,
+              showTimeGapDays: pane.showTimeGapDays,
               widthStore: panelWidthStore ?? const ChatThreadPanelWidthStore(),
             );
           },
@@ -80,11 +89,17 @@ class ChatThreadWorkspace extends StatelessWidget {
   }
 }
 
+typedef _WorkspaceShellInputs = ({
+  ChatPaneShellInputs? pane,
+  bool desktopPanels,
+});
+
 class _ChatThreadSplit extends StatefulWidget {
   const _ChatThreadSplit({
     required this.siteUrl,
     required this.target,
     required this.chat,
+    required this.showTimeGapDays,
     required this.widthStore,
   });
 
@@ -96,6 +111,7 @@ class _ChatThreadSplit extends StatefulWidget {
   final String siteUrl;
   final ChatThreadTarget target;
   final ChatController chat;
+  final int showTimeGapDays;
   final ChatThreadPanelWidthStore widthStore;
 
   @override
@@ -179,6 +195,7 @@ class _ChatThreadSplitState extends State<_ChatThreadSplit> {
                           siteUrl: widget.siteUrl,
                           target: widget.target,
                           chat: widget.chat,
+                          showTimeGapDays: widget.showTimeGapDays,
                         ),
                       ),
                     ],
@@ -253,11 +270,13 @@ class ChatThreadView extends StatefulWidget {
     required this.siteUrl,
     required this.target,
     required this.chat,
+    required this.showTimeGapDays,
   });
 
   final String siteUrl;
   final ChatThreadTarget target;
   final ChatController chat;
+  final int showTimeGapDays;
 
   @override
   State<ChatThreadView> createState() => _ChatThreadViewState();
@@ -573,10 +592,7 @@ class _ChatThreadViewState extends State<ChatThreadView> {
   }
 
   void _syncProjection(ChatStreamState stream) {
-    final showTimeGapDays = PluginUiScope.require(
-      context,
-      chatShellService,
-    ).showTimeGapDaysFor(widget.siteUrl);
+    final showTimeGapDays = widget.showTimeGapDays;
     if (identical(_projectedMessageIds, stream.messageIds) &&
         identical(_projectedLocalMessageIds, stream.localMessageIds) &&
         _projectedLastRead == stream.lastReadOnOpen &&
