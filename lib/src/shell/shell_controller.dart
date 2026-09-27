@@ -13086,6 +13086,15 @@ class ShellController extends FrameSafeNotifier
         target.topicId,
         (detail) => detail.withPostId(landed!.id),
       );
+      // Found posted is accepted as surely as a creation that answered: the
+      // site dropped its draft, so the local copy goes too. Kept, it restores
+      // into the next reply, whose first save puts the posted text back.
+      _composerDrafts.settleAfterSubmission(composer, session);
+      store.update<TopicDetail>(
+        target.siteUrl,
+        target.topicId,
+        (detail) => detail.withDraft(null, _composerDrafts.sequenceFor(target)),
+      );
       if (_ownsComposer(composer)) {
         composer.dispose();
         _removeComposer(composer);
