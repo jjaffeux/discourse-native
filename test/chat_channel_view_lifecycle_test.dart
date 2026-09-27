@@ -25,6 +25,7 @@ import 'package:discourse_native/src/shell/group_flair.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/site_emoji_image.dart';
+import 'package:discourse_native/src/shell/stream_day_separator.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/foundation.dart';
@@ -38,6 +39,7 @@ import 'package:http/testing.dart';
 import 'package:super_sliver_list/super_sliver_list.dart';
 
 import 'support/bundled_plugins.dart';
+import 'support/button_surface.dart';
 import 'support/chat_shell.dart';
 import 'support/fakes.dart';
 import 'support/media_pipeline.dart';
@@ -2556,21 +2558,15 @@ void main() {
         ValueKey(('chat-floating-day', secondDay)),
       );
       expect(floatingSecond, findsOneWidget);
-      expect(tester.getSize(floatingSecond).height, 44);
-      final floatingDecoration = tester
-          .widgetList<Container>(
-            find.descendant(
-              of: floatingSecond,
-              matching: find.byType(Container),
-            ),
-          )
-          .map((container) => container.decoration)
-          .whereType<BoxDecoration>()
-          .single;
-      expect(floatingDecoration.color, theme.colorScheme.surfaceContainerLow);
+      expect(tester.getSize(floatingSecond).height, StreamDaySeparator.height);
+      final floatingDecoration = buttonSurface(tester, of: floatingSecond);
       expect(
-        floatingDecoration.border,
-        Border.all(color: theme.colorScheme.surfaceContainerHigh),
+        floatingDecoration.color,
+        Color.lerp(theme.shell.content, theme.colorScheme.onSurface, .10),
+      );
+      expect(
+        floatingDecoration.borderColor,
+        Color.lerp(theme.shell.content, theme.colorScheme.onSurface, .12),
       );
       final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
       await mouse.addPointer(location: Offset.zero);
@@ -2578,16 +2574,7 @@ void main() {
       await mouse.moveTo(tester.getCenter(floatingSecond));
       await tester.pump();
 
-      final hoveredDecoration = tester
-          .widgetList<Container>(
-            find.descendant(
-              of: floatingSecond,
-              matching: find.byType(Container),
-            ),
-          )
-          .map((container) => container.decoration)
-          .whereType<BoxDecoration>()
-          .single;
+      final hoveredDecoration = buttonSurface(tester, of: floatingSecond);
       expect(hoveredDecoration.color, theme.shell.hover);
 
       await mouse.moveTo(Offset.zero);

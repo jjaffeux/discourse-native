@@ -878,7 +878,7 @@ void main() {
     expect(shell.activeTabId, id);
     final main = shell.selectedTabIn(ForumPanel.main)!;
     expect(main.currentContent.title, 'Start page');
-    expect(main.currentContent.icon, DIcons.grip);
+    expect(main.currentContent.icon, DIcons.house);
     final startTab = find.byKey(ValueKey('forum-tab-${main.id}'));
     expect(
       find.descendant(of: startTab, matching: find.text('Start page')),
@@ -888,7 +888,7 @@ void main() {
       find.descendant(
         of: startTab,
         matching: find.byWidgetPredicate(
-          (widget) => widget is DIcon && widget.icon == DIcons.grip,
+          (widget) => widget is DIcon && widget.icon == DIcons.house,
         ),
       ),
       findsOneWidget,
