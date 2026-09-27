@@ -146,9 +146,9 @@ void main() {
         final bounds = tester.getRect(target);
         expect(
           bounds.size,
-          Size.square(platform == TargetPlatform.android ? 48 : 28),
+          Size.square(platform == TargetPlatform.android ? 48 : 30),
         );
-        expect(control().size, DButtonSize.regular);
+        expect(control().size, DButtonSize.post);
         expect(control().onPressed, isNotNull);
         final edge = Offset(bounds.left + 1, bounds.center.dy);
         await tester.tapAt(edge);

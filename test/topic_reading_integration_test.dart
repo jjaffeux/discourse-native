@@ -2228,14 +2228,14 @@ void _registerTopicReadingTests() {
       expect(tracker.userId, 7);
     }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
-    testWidgets('the account avatar uses the Native ghost button', (
+    testWidgets('the account avatar uses the Native transparent button', (
       tester,
     ) async {
       await pumpConnected(tester);
       final avatar = tester.widget<DButton>(
         find.byKey(UserMenuButton.avatarKey),
       );
-      expect(avatar.variant, DButtonVariant.ghost);
+      expect(avatar.variant, DButtonVariant.transparentBackground);
       expect(avatar.tooltip, 'Profile');
       expect(avatar.hasPopup, isTrue);
       expect(avatar.onPressed, isNotNull);
