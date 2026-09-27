@@ -89,7 +89,7 @@ final class VoiceCallKitCoordinatorTests: XCTestCase {
     XCTAssertEqual(emittedMethods, ["mute"])
   }
 
-  func testMuteRequestsActionAndEmitsProviderCallback() {
+  func testMuteRequestsActionWithoutEchoingIt() {
     let transactions = TransactionRecorder()
     var emittedMethods: [String] = []
     let coordinator = VoiceCallKitCoordinator(
@@ -112,7 +112,7 @@ final class VoiceCallKitCoordinatorTests: XCTestCase {
 
     coordinator.handleSetMutedAction(muteAction)
 
-    XCTAssertEqual(emittedMethods, ["mute"])
+    XCTAssertTrue(emittedMethods.isEmpty)
     XCTAssertNil(
       invoke(
         coordinator,
@@ -120,6 +120,76 @@ final class VoiceCallKitCoordinatorTests: XCTestCase {
         arguments: ["muted": true]
       ))
     XCTAssertEqual(transactions.actions.count, 2)
+  }
+
+  func testMuteRequestsFollowTheLatestRequestBeforeCallKitPerformsIt() {
+    let transactions = TransactionRecorder()
+    var emittedMethods: [String] = []
+    let coordinator = VoiceCallKitCoordinator(
+      requestTransaction: transactions.request,
+      emitMethod: { emittedMethods.append($0) }
+    )
+    XCTAssertNil(invoke(coordinator, method: "start"))
+    XCTAssertNil(invoke(coordinator, method: "setMuted", arguments: ["muted": true]))
+    coordinator.handleSetMutedAction(
+      tryUnwrap(transactions.actions.last as? CXSetMutedCallAction)
+    )
+
+    // Unmute, then mute again, both asked before CallKit performs either.
+    XCTAssertNil(invoke(coordinator, method: "setMuted", arguments: ["muted": false]))
+    XCTAssertNil(invoke(coordinator, method: "setMuted", arguments: ["muted": true]))
+
+    XCTAssertEqual(transactions.actions.count, 4)
+    let requested = transactions.actions.suffix(2).compactMap { $0 as? CXSetMutedCallAction }
+    XCTAssertEqual(requested.map(\.isMuted), [false, true])
+
+    // Performing the stale unmute must not reach Dart, which already muted.
+    for action in requested {
+      coordinator.handleSetMutedAction(action)
+    }
+    XCTAssertTrue(emittedMethods.isEmpty)
+    XCTAssertNil(invoke(coordinator, method: "setMuted", arguments: ["muted": true]))
+    XCTAssertEqual(transactions.actions.count, 4)
+  }
+
+  func testSystemMuteIsEchoedAfterRequestedOnesArePerformed() {
+    let transactions = TransactionRecorder()
+    var emittedMethods: [String] = []
+    let coordinator = VoiceCallKitCoordinator(
+      requestTransaction: transactions.request,
+      emitMethod: { emittedMethods.append($0) }
+    )
+    XCTAssertNil(invoke(coordinator, method: "start"))
+    let start = tryUnwrap(transactions.actions.first as? CXStartCallAction)
+    XCTAssertNil(invoke(coordinator, method: "setMuted", arguments: ["muted": true]))
+    coordinator.handleSetMutedAction(
+      tryUnwrap(transactions.actions.last as? CXSetMutedCallAction)
+    )
+
+    coordinator.handleSetMutedAction(CXSetMutedCallAction(call: start.callUUID, muted: false))
+    coordinator.handleSetMutedAction(CXSetMutedCallAction(call: start.callUUID, muted: true))
+
+    XCTAssertEqual(emittedMethods, ["unmute", "mute"])
+    XCTAssertNil(invoke(coordinator, method: "setMuted", arguments: ["muted": true]))
+    XCTAssertEqual(transactions.actions.count, 2)
+  }
+
+  func testMuteRequestRejectedByCallKitCanBeRequestedAgain() {
+    let transactions = TransactionRecorder()
+    let coordinator = VoiceCallKitCoordinator(
+      requestTransaction: transactions.request
+    )
+    XCTAssertNil(invoke(coordinator, method: "start"))
+    transactions.error = NSError(domain: "RunnerTests", code: 9)
+
+    XCTAssertTrue(
+      invoke(coordinator, method: "setMuted", arguments: ["muted": true]) is FlutterError
+    )
+
+    transactions.error = nil
+    XCTAssertNil(invoke(coordinator, method: "setMuted", arguments: ["muted": true]))
+    XCTAssertEqual(transactions.actions.count, 3)
+    XCTAssertTrue((transactions.actions.last as? CXSetMutedCallAction)?.isMuted == true)
   }
 
   func testEndRequestsActionAndClearsCallOnProviderCallback() {

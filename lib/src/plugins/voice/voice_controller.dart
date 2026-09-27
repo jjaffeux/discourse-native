@@ -2659,7 +2659,9 @@ final class VoiceController extends ChangeNotifier {
         update: (call) => call.copyWith(muted: muted),
         rollback: (current, previous) =>
             current.copyWith(muted: previous.muted),
-        system: syncSystem ? () => systemCall.setMuted(muted) : null,
+        system: syncSystem
+            ? (current) => systemCall.setMuted(current.muted)
+            : null,
       );
 
   Future<void> setDeafened(bool deafened) {
@@ -3321,7 +3323,7 @@ final class VoiceController extends ChangeNotifier {
       VoiceCallSnapshot previous,
     )
     rollback,
-    Future<void> Function()? system,
+    Future<void> Function(VoiceCallSnapshot current)? system,
   }) async {
     if (_disposed) return;
     final call = _call;
@@ -3350,9 +3352,20 @@ final class VoiceController extends ChangeNotifier {
 
     if (_disposed) return;
     await _requestStateSync();
-    if (_disposed) return;
+    // Toggles made while one state sync runs all resume, back to back, when
+    // it drains. Each hands the platform the call's current state rather
+    // than the value it set, so an earlier toggle cannot land last and
+    // overturn a newer one. A call that no longer owns this media has none
+    // of this toggle's state left to sync.
+    final current = _call;
+    if (_disposed ||
+        system == null ||
+        current == null ||
+        !identical(current.media, call.media)) {
+      return;
+    }
     try {
-      await system?.call();
+      await system(current);
     } catch (error, stackTrace) {
       // The local media operation already succeeded. A platform call-control
       // sync failure must not roll it back or claim that the device rejected

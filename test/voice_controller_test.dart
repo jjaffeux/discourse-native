@@ -611,6 +611,24 @@ final class FakeVoiceSystemCall implements VoiceSystemCall {
   }
 }
 
+/// The least forgiving mute bridge Dart can face: a request equal to the
+/// state CallKit has committed is skipped, and any other is committed and
+/// echoed back only when CallKit performs it, after the request has already
+/// returned. A stale request that reaches it can overturn a newer choice.
+final class _CallKitMuteSystemCall extends FakeVoiceSystemCall {
+  bool committedMuted = false;
+
+  @override
+  Future<void> setMuted(bool muted) async {
+    if (muted == committedMuted) return;
+    Timer(Duration.zero, () {
+      committedMuted = muted;
+      if (controller.isClosed) return;
+      send(muted ? VoiceSystemCallAction.mute : VoiceSystemCallAction.unmute);
+    });
+  }
+}
+
 final class _AwaitableVoiceSubscription
     implements
         PluginLiveChannelSubscription,
@@ -854,12 +872,13 @@ void main() {
     int Function(String)? videoMaxPublishersFor,
     FakeChatConversationCapability? conversations,
     Duration heartbeatInterval = const Duration(days: 1),
+    FakeVoiceSystemCall? system,
   }) {
     controller.dispose();
     transport = value;
     chatConversations = conversations ?? seededChatConversations();
     mediaFactory = FakeVoiceMediaFactory();
-    systemCall = FakeVoiceSystemCall();
+    systemCall = system ?? FakeVoiceSystemCall();
     controller = VoiceController(
       api: VoiceApi(transport),
       chatConversations: chatConversations,
@@ -3412,6 +3431,80 @@ void main() {
         expect(controller.call, isNull);
       },
     );
+
+    test(
+      'hands CallKit the latest mute choice when toggles share a state sync',
+      () async {
+        final controlled = _ControlledVoiceTransport(
+          responses: {
+            'GET /voice/rooms.json': fixture('directory'),
+            'POST /voice/rooms/7/join.json': fixture('join_mesh'),
+            'POST /voice/rooms/7/heartbeat.json': <String, dynamic>{},
+            'DELETE /voice/rooms/7/leave.json': <String, dynamic>{},
+            'POST /voice/rooms/7/state.json': <String, dynamic>{},
+          },
+        );
+        final callKit = _CallKitMuteSystemCall();
+        useTransport(controlled, system: callKit);
+        await controller.ensureLoaded(firstSite);
+        await controller.join(
+          siteUrl: firstSite,
+          siteName: 'One',
+          room: controller.room(firstSite, 7)!,
+        );
+        final media = mediaFactory.sessions.single;
+        await controller.setMuted(true);
+        await pumpEventQueue();
+        expect(callKit.committedMuted, isTrue);
+
+        controlled.heldPluginWritePaths.add('/voice/rooms/7/state.json');
+        final unmuting = controller.setMuted(false);
+        await controlled.waitForPendingPluginWrites(1);
+        // The user takes the unmute back while its roster write is out, so
+        // both toggles resume together once the sync drains.
+        final muting = controller.setMuted(true);
+        controlled.pendingPluginWrites[0].response.complete({});
+        await controlled.waitForPendingPluginWrites(2);
+        controlled.pendingPluginWrites[1].response.complete({});
+        await Future.wait([unmuting, muting]);
+        await pumpEventQueue();
+
+        expect(controller.call?.muted, isTrue);
+        expect(media.muted, isTrue);
+        expect(callKit.committedMuted, isTrue);
+      },
+    );
+
+    test('skips CallKit for a mute whose call ended during its sync', () async {
+      final controlled = _ControlledVoiceTransport(
+        responses: {
+          'GET /voice/rooms.json': fixture('directory'),
+          'POST /voice/rooms/7/join.json': fixture('join_mesh'),
+          'POST /voice/rooms/7/heartbeat.json': <String, dynamic>{},
+          'DELETE /voice/rooms/7/leave.json': <String, dynamic>{},
+          'POST /voice/rooms/7/state.json': <String, dynamic>{},
+        },
+      );
+      useTransport(controlled);
+      await controller.ensureLoaded(firstSite);
+      await controller.join(
+        siteUrl: firstSite,
+        siteName: 'One',
+        room: controller.room(firstSite, 7)!,
+      );
+      await pumpEventQueue();
+      systemCall.systemMuted = null;
+
+      controlled.heldPluginWritePaths.add('/voice/rooms/7/state.json');
+      final muting = controller.setMuted(true);
+      await controlled.waitForPendingPluginWrites(1);
+      await controller.leave();
+      controlled.pendingPluginWrites.single.response.complete({});
+      await muting;
+
+      expect(controller.call, isNull);
+      expect(systemCall.systemMuted, isNull);
+    });
 
     test('keeps at most one slow heartbeat in flight', () async {
       final joinPayload = fixture('join_mesh');

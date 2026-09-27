@@ -42,7 +42,14 @@ final class VoiceCallKitCoordinator: NSObject, CXProviderDelegate {
   /// Set when Dart answered from its own UI: CallKit's answer action then
   /// confirms a choice Dart already acted on, and must not be echoed back.
   private var answerRequestedLocally = false
+  /// CallKit's mute state, committed only when CallKit performs an action.
   private var muted = false
+  /// Set-muted actions Dart requested that CallKit has not performed yet, in
+  /// request order. Dart applied each one before asking, so performing it
+  /// must not be echoed back: an echo landing after a newer choice in the app
+  /// would overturn it. The last one is the state CallKit is heading for, so
+  /// a new request is compared against it rather than the committed state.
+  private var requestedMuteActions: [(action: UUID, muted: Bool)] = []
   private var pendingEndResults: [UUID: [FlutterResult]] = [:]
 
   convenience init(messenger: FlutterBinaryMessenger) {
@@ -128,7 +135,7 @@ final class VoiceCallKitCoordinator: NSObject, CXProviderDelegate {
       // the system call exists, so there is nothing to place.
       if let uuid = incomingCall {
         activeCall = uuid
-        muted = false
+        clearMute()
         emitDiagnostic("callkit.start.reused_incoming")
         result(nil)
         return
@@ -137,7 +144,7 @@ final class VoiceCallKitCoordinator: NSObject, CXProviderDelegate {
       let roomName = arguments?["roomName"] as? String ?? "Voice room"
       let uuid = UUID()
       activeCall = uuid
-      muted = false
+      clearMute()
       let action = CXStartCallAction(
         call: uuid,
         handle: CXHandle(type: .generic, value: roomName)
@@ -201,7 +208,7 @@ final class VoiceCallKitCoordinator: NSObject, CXProviderDelegate {
       clearIncomingCall()
       if activeCall == uuid {
         activeCall = nil
-        muted = false
+        clearMute()
       }
       completePendingEnd(call: uuid, result: nil)
       emitDiagnostic("callkit.incoming_end.reported", data: ["reason": reason])
@@ -218,14 +225,16 @@ final class VoiceCallKitCoordinator: NSObject, CXProviderDelegate {
         result(nil)
         return
       }
-      if requested == muted {
+      if requested == (requestedMuteActions.last?.muted ?? muted) {
         emitDiagnostic(
           "callkit.mute.skipped",
           data: ["reason": "already_in_state", "muted": requested]
         )
         result(nil)
       } else {
-        request(CXSetMutedCallAction(call: uuid, muted: requested), result: result)
+        let action = CXSetMutedCallAction(call: uuid, muted: requested)
+        requestedMuteActions.append((action: action.uuid, muted: requested))
+        request(action, result: result)
       }
     case "end":
       guard let uuid = activeCall else {
@@ -288,7 +297,7 @@ final class VoiceCallKitCoordinator: NSObject, CXProviderDelegate {
           self.clearIncomingCall()
           if self.activeCall == uuid {
             self.activeCall = nil
-            self.muted = false
+            self.clearMute()
           }
           // A rejected report has no provider call to finish a pending end.
           self.completePendingEnd(call: uuid, result: nil)
@@ -308,6 +317,13 @@ final class VoiceCallKitCoordinator: NSObject, CXProviderDelegate {
     answerRequestedLocally = false
   }
 
+  /// A call starts unmuted, and actions requested for an earlier one say
+  /// nothing about where this one is heading.
+  private func clearMute() {
+    muted = false
+    requestedMuteActions.removeAll()
+  }
+
   private func request(_ action: CXAction, result: @escaping FlutterResult) {
     let actionName = diagnosticName(for: action)
     emitDiagnostic("callkit.transaction.requested", data: ["action": actionName])
@@ -318,7 +334,11 @@ final class VoiceCallKitCoordinator: NSObject, CXProviderDelegate {
             self.activeCall == startAction.callUUID
           {
             self.activeCall = nil
-            self.muted = false
+            self.clearMute()
+          }
+          if action is CXSetMutedCallAction {
+            // A rejected action is never performed.
+            self.requestedMuteActions.removeAll { $0.action == action.uuid }
           }
           let failureData: [String: Any] = ["action": actionName]
           self.emitDiagnostic(
@@ -401,7 +421,7 @@ final class VoiceCallKitCoordinator: NSObject, CXProviderDelegate {
     guard let uuid = activeCall else { return }
     reportCallEnded(uuid, reason)
     activeCall = nil
-    muted = false
+    clearMute()
     if incomingCall == uuid {
       clearIncomingCall()
     }
@@ -417,7 +437,7 @@ final class VoiceCallKitCoordinator: NSObject, CXProviderDelegate {
   func handleProviderReset() {
     let unansweredIncoming = incomingCall != nil && !incomingAnswered
     activeCall = nil
-    muted = false
+    clearMute()
     clearIncomingCall()
     completeAllPendingEnds()
     emitDiagnostic("callkit.provider.reset")
@@ -454,7 +474,7 @@ final class VoiceCallKitCoordinator: NSObject, CXProviderDelegate {
       clearIncomingCall()
       if activeCall == action.callUUID {
         activeCall = nil
-        muted = false
+        clearMute()
       }
       action.fail()
       emitDiagnostic("callkit.provider.answer.failed", data: errorData(error))
@@ -483,7 +503,7 @@ final class VoiceCallKitCoordinator: NSObject, CXProviderDelegate {
     } catch {
       if activeCall == action.callUUID {
         activeCall = nil
-        muted = false
+        clearMute()
         emitMethod("end")
       }
       action.fail()
@@ -505,7 +525,12 @@ final class VoiceCallKitCoordinator: NSObject, CXProviderDelegate {
       return
     }
     muted = action.isMuted
-    emitMethod(action.isMuted ? "mute" : "unmute")
+    if let requested = requestedMuteActions.firstIndex(where: { $0.action == action.uuid }) {
+      requestedMuteActions.remove(at: requested)
+    } else {
+      // Toggled from the system UI, so Dart has yet to hear of it.
+      emitMethod(action.isMuted ? "mute" : "unmute")
+    }
     action.fulfill()
     emitDiagnostic(
       "callkit.provider.mute.fulfilled",
@@ -523,13 +548,13 @@ final class VoiceCallKitCoordinator: NSObject, CXProviderDelegate {
       clearIncomingCall()
       if activeCall == action.callUUID {
         activeCall = nil
-        muted = false
+        clearMute()
       }
       emitMethod("decline")
       emitDiagnostic("callkit.provider.decline.fulfilled")
     } else if activeCall == action.callUUID {
       activeCall = nil
-      muted = false
+      clearMute()
       if incomingCall == action.callUUID {
         clearIncomingCall()
       }
