@@ -284,7 +284,7 @@ final class DiscourseComposerApi {
       if (attempt == 0 &&
           retryAfter != null &&
           retryAfter <= const Duration(seconds: 60)) {
-        // The transport's origin cooldown is already ticking. Waiting here
+        // Any origin cooldown this 429 started is already ticking. Waiting here
         // releases the consumed request and makes cancellation immediate; the
         // next transport admission only waits for any *remaining* cooldown.
         final ready = Completer<void>();

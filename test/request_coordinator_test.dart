@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:discourse_native/src/data/discourse_request_coordinator.dart';
@@ -272,6 +273,138 @@ void main() {
         scheduler.advance(const Duration(seconds: 29));
         expect(sent, isFalse);
         now = now.subtract(const Duration(days: 2));
+        scheduler.advance(const Duration(seconds: 1));
+        expect(sent, isTrue);
+        expect((await queued).statusCode, 200);
+        expect(scheduler.activeTimerCount, 0);
+      });
+    }
+
+    for (final refusal in [
+      (
+        name: 'an exhausted daily like allowance',
+        // ApplicationController's rendering of PostAction's one-day
+        // `create_like` limiter, which names no request-wide error code.
+        headers: {'retry-after': '68400', 'content-type': 'application/json'},
+        body: jsonEncode({
+          'errors': [
+            "You've reached the maximum number of likes. Try again in 19 hours.",
+          ],
+          'error_type': 'rate_limit',
+          'extras': {'wait_seconds': 68400, 'time_left': '19 hours'},
+        }),
+      ),
+      (
+        name: 'a spent search budget',
+        headers: {'content-type': 'application/json'},
+        body: jsonEncode({
+          'failed': 'FAILED',
+          'message':
+              "You've performed this action too many times, please try "
+              'again later.',
+        }),
+      ),
+    ]) {
+      test('${refusal.name} leaves queued work free to go', () async {
+        final scheduler = ManualScheduler();
+        final coordinator = DiscourseRequestCoordinator(
+          maxConcurrentPerOrigin: 1,
+          cooldownFactory: () => OriginCooldown(
+            clock: scheduler.now,
+            timerFactory: scheduler.createTimer,
+          ),
+        );
+        addTearDown(coordinator.close);
+        final origin = Uri.parse('https://forum.example');
+        final refusalResponse = Completer<http.Response>();
+        final refused = coordinator.run(
+          origin.resolve('/post_actions'),
+          () => refusalResponse.future,
+        );
+        var sent = false;
+        final queued = coordinator.run(
+          origin.resolve('/latest.json'),
+          () async {
+            sent = true;
+            return http.Response('{}', 200);
+          },
+        );
+        expect(sent, isFalse);
+
+        refusalResponse.complete(
+          http.Response(refusal.body, 429, headers: refusal.headers),
+        );
+
+        expect((await refused).statusCode, 429);
+        await pumpEventQueue();
+        expect(sent, isTrue);
+        expect((await queued).statusCode, 200);
+        expect(scheduler.activeTimerCount, 0);
+      });
+    }
+
+    for (final limit in [
+      (
+        name: "the user API key's per-minute limiter",
+        // ApplicationController adds the header whenever the limiter it
+        // rescued names an error code; only request-wide limiters do.
+        headers: {
+          'retry-after': '60',
+          'content-type': 'application/json',
+          'discourse-rate-limit-error-code': 'user_api_key_limiter_60_secs',
+        },
+        body: jsonEncode({
+          'errors': [
+            "You've performed this action too many times. Please wait 60 "
+                'seconds before trying again.',
+          ],
+          'error_type': 'rate_limit',
+          'extras': {'wait_seconds': 60, 'time_left': '60 seconds'},
+        }),
+      ),
+      (
+        name: "the request tracker's per-IP limiter",
+        headers: {
+          'retry-after': '60',
+          'content-type': 'text/plain',
+          'discourse-rate-limit-error-code': 'ip_60_secs_limit',
+        },
+        body:
+            "Slow down, you're making too many requests.\n"
+            'Please retry again in 60 seconds.\n'
+            'Error code: ip_60_secs_limit.\n',
+      ),
+      (
+        name: 'a body too large to be an action refusal',
+        headers: {'retry-after': '60'},
+        body: jsonEncode({
+          'error_type': 'rate_limit',
+          'errors': ['x' * (16 * 1024)],
+        }),
+      ),
+    ]) {
+      test('${limit.name} holds queued work for its delay', () async {
+        final scheduler = ManualScheduler();
+        final coordinator = DiscourseRequestCoordinator(
+          cooldownFactory: () => OriginCooldown(
+            clock: scheduler.now,
+            timerFactory: scheduler.createTimer,
+          ),
+        );
+        addTearDown(coordinator.close);
+        final origin = Uri.parse('https://forum.example');
+        await coordinator.run(
+          origin.resolve('/latest.json'),
+          () async => http.Response(limit.body, 429, headers: limit.headers),
+        );
+        var sent = false;
+        final queued = coordinator.run(origin.resolve('/queued'), () async {
+          sent = true;
+          return http.Response('{}', 200);
+        });
+
+        scheduler.advance(const Duration(seconds: 59));
+        expect(sent, isFalse);
         scheduler.advance(const Duration(seconds: 1));
         expect(sent, isTrue);
         expect((await queued).statusCode, 200);

@@ -397,6 +397,78 @@ void main() {
       expect(calls, 2);
     });
 
+    test(
+      'a refused action keeps its delay without pausing the origin',
+      () async {
+        final scheduler = ManualScheduler();
+        final sent = <String>[];
+        final transport = DiscourseTransport(
+          SafeHttpClient.owned(
+            MockClient((request) async {
+              sent.add('${request.method} ${request.url.path}');
+              if (request.method == 'POST') {
+                return http.Response(
+                  jsonEncode({
+                    'errors': ["You've reached the maximum number of likes."],
+                    'error_type': 'rate_limit',
+                    'extras': {'wait_seconds': 68400, 'time_left': '19 hours'},
+                  }),
+                  429,
+                  headers: {'retry-after': '68400'},
+                );
+              }
+              return http.Response('{}', 200);
+            }),
+          ),
+          const Duration(seconds: 1),
+          1024,
+          coordinator: DiscourseRequestCoordinator(
+            cooldownFactory: () => OriginCooldown(
+              clock: scheduler.now,
+              timerFactory: scheduler.createTimer,
+            ),
+          ),
+        );
+        addTearDown(transport.close);
+
+        await expectLater(
+          transport.write(
+            Uri.parse('https://example.com/post_actions'),
+            siteUrl: 'https://example.com',
+            method: 'POST',
+            apiKey: 'secret',
+            body: const {'id': 1, 'post_action_type_id': 2},
+          ),
+          throwsA(
+            isA<WriteException>()
+                .having(
+                  (error) => error.failure,
+                  'failure',
+                  WriteFailure.rateLimited,
+                )
+                .having(
+                  (error) => error.retryAfter,
+                  'retryAfter',
+                  DiscourseRequestCoordinator.maximumRetryAfter,
+                )
+                .having((error) => error.errors, 'errors', [
+                  "You've reached the maximum number of likes.",
+                ]),
+          ),
+        );
+
+        final later = transport.get(
+          Uri.parse('https://example.com/latest.json'),
+          siteUrl: 'https://example.com',
+          apiKey: 'secret',
+        );
+        await pumpEventQueue();
+        expect(sent, ['POST /post_actions', 'GET /latest.json']);
+        expect((await later).statusCode, 200);
+        expect(scheduler.activeTimerCount, 0);
+      },
+    );
+
     test('closing the coordinator makes an in-flight 429 inert', () async {
       final scheduler = ManualScheduler();
       final coordinator = DiscourseRequestCoordinator(
