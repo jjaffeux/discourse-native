@@ -4,10 +4,13 @@ import 'dart:ui' show PointerDeviceKind;
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/data/media_pipeline.dart';
 import 'package:discourse_native/src/diagnostics/diagnostics.dart';
+import 'package:discourse_native/src/models/discourse_user.dart';
+import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel_view.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message_tile.dart';
 import 'package:discourse_native/src/plugins/chat/chat_services.dart';
+import 'package:discourse_native/src/plugins/chat/chat_shell_service.dart';
 import 'package:discourse_native/src/shell/cooked_html.dart';
 import 'package:discourse_native/src/shell/oneboxes/onebox.dart';
 import 'package:discourse_native/src/shell/quote.dart';
@@ -534,6 +537,242 @@ void main() {
     }
   }, variant: layouts);
 
+  testWidgets('channel read-state updates do not rebuild held message bodies', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(900, 700);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final controller = await chatScrollController();
+    final capture = topicScrollCaptureWithoutVm();
+    final diagnostics = DiagnosticsController.start(
+      persistence: MemoryDiagnosticsPersistence(),
+      topicScrollCapture: capture,
+    );
+    addTearDown(controller.dispose);
+    addTearDown(diagnostics.close);
+    // Close under the fake clock even when the body fails: a close first
+    // reached from a tearDown never completes, because it waits on futures
+    // created under the fake clock, which nothing drives once the body has
+    // returned.
+    try {
+      await tester.pumpWidget(
+        ChatScrollFixture(controller: controller, diagnostics: diagnostics),
+      );
+      await tester.pumpAndSettle();
+      final held = await _fillRetentionWindow(tester);
+      expect(held.length, greaterThanOrEqualTo(20));
+      final chat = controller.pluginSession.require(chatControllerService);
+      final channelRef = chat.channelRef(chatScrollSite, 9);
+      ChatChannel channel() => channelRef.value!;
+      var channelChanges = 0;
+      void countChannelChange() => channelChanges++;
+      channelRef.addListener(countChannelChange);
+      addTearDown(() => channelRef.removeListener(countChannelChange));
+      final rebuilt = _recordMessageRebuilds();
+      capture.start();
+
+      // The reader's dwell credits the visible edge every half second.
+      controller.chatRecords.put(
+        chatScrollSite,
+        channel()
+            .withLastRead(500, caughtUp: true)
+            .withLastViewedAt(DateTime.utc(2026, 9, 1)),
+      );
+      await tester.pumpAndSettle();
+      controller.chatRecords.put(
+        chatScrollSite,
+        channel().withMembershipsCount(channel().membershipsCount + 1),
+      );
+      await tester.pumpAndSettle();
+      // A delayed aggregate still restoring unread after that credit makes
+      // the stream recheck its visible edge, which clears the stale count.
+      controller.chatRecords.put(
+        chatScrollSite,
+        channel().withTrackingState(
+          tracking: const ChatTracking(unreadCount: 1),
+        ),
+      );
+      await tester.pumpAndSettle();
+      capture.stop();
+
+      expect(channelChanges, greaterThanOrEqualTo(3));
+      expect(channel().tracking.unreadCount, 0);
+      expect(rebuilt, isEmpty);
+      expect(find.byType(CookedHtml, skipOffstage: false).evaluate().toSet(), {
+        ...held,
+      });
+      expect(
+        capture.events.where((event) => event.name == 'chat.stream.built'),
+        isEmpty,
+      );
+    } finally {
+      capture.stop();
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump();
+      await diagnostics.close();
+    }
+  });
+
+  testWidgets('a forum totals change does not rebuild held message bodies', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(900, 700);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final controller = await chatScrollController();
+    addTearDown(controller.dispose);
+    final diagnostics = DiagnosticsController.start(
+      persistence: MemoryDiagnosticsPersistence(),
+    );
+    addTearDown(diagnostics.close);
+    // Close under the fake clock even when the body fails: a close first
+    // reached from a tearDown never completes, because it waits on futures
+    // created under the fake clock, which nothing drives once the body has
+    // returned.
+    try {
+      await tester.pumpWidget(
+        ChatScrollFixture(controller: controller, diagnostics: diagnostics),
+      );
+      await tester.pumpAndSettle();
+      final held = await _fillRetentionWindow(tester);
+      final shell = controller.pluginSession.require(chatShellService);
+      var shellChanges = 0;
+      void countShellChange() => shellChanges++;
+      shell.addListener(countShellChange);
+      addTearDown(() => shell.removeListener(countShellChange));
+      final rebuilt = _recordMessageRebuilds();
+
+      FakeSiteTracker.built
+          .lastWhere((tracker) => tracker.siteUrl == chatScrollSite)
+          .deliverNotification(const {'all_unread_notifications_count': 3});
+      // New totals reach Chat with the shell's next notification, whatever
+      // that notification was for.
+      controller.notifyListeners();
+      await tester.pumpAndSettle();
+
+      expect(shellChanges, 1);
+      expect(rebuilt, isEmpty);
+      expect(find.byType(CookedHtml, skipOffstage: false).evaluate().toSet(), {
+        ...held,
+      });
+    } finally {
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump();
+      await diagnostics.close();
+    }
+  });
+
+  testWidgets('a channel permission change updates held message actions', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(900, 700);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    const reader = DiscourseUser(id: 1, username: 'reader1');
+    final controller = await chatScrollController(reader: reader);
+    addTearDown(controller.dispose);
+    final diagnostics = DiagnosticsController.start(
+      persistence: MemoryDiagnosticsPersistence(),
+    );
+    addTearDown(diagnostics.close);
+    // Close under the fake clock even when the body fails: a close first
+    // reached from a tearDown never completes, because it waits on futures
+    // created under the fake clock, which nothing drives once the body has
+    // returned.
+    try {
+      await tester.pumpWidget(
+        ChatScrollFixture(controller: controller, diagnostics: diagnostics),
+      );
+      await tester.pumpAndSettle();
+      await _fillRetentionWindow(tester);
+      final chat = controller.pluginSession.require(chatControllerService);
+      expect(chat.currentUserFor(chatScrollSite)?.id, reader.id);
+      final held = [
+        for (final tile in tester.widgetList<ChatMessageTile>(
+          find.byType(ChatMessageTile, skipOffstage: false),
+        ))
+          tile.messageId,
+      ];
+      expect(held.length, greaterThanOrEqualTo(20));
+      final own = held.firstWhere(
+        (id) => chat.messageRef(chatScrollSite, id).value!.author.id == 1,
+      );
+      Finder reply(int id) => find.byKey(
+        ValueKey('chat-message-reply-action-$id'),
+        skipOffstage: false,
+      );
+      Finder react(int id) =>
+          find.byKey(ValueKey('chat-message-react-$id'), skipOffstage: false);
+      Set<String?> actionsOf(int id) => {
+        for (final semantics in tester.widgetList<Semantics>(
+          find.descendant(
+            of: find.byKey(ChatMessageTile.actionsKey(id), skipOffstage: false),
+            matching: find.byType(Semantics, skipOffstage: false),
+          ),
+        ))
+          ...?semantics.properties.customSemanticsActions?.keys.map(
+            (action) => action.label,
+          ),
+      };
+      final opened = chat.channelRef(chatScrollSite, 9).value!;
+
+      for (final id in held) {
+        expect(reply(id), findsOneWidget);
+        expect(react(id), findsOneWidget);
+      }
+      expect(actionsOf(own), isNot(contains('Delete')));
+
+      controller.chatRecords.put(
+        chatScrollSite,
+        ChatChannel(
+          id: opened.id,
+          title: opened.title,
+          kind: opened.kind,
+          canDeleteSelf: true,
+          membership: opened.membership,
+          tracking: opened.tracking,
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(actionsOf(own), containsAll(['Reply', 'Delete']));
+
+      controller.chatRecords.put(
+        chatScrollSite,
+        chat
+            .channelRef(chatScrollSite, 9)
+            .value!
+            .withRemoteStatus(ChatChannelStatus.readOnly),
+      );
+      await tester.pumpAndSettle();
+      for (final id in held) {
+        expect(reply(id), findsNothing);
+        expect(react(id), findsNothing);
+        expect(actionsOf(id), isNot(contains('Reply')));
+      }
+      expect(actionsOf(own), isNot(contains('Delete')));
+
+      controller.chatRecords.put(
+        chatScrollSite,
+        chat
+            .channelRef(chatScrollSite, 9)
+            .value!
+            .withRemoteStatus(ChatChannelStatus.open),
+      );
+      await tester.pumpAndSettle();
+      for (final id in held) {
+        expect(reply(id), findsOneWidget);
+        expect(react(id), findsOneWidget);
+      }
+      expect(actionsOf(own), containsAll(['Reply', 'Delete']));
+      expect(tester.takeException(), isNull);
+    } finally {
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump();
+      await diagnostics.close();
+    }
+  }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
+
   for (final paginated in [false, true]) {
     testWidgets('floating date jumps to day start (paginated: $paginated)', (
       tester,
@@ -700,6 +939,46 @@ void main() {
       await diagnostics.close();
     }
   });
+}
+
+/// Scrolls outward and back so the retention window holds rows beyond the
+/// viewport, lets the landing edge's read dwell complete, and answers the
+/// message bodies it holds.
+Future<Set<Element>> _fillRetentionWindow(WidgetTester tester) async {
+  final scrollable = find.descendant(
+    of: find.byType(ChatMessageStream),
+    matching: find.byWidgetPredicate(
+      (widget) =>
+          widget is Scrollable &&
+          axisDirectionToAxis(widget.axisDirection) == Axis.vertical,
+    ),
+  );
+  final position = tester.state<ScrollableState>(scrollable).position;
+  for (final delta in [60.0, -60.0]) {
+    for (var step = 0; step < 30; step++) {
+      position.pointerScroll(delta);
+      await tester.pump(const Duration(milliseconds: 16));
+    }
+  }
+  await tester.pumpAndSettle();
+  await tester.pump(const Duration(milliseconds: 600));
+  await tester.pumpAndSettle();
+  return find.byType(CookedHtml, skipOffstage: false).evaluate().toSet();
+}
+
+/// Message tiles and bodies whose elements build from now on, whether
+/// rebuilt in place or mounted afresh.
+List<Element> _recordMessageRebuilds() {
+  final rebuilt = <Element>[];
+  final previous = debugOnRebuildDirtyWidget;
+  debugOnRebuildDirtyWidget = (element, builtOnce) {
+    previous?.call(element, builtOnce);
+    if (element.widget is ChatMessageTile || element.widget is CookedHtml) {
+      rebuilt.add(element);
+    }
+  };
+  addTearDown(() => debugOnRebuildDirtyWidget = previous);
+  return rebuilt;
 }
 
 /// Draws the HTML package's static loading placeholder instead of its spinner

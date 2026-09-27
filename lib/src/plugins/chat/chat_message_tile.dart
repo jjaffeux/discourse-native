@@ -3,6 +3,7 @@ import 'dart:math' as math;
 
 import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/semantics.dart';
@@ -121,105 +122,178 @@ class ChatMessageTile extends StatelessWidget {
       builder: (context, message, _) {
         // The stream may lag one frame behind permanent deletion.
         if (message == null) return const SizedBox.shrink();
-        Widget tile([
-          Widget? messageActions,
-          Widget? messageReaction,
-          Widget? messageReply,
-        ]) => _Tile(
+        return _MessageAccessScope(
           siteUrl: siteUrl,
-          message: message,
-          chained: chained,
-          joinsNext: joinsNext,
-          endsGroup: endsGroup,
-          followsReactions: followsReactions,
-          onOpenThread: onOpenThread,
-          onJumpToMessage: onJumpToMessage,
-          showThreadSummary: showThreadSummary,
-          messageActions: messageActions,
-          messageReaction: messageReaction,
-          messageReply: messageReply,
+          channelId: message.channelId,
+          builder: (context) => _row(context, message),
         );
-        if (selecting) {
-          return DMessageSurface(
-            child: Semantics(
-              selected: selected,
-              label: 'Select chat message ${message.id}',
-              child: Row(
-                children: [
-                  SizedBox(
-                    width: 52,
-                    child: DCheckbox(
-                      key: ValueKey('chat-message-selector-${message.id}'),
-                      semanticLabel: 'Select message ${message.id}',
-                      value: selected,
-                      onChanged: onSelectedChanged == null
-                          ? null
-                          : (value) => onSelectedChanged!(value ?? false),
-                    ),
-                  ),
-                  Expanded(child: tile()),
-                ],
-              ),
-            ),
-          );
-        }
-        final chat = PluginUiScope.require(context, chatControllerService);
-        final canReply =
-            onReply != null &&
-            contextThreadId == null &&
-            chat.canReplyToMessage(siteUrl, message);
-        final canBookmark = chat.canBookmarkMessage(siteUrl, message);
-        final canEdit = onEdit != null && chat.canEditMessage(siteUrl, message);
-        final canDelete = chat.canDeleteMessage(siteUrl, message);
-        final canRestore = chat.canRestoreMessage(siteUrl, message);
-        final canPin = chat.canPinMessage(siteUrl, message);
-        final canRebake = chat.canRebakeMessage(siteUrl, message);
-        final canAddReaction = chat.canAddReactionToMessage(siteUrl, message);
-        final flagTypes = chat.availableChatFlagTypes(
-          siteUrl,
-          message,
-          PluginUiScope.require(
-            context,
-            chatShellService,
-          ).postFlagTypesFor(siteUrl),
-        );
-        final canCopyLink = message.id > 0 && !message.isOptimistic;
-        final canCopyText =
-            message.raw.isNotEmpty &&
-            switch (Theme.of(context).platform) {
-              TargetPlatform.android || TargetPlatform.iOS => true,
-              _ => false,
-            };
-        return canReply ||
-                canBookmark ||
-                canEdit ||
-                canDelete ||
-                canRestore ||
-                canPin ||
-                canRebake ||
-                canAddReaction ||
-                flagTypes.isNotEmpty ||
-                canCopyLink ||
-                onSelect != null
-            ? _ChatMessageActions(
-                focusKey: actionsKey(message.id),
-                siteUrl: siteUrl,
-                message: message,
-                contextThreadId: contextThreadId,
-                onReply: onReply != null && contextThreadId == null
-                    ? () => onReply!(message)
-                    : null,
-                onEdit: onEdit,
-                canCopyLink: canCopyLink,
-                canCopyText: canCopyText,
-                flagTypes: flagTypes,
-                onSelect: onSelect,
-                childBuilder: tile,
-              )
-            : DMessageSurface(child: tile());
       },
     );
   }
+
+  Widget _row(BuildContext context, ChatMessage message) {
+    Widget tile([
+      Widget? messageActions,
+      Widget? messageReaction,
+      Widget? messageReply,
+    ]) => _Tile(
+      siteUrl: siteUrl,
+      message: message,
+      chained: chained,
+      joinsNext: joinsNext,
+      endsGroup: endsGroup,
+      followsReactions: followsReactions,
+      onOpenThread: onOpenThread,
+      onJumpToMessage: onJumpToMessage,
+      showThreadSummary: showThreadSummary,
+      messageActions: messageActions,
+      messageReaction: messageReaction,
+      messageReply: messageReply,
+    );
+    if (selecting) {
+      return DMessageSurface(
+        child: Semantics(
+          selected: selected,
+          label: 'Select chat message ${message.id}',
+          child: Row(
+            children: [
+              SizedBox(
+                width: 52,
+                child: DCheckbox(
+                  key: ValueKey('chat-message-selector-${message.id}'),
+                  semanticLabel: 'Select message ${message.id}',
+                  value: selected,
+                  onChanged: onSelectedChanged == null
+                      ? null
+                      : (value) => onSelectedChanged!(value ?? false),
+                ),
+              ),
+              Expanded(child: tile()),
+            ],
+          ),
+        ),
+      );
+    }
+    final chat = PluginUiScope.require(context, chatControllerService);
+    final canReply =
+        onReply != null &&
+        contextThreadId == null &&
+        chat.canReplyToMessage(siteUrl, message);
+    final canBookmark = chat.canBookmarkMessage(siteUrl, message);
+    final canEdit = onEdit != null && chat.canEditMessage(siteUrl, message);
+    final canDelete = chat.canDeleteMessage(siteUrl, message);
+    final canRestore = chat.canRestoreMessage(siteUrl, message);
+    final canPin = chat.canPinMessage(siteUrl, message);
+    final canRebake = chat.canRebakeMessage(siteUrl, message);
+    final canAddReaction = chat.canAddReactionToMessage(siteUrl, message);
+    final flagTypes = chat.availableChatFlagTypes(
+      siteUrl,
+      message,
+      PluginUiScope.require(
+        context,
+        chatShellService,
+      ).postFlagTypesFor(siteUrl),
+    );
+    final canCopyLink = message.id > 0 && !message.isOptimistic;
+    final canCopyText =
+        message.raw.isNotEmpty &&
+        switch (Theme.of(context).platform) {
+          TargetPlatform.android || TargetPlatform.iOS => true,
+          _ => false,
+        };
+    return canReply ||
+            canBookmark ||
+            canEdit ||
+            canDelete ||
+            canRestore ||
+            canPin ||
+            canRebake ||
+            canAddReaction ||
+            flagTypes.isNotEmpty ||
+            canCopyLink ||
+            onSelect != null
+        ? _ChatMessageActions(
+            focusKey: actionsKey(message.id),
+            siteUrl: siteUrl,
+            message: message,
+            contextThreadId: contextThreadId,
+            onReply: onReply != null && contextThreadId == null
+                ? () => onReply!(message)
+                : null,
+            onEdit: onEdit,
+            canCopyLink: canCopyLink,
+            canCopyText: canCopyText,
+            flagTypes: flagTypes,
+            onSelect: onSelect,
+            childBuilder: tile,
+          )
+        : DMessageSurface(child: tile());
+  }
+}
+
+/// Redraws a message row when its channel changes what the reader may do with
+/// the message, and never for the rest of the channel record: the reader's
+/// dwell replaces that record every half second while reading, and redrawing
+/// each held row for it rebuilt every message's HTML.
+class _MessageAccessScope extends StatefulWidget {
+  const _MessageAccessScope({
+    required this.siteUrl,
+    required this.channelId,
+    required this.builder,
+  });
+
+  final String siteUrl;
+  final int channelId;
+  final WidgetBuilder builder;
+
+  @override
+  State<_MessageAccessScope> createState() => _MessageAccessScopeState();
+}
+
+class _MessageAccessScopeState extends State<_MessageAccessScope> {
+  ValueListenable<ChatChannel?>? _channel;
+  ChatMessageAccess? _access;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _watchChannel();
+  }
+
+  @override
+  void didUpdateWidget(_MessageAccessScope oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.siteUrl != widget.siteUrl ||
+        oldWidget.channelId != widget.channelId) {
+      _watchChannel();
+    }
+  }
+
+  void _watchChannel() {
+    final channel = PluginUiScope.require(
+      context,
+      chatControllerService,
+    ).channelRef(widget.siteUrl, widget.channelId);
+    if (identical(channel, _channel)) return;
+    _channel?.removeListener(_channelChanged);
+    _channel = channel..addListener(_channelChanged);
+    _access = channel.value?.messageAccess;
+  }
+
+  void _channelChanged() {
+    final access = _channel?.value?.messageAccess;
+    if (access == _access) return;
+    setState(() => _access = access);
+  }
+
+  @override
+  void dispose() {
+    _channel?.removeListener(_channelChanged);
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.builder(context);
 }
 
 class _OpenChatMessageActionsIntent extends Intent {
@@ -812,36 +886,32 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
       context,
       chatBookmarkHostService,
     );
-    return ValueListenableBuilder<ChatChannel?>(
-      valueListenable: chat.channelRef(
-        widget.siteUrl,
-        widget.message.channelId,
+    // The enclosing tile's access scope redraws these when the channel changes
+    // a permission.
+    return ValueListenableBuilder<bool>(
+      valueListenable: bookmarkHost.bookmarkWriteInFlightListenable(
+        siteUrl: widget.siteUrl,
+        targetId: widget.message.id,
       ),
-      builder: (context, channel, _) => ValueListenableBuilder<bool>(
-        valueListenable: bookmarkHost.bookmarkWriteInFlightListenable(
-          siteUrl: widget.siteUrl,
-          targetId: widget.message.id,
-        ),
-        builder: (context, bookmarkBusy, _) {
-          return _build(
-            context,
+      builder: (context, bookmarkBusy, _) {
+        return _build(
+          context,
 
-            bookmarkBusy: bookmarkBusy,
-            canEdit:
-                widget.onEdit != null &&
-                chat.canEditMessage(widget.siteUrl, widget.message),
-            canDelete: chat.canDeleteMessage(widget.siteUrl, widget.message),
-            canRestore: chat.canRestoreMessage(widget.siteUrl, widget.message),
-            canPin: chat.canPinMessage(widget.siteUrl, widget.message),
-            canRebake: chat.canRebakeMessage(widget.siteUrl, widget.message),
-            flagTypes: chat.availableChatFlagTypes(
-              widget.siteUrl,
-              widget.message,
-              widget.flagTypes,
-            ),
-          );
-        },
-      ),
+          bookmarkBusy: bookmarkBusy,
+          canEdit:
+              widget.onEdit != null &&
+              chat.canEditMessage(widget.siteUrl, widget.message),
+          canDelete: chat.canDeleteMessage(widget.siteUrl, widget.message),
+          canRestore: chat.canRestoreMessage(widget.siteUrl, widget.message),
+          canPin: chat.canPinMessage(widget.siteUrl, widget.message),
+          canRebake: chat.canRebakeMessage(widget.siteUrl, widget.message),
+          flagTypes: chat.availableChatFlagTypes(
+            widget.siteUrl,
+            widget.message,
+            widget.flagTypes,
+          ),
+        );
+      },
     );
   }
 
@@ -1525,16 +1595,10 @@ class _Reactions extends StatelessWidget {
   final String siteUrl;
   final ChatMessage message;
 
+  // The enclosing tile's access scope redraws the toggles when the channel
+  // changes a permission.
   @override
   Widget build(BuildContext context) {
-    final chat = PluginUiScope.require(context, chatControllerService);
-    return ValueListenableBuilder<ChatChannel?>(
-      valueListenable: chat.channelRef(siteUrl, message.channelId),
-      builder: (context, _, _) => _build(context),
-    );
-  }
-
-  Widget _build(BuildContext context) {
     final chat = PluginUiScope.require(context, chatControllerService);
     final canAdd = chat.canAddReactionToMessage(siteUrl, message);
     bool canToggle(ChatReaction reaction) => reaction.reacted
@@ -1820,8 +1884,9 @@ class _AvatarFallback extends StatelessWidget {
           final name? => name.characters.first.toUpperCase(),
           null => '?',
         },
-        style: Theme.of(context).textTheme.labelSmall
-            ?.copyWith(fontWeight: FontWeight.w700),
+        style: Theme.of(
+          context,
+        ).textTheme.labelSmall?.copyWith(fontWeight: FontWeight.w700),
       ),
     ),
   );

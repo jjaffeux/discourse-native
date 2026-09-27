@@ -45,6 +45,7 @@ Future<ShellController> chatScrollController({
   bool group = false,
   bool rich = false,
   Uint8List? animatedBytes,
+  DiscourseUser? reader,
 }) async {
   final imageBytes =
       animatedBytes ??
@@ -128,7 +129,9 @@ Future<ShellController> chatScrollController({
             }),
           ),
     plugins: installedPlugins,
-    instanceStore: FakeInstanceStore([instance('scroll.example')]),
+    instanceStore: FakeInstanceStore([
+      instance('scroll.example').copyWith(user: reader),
+    ]),
     api: api,
     authenticator: FakeAuthenticator()..keys[chatScrollSite] = 'fixture-key',
     drafts: FakeDraftStore(),

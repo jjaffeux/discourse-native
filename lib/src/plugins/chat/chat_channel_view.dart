@@ -3,6 +3,7 @@ import 'dart:developer' as developer;
 
 import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
@@ -34,27 +35,44 @@ class ChatChannelView extends StatelessWidget {
   final bool autofocusComposer;
 
   @override
-  Widget build(BuildContext context) {
-    final shell = PluginUiScope.require(context, chatShellService);
-    return ListenableBuilder(
-      listenable: shell,
-      builder: (context, _) {
-        final siteUrl = shell.currentSiteUrl;
-        if (siteUrl == null) return const SizedBox.shrink();
-        final chat = PluginUiScope.require(context, chatControllerService);
-        return _ChatChannelBody(
-          key: ValueKey((siteUrl, channelId, chat)),
-          siteUrl: siteUrl,
-          channelId: channelId,
-          showTimeGapDays: shell.showTimeGapDaysFor(siteUrl),
-          chat: chat,
-          autofocusMessageStream: autofocusMessageStream,
-          autofocusComposer: autofocusComposer,
-        );
-      },
-    );
-  }
+  Widget build(BuildContext context) =>
+      PluginServiceSelector<ChatShellService, _ChannelShellInputs>(
+        service: chatShellService,
+        // Notification totals, the current route and forum focus also notify
+        // the service, and redrawing the pane for them redrew every held
+        // message. Beyond the pane's own inputs, the account and the flag
+        // catalog are read by message rows that have no listener for them.
+        select: (shell) => switch (shell.currentSiteUrl) {
+          null => null,
+          final siteUrl => (
+            siteUrl: siteUrl,
+            showTimeGapDays: shell.showTimeGapDaysFor(siteUrl),
+            account: shell.currentUser,
+            flagTypes: shell.postFlagTypesFor(siteUrl),
+          ),
+        },
+        builder: (context, inputs, _) {
+          if (inputs == null) return const SizedBox.shrink();
+          final chat = PluginUiScope.require(context, chatControllerService);
+          return _ChatChannelBody(
+            key: ValueKey((inputs.siteUrl, channelId, chat)),
+            siteUrl: inputs.siteUrl,
+            channelId: channelId,
+            showTimeGapDays: inputs.showTimeGapDays,
+            chat: chat,
+            autofocusMessageStream: autofocusMessageStream,
+            autofocusComposer: autofocusComposer,
+          );
+        },
+      );
 }
+
+typedef _ChannelShellInputs = ({
+  String siteUrl,
+  int showTimeGapDays,
+  DiscourseUser? account,
+  List<PostFlagType> flagTypes,
+})?;
 
 class _ChatChannelBody extends StatefulWidget {
   const _ChatChannelBody({
@@ -206,39 +224,38 @@ class _ChatChannelBodyState extends State<_ChatChannelBody> {
 
   @override
   Widget build(BuildContext context) {
-    return ValueListenableBuilder(
-      valueListenable: widget.chat.channelRef(widget.siteUrl, widget.channelId),
-      builder: (context, channel, _) => ValueListenableBuilder<ChatStreamState>(
-        valueListenable: widget.chat.streamListenable(
+    return ValueListenableBuilder<ChatStreamState>(
+      valueListenable: widget.chat.streamListenable(
+        widget.siteUrl,
+        widget.channelId,
+      ),
+      builder: (context, stream, _) => ValueListenableBuilder<ChatChannel?>(
+        valueListenable: widget.chat.channelRef(
           widget.siteUrl,
           widget.channelId,
         ),
-        builder: (context, stream, _) => _buildChannel(
-          stream,
-          channel: channel,
-          channelTitle: channel?.title ?? 'Chat',
-        ),
+        // The transcript and its rows watch the few channel fields they read
+        // on their own. Built outside the channel builder, the same transcript
+        // widget comes back when only the channel changes, which the reader's
+        // dwell does every half second, so the held rows are not rebuilt.
+        child: _buildContent(stream),
+        builder: (context, channel, content) =>
+            _buildChannel(stream, channel: channel, content: content!),
       ),
     );
   }
 
-  Widget _buildChannel(
-    ChatStreamState stream, {
-    required ChatChannel? channel,
-    required String channelTitle,
-  }) {
-    late final Widget content;
+  Widget _buildContent(ChatStreamState stream) {
     final hasMessages =
         stream.messageIds.isNotEmpty || stream.localMessageIds.isNotEmpty;
     if (hasMessages) {
       // Local sends remain visible while the first page loads or has failed.
       _syncProjection(stream);
-      content = ChatMessageStream(
+      return ChatMessageStream(
         siteUrl: widget.siteUrl,
         target: ChatChannelTarget(widget.channelId),
         items: _items,
         stream: stream,
-        channelTracking: channel?.tracking,
         highlightMessageId: _highlightMessageId,
         highlightRequest: _highlightRequest,
         onHighlightComplete: _clearHighlight,
@@ -254,24 +271,31 @@ class _ChatChannelBodyState extends State<_ChatChannelBody> {
         autofocus: widget.autofocusMessageStream,
       );
     } else if (stream.loading) {
-      content = const DPageReadingLaneBox(
+      return const DPageReadingLaneBox(
         limitContentSize: true,
         child: _ChatLoadingSkeleton(key: ValueKey('chat-loading-skeleton')),
       );
     } else if (stream.error case final error?) {
-      content = _Message(icon: DIcons.triangleExclamation, text: error);
+      return _Message(icon: DIcons.triangleExclamation, text: error);
     } else if (stream.isEmpty) {
-      content = const _Message(
+      return const _Message(
         icon: DIcons.comment,
         text: 'No messages here yet.',
       );
-    } else {
-      content = const SizedBox.shrink();
     }
+    return const SizedBox.shrink();
+  }
 
+  Widget _buildChannel(
+    ChatStreamState stream, {
+    required ChatChannel? channel,
+    required Widget content,
+  }) {
+    final hasMessages =
+        stream.messageIds.isNotEmpty || stream.localMessageIds.isNotEmpty;
     return ChatUploadDropRegion(
       controller: _uploadDropController,
-      title: 'Drop files to upload to #$channelTitle',
+      title: 'Drop files to upload to #${channel?.title ?? 'Chat'}',
       child: DPageSurface(
         framed: false,
         hideHeaderOnScroll: true,
@@ -593,7 +617,6 @@ class ChatMessageStream extends StatefulWidget {
     required this.target,
     required this.items,
     required this.stream,
-    this.channelTracking,
     this.highlightMessageId,
     this.highlightRequest = 0,
     this.onHighlightComplete,
@@ -614,7 +637,6 @@ class ChatMessageStream extends StatefulWidget {
   final ChatStreamTarget target;
   final List<ChatStreamItem> items;
   final ChatStreamState stream;
-  final ChatTracking? channelTracking;
   final int? highlightMessageId;
 
   final int highlightRequest;
@@ -721,12 +743,7 @@ class _StreamState extends State<ChatMessageStream>
       _floatingDayState.value = (day: null, offset: 0);
       _expandedDeletedMessageIds.clear();
       _clearHighlight(notify: false);
-      // Core rechecks the visible edge when tracking changes so a delayed
-      // aggregate cannot restore unread state after that edge was credited.
-    } else if (!identical(oldWidget.channelTracking, widget.channelTracking) &&
-        ((widget.channelTracking?.unreadCount ?? 0) > 0 ||
-            (widget.channelTracking?.mentionCount ?? 0) > 0)) {
-      _recheckVisibleRead = true;
+      _watchChannel();
     }
 
     if (changedStream ||
@@ -793,6 +810,7 @@ class _StreamState extends State<ChatMessageStream>
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _shell?.removeListener(_handleShellChanged);
+    _channel?.removeListener(_channelChanged);
     _cancelReadDwell();
     _highlightTimer?.cancel();
     _list.dispose();
@@ -1379,11 +1397,52 @@ class _StreamState extends State<ChatMessageStream>
     }
   }
 
+  /// Watched here rather than passed down, so that the pane need not rebuild
+  /// this stream, and every row it holds, each time the channel is replaced.
+  ValueListenable<ChatChannel?>? _channel;
+  ChatTracking? _channelTracking;
+  bool _directMessage = false;
+
+  void _watchChannel() {
+    final channel = _chat?.channelRef(widget.siteUrl, widget.channelId);
+    if (identical(channel, _channel)) return;
+    _channel?.removeListener(_channelChanged);
+    _channel = channel?..addListener(_channelChanged);
+    _channelTracking = channel?.value?.tracking;
+    _directMessage = channel?.value?.isDirectMessage ?? false;
+  }
+
+  void _channelChanged() {
+    final channel = _channel?.value;
+    final tracking = channel?.tracking;
+    if (!identical(tracking, _channelTracking)) {
+      _channelTracking = tracking;
+      // Core rechecks the visible edge when tracking changes so a delayed
+      // aggregate cannot restore unread state after that edge was credited.
+      // A thread pane credits its thread, which channel tracking does not count.
+      if (!widget.target.isThread &&
+          ((tracking?.unreadCount ?? 0) > 0 ||
+              (tracking?.mentionCount ?? 0) > 0)) {
+        _recheckVisibleRead = true;
+        _scheduleLook();
+        // A post-frame callback does not itself schedule a frame.
+        WidgetsBinding.instance.scheduleFrame();
+      }
+    }
+    // Desktop direct messages group rows by sender, which only the channel
+    // says; it can arrive after the messages it groups.
+    final directMessage = channel?.isDirectMessage ?? false;
+    if (directMessage != _directMessage) {
+      setState(() => _directMessage = directMessage);
+    }
+  }
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     _scrollCapture = DiagnosticsScope.maybeRead(context)?.topicScrollCapture;
     _chat = PluginUiScope.require(context, chatControllerService);
+    _watchChannel();
     final shell = PluginUiScope.require(context, chatShellService);
     if (!identical(_shell, shell)) {
       _shell?.removeListener(_handleShellChanged);

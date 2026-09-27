@@ -453,6 +453,44 @@ void main() {
       expect(channel.canFlag, isTrue);
     });
 
+    test('message access changes with a permission, not with read state', () {
+      final channel = channelFrom(categoryChannel(lastReadMessageId: 40));
+
+      for (final unrelated in [
+        channel.withLastViewedAt(DateTime.utc(2026, 9, 1)),
+        channel.withLastRead(41, caughtUp: true),
+        channel.withTrackingState(
+          tracking: const ChatTracking(unreadCount: 2, mentionCount: 1),
+        ),
+        channel.withNewMessage(
+          42,
+          DateTime.utc(2026, 9, 1),
+          markRead: false,
+          incrementUnread: true,
+        ),
+        channel.withLastMessagePreview('hello', userId: 2),
+        channel.withMembershipsCount(3),
+        channel.withPinnedMessagesCount(2),
+        channel.withStarred(true),
+      ]) {
+        expect(unrelated, isNot(channel));
+        expect(unrelated.messageAccess, channel.messageAccess);
+      }
+
+      for (final changed in [
+        channelFrom(categoryChannel(status: 'closed')),
+        channelFrom(categoryChannel(userSilenced: true)),
+        channelFrom(categoryChannel(canModerate: true)),
+        channelFrom(categoryChannel(canDeleteSelf: true)),
+        channelFrom(categoryChannel(canDeleteOthers: true)),
+        channelFrom(categoryChannel(canManagePins: true)),
+        channelFrom(categoryChannel(canFlag: true)),
+        channel.withMembership(ChatMembership.none),
+      ]) {
+        expect(changed.messageAccess, isNot(channel.messageAccess));
+      }
+    });
+
     test('retains pin count and the reader’s unseen-pin state', () {
       final channel = channelFrom(
         categoryChannel(
