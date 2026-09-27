@@ -231,7 +231,7 @@ class _DDropdownMenuContentState extends State<DDropdownMenuContent> {
       final items = _enabledItems;
       if (items.isEmpty) return;
       _autofocused = true;
-      if (!items.any((item) => item.node.hasFocus)) _focusAt(0);
+      if (!items.any((item) => item.node.hasFocus)) _focusAt(items, 0);
     });
   }
 
@@ -392,13 +392,32 @@ class _DDropdownMenuContentState extends State<DDropdownMenuContent> {
     _refreshItemHighlights();
   }
 
-  List<_MenuRegistration> get _enabledItems => [
-    for (final item in _items.values)
-      if (item.enabled && item.node.canRequestFocus) item,
-  ];
+  // A row registers when it first mounts, so registration order goes stale as
+  // soon as a row is inserted above others or rows are reordered. Navigation
+  // follows the element tree instead: the order rows are laid out in, and the
+  // DOM order the reference's roving focus uses. A row never contains another
+  // row and a nested submenu's content owns its rows, so neither subtree is
+  // searched. Element walks are invalid during build, so this is read only
+  // from key handlers and post-frame autofocus.
+  List<_MenuRegistration> get _enabledItems {
+    final items = <_MenuRegistration>[];
+    void visit(Element element) {
+      if (element is StatefulElement) {
+        final state = element.state;
+        if (state is _DDropdownMenuContentState) return;
+        if (_items[state] case final item?) {
+          if (item.enabled && item.node.canRequestFocus) items.add(item);
+          return;
+        }
+      }
+      element.visitChildElements(visit);
+    }
 
-  void _focusAt(int index) {
-    final items = _enabledItems;
+    (context as Element).visitChildElements(visit);
+    return items;
+  }
+
+  void _focusAt(List<_MenuRegistration> items, int index) {
     if (items.isEmpty) return;
     items[index % items.length].node.requestFocus();
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -428,6 +447,7 @@ class _DDropdownMenuContentState extends State<DDropdownMenuContent> {
     if (items.isEmpty) return;
     final current = items.indexWhere((item) => item.node.hasFocus);
     _focusAt(
+      items,
       current < 0 ? (delta > 0 ? 0 : items.length - 1) : current + delta,
     );
   }
@@ -466,11 +486,12 @@ class _DDropdownMenuContentState extends State<DDropdownMenuContent> {
       return KeyEventResult.handled;
     }
     if (key == LogicalKeyboardKey.home) {
-      _focusAt(0);
+      _focusAt(_enabledItems, 0);
       return KeyEventResult.handled;
     }
     if (key == LogicalKeyboardKey.end) {
-      _focusAt(_enabledItems.length - 1);
+      final items = _enabledItems;
+      _focusAt(items, items.length - 1);
       return KeyEventResult.handled;
     }
     final closeDirection = direction == TextDirection.ltr
@@ -1243,8 +1264,8 @@ class _DropdownMenuItemSurfaceState extends State<_DropdownMenuItemSurface> {
     if (oldWidget.focusNode != widget.focusNode ||
         oldWidget.label != widget.label ||
         oldWidget.enabled != widget.enabled) {
-      // Replace this State's registration in place so live labels and enabled
-      // changes retain visual order for Home, arrows, and typeahead.
+      // Navigation reads this row's live label, enabled state and focus node
+      // from its registration; its position comes from the element tree.
       _register();
     }
   }

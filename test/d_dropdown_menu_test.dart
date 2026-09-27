@@ -495,6 +495,121 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  Future<ValueNotifier<List<String>>> pumpKeyedRows(
+    WidgetTester tester,
+    List<String> initial,
+  ) async {
+    final rows = ValueNotifier(initial);
+    addTearDown(rows.dispose);
+    await pumpMenu(
+      tester,
+      child: ValueListenableBuilder<List<String>>(
+        valueListenable: rows,
+        builder: (context, labels, _) => DDropdownMenu(
+          content: DDropdownMenuContent(
+            children: [
+              for (final label in labels)
+                DDropdownMenuItem(
+                  key: ValueKey(label),
+                  onPressed: _noop,
+                  child: Text(label),
+                ),
+            ],
+          ),
+          child: DDropdownMenuTrigger.button(label: const Text('Open')),
+        ),
+      ),
+    );
+    await open(tester);
+    return rows;
+  }
+
+  String? focusedRow(WidgetTester tester) =>
+      tester.binding.focusManager.primaryFocus?.debugLabel;
+
+  testWidgets('a row mounted above open rows is navigated in screen order', (
+    tester,
+  ) async {
+    final rows = await pumpKeyedRows(tester, ['Bravo', 'Charlie']);
+    expect(focusedRow(tester), 'Dropdown item Bravo');
+
+    // A refreshed list inserts a row above rows that registered first.
+    rows.value = ['Alpha', 'Bravo', 'Charlie'];
+    await tester.pump();
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.home);
+    expect(focusedRow(tester), 'Dropdown item Alpha');
+    await tester.sendKeyEvent(LogicalKeyboardKey.end);
+    expect(focusedRow(tester), 'Dropdown item Charlie');
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+    expect(focusedRow(tester), 'Dropdown item Alpha');
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+    expect(focusedRow(tester), 'Dropdown item Bravo');
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+    expect(focusedRow(tester), 'Dropdown item Charlie');
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
+    expect(focusedRow(tester), 'Dropdown item Bravo');
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
+    expect(focusedRow(tester), 'Dropdown item Alpha');
+  });
+
+  testWidgets('reordered rows are navigated in screen order', (tester) async {
+    final rows = await pumpKeyedRows(tester, ['Alpha', 'Bravo', 'Charlie']);
+
+    rows.value = ['Charlie', 'Alpha', 'Bravo'];
+    await tester.pump();
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.home);
+    expect(focusedRow(tester), 'Dropdown item Charlie');
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+    expect(focusedRow(tester), 'Dropdown item Alpha');
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+    expect(focusedRow(tester), 'Dropdown item Bravo');
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+    expect(focusedRow(tester), 'Dropdown item Charlie');
+    await tester.sendKeyEvent(LogicalKeyboardKey.end);
+    expect(focusedRow(tester), 'Dropdown item Bravo');
+  });
+
+  testWidgets('typeahead cycles matches in screen order', (tester) async {
+    final rows = await pumpKeyedRows(tester, ['Xray', 'Bravo 2', 'Bravo 3']);
+    expect(focusedRow(tester), 'Dropdown item Xray');
+
+    rows.value = ['Xray', 'Bravo 1', 'Bravo 2', 'Bravo 3'];
+    await tester.pump();
+
+    for (final expected in ['Bravo 1', 'Bravo 2', 'Bravo 3', 'Bravo 1']) {
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyB);
+      expect(focusedRow(tester), 'Dropdown item $expected');
+    }
+  });
+
+  testWidgets('a mounted submenu keeps its rows out of the parent order', (
+    tester,
+  ) async {
+    await pumpMenu(tester, child: const _SubmenuHarness());
+    await open(tester);
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+    await tester.pumpAndSettle();
+    expect(focusedRow(tester), 'Dropdown item Email');
+    await tester.sendKeyEvent(LogicalKeyboardKey.end);
+    expect(focusedRow(tester), 'Dropdown item Message');
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+    expect(focusedRow(tester), 'Dropdown item Email');
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+    await tester.pump();
+    // The submenu is still mounted beneath its parent row while it closes.
+    expect(find.text('Email'), findsOneWidget);
+    expect(focusedRow(tester), 'Dropdown item Invite users');
+    await tester.sendKeyEvent(LogicalKeyboardKey.end);
+    expect(focusedRow(tester), 'Dropdown item Invite users');
+    await tester.sendKeyEvent(LogicalKeyboardKey.home);
+    expect(focusedRow(tester), 'Dropdown item Team');
+    await tester.pumpAndSettle();
+  });
+
   for (final autofocus in [true, false]) {
     testWidgets('deferred enabled items respect autofocus=$autofocus', (
       tester,
