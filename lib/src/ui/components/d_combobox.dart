@@ -442,21 +442,48 @@ class _DComboboxState<T> extends FormFieldState<List<T>> {
       optionFor(value)?.label ??
       '$value';
 
+  // Options are immutable, so an option's lowercased search text is computed
+  // once however many lists, filters and comboboxes it passes through.
+  static final Expando<String> _lowercaseSearchText = Expando();
+
+  static String _searchTextOf(DComboboxOption<Object?> option) =>
+      _lowercaseSearchText[option] ??= (option.searchText ?? option.label)
+          .toLowerCase();
+
+  // Every input to the filter except the query belongs to the widget, so a
+  // result stands until the widget or the query changes; the list, the empty
+  // state and keyboard navigation each read it within the same build.
+  DCombobox<T>? _filteredFor;
+  String? _filteredQuery;
+  List<DComboboxOption<T>> _filtered = const [];
+
   List<DComboboxOption<T>> get filteredOptions {
+    final query = this.query;
+    if (identical(_filteredFor, combobox) && _filteredQuery == query) {
+      return _filtered;
+    }
     final normalized = query.trim();
+    final lowercase = normalized.toLowerCase();
     var result = _allOptions
         .where((option) {
           if (!combobox.filterLocally || normalized.isEmpty) return true;
-          final label = option.searchText ?? option.label;
-          return combobox.filter?.call(option.value, normalized, label) ??
-              label.toLowerCase().contains(normalized.toLowerCase());
+          if (combobox.filter case final filter?) {
+            return filter(
+              option.value,
+              normalized,
+              option.searchText ?? option.label,
+            );
+          }
+          return _searchTextOf(option).contains(lowercase);
         })
         .toList(growable: false);
     if (combobox.limit case final limit?
         when limit >= 0 && result.length > limit) {
       result = result.take(limit).toList(growable: false);
     }
-    return result;
+    _filteredFor = combobox;
+    _filteredQuery = query;
+    return _filtered = result;
   }
 
   @override
@@ -520,9 +547,14 @@ class _DComboboxState<T> extends FormFieldState<List<T>> {
         )) {
       _requestHighlight(null, DComboboxChangeReason.input);
     }
-    _itemKeys.removeWhere(
-      (value, _) => !_allOptions.any((option) => _equal(option.value, value)),
-    );
+    if (combobox.equals == null) {
+      final values = {for (final option in _allOptions) option.value};
+      _itemKeys.removeWhere((value, _) => !values.contains(value));
+    } else {
+      _itemKeys.removeWhere(
+        (value, _) => !_allOptions.any((option) => _equal(option.value, value)),
+      );
+    }
     _controller._changed();
   }
 
@@ -635,7 +667,7 @@ class _DComboboxState<T> extends FormFieldState<List<T>> {
     // that row makes a scrollable menu chase the cursor as it moves.
     if (value != null && reason != DComboboxChangeReason.pointer) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        final itemContext = _entryFor(_itemKeys, value)?.value.currentContext;
+        final itemContext = _itemKeyFor(value)?.currentContext;
         if (mounted && isOpen && itemContext != null) {
           final target = itemContext.findRenderObject();
           if (target != null && target.attached) {
@@ -807,8 +839,14 @@ class _DComboboxState<T> extends FormFieldState<List<T>> {
   MapEntry<T, V>? _entryFor<V>(Map<T, V> entries, T value) =>
       entries.entries.where((entry) => _equal(entry.key, value)).firstOrNull;
 
+  // Every row asks for its key on each list build. Default equality agrees
+  // with the map's own lookup; only a custom one has to scan.
+  GlobalKey? _itemKeyFor(T value) => combobox.equals == null
+      ? _itemKeys[value]
+      : _entryFor(_itemKeys, value)?.value;
+
   GlobalKey keyFor(T value) =>
-      _entryFor(_itemKeys, value)?.value ?? (_itemKeys[value] = GlobalKey());
+      _itemKeyFor(value) ?? (_itemKeys[value] = GlobalKey());
 
   void registerChip(T value, FocusNode focusNode) {
     final existing = _entryFor(_chipFocusNodes, value);
@@ -913,20 +951,111 @@ class _DComboboxState<T> extends FormFieldState<List<T>> {
   }
 }
 
-class _DComboboxScope<T> extends InheritedWidget {
-  const _DComboboxScope({required this.state, required super.child});
+enum _DComboboxAspect { state }
+
+@immutable
+class _DComboboxHighlightAspect<T> {
+  const _DComboboxHighlightAspect(this.value);
+
+  final T value;
+
+  @override
+  bool operator ==(Object other) =>
+      other is _DComboboxHighlightAspect<T> && other.value == value;
+
+  @override
+  int get hashCode => value.hashCode;
+}
+
+/// Hands the root to its parts and decides which of them a root rebuild
+/// reaches.
+///
+/// Parts read the root's live state, so the scope captures what they read and
+/// notifies [_DComboboxAspect.state] dependents only when that changes; a part
+/// that reads something new from the root must have it captured here. The
+/// highlight is kept apart because it changes at every row the pointer
+/// crosses: each row depends on its own value's highlight, so a move rebuilds
+/// the row losing it and the row gaining it rather than the list and all of
+/// its rows.
+class _DComboboxScope<T> extends InheritedModel<Object> {
+  _DComboboxScope({required this.state, required super.child})
+    : _combobox = state.combobox,
+      _selectedValues = state.selectedValues,
+      _query = state.query,
+      _open = state.isOpen,
+      _focused = state.focusNode.hasFocus,
+      _hasError = state.hasError,
+      _highlighted = state.highlightedValue;
 
   final _DComboboxState<T> state;
+  final DCombobox<T> _combobox;
+  final List<T> _selectedValues;
+  final String _query;
+  final bool _open;
+  final bool _focused;
+  final bool _hasError;
+  final T? _highlighted;
 
-  static _DComboboxState<T> of<T>(BuildContext context) {
-    final scope = context
-        .dependOnInheritedWidgetOfExactType<_DComboboxScope<T>>();
+  static _DComboboxState<T> of<T>(BuildContext context) =>
+      _find<T>(context, _DComboboxAspect.state).state;
+
+  /// Whether [value]'s row carries the accepted highlight.
+  static bool highlights<T>(BuildContext context, T value) {
+    final scope = _find<T>(context, _DComboboxHighlightAspect<T>(value));
+    return scope._isHighlighted(scope._highlighted, value);
+  }
+
+  static _DComboboxScope<T> _find<T>(BuildContext context, Object aspect) {
+    final scope = InheritedModel.inheritFrom<_DComboboxScope<T>>(
+      context,
+      aspect: aspect,
+    );
     assert(scope != null, 'Combobox parts require a matching DCombobox<$T>.');
-    return scope!.state;
+    return scope!;
+  }
+
+  bool _isHighlighted(T? highlighted, T value) =>
+      highlighted != null && state._equal(highlighted, value);
+
+  bool _stateChanged(_DComboboxScope<T> old) =>
+      !identical(state, old.state) ||
+      !identical(_combobox, old._combobox) ||
+      _open != old._open ||
+      _focused != old._focused ||
+      _hasError != old._hasError ||
+      _query != old._query ||
+      !state._sameValues(_selectedValues, old._selectedValues);
+
+  bool _highlightMoved(_DComboboxScope<T> old) {
+    final highlighted = _highlighted;
+    final previous = old._highlighted;
+    if (highlighted == null || previous == null) {
+      return highlighted != previous;
+    }
+    return !state._equal(highlighted, previous);
   }
 
   @override
-  bool updateShouldNotify(_DComboboxScope<T> oldWidget) => true;
+  bool updateShouldNotify(_DComboboxScope<T> oldWidget) =>
+      _stateChanged(oldWidget) || _highlightMoved(oldWidget);
+
+  @override
+  bool updateShouldNotifyDependent(
+    _DComboboxScope<T> oldWidget,
+    Set<Object> dependencies,
+  ) {
+    if (dependencies.contains(_DComboboxAspect.state) &&
+        _stateChanged(oldWidget)) {
+      return true;
+    }
+    if (!_highlightMoved(oldWidget)) return false;
+    return dependencies.any(
+      (aspect) =>
+          aspect is _DComboboxHighlightAspect<T> &&
+          (_isHighlighted(_highlighted, aspect.value) ||
+              _isHighlighted(oldWidget._highlighted, aspect.value)),
+    );
+  }
 }
 
 class DComboboxInput<T> extends StatelessWidget {
@@ -1254,12 +1383,9 @@ class DComboboxItem<T> extends StatelessWidget {
     final tokens = DTokens.of(context);
     final itemEnabled = root.mutable && option.enabled;
     final selected = root._contains(root.selectedValues, option.value);
-    final highlightedValue = root.highlightedValue;
     // Pointer and keyboard navigation share the root's accepted highlight.
     final highlighted =
-        itemEnabled &&
-        highlightedValue != null &&
-        root._equal(highlightedValue, option.value);
+        itemEnabled && _DComboboxScope.highlights<T>(context, option.value);
     Widget item = MouseRegion(
       cursor: itemEnabled ? SystemMouseCursors.click : MouseCursor.defer,
       onEnter: (_) {

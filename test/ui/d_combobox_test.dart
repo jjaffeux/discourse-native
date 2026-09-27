@@ -98,6 +98,152 @@ void main() {
     expect(_rowBackground(tester, 'svelte'), hover);
   });
 
+  for (final customEquality in [false, true]) {
+    testWidgets('moving the highlight rebuilds only the rows it leaves and '
+        'enters (custom equality: $customEquality)', (tester) async {
+      var itemBuilds = 0;
+      await tester.pumpWidget(
+        _app(
+          DCombobox<String>(
+            options: [
+              for (var index = 0; index < 40; index++)
+                DComboboxOption(value: 'zone-$index', label: 'Zone $index'),
+            ],
+            equals: customEquality ? (left, right) => left == right : null,
+            anchor: const DComboboxInput<String>(),
+            content: DComboboxContent(
+              maxHeight: 400,
+              children: [
+                DComboboxList<String>(
+                  itemBuilder: (context, option) {
+                    itemBuilds++;
+                    return Text(option.label);
+                  },
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.byType(TextField));
+      await tester.pumpAndSettle();
+      final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      addTearDown(mouse.removePointer);
+      await mouse.addPointer(location: Offset.zero);
+      final rebuiltRows = <String>[];
+      final previousRebuildCallback = debugOnRebuildDirtyWidget;
+      debugOnRebuildDirtyWidget = (element, builtOnce) {
+        if (element.widget case final DComboboxItem<String> item) {
+          rebuiltRows.add(item.option.value);
+        }
+        previousRebuildCallback?.call(element, builtOnce);
+      };
+      addTearDown(() {
+        debugOnRebuildDirtyWidget = previousRebuildCallback;
+      });
+      itemBuilds = 0;
+
+      await mouse.moveTo(tester.getCenter(find.text('Zone 0')));
+      await tester.pump();
+      expect(rebuiltRows, ['zone-0']);
+
+      rebuiltRows.clear();
+      await mouse.moveTo(tester.getCenter(find.text('Zone 1')));
+      await tester.pump();
+      expect(rebuiltRows, unorderedEquals(['zone-0', 'zone-1']));
+
+      await mouse.moveTo(Offset.zero);
+      await tester.pump();
+      rebuiltRows.clear();
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.pump();
+      expect(rebuiltRows, unorderedEquals(['zone-1', 'zone-2']));
+
+      expect(itemBuilds, 0);
+      expect(_rowBackground(tester, 'zone-0').a, 0);
+      expect(_rowBackground(tester, 'zone-1').a, 0);
+      expect(_rowBackground(tester, 'zone-2').a, greaterThan(0));
+    });
+  }
+
+  testWidgets('filtered results follow the query and replaced options', (
+    tester,
+  ) async {
+    late StateSetter update;
+    var options = const [
+      DComboboxOption(value: 'utc', label: 'UTC'),
+      DComboboxOption(
+        value: 'paris',
+        label: 'Europe/Paris',
+        searchText: 'Paris France CET',
+      ),
+      DComboboxOption(value: 'berlin', label: 'Europe/Berlin'),
+      DComboboxOption(value: 'tokyo', label: 'Asia/Tokyo'),
+    ];
+    int? limit;
+    await tester.pumpWidget(
+      _app(
+        StatefulBuilder(
+          builder: (context, setState) {
+            update = setState;
+            return DCombobox<String>(
+              options: options,
+              limit: limit,
+              anchor: const DComboboxInput<String>(),
+              content: const DComboboxContent(
+                children: [
+                  DComboboxEmpty<String>(child: Text('No items found.')),
+                  DComboboxList<String>(),
+                ],
+              ),
+            );
+          },
+        ),
+      ),
+    );
+    List<String> rows() => [
+      for (final item in tester.widgetList<DComboboxItem<String>>(
+        find.byType(DComboboxItem<String>),
+      ))
+        item.option.value,
+    ];
+    await tester.tap(find.byType(TextField));
+    await tester.pumpAndSettle();
+    expect(rows(), ['utc', 'paris', 'berlin', 'tokyo']);
+
+    // Search text replaces the label, and matching ignores case and padding.
+    await tester.enterText(find.byType(TextField), 'EUROPE');
+    await tester.pump();
+    expect(rows(), ['berlin']);
+    await tester.enterText(find.byType(TextField), '  france ');
+    await tester.pump();
+    expect(rows(), ['paris']);
+    await tester.enterText(find.byType(TextField), 'o');
+    await tester.pump();
+    expect(rows(), ['berlin', 'tokyo']);
+
+    // A replaced configuration refilters the same query.
+    update(
+      () => options = [
+        ...options,
+        const DComboboxOption(value: 'lisbon', label: 'Europe/Lisbon'),
+      ],
+    );
+    await tester.pump();
+    expect(rows(), ['berlin', 'tokyo', 'lisbon']);
+    update(() => limit = 2);
+    await tester.pump();
+    expect(rows(), ['berlin', 'tokyo']);
+
+    await tester.enterText(find.byType(TextField), 'missing');
+    await tester.pump();
+    expect(rows(), isEmpty);
+    expect(find.text('No items found.'), findsOneWidget);
+    await tester.enterText(find.byType(TextField), '');
+    await tester.pump();
+    expect(rows(), ['utc', 'paris']);
+  });
+
   testWidgets('keyboard highlight replaces a stationary pointer highlight', (
     tester,
   ) async {
