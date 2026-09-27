@@ -216,6 +216,120 @@ void main() {
       expect(draft.serialize(), contains('close=" 2026-08-30T18:00:00Z "'));
     });
 
+    group('close time zone', () {
+      final base = PollComposerDraft.newPoll(
+        name: 'poll',
+        defaultPublic: true,
+      ).copyWith(options: ['Soup', 'Salad']);
+
+      String? writtenClose(PollComposerDraft draft) =>
+          parsePollComposerBlocks(draft.serialize()).single.attribute('close');
+
+      Matcher localWallTimeWithOffset(String wall) =>
+          matches(RegExp('^${RegExp.escape(wall)}[+-]\\d\\d:\\d\\d\$'));
+
+      test('an offset-less entry is written as local time with its offset', () {
+        // Discourse parses a close value without an offset as UTC, so writing
+        // the entry verbatim would close the poll at the wrong moment for
+        // anyone outside UTC.
+        for (final (entered, meant, wall) in [
+          (
+            '2026-08-30T18:00',
+            DateTime(2026, 8, 30, 18),
+            '2026-08-30T18:00:00',
+          ),
+          (
+            '2026-01-15 09:30:15',
+            DateTime(2026, 1, 15, 9, 30, 15),
+            '2026-01-15T09:30:15',
+          ),
+          ('2026-08-30', DateTime(2026, 8, 30), '2026-08-30T00:00:00'),
+        ]) {
+          final draft = base.copyWith(close: entered);
+          expect(
+            draft.validate(maximumOptions: 20, isStaff: false).isValid,
+            isTrue,
+            reason: entered,
+          );
+
+          final written = writtenClose(draft)!;
+          expect(written, localWallTimeWithOffset(wall), reason: entered);
+          expect(
+            DateTime.parse(written).isAtSameMomentAs(meant),
+            isTrue,
+            reason: '$entered was written as $written',
+          );
+        }
+      });
+
+      test('an entry with an explicit offset or Z is written as entered', () {
+        for (final entered in [
+          '2026-08-30T18:00:00Z',
+          '2026-08-30T18:00:00+05:30',
+          '2026-08-30T18:00-04:00',
+        ]) {
+          final draft = base.copyWith(close: entered);
+          expect(
+            draft.validate(maximumOptions: 20, isStaff: false).isValid,
+            isTrue,
+            reason: entered,
+          );
+          expect(writtenClose(draft), entered);
+        }
+      });
+
+      test('an edited close gets an offset; an untouched one never moves', () {
+        const source =
+            '[poll name=lunch close=2026-08-30T18:00]\n'
+            '* Soup\n'
+            '* Salad\n'
+            '[/poll]';
+        final draft = PollComposerDraft.fromBlock(
+          parsePollComposerBlocks(source).single,
+        );
+
+        // The server has already scheduled the stored value as UTC; an edit
+        // elsewhere in the poll must not reinterpret it.
+        expect(
+          writtenClose(draft.copyWith(title: 'Lunch')),
+          '2026-08-30T18:00',
+        );
+
+        final written = writtenClose(
+          draft.copyWith(close: '2026-09-01T12:00'),
+        )!;
+        expect(written, localWallTimeWithOffset('2026-09-01T12:00:00'));
+        expect(
+          DateTime.parse(written).isAtSameMomentAs(DateTime(2026, 9, 1, 12)),
+          isTrue,
+        );
+      });
+
+      test('a written close reads back into the editor unchanged', () {
+        final source = base.copyWith(close: '2026-08-30T18:00').serialize();
+        final reopened = PollComposerDraft.fromBlock(
+          parsePollComposerBlocks(source).single,
+        );
+
+        expect(reopened.close, localWallTimeWithOffset('2026-08-30T18:00:00'));
+        expect(
+          DateTime.parse(
+            reopened.close,
+          ).isAtSameMomentAs(DateTime(2026, 8, 30, 18)),
+          isTrue,
+        );
+        expect(
+          reopened.validate(maximumOptions: 20, isStaff: false).isValid,
+          isTrue,
+        );
+        expect(reopened.serialize(), source);
+        expect(
+          reopened.copyWith(title: 'Lunch').serialize(),
+          contains('close=${reopened.close}'),
+        );
+      });
+    });
+
     test('validates options using exact trimmed source values', () {
       final base = PollComposerDraft.newPoll(name: 'poll', defaultPublic: true);
       expect(

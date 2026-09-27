@@ -291,7 +291,7 @@ class PollComposerDraft {
       'public=$publicVoters',
       'chartType=bar',
       if (close.trim().isNotEmpty)
-        'close=${_renderPollAttributeValue(close.trim())}',
+        'close=${_renderPollAttributeValue(_closeMarkupValue(close))}',
     ];
     return _withBody('[poll ${attributes.join(' ')}]', '[/poll]', '\n');
   }
@@ -301,7 +301,7 @@ class PollComposerDraft {
     final hadCloseAttribute = block.attribute('close') != null;
     final serializedClose = switch (close) {
       final value when value == originalClose && hadCloseAttribute => value,
-      final value when value.trim().isNotEmpty => value.trim(),
+      final value when value.trim().isNotEmpty => _closeMarkupValue(value),
       _ => null,
     };
     final desired = <String, String>{
@@ -407,6 +407,26 @@ class _PollDraftSnapshot {
 }
 
 int? _integer(String? value) => value == null ? null : int.tryParse(value);
+
+/// Discourse parses a close value without an offset as UTC, but the web
+/// composer's picker and the poll card both work in device-local time. An
+/// offset-less entry therefore means local time and is written with the
+/// device's offset at that moment; an explicit offset is kept as entered.
+String _closeMarkupValue(String entered) {
+  final value = entered.trim();
+  final local = DateTime.tryParse(value);
+  if (local == null || local.isUtc) return value;
+
+  var wallTime = local.toIso8601String();
+  if (wallTime.endsWith('.000')) {
+    wallTime = wallTime.substring(0, wallTime.length - 4);
+  }
+  final offset = local.timeZoneOffset;
+  final minutes = offset.inMinutes.abs();
+  String twoDigits(int number) => number.toString().padLeft(2, '0');
+  return '$wallTime${offset.isNegative ? '-' : '+'}'
+      '${twoDigits(minutes ~/ 60)}:${twoDigits(minutes % 60)}';
+}
 
 String _renderPollAttributeValue(String value) {
   if (value.isNotEmpty && !value.contains(RegExp(r'''[\s\]]'''))) {
