@@ -3129,6 +3129,84 @@ void _inviteTests() {
       harness.dispose();
     });
 
+    testWidgets('Enter during an invite in flight neither resends nor clears', (
+      tester,
+    ) async {
+      final harness = await _openInvites(tester);
+      final inviteGate = Completer<void>();
+      addTearDown(() {
+        if (!inviteGate.isCompleted) inviteGate.complete();
+      });
+      harness.transport.responders['POST /voice/rooms/7/invites.json'] =
+          (_) async {
+            await inviteGate.future;
+            throw const WriteException(
+              WriteFailure.rateLimited,
+              errors: ['You have sent too many invites.'],
+              statusCode: 429,
+            );
+          };
+
+      final field = find.widgetWithText(TextField, 'Invite by name');
+      final text = tester.widget<TextField>(field).controller!;
+      await tester.enterText(field, 'lee');
+      await tester.testTextInput.receiveAction(TextInputAction.done);
+      await tester.pump();
+      await tester.showKeyboard(field);
+      await tester.testTextInput.receiveAction(TextInputAction.done);
+      await tester.pump();
+      expect(text.text, 'lee');
+
+      inviteGate.complete();
+      await tester.pumpAndSettle();
+
+      expect(
+        harness.transport.writes.where(
+          (write) => write.path.endsWith('/invites.json'),
+        ),
+        hasLength(1),
+      );
+      expect(text.text, 'lee');
+      expect(find.text('You have sent too many invites.'), findsOneWidget);
+      harness.dispose();
+    });
+
+    testWidgets('a refused invite keeps the name until one is sent', (
+      tester,
+    ) async {
+      final harness = await _openInvites(tester);
+      harness.transport.failures['POST /voice/rooms/7/invites.json'] =
+          const WriteException(
+            WriteFailure.forbidden,
+            errors: ["You can't invite lee."],
+            statusCode: 403,
+          );
+
+      final field = find.widgetWithText(TextField, 'Invite by name');
+      final text = tester.widget<TextField>(field).controller!;
+      await tester.enterText(field, 'lee');
+      await tester.tap(find.text('Send invite'));
+      await tester.pumpAndSettle();
+
+      expect(text.text, 'lee');
+      expect(find.text("You can't invite lee."), findsOneWidget);
+
+      await tester.tap(find.text('Send invite'));
+      await tester.pumpAndSettle();
+
+      expect(text.text, isEmpty);
+      expect(
+        harness.transport.writes
+            .where((write) => write.path.endsWith('/invites.json'))
+            .map((write) => write.body['usernames']),
+        [
+          ['lee'],
+          ['lee'],
+        ],
+      );
+      harness.dispose();
+    });
+
     testWidgets('no invite control without the permission', (tester) async {
       final room = _room(
         participants: const [
@@ -3729,6 +3807,24 @@ Future<void> _openMembers(WidgetTester tester, _Harness harness) async {
   );
   await tester.tap(find.byTooltip('Manage members'));
   await tester.pumpAndSettle();
+}
+
+Future<_Harness> _openInvites(WidgetTester tester) async {
+  final room = _room(
+    canInvite: true,
+    participants: const [
+      VoiceParticipant(id: 1, username: 'sam', role: VoiceRole.moderator),
+    ],
+  );
+  final harness = _Harness(joinRoom: room);
+  addTearDown(harness.dispose);
+  await _join(harness, room);
+  await tester.pumpWidget(
+    _app(harness.controller, room: room, call: harness.controller.call),
+  );
+  await tester.tap(find.byTooltip('Invite people'));
+  await tester.pumpAndSettle();
+  return harness;
 }
 
 const _membershipRows = [

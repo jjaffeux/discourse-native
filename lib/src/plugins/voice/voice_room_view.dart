@@ -1223,12 +1223,14 @@ class _VoiceInviteDialogState extends State<_VoiceInviteDialog> {
     if (mounted) setState(() => _suggestions = suggestions);
   }
 
-  Future<void> _invite(List<String> usernames) async {
+  /// Whether the invite went through: false when it was refused, and when
+  /// nothing was sent because another invite is still in flight.
+  Future<bool> _invite(List<String> usernames) async {
     final names = [
       for (final name in usernames)
         if (name.trim().isNotEmpty) name.trim().replaceFirst('@', ''),
     ];
-    if (names.isEmpty || _sending) return;
+    if (names.isEmpty || _sending) return false;
     setState(() => _sending = true);
     try {
       final result = await widget.controller.invite(
@@ -1236,7 +1238,7 @@ class _VoiceInviteDialogState extends State<_VoiceInviteDialog> {
         widget.room.id,
         names,
       );
-      if (!mounted) return;
+      if (!mounted) return true;
       setState(() => _invited.addAll(result.invitedUsernames));
       if (result.invitedUsernames.isNotEmpty) {
         final count = result.invitedUsernames.length;
@@ -1254,15 +1256,25 @@ class _VoiceInviteDialogState extends State<_VoiceInviteDialog> {
           type: DToastType.warning,
         );
       }
+      return true;
     } catch (error) {
-      if (!mounted) return;
+      if (!mounted) return false;
       DToast.show(
         context,
         error is WriteException ? error.message : "Couldn't send the invite.",
         type: DToastType.error,
       );
+      return false;
     } finally {
       if (mounted) setState(() => _sending = false);
+    }
+  }
+
+  Future<void> _inviteTyped() async {
+    final typed = _username.text;
+    // Cleared only once sent, and never over a name typed since.
+    if (await _invite([typed]) && mounted && _username.text == typed) {
+      _username.clear();
     }
   }
 
@@ -1296,20 +1308,14 @@ class _VoiceInviteDialogState extends State<_VoiceInviteDialog> {
                         labelText: 'Invite by name',
                         hintText: 'username',
                       ),
-                      onSubmitted: (value) async {
-                        await _invite([value]);
-                        if (mounted) _username.clear();
+                      onSubmitted: (_) {
+                        if (!_sending) unawaited(_inviteTyped());
                       },
                     ),
                   ),
                   const SizedBox(width: 8),
                   DButton(
-                    onPressed: _sending
-                        ? null
-                        : () async {
-                            await _invite([_username.text]);
-                            if (mounted) _username.clear();
-                          },
+                    onPressed: _sending ? null : _inviteTyped,
                     icon: const DIcon(DIcons.paperPlane),
                     label: const Text('Send invite'),
                     variant: DButtonVariant.primary,
