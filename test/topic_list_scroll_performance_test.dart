@@ -65,7 +65,10 @@ void main() {
         expect(
           find.descendant(
             of: row,
-            matching: find.text('Last post by sam · 1 replies'),
+            matching: find.text(
+              'Last post by sam · 1 reply',
+              findRichText: true,
+            ),
           ),
           findsOneWidget,
         );
