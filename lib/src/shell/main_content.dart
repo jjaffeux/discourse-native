@@ -526,7 +526,7 @@ class _TopicInboxWorkspaceState extends State<_TopicInboxWorkspace> {
               ),
               child: Padding(
                 padding: context.isTouch
-                    ? EdgeInsets.zero
+                    ? const EdgeInsets.only(top: 16)
                     : const EdgeInsets.only(top: 24),
                 child: Row(
                   children: [
