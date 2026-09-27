@@ -649,17 +649,30 @@ final class DiscourseAccountApi {
     required String apiKey,
     String? clientId,
   }) async {
-    final response = await _transport.requestAuthenticated(
-      'POST',
-      Uri.parse('$siteUrl/user-api-key/revoke'),
+    // Discourse only answers a refused key in JSON when the request asks for
+    // it; otherwise the refusal is a plain-text 403 like any proxy's.
+    final response = await _transport.sendAuthenticated(
+      http.Request('POST', Uri.parse('$siteUrl/user-api-key/revoke'))
+        ..headers['Accept'] = 'application/json',
       siteUrl: siteUrl,
       apiKey: apiKey,
       clientId: clientId,
     );
 
-    // Every non-2xx response is a failed revocation. In particular, accepting
-    // a missing route or redirect would let forum removal delete our only
-    // local copy of the key while its native push registration stays active.
+    // A key Discourse no longer accepts (revoked, expired, unknown, or owned by
+    // a suspended or deactivated user) is refused with `invalid_access` before
+    // the action runs. Nothing sent with that key can revoke it any more, and
+    // failing here would leave the forum impossible to remove.
+    if (response.statusCode == 403 &&
+        DiscourseTransport.decodeObjectOrEmpty(response.body)['error_type'] ==
+            'invalid_access') {
+      return;
+    }
+
+    // Every other non-2xx response is a failed revocation. In particular,
+    // accepting a missing route, a redirect, or a 403 from something other
+    // than Discourse would let forum removal delete our only local copy of the
+    // key while its native push registration stays active.
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw SiteLookupException(
         SiteLookupFailure.unreachable,

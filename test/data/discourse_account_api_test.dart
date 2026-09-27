@@ -751,8 +751,76 @@ void main() {
       );
       expect(requests, 1);
     });
+
+    test('accepts a key the site already refuses as revoked', () async {
+      String? accept;
+      final api = _accountApi(
+        client: MockClient((request) async {
+          accept = request.headers['Accept'];
+          // Without a JSON Accept header Discourse answers this refusal as
+          // plain text, which is indistinguishable from any other 403.
+          if (accept != 'application/json') return http.Response('No', 403);
+          return _invalidAccess();
+        }),
+      );
+
+      await api.revokeApiKey(
+        siteUrl: 'https://meta.discourse.org',
+        apiKey: 'revoked-key',
+      );
+
+      expect(accept, 'application/json');
+    });
+
+    test('does not mistake another refusal for a revoked key', () async {
+      final refusals = {
+        'web application firewall page': http.Response(
+          '<html><body>Access denied</body></html>',
+          403,
+          headers: {'content-type': 'text/html'},
+        ),
+        'request without an account': http.Response(
+          jsonEncode({
+            'errors': ['You need to be logged in to do that.'],
+            'error_type': 'not_logged_in',
+          }),
+          403,
+        ),
+        'refused key behind another status': _invalidAccess(statusCode: 404),
+      };
+
+      for (final MapEntry(key: name, value: response) in refusals.entries) {
+        final api = _accountApi(client: MockClient((_) async => response));
+
+        await expectLater(
+          api.revokeApiKey(
+            siteUrl: 'https://meta.discourse.org',
+            apiKey: 'the-key',
+          ),
+          throwsA(
+            isA<SiteLookupException>().having(
+              (error) => error.statusCode,
+              'statusCode',
+              response.statusCode,
+            ),
+          ),
+          reason: name,
+        );
+      }
+    });
   });
 }
+
+/// Core's `Discourse::InvalidAccess` answer, as rendered for a JSON request
+/// carrying a user API key the site no longer accepts.
+http.Response _invalidAccess({int statusCode = 403}) => http.Response(
+  jsonEncode({
+    'errors': ['You are not permitted to view the requested resource.'],
+    'error_type': 'invalid_access',
+  }),
+  statusCode,
+  headers: {'content-type': 'application/json; charset=utf-8'},
+);
 
 DiscourseAccountApi _accountApi({http.Client? client}) {
   final transport = DiscourseTransport.create(client: client);
