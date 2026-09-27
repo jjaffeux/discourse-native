@@ -1290,5 +1290,48 @@ void main() {
 
       expect(api.postRequests, isEmpty);
     });
+
+    test(
+      'lets the next account expand a gap the old one left loading',
+      () async {
+        final api = _PostOrderingApi();
+        final shell = await _loadShell(api);
+        addTearDown(shell.dispose);
+        void openGap() {
+          shell.pushContent(
+            ContentRoute.topic(topicId: 7, slug: 'a-topic', title: 'A topic'),
+          );
+          shell.store.put(
+            _siteUrl,
+            const TopicDetail(
+              id: 7,
+              title: 'A topic',
+              stream: [1, 2],
+              gapsAfter: {
+                1: [2],
+              },
+              postsCount: 2,
+            ),
+          );
+        }
+
+        openGap();
+        final retired = shell.expandPostGap(anchorPostId: 1, before: false);
+        await api.waitForPostRequests(1);
+        await shell.disconnectCurrentInstance();
+        await shell.connectCurrentInstance();
+        api.postRequests[0].response.complete([_reply]);
+        await retired;
+
+        openGap();
+        final expanding = shell.expandPostGap(anchorPostId: 1, before: false);
+        await pumpEventQueue();
+        expect(api.postRequests, hasLength(2));
+        api.postRequests[1].response.complete([_reply]);
+        await expanding;
+
+        expect(shell.store.read<Post>(_siteUrl, 2)?.cooked, 'reply');
+      },
+    );
   });
 }

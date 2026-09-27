@@ -14572,6 +14572,7 @@ class ShellController extends FrameSafeNotifier
     _topicsStale.removeWhere((key) => key.startsWith('$siteUrl#'));
     _postsLoading.removeWhere((key) => key.startsWith('$siteUrl#'));
     _earlierPostsLoading.removeWhere((key) => key.startsWith('$siteUrl#'));
+    _postGapsLoading.removeWhere((key) => key.$1 == siteUrl);
     _topicSummaryStreams.removeWhere((key, _) => key.startsWith('$siteUrl#'));
     _topicSummariesLoading.removeWhere((key) => key.startsWith('$siteUrl#'));
     _topicNotificationWrites.removeWhere(
