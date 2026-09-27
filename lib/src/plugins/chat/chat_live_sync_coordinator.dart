@@ -249,6 +249,8 @@ final class ChatLiveSyncCoordinator {
     site.hasChannelSnapshot = true;
 
     final all = [...channels.public, ...channels.direct];
+    // See [muteChannel]: a muted membership owns no new-messages stream, but
+    // keeps its mention and kick streams.
     site.newMessageCursors = {
       for (final channel in all)
         if (!channel.membership.muted)
@@ -260,21 +262,18 @@ final class ChatLiveSyncCoordinator {
     };
     site.newMentionCursors = {
       for (final channel in all)
-        if (!channel.membership.muted)
-          channel.id: _newerCursor(
-            site.newMentionCursors[channel.id],
-            channels.newMentionMessageBusLastIds[channel.id] ??
-                channel.messageBus.newMentions,
-          ),
+        channel.id: _newerCursor(
+          site.newMentionCursors[channel.id],
+          channels.newMentionMessageBusLastIds[channel.id] ??
+              channel.messageBus.newMentions,
+        ),
     };
     site.kickCursors = {
       for (final channel in channels.public)
-        if (!channel.membership.muted)
-          channel.id: _newerCursor(
-            site.kickCursors[channel.id],
-            channels.kickMessageBusLastIds[channel.id] ??
-                channel.messageBus.kick,
-          ),
+        channel.id: _newerCursor(
+          site.kickCursors[channel.id],
+          channels.kickMessageBusLastIds[channel.id] ?? channel.messageBus.kick,
+        ),
     };
     site.rootMessageCursors = {
       for (final channel in all)
@@ -337,11 +336,14 @@ final class ChatLiveSyncCoordinator {
       site.rootMessageCursors[channel.id],
       channel.messageBus.channel,
     );
-    if (includeActivity && !channel.membership.muted) {
-      site.newMessageCursors[channel.id] = _newerCursor(
-        site.newMessageCursors[channel.id],
-        channel.messageBus.newMessages,
-      );
+    if (includeActivity) {
+      if (!channel.membership.muted) {
+        site.newMessageCursors[channel.id] = _newerCursor(
+          site.newMessageCursors[channel.id],
+          channel.messageBus.newMessages,
+        );
+        if (awaitFirstMessage) site.awaitingFirstMessage.add(channel.id);
+      }
       site.newMentionCursors[channel.id] = _newerCursor(
         site.newMentionCursors[channel.id],
         channel.messageBus.newMentions,
@@ -352,10 +354,45 @@ final class ChatLiveSyncCoordinator {
           channel.messageBus.kick,
         );
       }
-      if (awaitFirstMessage) site.awaitingFirstMessage.add(channel.id);
       _syncPersistentSubscriptions(site);
     }
     _ensureRootSubscription(site, channel.id);
+  }
+
+  /// Stops the new-messages stream of a channel the reader muted.
+  ///
+  /// ChannelUnreadsQuery reports no unread messages for a muted membership,
+  /// so there is no unread count or activity to follow. It still counts the
+  /// membership's mentions, and a kick must still remove the channel, so the
+  /// mention, kick and root streams stay. The dropped cursor is not kept:
+  /// resuming from it would replay the whole muted interval, bounded only by
+  /// MessageBus retention, so [unmuteChannel] takes fresh cursors instead.
+  void muteChannel(String siteUrl, int channelId) {
+    final site = _sites[siteUrl];
+    if (site == null) return;
+    site.newMessageCursors.remove(channelId);
+    site.awaitingFirstMessage.remove(channelId);
+    site.newMessageSubscriptions
+        .remove(channelId)
+        ?.cancel(this, 'chat.channelMute.unsubscribe');
+  }
+
+  /// Whether [channelId] owns a new-messages stream, or will once a tracker
+  /// attaches.
+  bool ownsChannelMessages(String siteUrl, int channelId) =>
+      _sites[siteUrl]?.newMessageCursors.containsKey(channelId) ?? false;
+
+  /// Restarts the new-messages stream [muteChannel] stopped, from the fresh
+  /// cursor of a [channel] fetched after the unmute. A stream the channel
+  /// already owns keeps its delivered position.
+  void unmuteChannel(String siteUrl, ChatChannel channel) {
+    final site = _sites[siteUrl];
+    if (_disposed || _host.isDisposed() || site == null) return;
+    site.newMessageCursors.putIfAbsent(
+      channel.id,
+      () => channel.messageBus.newMessages,
+    );
+    _syncPersistentSubscriptions(site);
   }
 
   void stopFollowingChannel(String siteUrl, int channelId) {
@@ -1078,17 +1115,13 @@ final class ChatLiveSyncCoordinator {
     }
     _host.insertListedChannel(site.siteUrl, incoming);
 
-    if (!incoming.membership.muted) {
-      adoptChannel(
-        site.siteUrl,
-        incoming,
-        includeActivity: true,
-        awaitFirstMessage:
-            incoming.lastMessageId != null && !reopensDirectMessage,
-      );
-    } else {
-      adoptChannel(site.siteUrl, incoming, includeActivity: false);
-    }
+    adoptChannel(
+      site.siteUrl,
+      incoming,
+      includeActivity: true,
+      awaitFirstMessage:
+          incoming.lastMessageId != null && !reopensDirectMessage,
+    );
     if (reopensDirectMessage) {
       unawaited(_followNewDirectChannel(site, incoming));
     }

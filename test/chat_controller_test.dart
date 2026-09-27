@@ -386,6 +386,10 @@ FakeSiteTracker attachTracker(ChatController chat) {
   return tracker;
 }
 
+// The fake keeps a channel's entry once its last callback is cancelled.
+bool _subscribed(FakeSiteTracker tracker, String channel) =>
+    tracker.pluginChannelCallbacks[channel]?.isNotEmpty ?? false;
+
 Map<String, dynamic> sentEvent({
   required String stagedId,
   int channelId = 9,
@@ -3714,6 +3718,216 @@ void main() {
 
       expect(subject.chat.channel(site, 9)?.membership.muted, isTrue);
       expect(deltas, isEmpty);
+    });
+
+    test('unmuting a channel restarts its new-messages stream from the '
+        'channel detail’s cursor', () async {
+      final subject = build(
+        currentUser: currentUser,
+        channels: {
+          site: ChatChannels(
+            public: [
+              channel(
+                9,
+                muted: true,
+                lastRead: 3,
+                lastMessageId: 3,
+                messageBus: const ChatChannelMessageBusState(newMessages: 40),
+              ),
+            ],
+            newMessageBusLastIds: const {9: 50},
+            newMentionMessageBusLastIds: const {9: 51},
+            kickMessageBusLastIds: const {9: 52},
+          ),
+        },
+        channelDetails: {
+          9: channel(
+            9,
+            lastRead: 3,
+            messageBus: const ChatChannelMessageBusState(
+              newMessages: 70,
+              newMentions: 71,
+              kick: 72,
+            ),
+          ),
+        },
+      );
+      addTearDown(subject.chat.dispose);
+      final tracker = attachTracker(subject.chat);
+      await subject.chat.loadChannels(site);
+
+      expect(_subscribed(tracker, '/chat/9/new-messages'), isFalse);
+      // A muted channel still follows the mentions the server counts for it
+      // and the kick that would remove it.
+      expect(tracker.pluginChannelLastIds['/chat/9/new-mentions'], 51);
+      expect(tracker.pluginChannelLastIds['/chat/9/kick'], 52);
+
+      expect(
+        await subject.chat.updateChannelNotifications(site, 9, muted: false),
+        isNull,
+      );
+      await pumpEventQueue();
+
+      expect(subject.api.chatChannelDetailsRequested, [9]);
+      expect(_subscribed(tracker, '/chat/9/new-messages'), isTrue);
+      expect(tracker.pluginChannelLastIds['/chat/9/new-messages'], 70);
+      // The streams the mute kept stay on their delivered position.
+      expect(
+        tracker.pluginChannelCallbacks['/chat/9/new-mentions'],
+        hasLength(1),
+      );
+      expect(tracker.pluginChannelLastIds['/chat/9/new-mentions'], 51);
+
+      tracker.deliverPluginMessage(
+        '/chat/9/new-messages',
+        newMessageEvent(
+          channelId: 9,
+          messageId: 4,
+          authorId: 2,
+          createdAt: '2026-05-05T10:05:00.000Z',
+        ),
+        messageId: 71,
+      );
+
+      final unmuted = subject.chat.channel(site, 9)!;
+      expect(unmuted.lastMessageId, 4);
+      expect(unmuted.tracking.unreadCount, 1);
+    });
+
+    test('muting a channel stops its new-messages stream and keeps its '
+        'mentions on the Chat counter', () async {
+      final deltas = <int>[];
+      final subject = build(
+        currentUser: currentUser,
+        onChatNotificationsDelta: (_, delta) => deltas.add(delta),
+        channels: {
+          site: ChatChannels(
+            public: [channel(9, lastRead: 3, lastMessageId: 3)],
+            newMessageBusLastIds: const {9: 50},
+            newMentionMessageBusLastIds: const {9: 51},
+            kickMessageBusLastIds: const {9: 52},
+          ),
+        },
+      );
+      addTearDown(subject.chat.dispose);
+      final tracker = attachTracker(subject.chat);
+      await subject.chat.loadChannels(site);
+      expect(_subscribed(tracker, '/chat/9/new-messages'), isTrue);
+
+      expect(
+        await subject.chat.updateChannelNotifications(site, 9, muted: true),
+        isNull,
+      );
+
+      expect(_subscribed(tracker, '/chat/9/new-messages'), isFalse);
+      expect(_subscribed(tracker, '/chat/9/new-mentions'), isTrue);
+      expect(_subscribed(tracker, '/chat/9/kick'), isTrue);
+      expect(subject.api.chatChannelDetailsRequested, isEmpty);
+
+      tracker.deliverPluginMessage('/chat/9/new-mentions', {
+        'channel_id': 9,
+        'message_id': 4,
+      });
+      expect(subject.chat.channel(site, 9)?.tracking.mentionCount, 1);
+      expect(deltas, [1]);
+
+      tracker.deliverPluginMessage('/chat/9/kick', {'channel_id': 9});
+      expect(subject.chat.publicChannels(site), isEmpty);
+      expect(deltas, [1, -1]);
+    });
+
+    test(
+      'a refused mute restarts the new-messages stream it stopped',
+      () async {
+        final gate = Completer<void>();
+        final subject = build(
+          currentUser: currentUser,
+          channelNotificationGate: gate,
+          channelNotificationFailure: const WriteException(
+            WriteFailure.forbidden,
+          ),
+          channels: {
+            site: ChatChannels(
+              public: [channel(9)],
+              newMessageBusLastIds: const {9: 50},
+            ),
+          },
+          channelDetails: {
+            9: channel(
+              9,
+              messageBus: const ChatChannelMessageBusState(newMessages: 70),
+            ),
+          },
+        );
+        addTearDown(subject.chat.dispose);
+        final tracker = attachTracker(subject.chat);
+        await subject.chat.loadChannels(site);
+
+        final update = subject.chat.updateChannelNotifications(
+          site,
+          9,
+          muted: true,
+        );
+        expect(_subscribed(tracker, '/chat/9/new-messages'), isFalse);
+
+        gate.complete();
+        expect(await update, isNotNull);
+        await pumpEventQueue();
+
+        expect(subject.chat.channel(site, 9)?.membership.muted, isFalse);
+        expect(_subscribed(tracker, '/chat/9/new-messages'), isTrue);
+        expect(tracker.pluginChannelLastIds['/chat/9/new-messages'], 70);
+      },
+    );
+
+    test('a mute that lands while an unmute’s channel detail is in flight '
+        'leaves the new-messages stream stopped', () async {
+      final api = _GatedChannelDetailApi(
+        chatChannelsBySite: {
+          site: ChatChannels(
+            public: [channel(9)],
+            newMessageBusLastIds: const {9: 50},
+          ),
+        },
+        chatChannelsById: {
+          9: channel(
+            9,
+            messageBus: const ChatChannelMessageBusState(newMessages: 70),
+          ),
+        },
+      );
+      final subject = build(api: api, currentUser: currentUser);
+      addTearDown(subject.chat.dispose);
+      final tracker = attachTracker(subject.chat);
+      await subject.chat.loadChannels(site);
+
+      Future<void> setMuted(bool muted) async => expect(
+        await subject.chat.updateChannelNotifications(site, 9, muted: muted),
+        isNull,
+      );
+
+      await setMuted(true);
+      await setMuted(false);
+      await pumpEventQueue();
+      expect(api.detailGates, hasLength(1));
+      await setMuted(true);
+
+      api.detailGates.single.complete();
+      await pumpEventQueue();
+
+      expect(subject.chat.channel(site, 9)?.membership.muted, isTrue);
+      expect(_subscribed(tracker, '/chat/9/new-messages'), isFalse);
+
+      // A later unmute starts its own detail read rather than reviving the
+      // withdrawn one.
+      await setMuted(false);
+      await pumpEventQueue();
+      expect(api.detailGates, hasLength(2));
+      api.detailGates.last.complete();
+      await pumpEventQueue();
+
+      expect(_subscribed(tracker, '/chat/9/new-messages'), isTrue);
+      expect(tracker.pluginChannelLastIds['/chat/9/new-messages'], 70);
     });
 
     test('does not join a closed or unauthorized channel', () async {
@@ -8814,6 +9028,31 @@ final class _GatedChannelRefreshApi extends FakeDiscourseApi {
     );
     if (!readStarted.isCompleted) readStarted.complete();
     await readGate?.future;
+  }
+}
+
+final class _GatedChannelDetailApi extends FakeDiscourseApi {
+  _GatedChannelDetailApi({super.chatChannelsBySite, super.chatChannelsById});
+
+  /// One gate per channel-detail read, in request order.
+  final List<Completer<void>> detailGates = [];
+
+  @override
+  Future<ChatChannel> chatChannel({
+    required String siteUrl,
+    required String apiKey,
+    required int channelId,
+    String? clientId,
+  }) async {
+    final gate = Completer<void>();
+    detailGates.add(gate);
+    await gate.future;
+    return super.chatChannel(
+      siteUrl: siteUrl,
+      apiKey: apiKey,
+      channelId: channelId,
+      clientId: clientId,
+    );
   }
 }
 

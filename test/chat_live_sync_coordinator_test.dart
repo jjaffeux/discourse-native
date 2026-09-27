@@ -120,6 +120,55 @@ void main() {
       expect(fixture.newMessages, ['102']);
     });
 
+    test('muting stops only the new-messages stream, and unmuting restarts '
+        'it from the fresh cursor it is given', () {
+      final fixture = _Fixture();
+      addTearDown(fixture.coordinator.dispose);
+      final tracker = _LiveChannels();
+      fixture.coordinator.replace(
+        _site,
+        ChatChannels(
+          public: [
+            _channel.withMembership(
+              const ChatMembership(following: true, muted: true),
+            ),
+          ],
+          newMessageBusLastIds: const {9: 51},
+          newMentionMessageBusLastIds: const {9: 52},
+          kickMessageBusLastIds: const {9: 53},
+        ),
+      );
+      fixture.coordinator.attachTracker(_site, tracker);
+
+      expect(tracker.registrationsFor('/chat/9/new-messages'), isEmpty);
+      expect(fixture.coordinator.ownsChannelMessages(_site, 9), isFalse);
+      expect(tracker.lastId('/chat/9/new-mentions'), 52);
+      expect(tracker.lastId('/chat/9/kick'), 53);
+
+      fixture.coordinator.unmuteChannel(
+        _site,
+        const ChatChannel(
+          id: 9,
+          title: 'Bugs',
+          kind: ChatChannelKind.category,
+          membership: ChatMembership(following: true),
+          messageBus: ChatChannelMessageBusState(newMessages: 90),
+        ),
+      );
+      final resumed = tracker.latest('/chat/9/new-messages');
+      expect(resumed.lastId, 90);
+      expect(tracker.registrationsFor('/chat/9/new-mentions'), hasLength(1));
+
+      fixture.coordinator.muteChannel(_site, 9);
+
+      expect(resumed.cancelCalls, 1);
+      expect(fixture.coordinator.ownsChannelMessages(_site, 9), isFalse);
+      expect(tracker.latest('/chat/9/new-mentions').cancelCalls, 0);
+      expect(tracker.latest('/chat/9/kick').cancelCalls, 0);
+      resumed.deliver(_newMessageEvent(101), 91);
+      expect(fixture.newMessages, isEmpty);
+    });
+
     test('overlapping view tokens share and release one root subscription', () {
       final fixture = _Fixture();
       addTearDown(fixture.coordinator.dispose);
