@@ -561,10 +561,12 @@ class _DraftRowContent extends StatelessWidget {
                         if (category case final category?)
                           _DraftCategory(siteUrl: siteUrl, category: category),
                         if (category != null && createdAt != null)
-                          Text(
-                            '•',
-                            style: theme.textTheme.labelMedium?.copyWith(
-                              color: theme.colorScheme.onSurfaceVariant,
+                          ExcludeSemantics(
+                            child: Text(
+                              '•',
+                              style: theme.textTheme.labelMedium?.copyWith(
+                                color: theme.colorScheme.onSurfaceVariant,
+                              ),
                             ),
                           ),
                         if (createdAt != null)
@@ -609,7 +611,7 @@ class _DraftRowContent extends StatelessWidget {
             ? DraftListView.compactRowMinimumHeight
             : DraftListView.wideRowMinimumHeight,
       ),
-      child: row,
+      child: Semantics(button: true, child: row),
     );
   }
 }

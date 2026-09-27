@@ -264,6 +264,22 @@ void main() {
     }
   }, variant: platforms);
 
+  testWidgets('the reader header names its topic once', (tester) async {
+    final semantics = tester.ensureSemantics();
+    await pumpMobileTopicFixture(tester);
+    // iOS speaks a node's tooltip after its label.
+    final title = tester
+        .getSemantics(find.byKey(const ValueKey('topic-header-compact-title')))
+        .getSemanticsData();
+    expect(title.label, 'Show & tell: houseplant shelfie thread');
+    expect(title.tooltip, isEmpty);
+    expect(
+      find.byTooltip('Show & tell: houseplant shelfie thread'),
+      findsOneWidget,
+    );
+    semantics.dispose();
+  }, variant: platforms);
+
   testWidgets('private-message actions match the topic header\'s compact row', (
     tester,
   ) async {

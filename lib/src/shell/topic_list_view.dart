@@ -1474,6 +1474,8 @@ class _CategoryBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) => DTooltip(
     message: label,
+    // [semanticLabel] already names the category.
+    excludeFromSemantics: true,
     child: DBreadcrumbLink(
       compact: compact,
       onPressed: onTap,
