@@ -462,9 +462,9 @@ class _DDropdownMenuContentState extends State<DDropdownMenuContent> {
     if (items.isEmpty) return;
     final current = items.indexWhere((item) => item.node.hasFocus);
     for (var offset = 1; offset <= items.length; offset++) {
-      final candidate = items[(current + offset) % items.length];
-      if (candidate.label.toLowerCase().startsWith(_search)) {
-        candidate.node.requestFocus();
+      final index = (current + offset) % items.length;
+      if (items[index].label.toLowerCase().startsWith(_search)) {
+        _focusAt(items, index);
         return;
       }
     }
