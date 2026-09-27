@@ -2,6 +2,7 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_widget_from_html_core/flutter_widget_from_html_core.dart';
 import 'package:html/dom.dart' as dom;
 
+import '../data/site_preference_keys.dart';
 import '../diagnostics/diagnostics_controller.dart';
 import '../models/content_route.dart';
 import '../models/discourse_user.dart';
@@ -306,6 +307,12 @@ final class PluginRegistry
 
   final List<SitePlugin> plugins;
   final List<_OwnedNotificationFeedDeclaration>? _notificationFeedDeclarations;
+
+  /// Every preference plugins keep per forum; see [SitePreferencesPlugin].
+  List<SitePreferenceKey> get sitePreferenceKeys => List.unmodifiable([
+    for (final plugin in plugins.whereType<SitePreferencesPlugin>())
+      ...plugin.sitePreferenceKeys,
+  ]);
 
   List<PluginIconCatalog> get iconCatalogs => List.unmodifiable([
     for (final plugin in plugins.whereType<IconCatalogPlugin>())

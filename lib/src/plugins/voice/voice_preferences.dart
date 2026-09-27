@@ -113,6 +113,18 @@ final class SharedPreferencesVoicePreferences implements VoicePreferences {
   static const _meshPrivacyAcknowledgedKey = 'voice.mesh-privacy-acknowledged';
   static const _autoStatusKey = 'voice.auto-status-enabled';
 
+  /// Camera auto-start, per account on a forum.
+  static const cameraEnabledKeys = SitePreferenceKey(
+    'voice.camera-enabled',
+    tail: SitePreferenceTail.id,
+  );
+
+  /// Participant volumes, per room and then per participant on a forum.
+  static const volumeKeys = SitePreferenceKey(
+    'voice.volume',
+    tail: SitePreferenceTail.idPair,
+  );
+
   @override
   Future<VoiceDevicePreferences> readDevices() async {
     // Start these independent keys together. Each waits only for writes to its
@@ -170,7 +182,7 @@ final class SharedPreferencesVoicePreferences implements VoicePreferences {
   }
 
   static String _cameraEnabledKey(String siteUrl, int userId) =>
-      'voice.camera-enabled.${Uri.encodeComponent(siteUrl)}.$userId';
+      '${cameraEnabledKeys.of(siteUrl)}.$userId';
 
   @override
   Future<bool> readMeshPrivacyAcknowledged() async =>
@@ -249,7 +261,7 @@ final class SharedPreferencesVoicePreferences implements VoicePreferences {
   }
 
   static String _volumeKey(String siteUrl, int roomId, int userId) =>
-      'voice.volume.${Uri.encodeComponent(siteUrl)}.$roomId.$userId';
+      '${volumeKeys.of(siteUrl)}.$roomId.$userId';
 
   static void _requireSaved(bool saved, String description) {
     if (!saved) throw StateError('Could not persist Voice $description.');

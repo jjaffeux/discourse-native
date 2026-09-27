@@ -2,6 +2,7 @@ import 'package:discourse_plugin_api/discourse_plugin_api.dart';
 import 'package:flutter/widgets.dart';
 import 'package:html/dom.dart' as dom;
 
+import '../data/site_preference_keys.dart';
 import '../diagnostics/diagnostics_controller.dart';
 import '../models/content_route.dart';
 import '../models/discourse_user.dart';
@@ -516,6 +517,15 @@ abstract interface class UserPreferenceCodec {
 
 abstract interface class UserPreferencesPlugin {
   List<UserPreferenceCodec> get userPreferenceCodecs;
+}
+
+/// Preferences a plugin keeps on this device per forum, or per account on a
+/// forum. The host drops them once the forum leaves the rail for good, and at
+/// startup for forums no longer on it. `PluginSessionLifecycle.forget`, which
+/// also follows every change of a forum's account, is for what a plugin holds
+/// in memory: an account that signs back in finds these again.
+abstract interface class SitePreferencesPlugin {
+  List<SitePreferenceKey> get sitePreferenceKeys;
 }
 
 typedef PluginUserPreferenceEdit =

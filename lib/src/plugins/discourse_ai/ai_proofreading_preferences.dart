@@ -22,10 +22,15 @@ final class SharedPreferencesAiProofreadingPreferencePersistence
     implements AiProofreadingPreferencePersistence {
   const SharedPreferencesAiProofreadingPreferencePersistence();
 
-  static const String _keyPrefix =
-      'discourse_native.ai_proofreading_enabled_by_account';
-  static const String _siteWideKeyPrefix =
-      'discourse_native.ai_proofreading_enabled';
+  static const keys = SitePreferenceKey(
+    'discourse_native.ai_proofreading_enabled_by_account',
+    tail: SitePreferenceTail.id,
+  );
+
+  /// The forum-wide choice kept before choices were bound to an account.
+  static const siteWideKeys = SitePreferenceKey(
+    'discourse_native.ai_proofreading_enabled',
+  );
 
   @override
   Future<bool?> readEnabled({
@@ -47,12 +52,12 @@ final class SharedPreferencesAiProofreadingPreferencePersistence
   @override
   Future<bool> removeSiteWideEnabled({required String siteUrl}) async {
     final preferences = await SharedPreferences.getInstance();
-    final key = '$_siteWideKeyPrefix.${Uri.encodeComponent(siteUrl)}';
+    final key = siteWideKeys.of(siteUrl);
     return !preferences.containsKey(key) || await preferences.remove(key);
   }
 
   static String _key(String siteUrl, int userId) =>
-      '$_keyPrefix.${Uri.encodeComponent(siteUrl)}.$userId';
+      '${keys.of(siteUrl)}.$userId';
 }
 
 final class AiProofreadingPreferenceStore {

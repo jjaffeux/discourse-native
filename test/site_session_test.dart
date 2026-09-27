@@ -1,24 +1,38 @@
 import 'dart:async';
 
+import 'package:discourse_native/src/data/bookmark_reminder_store.dart';
 import 'package:discourse_native/src/data/discourse_api.dart';
+import 'package:discourse_native/src/data/forum_settings_store.dart';
+import 'package:discourse_native/src/data/instance_store.dart';
 import 'package:discourse_native/src/data/recent_destinations_store.dart';
+import 'package:discourse_native/src/data/topic_recommendations_tab_store.dart';
 import 'package:discourse_native/src/data/user_api_key.dart';
+import 'package:discourse_native/src/data/user_directory_column_width_store.dart';
 import 'package:discourse_native/src/diagnostics/diagnostics.dart';
+import 'package:discourse_native/src/models/app_settings.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
+import 'package:discourse_native/src/models/forum_theme_preferences.dart';
 import 'package:discourse_native/src/models/forum_workspace.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/site_appearance.dart';
 import 'package:discourse_native/src/models/site_config.dart';
+import 'package:discourse_native/src/models/site_emoji.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/plugin_api/core_plugin_host.dart';
+import 'package:discourse_native/src/plugin_api/emoji_usage.dart';
 import 'package:discourse_native/src/plugin_api/plugin_runtime.dart';
 import 'package:discourse_native/src/plugin_api/shell_extensions.dart';
+import 'package:discourse_native/src/plugins/bundled_plugin_manifest.dart';
+import 'package:discourse_native/src/plugins/discourse_ai/ai_proofreading_preferences.dart';
+import 'package:discourse_native/src/plugins/voice/voice_preferences.dart';
+import 'package:discourse_native/src/shell/forum_settings_controller.dart';
 import 'package:discourse_native/src/shell/global_search_models.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'support/fakes.dart';
 import 'support/site_appearance_fixtures.dart';
@@ -569,6 +583,59 @@ final class _HeldRemovalSaveStore extends FakeInstanceStore {
     }
   }
 }
+
+/// Keeps one value of every preference that core, Voice and Discourse AI keep
+/// per forum, through the stores that keep them; the shell's own where it
+/// holds what they read.
+Future<void> _keepSitePreferences(ShellController shell, String siteUrl) async {
+  await const BookmarkReminderStore().write(
+    siteUrl,
+    'Reader.Name',
+    DateTime.utc(2030),
+  );
+  await shell.emojiPickerStore.writeSkinTone(
+    siteUrl: siteUrl,
+    tone: EmojiSkinTone.t3,
+  );
+  await shell.emojiPickerStore.trackEmoji(
+    siteUrl: siteUrl,
+    context: CoreEmojiUsageContexts.topic,
+    emoji: 'tada',
+  );
+  await shell.forumSettings.setThemeMode(siteUrl, AppThemeMode.dark);
+  await shell.forumSettings.setThemes(
+    siteUrl,
+    ForumThemePreferences.preset('dracula'),
+  );
+  await shell.sidebarSections.write(
+    siteUrl: siteUrl,
+    sectionId: 'community',
+    collapsed: true,
+  );
+  await shell.topicSidebar.write(siteUrl: siteUrl, collapsed: true);
+  await const TopicRecommendationsTabStore().write(
+    siteUrl: siteUrl,
+    sourceId: coreSuggestedTopicRecommendationSourceId,
+  );
+  await const UserDirectoryColumnWidthStore().write(
+    siteUrl: siteUrl,
+    widths: UserDirectoryColumnWidths(const {'likes_received': 120}),
+  );
+  const voice = SharedPreferencesVoicePreferences();
+  await voice.writeCameraEnabled(siteUrl, 7, true);
+  await voice.writeParticipantVolume(siteUrl, 3, 8, 0.5);
+  await const AiProofreadingPreferenceStore().write(
+    siteUrl: siteUrl,
+    userId: 7,
+    enabled: true,
+  );
+}
+
+/// Every stored key that names [siteUrl].
+Future<Set<String>> _storedPreferencesOf(String siteUrl) async => {
+  for (final key in (await SharedPreferences.getInstance()).getKeys())
+    if (key.contains(Uri.encodeComponent(siteUrl))) key,
+};
 
 /// Once [holdResponses] is set, the target site's category and client-settings
 /// responses wait for [releaseResponses].
@@ -1956,6 +2023,171 @@ void main() {
         expect(topicIds(reloaded.topicsFor(_siteUrl, 'anonymous')), [10, 9]);
       },
     );
+
+    group('stored preferences', () {
+      const otherSite = 'https://other.example.com';
+
+      setUp(
+        () => SharedPreferences.setMockInitialValues({
+          for (final site in [_siteUrl, otherSite])
+            SharedPreferencesAiProofreadingPreferencePersistence.siteWideKeys
+                    .of(site):
+                true,
+        }),
+      );
+
+      ShellController storedPreferencesShell(InstanceStore instanceStore) {
+        final shell = ShellController(
+          instanceStore: instanceStore,
+          api: FakeDiscourseApi(),
+          authenticator: FakeAuthenticator(),
+          drafts: FakeDraftStore(),
+          forumSettingsStore: ForumSettingsStore(),
+          trackers: FakeSiteTracker.reset(),
+          plugins: PluginInstaller.install(bundledPluginManifest),
+        );
+        addTearDown(shell.dispose);
+        return shell;
+      }
+
+      test('a removed forum leaves none of its preferences', () async {
+        final shell = storedPreferencesShell(
+          FakeInstanceStore([
+            instance('meta.discourse.org'),
+            instance('other.example.com'),
+          ]),
+        );
+        await shell.load();
+        await _keepSitePreferences(shell, _siteUrl);
+        await _keepSitePreferences(shell, otherSite);
+        final kept = await _storedPreferencesOf(otherSite);
+        expect(await _storedPreferencesOf(_siteUrl), hasLength(12));
+        expect(kept, hasLength(12));
+
+        expect(
+          await shell.removeInstance(shell.instanceFor(_siteUrl)!),
+          isTrue,
+        );
+        await pumpEventQueue();
+
+        expect(await _storedPreferencesOf(_siteUrl), isEmpty);
+        expect(await _storedPreferencesOf(otherSite), kept);
+        // What was read goes too, so the forum added again starts as new.
+        expect(shell.topicSidebar.collapsedFor(_siteUrl), isNull);
+        expect(
+          shell.sidebarSections.collapsedFor(
+            siteUrl: _siteUrl,
+            sectionId: 'community',
+          ),
+          isNull,
+        );
+        expect(shell.forumSettings.themeModeFor(_siteUrl), AppThemeMode.system);
+        expect(
+          shell.forumSettings.themesFor(_siteUrl),
+          ForumThemePreferences.defaults,
+        );
+        expect(
+          shell.emojiPickerStore.skinToneFor(siteUrl: _siteUrl),
+          EmojiSkinTone.neutral,
+        );
+        expect(shell.topicSidebar.collapsedFor(otherSite), isTrue);
+        expect(
+          shell.emojiPickerStore.skinToneFor(siteUrl: otherSite),
+          EmojiSkinTone.t3,
+        );
+      });
+
+      test('a forum whose removal cannot be saved keeps them', () async {
+        final shell = storedPreferencesShell(
+          _FailingRemovalSaveStore([
+            instance('meta.discourse.org'),
+            instance('other.example.com'),
+          ]),
+        );
+        await shell.load();
+        await _keepSitePreferences(shell, _siteUrl);
+        final kept = await _storedPreferencesOf(_siteUrl);
+
+        expect(
+          await shell.removeInstance(shell.instanceFor(_siteUrl)!),
+          isFalse,
+        );
+        await pumpEventQueue();
+
+        expect(await _storedPreferencesOf(_siteUrl), kept);
+        expect(shell.topicSidebar.collapsedFor(_siteUrl), isTrue);
+      });
+
+      test('a forum re-added while its removal saves keeps them', () async {
+        final store = _HeldRemovalSaveStore([
+          instance('meta.discourse.org'),
+          instance('other.example.com'),
+        ]);
+        addTearDown(() {
+          if (!store.releaseRemoval.isCompleted) {
+            store.releaseRemoval.complete();
+          }
+        });
+        final shell = storedPreferencesShell(store);
+        await shell.load();
+        await _keepSitePreferences(shell, _siteUrl);
+        final kept = await _storedPreferencesOf(_siteUrl);
+
+        final removing = shell.removeInstance(shell.instanceFor(_siteUrl)!);
+        await store.removalHeld.future;
+        expect(await shell.addInstance(instance('meta.discourse.org')), isTrue);
+        store.releaseRemoval.complete();
+        expect(await removing, isTrue);
+        await pumpEventQueue();
+
+        expect(await _storedPreferencesOf(_siteUrl), kept);
+      });
+
+      for (final rail in [
+        [instance('other.example.com')],
+        <DiscourseInstance>[],
+      ]) {
+        test(
+          rail.isEmpty
+              ? "an empty rail keeps every forum's preferences"
+              : 'a restart drops the preferences of forums off the rail',
+          () async {
+            final previous = storedPreferencesShell(
+              FakeInstanceStore([
+                instance('meta.discourse.org'),
+                instance('other.example.com'),
+              ]),
+            );
+            await previous.load();
+            await _keepSitePreferences(previous, _siteUrl);
+            await _keepSitePreferences(previous, otherSite);
+            await previous.forumSettings.setThemeMode(
+              ForumSettingsController.homeSite,
+              AppThemeMode.dark,
+            );
+            final removed = await _storedPreferencesOf(_siteUrl);
+            final kept = await _storedPreferencesOf(otherSite);
+            final home = await _storedPreferencesOf(
+              ForumSettingsController.homeSite,
+            );
+            expect(home, isNotEmpty);
+
+            final restored = storedPreferencesShell(FakeInstanceStore(rail));
+            await restored.load();
+
+            expect(
+              await _storedPreferencesOf(_siteUrl),
+              rail.isEmpty ? removed : isEmpty,
+            );
+            expect(await _storedPreferencesOf(otherSite), kept);
+            expect(
+              await _storedPreferencesOf(ForumSettingsController.homeSite),
+              home,
+            );
+          },
+        );
+      }
+    });
 
     for (final removeSelected in [true, false]) {
       test('keep the tabs of a ${removeSelected ? 'selected' : 'background'} '

@@ -2,6 +2,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'preference_snapshots.dart';
 import 'serial_operation_queue.dart';
+import 'site_preference_keys.dart';
 import 'store_diagnostics.dart';
 
 abstract interface class TopicSidebarPersistence {
@@ -20,8 +21,9 @@ final class SharedPreferencesTopicSidebarPersistence
   // Keep the earlier recommendations-panel key: that panel became this
   // sidebar, so an existing reader's visibility choice still means the same
   // thing after the surface grows topic properties and actions.
-  static const String _keyPrefix =
-      'discourse_native.topic_recommendations_panel_collapsed';
+  static const keys = SitePreferenceKey(
+    'discourse_native.topic_recommendations_panel_collapsed',
+  );
 
   @override
   Future<bool?> readCollapsed({required String siteUrl}) async =>
@@ -34,8 +36,7 @@ final class SharedPreferencesTopicSidebarPersistence
   }) async =>
       (await SharedPreferences.getInstance()).setBool(_key(siteUrl), collapsed);
 
-  static String _key(String siteUrl) =>
-      '$_keyPrefix.${Uri.encodeComponent(siteUrl)}';
+  static String _key(String siteUrl) => keys.of(siteUrl);
 }
 
 final class TopicSidebarStore {
@@ -52,6 +53,12 @@ final class TopicSidebarStore {
 
   Future<bool> ensure({required String siteUrl}) =>
       _snapshots.ensure(siteUrl, () => read(siteUrl: siteUrl));
+
+  /// Drops what was read or chosen for forums that left the rail for good.
+  /// Their stored choice goes with the rest of their preferences; see
+  /// [forgetSitePreferences].
+  void forgetSites(ForgottenSites sites) =>
+      _snapshots.forgetWhere(sites.includes);
 
   Future<bool> read({required String siteUrl}) => _operations.read(
     owner: _persistence,

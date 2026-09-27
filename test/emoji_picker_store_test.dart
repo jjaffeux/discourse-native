@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:discourse_native/src/data/emoji_picker_store.dart';
+import 'package:discourse_native/src/data/site_preference_keys.dart';
 import 'package:discourse_native/src/diagnostics/diagnostic_event.dart';
 import 'package:discourse_native/src/diagnostics/diagnostics_controller.dart';
 import 'package:discourse_native/src/diagnostics/diagnostics_persistence.dart';
@@ -116,6 +117,50 @@ void main() {
         );
       },
     );
+
+    test('a forgotten forum does not write back what it had read', () async {
+      const other = 'https://team.discourse.org';
+      final persistence = _MemoryPersistence();
+      final store = EmojiPickerStore(persistence: persistence);
+      for (final site in [meta, other]) {
+        await store.writeSkinTone(siteUrl: site, tone: EmojiSkinTone.t4);
+        await store.trackEmoji(
+          siteUrl: site,
+          context: CoreEmojiUsageContexts.topic,
+          emoji: 'wave',
+        );
+      }
+
+      // Removing the forum drops its stored document with the rest.
+      persistence.values.remove(meta);
+      store.forgetSites(
+        ForgottenSites.removed('$meta/', keeping: const [other]),
+      );
+      await store.trackEmoji(
+        siteUrl: meta,
+        context: CoreEmojiUsageContexts.topic,
+        emoji: 'smile',
+      );
+
+      final catalog = _catalog(['wave', 'smile']);
+      expect(store.skinToneFor(siteUrl: meta), EmojiSkinTone.neutral);
+      expect(jsonDecode(persistence.values[meta]!), {
+        'version': EmojiPickerStore.formatVersion,
+        'tone': 'neutral',
+        'history': {
+          CoreEmojiUsageContexts.topic.id: ['smile'],
+        },
+      });
+      expect(store.skinToneFor(siteUrl: other), EmojiSkinTone.t4);
+      expect(
+        store.favoriteEmojiCodesFor(
+          siteUrl: other,
+          context: CoreEmojiUsageContexts.topic,
+          catalog: catalog,
+        ),
+        ['wave'],
+      );
+    });
   });
 
   group('usage history', () {

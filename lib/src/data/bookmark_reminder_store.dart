@@ -1,13 +1,18 @@
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'site_preference_keys.dart';
 import 'store_diagnostics.dart';
 
 final class BookmarkReminderStore {
   const BookmarkReminderStore();
 
+  static const keys = SitePreferenceKey(
+    'bookmark.last-custom',
+    tail: SitePreferenceTail.name,
+  );
+
   String _key(String siteUrl, String username) =>
-      'bookmark.last-custom.${Uri.encodeComponent(siteUrl)}.'
-      '${Uri.encodeComponent(username.toLowerCase())}';
+      '${keys.of(siteUrl)}.${Uri.encodeComponent(username.toLowerCase())}';
 
   Future<DateTime?> read(String siteUrl, String username) async {
     try {

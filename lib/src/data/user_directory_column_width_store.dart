@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'serial_operation_queue.dart';
+import 'site_preference_keys.dart';
 import 'store_diagnostics.dart';
 
 abstract interface class UserDirectoryColumnWidthPersistence {
@@ -16,8 +17,9 @@ final class SharedPreferencesUserDirectoryColumnWidthPersistence
     implements UserDirectoryColumnWidthPersistence {
   const SharedPreferencesUserDirectoryColumnWidthPersistence();
 
-  static const String _keyPrefix =
-      'discourse_native.user_directory_column_widths';
+  static const keys = SitePreferenceKey(
+    'discourse_native.user_directory_column_widths',
+  );
 
   @override
   Future<String?> readWidths({required String siteUrl}) async =>
@@ -30,8 +32,7 @@ final class SharedPreferencesUserDirectoryColumnWidthPersistence
   }) async =>
       (await SharedPreferences.getInstance()).setString(_key(siteUrl), encoded);
 
-  static String _key(String siteUrl) =>
-      '$_keyPrefix.${Uri.encodeComponent(siteUrl)}';
+  static String _key(String siteUrl) => keys.of(siteUrl);
 }
 
 @immutable

@@ -4,6 +4,7 @@ import 'dart:ui';
 import '../data/forum_settings_store.dart';
 import '../data/preference_snapshots.dart';
 import '../data/serial_operation_queue.dart';
+import '../data/site_preference_keys.dart';
 import '../data/stored_forum_base.dart';
 import '../foundation/frame_safe_notifier.dart';
 import '../models/app_settings.dart';
@@ -252,6 +253,14 @@ final class ForumSettingsController extends FrameSafeNotifier {
       _themes.ensure(site, () => store.loadThemes(site)),
     ]);
     if (!isDisposed) notifySafely();
+  }
+
+  /// Drops what was read or chosen for forums that left the rail for good, so
+  /// one added again loads as new. Their stored themes go with the rest of
+  /// their preferences; see [forgetSitePreferences].
+  void forgetSites(ForgottenSites sites) {
+    _themeModes.forgetWhere(sites.includes);
+    _themes.forgetWhere(sites.includes);
   }
 
   Future<void> setThemeMode(String siteUrl, AppThemeMode mode) {

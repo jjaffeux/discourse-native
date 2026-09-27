@@ -2,6 +2,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'preference_snapshots.dart';
 import 'serial_operation_queue.dart';
+import 'site_preference_keys.dart';
 import 'store_diagnostics.dart';
 
 abstract interface class SidebarSectionPersistence {
@@ -21,7 +22,10 @@ final class SharedPreferencesSidebarSectionPersistence
     implements SidebarSectionPersistence {
   const SharedPreferencesSidebarSectionPersistence();
 
-  static const String _keyPrefix = 'discourse_native.sidebar_section_collapsed';
+  static const keys = SitePreferenceKey(
+    'discourse_native.sidebar_section_collapsed',
+    tail: SitePreferenceTail.name,
+  );
 
   @override
   Future<bool?> readCollapsed({
@@ -41,8 +45,7 @@ final class SharedPreferencesSidebarSectionPersistence
   );
 
   static String _key(String siteUrl, String sectionId) =>
-      '$_keyPrefix.${Uri.encodeComponent(siteUrl)}.'
-      '${Uri.encodeComponent(sectionId)}';
+      '${keys.of(siteUrl)}.${Uri.encodeComponent(sectionId)}';
 }
 
 final class SidebarSectionStore {
@@ -62,6 +65,12 @@ final class SidebarSectionStore {
         siteUrl,
         sectionId,
       ), () => read(siteUrl: siteUrl, sectionId: sectionId));
+
+  /// Drops what was read or chosen for forums that left the rail for good.
+  /// Their stored sections go with the rest of their preferences; see
+  /// [forgetSitePreferences].
+  void forgetSites(ForgottenSites sites) =>
+      _snapshots.forgetWhere((key) => sites.includes(key.$1));
 
   Future<bool> read({required String siteUrl, required String sectionId}) =>
       _operations.run(
