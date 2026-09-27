@@ -1414,7 +1414,13 @@ class ChatMessage with Storable<ChatMessage> {
     channelId,
     cooked,
     author,
-    Object.hashAllUnordered(mentionedUserStatuses.entries),
+    // MapEntry hashes by identity while == uses mapEquals, so the statuses
+    // must be hashed by key/value pairs to keep equal messages on one hash
+    // code.
+    Object.hashAllUnordered([
+      for (final entry in mentionedUserStatuses.entries)
+        Object.hash(entry.key, entry.value),
+    ]),
     raw,
     createdAt,
     Object.hash(

@@ -108,6 +108,29 @@ void main() {
     expect(original.isLocalized, isFalse);
   });
 
+  test('posts mentioning a user with a status hash by value', () {
+    Post parse() => Post.fromJson(const {
+      'id': 1,
+      'post_number': 1,
+      'username': 'sam',
+      'cooked': '<p>Hi @alex</p>',
+      'mentioned_users': [
+        {
+          'id': 3,
+          'username': 'alex',
+          'status': {'description': 'Travelling', 'emoji': 'airplane'},
+        },
+      ],
+    }, siteUrl);
+    final first = parse();
+    final second = parse();
+
+    expect(first.mentionedUserStatuses, isNotEmpty);
+    expect(second, first);
+    expect(second.hashCode, first.hashCode);
+    expect(first.hashCode, first.hashCode);
+  });
+
   test('whole-topic edit permission includes tag editing', () {
     TopicDetail detail(Map<String, Object?> permissions) => TopicDetail.parse({
       'id': 7,
