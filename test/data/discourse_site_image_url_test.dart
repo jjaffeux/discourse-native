@@ -64,6 +64,30 @@ void main() {
       expected: 'http://localhost:4300/uploads/icon.png?v=2',
     ),
     (
+      description: 'own HTTP-spelled artwork on an HTTPS forum',
+      siteUrl: 'https://example.com/community',
+      image: 'http://example.com/community/uploads/icon%20one.png?v=a%2Fb',
+      expected: 'https://example.com/community/uploads/icon%20one.png?v=a%2Fb',
+    ),
+    (
+      description: 'own HTTP-spelled artwork on an HTTPS forum with a port',
+      siteUrl: 'https://example.com:8443',
+      image: 'http://example.com:8443/uploads/icon.png',
+      expected: 'https://example.com:8443/uploads/icon.png',
+    ),
+    (
+      description: 'HTTP artwork from another host on an HTTPS forum',
+      siteUrl: 'https://example.com',
+      image: 'http://cdn.example.com/uploads/icon.png',
+      expected: 'http://cdn.example.com/uploads/icon.png',
+    ),
+    (
+      description: 'HTTP artwork from another port on an HTTPS forum',
+      siteUrl: 'https://example.com',
+      image: 'http://example.com:8080/uploads/icon.png',
+      expected: 'http://example.com:8080/uploads/icon.png',
+    ),
+    (
       description: 'root-relative artwork with an encoded subfolder and port',
       siteUrl: 'https://example.com:8443/caf%C3%A9/team%2Fone',
       image: '/caf%C3%A9/team%2Fone/uploads/icon%20one.png?v=a%2Fb&v=2',
