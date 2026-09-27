@@ -231,6 +231,81 @@ void main() {
     },
   );
 
+  testWidgets('a live arrival keeps held rows and their HTML mounted', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(900, 700);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final controller = await chatScrollController();
+    addTearDown(controller.dispose);
+    final diagnostics = DiagnosticsController.start(
+      persistence: MemoryDiagnosticsPersistence(),
+    );
+    addTearDown(diagnostics.close);
+    // Close under the fake clock even when the body fails: a close first
+    // reached from a tearDown never completes, because it waits on futures
+    // created under the fake clock, which nothing drives once the body has
+    // returned.
+    try {
+      await tester.pumpWidget(
+        ChatScrollFixture(
+          controller: controller,
+          diagnostics: diagnostics,
+          width: 800,
+        ),
+      );
+      await tester.pumpAndSettle();
+      final chat = controller.pluginSession.require(chatControllerService);
+      final tiles = find.byType(ChatMessageTile, skipOffstage: false);
+      final html = find.byType(HtmlWidget, skipOffstage: false);
+      final heldTiles = {
+        for (final element in tiles.evaluate())
+          element: (element.widget as ChatMessageTile).messageId,
+      };
+      final heldHtml = html.evaluate().toSet();
+      expect(heldTiles.length, greaterThan(2));
+
+      // Inserting the newest row at index zero shifts every held row by one;
+      // the arrival must mount only its own row.
+      final newestAt = chat.messageRef(chatScrollSite, 500).value!.createdAt!;
+      FakeSiteTracker.built
+          .lastWhere((tracker) => tracker.siteUrl == chatScrollSite)
+          .deliverPluginMessage('/chat/9', {
+            'type': 'sent',
+            'chat_message': {
+              'id': 501,
+              'chat_channel_id': 9,
+              'cooked': '<p>A live arrival.</p>',
+              'created_at': newestAt
+                  .add(const Duration(minutes: 1))
+                  .toUtc()
+                  .toIso8601String(),
+              'user': {'id': 2, 'username': 'sam'},
+            },
+          });
+      await tester.pumpAndSettle();
+
+      expect(chat.stream(chatScrollSite, 9).messageIds.last, 501);
+      expect(
+        find.byWidgetPredicate(
+          (widget) => widget is ChatMessageTile && widget.messageId == 501,
+        ),
+        findsOneWidget,
+      );
+      for (final MapEntry(key: element, value: id) in heldTiles.entries) {
+        expect(element.mounted, isTrue, reason: 'message $id was remounted');
+      }
+      expect(tiles.evaluate().toSet(), containsAll(heldTiles.keys));
+      expect(html.evaluate().toSet().difference(heldHtml), hasLength(1));
+      expect(tester.takeException(), isNull);
+    } finally {
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump();
+      await diagnostics.close();
+    }
+  });
+
   final richLayouts = ValueVariant({
     (width: 800.0, dark: false, directMessage: false),
     (width: 360.0, dark: true, directMessage: false),

@@ -476,9 +476,11 @@ class DMessageScrollerViewport extends StatefulWidget {
   /// the same invariant.
   final bool preserveReaderPositionOnResize;
 
-  /// Lets keyed rows follow stable ids across insertions. A reversed adapter
-  /// that already preserves offsets by physical index may disable this while
-  /// continuing to expose ids for commands and state.
+  /// Lets rows follow their stable ids across insertions, keeping each row's
+  /// element, state and keep-alive. Disabled, rows match by index: one
+  /// insertion ahead of them, such as the newest row of a reversed transcript,
+  /// rebuilds every mounted row after it from scratch. Layout offsets stay
+  /// positional either way, so reversal alone is no reason to disable this.
   final bool preserveChildIdentity;
   final bool reverse;
   final ScrollPhysics? physics;
@@ -551,6 +553,9 @@ class _DMessageScrollerViewportState extends State<DMessageScrollerViewport>
   ({String id, double top})? _pendingRestore;
   ({String id, DMessageScrollerScrollOptions options})? _pendingTarget;
   List<String> _ids = const [];
+
+  /// The sliver resolves every mounted keyed row through this on each rebuild.
+  Map<String, int> _indexes = const {};
   List<bool> _anchors = const [];
   final List<String> _pendingAnnouncements = [];
 
@@ -637,19 +642,20 @@ class _DMessageScrollerViewportState extends State<DMessageScrollerViewport>
   void _captureItems() {
     final ids = <String>[];
     final anchors = <bool>[];
-    final seen = <String>{};
+    final indexes = <String, int>{};
     for (var index = 0; index < widget.itemCount; index++) {
       final id = widget.itemId(index);
-      final unique = seen.add(id);
+      final unique = indexes.putIfAbsent(id, () => index) == index;
       assert(unique, 'Message Scroller ids must be unique: $id');
       ids.add(id);
       anchors.add(widget.itemIsAnchor(index));
     }
     _ids = List.unmodifiable(ids);
+    _indexes = indexes;
     _anchors = List.unmodifiable(anchors);
     if (widget.preserveChildIdentity) {
       _indexedRowKeys.clear();
-      _rowKeys.removeWhere((id, _) => !seen.contains(id));
+      _rowKeys.removeWhere((id, _) => !indexes.containsKey(id));
       for (final id in ids) {
         _rowKeys.putIfAbsent(id, GlobalKey.new);
       }
@@ -956,10 +962,7 @@ class _DMessageScrollerViewportState extends State<DMessageScrollerViewport>
     return _restoreHold((id: id, top: top));
   }
 
-  int? _indexOf(String id) {
-    final index = _ids.indexOf(id);
-    return index < 0 ? null : index;
-  }
+  int? _indexOf(String id) => _indexes[id];
 
   @override
   bool scrollToStart([
@@ -1417,8 +1420,7 @@ class _DMessageScrollerViewportState extends State<DMessageScrollerViewport>
   int? _findChildIndex(Key key) {
     final rowKey = _findIndexKey(key) as _DMessageScrollerRowKey?;
     if (rowKey == null) return null;
-    final index = _ids.indexOf(rowKey.id);
-    return index < 0 ? null : index;
+    return _indexOf(rowKey.id);
   }
 
   KeyEventResult _handleKey(FocusNode node, KeyEvent event) {

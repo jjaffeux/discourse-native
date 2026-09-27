@@ -1427,7 +1427,6 @@ class _StreamState extends State<ChatMessageStream>
               cacheExtent: 0,
               preserveScrollOnPrepend: false,
               preserveReaderPositionOnResize: false,
-              preserveChildIdentity: false,
               contentPadding: lane.padding,
               itemCount: leading + items.length + (stream.loadingOlder ? 1 : 0),
               itemIdBuilder: (row) => _rowId(row, lastRow: lastRow),
