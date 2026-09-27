@@ -360,13 +360,45 @@ void main() {
       expect(payload.detail.canRecoverTopic, isTrue);
       expect(payload.detail.hasStatusActions, isTrue);
 
-      final recovered = payload.detail.withDeletion(
-        false,
-        DateTime.utc(2026, 8, 25, 13),
-      );
+      final recovered = payload.detail.afterRecovery();
       expect(recovered.deletedAt, isNull);
       expect(recovered.canDeleteTopic, isTrue);
       expect(recovered.canRecoverTopic, isFalse);
+    });
+
+    // PostDestroyer (lib/post_destroyer.rb): perform_delete trashes the topic
+    // for a moderator, mark_for_deletion closes it for its author, and
+    // user_recovered reopens it.
+    test('projects what PostDestroyer does to a deleted topic', () {
+      final at = DateTime.utc(2026, 8, 25, 13);
+      TopicDetail topic({required bool moderator}) => TopicDetail.parse({
+        'id': 7,
+        'title': 'A topic',
+        'details': {'can_delete': true, 'can_close_topic': moderator},
+      }, site).detail;
+
+      final trashed = topic(moderator: true).afterDeletion(at);
+      expect(trashed.deletedAt, at);
+      expect(trashed.closed, isFalse);
+      expect(trashed.canDeleteTopic, isFalse);
+      expect(trashed.canRecoverTopic, isTrue);
+
+      final withdrawn = topic(moderator: false).afterDeletion(at);
+      expect(withdrawn.deletedAt, isNull);
+      expect(withdrawn.closed, isTrue);
+      expect(withdrawn.canDeleteTopic, isTrue);
+      expect(withdrawn.canRecoverTopic, isTrue);
+
+      final reopened = withdrawn.afterRecovery();
+      expect(reopened.closed, isFalse);
+      expect(reopened.canRecoverTopic, isFalse);
+
+      final stillClosed = trashed.copyWith(closed: true).afterRecovery();
+      expect(stillClosed.deletedAt, isNull);
+      expect(stillClosed.closed, isTrue);
+
+      final ordinary = topic(moderator: false).copyWith(closed: true);
+      expect(ordinary.afterRecovery(), same(ordinary));
     });
 
     test('reads and updates the current account pin preference', () {

@@ -5562,8 +5562,9 @@ class ShellController extends FrameSafeNotifier
   final Set<String> _topicsLoading = {};
   final Set<String> _topicRefreshPending = {};
   final Map<String, int> _topicRefreshPostNumbers = {};
-  // A failed forced reconciliation must not turn the held topic into a
-  // permanent cache hit. The next ordinary open retries it automatically.
+  // A failed forced reconciliation, or a write whose effect on the topic was
+  // only projected, must not turn the held topic into a permanent cache hit.
+  // The next ordinary open reads it again automatically.
   final Set<String> _topicsStale = {};
   final Set<String> _postsLoading = {};
   final Set<String> _earlierPostsLoading = {};
@@ -8135,11 +8136,7 @@ class ShellController extends FrameSafeNotifier
       }
       if (!lease.isCurrent || isDisposed) return null;
       lease.commit(() {
-        store.update<TopicDetail>(
-          siteUrl,
-          topicId,
-          (topic) => topic.withDeletion(deleted, DateTime.now().toUtc()),
-        );
+        _applyTopicDeletion(siteUrl, topicId, deleted);
         _notify();
       });
       return null;
@@ -8155,6 +8152,42 @@ class ShellController extends FrameSafeNotifier
         _topicDeletionWrites.remove(key);
         if (!isDisposed) _notify();
       });
+    }
+  }
+
+  /// Applies an accepted deletion or recovery of a topic. Neither endpoint
+  /// answers with the topic, so the held one takes what PostDestroyer is known
+  /// to do to it, its list row follows the closed state, and it is read again
+  /// for what that leaves to the server.
+  void _applyTopicDeletion(String siteUrl, int topicId, bool deleted) {
+    final held = store.read<TopicDetail>(siteUrl, topicId);
+    if (held == null) return;
+    final next = deleted
+        ? held.afterDeletion(DateTime.now().toUtc())
+        : held.afterRecovery();
+    if (identical(next, held)) return;
+    store.update<TopicDetail>(siteUrl, topicId, (_) => next);
+    if (next.closed != held.closed) {
+      store.update<Topic>(
+        siteUrl,
+        topicId,
+        (row) => row.copyWith(closed: next.closed),
+      );
+    }
+    if (!deleted) {
+      // Only the server knows whether the recovered topic takes replies again.
+      unawaited(_refetchTopic(siteUrl, topicId, ''));
+      return;
+    }
+    // Site settings decide whether an author's deletion withdrew or trashed
+    // the topic, and a deleter may no longer be allowed to read a trashed
+    // one, so it is read when next opened rather than now. A read already on
+    // its way predates the deletion and is repeated.
+    final key = _topicKey(siteUrl, topicId);
+    if (_topicsLoading.contains(key)) {
+      _topicRefreshPending.add(key);
+    } else {
+      _topicsStale.add(key);
     }
   }
 
@@ -10635,13 +10668,9 @@ class ShellController extends FrameSafeNotifier
       ),
       // PostDestroyer#recover also recovers the topic of a first post, and the
       // only topic message it publishes is a stats one, so the held topic has
-      // to leave its deleted state here, as after the header's recover.
+      // to be recovered here, as after the header's recover.
       accepted: post.postNumber == 1
-          ? (siteUrl, topicId) => store.update<TopicDetail>(
-              siteUrl,
-              topicId,
-              (topic) => topic.withDeletion(false, DateTime.now().toUtc()),
-            )
+          ? (siteUrl, topicId) => _applyTopicDeletion(siteUrl, topicId, false)
           : null,
     );
   }

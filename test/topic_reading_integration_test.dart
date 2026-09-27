@@ -3706,7 +3706,9 @@ void _registerTopicReadingTests() {
       final api = FakeDiscourseApi(
         user: reader,
         feeds: {'/latest.json': listed},
-        topics: {7: detail(canDeleteTopic: true)},
+        // Staff can always moderate a topic, and so trash rather than
+        // withdraw it.
+        topics: {7: detail(canCloseTopic: true, canDeleteTopic: true)},
       );
       final authenticator = FakeAuthenticator()
         ..keys['https://meta.discourse.org'] = 'meta-key';

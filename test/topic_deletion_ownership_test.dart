@@ -93,7 +93,7 @@ void main() {
         expect(shell.currentInstance?.user, _replacement);
         expect(shell.currentContent, same(route));
         expect(shell.currentTopic, same(topic));
-        expect(shell.currentTopic?.deletedAt, isNull);
+        expect(shell.currentTopic?.canRecoverTopic, isFalse);
         expect(api.writes, hasLength(pending == 'credentials' ? 0 : 1));
         expect(
           api.writes.every((write) => write.apiKey == 'original-key'),
@@ -165,10 +165,13 @@ void main() {
           expect(api.writes, [
             (siteUrl: _site, apiKey: 'original-key', topicId: 7, deleted: true),
           ]);
-          expect(shell.store.read<TopicDetail>(_site, 7)?.deletedAt, isNotNull);
           expect(
-            shell.store.read<TopicDetail>(_otherSite, 7)?.deletedAt,
-            isNull,
+            shell.store.read<TopicDetail>(_site, 7)?.canRecoverTopic,
+            isTrue,
+          );
+          expect(
+            shell.store.read<TopicDetail>(_otherSite, 7)?.canRecoverTopic,
+            isNot(isTrue),
           );
           expect(shell.currentContent, same(route));
           expect(shell.activeTabId, tab);
@@ -201,7 +204,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Deletion is temporarily disabled.'), findsOneWidget);
       expect(shell.currentContent, same(route));
-      expect(shell.currentTopic?.deletedAt, isNull);
+      expect(shell.currentTopic?.canRecoverTopic, isFalse);
 
       api.deletionFailure = null;
       await _choose(tester, 'Delete topic');
@@ -209,7 +212,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(api.writes, hasLength(2));
       expect(shell.currentContent?.topicId, isNull);
-      expect(shell.store.read<TopicDetail>(_site, 7)?.deletedAt, isNotNull);
+      expect(shell.store.read<TopicDetail>(_site, 7)?.canRecoverTopic, isTrue);
     },
   );
 
@@ -240,7 +243,7 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(shell.currentContent?.topicId, topicId);
-        expect(shell.currentTopic?.deletedAt, isNull);
+        expect(shell.currentTopic?.canRecoverTopic, isFalse);
         expect(api.writes.single.apiKey, 'original-key');
         expect(tester.takeException(), isNull);
       },
@@ -259,7 +262,12 @@ void main() {
         await tester.tap(_confirm);
         await tester.pumpAndSettle();
         expect(api.writes.single.deleted, isTrue);
-        expect(shell.store.read<TopicDetail>(_site, 7)?.deletedAt, isNotNull);
+        // Staff trash the topic, while its author withdraws it: the topic is
+        // closed and not deleted.
+        final deleted = shell.store.read<TopicDetail>(_site, 7)!;
+        expect(deleted.canRecoverTopic, isTrue);
+        expect(deleted.deletedAt != null, staff);
+        expect(deleted.closed, !staff);
         if (staff) {
           expect(shell.currentContent, same(route));
           expect(shell.currentTopic?.canRecoverTopic, isTrue);
@@ -407,6 +415,8 @@ class _DeletionApi extends FakeDiscourseApi {
   }) async => topicPayload(
     id: id,
     title: 'A real topic',
+    // Staff can always moderate a topic, and so trash rather than withdraw it.
+    canCloseTopic: reader.staff,
     canDeleteTopic: true,
     posts: const [
       Post(id: 1, postNumber: 1, username: 'author', cooked: '<p>Body</p>'),
