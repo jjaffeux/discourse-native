@@ -71,6 +71,16 @@ class _DSwitchState extends State<DSwitch> {
   bool _pressed = false;
   final FocusNode _ownedFocus = FocusNode();
   FocusNode get _focus => widget.focusNode ?? _ownedFocus;
+
+  // A disabled switch drops its tap-up handler, so a press still down when
+  // the switch is disabled would otherwise keep its pressed fill once the
+  // switch is enabled again.
+  @override
+  void didUpdateWidget(DSwitch oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!_enabled) _pressed = false;
+  }
+
   @override
   void dispose() {
     _ownedFocus.dispose();

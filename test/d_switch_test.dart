@@ -820,6 +820,45 @@ void main() {
     }
   });
 
+  testWidgets('disabling a switch mid-press does not leave it pressed', (
+    tester,
+  ) async {
+    var enabled = true;
+    late StateSetter update;
+    await mount(
+      tester,
+      StatefulBuilder(
+        builder: (context, setState) {
+          update = setState;
+          return DSwitch(value: false, onChanged: enabled ? (_) {} : null);
+        },
+      ),
+    );
+    final track = find.descendant(
+      of: find.byType(DSwitch),
+      matching: find.byType(AnimatedContainer),
+    );
+    Color? fill() =>
+        (tester.widget<AnimatedContainer>(track).decoration! as BoxDecoration)
+            .color;
+    final resting = fill();
+
+    final press = await tester.startGesture(
+      tester.getCenter(find.byType(DSwitch)),
+    );
+    await tester.pump();
+    expect(fill(), isNot(resting));
+
+    update(() => enabled = false);
+    await tester.pump();
+    await press.up();
+    await tester.pump();
+    update(() => enabled = true);
+    await tester.pumpAndSettle();
+
+    expect(fill(), resting);
+  });
+
   testWidgets(
     'choice card live radius and translucent selected hover focus tokens follow source',
     (tester) async {
