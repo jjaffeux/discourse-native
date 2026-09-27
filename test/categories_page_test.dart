@@ -13,6 +13,7 @@ import 'package:discourse_native/src/theme/d_icon.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart' show SemanticsAction;
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -399,6 +400,72 @@ void main() {
         }
       },
     );
+
+    testWidgets('cards are buttons and featured topics speak their status', (
+      tester,
+    ) async {
+      final api = FakeDiscourseApi(
+        feeds: const {'/latest.json': []},
+        categoryList: const [
+          TopicCategory(
+            id: 30,
+            name: 'Alerts',
+            color: 'F15A24',
+            slug: 'alerts',
+            featuredTopics: [
+              CategoryFeaturedTopic(
+                id: 101,
+                title: 'Read me first',
+                slug: 'read-me-first',
+                pinned: true,
+                closed: true,
+              ),
+              CategoryFeaturedTopic(
+                id: 102,
+                title: 'Closed topic',
+                slug: 'closed-topic',
+                closed: true,
+              ),
+              CategoryFeaturedTopic(
+                id: 103,
+                title: 'Archived topic',
+                slug: 'archived-topic',
+                archived: true,
+              ),
+              CategoryFeaturedTopic(
+                id: 104,
+                title: 'Ordinary topic',
+                slug: 'ordinary-topic',
+              ),
+            ],
+          ),
+        ],
+      );
+      final controller = await _loadCategories(api);
+      final semantics = tester.ensureSemantics();
+      await _pumpPage(tester, controller, width: 390);
+
+      final card = tester
+          .getSemantics(find.bySemanticsLabel('Alerts'))
+          .getSemanticsData();
+      expect(card.flagsCollection.isButton, isTrue);
+      expect(card.hasAction(SemanticsAction.tap), isTrue);
+      for (final (id, label) in [
+        (101, 'Pinned\nRead me first'),
+        (102, 'Closed\nClosed topic'),
+        (103, 'Archived\nArchived topic'),
+        (104, 'Ordinary topic'),
+      ]) {
+        final topic = tester
+            .getSemantics(_featuredTopic(id))
+            .getSemanticsData();
+        expect(topic.label, label);
+        expect(topic.flagsCollection.isButton, isTrue);
+        // The status icon is drawn, not announced as an image of its own.
+        expect(topic.flagsCollection.isImage, isFalse);
+      }
+      semantics.dispose();
+    });
 
     testWidgets('adapts category cards from three columns to two and one', (
       tester,

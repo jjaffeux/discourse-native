@@ -297,64 +297,70 @@ class _CategoryCard extends StatelessWidget {
 
     return DCard(
       spacing: 0,
-      child: InkWell(
-        onTap: onTap,
-        child: Stack(
-          children: [
-            Positioned(
-              left: 0,
-              top: 0,
-              bottom: 0,
-              child: ColoredBox(
-                color: Color(category.colorValue),
-                child: const SizedBox(width: 5),
-              ),
-            ),
-            ConstrainedBox(
-              constraints: const BoxConstraints(minHeight: 118),
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(20, 16, 16, 16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Center(
-                      child: Wrap(
-                        spacing: 7,
-                        runSpacing: 4,
-                        alignment: WrapAlignment.center,
-                        crossAxisAlignment: WrapCrossAlignment.center,
-                        children: [
-                          CategoryIcon(
-                            key: ValueKey(('category-card-icon', category.id)),
-                            category: category,
-                            siteUrl: siteUrl,
-                            size: 15,
-                            squareSize: 12,
-                          ),
-                          Text(
-                            category.name,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            textAlign: TextAlign.center,
-                            style: theme.textTheme.titleSmall?.copyWith(
-                              color: foreground,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    if (!category.isMuted &&
-                        category.featuredTopics.isNotEmpty) ...[
-                      const SizedBox(height: 12),
-                      for (final topic in category.featuredTopics)
-                        _FeaturedTopicRow(siteUrl: siteUrl, topic: topic),
-                    ],
-                  ],
+      child: Semantics(
+        button: true,
+        child: InkWell(
+          onTap: onTap,
+          child: Stack(
+            children: [
+              Positioned(
+                left: 0,
+                top: 0,
+                bottom: 0,
+                child: ColoredBox(
+                  color: Color(category.colorValue),
+                  child: const SizedBox(width: 5),
                 ),
               ),
-            ),
-          ],
+              ConstrainedBox(
+                constraints: const BoxConstraints(minHeight: 118),
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 16, 16, 16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Center(
+                        child: Wrap(
+                          spacing: 7,
+                          runSpacing: 4,
+                          alignment: WrapAlignment.center,
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          children: [
+                            CategoryIcon(
+                              key: ValueKey((
+                                'category-card-icon',
+                                category.id,
+                              )),
+                              category: category,
+                              siteUrl: siteUrl,
+                              size: 15,
+                              squareSize: 12,
+                            ),
+                            Text(
+                              category.name,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              textAlign: TextAlign.center,
+                              style: theme.textTheme.titleSmall?.copyWith(
+                                color: foreground,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      if (!category.isMuted &&
+                          category.featuredTopics.isNotEmpty) ...[
+                        const SizedBox(height: 12),
+                        for (final topic in category.featuredTopics)
+                          _FeaturedTopicRow(siteUrl: siteUrl, topic: topic),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -373,11 +379,20 @@ class _FeaturedTopicRow extends StatelessWidget {
     return DIcons.farFileLines;
   }
 
+  String? get _status {
+    if (topic.pinned) return 'Pinned';
+    if (topic.closed) return 'Closed';
+    if (topic.archived) return 'Archived';
+    return null;
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    // The row speaks its status ahead of the title; the icon only draws it.
     return Semantics(
       button: true,
+      label: _status,
       child: InkWell(
         key: ValueKey('category-featured-topic-${topic.id}'),
         onTap: () => ShellScope.read(context).openFeaturedTopic(topic),
@@ -390,10 +405,12 @@ class _FeaturedTopicRow extends StatelessWidget {
             children: [
               Padding(
                 padding: const EdgeInsets.only(top: 3),
-                child: DIcon(
-                  _icon,
-                  size: 13,
-                  color: theme.colorScheme.onSurfaceVariant,
+                child: ExcludeSemantics(
+                  child: DIcon(
+                    _icon,
+                    size: 13,
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
                 ),
               ),
               const SizedBox(width: 7),

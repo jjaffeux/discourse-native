@@ -46,6 +46,7 @@ import 'package:flutter/material.dart'
         ValueKey,
         ValueListenableBuilder,
         WidgetState;
+import 'package:flutter/semantics.dart' show SemanticsAction;
 import 'package:flutter/services.dart' show LogicalKeyboardKey;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
@@ -726,6 +727,38 @@ void main() {
           debugDefaultTargetPlatformOverride = previousPlatform;
         }
       }
+    });
+
+    testWidgets('announces a draft row as a button without its separator', (
+      tester,
+    ) async {
+      final semantics = tester.ensureSemantics();
+      await _pumpList(
+        tester,
+        userDrafts: [
+          UserDraft(
+            key: 'new_topic',
+            sequence: 4,
+            createdAt: DateTime.now().subtract(const Duration(hours: 3)),
+            data: const ComposerDraft(
+              reply: 'A draft from another device',
+              action: ComposerDraft.createTopicAction,
+              title: 'Native drafts page',
+              categoryId: 5,
+            ),
+          ),
+        ],
+      );
+      final row = tester
+          .getSemantics(find.bySemanticsLabel(RegExp('^Native drafts page')))
+          .getSemanticsData();
+      expect(
+        row.label,
+        'Native drafts page\nSupport\n3h\nA draft from another device',
+      );
+      expect(row.flagsCollection.isButton, isTrue);
+      expect(row.hasAction(SemanticsAction.tap), isTrue);
+      semantics.dispose();
     });
   });
 
