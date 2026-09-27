@@ -94,37 +94,63 @@ class _UserCardHoverPreview extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final controller = ShellScope.maybeOf(context);
-    final targetSite = siteUrl ?? controller?.currentInstance?.url;
-    if (controller == null || targetSite == null) {
+    if (ShellScope.maybeIdentityOf(context) == null) {
       return const Text('Profile preview unavailable.');
     }
-    return ListenableBuilder(
-      listenable: controller,
-      builder: (context, _) {
-        final card = controller.userCard(username, siteUrl: targetSite);
-        if (card == null) {
-          final error = controller.userCardError(username, siteUrl: targetSite);
-          if (error != null) return Text(error);
-          if (!controller.contains(targetSite)) {
-            return const Text('Profile preview unavailable.');
-          }
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (!context.mounted ||
-                controller.userCard(username, siteUrl: targetSite) != null ||
-                controller.userCardError(username, siteUrl: targetSite) !=
-                    null) {
-              return;
-            }
-            unawaited(controller.loadUserCard(username, siteUrl: targetSite));
-          });
-          return const _CardSkeleton(preview: true);
+    return ShellSelector<_PreviewTarget>(
+      select: (controller) {
+        final targetSite = siteUrl ?? controller.currentInstance?.url;
+        return (
+          controller: controller,
+          siteUrl: targetSite,
+          // Only a connected forum can load a card. A new account session
+          // forgets the store's refs, so the preview resubscribes with it.
+          session: targetSite != null && controller.contains(targetSite)
+              ? controller.lifecycle.capture(targetSite).session
+              : null,
+        );
+      },
+      builder: (context, target, _) {
+        final (:controller, siteUrl: targetSite, :session) = target;
+        if (targetSite == null || session == null) {
+          return const Text('Profile preview unavailable.');
         }
-        return _UserCardHoverContent(card: card);
+        // A card's fetch and result are announced here, not on the shell.
+        return ListenableBuilder(
+          listenable: Listenable.merge([
+            controller.userCardRequests,
+            controller.store.ref<UserCard>(targetSite, username.toLowerCase()),
+          ]),
+          builder: (context, _) {
+            final card = controller.userCard(username, siteUrl: targetSite);
+            if (card != null) return _UserCardHoverContent(card: card);
+            final error = controller.userCardError(
+              username,
+              siteUrl: targetSite,
+            );
+            if (error != null) return Text(error);
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (!context.mounted ||
+                  controller.userCard(username, siteUrl: targetSite) != null ||
+                  controller.userCardError(username, siteUrl: targetSite) !=
+                      null) {
+                return;
+              }
+              unawaited(controller.loadUserCard(username, siteUrl: targetSite));
+            });
+            return const _CardSkeleton(preview: true);
+          },
+        );
       },
     );
   }
 }
+
+typedef _PreviewTarget = ({
+  ShellController controller,
+  String? siteUrl,
+  Object? session,
+});
 
 class _UserCardHoverContent extends StatelessWidget {
   const _UserCardHoverContent({required this.card});
@@ -382,9 +408,17 @@ class _ControllerUserCardPopupState extends State<_ControllerUserCardPopup> {
     await controller.loadUserCard(widget.username, siteUrl: widget.siteUrl);
   }
 
+  // The parent remounts this for each account session, which starts from new
+  // store refs; within one session only the card and its fetch change.
   @override
   Widget build(BuildContext context) => ListenableBuilder(
-    listenable: widget.controller,
+    listenable: Listenable.merge([
+      widget.controller.userCardRequests,
+      widget.controller.store.ref<UserCard>(
+        widget.siteUrl,
+        widget.username.toLowerCase(),
+      ),
+    ]),
     builder: (context, _) => _CardBody(
       controller: widget.controller,
       username: widget.username,

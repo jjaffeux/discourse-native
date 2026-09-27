@@ -210,8 +210,11 @@ void main() {
     test('$kind loading cannot adopt an account from a listener', () async {
       final fixture = await _fixture();
       addTearDown(fixture.shell.dispose);
+      final requests = kind == 'likers'
+          ? fixture.shell.likerRequests
+          : fixture.shell.userCardRequests;
       var invalidated = false;
-      fixture.shell.addListener(() {
+      requests.addListener(() {
         if (invalidated) return;
         invalidated = true;
         fixture.shell.lifecycle.invalidate(_siteUrl);
