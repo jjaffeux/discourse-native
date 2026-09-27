@@ -1031,6 +1031,83 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  for (final scale in [1.0, 2.0]) {
+    testWidgets(
+      'a touch trigger at ${scale}x text opens from its whole target and '
+      'not from beside it',
+      (tester) async {
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: AppTheme.light,
+            home: Scaffold(
+              body: MediaQuery(
+                data: MediaQueryData(textScaler: TextScaler.linear(scale)),
+                child: Center(
+                  child: SizedBox(
+                    width: 200,
+                    child: DSelect<String>.controlled(
+                      size: DControlSize.filter,
+                      width: 120,
+                      value: 'all',
+                      label: const Text('Membership'),
+                      entries: const [
+                        DSelectOption(
+                          value: 'all',
+                          label: 'All',
+                          child: Text('All'),
+                        ),
+                        DSelectOption(
+                          value: 'joined',
+                          label: 'Joined',
+                          child: Text('Joined'),
+                        ),
+                      ],
+                      onChanged: _noopString,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+        final visual = tester.getRect(
+          find.byKey(const Key('d-select-trigger-visual')),
+        );
+        final target = Rect.fromCenter(
+          center: visual.center,
+          width: visual.width,
+          height: visual.height < DSpacing.touchTarget
+              ? DSpacing.touchTarget
+              : visual.height,
+        );
+        final popup = find.text('Joined');
+
+        for (final point in [
+          target.center,
+          target.topLeft + const Offset(1, 1),
+          target.topRight + const Offset(-1, 1),
+          target.bottomLeft + const Offset(1, -1),
+          target.bottomRight - const Offset(1, 1),
+        ]) {
+          await tester.tapAt(point);
+          await tester.pumpAndSettle();
+          expect(popup, findsOneWidget, reason: '$point');
+          await tester.tapAt(Offset.zero);
+          await tester.pumpAndSettle();
+          expect(popup, findsNothing);
+        }
+
+        await tester.tapAt(target.centerLeft - const Offset(2, 0));
+        await tester.pumpAndSettle();
+        expect(popup, findsNothing);
+      },
+      variant: const TargetPlatformVariant({
+        TargetPlatform.iOS,
+        TargetPlatform.android,
+      }),
+    );
+  }
+
   testWidgets(
     'initial scroll-down arrow is actionable for an overflowing list',
     (tester) async {

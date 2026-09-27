@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import 'package:discourse_native/discourse_ui.dart'
-    show DButton, DDropdownMenuItem, DSpinner;
+    show DButton, DDropdownMenuItem, DSpacing, DSpinner;
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/plugin_api/plugin_data.dart';
@@ -665,6 +665,59 @@ void main() {
         expect(tester.takeException(), isNull);
       },
     );
+
+    for (final (size, scale) in [(phone, 1.0), (const Size(320, 720), 2.0)]) {
+      _mobileTest(
+        'at ${size.width.toInt()}x${size.height.toInt()} with ${scale}x text '
+        'each filter opens from anywhere on its touch target',
+        (tester) async {
+          tester.platformDispatcher.textScaleFactorTestValue = scale;
+          addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+          await _pumpMobileBrowse(tester, size);
+
+          for (final (select, label, option) in [
+            (_status, 'Status', 'Archived'),
+            (_joined, 'Membership', 'Not joined'),
+          ]) {
+            final visual = tester.getRect(
+              find.descendant(
+                of: select,
+                matching: find.byKey(const Key('d-select-trigger-visual')),
+              ),
+            );
+            // A label wrapped by large text stays above the box it names.
+            expect(
+              tester
+                  .getRect(
+                    find.descendant(of: select, matching: find.text(label)),
+                  )
+                  .bottom,
+              lessThan(visual.top),
+            );
+            final target = Rect.fromCenter(
+              center: visual.center,
+              width: visual.width,
+              height: visual.height < DSpacing.touchTarget
+                  ? DSpacing.touchTarget
+                  : visual.height,
+            );
+            for (final point in [
+              target.center,
+              target.topCenter + const Offset(0, 1),
+              target.bottomCenter - const Offset(0, 1),
+            ]) {
+              await tester.tapAt(point);
+              await tester.pumpAndSettle();
+              expect(find.text(option), findsOneWidget, reason: '$point');
+              await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+              await tester.pumpAndSettle();
+              expect(find.text(option), findsNothing);
+            }
+          }
+          expect(tester.takeException(), isNull);
+        },
+      );
+    }
   });
 }
 
