@@ -76,10 +76,39 @@ void main() {
     });
 
     test('detects a language when the markup says auto', () {
-      // The pastebin onebox is the one place Discourse emits `lang-auto`.
+      // Every unlabelled fence cooks to `lang-auto`: `default_code_lang`
+      // defaults to `auto`.
       final lines = highlightLines('def hello\n  puts "hi"\nend', 'auto');
 
       expect(scopesOf(lines.first), isNotEmpty);
+    });
+
+    test('defers auto detection at a fraction of a labelled size', () {
+      // Detection parses once per candidate and again with the winner, so a
+      // block a labelled fence may parse in place costs several times that
+      // budget here.
+      final midSized = 'def hello_world = "value"\n' * 40;
+      expect(midSized.length, greaterThanOrEqualTo(1000));
+      expect(midSized.length, lessThan(backgroundSyntaxHighlightThreshold));
+
+      expect(highlightShouldRunInBackground(midSized, 'auto'), isTrue);
+      expect(highlightShouldRunInBackground(midSized, 'AUTO'), isTrue);
+      expect(highlightShouldRunInBackground(midSized, 'ruby'), isFalse);
+
+      expect(
+        highlightShouldRunInBackground('def hello\n  puts "hi"\nend', 'auto'),
+        isFalse,
+      );
+      final atAutoBudget = 'x' * backgroundAutoDetectHighlightThreshold;
+      expect(highlightShouldRunInBackground(atAutoBudget, 'auto'), isFalse);
+      expect(
+        highlightShouldRunInBackground('${atAutoBudget}x', 'auto'),
+        isTrue,
+      );
+
+      final atBudget = 'x' * backgroundSyntaxHighlightThreshold;
+      expect(highlightShouldRunInBackground(atBudget, 'ruby'), isFalse);
+      expect(highlightShouldRunInBackground('${atBudget}x', 'ruby'), isTrue);
     });
 
     test('gives up on a block too big to highlight without jank', () {

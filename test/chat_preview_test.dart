@@ -2,6 +2,9 @@ import 'package:discourse_native/src/diagnostics/diagnostics.dart';
 import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/plugins/chat/chat_preview.dart';
 import 'package:discourse_native/src/plugins/chat/chat_preview_body.dart';
+import 'package:discourse_native/src/shell/code_block.dart';
+import 'package:discourse_native/src/shell/syntax.dart';
+import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -366,6 +369,74 @@ void main() {
         }
       },
     );
+  });
+
+  group('optimistic code blocks', () {
+    testWidgets('highlight a large fence off the frame without moving it', (
+      tester,
+    ) async {
+      clearSyntaxHighlightCacheForTesting();
+      final code = List.generate(
+        100,
+        (i) => 'def preview_example_$i = "value"',
+      ).join('\n');
+      expect(code.length, greaterThan(backgroundSyntaxHighlightThreshold));
+      // Built by hand rather than projected: the body is what is under test,
+      // and projection's scan would already have parsed this fence into the
+      // shared cache that later code blocks evict it from.
+      final raw = '```ruby\n$code\n```';
+      final document = PreviewDocument(raw, [
+        ChatPreviewCodeBlock(
+          range: SourceRange(0, raw.length),
+          bodyRange: SourceRange(8, 8 + code.length),
+          code: code,
+          language: 'ruby',
+        ),
+      ]);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light,
+          home: Scaffold(
+            body: SingleChildScrollView(
+              child: ChatPreviewBody(
+                document: document,
+                textStyle: null,
+                previewEngine: engine,
+              ),
+            ),
+          ),
+        ),
+      );
+      expect(
+        tester.widget<CodeBlock>(find.byType(CodeBlock)).data.highlightDeferred,
+        isTrue,
+      );
+      final line = find.text('def preview_example_0 = "value"');
+      final before = tester.getRect(line);
+      bool paintsKeyword() {
+        var found = false;
+        tester.widget<Text>(line).textSpan!.visitChildren((span) {
+          if (span is TextSpan &&
+              span.style?.color == CodeColors.light.keyword) {
+            found = true;
+          }
+          return true;
+        });
+        return found;
+      }
+
+      expect(paintsKeyword(), isFalse);
+      // The parse runs on a real isolate, which the fake clock does not drive.
+      for (var attempt = 0; attempt < 100 && !paintsKeyword(); attempt++) {
+        await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 20)),
+        );
+        await tester.pump();
+      }
+      expect(paintsKeyword(), isTrue);
+      expect(tester.getRect(line), before);
+    });
   });
 
   group('trusted GIF seed', () {

@@ -42,6 +42,20 @@ class CodeBlockData {
     final ol = descendantWhere(pre, (e) => e.localName == 'ol');
     final lines = ol != null ? _numbered(ol) : _plain((code ?? pre).text);
 
+    return _highlightedWithinBudget(lines, language);
+  }
+
+  /// A block that has no cooked markup yet, such as an optimistic preview.
+  static CodeBlockData fromSource(String source, {String? language}) =>
+      _highlightedWithinBudget([
+        for (final line in source.split('\n'))
+          CodeLine(tokens: [CodeToken(line)]),
+      ], language);
+
+  static CodeBlockData _highlightedWithinBudget(
+    List<CodeLine> lines,
+    String? language,
+  ) {
     final source = lines.map((line) => line.text).join('\n');
     final deferHighlight = highlightShouldRunInBackground(source, language);
     return CodeBlockData(

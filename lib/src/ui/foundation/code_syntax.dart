@@ -59,6 +59,13 @@ const int maxAutoDetectedChars = 4000;
 /// Larger explicitly-labelled blocks are highlighted after their first paint.
 const int backgroundSyntaxHighlightThreshold = 2000;
 
+/// Auto detection parses a block once per candidate and once more with the
+/// winner, so those parses share the budget a labelled block spends on one.
+/// This is the common case, not an edge: `default_code_lang` defaults to
+/// `auto`, so every unlabelled fence cooks to `lang-auto`.
+final int backgroundAutoDetectHighlightThreshold =
+    backgroundSyntaxHighlightThreshold ~/ (autoDetectCandidates.length + 1);
+
 @visibleForTesting
 const int syntaxHighlightCacheCapacity = 32;
 
@@ -117,7 +124,10 @@ bool highlightNeedsParse(String source, String? language) {
 }
 
 bool highlightShouldRunInBackground(String source, String? language) =>
-    source.length > backgroundSyntaxHighlightThreshold &&
+    source.length >
+        (language?.toLowerCase() == 'auto'
+            ? backgroundAutoDetectHighlightThreshold
+            : backgroundSyntaxHighlightThreshold) &&
     highlightNeedsParse(source, language);
 
 /// The grammar used by editor-style code surfaces.

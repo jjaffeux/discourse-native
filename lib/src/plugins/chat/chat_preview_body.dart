@@ -111,15 +111,9 @@ class ChatPreviewBody extends StatelessWidget {
         : null,
   );
 
-  CodeBlock _codeBlock(ChatPreviewCodeBlock node) {
-    final highlighted = highlightLines(node.code, node.language);
-    return CodeBlock(
-      data: CodeBlockData(
-        language: node.language,
-        lines: [for (final tokens in highlighted) CodeLine(tokens: tokens)],
-      ),
-    );
-  }
+  CodeBlock _codeBlock(ChatPreviewCodeBlock node) => CodeBlock(
+    data: CodeBlockData.fromSource(node.code, language: node.language),
+  );
 }
 
 class _OptimisticGif extends StatelessWidget {
