@@ -112,6 +112,25 @@ void main() {
 
   tearDown(() => controller.dispose());
 
+  List<int> posts(int first, int last) => [
+    for (var post = first; post <= last; post++) post,
+  ];
+
+  // Completes every request the read sends and answers their post numbers.
+  Future<List<List<int>>> sent(Future<void> Function() read) async {
+    final first = api.requests.length;
+    final receipt = read();
+    for (var index = first; ; index++) {
+      await pumpEventQueue();
+      if (index == api.requests.length) break;
+      api.requests[index].response.complete();
+    }
+    await receipt;
+    return [
+      for (final request in api.requests.skip(first)) request.postNumbers,
+    ];
+  }
+
   group('local read projection', () {
     test(
       'list responses retain local progress and expose newer replies',
@@ -308,6 +327,156 @@ void main() {
       expect(api.requests, hasLength(1), reason: 'already-read posts');
     });
 
+    test('credits earlier posts read after a jump past them', () async {
+      const siteUrl = 'https://one.example';
+      credentials.keys[siteUrl] = 'key';
+      store.put(siteUrl, _topic(lastRead: 10, highest: 100));
+
+      // A notification opens the topic at post 90, past posts 11 to 89.
+      expect(
+        await sent(
+          () => controller.mark(
+            siteUrl,
+            1,
+            95,
+            caughtUp: false,
+            readPostNumbers: posts(90, 95).reversed,
+          ),
+        ),
+        [posts(90, 95)],
+      );
+      // The refreshed row reports the position the jump's timings reached.
+      store.put(siteUrl, _topic(lastRead: 95, highest: 100));
+
+      // Scrolling back up reads a reply at 45, and core clears its
+      // notification only for its own timing key.
+      expect(
+        await sent(
+          () => controller.mark(
+            siteUrl,
+            1,
+            50,
+            caughtUp: false,
+            readPostNumbers: posts(40, 50).reversed,
+          ),
+        ),
+        [posts(40, 50)],
+      );
+      expect(controller.lastReadPostNumberFor(siteUrl, 1), 95);
+      expect(store.read<Topic>(siteUrl, 1)?.lastReadPostNumber, 95);
+
+      expect(
+        await sent(
+          () => controller.mark(
+            siteUrl,
+            1,
+            50,
+            caughtUp: false,
+            readPostNumbers: posts(40, 50),
+          ),
+        ),
+        isEmpty,
+        reason: 'already sent this session',
+      );
+      expect(
+        await sent(
+          () => controller.mark(
+            siteUrl,
+            1,
+            12,
+            caughtUp: false,
+            readPostNumbers: posts(5, 12),
+          ),
+        ),
+        [
+          [11, 12],
+        ],
+        reason: 'posts up to 10 were read before this session',
+      );
+    });
+
+    test('remembers reads joined across separate ranges', () async {
+      const siteUrl = 'https://one.example';
+      credentials.keys[siteUrl] = 'key';
+      store.put(siteUrl, _topic(highest: 20));
+
+      // Posts left out of the readable set, such as small actions, leave
+      // gaps that later reads fill from both sides.
+      expect(
+        await sent(
+          () => controller.mark(
+            siteUrl,
+            1,
+            10,
+            caughtUp: false,
+            readPostNumbers: const [2, 4, 6, 8],
+          ),
+        ),
+        [
+          [2, 4, 6, 8, 10],
+        ],
+      );
+      expect(
+        await sent(
+          () => controller.mark(
+            siteUrl,
+            1,
+            9,
+            caughtUp: false,
+            readPostNumbers: const [1, 3, 5, 7],
+          ),
+        ),
+        [
+          [1, 3, 5, 7, 9],
+        ],
+      );
+      expect(
+        await sent(
+          () => controller.mark(
+            siteUrl,
+            1,
+            11,
+            caughtUp: false,
+            readPostNumbers: posts(1, 10),
+          ),
+        ),
+        [
+          [11],
+        ],
+      );
+    });
+
+    test('forgets the reads farthest from the reader past its bound', () async {
+      const siteUrl = 'https://one.example';
+      credentials.keys[siteUrl] = 'key';
+      store.put(siteUrl, _topic(highest: 400));
+      final separate = [for (var post = 1; post < 400; post += 2) post];
+
+      expect(
+        await sent(
+          () => controller.mark(
+            siteUrl,
+            1,
+            399,
+            caughtUp: false,
+            readPostNumbers: separate,
+          ),
+        ),
+        [separate.take(100).toList(), separate.skip(100).toList()],
+      );
+      expect(
+        await sent(() => controller.mark(siteUrl, 1, 399, caughtUp: false)),
+        isEmpty,
+      );
+      // Forgetting a read costs a duplicate timing, never a missing one.
+      expect(
+        await sent(() => controller.mark(siteUrl, 1, 1, caughtUp: false)),
+        [
+          [1],
+        ],
+      );
+    });
+
     test(
       'an older caught-up retry preserves the maximum across stale rows',
       () async {
@@ -341,7 +510,8 @@ void main() {
       () async {
         const siteUrl = 'https://one.example';
         credentials.keys[siteUrl] = 'key';
-        store.put(siteUrl, _topic(highest: 5));
+        // Post 4 is already read, so observing it again sends nothing.
+        store.put(siteUrl, _topic(lastRead: 4, highest: 5));
         addTearDown(() {
           for (final request in api.requests) {
             if (!request.response.isCompleted) request.response.complete();
@@ -556,6 +726,50 @@ void main() {
   });
 
   group('site and account invalidation', () {
+    for (final (invalidate, forget) in [
+      (true, true),
+      (true, false),
+      (false, true),
+    ]) {
+      test('another account credits reads from its own position with '
+          'invalidate $invalidate and forget $forget', () async {
+        const siteUrl = 'https://one.example';
+        credentials.keys[siteUrl] = 'old-key';
+        store.put(siteUrl, _topic(lastRead: 10, highest: 100));
+        expect(
+          await sent(
+            () => controller.mark(
+              siteUrl,
+              1,
+              50,
+              caughtUp: false,
+              readPostNumbers: posts(40, 50),
+            ),
+          ),
+          [posts(40, 50)],
+        );
+
+        if (invalidate) lifecycle.invalidate(siteUrl);
+        if (forget) controller.forget(siteUrl);
+        credentials.keys[siteUrl] = 'new-key';
+        store.put(siteUrl, _topic(lastRead: 45, highest: 100));
+
+        expect(
+          await sent(
+            () => controller.mark(
+              siteUrl,
+              1,
+              50,
+              caughtUp: false,
+              readPostNumbers: posts(40, 50),
+            ),
+          ),
+          [posts(46, 50)],
+        );
+        expect(api.requests.last.apiKey, 'new-key');
+      });
+    }
+
     test('a late failure cannot restore a forgotten account batch', () async {
       const siteUrl = 'https://one.example';
       credentials.keys[siteUrl] = 'old-key';

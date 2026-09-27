@@ -34,6 +34,7 @@ final class TopicReadController {
   final TopicReadErrorReporter reportError;
 
   final Map<_TopicReadKey, int> _positions = {};
+  final Map<_TopicReadKey, _TopicReadCredits> _credits = {};
   final Map<_TopicReadKey, _TopicReadReceipt> _retries = {};
   final Map<_TopicReadKey, _TopicReadReceipt> _queued = {};
   final Map<_TopicReadKey, Future<void>> _tasks = {};
@@ -70,15 +71,31 @@ final class TopicReadController {
     if (_disposed || topicId <= 0 || postNumber <= 0) return Future.value();
 
     final key = (siteUrl, topicId);
+    final lease = lifecycle.capture(siteUrl);
     final held = store.read<Topic>(siteUrl, topicId);
     final local = _positions[key] ?? 0;
     final server = held?.lastReadPostNumber ?? 0;
     final position = local > server ? local : server;
+    // The position only drives the optimistic row: a jump raises it over
+    // unread posts the reader may scroll back to. Core clears notifications
+    // and counts reads only for the exact timing keys, so every post read on
+    // screen that this session has not already admitted is sent, in reading
+    // order. The new position must still cover each of them.
+    var credits = _credits[key];
+    if (credits == null || !identical(credits.session, lease.session)) {
+      // This controller's projections raise the held row, so its server
+      // position is only trustworthy before the first one.
+      credits = _credits[key] = _TopicReadCredits(lease.session, server);
+    }
+    final unread = {
+      ...readPostNumbers.where((read) => read < postNumber).toList()..sort(),
+      postNumber,
+    }.where(credits.admit).toList();
     final failed = _retries[key];
     final retryPosts = failed != null && failed.lease.isCurrent
         ? failed.postNumbers.where((post) => post <= postNumber).toSet()
         : <int>{};
-    if (position >= postNumber && retryPosts.isEmpty) {
+    if (unread.isEmpty && retryPosts.isEmpty) {
       if (caughtUp) {
         store.update<Topic>(
           siteUrl,
@@ -89,7 +106,6 @@ final class TopicReadController {
       return Future.value();
     }
 
-    final lease = lifecycle.capture(siteUrl);
     final nextPosition = postNumber > position ? postNumber : position;
     _positions[key] = nextPosition;
     failed?.postNumbers.removeAll(retryPosts);
@@ -99,17 +115,7 @@ final class TopicReadController {
     _retain(_queued, key, (
       siteUrl: siteUrl,
       topicId: topicId,
-      // Core clears notifications and counts reads only for the exact timing
-      // keys, so every newly read post is sent in reading order, not only the
-      // farthest one. The new position must still cover each of them.
-      postNumbers: {
-        ...readPostNumbers
-            .where((read) => read > position && read < postNumber)
-            .toList()
-          ..sort(),
-        if (postNumber > position) postNumber,
-        ...retryPosts,
-      },
+      postNumbers: {...unread, ...retryPosts},
       lease: lease,
     ));
     store.update<Topic>(
@@ -133,6 +139,7 @@ final class TopicReadController {
 
   void forget(String siteUrl) {
     _positions.removeWhere((key, _) => key.$1 == siteUrl);
+    _credits.removeWhere((key, _) => key.$1 == siteUrl);
     _retries.removeWhere((key, _) => key.$1 == siteUrl);
     _queued.removeWhere((key, _) => key.$1 == siteUrl);
     _tasks.removeWhere((key, _) => key.$1 == siteUrl);
@@ -143,6 +150,7 @@ final class TopicReadController {
     if (_disposed) return;
     _disposed = true;
     _positions.clear();
+    _credits.clear();
     _retries.clear();
     _queued.clear();
     _tasks.clear();
@@ -257,5 +265,61 @@ final class TopicReadController {
     if (!_isCurrentRun(key, run)) return;
     _runs.remove(key);
     final _ = _tasks.remove(key);
+  }
+}
+
+/// The posts one account session has admitted for a timing in one topic.
+final class _TopicReadCredits {
+  _TopicReadCredits(this.session, this.serverPosition);
+
+  // Reading is mostly contiguous, but posts left out of the readable set, such
+  // as small actions and deleted or filtered posts, split the ranges.
+  // Forgetting a range only sends a duplicate timing, so the one farthest from
+  // the reader is dropped.
+  static const _maximumRanges = 64;
+
+  final Object session;
+
+  /// The server's last read post when this session first observed the topic.
+  /// Posts up to it are treated as read without sending their timings.
+  final int serverPosition;
+
+  // Sorted, disjoint and non-adjacent inclusive ranges above serverPosition.
+  final List<(int, int)> _ranges = [];
+
+  /// Records [post] and answers whether it still needed a timing.
+  bool admit(int post) {
+    if (post <= serverPosition) return false;
+    var index = 0;
+    while (index < _ranges.length && _ranges[index].$2 < post - 1) {
+      index++;
+    }
+    if (index < _ranges.length) {
+      final (first, last) = _ranges[index];
+      if (first <= post && post <= last) return false;
+      if (last == post - 1) {
+        final next = index + 1 < _ranges.length ? _ranges[index + 1] : null;
+        if (next != null && next.$1 == post + 1) {
+          _ranges[index] = (first, next.$2);
+          _ranges.removeAt(index + 1);
+        } else {
+          _ranges[index] = (first, post);
+        }
+        return true;
+      }
+      if (first == post + 1) {
+        _ranges[index] = (post, last);
+        return true;
+      }
+    }
+    _ranges.insert(index, (post, post));
+    if (_ranges.length > _maximumRanges) {
+      if (post - _ranges.first.$2 > _ranges.last.$1 - post) {
+        _ranges.removeAt(0);
+      } else {
+        _ranges.removeLast();
+      }
+    }
+    return true;
   }
 }
