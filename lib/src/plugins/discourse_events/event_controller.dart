@@ -52,6 +52,13 @@ final class EventController extends FrameSafeNotifier
   String? accountTimezone(String site) =>
       siteState.currentUserFor(site)?.timezone;
 
+  /// Notifies when the reader's timezone changes or a site's account is
+  /// refreshed or forgotten, and never for one event's load or write. Topic
+  /// list titles draw from these rather than from any event, and a list of
+  /// them can sit beside a post stream whose cards each load and answer theirs.
+  Listenable get readerChanges => _readerChanges;
+  final _readerChanges = _EventChanges();
+
   /// Recovery after a reset disables [useSeed] to hide personalized snapshot
   /// fields until hydration, including when joining another card's entry.
   EventHandle acquire(String site, PostEvent seed, {bool useSeed = true}) {
@@ -85,7 +92,10 @@ final class EventController extends FrameSafeNotifier
   }
 
   /// Every card draws its dates in the reader's timezone.
-  void _readerChanged() => _changedAll(_entries.values);
+  void _readerChanged() {
+    _readerChanges.changed();
+    _changedAll(_entries.values);
+  }
 
   void _release(_EventEntry entry) {
     if (--entry.references != 0) return;
@@ -349,6 +359,7 @@ final class EventController extends FrameSafeNotifier
       entry.generation++;
       unawaited(_refresh(entry));
     }
+    _readerChanges.changed();
     _changedAll(entries);
   }
 
@@ -392,6 +403,7 @@ final class EventController extends FrameSafeNotifier
       entry.generation++;
       _entries.remove((site, entry.id));
     }
+    _readerChanges.changed();
     // Retained cards still hold these entries and must redraw as unavailable.
     _changedAll(entries);
   }
@@ -404,6 +416,7 @@ final class EventController extends FrameSafeNotifier
     }
     _entries.clear();
     _trackers.clear();
+    _readerChanges.dispose();
     super.dispose();
   }
 }

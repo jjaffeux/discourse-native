@@ -31,11 +31,13 @@ class EventTopicTitle extends StatelessWidget {
         _buildTitle(context, mobile: constraints.maxWidth < 600),
   );
 
+  // Not the controller: every event's load and write notifies it, and a topic
+  // list holds a title per event topic, possibly beside a stream of cards.
   Widget _buildTitle(
     BuildContext context, {
     required bool mobile,
   }) => ListenableBuilder(
-    listenable: controller,
+    listenable: controller.readerChanges,
     builder: (context, _) {
       final schedule = _schedule(context);
       if (!controller.settings(site).displayTopicDate || schedule == null) {
@@ -90,7 +92,7 @@ class EventTopicTitle extends StatelessWidget {
                   onPressed: () => showDDialog<void>(
                     context: context,
                     builder: (context, _) => ListenableBuilder(
-                      listenable: controller,
+                      listenable: controller.readerChanges,
                       builder: (context, _) => _EventScheduleDialog(
                         title: topicTitle,
                         schedule: _schedule(context),

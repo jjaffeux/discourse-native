@@ -158,9 +158,11 @@ final class DiscourseEventsPlugin
     ];
   }
 
+  // The link reads only the current site and its settings, and the shell
+  // redraws the sidebar when either changes. The controller notifies for every
+  // event's load and write, none of which the link reads.
   @override
-  Listenable? communitySidebarListenable(BuildContext context) =>
-      PluginUiScope.maybe(context, eventControllerKey);
+  Listenable? communitySidebarListenable(BuildContext context) => null;
   @override
   List<SidebarDestination> communitySidebarDestinations(BuildContext context) {
     final controller = PluginUiScope.require(context, eventControllerKey);

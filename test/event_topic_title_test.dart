@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/plugins/discourse_events/event_data.dart';
+import 'package:discourse_native/src/plugins/discourse_events/event_date_stamp.dart';
 import 'package:discourse_native/src/plugins/discourse_events/event_topic_title.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
@@ -219,6 +222,121 @@ void main() {
       });
     }
   }
+
+  group('rebuild isolation', () {
+    final titles = [for (var index = 0; index < 10; index++) 'Topic $index'];
+    final ids = [for (var id = 100; id < 110; id++) id];
+    Map<String, dynamic> eventFor(int id) => eventJson(
+      overrides: {
+        'id': id,
+        'watching_invitee': watching(),
+        'post': {
+          'id': id,
+          'post_number': 1,
+          'topic': {'id': 1000 + id, 'title': 'Event topic $id'},
+        },
+      },
+    );
+
+    Future<void> pumpTitles(WidgetTester tester, EventTestPorts ports) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  for (final title in titles)
+                    EventTopicTitle(
+                      site: eventSite,
+                      topicTitle: title,
+                      event: _timed,
+                      controller: ports.controller,
+                      child: Text(title),
+                    ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+    }
+
+    /// Builds of each mounted title's date stamp from now on, keyed by topic
+    /// title: the stamp is rebuilt whenever its title's listener fires.
+    Map<String, int> countRebuilds() {
+      final rebuilds = <String, int>{};
+      final previous = debugOnRebuildDirtyWidget;
+      debugOnRebuildDirtyWidget = (element, builtOnce) {
+        previous?.call(element, builtOnce);
+        if (element.widget is EventDateStamp) {
+          rebuilds.update(
+            element
+                .findAncestorWidgetOfExactType<EventTopicTitle>()!
+                .topicTitle,
+            (count) => count + 1,
+            ifAbsent: () => 1,
+          );
+        }
+      };
+      addTearDown(() => debugOnRebuildDirtyWidget = previous);
+      return rebuilds;
+    }
+
+    testWidgets(
+      'events loading and answered elsewhere leave every title alone, and a timezone change redraws each once',
+      (tester) async {
+        final ports = EventTestPorts();
+        addTearDown(ports.close);
+        // Without an account timezone the reader's is the device's.
+        ports.user = null;
+        final loads = {for (final id in ids) id: Completer<Object?>()};
+        for (final id in ids) {
+          ports
+              .transport
+              .responders['GET /discourse-post-event/events/$id.json'] = (_) =>
+              loads[id]!.future;
+        }
+        await pumpTitles(tester, ports);
+        expect(find.text('Wed · 18:00'), findsNWidgets(titles.length));
+        // What each card beside the list holds: one handle per event.
+        final handles = [
+          for (final id in ids)
+            ports.controller.acquire(
+              eventSite,
+              PostEvent.decode(eventFor(id))!,
+            ),
+        ];
+        addTearDown(() {
+          for (final handle in handles) {
+            handle.dispose();
+          }
+        });
+        await tester.pumpAndSettle();
+        final rebuilds = countRebuilds();
+
+        for (final id in ids) {
+          loads[id]!.complete({'event': eventFor(id)});
+          await tester.pumpAndSettle();
+        }
+        expect(handles.every((handle) => handle.authoritative), isTrue);
+        const path = '/discourse-post-event/events/100/invitees/83.json';
+        ports.transport.responders['PUT $path'] = (_) => {};
+        final write = handles.first.respond('interested');
+        await tester.pumpAndSettle();
+        await write;
+        expect(ports.transport.writes.single.path, path);
+        expect(rebuilds, isEmpty);
+
+        ports.environment.setDeviceTimezone('Asia/Tokyo');
+        await tester.pumpAndSettle();
+        expect(find.text('Thu · 03:00'), findsNWidgets(titles.length));
+        expect(rebuilds, {for (final title in titles) title: 1});
+        expect(tester.takeException(), isNull);
+      },
+    );
+  });
 }
 
 Future<void> _pump(

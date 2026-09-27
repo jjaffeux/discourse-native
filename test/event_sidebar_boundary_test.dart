@@ -5,7 +5,10 @@ import 'package:discourse_native/src/data/discourse_api.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/plugin_api/plugin_runtime.dart';
+import 'package:discourse_native/src/plugin_api/plugin_scope.dart';
 import 'package:discourse_native/src/plugins/discourse_events/discourse_events_module.dart';
+import 'package:discourse_native/src/plugins/discourse_events/event_controller.dart';
+import 'package:discourse_native/src/plugins/discourse_events/event_data.dart';
 import 'package:discourse_native/src/plugins/discourse_events/event_directory.dart';
 import 'package:discourse_native/src/shell/instance_sidebar.dart';
 import 'package:discourse_native/src/shell/main_content.dart';
@@ -222,6 +225,52 @@ void main() {
       },
     );
     expect(sidebarDestination('Upcoming events'), findsOneWidget);
+  }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
+
+  testWidgets('an event loading elsewhere leaves the event link alone', (
+    tester,
+  ) async {
+    final site = instance('forum.example').copyWith(config: _config());
+    await pumpShell(
+      tester,
+      desktop,
+      instances: [site],
+      api: FakeDiscourseApi(
+        siteConfigs: {site.url: site.config},
+        pluginResponses: {
+          'GET /discourse-post-event/events/42.json': {'event': eventJson()},
+        },
+      ),
+      pluginManifest: _manifest,
+    );
+    expect(sidebarDestination('Upcoming events'), findsOneWidget);
+    final events = PluginUiScope.require(
+      PluginUiScope.contextFor(
+        tester.element(find.byType(InstanceSidebar)),
+        eventsPluginId,
+      ),
+      eventControllerKey,
+    );
+    var rebuilds = 0;
+    final previous = debugOnRebuildDirtyWidget;
+    debugOnRebuildDirtyWidget = (element, builtOnce) {
+      previous?.call(element, builtOnce);
+      if (element.widget case Text(data: 'Upcoming events')) {
+        element.visitAncestorElements((ancestor) {
+          if (ancestor.widget is! InstanceSidebar) return true;
+          rebuilds++;
+          return false;
+        });
+      }
+    };
+    addTearDown(() => debugOnRebuildDirtyWidget = previous);
+
+    // What a card for this event holds while it hydrates.
+    final handle = events.acquire(site.url, PostEvent.decode(eventJson())!);
+    addTearDown(handle.dispose);
+    await tester.pumpAndSettle();
+    expect(handle.authoritative, isTrue);
+    expect(rebuilds, 0);
   }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 }
 

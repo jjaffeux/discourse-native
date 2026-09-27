@@ -103,7 +103,9 @@ included in the module's markup drift snapshots.
   event endpoint hydrates current account authority. Later post snapshots
   invalidate the hydrated record instead of replacing it. A card listens to
   its own record, not the controller, so hydrating a stream of N cards
-  redraws each card once instead of every card N times.
+  redraws each card once instead of every card N times. Topic-list titles
+  listen only for reader timezone and account changes, and the sidebar link
+  only to the shell, so neither redraws as cards load or answer.
 - Writes are serialized through core's post lane and guarded by a site lease.
   Request generations discard stale reads; live echoes coalesce into a reread.
   Responses, including ambiguous write failures, are reconciled from the event
