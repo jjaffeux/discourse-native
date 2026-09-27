@@ -27,6 +27,9 @@ typedef TopicFeedPreparation =
       Iterable<int> categoryIds,
     );
 
+typedef TopicFeedIncomingFilter =
+    IncomingTopicsFilter? Function(String path, TopicList list);
+
 typedef _FeedKey = (String siteUrl, String destinationId);
 typedef _FeedLoad = ({
   DiscourseInstance instance,
@@ -45,6 +48,7 @@ final class TopicFeedController extends FrameSafeNotifier {
     this.prepareFeed,
     this.readPersonalizationVersion,
     this.prepareTopicForStore,
+    this.incomingFilterFor,
   });
 
   static const int incomingPageSize = 30;
@@ -59,6 +63,10 @@ final class TopicFeedController extends FrameSafeNotifier {
   final Topic Function(String siteUrl, Topic incoming, int? versionAtDispatch)?
   prepareTopicForStore;
 
+  /// Which arrivals a list announces, read from its path and the response
+  /// that loaded it, as core's `trackIncoming` runs once a list is found.
+  final TopicFeedIncomingFilter? incomingFilterFor;
+
   final Map<_FeedKey, TopicFeed> _feeds = {};
   final Map<String, String> _filterQueries = {};
   final Map<_FeedKey, Object> _revisions = {};
@@ -67,9 +75,18 @@ final class TopicFeedController extends FrameSafeNotifier {
   final Map<_FeedKey, Future<void>> _loadRequests = {};
   final Map<_FeedKey, _FeedLoad> _pendingLoads = {};
   final Map<_FeedKey, Completer<void>> _pendingLoadWaiters = {};
+  final Map<_FeedKey, IncomingTopicsFilter> _incomingFilters = {};
 
   TopicFeed? feedFor(String siteUrl, String destinationId) =>
       _feeds[(siteUrl, destinationId)];
+
+  /// The filter of every list loaded on [siteUrl] that announces arrivals,
+  /// by destination, oldest load first.
+  Map<String, IncomingTopicsFilter> incomingFiltersFor(String siteUrl) => {
+    for (final MapEntry(key: (site, destinationId), :value)
+        in _incomingFilters.entries)
+      if (site == siteUrl) destinationId: value,
+  };
 
   String filterQueryFor(String siteUrl) => _filterQueries[siteUrl] ?? '';
 
@@ -184,6 +201,10 @@ final class TopicFeedController extends FrameSafeNotifier {
         }
         _feeds[key] = TopicFeed.of(list);
         _rows.remove(key);
+        _incomingFilters.remove(key);
+        if (incomingFilterFor?.call(path, list) case final filter?) {
+          _incomingFilters[key] = filter;
+        }
         notifySafely();
         // Publishing can synchronously replace the account or forget the feed.
         // Its completion hook must retain the same owner as the response.
@@ -278,9 +299,12 @@ final class TopicFeedController extends FrameSafeNotifier {
     try {
       final apiKey = await credentials.apiKeyFor(instance.url);
       if (!requestIsCurrent()) return;
+      // The list's own query — its category, tags, subset or order — still
+      // applies, as core's `loadBefore` sends the list's params along.
+      final separator = path.contains('?') ? '&' : '?';
       final list = await api.topicList(
         siteUrl: instance.url,
-        path: '$path?topic_ids=${ids.join(',')}',
+        path: '$path${separator}topic_ids=${ids.join(',')}',
         apiKey: apiKey,
       );
       if (!requestIsCurrent()) return;
@@ -469,6 +493,7 @@ final class TopicFeedController extends FrameSafeNotifier {
       if (key.$1 == siteUrl) _cancelPageRequest(key);
     }
     _rows.removeWhere((key, _) => key.$1 == siteUrl);
+    _incomingFilters.removeWhere((key, _) => key.$1 == siteUrl);
     _loadRequests.removeWhere((key, _) => key.$1 == siteUrl);
     _pendingLoads.removeWhere((key, _) => key.$1 == siteUrl);
     for (final entry in _pendingLoadWaiters.entries.toList()) {

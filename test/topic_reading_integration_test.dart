@@ -2086,13 +2086,21 @@ void _registerTopicReadingTests() {
     ];
 
     /// `/new`, shaped as `TopicTrackingState.publish_new` sends it.
-    Map<String, Object?> created(int topicId, {int? categoryId}) => {
+    Map<String, Object?> created(
+      int topicId, {
+      int? categoryId,
+      List<int>? tagIds,
+    }) => {
       'topic_id': topicId,
       'message_type': 'new_topic',
       'payload': {
         'highest_post_number': 1,
         'created_in_new_period': true,
         'category_id': ?categoryId,
+        if (tagIds != null)
+          'tags': [
+            for (final id in tagIds) {'id': id},
+          ],
       },
     };
 
@@ -2250,6 +2258,184 @@ void _registerTopicReadingTests() {
       await tester.pumpAndSettle();
 
       expect(find.text('Something else'), findsOneWidget);
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
+
+    group('on a category list', () {
+      const feature = TopicCategory(
+        id: 5,
+        name: 'Feature',
+        color: '0088CC',
+        slug: 'feature',
+      );
+      const ideas = TopicCategory(
+        id: 6,
+        name: 'Ideas',
+        color: '0088CC',
+        slug: 'ideas',
+        parentCategoryId: 5,
+      );
+      const lounge = TopicCategory(
+        id: 9,
+        name: 'Lounge',
+        color: '0088CC',
+        slug: 'lounge',
+      );
+      const categoryPath = '/c/feature/5.json';
+
+      FakeDiscourseApi categoryApi({
+        Completer<void>? bootstrapGate,
+        String? defaultView,
+      }) => FakeDiscourseApi(
+        feeds: {
+          '/latest.json': onList,
+          categoryPath: onList,
+          '$categoryPath?topic_ids=99,101': [
+            const Topic(id: 99, title: 'Asked in Feature', slug: 'a'),
+            const Topic(id: 101, title: 'Asked in Ideas', slug: 'b'),
+          ],
+        },
+        categoryList: const [feature, ideas, lounge],
+        feedFiltersByPath: {categoryPath: ?defaultView},
+        messageBusBootstrapGate: bootstrapGate,
+      );
+
+      Future<ShellController> openFeature(WidgetTester tester) async {
+        final controller = ShellScope.read(
+          tester.element(find.byType(MainContent)),
+        );
+        controller.openCategory(feature);
+        await tester.pumpAndSettle();
+        expect(controller.currentFeedId, 'category-5');
+        return controller;
+      }
+
+      testWidgets('topics created in it or beneath it announce themselves', (
+        tester,
+      ) async {
+        final api = categoryApi();
+        await pumpWithFeeds(tester, api);
+        await openFeature(tester);
+
+        expect(find.textContaining('See '), findsNothing);
+
+        tracker()
+          ..deliver(created(99, categoryId: 5))
+          ..deliver(created(101, categoryId: 6));
+        await tester.pumpAndSettle();
+
+        expect(find.text('See 2 new or updated topics'), findsOneWidget);
+
+        await tester.tap(find.text('See 2 new or updated topics'));
+        await tester.pumpAndSettle();
+
+        expect(api.feedPaths, contains('$categoryPath?topic_ids=99,101'));
+        expect(find.text('Asked in Feature'), findsOneWidget);
+        expect(find.text('Asked in Ideas'), findsOneWidget);
+        expect(find.text('Welcome to the forum'), findsOneWidget);
+        expect(find.textContaining('See '), findsNothing);
+      }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
+
+      testWidgets('a topic in another category does not announce itself', (
+        tester,
+      ) async {
+        await pumpWithFeeds(tester, categoryApi());
+        final controller = await openFeature(tester);
+
+        tracker()
+          ..deliver(created(100, categoryId: 9))
+          ..deliver(bumped(2, categoryId: 9))
+          ..deliver(created(102));
+        await tester.pumpAndSettle();
+
+        expect(find.textContaining('See '), findsNothing);
+        expect(controller.incomingCount('category-5'), 0);
+        // Latest, which holds every category, still counts them.
+        expect(controller.incomingCount('latest'), 3);
+      }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
+
+      testWidgets('a category whose default view is Top announces nothing', (
+        tester,
+      ) async {
+        await pumpWithFeeds(tester, categoryApi(defaultView: 'top'));
+        final controller = await openFeature(tester);
+
+        tracker()
+          ..deliver(created(99, categoryId: 5))
+          ..deliver(bumped(1, categoryId: 5));
+        await tester.pumpAndSettle();
+
+        expect(find.textContaining('See '), findsNothing);
+        expect(controller.incomingCount('category-5'), 0);
+      }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
+
+      testWidgets('a list loaded before the connection opened announces', (
+        tester,
+      ) async {
+        final gate = Completer<void>();
+        const reader = DiscourseUser(id: 7, username: 'reader');
+        await pumpShell(
+          tester,
+          desktop,
+          api: categoryApi(bootstrapGate: gate),
+          instances: [
+            instance(
+              'meta.discourse.org',
+              title: 'Meta',
+            ).copyWith(user: reader),
+          ],
+          authenticator: FakeAuthenticator()
+            ..keys['https://meta.discourse.org'] = 'meta-key',
+        );
+        await tester.pumpAndSettle();
+        await openFeature(tester);
+        expect(FakeSiteTracker.built, isEmpty);
+
+        gate.complete();
+        await tester.pumpAndSettle();
+        tracker().deliver(created(99, categoryId: 5));
+        await tester.pumpAndSettle();
+
+        expect(find.text('See 1 new or updated topic'), findsOneWidget);
+      }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
+    });
+
+    testWidgets('a tag list announces only topics carrying its tag', (
+      tester,
+    ) async {
+      // The link names the tag; the list's response says which id it has.
+      const tagPath = '/tag/ux.json';
+      final api = FakeDiscourseApi(
+        feeds: {
+          '/latest.json': onList,
+          tagPath: onList,
+          '$tagPath?topic_ids=99': [
+            const Topic(id: 99, title: 'Tagged ux', slug: 'tagged-ux'),
+          ],
+        },
+        feedTagIdsByPath: const {
+          tagPath: [3],
+        },
+      );
+      await pumpWithFeeds(tester, api);
+      final controller = ShellScope.read(
+        tester.element(find.byType(MainContent)),
+      );
+      expect(controller.openListUrl('/tag/ux'), isTrue);
+      await tester.pumpAndSettle();
+
+      tracker()
+        ..deliver(created(99, tagIds: [4, 3]))
+        ..deliver(created(100, tagIds: [4]))
+        ..deliver(created(101));
+      await tester.pumpAndSettle();
+
+      expect(find.text('See 1 new or updated topic'), findsOneWidget);
+
+      await tester.tap(find.text('See 1 new or updated topic'));
+      await tester.pumpAndSettle();
+
+      expect(api.feedPaths, contains('$tagPath?topic_ids=99'));
+      expect(find.text('Tagged ux'), findsOneWidget);
     }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('a fetch that fails leaves the banner to be tried again', (

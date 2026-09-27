@@ -4,6 +4,7 @@ import 'package:discourse_native/src/data/api_credentials.dart';
 import 'package:discourse_native/src/data/discourse_api_contracts.dart';
 import 'package:discourse_native/src/data/site_lifecycle.dart';
 import 'package:discourse_native/src/data/store.dart';
+import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/incoming_topics.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/shell/topic_feed_controller.dart';
@@ -533,6 +534,111 @@ void main() {
       ]);
       expect(incoming.topicIds('latest'), [31]);
       expect(incoming.count('latest'), 1);
+    });
+
+    test('asks for them within the list, keeping its own query', () async {
+      final site = instance('one.example');
+      const path = '/latest.json?category=5&tags%5B%5D=ux';
+      final initial = controller.load(
+        instance: site,
+        destinationId: 'filtered',
+        path: path,
+        incoming: null,
+      );
+      await pumpEventQueue();
+      api.requests.single.response.complete(_page(100));
+      await initial;
+      final incoming = IncomingTopics()
+        ..track({'filtered': const IncomingTopicsFilter.latest()})
+        ..notify({'topic_id': 7, 'message_type': 'latest'});
+
+      final load = controller.showIncoming(
+        instance: site,
+        destinationId: 'filtered',
+        path: path,
+        incoming: incoming,
+      );
+      await pumpEventQueue();
+
+      expect(api.requests.last.path, '$path&topic_ids=7');
+      api.requests.last.response.complete(_page(7));
+      await load;
+
+      expect(controller.feedFor(site.url, 'filtered')?.topicIds, [7, 100]);
+      expect(incoming.count('filtered'), 0);
+    });
+
+    test('records what each loaded list announces', () async {
+      final site = instance('one.example');
+      final other = instance('two.example');
+      final resolved = <String, IncomingTopicsFilter?>{
+        '/c/five/5.json': const IncomingTopicsFilter.latest(categoryId: 5),
+        '/c/eight/8.json': const IncomingTopicsFilter.latest(categoryId: 8),
+        '/top.json': null,
+      };
+      controller.dispose();
+      controller = TopicFeedController(
+        api: api,
+        credentials: credentials,
+        lifecycle: SiteLifecycle(),
+        store: store,
+        incomingFilterFor: (path, _) => resolved[path],
+      );
+      Future<void> load(
+        DiscourseInstance site,
+        String destination,
+        String path, {
+        bool fail = false,
+      }) async {
+        final loading = controller.load(
+          instance: site,
+          destinationId: destination,
+          path: path,
+          incoming: null,
+          force: true,
+        );
+        await pumpEventQueue();
+        final response = api.requests.last.response;
+        if (fail) {
+          response.completeError(
+            SiteLookupException(SiteLookupFailure.unreachable, site.url),
+          );
+        } else {
+          response.complete(_page(1));
+        }
+        await loading;
+      }
+
+      await load(site, 'category-5', '/c/five/5.json');
+      await load(site, 'category-8', '/c/eight/8.json');
+      await load(site, 'top', '/top.json');
+      await load(other, 'category-5', '/c/five/5.json');
+      expect(controller.incomingFiltersFor(site.url), {
+        'category-5': const IncomingTopicsFilter.latest(categoryId: 5),
+        'category-8': const IncomingTopicsFilter.latest(categoryId: 8),
+      });
+
+      // A failed refetch keeps what the list last announced; a fresh load
+      // makes it the most recent.
+      await load(site, 'category-5', '/c/five/5.json', fail: true);
+      expect(controller.incomingFiltersFor(site.url).keys, [
+        'category-5',
+        'category-8',
+      ]);
+      await load(site, 'category-5', '/c/five/5.json');
+      expect(controller.incomingFiltersFor(site.url).keys, [
+        'category-8',
+        'category-5',
+      ]);
+
+      // A list whose response no longer announces anything stops counting.
+      resolved['/c/eight/8.json'] = null;
+      await load(site, 'category-8', '/c/eight/8.json');
+      expect(controller.incomingFiltersFor(site.url).keys, ['category-5']);
+
+      controller.forget(site.url);
+      expect(controller.incomingFiltersFor(site.url), isEmpty);
+      expect(controller.incomingFiltersFor(other.url).keys, ['category-5']);
     });
   });
 
