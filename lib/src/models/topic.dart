@@ -571,12 +571,16 @@ class TopicList {
 
   static const int maximumCategoriesPerPage = maximumPageSize * 2;
 
+  static const int maximumTagsPerPage = 100;
+
   const TopicList({
     required this.topics,
     this.categories = const [],
     this.moreTopicsUrl,
     this.canCreateTopic = false,
     this.filterOptions = const [],
+    this.filter,
+    this.tagIds = const [],
   });
 
   factory TopicList.fromJson(
@@ -629,6 +633,11 @@ class TopicList {
         for (final value in jsonArray(list['filter_option_info']))
           ?TopicFilterOption.parse(value),
       ]),
+      filter: jsonText(list['filter']),
+      tagIds: List.unmodifiable({
+        for (final tag in jsonObjects(list['tags']).take(maximumTagsPerPage))
+          if (jsonIntOrNull(tag['id']) case final id? when id > 0) id,
+      }),
     );
   }
 
@@ -641,6 +650,14 @@ class TopicList {
   final String? moreTopicsUrl;
   final bool canCreateTopic;
   final List<TopicFilterOption> filterOptions;
+
+  /// The list the server resolved the request to, such as a category's
+  /// default view. Older sites leave it out.
+  final String? filter;
+
+  /// The tags the server filtered the list by, synonyms resolved to the tag
+  /// they stand for. Empty unless tagging is enabled.
+  final List<int> tagIds;
 
   String? get nextPagePath => asJsonPath(moreTopicsUrl);
 

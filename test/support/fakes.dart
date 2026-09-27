@@ -556,6 +556,8 @@ class FakeDiscourseApi
     this.userPreferencesWriteGate,
     this.feeds = const {},
     this.feedCategoriesByPath = const {},
+    this.feedFiltersByPath = const {},
+    this.feedTagIdsByPath = const {},
     this.filterOptionsByPath = const {},
     this.creatableFeedPaths = const {},
     this.categoryList = const [],
@@ -900,6 +902,12 @@ class FakeDiscourseApi
 
   final Map<String, List<Topic>> feeds;
   final Map<String, List<TopicCategory>> feedCategoriesByPath;
+
+  /// The list each path resolves to, as `topic_list.filter` names it.
+  final Map<String, String> feedFiltersByPath;
+
+  /// The tags each path is filtered by, as `topic_list.tags` lists them.
+  final Map<String, List<int>> feedTagIdsByPath;
   final Map<String, List<TopicFilterOption>> filterOptionsByPath;
   final Set<String> creatableFeedPaths;
 
@@ -1826,6 +1834,8 @@ class FakeDiscourseApi
       moreTopicsUrl: nextPages[path],
       canCreateTopic: creatableFeedPaths.contains(path),
       filterOptions: filterOptionsByPath[path] ?? const [],
+      filter: feedFiltersByPath[path],
+      tagIds: feedTagIdsByPath[path] ?? const [],
     );
   }
 

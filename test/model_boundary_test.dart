@@ -215,6 +215,36 @@ void main() {
       expect(list.moreTopicsUrl, isNull);
     });
 
+    test('topic lists read the filter and tags the server resolved', () {
+      final list = TopicList.fromJson(const {
+        'topic_list': {
+          'topics': <Object?>[],
+          'filter': 'latest',
+          'tags': [
+            {'id': 3, 'name': 'ux', 'slug': 'ux'},
+            {'id': 3, 'name': 'ux-synonym'},
+            {'id': '4', 'name': 'quoted'},
+            {'id': -5, 'name': 'negative'},
+            {'name': 'unnamed'},
+            'bare',
+            null,
+            {'id': 6, 'name': 'bug'},
+          ],
+        },
+      }, siteUrl);
+
+      expect(list.filter, 'latest');
+      expect(list.tagIds, [3, 4, 6]);
+      expect(() => list.tagIds.add(7), throwsUnsupportedError);
+
+      final malformed = TopicList.fromJson(const {
+        'topic_list': {'topics': <Object?>[], 'filter': 42, 'tags': 'ux'},
+      }, siteUrl);
+
+      expect(malformed.filter, isNull);
+      expect(malformed.tagIds, isEmpty);
+    });
+
     test('topic list pagination accepts only bounded root-relative paths', () {
       String? page(String? cursor) =>
           TopicList(topics: const [], moreTopicsUrl: cursor).nextPagePath;

@@ -59,6 +59,7 @@ import '../models/found_group.dart';
 import '../models/found_hashtag.dart';
 import '../models/found_user.dart';
 import '../models/group_route.dart';
+import '../models/incoming_topics.dart';
 import '../models/json.dart';
 import '../models/list_link.dart';
 import '../models/live_refresh_id.dart';
@@ -1127,6 +1128,8 @@ class ShellController extends FrameSafeNotifier
       },
       readPersonalizationVersion: _siteBookmarkVersion,
       prepareTopicForStore: _prepareTopicForStore,
+      incomingFilterFor: _incomingTopicsFilter,
+      onFeedLoaded: (instance, _, _, _) => _trackIncomingLists(instance.url),
     );
   }
 
@@ -4197,6 +4200,61 @@ class ShellController extends FrameSafeNotifier
           .putIfAbsent(siteUrl, () => TopicTrackingMessageFilter(clock: _clock))
           .admitsIncoming(data, user: _instanceAt(siteUrl)?.user);
 
+  /// What a loaded list announces, read the way core's `trackIncoming` reads
+  /// the list `findTopicList` found: Latest, New and Unseen by name, a
+  /// category or tag link as its default list, the category from the path
+  /// and the tags as the server resolved them.
+  IncomingTopicsFilter? _incomingTopicsFilter(String path, TopicList list) {
+    final scope = ContentRoute(
+      id: 'topic-list-filter-$path',
+      title: '',
+      icon: DIcons.list,
+      feedPath: path,
+    );
+    final categoryId = scope.categoryId;
+    final tagged = scope.tagNames.isNotEmpty;
+    final defaultList = switch (Uri.tryParse(path)?.pathSegments) {
+      ['c', ...] => categoryId != null,
+      ['tag', ...] || ['tags', 'c', ...] => tagged,
+      _ => false,
+    };
+    final mode = scope.isAdvancedTopicFilter
+        ? null
+        : TopicListMode.fromRoute(scope);
+    // New – replies announces nothing. Core counts a new topic there too, as
+    // the subset is only a query parameter, and then asks the replies subset
+    // for it, which never returns one.
+    final (String, bool)? kind = switch (mode) {
+      TopicListMode.latest => ('latest', true),
+      TopicListMode.newActivity || TopicListMode.newTopics => ('new', false),
+      TopicListMode.unseen => ('unseen', false),
+      null when defaultList => ('latest', true),
+      _ => null,
+    };
+    if (kind == null) return null;
+    final (served, countsBumps) = kind;
+    // A category link is its default view, which is Latest unless the site
+    // names another; sites that do not say are taken to be Latest.
+    if (list.filter case final resolved? when resolved != served) return null;
+    // Without tagging, or for `/tag/none`, the server names no tag, and a
+    // list that cannot be matched to its topics announces none of them.
+    if (tagged && list.tagIds.isEmpty) return null;
+    final tagIds = tagged ? list.tagIds.toSet() : const <int>{};
+    return countsBumps
+        ? IncomingTopicsFilter.latest(categoryId: categoryId, tagIds: tagIds)
+        : IncomingTopicsFilter.created(categoryId: categoryId, tagIds: tagIds);
+  }
+
+  /// Gives the site's tracker every list loaded so far, including those that
+  /// finished loading before its connection opened.
+  void _trackIncomingLists(String siteUrl) {
+    _trackers[siteUrl]?.incoming.track(
+      topicFeeds.incomingFiltersFor(siteUrl),
+      parentCategoryOf: (categoryId) =>
+          categoryFor(categoryId, siteUrl: siteUrl)?.parentCategoryId,
+    );
+  }
+
   void _syncTracking() {
     final instance = currentInstance;
     final retainedSiteUrls = _pluginBackgroundSiteUrls;
@@ -4779,6 +4837,7 @@ class ShellController extends FrameSafeNotifier
         return;
       }
       _trackers[siteUrl] = tracker;
+      _trackIncomingLists(siteUrl);
       if (apiKey != null && clientId != null) {
         if (userId != null) {
           try {

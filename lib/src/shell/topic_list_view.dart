@@ -585,7 +585,7 @@ class _TopicListViewState extends State<TopicListView> {
                   right: 0,
                   child: _IncomingBanner(
                     count: state.incoming,
-                    destination: destination,
+                    newTopicsOnly: state.newTopicsOnly,
                     onTap: () =>
                         _showIncoming(controller, destination, feedIdentity),
                   ),
@@ -979,16 +979,19 @@ class _SkeletonLine extends StatelessWidget {
 class _IncomingBanner extends StatelessWidget {
   const _IncomingBanner({
     required this.count,
-    required this.destination,
+    required this.newTopicsOnly,
     required this.onTap,
   });
 
   final int count;
-  final String destination;
+
+  /// Core words New's banner `topic_count_new`, and Latest's, Unseen's and a
+  /// category or tag list's `topic_count_latest` or `topic_count_unseen`.
+  final bool newTopicsOnly;
   final VoidCallback onTap;
 
   String get _label {
-    final noun = destination == 'latest' ? 'new or updated topic' : 'new topic';
+    final noun = newTopicsOnly ? 'new topic' : 'new or updated topic';
     return 'See $count $noun${count == 1 ? '' : 's'}';
   }
 
@@ -1305,6 +1308,7 @@ typedef _TopicListSnapshot = ({
   _TopicListIdentity feedIdentity,
   String destination,
   int incoming,
+  bool newTopicsOnly,
   int? topicId,
 });
 
@@ -1316,6 +1320,7 @@ _TopicListSnapshot _topicListSnapshot(ShellController controller) {
     feedIdentity: _TopicListViewState._currentFeedIdentity(controller),
     destination: destination,
     incoming: controller.incomingCount(destination),
+    newTopicsOnly: controller.currentTopicListMode?.isNew ?? false,
     topicId: controller.readingTopicId,
   );
 }
