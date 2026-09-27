@@ -6718,6 +6718,55 @@ void main() {
       },
     );
 
+    test('refuses to move a reply out of its thread', () async {
+      final subject = build(
+        currentUser: currentUser,
+        channels: {
+          site: ChatChannels(
+            public: [
+              channel(9, canModerate: true),
+              channel(10, title: 'Support'),
+            ],
+            direct: const [],
+          ),
+        },
+      );
+      addTearDown(subject.chat.dispose);
+      await subject.chat.loadChannels(site);
+      final root = threadRoot();
+      final reply = ChatMessage(
+        id: 5,
+        channelId: 9,
+        threadId: root.threadId,
+        cooked: '<p>reply</p>',
+        author: const ChatMessageAuthor(id: 3, username: 'kris'),
+        createdAt: DateTime.utc(2026, 5, 5, 11),
+      );
+      subject.store
+        ..put(site, root)
+        ..put(site, reply);
+
+      expect(subject.chat.canMoveMessages(site, 9, [root.id]), isTrue);
+      expect(subject.chat.canMoveMessages(site, 9, [reply.id]), isFalse);
+      expect(
+        subject.chat.canMoveMessages(site, 9, [root.id, reply.id]),
+        isFalse,
+      );
+      final result = await subject.chat.moveMessages(site, 9, 10, [reply.id]);
+
+      expect(result.error, 'One or more messages can no longer be moved.');
+      expect(result.move, isNull);
+      expect(subject.api.chatMessageMoves, isEmpty);
+      expect(
+        subject.store.read<ChatMessage>(site, root.id)?.isDeleted,
+        isFalse,
+      );
+      expect(
+        subject.store.read<ChatMessage>(site, reply.id)?.isDeleted,
+        isFalse,
+      );
+    });
+
     test('does not offer moving from an ordinary or direct channel', () async {
       final held = message(12);
       final subject = build(currentUser: currentUser);

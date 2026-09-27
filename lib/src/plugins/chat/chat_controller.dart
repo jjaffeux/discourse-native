@@ -2996,7 +2996,11 @@ class ChatController extends FrameSafeNotifier {
           message.id > 0 &&
           message.channelId == channelId &&
           !message.isOptimistic &&
-          !message.isDeleted;
+          !message.isDeleted &&
+          // The site moves every message sharing a selected message's thread,
+          // so a reply would carry its original message and siblings along.
+          (message.threadId == null ||
+              message.thread?.threadId == message.threadId);
     });
   }
 
