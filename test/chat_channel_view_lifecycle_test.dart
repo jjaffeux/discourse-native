@@ -2349,62 +2349,165 @@ void main() {
       );
     });
 
-    testWidgets('a live message does not move a reader scrolled into history', (
-      tester,
+    // Every third row is taller, so what an arrival pushes the reader by is
+    // not one uniform row height.
+    final present = [
+      for (var id = 1; id <= 40; id++)
+        _message(
+          id,
+          cooked: id % 3 == 0 ? '<p>Message $id</p><p>More</p>' : null,
+        ),
+    ];
+    // Taller than any row it joins, so no correction can assume its extent.
+    final arrival = _message(41, cooked: '<p>One</p><p>Two</p><p>Three</p>');
+
+    // Opens messages 1 to 40 on a window at the present: one fetch
+    // generation and no future to load, so a newer ID can only be a live
+    // arrival. Returns what delivers [arrival] to it.
+    Future<Future<void> Function()> openPresentWindow(
+      WidgetTester tester,
     ) async {
       final api = _ChatApi(openPages: const {});
       final controller = await _controller(api, sites: const [firstSite]);
       addTearDown(controller.dispose);
-      final messages = [for (var id = 1; id <= 40; id++) _message(id)];
       controller.chatRecords
         ..put(firstSite, _channel(lastRead: 40))
-        ..putAll(firstSite, messages);
-
-      await tester.pumpWidget(
-        _TestStreamView(
-          controller: controller,
-          messages: messages,
-          stream: ChatStreamState(
-            messageIds: [for (final message in messages) message.id],
-            fetchedOnce: true,
-            fetches: 1,
-          ),
+        ..putAll(firstSite, present);
+      Widget view(List<ChatMessage> messages) => _TestStreamView(
+        controller: controller,
+        messages: messages,
+        stream: ChatStreamState(
+          messageIds: [for (final message in messages) message.id],
+          fetchedOnce: true,
+          fetches: 1,
         ),
       );
+      await tester.pumpWidget(view(present));
+      await tester.pumpAndSettle();
+      return () {
+        controller.chatRecords.put(firstSite, arrival);
+        return tester.pumpWidget(view([...present, arrival]));
+      };
+    }
+
+    ScrollPosition chatScroll(WidgetTester tester) =>
+        tester.state<ScrollableState>(_verticalChatScroll()).position;
+
+    for (final distance in [160.0, 320.0, 800.0]) {
+      testWidgets(
+        'a live message leaves a reader ${distance.round()}px into history '
+        'seeing the same messages in the same place',
+        (tester) async {
+          final deliverArrival = await openPresentWindow(tester);
+          chatScroll(tester).jumpTo(distance);
+          await tester.pumpAndSettle();
+          final seen = _visibleMessageTops(tester);
+          expect(seen.keys, isNot(contains(40)));
+
+          await deliverArrival();
+          await tester.pumpAndSettle();
+
+          _expectSameTops(_visibleMessageTops(tester), seen);
+          expect(
+            find.bySemanticsLabel('Jump to latest messages, 1 new'),
+            findsOneWidget,
+          );
+        },
+      );
+    }
+
+    // Within the present slack an arrival is not counted as unseen, and the
+    // transcript follows its live edge rather than holding the reader.
+    for (final distance in [0.0, 40.0, 120.0]) {
+      testWidgets(
+        'a live message moves the transcript with the live edge for a reader '
+        '${distance.round()}px from it',
+        (tester) async {
+          final deliverArrival = await openPresentWindow(tester);
+          final position = chatScroll(tester)..jumpTo(distance);
+          await tester.pumpAndSettle();
+          final seen = _visibleMessageTops(tester);
+
+          await deliverArrival();
+          await tester.pumpAndSettle();
+
+          expect(position.pixels, distance);
+          final moved = _visibleMessageTops(tester);
+          final shifts = {
+            for (final id in seen.keys)
+              if (moved[id] case final top?) seen[id]! - top,
+          };
+          expect(shifts, hasLength(1));
+          expect(shifts.single, greaterThan(0));
+          expect(
+            find.bySemanticsLabel(RegExp('^Jump to latest')),
+            findsNothing,
+          );
+        },
+      );
+    }
+
+    testWidgets('a live message at the present lands on the live edge', (
+      tester,
+    ) async {
+      final deliverArrival = await openPresentWindow(tester);
+      final newestBottom = tester
+          .getBottomLeft(find.byKey(const ValueKey('chat-message-40')))
+          .dy;
+
+      await deliverArrival();
       await tester.pumpAndSettle();
 
-      tester.state<ScrollableState>(_verticalChatScroll()).position.jumpTo(600);
-      await tester.pump();
-      final held = tester
-          .state<ScrollableState>(_verticalChatScroll())
-          .position
-          .pixels;
-      expect(held, greaterThan(0));
-
-      // A live append arrives on a window already at the present: same fetch
-      // generation, no future to load, one more newest id. The reversed
-      // viewport keeps the reader in place on its own; nothing may reposition.
-      final live = _message(41);
-      controller.chatRecords.put(firstSite, live);
-      await tester.pumpWidget(
-        _TestStreamView(
-          controller: controller,
-          messages: [...messages, live],
-          stream: ChatStreamState(
-            messageIds: [for (var id = 1; id <= 41; id++) id],
-            fetchedOnce: true,
-            fetches: 1,
-          ),
-        ),
-      );
-      await tester.pump();
-      await tester.pump();
-
       expect(
-        tester.state<ScrollableState>(_verticalChatScroll()).position.pixels,
-        held,
+        tester.getBottomLeft(find.byKey(const ValueKey('chat-message-41'))).dy,
+        newestBottom,
       );
     });
+
+    testWidgets(
+      'a live message during a drag into history leaves the drag live',
+      (tester) async {
+        final deliverArrival = await openPresentWindow(tester);
+        final position = chatScroll(tester)..jumpTo(320);
+        await tester.pumpAndSettle();
+        final gesture = await tester.startGesture(
+          tester.getCenter(_verticalChatScroll()),
+        );
+        // Past the touch slop, then a real movement.
+        await gesture.moveBy(const Offset(0, 30));
+        await tester.pump();
+        await gesture.moveBy(const Offset(0, 20));
+        await tester.pump();
+        expect(position.isScrollingNotifier.value, isTrue);
+
+        await deliverArrival();
+        await tester.pump();
+        final dragged = position.pixels;
+        await gesture.moveBy(const Offset(0, 25));
+        await tester.pump();
+
+        expect(position.pixels, dragged + 25);
+        await gesture.up();
+        await tester.pumpAndSettle();
+      },
+    );
+
+    testWidgets(
+      'a scroll in the frame a live message arrives keeps its place',
+      (tester) async {
+        final deliverArrival = await openPresentWindow(tester);
+        final position = chatScroll(tester)..jumpTo(320);
+        await tester.pumpAndSettle();
+
+        // Stands in for a landing already scheduled when the message arrives:
+        // it runs after the arrival's layout, before the hold would apply.
+        tester.binding.addPostFrameCallback((_) => position.jumpTo(500));
+        await deliverArrival();
+        await tester.pumpAndSettle();
+
+        expect(position.pixels, 500);
+      },
+    );
 
     testWidgets('a bounded live append still counts its new trailing row', (
       tester,
@@ -2432,10 +2535,7 @@ void main() {
 
       tester.state<ScrollableState>(_verticalChatScroll()).position.jumpTo(600);
       await tester.pump();
-      final heldOffset = tester
-          .state<ScrollableState>(_verticalChatScroll())
-          .position
-          .pixels;
+      final seen = _visibleMessageTops(tester);
       final live = _message(41);
       controller.chatRecords.put(firstSite, live);
 
@@ -2453,10 +2553,7 @@ void main() {
       await tester.pump();
       await tester.pump();
 
-      expect(
-        tester.state<ScrollableState>(_verticalChatScroll()).position.pixels,
-        heldOffset,
-      );
+      _expectSameTops(_visibleMessageTops(tester), seen);
       expect(
         find.bySemanticsLabel('Jump to latest messages, 1 new'),
         findsOneWidget,
@@ -2650,6 +2747,21 @@ void _resumeLifecycle(WidgetTester tester) {
 Finder _verticalChatScroll() => find.byWidgetPredicate(
   (widget) => widget is Scrollable && widget.axisDirection == AxisDirection.up,
 );
+
+/// The on-screen top of each message row the reader can see, by message ID.
+Map<int, double> _visibleMessageTops(WidgetTester tester) => {
+  for (final tile in tester.widgetList<ChatMessageTile>(
+    find.byType(ChatMessageTile),
+  ))
+    tile.messageId: tester.getTopLeft(find.byWidget(tile)).dy,
+};
+
+void _expectSameTops(Map<int, double> actual, Map<int, double> expected) {
+  expect(actual.keys.toSet(), expected.keys.toSet());
+  for (final MapEntry(key: id, value: top) in expected.entries) {
+    expect(actual[id], moreOrLessEquals(top), reason: 'message $id moved');
+  }
+}
 
 Future<void> _startSelectingNewestMessage(WidgetTester tester) async {
   final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
