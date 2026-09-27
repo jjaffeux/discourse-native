@@ -1,6 +1,8 @@
 import 'dart:async';
 
 import 'package:discourse_native/discourse_plugin_sdk.dart';
+import 'package:flutter/foundation.dart';
+
 import 'event_api.dart';
 import 'event_data.dart';
 
@@ -23,7 +25,7 @@ final class EventController extends FrameSafeNotifier
     required this.trackers,
     required this.zones,
   }) {
-    zones.changes.addListener(notifySafely);
+    zones.changes.addListener(_readerChanged);
   }
 
   final EventApi api;
@@ -62,7 +64,7 @@ final class EventController extends FrameSafeNotifier
     if (!entry.authoritative && !entry.reading) {
       unawaited(_refresh(entry));
     } else if (discardSeed) {
-      notifySafely();
+      _changed(entry);
     }
     return EventHandle._(this, entry);
   }
@@ -70,12 +72,28 @@ final class EventController extends FrameSafeNotifier
   bool _current(_EventEntry entry) =>
       !isDisposed && identical(_entries[(entry.site, entry.id)], entry);
 
+  /// A card listens to its own entry, so one event loading or writing redraws
+  /// that card alone rather than every card on screen. The controller still
+  /// notifies for consumers that follow any event.
+  void _changed(_EventEntry entry) => _changedAll([entry]);
+
+  void _changedAll(Iterable<_EventEntry> entries) {
+    for (final entry in entries.toList()) {
+      entry.changes.changed();
+    }
+    notifySafely();
+  }
+
+  /// Every card draws its dates in the reader's timezone.
+  void _readerChanged() => _changedAll(_entries.values);
+
   void _release(_EventEntry entry) {
     if (--entry.references != 0) return;
     entry.subscription?.cancel();
     entry.subscription = null;
     entry.reconciling = false;
     entry.generation++;
+    entry.changes.dispose();
     if (_current(entry)) _entries.remove((entry.site, entry.id));
   }
 
@@ -113,7 +131,7 @@ final class EventController extends FrameSafeNotifier
     }
     entry.reading = true;
     entry.readFuture = _readLoop(entry);
-    notifySafely();
+    _changed(entry);
     return entry.readFuture!;
   }
 
@@ -152,7 +170,7 @@ final class EventController extends FrameSafeNotifier
       }
     } while (_current(entry) && entry.dirty && !entry.pending);
     entry.reading = false;
-    if (_current(entry)) notifySafely();
+    if (_current(entry)) _changed(entry);
   }
 
   Future<bool> _write(
@@ -187,7 +205,7 @@ final class EventController extends FrameSafeNotifier
     entry.pending = true;
     entry.generation++;
     entry.error = null;
-    notifySafely();
+    _changed(entry);
     String? failure;
     var mayHaveChanged = false;
     try {
@@ -242,7 +260,7 @@ final class EventController extends FrameSafeNotifier
         await _refresh(entry);
         if (_current(entry) && lease.isCurrent) {
           if (failure != null) entry.error = failure;
-          notifySafely();
+          _changed(entry);
           // Attendance also affects Watching/Tracking and server Chat membership.
           if (mayHaveChanged && entry.topicId != null) {
             unawaited(
@@ -324,14 +342,14 @@ final class EventController extends FrameSafeNotifier
   @override
   void pluginCurrentUserRefreshed(String siteUrl) {
     _accountRevisions[siteUrl] = accountRevision(siteUrl) + 1;
-    for (final entry
-        in _entries.values.where((e) => e.site == siteUrl).toList()) {
+    final entries = _entries.values.where((e) => e.site == siteUrl).toList();
+    for (final entry in entries) {
       entry.authoritative = false;
       entry.value = null;
       entry.generation++;
       unawaited(_refresh(entry));
     }
-    notifySafely();
+    _changedAll(entries);
   }
 
   @override
@@ -364,7 +382,8 @@ final class EventController extends FrameSafeNotifier
   void forget(String site) {
     _accountRevisions[site] = accountRevision(site) + 1;
     _trackers.remove(site);
-    for (final entry in _entries.values.where((e) => e.site == site).toList()) {
+    final entries = _entries.values.where((e) => e.site == site).toList();
+    for (final entry in entries) {
       entry.subscription?.cancel();
       entry.subscription = null;
       entry.value = null;
@@ -373,12 +392,13 @@ final class EventController extends FrameSafeNotifier
       entry.generation++;
       _entries.remove((site, entry.id));
     }
-    notifySafely();
+    // Retained cards still hold these entries and must redraw as unavailable.
+    _changedAll(entries);
   }
 
   @override
   void dispose() {
-    zones.changes.removeListener(notifySafely);
+    zones.changes.removeListener(_readerChanged);
     for (final entry in _entries.values) {
       entry.subscription?.cancel();
     }
@@ -411,6 +431,14 @@ final class _EventEntry {
   String? error;
   Future<void>? readFuture;
   PluginLiveChannelSubscription? subscription;
+
+  /// Lives as long as a handle references this entry, including after a
+  /// forget has dropped it from the controller.
+  final changes = _EventChanges();
+}
+
+final class _EventChanges extends FrameSafeNotifier {
+  void changed() => notifySafely();
 }
 
 final class EventHandle {
@@ -420,6 +448,11 @@ final class EventHandle {
   bool _released = false;
   String get site => _entry.site;
   PostEvent? get event => _entry.value;
+
+  /// Notifies when this event's record, load or write state changes, and when
+  /// the reader's timezone or this site's account does. Shared by every handle
+  /// on the same entry; the controller itself also notifies for any event.
+  Listenable get changes => _entry.changes;
 
   /// Covers the post-write re-read too, when [event] may predate the write.
   bool get pending => _entry.pending || _entry.reconciling;

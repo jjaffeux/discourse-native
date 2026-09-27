@@ -79,6 +79,72 @@ void main() {
   );
 
   test(
+    'a handle notifies for its own event and for reader-wide changes to its site, not for other events',
+    () async {
+      const other = 'https://other.example';
+      Map<String, dynamic> eventFor(int id) => eventJson(
+        overrides: {
+          'id': id,
+          'post': {
+            'id': id,
+            'topic': {'id': 1000 + id, 'title': 'Topic $id'},
+          },
+        },
+      );
+      ports.transport.responders['GET /discourse-post-event/events/43.json'] =
+          (_) => {'event': eventFor(43)};
+      final handles = {
+        (eventSite, 42): ports.controller.acquire(
+          eventSite,
+          PostEvent.decode(current)!,
+        ),
+        (eventSite, 43): ports.controller.acquire(
+          eventSite,
+          PostEvent.decode(eventFor(43))!,
+        ),
+        (other, 42): ports.controller.acquire(
+          other,
+          PostEvent.decode(current)!,
+        ),
+      };
+      await Future.wait([
+        for (final handle in handles.values) handle.refresh(),
+      ]);
+      final changed = <(String, int)>{};
+      var controllerChanges = 0;
+      for (final MapEntry(:key, :value) in handles.entries) {
+        value.changes.addListener(() => changed.add(key));
+      }
+      ports.controller.addListener(() => controllerChanges++);
+
+      await handles[(eventSite, 42)]!.refresh();
+      expect(changed, {(eventSite, 42)});
+      expect(controllerChanges, isPositive);
+
+      changed.clear();
+      ports.environment.setDeviceTimezone('Asia/Tokyo');
+      expect(changed, handles.keys.toSet());
+
+      changed.clear();
+      ports.controller.pluginCurrentUserRefreshed(eventSite);
+      expect(changed, {(eventSite, 42), (eventSite, 43)});
+      await Future.wait([
+        for (final handle in handles.values) handle.refresh(),
+      ]);
+
+      changed.clear();
+      ports.controller.forget(eventSite);
+      expect(changed, {(eventSite, 42), (eventSite, 43)});
+      expect(handles[(eventSite, 42)]!.event, isNull);
+
+      for (final handle in handles.values) {
+        handle.dispose();
+      }
+      expect(ports.channels.channels, isEmpty);
+    },
+  );
+
+  test(
     'same numeric event on different sites never shares personalized state',
     () async {
       ports.transport.responders[read] = (r) => {
