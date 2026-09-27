@@ -62,13 +62,15 @@ class ChatChannelView extends StatelessWidget {
 /// Notification totals, the current route and forum focus also notify
 /// [ChatShellService], and redrawing a pane for them redrew every message it
 /// held. Beyond a pane's own inputs, the account and the flag catalog are read
-/// by message rows that have no listener for them. The channel pane and the
-/// thread workspace both select this, so a shell input that either pane or its
-/// rows come to read belongs here.
+/// by message rows that have no listener for them. The account is selected as
+/// the fields the permission checks read, because a draft count, a status or
+/// do-not-disturb replaces its record too. The channel pane and the thread
+/// workspace both select this, so a shell input that either pane or its rows
+/// come to read belongs here.
 typedef ChatPaneShellInputs = ({
   String siteUrl,
   int showTimeGapDays,
-  DiscourseUser? account,
+  ChatAccountAccess? account,
   List<PostFlagType> flagTypes,
 });
 
@@ -79,7 +81,7 @@ ChatPaneShellInputs? selectChatPaneShellInputs(ChatShellService shell) =>
       final siteUrl => (
         siteUrl: siteUrl,
         showTimeGapDays: shell.showTimeGapDaysFor(siteUrl),
-        account: shell.currentUser,
+        account: shell.currentUser?.chatAccountAccess,
         flagTypes: shell.postFlagTypesFor(siteUrl),
       ),
     };

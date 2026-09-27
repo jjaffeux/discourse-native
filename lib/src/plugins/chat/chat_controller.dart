@@ -352,6 +352,18 @@ final class _ChatMessagePinSet {
   }
 }
 
+/// Every account field that [ChatController]'s permission checks read: who the
+/// reader is, for their own messages, and whether they are staff. Chat panes
+/// redraw their rows for the account only when this changes or the account
+/// signs in or out, and not for the rest of the record, which draft counts,
+/// the reader's status, do-not-disturb and notification counts replace far
+/// more often.
+typedef ChatAccountAccess = ({int? id, bool staff});
+
+extension ChatAccountAccessOf on DiscourseUser {
+  ChatAccountAccess get chatAccountAccess => (id: id, staff: staff);
+}
+
 /// Owns chat requests and ordering; records and row-level notifications live
 /// in the [Store] to avoid rebuilding the host shell.
 class ChatController extends FrameSafeNotifier {
@@ -2580,8 +2592,8 @@ class ChatController extends FrameSafeNotifier {
   }
 
   // Message rows redraw the per-message checks only when the channel's
-  // `ChatChannel.messageAccess` changes, so every channel field one of them
-  // reads must be part of it.
+  // `ChatChannel.messageAccess` or the account's `ChatAccountAccess` changes,
+  // so every channel or account field one of them reads must be part of those.
   bool canBookmarkMessage(String siteUrl, ChatMessage message) {
     final user = _currentUserFor(siteUrl);
     final heldChannel = channel(siteUrl, message.channelId);
