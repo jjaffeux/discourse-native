@@ -105,7 +105,8 @@ included in the module's markup drift snapshots.
 - Writes are serialized through core's post lane and guarded by a site lease.
   Request generations discard stale reads; live echoes coalesce into a reread.
   Responses, including ambiguous write failures, are reconciled from the event
-  endpoint. Topic reload lets the server's Watching/Tracking and Chat effects
+  endpoint, and commands stay closed until that reread lands: the pre-write
+  invitee ID may name a deleted row or miss a new one. Topic reload lets the server's Watching/Tracking and Chat effects
   reach their owners. Private attendance never supplies a synthetic default.
 - Subscription ownership is reference counted. Backgrounding, tracker
   replacement, unmount, site forget, and session close have explicit cleanup.

@@ -74,6 +74,7 @@ final class EventController extends FrameSafeNotifier
     if (--entry.references != 0) return;
     entry.subscription?.cancel();
     entry.subscription = null;
+    entry.reconciling = false;
     entry.generation++;
     if (_current(entry)) _entries.remove((entry.site, entry.id));
   }
@@ -135,6 +136,7 @@ final class EventController extends FrameSafeNotifier
           }
           entry.value = value;
           entry.authoritative = true;
+          entry.reconciling = false;
           entry.error = null;
           entry.topicId = value.topicId;
           _subscribe(entry);
@@ -142,6 +144,7 @@ final class EventController extends FrameSafeNotifier
       } catch (error) {
         if (current()) {
           entry.authoritative = false;
+          entry.reconciling = false;
           // A denied/missing event must not retain a private roster or actions.
           entry.value = null;
           entry.error = eventError(error, reading: true);
@@ -161,6 +164,7 @@ final class EventController extends FrameSafeNotifier
     final event = entry.value;
     if (!_current(entry) ||
         entry.pending ||
+        entry.reconciling ||
         !entry.authoritative ||
         event == null) {
       return false;
@@ -228,8 +232,13 @@ final class EventController extends FrameSafeNotifier
       // The host owns this lane; an obsolete account lease must never release
       // a newer account's lane with the same numeric post ID.
       lease.commit(() => posts.endWrite(entry.site, entry.id));
+      final reread = _current(entry) && lease.isCurrent;
+      // Until the re-read lands, `watching` can still lack the invitee this
+      // write created or name the one it deleted; a command built from it would
+      // POST a duplicate the server folds away, or PUT a deleted row.
+      entry.reconciling = mayHaveChanged && reread;
       entry.pending = false;
-      if (_current(entry) && lease.isCurrent) {
+      if (reread) {
         await _refresh(entry);
         if (_current(entry) && lease.isCurrent) {
           if (failure != null) entry.error = failure;
@@ -360,6 +369,7 @@ final class EventController extends FrameSafeNotifier
       entry.subscription = null;
       entry.value = null;
       entry.authoritative = false;
+      entry.reconciling = false;
       entry.generation++;
       _entries.remove((site, entry.id));
     }
@@ -393,6 +403,9 @@ final class _EventEntry {
   int generation = 0;
   bool authoritative = false;
   bool pending = false;
+
+  /// A write may have changed the server record and no read has landed since.
+  bool reconciling = false;
   bool reading = false;
   bool dirty = false;
   String? error;
@@ -407,7 +420,9 @@ final class EventHandle {
   bool _released = false;
   String get site => _entry.site;
   PostEvent? get event => _entry.value;
-  bool get pending => _entry.pending;
+
+  /// Covers the post-write re-read too, when [event] may predate the write.
+  bool get pending => _entry.pending || _entry.reconciling;
   bool get loading => _entry.reading;
   bool get isCurrent => !_released && controller._current(_entry);
   bool get authoritative => _entry.authoritative && isCurrent;

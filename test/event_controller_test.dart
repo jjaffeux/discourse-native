@@ -313,6 +313,110 @@ void main() {
     },
   );
 
+  for (final withdraw in [false, true]) {
+    test(
+      '${withdraw ? 'withdrawal' : 'first response'} keeps commands closed until its re-read lands',
+      () async {
+        const invitee = '/discourse-post-event/events/42/invitees/83.json';
+        const post = ('POST', '/discourse-post-event/events/42/invitees.json');
+        current = eventJson(
+          overrides: {
+            'is_public': true,
+            'is_private': false,
+            'watching_invitee': withdraw ? watching() : null,
+          },
+        );
+        final handle = ports.controller.acquire(
+          eventSite,
+          PostEvent.decode(current)!,
+        );
+        addTearDown(handle.dispose);
+        await handle.refresh();
+        final rereadEntered = Completer<void>();
+        final reread = Completer<Map<String, dynamic>>();
+        final route = withdraw ? 'DELETE $invitee' : create;
+        ports.transport.responders[route] = (_) {
+          current = {
+            ...current,
+            'watching_invitee': withdraw ? null : watching(),
+          };
+          ports.transport.responders[read] = (_) {
+            rereadEntered.complete();
+            return reread.future;
+          };
+          return withdraw ? {} : {'invitee': watching()};
+        };
+        final write = withdraw ? handle.withdraw() : handle.respond('going');
+        await rereadEntered.future;
+
+        final lateTaps = [handle.respond('interested'), handle.withdraw()];
+        await pumpEventQueue();
+        expect(ports.transport.writes.map((w) => (w.method, w.path)), [
+          withdraw ? ('DELETE', invitee) : post,
+        ]);
+        expect(handle.pending, isTrue);
+        expect(handle.loading, isTrue);
+
+        reread.complete({'event': current});
+        await Future.wait([write, ...lateTaps]);
+        expect(handle.pending, isFalse);
+        expect(handle.error, isNull);
+        expect(handle.event!.watching?.id, withdraw ? null : 83);
+
+        ports.transport.responders[read] = (_) => {'event': current};
+        ports.transport.responses[withdraw ? create : 'PUT $invitee'] = {
+          'invitee': watching(status: 'interested'),
+        };
+        await handle.respond('interested');
+        final retry = ports.transport.writes.last;
+        expect((retry.method, retry.path), withdraw ? post : ('PUT', invitee));
+        expect(ports.transport.writes, hasLength(2));
+      },
+    );
+  }
+
+  test('a failed post-write re-read reopens commands', () async {
+    final handle = ports.controller.acquire(
+      eventSite,
+      PostEvent.decode(current)!,
+    );
+    addTearDown(handle.dispose);
+    await handle.refresh();
+    final rereadEntered = Completer<void>();
+    final reread = Completer<Map<String, dynamic>>();
+    ports.transport.responders[create] = (_) {
+      current = eventJson(overrides: {'watching_invitee': watching()});
+      ports.transport.responders[read] = (_) {
+        rereadEntered.complete();
+        return reread.future;
+      };
+      return {'invitee': watching()};
+    };
+    final write = handle.respond('going');
+    await rereadEntered.future;
+    expect(handle.pending, isTrue);
+
+    reread.completeError(
+      const SiteLookupException(SiteLookupFailure.unreachable, eventSite),
+    );
+    await write;
+    expect(handle.pending, isFalse);
+    expect(handle.loading, isFalse);
+    expect(handle.authoritative, isFalse);
+    expect(handle.error, isNotNull);
+
+    ports.transport.responders[read] = (_) => {'event': current};
+    await handle.refresh();
+    expect(handle.pending, isFalse);
+    ports
+        .transport
+        .responses['PUT /discourse-post-event/events/42/invitees/83.json'] = {
+      'invitee': watching(status: 'interested'),
+    };
+    await handle.respond('interested');
+    expect(ports.transport.writes.map((w) => w.method), ['POST', 'PUT']);
+  });
+
   test(
     'capacity and permission failures re-read, retain server errors, and release the lane',
     () async {

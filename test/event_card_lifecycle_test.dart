@@ -245,6 +245,54 @@ void main() {
   }
 
   testWidgets(
+    'RSVP controls stay disabled until the post-write re-read lands',
+    (tester) async {
+      current = eventJson();
+      await pumpCard(tester, PostEvent.decode(current)!);
+      await tester.pumpAndSettle();
+      const create = 'POST /discourse-post-event/events/42/invitees.json';
+      final reread = Completer<Map<String, dynamic>>();
+      ports.transport.responders[create] = (_) {
+        current = {
+          ...current,
+          'watching_invitee': watching(status: 'interested'),
+        };
+        ports.transport.responders[read] = (_) => reread.future;
+        return {'invitee': watching(status: 'interested')};
+      };
+      DToggle toggle(String label) =>
+          tester.widget<DToggle>(find.widgetWithText(DToggle, label));
+      DButton going() =>
+          tester.widget<DButton>(find.widgetWithText(DButton, 'Going'));
+
+      final reads = ports.transport.reads.length;
+      await tester.tap(find.text('Interested'));
+      await tester.pump();
+      await tester.pump();
+      expect(ports.transport.writes, hasLength(1));
+      expect(ports.transport.reads, hasLength(reads + 1));
+      expect(toggle('Interested').enabled, isFalse);
+      expect(toggle('Not going').enabled, isFalse);
+      expect(going().onPressed, isNull);
+      expect(find.byType(DProgress), findsOneWidget);
+
+      await tester.tap(find.text('Not going'), warnIfMissed: false);
+      await tester.pump();
+      expect(ports.transport.writes, hasLength(1));
+
+      reread.complete({'event': current});
+      await tester.pumpAndSettle();
+      expect(toggle('Interested').pressed, isTrue);
+      expect(toggle('Not going').enabled, isTrue);
+      expect(going().onPressed, isNotNull);
+      expect(find.byType(DProgress), findsNothing);
+      expect(ports.transport.writes, hasLength(1));
+      await tester.pumpWidget(const SizedBox.shrink());
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
     'a retained card recovers from forget only with a fresh snapshot and shares its new entry',
     (tester) async {
       final seed = PostEvent.decode(current)!;
