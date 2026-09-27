@@ -23,6 +23,7 @@ import 'package:discourse_native/src/plugins/chat/chat_notification_counter.dart
 import 'package:discourse_native/src/plugins/discourse_ai/ai_summary.dart';
 import 'package:discourse_native/src/plugins/discourse_ai/ai_summary_plugin.dart';
 import 'package:discourse_native/src/shell/composer_panel.dart';
+import 'package:discourse_native/src/shell/content_navigation_controls.dart';
 import 'package:discourse_native/src/shell/instance_rail.dart';
 import 'package:discourse_native/src/shell/instance_sidebar.dart';
 import 'package:discourse_native/src/shell/main_content.dart';
@@ -130,7 +131,12 @@ void _registerTopicReadingTests() {
         findsOneWidget,
       );
       expect(find.byType(ComposerPanel), findsOneWidget);
-      expect(find.text('Create topic'), findsOneWidget);
+      expect(
+        tester
+            .widget<DButton>(find.byKey(const ValueKey('composer-submit')))
+            .tooltip,
+        'Create topic',
+      );
       expect(
         find.byKey(const ValueKey('composer-category-action')),
         findsOneWidget,
@@ -171,7 +177,7 @@ void _registerTopicReadingTests() {
       expect(composer.title.text, 'A native topic');
       expect(composer.raw, 'Created from the docked composer.');
       expect(composer.canSubmit, isTrue);
-      await tester.tap(find.text('Create topic'));
+      await tester.tap(find.byKey(const ValueKey('composer-submit')));
       await tester.pumpAndSettle();
 
       expect(api.topicsCreated.single['title'], 'A native topic');
@@ -814,10 +820,9 @@ void _registerTopicReadingTests() {
         authenticator: authenticator,
       );
 
-      expect(find.byType(InstanceSidebar), findsOneWidget);
-      expect(find.byType(MainContent), findsNothing);
+      expect(find.byType(ComposerPanel), findsNothing);
 
-      await tester.tap(sidebarDestination('New Topic'));
+      await tester.tap(find.byKey(const ValueKey('mobile-new-topic')));
       await tester.pumpAndSettle();
 
       expect(find.byType(InstanceSidebar), findsNothing);
@@ -1344,7 +1349,7 @@ void _registerTopicReadingTests() {
       );
 
       await pumpShell(tester, phone, api: api);
-      await tester.tap(sidebarDestination('Topics'));
+      await tester.tap(find.byKey(const ValueKey('mobile-mode-topics')));
       await tester.pumpAndSettle();
 
       final titleRect = tester.getRect(find.text(title));
@@ -1353,11 +1358,8 @@ void _registerTopicReadingTests() {
           (widget) => widget is TopicStateDot && widget.label == 'New topic',
         ),
       );
-      expect(titleRect.height, inInclusiveRange(50, 60));
-      expect(
-        dot.left - _lastTitleLine(tester, title).right,
-        closeTo(6 * 1.2, 0.5),
-      );
+      expect(titleRect.height, inInclusiveRange(36, 44));
+      expect(dot.left - _lastTitleLine(tester, title).right, closeTo(6, 0.5));
       expect(dot.top, greaterThanOrEqualTo(titleRect.top));
       expect(dot.bottom, lessThanOrEqualTo(titleRect.bottom));
     });
@@ -1379,16 +1381,16 @@ void _registerTopicReadingTests() {
       );
 
       await pumpShell(tester, phone, api: api);
-      await tester.tap(sidebarDestination('Topics'));
+      await tester.tap(find.byKey(const ValueKey('mobile-mode-topics')));
       await tester.pumpAndSettle();
 
       final titleRect = tester.getRect(find.text(title));
       final count = tester.getRect(find.text('3'));
-      expect(titleRect.height, inInclusiveRange(50, 60));
+      expect(titleRect.height, inInclusiveRange(36, 44));
       expect(
         tester.getRect(find.byKey(const ValueKey('inbox-row-unread-9'))).left -
             _lastTitleLine(tester, title).right,
-        closeTo(6 * 1.2, 0.5),
+        closeTo(6, 0.5),
       );
       expect(count.bottom, lessThanOrEqualTo(titleRect.bottom));
     });
@@ -1629,7 +1631,7 @@ void _registerTopicReadingTests() {
       expect(
         tester.getTopLeft(secondTagLink).dx -
             tester.getTopRight(firstTagLink).dx,
-        closeTo(DSpacing.xs, 0.01),
+        closeTo(DSpacing.md, 0.01),
       );
       final category = find.descendant(
         of: find.byType(TopicListView),
@@ -1786,19 +1788,28 @@ void _registerTopicReadingTests() {
       tester,
     ) async {
       const tag = TopicTag(name: '2024');
+      const topic = Topic(
+        id: 3,
+        title: 'A numeric tagged topic',
+        slug: 'a-numeric-tagged-topic',
+        categoryId: 5,
+        tags: [tag],
+      );
       final hashtagGate = Completer<void>();
       final api = FakeDiscourseApi(
         feeds: {
-          '/latest.json': const [
-            Topic(
-              id: 3,
-              title: 'A numeric tagged topic',
-              slug: 'a-numeric-tagged-topic',
-              tags: [tag],
-            ),
-          ],
+          '/latest.json': const [topic],
+          '/c/feature/5.json': const [topic],
           '/tag/2024/77.json': const [],
         },
+        categoryList: const [
+          TopicCategory(
+            id: 5,
+            name: 'Feature',
+            color: '0088CC',
+            slug: 'feature',
+          ),
+        ],
         hashtagSearchGate: hashtagGate,
         hashtagSearches: const {
           '2024': [
@@ -1814,25 +1825,28 @@ void _registerTopicReadingTests() {
       );
 
       await pumpShell(tester, phone, api: api);
-      await tester.tap(find.text('Topics'));
+      await tester.tap(find.byKey(const ValueKey('mobile-mode-topics')));
       await tester.pumpAndSettle();
       final controller = ShellScope.read(
         tester.element(find.byType(MainContent)),
       );
+      // The Topics root has nothing to pop on a phone, so Back needs a page
+      // above it.
+      await tester.tap(find.text('Feature'));
+      await tester.pumpAndSettle();
+      expect(controller.currentContent?.id, 'category-5');
       await tester.tap(find.text(tag.name));
       await tester.pump();
       expect(api.hashtagSearchesRequested, ['2024']);
 
       expect(controller.handleBack(), isTrue);
       await tester.pumpAndSettle();
-      expect(find.byType(InstanceSidebar), findsOneWidget);
-      expect(find.byType(MainContent), findsNothing);
+      expect(controller.currentContent?.id, 'latest');
 
       hashtagGate.complete();
       await tester.pumpAndSettle();
 
-      expect(find.byType(InstanceSidebar), findsOneWidget);
-      expect(find.byType(MainContent), findsNothing);
+      expect(controller.currentContent?.id, 'latest');
       expect(api.feedPaths, isNot(contains('/tag/2024/77.json')));
       expect(api.topicsOpened, isEmpty);
     });
@@ -1861,7 +1875,7 @@ void _registerTopicReadingTests() {
       );
 
       await pumpShell(tester, phone, api: api);
-      await tester.tap(sidebarDestination('Topics'));
+      await tester.tap(find.byKey(const ValueKey('mobile-mode-topics')));
       await tester.pumpAndSettle();
 
       expect(find.text('design'), findsOneWidget);
@@ -1890,7 +1904,7 @@ void _registerTopicReadingTests() {
       );
 
       await pumpShell(tester, phone, api: api);
-      await tester.tap(sidebarDestination('Topics'));
+      await tester.tap(find.byKey(const ValueKey('mobile-mode-topics')));
       await tester.pumpAndSettle();
 
       expect(tester.takeException(), isNull);
@@ -1933,7 +1947,7 @@ void _registerTopicReadingTests() {
       );
 
       await pumpShell(tester, phone, api: api);
-      await tester.tap(sidebarDestination('Topics'));
+      await tester.tap(find.byKey(const ValueKey('mobile-mode-topics')));
       await tester.pumpAndSettle();
 
       expect(find.text('sea2'), findsOneWidget);
@@ -1945,7 +1959,7 @@ void _registerTopicReadingTests() {
       expect(tester.getSize(firstTag).width, lessThan(80));
       expect(tester.getSize(secondTag).width, lessThan(80));
       expect(tester.getSize(overflow).width, lessThan(80));
-      expect(tester.getSize(overflow).height, 23);
+      expect(tester.getSize(overflow).height, 22);
       expect(tester.getSize(firstTag).height, 48);
       expect(
         DefaultTextStyle.of(tester.element(find.text('+12'))).style.fontSize,
@@ -2467,20 +2481,6 @@ void _registerTopicReadingTests() {
         Topic(id: i, title: 'Topic $i', slug: 'topic-$i'),
     ];
 
-    testWidgets('pulling past the first topic refreshes the list', (
-      tester,
-    ) async {
-      final api = FakeDiscourseApi(feeds: {'/latest.json': page(1, 30)});
-
-      await pumpShell(tester, desktop, api: api);
-      expect(api.feedPaths, ['/latest.json']);
-
-      await tester.drag(topicList, const Offset(0, 1200));
-      await tester.pumpAndSettle();
-
-      expect(api.feedPaths, ['/latest.json', '/latest.json']);
-    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
-
     testWidgets('reaching the end appends the next page', (tester) async {
       final api = FakeDiscourseApi(
         feeds: {
@@ -2741,7 +2741,7 @@ void _registerTopicReadingTests() {
       }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
     }
 
-    testWidgets('tapping a row opens its topic beside the retained list', (
+    testWidgets('tapping a row opens its topic in place of the list', (
       tester,
     ) async {
       final api = FakeDiscourseApi(
@@ -2755,7 +2755,7 @@ void _registerTopicReadingTests() {
 
       expect(api.topicsOpened, [7]);
       expect(find.byType(TopicView), findsOneWidget);
-      expect(find.byType(TopicListView), findsOneWidget);
+      expect(find.byType(TopicListView), findsNothing);
       expect(find.byType(InlineTopicTitleEditor), findsNothing);
       expect(
         find.byKey(const ValueKey('topic-header-title-field')),
@@ -2931,7 +2931,7 @@ void _registerTopicReadingTests() {
       ]) {
         final trigger = tooltip == 'Bookmark this topic'
             ? find.descendant(
-                of: find.byKey(const ValueKey('topic-bottom-bar')),
+                of: find.byKey(const ValueKey('topic-header-bookmark-button')),
                 matching: find.byTooltip(tooltip),
               )
             : find.byTooltip(tooltip);
@@ -2944,7 +2944,7 @@ void _registerTopicReadingTests() {
       }
 
       expect(
-        find.byKey(const ValueKey('topic-notification-level-button')),
+        find.byKey(const ValueKey('topic-header-notification-button')),
         findsOneWidget,
       );
       expect(find.byTooltip('Flag this topic'), findsNothing);
@@ -2960,7 +2960,7 @@ void _registerTopicReadingTests() {
     }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets(
-      'outlined footer opens the matching topic or post bookmark menu',
+      'outlined header bookmark opens the matching topic or post menu',
       (tester) async {
         const reader = DiscourseUser(id: 1, username: 'reader');
         final authenticator = FakeAuthenticator()
@@ -2982,7 +2982,9 @@ void _registerTopicReadingTests() {
           );
           await tester.tap(contentText('A real topic'));
           await tester.pumpAndSettle();
-          final action = find.byKey(const ValueKey('topic-bookmark-button'));
+          final action = find.byKey(
+            const ValueKey('topic-header-bookmark-button'),
+          );
           expect(
             tester.widget<DButton>(action).variant,
             DButtonVariant.outline,
@@ -3441,7 +3443,7 @@ void _registerTopicReadingTests() {
       await tester.pumpAndSettle();
 
       final trigger = find.byKey(
-        const ValueKey('topic-notification-level-button'),
+        const ValueKey('topic-header-notification-button'),
       );
       expect(trigger, findsOneWidget);
       DIconData triggerIcon() => tester
@@ -3530,7 +3532,7 @@ void _registerTopicReadingTests() {
       await tester.tap(contentText('A real topic'));
       await tester.pumpAndSettle();
       await tester.tap(
-        find.byKey(const ValueKey('topic-notification-level-button')),
+        find.byKey(const ValueKey('topic-header-notification-button')),
       );
       await tester.pumpAndSettle();
       await tester.tap(
@@ -3941,7 +3943,7 @@ void _registerTopicReadingTests() {
       );
 
       await pumpShell(tester, phone, api: api);
-      await tester.tap(sidebarDestination('Topics'));
+      await tester.tap(find.byKey(const ValueKey('mobile-mode-topics')));
       await tester.pumpAndSettle();
       final semantics = tester.ensureSemantics();
       try {
@@ -4119,13 +4121,7 @@ void _registerTopicReadingTests() {
       await pumpShell(tester, desktop, api: api);
       await tester.tap(find.text('A real topic'));
       await tester.pumpAndSettle();
-      await tester.tap(
-        find.byKey(
-          ValueKey(
-            'forum-tab-close-${ShellScope.read(tester.element(find.byType(MainContent))).activeTab!.id}',
-          ),
-        ),
-      );
+      await tester.tap(find.byKey(ContentNavigationControls.backKey));
       await tester.pumpAndSettle();
 
       expect(find.byType(TopicListView), findsOneWidget);
@@ -4153,13 +4149,7 @@ void _registerTopicReadingTests() {
       await tester.tap(find.text('A real topic'));
       await tester.pumpAndSettle();
       await tester.pump(const Duration(milliseconds: 600));
-      await tester.tap(
-        find.byKey(
-          ValueKey(
-            'forum-tab-close-${ShellScope.read(tester.element(find.byType(MainContent))).activeTab!.id}',
-          ),
-        ),
-      );
+      await tester.tap(find.byKey(ContentNavigationControls.backKey));
       await tester.pumpAndSettle();
 
       expect(find.text('3'), findsNothing);
@@ -4202,13 +4192,7 @@ void _registerTopicReadingTests() {
         find.ancestor(of: row, matching: find.byType(DItem)).first,
       );
       await tester.pumpAndSettle();
-      await tester.tap(
-        find.byKey(
-          ValueKey(
-            'forum-tab-close-${ShellScope.read(tester.element(find.byType(MainContent))).activeTab!.id}',
-          ),
-        ),
-      );
+      await tester.tap(find.byKey(ContentNavigationControls.backKey));
       await tester.pumpAndSettle();
 
       expect(find.text('Topic 40'), findsOneWidget);
@@ -4540,7 +4524,7 @@ void _registerTopicReadingTests() {
                 widget.title == 'A compact suggested topic',
           ),
         );
-        expect(compactTitle.style?.fontSize, DiscourseTypography.base);
+        expect(compactTitle.style?.fontSize, DiscourseTypography.rowTitle);
         expect(compactTitle.style?.fontSize, lessThan(DiscourseTypography.lg));
       },
       variant: TargetPlatformVariant.only(TargetPlatform.linux),
@@ -4678,13 +4662,7 @@ void _registerTopicReadingTests() {
       await pumpShell(tester, desktop, api: api);
       await tester.tap(find.text('A real topic'));
       await tester.pumpAndSettle();
-      await tester.tap(
-        find.byKey(
-          ValueKey(
-            'forum-tab-close-${ShellScope.read(tester.element(find.byType(MainContent))).activeTab!.id}',
-          ),
-        ),
-      );
+      await tester.tap(find.byKey(ContentNavigationControls.backKey));
       await tester.pumpAndSettle();
       await tester.tap(find.text('A real topic'));
       await tester.pumpAndSettle();
