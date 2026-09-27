@@ -21,8 +21,9 @@ class _ConversationTopicCardState extends State<_ConversationTopicCard> {
   void _hoverChanged(bool hovered) {
     _stopHover();
     if (hovered && TickerMode.valuesOf(context).enabled) {
-      _releaseHover = ShellScope.maybeRead(context)
-          ?.hoverTopic(row.siteUrl, row.topic);
+      _releaseHover = ShellScope.maybeRead(
+        context,
+      )?.hoverTopic(row.siteUrl, row.topic);
     }
   }
 
@@ -283,8 +284,9 @@ class _MobileTopicDetails extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final topic = row.topic;
-    final style = Theme.of(context).textTheme.labelSmall
-        ?.copyWith(color: DTokens.of(context).mutedForeground);
+    final style = Theme.of(context).textTheme.labelSmall?.copyWith(
+      color: DTokens.of(context).mutedForeground,
+    );
     final username = topic.lastPosterUsername;
     final replies = '${topic.replyCount} replies';
     final activityText = 'Last post by $username · $replies';
@@ -381,8 +383,9 @@ class _TopicCardField extends StatelessWidget {
   Widget build(BuildContext context) => onSort == null
       ? Text(
           label,
-          style: Theme.of(context).textTheme.labelSmall
-              ?.copyWith(color: DTokens.of(context).mutedForeground),
+          style: Theme.of(context).textTheme.labelSmall?.copyWith(
+            color: DTokens.of(context).mutedForeground,
+          ),
         )
       : DButton(
           key: ValueKey('topic-sort-$column'),

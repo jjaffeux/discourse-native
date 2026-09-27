@@ -413,39 +413,42 @@ void main() {
     ]);
   });
 
-  test('a content size limit edit does not make the initial text scale authoritative', () async {
-    final readGate = Completer<void>();
-    final persistence = _ControlledAppSettingsPersistence(
-      limitContentSize: false,
-      disableGifAnimations: true,
-      textScale: AppTextScale.percent125.name,
-      readGate: readGate,
-    );
-    final controller = _controller(persistence);
-    final loading = controller.load();
-    await persistence.readStarted.future;
-
-    final sizeLimit = controller.setLimitContentSize(true);
-    final firstIncrease = controller.increaseTextScale();
-    final secondIncrease = controller.increaseTextScale();
-    expect(controller.limitContentSize, true);
-    expect(controller.textScale, AppTextScale.percent100);
-    await sizeLimit;
-    expect(persistence.attemptedTextScaleWrites, isEmpty);
-
-    readGate.complete();
-    await Future.wait([loading, firstIncrease, secondIncrease]);
-
-    await _expectSettings(
-      controller,
-      persistence,
-      const AppSettings(
-        limitContentSize: true,
+  test(
+    'a content size limit edit does not make the initial text scale authoritative',
+    () async {
+      final readGate = Completer<void>();
+      final persistence = _ControlledAppSettingsPersistence(
+        limitContentSize: false,
         disableGifAnimations: true,
-        textScale: AppTextScale.percent175,
-      ),
-    );
-  });
+        textScale: AppTextScale.percent125.name,
+        readGate: readGate,
+      );
+      final controller = _controller(persistence);
+      final loading = controller.load();
+      await persistence.readStarted.future;
+
+      final sizeLimit = controller.setLimitContentSize(true);
+      final firstIncrease = controller.increaseTextScale();
+      final secondIncrease = controller.increaseTextScale();
+      expect(controller.limitContentSize, true);
+      expect(controller.textScale, AppTextScale.percent100);
+      await sizeLimit;
+      expect(persistence.attemptedTextScaleWrites, isEmpty);
+
+      readGate.complete();
+      await Future.wait([loading, firstIncrease, secondIncrease]);
+
+      await _expectSettings(
+        controller,
+        persistence,
+        const AppSettings(
+          limitContentSize: true,
+          disableGifAnimations: true,
+          textScale: AppTextScale.percent175,
+        ),
+      );
+    },
+  );
 
   test(
     'relative text changes use an explicit scale immediately during hydration',

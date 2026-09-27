@@ -59,9 +59,7 @@ void main() {
             ),
           ],
           anchor: const DComboboxInput<String>(),
-          content: const DComboboxContent(
-            children: [DComboboxList<String>()],
-          ),
+          content: const DComboboxContent(children: [DComboboxList<String>()]),
         ),
       ),
     );

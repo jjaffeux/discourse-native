@@ -334,17 +334,17 @@ class _NewTabPageState extends State<NewTabPage> {
                             if (siteUrl == null)
                               Text(
                                 'Start page',
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .headlineSmall,
+                                style: Theme.of(
+                                  context,
+                                ).textTheme.headlineSmall,
                               )
                             else
                               SiteEmojiText.plain(
                                 forum!.title,
                                 siteUrl: siteUrl,
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .headlineSmall,
+                                style: Theme.of(
+                                  context,
+                                ).textTheme.headlineSmall,
                               ),
                             if (forum != null)
                               Text(
@@ -1095,8 +1095,9 @@ class _PanelTutorialDiagram extends StatelessWidget {
           children: [
             Text(
               'TWO PANELS',
-              style: Theme.of(context).textTheme.labelSmall
-                  ?.copyWith(color: tokens.mutedForeground),
+              style: Theme.of(
+                context,
+              ).textTheme.labelSmall?.copyWith(color: tokens.mutedForeground),
             ),
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -1116,8 +1117,9 @@ class _PanelTutorialDiagram extends StatelessWidget {
               alignment: AlignmentDirectional.centerEnd,
               child: Text(
                 'Shift + click opens here',
-                style: Theme.of(context).textTheme.bodySmall
-                    ?.copyWith(color: tokens.mutedForeground),
+                style: Theme.of(
+                  context,
+                ).textTheme.bodySmall?.copyWith(color: tokens.mutedForeground),
               ),
             ),
           ],

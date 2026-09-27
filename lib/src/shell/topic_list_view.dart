@@ -250,8 +250,9 @@ class _TopicListViewState extends State<TopicListView> {
     _scroll = ScrollController();
     _list = ListController();
     _keyboardMoveToken = null;
-    final saved = PageStorage.maybeOf(context)
-        ?.readState(context, identifier: ('topic-list-keyboard', feedIdentity));
+    final saved = PageStorage.maybeOf(
+      context,
+    )?.readState(context, identifier: ('topic-list-keyboard', feedIdentity));
     _cursor = ValueNotifier(saved is _TopicListCursor ? saved : null);
   }
 

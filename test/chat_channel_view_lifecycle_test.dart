@@ -55,7 +55,11 @@ void main() {
 
   testWidgets('opening a channel focuses its composer', (tester) async {
     final controller = await _controller(
-      _ChatApi(openPages: {firstSite: [_messagesPage(1, 1)]}),
+      _ChatApi(
+        openPages: {
+          firstSite: [_messagesPage(1, 1)],
+        },
+      ),
       sites: const [firstSite],
     );
     addTearDown(controller.dispose);
