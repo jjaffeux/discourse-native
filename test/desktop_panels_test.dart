@@ -6,6 +6,7 @@ import 'package:discourse_native/src/models/forum_workspace.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/sidebar.dart';
 import 'package:discourse_native/src/models/topic.dart';
+import 'package:discourse_native/src/shell/adaptive_shell.dart';
 import 'package:discourse_native/src/shell/desktop_panels.dart';
 import 'package:discourse_native/src/shell/forum_tabs_bar.dart';
 import 'package:discourse_native/src/shell/panel_rail.dart';
@@ -1147,6 +1148,37 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets(
+    'the split and a minimized panel are as they were after Aggregate',
+    (tester) async {
+      _openTopicTab(shell, _topic);
+      await _pumpShell(tester, shell);
+      await tester.drag(
+        find.byKey(const ValueKey('main-panel-resize-handle')),
+        const Offset(120, 0),
+      );
+      await tester.pumpAndSettle();
+      expect(tester.getRect(_mainPanel).width, 520);
+      await tester.tap(find.byKey(const ValueKey('minimize-panel-secondary')));
+      await tester.pumpAndSettle();
+
+      // Aggregate takes the panels' place in the window while it is shown.
+      shell.selectAggregate();
+      await tester.pumpAndSettle();
+      expect(find.byType(DesktopPanels), findsNothing);
+      shell.selectInstance(0);
+      await tester.pumpAndSettle();
+
+      expect(_rail(ForumPanel.secondary), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('panel-rail-restore')));
+      await tester.pumpAndSettle();
+      expect(_rail(ForumPanel.secondary), findsNothing);
+      expect(tester.getRect(_mainPanel).width, 520);
+      expect(tester.takeException(), isNull);
+    },
+    variant: TargetPlatformVariant.only(TargetPlatform.macOS),
+  );
+
   for (final panel in ForumPanel.values) {
     testWidgets('reordering within ${panel.name} shows an insertion bar', (
       tester,
@@ -1587,6 +1619,19 @@ Future<void> _pump(
           ),
         ),
       ),
+    ),
+  );
+  await tester.pumpAndSettle();
+}
+
+Future<void> _pumpShell(WidgetTester tester, ShellController shell) async {
+  tester.view.physicalSize = const Size(1200, 850);
+  tester.view.devicePixelRatio = 1;
+  addTearDown(tester.view.reset);
+  await tester.pumpWidget(
+    ShellScope(
+      controller: shell,
+      child: MaterialApp(theme: AppTheme.light, home: const AdaptiveShell()),
     ),
   );
   await tester.pumpAndSettle();
