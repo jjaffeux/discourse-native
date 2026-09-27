@@ -515,7 +515,7 @@ class _ChannelSettings extends StatelessWidget {
   }
 
   static String _retentionLabel(int days) =>
-      days > 0 ? '$days days' : 'Forever';
+      days > 0 ? countLabel(days, 'day') : 'Forever';
 }
 
 class _ChannelSummary extends StatelessWidget {

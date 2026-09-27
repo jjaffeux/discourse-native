@@ -5,6 +5,7 @@ import 'package:discourse_native/src/theme/discourse_typography.dart';
 import 'package:flutter/material.dart';
 
 import '../foundation/calendar_day.dart';
+import '../foundation/count_label.dart';
 import '../models/topic.dart';
 import '../plugin_api/global_search.dart' show GlobalSearchLookup;
 import '../plugin_api/plugin_scope.dart';
@@ -487,13 +488,14 @@ class _GlobalSearchPanelState extends State<GlobalSearchPanel> {
         ),
       if (properties.contains(GlobalSearchDisplayProperty.tags))
         for (final tag in result.tags) Text('#$tag'),
-      if (properties.contains(GlobalSearchDisplayProperty.likes) &&
-          result.likes != null)
-        Text('${result.likes} likes'),
-      if (properties.contains(GlobalSearchDisplayProperty.replies) &&
-          result.replies != null)
-        Text('${result.replies} replies'),
-      if (result.memberCount != null) Text('${result.memberCount} members'),
+      if (result.likes case final likes?
+          when properties.contains(GlobalSearchDisplayProperty.likes))
+        Text(countLabel(likes, 'like')),
+      if (result.replies case final replies?
+          when properties.contains(GlobalSearchDisplayProperty.replies))
+        Text(countLabel(replies, 'reply', plural: 'replies')),
+      if (result.memberCount case final members?)
+        Text(countLabel(members, 'member')),
       if (result.createdAt != null) Text(_searchDate(result.createdAt!)),
       if (result.privateMessage) const Text('Personal message'),
       if (result.closed) const Text('Closed'),

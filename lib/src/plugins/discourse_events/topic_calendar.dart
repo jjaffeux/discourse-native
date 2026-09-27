@@ -592,7 +592,8 @@ final class _TopicCalendarState extends State<TopicCalendar> {
         label: Text(
           '${day.day}',
           semanticsLabel:
-              '${DateFormat.yMMMMEEEEd(_locale).format(day)}, ${_eventsOn(day).length} entries',
+              '${DateFormat.yMMMMEEEEd(_locale).format(day)}, '
+              '${countLabel(_eventsOn(day).length, 'entry', plural: 'entries')}',
           style: Theme.of(context).textTheme.bodyMedium,
         ),
       ),

@@ -10,6 +10,7 @@ import 'package:flutter/widgets.dart';
 import '../data/discourse_api.dart';
 import '../data/draft_store.dart';
 import '../diagnostics/diagnostics_controller.dart';
+import '../foundation/count_label.dart';
 import '../models/composer_draft.dart';
 import '../models/composer_upload.dart';
 import '../models/site_config.dart';
@@ -653,7 +654,8 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
   }
 
   String? get taxonomyValidationMessage => _tags.length < _minimumRequiredTags
-      ? 'Choose at least $_minimumRequiredTags tags for this category.'
+      ? 'Choose at least ${countLabel(_minimumRequiredTags, 'tag')} for this '
+            'category.'
       : null;
 
   void setCategory(int? value, {int minimumRequiredTags = 0}) {

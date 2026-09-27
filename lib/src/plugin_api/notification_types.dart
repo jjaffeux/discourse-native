@@ -1,6 +1,7 @@
 import 'package:discourse_plugin_api/discourse_plugin_api.dart';
 import 'package:flutter/foundation.dart';
 
+import '../foundation/count_label.dart';
 import '../models/discourse_instance.dart';
 import '../models/json.dart';
 import '../models/notification.dart';
@@ -382,9 +383,9 @@ ResolvedNotification? _decodeCoreNotification(
       final badge? => 'You earned the $badge badge',
       null => 'You earned a badge',
     },
-    16 => '${_plural(count, 'message')} in your $group inbox',
+    16 => '${countLabel(count, 'message')} in your $group inbox',
     22 => "You're now a member of $group",
-    23 => '${_plural(count, 'membership request')} for $group',
+    23 => '${countLabel(count, 'membership request')} for $group',
     18 || 24 => 'Reminder: ${_reminderTitle(notification)}',
     20 => 'Your post in $title was approved',
     37 => 'New features are available',
@@ -606,6 +607,3 @@ bool _isAsciiBadgeSlugCodeUnit(int value) =>
 
 String _posts(int count) =>
     count <= 1 ? 'one of your posts' : '$count of your posts';
-
-String _plural(int count, String noun) =>
-    count == 1 ? '1 $noun' : '$count ${noun}s';

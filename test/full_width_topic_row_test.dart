@@ -72,6 +72,42 @@ void main() {
     semantics.dispose();
   });
 
+  for (final (count, replies, views) in [
+    (1, '1 reply', '1 view'),
+    (2, '2 replies', '2 views'),
+  ]) {
+    testWidgets('a topic with $replies and $views counts them in agreement', (
+      tester,
+    ) async {
+      await tester.binding.setSurfaceSize(const Size(1000, 400));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light.copyWith(platform: TargetPlatform.macOS),
+          home: Scaffold(
+            body: TopicListRow(
+              siteUrl: 'https://example.invalid',
+              topic: Topic(
+                id: 1,
+                title: 'Welcome to our community',
+                slug: 'welcome',
+                replyCount: count,
+                views: count,
+              ),
+              showViews: true,
+              onSort: (_) {},
+              onTap: () {},
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text(replies), findsOneWidget);
+      expect(find.text(views), findsOneWidget);
+    });
+  }
+
   for (final dark in [false, true]) {
     testWidgets('full-width topic states in ${dark ? 'dark' : 'light'}', (
       tester,

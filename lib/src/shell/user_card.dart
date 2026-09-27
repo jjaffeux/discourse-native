@@ -4,6 +4,7 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
 import '../foundation/calendar_day.dart';
+import '../foundation/count_label.dart';
 import '../foundation/uri_path.dart';
 import '../models/discourse_instance.dart';
 import '../models/user_card.dart';
@@ -820,7 +821,7 @@ class _BadgeCount extends StatelessWidget {
   Widget build(BuildContext context) => DBadge(
     variant: DBadgeVariant.outline,
     leading: const DIcon(DIcons.certificate, size: 12),
-    child: Text('$count badges'),
+    child: Text(countLabel(count, 'badge')),
   );
 }
 

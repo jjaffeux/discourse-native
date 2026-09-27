@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 
+import '../foundation/count_label.dart';
+
 @immutable
 class ComposerUploadFile {
   const ComposerUploadFile({
@@ -121,7 +123,7 @@ final class ComposerUploadException implements Exception {
     final wait = retryAfter;
     if (wait == null) return 'Too many uploads. Please wait and retry.';
     final seconds = (wait.inMilliseconds / 1000).ceil();
-    return 'Too many uploads. Try again in $seconds seconds.';
+    return 'Too many uploads. Try again in ${countLabel(seconds, 'second')}.';
   }
 
   @override

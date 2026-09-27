@@ -1059,7 +1059,8 @@ class ChatThreadListMessage extends StatelessWidget {
   );
 }
 
-String _replyCountLabel(int count) => count == 1 ? '1 reply' : '$count replies';
+String _replyCountLabel(int count) =>
+    countLabel(count, 'reply', plural: 'replies');
 
 int _participantTotal(ChatThreadPreview preview) {
   final serialized = preview.participantUsers.length;

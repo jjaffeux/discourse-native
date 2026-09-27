@@ -116,6 +116,41 @@ void main() {
     );
   });
 
+  for (final (count, labels) in [
+    (1, ['1 like', '1 reply', '1 member']),
+    (2, ['2 likes', '2 replies', '2 members']),
+  ]) {
+    testWidgets('result counts of $count agree with their nouns', (
+      tester,
+    ) async {
+      final controller = await _pump(
+        tester,
+        results: [
+          GlobalSearchResult(
+            id: 'counted',
+            scope: GlobalSearchScope.forum,
+            title: 'Counted result',
+            path: '/t/counted/1',
+            likes: count,
+            replies: count,
+            memberCount: count,
+          ),
+        ],
+      );
+      controller.setQuery('counted');
+      await tester.pumpAndSettle();
+
+      final row = _key('global-search-result-counted');
+      for (final label in labels) {
+        expect(
+          find.descendant(of: row, matching: find.text(label)),
+          findsOneWidget,
+        );
+      }
+      expect(tester.takeException(), isNull);
+    });
+  }
+
   testWidgets('numeric conditions validate, apply and edit their operator', (
     tester,
   ) async {

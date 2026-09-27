@@ -199,7 +199,10 @@ class _ConversationTopicCardState extends State<_ConversationTopicCard> {
           ],
           WidgetSpan(
             alignment: PlaceholderAlignment.middle,
-            child: field('${topic.replyCount} replies', 'posts'),
+            child: field(
+              countLabel(topic.replyCount, 'reply', plural: 'replies'),
+              'posts',
+            ),
           ),
           if (row.showViews) ...[
             WidgetSpan(
@@ -208,7 +211,7 @@ class _ConversationTopicCardState extends State<_ConversationTopicCard> {
             ),
             WidgetSpan(
               alignment: PlaceholderAlignment.middle,
-              child: field('${topic.views} views', 'views'),
+              child: field(countLabel(topic.views, 'view'), 'views'),
             ),
           ],
         ],
@@ -355,8 +358,7 @@ class _MobileTopicDetails extends StatelessWidget {
       color: Color.lerp(tokens.background, tokens.foreground, .4),
     );
     final username = topic.lastPosterUsername;
-    final replies =
-        '${topic.replyCount} ${topic.replyCount == 1 ? 'reply' : 'replies'}';
+    final replies = countLabel(topic.replyCount, 'reply', plural: 'replies');
     final activity = TextSpan(
       children: [
         if (username != null) ...[
@@ -370,7 +372,8 @@ class _MobileTopicDetails extends StatelessWidget {
           const TextSpan(text: ' · '),
         ],
         TextSpan(text: replies),
-        if (row.showViews) TextSpan(text: ' · ${topic.views} views'),
+        if (row.showViews)
+          TextSpan(text: ' · ${countLabel(topic.views, 'view')}'),
       ],
     );
     return _TopicMetadataWrap(

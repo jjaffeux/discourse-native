@@ -791,7 +791,7 @@ class _ChatNewDirectMessageDialogState
         group.fullName ?? group.name,
         !group.enabled
             ? 'This group cannot be added to Chat.'
-            : '${group.memberCount} people',
+            : countLabel(group.memberCount, 'person', plural: 'people'),
         const DIcon(DIcons.users),
       ),
       ChatDirectMessageChannel(:final channel) => (

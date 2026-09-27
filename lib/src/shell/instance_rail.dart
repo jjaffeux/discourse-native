@@ -9,6 +9,7 @@ import 'package:flutter/services.dart';
 
 import '../app_shortcuts.dart';
 import '../diagnostics/diagnostics_scope.dart';
+import '../foundation/count_label.dart';
 import '../models/discourse_instance.dart';
 import '../models/site_appearance.dart';
 import '../styleguide/styleguide_page.dart';
@@ -1480,8 +1481,10 @@ class _RailItemState extends State<_RailItem> {
                                 backgroundColor: badgeBackground,
                                 foregroundColor: badgeForeground,
                                 ringColor: railSurface,
-                                semanticLabel:
-                                    '${widget.badgeCount} unread notifications',
+                                semanticLabel: countLabel(
+                                  widget.badgeCount,
+                                  'unread notification',
+                                ),
                                 child: Text(
                                   widget.badgeCount > 999
                                       ? '999+'

@@ -70,7 +70,8 @@ class ReactionsRow extends StatelessWidget {
                   key: ValueKey('post-reaction-summary-${post.id}'),
                   size: DButtonSize.post,
                   variant: DButtonVariant.outline,
-                  semanticLabel: '$count reactions. Show all reactions',
+                  semanticLabel:
+                      '${countLabel(count, 'reaction')}. Show all reactions',
                   tooltip: 'Show all reactions',
                   icon: Row(
                     mainAxisSize: MainAxisSize.min,
@@ -200,8 +201,10 @@ class ReactionsRow extends StatelessWidget {
                               size: DToggleSize.large,
                               variant: DToggleVariant.outline,
                               pressed: filter == entry.id,
-                              semanticLabel:
-                                  '${entry.count} ${entry.id} reactions',
+                              semanticLabel: countLabel(
+                                entry.count,
+                                '${entry.id} reaction',
+                              ),
                               onPressedChanged: (_) => setSheetState(() {
                                 filter = filter == entry.id ? null : entry.id;
                               }),
