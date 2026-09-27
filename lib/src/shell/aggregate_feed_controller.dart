@@ -13,6 +13,7 @@ import '../foundation/frame_safe_notifier.dart';
 import '../models/discourse_instance.dart';
 import '../models/topic.dart';
 import '../models/topic_filter.dart';
+import 'topic_filter_controller.dart';
 
 @immutable
 final class AggregateTopicRef {
@@ -496,7 +497,7 @@ final class AggregateFeedController extends FrameSafeNotifier {
         if (instance.isConnected && !tab.excludedForums.contains(instance.url))
           _ConfiguredAggregateForum(
             instance,
-            tab.queries[instance.url] ?? '',
+            _mergeableQuery(tab.queries[instance.url] ?? ''),
             lifecycle.capture(instance.url),
           ),
     ];
@@ -783,7 +784,10 @@ final class AggregateFeedController extends FrameSafeNotifier {
     accepted.sort(_compareTopics);
     source.buffer.addAll(accepted);
     if (list.filterOptions.isNotEmpty) {
-      source.filterOptions = list.filterOptions;
+      source.filterOptions = List.unmodifiable([
+        for (final option in list.filterOptions)
+          if (!_orderClause.hasMatch(option.name)) option,
+      ]);
     }
     source.loadedPagePaths.add(path);
     final nextPagePath = list.nextPagePath;
@@ -878,6 +882,21 @@ final class AggregateFeedController extends FrameSafeNotifier {
     _closedTabs.clear();
     _requests.close();
     super.dispose();
+  }
+
+  /// The merge interleaves forums by bump time and relies on every forum
+  /// paging in that order, so a clause that makes the server page in another
+  /// order is neither sent nor suggested. Discourse reads `order` regardless
+  /// of a key prefix.
+  static final _orderClause = RegExp(r'^(?:-=|=-|-|=)?order:');
+
+  static String _mergeableQuery(String query) {
+    final clauses = splitTopicFilterQuery(query);
+    final kept = [
+      for (final clause in clauses)
+        if (!_orderClause.hasMatch(clause)) clause,
+    ];
+    return kept.length == clauses.length ? query : kept.join(' ');
   }
 
   static String _boundedQuery(String value) {

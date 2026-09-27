@@ -69,6 +69,50 @@ void main() {
     });
 
     test(
+      'drops order clauses that the bump-time merge cannot honour',
+      () async {
+        final api = _AggregateApi(
+          pages: const {},
+          filterOptions: const [
+            TopicFilterOption(name: 'status:', priority: 1),
+            TopicFilterOption(name: 'order:', priority: 2),
+            TopicFilterOption(name: 'order:created', priority: 3),
+          ],
+        );
+        final credentials = FakeApiCredentialReader()
+          ..keys[_firstUrl] = 'one-key'
+          ..keys[_secondUrl] = 'two-key';
+        final controller = _controller(api, credentials);
+        addTearDown(controller.dispose);
+        final forums = [
+          _connected(_firstUrl, 'One'),
+          _connected(_secondUrl, 'Two'),
+        ];
+
+        await controller.setForumFilters(
+          allForums: forums,
+          includedConnectedForums: {_firstUrl, _secondUrl},
+          queries: {
+            _firstUrl: 'status:open order:created',
+            _secondUrl: '-order:views',
+          },
+        );
+        await controller.refresh(forums);
+
+        expect(
+          api.sitePaths,
+          unorderedEquals([
+            '$_firstUrl|${_AggregateApi.openPage}',
+            '$_secondUrl|/filter.json?per_page=15',
+          ]),
+        );
+        expect(controller.filterOptionsFor(_firstUrl), const [
+          TopicFilterOption(name: 'status:', priority: 1),
+        ]);
+      },
+    );
+
+    test(
       'uses only included connected forums and default filters for blank queries',
       () async {
         final api = _AggregateApi(

@@ -171,7 +171,9 @@ class AggregateViewState extends State<AggregateView> {
                         slivers: [
                           if (state.loading && state.topics.isEmpty)
                             const SliverToBoxAdapter(child: SizedBox.shrink())
-                          else if (state.isEmpty)
+                          // A forum that failed says nothing about whether the
+                          // filters match, so failures take the banner path.
+                          else if (state.isEmpty && state.failures.isEmpty)
                             SliverToBoxAdapter(
                               child: _AggregateEmptyState(
                                 icon: DIcons.inbox,
