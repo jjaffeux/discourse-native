@@ -343,9 +343,10 @@ void main() {
     await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
     await tester.pump();
     expect(composer.focus.hasPrimaryFocus, isTrue);
+    // The blank lines around the block are structural and hold no caret.
     expect(
       composer.text.selection.extentOffset,
-      _source.indexOf('[details') - 1,
+      _source.indexOf('\n\n[details'),
     );
 
     await tester.showKeyboard(_field('body'));
@@ -355,10 +356,7 @@ void main() {
     await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
     await tester.pump();
     expect(composer.focus.hasPrimaryFocus, isTrue);
-    expect(
-      composer.text.selection.extentOffset,
-      parseComposerDetails(_source).single.end + 1,
-    );
+    expect(composer.text.selection.extentOffset, _source.indexOf('After'));
     expect(composer.text.text, _source);
   });
 

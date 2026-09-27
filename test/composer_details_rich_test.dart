@@ -46,6 +46,14 @@ Finder _editable(ComposerController composer) => find.byWidgetPredicate(
 Finder _button(String tooltip) => find.byWidgetPredicate(
   (widget) => widget is DButton && widget.tooltip == tooltip,
 );
+// Upload offers Files and Photo Library; the fixture stubs only the files.
+Future<void> _uploadFiles(WidgetTester tester) async {
+  await tester.tap(_button('Upload'));
+  await tester.pumpAndSettle();
+  await tester.tap(find.byKey(const ValueKey('composer-upload-files')));
+  await tester.pump();
+}
+
 List<ComposerController> _bodies(WidgetTester tester) => tester
     .widgetList<ComposerRichBodyEditor>(find.byType(ComposerRichBodyEditor))
     .map((widget) => widget.composer)
@@ -282,8 +290,7 @@ void main() {
       offset: body.text.text.length,
     );
     await tester.pump();
-    await tester.tap(_button('Upload'));
-    await tester.pump();
+    await _uploadFiles(tester);
     expect(fixture.uploads, hasLength(1));
     fixture.uploads.single.result.complete(
       const ComposerUploadResult(
@@ -312,8 +319,7 @@ void main() {
       body.text.selection = const TextSelection.collapsed(offset: 0);
       await tester.pump();
       expect(_button('Upload'), findsOneWidget);
-      await tester.tap(_button('Upload'));
-      await tester.pump();
+      await _uploadFiles(tester);
       expect(fixture.uploads, hasLength(1));
       expect(fixture.root.hasActiveUploads, isTrue);
       expect(fixture.root.canSubmit, isFalse);
