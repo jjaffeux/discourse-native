@@ -144,6 +144,24 @@ class _AiSummaryButton extends StatelessWidget {
   );
 }
 
+const _genericFailureText = "Couldn't generate this summary.";
+
+/// Upstream's `credit_limit_dialog.message_user` copy. The job's own `message`
+/// is a Ruby exception message, which upstream never shows either.
+String _streamFailureText(AiSummaryStreamFailure failure) {
+  if (!failure.creditLimitExceeded) return _genericFailureText;
+  return switch (failure.resetTime) {
+    final reset? =>
+      'This community has reached its AI credit limit for today. Please try '
+          'again after $reset or contact your site administrator for more '
+          'information.',
+    null =>
+      'This community has reached its AI credit limit for today. Responses '
+          'will be unavailable until your limit resets. Please contact your '
+          'site administrator for more information.',
+  };
+}
+
 class _AiSummaryDialog extends StatefulWidget {
   const _AiSummaryDialog({
     required this.controller,
@@ -214,9 +232,12 @@ class _AiSummaryDialogState extends State<_AiSummaryDialog> {
       });
     } on AiSummaryCancelled {
       // Dismissal already owns the dialog's next state.
+    } on AiSummaryStreamFailure catch (failure) {
+      if (!mounted) return;
+      setState(() => _error = _streamFailureText(failure));
     } catch (_) {
       if (!mounted) return;
-      setState(() => _error = "Couldn't generate this summary.");
+      setState(() => _error = _genericFailureText);
     } finally {
       _request = null;
       if (mounted) {

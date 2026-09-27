@@ -645,6 +645,11 @@ void main() {
         json,
       );
       probe('AiTopicSummary', () => AiTopicSummary.fromJson(json), json);
+      probe(
+        'AiSummaryStreamFailure',
+        () => AiSummaryStreamFailure.fromJson(json),
+        json,
+      );
 
       probe('VoiceClientConfig', () => VoiceClientConfig.fromJson(json), json);
       probe(

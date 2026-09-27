@@ -158,6 +158,12 @@ final class AiSummaryRequest {
       '/discourse-ai/summaries/topic/$topicId',
       (data, _) {
         if (!_checkCurrent() || data is! Map<String, dynamic>) return;
+        // A failed job publishes nothing further, so its report settles the
+        // request whether or not the generation POST has returned yet.
+        if (AiSummaryStreamFailure.fromJson(data) case final failure?) {
+          _fail(failure);
+          return;
+        }
         final summary = AiTopicSummary.fromJson(data);
         if (data['done'] != true || summary == null) return;
         // A completed stream can arrive before the generation POST returns.
