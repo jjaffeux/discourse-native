@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/src/foundation/calendar_day.dart';
 import 'package:discourse_native/src/models/user_card.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
@@ -53,6 +54,43 @@ void main() {
     } finally {
       semantics.dispose();
     }
+  });
+
+  testWidgets('metadata names the reader\'s months and the web\'s read time', (
+    tester,
+  ) async {
+    final api = await _pumpTarget(tester);
+    await _open(tester);
+    // Both are still the previous month, and the join the previous year, from
+    // UTC-4 westward. A UTC run cannot tell the two apart;
+    // TZ=America/Los_Angeles can.
+    final lastPostedAt = DateTime.utc(2026, 9, 1, 3);
+    final createdAt = DateTime.utc(2024, 1, 1, 3);
+    api.requests.single.complete(
+      UserCard(
+        username: 'sam',
+        createdAt: createdAt,
+        lastPostedAt: lastPostedAt,
+        timeRead: 100 * Duration.secondsPerHour,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    String month(DateTime at) {
+      final day = calendarDay(at)!;
+      return '${shortMonthName(day.month)} ${day.year}';
+    }
+
+    expect(
+      find.text('Last post ${month(lastPostedAt)}', findRichText: true),
+      findsOneWidget,
+    );
+    expect(
+      find.text('Joined ${month(createdAt)}', findRichText: true),
+      findsOneWidget,
+    );
+    // The profile summary and the web both round 100 hours to days.
+    expect(find.text('Time read 4d', findRichText: true), findsOneWidget);
   });
 
   testWidgets('failed cards remain compact and Retry restores the skeleton', (

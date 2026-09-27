@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/data/site_lifecycle.dart';
+import 'package:discourse_native/src/foundation/calendar_day.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/site_emoji.dart';
 import 'package:discourse_native/src/models/topic.dart';
@@ -81,6 +82,39 @@ void main() {
       expect(tester.takeException(), isNull);
     });
   }
+
+  testWidgets('a result is dated on the reader\'s calendar day', (
+    tester,
+  ) async {
+    installTestMediaPipeline(
+      client: MockClient((_) async => http.Response('', 404)),
+    );
+    // Still the 12th from UTC-4 westward, where the row has to name the day
+    // the topic's separator does. A UTC run cannot tell the two apart;
+    // TZ=America/Los_Angeles can.
+    final createdAt = DateTime.utc(2026, 9, 13, 3);
+    final result = GlobalSearchResult(
+      id: 'dated',
+      scope: GlobalSearchScope.forum,
+      title: 'Dated',
+      path: '/t/dated/1',
+      createdAt: createdAt,
+    );
+    final controller = await _pump(tester, results: [result]);
+    controller.setQuery('dated');
+    await tester.pumpAndSettle();
+
+    final day = calendarDay(createdAt)!;
+    expect(
+      find.descendant(
+        of: _key('global-search-result-dated'),
+        matching: find.text(
+          '${day.day} ${shortMonthName(day.month)} ${day.year}',
+        ),
+      ),
+      findsOneWidget,
+    );
+  });
 
   testWidgets('numeric conditions validate, apply and edit their operator', (
     tester,
