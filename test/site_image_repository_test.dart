@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:discourse_native/src/data/site_image_repository.dart';
 import 'package:discourse_native/src/data/site_lifecycle.dart';
@@ -483,6 +484,106 @@ void main() {
       });
     }
   }
+
+  test('forums share one image byte budget', () async {
+    const imageBytes = 512 * 1024;
+    const sites = [
+      'https://a.example',
+      'https://b.example',
+      'https://c.example',
+      'https://d.example',
+    ];
+    final requests = <String>[];
+    final repository = SiteImageRepository(
+      credentials: FakeApiCredentialReader(),
+      lifecycle: SiteLifecycle(),
+      client: MockClient((request) async {
+        requests.add(request.url.toString());
+        return http.Response.bytes(Uint8List(imageBytes), 200);
+      }),
+    );
+    addTearDown(repository.dispose);
+    String image(String site, int index) =>
+        '$site/uploads/default/original/1X/$index.png';
+    List<int> retained(String site) => [
+      for (var index = 0; index < 200; index++)
+        if (repository.isCached(siteUrl: site, url: image(site, index))) index,
+    ];
+
+    for (final site in sites) {
+      for (var index = 0; index < 200; index++) {
+        await repository.load(siteUrl: site, url: image(site, index));
+      }
+    }
+
+    // The whole budget is what one forum could already retain on its own.
+    const budget = 64 * 1024 * 1024;
+    const budgetImages = budget ~/ imageBytes;
+    expect(repository.maxCachedBytes, budget);
+    expect(
+      sites.expand(retained).length * imageBytes,
+      lessThanOrEqualTo(budget),
+    );
+    expect(retained(sites.last), [
+      for (var i = 200 - budgetImages; i < 200; i++) i,
+    ]);
+    for (final site in sites.take(3)) {
+      expect(retained(site), isEmpty);
+    }
+
+    requests.clear();
+    final returned = await repository.load(
+      siteUrl: sites.first,
+      url: image(sites.first, 199),
+    );
+    expect(returned?.bytes, hasLength(imageBytes));
+    expect(requests, [image(sites.first, 199)]);
+    expect(retained(sites.first), [199]);
+    expect(retained(sites.last), [
+      for (var i = 201 - budgetImages; i < 200; i++) i,
+    ]);
+  });
+
+  test('a trimmed forum still delivers the images it is loading', () async {
+    const otherSite = 'https://other.example';
+    final held = Completer<void>();
+    final repository = SiteImageRepository(
+      credentials: FakeApiCredentialReader(),
+      lifecycle: SiteLifecycle(),
+      maxCachedBytes: 2,
+      client: MockClient((request) async {
+        if (request.url.path == '/held.png') await held.future;
+        return http.Response.bytes([1, 2], 200);
+      }),
+    );
+    addTearDown(() {
+      if (!held.isCompleted) held.complete();
+      repository.dispose();
+    });
+
+    await repository.load(siteUrl: siteUrl, url: '$siteUrl/shown.png');
+    final pending = repository.load(siteUrl: siteUrl, url: '$siteUrl/held.png');
+    final other = await repository.load(
+      siteUrl: otherSite,
+      url: '$otherSite/image.png',
+    );
+    expect(other?.bytes, [1, 2]);
+    expect(
+      repository.isCached(siteUrl: siteUrl, url: '$siteUrl/shown.png'),
+      isFalse,
+    );
+
+    held.complete();
+    expect((await pending)?.bytes, [1, 2]);
+    expect(
+      repository.isCached(siteUrl: siteUrl, url: '$siteUrl/held.png'),
+      isTrue,
+    );
+    expect(
+      repository.isCached(siteUrl: otherSite, url: '$otherSite/image.png'),
+      isFalse,
+    );
+  });
 
   test('an invalidated account cannot publish or retain stale bytes', () async {
     final credentials = FakeApiCredentialReader()..keys[siteUrl] = 'old-key';
