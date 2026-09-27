@@ -25,6 +25,7 @@ class SiteEmojiText extends StatefulWidget {
     this.overflow,
     this.style,
     this.textAlign,
+    this.leading = const [],
     this.trailing = const [],
   });
 
@@ -36,6 +37,7 @@ class SiteEmojiText extends StatefulWidget {
     this.overflow,
     this.style,
     this.textAlign,
+    this.leading = const [],
     this.trailing = const [],
   }) : runs = [SiteEmojiTextRun(text)];
 
@@ -46,6 +48,8 @@ class SiteEmojiText extends StatefulWidget {
   final TextStyle? style;
   final TextAlign? textAlign;
 
+  /// Inline markers participate in text flow so later lines use the full width.
+  final List<Widget> leading;
   final List<Widget> trailing;
 
   static final RegExp shortcodePattern = RegExp(
@@ -118,6 +122,7 @@ class _SiteEmojiTextState extends State<SiteEmojiText> {
     if (emoji.isEmpty &&
         runs.length == 1 &&
         runs.single.style == null &&
+        widget.leading.isEmpty &&
         widget.trailing.isEmpty) {
       return Text(
         text,
@@ -131,7 +136,13 @@ class _SiteEmojiTextState extends State<SiteEmojiText> {
     final effectiveStyle = DefaultTextStyle.of(
       context,
     ).style.merge(widget.style);
-    final spans = <InlineSpan>[];
+    final spans = <InlineSpan>[
+      for (final marker in widget.leading)
+        _MarkerWidgetSpan(
+          alignment: PlaceholderAlignment.middle,
+          child: marker,
+        ),
+    ];
     final cursor = _StyledRunCursor(runs);
 
     for (final resolved in emoji) {
@@ -155,7 +166,7 @@ class _SiteEmojiTextState extends State<SiteEmojiText> {
     cursor.appendText(spans, text.length);
     spans.addAll(
       widget.trailing.map(
-        (marker) => _TrailingWidgetSpan(
+        (marker) => _MarkerWidgetSpan(
           alignment: PlaceholderAlignment.middle,
           child: marker,
         ),
@@ -170,10 +181,12 @@ class _SiteEmojiTextState extends State<SiteEmojiText> {
       textAlign: widget.textAlign,
     );
 
-    // A trailing WidgetSpan carries meaningful semantics of its own. Keep
+    // Inline markers carry meaningful semantics of their own. Keep
     // those descendants exposed; ordinary emoji-only prose still gets one
     // clean label rather than being announced as several fragments.
-    if (widget.trailing.isNotEmpty) return richText;
+    if (widget.leading.isNotEmpty || widget.trailing.isNotEmpty) {
+      return richText;
+    }
 
     // The artwork is decorative to assistive technology; the original text is
     // the clearest single reading of the row.
@@ -239,8 +252,8 @@ class _StyledRunCursor {
   }
 }
 
-class _TrailingWidgetSpan extends WidgetSpan {
-  const _TrailingWidgetSpan({required super.child, super.alignment});
+class _MarkerWidgetSpan extends WidgetSpan {
+  const _MarkerWidgetSpan({required super.child, super.alignment});
 
   @override
   void computeToPlainText(

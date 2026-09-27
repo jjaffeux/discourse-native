@@ -8,7 +8,7 @@ final breadcrumbExamples = ComponentExamples(
   status: ComponentStatus.implemented,
   description: 'Compact, composable paths to the current resource.',
   notes:
-      'Matches the frozen Base UI/base-nova Breadcrumb: 14/20 type, 6px list '
+      'Uses the shared Native typography: 14/21 type, 6px list '
       'gap, 4px item gap, 14px logical chevrons and a 20px ellipsis. Links '
       'own focus, link semantics and caller callbacks; the selected disabled '
       'page is current. Separators and ellipses are decorative. Wrapping is '
@@ -156,6 +156,18 @@ final breadcrumbExamples = ComponentExamples(
   ]),
 )''',
       builder: (_) => const _BreadcrumbReferenceDemo(),
+    ),
+    StyleguideExample(
+      title: 'Inline metadata',
+      description:
+          'Category links use 11px type and intrinsic targets when composed into a topic footer.',
+      code:
+          "DBreadcrumbLink(compact: true, onPressed: openCategory, child: Text('Community'))",
+      builder: (_) => DBreadcrumbLink(
+        compact: true,
+        onPressed: () {},
+        child: const Text('Community'),
+      ),
     ),
   ],
 );

@@ -21,8 +21,9 @@ class _ConversationTopicCardState extends State<_ConversationTopicCard> {
   void _hoverChanged(bool hovered) {
     _stopHover();
     if (hovered && TickerMode.valuesOf(context).enabled) {
-      _releaseHover = ShellScope.maybeRead(context)
-          ?.hoverTopic(row.siteUrl, row.topic);
+      _releaseHover = ShellScope.maybeRead(
+        context,
+      )?.hoverTopic(row.siteUrl, row.topic);
     }
   }
 
@@ -101,7 +102,8 @@ class _ConversationTopicCardState extends State<_ConversationTopicCard> {
         ? row.ascending
         : route?.topicListAscending ?? false;
     final selected = row.selected || KeyboardSelection.isSelectedOf(context);
-    final muted = DTokens.of(context).mutedForeground;
+    final tokens = DTokens.of(context);
+    final muted = tokens.mutedForeground;
     final textStyle = Theme.of(context).textTheme.labelSmall?.copyWith(
       color: muted,
       fontFeatures: const [FontFeature.tabularFigures()],
@@ -116,12 +118,43 @@ class _ConversationTopicCardState extends State<_ConversationTopicCard> {
       onSort: onSort,
     );
     final taxonomyItems = <Widget>[
+      if (row.forum case final forum? when mobile)
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          spacing: 5,
+          children: [
+            DAvatar(
+              dimension: 15,
+              decorative: true,
+              borderRadius: BorderRadius.circular(DRadius.code),
+              child: AvatarImage(
+                url: forum.iconUrl,
+                size: 15,
+                fallback: DAvatarFallback(
+                  child: Text(forum.title.characters.firstOrNull ?? ''),
+                ),
+              ),
+            ),
+            Flexible(
+              child: Text(
+                forum.title,
+                style: textStyle?.copyWith(fontSize: DiscourseTypography.micro),
+              ),
+            ),
+          ],
+        ),
       if (topic.privateMessage)
-        Text('Private conversation', style: textStyle)
+        Text(
+          'Private conversation',
+          style: mobile
+              ? textStyle?.copyWith(fontSize: DiscourseTypography.micro)
+              : textStyle,
+        )
       else if (row.category != null)
-        _topicRowCategory(context, row),
-      ..._topicRowTags(context, row),
-      if (row.forum != null) Text(row.forum!.title, style: textStyle),
+        _topicRowCategory(context, row, compact: mobile),
+      ..._topicRowTags(context, row, compact: mobile),
+      if (!mobile && row.forum != null)
+        Text(row.forum!.title, style: textStyle),
     ];
     Widget desktopDetails() => Text.rich(
       TextSpan(
@@ -180,7 +213,11 @@ class _ConversationTopicCardState extends State<_ConversationTopicCard> {
       textWidthBasis: TextWidthBasis.longestLine,
     );
     return Padding(
-      padding: row.outerPadding ?? EdgeInsets.zero,
+      padding:
+          row.outerPadding ??
+          (mobile
+              ? EdgeInsets.symmetric(horizontal: selected ? 4 : 16)
+              : EdgeInsets.zero),
       child: LinkTarget(
         url: resolveSiteRootPath(
           row.siteUrl,
@@ -194,27 +231,28 @@ class _ConversationTopicCardState extends State<_ConversationTopicCard> {
           selected: selected,
           child: DItem(
             key: ValueKey('topic-card-${topic.id}'),
-            shape: DItemShape.fullWidth,
-            padding: row.contentPadding ?? DInsets.listRow,
+            shape: mobile ? DItemShape.standard : DItemShape.fullWidth,
+            padding:
+                row.contentPadding ??
+                (mobile
+                    ? EdgeInsets.symmetric(
+                        horizontal: selected ? 12 : 0,
+                        vertical: 12,
+                      )
+                    : DInsets.listRow),
             link: true,
             onPressed: row.onTap,
             onHoverChanged: context.isTouch ? null : _hoverChanged,
             selected: selected,
-            selectionStyle: DItemSelectionStyle.leadingAccent,
+            selectionStyle: mobile
+                ? DItemSelectionStyle.filled
+                : DItemSelectionStyle.leadingAccent,
             showSelectionIndicator: false,
             children: [
               DItemContent(
-                spacing: DSpacing.controlGap,
+                spacing: mobile ? 0 : DSpacing.controlGap,
                 alignment: CrossAxisAlignment.stretch,
                 children: [
-                  if (mobile && topic.pinned)
-                    Row(
-                      spacing: DSpacing.xs,
-                      children: [
-                        DIcon(DIcons.thumbtack, size: 12, color: muted),
-                        Text('Pinned', style: textStyle),
-                      ],
-                    ),
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -226,14 +264,29 @@ class _ConversationTopicCardState extends State<_ConversationTopicCard> {
                           _TopicListTitle(row: row, mobile: mobile),
                         ),
                       ),
-                      const SizedBox(width: DSpacing.sm),
+                      SizedBox(width: mobile ? 10 : DSpacing.sm),
                       KeyedSubtree(
                         key: ValueKey('inbox-row-time-${topic.id}'),
-                        child: field(age, 'activity'),
+                        child: mobile
+                            ? Text(
+                                age,
+                                style: textStyle?.copyWith(
+                                  fontSize: DiscourseTypography.xs,
+                                  fontWeight: FontWeight.w400,
+                                  color: Color.lerp(
+                                    tokens.background,
+                                    tokens.foreground,
+                                    .4,
+                                  ),
+                                ),
+                              )
+                            : field(age, 'activity'),
                       ),
                     ],
                   ),
-                  if (topic.excerpt case final excerpt? when excerpt.isNotEmpty)
+                  if (mobile) const SizedBox(height: 5),
+                  if (topic.excerpt case final excerpt?
+                      when excerpt.isNotEmpty) ...[
                     SiteEmojiText.plain(
                       excerpt,
                       siteUrl: row.siteUrl,
@@ -247,10 +300,15 @@ class _ConversationTopicCardState extends State<_ConversationTopicCard> {
                         height: DiscourseTypography.lineHeightPreview,
                       ),
                     ),
+                    if (mobile) const SizedBox(height: 7),
+                  ],
                   if (mobile)
                     _MobileTopicDetails(row: row, taxonomyItems: taxonomyItems)
                   else
                     desktopDetails(),
+                  if (mobile &&
+                      (compactMetadata.isNotEmpty || metadata.isNotEmpty))
+                    const SizedBox(height: 5),
                   if (compactMetadata.isNotEmpty)
                     Wrap(
                       spacing: DSpacing.xs,
@@ -258,6 +316,10 @@ class _ConversationTopicCardState extends State<_ConversationTopicCard> {
                       crossAxisAlignment: WrapCrossAlignment.center,
                       children: compactMetadata,
                     ),
+                  if (mobile &&
+                      compactMetadata.isNotEmpty &&
+                      metadata.isNotEmpty)
+                    const SizedBox(height: 5),
                   if (metadata.isNotEmpty)
                     Wrap(
                       spacing: DSpacing.sm,
@@ -283,84 +345,113 @@ class _MobileTopicDetails extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final topic = row.topic;
-    final style = Theme.of(context).textTheme.labelSmall
-        ?.copyWith(color: DTokens.of(context).mutedForeground);
+    final tokens = DTokens.of(context);
+    final style = Theme.of(context).textTheme.labelSmall?.copyWith(
+      fontWeight: FontWeight.w400,
+      color: Color.lerp(tokens.background, tokens.foreground, .4),
+    );
     final username = topic.lastPosterUsername;
-    final replies = '${topic.replyCount} replies';
-    final activityText = 'Last post by $username · $replies';
-    final avatar = username == null
-        ? null
-        : DAvatar(
-            dimension: 22,
-            decorative: true,
-            child: AvatarImage(
-              url: topic.lastPosterAvatarUrl,
-              size: 22,
-              fallback: DAvatarFallback(
-                child: Text(
-                  username.characters.firstOrNull?.toUpperCase() ?? '',
+    final replies =
+        '${topic.replyCount} ${topic.replyCount == 1 ? 'reply' : 'replies'}';
+    final activity = TextSpan(
+      children: [
+        if (username != null) ...[
+          const TextSpan(text: 'Last post by '),
+          TextSpan(
+            text: username,
+            style: TextStyle(
+              color: Color.lerp(tokens.background, tokens.foreground, .62),
+            ),
+          ),
+          const TextSpan(text: ' · '),
+        ],
+        TextSpan(text: replies),
+        if (row.showViews) TextSpan(text: ' · ${topic.views} views'),
+      ],
+    );
+    return _TopicMetadataWrap(
+      children: [
+        ...taxonomyItems,
+        // CSS flex:1 before activity: consumes remaining room on its line.
+        const SizedBox.shrink(),
+        Row(
+          key: ValueKey('topic-card-activity-${topic.id}'),
+          mainAxisSize: MainAxisSize.min,
+          spacing: 6,
+          children: [
+            if (username != null)
+              DAvatar(
+                dimension: 22,
+                decorative: true,
+                child: AvatarImage(
+                  url: topic.lastPosterAvatarUrl,
+                  size: 22,
+                  fallback: DAvatarFallback(
+                    child: Text(
+                      username.characters.firstOrNull?.toUpperCase() ?? '',
+                    ),
+                  ),
                 ),
               ),
-            ),
-          );
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final painter = TextPainter(
-          text: TextSpan(text: activityText, style: style),
-          textDirection: Directionality.of(context),
-          textScaler: MediaQuery.textScalerOf(context),
-          maxLines: 1,
-        )..layout();
-        final activityFits =
-            avatar != null &&
-            painter.width + 22 + DSpacing.xs <= constraints.maxWidth;
-        painter.dispose();
-        final activity = avatar == null
-            ? Text(replies, style: style)
-            : activityFits
-            ? Row(
-                mainAxisSize: MainAxisSize.min,
-                spacing: DSpacing.xs,
-                children: [
-                  avatar,
-                  Text(activityText, style: style),
-                ],
-              )
-            : Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                spacing: DSpacing.xs,
-                children: [
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    spacing: DSpacing.xs,
-                    children: [
-                      avatar,
-                      Flexible(
-                        child: Text(
-                          'Last post by $username',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: style,
-                        ),
-                      ),
-                    ],
-                  ),
-                  Text(replies, style: style),
-                ],
-              );
-        return Wrap(
-          spacing: DSpacing.md,
-          runSpacing: DSpacing.sm,
-          crossAxisAlignment: WrapCrossAlignment.center,
-          children: [
-            ...taxonomyItems,
-            activity,
-            if (row.showViews) Text('· ${topic.views} views', style: style),
+            Flexible(child: Text.rich(activity, style: style)),
           ],
-        );
-      },
+        ),
+      ],
     );
+  }
+}
+
+/// Wraps metadata like the mockup's flex row, including its flexible spacer.
+/// Only layout is handled here; Native components own all link interactions.
+class _TopicMetadataWrap extends MultiChildRenderObjectWidget {
+  const _TopicMetadataWrap({required super.children});
+
+  @override
+  RenderObject createRenderObject(BuildContext context) =>
+      _TopicMetadataRenderWrap(Directionality.of(context));
+
+  @override
+  void updateRenderObject(
+    BuildContext context,
+    _TopicMetadataRenderWrap renderObject,
+  ) {
+    renderObject.textDirection = Directionality.of(context);
+  }
+}
+
+class _TopicMetadataRenderWrap extends RenderWrap {
+  _TopicMetadataRenderWrap(TextDirection direction)
+    : super(
+        spacing: 5,
+        runSpacing: 5,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        textDirection: direction,
+      );
+
+  @override
+  void performLayout() {
+    super.performLayout();
+    final activity = lastChild!;
+    final activityData = activity.parentData! as WrapParentData;
+    final spacer = activityData.previousSibling!;
+    final spacerData = spacer.parentData! as WrapParentData;
+    // If the activity wrapped past the spacer it starts at the leading edge.
+    // Otherwise the spacer expands to push it to the trailing edge.
+    final sameRun =
+        (activityData.offset.dy +
+                activity.size.height / 2 -
+                spacerData.offset.dy -
+                spacer.size.height / 2)
+            .abs() <
+        .01;
+    if (sameRun) {
+      activityData.offset = Offset(
+        textDirection == TextDirection.rtl
+            ? 0
+            : size.width - activity.size.width,
+        activityData.offset.dy,
+      );
+    }
   }
 }
 
@@ -381,8 +472,9 @@ class _TopicCardField extends StatelessWidget {
   Widget build(BuildContext context) => onSort == null
       ? Text(
           label,
-          style: Theme.of(context).textTheme.labelSmall
-              ?.copyWith(color: DTokens.of(context).mutedForeground),
+          style: Theme.of(context).textTheme.labelSmall?.copyWith(
+            color: DTokens.of(context).mutedForeground,
+          ),
         )
       : DButton(
           key: ValueKey('topic-sort-$column'),

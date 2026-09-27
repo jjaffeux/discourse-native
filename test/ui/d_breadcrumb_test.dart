@@ -76,7 +76,7 @@ void main() {
           .first,
     );
     expect(homeStyle.style.fontSize, 14);
-    expect(homeStyle.style.height, 20 / 14);
+    expect(homeStyle.style.height, 1.5);
     for (final separator in find.byType(DBreadcrumbSeparator).evaluate()) {
       expect(
         tester.getSize(find.byElementPredicate((e) => e == separator)),
@@ -174,7 +174,7 @@ void main() {
       const DBreadcrumbLink(onPressed: _noop, child: Text('Home')),
     );
     await tester.pumpAndSettle();
-    expect(tester.getSize(find.byType(DBreadcrumbLink)).height, 20);
+    expect(tester.getSize(find.byType(DBreadcrumbLink)).height, 21);
   });
 
   testWidgets('landmark and current page expose useful semantics only', (

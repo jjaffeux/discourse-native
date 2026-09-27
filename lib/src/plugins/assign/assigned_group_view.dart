@@ -322,7 +322,7 @@ class AssignedGroupPresentationView extends StatelessWidget {
                   ),
                   sliver: SliverList.separated(
                     itemCount: topics.length,
-                    separatorBuilder: (context, _) => const DSeparator(),
+                    separatorBuilder: (context, _) => const TopicListSeparator(),
                     itemBuilder: (context, index) => TopicListRow(
                       topic: topics[index],
                       showViews: true,

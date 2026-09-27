@@ -19,6 +19,9 @@ enum DItemShape { standard, card, menu, fullWidth }
 
 enum DItemSelectionStyle {
   tinted,
+
+  /// Accent fill without a border or leading stripe.
+  filled,
   outline,
   neutral,
   strongNeutral,
@@ -241,7 +244,10 @@ class _DItemState extends State<DItem> {
                 strokeAlign: BorderSide.strokeAlignOutside,
                 color: focus
                     ? tokens.focusRing
-                    : widget.selected && !neutralSelection && !leadingSelection
+                    : widget.selected &&
+                          !neutralSelection &&
+                          !leadingSelection &&
+                          widget.selectionStyle != DItemSelectionStyle.filled
                     ? tokens.primary
                     : widget.variant == DItemVariant.outline
                     ? widget.borderColor ?? tokens.border
