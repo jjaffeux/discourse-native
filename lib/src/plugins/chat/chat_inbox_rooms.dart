@@ -79,7 +79,9 @@ class ChatInboxRoomRow extends StatelessWidget {
   final bool compact;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => LayoutBuilder(builder: _buildRow);
+
+  Widget _buildRow(BuildContext context, BoxConstraints constraints) {
     final active = room.people > 0;
     final color = active
         ? Theme.of(context).discourse.success
@@ -88,6 +90,9 @@ class ChatInboxRoomRow extends StatelessWidget {
       key: ValueKey('chat-inbox-room-${room.id}'),
       size: compact ? DItemSize.sm : DItemSize.standard,
       shape: compact ? DItemShape.standard : DItemShape.fullWidth,
+      padding: !compact && constraints.maxWidth < 600
+          ? const EdgeInsets.symmetric(vertical: DSpacing.md)
+          : null,
       onPressed: () => unawaited(room.open(context)),
       children: [
         DItemMedia(
