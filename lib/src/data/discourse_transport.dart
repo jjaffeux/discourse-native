@@ -60,6 +60,11 @@ final class DiscourseTransport {
         : 2 * 1024 * 1024,
   );
 
+  /// Sent on every request, credentialed or not. Discourse classifies an
+  /// agent outside `non_crawler_user_agents` as a crawler, and a site that
+  /// restricts crawlers refuses key-less GETs with a 403 — which would break
+  /// adding the forum, signed-out reads and public sidebar icons. This agent
+  /// matches that list's default `discourse` entry; dart:io's does not.
   static const String userAgent = 'DiscourseNative/1.0';
   static const _redirectStatusCodes = {301, 302, 303, 307, 308};
   static const int _maxGetRedirects = 5;
@@ -170,6 +175,7 @@ final class DiscourseTransport {
   }) async {
     try {
       requireSafeHttpUrl(request.url);
+      request.headers.putIfAbsent('User-Agent', () => userAgent);
       return await coordinator.run(
         request.url,
         () => sendBoundedHttpRequest(
@@ -248,6 +254,7 @@ final class DiscourseTransport {
                 requestUrl,
                 abortTrigger: abortTrigger,
               );
+        request.headers['User-Agent'] = userAgent;
         if (accept != null) request.headers['Accept'] = accept;
         if (apiKey != null) {
           request.headers.addAll(authHeaders(apiKey, clientId: clientId));
