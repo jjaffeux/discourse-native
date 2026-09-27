@@ -452,20 +452,21 @@ void main() {
           api: api,
           requests: FakePluginRequestHost(credentials: credentials),
           store: Store(),
+          reporter: PluginDiagnosticsReporter.fixed(diagnostics),
         );
 
         final opening = chat.openChannel(_siteUrl, 9);
         await api.started.future;
+        // A live failure on this controller is recorded, so an unchanged
+        // count after disposal cannot come from a silent reporter.
+        await chat.openChannel(_siteUrl, 10);
+        expect(_operationErrors(diagnostics, 'chat.loadWindow'), hasLength(1));
+
         chat.dispose();
         api.release.complete();
         await opening;
 
-        expect(
-          diagnostics.events.whereType<ErrorDiagnosticEvent>().where(
-            (event) => event.operation == 'chat.loadWindow',
-          ),
-          isEmpty,
-        );
+        expect(_operationErrors(diagnostics, 'chat.loadWindow'), hasLength(1));
       },
     );
 
@@ -483,6 +484,7 @@ void main() {
             lifecycle: lifecycle,
           ),
           store: Store(),
+          reporter: PluginDiagnosticsReporter.fixed(diagnostics),
         );
         addTearDown(chat.dispose);
 
@@ -493,12 +495,12 @@ void main() {
         api.release.complete();
         await opening;
 
-        expect(
-          diagnostics.events.whereType<ErrorDiagnosticEvent>().where(
-            (event) => event.operation == 'chat.loadWindow',
-          ),
-          isEmpty,
-        );
+        expect(_operationErrors(diagnostics, 'chat.loadWindow'), isEmpty);
+
+        // A failure in the replacement session is recorded, so the empty
+        // result above cannot come from a silent reporter.
+        await chat.openChannel(_siteUrl, 9);
+        expect(_operationErrors(diagnostics, 'chat.loadWindow'), hasLength(1));
       },
     );
 
@@ -538,6 +540,13 @@ void main() {
     });
   });
 }
+
+Iterable<ErrorDiagnosticEvent> _operationErrors(
+  DiagnosticsController diagnostics,
+  String operation,
+) => diagnostics.events.whereType<ErrorDiagnosticEvent>().where(
+  (event) => event.operation == operation,
+);
 
 void _expectTimeoutEvent(
   DiagnosticsController diagnostics, {
@@ -694,8 +703,11 @@ final class _GatedTimeoutApi extends _TimeoutApi {
     String? apiKey,
     String? clientId,
   }) async {
-    started.complete();
-    await release.future;
+    // Only the first request is held; later ones fail at once as controls.
+    if (!started.isCompleted) {
+      started.complete();
+      await release.future;
+    }
     return super.chatMessages(
       siteUrl: siteUrl,
       channelId: channelId,
