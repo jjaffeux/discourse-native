@@ -465,7 +465,8 @@ class _TopicInboxWorkspaceState extends State<_TopicInboxWorkspace> {
         Widget heading(Widget? navigation) => Row(
           key: const ValueKey('topic-list-heading'),
           children: [
-            if (layout.isCompact &&
+            if (messages &&
+                layout.isCompact &&
                 (!controller.mobileNavigationEnabled ||
                     controller.canPopContent))
               DButton.iconOnly(

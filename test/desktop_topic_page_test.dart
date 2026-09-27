@@ -150,6 +150,23 @@ void main() {
     expect(tester.takeException(), isNull);
   }, variant: TargetPlatformVariant.only(TargetPlatform.iOS));
 
+  testWidgets('root topic list has no back button in a compact layout', (
+    tester,
+  ) async {
+    await _setup(tester, size: const Size(390, 844));
+    final heading = find.byKey(const ValueKey('topic-list-heading'));
+    expect(heading, findsOneWidget);
+    expect(
+      find.descendant(of: heading, matching: find.byTooltip('Back')),
+      findsNothing,
+    );
+    expect(
+      tester.getRect(find.byKey(const ValueKey('topic-list-title'))).left,
+      tester.getRect(find.byKey(const ValueKey('topic-list-feed-row'))).left,
+    );
+    expect(tester.takeException(), isNull);
+  }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
+
   testWidgets('Latest topics has no tracking menu', (tester) async {
     final h = await _setup(tester, size: const Size(1800, 1000));
     expect(
