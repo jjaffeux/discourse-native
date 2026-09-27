@@ -16,12 +16,24 @@ final class DiscourseAccountApi {
     required String apiKey,
     String? clientId,
   }) async {
-    final body = await _getObject(
-      Uri.parse('$siteUrl/session/current.json'),
-      siteUrl: siteUrl,
-      apiKey: apiKey,
-      clientId: clientId,
-    );
+    final Map<String, dynamic> body;
+    try {
+      body = await _getObject(
+        Uri.parse('$siteUrl/session/current.json'),
+        siteUrl: siteUrl,
+        apiKey: apiKey,
+        clientId: clientId,
+      );
+    } on SiteLookupException catch (error) {
+      // `session#current` answers a missing account with a 404 and never
+      // refuses on its own, so `invalid_access` here can only come from the
+      // user API key lookup that runs before it. Anything else — an HTML page
+      // from a proxy, a 401, a 5xx — says nothing about the key.
+      if (error.statusCode == 403 && error.errorType == 'invalid_access') {
+        throw ApiKeyRejectedException(siteUrl);
+      }
+      rethrow;
+    }
     final user = switch (body['current_user']) {
       final Map<String, dynamic> user => user,
       _ => null,

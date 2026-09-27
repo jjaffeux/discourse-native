@@ -45,6 +45,7 @@ class SiteLookupException implements Exception, DiagnosticErrorCause {
     this.failure,
     this.term, {
     this.statusCode,
+    this.errorType,
     this.cause,
     this.causeStackTrace,
   });
@@ -52,6 +53,10 @@ class SiteLookupException implements Exception, DiagnosticErrorCause {
   final SiteLookupFailure failure;
   final String term;
   final int? statusCode;
+
+  /// The `error_type` of a refusal Discourse answered in JSON; null for any
+  /// other body, which a proxy or firewall in front of the site may send.
+  final String? errorType;
   final Object? cause;
   final StackTrace? causeStackTrace;
 
@@ -74,6 +79,26 @@ class SiteLookupException implements Exception, DiagnosticErrorCause {
     if (statusCode != null) ', statusCode: $statusCode',
     ')',
   ].join();
+}
+
+/// The site refused the user API key itself rather than the request made with
+/// it: the key was revoked, expired or never issued, or its account is
+/// suspended or deactivated. Every request carrying that key is refused the
+/// same way, so nothing can be done as the account with it.
+///
+/// Only a read whose action never refuses on its own can tell this apart from
+/// an ordinary `invalid_access` refusal, which any private resource answers.
+final class ApiKeyRejectedException extends SiteLookupException {
+  const ApiKeyRejectedException(String term)
+    : super(
+        SiteLookupFailure.notDiscourse,
+        term,
+        statusCode: 403,
+        errorType: 'invalid_access',
+      );
+
+  @override
+  String toString() => 'ApiKeyRejectedException(statusCode: 403)';
 }
 
 /// Writes preserve failure categories because each requires different recovery.

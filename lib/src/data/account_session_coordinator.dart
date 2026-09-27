@@ -409,7 +409,7 @@ final class AccountSessionCoordinator {
     }
 
     try {
-      var lease = _rotate(siteUrl, operation);
+      final lease = _rotate(siteUrl, operation);
       if (lease == null) {
         return AccountDisconnectionResult.stale(lifecycle.capture(siteUrl));
       }
@@ -441,35 +441,9 @@ final class AccountSessionCoordinator {
         return AccountDisconnectionResult.stale(lease);
       }
 
-      final signedOut = initial.copyWith(
-        clearUser: true,
-        clearConfig: true,
-        clearAppearance: true,
-      );
-      // Every later full snapshot must include this transition: a coalesced
-      // save can settle with another site's disconnect or an ordinary save.
-      // Keep the credential until persistence succeeds, and only let this
-      // operation restore the account if that boundary cannot be saved.
-      if (host.applyAccountSessionInstance(
-            signedOut,
-            AccountSessionPhase.disconnecting,
-          ) ==
-          null) {
-        return const AccountDisconnectionResult.missing();
-      }
-      if (!_isCurrent(siteUrl, operation, lease)) {
-        return AccountDisconnectionResult.stale(lease);
-      }
-      if (!await _persistSignedOut(siteUrl, operation, lease)) {
-        return await _restoreFailedDisconnect(
-          siteUrl,
-          operation,
-          lease,
-          initial,
-        );
-      }
-      if (!_isCurrent(siteUrl, operation, lease)) {
-        return AccountDisconnectionResult.stale(lease);
+      if (await _enterSignedOut(siteUrl, operation, lease, initial)
+          case final aborted?) {
+        return aborted;
       }
 
       String? apiKey;
@@ -516,40 +490,141 @@ final class AccountSessionCoordinator {
       if (!_isCurrent(siteUrl, operation, lease)) {
         return AccountDisconnectionResult.stale(lease);
       }
+      return await _forgetCredential(siteUrl, operation, lease);
+    } finally {
+      _finish(siteUrl, operation);
+    }
+  }
+
+  /// Signs a forum out locally once its site has refused [apiKey] itself.
+  ///
+  /// Nothing sent with a refused key can revoke it, so only the local copy is
+  /// deleted. The refusal speaks for [apiKey] as read under [lease] alone: a
+  /// connection or disconnection already under way owns the forum, and a key
+  /// stored since belongs to a newer sign-in, so either leaves it untouched.
+  /// Unsent drafts stay, because the next connection clears them before it
+  /// publishes any account.
+  Future<AccountDisconnectionResult> expireRejectedKey(
+    String siteUrl, {
+    required String apiKey,
+    required SiteLease lease,
+  }) async {
+    if (_operations.containsKey(siteUrl) || !lease.isCurrent) {
+      return AccountDisconnectionResult.stale(lifecycle.capture(siteUrl));
+    }
+    final operation = _begin(siteUrl);
+
+    try {
+      final String? stored;
       try {
-        await authenticator.disconnect(siteUrl);
+        stored = await authenticator.apiKeyFor(siteUrl);
       } catch (error, stackTrace) {
         if (_isCurrent(siteUrl, operation, lease)) {
           _reportError(
             error,
             stackTrace,
-            'authentication.deleteCredential',
+            'authentication.readCredentialForExpiry',
             warning: true,
           );
         }
+        return const AccountDisconnectionResult.failed();
       }
-      if (!_isCurrent(siteUrl, operation, lease)) {
+      final initial = host.accountSessionInstance(siteUrl);
+      if (initial == null) return const AccountDisconnectionResult.missing();
+      if (!_isCurrent(siteUrl, operation, lease) ||
+          !initial.isConnected ||
+          stored != apiKey) {
         return AccountDisconnectionResult.stale(lease);
       }
 
-      lease = _rotate(siteUrl, operation);
-      if (lease == null) {
+      final signingOut = _rotate(siteUrl, operation);
+      if (signingOut == null) {
         return AccountDisconnectionResult.stale(lifecycle.capture(siteUrl));
       }
-      final latest = host.accountSessionInstance(siteUrl);
-      if (latest == null) return const AccountDisconnectionResult.missing();
-      host.applyAccountSessionInstance(
-        latest.copyWith(
-          clearUser: true,
-          clearConfig: true,
-          clearAppearance: true,
-        ),
-        AccountSessionPhase.disconnected,
-      );
-      return AccountDisconnectionResult.disconnected(lease);
+      if (await _enterSignedOut(siteUrl, operation, signingOut, initial)
+          case final aborted?) {
+        return aborted;
+      }
+      return await _forgetCredential(siteUrl, operation, signingOut);
     } finally {
       _finish(siteUrl, operation);
     }
+  }
+
+  /// Publishes [initial] signed out and saves that boundary, answering null
+  /// once it is durable. Every later full snapshot must include this
+  /// transition: a coalesced save can settle with another site's disconnect or
+  /// an ordinary save. The credential is kept until persistence succeeds, and
+  /// only this operation may restore the account if the boundary cannot be
+  /// saved.
+  Future<AccountDisconnectionResult?> _enterSignedOut(
+    String siteUrl,
+    Object operation,
+    SiteLease lease,
+    DiscourseInstance initial,
+  ) async {
+    final signedOut = initial.copyWith(
+      clearUser: true,
+      clearConfig: true,
+      clearAppearance: true,
+    );
+    if (host.applyAccountSessionInstance(
+          signedOut,
+          AccountSessionPhase.disconnecting,
+        ) ==
+        null) {
+      return const AccountDisconnectionResult.missing();
+    }
+    if (!_isCurrent(siteUrl, operation, lease)) {
+      return AccountDisconnectionResult.stale(lease);
+    }
+    if (!await _persistSignedOut(siteUrl, operation, lease)) {
+      return _restoreFailedDisconnect(siteUrl, operation, lease, initial);
+    }
+    if (!_isCurrent(siteUrl, operation, lease)) {
+      return AccountDisconnectionResult.stale(lease);
+    }
+    return null;
+  }
+
+  /// Deletes the local credential behind a durable signed-out boundary, then
+  /// publishes the settled signed-out forum on a fresh lifecycle.
+  Future<AccountDisconnectionResult> _forgetCredential(
+    String siteUrl,
+    Object operation,
+    SiteLease lease,
+  ) async {
+    try {
+      await authenticator.disconnect(siteUrl);
+    } catch (error, stackTrace) {
+      if (_isCurrent(siteUrl, operation, lease)) {
+        _reportError(
+          error,
+          stackTrace,
+          'authentication.deleteCredential',
+          warning: true,
+        );
+      }
+    }
+    if (!_isCurrent(siteUrl, operation, lease)) {
+      return AccountDisconnectionResult.stale(lease);
+    }
+
+    final signedOut = _rotate(siteUrl, operation);
+    if (signedOut == null) {
+      return AccountDisconnectionResult.stale(lifecycle.capture(siteUrl));
+    }
+    final latest = host.accountSessionInstance(siteUrl);
+    if (latest == null) return const AccountDisconnectionResult.missing();
+    host.applyAccountSessionInstance(
+      latest.copyWith(
+        clearUser: true,
+        clearConfig: true,
+        clearAppearance: true,
+      ),
+      AccountSessionPhase.disconnected,
+    );
+    return AccountDisconnectionResult.disconnected(signedOut);
   }
 
   Future<AccountDisconnectionResult> _restoreFailedDisconnect(

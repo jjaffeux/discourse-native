@@ -624,6 +624,38 @@ final class _HeldPublicPresentationApi extends FakeDiscourseApi {
   }
 }
 
+const _refusedKey = 'refused-account-key';
+
+/// Fails every account read made with [_refusedKey] with [readFailure]; a key
+/// issued by signing in again reads the account normally.
+final class _FailingAccountReadApi extends FakeDiscourseApi {
+  _FailingAccountReadApi(this.readFailure, {this.failureGate});
+
+  final SiteLookupException readFailure;
+  final Completer<void>? failureGate;
+  final failedReadStarted = Completer<void>();
+  final List<String> failedReads = [];
+
+  @override
+  Future<DiscourseUser> currentUser({
+    required String siteUrl,
+    required String apiKey,
+    String? clientId,
+  }) async {
+    if (apiKey == _refusedKey) {
+      if (!failedReadStarted.isCompleted) failedReadStarted.complete();
+      await failureGate?.future;
+      failedReads.add(siteUrl);
+      throw readFailure;
+    }
+    return super.currentUser(
+      siteUrl: siteUrl,
+      apiKey: apiKey,
+      clientId: clientId,
+    );
+  }
+}
+
 /// Records the credential each feed, topic and search read carried.
 final class _CredentialRecordingApi extends FakeDiscourseApi {
   _CredentialRecordingApi()
@@ -1453,6 +1485,115 @@ void main() {
         expect((await credentials).clientId, isEmpty);
       },
     );
+  });
+
+  group('refused account key', () {
+    ShellController refusingShell(
+      _FailingAccountReadApi api,
+      FakeInstanceStore store,
+      FakeAuthenticator authenticator,
+    ) {
+      final shell = ShellController(
+        instanceStore: store,
+        api: api,
+        authenticator: authenticator,
+        drafts: FakeDraftStore(),
+        trackers: FakeSiteTracker.reset(),
+      );
+      addTearDown(shell.dispose);
+      return shell;
+    }
+
+    DiscourseInstance connected() => instance(
+      'meta.discourse.org',
+    ).copyWith(user: const DiscourseUser(id: 7, username: 'account'));
+
+    test('signs the forum out and offers to sign in again', () async {
+      final api = _FailingAccountReadApi(
+        const ApiKeyRejectedException(_siteUrl),
+      );
+      final store = FakeInstanceStore([connected()]);
+      final authenticator = FakeAuthenticator()..keys[_siteUrl] = _refusedKey;
+      final shell = refusingShell(api, store, authenticator);
+
+      await shell.load();
+      await pumpEventQueue();
+
+      expect(api.failedReads, isNotEmpty);
+      expect(shell.currentInstance?.user, isNull);
+      expect((await store.load()).single.user, isNull);
+      expect(authenticator.keys[_siteUrl], isNull);
+      // Nothing sent with a refused key can revoke it.
+      expect(api.revoked, isEmpty);
+      expect(
+        shell.connectError,
+        'meta.discourse.org no longer accepts this sign-in. '
+        'Sign in again to continue.',
+      );
+
+      await shell.connectCurrentInstance();
+
+      expect(shell.currentInstance?.user?.username, 'joffreyj');
+      expect(authenticator.keys[_siteUrl], 'api-key');
+      expect(shell.connectError, isNull);
+    });
+
+    test('a refusal landing after signing in again is ignored', () async {
+      final failureGate = Completer<void>();
+      final api = _FailingAccountReadApi(
+        const ApiKeyRejectedException(_siteUrl),
+        failureGate: failureGate,
+      );
+      final store = FakeInstanceStore([connected()]);
+      final authenticator = FakeAuthenticator()..keys[_siteUrl] = _refusedKey;
+      final shell = refusingShell(api, store, authenticator);
+
+      await shell.load();
+      await api.failedReadStarted.future;
+      await shell.connectCurrentInstance();
+      expect(shell.currentInstance?.user?.username, 'joffreyj');
+
+      failureGate.complete();
+      await pumpEventQueue();
+
+      expect(api.failedReads, isNotEmpty);
+      expect(shell.currentInstance?.user?.username, 'joffreyj');
+      expect((await store.load()).single.user?.username, 'joffreyj');
+      expect(authenticator.keys[_siteUrl], 'api-key');
+      expect(shell.connectError, isNull);
+    });
+
+    final kept = <String, SiteLookupException>{
+      'an unreachable site': const SiteLookupException(
+        SiteLookupFailure.unreachable,
+        _siteUrl,
+        statusCode: 503,
+      ),
+      'a refusal from something other than Discourse':
+          const SiteLookupException(
+            SiteLookupFailure.notDiscourse,
+            _siteUrl,
+            statusCode: 403,
+          ),
+    };
+    for (final MapEntry(key: name, value: failure) in kept.entries) {
+      test('keeps the account through $name', () async {
+        final api = _FailingAccountReadApi(failure);
+        final store = FakeInstanceStore([connected()]);
+        final authenticator = FakeAuthenticator()..keys[_siteUrl] = _refusedKey;
+        final shell = refusingShell(api, store, authenticator);
+
+        await shell.load();
+        await pumpEventQueue();
+
+        expect(api.failedReads, isNotEmpty);
+        expect(shell.currentInstance?.user?.username, 'account');
+        expect((await store.load()).single.user?.username, 'account');
+        expect(authenticator.keys[_siteUrl], _refusedKey);
+        expect(authenticator.disconnected, isEmpty);
+        expect(shell.connectError, isNull);
+      });
+    }
   });
 
   group('connection and removal operations', () {

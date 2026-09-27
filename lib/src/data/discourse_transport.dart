@@ -311,6 +311,7 @@ final class DiscourseTransport {
         SiteLookupFailure.notDiscourse,
         siteUrl,
         statusCode: response.statusCode,
+        errorType: _refusalType(response),
       );
     }
     if (response.statusCode != 200) {
@@ -493,6 +494,16 @@ final class DiscourseTransport {
       return jsonDecode(body) as Map<String, dynamic>;
     } catch (_) {
       return const {};
+    }
+  }
+
+  /// A refusal whose declared charset does not decode names no type, rather
+  /// than turning a refused read into a different kind of failure.
+  static String? _refusalType(http.Response response) {
+    try {
+      return jsonText(decodeObjectOrEmpty(response.body)['error_type']);
+    } on FormatException {
+      return null;
     }
   }
 
