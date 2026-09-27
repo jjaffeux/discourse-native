@@ -34,6 +34,7 @@ export 'src/data/store_diagnostics.dart' show reportStorageFailure;
 export 'src/diagnostics/diagnostic_event.dart';
 export 'src/diagnostics/diagnostics_controller.dart';
 export 'src/diagnostics/diagnostics_persistence.dart';
+export 'src/diagnostics/diagnostics_redactor.dart' show redactHomeDirectories;
 export 'src/diagnostics/diagnostics_scope.dart' show DiagnosticsScope;
 export 'src/diagnostics/topic_scroll_capture.dart';
 export 'src/foundation/calendar_day.dart';

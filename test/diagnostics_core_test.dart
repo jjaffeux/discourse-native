@@ -135,6 +135,36 @@ void main() {
       expect(safe, isNot(contains('fragment')));
     });
 
+    test('a sandboxed macOS home also redacts the account home it is in', () {
+      // The sandbox points HOME at the app container, but a destination the
+      // user picked in a save panel lies outside it and still names them.
+      const container =
+          '/Users/jane/Library/Containers/org.discourse.native/Data';
+
+      expect(
+        DiagnosticsRedactor.scrub(
+          "Cannot copy file to '/Users/jane/Downloads/v.mp4'\n"
+          '$container/Library/Caches/v.mp4\n'
+          '/Users/bob/Downloads/v.mp4',
+          homeDirectory: container,
+        ),
+        "Cannot copy file to '<home>/Downloads/v.mp4'\n"
+        '<home>/Library/Caches/v.mp4\n'
+        // Only the account the app runs as is known to be the user's.
+        '/Users/bob/Downloads/v.mp4',
+      );
+    });
+
+    test('a home outside a sandbox container redacts only itself', () {
+      expect(
+        DiagnosticsRedactor.scrub(
+          '/Users/jane/work/app/lib/main.dart /Users/jane/Downloads/v.mp4',
+          homeDirectory: '/Users/jane/work',
+        ),
+        '<home>/app/lib/main.dart /Users/jane/Downloads/v.mp4',
+      );
+    });
+
     test('scrubs secrets assigned through quoted JSON keys', () {
       const secret = 'QUOTED_JSON_SECRET_SENTINEL';
       const jwt =

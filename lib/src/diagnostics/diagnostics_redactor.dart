@@ -123,14 +123,7 @@ abstract final class DiagnosticsRedactor {
     );
     text = text.replaceAll(_jwt, '<redacted-jwt>');
     text = text.replaceAllMapped(_queryAssignment, (match) => match.group(1)!);
-
-    final homes = <String>{
-      if (homeDirectory != null && homeDirectory.isNotEmpty) homeDirectory,
-      ..._platformHomeDirectories(),
-    };
-    for (final home in homes) {
-      text = text.replaceAll(home, '<home>');
-    }
+    text = redactHomeDirectories(text, homeDirectory: homeDirectory);
     return _truncate(text);
   }
 
@@ -230,22 +223,53 @@ abstract final class DiagnosticsRedactor {
     );
   }
 
-  static Set<String> _platformHomeDirectories() {
-    try {
-      return {
-        if (Platform.environment['HOME'] case final home? when home.isNotEmpty)
-          home,
-        if (Platform.environment['USERPROFILE'] case final home?
-            when home.isNotEmpty)
-          home,
-      };
-    } on Object {
-      return const {};
-    }
-  }
-
   static String _truncate(String value) {
     if (value.length <= maximumStringLength) return value;
     return '${value.substring(0, maximumStringLength)}…<truncated>';
+  }
+}
+
+// A sandboxed macOS app's HOME is its container, not the account home above
+// it. A destination the user picks in a save panel lies outside the container,
+// so file-system errors about it would otherwise keep the account name.
+final RegExp _sandboxContainerHome = RegExp(
+  r'^(/Users/[^/]+)/Library/Containers/[^/]+/Data/?$',
+);
+
+/// Replaces the user's home directory in [text] with `<home>`.
+///
+/// Every diagnostics redactor recognises the same homes through this: the
+/// injected [homeDirectory], the platform's `HOME` and `USERPROFILE`, and the
+/// account home around any of them that is a macOS sandbox container.
+String redactHomeDirectories(String text, {String? homeDirectory}) {
+  final homes = <String>{
+    if (homeDirectory != null && homeDirectory.isNotEmpty) homeDirectory,
+    ..._platformHomeDirectories(),
+  };
+  for (final home in homes.toList()) {
+    if (_sandboxContainerHome.firstMatch(home)?.group(1) case final account?) {
+      homes.add(account);
+    }
+  }
+  // A container path begins with its account home, so replacing the shorter
+  // spelling first would leave `<home>/Library/Containers/…` behind.
+  final ordered = homes.toList()..sort((a, b) => b.length.compareTo(a.length));
+  for (final home in ordered) {
+    text = text.replaceAll(home, '<home>');
+  }
+  return text;
+}
+
+Set<String> _platformHomeDirectories() {
+  try {
+    return {
+      if (Platform.environment['HOME'] case final home? when home.isNotEmpty)
+        home,
+      if (Platform.environment['USERPROFILE'] case final home?
+          when home.isNotEmpty)
+        home,
+    };
+  } on Object {
+    return const {};
   }
 }
