@@ -1438,6 +1438,86 @@ void main() {
     }
   });
 
+  group('top replies', () {
+    final replies = [for (var id = 1; id <= 10; id++) id];
+    const summarized = [1, 3, 5, 7, 9];
+
+    Future<({ShellController shell, FakeSiteTracker tracker})> openSummarized(
+      FakeDiscourseApi api,
+    ) async {
+      // Core's own handling only, so a deletion starts no stream read.
+      final plugins = PluginInstaller.install(const PluginManifest([]));
+      addTearDown(plugins.close);
+      final shell = await _loadShell(api, plugins: plugins);
+      addTearDown(shell.dispose);
+      final tracker = await _openTopic(shell);
+      return (shell: shell, tracker: tracker);
+    }
+
+    TopicPayload topic(Iterable<int> ids) => topicPayload(
+      id: 7,
+      title: 'A topic',
+      posts: [
+        for (final id in ids) id == 1 ? _post('initial') : _streamPost(id),
+      ],
+      hasSummary: true,
+    );
+
+    test('a removed post leaves the top replies stream', () async {
+      final api = FakeDiscourseApi(
+        topics: {7: topic(replies)},
+        summaryTopics: {7: topic(summarized)},
+        // This reader cannot see post 5 once it is deleted.
+        postsById: {
+          for (final id in replies)
+            if (id != 5) id: _streamPost(id),
+        },
+      );
+      final (:shell, :tracker) = await openSummarized(api);
+      await shell.toggleTopicSummary();
+      expect(shell.currentPostIds, summarized);
+
+      tracker.deliverTopicMessage('/topic/7', const {
+        'type': 'deleted',
+        'id': 5,
+      });
+      await pumpEventQueue();
+
+      expect(shell.currentPostIds, [1, 3, 7, 9]);
+      expect(shell.currentTopicHasMore, isFalse);
+
+      await shell.toggleTopicSummary();
+      expect(shell.currentTopicSummary, isFalse);
+      expect(shell.currentPostIds, [1, 2, 3, 4, 6, 7, 8, 9, 10]);
+    });
+
+    test('a top replies read from before a removal does not restore '
+        'the post', () async {
+      final api = _PostOrderingApi();
+      api.topics[7] = topic(replies);
+      final (:shell, :tracker) = await openSummarized(api);
+
+      api.holdTopics = true;
+      final summarizing = shell.toggleTopicSummary();
+      await api.waitForTopicRequests(1);
+      tracker.deliverTopicMessage('/topic/7', const {
+        'type': 'deleted',
+        'id': 5,
+      });
+      await api.waitForPostRequests(1);
+      api.postRequests.single.response.complete(const []);
+      await pumpEventQueue();
+      expect(shell.currentTopic?.stream, isNot(contains(5)));
+
+      api.topicRequests.single.complete(topic(summarized));
+      expect(await summarizing, isNull);
+
+      expect(shell.currentTopicSummary, isTrue);
+      expect(shell.currentPostIds, [1, 3, 7, 9]);
+      expect(shell.store.read<Post>(_siteUrl, 5), isNull);
+    });
+  });
+
   group('session replacement', () {
     test('discards a credential failure from the old session', () async {
       final authenticator = _OneShotGatedAuthenticator();

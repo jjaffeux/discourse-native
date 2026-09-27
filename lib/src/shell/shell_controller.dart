@@ -7318,6 +7318,15 @@ class ShellController extends FrameSafeNotifier
       topicId,
       (detail) => detail.withoutPostId(postId),
     );
+    // While summarizing, the window is read from the top replies stream, and
+    // would otherwise end at the removed post.
+    final summary = _topicSummaryStreams[key];
+    if (summary != null && summary.contains(postId)) {
+      _topicSummaryStreams[key] = List.unmodifiable([
+        for (final id in summary)
+          if (id != postId) id,
+      ]);
+    }
   }
 
   /// A stream read that left before a removal still carries the removed post.
@@ -8560,6 +8569,7 @@ class ShellController extends FrameSafeNotifier
     }
     if (!_topicSummariesLoading.add(key)) return null;
     final lease = lifecycle.capture(instance.url);
+    final postRemovalVersion = _topicPostRemovalVersion(instance.url, topic.id);
     _notify();
 
     try {
@@ -8568,7 +8578,7 @@ class ShellController extends FrameSafeNotifier
         () => authenticator.apiKeyFor(instance.url),
       );
       if (credential == null || !lease.isCurrent) return null;
-      final payload = await api.topicContent.topic(
+      final response = await api.topicContent.topic(
         siteUrl: instance.url,
         slug: currentContent?.slug ?? '',
         id: topic.id,
@@ -8576,6 +8586,11 @@ class ShellController extends FrameSafeNotifier
         apiKey: credential.value,
       );
       lease.commit(() {
+        final payload = _withoutPostsRemovedSince(
+          instance.url,
+          response,
+          postRemovalVersion,
+        );
         store.putAll(instance.url, payload.posts);
         _topicSummaryStreams[key] = List.unmodifiable(payload.detail.stream);
       });
