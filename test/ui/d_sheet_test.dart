@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -636,6 +637,60 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Message actions'), findsOneWidget);
     expect(triggerBuilds, 1);
+  });
+
+  testWidgets('open route keeps its transition curves across keyboard insets', (
+    tester,
+  ) async {
+    final curves = <CurvedAnimation>[];
+    void track(ObjectEvent event) {
+      if (event case ObjectCreated(object: final CurvedAnimation curve)) {
+        curves.add(curve);
+      }
+    }
+
+    FlutterMemoryAllocations.instance.addListener(track);
+    addTearDown(() => FlutterMemoryAllocations.instance.removeListener(track));
+    var keyboard = 0.0;
+    late StateSetter update;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: StatefulBuilder(
+            builder: (context, setState) {
+              update = setState;
+              return MediaQuery(
+                data: MediaQueryData(
+                  size: const Size(800, 600),
+                  viewInsets: EdgeInsets.only(bottom: keyboard),
+                ),
+                child: Center(child: _sheet<void>(side: DSheetSide.bottom)),
+              );
+            },
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('Open'));
+    await tester.pumpAndSettle();
+    final route = ModalRoute.of(tester.element(find.text('Body')))!.animation!;
+    List<CurvedAnimation> routeCurves() => [
+      for (final curve in curves)
+        if (identical(curve.parent, route)) curve,
+    ];
+    final opened = routeCurves();
+    expect(opened, hasLength(2));
+
+    for (final inset in [96.0, 192.0, 288.0, 0.0]) {
+      update(() => keyboard = inset);
+      await tester.pump();
+    }
+    expect(routeCurves(), opened);
+
+    await tester.tap(find.text('Done'));
+    await tester.pumpAndSettle();
+    expect(find.text('Body'), findsNothing);
+    expect(opened.every((curve) => curve.isDisposed), isTrue);
   });
 
   testWidgets('physical sides and centered panels match their geometry', (

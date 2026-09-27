@@ -141,6 +141,71 @@ class _DSheetSideScope extends InheritedWidget {
       side != oldWidget.side || inset != oldWidget.inset;
 }
 
+// A CurvedAnimation holds a status listener on the route animation until it
+// is disposed, so the sheet's curves are owned by a State rather than rebuilt
+// with every inset or configuration change of the open sheet.
+class _DSheetCurves extends StatefulWidget {
+  const _DSheetCurves({required this.animation, required this.builder});
+
+  final Animation<double> animation;
+  final Widget Function(
+    BuildContext context,
+    Animation<double> popupCurve,
+    Animation<double> backdropCurve,
+  )
+  builder;
+
+  @override
+  State<_DSheetCurves> createState() => _DSheetCurvesState();
+}
+
+class _DSheetCurvesState extends State<_DSheetCurves> {
+  late CurvedAnimation _popup;
+  late CurvedAnimation _backdrop;
+
+  @override
+  void initState() {
+    super.initState();
+    _create();
+  }
+
+  void _create() {
+    _popup = CurvedAnimation(
+      parent: widget.animation,
+      curve: Curves.easeInOut,
+      reverseCurve: Curves.easeInOut,
+    );
+    _backdrop = CurvedAnimation(
+      parent: widget.animation,
+      curve: const Interval(0, .75, curve: Curves.easeInOut),
+      reverseCurve: const Interval(.25, 1, curve: Curves.easeInOut),
+    );
+  }
+
+  void _dispose() {
+    _popup.dispose();
+    _backdrop.dispose();
+  }
+
+  @override
+  void didUpdateWidget(_DSheetCurves oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (identical(oldWidget.animation, widget.animation)) return;
+    _dispose();
+    _create();
+  }
+
+  @override
+  void dispose() {
+    _dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) =>
+      widget.builder(context, _popup, _backdrop);
+}
+
 Widget _sheetPresentation(
   BuildContext context,
   DDialogPresentation presentation,
@@ -150,19 +215,36 @@ Widget _sheetPresentation(
   bool inset,
   bool animateSize,
   bool fillAvailableHeight,
+) => _DSheetCurves(
+  animation: presentation.animation,
+  builder: (context, popupCurve, backdropCurve) => _sheetLayout(
+    context,
+    presentation,
+    popupCurve,
+    backdropCurve,
+    requestedSide,
+    maxWidth,
+    width,
+    inset,
+    animateSize,
+    fillAvailableHeight,
+  ),
+);
+
+Widget _sheetLayout(
+  BuildContext context,
+  DDialogPresentation presentation,
+  Animation<double> popupCurve,
+  Animation<double> backdropCurve,
+  DSheetSide requestedSide,
+  double maxWidth,
+  double? width,
+  bool inset,
+  bool animateSize,
+  bool fillAvailableHeight,
 ) {
   final animate = !MediaQuery.disableAnimationsOf(context);
   final side = requestedSide.resolve(Directionality.of(context));
-  final popupCurve = CurvedAnimation(
-    parent: presentation.animation,
-    curve: Curves.easeInOut,
-    reverseCurve: Curves.easeInOut,
-  );
-  final backdropCurve = CurvedAnimation(
-    parent: presentation.animation,
-    curve: const Interval(0, .75, curve: Curves.easeInOut),
-    reverseCurve: const Interval(.25, 1, curve: Curves.easeInOut),
-  );
   Widget backdrop = fillAvailableHeight
       ? presentation.buildBackdrop(
           color: DTokens.of(context).background.withValues(alpha: 1),

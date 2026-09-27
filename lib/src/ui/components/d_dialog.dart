@@ -586,6 +586,12 @@ class _DDialogRoutePage<T> extends StatefulWidget {
 class _DDialogRoutePageState<T> extends State<_DDialogRoutePage<T>> {
   final FocusScopeNode _focusScope = FocusScopeNode(debugLabel: 'DDialog');
 
+  // A CurvedAnimation holds a status listener on the route animation until it
+  // is disposed, so the default presentation's curve is owned here rather
+  // than rebuilt with every inset or configuration change. Custom
+  // presentations never create it.
+  CurvedAnimation? _curved;
+
   @override
   void initState() {
     super.initState();
@@ -602,7 +608,16 @@ class _DDialogRoutePageState<T> extends State<_DDialogRoutePage<T>> {
   }
 
   @override
+  void didUpdateWidget(_DDialogRoutePage<T> oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (identical(oldWidget.animation, widget.animation)) return;
+    _curved?.dispose();
+    _curved = null;
+  }
+
+  @override
   void dispose() {
+    _curved?.dispose();
     _focusScope.dispose();
     super.dispose();
   }
@@ -610,11 +625,6 @@ class _DDialogRoutePageState<T> extends State<_DDialogRoutePage<T>> {
   @override
   Widget build(BuildContext context) {
     final insets = MediaQuery.viewInsetsOf(context);
-    final curved = CurvedAnimation(
-      parent: widget.animation,
-      curve: Curves.easeOutCubic,
-      reverseCurve: Curves.easeInCubic,
-    );
     final animate = !MediaQuery.disableAnimationsOf(context);
     final focusedContent = FocusTraversalGroup(
       policy: ReadingOrderTraversalPolicy(),
@@ -648,6 +658,11 @@ class _DDialogRoutePageState<T> extends State<_DDialogRoutePage<T>> {
         ),
       );
       if (animate) {
+        final curved = _curved ??= CurvedAnimation(
+          parent: widget.animation,
+          curve: Curves.easeOutCubic,
+          reverseCurve: Curves.easeInCubic,
+        );
         backdrop = FadeTransition(opacity: curved, child: backdrop);
         popup = FadeTransition(
           opacity: curved,
