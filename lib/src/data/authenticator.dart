@@ -5,6 +5,7 @@ import 'package:flutter_web_auth_2/flutter_web_auth_2.dart';
 import 'api_credentials.dart';
 import 'push_registration.dart';
 import 'secure_store.dart';
+import 'store_diagnostics.dart';
 import 'user_api_key.dart';
 
 typedef WebAuthLauncher =
@@ -44,8 +45,8 @@ class Authenticator implements ApiCredentialReader {
   final String Function() _generateNonce;
   final PushRegistrationProvider _pushRegistrations;
 
-  /// How long [clientId] keeps answering with the per-install client id after
-  /// the platform reported no push registration before asking it again.
+  /// How long [clientId] keeps answering without a live push registration
+  /// after the platform reported none before asking it again.
   final Duration _pushRegistrationRetryInterval;
 
   final DateTime Function() _clock;
@@ -78,8 +79,10 @@ class Authenticator implements ApiCredentialReader {
     try {
       // Connecting is when registration must be attempted, so the platform is
       // asked directly: an absence remembered by [clientId] is not trusted.
-      _rememberPushRegistration(await _pushRegistrations.registration());
+      await _rememberPushRegistration(await _pushRegistrations.registration());
       final clientId = await _readClientId();
+      // Only a registration the platform has answered vouches for a push URL.
+      // A recorded token can outlive the permission that produced it.
       final pushRegistration = _knownPushRegistration;
       _ensureCurrent(siteUrl, generation);
       // The private half is needed only to decrypt this callback. Keeping it
@@ -175,17 +178,40 @@ class Authenticator implements ApiCredentialReader {
     return _readClientId();
   }
 
+  /// Answers the live push registration, else the newest one this install has
+  /// recorded, else the per-install id.
+  ///
+  /// Discourse moves a key to a newly created client row whenever a request
+  /// names a different client id, and keeps the row it left. Naming an older
+  /// id again would create that row a second time, which its unique index
+  /// refuses on every request. The id therefore only moves forward: the
+  /// per-install id until the first registration, then each newer token, even
+  /// while the platform cannot currently answer.
   Future<String> _readClientId() async {
-    final pushRegistration = _knownPushRegistration;
-    if (pushRegistration != null) return pushRegistration.clientId;
+    if (_knownPushRegistration case final known?) return known.clientId;
+    final recorded = await store.readPushClientId();
+    // An overlapping registration can succeed while storage is read.
+    if (_knownPushRegistration case final known?) return known.clientId;
+    if (recorded != null) return recorded;
     final fallback = await store.readOrCreateClientId();
-    // An overlapping registration can succeed while the fallback is read.
     return _knownPushRegistration?.clientId ?? fallback;
   }
 
-  void _rememberPushRegistration(PushRegistration? registration) {
+  /// Records [registration] before any request can name it, so a relaunch
+  /// that cannot reach the platform still answers this id, never an older one.
+  ///
+  /// The store completes these writes in call order, so memory and storage
+  /// settle on the same, latest registration.
+  Future<void> _rememberPushRegistration(PushRegistration? registration) async {
     // A late absence must not replace a successful overlapping registration.
     if (registration == null) return;
+    try {
+      await store.writePushClientId(registration.clientId);
+    } catch (error, stackTrace) {
+      // The registration still works for this launch; only a relaunch that
+      // cannot reach the platform loses it.
+      reportStorageFailure(error, stackTrace, 'credentials.pushClientId');
+    }
     _knownPushRegistration = registration;
     _pushRegistrationUnavailableAt = null;
   }
@@ -214,8 +240,8 @@ class Authenticator implements ApiCredentialReader {
     late final Future<PushRegistration?> read;
     read = _pushRegistrations
         .registration()
-        .then((registration) {
-          _rememberPushRegistration(registration);
+        .then((registration) async {
+          await _rememberPushRegistration(registration);
           if (_knownPushRegistration == null) {
             _pushRegistrationUnavailableAt = _clock();
           }

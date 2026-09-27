@@ -3,9 +3,11 @@ import 'dart:async';
 import 'package:discourse_native/src/data/authenticator.dart';
 import 'package:discourse_native/src/data/discourse_api.dart';
 import 'package:discourse_native/src/data/http_transport.dart';
+import 'package:discourse_native/src/data/private_storage.dart';
 import 'package:discourse_native/src/data/push_registration.dart';
 import 'package:discourse_native/src/data/secure_store.dart';
 import 'package:discourse_native/src/data/user_api_key.dart';
+import 'package:discourse_native/src/diagnostics/diagnostics_controller.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
@@ -163,6 +165,7 @@ void main() {
         expect(launchedUrl, 'https://authorize.invalid');
         expect(launchedScheme, UserApiKeyProtocol.redirectScheme);
         expect(events, [
+          'read-push-client-id',
           'read-client-id',
           'generate-key-pair',
           'auth-url',
@@ -236,6 +239,7 @@ void main() {
       expect(await authenticator.clientId(), 'macos-apns-token');
       expect(events, [
         'read-push-registration',
+        'write-push-client-id:macos-apns-token',
         'generate-key-pair',
         'auth-url',
         'launch',
@@ -594,7 +598,7 @@ void main() {
           expect(protocol.pushUrl, _macosRegistration.pushUrl);
           expect(await authenticator.clientId(), _macosRegistration.clientId);
           expect(provider.requests, hasLength(2));
-          expect(events, isEmpty);
+          expect(events, ['write-push-client-id:macos-apns-token']);
         },
       );
     }
@@ -644,8 +648,10 @@ void main() {
           expect(await authenticator.clientId(), _macosRegistration.clientId);
           expect(events, [
             'read-push-registration',
+            'read-push-client-id',
             'read-client-id',
             'read-push-registration',
+            'write-push-client-id:macos-apns-token',
           ]);
         },
       );
@@ -663,7 +669,10 @@ void main() {
 
       expect(await authenticator.clientId(), 'macos-apns-token');
       expect(await authenticator.clientId(), 'macos-apns-token');
-      expect(events, ['read-push-registration']);
+      expect(events, [
+        'read-push-registration',
+        'write-push-client-id:macos-apns-token',
+      ]);
     });
 
     test(
@@ -688,7 +697,10 @@ void main() {
           'macos-apns-token',
           'macos-apns-token',
         ]);
-        expect(events, ['read-push-registration']);
+        expect(events, [
+          'read-push-registration',
+          'write-push-client-id:macos-apns-token',
+        ]);
       },
     );
 
@@ -711,7 +723,9 @@ void main() {
         expect(await authenticator.clientId(), 'client-id');
         expect(events, [
           'read-push-registration',
+          'read-push-client-id',
           'read-client-id',
+          'read-push-client-id',
           'read-client-id',
         ]);
 
@@ -720,12 +734,157 @@ void main() {
         expect(await authenticator.clientId(), 'macos-apns-token');
         expect(events, [
           'read-push-registration',
+          'read-push-client-id',
           'read-client-id',
+          'read-push-client-id',
           'read-client-id',
           'read-push-registration',
+          'write-push-client-id:macos-apns-token',
         ]);
       },
     );
+  });
+
+  group('push client ID across launches', () {
+    const rotatedRegistration = PushRegistration(
+      clientId: 'rotated-apns-token',
+      pushUrl: PlatformPushRegistrationProvider.macosPushUrl,
+    );
+
+    test(
+      'a relaunch the platform cannot answer keeps the last push token',
+      () async {
+        final install = _Install();
+        var now = DateTime.utc(2026, 9, 27, 12);
+        final provider = _FakePushRegistrationProvider(null);
+        final first = Authenticator(
+          store: install.open(),
+          pushRegistrations: provider,
+          clock: () => now,
+        );
+
+        // The per-install id is used only until the first registration.
+        expect(await first.clientId(), 'install-id');
+        provider.value = _macosRegistration;
+        now = now.add(const Duration(minutes: 3));
+        expect(await first.clientId(), _macosRegistration.clientId);
+        expect(install.pushClientIds.value, _macosRegistration.clientId);
+
+        final installIdReads = install.clientIds.reads;
+        final relaunchProvider = _FakePushRegistrationProvider(null);
+        final protocol = _FakeProtocol();
+        final relaunched = Authenticator(
+          store: install.open(),
+          protocol: protocol,
+          pushRegistrations: relaunchProvider,
+          clock: () => now,
+          keyPairGenerator: () async => _pair,
+          nonceGenerator: () => 'nonce',
+          launcher: (_, _) async => 'discourse://auth_redirect?payload=reply',
+        );
+
+        expect(await relaunched.clientId(), _macosRegistration.clientId);
+        expect(await relaunched.authorize(_site), same(_credentials));
+        expect(protocol.clientId, _macosRegistration.clientId);
+        // Only a live registration carries a push URL.
+        expect(protocol.pushUrl, isNull);
+        now = now.add(const Duration(minutes: 3));
+        expect(await relaunched.clientId(), _macosRegistration.clientId);
+        expect(relaunchProvider.reads, 3);
+        expect(install.clientIds.reads, installIdReads);
+      },
+    );
+
+    test('a rotated push token replaces the recorded one', () async {
+      final install = _Install();
+
+      final first = Authenticator(
+        store: install.open(),
+        pushRegistrations: _FakePushRegistrationProvider(_macosRegistration),
+      );
+      expect(await first.clientId(), _macosRegistration.clientId);
+
+      final rotated = Authenticator(
+        store: install.open(),
+        pushRegistrations: _FakePushRegistrationProvider(rotatedRegistration),
+      );
+      expect(await rotated.clientId(), rotatedRegistration.clientId);
+      expect(install.pushClientIds.value, rotatedRegistration.clientId);
+
+      final relaunched = Authenticator(
+        store: install.open(),
+        pushRegistrations: _FakePushRegistrationProvider(null),
+      );
+      expect(await relaunched.clientId(), rotatedRegistration.clientId);
+      expect(install.clientIds.reads, 0);
+    });
+
+    for (final authorizing in [false, true]) {
+      test(
+        '${authorizing ? 'authorize' : 'clientId'} names a new push token only once it is recorded',
+        () async {
+          final writeGate = Completer<void>();
+          final install = _Install()..pushClientIds.writeGate = writeGate;
+          addTearDown(() {
+            if (!writeGate.isCompleted) writeGate.complete();
+          });
+          final protocol = _FakeProtocol();
+          final authenticator = Authenticator(
+            store: install.open(),
+            protocol: protocol,
+            pushRegistrations: _FakePushRegistrationProvider(
+              _macosRegistration,
+            ),
+            keyPairGenerator: () async => _pair,
+            nonceGenerator: () => 'nonce',
+            launcher: (_, _) async => 'discourse://auth_redirect?payload=reply',
+          );
+
+          final pending = authorizing
+              ? authenticator.authorize(_site)
+              : authenticator.clientId();
+          await install.pushClientIds.writeStarted.future;
+          var concurrentAnswered = false;
+          final concurrent = authenticator.clientId().whenComplete(
+            () => concurrentAnswered = true,
+          );
+          await pumpEventQueue();
+
+          expect(protocol.clientId, isNull);
+          expect(concurrentAnswered, isFalse);
+          expect(install.pushClientIds.value, isNull);
+
+          writeGate.complete();
+          expect(
+            await pending,
+            authorizing ? same(_credentials) : _macosRegistration.clientId,
+          );
+          expect(await concurrent, _macosRegistration.clientId);
+          expect(install.pushClientIds.value, _macosRegistration.clientId);
+          if (authorizing) {
+            expect(protocol.clientId, _macosRegistration.clientId);
+            expect(protocol.pushUrl, _macosRegistration.pushUrl);
+          }
+        },
+      );
+    }
+
+    test('a push token that cannot be recorded is still used', () async {
+      final diagnostics = _RecordingDiagnosticsSink();
+      addTearDown(DiagnosticsSink.install(diagnostics).close);
+      final error = StateError('preferences unavailable');
+      final install = _Install()..pushClientIds.writeError = error;
+      final authenticator = Authenticator(
+        store: install.open(),
+        pushRegistrations: _FakePushRegistrationProvider(_macosRegistration),
+      );
+
+      expect(await authenticator.clientId(), _macosRegistration.clientId);
+      expect(await authenticator.clientId(), _macosRegistration.clientId);
+      expect(diagnostics.errors, [same(error)]);
+      expect(diagnostics.operations, ['credentials.pushClientId']);
+      expect(install.pushClientIds.value, isNull);
+    });
   });
 
   test('credential lifecycle methods delegate keychain failures', () async {
@@ -801,9 +960,11 @@ final class _FakePushRegistrationProvider implements PushRegistrationProvider {
   PushRegistration? value;
   final List<String>? events;
   final Completer<void>? gate;
+  int reads = 0;
 
   @override
   Future<PushRegistration?> registration() async {
+    reads += 1;
     events?.add('read-push-registration');
     if (gate case final pending?) await pending.future;
     return value;
@@ -841,6 +1002,7 @@ final class _FakeSecureStore implements SecureStore {
 
   final Map<String, String> apiKeys = {};
   final List<(String, String)> apiKeyWrites = [];
+  String? pushClientId;
 
   @override
   Future<String> readOrCreateClientId() async {
@@ -848,6 +1010,19 @@ final class _FakeSecureStore implements SecureStore {
     if (clientIdError != null) throw clientIdError!;
     if (clientIdReader case final read?) return read();
     return 'client-id';
+  }
+
+  @override
+  Future<String?> readPushClientId() async {
+    events?.add('read-push-client-id');
+    if (clientIdError != null) throw clientIdError!;
+    return pushClientId;
+  }
+
+  @override
+  Future<void> writePushClientId(String value) async {
+    events?.add('write-push-client-id:$value');
+    pushClientId = value;
   }
 
   @override
@@ -868,5 +1043,90 @@ final class _FakeSecureStore implements SecureStore {
   Future<void> deleteApiKey(String siteUrl) async {
     if (deleteApiKeyError != null) throw deleteApiKeyError!;
     apiKeys.remove(siteUrl);
+  }
+}
+
+/// One installation's preferences, reopened by each simulated launch.
+final class _Install {
+  final clientIds = _MemoryClientIds('install-id');
+  final pushClientIds = _MemoryClientIds();
+
+  SecureStore open() => SecureStore(
+    storage: const _UnusedPrivateStorage(),
+    clientIds: clientIds,
+    pushClientIds: pushClientIds,
+    tokenGenerator: () => throw StateError('must not generate'),
+  );
+}
+
+final class _MemoryClientIds implements ClientIdPersistence {
+  _MemoryClientIds([this.value]);
+
+  String? value;
+  int reads = 0;
+  Object? writeError;
+  Completer<void>? writeGate;
+  final writeStarted = Completer<void>();
+
+  @override
+  Future<String?> read() async {
+    reads += 1;
+    return value;
+  }
+
+  @override
+  Future<void> write(String value) async {
+    if (!writeStarted.isCompleted) writeStarted.complete();
+    await writeGate?.future;
+    if (writeError case final error?) throw error;
+    this.value = value;
+  }
+}
+
+final class _UnusedPrivateStorage implements PrivateStorage {
+  const _UnusedPrivateStorage();
+
+  @override
+  Future<String?> read(String key) => throw StateError('unexpected read');
+
+  @override
+  Future<void> write(String key, String value) =>
+      throw StateError('unexpected write');
+
+  @override
+  Future<void> delete(String key) => throw StateError('unexpected delete');
+}
+
+final class _RecordingDiagnosticsSink implements DiagnosticsSink {
+  final List<Object> errors = [];
+  final List<String?> operations = [];
+
+  @override
+  void recordLog({
+    required String name,
+    String source = 'application',
+    String? component,
+    String? message,
+    Map<String, Object?> attributes = const {},
+    DiagnosticSeverity severity = DiagnosticSeverity.info,
+    String? operation,
+    String? correlationId,
+    bool handled = true,
+    bool degraded = false,
+  }) {}
+
+  @override
+  void reportError(
+    Object error,
+    StackTrace stackTrace, {
+    String? operation,
+    String source = 'application',
+    DiagnosticSeverity severity = DiagnosticSeverity.error,
+    bool handled = true,
+    bool degraded = true,
+    String? correlationId,
+  }) {
+    errors.add(error);
+    operations.add(operation);
   }
 }

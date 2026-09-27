@@ -414,6 +414,127 @@ void main() {
     });
   });
 
+  group('push client ID', () {
+    const pushKey = 'discourse_native.push_client_id';
+    const installKey = 'discourse_native.client_id';
+
+    for (final (type, malformed) in <(String, Object)>[
+      ('an empty', ''),
+      ('a bool', true),
+      ('an int', 42),
+      ('a double', 1.5),
+      ('a list', <String>['malformed-token']),
+    ]) {
+      test('reads $type preference as none and repairs it', () async {
+        SharedPreferences.setMockInitialValues({
+          pushKey: malformed,
+          installKey: 'install-id',
+        });
+        final preferences = await SharedPreferences.getInstance();
+        final store = SecureStore(
+          storage: _FakeStorage(),
+          tokenGenerator: () => throw StateError('must not generate'),
+        );
+
+        expect(await store.readPushClientId(), isNull);
+        await store.writePushClientId('apns-token');
+        expect(await store.readPushClientId(), 'apns-token');
+        await preferences.reload();
+
+        expect(preferences.getString(pushKey), 'apns-token');
+        expect(preferences.getString(installKey), 'install-id');
+        final reopened = SecureStore(
+          storage: _FakeStorage(),
+          tokenGenerator: () => throw StateError('must not generate'),
+        );
+        expect(await reopened.readPushClientId(), 'apns-token');
+        expect(await reopened.readOrCreateClientId(), 'install-id');
+      });
+    }
+
+    test('reads the stored ID once and does not rewrite it', () async {
+      final pushClientIds = _FakeClientIds('apns-token');
+      final store = SecureStore(
+        storage: _FakeStorage(),
+        pushClientIds: pushClientIds,
+      );
+
+      expect(await store.readPushClientId(), 'apns-token');
+      expect(await store.readPushClientId(), 'apns-token');
+      await store.writePushClientId('apns-token');
+      expect(await store.readPushClientId(), 'apns-token');
+
+      expect(pushClientIds.events, ['read', 'read']);
+    });
+
+    test('a read overtaken by a write answers the written ID', () async {
+      final readGate = Completer<void>();
+      final readStarted = Completer<void>();
+      final pushClientIds = _FakeClientIds('old-token')
+        ..readGate = readGate
+        ..readStarted = readStarted;
+      final store = SecureStore(
+        storage: _FakeStorage(),
+        pushClientIds: pushClientIds,
+      );
+      final replacement = SecureStore(
+        storage: _FakeStorage(),
+        pushClientIds: pushClientIds,
+      );
+
+      final read = store.readPushClientId();
+      await readStarted.future;
+      final joined = store.readPushClientId();
+      final write = store.writePushClientId('new-token');
+      final replaced = replacement.readPushClientId();
+      readGate.complete();
+      await write;
+
+      expect(await Future.wait([read, joined, replaced]), [
+        'new-token',
+        'new-token',
+        'new-token',
+      ]);
+      expect(await store.readPushClientId(), 'new-token');
+      expect(pushClientIds.events, ['read', 'read', 'write', 'read', 'read']);
+    });
+
+    test('a failed write keeps the stored ID and can be retried', () async {
+      final error = StateError('preferences unavailable');
+      final pushClientIds = _FakeClientIds('old-token')..writeError = error;
+      final store = SecureStore(
+        storage: _FakeStorage(),
+        pushClientIds: pushClientIds,
+      );
+
+      await expectLater(
+        store.writePushClientId('new-token'),
+        throwsA(same(error)),
+      );
+      expect(await store.readPushClientId(), 'old-token');
+      pushClientIds.writeError = null;
+
+      await store.writePushClientId('new-token');
+      expect(await store.readPushClientId(), 'new-token');
+      expect(pushClientIds.value, 'new-token');
+    });
+
+    test('propagates a preference read failure without caching it', () async {
+      final error = StateError('preferences unavailable');
+      final preferences = _ControlledPreferences({
+        'flutter.$pushKey': 'apns-token',
+      })..readError = error;
+      SharedPreferencesStorePlatform.instance = preferences;
+      final store = SecureStore(storage: _FakeStorage());
+
+      await expectLater(store.readPushClientId(), throwsA(same(error)));
+      preferences.readError = null;
+
+      expect(await store.readPushClientId(), 'apns-token');
+      expect(preferences.writes, 0);
+    });
+  });
+
   group('API key storage', () {
     test('keeps credentials isolated by site', () async {
       final storage = _FakeStorage();
