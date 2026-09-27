@@ -42,10 +42,8 @@ class MentionPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final mentioned = name;
     final link = href;
-    if (mentioned == null ||
-        link == null ||
+    if (link == null ||
         isGroupMention ||
         ShellScope.maybeIdentityOf(context) == null) {
       return _buildPill(context, false);
@@ -56,11 +54,10 @@ class MentionPill extends StatelessWidget {
         final sourceSite = siteUrl ?? controller.currentInstance?.url;
         if (sourceSite == null) return false;
         final username = controller.currentUserFor(sourceSite)?.username;
-        // Core matches the cooked profile href, including a site's subfolder,
-        // case-insensitively. The label has to name the reader as well: it is
-        // whose card a tap opens.
-        return username?.toLowerCase() == mentioned &&
-            _linksProfileOf(link, mentioned, sourceSite);
+        // As core does, the cooked profile href alone decides, including a
+        // site's subfolder, case-insensitively, whatever the label says.
+        return username != null &&
+            _linksProfileOf(link, username.toLowerCase(), sourceSite);
       },
       builder: (context, isCurrentUser, child) =>
           _buildPill(context, isCurrentUser),
