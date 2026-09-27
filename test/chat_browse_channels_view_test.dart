@@ -16,6 +16,7 @@ import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/bundled_plugins.dart';
@@ -445,6 +446,106 @@ void main() {
           ),
       ]);
     });
+
+    testWidgets('focusing the filter keeps the pages already loaded', (
+      tester,
+    ) async {
+      final api = _BrowseApi(
+        chatBrowsePagesByKey: {
+          FakeDiscourseApi.chatBrowseKey(): ChatChannelBrowsePage(
+            channels: [_channel(1)],
+            hasMore: true,
+          ),
+          FakeDiscourseApi.chatBrowseKey(offset: 1): ChatChannelBrowsePage(
+            channels: [_channel(2)],
+          ),
+        },
+      );
+      await _pumpBrowse(tester, api);
+      await tester.tap(find.text('Load more'));
+      await tester.pumpAndSettle();
+      expect(_offsets(api), [0, 1]);
+      final text = _filterText(tester);
+      final before = text.selection;
+
+      await tester.tap(_filter);
+      await tester.pump(const Duration(milliseconds: 350));
+      await tester.pumpAndSettle();
+
+      expect(text.text, isEmpty);
+      expect(text.selection, isNot(before));
+      expect(_offsets(api), [0, 1]);
+      expect(_card(1), findsOneWidget);
+      expect(_card(2), findsOneWidget);
+    });
+
+    testWidgets('moving the cursor keeps the filtered pages already loaded', (
+      tester,
+    ) async {
+      final api = _BrowseApi(
+        chatBrowsePagesByKey: {
+          FakeDiscourseApi.chatBrowseKey(): ChatChannelBrowsePage(
+            channels: [_channel(1), _channel(2)],
+          ),
+          FakeDiscourseApi.chatBrowseKey(filter: 'new'): ChatChannelBrowsePage(
+            channels: [_channel(3)],
+            hasMore: true,
+          ),
+          FakeDiscourseApi.chatBrowseKey(filter: 'new', offset: 1):
+              ChatChannelBrowsePage(channels: [_channel(4)]),
+        },
+      );
+      await _pumpBrowse(tester, api);
+
+      await tester.enterText(_filter, 'new');
+      await tester.pump(const Duration(milliseconds: 349));
+      expect(api.chatBrowseRequested, hasLength(1));
+      await tester.pump(const Duration(milliseconds: 1));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Load more'));
+      await tester.pumpAndSettle();
+      expect(_card(3), findsOneWidget);
+      expect(_card(4), findsOneWidget);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+      await tester.pump(const Duration(milliseconds: 350));
+      await tester.pumpAndSettle();
+
+      expect(
+        _filterText(tester).value,
+        const TextEditingValue(
+          text: 'new',
+          selection: TextSelection.collapsed(offset: 1),
+        ),
+      );
+      expect(_card(3), findsOneWidget);
+      expect(_card(4), findsOneWidget);
+      expect(api.chatBrowseRequested, hasLength(3));
+
+      await tester.enterText(_filter, '');
+      await tester.pump(const Duration(milliseconds: 350));
+      await tester.pumpAndSettle();
+
+      expect(_card(1), findsOneWidget);
+      expect(_card(2), findsOneWidget);
+      expect(_card(3), findsNothing);
+      expect(_card(4), findsNothing);
+      expect(api.chatBrowseRequested, [
+        for (final (filter, offset) in [
+          ('', 0),
+          ('new', 0),
+          ('new', 1),
+          ('', 0),
+        ])
+          (
+            filter: filter,
+            status: ChatChannelBrowseStatus.all,
+            offset: offset,
+            limit: ChatChannelBrowsePage.pageSize,
+          ),
+      ]);
+    });
   });
 
   group('ChatBrowseChannelsView on a phone', () {
@@ -692,6 +793,12 @@ Map<String, Object?> _channelJson(int id) => {
 };
 
 Finder _card(int id) => find.byKey(ValueKey('chat-browse-channel-$id'));
+
+TextEditingController _filterText(WidgetTester tester) => tester
+    .widget<EditableText>(
+      find.descendant(of: _filter, matching: find.byType(EditableText)),
+    )
+    .controller;
 
 Iterable<int> _offsets(FakeDiscourseApi api) =>
     api.chatBrowseRequested.map((request) => request.offset);
