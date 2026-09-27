@@ -348,6 +348,7 @@ class ChatInboxRow extends StatelessWidget {
             : DItemSelectionStyle.leadingAccent,
         showSelectionIndicator: false,
         onPressed: onPressed,
+        semanticLabel: unread ? 'Unread conversation' : null,
         children: [
           DItemMedia(
             variant: DItemMediaVariant.avatar,
