@@ -17,6 +17,7 @@ import 'package:discourse_native/src/styleguide/styleguide_theme.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -749,6 +750,49 @@ void main() {
     );
     expect(find.text('(edited)'), findsOneWidget);
   });
+
+  for (final platform in [TargetPlatform.macOS, TargetPlatform.iOS]) {
+    for (final (author, name) in [(2, 'user2'), (1, 'you')]) {
+      testWidgets(
+        'a $name row announces author and time before its body on $platform',
+        (tester) async {
+          final controller = await _controller(
+            _message(author: author),
+            channel: _channel(group: true),
+          );
+          final theme = AppTheme.light.copyWith(platform: platform);
+          final semantics = tester.ensureSemantics();
+          SemanticsNode row() =>
+              tester.getSemantics(find.byKey(ChatMessageTile.actionsKey(7)));
+
+          await tester.pumpWidget(_tile(controller, theme: theme));
+          await tester.pumpAndSettle();
+          final time = tester
+              .widget<Text>(find.byKey(const ValueKey('chat-message-time-7')))
+              .data!;
+          expect(row().label, '$name, $time\nHello from chat');
+          expect(
+            row().getSemanticsData().hasAction(SemanticsAction.customAction),
+            isTrue,
+          );
+          expect(find.bySemanticsLabel(time), findsNothing);
+          expect(find.bySemanticsLabel('·'), findsNothing);
+
+          await tester.pumpWidget(
+            _tile(controller, theme: theme, chained: true),
+          );
+          await tester.pumpAndSettle();
+          expect(find.byType(DMessageHeader), findsNothing);
+          expect(row().label, '$name, $time\nHello from chat');
+          expect(
+            row().getSemanticsData().hasAction(SemanticsAction.customAction),
+            isTrue,
+          );
+          semantics.dispose();
+        },
+      );
+    }
+  }
 
   for (final width in [240.0, 720.0]) {
     for (final direction in TextDirection.values) {

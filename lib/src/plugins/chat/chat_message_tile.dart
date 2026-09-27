@@ -1198,6 +1198,14 @@ class _Tile extends StatelessWidget {
               };
     final hasSurface =
         hasBody || message.uploads.isNotEmpty || message.replyTo != null;
+    final author = outgoing ? 'you' : message.author.displayName;
+    final time = switch (message.createdAt) {
+      final at? => MaterialLocalizations.of(context).formatTimeOfDay(
+        TimeOfDay.fromDateTime(at.toLocal()),
+        alwaysUse24HourFormat: MediaQuery.alwaysUse24HourFormatOf(context),
+      ),
+      null => null,
+    };
     final footer = <Widget>[
       if (message.reactions.isNotEmpty)
         _Reactions(siteUrl: siteUrl, message: message),
@@ -1276,194 +1284,201 @@ class _Tile extends StatelessWidget {
         DSpacing.lg,
         endsGroup ? 8 : 0,
       ),
-      child: DMessage(
-        align: outgoing ? DMessageAlign.end : DMessageAlign.start,
-        footer: footer.isEmpty
-            ? null
-            : Padding(
-                padding: EdgeInsetsDirectional.only(
-                  start: outgoing ? 0 : 36,
-                  end: outgoing ? 36 : 0,
-                  top: 4,
-                ),
-                child: DMessageContent(
-                  flushMetadata: true,
-                  spacing: DSpacing.xs,
-                  children: footer,
-                ),
-              ),
-        children: [
-          DMessageAvatar(
-            minimumExtent: 28,
-            shiftForFooter: false,
-            child: chained
-                ? const SizedBox.square(dimension: 28)
-                : UserCardTarget.avatar(
-                    username: message.author.username,
-                    siteUrl: siteUrl,
-                    semanticLabel: message.author.flair == null
-                        ? null
-                        : 'View profile for @${message.author.username}, ${message.author.flair!.label}',
-                    child: ChatUserAvatar(
-                      siteUrl: siteUrl,
-                      userId: message.author.id,
-                      url: message.author.avatarUrl,
-                      flair: message.author.flair,
-                      size: 28,
-                      fallback: _AvatarFallback(
-                        name: message.author.displayName,
-                        background: theme.shell.floating,
-                      ),
-                    ),
+      // A chained row draws no header, yet each row is its own screen-reader
+      // stop. Not a container: the label joins the node carrying the row's
+      // actions, ahead of the body, so every row opens with who and when.
+      child: Semantics(
+        label: time == null ? author : '$author, $time',
+        child: DMessage(
+          align: outgoing ? DMessageAlign.end : DMessageAlign.start,
+          footer: footer.isEmpty
+              ? null
+              : Padding(
+                  padding: EdgeInsetsDirectional.only(
+                    start: outgoing ? 0 : 36,
+                    end: outgoing ? 36 : 0,
+                    top: 4,
                   ),
-          ),
-          DMessageContent(
-            spacing: DSpacing.xs,
-            flushMetadata: true,
-            children: [
-              if (!chained)
-                DMessageHeader(
-                  followMessageAlignment: true,
-                  spacing: DSpacing.xs,
-                  children: [
-                    UserCardTarget(
+                  child: DMessageContent(
+                    flushMetadata: true,
+                    spacing: DSpacing.xs,
+                    children: footer,
+                  ),
+                ),
+          children: [
+            DMessageAvatar(
+              minimumExtent: 28,
+              shiftForFooter: false,
+              child: chained
+                  ? const SizedBox.square(dimension: 28)
+                  : UserCardTarget.avatar(
                       username: message.author.username,
                       siteUrl: siteUrl,
-                      child: Text(
-                        outgoing ? 'you' : message.author.displayName,
-                      ),
-                    ),
-                    UserStatusMessage(
-                      siteUrl: siteUrl,
-                      userId: message.author.id,
-                      status: message.author.status,
-                      size: 15,
-                    ),
-                    if (message.author.isStaff)
-                      _Tag(label: 'staff', color: theme.colorScheme.primary),
-                    if (message.isWebhook)
-                      _Tag(
-                        label: 'bot',
-                        color: theme.discourse.primaryVeryHigh,
-                        isBot: true,
-                      ),
-                    if (message.createdAt case final at?) ...[
-                      const Text('·'),
-                      Text(
-                        MaterialLocalizations.of(context).formatTimeOfDay(
-                          TimeOfDay.fromDateTime(at.toLocal()),
-                          alwaysUse24HourFormat:
-                              MediaQuery.alwaysUse24HourFormatOf(context),
+                      semanticLabel: message.author.flair == null
+                          ? null
+                          : 'View profile for @${message.author.username}, ${message.author.flair!.label}',
+                      child: ChatUserAvatar(
+                        siteUrl: siteUrl,
+                        userId: message.author.id,
+                        url: message.author.avatarUrl,
+                        flair: message.author.flair,
+                        size: 28,
+                        fallback: _AvatarFallback(
+                          name: message.author.displayName,
+                          background: theme.shell.floating,
                         ),
-                        key: ValueKey('chat-message-time-${message.id}'),
                       ),
-                    ],
-                  ],
-                ),
-              if (hasSurface)
-                DBubble(
-                  align: bubbleAlign,
-                  maximumWidthFactor: context.isTouch ? 1 : .88,
-                  variant: outgoing
-                      ? DBubbleVariant.accent
-                      : DBubbleVariant.neutral,
-                  children: [
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      spacing: DSpacing.controlGap,
-                      children: [
-                        if (outgoing && reply != null) reply,
-                        if (outgoing && react != null) react,
-                        Flexible(
-                          child: DBubbleContent(
-                            key: ValueKey('chat-message-bubble-${message.id}'),
-                            borderRadius: BorderRadiusDirectional.only(
-                              topStart: Radius.circular(
-                                outgoing || !chained
-                                    ? DRadius.chatBubble
-                                    : joinedCorner,
-                              ),
-                              topEnd: Radius.circular(
-                                outgoing && chained
-                                    ? joinedCorner
-                                    : DRadius.chatBubble,
-                              ),
-                              bottomStart: Radius.circular(
-                                outgoing || !joinsNext
-                                    ? DRadius.chatBubble
-                                    : joinedCorner,
-                              ),
-                              bottomEnd: Radius.circular(
-                                outgoing && joinsNext
-                                    ? joinedCorner
-                                    : DRadius.chatBubble,
-                              ),
-                            ),
-                            trailingAction: more,
-                            quote: switch (message.replyTo) {
-                              final reply? => _ReplyIndicator(
-                                siteUrl: siteUrl,
-                                reply: reply,
-                                onJump: onJumpToMessage == null
-                                    ? null
-                                    : () => onJumpToMessage!(reply.id),
-                              ),
-                              null => null,
-                            },
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                if (hasBody)
-                                  Builder(
-                                    builder: (context) {
-                                      final style = DefaultTextStyle.of(
-                                        context,
-                                      ).style;
-                                      return _MessageBodySelection(
-                                        selectionKey:
-                                            ChatMessageTile.bodySelectionKey(
-                                              message.id,
-                                            ),
-                                        child: _body(
-                                          context,
-                                          textStyle: style,
-                                          contentSized: true,
-                                          linkStyle: DText.linkStyleOf(context)
-                                              .copyWith(
-                                                color: outgoing
-                                                    ? style.color
-                                                    : null,
-                                                decorationColor: outgoing
-                                                    ? style.color
-                                                    : null,
-                                              ),
-                                        )!,
-                                      );
-                                    },
-                                  ),
-                                if (message.uploads.isNotEmpty)
-                                  ChatUploads(
-                                    siteUrl: siteUrl,
-                                    uploads: message.uploads,
-                                    alignment: outgoing
-                                        ? CrossAxisAlignment.end
-                                        : CrossAxisAlignment.start,
-                                  ),
-                              ],
-                            ),
+                    ),
+            ),
+            DMessageContent(
+              spacing: DSpacing.xs,
+              flushMetadata: true,
+              children: [
+                if (!chained)
+                  DMessageHeader(
+                    followMessageAlignment: true,
+                    spacing: DSpacing.xs,
+                    children: [
+                      UserCardTarget(
+                        username: message.author.username,
+                        siteUrl: siteUrl,
+                        child: Text(author),
+                      ),
+                      UserStatusMessage(
+                        siteUrl: siteUrl,
+                        userId: message.author.id,
+                        status: message.author.status,
+                        size: 15,
+                      ),
+                      if (message.author.isStaff)
+                        _Tag(label: 'staff', color: theme.colorScheme.primary),
+                      if (message.isWebhook)
+                        _Tag(
+                          label: 'bot',
+                          color: theme.discourse.primaryVeryHigh,
+                          isBot: true,
+                        ),
+                      // The row's own label already speaks the time.
+                      if (time != null) ...[
+                        const ExcludeSemantics(child: Text('·')),
+                        ExcludeSemantics(
+                          child: Text(
+                            time,
+                            key: ValueKey('chat-message-time-${message.id}'),
                           ),
                         ),
-                        if (!outgoing && react != null) react,
-                        if (!outgoing && reply != null) reply,
                       ],
-                    ),
-                  ],
-                ),
-              if (!hasSurface && more != null) more,
-            ],
-          ),
-        ],
+                    ],
+                  ),
+                if (hasSurface)
+                  DBubble(
+                    align: bubbleAlign,
+                    maximumWidthFactor: context.isTouch ? 1 : .88,
+                    variant: outgoing
+                        ? DBubbleVariant.accent
+                        : DBubbleVariant.neutral,
+                    children: [
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        spacing: DSpacing.controlGap,
+                        children: [
+                          if (outgoing && reply != null) reply,
+                          if (outgoing && react != null) react,
+                          Flexible(
+                            child: DBubbleContent(
+                              key: ValueKey(
+                                'chat-message-bubble-${message.id}',
+                              ),
+                              borderRadius: BorderRadiusDirectional.only(
+                                topStart: Radius.circular(
+                                  outgoing || !chained
+                                      ? DRadius.chatBubble
+                                      : joinedCorner,
+                                ),
+                                topEnd: Radius.circular(
+                                  outgoing && chained
+                                      ? joinedCorner
+                                      : DRadius.chatBubble,
+                                ),
+                                bottomStart: Radius.circular(
+                                  outgoing || !joinsNext
+                                      ? DRadius.chatBubble
+                                      : joinedCorner,
+                                ),
+                                bottomEnd: Radius.circular(
+                                  outgoing && joinsNext
+                                      ? joinedCorner
+                                      : DRadius.chatBubble,
+                                ),
+                              ),
+                              trailingAction: more,
+                              quote: switch (message.replyTo) {
+                                final reply? => _ReplyIndicator(
+                                  siteUrl: siteUrl,
+                                  reply: reply,
+                                  onJump: onJumpToMessage == null
+                                      ? null
+                                      : () => onJumpToMessage!(reply.id),
+                                ),
+                                null => null,
+                              },
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  if (hasBody)
+                                    Builder(
+                                      builder: (context) {
+                                        final style = DefaultTextStyle.of(
+                                          context,
+                                        ).style;
+                                        return _MessageBodySelection(
+                                          selectionKey:
+                                              ChatMessageTile.bodySelectionKey(
+                                                message.id,
+                                              ),
+                                          child: _body(
+                                            context,
+                                            textStyle: style,
+                                            contentSized: true,
+                                            linkStyle:
+                                                DText.linkStyleOf(
+                                                  context,
+                                                ).copyWith(
+                                                  color: outgoing
+                                                      ? style.color
+                                                      : null,
+                                                  decorationColor: outgoing
+                                                      ? style.color
+                                                      : null,
+                                                ),
+                                          )!,
+                                        );
+                                      },
+                                    ),
+                                  if (message.uploads.isNotEmpty)
+                                    ChatUploads(
+                                      siteUrl: siteUrl,
+                                      uploads: message.uploads,
+                                      alignment: outgoing
+                                          ? CrossAxisAlignment.end
+                                          : CrossAxisAlignment.start,
+                                    ),
+                                ],
+                              ),
+                            ),
+                          ),
+                          if (!outgoing && react != null) react,
+                          if (!outgoing && reply != null) reply,
+                        ],
+                      ),
+                    ],
+                  ),
+                if (!hasSurface && more != null) more,
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
