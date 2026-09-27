@@ -161,6 +161,75 @@ void main() {
         expect(messages, [latest, unread]);
       });
 
+      test('counts only the arrivals its owner admits', () {
+        final bus = _FakeMessageBusSession();
+        var incomingCalls = 0;
+        final judged = <Object?>[];
+        final tracker = _tracker(
+          bus,
+          userId: 42,
+          apiKey: 'secret',
+          onIncomingTopics: () => incomingCalls++,
+          admitIncoming: (data) {
+            judged.add(data);
+            return false;
+          },
+        );
+        addTearDown(tracker.dispose);
+        final trackingMessages = <Object?>[];
+        tracker.watchTopicTrackingState(42, trackingMessages.add);
+
+        const bumped = {
+          'topic_id': 7,
+          'message_type': 'latest',
+          'payload': {'category_id': 5},
+        };
+        const created = {
+          'topic_id': 8,
+          'message_type': 'new_topic',
+          'payload': {'category_id': 5},
+        };
+        bus.deliver('/latest', bumped);
+        bus.deliver('/new', created);
+
+        expect(judged, [bumped, created]);
+        expect(incomingCalls, 0);
+        expect(tracker.incoming.topicIds('latest'), isEmpty);
+        expect(tracker.incoming.topicIds('new'), isEmpty);
+        // Counters apply their own admission to the same messages.
+        expect(trackingMessages, [bumped, created]);
+      });
+
+      test('a deleted topic stops counting as an arrival', () {
+        final bus = _FakeMessageBusSession();
+        var incomingCalls = 0;
+        final tracker = _tracker(
+          bus,
+          userId: 42,
+          apiKey: 'secret',
+          onIncomingTopics: () => incomingCalls++,
+        );
+        addTearDown(tracker.dispose);
+        final trackingMessages = <Object?>[];
+        tracker.watchTopicTrackingState(42, trackingMessages.add);
+        bus.deliver('/new', {'topic_id': 7, 'message_type': 'new_topic'});
+        bus.deliver('/latest', {'topic_id': 8, 'message_type': 'latest'});
+        expect(incomingCalls, 2);
+
+        const deleted = {'topic_id': 7, 'message_type': 'delete'};
+        bus.deliver('/delete', deleted);
+
+        expect(incomingCalls, 3);
+        expect(tracker.incoming.topicIds('latest'), [8]);
+        expect(tracker.incoming.topicIds('new'), isEmpty);
+        expect(trackingMessages.last, deleted);
+
+        bus.deliver('/delete', deleted);
+        bus.deliver('/recover', {'topic_id': 8, 'message_type': 'recover'});
+        expect(incomingCalls, 3);
+        expect(tracker.incoming.topicIds('latest'), [8]);
+      });
+
       test('ignores invalid refresh IDs and keeps delivering updates', () {
         final bus = _FakeMessageBusSession();
         var incomingCalls = 0;
@@ -1047,6 +1116,7 @@ SiteTracker _tracker(
   void Function()? onIncomingTopics,
   void Function(Object? data)? onNotifications,
   void Function(Object? data)? onReviewableCounts,
+  bool Function(Object? data)? admitIncoming,
 }) => SiteTracker(
   siteUrl: 'https://example.com',
   userId: userId,
@@ -1054,6 +1124,7 @@ SiteTracker _tracker(
   onIncomingTopics: onIncomingTopics ?? () {},
   onNotifications: onNotifications ?? (_) {},
   onReviewableCounts: onReviewableCounts ?? (_) {},
+  admitIncoming: admitIncoming,
   httpClient: MockClient((_) async => http.Response('', 200)),
   messageBus: bus,
 );

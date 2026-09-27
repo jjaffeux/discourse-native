@@ -119,8 +119,9 @@ void main() {
         expect(shell.sidebarBadgeFor('latest'), SidebarBadge.none);
         expect(shell.sidebarBadgeFor('category-1'), SidebarBadge.none);
         expect(shell.sidebarBadgeFor('category-2'), SidebarBadge.none);
-        // The feed-arrival path keeps receiving the public messages.
-        expect(tracker.incoming.topicIds('new'), [10, 11]);
+        // Nor do they announce themselves: the list the arrival banner would
+        // fetch leaves them out.
+        expect(tracker.incoming.topicIds('new'), isEmpty);
 
         tracker.deliver(_newTopic(12, 3));
         tracker.deliver(_newTopic(13, 4));
@@ -131,6 +132,7 @@ void main() {
         });
         await pumpEventQueue();
 
+        expect(tracker.incoming.topicIds('new'), [12, 13]);
         expect(shell.topicListNewCounts, (all: 3, topics: 2, replies: 1));
         expect(shell.sidebarBadgeFor('latest'), const SidebarBadge.count(3));
         expect(
@@ -302,6 +304,7 @@ void main() {
       oldTracker.deliver(const {'topic_id': 10, 'message_type': 'unmuted'});
       tracker.deliver(_newTopic(10, 2));
       expect(shell.newTopicCount, 0);
+      expect(tracker.incoming.topicIds('new'), isEmpty);
       tracker.deliver(_newTopic(12, 1));
       expect(shell.newTopicCount, 1);
       expect(shell.sidebarBadgeFor('category-2'), SidebarBadge.none);

@@ -4190,6 +4190,11 @@ class ShellController extends FrameSafeNotifier
     );
   }
 
+  bool _admitsIncomingTopic(String siteUrl, Object? data) =>
+      _topicTrackingMessageFilters
+          .putIfAbsent(siteUrl, () => TopicTrackingMessageFilter(clock: _clock))
+          .admitsIncoming(data, user: _instanceAt(siteUrl)?.user);
+
   void _syncTracking() {
     final instance = currentInstance;
     final retainedSiteUrls = _pluginBackgroundSiteUrls;
@@ -4751,6 +4756,12 @@ class ShellController extends FrameSafeNotifier
           onIncomingTopics: () => commit(() {
             if (currentInstance?.url == siteUrl) _notify();
           }),
+          // A superseded account's tracker must not judge by, or leave hints
+          // in, the filter its successor now owns at the same URL.
+          admitIncoming: (data) =>
+              !isDisposed &&
+              lease.isCurrent &&
+              _admitsIncomingTopic(siteUrl, data),
           onNotifications: (data) =>
               commit(() => _acceptLiveNotificationState(siteUrl, data, lease)),
           onReviewableCounts: (data) => commit(

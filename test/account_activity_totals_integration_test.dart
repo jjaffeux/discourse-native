@@ -115,6 +115,7 @@ _fixture() async {
           required onIncomingTopics,
           required onNotifications,
           required onReviewableCounts,
+          admitIncoming,
           userId,
           apiKey,
           clientId,
@@ -129,6 +130,7 @@ _fixture() async {
             onIncomingTopics: onIncomingTopics,
             onNotifications: onNotifications,
             onReviewableCounts: onReviewableCounts,
+            admitIncoming: admitIncoming,
           );
           if (!trackerReady.isCompleted) trackerReady.complete(tracker);
           return tracker;
