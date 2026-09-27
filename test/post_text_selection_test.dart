@@ -39,6 +39,7 @@ const _editablePost = Post(
   canEdit: true,
 );
 const _body = 'Read selected words here';
+const _openingUser = DiscourseUser(id: 7, username: 'joffreyj');
 const _replacementUser = DiscourseUser(id: 99, username: 'replacement');
 
 void main() {
@@ -1140,7 +1141,9 @@ Future<ShellController> _shell({
   authenticator.keys[_siteUrl] = 'api-key';
   final shell = ShellController(
     instanceStore: FakeInstanceStore([
-      instance('meta.discourse.org').copyWith(config: config),
+      instance(
+        'meta.discourse.org',
+      ).copyWith(config: config, user: _openingUser),
     ]),
     api: api ?? FakeDiscourseApi(),
     authenticator: authenticator,

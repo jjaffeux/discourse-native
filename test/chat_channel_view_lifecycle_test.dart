@@ -2982,6 +2982,7 @@ Future<ShellController> _controller(
   _MessageReads? messageReads,
   DiscourseUser? user,
 }) async {
+  final account = user ?? const DiscourseUser(id: 7, username: 'joffreyj');
   final authenticator = _SynchronousAuthenticator();
   for (final siteUrl in sites) {
     authenticator.keys[siteUrl] = 'key';
@@ -3000,7 +3001,7 @@ Future<ShellController> _controller(
           url: siteUrl,
           title: Uri.parse(siteUrl).host,
           apiVersion: 4,
-          user: user,
+          user: account,
         ),
     ]),
     api: api,

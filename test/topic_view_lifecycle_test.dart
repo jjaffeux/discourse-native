@@ -35,13 +35,15 @@ import 'support/fakes.dart';
 import 'support/topic_post_list.dart';
 import 'support/topic_scroll_capture.dart';
 
+const _reader = DiscourseUser(id: 7, username: 'reader');
+
 void main() {
   group('TopicView', () {
     group('viewport and read-position lifecycle', () {
       testWidgets('cancels queued read receipts after image relayout', (
         tester,
       ) async {
-        final site = instance('meta.example');
+        final site = instance('meta.example').copyWith(user: _reader);
         final imageResponse = Completer<http.Response>();
         final lifecycle = SiteLifecycle();
         final authenticator = FakeAuthenticator()..keys[site.url] = 'key';
@@ -146,7 +148,7 @@ void main() {
         testWidgets(
           'positions late media before revealing the post (failure: $imageFails)',
           (tester) async {
-            final site = instance('meta.example');
+            final site = instance('meta.example').copyWith(user: _reader);
             final imageResponse = Completer<http.Response>();
             final lifecycle = SiteLifecycle();
             final authenticator = FakeAuthenticator()..keys[site.url] = 'key';
@@ -255,7 +257,7 @@ void main() {
       }
 
       testWidgets('leaves a glimpsed tall final post unread', (tester) async {
-        final site = instance('meta.example');
+        final site = instance('meta.example').copyWith(user: _reader);
         final api = FakeDiscourseApi(feeds: const {'/latest.json': []});
         final authenticator = FakeAuthenticator()..keys[site.url] = 'key';
         final controller = ShellController(
@@ -476,7 +478,7 @@ void main() {
       testWidgets('credits every post read on a notified screen', (
         tester,
       ) async {
-        final site = instance('meta.example');
+        final site = instance('meta.example').copyWith(user: _reader);
         final api = FakeDiscourseApi(feeds: const {'/latest.json': []});
         final authenticator = FakeAuthenticator()..keys[site.url] = 'key';
         final controller = ShellController(
@@ -525,7 +527,7 @@ void main() {
       testWidgets('continuous reading credits the posts it passes', (
         tester,
       ) async {
-        final site = instance('meta.example');
+        final site = instance('meta.example').copyWith(user: _reader);
         final api = FakeDiscourseApi(feeds: const {'/latest.json': []});
         final authenticator = FakeAuthenticator()..keys[site.url] = 'key';
         final controller = ShellController(
@@ -591,7 +593,7 @@ void main() {
       testWidgets('records the latest read post and targets it on reopen', (
         tester,
       ) async {
-        final site = instance('meta.example');
+        final site = instance('meta.example').copyWith(user: _reader);
         final api = FakeDiscourseApi(feeds: const {'/latest.json': []});
         final authenticator = FakeAuthenticator()..keys[site.url] = 'key';
         final controller = ShellController(
@@ -652,7 +654,7 @@ void main() {
       testWidgets('a terminal small action marks the last regular post read', (
         tester,
       ) async {
-        final site = instance('meta.example');
+        final site = instance('meta.example').copyWith(user: _reader);
         final api = FakeDiscourseApi(feeds: const {'/latest.json': []});
         final authenticator = FakeAuthenticator()..keys[site.url] = 'key';
         final controller = ShellController(
@@ -722,7 +724,7 @@ void main() {
       testWidgets('restores the position inside a long final post on reopen', (
         tester,
       ) async {
-        final site = instance('meta.example');
+        final site = instance('meta.example').copyWith(user: _reader);
         final api = FakeDiscourseApi(feeds: const {'/latest.json': []});
         final authenticator = FakeAuthenticator()..keys[site.url] = 'key';
         final controller = ShellController(
@@ -797,7 +799,7 @@ void main() {
       testWidgets(
         'commits the final-post read receipt when backgrounding video-only content',
         (tester) async {
-          final site = instance('meta.example');
+          final site = instance('meta.example').copyWith(user: _reader);
           final api = FakeDiscourseApi(feeds: const {'/latest.json': []});
           final authenticator = FakeAuthenticator()..keys[site.url] = 'key';
           final plugins = PluginInstaller.install(
@@ -875,7 +877,7 @@ void main() {
       testWidgets('the Settings modal does not credit obscured dwell time', (
         tester,
       ) async {
-        final site = instance('meta.example');
+        final site = instance('meta.example').copyWith(user: _reader);
         final api = FakeDiscourseApi(feeds: const {'/latest.json': []});
         final authenticator = FakeAuthenticator()..keys[site.url] = 'key';
         final controller = ShellController(
@@ -932,7 +934,7 @@ void main() {
       testWidgets(
         'records the visible range after programmatic scroll layout',
         (tester) async {
-          final site = instance('meta.example');
+          final site = instance('meta.example').copyWith(user: _reader);
           final api = FakeDiscourseApi(feeds: const {'/latest.json': []});
           final authenticator = FakeAuthenticator()..keys[site.url] = 'key';
           final controller = ShellController(

@@ -3382,8 +3382,10 @@ Future<({ShellController shell, FakeDiscourseApi api})> _fixture({
       const PluginDiagnosticsReporter.noop(),
   CookingServicePort? cookingService,
 }) async {
+  final account =
+      sessionUser ?? const DiscourseUser(id: 7, username: 'joffreyj');
   final api = FakeDiscourseApi(
-    user: sessionUser,
+    user: account,
     chatMessagesByKey: pages,
     chatSendGate: sendGate,
     chatEditGate: editGate,
@@ -3402,7 +3404,7 @@ Future<({ShellController shell, FakeDiscourseApi api})> _fixture({
         title: 'Chat',
         apiVersion: 4,
         config: config,
-        user: sessionUser,
+        user: account,
       ),
       ...additionalInstances,
     ]),

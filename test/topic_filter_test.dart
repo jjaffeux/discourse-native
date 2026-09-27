@@ -4,6 +4,7 @@ import 'dart:ui' show PointerDeviceKind;
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/app.dart';
 import 'package:discourse_native/src/models/content_route.dart';
+import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/models/topic_filter.dart';
 import 'package:discourse_native/src/shell/hashtag.dart';
@@ -1139,7 +1140,10 @@ Future<void> _pump(
   tester.view.physicalSize = const Size(1440, 900);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
-  final forum = instance('meta.discourse.org');
+  final signedOut = instance('meta.discourse.org');
+  final forum = authenticated
+      ? signedOut.copyWith(user: const DiscourseUser(id: 7, username: 'reader'))
+      : signedOut;
   final authenticator = FakeAuthenticator();
   if (authenticated) authenticator.keys[forum.url] = 'api-key';
   await tester.pumpWidget(

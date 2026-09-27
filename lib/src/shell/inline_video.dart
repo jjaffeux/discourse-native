@@ -187,7 +187,7 @@ class _InlineVideoState extends State<InlineVideo> {
             url: data.source,
             title: data.title,
             siteUrl: widget.siteUrl,
-            credentials: shell?.authenticator,
+            credentials: shell?.credentials,
             lifecycle: shell?.lifecycle,
             sharePositionOrigin: shareOrigin,
           );
@@ -338,7 +338,7 @@ class _InlineVideoState extends State<InlineVideo> {
     return InlineVideoPlaybackSurface(
       data: widget.data,
       siteUrl: widget.siteUrl,
-      credentials: shell?.authenticator,
+      credentials: shell?.credentials,
       lifecycle: shell?.lifecycle,
       sessionFactory: widget.sessionFactory ?? createInlineVideoPlaybackSession,
       actionsBuilder: _buildActions,

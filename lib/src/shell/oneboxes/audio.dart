@@ -130,7 +130,7 @@ class _AudioOneboxState extends State<AudioOnebox> with WidgetsBindingObserver {
         posterUrl: null,
         aspectRatio: 1,
         siteUrl: widget.siteUrl,
-        credentials: shell?.authenticator,
+        credentials: shell?.credentials,
         lifecycle: shell?.lifecycle,
         audioOnly: true,
       ),
