@@ -24,6 +24,20 @@ String eventAttributeName(String name) => name
     .replaceAll(RegExp(r'[_.]'), '-')
     .toLowerCase();
 
+/// The attribute a site custom field is stored from: upstream's
+/// `Parser.custom_field_data_attribute` without its `data-` prefix. It is not
+/// [eventAttributeName] of the setting, because upstream lowercases the
+/// setting before `-`, `.` and `_` become word breaks: `roomNumber` is
+/// `roomnumber` (the web composer writes `roomnumber=`), while `room_number`
+/// is `room-number`. An attribute under any other name cooks to a data
+/// attribute the server never reads the field from.
+String eventCustomFieldAttributeName(String field) => field
+    .toLowerCase()
+    .replaceAll(RegExp('[-.]'), '_')
+    .replaceAllMapped(RegExp('_(.)'), (m) => m[1]!.toUpperCase())
+    .replaceAllMapped(RegExp('[A-Z]'), (m) => '-${m[0]!.toLowerCase()}')
+    .replaceFirst(RegExp('^-'), '');
+
 @immutable
 final class EventBlock {
   EventBlock({
