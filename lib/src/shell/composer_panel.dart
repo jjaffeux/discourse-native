@@ -2294,6 +2294,11 @@ class _ComposerEditorState extends State<ComposerEditor> {
     _media.dismissGallery(requestFocus: false);
     if (afterBlockSyntax != null) {
       try {
+        // A click in the structural gap below a component resolves natively
+        // to the component's first source position, which selects the whole
+        // block. That selection is the click's own by-product, not a choice
+        // to keep, and would otherwise pin the caret on the block.
+        _clearKeyboardPillSelection();
         _moveCaretAfterSyntax(afterBlockSyntax);
       } finally {
         widget.composer.text.releaseSyntaxPointerEdit(afterBlockSyntax);

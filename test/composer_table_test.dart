@@ -436,7 +436,14 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  for (final suffix in ['', '\n', '\n\n', '\n\nExisting body']) {
+  // The caret passes the table's own line break and at most one blank line,
+  // so typing starts the next paragraph and keeps the structural gap intact.
+  for (final (suffix, typed) in [
+    ('', '\nAfter'),
+    ('\n', '\nAfter'),
+    ('\n\n', '\n\nAfter'),
+    ('\n\nExisting body', '\n\nAfterExisting body'),
+  ]) {
     testWidgets(
       'typing after clicking below a table inserts body text (${suffix.length})',
       (tester) async {
@@ -467,9 +474,13 @@ void main() {
         final caret = editable.getLocalRectForCaret(
           composer.text.selection.extent,
         );
+        // The caret sits on the first line below the table's structural gap.
+        final caretTop = editable.localToGlobal(caret.topLeft).dy;
+        final caretBottom = editable.localToGlobal(caret.bottomLeft).dy;
+        expect(caretTop, greaterThanOrEqualTo(table.bottom));
         expect(
-          editable.localToGlobal(caret.center).dy,
-          closeTo(table.bottom + 12, 12),
+          caretBottom,
+          lessThanOrEqualTo(table.bottom + 2 * editable.preferredLineHeight),
         );
         final value = composer.text.value;
         final offset = value.selection.extentOffset;
@@ -482,7 +493,7 @@ void main() {
         await tester.pump();
         expect(
           composer.text.text,
-          '${parseComposerTables(source).single.source}\nAfter${suffix.isEmpty ? '' : suffix.substring(1)}',
+          '${parseComposerTables(source).single.source}$typed',
         );
         expect(
           parseComposerTables(composer.raw).single.source,
@@ -626,7 +637,8 @@ void main() {
     final before = composer.raw;
     await tester.sendKeyEvent(LogicalKeyboardKey.enter);
     await tester.pumpAndSettle();
-    expect(composer.raw, before.replaceRange(table.start, table.start, '\n'));
+    // Enter starts a separated paragraph: the new line and its structural gap.
+    expect(composer.raw, before.replaceRange(table.start, table.start, '\n\n'));
     expect(composer.text.keyboardSelectedSyntax, isNull);
     expect(composer.text.selection.extentOffset, table.start);
     expect(composer.focus.hasFocus, isTrue);
