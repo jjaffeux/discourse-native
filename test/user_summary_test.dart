@@ -131,10 +131,11 @@ void main() {
             await tester.tap(find.byTooltip('Back'));
             await tester.pumpAndSettle();
             expect(find.byType(UserSummaryView), findsNothing);
+            // Mobile navigation keeps its content root rather than falling
+            // back to the sidebar pane.
+            expect(fixture.controller.currentContent?.id, 'latest');
             if (layout.name == 'compact') {
-              expect(fixture.controller.mobilePane, MobilePane.sidebar);
-            } else {
-              expect(fixture.controller.currentContent?.id, 'latest');
+              expect(fixture.controller.mobilePane, MobilePane.content);
             }
           } finally {
             semantics.dispose();
@@ -208,7 +209,10 @@ void main() {
       final fixture = await _pump(tester);
       await _openSummaryFromMenu(tester);
 
-      await tester.tap(find.bySemanticsLabel('Open Top native reply, 3 likes'));
+      final reply = find.bySemanticsLabel('Open Top native reply, 3 likes');
+      await tester.ensureVisible(reply);
+      await tester.pumpAndSettle();
+      await tester.tap(reply);
       await tester.pump();
 
       expect(fixture.controller.currentContent?.topicId, 12);
@@ -248,6 +252,12 @@ void main() {
       'scrollbar stays at the page edge with and without the content size limit',
       (tester) async {
         final fixture = await _pump(tester, size: const Size(2200, 650));
+        // The main panel is a list column beside the secondary one; the page
+        // gets the window's width once the main panel has it to itself.
+        await tester.tap(
+          find.byKey(const ValueKey('minimize-panel-secondary')),
+        );
+        await tester.pumpAndSettle();
         await _openSummaryFromMenu(tester);
         await _selectSummaryTab(tester, 'Reading');
         final page = find.byType(UserSummaryView);

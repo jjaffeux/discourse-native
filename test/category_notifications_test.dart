@@ -8,7 +8,6 @@ import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/shell/adaptive_shell.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
-import 'package:discourse_native/src/shell/topic_create_button.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -24,6 +23,7 @@ const _category = TopicCategory(
   permission: 1,
 );
 const _user = DiscourseUser(id: 7, username: 'reader');
+const _author = DiscourseUser(id: 7, username: 'reader', canCreateTopic: true);
 
 Future<ShellController> _openCategory(
   WidgetTester tester,
@@ -56,6 +56,7 @@ void main() {
   ) async {
     final gate = Completer<void>();
     final api = FakeDiscourseApi(
+      user: _author,
       feeds: const {'/latest.json': [], '/c/support/5.json': []},
       creatableFeedPaths: const {'/c/support/5.json'},
       categoryList: const [_category],
@@ -68,34 +69,35 @@ void main() {
 
     expect(button, findsOneWidget);
     expect(find.byTooltip('Category notifications: Normal'), findsOneWidget);
-    expect(find.byKey(TopicCreateButton.buttonKey), findsOneWidget);
+    // Mobile navigation creates topics from the dock's primary action.
+    final newTopicButton = find.byKey(const ValueKey('mobile-new-topic'));
+    expect(newTopicButton, findsOneWidget);
     final notificationButtonRect = tester.getRect(button);
-    final newTopicButtonRect = tester.getRect(
-      find.byKey(TopicCreateButton.buttonKey),
-    );
+    final newTopicButtonRect = tester.getRect(newTopicButton);
     expect(notificationButtonRect.overlaps(newTopicButtonRect), isFalse);
 
+    // Under mobile navigation the header trigger is an icon-only bell at
+    // every width and text scale.
     final triggerLabel = find.descendant(
       of: button,
       matching: find.text('Normal'),
     );
-    expect(triggerLabel, findsOneWidget);
+    expect(triggerLabel, findsNothing);
     tester.view.physicalSize = phone;
     await tester.pumpAndSettle();
     expect(triggerLabel, findsNothing);
     expect(button, findsOneWidget);
     expect(tester.takeException(), isNull);
 
-    tester.view.physicalSize = phone;
     await controller.appSettings.setTextScale(AppTextScale.percent200);
     await tester.pumpAndSettle();
     expect(triggerLabel, findsNothing);
+    expect(button, findsOneWidget);
     expect(tester.takeException(), isNull);
 
     tester.view.physicalSize = laptop;
     await controller.appSettings.setTextScale(AppTextScale.percent100);
     await tester.pumpAndSettle();
-    expect(triggerLabel, findsOneWidget);
 
     await tester.tap(button);
     await tester.pumpAndSettle();

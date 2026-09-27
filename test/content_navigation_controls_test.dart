@@ -24,7 +24,7 @@ import 'support/shell_test_harness.dart';
 void main() {
   _testOnPlatform(
     TargetPlatform.macOS,
-    'Start page search omits navigation controls',
+    'Start page omits search and navigation controls',
     (tester) async {
       await pumpShell(tester, desktop);
       final shell = _shell(tester);
@@ -42,7 +42,7 @@ void main() {
           of: startPage,
           matching: find.byKey(ForumSearch.inputKey),
         ),
-        findsOneWidget,
+        findsNothing,
       );
       expect(
         find.descendant(
@@ -318,7 +318,8 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(api.topicsOpened, [topic.id]);
-      expect(api.feedPaths, ['/latest.json']);
+      // The tab opened on the Start page, so it holds no list to reload.
+      expect(api.feedPaths, isEmpty);
       expect(shell.activeTabId, tab.id);
       expect(shell.contentStack, tab.contentStack);
       expect(shell.activeTab!.forwardStack, tab.forwardStack);

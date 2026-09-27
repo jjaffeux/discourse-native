@@ -32,7 +32,7 @@ void main() {
 
       expect(restored, ContentRoute.appearance());
       expect(restored.isAppearance, isTrue);
-      expect(restored.title, 'Appearance');
+      expect(restored.title, 'Settings');
     });
 
     test('round-trips every durable route field', () {

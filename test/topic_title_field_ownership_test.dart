@@ -143,8 +143,9 @@ void main() {
         expect(shell.currentContent?.color, Color(_categoryB.colorValue));
 
         if (removeTag) {
-          await tester.tap(
-            find.byKey(const ValueKey('topic-header-edit-tags')),
+          // The reader header edits tags from a long press on a tag chip.
+          await tester.longPress(
+            find.byKey(const ValueKey(('topic-header-tag', 'community'))),
           );
           await tester.pump();
           await tester.pump(const Duration(milliseconds: 400));

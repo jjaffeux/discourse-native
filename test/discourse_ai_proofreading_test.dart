@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:discourse_native/discourse_ui.dart'
-    show DDropdownMenuCheckboxItem;
+    show DButton, DDropdownMenuCheckboxItem;
 import 'package:discourse_native/src/data/discourse_api.dart';
 import 'package:discourse_native/src/data/site_lifecycle.dart';
 import 'package:discourse_native/src/models/content_route.dart';
@@ -663,29 +663,31 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('New topic'), findsOneWidget);
+      // Actions and tools share one footer line; below the compact
+      // breakpoint Create collapses to its icon with the label as tooltip.
+      final compact = width < 620;
       final submit = find.byKey(const ValueKey('composer-submit'));
       expect(
-        find.descendant(
-          of: submit,
-          matching: find.text(width < 500 ? 'Create' : 'Create topic'),
-        ),
-        findsOneWidget,
+        find.descendant(of: submit, matching: find.text('Create topic')),
+        compact ? findsNothing : findsOneWidget,
       );
+      if (compact) {
+        expect(tester.widget<DButton>(submit).tooltip, 'Create topic');
+      }
       final panel = tester.getRect(find.byType(ComposerPanel));
       final toolbarFinder = find.byKey(
         const ValueKey('composer-toolbar-scroll'),
       );
       final toolbar = tester.getRect(toolbarFinder);
-      expect(tester.getRect(submit).left, closeTo(panel.left + 12, 1));
-      expect(toolbar.right, closeTo(panel.right - 12, 1));
-      if (width < 620) {
-        expect(
-          toolbar.top,
-          greaterThanOrEqualTo(tester.getRect(submit).bottom),
-        );
-      } else {
-        expect(toolbar.left, greaterThan(tester.getRect(submit).right));
-      }
+      expect(tester.getRect(submit).left, closeTo(panel.left + 16, 1));
+      expect(toolbar.right, closeTo(panel.right - 16, 1));
+      expect(toolbar.center.dy, closeTo(tester.getCenter(submit).dy, 1));
+      expect(
+        toolbar.left,
+        greaterThan(
+          tester.getRect(find.byKey(const ValueKey('composer-cancel'))).right,
+        ),
+      );
       if (width == 280) {
         await tester.drag(toolbarFinder, const Offset(-160, 0));
         await tester.pumpAndSettle();
