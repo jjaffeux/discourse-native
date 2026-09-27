@@ -1,19 +1,38 @@
+import 'dart:io';
 import 'dart:math';
 
+import 'package:discourse_native/src/models/forum_theme_share.dart';
 import 'package:discourse_native/src/plugins/chat/chat_transcript.dart';
+import 'package:discourse_native/src/plugins/discourse_github/oneboxes/commit/block.dart';
+import 'package:discourse_native/src/plugins/discourse_github/oneboxes/issue/block.dart';
+import 'package:discourse_native/src/plugins/discourse_github/oneboxes/pr/block.dart';
 import 'package:discourse_native/src/plugins/local_dates/local_date.dart';
 import 'package:discourse_native/src/plugins/local_dates/local_date_environment.dart';
 import 'package:discourse_native/src/plugins/local_dates/local_date_widget.dart';
 import 'package:discourse_native/src/shell/code_block.dart';
+import 'package:discourse_native/src/shell/cooked_details.dart';
 import 'package:discourse_native/src/shell/cooked_html.dart';
+import 'package:discourse_native/src/shell/cooked_spoiler.dart';
+import 'package:discourse_native/src/shell/cooked_table.dart';
+import 'package:discourse_native/src/shell/cooked_todos.dart';
 import 'package:discourse_native/src/shell/emoji.dart';
 import 'package:discourse_native/src/shell/hashtag.dart';
 import 'package:discourse_native/src/shell/image_grid.dart';
 import 'package:discourse_native/src/shell/inline_code.dart';
+import 'package:discourse_native/src/shell/inline_video.dart';
 import 'package:discourse_native/src/shell/lightbox.dart';
 import 'package:discourse_native/src/shell/mention.dart';
+import 'package:discourse_native/src/shell/oneboxes/audio.dart';
+import 'package:discourse_native/src/shell/oneboxes/discourse/category/block.dart';
+import 'package:discourse_native/src/shell/oneboxes/discourse/topic/block.dart';
+import 'package:discourse_native/src/shell/oneboxes/discourse/user/block.dart';
+import 'package:discourse_native/src/shell/oneboxes/embedded.dart';
+import 'package:discourse_native/src/shell/oneboxes/forum_theme.dart';
 import 'package:discourse_native/src/shell/oneboxes/onebox.dart';
+import 'package:discourse_native/src/shell/oneboxes/reddit.dart';
+import 'package:discourse_native/src/shell/oneboxes/twitter.dart';
 import 'package:discourse_native/src/shell/quote.dart';
+import 'package:discourse_native/src/shell/youtube_video.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -40,10 +59,20 @@ const _tags = [
   'ul',
   'li',
   'table',
+  'thead',
+  'tbody',
   'tr',
+  'th',
   'td',
   'strong',
   'br',
+  'details',
+  'summary',
+  'iframe',
+  'script',
+  'audio',
+  'video',
+  'source',
 ];
 
 const _classes = [
@@ -86,6 +115,17 @@ const _classes = [
   'expand-post',
   'avatar',
   'stats',
+  'twitterstatus',
+  'tweet-description',
+  'quoted',
+  'reddit-onebox',
+  'youtube-onebox',
+  'youtube-thumbnail',
+  'video-placeholder-container',
+  'video-container',
+  'spoiler',
+  'chcklst-box',
+  'checked',
 ];
 
 const _attributes = [
@@ -117,6 +157,13 @@ const _attributes = [
   'lang',
   'style',
   'aria-label',
+  'data-onebox-src',
+  'data-original-href',
+  'data-video-src',
+  'data-thumbnail-src',
+  'data-code-wrap',
+  'poster',
+  'open',
 ];
 
 const _values = [
@@ -202,10 +249,73 @@ const _skeletons = [
   '<aside class="onebox category-onebox"><article class="onebox-body">'
       '<h3><a href="@SRC">@V</a></h3><div class="subcategory">@V</div>'
       '<p>@V</p></article></aside>',
-  '<aside class="onebox discourse-user-onebox"><article class="onebox-body">'
-      '<img class="onebox-avatar" src="@SRC"><h3><a href="@SRC">@V</a></h3>'
-      '<div class="names"><span>@V</span></div><div class="bio">@V</div>'
+  // Core's discourse_user_onebox template.
+  '<aside class="onebox"><article class="onebox-body user-onebox">'
+      '<img alt="" width="@V" height="@V" src="@SRC" class="avatar">'
+      '<h3><a href="@SRC">@@V</a></h3><div><span class="full-name">@V</span>'
+      '<span class="location"><svg class="fa d-icon d-icon-location-dot '
+      'svg-icon" xmlns="http://www.w3.org/2000/svg">'
+      '<use href="#location-dot"></use></svg>@V</span>'
+      '<span><a href="@SRC">@V</a></span></div><p>@V</p>'
+      '<div class="user-onebox--joined">@V</div></article>'
+      '<div class="clearfix"></div></aside>',
+  // Core's twitterstatus template inside the onebox layout.
+  '<aside class="onebox twitterstatus" '
+      'data-onebox-src="https://x.com/@V/status/@V"><header class="source">'
+      '<a href="@SRC" target="_blank" rel="noopener">@V</a></header>'
+      '<article class="onebox-body">'
+      '<img src="@SRC" class="thumbnail onebox-avatar" alt="">'
+      '<h4><a href="@SRC" target="_blank" rel="noopener">@V</a></h4>'
+      '<div class="twitter-screen-name">'
+      '<a href="@SRC" target="_blank" rel="noopener">@@V</a></div>'
+      '<div class="tweet"><span class="is-reply">'
+      '<svg class="fa d-icon d-icon-reply svg-icon svg-string" '
+      'xmlns="http://www.w3.org/2000/svg"><use href="#reply"></use></svg>'
+      '</span><span class="tweet-description">@V</span>'
+      '<div class="quoted"><a class="quoted-link" href="@SRC">'
+      '<p class="quoted-title">@V <span>@@V</span></p></a><div>@V</div></div>'
+      '</div><div class="date">'
+      '<a href="@SRC" class="timestamp" target="_blank" rel="noopener">@V</a>'
+      '<span class="like">@V</span><span class="retweet">@V</span></div>'
       '</article></aside>',
+  // An uploaded audio file, and core's AudioOnebox, which differs only in
+  // dropping `preload` and `data-orig-src`.
+  '<audio preload="metadata" controls>'
+      '<source src="@SRC" data-orig-src="@SRC"><a href="@SRC">@V</a></audio>',
+  // RedditMediaOnebox.
+  '<iframe class="reddit-onebox" src="https://embed.reddit.com/r/@V/comments/'
+      '@V/@V/?embed=true&amp;ref_source=embed&amp;ref=share" width="640" '
+      'height="@V" allowfullscreen></iframe>',
+  // Core's iframe oneboxes share VimeoOnebox's shape.
+  '<iframe class="vimeo-onebox" src="@SRC" data-original-href="@SRC" '
+      'frameborder="0" allowfullscreen></iframe>',
+  // AsciinemaOnebox, core's only script onebox.
+  '<script type="text/javascript" src="https://asciinema.org/a/@V.js" '
+      'id="asciicast-@V" async></script>',
+  // A shared forum theme is an ordinary fence in its own language.
+  '<pre data-code-wrap="${ForumThemeShare.language}">'
+      '<code class="lang-${ForumThemeShare.language}">@V</code></pre>',
+  // YoutubeOnebox for a video: the hidden thumbnail, then the player.
+  '<img class="youtube-thumbnail onebox" style="display: none;" src="@SRC">'
+      '<iframe src="https://www.youtube.com/embed/@V?feature=oembed&amp;'
+      'wmode=opaque" width="480" height="360" frameborder="0" allowfullscreen '
+      'class="youtube-onebox"></iframe>',
+  // An uploaded video once PrettyText has found its thumbnail.
+  '<div class="video-placeholder-container" data-video-src="@SRC" '
+      'data-orig-src="@SRC" data-thumbnail-src="@SRC"></div>',
+  // The block and inline wraps of spoiler-alert, then discourse-details.
+  '<div class="spoiler"><p>@V</p></div>',
+  '<span class="spoiler">@V</span>',
+  '<details open=""><summary>@V</summary><p>@V</p></details>',
+  // A Markdown table in core's wrapper.
+  '<div class="md-table"><table><thead><tr><th>@V</th><th>@V</th></tr>'
+      '</thead><tbody><tr><td>@V</td><td>@V</td></tr></tbody></table></div>',
+  // Checklist boxes starting list items, then lines of a paragraph.
+  '<ul><li><span class="chcklst-box fa fa-square-o" data-chk-src="@V">'
+      '</span> @V</li><li><span class="chcklst-box checked fa '
+      'fa-square-check-o"></span> @V</li></ul>',
+  '<p><span class="chcklst-box checked permanent fa fa-square-check"></span> '
+      '@V<br><span class="chcklst-box fa fa-square-o"></span> @V</p>',
 ];
 
 /// Removes one attribute, one child element, or one closing tag from [markup].
@@ -285,18 +395,79 @@ Iterable<dom.Element> _descendants(dom.Element root) sync* {
 }
 
 const _builders = [
-  'onebox',
-  'quote',
-  'chatTranscript',
-  'imageGrid',
-  'lightbox',
-  'codeBlock',
-  'inlineCode',
+  'todo',
+  'spoiler',
+  'emoji',
   'mention',
   'hashtag',
-  'emoji',
+  'imageGrid',
+  'lightbox',
+  'inlineVideo',
+  'youtubeVideo',
+  'onebox',
+  'quote',
+  'details',
+  'table',
+  'codeBlock',
+  'inlineCode',
+  'chatTranscript',
   'localDate',
+  // What the onebox dispatcher hands an element to before its engines. Any
+  // generic card reaches `onebox`, so that says nothing about these.
+  'onebox forumTheme',
+  'onebox audio',
+  'onebox reddit',
+  'onebox embedded iframe',
+  'onebox embedded script',
 ];
+
+/// The engines behind the onebox dispatcher and the GitHub plugin, by the
+/// name each file declares them under.
+final _oneboxEngines = {
+  'twitterBlock': twitterBlock,
+  'discourseTopicBlock': discourseTopicBlock,
+  'discourseUserBlock': discourseUserBlock,
+  'discourseCategoryBlock': discourseCategoryBlock,
+};
+final _githubOneboxEngines = {
+  'githubPullRequestBlock': githubPullRequestBlock,
+  'githubIssueBlock': githubIssueBlock,
+  'githubCommitBlock': githubCommitBlock,
+};
+
+/// What `CookedHtml`'s own builders and the onebox dispatcher answer with, one
+/// widget each. The plugin builders probed here are not in its chain.
+const _drawn = [
+  'DCheckbox',
+  // Spoilers and details both.
+  'DAccordion<int>',
+  'EmojiImage',
+  'MentionPill',
+  'HashtagPill',
+  'ImageGridMosaic',
+  'LightboxThumbnail',
+  'InlineVideo',
+  'YoutubeVideo',
+  'OneboxCard',
+  // A shared theme that does not decode.
+  'DAlert',
+  'AudioOnebox',
+  // Reddit's embed; other iframes wait behind `EmbeddedOnebox`'s card.
+  'DEmbed',
+  'EmbeddedOnebox',
+  'TwitterOnebox',
+  'DiscourseTopicOnebox',
+  'DiscourseUserOnebox',
+  'DiscourseCategoryOnebox',
+  'QuoteBlock',
+  '_CookedTable',
+  'CodeBlock',
+  'InlineCode',
+];
+
+final _builderCall = RegExp(r'\b(\w+WidgetBuilder)\(');
+
+Widget _nested(BuildContext context, String html) => const SizedBox.shrink();
 
 void main() {
   final localDateFormatter = LocalDateFormatter(
@@ -330,10 +501,87 @@ void main() {
       for (final root in fragment.children) {
         for (final element in _descendants(root)) {
           probe(
+            'todo',
+            () => cookedTodoWidgetBuilder(
+              element,
+              style: null,
+              contentBuilder: (html, style) => const SizedBox.shrink(),
+            ),
+            element,
+          );
+          probe(
+            'spoiler',
+            () => cookedSpoilerWidgetBuilder(element, contentBuilder: _nested),
+            element,
+          );
+          probe(
+            'inlineVideo',
+            () => inlineVideoWidgetBuilder(element, siteUrl: site),
+            element,
+          );
+          probe(
+            'youtubeVideo',
+            () => youtubeVideoWidgetBuilder(element, siteUrl: site),
+            element,
+          );
+          probe(
+            'details',
+            () => cookedDetailsWidgetBuilder(element, contentBuilder: _nested),
+            element,
+          );
+          probe(
+            'table',
+            () => cookedTableWidgetBuilder(element, cellBuilder: _nested),
+            element,
+          );
+          probe(
             'onebox',
             () => oneboxWidgetBuilder(element, siteUrl: site),
             element,
           );
+          probe(
+            'onebox forumTheme',
+            () => forumThemeOneboxWidgetBuilder(element, siteUrl: site),
+            element,
+          );
+          probe(
+            'onebox audio',
+            () => audioOneboxWidgetBuilder(element, siteUrl: site),
+            element,
+          );
+          probe(
+            'onebox reddit',
+            () => redditOneboxWidgetBuilder(element, siteUrl: site),
+            element,
+          );
+          probe(
+            'onebox embedded ${element.localName}',
+            () => embeddedOneboxWidgetBuilder(element, siteUrl: site),
+            element,
+          );
+          // Engines are only handed an onebox aside, as the dispatchers do.
+          if (element.localName == 'aside' &&
+              element.classes.contains('onebox')) {
+            for (final MapEntry(key: name, value: engine)
+                in _oneboxEngines.entries) {
+              if (!engine.matches(element)) continue;
+              probe(
+                'onebox $name',
+                () => engine.build(element, OneboxData.from(element), site),
+                element,
+              );
+            }
+            for (final MapEntry(key: name, value: engine)
+                in _githubOneboxEngines.entries) {
+              if (!engine.matches(element)) continue;
+              probe(
+                'onebox $name',
+                () =>
+                    engine.build(element, OneboxData.from(element), site, null),
+                element,
+              );
+            }
+          }
           probe(
             'quote',
             () => quoteWidgetBuilder(element, siteUrl: site),
@@ -392,7 +640,51 @@ void main() {
     // A guard that stops matching would leave its parser untested while the
     // test still passed, so the generated corpus has to keep reaching all of
     // them. The seed is fixed, so these counts are not a race.
-    expect(built.keys, unorderedEquals(_builders));
+    expect(
+      built.keys,
+      unorderedEquals([
+        ..._builders,
+        for (final name in _oneboxEngines.keys) 'onebox $name',
+        for (final name in _githubOneboxEngines.keys) 'onebox $name',
+      ]),
+    );
+  });
+  // The probes are a second list of what `CookedHtml` and the onebox
+  // dispatchers call, and a second copy drifts: a builder added to one of
+  // those chains would go unprobed, with the test above still green.
+  test('every builder the cooked-markup chains call is probed', () {
+    final probed = {
+      for (final match in _builderCall.allMatches(
+        File('test/cooked_markup_totality_test.dart').readAsStringSync(),
+      ))
+        match.group(1)!,
+      ..._oneboxEngines.keys,
+      ..._githubOneboxEngines.keys,
+    };
+    final called = <String>{};
+    for (final path in const [
+      'lib/src/shell/cooked_html.dart',
+      'lib/src/shell/oneboxes/onebox.dart',
+      'lib/src/plugins/discourse_github/discourse_github_plugin.dart',
+    ]) {
+      final source = File(path).readAsStringSync();
+      called.addAll(_builderCall.allMatches(source).map((m) => m.group(1)!));
+      for (final list in RegExp(
+        r'_engines = \[([^\]]*)\]',
+      ).allMatches(source)) {
+        called.addAll(
+          RegExp(r'\w+').allMatches(list.group(1)!).map((m) => m.group(0)!),
+        );
+      }
+    }
+    // The scan reads source text, so one that stopped matching would pass
+    // while checking nothing.
+    expect(called.length, greaterThan(20));
+    expect(
+      called.difference(probed),
+      isEmpty,
+      reason: 'give these a skeleton the corpus reaches, and probe them above',
+    );
   });
   // A builder that answers null has declined; a builder that answers a widget
   // has promised one that draws. Those are different claims, and only the
@@ -406,6 +698,7 @@ void main() {
     final random = Random(20260823);
     const site = 'https://example.com';
     final failures = <String, Object>{};
+    final drawn = <String>{};
     final current = ValueNotifier<({String html, int round, double width})>((
       html: '',
       round: -1,
@@ -454,10 +747,14 @@ void main() {
         thrown = tester.takeException();
       }
       if (thrown != null) failures[html] = thrown;
+      drawn.addAll(tester.allWidgets.map((widget) => '${widget.runtimeType}'));
     }
 
     await tester.pumpWidget(const SizedBox.shrink());
     tester.takeException();
     expect(failures, isEmpty);
+    // Reaching a builder above says nothing about this shorter corpus drawing
+    // what it answers with, and a layout never drawn is never checked.
+    expect(drawn, containsAll(_drawn));
   });
 }
