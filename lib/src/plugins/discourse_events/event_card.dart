@@ -867,9 +867,11 @@ class _PostEventCardState extends State<PostEventCard> {
     }
   }
 
+  // Not the controller: every event's load and write notifies it, and a post
+  // stream or onebox list holds one card per event.
   @override
   Widget build(BuildContext context) => ListenableBuilder(
-    listenable: widget.controller,
+    listenable: _handle.changes,
     builder: (context, _) {
       final handle = _handle;
       final event = handle.event;

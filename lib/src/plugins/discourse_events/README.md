@@ -101,7 +101,9 @@ included in the module's markup drift snapshots.
   ID is the owning **post** ID, distinct from the topic ID. A linked card never
   writes against its containing post. Post payloads seed presentation; the
   event endpoint hydrates current account authority. Later post snapshots
-  invalidate the hydrated record instead of replacing it.
+  invalidate the hydrated record instead of replacing it. A card listens to
+  its own record, not the controller, so hydrating a stream of N cards
+  redraws each card once instead of every card N times.
 - Writes are serialized through core's post lane and guarded by a site lease.
   Request generations discard stale reads; live echoes coalesce into a reread.
   Responses, including ambiguous write failures, are reconciled from the event

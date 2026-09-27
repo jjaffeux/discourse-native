@@ -292,6 +292,166 @@ void main() {
     },
   );
 
+  group('rebuild isolation', () {
+    Map<String, dynamic> eventFor(int id, {String? name}) => eventJson(
+      overrides: {
+        'id': id,
+        'name': name ?? 'Event $id',
+        'watching_invitee': watching(),
+        'post': {
+          'id': id,
+          'post_number': 1,
+          'topic': {'id': 1000 + id, 'title': 'Topic $id'},
+        },
+      },
+    );
+
+    Future<void> pumpCards(WidgetTester tester, List<int> ids) =>
+        tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: SingleChildScrollView(
+                child: Column(
+                  children: [
+                    for (final id in ids)
+                      PostEventCard(
+                        key: ValueKey(id),
+                        site: eventSite,
+                        event: PostEvent.decode(eventFor(id))!,
+                        controller: ports.controller,
+                        navigation: navigation,
+                      ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+
+    /// Builds of each already-mounted card's [EventCard] from now on, keyed by
+    /// event ID in the order the cards first rebuilt. `builtOnce` cannot tell
+    /// a rebuild apart: the framework records it only while rebuilds print.
+    Map<int, int> countRebuilds() {
+      final rebuilds = <int, int>{};
+      final previous = debugOnRebuildDirtyWidget;
+      debugOnRebuildDirtyWidget = (element, builtOnce) {
+        previous?.call(element, builtOnce);
+        if (element.widget case EventCard(:final event)) {
+          rebuilds.update(event.id, (count) => count + 1, ifAbsent: () => 1);
+        }
+      };
+      addTearDown(() => debugOnRebuildDirtyWidget = previous);
+      return rebuilds;
+    }
+
+    testWidgets(
+      'hydrating twenty cards rebuilds each card once, when its own event loads',
+      (tester) async {
+        final ids = [for (var id = 100; id < 120; id++) id];
+        final loads = {for (final id in ids) id: Completer<Object?>()};
+        for (final id in ids) {
+          ports
+              .transport
+              .responders['GET /discourse-post-event/events/$id.json'] = (_) =>
+              loads[id]!.future;
+        }
+        await pumpCards(tester, ids);
+        await tester.pumpAndSettle();
+        expect(ports.transport.reads.map((request) => request.path), [
+          for (final id in ids) '/discourse-post-event/events/$id.json',
+        ]);
+        final rebuilds = countRebuilds();
+
+        for (final (index, id) in ids.indexed) {
+          loads[id]!.complete({'event': eventFor(id, name: 'Loaded $id')});
+          await tester.pumpAndSettle();
+          expect(find.text('Loaded $id'), findsOneWidget);
+          expect(
+            rebuilds.keys,
+            ids.take(index + 1),
+            reason: 'loading event $id must not redraw cards for other events',
+          );
+        }
+        expect(rebuilds, {for (final id in ids) id: 1});
+        await tester.pumpWidget(const SizedBox.shrink());
+        expect(ports.channels.channels, isEmpty);
+        expect(tester.takeException(), isNull);
+      },
+    );
+
+    testWidgets(
+      'an RSVP write and its re-read redraw the responding card alone',
+      (tester) async {
+        const ids = [100, 101];
+        final events = {for (final id in ids) id: eventFor(id)};
+        for (final id in ids) {
+          ports
+              .transport
+              .responders['GET /discourse-post-event/events/$id.json'] = (_) =>
+              {'event': events[id]};
+        }
+        await pumpCards(tester, ids);
+        await tester.pumpAndSettle();
+        final rebuilds = countRebuilds();
+        const path = '/discourse-post-event/events/100/invitees/83.json';
+        final write = Completer<Object?>();
+        ports.transport.responders['PUT $path'] = (_) => write.future;
+        Finder inCard(int id, Finder finder) =>
+            find.descendant(of: find.byKey(ValueKey(id)), matching: finder);
+        DToggle interested(int id) => tester.widget<DToggle>(
+          inCard(id, find.widgetWithText(DToggle, 'Interested')),
+        );
+
+        await tester.tap(inCard(100, find.text('Interested')));
+        await tester.pump();
+        final request = ports.transport.writes.single;
+        expect((request.method, request.path), ('PUT', path));
+        expect(interested(100).enabled, isFalse);
+        expect(inCard(100, find.byType(DProgress)), findsOneWidget);
+        expect(interested(101).enabled, isTrue);
+        expect(rebuilds.keys, [100]);
+
+        events[100] = {
+          ...events[100]!,
+          'watching_invitee': watching(status: 'interested'),
+        };
+        write.complete({});
+        await tester.pumpAndSettle();
+        expect(interested(100).pressed, isTrue);
+        expect(interested(100).enabled, isTrue);
+        expect(find.byType(DProgress), findsNothing);
+        expect(interested(101).pressed, isFalse);
+        expect(rebuilds.keys, [100]);
+        await tester.pumpWidget(const SizedBox.shrink());
+        expect(tester.takeException(), isNull);
+      },
+    );
+
+    testWidgets('a reader timezone change still redraws every card', (
+      tester,
+    ) async {
+      const ids = [100, 101];
+      ports.user = null;
+      for (final id in ids) {
+        ports
+            .transport
+            .responders['GET /discourse-post-event/events/$id.json'] = (_) => {
+          'event': eventFor(id),
+        };
+      }
+      await pumpCards(tester, ids);
+      await tester.pumpAndSettle();
+      expect(find.textContaining('(Etc/UTC)'), findsNWidgets(2));
+
+      ports.environment.setDeviceTimezone('Europe/Paris');
+      await tester.pumpAndSettle();
+      expect(find.textContaining('(Etc/UTC)'), findsNothing);
+      expect(find.textContaining('(Europe/Paris)'), findsNWidgets(2));
+      await tester.pumpWidget(const SizedBox.shrink());
+      expect(tester.takeException(), isNull);
+    });
+  });
+
   testWidgets(
     'a retained card recovers from forget only with a fresh snapshot and shares its new entry',
     (tester) async {
