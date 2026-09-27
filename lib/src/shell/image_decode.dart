@@ -69,9 +69,34 @@ int coarseDecodePixels(int physicalPixels) {
   return (physicalPixels + step - 1) ~/ step * step;
 }
 
+/// The most source pixels [FittedMemoryImage] decodes.
+///
+/// A fit bounds the bitmap a decode keeps, not what it allocates on the way:
+/// PNG and GIF have no scaled decode, so the whole source is decoded before
+/// it is resized, and lossless WebP holds every source pixel while it
+/// decodes. A few kilobytes of either can declare hundreds of megapixels.
+/// Discourse refuses uploads from 40 megapixels by default
+/// (`max_image_megapixels`), and the optimized copies posts draw are far
+/// smaller.
+const maximumFittedImagePixels = 50 * 1000 * 1000;
+
+/// A [FittedMemoryImage] source whose header declares more than
+/// [maximumFittedImagePixels]; none of it was decoded.
+final class ImageTooLargeException implements Exception {
+  const ImageTooLargeException(this.width, this.height);
+
+  final int width;
+  final int height;
+
+  @override
+  String toString() =>
+      'Image of ${width}x$height pixels exceeds the decode limit';
+}
+
 /// Decodes [bytes] to fit within [width] × [height] physical pixels, keeping
 /// the aspect ratio and never upscaling: [ResizeImagePolicy.fit] without
-/// `allowUpscaling`.
+/// `allowUpscaling`. A source over [maximumFittedImagePixels] fails with
+/// [ImageTooLargeException] instead.
 ///
 /// [ResizeImage] keys its cache entry on the requested bound, so every layout
 /// wider than the source decodes the same pixels again under a new key. This
@@ -120,10 +145,26 @@ final class FittedMemoryImage extends ImageProvider<FittedMemoryImage> {
     return completer;
   }
 
+  // Chained rather than awaited: awaiting a SynchronousFuture resumes the
+  // awaiting body re-entrantly, and an error it throws after that is reported
+  // as uncaught.
   static Future<ui.Codec> _decode(
     FittedMemoryImage key,
     ImageDecoderCallback decode,
+  ) {
+    final sourceSize = _sourceSizes[key.bytes] ??= _readSourceSize(key.bytes);
+    return sourceSize.then((size) => _decodeSource(key, decode, size));
+  }
+
+  static Future<ui.Codec> _decodeSource(
+    FittedMemoryImage key,
+    ImageDecoderCallback decode,
+    (int, int)? sourceSize,
   ) async {
+    final (width, height) = sourceSize ?? (0, 0);
+    if (width * height > maximumFittedImagePixels) {
+      throw ImageTooLargeException(width, height);
+    }
     final buffer = await ui.ImmutableBuffer.fromUint8List(key.bytes);
     return decode(
       buffer,

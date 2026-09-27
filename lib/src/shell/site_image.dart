@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:discourse_native/discourse_ui.dart';
@@ -612,11 +613,13 @@ final class SiteImageWidgetFactory extends WidgetFactory {
   }
 
   // Remote images load through [SiteImage], whose site-scoped cache bounds
-  // response size, refuses unsafe redirects and remembers failures. The HTML
-  // package may build a provider itself only for inline data: a server must
-  // not be able to name a file on the device or an asset in the app bundle,
-  // and a CSS background image has no route through [SiteImage]. An `<img>`
-  // refused here reads as its alt text; a refused background is not drawn.
+  // response size, refuses unsafe redirects and remembers failures, and an
+  // inline `<img>` decodes within its layout in [_buildImageContent]. The HTML
+  // package may build a provider itself only for inline data in a CSS
+  // background: a server must not be able to name a file on the device or an
+  // asset in the app bundle, and a CSS background image has no route through
+  // [SiteImage]. An `<img>` refused here reads as its alt text; a refused
+  // background is not drawn.
   @override
   ImageProvider? imageProviderFromAsset(String url) => null;
 
@@ -627,12 +630,17 @@ final class SiteImageWidgetFactory extends WidgetFactory {
   ImageProvider? imageProviderFromNetwork(String url) => null;
 
   Widget? _buildImageContent(BuildTree tree, ImageSource src) {
-    final uri = Uri.tryParse(src.url);
-    if (uri == null ||
-        uri.scheme == 'asset' ||
-        uri.scheme == 'data' ||
-        uri.scheme == 'file') {
-      // Of these, the package's providers above decode only inline data.
+    Uint8List? inline;
+    // The package's own test for inline data. The decoder sniffs the bytes
+    // rather than trusting the declared type, so no subtype (not even SVG,
+    // which cannot decode and reads as its alt text) is left to the package.
+    if (src.url.startsWith('data:image/')) {
+      inline = _InlineImageBytes.of(src.url);
+      // Unreadable data reads as its alt text.
+      if (inline == null) return null;
+    } else if (Uri.tryParse(src.url)
+        case null || Uri(scheme: 'asset' || 'data' || 'file')) {
+      // The providers above refuse each of these, so it reads as its alt text.
       return super.buildImageWidget(tree, src);
     }
 
@@ -650,6 +658,26 @@ final class SiteImageWidgetFactory extends WidgetFactory {
             logicalWidth != null && logicalWidth.isFinite && logicalWidth > 0
             ? imageDecodeWidth(context, logicalWidth.clamp(1, 10000))
             : null;
+        if (inline != null) {
+          // Anyone can post inline data, so it is never decoded unbounded: a
+          // lane with no width is at most as wide as the view.
+          final width =
+              cacheWidth ??
+              imageDecodeWidth(
+                context,
+                MediaQuery.sizeOf(context).width.clamp(1, 10000),
+              );
+          return Image(
+            image: FittedMemoryImage(inline, width: width),
+            fit: BoxFit.fill,
+            semanticLabel: semanticLabel,
+            excludeFromSemantics: semanticLabel == null,
+            gaplessPlayback: true,
+            errorBuilder: (context, error, stackTrace) =>
+                onErrorBuilder(context, tree, error, src) ??
+                const SizedBox.shrink(),
+          );
+        }
         return SiteImage(
           url: src.url,
           siteUrl: siteUrl,
@@ -667,6 +695,44 @@ final class SiteImageWidgetFactory extends WidgetFactory {
         );
       },
     );
+  }
+}
+
+/// The bytes of recently drawn inline `data:image/` sources, by URI.
+///
+/// [bytesFromDataUri] allocates new bytes on every call, and the image cache
+/// keys bytes by identity, so without this every remount of a post (scrolling
+/// it back into view, reopening its topic) would decode its inline images
+/// again under a new key and keep each result.
+abstract final class _InlineImageBytes {
+  static const _maximumEntries = 64;
+
+  /// Counts each URI with its bytes: a base64 key outweighs them.
+  static const _maximumSize = 4 * 1024 * 1024;
+
+  // Least recently used first.
+  static final _entries = <String, Uint8List>{};
+  static var _size = 0;
+
+  static Uint8List? of(String uri) {
+    if (_entries.remove(uri) case final bytes?) return _entries[uri] = bytes;
+
+    final Uint8List? bytes;
+    try {
+      bytes = bytesFromDataUri(uri);
+    } on FormatException {
+      return null;
+    }
+    final size = uri.length + (bytes?.length ?? 0);
+    if (bytes == null || size > _maximumSize) return bytes;
+
+    _entries[uri] = bytes;
+    _size += size;
+    while (_entries.length > _maximumEntries || _size > _maximumSize) {
+      final oldest = _entries.keys.first;
+      _size -= oldest.length + _entries.remove(oldest)!.length;
+    }
+    return bytes;
   }
 }
 
