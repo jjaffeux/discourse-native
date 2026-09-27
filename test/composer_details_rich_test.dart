@@ -303,7 +303,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(
       parseComposerDetails(fixture.root.raw).single.body,
-      'Video\n[clip.mp4](upload://clip.mp4)',
+      'Video\n![clip|video](upload://clip.mp4)',
     );
     expect(fixture.root.raw, startsWith('Before\n\n[details]'));
     expect(fixture.root.raw, endsWith('[/details]\n\nAfter'));

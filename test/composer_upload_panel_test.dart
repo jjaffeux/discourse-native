@@ -108,8 +108,16 @@ void main() {
         ]);
         expect(composer.text.text, contains('![photo](upload://photo.png)'));
         for (final name in uploaded.skip(1)) {
-          expect(composer.text.text, contains('[$name](upload://$name)'));
+          expect(
+            composer.text.text,
+            contains(switch (name) {
+              'video.mp4' => '![video|video](upload://video.mp4)',
+              'audio.mp3' => '![audio|audio](upload://audio.mp3)',
+              _ => '[$name](upload://$name)',
+            }),
+          );
         }
+        expect(composer.text.imageBlocks.single.url, 'upload://photo.png');
         expect(composer.text.text, isNot(contains('blocked.exe')));
         expect(composer.notice, contains('not allowed'));
       });
@@ -117,7 +125,7 @@ void main() {
 
     for (final ontoGallery in [false, true]) {
       testWidgets(
-        'video drops insert attachment markdown (gallery: $ontoGallery)',
+        'video drops insert playable video markdown (gallery: $ontoGallery)',
         (tester) async {
           final files = <String>[];
           const config = SiteConfig(authorizedExtensions: ['png', 'mp4']);
@@ -173,7 +181,7 @@ void main() {
           expect(composer.notice, isNull);
           expect(
             composer.text.text,
-            '${ontoGallery ? gallery : ''}[screen.mp4](upload://screen.mp4)\n',
+            '${ontoGallery ? gallery : ''}![screen|video](upload://screen.mp4)\n',
           );
           expect(composer.text.imageBlocks, hasLength(ontoGallery ? 2 : 0));
           if (ontoGallery) {
@@ -433,7 +441,11 @@ void main() {
             composer.text.text,
             extension == 'png'
                 ? 'Before\n![photo|640x480](upload://photo)\nAfter'
-                : 'Before\n[photo.mp4](upload://photo)\nAfter',
+                : 'Before\n![photo|video](upload://photo)\nAfter',
+          );
+          expect(
+            composer.text.imageBlocks,
+            hasLength(extension == 'png' ? 1 : 0),
           );
         },
       );

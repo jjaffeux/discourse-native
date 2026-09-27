@@ -1242,7 +1242,7 @@ void main() {
       expect(
         composer.text.text,
         '![one|640x480](upload://one)\n'
-        '[screen.mp4](upload://screen.mp4)\n'
+        '![screen|video](upload://screen.mp4)\n'
         '![two|640x480](upload://two)\n'
         '![three|640x480](upload://three)\n',
       );
