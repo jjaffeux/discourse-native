@@ -1,8 +1,7 @@
+import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-
-import '../../theme/discourse_typography.dart';
 
 /// A paper-calendar composition of the Native Card used across event surfaces.
 class EventDateStamp extends StatelessWidget {

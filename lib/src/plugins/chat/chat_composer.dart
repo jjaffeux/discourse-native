@@ -7,7 +7,6 @@ import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../../shell/mobile_footer_action.dart';
 import '../gifs/gifs_contract.dart';
 import 'chat_channel.dart';
 import 'chat_controller.dart';
