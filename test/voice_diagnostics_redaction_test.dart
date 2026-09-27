@@ -39,6 +39,37 @@ void main() {
     );
   });
 
+  test('a sandboxed macOS home also redacts the account home it is in', () {
+    const container =
+        '/Users/jane/Library/Containers/org.discourse.native/Data';
+
+    expect(
+      VoiceDiagnosticsRedactor.scrub(
+        "Cannot copy file to '/Users/jane/Downloads/voice.jsonl' "
+        '$container/tmp/voice-export.jsonl /Users/bob/Downloads/voice.jsonl',
+        homeDirectory: container,
+      ),
+      "Cannot copy file to '<home>/Downloads/voice.jsonl' "
+      '<home>/tmp/voice-export.jsonl /Users/bob/Downloads/voice.jsonl',
+    );
+    expect(
+      VoiceDiagnosticsRedactor.data({
+        'path': '/Users/jane/Downloads/voice.jsonl',
+      }, homeDirectory: container),
+      {'path': '<home>/Downloads/voice.jsonl'},
+    );
+  });
+
+  test('a home outside a sandbox container redacts only itself', () {
+    expect(
+      VoiceDiagnosticsRedactor.scrub(
+        '/Users/jane/work/voice.jsonl /Users/jane/Downloads/voice.jsonl',
+        homeDirectory: '/Users/jane/work',
+      ),
+      '<home>/voice.jsonl /Users/jane/Downloads/voice.jsonl',
+    );
+  });
+
   for (final name in [
     'user_api_key',
     'push_token',

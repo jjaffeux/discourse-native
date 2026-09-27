@@ -1,6 +1,5 @@
 import 'dart:collection';
 import 'dart:convert';
-import 'dart:io';
 import 'dart:math';
 
 import 'package:discourse_native/discourse_plugin_sdk.dart';
@@ -422,9 +421,7 @@ abstract final class VoiceDiagnosticsRedactor {
     );
     text = text.replaceAll(_jwt, '<redacted-jwt>');
     text = text.replaceAllMapped(_queryAssignment, (match) => match.group(1)!);
-    for (final home in _homeDirectories(homeDirectory)) {
-      text = text.replaceAll(home, '<home>');
-    }
+    text = redactHomeDirectories(text, homeDirectory: homeDirectory);
     if (maximumLength != null && text.length > maximumLength) {
       return '${text.substring(0, maximumLength)}…<truncated>';
     }
@@ -687,21 +684,6 @@ abstract final class VoiceDiagnosticsRedactor {
       return 'invalid-query-name';
     } on ArgumentError {
       return 'invalid-query-name';
-    }
-  }
-
-  static Set<String> _homeDirectories(String? injected) {
-    try {
-      return {
-        if (injected != null && injected.isNotEmpty) injected,
-        if (Platform.environment['HOME'] case final home? when home.isNotEmpty)
-          home,
-        if (Platform.environment['USERPROFILE'] case final home?
-            when home.isNotEmpty)
-          home,
-      };
-    } on Object {
-      return {if (injected != null && injected.isNotEmpty) injected};
     }
   }
 
