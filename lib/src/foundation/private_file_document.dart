@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
 
@@ -34,20 +35,39 @@ final class PrivateFileResult<R> {
 /// [read] and [update] callbacks are synchronous by design. Network, platform,
 /// or interactive work must happen outside the transaction so it never holds
 /// the file lock while waiting on another system or a person.
+///
+/// A document [decode] rejects with a [FormatException] fails its transaction
+/// and is never replaced, unless [setAsideUndecodable] is given. Then the
+/// damaged file — including bytes that are not UTF-8, as a write torn inside a
+/// character leaves — is renamed to a sibling `.damaged-<milliseconds>` copy,
+/// the callback is told where it went, and the transaction continues from
+/// [empty]. The rename happens under the lock, so exactly one transaction
+/// across every instance, isolate, and process meets each damaged file. Only
+/// the newest few copies are kept. A store may opt in only when starting
+/// empty is safer than refusing to start at all.
 final class PrivateFileDocument<T> {
   factory PrivateFileDocument({
     required PrivateFileResolver target,
     required T Function() empty,
     required T Function(String contents) decode,
     required String Function(T value) encode,
-  }) => PrivateFileDocument._(target, empty, decode, encode);
+    void Function(File damaged)? setAsideUndecodable,
+  }) =>
+      PrivateFileDocument._(target, empty, decode, encode, setAsideUndecodable);
 
-  PrivateFileDocument._(this._target, this._empty, this._decode, this._encode);
+  PrivateFileDocument._(
+    this._target,
+    this._empty,
+    this._decode,
+    this._encode,
+    this._setAsideUndecodable,
+  );
 
   final PrivateFileResolver _target;
   final T Function() _empty;
   final T Function(String contents) _decode;
   final String Function(T value) _encode;
+  final void Function(File damaged)? _setAsideUndecodable;
 
   /// The decoded value is transaction-local and must not escape through
   /// [inspect].
@@ -70,7 +90,14 @@ final class PrivateFileDocument<T> {
   Future<T> _read(File target) async {
     if (!await target.exists()) return _empty();
     restrictPrivateFile(target);
-    return _decode(await target.readAsString());
+    final setAside = _setAsideUndecodable;
+    if (setAside == null) return _decode(await target.readAsString());
+    try {
+      return _decode(utf8.decode(await target.readAsBytes()));
+    } on FormatException {
+      setAside(await _moveAside(target));
+      return _empty();
+    }
   }
 
   Future<R> _transact<R>(Future<R> Function(File target) operation) async {
@@ -151,6 +178,38 @@ Future<void> _replace(File target, String contents) async {
       }
     }
   }
+}
+
+/// Enough to keep the first damage when it recurs soon after, without letting
+/// a repeatedly failing disk fill up with copies.
+const int _keptDamagedCopies = 3;
+
+/// The copy keeps the owner-only mode the target was given before its read.
+Future<File> _moveAside(File target) async {
+  final damaged = await target.rename(
+    '${target.path}.damaged-${DateTime.now().millisecondsSinceEpoch}',
+  );
+  final ownedCopy = RegExp(
+    '^${RegExp.escape(target.path)}'
+    r'\.damaged-(\d{1,18})$',
+  );
+  final copies = <({int stamp, File file})>[];
+  await for (final entity in target.parent.list(followLinks: false)) {
+    final stamp = int.tryParse(ownedCopy.firstMatch(entity.path)?[1] ?? '');
+    if (entity is File && stamp != null) {
+      copies.add((stamp: stamp, file: entity));
+    }
+  }
+  copies.sort((a, b) => b.stamp.compareTo(a.stamp));
+  for (final copy in copies.skip(_keptDamagedCopies)) {
+    try {
+      await copy.file.delete();
+    } on FileSystemException {
+      // An extra private copy is harmless; failing to prune it must not undo
+      // the recovery that has already moved the damage out of the way.
+    }
+  }
+  return damaged;
 }
 
 Future<void> _removeAbandonedStages(File target) async {

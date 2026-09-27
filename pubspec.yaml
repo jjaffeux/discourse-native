@@ -29,6 +29,10 @@ dependencies:
   flutter_timezone: ^5.1.0
   relative_time: ^5.0.0
   shared_preferences: ^2.5.5
+  # Linux registers its own preferences store in place of
+  # shared_preferences_linux, which rewrites its file in place. See
+  # lib/src/data/linux_preferences_store.dart.
+  shared_preferences_platform_interface: ^2.4.2
   flutter_web_auth_2: ^5.1.0
   # Depend on the Darwin implementation directly. The umbrella
   # flutter_secure_storage package auto-registers libsecret on Linux even when
@@ -155,7 +159,6 @@ dev_dependencies:
   share_plus_platform_interface: 7.2.0
 
   flutter_lints: ^6.0.0
-  shared_preferences_platform_interface: any
 flutter:
   uses-material-design: true
   shaders:

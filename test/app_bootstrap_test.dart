@@ -12,6 +12,7 @@ void main() {
 
     expect(host.calls, [
       'ensureFlutterInitialized',
+      'installPreferencesStore',
       'createDiagnostics',
       'installDiagnosticsSink',
       'installRecordingHttpOverrides',
@@ -24,7 +25,7 @@ void main() {
     expect(host.deferred.isCompleted, isFalse);
 
     await host.runDeferred();
-    expect(host.calls.skip(9), [
+    expect(host.calls.skip(10), [
       'initializeTimezoneEnvironment',
       'initializePersistentMediaCache',
       'restrictApplicationDirectories',
@@ -43,6 +44,7 @@ void main() {
 
     expect(host.calls, [
       'ensureFlutterInitialized',
+      'installPreferencesStore',
       'createDiagnostics',
       'installDiagnosticsSink',
       'installRecordingHttpOverrides',
@@ -54,7 +56,7 @@ void main() {
     ]);
 
     await host.runDeferred();
-    expect(host.calls.skip(9), [
+    expect(host.calls.skip(10), [
       'initializeTimezoneEnvironment',
       'initializePersistentMediaCache',
       'restrictApplicationDirectories',
@@ -83,7 +85,7 @@ void main() {
       expect(host.calls, isNot(contains('restrictApplicationDirectories')));
 
       await host.runDeferred();
-      expect(host.calls.skip(9), [
+      expect(host.calls.skip(10), [
         'initializeTimezoneEnvironment',
         'initializePersistentMediaCache',
         'restrictApplicationDirectories',
@@ -111,6 +113,7 @@ void main() {
     expect(host.unhandledErrors.single.source, 'zone');
     expect(host.calls, [
       'ensureFlutterInitialized',
+      'installPreferencesStore',
       'createDiagnostics',
       'installDiagnosticsSink',
       'installRecordingHttpOverrides',
@@ -129,7 +132,11 @@ void main() {
 
     expect(forwarded.error, same(host.failure));
     expect(host.unhandledErrors, isEmpty);
-    expect(host.calls, ['ensureFlutterInitialized', 'createDiagnostics']);
+    expect(host.calls, [
+      'ensureFlutterInitialized',
+      'installPreferencesStore',
+      'createDiagnostics',
+    ]);
     expect(host.launched.isCompleted, isFalse);
   });
 
@@ -230,6 +237,11 @@ final class _RecordingBootstrapHost implements AppBootstrapHost {
   @override
   void ensureFlutterInitialized() {
     _record('ensureFlutterInitialized');
+  }
+
+  @override
+  void installPreferencesStore() {
+    _record('installPreferencesStore');
   }
 
   @override

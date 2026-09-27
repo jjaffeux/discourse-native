@@ -176,6 +176,60 @@ void main() {
     });
   });
 
+  group('undecodable documents set aside on request', () {
+    for (final (name, bytes) in [
+      ('text the codec rejects', utf8.encode('{"kept":')),
+      // A write torn between the two bytes of "é".
+      ('bytes torn inside a character', [...utf8.encode('{"kept":"caf'), 0xc3]),
+    ]) {
+      test('moves $name aside once and continues from empty', () async {
+        await target.writeAsBytes(bytes);
+        await Process.run('chmod', ['644', target.path]);
+        final setAside = <File>[];
+        PrivateFileDocument<Map<String, String>> document() =>
+            _mapDocument(target.path, setAsideUndecodable: setAside.add);
+
+        expect(
+          await document().read((values) => PrivateFileResult(Map.of(values))),
+          isEmpty,
+        );
+        await document().update<void>((values) {
+          values['later'] = 'committed';
+          return PrivateFileResult.done;
+        });
+
+        final copy = setAside.single;
+        expect(await copy.readAsBytes(), bytes);
+        expect((await copy.stat()).mode & 0x1ff, 0x180); // 0600
+        expect(await _damagedCopies(directory), [copy.path]);
+        expect(await target.readAsString(), '{"later":"committed"}');
+      });
+    }
+
+    test('keeps only the newest damaged copies', () async {
+      await target.parent.create(recursive: true);
+      for (final stamp in ['1', '2', '3']) {
+        await File('${target.path}.damaged-$stamp').writeAsString('old');
+      }
+      final unrelated = File('${target.path}.damaged-notes');
+      await unrelated.writeAsString('not ours');
+      await target.writeAsString('not json');
+      final setAside = <File>[];
+
+      await _mapDocument(
+        target.path,
+        setAsideUndecodable: setAside.add,
+      ).read((values) => PrivateFileResult(Map.of(values)));
+
+      expect(await _damagedCopies(directory), [
+        '${target.path}.damaged-2',
+        '${target.path}.damaged-3',
+        setAside.single.path,
+      ]);
+      expect(await unrelated.exists(), isTrue);
+    });
+  });
+
   group('stage cleanup and recovery', () {
     test('removes only abandoned stages owned by this protocol', () async {
       await target.parent.create(recursive: true);
@@ -232,13 +286,16 @@ void main() {
   });
 }
 
-PrivateFileDocument<Map<String, String>> _mapDocument(String path) =>
-    PrivateFileDocument(
-      target: () => File(path),
-      empty: () => <String, String>{},
-      decode: _decodeMap,
-      encode: _encodeMap,
-    );
+PrivateFileDocument<Map<String, String>> _mapDocument(
+  String path, {
+  void Function(File damaged)? setAsideUndecodable,
+}) => PrivateFileDocument(
+  target: () => File(path),
+  empty: () => <String, String>{},
+  decode: _decodeMap,
+  encode: _encodeMap,
+  setAsideUndecodable: setAsideUndecodable,
+);
 
 Map<String, String> _decodeMap(String contents) {
   final decoded = jsonDecode(contents);
@@ -278,6 +335,17 @@ Future<void> _writeSeries(String path, String series) async {
       return PrivateFileResult.done;
     });
   }
+}
+
+Future<List<String>> _damagedCopies(Directory directory) async {
+  final copies = [
+    await for (final entity in directory.list())
+      if (entity is File && RegExp(r'\.damaged-\d+$').hasMatch(entity.path))
+        entity.path,
+  ];
+  int stamp(String path) =>
+      int.parse(path.substring(path.lastIndexOf('-') + 1));
+  return copies..sort((a, b) => stamp(a).compareTo(stamp(b)));
 }
 
 Future<List<File>> _temporaryFiles(Directory directory) async => [
