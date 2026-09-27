@@ -1,5 +1,6 @@
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/plugin_api/plugin_scope.dart';
+import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message.dart';
 import 'package:discourse_native/src/plugins/chat/chat_my_threads_view.dart';
 import 'package:discourse_native/src/plugins/chat/chat_services.dart';
@@ -22,8 +23,20 @@ void main() {
   ) async {
     final api = FakeDiscourseApi(
       user: _user,
-      chatThreadPagesByOffset: {
-        0: ChatThreadPage(
+      chatBrowsePagesByKey: {
+        FakeDiscourseApi.chatBrowseKey(): const ChatChannelBrowsePage(
+          channels: [
+            ChatChannel(
+              id: 9,
+              title: 'general',
+              kind: ChatChannelKind.category,
+              threadingEnabled: true,
+            ),
+          ],
+        ),
+      },
+      chatChannelThreadPagesByKey: {
+        FakeDiscourseApi.chatChannelThreadPageKey(9, 0): ChatThreadPage(
           threads: [for (var id = 1; id <= 20; id++) _thread(id)],
           hasMore: true,
         ),
@@ -31,7 +44,7 @@ void main() {
     );
     await _pump(tester, api);
     Iterable<int> offsets() =>
-        api.chatThreadPagesRequested.map((request) => request.offset);
+        api.chatChannelThreadPagesRequested.map((request) => request.offset);
     expect(offsets(), [0]);
 
     final list = find.byKey(const PageStorageKey('chat-my-threads'));
@@ -44,7 +57,7 @@ void main() {
     }
 
     expect(offsets(), [0, 20]);
-    expect(find.text('Could not load your chat threads.'), findsOneWidget);
+    expect(find.text('Could not load this channel’s threads.'), findsOneWidget);
     await tester.tap(find.text('Try again'));
     await tester.pumpAndSettle();
     expect(offsets(), [0, 20, 20]);

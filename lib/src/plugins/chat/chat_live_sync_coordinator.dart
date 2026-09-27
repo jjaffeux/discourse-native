@@ -1484,6 +1484,9 @@ final class ChatLiveSyncCoordinator {
       createdAt,
       preview: chatMessageSummaryFromJson(payload),
       userId: authorId,
+      username:
+          jsonText(jsonObject(payload['user'])['username']) ??
+          jsonText(payload['username']),
       markRead: markRead,
       incrementUnread: incrementUnread,
       threadId: threadId,

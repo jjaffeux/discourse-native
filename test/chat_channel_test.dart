@@ -180,10 +180,24 @@ void main() {
         'id': 41,
         'created_at': '2026-09-08T10:00:00Z',
         'excerpt': '<p>Ready &amp; reviewed</p>',
-        'user': {'id': 7},
+        'user': {'id': 7, 'username': 'sam'},
       },
     }, site);
     expect(channel.lastMessagePreview, 'Ready & reviewed');
+    expect(channel.lastMessageUsername, 'sam');
+    expect(channel.withStarred(true).lastMessageUsername, 'sam');
+    expect(channel.withLastRead(41, caughtUp: true).lastMessageUsername, 'sam');
+    expect(channel.withLastMessagePreview('Edited').lastMessageUsername, 'sam');
+    expect(
+      channel.withLastMessagePreview('Next', userId: 8).lastMessageUsername,
+      isNull,
+    );
+    expect(
+      channel
+          .withLastMessagePreview('Next', userId: 8, username: 'alex')
+          .lastMessageUsername,
+      'alex',
+    );
     expect(channel.lastMessageUserId, 7);
     expect(channel.withStarred(true).lastMessageUserId, 7);
     expect(channel.withLastRead(41, caughtUp: true).lastMessageUserId, 7);

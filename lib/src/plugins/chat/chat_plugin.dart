@@ -106,6 +106,7 @@ class ChatPlugin
   static const String searchRouteId = 'chat-search';
   static const String myThreadsRouteId = 'chat-my-threads';
   static const String browseRouteId = 'chat-browse';
+  static const String inboxRouteId = 'chat-inbox';
   static const String channelsRouteId = 'chat-channels';
   static const String starredRouteId = 'chat-starred';
   static const String directMessagesRouteId = 'chat-direct-messages';
@@ -123,6 +124,7 @@ class ChatPlugin
       routeId != null &&
       (ChatRoute.parse(routeId) != null ||
           routeId == browseRouteId ||
+          routeId == inboxRouteId ||
           routeId == channelsRouteId ||
           routeId == starredRouteId ||
           routeId == directMessagesRouteId ||
@@ -315,8 +317,8 @@ class ChatPlugin
           title: 'Conversations',
           showHeader: false,
           collapsible: false,
-          // The footer draws this action; the section still owns its
-          // keyboard shortcut, which the shell reads from every section.
+          // Keep the composer shortcut available through the section even
+          // though the inbox has no visible section header.
           actionIcon: actions.startMessage ? DIcons.plus : null,
           actionLabel: actions.startMessage ? 'Start a message' : null,
           actionShortcut: actions.startMessage
@@ -364,16 +366,10 @@ class ChatPlugin
               onPressed: () => _startMessage(context, shell, siteUrl),
             )
           : null,
-      footerBuilder: actions.startMessage || actions.browse || actions.myThreads
+      footerBuilder: actions.browse || actions.myThreads
           ? (context) => ChatSidebarFooter(
               browse: actions.browse,
               myThreads: actions.myThreads,
-              onStartMessage: actions.startMessage
-                  ? () => _startMessage(context, shell, siteUrl)
-                  : null,
-              startMessageShortcut: newDirectMessageShortcutForPlatform(
-                Theme.of(context).platform,
-              ),
             )
           : null,
       badge: unreadCount > 0
@@ -423,7 +419,7 @@ class ChatPlugin
     final settings = shell.chat.siteConfigFor(siteUrl).chatSettings;
     return (
       browse: settings.publicChannelsEnabled,
-      myThreads: settings.threadsEnabled && shell.chat.hasThreads(siteUrl),
+      myThreads: settings.threadsEnabled,
       startMessage: user.staff || user.canDirectMessage == true,
     );
   }
@@ -495,6 +491,14 @@ class ChatPlugin
               siteUrl: siteUrl,
               kind: listKind,
             );
+    }
+    if (route.id == inboxRouteId) {
+      final siteUrl = shell.currentSiteUrl;
+      return siteUrl == null
+          ? const SizedBox.shrink()
+          : !shell.chatAvailable(siteUrl)
+          ? const Center(child: Text('Chat is not available.'))
+          : ChatMobileSidebar(key: ValueKey(siteUrl), siteUrl: siteUrl);
     }
     if (route.id == browseRouteId) {
       final siteUrl = shell.currentSiteUrl;
@@ -613,7 +617,10 @@ class ChatPlugin
 
   @override
   bool ownsContentChrome(BuildContext context, ContentRoute route) =>
-      ChatRoute.parse(route.id)?.isThread ?? false;
+      route.id == inboxRouteId ||
+      route.id == browseRouteId ||
+      route.id == myThreadsRouteId ||
+      (ChatRoute.parse(route.id)?.isThread ?? false);
 
   @override
   List<Widget> contentHeaderActions(BuildContext context, ContentRoute route) {

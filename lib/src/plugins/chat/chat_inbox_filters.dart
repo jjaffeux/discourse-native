@@ -1,7 +1,19 @@
 import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:flutter/foundation.dart';
 
-enum ChatInboxKind { all, channels, directMessages }
+import 'chat_channel.dart';
+
+enum ChatInboxKind { all, channels, directMessages, voiceRooms }
+
+enum ChatChannelJoinedFilter { all, joined, notJoined }
+
+/// Directory choices survive moving between the peer chat routes.
+final class ChatBrowseFilters {
+  String query = '';
+  ChatChannelBrowseStatus status = ChatChannelBrowseStatus.all;
+  ChatChannelJoinedFilter membership = ChatChannelJoinedFilter.all;
+  int? threadChannelId;
+}
 
 @immutable
 final class ChatInboxFilter {
@@ -36,6 +48,10 @@ final class ChatInboxFilter {
 /// filter redraws only the inbox.
 final class ChatInboxFilters extends FrameSafeNotifier {
   final Map<String, ChatInboxFilter> _filters = {};
+  final Map<String, ChatBrowseFilters> _browseFilters = {};
+
+  ChatBrowseFilters browseFor(String siteUrl) =>
+      _browseFilters.putIfAbsent(siteUrl, ChatBrowseFilters.new);
 
   ChatInboxFilter filterFor(String siteUrl) =>
       _filters[siteUrl] ?? const ChatInboxFilter();
@@ -51,6 +67,7 @@ final class ChatInboxFilters extends FrameSafeNotifier {
   }
 
   void forget(String siteUrl) {
+    _browseFilters.remove(siteUrl);
     if (_filters.remove(siteUrl) != null) notifySafely();
   }
 }

@@ -3533,10 +3533,15 @@ class ChatController extends FrameSafeNotifier {
       hasUploads: message.uploads.isNotEmpty,
     );
     if (held.lastMessagePreview != preview ||
-        held.lastMessageUserId != message.author.id) {
+        held.lastMessageUserId != message.author.id ||
+        held.lastMessageUsername != message.author.username) {
       _putChannel(
         siteUrl,
-        held.withLastMessagePreview(preview, userId: message.author.id),
+        held.withLastMessagePreview(
+          preview,
+          userId: message.author.id,
+          username: message.author.username,
+        ),
       );
     }
   }
@@ -5108,6 +5113,7 @@ class ChatController extends FrameSafeNotifier {
           canonical.id,
           sentAt,
           userId: canonical.author.id,
+          username: canonical.author.username,
           preview: chatMessageSummary(
             cooked: canonical.cooked,
             raw: canonical.raw,
@@ -5337,9 +5343,15 @@ class ChatController extends FrameSafeNotifier {
     int channelId, {
     bool more = false,
     bool force = false,
+    ChatChannel? directoryChannel,
   }) {
     if (isDisposed || channelId <= 0) return Future.value();
-    final heldChannel = channel(siteUrl, channelId);
+    var heldChannel = channel(siteUrl, channelId);
+    if (heldChannel == null && directoryChannel?.id == channelId) {
+      heldChannel = directoryChannel;
+      _store.put(siteUrl, directoryChannel!);
+      (_partialChannelIds[siteUrl] ??= {}).add(channelId);
+    }
     if (heldChannel?.threadingEnabled != true) return Future.value();
     final key = _channelThreadsKey(siteUrl, channelId);
     if (more && !channelThreadsHaveMore(siteUrl, channelId)) {

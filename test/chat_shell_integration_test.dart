@@ -2133,9 +2133,14 @@ void _registerChatShellTests() {
               chatChannelsBySite: {
                 site: ChatChannels(public: [channel(9)], direct: [dm(12)]),
               },
-              chatMessagesByKey: {key(9): page(const [])},
+              chatMessagesByKey: {
+                key(9): page(const []),
+                key(12): page(const []),
+              },
             );
             await pumpChat(tester, api: api);
+            await tester.tap(sidebarDestination('hawk'));
+            await tester.pumpAndSettle();
 
             final mouse = await tester.createGesture(
               kind: PointerDeviceKind.mouse,
@@ -2387,8 +2392,14 @@ void _registerChatShellTests() {
         await tester.tap(find.byKey(const ValueKey('chat-inbox-browse')));
         await tester.pumpAndSettle();
 
-        expect(find.text('Ask the community for help.'), findsOneWidget);
-        expect(find.text('7 members'), findsOneWidget);
+        expect(
+          find.descendant(
+            of: find.byType(MainContent),
+            matching: find.text('Browse channels'),
+          ),
+          findsOneWidget,
+        );
+        expect(find.text('No unread messages'), findsNWidgets(2));
         await tester.enterText(
           find.byKey(const ValueKey('chat-browse-filter')),
           'sup',
