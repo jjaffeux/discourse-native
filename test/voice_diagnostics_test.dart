@@ -279,6 +279,155 @@ void main() {
         expect(report, contains(useful), reason: useful);
       }
     });
+
+    test('redacts the ICE credentials native WebRTC log lines carry', () async {
+      final now = DateTime.utc(2026, 8, 11, 13);
+      final deep = await VoiceDiagnosticsController.create(
+        persistence: MemoryVoiceDiagnosticsPersistence(),
+        clock: () => now,
+        captureIdFactory: () => 'capture-native-webrtc',
+      );
+      addTearDown(deep.close);
+      await deep.startCapture();
+
+      // Lines as libwebrtc M150 (WebRTC-SDK 150.7871.01) formats them and the
+      // flutter_webrtc callback logger prefixes them. Candidate::ToString()
+      // and ToSensitiveString() both print the ufrag and ice-pwd as
+      // unlabelled fields; the transport and port log them by bare name.
+      const localUfrag = 'localUfragZ9';
+      const localPwd = 'localIcePwd0123456789abc';
+      const remoteUfrag = 'remoteUfragQ7';
+      const remotePwd = 'remoteIcePwd9876543210xyz';
+      const wifi = 'Net[en0:192.168.1.x/24:Wifi:id=1]';
+      const port = 'Port[1049c8a00:0:1:0:host:$wifi]';
+      const mdns = '5f0b2c1e-8e3a-4d2b-9f6a-0c1d2e3f4a5b.local:53120';
+      const lines = [
+        (
+          '(basic_port_allocator.cc:955): $port: Gathered candidate: '
+              'Cand[:2981316347:1:udp:2122260223:192.168.1.x:54321:host::0:'
+              '$localUfrag:$localPwd:1:10:0]',
+          '(basic_port_allocator.cc:955): $port: Gathered candidate: '
+              'Cand[:2981316347:1:udp:2122260223:192.168.1.x:54321:host::0:'
+              '<redacted>:<redacted>:1:10:0]',
+        ),
+        (
+          '(basic_port_allocator.cc:955): '
+              'Port[1049c9b00:0:1:0:host:Net[en0:2001:db8:85a3:x:x:x:x:x/64:'
+              'Wifi:id=2]]: Gathered candidate: Cand[:1438215437:1:udp:'
+              '2122262783:[2001:db8:85a3:x:x:x:x:x]:61203:host::0:'
+              '$localUfrag:$localPwd:2:10:0]',
+          '(basic_port_allocator.cc:955): '
+              'Port[1049c9b00:0:1:0:host:Net[en0:2001:db8:85a3:x:x:x:x:x/64:'
+              'Wifi:id=2]]: Gathered candidate: Cand[:1438215437:1:udp:'
+              '2122262783:[2001:db8:85a3:x:x:x:x:x]:61203:host::0:'
+              '<redacted>:<redacted>:2:10:0]',
+        ),
+        (
+          '(basic_port_allocator.cc:955): $port: Gathered candidate: '
+              'Cand[:4209184533:1:udp:41885439:198.51.100.x:3478:relay:'
+              '203.0.113.x:61204:$localUfrag:$localPwd:1:10:0]',
+          '(basic_port_allocator.cc:955): $port: Gathered candidate: '
+              'Cand[:4209184533:1:udp:41885439:198.51.100.x:3478:relay:'
+              '203.0.113.x:61204:<redacted>:<redacted>:1:10:0]',
+        ),
+        (
+          '(p2p_transport_channel.cc:494): Set ICE ufrag: $localUfrag '
+              'pwd: $localPwd on transport 0',
+          '(p2p_transport_channel.cc:494): Set ICE ufrag=<redacted> '
+              'pwd: <redacted> on transport 0',
+        ),
+        (
+          '(p2p_transport_channel.cc:505): Received remote ICE parameters: '
+              'ufrag=$remoteUfrag, renomination disabled',
+          '(p2p_transport_channel.cc:505): Received remote ICE parameters: '
+              'ufrag=<redacted>, renomination disabled',
+        ),
+        (
+          '(p2p_transport_channel.cc:1118): Adding connection from peer '
+              'reflexive candidate: Cand[:3614592823:1:udp:1853824767:'
+              '198.51.100.x:50000:prflx::0:$remoteUfrag:$remotePwd:0:999:0]',
+          '(p2p_transport_channel.cc:1118): Adding connection from peer '
+              'reflexive candidate: Cand[:3614592823:1:udp:1853824767:'
+              '198.51.100.x:50000:prflx::0:<redacted>:<redacted>:0:999:0]',
+        ),
+        (
+          '(p2p_transport_channel.cc:1508): Attempt to change a remote '
+              'candidate. Existing remote candidate: Cand[:842163049:1:udp:'
+              '2122262783:$mdns:host::0:$remoteUfrag:$remotePwd:0:0:0]'
+              'New remote candidate: Cand[:842163049:1:udp:2122262783:'
+              '$mdns:host::0:$remoteUfrag:$remotePwd:0:0:1]',
+          '(p2p_transport_channel.cc:1508): Attempt to change a remote '
+              'candidate. Existing remote candidate: Cand[:842163049:1:udp:'
+              '2122262783:$mdns:host::0:<redacted>:<redacted>:0:0:0]'
+              'New remote candidate: Cand[:842163049:1:udp:2122262783:'
+              '$mdns:host::0:<redacted>:<redacted>:0:0:1]',
+        ),
+        (
+          // A remote candidate that arrives before the remote description
+          // has no password yet; the empty field is kept as evidence of that.
+          '(p2p_transport_channel.cc:1573): Duplicate candidate: '
+              'Cand[:842163049:1:udp:2122262783:$mdns:host::0:'
+              '$remoteUfrag::0:0:0]',
+          '(p2p_transport_channel.cc:1573): Duplicate candidate: '
+              'Cand[:842163049:1:udp:2122262783:$mdns:host::0:'
+              '<redacted>::0:0:0]',
+        ),
+        (
+          '(p2p_transport_channel.cc:1236): A remote candidate arrives with '
+              'an unknown ufrag: nextRemoteUfragP4',
+          '(p2p_transport_channel.cc:1236): A remote candidate arrives with '
+              'an unknown ufrag: <redacted>',
+        ),
+        (
+          '(port.cc:522): $port: Received STUN BINDING request with bad M-I '
+              'from 198.51.100.x:50000, password_=$localPwd',
+          '(port.cc:522): $port: Received STUN BINDING request with bad M-I '
+              'from 198.51.100.x:50000, password_=<redacted>',
+        ),
+        (
+          '(port.cc:509): $port: Received STUN BINDING request with bad '
+              'local username staleLocalUfragK2 from 198.51.100.x:50000',
+          '(port.cc:509): $port: Received STUN BINDING request with bad '
+              'local username <redacted> from 198.51.100.x:50000',
+        ),
+        (
+          '(connection.cc:567): Conn[1049d0a00:0:$wifi:Qx3kP9aB:1:0:host:'
+              'udp:192.168.1.x:54321->Rt7mN2cD:1:1853824767:prflx:udp:'
+              '198.51.100.x:50000|C-WS|S|0|0|9115005270282354175|12]: '
+              'Received STUN request with bad remote username '
+              'staleRemoteUfragM5',
+          '(connection.cc:567): Conn[1049d0a00:0:$wifi:Qx3kP9aB:1:0:host:'
+              'udp:192.168.1.x:54321->Rt7mN2cD:1:1853824767:prflx:udp:'
+              '198.51.100.x:50000|C-WS|S|0|0|9115005270282354175|12]: '
+              'Received STUN request with bad remote username <redacted>',
+        ),
+      ];
+      for (final (line, _) in lines) {
+        deep.recordRaw(
+          'sdk.webrtc.log',
+          component: 'webrtc_sdk',
+          message: 'webrtc: $line\n',
+          data: const {'level': 'info'},
+        );
+      }
+      await deep.flush();
+
+      final report = await deep.buildJsonReport();
+      expect(_reportMessages(report, 'sdk.webrtc.log'), [
+        for (final (_, redacted) in lines) 'webrtc: $redacted\n',
+      ]);
+      for (final secret in const [
+        localUfrag,
+        localPwd,
+        remoteUfrag,
+        remotePwd,
+        'nextRemoteUfragP4',
+        'staleLocalUfragK2',
+        'staleRemoteUfragM5',
+      ]) {
+        expect(report, isNot(contains(secret)), reason: secret);
+      }
+    });
   });
 
   group('diagnostics persistence', () {
@@ -1931,6 +2080,15 @@ List<String> _reportEventNames(String report) => [
     (((jsonDecode(line) as Map<String, dynamic>)['event']
             as Map<String, dynamic>)['event']
         as String),
+];
+
+List<String?> _reportMessages(String report, String event) => [
+  for (final line in const LineSplitter().convert(report).skip(1))
+    if ((jsonDecode(line) as Map<String, dynamic>)['event'] case {
+      'event': final String name,
+      'message': final String? message,
+    } when name == event)
+      message,
 ];
 
 Future<void> _mutateStoreWhileSnapshotOutputIsHeld({
