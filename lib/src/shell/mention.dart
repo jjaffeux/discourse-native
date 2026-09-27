@@ -2,13 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_widget_from_html_core/flutter_widget_from_html_core.dart';
 import 'package:html/dom.dart' as dom;
 
-import '../foundation/uri_path.dart';
 import '../models/user_status.dart';
 import '../theme/app_theme.dart';
 import 'open_link.dart';
 import 'pill.dart';
 import 'shell_scope.dart';
 import 'site_url.dart';
+import 'user_card.dart';
 import 'user_status.dart';
 
 class MentionPill extends StatelessWidget {
@@ -16,6 +16,7 @@ class MentionPill extends StatelessWidget {
     super.key,
     required this.label,
     required this.baseStyle,
+    this.name,
     this.href,
     this.siteUrl,
     this.status,
@@ -25,6 +26,15 @@ class MentionPill extends StatelessWidget {
   final String label;
 
   final TextStyle? baseStyle;
+
+  /// The user or group [label] names, lowercased as Discourse links it. It is
+  /// what a tap opens, as on the web, where a mention shows the card for its
+  /// text; null leaves the pill inert.
+  final String? name;
+
+  /// The link the cooked mention carries. An author can give a mention any
+  /// link, so it never decides where the pill goes; it only tells whether this
+  /// is the mention Discourse wrote for [name].
   final String? href;
   final String? siteUrl;
   final UserStatusReference? status;
@@ -32,7 +42,10 @@ class MentionPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (href == null ||
+    final mentioned = name;
+    final link = href;
+    if (mentioned == null ||
+        link == null ||
         isGroupMention ||
         ShellScope.maybeIdentityOf(context) == null) {
       return _buildPill(context, false);
@@ -43,13 +56,11 @@ class MentionPill extends StatelessWidget {
         final sourceSite = siteUrl ?? controller.currentInstance?.url;
         if (sourceSite == null) return false;
         final username = controller.currentUserFor(sourceSite)?.username;
-        if (username == null) return false;
         // Core matches the cooked profile href, including a site's subfolder,
-        // case-insensitively rather than comparing the displayed label.
-        final ownProfilePath = Uri.parse(
-          resolveSitePath(sourceSite, 'u/$username'),
-        ).path;
-        return href!.toLowerCase() == ownProfilePath.toLowerCase();
+        // case-insensitively. The label has to name the reader as well: it is
+        // whose card a tap opens.
+        return username?.toLowerCase() == mentioned &&
+            _linksProfileOf(link, mentioned, sourceSite);
       },
       builder: (context, isCurrentUser, child) =>
           _buildPill(context, isCurrentUser),
@@ -57,7 +68,13 @@ class MentionPill extends StatelessWidget {
   }
 
   Widget _buildPill(BuildContext context, bool isCurrentUser) {
-    final target = href;
+    final mentioned = name;
+    final target = mentioned == null
+        ? null
+        : _siteLink(
+            context,
+            '/${isGroupMention ? 'g' : 'u'}/${Uri.encodeComponent(mentioned)}',
+          );
     final pill = LinkTarget(
       url: target,
       siteUrl: siteUrl,
@@ -91,6 +108,11 @@ class MentionPill extends StatelessWidget {
       ],
     );
   }
+
+  String _siteLink(BuildContext context, String path) {
+    final site = siteUrl ?? ShellScope.maybeRead(context)?.currentInstance?.url;
+    return site == null ? path : resolveSiteRootPath(site, path);
+  }
 }
 
 Widget? mentionWidgetBuilder(
@@ -108,9 +130,8 @@ Widget? mentionWidgetBuilder(
   final label = element.text.trim();
   if (label.isEmpty) return null;
 
-  final username = label.startsWith('@')
-      ? label.substring(1).toLowerCase()
-      : label.toLowerCase();
+  final name = _mentionedName(label);
+  final href = element.attributes['href'];
   final isGroupMention = element.classes.contains('mention-group');
 
   return InlineCustomWidget(
@@ -119,27 +140,55 @@ Widget? mentionWidgetBuilder(
     child: MentionPill(
       label: label,
       baseStyle: baseStyle,
-      href: _mentionTarget(
-        element.attributes['href'],
-        isGroupMention: isGroupMention,
-      ),
+      name: name,
+      href: href,
       siteUrl: siteUrl,
       isGroupMention: isGroupMention,
-      status: userStatuses[username],
+      status: name == null || isGroupMention
+          ? null
+          : _statusFor(name, href, siteUrl, userStatuses),
     ),
   );
 }
 
-String? _mentionTarget(String? href, {required bool isGroupMention}) {
-  if (!isGroupMention || href == null) return href;
-  final uri = Uri.tryParse(href);
-  if (uri == null) return href;
-  final segments = tryUriPathSegments(uri);
-  if (segments == null ||
-      segments.length != 2 ||
-      segments.first != 'groups' ||
-      segments.last.isEmpty) {
-    return href;
+// Core's mention pattern with unicode usernames allowed: the names a site can
+// cook into a mention, of a user or of a group.
+const _nameCharacter = r'\p{Alphabetic}\p{Mark}\p{Decimal_Number}';
+final RegExp _mentionName = RegExp(
+  '^(?:[${_nameCharacter}_][$_nameCharacter._-]{0,58}[$_nameCharacter]'
+  '|[${_nameCharacter}_])\$',
+  unicode: true,
+);
+
+String? _mentionedName(String label) {
+  final name = label.startsWith('@') ? label.substring(1) : label;
+  return _mentionName.hasMatch(name) ? name.toLowerCase() : null;
+}
+
+/// Statuses arrive keyed by username, so one belongs only beside the mention
+/// Discourse wrote for that user, as on the web, and not beside a pill an
+/// author gave the same text and another link.
+UserStatusReference? _statusFor(
+  String name,
+  String? href,
+  String? siteUrl,
+  Map<String, UserStatusReference> statuses,
+) {
+  final status = statuses[name];
+  if (status == null || siteUrl == null) return null;
+  return _linksProfileOf(href, name, siteUrl) ? status : null;
+}
+
+/// Whether [href] is the link Discourse writes into a mention of [username]:
+/// the root-relative profile path on [siteUrl], subfolder included.
+bool _linksProfileOf(String? href, String username, String siteUrl) {
+  final link = href == null ? null : Uri.tryParse(href);
+  if (link == null ||
+      link.hasScheme ||
+      link.hasAuthority ||
+      !link.path.startsWith('/')) {
+    return false;
   }
-  return uri.replace(pathSegments: ['', 'g', segments.last]).toString();
+  return usernameFromProfileUrl(link, siteUrl: siteUrl)?.toLowerCase() ==
+      username;
 }
