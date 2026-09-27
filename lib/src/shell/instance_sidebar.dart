@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../data/sidebar_section_store.dart';
@@ -129,6 +130,45 @@ final class _SidebarPanelSnapshot {
   @override
   int get hashCode => Object.hash(contentId, presentation);
 }
+
+/// Everything the panel body reads from the plugin panels. A panel's
+/// listenable also fires for each change to its tab's badge — Chat's fires for
+/// every message in every followed channel — and only the tabs show that.
+@immutable
+final class _SidebarPanelShape {
+  const _SidebarPanelShape(this.panels);
+
+  final List<OwnedSidebarPanel> panels;
+
+  static bool _sameShape(OwnedSidebarPanel a, OwnedSidebarPanel b) =>
+      a.owner == b.owner &&
+      listEquals(a.sectionOwners, b.sectionOwners) &&
+      a.panel.label == b.panel.label &&
+      a.panel.active == b.panel.active &&
+      a.panel.selectedDestinationId == b.panel.selectedDestinationId &&
+      (a.panel.mobileBuilder == null) == (b.panel.mobileBuilder == null) &&
+      (a.panel.footerBuilder == null) == (b.panel.footerBuilder == null);
+
+  @override
+  bool operator ==(Object other) {
+    if (other is! _SidebarPanelShape || other.panels.length != panels.length) {
+      return false;
+    }
+    for (var index = 0; index < panels.length; index++) {
+      if (!_sameShape(panels[index], other.panels[index])) return false;
+    }
+    return true;
+  }
+
+  @override
+  int get hashCode => Object.hashAll(panels.map((entry) => entry.owner));
+}
+
+/// What a plugin's sidebar panel contribution is read from.
+Listenable _sidebarPanelChanges(BuildContext context) => Listenable.merge([
+  ShellScope.read(context).accountActivity.totalsListenable,
+  ...PluginScope.of(context).registry.sidebarPanelListenables(context),
+]);
 
 const String _newTopicDestinationId = 'new-topic';
 const String _moreDestinationId = 'sidebar-more-destinations';
@@ -291,14 +331,12 @@ class _SidebarPanelBodyState extends State<_SidebarPanelBody> {
 
   @override
   Widget build(BuildContext context) {
-    final controller = ShellScope.read(context);
-    final registry = PluginScope.of(context).registry;
-    return ListenableBuilder(
-      listenable: Listenable.merge([
-        controller.accountActivity.totalsListenable,
-        ...registry.sidebarPanelListenables(context),
-      ]),
-      builder: (context, _) => ShellSelector<_SidebarPanelSnapshot>(
+    // Only the tabs follow every panel notification. The body, including a
+    // panel's footer and mobile root builders, is read again when the panels
+    // change shape or the forum's connection, user, config or content change.
+    return _SidebarPanelShapeSelector(
+      listenable: _sidebarPanelChanges(context),
+      builder: (context) => ShellSelector<_SidebarPanelSnapshot>(
         select: (controller) {
           final instance = controller.currentInstance;
           return _SidebarPanelSnapshot(
@@ -460,8 +498,7 @@ class _SidebarPanelBodyState extends State<_SidebarPanelBody> {
                 ),
                 DSidebarHeader(
                   child: _SidebarPanelTabs(
-                    panels: panels,
-                    selectedPanel: selectedPanel,
+                    selectedOwner: selectedPanel?.owner.value,
                     shortcutsSelected: _shortcuts,
                     onSelected: (owner) => setState(() {
                       _shortcuts = owner == 'shortcuts';
@@ -698,26 +735,86 @@ class _SidebarSearchRow extends StatelessWidget {
   }
 }
 
+/// Rebuilds [builder] only when the plugin panels change shape, not for each
+/// notification that leaves them the same (see [_SidebarPanelShape]).
+class _SidebarPanelShapeSelector extends StatefulWidget {
+  const _SidebarPanelShapeSelector({
+    required this.listenable,
+    required this.builder,
+  });
+
+  final Listenable listenable;
+  final WidgetBuilder builder;
+
+  @override
+  State<_SidebarPanelShapeSelector> createState() =>
+      _SidebarPanelShapeSelectorState();
+}
+
+class _SidebarPanelShapeSelectorState
+    extends State<_SidebarPanelShapeSelector> {
+  _SidebarPanelShape? _shape;
+
+  _SidebarPanelShape _read() => _SidebarPanelShape(
+    PluginScope.of(context).registry.sidebarPanels(context),
+  );
+
+  @override
+  void initState() {
+    super.initState();
+    widget.listenable.addListener(_changed);
+  }
+
+  @override
+  void didUpdateWidget(_SidebarPanelShapeSelector oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!identical(oldWidget.listenable, widget.listenable)) {
+      oldWidget.listenable.removeListener(_changed);
+      widget.listenable.addListener(_changed);
+    }
+  }
+
+  void _changed() {
+    if (_read() != _shape) setState(() {});
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    _shape = _read();
+    return widget.builder(context);
+  }
+
+  @override
+  void dispose() {
+    widget.listenable.removeListener(_changed);
+    super.dispose();
+  }
+}
+
 class _SidebarPanelTabs extends StatelessWidget {
   const _SidebarPanelTabs({
-    required this.panels,
-    required this.selectedPanel,
+    required this.selectedOwner,
     required this.shortcutsSelected,
     required this.onSelected,
   });
 
-  final List<OwnedSidebarPanel> panels;
-  final OwnedSidebarPanel? selectedPanel;
+  final String? selectedOwner;
   final bool shortcutsSelected;
   final ValueChanged<String> onSelected;
 
+  // The tabs read the panels for themselves, so a badge change redraws them
+  // without the sections beneath.
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => ListenableBuilder(
+    listenable: _sidebarPanelChanges(context),
+    builder: (context, _) => _tabs(context),
+  );
+
+  Widget _tabs(BuildContext context) {
+    final panels = PluginScope.of(context).registry.sidebarPanels(context);
     return DTabs<String>.controlled(
       key: const ValueKey('sidebar-panel-tabs'),
-      value: shortcutsSelected
-          ? 'shortcuts'
-          : selectedPanel?.owner.value ?? 'forum',
+      value: shortcutsSelected ? 'shortcuts' : selectedOwner ?? 'forum',
       onChanged: (value) {
         if (value != null) onSelected(value);
       },
@@ -1272,20 +1369,11 @@ class _SectionState extends State<_Section> {
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final section = widget.section;
-    if (section.loading) {
-      return SliverToBoxAdapter(
-        child: _SidebarLoadingSkeleton(
-          semanticsLabel: 'Loading ${section.title}',
-          rowCount: 4,
-        ),
-      );
-    }
-    final canEdit = ShellScope.read(
-      context,
-    ).canEditSidebarLinks(widget.siteUrl, section);
+  Widget _destinationMenus(
+    BuildContext context,
+    SidebarSection section,
+    bool canEdit,
+  ) {
     final preview = widget.linkEdit?.value;
     final pending = preview?.siteUrl == widget.siteUrl
         ? preview?.destinations[section]
@@ -1398,9 +1486,27 @@ class _SectionState extends State<_Section> {
             : menu,
       );
     }
+    return SliverMainAxisGroup(slivers: menus);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final section = widget.section;
+    if (section.loading) {
+      return SliverToBoxAdapter(
+        child: _SidebarLoadingSkeleton(
+          semanticsLabel: 'Loading ${section.title}',
+          rowCount: 4,
+        ),
+      );
+    }
+    final canEdit = ShellScope.read(
+      context,
+    ).canEditSidebarLinks(widget.siteUrl, section);
+    // A section drawn by its own body never lays out its destinations.
     final content = switch (section.bodyBuilder) {
       final builder? => Builder(builder: builder),
-      null => SliverMainAxisGroup(slivers: menus),
+      null => _destinationMenus(context, section, canEdit),
     };
     final header = _SectionHeader(
       section: section,

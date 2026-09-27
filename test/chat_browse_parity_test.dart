@@ -9,6 +9,7 @@ import 'package:discourse_native/src/plugins/chat/chat_browse_navigation.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_controller.dart';
 import 'package:discourse_native/src/plugins/chat/chat_inbox.dart';
+import 'package:discourse_native/src/plugins/chat/chat_inbox_filters.dart';
 import 'package:discourse_native/src/plugins/chat/chat_inbox_rooms.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message.dart';
 import 'package:discourse_native/src/plugins/chat/chat_mobile_sidebar.dart';
@@ -290,6 +291,33 @@ void main() {
     provider.notifyListeners();
     await tester.pumpAndSettle();
     expect(find.text('Watercooler'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('the sidebar inbox offers voice rooms once Voice attaches', (
+    tester,
+  ) async {
+    final fixture = await _pump(tester);
+    await fixture.show(
+      const CustomScrollView(slivers: [ChatSidebarInbox(siteUrl: _site)]),
+    );
+    List<ChatInboxKind?> kinds() => [
+      for (final entry
+          in tester
+              .widget<ChatBrowseFilter<ChatInboxKind>>(
+                find.byKey(const ValueKey('chat-inbox-kind-filter')),
+              )
+              .entries)
+        if (entry case DSelectItem(:final value)) value,
+    ];
+    expect(kinds(), isNot(contains(ChatInboxKind.voiceRooms)));
+
+    // The conversations it lists are unchanged, so only the filters redraw.
+    final detach = fixture.rooms.attach(_Rooms());
+    addTearDown(detach);
+    await tester.pump();
+
+    expect(kinds(), contains(ChatInboxKind.voiceRooms));
     expect(tester.takeException(), isNull);
   });
 

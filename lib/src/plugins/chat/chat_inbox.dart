@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import 'chat_browse_navigation.dart';
@@ -81,7 +82,11 @@ class ChatInboxFilterBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => ListenableBuilder(
-    listenable: filters,
+    // Voice rooms become a choice once Voice attaches its directory.
+    listenable: Listenable.merge([
+      filters,
+      PluginUiScope.optional(context, chatInboxRoomsService),
+    ]),
     builder: (context, _) {
       final filter = filters.filterFor(siteUrl);
       final dropdowns = <Widget>[
@@ -508,94 +513,238 @@ String _activityLabel(BuildContext context, DateTime at) {
 
 /// The desktop sidebar's inbox: the mobile inbox's filters and ordering laid
 /// out as slivers, so it scrolls with the panel's other sections.
-class ChatSidebarInbox extends StatelessWidget {
+///
+/// The chat controller notifies for every message in every followed channel,
+/// and the panel rebuilds this section with it. The list is laid out again
+/// only when the conversations it shows, or their order, change; each row
+/// follows its own channel and whether it is open.
+class ChatSidebarInbox extends StatefulWidget {
   const ChatSidebarInbox({super.key, required this.siteUrl});
 
   final String siteUrl;
 
   @override
-  Widget build(BuildContext context) {
+  State<ChatSidebarInbox> createState() => _ChatSidebarInboxState();
+}
+
+@immutable
+final class _ChatSidebarInboxLayout {
+  const _ChatSidebarInboxLayout({
+    required this.filter,
+    required this.channelIds,
+    required this.loading,
+    required this.failed,
+    required this.empty,
+  });
+
+  final ChatInboxFilter filter;
+  final List<int> channelIds;
+  final bool loading;
+  final bool failed;
+  final bool empty;
+
+  @override
+  bool operator ==(Object other) =>
+      other is _ChatSidebarInboxLayout &&
+      filter == other.filter &&
+      loading == other.loading &&
+      failed == other.failed &&
+      empty == other.empty &&
+      listEquals(channelIds, other.channelIds);
+
+  @override
+  int get hashCode =>
+      Object.hash(filter, loading, failed, empty, Object.hashAll(channelIds));
+}
+
+class _ChatSidebarInboxState extends State<ChatSidebarInbox> {
+  ChatController? _chat;
+  ChatInboxRooms? _rooms;
+  Listenable? _sources;
+  late _ChatSidebarInboxLayout _layout;
+  Widget? _content;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
     final chat = PluginUiScope.require(context, chatControllerService);
-    final shell = PluginUiScope.require(context, chatShellService);
-    final filters = chat.inboxFilters;
     final rooms = PluginUiScope.optional(context, chatInboxRoomsService);
-    return ListenableBuilder(
-      listenable: Listenable.merge([chat, filters, shell, rooms]),
-      builder: (context, _) {
-        final filter = filters.filterFor(siteUrl);
-        final channels = chatInboxConversations(chat, siteUrl, filter);
-        final error = chat.channelsError(siteUrl);
-        final loading = !chat.channelsLoaded(siteUrl) && error == null;
-        final selectedId = shell.visibleChannelId;
-        return SliverMainAxisGroup(
-          slivers: [
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.only(bottom: DSpacing.sm),
-                child: ChatInboxFilterBar(
-                  siteUrl: siteUrl,
-                  filters: filters,
-                  compact: true,
-                ),
-              ),
-            ),
-            if (loading)
-              const SliverToBoxAdapter(child: _ChatSidebarInboxSkeleton())
-            else if (error != null && channels.isEmpty)
-              SliverToBoxAdapter(
-                child: ChatInboxError(
-                  onRetry: () =>
-                      unawaited(chat.loadChannels(siteUrl, force: true)),
-                ),
-              )
-            else if (channels.isEmpty &&
-                (rooms?.rooms(siteUrl).isEmpty ?? true))
-              SliverToBoxAdapter(
-                child: Padding(
-                  key: const ValueKey('chat-inbox-empty'),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: DSpacing.md,
-                    vertical: DSpacing.lg,
-                  ),
-                  child: Text(
-                    chatInboxEmptyMessage(filter),
-                    textAlign: TextAlign.center,
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: DTokens.of(context).mutedForeground,
-                    ),
-                  ),
-                ),
-              )
-            else
-              SliverList.builder(
-                itemCount: channels.length,
-                findChildIndexCallback: (key) {
-                  if (key is! ValueKey<int>) return null;
-                  final index = channels.indexWhere(
-                    (channel) => channel.id == key.value,
-                  );
-                  return index < 0 ? null : index;
-                },
-                itemBuilder: (context, index) {
-                  final channel = channels[index];
-                  return ValueListenableBuilder<ChatChannel?>(
-                    key: ValueKey(channel.id),
-                    valueListenable: chat.channelRef(siteUrl, channel.id),
-                    builder: (context, current, _) => ChatInboxRow(
-                      siteUrl: siteUrl,
-                      channel: current ?? channel,
-                      compact: true,
-                      selected: channel.id == selectedId,
-                      onPressed: () => shell.openChannel(channel.id),
-                    ),
-                  );
-                },
-              ),
-          ],
-        );
-      },
+    if (!identical(chat, _chat) || !identical(rooms, _rooms)) {
+      _sources?.removeListener(_changed);
+      _chat = chat;
+      _rooms = rooms;
+      _sources = Listenable.merge([chat, chat.inboxFilters, rooms])
+        ..addListener(_changed);
+    }
+    _layout = _read();
+    _content = null;
+  }
+
+  @override
+  void didUpdateWidget(ChatSidebarInbox oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.siteUrl == widget.siteUrl) return;
+    _layout = _read();
+    _content = null;
+  }
+
+  _ChatSidebarInboxLayout _read() {
+    final chat = _chat!;
+    final siteUrl = widget.siteUrl;
+    final filter = chat.inboxFilters.filterFor(siteUrl);
+    final channels = chatInboxConversations(chat, siteUrl, filter);
+    final error = chat.channelsError(siteUrl);
+    return _ChatSidebarInboxLayout(
+      filter: filter,
+      channelIds: [for (final channel in channels) channel.id],
+      loading: !chat.channelsLoaded(siteUrl) && error == null,
+      failed: error != null && channels.isEmpty,
+      empty: channels.isEmpty && (_rooms?.rooms(siteUrl).isEmpty ?? true),
     );
   }
+
+  void _changed() {
+    final layout = _read();
+    if (layout == _layout) return;
+    setState(() {
+      _layout = layout;
+      _content = null;
+    });
+  }
+
+  @override
+  void dispose() {
+    _sources?.removeListener(_changed);
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => _content ??= _buildContent();
+
+  Widget _buildContent() {
+    final chat = _chat!;
+    final siteUrl = widget.siteUrl;
+    final layout = _layout;
+    final channelIds = layout.channelIds;
+    final indexes = {
+      for (final (index, channelId) in channelIds.indexed) channelId: index,
+    };
+    return SliverMainAxisGroup(
+      slivers: [
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.only(bottom: DSpacing.sm),
+            child: ChatInboxFilterBar(
+              siteUrl: siteUrl,
+              filters: chat.inboxFilters,
+              compact: true,
+            ),
+          ),
+        ),
+        if (layout.loading)
+          const SliverToBoxAdapter(child: _ChatSidebarInboxSkeleton())
+        else if (layout.failed)
+          SliverToBoxAdapter(
+            child: ChatInboxError(
+              onRetry: () => unawaited(chat.loadChannels(siteUrl, force: true)),
+            ),
+          )
+        else if (layout.empty)
+          SliverToBoxAdapter(
+            child: _ChatSidebarInboxEmpty(filter: layout.filter),
+          )
+        else
+          SliverList.builder(
+            itemCount: channelIds.length,
+            findChildIndexCallback: (key) =>
+                key is ValueKey<int> ? indexes[key.value] : null,
+            itemBuilder: (context, index) => _ChatSidebarInboxEntry(
+              key: ValueKey(channelIds[index]),
+              siteUrl: siteUrl,
+              channelId: channelIds[index],
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class _ChatSidebarInboxEntry extends StatefulWidget {
+  const _ChatSidebarInboxEntry({
+    super.key,
+    required this.siteUrl,
+    required this.channelId,
+  });
+
+  final String siteUrl;
+  final int channelId;
+
+  @override
+  State<_ChatSidebarInboxEntry> createState() => _ChatSidebarInboxEntryState();
+}
+
+class _ChatSidebarInboxEntryState extends State<_ChatSidebarInboxEntry> {
+  Widget? _content;
+
+  @override
+  void didUpdateWidget(_ChatSidebarInboxEntry oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.siteUrl != widget.siteUrl ||
+        oldWidget.channelId != widget.channelId) {
+      _content = null;
+    }
+  }
+
+  // Reordering rebuilds the list's delegate. Keep the mounted row's listeners
+  // and content, so only its own channel or selection redraws it.
+  @override
+  Widget build(BuildContext context) =>
+      _content ??= PluginServiceSelector<ChatShellService, bool>(
+        service: chatShellService,
+        select: (shell) => shell.visibleChannelId == widget.channelId,
+        builder: (context, selected, _) => ValueListenableBuilder<ChatChannel?>(
+          valueListenable: PluginUiScope.require(
+            context,
+            chatControllerService,
+          ).channelRef(widget.siteUrl, widget.channelId),
+          // The id came from the store, so a gap means the channel was
+          // just removed and the list is one frame from dropping it.
+          builder: (context, channel, _) => channel == null
+              ? const SizedBox.shrink()
+              : ChatInboxRow(
+                  siteUrl: widget.siteUrl,
+                  channel: channel,
+                  compact: true,
+                  selected: selected,
+                  onPressed: () => PluginUiScope.require(
+                    context,
+                    chatShellService,
+                  ).openChannel(widget.channelId),
+                ),
+        ),
+      );
+}
+
+class _ChatSidebarInboxEmpty extends StatelessWidget {
+  const _ChatSidebarInboxEmpty({required this.filter});
+
+  final ChatInboxFilter filter;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    key: const ValueKey('chat-inbox-empty'),
+    padding: const EdgeInsets.symmetric(
+      horizontal: DSpacing.md,
+      vertical: DSpacing.lg,
+    ),
+    child: Text(
+      chatInboxEmptyMessage(filter),
+      textAlign: TextAlign.center,
+      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+        color: DTokens.of(context).mutedForeground,
+      ),
+    ),
+  );
 }
 
 /// Reserves the rows the inbox is about to draw; the filters above it are
