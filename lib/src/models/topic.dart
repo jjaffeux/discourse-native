@@ -749,6 +749,32 @@ class CategoryFeaturedTopic {
   );
 }
 
+/// A category detail that only some category payloads carry. A topic list on
+/// a site that lazy-loads categories embeds its categories at badge level
+/// (core's `CategoryBadgeSerializer`), which carries none of them, and only
+/// the category list reports featured topics or which category is
+/// Uncategorized. A payload that leaves one out says nothing about it.
+enum _CategoryDetail {
+  permission('permission'),
+  minimumRequiredTags('minimum_required_tags'),
+  topicCount('topic_count'),
+  descriptionExcerpt('description_excerpt', 'description_text'),
+  position('position'),
+  isUncategorized('is_uncategorized'),
+  notificationLevel('notification_level'),
+  featuredTopics('topics'),
+  topicTemplate('topic_template');
+
+  const _CategoryDetail(this.key, [this.alternateKey]);
+
+  final String key;
+  final String? alternateKey;
+
+  bool isReportedBy(Map<String, dynamic> json) =>
+      json.containsKey(key) ||
+      (alternateKey != null && json.containsKey(alternateKey));
+}
+
 @immutable
 class TopicCategory with Storable<TopicCategory> {
   const TopicCategory({
@@ -770,9 +796,31 @@ class TopicCategory with Storable<TopicCategory> {
     this.notificationLevel = CategoryNotificationLevel.normal,
     this.featuredTopics = const [],
     this.topicTemplate,
+  }) : _unreported = const {};
+
+  const TopicCategory._({
+    required this.id,
+    required this.name,
+    required this.color,
+    required this.slug,
+    required this.parentCategoryId,
+    required this.permission,
+    required this.minimumRequiredTags,
+    required this.styleType,
+    required this.icon,
+    required this.emoji,
+    required this.readRestricted,
+    required this.topicCount,
+    required this.descriptionExcerpt,
+    required this.position,
+    required this.isUncategorized,
+    required this.notificationLevel,
+    required this.featuredTopics,
+    required this.topicTemplate,
+    required this._unreported,
   });
 
-  factory TopicCategory.fromJson(Map<String, dynamic> json) => TopicCategory(
+  factory TopicCategory.fromJson(Map<String, dynamic> json) => TopicCategory._(
     id: jsonInt(json['id']),
     name: jsonString(json['name']),
     color: jsonString(json['color'], fallback: '888888'),
@@ -806,6 +854,10 @@ class TopicCategory with Storable<TopicCategory> {
       final String template when template.trim().isNotEmpty => template,
       _ => null,
     },
+    unreported: {
+      for (final detail in _CategoryDetail.values)
+        if (!detail.isReportedBy(json)) detail,
+    },
   );
 
   final int id;
@@ -838,11 +890,17 @@ class TopicCategory with Storable<TopicCategory> {
   /// none.
   final String? topicTemplate;
 
+  /// The details this category's payload left out, which read as their
+  /// defaults here. A merge must not mistake them for the site clearing what
+  /// a fuller payload reported. Equality compares values: an unreported
+  /// detail and its default merge alike.
+  final Set<_CategoryDetail> _unreported;
+
   bool get canCreateTopic => permission == 1;
   bool get isMuted => notificationLevel == CategoryNotificationLevel.muted;
 
   TopicCategory withNotificationLevel(CategoryNotificationLevel level) =>
-      TopicCategory(
+      TopicCategory._(
         id: id,
         name: name,
         color: color,
@@ -861,6 +919,9 @@ class TopicCategory with Storable<TopicCategory> {
         notificationLevel: level,
         featuredTopics: featuredTopics,
         topicTemplate: topicTemplate,
+        unreported: _unreported.difference(const {
+          _CategoryDetail.notificationLevel,
+        }),
       );
 
   int get colorValue => categoryColorValue(color);
@@ -868,9 +929,75 @@ class TopicCategory with Storable<TopicCategory> {
   @override
   Object get storeId => id;
 
+  /// A badge-level category still updates what it carries, such as the name,
+  /// color, parent and whether the category is restricted, while the
+  /// template, create permission and required tags held from a fuller payload
+  /// stay. A payload that reports a detail as empty clears it.
   @override
-  TopicCategory merge(TopicCategory incoming) =>
-      this == incoming ? this : incoming;
+  TopicCategory merge(TopicCategory incoming) {
+    final merged = incoming._unreported.isEmpty
+        ? incoming
+        : incoming._completedBy(this);
+    return this == merged ? this : merged;
+  }
+
+  TopicCategory _completedBy(TopicCategory held) {
+    T reported<T>(_CategoryDetail detail, T incoming, T kept) =>
+        _unreported.contains(detail) ? kept : incoming;
+    return TopicCategory._(
+      id: id,
+      name: name,
+      color: color,
+      slug: slug,
+      parentCategoryId: parentCategoryId,
+      permission: reported(
+        _CategoryDetail.permission,
+        permission,
+        held.permission,
+      ),
+      minimumRequiredTags: reported(
+        _CategoryDetail.minimumRequiredTags,
+        minimumRequiredTags,
+        held.minimumRequiredTags,
+      ),
+      styleType: styleType,
+      icon: icon,
+      emoji: emoji,
+      readRestricted: readRestricted,
+      topicCount: reported(
+        _CategoryDetail.topicCount,
+        topicCount,
+        held.topicCount,
+      ),
+      descriptionExcerpt: reported(
+        _CategoryDetail.descriptionExcerpt,
+        descriptionExcerpt,
+        held.descriptionExcerpt,
+      ),
+      position: reported(_CategoryDetail.position, position, held.position),
+      isUncategorized: reported(
+        _CategoryDetail.isUncategorized,
+        isUncategorized,
+        held.isUncategorized,
+      ),
+      notificationLevel: reported(
+        _CategoryDetail.notificationLevel,
+        notificationLevel,
+        held.notificationLevel,
+      ),
+      featuredTopics: reported(
+        _CategoryDetail.featuredTopics,
+        featuredTopics,
+        held.featuredTopics,
+      ),
+      topicTemplate: reported(
+        _CategoryDetail.topicTemplate,
+        topicTemplate,
+        held.topicTemplate,
+      ),
+      unreported: _unreported.intersection(held._unreported),
+    );
+  }
 
   @override
   bool operator ==(Object other) =>

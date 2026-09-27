@@ -439,8 +439,14 @@ final class DiscourseSiteApi {
     ];
     final rawById = <int, Map<String, dynamic>>{};
 
+    // The category list leaves `topics` out of a category with none to
+    // feature. It is the only payload that reports them, so its silence means
+    // none rather than that they are unknown.
     for (final category in _flattenCategories(roots)) {
-      rawById.putIfAbsent(jsonInt(category['id']), () => category);
+      rawById.putIfAbsent(
+        jsonInt(category['id']),
+        () => {'topics': const <Object?>[], ...category},
+      );
     }
 
     // CategoryList is paginated on sites that lazy-load categories. Core puts

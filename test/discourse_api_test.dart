@@ -1760,6 +1760,160 @@ void _feedGroups() {
       );
     });
 
+    // What core's category list serializes (`CategoryDetailedSerializer`).
+    const listed = <String, dynamic>{
+      'id': 5,
+      'name': 'Bug reports',
+      'color': 'E45735',
+      'text_color': 'FFFFFF',
+      'slug': 'bugs',
+      'style_type': 'square',
+      'icon': null,
+      'emoji': null,
+      'read_restricted': false,
+      'parent_category_id': 2,
+      'permission': 1,
+      'minimum_required_tags': 2,
+      'topic_count': 12,
+      'description_excerpt': 'Something is broken.',
+      'position': 3,
+      'notification_level': 0,
+      'topics': [
+        {'id': 101, 'title': 'Crash on launch', 'slug': 'crash-on-launch'},
+      ],
+      'topic_template': '### Steps to reproduce\n',
+    };
+    // What a topic list embeds on a site that lazy-loads categories
+    // (`CategoryBadgeSerializer`).
+    const badge = <String, dynamic>{
+      'id': 5,
+      'name': 'Bug reports',
+      'slug': 'bugs',
+      'color': 'E45735',
+      'text_color': 'FFFFFF',
+      'style_type': 'square',
+      'icon': null,
+      'emoji': null,
+      'read_restricted': false,
+      'parent_category_id': 2,
+    };
+
+    test('a badge-level category keeps the details it leaves out', () {
+      final held = TopicCategory.fromJson(listed);
+      final changed = {
+        ...badge,
+        'name': 'Bugs',
+        'slug': 'bugs-and-crashes',
+        'color': 'BF1E2E',
+        'style_type': 'icon',
+        'icon': 'bug',
+        'read_restricted': true,
+        'parent_category_id': 4,
+      };
+      final embedded = TopicList.fromJson({
+        'topic_list': {
+          'topics': const <Object?>[],
+          'categories': [changed],
+        },
+      }, 'https://example.com').categories.single;
+
+      final merged = held.merge(embedded);
+
+      expect(merged.name, 'Bugs');
+      expect(merged.slug, 'bugs-and-crashes');
+      expect(merged.color, 'BF1E2E');
+      expect(merged.styleType, 'icon');
+      expect(merged.icon, 'bug');
+      expect(merged.readRestricted, isTrue);
+      expect(merged.parentCategoryId, 4);
+      expect(merged.permission, 1);
+      expect(merged.canCreateTopic, isTrue);
+      expect(merged.minimumRequiredTags, 2);
+      expect(merged.topicCount, 12);
+      expect(merged.descriptionExcerpt, 'Something is broken.');
+      expect(merged.position, 3);
+      expect(merged.notificationLevel, CategoryNotificationLevel.muted);
+      expect(merged.featuredTopics.map((topic) => topic.id), [101]);
+      expect(merged.topicTemplate, '### Steps to reproduce\n');
+
+      expect(
+        held.merge(TopicCategory.fromJson(badge)),
+        same(held),
+        reason: 'a badge that changes nothing must not replace the record',
+      );
+      final toTopLevel = {...badge}..remove('parent_category_id');
+      expect(
+        held.merge(TopicCategory.fromJson(toTopLevel)).parentCategoryId,
+        isNull,
+        reason: 'both serializers leave the parent out of a top-level one',
+      );
+      expect(
+        TopicCategory.fromJson(badge).merge(held),
+        held,
+        reason: 'a fuller payload completes a badge-level record',
+      );
+    });
+
+    test('a category payload that reports a detail empty clears it', () {
+      final held = TopicCategory.fromJson(listed);
+      final cleared = {
+        ...listed,
+        'permission': null,
+        'minimum_required_tags': 0,
+        'topic_count': 0,
+        'description_excerpt': null,
+        'position': null,
+        'notification_level': 1,
+        'topics': const <Object?>[],
+        'topic_template': '',
+      };
+
+      final merged = held.merge(TopicCategory.fromJson(cleared));
+
+      expect(merged.permission, isNull);
+      expect(merged.canCreateTopic, isFalse);
+      expect(merged.minimumRequiredTags, 0);
+      expect(merged.topicCount, 0);
+      expect(merged.descriptionExcerpt, isNull);
+      expect(merged.position, isNull);
+      expect(merged.notificationLevel, CategoryNotificationLevel.normal);
+      expect(merged.featuredTopics, isEmpty);
+      expect(merged.topicTemplate, isNull);
+    });
+
+    test('Uncategorized stays marked through payloads that do not say', () {
+      const uncategorized = <String, dynamic>{
+        'id': 1,
+        'name': 'Uncategorized',
+        'color': '0088CC',
+        'slug': 'uncategorized',
+      };
+      final held = TopicCategory.fromJson(const {
+        ...uncategorized,
+        'is_uncategorized': true,
+      });
+
+      expect(
+        held.merge(TopicCategory.fromJson(uncategorized)).isUncategorized,
+        isTrue,
+      );
+    });
+
+    test('a notification level change outranks the level it replaces', () {
+      final held = TopicCategory.fromJson(badge);
+
+      final muted = held.withNotificationLevel(CategoryNotificationLevel.muted);
+
+      expect(
+        held.merge(muted).notificationLevel,
+        CategoryNotificationLevel.muted,
+      );
+      expect(
+        held.merge(muted).merge(TopicCategory.fromJson(badge)).isMuted,
+        isTrue,
+      );
+    });
+
     test('presentation fields default safely when malformed', () {
       final category = TopicCategory.fromJson(const {
         'id': 1,
@@ -2174,6 +2328,57 @@ void _feedGroups() {
       expect(
         categories.singleWhere((category) => category.id == 9).isUncategorized,
         isTrue,
+      );
+    });
+
+    test('reads a listed category without topics as featuring none', () async {
+      final api = DiscourseApi(
+        client: MockClient((request) async {
+          if (request.url.path == '/categories.json') {
+            return http.Response(
+              jsonEncode({
+                'category_list': {
+                  'categories': [
+                    {'id': 1, 'name': 'Support', 'color': '111111'},
+                  ],
+                },
+              }),
+              200,
+            );
+          }
+          return http.Response(
+            jsonEncode({
+              'categories': [
+                {'id': 2, 'name': 'Sidebar only', 'color': '222222'},
+              ],
+            }),
+            200,
+          );
+        }),
+      );
+      const featured = [
+        CategoryFeaturedTopic(id: 101, title: 'A topic', slug: 'a-topic'),
+      ];
+
+      final categories = await api.categories(
+        siteUrl: 'https://example.com',
+        apiKey: 'key',
+      );
+
+      TopicCategory held(int id) => TopicCategory(
+        id: id,
+        name: 'Held',
+        color: '333333',
+        featuredTopics: featured,
+      );
+      expect(
+        held(1).merge(categories.singleWhere((c) => c.id == 1)).featuredTopics,
+        isEmpty,
+      );
+      expect(
+        held(2).merge(categories.singleWhere((c) => c.id == 2)).featuredTopics,
+        featured,
+        reason: 'site.json never reports featured topics',
       );
     });
 
