@@ -1226,10 +1226,12 @@ class _RenderPopoverAnchorTracker extends RenderProxyBox {
       super.paint(context, offset);
       return;
     }
+    // The overlay can be laid out before an anchor that moved in the frame
+    // that opened it, as a context menu's anchor does when it jumps to the
+    // pointer, and a closed tracker keeps no baseline to detect that move.
+    // The first paint after opening therefore always reports a change.
     final origin = localToGlobal(Offset.zero);
-    if (_lastOrigin != null && (_lastOrigin != origin || _lastSize != size)) {
-      onChanged();
-    }
+    if (_lastOrigin != origin || _lastSize != size) onChanged();
     _lastOrigin = origin;
     _lastSize = size;
     super.paint(context, offset);
