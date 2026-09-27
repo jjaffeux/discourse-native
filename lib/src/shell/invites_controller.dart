@@ -93,7 +93,17 @@ final class InvitesController extends FrameSafeNotifier {
         await load(filter: InviteFilter.redeemed);
         return;
       } else {
-        invites = List.unmodifiable([if (more) ...invites, ...page.invites]);
+        // Pages are offset windows over recency-ordered rows, so an invite
+        // created, resent or redeemed elsewhere between pages repeats a held
+        // row. A redeemed row is one user's redemption, so a shared link
+        // appears once per user. The held row keeps its place and identity:
+        // removal and resend accept only an instance still in the list.
+        final rows = more ? [...invites] : <DiscourseInvite>[];
+        final seen = {for (final invite in rows) (invite.id, invite.userId)};
+        for (final invite in page.invites) {
+          if (seen.add((invite.id, invite.userId))) rows.add(invite);
+        }
+        invites = List.unmodifiable(rows);
         _offset = offset + page.rowCount;
         hasMore =
             page.rowCount > 0 &&
