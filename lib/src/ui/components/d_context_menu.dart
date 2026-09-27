@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -165,10 +167,13 @@ class _DContextMenuTriggerState extends State<DContextMenuTrigger> {
     DPopoverInteraction interaction,
   ) {
     if (!_enabled) return;
+    // The 1px anchor must lie inside the region: at the far edge it would sit
+    // outside a region flush with the viewport, and the popover closes an
+    // anchor that misses its collision boundary.
     setState(
       () => _anchor = Offset(
-        position.dx.clamp(0, _size.width),
-        position.dy.clamp(0, _size.height),
+        position.dx.clamp(0, math.max(0, _size.width - 1)),
+        position.dy.clamp(0, math.max(0, _size.height - 1)),
       ),
     );
     if (trigger.focusNode.canRequestFocus) trigger.focusNode.requestFocus();

@@ -155,6 +155,50 @@ void main() {
     expect(Focus.of(tester.element(find.text('Reload'))).hasFocus, isTrue);
   });
 
+  for (final (edge, alignment, direction) in const [
+    ('bottom', Alignment.bottomCenter, TextDirection.ltr),
+    ('bottom', Alignment.bottomCenter, TextDirection.rtl),
+    ('right', Alignment.centerRight, TextDirection.rtl),
+  ]) {
+    testWidgets(
+      'keyboard anchor stays inside a region flush with the $edge edge '
+      '(${direction.name})',
+      (tester) async {
+        final trigger = DContextMenuTriggerController();
+        await tester.pumpWidget(
+          _host(
+            Align(
+              alignment: alignment,
+              child: _menu(
+                trigger: trigger,
+                children: [
+                  DContextMenuItem(onPressed: () {}, child: const Text('Copy')),
+                ],
+              ),
+            ),
+            direction: direction,
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        trigger.openFromKeyboard();
+        await tester.pumpAndSettle();
+
+        expect(find.text('Copy'), findsOneWidget);
+        expect(Focus.of(tester.element(find.text('Copy'))).hasFocus, isTrue);
+        final viewport = tester.getRect(find.byType(Scaffold));
+        final region = tester.getRect(find.byType(DContextMenuTrigger));
+        final popup = tester.getRect(find.byType(DContextMenuContent));
+        expect(viewport.intersect(popup), popup);
+        final corner = Offset(
+          direction == TextDirection.ltr ? region.left : region.right,
+          region.bottom,
+        );
+        expect(popup.inflate(8).contains(corner), isTrue);
+      },
+    );
+  }
+
   testWidgets('disabled root ignores all invocation methods', (tester) async {
     final focus = FocusNode();
     addTearDown(focus.dispose);
@@ -420,6 +464,7 @@ Widget _host(Widget child, {TextDirection direction = TextDirection.ltr}) {
 Widget _menu({
   required List<Widget> children,
   FocusNode? focusNode,
+  DContextMenuTriggerController? trigger,
   bool disabled = false,
   DPopoverSide side = DPopoverSide.right,
 }) {
@@ -435,6 +480,7 @@ Widget _menu({
       ),
       child: DContextMenuTrigger(
         focusNode: focusNode,
+        controller: trigger,
         child: const ColoredBox(
           color: Colors.transparent,
           child: Center(child: Text('Right click here')),
