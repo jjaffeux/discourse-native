@@ -13,6 +13,7 @@ import 'package:flutter/services.dart';
 import '../diagnostics/diagnostics_controller.dart';
 import '../diagnostics/surface_opening_trace.dart';
 import '../models/composer_placement.dart';
+import '../models/site_config.dart';
 import '../models/topic.dart';
 import '../plugin_api/composer_footer_layout.dart';
 import '../plugin_api/composer_syntax.dart';
@@ -70,6 +71,19 @@ SingleActivator _formattingShortcut(LogicalKeyboardKey key) => SingleActivator(
   control: !_usesCommandModifier,
 );
 
+ComposerImagePicker _sitePhotoLibrary(
+  BuildContext context,
+  ComposerController composer,
+) {
+  final optimization =
+      ShellScope.maybeRead(
+        context,
+      )?.siteConfigFor(composer.target.siteUrl).composerImageOptimization ??
+      const ComposerImageOptimization();
+  final limit = composer.simultaneousUploads;
+  return () => pickComposerImages(optimization: optimization, limit: limit);
+}
+
 Color _composerToolForeground(BuildContext context) {
   final tokens = DTokens.of(context);
   return Color.lerp(tokens.background, tokens.foreground, .5)!;
@@ -87,7 +101,7 @@ class ComposerPanel extends StatelessWidget {
     this.onPlacementChanged,
     this.onExitFullScreen,
     this.pickFiles = pickComposerFiles,
-    this.pickImages = pickComposerImages,
+    this.pickImages,
     this.readClipboardFiles = readComposerClipboardFiles,
   });
 
@@ -100,7 +114,9 @@ class ComposerPanel extends StatelessWidget {
   final ValueChanged<ComposerPlacement>? onPlacementChanged;
   final VoidCallback? onExitFullScreen;
   final ComposerFilePicker pickFiles;
-  final ComposerImagePicker pickImages;
+
+  /// Null offers the photo library under the site's optimisation policy.
+  final ComposerImagePicker? pickImages;
   final ComposerClipboardFileReader readClipboardFiles;
 
   @override
@@ -1165,7 +1181,7 @@ class ComposerRichBodyEditor extends StatelessWidget {
                 true,
             onKeyEvent: onKeyEvent,
             pickFiles: enclosing?.pickFiles ?? pickComposerFiles,
-            pickImages: enclosing?.pickImages ?? pickComposerImages,
+            pickImages: enclosing?.pickImages,
             readClipboardFiles:
                 enclosing?.readClipboardFiles ?? readComposerClipboardFiles,
             onSuggestionAction: enclosing?.onSuggestionAction,
@@ -1189,7 +1205,7 @@ class ComposerEditor extends StatefulWidget {
     this.showSelectionToolbar = true,
     this.expands = true,
     this.pickFiles = pickComposerFiles,
-    this.pickImages = pickComposerImages,
+    this.pickImages,
     this.readClipboardFiles = readComposerClipboardFiles,
     this.onSuggestionAction,
     this.slashActions,
@@ -1209,7 +1225,9 @@ class ComposerEditor extends StatefulWidget {
   /// Topic composers expose persistent Native formatting actions instead.
   final bool showSelectionToolbar;
   final ComposerFilePicker pickFiles;
-  final ComposerImagePicker pickImages;
+
+  /// Null offers the photo library under the site's optimisation policy.
+  final ComposerImagePicker? pickImages;
   final ComposerClipboardFileReader readClipboardFiles;
 
   final bool expands;
@@ -2951,7 +2969,10 @@ class _ComposerEditorState extends State<ComposerEditor> {
                 canUpload: widget.composer.canUpload,
                 onMode: _media.setSelectedGalleryMode,
                 onUploadImages: () => unawaited(
-                  _media.pickImagesForSelectedGallery(widget.pickImages),
+                  _media.pickImagesForSelectedGallery(
+                    widget.pickImages ??
+                        _sitePhotoLibrary(context, widget.composer),
+                  ),
                 ),
                 onAddExistingImages: () =>
                     unawaited(_addExistingImagesToSelectedGallery()),
@@ -3994,7 +4015,7 @@ class _Toolbar extends StatelessWidget {
 
   final ComposerController composer;
   final ComposerFilePicker pickFiles;
-  final ComposerImagePicker pickImages;
+  final ComposerImagePicker? pickImages;
 
   @override
   Widget build(BuildContext context) => ShellSelector<int>(
@@ -4290,7 +4311,7 @@ class _ComposerUploadButton extends StatefulWidget {
 
   final ComposerController composer;
   final ComposerFilePicker pickFiles;
-  final ComposerImagePicker pickImages;
+  final ComposerImagePicker? pickImages;
 
   @override
   State<_ComposerUploadButton> createState() => _ComposerUploadButtonState();
@@ -4363,7 +4384,13 @@ class _ComposerUploadButtonState extends State<_ComposerUploadButton> {
         DDropdownMenuItem(
           key: const ValueKey('composer-upload-photos'),
           onPressed: widget.composer.canUpload && !_picking
-              ? () => unawaited(_pick(widget.pickImages, photos: true))
+              ? () => unawaited(
+                  _pick(
+                    widget.pickImages ??
+                        _sitePhotoLibrary(context, widget.composer),
+                    photos: true,
+                  ),
+                )
               : null,
           child: const Text('Photo Library'),
         ),
@@ -4439,7 +4466,7 @@ class _Footer extends StatelessWidget {
   final VoidCallback onCancel;
   final bool sideDocked;
   final ComposerFilePicker pickFiles;
-  final ComposerImagePicker pickImages;
+  final ComposerImagePicker? pickImages;
   final String? message;
   final bool isError;
 

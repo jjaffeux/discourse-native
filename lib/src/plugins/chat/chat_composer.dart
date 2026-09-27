@@ -152,7 +152,7 @@ class ChatComposer extends StatefulWidget {
     this.onEditMessage,
     this.onEditFinished,
     this.pickFiles = pickComposerFiles,
-    this.pickImages = pickComposerImages,
+    this.pickImages,
   });
 
   final String siteUrl;
@@ -163,7 +163,9 @@ class ChatComposer extends StatefulWidget {
   final ValueChanged<ChatMessage>? onEditMessage;
   final VoidCallback? onEditFinished;
   final ComposerFilePicker pickFiles;
-  final ComposerImagePicker pickImages;
+
+  /// Null offers the photo library under the site's optimisation policy.
+  final ComposerImagePicker? pickImages;
 
   /// A counter lets repeated Reply actions refocus an already-open composer.
   final int focusRequest;
@@ -807,7 +809,16 @@ class _ChatComposerState extends State<ChatComposer> {
 
   Future<void> _pickFiles() => _pickUpload(widget.pickFiles, photos: false);
 
-  Future<void> _pickImages() => _pickUpload(widget.pickImages, photos: true);
+  Future<void> _pickImages() => _pickUpload(
+    widget.pickImages ??
+        () => pickComposerImages(
+          optimization:
+              _host?.siteConfigFor(widget.siteUrl).composerImageOptimization ??
+              const ComposerImageOptimization(),
+          limit: _composer?.simultaneousUploads,
+        ),
+    photos: true,
+  );
 
   Future<void> _pickUpload(
     ComposerFilePicker picker, {
