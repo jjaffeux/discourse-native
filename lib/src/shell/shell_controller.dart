@@ -4323,6 +4323,18 @@ class ShellController extends FrameSafeNotifier
 
   bool _foreground = true;
 
+  /// When the app left the foreground; null while it is in it.
+  DateTime? _backgroundedAt;
+
+  /// Core keeps only the last `message_bus_max_backlog_size` (100) messages of
+  /// each channel, and `/new` and `/unread` are site-wide channels filtered
+  /// per reader, so a tracker stopped for long resumes past messages no poll
+  /// can replay. Core's web client never stops: it polls a hidden tab every
+  /// `background_polling_interval` (60 s) and trusts that poll's backlog. An
+  /// absence shorter than that is left to the resume poll likewise; a longer
+  /// one re-reads the tracking snapshot.
+  static const _topicTrackingResyncAfter = Duration(seconds: 60);
+
   int incomingCount(String destinationId) {
     final instance = currentInstance;
     if (instance == null) return 0;
@@ -5439,6 +5451,58 @@ class ShellController extends FrameSafeNotifier
     unawaited(retry.load());
   }
 
+  /// Re-reads a held snapshot after an absence the bus backlog may not
+  /// cover. A load already in flight serves as this resume's read. The
+  /// buffer opens before the request, as for any load, so what the resume
+  /// poll delivers meanwhile reaches the new snapshot too, and
+  /// [TopicTrackingState.applyMessage] ignores a message it has passed.
+  void _resyncTopicTracking(String siteUrl) {
+    final username = _instanceAt(siteUrl)?.user?.username;
+    if (username == null ||
+        !_topicTrackingSnapshotsLoaded.contains(siteUrl) ||
+        !_topicTrackingLoads.add(siteUrl)) {
+      return;
+    }
+    _topicTrackingRetries.remove(siteUrl);
+    final events = _topicTrackingPendingEvents[siteUrl] = <Object?>[];
+    final lease = lifecycle.capture(siteUrl);
+    bool ownsResync() =>
+        !isDisposed &&
+        lease.isCurrent &&
+        identical(_topicTrackingPendingEvents[siteUrl], events);
+    unawaited(() async {
+      String? apiKey;
+      String? clientId;
+      try {
+        apiKey = await credentials.apiKeyFor(siteUrl);
+        if (!ownsResync()) return;
+        clientId = apiKey == null ? null : await authenticator.clientId();
+      } catch (error, stackTrace) {
+        if (ownsResync()) {
+          _reportOperationalError(
+            error,
+            stackTrace,
+            'topicTracking.readCredentials',
+            severity: DiagnosticSeverity.warning,
+          );
+        }
+      }
+      if (!ownsResync()) return;
+      if (apiKey == null || clientId == null) {
+        _topicTrackingLoads.remove(siteUrl);
+        _topicTrackingPendingEvents.remove(siteUrl);
+        return;
+      }
+      await _loadTopicTrackingState(
+        siteUrl: siteUrl,
+        username: username,
+        apiKey: apiKey,
+        clientId: clientId,
+        lease: lease,
+      );
+    }());
+  }
+
   Future<int?> _accountId(
     String siteUrl, {
     required String apiKey,
@@ -6161,6 +6225,8 @@ class ShellController extends FrameSafeNotifier
     if (foreground == _foreground) return;
     _foreground = foreground;
     if (!foreground) _topicPrefetch.validate();
+    final backgroundedAt = _backgroundedAt;
+    _backgroundedAt = foreground ? null : _clock();
     // The OS may suspend the process before a debounce timer fires again.
     if (!foreground) {
       _flushPendingAnchorPersist();
@@ -6176,6 +6242,9 @@ class ShellController extends FrameSafeNotifier
     if (!foreground) return;
     doNotDisturb.checkExpirations();
 
+    final resyncTracking =
+        backgroundedAt != null &&
+        _clock().difference(backgroundedAt) >= _topicTrackingResyncAfter;
     final instance = currentInstance;
     final retainedSiteUrls = _pluginBackgroundSiteUrls;
     for (final entry in _trackers.entries) {
@@ -6184,6 +6253,7 @@ class ShellController extends FrameSafeNotifier
       if (selected || connected || retainedSiteUrls.contains(entry.key)) {
         entry.value.pollNow();
         _retryTopicTrackingLoad(entry.key);
+        if (resyncTracking) _resyncTopicTracking(entry.key);
       }
     }
     // A reader with one forum never reselects it, so returning to the app is
