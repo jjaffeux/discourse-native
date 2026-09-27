@@ -50,31 +50,28 @@ final class EventCalendarPage {
   }
 
   DateTimeRange days({required int firstDay}) {
-    final start = switch (view) {
-      EventCalendarView.day => date,
-      EventCalendarView.week => date.subtract(
-        Duration(days: (date.weekday % 7 - firstDay + 7) % 7),
-      ),
-      EventCalendarView.month ||
-      EventCalendarView.schedule => DateTime.utc(date.year, date.month),
-      EventCalendarView.year => DateTime.utc(date.year),
-    };
-    final end = switch (view) {
-      EventCalendarView.day => start.add(const Duration(days: 1)),
-      EventCalendarView.week => start.add(const Duration(days: 7)),
-      EventCalendarView.month ||
-      EventCalendarView.schedule => DateTime.utc(date.year, date.month + 1),
-      EventCalendarView.year => DateTime.utc(date.year + 1),
-    };
-    if (view != EventCalendarView.month) {
-      return DateTimeRange(start: start, end: end);
-    }
-    return DateTimeRange(
-      start: start.subtract(
-        Duration(days: (start.weekday % 7 - firstDay + 7) % 7),
-      ),
-      end: end.add(Duration(days: (firstDay - end.weekday % 7 + 7) % 7)),
+    final week = date.subtract(
+      Duration(days: (date.weekday % 7 - firstDay + 7) % 7),
     );
+    return switch (view) {
+      EventCalendarView.day => DateTimeRange(
+        start: date,
+        end: date.add(const Duration(days: 1)),
+      ),
+      EventCalendarView.week => DateTimeRange(
+        start: week,
+        end: week.add(const Duration(days: 7)),
+      ),
+      EventCalendarView.month => kalenderMonthGrid(date, firstDay: firstDay),
+      EventCalendarView.schedule => DateTimeRange(
+        start: DateTime.utc(date.year, date.month),
+        end: DateTime.utc(date.year, date.month + 1),
+      ),
+      EventCalendarView.year => DateTimeRange(
+        start: DateTime.utc(date.year),
+        end: DateTime.utc(date.year + 1),
+      ),
+    };
   }
 
   EventCalendarPage move(int direction) =>
@@ -93,6 +90,23 @@ final class EventCalendarPage {
       other is EventCalendarPage && other.view == view && other.date == date;
   @override
   int get hashCode => Object.hash(view, date);
+}
+
+/// The calendar days Kalender's month grid draws for the month of [month]:
+/// whole weeks from [firstDay] (core's `calendar_first_day_of_week`, 0 is
+/// Sunday), and never fewer than five rows, so a February that fills exactly
+/// four weeks still shows the first week of March. Requests and row budgets
+/// must cover these days exactly, so they come from Kalender's own
+/// `MonthIndexCalculator.rangeFromIndex` rather than from local week math.
+DateTimeRange kalenderMonthGrid(DateTime month, {required int firstDay}) {
+  // Floating bounds keep the calculator in calendar days. A plain DateTime
+  // with no location would be read through the device's zone first.
+  final grid = kalender.MonthIndexCalculator(
+    start: kalender.FloatingDateTime(month.year, month.month),
+    end: kalender.FloatingDateTime(month.year, month.month + 1),
+    firstDayOfWeek: firstDay == 0 ? DateTime.sunday : firstDay,
+  ).rangeFromIndex(0, null);
+  return DateTimeRange(start: grid.start, end: grid.end);
 }
 
 /// Server-expanded occurrences supply recurrence and exception dates. Kalender

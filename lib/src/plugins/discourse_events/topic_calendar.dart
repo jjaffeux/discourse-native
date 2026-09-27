@@ -9,6 +9,7 @@ import 'package:intl/intl.dart';
 import 'package:kalender/kalender.dart' as kalender;
 import 'package:timezone/timezone.dart' as tz;
 
+import 'event_calendar_data.dart';
 import 'topic_calendar_data.dart';
 import 'topic_calendar_event.dart';
 
@@ -483,10 +484,8 @@ final class _TopicCalendarState extends State<TopicCalendar> {
           10,
     );
     final lanes = constraints.maxWidth < 450 ? 3 : 4;
-    final first = DateTime.utc(_focus.year, _focus.month);
-    final next = DateTime.utc(_focus.year, _focus.month + 1);
-    final leadingDays = (first.weekday % 7 - widget.settings.firstDay + 7) % 7;
-    final weeks = ((next.difference(first).inDays + leadingDays) / 7).ceil();
+    final grid = kalenderMonthGrid(_focus, firstDay: widget.settings.firstDay);
+    final weeks = grid.duration.inDays ~/ 7;
     final tiles = kalender.TileComponents(tileBuilder: _tile);
     final overlays = kalender.OverlayBuilders(
       multiDayOverlayPortalBuilder:

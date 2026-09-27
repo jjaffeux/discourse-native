@@ -144,7 +144,9 @@ natively, including core's legacy view aliases. Switching All/My preserves the
 view and date, and navigation remembers them for topic back navigation.
 
 Requests use explicit UTC ISO `after` and `before` bounds for the displayed
-period, including month spillover days, with `include_ongoing=true`. This also
+period, with `include_ongoing=true`. A month covers every row Kalender's grid
+draws, read from Kalender's own month calculator: never fewer than five weeks,
+so a February that fills exactly four still includes early March. This also
 works with older controllers that fail to expand `after=now`. Like core's
 calendar, the view uses the basic event serializer and My events requests the
 reader's going attendance. Server-expanded occurrences are authoritative; no
