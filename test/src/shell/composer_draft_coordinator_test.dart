@@ -251,6 +251,70 @@ void main() {
     );
   });
 
+  group('listed reply drafts', () {
+    test(
+      'an open composer settles its own restore before taking the row',
+      () async {
+        const newer = ComposerDraft(reply: 'Newer local reply');
+        final localStore = _GatedReadStore();
+        await localStore.write(_siteUrl, _listedDraft.key, newer.encode());
+        final harness = _Harness(cachedSequence: 2, localStore: localStore);
+        addTearDown(harness.dispose);
+        final composer = harness.open(_replyTarget).composer;
+        harness.coordinator.startRestore(composer);
+        await localStore.started.future;
+
+        final offered = harness.coordinator.restoreListedDraft(
+          composer,
+          _listedDraft,
+        );
+        localStore.gate.complete();
+        await offered;
+
+        expect(composer.text.text, newer.reply);
+        expect(composer.draftSequence, 4);
+      },
+    );
+
+    test(
+      'an open composer that cannot read its local copy withholds the row',
+      () async {
+        final harness = _Harness(
+          cachedSequence: 2,
+          localStore: _FailingReadStore(),
+        );
+        addTearDown(harness.dispose);
+        final composer = harness.open(_replyTarget).composer;
+        harness.coordinator.startRestore(composer);
+
+        await harness.coordinator.restoreListedDraft(composer, _listedDraft);
+
+        expect(composer.text.text, isEmpty);
+        expect(
+          composer.notice,
+          "Couldn't check for an existing draft. Try again.",
+        );
+      },
+    );
+
+    test('a row saved under another key is not restored', () async {
+      const otherTopic = UserDraft(
+        key: 'topic_8',
+        sequence: 6,
+        data: ComposerDraft(reply: 'Reply to another topic'),
+      );
+      final harness = _Harness(cachedSequence: 2);
+      addTearDown(harness.dispose);
+      final composer = harness.open(_replyTarget).composer;
+
+      harness.coordinator.startRestore(composer, listedDraft: otherTopic);
+      expect(await harness.coordinator.finishRestore(composer), isTrue);
+
+      expect(composer.text.text, isEmpty);
+      expect(composer.draftSequence, 2);
+    });
+  });
+
   test('forgetting a site releases coordinator-owned sequence state', () {
     final harness = _Harness(cachedSequence: 4);
     addTearDown(harness.dispose);
@@ -695,6 +759,12 @@ final class _GatedClearStore extends FakeDraftStore {
     await gate.future;
     return super.clearChecked(siteUrl, draftKey, ifCurrent: ifCurrent);
   }
+}
+
+final class _FailingReadStore extends FakeDraftStore {
+  @override
+  Future<String?> read(String siteUrl, String draftKey) =>
+      Future.error(const DraftWriteException());
 }
 
 final class _FailingClearStore extends FakeDraftStore {

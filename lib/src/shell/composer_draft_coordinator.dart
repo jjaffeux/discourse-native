@@ -121,11 +121,37 @@ final class ComposerDraftCoordinator {
     _sequences[_sequenceKey(target.siteUrl, target.draftKey)] = sequence;
   }
 
-  void restoreListedDraft(ComposerController composer, UserDraft draft) {
-    composer
-      ..draftSequence = draft.sequence
-      ..restore(draft.data!);
-    rememberSequence(composer.target, draft.sequence);
+  /// Offers a list row to a composer that was already open under its key. A
+  /// composer opened for the row takes it through [startRestore] instead.
+  Future<void> restoreListedDraft(
+    ComposerController composer,
+    UserDraft draft,
+  ) async {
+    final target = composer.target;
+    final data = draft.data;
+    if (data == null ||
+        !composer.canSaveDraft ||
+        target.draftKey != draft.key) {
+      return;
+    }
+    final lease = _lifecycle.capture(target.siteUrl);
+    // The row can predate a save this composer has already committed.
+    composer.draftSequence = _commitSequence(
+      target,
+      draft.sequence,
+      fallback: composer.draftSequence,
+    );
+    // A restore still reading the local or cached copy ranks that copy above
+    // the row, but gives it up if the row's text lands first. One that could
+    // not read the local copy cannot rule it out, so the row is withheld, as
+    // it is from a composer opened for it.
+    if (!await finishRestore(composer) ||
+        !lease.isCurrent ||
+        composer.discarding ||
+        composer.closing) {
+      return;
+    }
+    composer.restore(data);
   }
 
   Future<bool>? restoreTaskFor(ComposerController composer) =>
@@ -224,6 +250,8 @@ final class ComposerDraftCoordinator {
   }
 
   void startRestore(ComposerController composer, {UserDraft? listedDraft}) {
+    // A list row stands in only for the draft saved under its own key.
+    if (listedDraft?.key != composer.target.draftKey) listedDraft = null;
     final restore = _restoreDraft(composer, listedDraft: listedDraft);
     _restoreTasks[composer] = restore;
     unawaited(restore);

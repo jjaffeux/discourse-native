@@ -9194,6 +9194,7 @@ class ShellController extends FrameSafeNotifier
     int? replyToPostNumber,
     String? replyToUsername,
     bool? replyingToWhisper,
+    UserDraft? listedDraft,
   }) {
     final instance = currentInstance;
     final route = currentContent;
@@ -9233,7 +9234,7 @@ class ShellController extends FrameSafeNotifier
     _setComposer(composer);
     _notify();
 
-    _composerDrafts.startRestore(composer);
+    _composerDrafts.startRestore(composer, listedDraft: listedDraft);
   }
 
   bool _replyTargetsWhisper(int? postNumber) {
@@ -15694,13 +15695,17 @@ class ShellController extends FrameSafeNotifier
         currentContent?.topicId != topicId) {
       return;
     }
+    final existing = _composer;
     openReply(
       replyToPostNumber: draft.data?.replyToPostNumber,
       replyToUsername: draft.data?.replyToUsername,
+      listedDraft: draft,
     );
     final composer = _composer;
-    if (composer == null || composer.target.draftKey != draft.key) return;
-    _composerDrafts.restoreListedDraft(composer, draft);
+    // A composer opened above already ranks the row below its local and
+    // cached copies; only one that was open for this topic needs it offered.
+    if (composer == null || !identical(composer, existing)) return;
+    await _composerDrafts.restoreListedDraft(composer, draft);
   }
 
   @override

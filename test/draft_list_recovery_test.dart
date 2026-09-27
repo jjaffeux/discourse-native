@@ -6,6 +6,7 @@ import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/models/user_draft.dart';
+import 'package:discourse_native/src/shell/composer_controller.dart';
 import 'package:discourse_native/src/shell/composer_panel.dart';
 import 'package:discourse_native/src/shell/main_content.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
@@ -213,6 +214,87 @@ void main() {
     expect(shell.currentTopic?.draftSequence, 2);
     expect(shell.draftCountFor(_siteUrl), 1);
   }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
+
+  group('resuming a listed reply draft', () {
+    const listed = UserDraft(
+      key: 'topic_7',
+      sequence: 3,
+      topicId: 7,
+      slug: 'a-topic',
+      title: 'A topic with a draft',
+      data: ComposerDraft(reply: 'Older text the site has'),
+    );
+
+    testWidgets('keeps a newer local-only copy over the row', (tester) async {
+      final drafts = FakeDraftStore();
+      // Written while the site could not be reached, so it never received it.
+      await drafts.write(
+        _siteUrl,
+        listed.key,
+        const ComposerDraft(reply: 'Newer text kept on this device').encode(),
+      );
+      final api = _api(serverDraft: listed);
+      final shell = await _openShell(tester, api: api, drafts: drafts);
+
+      await shell.resumeDraft(_siteUrl, listed);
+      await tester.pumpAndSettle();
+      final composer = shell.visibleComposer!;
+      expect(composer.text.text, 'Newer text kept on this device');
+
+      composer.text.text = '${composer.text.text} and more';
+      await tester.pump(ComposerController.draftDebounce);
+      await tester.pumpAndSettle();
+      expect(
+        api.draftsSaved.single['data'],
+        contains('Newer text kept on this device and more'),
+      );
+      expect(api.draftsSaved.single['sequence'], 3);
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
+
+    testWidgets('fills the composer from the row without another copy', (
+      tester,
+    ) async {
+      final api = _api(serverDraft: null);
+      final shell = await _openShell(
+        tester,
+        api: api,
+        drafts: FakeDraftStore(),
+      );
+
+      await shell.resumeDraft(_siteUrl, listed);
+      await tester.pumpAndSettle();
+      final composer = shell.visibleComposer!;
+      expect(composer.text.text, 'Older text the site has');
+      expect(composer.draftSequence, 3);
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
+
+    testWidgets("a stale row keeps an open composer's newer sequence", (
+      tester,
+    ) async {
+      final api = _api();
+      final shell = await _visitTopic(
+        tester,
+        api: api,
+        drafts: FakeDraftStore(),
+      );
+      shell.openReply();
+      await tester.pumpAndSettle();
+      final composer = shell.visibleComposer!;
+      composer.text.text = 'Current reply';
+      await composer.flushDraft();
+      expect(composer.draftSequence, 5);
+
+      await shell.resumeDraft(_siteUrl, listed);
+      await tester.pumpAndSettle();
+      expect(shell.visibleComposer, same(composer));
+      expect(composer.text.text, 'Current reply');
+      expect(composer.draftSequence, 5);
+
+      composer.text.text = 'Current reply, edited';
+      await composer.flushDraft();
+      expect(api.draftsSaved.map((save) => save['sequence']), [4, 5]);
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
+  });
 }
 
 FakeDiscourseApi _api({
@@ -220,6 +302,7 @@ FakeDiscourseApi _api({
   Completer<void>? saveGate,
   WriteException? deleteFailure,
   WriteException? saveFailure,
+  UserDraft? serverDraft = _draft,
 }) => FakeDiscourseApi(
   feeds: const {
     '/latest.json': [_topic],
@@ -232,11 +315,11 @@ FakeDiscourseApi _api({
         Post(id: 1, postNumber: 1, username: 'reader', cooked: '<p>A post</p>'),
       ],
       canCreatePost: true,
-      draft: _draft.data,
-      draftSequence: _draft.sequence,
+      draft: serverDraft?.data,
+      draftSequence: serverDraft?.sequence ?? 0,
     ),
   },
-  userDraftList: const [_draft],
+  userDraftList: [?serverDraft],
   draftDeleteGate: deleteGate,
   draftDeleteFailure: deleteFailure,
   draftGate: saveGate,
@@ -244,7 +327,7 @@ FakeDiscourseApi _api({
   user: const DiscourseUser(id: 1, username: 'reader', draftCount: 1),
 );
 
-Future<ShellController> _visitTopic(
+Future<ShellController> _openShell(
   WidgetTester tester, {
   required FakeDiscourseApi api,
   required FakeDraftStore drafts,
@@ -257,9 +340,18 @@ Future<ShellController> _visitTopic(
     instances: [instance('meta.discourse.org').copyWith(user: api.user)],
     authenticator: FakeAuthenticator()..keys[_siteUrl] = 'api-key',
   );
+  return ShellScope.read(tester.element(find.byType(MainContent)));
+}
+
+Future<ShellController> _visitTopic(
+  WidgetTester tester, {
+  required FakeDiscourseApi api,
+  required FakeDraftStore drafts,
+}) async {
+  final shell = await _openShell(tester, api: api, drafts: drafts);
   await tester.tap(contentText(_topic.title));
   await tester.pumpAndSettle();
-  return ShellScope.read(tester.element(find.byType(MainContent)));
+  return shell;
 }
 
 Future<void> _removeThroughList(
