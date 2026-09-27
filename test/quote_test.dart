@@ -31,6 +31,20 @@ const String crossTopicQuote = '''
 </aside>
 ''';
 
+String sameSiteTopicLink(String categoryBadge) =>
+    '''
+<aside class="quote" data-post="1" data-topic="341126">
+<div class="title">
+<div class="quote-controls"></div>
+<img alt="" width="24" height="24" src="https://cdn.example.com/martin.png" class="avatar">
+<div class="quote-title__text-content">
+<a href="https://meta.discourse.org/t/some-topic/341126">Some topic</a> $categoryBadge
+</div>
+</div>
+<blockquote><p>The first post of the topic, excerpted.</p></blockquote>
+</aside>
+''';
+
 const String plainBlockquote =
     '<blockquote>\n<p>Just a markdown quote.</p>\n</blockquote>';
 
@@ -63,6 +77,39 @@ void main() {
       expect(data.title, 'A topic');
       expect(data.link, 'https://meta.discourse.org/t/a-topic/1234/1');
       expect(data.avatarUrl, 'https://cdn.example.com/sam.png');
+    });
+
+    test('reads a same-site topic link as its title, not its category', () {
+      const badges = {
+        'current':
+            '<a class="badge-category__wrapper" href="/c/general/4">'
+            '<span data-category-id="4" class="badge-category --style-square">'
+            '<span class="badge-category__name">General</span></span></a>',
+        'legacy':
+            '<a class="badge-wrapper bullet" href="/c/general/4">'
+            '<span class="badge-category-bg" '
+            'style="background-color: #0088CC;"></span>'
+            '<span class="badge-category clear-badge">General</span></a>',
+        'unwrapped':
+            '<span data-category-id="4" class="badge-category">'
+            '<span class="badge-category__name">General</span></span>',
+      };
+
+      for (final MapEntry(key: shape, value: badge) in badges.entries) {
+        final data = parse(sameSiteTopicLink(badge));
+
+        expect(data.title, 'Some topic', reason: shape);
+        expect(
+          data.link,
+          'https://meta.discourse.org/t/some-topic/341126',
+          reason: shape,
+        );
+        expect(
+          data.avatarUrl,
+          'https://cdn.example.com/martin.png',
+          reason: shape,
+        );
+      }
     });
 
     test('reads a bare markdown blockquote as a quote with no attribution', () {

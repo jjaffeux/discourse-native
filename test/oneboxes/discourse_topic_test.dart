@@ -49,7 +49,7 @@ const String localTopicOnebox = '''
     <img alt="" loading="lazy" src="/user_avatar/meta.discourse.org/martin/48/1.png" class="avatar">
     <div class="quote-title__text-content">
       <a href="https://meta.discourse.org/t/some-topic/341126">Some topic</a>
-      <span class="badge-wrapper bullet"><span class="badge-category-bg" style="background-color: #0088CC;"></span></span>
+      <a class="badge-category__wrapper" href="/c/general/4"><span data-category-id="4" style="--category-badge-color: #0088CC; --category-badge-text-color: #FFFFFF;" class="badge-category --style-square"><span class="badge-category__name">General</span></span></a>
     </div>
   </div>
   <blockquote>
@@ -130,24 +130,34 @@ void main() {
 
   group('a same-site topic link', () {
     testWidgets('arrives as a quote and renders as one', (tester) async {
-      await tester.pumpWidget(
-        MaterialApp(
-          theme: AppTheme.light,
-          home: const Scaffold(
-            body: SingleChildScrollView(
-              child: CookedHtml(html: localTopicOnebox),
+      final semantics = tester.ensureSemantics();
+      try {
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: AppTheme.light,
+            home: const Scaffold(
+              body: SingleChildScrollView(
+                child: CookedHtml(html: localTopicOnebox),
+              ),
             ),
           ),
-        ),
-      );
-      await tester.pump();
+        );
+        await tester.pump();
 
-      expect(find.byType(QuoteBlock), findsOneWidget);
-      expect(find.text('Some topic'), findsOneWidget);
-      expect(
-        find.textContaining('The first post of the topic', findRichText: true),
-        findsOneWidget,
-      );
+        expect(find.byType(QuoteBlock), findsOneWidget);
+        expect(find.text('Some topic'), findsOneWidget);
+        expect(find.bySemanticsLabel('Some topic'), findsOneWidget);
+        expect(find.textContaining('General'), findsNothing);
+        expect(
+          find.textContaining(
+            'The first post of the topic',
+            findRichText: true,
+          ),
+          findsOneWidget,
+        );
+      } finally {
+        semantics.dispose();
+      }
     });
   });
 }
