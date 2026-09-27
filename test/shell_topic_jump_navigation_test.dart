@@ -173,6 +173,48 @@ void main() {
       });
     }
 
+    for (final (postNumber, loaded) in [(1, true), (12, false)]) {
+      test('a link to ${loaded ? 'a loaded' : 'an unloaded'} post of the open '
+          'topic jumps to it in place', () async {
+        final (:shell, :api, authenticator: _) = await _fixture();
+        shell.saveTopicScrollPost(1, 2, viewportOffset: -48);
+        final revision = shell.topicNavigationRevision;
+        final stackLength = shell.contentStack.length;
+
+        expect(shell.openTopicUrl('$_siteUrl/t/one/1/$postNumber'), isTrue);
+        await pumpEventQueue();
+
+        expect(shell.currentContent?.topicId, 1);
+        expect(shell.currentContent?.postNumber, postNumber);
+        expect(shell.contentStack, hasLength(stackLength));
+        expect(shell.topicNavigationRevision, revision + 1);
+        expect(shell.activeTab!.anchors[shell.currentContent!.id], isNull);
+        expect(shell.topicScrollPostNumber(1), postNumber);
+        // Unlike a notification, a link reports nothing new about a post the
+        // store already holds, so only an unloaded target is fetched.
+        expect(api.topicPostNumbersOpened, [if (!loaded) postNumber]);
+      });
+    }
+
+    test('a bare link to the open topic keeps the reading position', () async {
+      final (:shell, :api, authenticator: _) = await _fixture();
+      shell.saveTopicScrollPost(1, 2, viewportOffset: -48);
+      final route = shell.currentContent;
+      final anchor = shell.activeTab!.anchors[route!.id];
+      final revision = shell.topicNavigationRevision;
+      final stackLength = shell.contentStack.length;
+
+      expect(shell.openTopicUrl('$_siteUrl/t/one/1'), isTrue);
+      await pumpEventQueue();
+
+      expect(shell.currentContent, same(route));
+      expect(shell.contentStack, hasLength(stackLength));
+      expect(shell.topicNavigationRevision, revision);
+      expect(shell.activeTab!.anchors[route.id], same(anchor));
+      expect(shell.topicScrollPostNumber(1), 2);
+      expect(api.topicPostNumbersOpened, isEmpty);
+    });
+
     test('a newer loaded jump cancels a pending credential lookup', () async {
       final (:shell, :api, :authenticator) = await _fixture();
       final credential = authenticator.gateNextApiKey();

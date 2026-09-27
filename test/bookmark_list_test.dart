@@ -1,5 +1,6 @@
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/bookmark.dart';
+import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/plugin_api/shell_extensions.dart';
@@ -118,6 +119,30 @@ void main() {
       expect(tester.takeException(), isNull);
     });
   }
+
+  testWidgets('a bookmark in the open topic moves the reader to its post', (
+    tester,
+  ) async {
+    final shell = await _shell();
+    addTearDown(shell.dispose);
+    shell.pushContent(
+      ContentRoute.topic(topicId: 7, slug: 'plants', title: 'Plants'),
+    );
+    final stackLength = shell.contentStack.length;
+    final revision = shell.topicNavigationRevision;
+    var opened = 0;
+    await _pumpPage(tester, shell, onOpened: () => opened++);
+
+    await tester.tap(find.byKey(const ValueKey('bookmark-row-1')));
+    await tester.pumpAndSettle();
+
+    expect(opened, 1);
+    expect(shell.currentContent?.topicId, 7);
+    expect(shell.currentContent?.postNumber, 2);
+    expect(shell.contentStack, hasLength(stackLength));
+    expect(shell.topicNavigationRevision, revision + 1);
+    expect(tester.takeException(), isNull);
+  });
 
   testWidgets('large text and RTL keep the complete bookmark title', (
     tester,
@@ -249,6 +274,7 @@ Future<void> _pumpPage(
   Size size = const Size(1080, 810),
   double scale = 1,
   bool rtl = false,
+  VoidCallback? onOpened,
 }) async {
   tester.view.devicePixelRatio = 1;
   tester.view.physicalSize = size;
@@ -275,7 +301,7 @@ Future<void> _pumpPage(
                 child: BookmarkSection(
                   siteUrl: _site,
                   page: true,
-                  onOpened: () {},
+                  onOpened: onOpened ?? () {},
                 ),
               ),
             ),
