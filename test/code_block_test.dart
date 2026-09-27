@@ -46,6 +46,32 @@ CodeBlockData parseBlock(String source) {
   return CodeBlockData.from(pre);
 }
 
+bool paintsKeyword(WidgetTester tester, Finder line) {
+  var found = false;
+  tester.widget<Text>(line).textSpan!.visitChildren((span) {
+    if (span is TextSpan && span.style?.color == CodeColors.light.keyword) {
+      found = true;
+    }
+    return true;
+  });
+  return found;
+}
+
+/// Deferred highlighting parses on a real isolate, which the fake clock does
+/// not drive.
+Future<void> pumpUntilKeywordPainted(WidgetTester tester, Finder line) async {
+  for (
+    var attempt = 0;
+    attempt < 100 && !paintsKeyword(tester, line);
+    attempt++
+  ) {
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 20)),
+    );
+    await tester.pump();
+  }
+}
+
 void main() {
   group('CodeBlockData', () {
     test('reads a git blob onebox as numbered lines', () {
@@ -252,26 +278,9 @@ void main() {
       );
       final code = find.text('def example_0 = "value"');
       final before = tester.getRect(code);
-      bool hasKeyword() {
-        final text = tester.widget<Text>(code);
-        var found = false;
-        text.textSpan!.visitChildren((span) {
-          if (span is TextSpan &&
-              span.style?.color == CodeColors.light.keyword) {
-            found = true;
-          }
-          return true;
-        });
-        return found;
-      }
 
-      for (var attempt = 0; attempt < 100 && !hasKeyword(); attempt++) {
-        await tester.runAsync(
-          () => Future<void>.delayed(const Duration(milliseconds: 20)),
-        );
-        await tester.pump();
-      }
-      expect(hasKeyword(), isTrue);
+      await pumpUntilKeywordPainted(tester, code);
+      expect(paintsKeyword(tester, code), isTrue);
       expect(tester.getRect(code), before);
       expect(
         tester
@@ -294,6 +303,47 @@ void main() {
             .color,
         AppTheme.light.colorScheme.tertiaryContainer,
       );
+    });
+
+    testWidgets('an unlabelled fence detects its language off the frame', (
+      tester,
+    ) async {
+      // An unlabelled fence cooks to `lang-auto`, and detection parses it once
+      // per candidate grammar: several times what a labelled block this size
+      // may spend in place.
+      clearSyntaxHighlightCacheForTesting();
+      final source = List.generate(
+        36,
+        (i) => 'def auto_example_$i = "value"',
+      ).join('\n');
+      expect(source.length, greaterThanOrEqualTo(1000));
+      expect(source.length, lessThan(backgroundSyntaxHighlightThreshold));
+
+      final data = parseBlock(
+        '<pre><code class="lang-auto">$source\n</code></pre>',
+      );
+      expect(data.highlightDeferred, isTrue);
+      expect(
+        data.lines.expand((line) => line.tokens).map((token) => token.scope),
+        everyElement(isNull),
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light,
+          home: Scaffold(
+            body: SingleChildScrollView(child: CodeBlock(data: data)),
+          ),
+        ),
+      );
+      final code = find.text('def auto_example_0 = "value"');
+      final before = tester.getRect(code);
+      expect(paintsKeyword(tester, code), isFalse);
+
+      await pumpUntilKeywordPainted(tester, code);
+      expect(paintsKeyword(tester, code), isTrue);
+      expect(tester.getRect(code), before);
+      expect(highlightNeedsParse(source, 'auto'), isFalse);
     });
 
     testWidgets('draws every line, with its number', (tester) async {
