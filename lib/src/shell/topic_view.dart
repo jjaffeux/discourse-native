@@ -4054,11 +4054,16 @@ class _MoreTopics extends StatelessWidget {
                         : null,
                   ),
                   if (index < selection.topics.length - 1)
-                    DSeparator(
-                      space: 1,
-                      indent: inbox ? 16 : 0,
-                      endIndent: inbox ? 16 : 0,
-                      color: theme.shell.divider,
+                    LayoutBuilder(
+                      builder: (context, constraints) =>
+                          constraints.maxWidth < 600
+                          ? const TopicListSeparator()
+                          : DSeparator(
+                              space: 1,
+                              indent: inbox ? 16 : 0,
+                              endIndent: inbox ? 16 : 0,
+                              color: theme.shell.divider,
+                            ),
                     ),
                 ],
               ],

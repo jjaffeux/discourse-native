@@ -205,7 +205,8 @@ class AggregateViewState extends State<AggregateView> {
                               padding: lane.padding.copyWith(top: 0),
                               sliver: SliverList.separated(
                                 itemCount: state.topics.length,
-                                separatorBuilder: (_, _) => const DSeparator(),
+                                separatorBuilder: (_, _) =>
+                                    const TopicListSeparator(),
                                 itemBuilder: (_, index) {
                                   final reference = state.topics[index];
                                   return _AggregateTopicRow(

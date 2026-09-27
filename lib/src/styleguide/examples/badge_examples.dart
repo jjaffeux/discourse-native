@@ -1,7 +1,7 @@
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
-import '../../../discourse_ui.dart';
 import '../styleguide_example.dart';
 
 final badgeExamples = ComponentExamples(
@@ -15,14 +15,16 @@ final badgeExamples = ComponentExamples(
       'actions also accept Space. The caller owns navigation and async work. '
       'Use leading/trailing for decorative 12px artwork or DSpinner. '
       'Variants use live theme tokens; custom colors resolve in the caller build. '
-      'The reference uses 20px height, 12/16px medium type, 4px gaps and pill corners. '
+      'The reference uses 22px height, 12/18px medium type, 4px gaps and pill corners. '
       'DBadgeSize.compact uses 16px height, 12/14px type and 4px horizontal '
       'insets for dense counts. Regular badges retain the reference geometry. '
       'DBadgeSize.control matches regular buttons, including mobile sizing. '
       'DBadge.overlay uses a 14px count pill with 10px tabular text and a '
       '1.5px surface ring for small icons; the caller owns positioning and caps. '
       'Labels grow and wrap for accessibility; native touch actions reserve 48px '
-      'around their compact visual. No selected/toggle behavior is implied. '
+      'around their compact visual except inline DBadgeSize.tag links. '
+      'DBadgeSize.unread uses 11px bold text with 1px/6px insets. '
+      'No selected/toggle behavior is implied. '
       'Use semanticValue and liveRegion for changes, invalid for validation, '
       'and a descriptive label so status remains clear without color or motion.',
   examples: [
@@ -370,6 +372,26 @@ DBadge(
             child: const Text('# tag'),
             onPressed: () {},
           ),
+        ],
+      ),
+    ),
+    StyleguideExample(
+      title: 'Topic metadata',
+      description:
+          'Inline tag links and unread counts follow the topic mockup geometry. Tags retain their own focus, semantics and activation within the row.',
+      code:
+          "DBadge.link(size: DBadgeSize.tag, variant: DBadgeVariant.outline, onPressed: openTag, child: Text('design'))",
+      builder: (_) => Wrap(
+        spacing: 5,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
+          DBadge.link(
+            size: DBadgeSize.tag,
+            variant: DBadgeVariant.outline,
+            onPressed: () {},
+            child: const Text('design'),
+          ),
+          const DBadge(size: DBadgeSize.unread, child: Text('4')),
         ],
       ),
     ),

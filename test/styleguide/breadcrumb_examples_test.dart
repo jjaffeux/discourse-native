@@ -20,6 +20,7 @@ void main() {
       'RTL',
       'Narrow and scrolling',
       'Reference demo',
+      'Inline metadata',
     ]);
   });
 
