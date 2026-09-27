@@ -31,6 +31,7 @@ import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/title_bar.dart';
 import 'package:discourse_native/src/shell/topic_list_view.dart';
+import 'package:discourse_native/src/shell/user_menu.dart';
 import 'package:discourse_native/src/shell/user_menu_button.dart';
 import 'package:discourse_native/src/shell/users_page.dart';
 import 'package:discourse_native/src/theme/d_icon_glyph.dart';
@@ -560,10 +561,7 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('mobile-mode-panel/chat')));
       await tester.pumpAndSettle();
       final trigger = find.byKey(const ValueKey('user-presence-menu'));
-      expect(
-        tester.widget<DButton>(trigger).density,
-        DButtonDensity.compactToolbar,
-      );
+      expect(tester.widget<DButton>(trigger).size, DControlSize.chip);
       await tester.tap(trigger);
       await tester.pumpAndSettle();
       expect(find.text('Set a custom status'), findsOneWidget);
@@ -1522,9 +1520,11 @@ void main() {
       expect(find.byKey(const ValueKey('sidebar-panel-tabs')), findsNothing);
       await tester.tap(find.byKey(UserMenuButton.bellKey));
       await tester.pumpAndSettle();
-      expect(find.byType(DSheetContent), findsOneWidget);
+      expect(find.byType(DSheetContent), findsNothing);
+      expect(find.byType(UserMenuPanel), findsOneWidget);
       await tester.sendKeyEvent(LogicalKeyboardKey.escape);
       await tester.pumpAndSettle();
+      expect(find.byType(UserMenuPanel), findsNothing);
       await tester.tap(find.byKey(const ValueKey('forum-identity-button')));
       await tester.pumpAndSettle();
       expect(find.text('Open forum in browser'), findsOneWidget);
@@ -1871,12 +1871,12 @@ void main() {
     );
     await tester.tap(find.byKey(UserMenuButton.bellKey));
     await tester.pumpAndSettle();
-    expect(find.byType(DSheetContent), findsOneWidget);
-    await tester.binding.handlePopRoute();
+    expect(find.byType(UserMenuPanel), findsOneWidget);
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
     await tester.pumpAndSettle();
+    expect(find.byType(UserMenuPanel), findsNothing);
     expect(shell.canPopContent, isFalse);
-    await tester.tap(find.byKey(const ValueKey('mobile-mode-panel/chat')));
-    await tester.pumpAndSettle();
+    await _tapDockTab(tester, 'panel/chat');
     await _selectChatKind(tester, 'Direct messages');
     expect(find.byKey(const ValueKey('chat-inbox-browse')), findsOneWidget);
     expect(find.byKey(const ValueKey('mobile-forum-settings')), findsNothing);
