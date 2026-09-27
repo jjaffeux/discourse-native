@@ -8,6 +8,15 @@ import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/models/user_card.dart';
 import 'package:discourse_native/src/models/user_status.dart';
+import 'package:discourse_native/src/plugin_api/plugin_data.dart';
+import 'package:discourse_native/src/plugin_api/plugin_runtime.dart';
+import 'package:discourse_native/src/plugins/chat/chat_api.dart';
+import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
+import 'package:discourse_native/src/plugins/chat/chat_inbox.dart';
+import 'package:discourse_native/src/plugins/chat/chat_module.dart';
+import 'package:discourse_native/src/plugins/chat/chat_notification_counter.dart';
+import 'package:discourse_native/src/plugins/chat/chat_plugin_data.dart';
+import 'package:discourse_native/src/plugins/chat/chat_services.dart';
 import 'package:discourse_native/src/shell/adaptive_shell.dart';
 import 'package:discourse_native/src/shell/forum_tabs_bar.dart';
 import 'package:discourse_native/src/shell/hover_panel.dart';
@@ -27,8 +36,10 @@ import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'support/fakes.dart';
+import 'support/shell_test_harness.dart';
 
 void main() {
   testWidgets('navigation does not rebuild account and sidebar chrome', (
@@ -803,6 +814,176 @@ void main() {
       tester.element(find.byType(TopicListView)),
       isNot(same(secondViewport)),
     );
+  });
+
+  group('a chat message in a followed channel', () {
+    const site = 'https://meta.discourse.org';
+    final chatTab = find.byKey(const ValueKey('sidebar-panel-switch-chat'));
+    Finder inChatTab(String text) =>
+        find.descendant(of: chatTab, matching: find.text(text));
+    Finder row(int channelId) =>
+        find.byKey(ValueKey('chat-inbox-channel-$channelId'));
+
+    Future<void> pumpChatSidebar(WidgetTester tester) async {
+      SharedPreferences.setMockInitialValues({});
+      const reader = DiscourseUser(id: 7, username: 'reader');
+      final config = SiteConfig(
+        plugins: PluginData.none.withValue(
+          chatSettingsDataKey,
+          const ChatSettings(chatEnabled: true, publicChannelsEnabled: true),
+        ),
+      );
+      await pumpShell(
+        tester,
+        desktop,
+        pluginManifest: PluginManifest([
+          ChatModule(apiFactory: (transport) => transport as ChatApi),
+        ]),
+        instances: [
+          instance(
+            'meta.discourse.org',
+            title: 'Meta',
+          ).copyWith(user: reader, config: config),
+        ],
+        authenticator: FakeAuthenticator()..keys[site] = 'key',
+        api: FakeDiscourseApi(
+          user: reader,
+          totals: chatNotificationTotals(available: true),
+          feeds: const {'/latest.json': []},
+          siteConfigs: {site: config},
+          chatChannelsBySite: {
+            site: ChatChannels(
+              public: [
+                // Channel 3 has the latest activity, so it leads the inbox.
+                for (var id = 1; id <= 3; id++)
+                  ChatChannel(
+                    id: id,
+                    title: 'Channel $id',
+                    kind: ChatChannelKind.category,
+                    membership: const ChatMembership(following: true),
+                    lastMessageId: id,
+                    lastMessageAt: DateTime.utc(2026, 8, 1, 9, id),
+                  ),
+              ],
+              newMessageBusLastIds: const {1: 1, 2: 1, 3: 1},
+              newMentionMessageBusLastIds: const {1: 1, 2: 1, 3: 1},
+            ),
+          },
+        ),
+      );
+      await ShellScope.read(
+        tester.element(find.byType(InstanceSidebar)),
+      ).pluginSession.require(chatControllerService).loadChannels(site);
+      await tester.pumpAndSettle();
+    }
+
+    void deliver(String channel, Map<String, Object?> data, int messageId) =>
+        FakeSiteTracker.built
+            .lastWhere((tracker) => tracker.siteUrl == site)
+            .deliverPluginMessage(channel, data, messageId: messageId);
+
+    void message(int channelId, int messageId, {required int minute}) =>
+        deliver('/chat/$channelId/new-messages', {
+          'type': 'channel',
+          'channel_id': channelId,
+          'message': {
+            'id': messageId,
+            'chat_channel_id': channelId,
+            'cooked': '<p>new</p>',
+            'created_at': DateTime.utc(
+              2026,
+              8,
+              1,
+              10,
+              minute,
+            ).toIso8601String(),
+            'user': {'id': 2, 'username': 'sam'},
+          },
+        }, messageId);
+
+    // Each rebuilt element, and the inbox row it draws part of, read while
+    // the element is still mounted.
+    ({List<Element> elements, Set<int> rows}) recordRebuilds() {
+      final rebuilt = (elements: <Element>[], rows: <int>{});
+      final previous = debugOnRebuildDirtyWidget;
+      debugOnRebuildDirtyWidget = (element, builtOnce) {
+        previous?.call(element, builtOnce);
+        rebuilt.elements.add(element);
+        if (element.widget case ChatInboxRow(:final channel)) {
+          rebuilt.rows.add(channel.id);
+          return;
+        }
+        element.visitAncestorElements((ancestor) {
+          if (ancestor.widget case ChatInboxRow(:final channel)) {
+            rebuilt.rows.add(channel.id);
+            return false;
+          }
+          return true;
+        });
+      };
+      addTearDown(() => debugOnRebuildDirtyWidget = previous);
+      return rebuilt;
+    }
+
+    testWidgets('redraws the Chat tab badge but not the Forum sections', (
+      tester,
+    ) async {
+      await pumpChatSidebar(tester);
+      expect(find.byType(SidebarDestinationTile), findsWidgets);
+      expect(inChatTab('1'), findsNothing);
+      final rebuilt = recordRebuilds();
+
+      message(3, 101, minute: 0);
+      await tester.pump();
+
+      expect(inChatTab('1'), findsOneWidget);
+      expect(
+        rebuilt.elements.where(
+          (element) => element.widget is SidebarDestinationTile,
+        ),
+        isEmpty,
+      );
+    }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
+
+    testWidgets('redraws only its own row in the Chat inbox', (tester) async {
+      await pumpChatSidebar(tester);
+      await tester.tap(chatTab);
+      await tester.pumpAndSettle();
+      List<double> tops(List<int> channelIds) => [
+        for (final id in channelIds) tester.getTopLeft(row(id)).dy,
+      ];
+      final initial = tops([3, 2, 1]);
+      expect(initial, orderedEquals([...initial]..sort()));
+      final rebuilt = recordRebuilds();
+
+      // Channel 3 already leads, so the order stands.
+      message(3, 101, minute: 0);
+      await tester.pump();
+      expect(rebuilt.rows, {3});
+      expect(inChatTab('1'), findsOneWidget);
+      expect(
+        find.descendant(of: row(3), matching: find.text('1 message')),
+        findsOneWidget,
+      );
+
+      rebuilt.rows.clear();
+      deliver('/chat/2/new-mentions', {'channel_id': 2, 'message_id': 2}, 2);
+      await tester.pump();
+      expect(rebuilt.rows, {2});
+      expect(
+        find.descendant(of: row(2), matching: find.text('1 new mention')),
+        findsOneWidget,
+      );
+
+      rebuilt.rows.clear();
+      message(1, 102, minute: 1);
+      await tester.pump();
+      expect(rebuilt.rows, {1});
+      expect(inChatTab('2'), findsOneWidget);
+      final reordered = tops([1, 3, 2]);
+      expect(reordered, orderedEquals([...reordered]..sort()));
+      expect(tester.takeException(), isNull);
+    }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
   });
 }
 

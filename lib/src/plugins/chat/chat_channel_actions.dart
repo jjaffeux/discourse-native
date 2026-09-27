@@ -41,9 +41,22 @@ class ChatChannelMenu extends StatelessWidget {
         if (channel == null || !channel.membership.following) {
           return child ?? const SizedBox.shrink();
         }
-        return ListenableBuilder(
-          listenable: chat,
-          builder: (context, _) => _ChannelMenu(
+        // The controller notifies for every message in every channel; the
+        // menu reads only this channel's writes in flight.
+        return PluginServiceSelector<
+          ChatController,
+          ({bool notifications, bool star, bool follow})
+        >(
+          service: chatControllerService,
+          select: (chat) => (
+            notifications: chat.channelNotificationWriteInFlight(
+              siteUrl,
+              channel.id,
+            ),
+            star: chat.channelStarWriteInFlight(siteUrl, channel.id),
+            follow: chat.channelFollowWriteInFlight(siteUrl, channel.id),
+          ),
+          builder: (context, _, _) => _ChannelMenu(
             siteUrl: siteUrl,
             channel: channel,
             chat: chat,
