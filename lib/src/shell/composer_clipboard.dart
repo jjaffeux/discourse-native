@@ -1,6 +1,8 @@
-import 'dart:typed_data';
+import 'dart:io';
 
 import 'package:file_selector/file_selector.dart' as selector;
+import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:pasteboard/pasteboard.dart';
 
 import '../models/composer_upload.dart';
@@ -9,14 +11,23 @@ import 'composer_upload_picker.dart';
 typedef ComposerClipboardFileReader =
     Future<List<ComposerUploadFile>> Function();
 
+const _macOSPasteboard = MethodChannel('org.discourse.native/pasteboard');
+
 /// Reads native clipboard files or pixels into retryable uploads.
 Future<List<ComposerUploadFile>> readComposerClipboardFiles() async {
   // Finder publishes both a file URL and an NSImage representation when a user
   // copies an image file. AppKit may coerce that NSImage into the generic file
   // icon, so prefer the original file and its pixels whenever it is available.
-  final files = await Pasteboard.files();
-  if (files.isNotEmpty) {
-    return composerUploadFilesFromSelection(files.map(selector.XFile.new));
+  final paths = await _copiedFilePaths();
+  if (paths.isNotEmpty) {
+    // Paste starts uploading at once, so each path must still name a regular
+    // file. When none does (a copied folder, a file moved since), paste falls
+    // through to text rather than to the pixels, which are only Finder's icon.
+    final files = [
+      for (final path in paths)
+        if (await FileSystemEntity.isFile(path)) selector.XFile(path),
+    ];
+    return composerUploadFilesFromSelection(files);
   }
 
   final image = await Pasteboard.image;
@@ -32,4 +43,16 @@ Future<List<ComposerUploadFile>> readComposerClipboardFiles() async {
       openRead: () => Stream<List<int>>.value(bytes),
     ),
   ]);
+}
+
+Future<List<String>> _copiedFilePaths() async {
+  // On macOS the plugin reduces every URL to its path, so a copied web link
+  // `https://host/Users/me/secret` would name a local file. The runner reads
+  // file URLs only (darwin/PasteboardFilePaths.swift). On Linux the plugin
+  // resolves only file:// URIs, and on iOS it reads no files.
+  if (defaultTargetPlatform == TargetPlatform.macOS) {
+    return await _macOSPasteboard.invokeListMethod<String>('fileURLPaths') ??
+        const [];
+  }
+  return Pasteboard.files();
 }

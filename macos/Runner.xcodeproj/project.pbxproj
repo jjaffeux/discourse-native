@@ -21,6 +21,7 @@
 /* End PBXAggregateTarget section */
 
 /* Begin PBXBuildFile section */
+		D15CB0A20000000000000002 /* PasteboardFilePaths.swift in Sources */ = {isa = PBXBuildFile; fileRef = D15CB0A20000000000000001 /* PasteboardFilePaths.swift */; };
 		D15C0A5E0000000000000002 /* PushRegistrationCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = D15C0A5E0000000000000001 /* PushRegistrationCoordinator.swift */; };
 		D15C71A10000000000000004 /* VideoThumbnailChannel.swift in Sources */ = {isa = PBXBuildFile; fileRef = D15C71A10000000000000003 /* VideoThumbnailChannel.swift */; };
 		D15C71A10000000000000002 /* VideoThumbnailGenerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = D15C71A10000000000000001 /* VideoThumbnailGenerator.swift */; };
@@ -64,6 +65,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		D15CB0A20000000000000001 /* PasteboardFilePaths.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = PasteboardFilePaths.swift; path = "../darwin/PasteboardFilePaths.swift"; sourceTree = SOURCE_ROOT; };
 		D15C0A5E0000000000000001 /* PushRegistrationCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = PushRegistrationCoordinator.swift; path = "../darwin/PushRegistrationCoordinator.swift"; sourceTree = SOURCE_ROOT; };
 		D15C71A10000000000000003 /* VideoThumbnailChannel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = VideoThumbnailChannel.swift; path = "../darwin/VideoThumbnailChannel.swift"; sourceTree = SOURCE_ROOT; };
 		D15C71A10000000000000001 /* VideoThumbnailGenerator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = VideoThumbnailGenerator.swift; path = "../darwin/VideoThumbnailGenerator.swift"; sourceTree = SOURCE_ROOT; };
@@ -172,6 +174,7 @@
 			isa = PBXGroup;
 			children = (
 				33CC10F02044A3C60003C045 /* AppDelegate.swift */,
+				D15CB0A20000000000000001 /* PasteboardFilePaths.swift */,
 				D15C0A5E0000000000000001 /* PushRegistrationCoordinator.swift */,
 				D15C71A10000000000000003 /* VideoThumbnailChannel.swift */,
 				D15C71A10000000000000001 /* VideoThumbnailGenerator.swift */,
@@ -360,6 +363,7 @@
 			files = (
 				33CC11132044BFA00003C045 /* MainFlutterWindow.swift in Sources */,
 				33CC10F12044A3C60003C045 /* AppDelegate.swift in Sources */,
+				D15CB0A20000000000000002 /* PasteboardFilePaths.swift in Sources */,
 				D15C0A5E0000000000000002 /* PushRegistrationCoordinator.swift in Sources */,
 				D15C71A10000000000000004 /* VideoThumbnailChannel.swift in Sources */,
 				D15C71A10000000000000002 /* VideoThumbnailGenerator.swift in Sources */,

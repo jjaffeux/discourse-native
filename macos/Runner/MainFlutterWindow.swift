@@ -10,6 +10,7 @@ class MainFlutterWindow: NSWindow {
   private var windowFrameObservers: [NSObjectProtocol] = []
   private var liveResize = false
   private var youtubeScrollChannel: FlutterMethodChannel?
+  private var pasteboardChannel: FlutterMethodChannel?
   private var webViewScrollRouting = WebViewScrollRouting()
   private var launchScreen: LaunchScreenView?
 
@@ -61,6 +62,7 @@ class MainFlutterWindow: NSWindow {
       to: flutterViewController.engine.binaryMessenger
     )
     attachWindowChannel(to: flutterViewController.engine.binaryMessenger)
+    attachPasteboardChannel(to: flutterViewController.engine.binaryMessenger)
     observeWindowFrame(NSWindow.willStartLiveResizeNotification) { window in
       window.liveResize = true
       window.sendWindowFrame()
@@ -220,6 +222,23 @@ class MainFlutterWindow: NSWindow {
       }
     }
     windowChannel = channel
+  }
+
+  /// The pasteboard plugin reads every URL as a file path, so a copied web
+  /// link would name a local file. Paste reads copied files through this.
+  private func attachPasteboardChannel(to messenger: FlutterBinaryMessenger) {
+    let channel = FlutterMethodChannel(
+      name: "org.discourse.native/pasteboard",
+      binaryMessenger: messenger
+    )
+    channel.setMethodCallHandler { call, result in
+      guard call.method == "fileURLPaths" else {
+        result(FlutterMethodNotImplemented)
+        return
+      }
+      result(pasteboardFilePaths(NSPasteboard.general))
+    }
+    pasteboardChannel = channel
   }
 
   private func windowFrameArguments() -> [String: Double] {
