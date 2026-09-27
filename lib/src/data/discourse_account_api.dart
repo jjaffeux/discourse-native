@@ -280,6 +280,31 @@ final class DiscourseAccountApi {
     );
   }
 
+  /// The complete list, one core page at a time. Unlike the menu's route it
+  /// has no reminder envelope: a bookmark whose reminder is due is simply one
+  /// of the rows, where core's ordering puts it near the top.
+  Future<BookmarkListPage> bookmarkListPage({
+    required String siteUrl,
+    required String apiKey,
+    required String username,
+    int page = 0,
+    String? clientId,
+  }) async {
+    if (page < 0) {
+      throw RangeError.value(page, 'page', 'Must not be negative.');
+    }
+    final url = Uri.parse(
+      '$siteUrl/u/${Uri.encodeComponent(username)}/bookmarks.json',
+    ).replace(queryParameters: {'page': '$page'});
+    final body = await _getObject(
+      url,
+      siteUrl: siteUrl,
+      apiKey: apiKey,
+      clientId: clientId,
+    );
+    return BookmarkListPage.fromJson(body);
+  }
+
   Future<UserActivityPage> userActivity({
     required String siteUrl,
     required String apiKey,

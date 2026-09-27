@@ -295,6 +295,21 @@ class DiscourseApi
   );
 
   @override
+  Future<BookmarkListPage> bookmarkListPage({
+    required String siteUrl,
+    required String apiKey,
+    required String username,
+    int page = 0,
+    String? clientId,
+  }) async => _account.bookmarkListPage(
+    siteUrl: siteUrl,
+    apiKey: apiKey,
+    username: username,
+    page: page,
+    clientId: clientId,
+  );
+
+  @override
   Future<UserActivityPage> userActivity({
     required String siteUrl,
     required String apiKey,

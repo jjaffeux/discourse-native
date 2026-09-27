@@ -606,6 +606,131 @@ void main() {
     );
   });
 
+  group('bookmark list', () {
+    test('pages the list behind the web bookmarks page', () async {
+      Uri? url;
+      final api = _accountApi(
+        client: MockClient((request) async {
+          url = request.url;
+          return http.Response(
+            jsonEncode({
+              'user_bookmark_list': {
+                'more_bookmarks_url': '/u/joffreyj/bookmarks.json?page=3',
+                'bookmarks': [
+                  {
+                    'id': 8,
+                    'title': 'Thinking about the next project',
+                    'bookmarkable_type': 'Post',
+                    'linked_post_number': 3,
+                    'bookmarkable_url':
+                        'https://meta.discourse.org/t/next-project/91/3',
+                    'reminder_at': '2026-08-09T09:00:00.000Z',
+                    'user': {'id': 5, 'username': 'sam'},
+                  },
+                  {
+                    'id': 9,
+                    'title': 'Tea',
+                    'bookmarkable_type': 'Topic',
+                    'bookmarkable_url': 'https://meta.discourse.org/t/tea/92',
+                  },
+                ],
+                'categories': [
+                  {'id': 1, 'name': 'Support'},
+                ],
+              },
+            }),
+            200,
+            headers: {'content-type': 'application/json; charset=utf-8'},
+          );
+        }),
+      );
+
+      final page = await api.bookmarkListPage(
+        siteUrl: 'https://meta.discourse.org',
+        apiKey: 'the-key',
+        username: 'joffreyj',
+        page: 2,
+      );
+
+      // Not the menu's twenty-row route: core's paged list, zero-based.
+      expect(url?.path, '/u/joffreyj/bookmarks.json');
+      expect(url?.queryParameters, {'page': '2'});
+      expect(page.hasMore, isTrue);
+      expect(page.bookmarks.map((bookmark) => bookmark.id), [8, 9]);
+      expect(page.bookmarks.first.postNumber, 3);
+      expect(page.bookmarks.first.path, '/t/next-project/91/3');
+      expect(page.bookmarks.first.reminderAt, DateTime.utc(2026, 8, 9, 9));
+      expect(page.bookmarks.last.path, '/t/tea/92');
+    });
+
+    test('the last page carries no next-page link', () async {
+      final api = _accountApi(
+        client: MockClient(
+          (_) async => http.Response(
+            jsonEncode({
+              'user_bookmark_list': {
+                'bookmarks': [
+                  {'id': 3, 'title': 'Last one'},
+                ],
+              },
+            }),
+            200,
+          ),
+        ),
+      );
+
+      final page = await api.bookmarkListPage(
+        siteUrl: 'https://example.com',
+        apiKey: 'k',
+        username: 'joffreyj',
+      );
+
+      expect(page.bookmarks.single.title, 'Last one');
+      expect(page.hasMore, isFalse);
+    });
+
+    test('an empty list is answered without its root', () async {
+      Uri? url;
+      final api = _accountApi(
+        client: MockClient((request) async {
+          url = request.url;
+          return http.Response(jsonEncode({'bookmarks': <Object>[]}), 200);
+        }),
+      );
+
+      final page = await api.bookmarkListPage(
+        siteUrl: 'https://example.com',
+        apiKey: 'k',
+        username: 'joffreyj',
+      );
+
+      expect(url?.queryParameters, {'page': '0'});
+      expect(page.bookmarks, isEmpty);
+      expect(page.hasMore, isFalse);
+    });
+
+    test('a negative page is refused before sending', () async {
+      var requests = 0;
+      final api = _accountApi(
+        client: MockClient((_) async {
+          requests++;
+          return http.Response('{}', 200);
+        }),
+      );
+
+      await expectLater(
+        api.bookmarkListPage(
+          siteUrl: 'https://example.com',
+          apiKey: 'k',
+          username: 'joffreyj',
+          page: -1,
+        ),
+        throwsRangeError,
+      );
+      expect(requests, 0);
+    });
+  });
+
   group('markNotificationRead', () {
     test('names the one notification to mark', () async {
       String? method;

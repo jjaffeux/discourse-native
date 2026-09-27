@@ -236,3 +236,31 @@ typedef BookmarkPayload = ({
   List<DiscourseNotification> reminders,
   List<Bookmark> bookmarks,
 });
+
+/// One page of `/u/{username}/bookmarks.json`, the paged list behind the web
+/// client's bookmarks page.
+@immutable
+class BookmarkListPage {
+  const BookmarkListPage({this.bookmarks = const [], this.hasMore = false});
+
+  factory BookmarkListPage.fromJson(Map<String, dynamic> json) {
+    // A page with nothing on it is answered as a bare `{"bookmarks": []}`,
+    // without the `user_bookmark_list` root and without a next-page link.
+    final list = jsonObject(json['user_bookmark_list']);
+    return BookmarkListPage(
+      // The page size is the server's. Cutting a page short here would skip
+      // whatever lay past the cut: the next page starts after core's own
+      // page, not after what was kept.
+      bookmarks: List.unmodifiable([
+        for (final entry in jsonObjects(list['bookmarks']))
+          Bookmark.fromJson(entry),
+      ]),
+      // Core only writes `more_bookmarks_url` while rows remain past this
+      // page; its presence, not the row count, is what says so.
+      hasMore: jsonText(list['more_bookmarks_url']) != null,
+    );
+  }
+
+  final List<Bookmark> bookmarks;
+  final bool hasMore;
+}

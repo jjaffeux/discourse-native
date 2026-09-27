@@ -126,6 +126,8 @@ const _keys = [
   'reminder_at',
   'auto_delete_preference',
   'more_topics_url',
+  'user_bookmark_list',
+  'more_bookmarks_url',
   'archetype',
   'site_settings',
   'primary_group_name',
@@ -362,6 +364,15 @@ void main() {
         }, site);
       }, json);
       probe('Bookmark', () => Bookmark.fromJson(json), json);
+      probe('BookmarkListPage', () {
+        BookmarkListPage.fromJson(json);
+        BookmarkListPage.fromJson({
+          'user_bookmark_list': {
+            'bookmarks': [json, loose],
+            'more_bookmarks_url': loose,
+          },
+        });
+      }, json);
       probe('ComposerDraft', () => ComposerDraft.fromJson(json), json);
       probe('FoundGroup', () => FoundGroup.fromJson(json, site), json);
       probe('FoundHashtag', () => FoundHashtag.fromJson(json), json);

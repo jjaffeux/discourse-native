@@ -1218,7 +1218,7 @@ void main() {
       _expectPage();
     }
     expect(find.byType(BookmarkSection), findsOneWidget);
-    expect(shell.bookmarksFor(_site).loaded, isTrue);
+    expect(shell.accountActivity.bookmarkListFor(_site).loaded, isTrue);
     expect(tester.takeException(), isNull);
   });
 
