@@ -7963,13 +7963,25 @@ class ShellController extends FrameSafeNotifier
 
     void rollback() {
       lease.commit(() {
+        // Undo only this write's own guess, and only where it still stands.
+        // Reading, status writes and re-reads move the same records while the
+        // request is out; the tap-time copies would rewind them.
         store.update<TopicDetail>(
           siteUrl,
           topicId,
-          (topic) =>
-              topic.copyWith(pinned: held.pinned, unpinned: held.unpinned),
+          (topic) => topic.pinned == pinned && topic.unpinned == !pinned
+              ? topic.copyWith(pinned: held.pinned, unpinned: held.unpinned)
+              : topic,
         );
-        if (heldRow != null) store.put(siteUrl, heldRow);
+        if (heldRow != null) {
+          store.update<Topic>(
+            siteUrl,
+            topicId,
+            (topic) => topic.pinned == pinned
+                ? topic.copyWith(pinned: heldRow.pinned)
+                : topic,
+          );
+        }
         _notify();
       });
     }
