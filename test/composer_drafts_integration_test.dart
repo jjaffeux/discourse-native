@@ -109,7 +109,7 @@ void _registerTopicReplyTests() {
           .byKey(const ValueKey('mobile-bottom-bar'))
           .evaluate()
           .isNotEmpty) {
-        await tester.tap(sidebarDestination('Topics'));
+        await tester.tap(find.byKey(const ValueKey('mobile-mode-topics')));
         await tester.pumpAndSettle();
       }
       await tester.tap(contentText('A real topic'));
@@ -403,10 +403,7 @@ void _registerTopicReplyTests() {
         find.descendant(of: replyOptions, matching: find.text('Whisper')),
         findsOneWidget,
       );
-      expect(
-        find.descendant(of: sendButton(), matching: find.text('Whisper')),
-        findsOneWidget,
-      );
+      expect(tester.widget<DButton>(sendButton()).tooltip, 'Whisper');
       expect(shell.visibleComposer?.whisper, isTrue);
       final frame = tester.widget<Container>(
         find.byKey(const ValueKey('composer-frame')),
@@ -770,8 +767,8 @@ void _registerTopicReplyTests() {
       await tester.pumpAndSettle();
 
       expect(find.textContaining('may have posted'), findsOneWidget);
-      final button = find.widgetWithText(DButton, 'Check again');
-      expect(button, findsOneWidget);
+      final button = sendButton();
+      expect(tester.widget<DButton>(button).tooltip, 'Check again');
       expect(find.text('Unknown fate.'), findsOneWidget);
 
       await tester.tap(button);

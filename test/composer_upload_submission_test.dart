@@ -125,6 +125,8 @@ void main() {
       await tester.tap(uploadButton);
       await tester.tap(retryButton);
       await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(find.byKey(const ValueKey('composer-upload-files')), findsNothing);
       expect(pickerCalls, 0);
       expect(api.uploads, hasLength(1));
 
@@ -139,6 +141,9 @@ void main() {
       await _showFirstUpload(tester);
       await tester.tap(retryButton);
       await tester.tap(uploadButton);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.tap(find.byKey(const ValueKey('composer-upload-files')));
       await tester.pump();
       expect(pickerCalls, 1);
       expect(api.uploads, hasLength(3));
@@ -172,6 +177,8 @@ void main() {
       return picker.future;
     });
     await tester.tap(find.byKey(const ValueKey('composer-upload')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('composer-upload-files')));
     await tester.pump();
     expect(pickerCalls, 1);
 

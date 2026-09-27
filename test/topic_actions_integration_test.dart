@@ -9,6 +9,7 @@ import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/models/user_card.dart';
 import 'package:discourse_native/src/plugins/reactions/reactions_settings.dart';
 import 'package:discourse_native/src/shell/composer_panel.dart';
+import 'package:discourse_native/src/shell/content_navigation_controls.dart';
 import 'package:discourse_native/src/shell/hashtag.dart';
 import 'package:discourse_native/src/shell/main_content.dart';
 import 'package:discourse_native/src/shell/post_footer.dart';
@@ -74,7 +75,7 @@ void _registerTopicLinkTests() {
           .byKey(const ValueKey('mobile-bottom-bar'))
           .evaluate()
           .isNotEmpty) {
-        await tester.tap(sidebarDestination('Topics'));
+        await tester.tap(find.byKey(const ValueKey('mobile-mode-topics')));
         await tester.pumpAndSettle();
       }
       await tester.tap(find.text('A real topic'));
@@ -128,13 +129,7 @@ void _registerTopicLinkTests() {
       expect(renderedText('Other topic body'), findsOneWidget);
       expect(launched, isEmpty);
 
-      await tester.tap(
-        find.byKey(
-          ValueKey(
-            'forum-tab-close-${ShellScope.read(tester.element(find.byType(MainContent))).activeTab!.id}',
-          ),
-        ),
-      );
+      await tester.tap(find.byKey(ContentNavigationControls.backKey));
       await tester.pumpAndSettle();
       expect(find.byType(TopicListView), findsOneWidget);
       expect(find.text('Discourse Team'), findsOneWidget);
@@ -302,13 +297,7 @@ void _registerTopicLinkTests() {
       final before = api.feedPaths.length;
       await tester.tap(find.text('A bug report'));
       await tester.pumpAndSettle();
-      await tester.tap(
-        find.byKey(
-          ValueKey(
-            'forum-tab-close-${ShellScope.read(tester.element(find.byType(MainContent))).activeTab!.id}',
-          ),
-        ),
-      );
+      await tester.tap(find.byKey(ContentNavigationControls.backKey));
       await tester.pumpAndSettle();
 
       expect(api.feedPaths.length, before);
@@ -461,7 +450,7 @@ void _registerTopicModerationTests() {
           .byKey(const ValueKey('mobile-bottom-bar'))
           .evaluate()
           .isNotEmpty) {
-        await tester.tap(sidebarDestination('Topics'));
+        await tester.tap(find.byKey(const ValueKey('mobile-mode-topics')));
         await tester.pumpAndSettle();
       }
       await tester.tap(find.text('A real topic'));
@@ -556,7 +545,7 @@ void _registerTopicModerationTests() {
         },
       );
 
-      await tester.tap(find.byTooltip('Edit this post'));
+      await tapPostAction(tester, 'Edit this post');
       await tester.pumpAndSettle();
 
       expect(find.text('Edit post #1'), findsOneWidget);
@@ -570,7 +559,9 @@ void _registerTopicModerationTests() {
         'First **post** body!',
       );
       await tester.pumpAndSettle();
-      await tester.tap(find.widgetWithText(FilledButton, 'Save'));
+      final save = find.byKey(const ValueKey('composer-submit'));
+      expect(tester.widget<DButton>(save).tooltip, 'Save');
+      await tester.tap(save);
       await tester.pumpAndSettle();
 
       expect(api.updated, hasLength(1));
@@ -601,9 +592,10 @@ void _registerTopicModerationTests() {
 
       // Not a rule of ours — the site refuses an unchanged edit — but there is
       // no reason to spend a request finding that out.
-      final button = tester.widget<FilledButton>(
-        find.widgetWithText(FilledButton, 'Save'),
+      final button = tester.widget<DButton>(
+        find.byKey(const ValueKey('composer-submit')),
       );
+      expect(button.tooltip, 'Save');
       expect(button.onPressed, isNull);
     }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
@@ -664,9 +656,10 @@ void _registerTopicModerationTests() {
       await tapPostAction(tester, 'Edit this post');
       await tester.pumpAndSettle();
 
-      final button = tester.widget<FilledButton>(
-        find.widgetWithText(FilledButton, 'Save'),
+      final button = tester.widget<DButton>(
+        find.byKey(const ValueKey('composer-submit')),
       );
+      expect(button.tooltip, 'Save');
       expect(button.onPressed, isNull);
     }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
@@ -806,7 +799,7 @@ void _registerTopicModerationTests() {
           .byKey(const ValueKey('mobile-bottom-bar'))
           .evaluate()
           .isNotEmpty) {
-        await tester.tap(sidebarDestination('Topics'));
+        await tester.tap(find.byKey(const ValueKey('mobile-mode-topics')));
         await tester.pumpAndSettle();
       }
       await tester.tap(find.text('A real topic'));
@@ -889,7 +882,7 @@ void _registerTopicModerationTests() {
           .byKey(const ValueKey('mobile-bottom-bar'))
           .evaluate()
           .isNotEmpty) {
-        await tester.tap(sidebarDestination('Topics'));
+        await tester.tap(find.byKey(const ValueKey('mobile-mode-topics')));
         await tester.pumpAndSettle();
       }
       await tester.tap(find.text('A real topic'));
@@ -958,7 +951,7 @@ void _registerTopicModerationTests() {
           .byKey(const ValueKey('mobile-bottom-bar'))
           .evaluate()
           .isNotEmpty) {
-        await tester.tap(sidebarDestination('Topics'));
+        await tester.tap(find.byKey(const ValueKey('mobile-mode-topics')));
         await tester.pumpAndSettle();
       }
       await tester.tap(find.text('A real topic'));
@@ -1054,7 +1047,7 @@ void _registerTopicModerationTests() {
           .byKey(const ValueKey('mobile-bottom-bar'))
           .evaluate()
           .isNotEmpty) {
-        await tester.tap(sidebarDestination('Topics'));
+        await tester.tap(find.byKey(const ValueKey('mobile-mode-topics')));
         await tester.pumpAndSettle();
       }
       await tester.tap(find.text('A real topic'));
@@ -1158,7 +1151,7 @@ void _registerTopicModerationTests() {
           .byKey(const ValueKey('mobile-bottom-bar'))
           .evaluate()
           .isNotEmpty) {
-        await tester.tap(sidebarDestination('Topics'));
+        await tester.tap(find.byKey(const ValueKey('mobile-mode-topics')));
         await tester.pumpAndSettle();
       }
       await tester.tap(find.text('A real topic'));
@@ -1239,7 +1232,7 @@ void _registerTopicModerationTests() {
           .byKey(const ValueKey('mobile-bottom-bar'))
           .evaluate()
           .isNotEmpty) {
-        await tester.tap(sidebarDestination('Topics'));
+        await tester.tap(find.byKey(const ValueKey('mobile-mode-topics')));
         await tester.pumpAndSettle();
       }
       await tester.tap(find.text('A real topic'));
@@ -1305,7 +1298,7 @@ void _registerTopicModerationTests() {
           .byKey(const ValueKey('mobile-bottom-bar'))
           .evaluate()
           .isNotEmpty) {
-        await tester.tap(sidebarDestination('Topics'));
+        await tester.tap(find.byKey(const ValueKey('mobile-mode-topics')));
         await tester.pumpAndSettle();
       }
       await tester.tap(find.text('A real topic'));
@@ -1368,7 +1361,7 @@ void _registerTopicModerationTests() {
           .byKey(const ValueKey('mobile-bottom-bar'))
           .evaluate()
           .isNotEmpty) {
-        await tester.tap(sidebarDestination('Topics'));
+        await tester.tap(find.byKey(const ValueKey('mobile-mode-topics')));
         await tester.pumpAndSettle();
       }
       await tester.tap(find.text('A real topic'));
@@ -1453,7 +1446,7 @@ void _registerTopicModerationTests() {
           .byKey(const ValueKey('mobile-bottom-bar'))
           .evaluate()
           .isNotEmpty) {
-        await tester.tap(sidebarDestination('Topics'));
+        await tester.tap(find.byKey(const ValueKey('mobile-mode-topics')));
         await tester.pumpAndSettle();
       }
       await tester.tap(find.text('A real topic'));
@@ -1591,7 +1584,7 @@ void _registerTopicModerationTests() {
           .byKey(const ValueKey('mobile-bottom-bar'))
           .evaluate()
           .isNotEmpty) {
-        await tester.tap(sidebarDestination('Topics'));
+        await tester.tap(find.byKey(const ValueKey('mobile-mode-topics')));
         await tester.pumpAndSettle();
       }
       await tester.tap(find.text('A real topic'));
@@ -1601,6 +1594,10 @@ void _registerTopicModerationTests() {
       await tester.tap(find.byKey(const ValueKey('topic-select-posts')));
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('topic-post-select-1')));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(
+        find.byKey(const ValueKey('topic-selected-posts-move')),
+      );
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('topic-selected-posts-move')));
       await tester.pumpAndSettle();
@@ -1701,7 +1698,7 @@ void _registerTopicModerationTests() {
           .byKey(const ValueKey('mobile-bottom-bar'))
           .evaluate()
           .isNotEmpty) {
-        await tester.tap(sidebarDestination('Topics'));
+        await tester.tap(find.byKey(const ValueKey('mobile-mode-topics')));
         await tester.pumpAndSettle();
       }
       await tester.tap(find.text('A real topic'));
@@ -2008,7 +2005,7 @@ void _registerTopicModerationTests() {
           .byKey(const ValueKey('mobile-bottom-bar'))
           .evaluate()
           .isNotEmpty) {
-        await tester.tap(sidebarDestination('Topics'));
+        await tester.tap(find.byKey(const ValueKey('mobile-mode-topics')));
         await tester.pumpAndSettle();
       }
       await tester.tap(find.text('A real topic'));
