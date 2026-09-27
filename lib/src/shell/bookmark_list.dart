@@ -10,12 +10,12 @@ import '../plugin_api/shell_extensions.dart';
 import '../theme/d_icons.dart';
 import '../utils/pagination.dart';
 import 'account_activity_loader.dart';
+import 'directory_skeleton.dart';
 import 'external_link.dart';
 import 'notification_list.dart';
 import 'open_link.dart';
 import 'shell_controller.dart';
 import 'shell_scope.dart';
-import 'skeleton_fill.dart';
 import 'user_menu_message.dart';
 
 /// The user menu's bookmarks tab, or with [page] the whole bookmarks page.
@@ -309,17 +309,21 @@ class _BookmarkSectionViewState extends State<_BookmarkSectionView> {
     Widget? state;
     if (visibleEntries.isEmpty) {
       if (feed.error case final error?) {
-        state = UserMenuMessage(text: error, onRetry: _retry);
+        state = SliverToBoxAdapter(
+          child: UserMenuMessage(text: error, onRetry: _retry),
+        );
       } else if (!feed.loaded || feed.hasMore) {
-        state = const UserMenuLoading(
-          semanticsLabel: 'Loading bookmarks',
-          surface: SkeletonSurface.page,
+        state = const SliverDirectorySkeleton(
+          key: ValueKey('bookmarks-loading'),
+          kind: DirectorySkeletonKind.bookmarks,
         );
       } else {
-        state = UserMenuMessage(
-          text: feed.isEmpty
-              ? 'Nothing bookmarked yet.'
-              : 'No bookmarks in this filter.',
+        state = SliverToBoxAdapter(
+          child: UserMenuMessage(
+            text: feed.isEmpty
+                ? 'Nothing bookmarked yet.'
+                : 'No bookmarks in this filter.',
+          ),
         );
       }
     }
@@ -331,7 +335,7 @@ class _BookmarkSectionViewState extends State<_BookmarkSectionView> {
         slivers: [
           SliverToBoxAdapter(child: _heading(context, filters)),
           if (state != null)
-            SliverToBoxAdapter(child: state)
+            state
           else ...[
             SliverList.separated(
               itemCount: visibleEntries.length,
