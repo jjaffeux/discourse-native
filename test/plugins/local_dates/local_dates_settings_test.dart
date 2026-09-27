@@ -33,6 +33,41 @@ void main() {
     expect(config.localDateTimezones, ['Etc/UTC', 'Asia/Tokyo']);
   });
 
+  test('cleared Local Dates list settings follow the web client fallbacks', () {
+    final cleared = SiteConfig.fromSettings(const {
+      'discourse_local_dates_default_formats': '',
+      'discourse_local_dates_default_timezones': '',
+    }, extensions: _registry);
+    final absent = SiteConfig.fromSettings(const {}, extensions: _registry);
+
+    expect(cleared.localDateTimezones, ['Etc/UTC']);
+    expect(cleared.localDateFormats, isEmpty);
+    expect(absent.localDateTimezones, LocalDatesSettings.defaultTimezones);
+    expect(absent.localDateFormats, LocalDatesSettings.defaultFormats);
+  });
+
+  test('cleared Local Dates list settings survive persistence', () {
+    final config = SiteConfig.fromSettings(const {
+      'discourse_local_dates_default_formats': '',
+      'discourse_local_dates_default_timezones': '',
+    }, extensions: _registry);
+
+    final stored = config.toJson(extensions: _registry);
+    expect(stored['plugins'], {
+      localDatesSettingsDataKey.id: {
+        'enabled': false,
+        'emailFormat': 'llll z',
+        'emailTimezone': 'Etc/UTC',
+        'formats': <String>[],
+        'timezones': ['Etc/UTC'],
+      },
+    });
+    final restored = SiteConfig.fromJson(stored, extensions: _registry);
+    expect(restored, config);
+    expect(restored.localDateFormats, isEmpty);
+    expect(restored.localDateTimezones, ['Etc/UTC']);
+  });
+
   test('Local Dates settings round-trip without flat feature keys', () {
     final config = SiteConfig.fromJson({
       'plugins': {

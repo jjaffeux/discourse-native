@@ -22,6 +22,10 @@ final class LocalDatesSettings {
     'America/Los_Angeles',
   ];
 
+  // The web client previews UTC when the site's timezone list is blank; the
+  // plugin's own defaults only apply while the setting has not been sent.
+  static const List<String> _clearedTimezones = ['Etc/UTC'];
+
   factory LocalDatesSettings.fromSiteSettings(Map<String, dynamic> json) =>
       LocalDatesSettings(
         enabled: json['discourse_local_dates_enabled'] == true,
@@ -29,13 +33,14 @@ final class LocalDatesSettings {
             jsonText(json['discourse_local_dates_email_format']) ?? 'llll z',
         emailTimezone:
             jsonText(json['discourse_local_dates_email_timezone']) ?? 'Etc/UTC',
-        formats: _pipeListOr(
+        formats: _listSetting(
           json['discourse_local_dates_default_formats'],
-          defaultFormats,
+          absent: defaultFormats,
         ),
-        timezones: _pipeListOr(
+        timezones: _listSetting(
           json['discourse_local_dates_default_timezones'],
-          defaultTimezones,
+          absent: defaultTimezones,
+          cleared: _clearedTimezones,
         ),
       );
 
@@ -46,8 +51,12 @@ final class LocalDatesSettings {
       enabled: json['enabled'] == true,
       emailFormat: jsonText(json['emailFormat']) ?? 'llll z',
       emailTimezone: jsonText(json['emailTimezone']) ?? 'Etc/UTC',
-      formats: _pipeListOr(json['formats'], defaultFormats),
-      timezones: _pipeListOr(json['timezones'], defaultTimezones),
+      formats: _listSetting(json['formats'], absent: defaultFormats),
+      timezones: _listSetting(
+        json['timezones'],
+        absent: defaultTimezones,
+        cleared: _clearedTimezones,
+      ),
     );
   }
 
@@ -107,13 +116,14 @@ final class LocalDatesSettingsPersistenceCodec
     }
     return LocalDatesSettings(
       enabled: json['localDatesEnabled'] == true,
-      formats: _pipeListOr(
+      formats: _listSetting(
         json['localDateFormats'],
-        LocalDatesSettings.defaultFormats,
+        absent: LocalDatesSettings.defaultFormats,
       ),
-      timezones: _pipeListOr(
+      timezones: _listSetting(
         json['localDateTimezones'],
-        LocalDatesSettings.defaultTimezones,
+        absent: LocalDatesSettings.defaultTimezones,
+        cleared: LocalDatesSettings._clearedTimezones,
       ),
     );
   }
@@ -136,14 +146,22 @@ extension SiteConfigLocalDatesSettings on SiteConfig {
   List<String> get localDateTimezones => localDatesSettings.timezones;
 }
 
-List<String> _pipeListOr(Object? raw, List<String> fallback) {
+/// A list setting the site sent is the site's answer even when an admin
+/// cleared it: [absent] only stands in for a value that is missing or not a
+/// list, and a sent list with no entries means [cleared].
+List<String> _listSetting(
+  Object? raw, {
+  required List<String> absent,
+  List<String> cleared = const [],
+}) {
   final values = switch (raw) {
     final String value => value.split('|'),
     final List<dynamic> value => value.map(jsonText).whereType<String>(),
-    _ => const <String>[],
+    _ => null,
   };
+  if (values == null) return List.unmodifiable(absent);
   final normalized = List<String>.unmodifiable(
     values.map((value) => value.trim()).where((value) => value.isNotEmpty),
   );
-  return normalized.isEmpty ? List.unmodifiable(fallback) : normalized;
+  return normalized.isEmpty ? List.unmodifiable(cleared) : normalized;
 }
