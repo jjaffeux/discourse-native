@@ -402,7 +402,13 @@ final class DiscourseSearchApi {
       _validateComposerLookupValue(name);
     }
     if (topicId != null) _requirePositiveId(topicId, 'topicId');
-    final requested = asked.toSet();
+    // Core lowercases every name before looking it up and answers with those
+    // lowercase keys, so `@Sam` comes back as `sam`. The caller keys on what
+    // was written, so the answer names every spelling that was asked.
+    final requested = <String, Set<String>>{};
+    for (final name in asked) {
+      (requested[name.toLowerCase()] ??= {}).add(name);
+    }
 
     final response = await _get(
       Uri.parse('$siteUrl/composer/mentions').replace(
@@ -421,9 +427,9 @@ final class DiscourseSearchApi {
       if (body is! Map<String, dynamic>) return const {};
       return {
         for (final name in jsonArray(body['users']))
-          if (name is String && requested.contains(name)) name,
+          if (name is String) ...?requested[name.toLowerCase()],
         for (final name in jsonObject(body['groups']).keys)
-          if (requested.contains(name)) name,
+          ...?requested[name.toLowerCase()],
       };
     } catch (error, stackTrace) {
       throw SiteLookupException(

@@ -2374,7 +2374,12 @@ class FakeDiscourseApi
   }) async {
     final asked = names.toSet();
     mentionChecksRequested.add(asked);
-    return asked.intersection(realUsernames);
+    // As the real client answers: in the spellings asked, whatever their case.
+    final real = {for (final name in realUsernames) name.toLowerCase()};
+    return {
+      for (final name in asked)
+        if (real.contains(name.toLowerCase())) name,
+    };
   }
 
   @override
