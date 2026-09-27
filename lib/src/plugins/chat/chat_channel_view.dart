@@ -807,6 +807,7 @@ class _StreamState extends State<ChatMessageStream>
       _seen = null;
       _anchored = null;
       _filled = null;
+      _olderFilled = null;
       _anchoring = false;
       _awayFromPresent = false;
       _unseenLiveMessages = 0;
@@ -1826,6 +1827,16 @@ class _StreamState extends State<ChatMessageStream>
     ChatStreamState stream,
   ) {
     if (identical(_olderPageScheduledFor, stream)) return;
+    // Ask once per window state: a failed page republishes the stream and
+    // rebuilds this row, so the stream's identity cannot bound retries. A
+    // scroll toward the oldest edge still retries.
+    final asked = (
+      siteUrl: siteUrl,
+      target: widget.target,
+      fetches: stream.fetches,
+      oldestId: stream.oldestId,
+    );
+    if (_olderFilled == asked) return;
     _olderPageScheduledFor = stream;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (identical(_olderPageScheduledFor, stream)) {
@@ -1838,11 +1849,15 @@ class _StreamState extends State<ChatMessageStream>
           !identical(chat.streamFor(siteUrl, widget.target), stream)) {
         return;
       }
+      _olderFilled = asked;
       unawaited(chat.loadOlderFor(siteUrl, widget.target));
     });
   }
 
   ChatStreamState? _olderPageScheduledFor;
+
+  ({String siteUrl, ChatStreamTarget target, int fetches, int? oldestId})?
+  _olderFilled;
 
   Future<void> _jumpToPresent(
     ChatController chat,
