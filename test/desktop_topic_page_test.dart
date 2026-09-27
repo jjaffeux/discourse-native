@@ -140,6 +140,13 @@ void main() {
     );
     expect(controls.left, title.left);
     expect(controls.top, greaterThan(title.bottom));
+    final heading = tester.getRect(
+      find.byKey(const ValueKey('topic-list-primary-row')),
+    );
+    final spaceAboveTitle = title.top - heading.top;
+    final spaceBelowTitle = controls.top - title.bottom;
+    expect(spaceAboveTitle, greaterThanOrEqualTo(16));
+    expect(spaceAboveTitle, greaterThan(spaceBelowTitle));
     expect(separator.top, greaterThan(controls.bottom));
     expect(separator.left, controls.left);
     expect(separator.right, controls.right);

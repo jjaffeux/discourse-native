@@ -256,7 +256,12 @@ class _TopicListNavigationControls extends StatelessWidget {
             ),
           ContentReadingLaneBox(
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+              padding: EdgeInsets.fromLTRB(
+                16,
+                context.isTouch && headingBuilder != null ? 0 : 8,
+                16,
+                16,
+              ),
               child: Row(
                 key: const ValueKey('topic-list-feed-row'),
                 crossAxisAlignment: CrossAxisAlignment.start,
