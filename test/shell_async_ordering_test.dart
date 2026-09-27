@@ -83,6 +83,53 @@ final class _PostOrderingApi extends FakeDiscourseApi {
   final List<_PendingPostRequest> postRequests = [];
   Completer<void> _postRequestsChanged = Completer<void>();
 
+  /// While set, each stream read waits for its entry in [topicRequests].
+  bool holdTopics = false;
+  final List<Completer<TopicPayload>> topicRequests = [];
+  Completer<void> _topicRequestsChanged = Completer<void>();
+
+  @override
+  Future<TopicPayload> topic({
+    required String siteUrl,
+    required String slug,
+    required int id,
+    int? postNumber,
+    bool summary = false,
+    String? apiKey,
+    String? clientId,
+    Future<void>? abortTrigger,
+  }) {
+    if (!holdTopics) {
+      return super.topic(
+        siteUrl: siteUrl,
+        slug: slug,
+        id: id,
+        postNumber: postNumber,
+        summary: summary,
+        apiKey: apiKey,
+        clientId: clientId,
+        abortTrigger: abortTrigger,
+      );
+    }
+    final response = Completer<TopicPayload>();
+    topicRequests.add(response);
+    _topicRequestsChanged.complete();
+    _topicRequestsChanged = Completer<void>();
+    return response.future;
+  }
+
+  Future<void> waitForTopicRequests(int count) async {
+    while (topicRequests.length < count) {
+      await _topicRequestsChanged.future.timeout(
+        const Duration(seconds: 5),
+        onTimeout: () => throw TestFailure(
+          'Expected $count topic requests, '
+          'but received ${topicRequests.length}.',
+        ),
+      );
+    }
+  }
+
   @override
   Future<List<Post>> posts({
     required String siteUrl,
@@ -165,6 +212,13 @@ Post _post(
 );
 
 const _reply = Post(id: 2, postNumber: 2, username: 'replier', cooked: 'reply');
+
+const _laterReply = Post(
+  id: 3,
+  postNumber: 3,
+  username: 'replier',
+  cooked: 'later',
+);
 
 const _closedAction = Post(
   id: 2,
@@ -1064,6 +1118,138 @@ void main() {
       expect(api.postRequests, isEmpty);
       expect(shell.currentTopic?.stream, [1, 2]);
       expect(shell.store.read<Post>(_siteUrl, 2), _reply);
+    });
+
+    Future<
+      ({ShellController shell, _PostOrderingApi api, FakeSiteTracker tracker})
+    >
+    openWithHeldStreamRead(Post reply, {bool forced = false}) async {
+      final api = _PostOrderingApi();
+      // Core's own handling only: the Topic Calendar also reads the stream
+      // again after a deletion, and that later read is not the race.
+      final plugins = PluginInstaller.install(const PluginManifest([]));
+      addTearDown(plugins.close);
+      final shell = await _loadShell(api, plugins: plugins);
+      addTearDown(shell.dispose);
+      api.topics[7] = topicPayload(
+        id: 7,
+        title: 'A topic',
+        posts: [_post('initial'), reply],
+      );
+      final tracker = await _openTopic(shell);
+      expect(shell.currentTopic?.stream, [1, 2]);
+
+      api.holdTopics = true;
+      if (forced) {
+        unawaited(shell.loadTopic(7, 'a-topic', force: true));
+      } else {
+        tracker.deliverTopicMessage('/topic/7', const {
+          'type': 'created',
+          'id': 3,
+        });
+      }
+      await api.waitForTopicRequests(1);
+      return (shell: shell, api: api, tracker: tracker);
+    }
+
+    // What a stream read that left before the deletion answers with.
+    TopicPayload beforeDeletion(Post reply) => topicPayload(
+      id: 7,
+      title: 'A topic',
+      posts: [_post('refetched'), reply, _laterReply],
+    );
+
+    Future<void> deliverDeletion(
+      _PostOrderingApi api,
+      FakeSiteTracker tracker,
+    ) async {
+      tracker.deliverTopicMessage('/topic/7', const {
+        'type': 'deleted',
+        'id': 2,
+      });
+      await api.waitForPostRequests(1);
+      api.postRequests.single.response.complete(const []);
+      await pumpEventQueue();
+    }
+
+    for (final forced in const [false, true]) {
+      final read = forced ? 'a forced reload' : 'a live refetch';
+      test('$read from before a deletion does not restore the post', () async {
+        final (:shell, :api, :tracker) = await openWithHeldStreamRead(
+          _reply,
+          forced: forced,
+        );
+        await deliverDeletion(api, tracker);
+        expect(shell.store.read<Post>(_siteUrl, 2), isNull);
+        expect(shell.currentTopic?.stream, [1]);
+
+        api.topicRequests.single.complete(beforeDeletion(_reply));
+        await pumpEventQueue();
+
+        expect(shell.store.read<Post>(_siteUrl, 2), isNull);
+        expect(shell.currentTopic?.stream, [1, 3]);
+        expect(shell.currentTopic?.postsCount, 2);
+        // The rest of that answer still stands.
+        expect(shell.store.read<Post>(_siteUrl, 1)?.cooked, 'refetched');
+        expect(shell.store.read<Post>(_siteUrl, 3), _laterReply);
+      });
+    }
+
+    test(
+      'a stream read from before the reader deleted a post does not restore it',
+      () async {
+        const reply = Post(
+          id: 2,
+          postNumber: 2,
+          username: 'author',
+          cooked: 'reply',
+          canDelete: true,
+        );
+        final (:shell, :api, tracker: _) = await openWithHeldStreamRead(reply);
+
+        final deleting = shell.deletePost(reply);
+        await api.waitForPostRequests(1);
+        api.postRequests.single.response.complete(const []);
+        expect(await deleting, isNull);
+        expect(shell.store.read<Post>(_siteUrl, 2), isNull);
+        expect(shell.currentTopic?.stream, [1]);
+
+        api.topicRequests.single.complete(beforeDeletion(reply));
+        await pumpEventQueue();
+
+        expect(shell.store.read<Post>(_siteUrl, 2), isNull);
+        expect(shell.currentTopic?.stream, [1, 3]);
+      },
+    );
+
+    test('a read after the deletion restores a recovered post', () async {
+      final (:shell, :api, :tracker) = await openWithHeldStreamRead(_reply);
+      await deliverDeletion(api, tracker);
+
+      // The recovery's own stream read waits behind the one already out.
+      tracker.deliverTopicMessage('/topic/7', const {
+        'type': 'recovered',
+        'id': 2,
+      });
+      await pumpEventQueue();
+      expect(api.topicRequests, hasLength(1));
+
+      api.topicRequests[0].complete(beforeDeletion(_reply));
+      await api.waitForTopicRequests(2);
+      expect(shell.currentTopic?.stream, [1, 3]);
+
+      api.topicRequests[1].complete(
+        topicPayload(
+          id: 7,
+          title: 'A topic',
+          posts: [_post('initial'), _reply, _laterReply],
+        ),
+      );
+      await pumpEventQueue();
+
+      expect(shell.store.read<Post>(_siteUrl, 2), _reply);
+      expect(shell.currentTopic?.stream, [1, 2, 3]);
+      expect(shell.currentTopic?.postsCount, 3);
     });
   });
 
