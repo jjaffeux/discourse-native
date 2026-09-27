@@ -71,6 +71,28 @@ void main() {
     },
   );
 
+  test('an amendment of a restored value keeps redo and adds no step', () {
+    history.transact(() => edit('One!\n\nTwo'));
+    history.transact(() => edit('One!\n\nTwo!'));
+    history.undo();
+    history.amend(() => edit('One!!\n\nTwo'));
+    expect(history.canRedo, isTrue);
+    history.undo();
+    expect(text.text, 'One\n\nTwo');
+    history.redo();
+    history.redo();
+    expect(text.text, 'One!\n\nTwo!');
+  });
+
+  test('an amendment during typing ends the typed edit', () {
+    edit('One\n\nTwo!');
+    history.amend(() => edit('One\n\nTwo!!'));
+    history.undo();
+    expect(text.text, 'One\n\nTwo');
+    history.redo();
+    expect(text.text, 'One\n\nTwo!!');
+  });
+
   test('new typing after undo discards redo', () {
     history.transact(() => edit('Changed'));
     history.undo();
