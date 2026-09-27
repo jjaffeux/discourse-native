@@ -1091,8 +1091,6 @@ class FakeDiscourseApi
   final Map<String, SearchResults> searchResults;
   final List<({String siteUrl, String term, String? typeFilter, int? topicId})>
   searchesRequested = [];
-  final List<({int searchLogId, Object resultId, SearchResultKind resultKind})>
-  searchClicks = [];
 
   final List<String> siteConfigsRequested = [];
 
@@ -2310,29 +2308,6 @@ class FakeDiscourseApi
     required String apiKey,
     String? clientId,
   }) async => const [];
-
-  @override
-  Future<void> resetRecentSearches({
-    required String siteUrl,
-    required String apiKey,
-    String? clientId,
-  }) async {}
-
-  @override
-  Future<void> logSearchClick({
-    required String siteUrl,
-    required String apiKey,
-    required int searchLogId,
-    required Object resultId,
-    required SearchResultKind resultKind,
-    String? clientId,
-  }) async {
-    searchClicks.add((
-      searchLogId: searchLogId,
-      resultId: resultId,
-      resultKind: resultKind,
-    ));
-  }
 
   @override
   Future<SiteAppearance?> siteAppearance({

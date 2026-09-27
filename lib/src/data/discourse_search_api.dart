@@ -104,44 +104,6 @@ final class DiscourseSearchApi {
     );
   }
 
-  Future<void> resetRecentSearches({
-    required String siteUrl,
-    required String apiKey,
-    String? clientId,
-  }) async {
-    await _write(
-      Uri.parse('$siteUrl/u/recent-searches.json'),
-      siteUrl: siteUrl,
-      method: 'DELETE',
-      apiKey: apiKey,
-      clientId: clientId,
-      body: const {},
-    );
-  }
-
-  Future<void> logSearchClick({
-    required String siteUrl,
-    required String apiKey,
-    required int searchLogId,
-    required Object resultId,
-    required SearchResultKind resultKind,
-    String? clientId,
-  }) async {
-    _requirePositiveId(searchLogId, 'searchLogId');
-    await _write(
-      Uri.parse('$siteUrl/search/click.json'),
-      siteUrl: siteUrl,
-      method: 'POST',
-      apiKey: apiKey,
-      clientId: clientId,
-      body: {
-        'search_log_id': searchLogId,
-        'search_result_id': resultId,
-        'search_result_type': resultKind.name,
-      },
-    );
-  }
-
   Future<List<FoundUser>> searchUsers({
     required String siteUrl,
     required String term,
@@ -440,22 +402,6 @@ final class DiscourseSearchApi {
       );
     }
   }
-
-  Future<Map<String, dynamic>> _write(
-    Uri url, {
-    required String siteUrl,
-    required String method,
-    required String apiKey,
-    required Map<String, Object?> body,
-    String? clientId,
-  }) => _transport.write(
-    url,
-    siteUrl: siteUrl,
-    method: method,
-    apiKey: apiKey,
-    body: body,
-    clientId: clientId,
-  );
 
   Future<http.Response> _get(
     Uri url, {

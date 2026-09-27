@@ -502,34 +502,6 @@ class DiscourseApi
   );
 
   @override
-  Future<void> resetRecentSearches({
-    required String siteUrl,
-    required String apiKey,
-    String? clientId,
-  }) async => _search.resetRecentSearches(
-    siteUrl: siteUrl,
-    apiKey: apiKey,
-    clientId: clientId,
-  );
-
-  @override
-  Future<void> logSearchClick({
-    required String siteUrl,
-    required String apiKey,
-    required int searchLogId,
-    required Object resultId,
-    required SearchResultKind resultKind,
-    String? clientId,
-  }) async => _search.logSearchClick(
-    siteUrl: siteUrl,
-    apiKey: apiKey,
-    searchLogId: searchLogId,
-    resultId: resultId,
-    resultKind: resultKind,
-    clientId: clientId,
-  );
-
-  @override
   Future<TopicPayload> topic({
     required String siteUrl,
     required String slug,

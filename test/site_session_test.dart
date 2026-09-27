@@ -9,13 +9,13 @@ import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/forum_workspace.dart';
 import 'package:discourse_native/src/models/post.dart';
-import 'package:discourse_native/src/models/search_results.dart';
 import 'package:discourse_native/src/models/site_appearance.dart';
 import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/plugin_api/core_plugin_host.dart';
 import 'package:discourse_native/src/plugin_api/plugin_runtime.dart';
 import 'package:discourse_native/src/plugin_api/shell_extensions.dart';
+import 'package:discourse_native/src/shell/global_search_models.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -726,28 +726,23 @@ final class _CredentialRecordingApi extends FakeDiscourseApi {
   }
 
   @override
-  Future<SearchResults> searchPosts({
+  Future<Map<String, dynamic>> pluginGetJson({
     required String siteUrl,
-    required String term,
-    String? typeFilter,
-    int? topicId,
-    bool searchForId = false,
-    String? restrictToArchetype,
-    String? apiKey,
+    required String path,
+    required String? apiKey,
     String? clientId,
-  }) {
+  }) async {
+    if (!Uri.parse(path).path.startsWith('/search')) {
+      return super.pluginGetJson(
+        siteUrl: siteUrl,
+        path: path,
+        apiKey: apiKey,
+        clientId: clientId,
+      );
+    }
     searchKeys.add(apiKey);
     searchClientIds.add(clientId);
-    return super.searchPosts(
-      siteUrl: siteUrl,
-      term: term,
-      typeFilter: typeFilter,
-      topicId: topicId,
-      searchForId: searchForId,
-      restrictToArchetype: restrictToArchetype,
-      apiKey: apiKey,
-      clientId: clientId,
-    );
+    return <String, dynamic>{};
   }
 }
 
@@ -1410,8 +1405,16 @@ void main() {
         expect(api.topicKeys, isNotEmpty);
         expect(api.topicKeys, everyElement(expectedKey));
 
-        shell.search.setQuery('stored account');
-        shell.search.showTopics();
+        shell.globalSearch
+          ..configure(
+            siteUrl: _siteUrl,
+            capabilities: GlobalSearchCapabilities.fromSite(
+              shell.siteConfigFor(_siteUrl),
+              shell.currentInstance?.user,
+            ),
+          )
+          ..setQuery('stored account')
+          ..submit();
         await pumpEventQueue();
         expect(api.searchKeys, isNotEmpty);
         expect(api.searchKeys, everyElement(expectedKey));
@@ -1471,8 +1474,16 @@ void main() {
           _siteUrl,
         ]);
 
-        shell.search.setQuery('public forum');
-        shell.search.showTopics();
+        shell.globalSearch
+          ..configure(
+            siteUrl: _siteUrl,
+            capabilities: GlobalSearchCapabilities.fromSite(
+              shell.siteConfigFor(_siteUrl),
+              shell.currentInstance?.user,
+            ),
+          )
+          ..setQuery('public forum')
+          ..submit();
         await pumpEventQueue();
         expect(api.searchKeys, [null]);
         expect(api.searchClientIds, [null]);

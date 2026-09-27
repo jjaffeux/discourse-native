@@ -14433,13 +14433,7 @@ class ShellController extends FrameSafeNotifier
   Future<void> _persistSiteConfig(String siteUrl, SiteConfig config) async {
     cooking.service.invalidate();
     if (currentInstance?.url == siteUrl) {
-      search.selectSite(
-        siteUrl,
-        minimumLength: config.minSearchTermLength,
-        logSearchQueries: config.logSearchQueries,
-        taggingEnabled: config.taggingEnabled,
-        usePgHeadlinesForExcerpt: config.usePgHeadlinesForExcerpt,
-      );
+      search.selectSite(siteUrl, logSearchQueries: config.logSearchQueries);
     }
     for (final composer in _composersForSite(siteUrl)) {
       if (!config.emojiEnabled) composer.closeEmojiAutocomplete();
@@ -15237,10 +15231,7 @@ class ShellController extends FrameSafeNotifier
     final canRead = !instance.loginRequired || instance.isConnected;
     search.selectSite(
       canRead ? instance.url : null,
-      minimumLength: instance.config.minSearchTermLength,
       logSearchQueries: instance.config.logSearchQueries,
-      taggingEnabled: instance.config.taggingEnabled,
-      usePgHeadlinesForExcerpt: instance.config.usePgHeadlinesForExcerpt,
     );
     if (refreshAppearance && canRead) {
       unawaited(_presentation.ensureAppearance(instance.url));
