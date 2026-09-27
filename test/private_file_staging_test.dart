@@ -57,6 +57,34 @@ void main() {
     expect(parent.listSync(), isEmpty);
   });
 
+  test('stages a path its consumer writes and deletes it afterwards', () async {
+    for (final failing in [false, true]) {
+      final staged = withPrivateStagingPath<String>(
+        parent,
+        prefix: 'staging-',
+        filename: 'report.jsonl',
+        use: (file) async {
+          expect(file.parent.path, startsWith('${parent.path}/staging-'));
+          expect(file.uri.pathSegments.last, 'report.jsonl');
+          expect(await file.exists(), isFalse);
+          if (!Platform.isWindows) {
+            expect((await file.parent.stat()).mode & 0x1ff, 0x1c0); // 0700
+          }
+          await file.writeAsString('streamed');
+          if (failing) throw StateError('share failed');
+          return file.readAsString();
+        },
+      );
+
+      if (failing) {
+        await expectLater(staged, throwsStateError);
+      } else {
+        expect(await staged, 'streamed');
+      }
+      expect(parent.listSync(), isEmpty);
+    }
+  });
+
   test('reduces a display name to one path component', () async {
     expect(await stagedName(r'a/b\c.txt'), 'a_b_c.txt');
     expect(await stagedName('../x.txt'), '.._x.txt');

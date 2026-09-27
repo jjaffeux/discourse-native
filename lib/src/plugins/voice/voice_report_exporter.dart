@@ -74,9 +74,10 @@ abstract interface class VoiceReportExportEnvironment {
 
   Future<Directory> temporaryDirectory();
 
+  /// Recipients see [file]'s basename: share_plus ignores `fileNameOverrides`
+  /// for a file that already has a path.
   Future<VoiceReportExportOutcome> shareReport(
     File file, {
-    required String filename,
     Rect? sharePositionOrigin,
   });
 }
@@ -128,28 +129,21 @@ final class NativeVoiceReportExporter
       return VoiceReportExportOutcome.saved;
     }
 
-    final temporaryDirectory = await _environment.temporaryDirectory();
-    // The display name is supplied separately to the share sheet. Give the
-    // physical file a unique name so overlapping exports cannot replace or
-    // delete the file another share operation is still consuming.
-    final file = File(
-      '${temporaryDirectory.path}/voice-export-${_randomSuffix()}.jsonl',
+    // Each export stages in its own directory, so the file itself can carry
+    // the display name while overlapping exports still cannot replace or
+    // delete the file another share operation is consuming.
+    return withPrivateStagingPath(
+      await _environment.temporaryDirectory(),
+      prefix: 'voice-export-',
+      filename: filename,
+      use: (file) async {
+        await _writePrivateReport(file, writer);
+        return _environment.shareReport(
+          file,
+          sharePositionOrigin: sharePositionOrigin,
+        );
+      },
     );
-    try {
-      await _writePrivateReport(file, writer);
-      return await _environment.shareReport(
-        file,
-        filename: filename,
-        sharePositionOrigin: sharePositionOrigin,
-      );
-    } finally {
-      try {
-        if (await file.exists()) await file.delete();
-      } on FileSystemException {
-        // The OS may still briefly own the shared file. The app cache remains
-        // private and the platform will reclaim it; exporting must still work.
-      }
-    }
   }
 
   static String _filename(DateTime timestampUtc) {
@@ -235,13 +229,11 @@ final class _NativeExportEnvironment implements VoiceReportExportEnvironment {
   @override
   Future<VoiceReportExportOutcome> shareReport(
     File file, {
-    required String filename,
     Rect? sharePositionOrigin,
   }) async {
     final result = await sharing.SharePlus.instance.share(
       sharing.ShareParams(
         files: [sharing.XFile(file.path, mimeType: 'application/x-ndjson')],
-        fileNameOverrides: [filename],
         subject: 'Voice diagnostics',
         sharePositionOrigin: sharePositionOrigin,
       ),
