@@ -534,6 +534,91 @@ void main() {
     expect(tester.element(find.text('Message retained')), same(child));
   });
 
+  testWidgets(
+    'a reversed builder keeps its rows and reader away from the live edge',
+    (tester) async {
+      final controller = DMessageScrollerController();
+      final scroll = ScrollController();
+      addTearDown(controller.dispose);
+      addTearDown(scroll.dispose);
+      // Newest first, as a reversed transcript supplies its rows.
+      var ids = [for (var id = 120; id >= 1; id--) '$id'];
+      double heightOf(String id) => switch (int.tryParse(id)) {
+        final number? => 40.0 + number % 3 * 16,
+        null => 32,
+      };
+      late StateSetter rebuild;
+      await tester.pumpWidget(
+        host(
+          StatefulBuilder(
+            builder: (context, setState) {
+              rebuild = setState;
+              return DMessageScrollerProvider(
+                controller: controller,
+                manageInitialPosition: false,
+                child: DMessageScroller(
+                  children: [
+                    DMessageScrollerViewport.builder(
+                      scrollController: scroll,
+                      reverse: true,
+                      gap: 0,
+                      itemCount: ids.length,
+                      itemIdBuilder: (index) => ids[index],
+                      itemBuilder: (_, index) => SizedBox(
+                        height: heightOf(ids[index]),
+                        child: Text('Row ${ids[index]}'),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      scroll.jumpTo(1600);
+      await tester.pumpAndSettle();
+
+      final visible = controller.state.visibleMessageIds;
+      final held = visible[visible.length ~/ 2];
+      final elements = {
+        for (final id in visible) id: tester.element(find.text('Row $id')),
+      };
+      final heldTop = tester.getTopLeft(find.text('Row $held')).dy;
+
+      Future<void> change(List<String> next) async {
+        rebuild(() => ids = next);
+        await tester.pumpAndSettle();
+        for (final id in controller.state.visibleMessageIds) {
+          if (elements[id] case final element?) {
+            expect(
+              tester.element(find.text('Row $id')),
+              same(element),
+              reason: 'row $id was remounted',
+            );
+          }
+        }
+      }
+
+      // A newer row, a leading paging row and an unread divider each move held
+      // rows to new indices.
+      await change(['121', ...ids]);
+      expect(tester.getTopLeft(find.text('Row $held')).dy, closeTo(heldTop, 1));
+      await change(['loading-newer', ...ids]);
+      expect(tester.getTopLeft(find.text('Row $held')).dy, closeTo(heldTop, 1));
+      final newest = controller.state.visibleMessageIds.first;
+      final newestTop = tester.getTopLeft(find.text('Row $newest')).dy;
+      await change([...ids]..insert(ids.indexOf(held), 'new-divider'));
+      expect(find.text('Row new-divider'), findsOneWidget);
+      expect(
+        tester.getTopLeft(find.text('Row $newest')).dy,
+        closeTo(newestTop, 1),
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   testWidgets('reader intent stops an in-flight smooth command', (
     tester,
   ) async {
