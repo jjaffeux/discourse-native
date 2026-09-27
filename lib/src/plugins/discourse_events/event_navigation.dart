@@ -50,8 +50,11 @@ final class EventNavigation implements PluginLinkHandler {
     EventCalendarPage? page,
     bool replace = false,
   }) {
+    // The route id names the view the directory will actually show.
     final route = ContentRoute(
-      id: page?.routeId(mine) ?? (mine ? 'events-mine' : 'events-upcoming'),
+      id:
+          page?.directoryPage.routeId(mine) ??
+          (mine ? 'events-mine' : 'events-upcoming'),
       title: mine ? 'My events' : 'Upcoming events',
       icon: EventIcons.calendar,
     );

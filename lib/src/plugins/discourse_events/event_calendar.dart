@@ -270,7 +270,8 @@ final class _EventCalendarState extends State<EventCalendar> {
 
   Widget _select<T extends Object>(
     String label,
-    Map<T, String> values,
+    List<T> values,
+    String Function(T value) describe,
     T selected,
     ValueChanged<T>? onChanged, {
     bool lead = false,
@@ -284,11 +285,11 @@ final class _EventCalendarState extends State<EventCalendar> {
     alignItemWithTrigger: false,
     enabled: onChanged != null,
     entries: [
-      for (final entry in values.entries)
+      for (final value in values)
         DSelectItem(
-          value: entry.key,
-          textValue: entry.value,
-          child: Text(entry.value),
+          value: value,
+          textValue: describe(value),
+          child: Text(describe(value)),
         ),
     ],
     onChanged: (value) {
@@ -316,7 +317,7 @@ final class _EventCalendarState extends State<EventCalendar> {
       iconPosition: DButtonIconPosition.end,
       onPressed: state.enabled ? state.toggle : null,
       label: Text(
-        values[selected] ?? '$selected',
+        describe(selected),
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
         style: TextStyle(fontWeight: lead ? FontWeight.w600 : FontWeight.w400),
@@ -381,17 +382,21 @@ final class _EventCalendarState extends State<EventCalendar> {
                       children: [
                         _select(
                           'Event filter',
-                          const {false: 'All events', true: 'My events'},
+                          const [false, true],
+                          (mine) => mine ? 'My events' : 'All events',
                           widget.mine,
                           widget.onMineChanged,
                           lead: true,
                         ),
+                        // A page in a view the select does not offer still
+                        // names that view on the trigger.
                         _select(
                           'Calendar view',
-                          const {
-                            EventCalendarView.month: 'Month',
-                            EventCalendarView.schedule: 'Schedule',
-                          },
+                          const [
+                            EventCalendarView.month,
+                            EventCalendarView.schedule,
+                          ],
+                          (view) => view.label,
                           _view,
                           _selectView,
                         ),
@@ -770,20 +775,10 @@ final class _EventCalendarState extends State<EventCalendar> {
                   },
                 ),
               ),
+            // The toolbar offers only Month and Schedule, so the dialog is the
+            // day's whole presentation rather than a way into a Day view.
             DDialogFooter(
               children: [
-                DButton(
-                  variant: DButtonVariant.outline,
-                  onPressed: () {
-                    dialog.close();
-                    if (isCurrent()) {
-                      widget.onPageChanged(
-                        EventCalendarPage(EventCalendarView.day, day),
-                      );
-                    }
-                  },
-                  label: const Text('Day view'),
-                ),
                 DButton(
                   variant: DButtonVariant.ghost,
                   onPressed: dialog.close,

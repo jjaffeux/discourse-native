@@ -213,6 +213,7 @@ void main() {
       await tester.tap(day);
       await tester.pumpAndSettle();
       expect(find.byType(DDialogContent), findsOneWidget);
+      expect(find.text('Day view'), findsNothing);
       await tester.scrollUntilVisible(
         find.text('Event 30'),
         300,
@@ -228,6 +229,22 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
+
+  testWidgets('the view select names a page view it does not offer', (
+    tester,
+  ) async {
+    page = EventCalendarPage(EventCalendarView.week, DateTime.utc(2026, 9, 8));
+    await pump(tester, [event(1)]);
+    expect(
+      find.descendant(
+        of: find.byType(DSelect<EventCalendarView>),
+        matching: find.text('Week'),
+      ),
+      findsOneWidget,
+    );
+    expect(find.textContaining('EventCalendarView'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
 
   testWidgets(
     'a narrow window with large text keeps all navigation reachable',
