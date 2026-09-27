@@ -542,7 +542,8 @@ void main() {
       expect(find.byKey(ForumSearch.panelKey), findsOneWidget);
       expect(_editor(tester).focusNode.hasFocus, isTrue);
       expect(tester.getTopLeft(_editorFinder()).dx, closeTo(before.dx, .5));
-      expect(tester.getTopLeft(_editorFinder()).dy, closeTo(before.dy + 4, .5));
+      // Opening keeps the input where it was.
+      expect(tester.getTopLeft(_editorFinder()).dy, closeTo(before.dy, .5));
       expect(tester.takeException(), isNull);
     },
   );

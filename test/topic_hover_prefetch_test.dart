@@ -123,8 +123,10 @@ void main() {
     expect(api.requests.single.aborted, isFalse);
     api.requests.single.complete();
     await tester.pumpAndSettle();
-    expect(controller.activeTabId, isNot(listTab));
-    expect(controller.tabsForCurrentForum, hasLength(2));
+    // An ordinary click reads the topic in the list's own tab.
+    expect(controller.activeTabId, listTab);
+    expect(controller.tabsForCurrentForum, hasLength(1));
+    expect(controller.currentContent?.topicId, 1);
     expect(controller.store.read<TopicDetail>(_site, 1), isNotNull);
     expect(api.requests, hasLength(1));
   });
