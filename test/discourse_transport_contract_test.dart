@@ -495,6 +495,64 @@ void main() {
       expect(sent.headers, containsPair('Dont-Chunk', 'true'));
     });
 
+    test('anonymous reads identify the app', () async {
+      final sent = <http.Request>[];
+      final transport = DiscourseTransport.create(
+        client: MockClient((request) async {
+          sent.add(request);
+          return switch (request.url.path) {
+            '/c/old.json' => http.Response(
+              '',
+              301,
+              headers: {'location': '/c/new.json'},
+            ),
+            '/user-api-key/new' => http.Response(
+              '',
+              200,
+              headers: {'auth-api-version': '4'},
+            ),
+            '/site/basic-info.json' => http.Response(
+              jsonEncode({'title': 'Example'}),
+              200,
+            ),
+            _ => http.Response('{}', 200),
+          };
+        }),
+      );
+      final api = DiscourseApi(transport: transport);
+      addTearDown(api.close);
+
+      await transport.get(
+        Uri.parse('https://example.com/c/old.json'),
+        siteUrl: 'https://example.com',
+      );
+      await transport.head(Uri.parse('https://example.com/probe'));
+      await api.lookup('example.com');
+
+      expect(
+        [for (final request in sent) (request.method, request.url.path)],
+        [
+          ('GET', '/c/old.json'),
+          ('GET', '/c/new.json'),
+          ('HEAD', '/probe'),
+          ('HEAD', '/user-api-key/new'),
+          ('GET', '/site/basic-info.json'),
+        ],
+      );
+      for (final request in sent) {
+        expect(
+          request.headers,
+          containsPair('User-Agent', DiscourseApi.userAgent),
+          reason: '${request.method} ${request.url}',
+        );
+        expect(
+          request.headers,
+          isNot(contains('User-Api-Key')),
+          reason: '${request.method} ${request.url}',
+        );
+      }
+    });
+
     test('malformed object reads preserve a diagnostic cause', () async {
       final api = DiscourseApi(
         client: MockClient((_) async => http.Response('[]', 200)),
