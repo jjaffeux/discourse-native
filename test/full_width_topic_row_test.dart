@@ -17,6 +17,61 @@ void main() {
         .load();
   });
 
+  testWidgets('sortable fields announce their value with the sort state', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1000, 400));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final semantics = tester.ensureSemantics();
+    final sorted = <String>[];
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light.copyWith(platform: TargetPlatform.macOS),
+        home: Scaffold(
+          body: TopicListRow(
+            siteUrl: 'https://example.invalid',
+            topic: Topic(
+              id: 1,
+              title: 'Welcome to our community',
+              slug: 'welcome',
+              lastPosterUsername: 'sam',
+              replyCount: 24,
+              views: 310,
+              bumpedAt: DateTime.now().subtract(const Duration(hours: 3)),
+            ),
+            showViews: true,
+            onSort: sorted.add,
+            order: 'views',
+            onTap: () {},
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    for (final (key, label) in [
+      ('topic-sort-posts', '24 replies, sort by Replies, unsorted'),
+      ('topic-sort-views', '310 views, sort by Views, descending'),
+      ('topic-sort-activity', '3h, sort by Activity, unsorted'),
+    ]) {
+      expect(find.bySemanticsLabel(label), findsOneWidget);
+      final node = tester.getSemantics(find.byKey(ValueKey(key)));
+      expect(node.label, label);
+      expect(node.flagsCollection.isButton, isTrue);
+    }
+    // Separators are visual only; the row names the last poster once.
+    expect(
+      tester
+          .getSemantics(find.byKey(const ValueKey('topic-card-1')))
+          .getSemanticsData()
+          .label,
+      'Welcome to our community\nLast post by sam',
+    );
+    await tester.tap(find.byKey(const ValueKey('topic-sort-posts')));
+    expect(sorted, ['posts']);
+    semantics.dispose();
+  });
+
   for (final dark in [false, true]) {
     testWidgets('full-width topic states in ${dark ? 'dark' : 'light'}', (
       tester,

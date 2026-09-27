@@ -190,7 +190,11 @@ class _ConversationTopicCardState extends State<_ConversationTopicCard> {
             ),
             WidgetSpan(
               alignment: PlaceholderAlignment.middle,
-              child: Text('Last post by $username · ', style: textStyle),
+              child: Text(
+                'Last post by $username · ',
+                semanticsLabel: 'Last post by $username',
+                style: textStyle,
+              ),
             ),
           ],
           WidgetSpan(
@@ -200,7 +204,7 @@ class _ConversationTopicCardState extends State<_ConversationTopicCard> {
           if (row.showViews) ...[
             WidgetSpan(
               alignment: PlaceholderAlignment.middle,
-              child: Text(' · ', style: textStyle),
+              child: ExcludeSemantics(child: Text(' · ', style: textStyle)),
             ),
             WidgetSpan(
               alignment: PlaceholderAlignment.middle,
@@ -481,8 +485,10 @@ class _TopicCardField extends StatelessWidget {
           size: DButtonSize.small,
           variant: DButtonVariant.inline,
           label: Text(label),
+          // The visible value is excluded once a semantic label is set, so
+          // the label carries it ahead of the sort action and its state.
           semanticLabel:
-              '${switch (column) {
+              '$label, sort by ${switch (column) {
                 'posts' => 'Replies',
                 'activity' => 'Activity',
                 'views' => 'Views',

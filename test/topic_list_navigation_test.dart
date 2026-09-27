@@ -119,9 +119,9 @@ void main() {
           find.ancestor(of: find.text('Topic'), matching: find.byType(DButton)),
           findsNothing,
         );
-        for (final (column, label) in [
-          ('posts', 'Replies'),
-          ('activity', 'Activity'),
+        for (final (column, label, value) in [
+          ('posts', 'Replies', '0 replies'),
+          ('activity', 'Activity', '—'),
         ]) {
           final header = find.byKey(ValueKey('topic-sort-$column')).first;
           for (final ascending in [false, true]) {
@@ -138,7 +138,8 @@ void main() {
             expect(controller.currentTopicListMode, mode);
             expect(
               tester.widget<DButton>(header).semanticLabel,
-              '$label, ${ascending ? 'ascending' : 'descending'}',
+              '$value, sort by $label, '
+              '${ascending ? 'ascending' : 'descending'}',
             );
           }
           await tester.tap(header);
@@ -148,7 +149,7 @@ void main() {
           expect(controller.currentTopicListMode, mode);
           expect(
             tester.widget<DButton>(header).semanticLabel,
-            '$label, unsorted',
+            '$value, sort by $label, unsorted',
           );
         }
         expect(tester.takeException(), isNull);
