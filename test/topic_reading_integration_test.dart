@@ -4507,14 +4507,72 @@ void _registerTopicReadingTests() {
       );
     }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
-    testWidgets('a topic that fails to load says so', (tester) async {
-      final api = FakeDiscourseApi(feeds: {'/latest.json': listed});
+    // A phone has no refresh control, so the failure itself must offer the
+    // way back once the network returns.
+    for (final (platform, size) in [
+      (TargetPlatform.linux, desktop),
+      (TargetPlatform.iOS, phone),
+    ]) {
+      testWidgets('a topic that fails to load says so and retries', (
+        tester,
+      ) async {
+        final api = FakeDiscourseApi(
+          feeds: {'/latest.json': listed},
+          topics: <int, TopicPayload>{},
+        );
+
+        await pumpShell(tester, size, api: api);
+        await tester.tap(find.text('A real topic'));
+        await tester.pumpAndSettle();
+
+        expect(find.textContaining("Couldn't load this topic"), findsOneWidget);
+        final opened = api.topicsOpened.length;
+
+        api.topics[7] = detail();
+        await tester.tap(find.byKey(const ValueKey('topic-load-retry')));
+        await tester.pumpAndSettle();
+
+        expect(api.topicsOpened.skip(opened), [7]);
+        expect(find.textContaining("Couldn't load this topic"), findsNothing);
+        expect(renderedText('First post body'), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      }, variant: TargetPlatformVariant.only(platform));
+    }
+
+    testWidgets('a retry that lands after the reader moved on asks nothing', (
+      tester,
+    ) async {
+      final api = FakeDiscourseApi(
+        feeds: {
+          '/latest.json': [
+            ...listed,
+            const Topic(id: 8, title: 'Another topic', slug: 'another-topic'),
+          ],
+        },
+        topics: <int, TopicPayload>{},
+      );
 
       await pumpShell(tester, desktop, api: api);
       await tester.tap(find.text('A real topic'));
       await tester.pumpAndSettle();
+      final retry = tester
+          .widget<DButton>(find.byKey(const ValueKey('topic-load-retry')))
+          .onPressed!;
 
-      expect(find.textContaining("Couldn't load this topic"), findsOneWidget);
+      final controller = ShellScope.read(
+        tester.element(find.byType(MainContent)),
+      );
+      api.topics[7] = detail();
+      final opened = api.topicsOpened.length;
+      controller.openTopicFromList(
+        const Topic(id: 8, title: 'Another topic', slug: 'another-topic'),
+      );
+      // The press was drawn for topic 7, which the tab no longer shows.
+      retry();
+      await tester.pumpAndSettle();
+
+      expect(api.topicsOpened.skip(opened), [8]);
+      expect(controller.currentContent?.topicId, 8);
       expect(tester.takeException(), isNull);
     }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 

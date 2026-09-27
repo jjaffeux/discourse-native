@@ -580,6 +580,45 @@ void main() {
     expect(tester.takeException(), isNull);
   }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 
+  testWidgets('a reader panel retries its own failed topic', (tester) async {
+    final h = await _setup(tester);
+    final listId = h.shell.activeTabId!;
+    final topic = h.topics[1];
+    final payload = h.api.topics.remove(topic.id)!;
+    h.shell.openLinkInNewTab(
+      '/t/${topic.slug}/${topic.id}/3',
+      title: topic.title,
+      panel: ForumPanel.secondary,
+    );
+    h.shell.selectTab(h.shell.tabsForCurrentForum.last.id);
+    await tester.pumpAndSettle();
+    expect(h.api.topicPostNumbersOpened.last, 3);
+    final reader = find.byKey(const ValueKey('desktop-panel-secondary'));
+    final retry = find.descendant(
+      of: reader,
+      matching: find.byKey(const ValueKey('topic-load-retry')),
+    );
+    expect(retry, findsOneWidget);
+
+    h.shell.selectTab(listId);
+    await tester.pumpAndSettle();
+    h.api.topics[topic.id] = payload;
+    // A screen reader activates the button without the pointer or focus that
+    // would first hand its panel the active tab.
+    tester.widget<DButton>(retry).onPressed!();
+    await tester.pumpAndSettle();
+
+    // The post the link named lives on the reader's tab, not the active one.
+    expect(h.api.topicPostNumbersOpened.last, 3);
+    expect(h.shell.activeTabId, listId);
+    expect(retry, findsNothing);
+    expect(
+      find.descendant(of: reader, matching: find.byType(CookedHtml)),
+      findsOneWidget,
+    );
+    expect(tester.takeException(), isNull);
+  }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
+
   testWidgets(
     'list visibility reserves 320 pixels for the topic after composer sizing',
     (tester) async {
