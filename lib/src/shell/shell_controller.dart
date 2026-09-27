@@ -12623,7 +12623,8 @@ class ShellController extends FrameSafeNotifier
     await _composerDrafts.finishRetiredSaves(composer);
     if (!lease.isCurrent) return;
 
-    final raw = composer.raw;
+    final sent = composer.recordSubmission();
+    final raw = sent.raw;
 
     final credential = await _credentialForWrite(target.siteUrl);
     if (!lease.isCurrent) return;
@@ -12638,7 +12639,7 @@ class ShellController extends FrameSafeNotifier
           ? await api.composerPersistence.createTopic(
               siteUrl: target.siteUrl,
               apiKey: apiKey,
-              title: composer.title.text.trim(),
+              title: sent.title,
               raw: raw,
               categoryId: composer.categoryId,
               tags: composer.tags,
@@ -12663,7 +12664,7 @@ class ShellController extends FrameSafeNotifier
       // is not: the post may well have been created and only the answer lost.
       if (e.failure == WriteFailure.unreachable) {
         if (target.createsTopic) {
-          await _reconcileNewTopic(target, composer, e, lease: lease);
+          await _reconcileNewTopic(target, sent, composer, e, lease: lease);
         } else {
           await _reconcile(target, raw, composer, e, lease: lease);
         }
@@ -12678,6 +12679,7 @@ class ShellController extends FrameSafeNotifier
       if (target.createsTopic) {
         await _reconcileNewTopic(
           target,
+          sent,
           composer,
           const WriteException(WriteFailure.unreachable),
           lease: lease,
@@ -12997,16 +12999,19 @@ class ShellController extends FrameSafeNotifier
   Future<void> recheckComposer({ComposerController? composer}) async {
     composer ??= _composer;
     if (composer == null || !composer.canRecheck) return;
+    final sent = composer.submission;
+    if (sent == null) return;
     if (composer.target.createsTopic) {
       await _reconcileNewTopic(
         composer.target,
+        sent,
         composer,
         const WriteException(WriteFailure.unreachable),
       );
     } else {
       await _reconcile(
         composer.target,
-        composer.raw,
+        sent.raw,
         composer,
         const WriteException(WriteFailure.unreachable),
       );
@@ -13015,8 +13020,33 @@ class ShellController extends FrameSafeNotifier
 
   static const int _reconcileWindow = 5;
 
+  static final RegExp _unicodeSpace = RegExp(
+    '[\u00A0\u1680\u180E\u2000-\u200A\u2028\u2029\u202F\u205F\u3000]',
+  );
+
+  /// Raw as the site stores it: PostCreator keeps
+  /// `TextCleaner.normalize_whitespaces(raw)` right-stripped, and the composer
+  /// sends it trimmed, so both ends go.
+  static String _storedRaw(String raw) =>
+      raw.replaceAll(_unicodeSpace, ' ').trim();
+
+  /// A key that survives `TextCleaner.clean_title`: prettifying changes case,
+  /// collapses repeated `!`/`?` and runs of spaces, and drops trailing
+  /// periods. It only narrows which topics are read; the first post's raw is
+  /// what identifies ours.
+  static String _titleKey(String title) => title
+      .replaceAll(_unicodeSpace, ' ')
+      .replaceAll('\u200B', '')
+      .toLowerCase()
+      .replaceAll(RegExp(r'!+'), '!')
+      .replaceAll(RegExp(r'\?+'), '?')
+      .replaceAll(RegExp(r'[\s.!?]+$'), '')
+      .replaceAll(RegExp(r'\s+'), ' ')
+      .trim();
+
   Future<void> _reconcileNewTopic(
     ComposerTarget target,
+    ComposerSubmission sent,
     ComposerController composer,
     WriteException failure, {
     SiteLease? lease,
@@ -13038,9 +13068,13 @@ class ShellController extends FrameSafeNotifier
       );
       if (!session.isCurrent) return;
       final draft = retained.draft;
+      // Creating the topic advances the draft sequence, and a save after that
+      // recreates the draft at the new one; only a draft still at the sequence
+      // the create was sent at shows that the create never ran.
       if (draft != null &&
-          draft.title?.trim() == composer.title.text.trim() &&
-          draft.reply.trim() == composer.raw) {
+          retained.sequence == sent.draftSequence &&
+          _titleKey(draft.title ?? '') == _titleKey(sent.title) &&
+          _storedRaw(draft.reply) == _storedRaw(sent.raw)) {
         session.commit(() => composer.checkedNotPosted(failure));
         return;
       }
@@ -13059,9 +13093,11 @@ class ShellController extends FrameSafeNotifier
         apiKey: apiKey,
       );
       final matches = <TopicPayload>[];
+      final titleKey = _titleKey(sent.title);
+      final storedRaw = _storedRaw(sent.raw);
       for (final row
           in recent.topics
-              .where((topic) => topic.title == composer.title.text.trim())
+              .where((topic) => _titleKey(topic.title) == titleKey)
               .take(_reconcileWindow)) {
         final payload = await api.topicContent.topic(
           siteUrl: target.siteUrl,
@@ -13078,7 +13114,8 @@ class ShellController extends FrameSafeNotifier
           includeRaw: true,
           apiKey: apiKey,
         );
-        if (posts.firstOrNull?.raw?.trim() == composer.raw) {
+        if (posts.firstOrNull?.raw case final landed?
+            when _storedRaw(landed) == storedRaw) {
           matches.add(payload);
         }
       }
@@ -13163,8 +13200,11 @@ class ShellController extends FrameSafeNotifier
         includeRaw: true,
         apiKey: apiKey,
       );
+      final storedRaw = _storedRaw(raw);
       for (final post in posts) {
-        if (post.username == username && post.raw?.trim() == raw) {
+        if (post.username == username &&
+            post.raw != null &&
+            _storedRaw(post.raw!) == storedRaw) {
           landed = post;
           break;
         }
