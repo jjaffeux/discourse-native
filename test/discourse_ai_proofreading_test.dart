@@ -30,10 +30,12 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'support/fakes.dart';
 
 const _siteUrl = 'https://meta.discourse.org';
+const _readerId = 7;
 
 SiteConfig _configWith({
   bool allowedInPrivateMessages = false,
@@ -53,7 +55,7 @@ SiteConfig _configWith({
 final _enabledConfig = _configWith();
 
 DiscourseUser _userWith({bool canProofread = true}) => DiscourseUser(
-  id: 7,
+  id: _readerId,
   username: 'reader',
   plugins: PluginData.none.withValue(
     discourseAiCurrentUserDataKey,
@@ -95,7 +97,7 @@ const _messageReplyTarget = ComposerTarget(
   privateMessageTopic: true,
 );
 
-const _userWithoutAssistant = DiscourseUser(id: 7, username: 'reader');
+const _userWithoutAssistant = DiscourseUser(id: _readerId, username: 'reader');
 
 final class _FreshAccountHost implements PluginFreshAccountHost {
   _FreshAccountHost(this.data);
@@ -177,6 +179,7 @@ AiProofreadingController _controller({
   PluginApiTransport? api,
   SiteLifecycle? lifecycle,
   _FreshAccountHost? freshAccount,
+  PluginUserIdReader? currentUserId,
   AiProofreadingPreferenceStore preferences =
       const AiProofreadingPreferenceStore(),
 }) {
@@ -202,6 +205,7 @@ AiProofreadingController _controller({
     ),
     freshAccount:
         freshAccount ?? _FreshAccountHost((user ?? _allowedUser).plugins),
+    currentUserId: currentUserId ?? (_) => (user ?? _allowedUser).id,
     preferences: preferences,
   );
 }
@@ -503,15 +507,105 @@ void main() {
     expect(api.pluginWrites.single.path, aiProofreadingPath);
   });
 
-  test('remembers the choice independently for each forum', () async {
+  test('remembers the choice independently for each account', () async {
     const store = AiProofreadingPreferenceStore();
 
-    expect(await store.read(siteUrl: _siteUrl), isFalse);
+    expect(await store.read(siteUrl: _siteUrl, userId: _readerId), isFalse);
 
-    await store.write(siteUrl: _siteUrl, enabled: true);
+    await store.write(siteUrl: _siteUrl, userId: _readerId, enabled: true);
 
-    expect(await store.read(siteUrl: _siteUrl), isTrue);
-    expect(await store.read(siteUrl: 'https://other.discourse.org'), isFalse);
+    expect(await store.read(siteUrl: _siteUrl, userId: _readerId), isTrue);
+    expect(await store.read(siteUrl: _siteUrl, userId: 8), isFalse);
+    expect(
+      await store.read(
+        siteUrl: 'https://other.discourse.org',
+        userId: _readerId,
+      ),
+      isFalse,
+    );
+  });
+
+  for (final nextCanProofread in [true, false]) {
+    test('another account on the forum does not inherit the choice '
+        '(${nextCanProofread ? 'can' : 'cannot'} proofread)', () async {
+      var userId = 1;
+      final account = _FreshAccountHost(_allowedUser.plugins);
+      final api = FakeDiscourseApi(
+        pluginResponses: const {
+          'POST $aiProofreadingPath': {
+            'suggestions': ['A polished reply.'],
+          },
+        },
+      );
+      final controller = _controller(
+        api: api,
+        freshAccount: account,
+        currentUserId: (_) => userId,
+      );
+      final chosen = ComposerController(_replyTarget);
+      final next = ComposerController(_replyTarget);
+      final returned = ComposerController(_replyTarget);
+      addTearDown(controller.dispose);
+      addTearDown(chosen.dispose);
+      addTearDown(next.dispose);
+      addTearDown(returned.dispose);
+      controller.setEnabled(chosen, true);
+
+      userId = 2;
+      account.data = _userWith(canProofread: nextCanProofread).plugins;
+      controller.forget(_siteUrl);
+      next.text.text = 'a reply with typo';
+
+      expect(controller.isEnabled(next), isFalse);
+      final result = await controller.prepareComposerSubmit(next);
+
+      expect(result.failure, isNull);
+      expect(result.changed, isFalse);
+      expect(next.raw, 'a reply with typo');
+      expect(api.pluginWrites, isEmpty);
+      expect(controller.isEnabled(next), isFalse);
+
+      userId = 1;
+      account.data = _allowedUser.plugins;
+      controller.forget(_siteUrl);
+      returned.text.text = 'a reply with typo';
+      final restored = await controller.prepareComposerSubmit(returned);
+
+      expect(controller.isEnabled(returned), isTrue);
+      expect(restored.changed, isTrue);
+      expect(returned.raw, 'A polished reply.');
+      expect(api.pluginWrites.single.path, aiProofreadingPath);
+    });
+  }
+
+  test('a choice stored for the whole forum is removed, not adopted', () async {
+    final siteWideKey =
+        'discourse_native.ai_proofreading_enabled.'
+        '${Uri.encodeComponent(_siteUrl)}';
+    SharedPreferences.setMockInitialValues({siteWideKey: true});
+    final api = FakeDiscourseApi(
+      pluginResponses: const {
+        'POST $aiProofreadingPath': {
+          'suggestions': ['A polished reply.'],
+        },
+      },
+    );
+    final controller = _controller(api: api);
+    final composer = ComposerController(_replyTarget);
+    addTearDown(controller.dispose);
+    addTearDown(composer.dispose);
+    composer.text.text = 'a reply with typo';
+
+    final result = await controller.prepareComposerSubmit(composer);
+
+    expect(result.failure, isNull);
+    expect(result.changed, isFalse);
+    expect(api.pluginWrites, isEmpty);
+    expect(controller.isEnabled(composer), isFalse);
+    expect(
+      (await SharedPreferences.getInstance()).containsKey(siteWideKey),
+      isFalse,
+    );
   });
 
   test(
@@ -681,7 +775,7 @@ void main() {
     'unavailable proofreading holds the first submit and lets retries post',
     () async {
       const store = AiProofreadingPreferenceStore();
-      await store.write(siteUrl: _siteUrl, enabled: true);
+      await store.write(siteUrl: _siteUrl, userId: _readerId, enabled: true);
       final api = FakeDiscourseApi();
       final controller = _controller(api: api, user: _userWithoutAssistant);
       final composer = ComposerController(_replyTarget);
@@ -700,13 +794,14 @@ void main() {
       }
       expect(composer.raw, 'a reply with typo');
       expect(api.pluginWrites, isEmpty);
-      expect(await store.read(siteUrl: _siteUrl), isTrue);
+      expect(await store.read(siteUrl: _siteUrl, userId: _readerId), isTrue);
     },
   );
 
   test('posting without proofreading is agreed per composer', () async {
     await const AiProofreadingPreferenceStore().write(
       siteUrl: _siteUrl,
+      userId: _readerId,
       enabled: true,
     );
     final controller = _controller(user: _userWithoutAssistant);
@@ -730,6 +825,7 @@ void main() {
     () async {
       await const AiProofreadingPreferenceStore().write(
         siteUrl: _siteUrl,
+        userId: _readerId,
         enabled: true,
       );
       final account = _FreshAccountHost(PluginData.none);
@@ -913,7 +1009,10 @@ void main() {
 
     expect(
       await tester.runAsync(
-        () => const AiProofreadingPreferenceStore().read(siteUrl: _siteUrl),
+        () => const AiProofreadingPreferenceStore().read(
+          siteUrl: _siteUrl,
+          userId: _readerId,
+        ),
       ),
       isTrue,
     );
@@ -961,6 +1060,7 @@ void main() {
     await tester.runAsync(
       () => const AiProofreadingPreferenceStore().write(
         siteUrl: _siteUrl,
+        userId: _readerId,
         enabled: true,
       ),
     );
@@ -987,6 +1087,7 @@ void main() {
       await tester.runAsync(
         () => const AiProofreadingPreferenceStore().write(
           siteUrl: _siteUrl,
+          userId: _readerId,
           enabled: true,
         ),
       );
@@ -1014,6 +1115,7 @@ void main() {
     await tester.runAsync(
       () => const AiProofreadingPreferenceStore().write(
         siteUrl: _siteUrl,
+        userId: _readerId,
         enabled: true,
       ),
     );

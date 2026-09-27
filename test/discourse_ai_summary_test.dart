@@ -1026,6 +1026,7 @@ final class _SummaryFixture {
           corePluginFreshAccountPort,
           _EmptyFreshAccount(),
         ),
+        PluginHostPort<PluginUserIdReader>(corePluginUserPort, (_) => null),
         const PluginHostPort<Object>(
           pluginDiagnosticsReporterPort,
           PluginDiagnosticsReporter.noop(),
