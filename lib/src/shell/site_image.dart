@@ -348,7 +348,7 @@ class _SiteImageState extends State<SiteImage> {
   Widget _raster(SiteImageBytes image) {
     ImageProvider<Object> provider = MemoryImage(image.bytes);
     if (widget.coverDecodeSize case final size?) {
-      provider = imageForCover(context, provider, logicalSize: size);
+      provider = memoryImageForCover(context, image.bytes, logicalSize: size);
     } else if (widget.cacheWidth != null || widget.cacheHeight != null) {
       provider = FittedMemoryImage(
         image.bytes,

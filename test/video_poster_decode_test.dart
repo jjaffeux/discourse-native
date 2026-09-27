@@ -65,14 +65,18 @@ void main() {
           expect(decoded.width / decoded.height, closeTo(16 / 9, 0.01));
           expect(decoded.width, greaterThanOrEqualTo(640));
           expect(decoded.height, greaterThanOrEqualTo(youtube ? 400 : 360));
-          expect(retainedPixels, lessThanOrEqualTo(youtube ? 285000 : 230400));
+          // The cover of the coarse bound: 640x416 or 640x384.
+          expect(
+            retainedPixels,
+            lessThanOrEqualTo(youtube ? 740 * 416 : 683 * 384),
+          );
           expect(
             PaintingBinding.instance.imageCache.currentSizeBytes,
             retainedPixels * 4,
           );
           expect(sizes, isNotEmpty);
           expect(
-            sizes.every((size) => size.width * size.height <= 285000),
+            sizes.every((size) => size.width * size.height <= 740 * 416),
             isTrue,
           );
           final bytes = harness.repository.cached(
@@ -122,14 +126,14 @@ void main() {
       (
         name: 'normal',
         source: const Size(1280, 720),
-        uploaded: const Size(640, 360),
-        youtube: const Size(711, 400),
+        uploaded: const Size(683, 384),
+        youtube: const Size(740, 416),
       ),
       (
         name: 'very wide',
         source: const Size(6400, 800),
-        uploaded: const Size(2880, 360),
-        youtube: const Size(3200, 400),
+        uploaded: const Size(3072, 384),
+        youtube: const Size(3328, 416),
       ),
       (
         name: 'very tall',
@@ -214,16 +218,18 @@ void main() {
           ),
         );
         await tester.pumpWidget(harness.app(youtube: youtube));
+        // Covers of the coarse bounds: 320x208 or 320x192, then 416x240 for
+        // a 400x225 lane, and 832x480 at twice the density.
         await _waitForImage(
           tester,
-          expected: youtube ? const Size(356, 200) : const Size(320, 180),
+          expected: youtube ? const Size(370, 208) : const Size(341, 192),
         );
         final state = tester.state(find.byType(SiteImage));
         await tester.pumpWidget(harness.app(youtube: youtube, width: 400));
-        await _waitForImage(tester, expected: const Size(400, 225));
+        await _waitForImage(tester, expected: const Size(427, 240));
         tester.view.devicePixelRatio = 2;
         await tester.pump();
-        await _waitForImage(tester, expected: const Size(800, 450));
+        await _waitForImage(tester, expected: const Size(853, 480));
         await tester.pumpWidget(
           harness.app(
             youtube: youtube,
@@ -238,15 +244,53 @@ void main() {
           '$_siteUrl/replacement.png',
         ]);
         expect(PaintingBinding.instance.imageCache.currentSize, 4);
-        final firstPixels = youtube ? 356 * 200 : 320 * 180;
+        final firstPixels = youtube ? 370 * 208 : 341 * 192;
         expect(
           PaintingBinding.instance.imageCache.currentSizeBytes,
-          (firstPixels + 400 * 225 + 800 * 450 + 720 * 1280) * 4,
+          (firstPixels + 427 * 240 + 853 * 480 + 720 * 1280) * 4,
         );
         expect(harness.playerBuilds, 0);
         expect(tester.takeException(), isNull);
       },
     );
+
+    for (final sample in [
+      // A YouTube hqdefault, narrower than every lane below.
+      (name: 'small', source: const Size(480, 360), decodes: 1),
+      (name: 'large', source: const Size(1920, 1080), decodes: 2),
+    ]) {
+      testWidgets(
+        '${youtube ? 'YouTube' : 'uploaded'} poster decodes a ${sample.name} '
+        'source at most ${sample.decodes}x across a resizing lane',
+        (tester) async {
+          tester.view.devicePixelRatio = 2;
+          addTearDown(tester.view.reset);
+          final harness = _PosterHarness(
+            await _pngBytes(tester, sample.source),
+          );
+          // 1260 to 1298 physical pixels wide, across the coarse width 1280.
+          for (var width = 630.0; width < 650; width++) {
+            await tester.pumpWidget(
+              harness.app(youtube: youtube, width: width),
+            );
+            await _waitUntil(
+              tester,
+              () =>
+                  PaintingBinding.instance.imageCache.pendingImageCount == 0 &&
+                  find.byType(RawImage).evaluate().isNotEmpty &&
+                  tester.widget<RawImage>(find.byType(RawImage)).image != null,
+              'the poster decoded for a ${width}pt lane',
+            );
+          }
+          expect(
+            PaintingBinding.instance.imageCache.currentSize,
+            inInclusiveRange(1, sample.decodes),
+          );
+          expect(harness.requests, hasLength(1));
+          expect(tester.takeException(), isNull);
+        },
+      );
+    }
 
     testWidgets(
       '${youtube ? 'YouTube' : 'uploaded'} poster retires a pending source without decoding its late response',
@@ -384,8 +428,8 @@ void main() {
           client.bytes = File('test/fixtures/8k.png').readAsBytesSync();
           await tester.pumpWidget(harness.app(youtube: youtube, siteUrl: null));
           final expected = youtube
-              ? const Size(711, 400)
-              : const Size(640, 360);
+              ? const Size(740, 416)
+              : const Size(683, 384);
           await _waitForImage(tester, expected: expected);
           expect(
             PaintingBinding.instance.imageCache.containsKey(
