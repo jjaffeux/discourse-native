@@ -48,6 +48,26 @@ Map<String, dynamic> summaryResponse({
   },
 };
 
+/// What upstream's stream job publishes on the summary channel once the site's
+/// LLM credit allocation is spent (`stream_topic_ai_summary.rb`).
+Map<String, dynamic> creditLimitPayload({
+  Map<String, dynamic> details = const {
+    'reset_time_relative': 'about 5 hours',
+    'reset_time_absolute': 'September 28, 2026 00:00',
+  },
+}) => {
+  'error': true,
+  'error_type': 'credit_limit_exceeded',
+  'message': 'Credit limit exceeded',
+  'details': details,
+  'done': true,
+};
+
+const _creditLimitCopy =
+    'This community has reached its AI credit limit for today. Please try '
+    'again after September 28, 2026 00:00 or contact your site administrator '
+    'for more information.';
+
 void main() {
   test('cooks summary Markdown with the Discourse runtime', () async {
     final service = OfflineCookingService();
@@ -613,6 +633,163 @@ void main() {
       expect(fixture.callbacks, isEmpty);
     },
   );
+
+  test('a stream failure reads the reset time upstream would show', () {
+    expect(AiSummaryStreamFailure.fromJson(const {'done': true}), isNull);
+    expect(
+      AiSummaryStreamFailure.fromJson(summaryResponse(done: true)),
+      isNull,
+    );
+
+    final credit = AiSummaryStreamFailure.fromJson(creditLimitPayload())!;
+    expect(credit.creditLimitExceeded, isTrue);
+    expect(credit.resetTime, 'September 28, 2026 00:00');
+    expect(
+      AiSummaryStreamFailure.fromJson(
+        creditLimitPayload(
+          details: const {
+            'reset_time_relative': 'about 5 hours',
+            'reset_time_absolute': '',
+          },
+        ),
+      )!.resetTime,
+      'about 5 hours',
+    );
+    // An allocation with no next reset sends both times blank.
+    expect(
+      AiSummaryStreamFailure.fromJson(
+        creditLimitPayload(
+          details: const {'reset_time_relative': '', 'reset_time_absolute': ''},
+        ),
+      )!.resetTime,
+      isNull,
+    );
+    expect(
+      AiSummaryStreamFailure.fromJson({
+        ...creditLimitPayload(),
+        'details': 'malformed',
+      })!.resetTime,
+      isNull,
+    );
+
+    final other = AiSummaryStreamFailure.fromJson(const {
+      'error': true,
+      'done': true,
+    })!;
+    expect(other.creditLimitExceeded, isFalse);
+  });
+
+  testWidgets('a stream failure after HTTP settles without the deadline', (
+    tester,
+  ) async {
+    final fixture = _SummaryFixture();
+    final request = _Settled(fixture.load().result);
+    await tester.pump();
+    expect(fixture.api.pluginWrites, hasLength(1));
+
+    fixture.deliver({'done': true});
+    await tester.pump();
+    expect(request.done, isFalse);
+    expect(fixture.callbacks, hasLength(1));
+
+    fixture.deliver(creditLimitPayload());
+    await tester.pump();
+
+    expect(
+      request.error,
+      isA<AiSummaryStreamFailure>().having(
+        (failure) => failure.resetTime,
+        'resetTime',
+        'September 28, 2026 00:00',
+      ),
+    );
+    expect(fixture.callbacks, isEmpty);
+    // Widget tests also fail if a settled request leaves its timer pending.
+  });
+
+  testWidgets('a stream failure during HTTP settles before HTTP returns', (
+    tester,
+  ) async {
+    final api = _DelayedSummaryApi();
+    final fixture = _SummaryFixture(api: api);
+    final request = _Settled(fixture.load().result);
+    await tester.pump();
+    expect(api.started, isTrue);
+
+    fixture.deliver(creditLimitPayload());
+    await tester.pump();
+    expect(request.error, isA<AiSummaryStreamFailure>());
+    expect(fixture.callbacks, isEmpty);
+
+    // The sent POST cannot be aborted; its late answer must not reopen it.
+    api.response.complete(summaryResponse());
+    await tester.pump();
+    expect(request.value, isNull);
+    expect(request.error, isA<AiSummaryStreamFailure>());
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('a credit-limit failure explains itself and can be retried', (
+    tester,
+  ) async {
+    final fixture = _SummaryFixture();
+    await fixture.openDialog(tester);
+    expect(find.text('Generating summary…'), findsOneWidget);
+
+    fixture.deliver(creditLimitPayload());
+    // One frame: settling would also run out the stream deadline.
+    await tester.pump();
+    expect(find.text(_creditLimitCopy), findsOneWidget);
+    expect(find.text('Generating summary…'), findsNothing);
+    expect(fixture.callbacks, isEmpty);
+
+    await tester.tap(find.text('Try again'));
+    await tester.pump();
+    expect(fixture.api.pluginWrites, hasLength(2));
+    expect(fixture.callbacks, hasLength(1));
+    fixture.deliver(summaryResponse(done: true));
+    await tester.pumpAndSettle();
+    expect(
+      find.text('The important parts of the discussion.', findRichText: true),
+      findsOneWidget,
+    );
+    expect(find.text(_creditLimitCopy), findsNothing);
+  });
+
+  for (final (label, payload, copy) in [
+    (
+      'a credit limit without a reset time',
+      creditLimitPayload(
+        details: const {'reset_time_relative': '', 'reset_time_absolute': ''},
+      ),
+      'This community has reached its AI credit limit for today. Responses '
+          'will be unavailable until your limit resets. Please contact your '
+          'site administrator for more information.',
+    ),
+    (
+      'another stream failure',
+      <String, dynamic>{
+        'error': true,
+        'error_type': 'provider_unavailable',
+        'message': 'Faraday::TimeoutError',
+        'done': true,
+      },
+      "Couldn't generate this summary.",
+    ),
+  ]) {
+    testWidgets('the dialog reports $label', (tester) async {
+      final fixture = _SummaryFixture();
+      await fixture.openDialog(tester);
+
+      fixture.deliver(payload);
+      // One frame: the deadline's own failure shows the generic copy too.
+      await tester.pump();
+
+      expect(find.text(copy), findsOneWidget);
+      expect(find.text('Try again'), findsOneWidget);
+      expect(fixture.callbacks, isEmpty);
+    });
+  }
 
   testWidgets('forgetting an account promptly retires its stream wait', (
     tester,
