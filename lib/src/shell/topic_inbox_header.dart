@@ -685,11 +685,10 @@ class _TopicHeaderTaxonomy extends StatelessWidget {
               constraints: BoxConstraints(
                 minHeight: _taxonomyRowHeight(context),
               ),
-              child: Wrap(
+              child: DControlWrap(
                 key: const ValueKey('topic-header-taxonomy'),
                 spacing: 8,
                 runSpacing: 8,
-                crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
                   if (hasCategories)
                     ConstrainedBox(
