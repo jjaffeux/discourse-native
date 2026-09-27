@@ -5058,6 +5058,44 @@ void main() {
       expect(subject.chat.hasSendingMessage(site, target), isFalse);
     });
 
+    test('a category channel the reader has not joined waits for a Join, '
+        'while a closed direct message stays sendable', () async {
+      final subject = build(currentUser: currentUser, sentMessageId: 42);
+      addTearDown(subject.chat.dispose);
+      subject.store.put(site, channel(9, following: false, canJoin: true));
+      subject.store.put(
+        site,
+        channel(10, kind: ChatChannelKind.directMessage, following: false),
+      );
+
+      expect(subject.chat.canSendMessage(site, 9), isFalse);
+      expect(
+        subject.chat.sendMessage(site, 9, OutgoingChatMessage.text('hello')),
+        isNull,
+      );
+      expect(subject.chat.stream(site, 9).localMessageIds, isEmpty);
+
+      // The site re-follows a direct message its reader posts to.
+      expect(subject.chat.canSendMessage(site, 10), isTrue);
+      final direct = subject.chat.sendMessage(
+        site,
+        10,
+        OutgoingChatMessage.text('hello'),
+      )!;
+      expect(await direct.settled, ChatSendResult.sent);
+      expect(subject.api.chatMessagesSent.map((sent) => sent.channelId), [10]);
+
+      expect(
+        await subject.chat.updateChannelFollowing(
+          site,
+          subject.chat.channel(site, 9)!,
+          true,
+        ),
+        isNull,
+      );
+      expect(subject.chat.canSendMessage(site, 9), isTrue);
+    });
+
     test(
       'a failed send reports again only while its retry is on the wire',
       () async {

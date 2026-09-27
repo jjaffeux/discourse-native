@@ -4828,7 +4828,16 @@ class ChatController extends FrameSafeNotifier {
           isStaff: _currentUserFor(siteUrl)?.staff ?? false,
         ) ??
         true;
-    if (target is! ChatThreadTarget) return canModify;
+    if (target is! ChatThreadTarget) {
+      // Core offers Join instead of a category channel's composer until the
+      // reader follows it: the site refuses a message from a reader who never
+      // joined, and one who left would post without rejoining. Posting to a
+      // closed direct message re-follows it, so that stays sendable.
+      return canModify &&
+          (heldChannel == null ||
+              !heldChannel.isCategoryChannel ||
+              heldChannel.membership.following);
+    }
 
     final heldThread = thread(siteUrl, target.threadId);
     return heldChannel != null &&

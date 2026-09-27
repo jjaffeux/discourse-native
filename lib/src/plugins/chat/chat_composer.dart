@@ -970,6 +970,17 @@ class _ChatComposerState extends State<ChatComposer> {
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (mounted) _mobileActionController?.clear(_mobileActionOwner);
           });
+          if (_chat case final chat?
+              when channel.isCategoryChannel && !channel.membership.following) {
+            return _composerLane(
+              _ChatJoinChannelPrompt(
+                key: ValueKey((widget.siteUrl, channel.id)),
+                siteUrl: widget.siteUrl,
+                channel: channel,
+                chat: chat,
+              ),
+            );
+          }
           return _composerLane(
             Container(
               key: const ValueKey('chat-composer-read-only'),
@@ -1545,4 +1556,86 @@ class _ChatComposerState extends State<ChatComposer> {
     tooltip: widget.editingMessage == null ? 'Send message' : 'Save edit',
     variant: DButtonVariant.primary,
   );
+}
+
+/// Core's channel preview card: until the reader follows a category channel,
+/// Join takes the composer's place. Following republishes the channel, and the
+/// composer returns with its retained draft.
+class _ChatJoinChannelPrompt extends StatefulWidget {
+  const _ChatJoinChannelPrompt({
+    super.key,
+    required this.siteUrl,
+    required this.channel,
+    required this.chat,
+  });
+
+  final String siteUrl;
+  final ChatChannel channel;
+  final ChatController chat;
+
+  @override
+  State<_ChatJoinChannelPrompt> createState() => _ChatJoinChannelPromptState();
+}
+
+class _ChatJoinChannelPromptState extends State<_ChatJoinChannelPrompt> {
+  bool _joining = false;
+
+  Future<void> _join() async {
+    if (_joining) return;
+    setState(() => _joining = true);
+    final error = await widget.chat.updateChannelFollowing(
+      widget.siteUrl,
+      widget.channel,
+      true,
+    );
+    if (!mounted) return;
+    setState(() => _joining = false);
+    if (error != null) DToast.show(context, error, type: DToastType.error);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final channel = widget.channel;
+    final canJoin = channel.canJoin && channel.status == ChatChannelStatus.open;
+    return DItem(
+      key: const ValueKey('chat-composer-join'),
+      variant: DItemVariant.outline,
+      children: [
+        DItemContent(
+          children: [
+            DItemTitle(
+              maxLines: 2,
+              child: Text(
+                canJoin
+                    ? 'Join #${channel.title} to start chatting'
+                    : 'You can’t join #${channel.title}',
+              ),
+            ),
+            DItemDescription(
+              maxLines: null,
+              child: Text(
+                canJoin
+                    ? 'You’ll be able to post and reply, and it’ll show up '
+                          'in your channel list.'
+                    : 'This channel isn’t open to new members right now.',
+              ),
+            ),
+          ],
+        ),
+        if (canJoin)
+          DItemActions(
+            children: [
+              DButton(
+                key: const ValueKey('chat-composer-join-button'),
+                label: const Text('Join channel'),
+                loadingLabel: const Text('Joining…'),
+                variant: DButtonVariant.primary,
+                loading: _joining,
+                onPressed: _joining ? null : () => unawaited(_join()),
+              ),
+            ],
+          ),
+      ],
+    );
+  }
 }

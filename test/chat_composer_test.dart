@@ -3232,6 +3232,81 @@ void main() {
       expect(fixture.api.chatMessagesSent, isEmpty);
     });
 
+    testWidgets('offers Join until the reader follows the category channel', (
+      tester,
+    ) async {
+      final fixture = await _fixture(
+        pages: {FakeDiscourseApi.chatMessagesKey(9): _emptyPage},
+        following: false,
+        canJoin: true,
+      );
+      addTearDown(fixture.shell.dispose);
+      fixture.shell.chat.retainComposerDraft(
+        _site,
+        const ChatChannelTarget(9),
+        raw: 'Keep this draft',
+        uploads: const [],
+      );
+      await tester.pumpWidget(_TestView(shell: fixture.shell));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const ValueKey('chat-composer-join')), findsOneWidget);
+      expect(find.text('Join #design to start chatting'), findsOneWidget);
+      expect(find.byType(TextField), findsNothing);
+
+      await tester.tap(find.byKey(const ValueKey('chat-composer-join-button')));
+      await tester.pumpAndSettle();
+
+      expect(fixture.api.chatChannelFollowsUpdated, const [
+        (channelId: 9, following: true),
+      ]);
+      expect(find.byKey(const ValueKey('chat-composer-join')), findsNothing);
+      expect(_text(tester), 'Keep this draft');
+      expect(fixture.api.chatMessagesSent, isEmpty);
+    });
+
+    testWidgets('keeps Join and explains a refused join', (tester) async {
+      const failure = WriteException(WriteFailure.forbidden);
+      final fixture = await _fixture(
+        pages: {FakeDiscourseApi.chatMessagesKey(9): _emptyPage},
+        following: false,
+        canJoin: true,
+        followFailure: failure,
+      );
+      addTearDown(fixture.shell.dispose);
+      await tester.pumpWidget(_TestView(shell: fixture.shell));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const ValueKey('chat-composer-join-button')));
+      await tester.pumpAndSettle();
+
+      expect(fixture.api.chatChannelFollowsUpdated, const [
+        (channelId: 9, following: true),
+      ]);
+      expect(find.text(failure.message), findsOneWidget);
+      expect(_button(tester, 'chat-composer-join-button').onPressed, isNotNull);
+      expect(find.byType(TextField), findsNothing);
+    });
+
+    testWidgets('explains a category channel the reader cannot join', (
+      tester,
+    ) async {
+      final fixture = await _fixture(
+        pages: {FakeDiscourseApi.chatMessagesKey(9): _emptyPage},
+        following: false,
+      );
+      addTearDown(fixture.shell.dispose);
+      await tester.pumpWidget(_TestView(shell: fixture.shell));
+      await tester.pumpAndSettle();
+
+      expect(find.text('You can’t join #design'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('chat-composer-join-button')),
+        findsNothing,
+      );
+      expect(find.byType(TextField), findsNothing);
+    });
+
     testWidgets('shares the selection formatting menu with topics', (
       tester,
     ) async {
@@ -3300,6 +3375,9 @@ Future<({ShellController shell, FakeDiscourseApi api})> _fixture({
   ChatChannelStatus channelStatus = ChatChannelStatus.open,
   bool threadingEnabled = true,
   ChatChannelKind channelKind = ChatChannelKind.category,
+  bool following = true,
+  bool canJoin = false,
+  WriteException? followFailure,
   PluginDiagnosticsReporter pluginDiagnosticsReporter =
       const PluginDiagnosticsReporter.noop(),
   CookingServicePort? cookingService,
@@ -3311,6 +3389,7 @@ Future<({ShellController shell, FakeDiscourseApi api})> _fixture({
     chatEditGate: editGate,
     chatSendFailure: sendFailure,
     chatSentMessageId: sentMessageId ?? 1,
+    chatChannelFollowFailure: followFailure,
     composerUploadResult: composerUploadResult,
     emojiCatalogsBySite: {_site: ?emojiCatalog},
     siteConfigs: fetchedSiteConfigs,
@@ -3343,7 +3422,8 @@ Future<({ShellController shell, FakeDiscourseApi api})> _fixture({
       title: 'design',
       kind: channelKind,
       status: channelStatus,
-      membership: const ChatMembership(following: true),
+      canJoin: canJoin,
+      membership: ChatMembership(following: following),
       threadingEnabled: threadingEnabled,
     ),
   );
@@ -3468,8 +3548,9 @@ final class _TestView extends StatelessWidget {
   Widget build(BuildContext context) {
     final app = MaterialApp(
       theme: dark ? AppTheme.dark : AppTheme.light,
-      builder: (context, child) =>
-          AppTextScaleRegion(controller: shell.appSettings, child: child!),
+      builder: (context, child) => DToaster(
+        child: AppTextScaleRegion(controller: shell.appSettings, child: child!),
+      ),
       home: const Scaffold(body: ChatChannelView(channelId: 9)),
     );
     final ownedApp = PluginUiScope.own(chatPluginId, app);
