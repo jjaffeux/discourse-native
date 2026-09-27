@@ -612,12 +612,28 @@ final class SiteImageWidgetFactory extends WidgetFactory {
         : child;
   }
 
+  // Remote images load through [SiteImage], whose site-scoped cache bounds
+  // response size, refuses unsafe redirects and remembers failures. The HTML
+  // package may build a provider itself only for inline data: a server must
+  // not be able to name a file on the device or an asset in the app bundle,
+  // and a CSS background image has no route through [SiteImage]. An `<img>`
+  // refused here reads as its alt text; a refused background is not drawn.
+  @override
+  ImageProvider? imageProviderFromAsset(String url) => null;
+
+  @override
+  ImageProvider? imageProviderFromFileUri(String url) => null;
+
+  @override
+  ImageProvider? imageProviderFromNetwork(String url) => null;
+
   Widget? _buildImageContent(BuildTree tree, ImageSource src) {
     final uri = Uri.tryParse(src.url);
     if (uri == null ||
         uri.scheme == 'asset' ||
         uri.scheme == 'data' ||
         uri.scheme == 'file') {
+      // Of these, the package's providers above decode only inline data.
       return super.buildImageWidget(tree, src);
     }
 

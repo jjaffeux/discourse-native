@@ -509,6 +509,61 @@ void main() {
     });
   }
 
+  group('image sources the HTML package would load itself', () {
+    List<ImageProvider> drawnImages(WidgetTester tester) => [
+      for (final image in tester.widgetList<Image>(find.byType(Image)))
+        image.image,
+      for (final box in tester.widgetList<DecoratedBox>(
+        find.byType(DecoratedBox),
+      ))
+        if (box.decoration case BoxDecoration(:final image?)) image.image,
+    ];
+
+    for (final src in [
+      'file:///etc/secret.png',
+      'FILE:///etc/secret.png',
+      'asset:assets/secret.png',
+    ]) {
+      testWidgets('an image from $src reads as its alt text', (tester) async {
+        final inline = Uri.dataFromBytes(onePixelPng, mimeType: 'image/png');
+
+        await pumpCooked(
+          tester,
+          '<p><img src="$src" alt="Secret"></p>'
+          '<p><img src="$inline" alt="Inline"></p>',
+        );
+
+        expect(drawnImages(tester), [isA<MemoryImage>()]);
+        expect(paragraphOf(tester, 'Secret'), 'Secret');
+      });
+    }
+
+    for (final url in [
+      'file:///etc/background.png',
+      'https://cdn.example.com/background.png',
+    ]) {
+      testWidgets('a CSS background image from $url is not drawn', (
+        tester,
+      ) async {
+        await pumpCooked(
+          tester,
+          '<div style="background-color: #ff0000; '
+          'background-image: url($url)">Body</div>',
+        );
+
+        expect(drawnImages(tester), isEmpty);
+        expect(
+          tester
+              .widgetList<DecoratedBox>(find.byType(DecoratedBox))
+              .map((box) => box.decoration)
+              .whereType<BoxDecoration>()
+              .map((decoration) => decoration.color),
+          contains(const Color(0xFFFF0000)),
+        );
+      });
+    }
+  });
+
   test('containing topics have value semantics for HTML rebuild triggers', () {
     final id = int.parse('1');
     final first = PluginContainingTopic(id: id, slug: 'topic', archived: false);
