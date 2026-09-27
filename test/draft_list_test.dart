@@ -746,6 +746,78 @@ void main() {
       expect(find.byTooltip('Remove draft'), findsOneWidget);
     });
 
+    for (final fails in [false, true]) {
+      testWidgets('keeps loaded rows on screen while a refresh '
+          '${fails ? 'fails' : 'replaces them'}', (tester) async {
+        final api = _RefreshDraftsApi([_draft]);
+        final fixture = await _pumpList(tester, api: api);
+        final drafts = fixture.controller.draftList;
+        final site = fixture.controller.instances.firstWhere(
+          (instance) => instance.url == _siteUrl,
+        );
+        final heldTitle = find.byWidgetPredicate(
+          (widget) =>
+              widget is TopicTitle &&
+              widget.title == 'Native :sparkles: drafts page',
+        );
+        final freshTitle = find.byWidgetPredicate(
+          (widget) => widget is TopicTitle && widget.title == 'Fresh draft',
+        );
+        expect(heldTitle, findsOneWidget);
+
+        final response = api.response = Completer<UserDraftPage>();
+        final refresh = drafts.load(site, refresh: true);
+        await tester.pump();
+
+        expect(api.userDraftRequests.last, (
+          siteUrl: _siteUrl,
+          offset: 0,
+          limit: 30,
+        ));
+        expect(drafts.feedFor(_siteUrl).loading, isTrue);
+        expect(
+          find.byKey(const ValueKey('draft-list-loading-skeleton')),
+          findsNothing,
+        );
+        expect(heldTitle, findsOneWidget);
+
+        if (fails) {
+          response.completeError(StateError('offline'));
+        } else {
+          response.complete(
+            const UserDraftPage(
+              drafts: [
+                UserDraft(
+                  key: 'topic_9',
+                  sequence: 1,
+                  data: ComposerDraft(reply: 'Fresh body'),
+                  topicId: 9,
+                  title: 'Fresh draft',
+                ),
+              ],
+              rawItemCount: 1,
+            ),
+          );
+        }
+        await tester.pumpAndSettle();
+        await refresh;
+
+        if (fails) {
+          expect(heldTitle, findsOneWidget);
+          expect(
+            find.text("Couldn't load drafts from meta.discourse.org."),
+            findsOneWidget,
+          );
+          expect(find.text('Retry'), findsOneWidget);
+          expect(find.text('Try again'), findsNothing);
+        } else {
+          expect(heldTitle, findsNothing);
+          expect(freshTitle, findsOneWidget);
+        }
+        expect(tester.takeException(), isNull);
+      });
+    }
+
     testWidgets('cancels a removal confirmed after its account expires', (
       tester,
     ) async {

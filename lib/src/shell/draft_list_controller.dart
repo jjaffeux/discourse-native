@@ -88,7 +88,10 @@ final class DraftListController extends FrameSafeNotifier {
       }
       return;
     }
-    final held = refresh ? const DraftFeed() : feedFor(siteUrl);
+    // A refresh keeps the held rows visible until its first page replaces
+    // them: the feed is shared by every panel and menu that lists drafts, and
+    // a failed refresh must not cost the rows already on screen.
+    final held = feedFor(siteUrl);
     if (!refresh && held.loaded && !held.hasMore) return;
 
     final request = Object();
@@ -114,23 +117,28 @@ final class DraftListController extends FrameSafeNotifier {
       final page = await api.userDrafts(
         siteUrl: siteUrl,
         apiKey: apiKey,
-        offset: feedFor(siteUrl).nextOffset,
+        offset: refresh ? 0 : feedFor(siteUrl).nextOffset,
         limit: limit,
       );
-      // The commit must build on the feed as it stands now, not the [held]
+      // A next page must build on the feed as it stands now, not the [held]
       // snapshot: a delete that landed during the request already removed its
-      // row, and replaying the snapshot would put the row back.
+      // row, and replaying the snapshot would put the row back. A refresh
+      // restarts at the first page, so it replaces every held row instead.
       _commit(lease, siteUrl, request, () {
         final removed = _deletedWhileLoading[siteUrl] ?? const <String>{};
         // Deletions of already loaded rows adjusted the cursor in `without`.
-        // Only newly encountered deleted keys still need that adjustment.
-        final heldKeys = {for (final draft in held.drafts) draft.key};
+        // Only newly encountered deleted keys still need that adjustment, and
+        // a refresh starts a new cursor that no deletion has adjusted yet.
+        final heldKeys = refresh
+            ? const <String>{}
+            : {for (final draft in held.drafts) draft.key};
         final deletedFromPage = {
           for (final draft in page.drafts)
             if (removed.contains(draft.key) && !heldKeys.contains(draft.key))
               draft.key,
         };
-        _feeds[siteUrl] = feedFor(siteUrl).withPage(
+        final base = refresh ? const DraftFeed() : feedFor(siteUrl);
+        _feeds[siteUrl] = base.withPage(
           UserDraftPage(
             drafts: [
               for (final draft in page.drafts)
@@ -149,7 +157,7 @@ final class DraftListController extends FrameSafeNotifier {
       _commit(lease, siteUrl, request, () {
         final current = feedFor(siteUrl);
         _feeds[siteUrl] = current.withError(
-          current.drafts.isEmpty
+          refresh || current.drafts.isEmpty
               ? "Couldn't load drafts from ${instance.host}."
               : "Couldn't load more drafts from ${instance.host}.",
         );

@@ -718,12 +718,151 @@ void main() {
       await initial;
       await pumpEventQueue();
       expect(api.pages, hasLength(2));
+      expect(api.offsets, [0, 0]);
+      expect(controller.feedFor(_siteUrl).loading, isTrue);
+      expect(controller.feedFor(_siteUrl).drafts.single.key, _draft.key);
 
       api.pages[1].complete(const []);
       await pumpEventQueue();
 
       expect(controller.feedFor(_siteUrl).drafts, isEmpty);
     });
+
+    test(
+      'a refresh keeps every held row until page one replaces them',
+      () async {
+        final api = _GatedDraftsApi();
+        final controller = DraftListController(
+          api: api,
+          credentials: _ReadyApiKeys(),
+          lifecycle: SiteLifecycle(),
+        );
+        addTearDown(controller.dispose);
+        final seeded = [
+          for (var index = 0; index <= DraftListController.pageSize; index++)
+            UserDraft(key: 'topic_$index', sequence: 1, data: null),
+        ];
+        final first = controller.load(_instance);
+        await pumpEventQueue();
+        api.pages.single.complete(
+          seeded.take(DraftListController.pageSize).toList(),
+        );
+        await first;
+        final second = controller.load(_instance);
+        await pumpEventQueue();
+        api.pages[1].complete(
+          seeded.skip(DraftListController.pageSize).toList(),
+        );
+        await second;
+        expect(controller.feedFor(_siteUrl).drafts, hasLength(seeded.length));
+
+        final refresh = controller.load(_instance, refresh: true);
+        await pumpEventQueue();
+        expect(api.offsets, [0, 30, 0]);
+        final refreshing = controller.feedFor(_siteUrl);
+        expect(refreshing.loading, isTrue);
+        expect(refreshing.loaded, isTrue);
+        expect(refreshing.drafts.map((draft) => draft.key), [
+          for (final draft in seeded) draft.key,
+        ]);
+
+        api.pages[2].complete(const [
+          UserDraft(key: 'topic_fresh', sequence: 1, data: null),
+          UserDraft(key: 'topic_0', sequence: 2, data: null),
+        ]);
+        await refresh;
+
+        final feed = controller.feedFor(_siteUrl);
+        expect(feed.loading, isFalse);
+        expect(feed.error, isNull);
+        expect(feed.drafts.map((draft) => draft.key), [
+          'topic_fresh',
+          'topic_0',
+        ]);
+        expect(feed.drafts.last.sequence, 2);
+        expect(feed.nextOffset, 2);
+        expect(feed.hasMore, isFalse);
+        expect(feed.totalCount, 2);
+      },
+    );
+
+    test('a failed refresh keeps the held rows beside its error', () async {
+      final api = _GatedDraftsApi();
+      final controller = DraftListController(
+        api: api,
+        credentials: _ReadyApiKeys(),
+        lifecycle: SiteLifecycle(),
+      );
+      addTearDown(controller.dispose);
+      final seeded = [
+        for (var index = 0; index < DraftListController.pageSize; index++)
+          UserDraft(key: 'topic_$index', sequence: 1, data: null),
+      ];
+      final seed = controller.load(_instance);
+      await pumpEventQueue();
+      api.pages.single.complete(seeded);
+      await seed;
+
+      final refresh = controller.load(_instance, refresh: true);
+      await pumpEventQueue();
+      api.pages[1].completeError(StateError('offline'));
+      await refresh;
+
+      final feed = controller.feedFor(_siteUrl);
+      expect(feed.error, "Couldn't load drafts from one.example.");
+      expect(feed.loading, isFalse);
+      expect(feed.loaded, isTrue);
+      expect(feed.drafts, hasLength(DraftListController.pageSize));
+      expect(feed.hasMore, isTrue);
+      expect(feed.nextOffset, DraftListController.pageSize);
+
+      final more = controller.load(_instance);
+      await pumpEventQueue();
+      expect(api.offsets, [0, 0, DraftListController.pageSize]);
+      api.pages[2].complete(const []);
+      await more;
+    });
+
+    test(
+      'a refresh counts a deletion on its page against the new cursor',
+      () async {
+        final api = _GatedDraftsApi();
+        final controller = DraftListController(
+          api: api,
+          credentials: _ReadyApiKeys(),
+          lifecycle: SiteLifecycle(),
+        );
+        addTearDown(controller.dispose);
+        final seeded = [
+          for (var index = 0; index < DraftListController.pageSize; index++)
+            UserDraft(key: 'topic_$index', sequence: 1, data: null),
+        ];
+        final seed = controller.load(_instance);
+        await pumpEventQueue();
+        api.pages.single.complete(seeded);
+        await seed;
+
+        final refresh = controller.load(_instance, refresh: true);
+        await pumpEventQueue();
+        expect(await controller.delete(_instance, seeded[3]), isTrue);
+        expect(controller.feedFor(_siteUrl).loading, isTrue);
+        expect(controller.feedFor(_siteUrl).drafts, hasLength(29));
+
+        // Page one was produced before the delete landed, so the server has
+        // since shifted every later draft back by one position.
+        api.pages[1].complete(seeded);
+        await refresh;
+
+        final feed = controller.feedFor(_siteUrl);
+        expect(feed.drafts, hasLength(29));
+        expect(
+          feed.drafts.map((draft) => draft.key),
+          isNot(contains(seeded[3].key)),
+        );
+        expect(feed.nextOffset, 29);
+        expect(feed.hasMore, isTrue);
+      },
+    );
 
     test('keeps a draft deleted while a page is in flight', () async {
       final api = _GatedDraftsApi();
@@ -742,6 +881,7 @@ void main() {
 
       final refresh = controller.load(_instance, refresh: true);
       await pumpEventQueue();
+      expect(controller.feedFor(_siteUrl).drafts.single.key, _draft.key);
       expect(await controller.delete(_instance, _draft), isTrue);
 
       // The refresh response was produced before the server-side delete landed.
