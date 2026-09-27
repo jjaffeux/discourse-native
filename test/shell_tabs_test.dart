@@ -98,6 +98,68 @@ void main() {
         },
       );
 
+      for (final rail in [forums, <DiscourseInstance>[]]) {
+        test(
+          rail.isEmpty
+              ? 'an empty rail keeps every Start page visit'
+              : 'a restart drops Start page visits of forums off the rail',
+          () async {
+            final persistence = MemoryRecentDestinationsPersistence();
+            await (RecentDestinationsStore(persistence: persistence)
+                  ..remember(
+                    forums.first.url,
+                    'anonymous',
+                    ContentRoute.topic(
+                      topicId: 41,
+                      slug: 'kept',
+                      title: 'Kept',
+                    ),
+                  )
+                  ..remember(
+                    'https://removed.example',
+                    'user:reader',
+                    ContentRoute.topic(
+                      topicId: 42,
+                      slug: 'contract-renewal',
+                      title: 'Contract renewal',
+                    ),
+                  ))
+                .save();
+
+            final restored = ShellController(
+              instanceStore: FakeInstanceStore(rail),
+              api: FakeDiscourseApi(feeds: const {'/latest.json': []}),
+              authenticator: FakeAuthenticator(),
+              drafts: FakeDraftStore(),
+              forumTabs: forumTabs,
+              recentDestinations: RecentDestinationsStore(
+                persistence: persistence,
+              ),
+              trackers: FakeSiteTracker.reset(),
+            );
+            addTearDown(restored.dispose);
+            await restored.load();
+
+            final reloaded = RecentDestinationsStore(persistence: persistence);
+            await reloaded.load();
+            expect(
+              reloaded.topicsFor(forums.first.url, 'anonymous').single.topicId,
+              41,
+            );
+            expect(
+              reloaded.hasVisits('https://removed.example', 'user:reader'),
+              rail.isEmpty,
+            );
+            expect(
+              persistence.value,
+              rail.isEmpty
+                  ? contains('Contract renewal')
+                  : isNot(contains('Contract renewal')),
+            );
+          },
+        );
+      }
+
       test(
         'restored tab history seeds visits from before persistence',
         () async {

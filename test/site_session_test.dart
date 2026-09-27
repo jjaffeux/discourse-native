@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:discourse_native/src/data/discourse_api.dart';
+import 'package:discourse_native/src/data/recent_destinations_store.dart';
 import 'package:discourse_native/src/data/user_api_key.dart';
 import 'package:discourse_native/src/diagnostics/diagnostics.dart';
 import 'package:discourse_native/src/models/content_route.dart';
@@ -525,6 +526,25 @@ final class _FailingRemovalSaveStore extends FakeInstanceStore {
       throw StateError('preferences unavailable');
     }
     await super.save(instances);
+  }
+}
+
+/// Writes a snapshot without the target site at once, but acknowledges it
+/// only after [releaseRemoval].
+final class _HeldRemovalSaveStore extends FakeInstanceStore {
+  _HeldRemovalSaveStore(super.instances);
+
+  final removalHeld = Completer<void>();
+  final releaseRemoval = Completer<void>();
+
+  @override
+  Future<void> save(List<DiscourseInstance> instances) async {
+    await super.save(instances);
+    if (!removalHeld.isCompleted &&
+        !instances.any((item) => item.url == _siteUrl)) {
+      removalHeld.complete();
+      await releaseRemoval.future;
+    }
   }
 }
 
@@ -1391,6 +1411,154 @@ void main() {
         );
       });
     }
+
+    test(
+      "forget every account's Start page visits of a removed forum",
+      () async {
+        const otherSite = 'https://other.example.com';
+        final persistence = MemoryRecentDestinationsPersistence();
+        await (RecentDestinationsStore(persistence: persistence)..remember(
+              _siteUrl,
+              'user:former',
+              ContentRoute.topic(
+                topicId: 3,
+                slug: 'handover',
+                title: 'Handover notes',
+              ),
+            ))
+            .save();
+        final shell = ShellController(
+          instanceStore: FakeInstanceStore([
+            instance(
+              'meta.discourse.org',
+            ).copyWith(user: const DiscourseUser(id: 7, username: 'reader')),
+            instance('other.example.com'),
+          ]),
+          api: FakeDiscourseApi(),
+          authenticator: FakeAuthenticator()..keys[_siteUrl] = 'api-key',
+          drafts: FakeDraftStore(),
+          recentDestinations: RecentDestinationsStore(persistence: persistence),
+          trackers: FakeSiteTracker.reset(),
+        );
+        addTearDown(shell.dispose);
+
+        await shell.load();
+        shell.pushContent(
+          ContentRoute.topic(
+            topicId: 7,
+            slug: 'contract-renewal',
+            title: 'Contract renewal',
+          ),
+        );
+        shell.selectInstance(1);
+        shell.pushContent(
+          ContentRoute.topic(topicId: 8, slug: 'eight', title: 'Eight'),
+        );
+        await pumpEventQueue();
+        expect(persistence.value, contains('Contract renewal'));
+
+        expect(
+          await shell.removeInstance(shell.instanceFor(_siteUrl)!),
+          isTrue,
+        );
+        await pumpEventQueue();
+
+        final reloaded = RecentDestinationsStore(persistence: persistence);
+        await reloaded.load();
+        for (final account in ['user:reader', 'user:former', 'anonymous']) {
+          expect(reloaded.hasVisits(_siteUrl, account), isFalse);
+        }
+        expect(reloaded.topicsFor(otherSite, 'anonymous').single.topicId, 8);
+        expect(persistence.value, isNot(contains('Contract renewal')));
+        expect(persistence.value, isNot(contains('Handover notes')));
+      },
+    );
+
+    test(
+      'keep the Start page visits of a forum whose removal cannot be saved',
+      () async {
+        final persistence = MemoryRecentDestinationsPersistence();
+        final shell = ShellController(
+          instanceStore: _FailingRemovalSaveStore([
+            instance('meta.discourse.org'),
+            instance('other.example.com'),
+          ]),
+          api: FakeDiscourseApi(),
+          authenticator: FakeAuthenticator(),
+          drafts: FakeDraftStore(),
+          recentDestinations: RecentDestinationsStore(persistence: persistence),
+          trackers: FakeSiteTracker.reset(),
+        );
+        addTearDown(shell.dispose);
+
+        await shell.load();
+        shell.pushContent(
+          ContentRoute.topic(topicId: 7, slug: 'seven', title: 'Seven'),
+        );
+        await pumpEventQueue();
+
+        expect(
+          await shell.removeInstance(shell.instanceFor(_siteUrl)!),
+          isFalse,
+        );
+        await pumpEventQueue();
+
+        expect(shell.recentTopicsFor(_siteUrl).single.topicId, 7);
+        final reloaded = RecentDestinationsStore(persistence: persistence);
+        await reloaded.load();
+        expect(reloaded.topicsFor(_siteUrl, 'anonymous').single.topicId, 7);
+      },
+    );
+
+    test(
+      'keep the Start page visits of a forum re-added while its removal saves',
+      () async {
+        final persistence = MemoryRecentDestinationsPersistence();
+        final store = _HeldRemovalSaveStore([
+          instance('meta.discourse.org'),
+          instance('other.example.com'),
+        ]);
+        addTearDown(() {
+          if (!store.releaseRemoval.isCompleted) {
+            store.releaseRemoval.complete();
+          }
+        });
+        final shell = ShellController(
+          instanceStore: store,
+          api: FakeDiscourseApi(),
+          authenticator: FakeAuthenticator(),
+          drafts: FakeDraftStore(),
+          recentDestinations: RecentDestinationsStore(persistence: persistence),
+          trackers: FakeSiteTracker.reset(),
+        );
+        addTearDown(shell.dispose);
+
+        await shell.load();
+        final removing = shell.removeInstance(shell.instanceFor(_siteUrl)!);
+        await store.removalHeld.future;
+
+        expect(await shell.addInstance(instance('meta.discourse.org')), isTrue);
+        // The current page is remembered again on every notification, so the
+        // earlier visit is the one a stale forget would lose.
+        shell.pushContent(
+          ContentRoute.topic(topicId: 9, slug: 'nine', title: 'Nine'),
+        );
+        shell.pushContent(
+          ContentRoute.topic(topicId: 10, slug: 'ten', title: 'Ten'),
+        );
+        store.releaseRemoval.complete();
+        expect(await removing, isTrue);
+        await pumpEventQueue();
+
+        List<int?> topicIds(List<ContentRoute> routes) => [
+          for (final route in routes) route.topicId,
+        ];
+        expect(topicIds(shell.recentTopicsFor(_siteUrl)), [10, 9]);
+        final reloaded = RecentDestinationsStore(persistence: persistence);
+        await reloaded.load();
+        expect(topicIds(reloaded.topicsFor(_siteUrl, 'anonymous')), [10, 9]);
+      },
+    );
 
     for (final removeSelected in [true, false]) {
       test('keep the tabs of a ${removeSelected ? 'selected' : 'background'} '
