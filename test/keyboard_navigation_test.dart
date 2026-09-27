@@ -817,6 +817,57 @@ void main() {
   );
 
   testWidgets(
+    'post commands follow the active reader when two topics share the window',
+    (tester) async {
+      final setup = await _setup(tester, longPosts: const {});
+      final rows = setup.api.feeds['/latest.json']!;
+      setup.shell.openTopicFromList(rows[0]);
+      await tester.pumpAndSettle();
+      await _readBeside(tester, setup.shell, rows[4]);
+      Future<void> clickReader(ForumPanel panel) async {
+        final reader = find.descendant(
+          of: find.byKey(ValueKey('desktop-panel-${panel.name}')),
+          matching: find.byType(TopicView),
+        );
+        await tester.tapAt(
+          tester.getCenter(reader),
+          kind: PointerDeviceKind.mouse,
+        );
+        await tester.pumpAndSettle();
+        expect(setup.shell.activeTab?.panel, panel);
+      }
+
+      // The main reader was mounted first, so it sees every key before the
+      // active secondary reader does.
+      expect(setup.shell.activeTab?.panel, ForumPanel.secondary);
+      expect(await tester.sendKeyEvent(LogicalKeyboardKey.keyJ), isTrue);
+      await tester.pumpAndSettle();
+      expect(_selectedPosts(tester), [503]);
+      expect(setup.shell.activeTab?.panel, ForumPanel.secondary);
+
+      await clickReader(ForumPanel.main);
+      expect(await tester.sendKeyEvent(LogicalKeyboardKey.keyJ), isTrue);
+      await tester.pumpAndSettle();
+      expect(_selectedPosts(tester), [102, 503]);
+      expect(setup.shell.activeTab?.panel, ForumPanel.main);
+
+      await clickReader(ForumPanel.secondary);
+      expect(await tester.sendKeyEvent(LogicalKeyboardKey.keyJ), isTrue);
+      await tester.pumpAndSettle();
+      expect(_selectedPosts(tester), [102, 504]);
+      expect(await tester.sendKeyEvent(LogicalKeyboardKey.keyK), isTrue);
+      await tester.pumpAndSettle();
+      expect(_selectedPosts(tester), [102, 503]);
+      expect(setup.shell.activeTab?.panel, ForumPanel.secondary);
+      expect(await tester.sendKeyEvent(LogicalKeyboardKey.keyR), isTrue);
+      await tester.pumpAndSettle();
+      expect(setup.shell.visibleComposer?.target.topicId, 5);
+      expect(setup.shell.visibleComposer?.target.replyToPostNumber, 3);
+    },
+    variant: TargetPlatformVariant.only(TargetPlatform.linux),
+  );
+
+  testWidgets(
     'topic selection reaches virtualized rows and continues into the next page',
     (tester) async {
       final setup = await _setup(tester);
