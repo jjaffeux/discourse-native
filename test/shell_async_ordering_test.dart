@@ -237,10 +237,22 @@ TopicList _page(int id) => TopicList(
   topics: [Topic(id: id, title: 'Topic $id', slug: 'topic-$id')],
 );
 
+TopicList _pageOf(List<int> ids) => TopicList(
+  topics: [
+    for (final id in ids) Topic(id: id, title: 'Topic $id', slug: 'topic-$id'),
+  ],
+);
+
 Map<String, Object?> _created(int topicId) => {
   'topic_id': topicId,
   'message_type': 'new_topic',
   'payload': {'highest_post_number': 1, 'created_in_new_period': true},
+};
+
+Map<String, Object?> _bumped(int topicId) => {
+  'topic_id': topicId,
+  'message_type': 'latest',
+  'payload': {'bumped_at': '2026-09-27T10:00:00Z'},
 };
 
 Future<void> _completeFeed(
@@ -618,6 +630,54 @@ void main() {
         await _completeFeed(api.requests[3], _page(100));
         await newer;
         expect(shell.currentFeed?.topicIds, [100, 3]);
+      },
+    );
+
+    test('a refresh stops announcing the arrivals its answer lists', () async {
+      final (:shell, :api, :tracker) = await _loadIncomingShell();
+      addTearDown(shell.dispose);
+
+      // The site answers after topic 3 is created and topic 1 is bumped, but
+      // before topic 4 is created, so only topic 4 is still missing.
+      final refresh = shell.loadFeed('latest', force: true);
+      await api.waitForRequests(2);
+      tracker
+        ..deliver(_created(3))
+        ..deliver(_bumped(1))
+        ..deliver(_created(4));
+      expect(shell.incomingCount('latest'), 3);
+      await _completeFeed(api.requests[1], _pageOf([3, 1]));
+      await refresh;
+
+      expect(shell.currentFeed?.topicIds, [3, 1]);
+      expect(shell.incomingCount('latest'), 1);
+
+      final incoming = shell.showIncoming('latest');
+      await api.waitForRequests(3);
+      expect(api.requests[2].path, '/latest.json?topic_ids=4');
+      await _completeFeed(api.requests[2], _page(4));
+      await incoming;
+      expect(shell.currentFeed?.topicIds, [4, 3, 1]);
+      expect(shell.incomingCount('latest'), 0);
+    });
+
+    test(
+      'a failed refresh announces what it withdrew and what arrived meanwhile',
+      () async {
+        final (:shell, :api, :tracker) = await _loadIncomingShell();
+        addTearDown(shell.dispose);
+
+        tracker.deliver(_created(3));
+        final refresh = shell.loadFeed('latest', force: true);
+        await api.waitForRequests(2);
+        expect(shell.incomingCount('latest'), 0);
+        tracker.deliver(_created(4));
+        api.requests[1].response.completeError(StateError('offline'));
+        await refresh;
+
+        expect(shell.currentFeed?.topicIds, [1]);
+        expect(shell.currentFeed?.error, isNotNull);
+        expect(shell.incomingCount('latest'), 2);
       },
     );
   });
