@@ -6620,5 +6620,109 @@ void main() {
       expect(firstTracker.subscriberCount('/voice/rooms/7/chat'), 0);
       expect(replacement.subscriberCount('/voice/rooms/7/chat'), 1);
     });
+
+    /// Opens room 7's Chat with its session read held, then has the server
+    /// announce a session change while that read is still outstanding: the
+    /// panel is already visible, so a tracker sync watches its channel before
+    /// the open has read anything.
+    Future<
+      ({
+        Future<void> open,
+        _PendingPluginGet openRead,
+        _PendingPluginGet updateRead,
+      })
+    >
+    announceUpdateDuringOpen() async {
+      final controlled = _ControlledVoiceTransport(
+        responses: {'GET /voice/rooms.json': fixture('directory')},
+      )..heldPluginPaths.add('/voice/rooms/7/chat_session.json');
+      useTransport(controlled);
+      chatConversations.seed(
+        siteUrl: firstSite,
+        channelId: 42,
+        threadId: 100,
+        snapshot: ChatConversationSnapshot(messages: _chatPage(20).messages),
+      );
+      await controller.ensureLoaded(firstSite);
+
+      final open = controller.openChat(firstSite, 7);
+      await pumpEventQueue();
+      controller.attachTracker(firstSite);
+      expect(firstTracker.subscriberCount('/voice/rooms/7/chat'), 1);
+      firstTracker.deliver('/voice/rooms/7/chat', {'type': 'updated'});
+      await pumpEventQueue();
+
+      expect(controlled.pendingPluginGets, hasLength(2));
+      return (
+        open: open,
+        openRead: controlled.pendingPluginGets[0],
+        updateRead: controlled.pendingPluginGets[1],
+      );
+    }
+
+    for (final updateAnswersFirst in [false, true]) {
+      final order = updateAnswersFirst ? 'update' : 'open';
+      test('an update during the open settles the panel on the newest session '
+          '($order read answers first)', () async {
+        final race = await announceUpdateDuringOpen();
+
+        void answerOpen() => race.openRead.response.complete(fixture('chat'));
+        void answerUpdate() => race.updateRead.response.complete({
+          'channel_id': 42,
+          'thread_id': 100,
+        });
+        if (updateAnswersFirst) {
+          answerUpdate();
+          await pumpEventQueue();
+          answerOpen();
+        } else {
+          answerOpen();
+          await pumpEventQueue();
+          answerUpdate();
+        }
+        await race.open;
+        await pumpEventQueue();
+
+        final chat = controller.chat(firstSite, 7)!;
+        expect(chat.loading, isFalse);
+        expect(chat.error, isNull);
+        expect(chat.session.threadId, 100);
+        expect(chat.messages.map((message) => message.id), [20]);
+        expect(chatConversations.opened.map((key) => key.threadId), [100]);
+        expect(
+          chatConversations
+              .find(siteUrl: firstSite, channelId: 42, threadId: 100)!
+              .refreshCalls,
+          1,
+        );
+      });
+
+      test('an update read that fails during the open shows the load error '
+          '($order read answers first)', () async {
+        final race = await announceUpdateDuringOpen();
+
+        void answerOpen() => race.openRead.response.complete(fixture('chat'));
+        void failUpdate() => race.updateRead.response.completeError(
+          const SiteLookupException(SiteLookupFailure.unreachable, 'one'),
+        );
+        if (updateAnswersFirst) {
+          failUpdate();
+          await pumpEventQueue();
+          answerOpen();
+        } else {
+          answerOpen();
+          await pumpEventQueue();
+          failUpdate();
+        }
+        await race.open;
+        await pumpEventQueue();
+
+        final chat = controller.chat(firstSite, 7)!;
+        expect(chat.loading, isFalse);
+        expect(chat.error, "Couldn't load room chat.");
+        expect(chat.messages, isEmpty);
+        expect(chatConversations.opened, isEmpty);
+      });
+    }
   });
 }
