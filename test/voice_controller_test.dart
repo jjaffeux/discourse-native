@@ -4923,6 +4923,30 @@ void main() {
       expect(controller.room(firstSite, 9), isNull);
       expect(firstTracker.subscriberCount('/voice/rooms/9'), 0);
     });
+
+    test("keeps a linked room's Chat across a directory refresh", () async {
+      transport.responses['GET /voice/rooms/call-1a2b.json'] = callRoom();
+      transport.responses['GET /voice/rooms/9/chat_session.json'] = fixture(
+        'chat',
+      );
+      await controller.ensureLoaded(firstSite);
+      await controller.resolveRoom(firstSite, 'call-1a2b');
+      await controller.openChat(firstSite, 9);
+      final conversation = chatConversations.find(
+        siteUrl: firstSite,
+        channelId: 42,
+        threadId: 99,
+      )!;
+
+      await controller.ensureLoaded(firstSite, force: true);
+
+      expect(
+        controller.chat(firstSite, 9)?.messages.map((message) => message.id),
+        [10],
+      );
+      expect(conversation.closeCalls, 0);
+      expect(firstTracker.subscriberCount('/voice/rooms/9/chat'), 1);
+    });
   });
 
   group('room permission updates', () {
@@ -6315,6 +6339,37 @@ void main() {
         'sam',
       ]);
     });
+
+    test(
+      "keeps the call room's Chat when the site's directory first loads",
+      () async {
+        transport.responses['GET /voice/rooms/9/chat_session.json'] = fixture(
+          'chat',
+        );
+        final outgoing = (await controller.callUser(firstSite, 'kim'))!;
+        await controller.join(
+          siteUrl: firstSite,
+          siteName: 'One',
+          room: outgoing.room,
+        );
+        await controller.openChat(firstSite, 9);
+        final conversation = chatConversations.find(
+          siteUrl: firstSite,
+          channelId: 42,
+          threadId: 99,
+        )!;
+
+        await controller.ensureLoaded(firstSite);
+
+        expect(controller.call?.room.id, 9);
+        expect(
+          controller.chat(firstSite, 9)?.messages.map((message) => message.id),
+          [10],
+        );
+        expect(conversation.closeCalls, 0);
+        expect(firstTracker.subscriberCount('/voice/rooms/9/chat'), 1);
+      },
+    );
 
     test("a refused call propagates the server's reason", () async {
       transport.failures['POST /voice/calls.json'] = const WriteException(

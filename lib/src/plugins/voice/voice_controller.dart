@@ -1005,13 +1005,15 @@ final class VoiceController extends ChangeNotifier {
         }
         _refreshCallRoom(siteUrl, room);
       }
+      // Read after the new listing is installed: a room that left it and is
+      // neither linked nor in the call is released, while a linked or direct
+      // call room — which the directory never lists — keeps its open Chat as
+      // it keeps its subscription.
       final retainedIds = _heldRooms(siteUrl).keys.toSet();
       _roomResponseVersions[siteUrl]?.removeWhere(
         (id, _) => !retainedIds.contains(id),
       );
-      _pruneChatAssociations(siteUrl, {
-        for (final room in directory.rooms) room.id,
-      });
+      _pruneChatAssociations(siteUrl, retainedIds);
       _record(
         'room.directory.load_completed',
         component: 'room',
