@@ -17,7 +17,7 @@ final class TopicTrackingState {
   /// they let a topic read on another device leave an unread list before that
   /// list reloads (`UnreadTopicFeed.isRead`), which concerns the pages a list
   /// has loaded, and 1024 is over thirty of core's 30-topic pages. Dropping an
-  /// older row leaves its topic as a fresh snapshot leaves any topic settled
+  /// older row leaves its topic as a first snapshot leaves any topic settled
   /// when it was taken: absent, since core's report carries only new and
   /// unread topics. Countable rows are never dropped; they are the badges.
   static const _maxSettledTopics = 1024;
@@ -64,6 +64,47 @@ final class TopicTrackingState {
     _put(held.copyWith(lastReadPostNumber: postNumber, isSeen: true));
     _invalidateCounts();
     return true;
+  }
+
+  /// Core's report stops at `TopicTrackingState::MAX_TOPICS` rows, so one
+  /// that long may have left new and unread topics out.
+  static const maxReportTopics = 5000;
+
+  /// Carries into this report what [previous] knew of the topics it omits.
+  /// Core reports only new and unread topics, so a settled row is kept as it
+  /// was: dropping it would bring a topic read elsewhere back into an unread
+  /// list loaded before that (see [_maxSettledTopics]). A [complete] report
+  /// names every new and unread topic, so an omitted one is neither: like
+  /// core's `_correctMissingState` for a complete list, an unread row is read
+  /// through its highest post and a new one marked seen. A reply published
+  /// later still moves past either.
+  ///
+  /// Call it once the messages buffered while the report loaded have been
+  /// replayed onto it: any topic they touched is in the report by then, with
+  /// state newer than what [previous] held.
+  void keepOmitted(TopicTrackingState previous, {required bool complete}) {
+    final kept = [
+      for (final topicId in previous._settled)
+        if (!_topics.containsKey(topicId)) previous._topics[topicId]!,
+      if (complete)
+        for (final topic in previous._topics.values)
+          if (!_topics.containsKey(topic.topicId))
+            if (topic.isUnread)
+              topic.copyWith(
+                lastReadPostNumber: topic.highestPostNumber,
+                isSeen: true,
+              )
+            else if (topic.isNew)
+              topic.copyWith(isSeen: true),
+    ];
+    if (kept.isEmpty) return;
+    // The report and what was replayed onto it are newer than anything kept,
+    // so its own settled rows stay the most recently changed.
+    final own = [for (final topicId in _settled) _topics[topicId]!];
+    _settled.clear();
+    kept.forEach(_put);
+    own.forEach(_put);
+    _invalidateCounts();
   }
 
   /// Selected for every mounted topic list on every shell notification, so
