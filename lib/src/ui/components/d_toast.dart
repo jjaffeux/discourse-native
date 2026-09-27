@@ -519,6 +519,18 @@ class _DToastViewportState extends State<_DToastViewport> {
     }
   }
 
+  // MouseRegion.onExit and Focus.onFocusChange do not fire when their widgets
+  // unmount, which is what happens under the pointer or with focus once the
+  // last toast closes. The pause is released on that unmount rather than when
+  // the list empties: a toast added before the next frame keeps the same,
+  // still-hovered region and must stay paused.
+  void _releaseInteractionPause() {
+    if (!_hovered && !_focused) return;
+    _hovered = false;
+    _focused = false;
+    widget.controller._resume(_interactionPauseOwner);
+  }
+
   @override
   void didUpdateWidget(_DToastViewport oldWidget) {
     super.didUpdateWidget(oldWidget);
@@ -560,58 +572,61 @@ class _DToastViewportState extends State<_DToastViewport> {
           alignment: alignment,
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 384),
-            child: MouseRegion(
-              onEnter: (_) {
-                setState(() => _hovered = true);
-                _syncInteractionPause();
-              },
-              onExit: (_) {
-                setState(() => _hovered = false);
-                _syncInteractionPause();
-              },
-              child: Shortcuts(
-                shortcuts: const {
-                  SingleActivator(LogicalKeyboardKey.escape): DismissIntent(),
+            child: _DToastInteractionRegion(
+              onUnmount: _releaseInteractionPause,
+              child: MouseRegion(
+                onEnter: (_) {
+                  setState(() => _hovered = true);
+                  _syncInteractionPause();
                 },
-                child: Actions(
-                  actions: {
-                    DismissIntent: CallbackAction<DismissIntent>(
-                      onInvoke: (_) {
-                        widget.controller.close(entries.first.id);
-                        return null;
-                      },
-                    ),
+                onExit: (_) {
+                  setState(() => _hovered = false);
+                  _syncInteractionPause();
+                },
+                child: Shortcuts(
+                  shortcuts: const {
+                    SingleActivator(LogicalKeyboardKey.escape): DismissIntent(),
                   },
-                  child: Focus(
-                    focusNode: widget.focusNode,
-                    onFocusChange: (focused) {
-                      _focused = focused;
-                      _syncInteractionPause();
+                  child: Actions(
+                    actions: {
+                      DismissIntent: CallbackAction<DismissIntent>(
+                        onInvoke: (_) {
+                          widget.controller.close(entries.first.id);
+                          return null;
+                        },
+                      ),
                     },
-                    child: Semantics(
-                      container: true,
-                      label: 'Notifications',
-                      child: SingleChildScrollView(
-                        primary: false,
-                        reverse: !top,
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          verticalDirection: top
-                              ? VerticalDirection.down
-                              : VerticalDirection.up,
-                          children: [
-                            for (final entry in ordered)
-                              Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 4,
+                    child: Focus(
+                      focusNode: widget.focusNode,
+                      onFocusChange: (focused) {
+                        _focused = focused;
+                        _syncInteractionPause();
+                      },
+                      child: Semantics(
+                        container: true,
+                        label: 'Notifications',
+                        child: SingleChildScrollView(
+                          primary: false,
+                          reverse: !top,
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            verticalDirection: top
+                                ? VerticalDirection.down
+                                : VerticalDirection.up,
+                            children: [
+                              for (final entry in ordered)
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 4,
+                                  ),
+                                  child: _DToastCard(
+                                    key: ValueKey((entry.id, entry.revision)),
+                                    entry: entry,
+                                    controller: widget.controller,
+                                  ),
                                 ),
-                                child: _DToastCard(
-                                  key: ValueKey((entry.id, entry.revision)),
-                                  entry: entry,
-                                  controller: widget.controller,
-                                ),
-                              ),
-                          ],
+                            ],
+                          ),
                         ),
                       ),
                     ),
@@ -624,6 +639,30 @@ class _DToastViewportState extends State<_DToastViewport> {
       );
     },
   );
+}
+
+class _DToastInteractionRegion extends StatefulWidget {
+  const _DToastInteractionRegion({
+    required this.onUnmount,
+    required this.child,
+  });
+  final VoidCallback onUnmount;
+  final Widget child;
+
+  @override
+  State<_DToastInteractionRegion> createState() =>
+      _DToastInteractionRegionState();
+}
+
+class _DToastInteractionRegionState extends State<_DToastInteractionRegion> {
+  @override
+  void dispose() {
+    widget.onUnmount();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
 }
 
 class _DToastCard extends StatefulWidget {
