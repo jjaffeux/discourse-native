@@ -2523,6 +2523,165 @@ void main() {
       },
     );
 
+    group('a forced reload answered after a live event', () {
+      late _ControlledVoiceTransport controlled;
+      late Future<void> reloading;
+
+      Map<String, dynamic> listing(List<Map<String, dynamic>> rooms) => {
+        'rooms': rooms,
+        'can_create_room': true,
+        'index_message_bus_last_id': 144,
+      };
+
+      setUp(() async {
+        controlled = _ControlledVoiceTransport(
+          responses: {
+            'GET /voice/rooms.json': listing([fixture('room')]),
+          },
+        );
+        useTransport(controlled);
+        await controller.ensureLoaded(firstSite);
+      });
+
+      Future<void> requestReload() async {
+        controlled.heldPluginPaths.add('/voice/rooms.json');
+        reloading = controller.ensureLoaded(firstSite, force: true);
+        await pumpEventQueue();
+        expect(controlled.pendingPluginGets, hasLength(1));
+      }
+
+      Future<void> answerReload([Map<String, dynamic>? room]) async {
+        controlled.pendingPluginGets
+            .removeAt(0)
+            .response
+            .complete(listing([room ?? fixture('room')]));
+        await reloading;
+      }
+
+      List<String> roster() => [
+        for (final participant in controller.room(firstSite, 7)!.participants)
+          participant.username,
+      ];
+
+      test('keeps a rename received after it was requested', () async {
+        await requestReload();
+        firstTracker.deliver(
+          '/voice/rooms/index',
+          renamedRoomEvent(),
+          messageId: 145,
+        );
+
+        await answerReload();
+
+        expect(controller.room(firstSite, 7)?.name, 'Renamed Room');
+      });
+
+      test('keeps a roster received after it was requested', () async {
+        await requestReload();
+        firstTracker.deliver(
+          '/voice/rooms/7',
+          speakerRosterEvent('kim'),
+          messageId: 95,
+        );
+
+        await answerReload();
+
+        expect(roster(), ['kim']);
+      });
+
+      test('still takes the user fields broadcasts omit', () async {
+        await requestReload();
+        firstTracker.deliver(
+          '/voice/rooms/7',
+          speakerRosterEvent('kim'),
+          messageId: 95,
+        );
+
+        await answerReload({
+          ...fixture('room'),
+          'can_manage': false,
+          'can_invite': false,
+          'membership': null,
+        });
+
+        final room = controller.room(firstSite, 7)!;
+        expect(room.canManage, isFalse);
+        expect(room.canInvite, isFalse);
+        expect(room.membership, isNull);
+        expect(roster(), ['kim']);
+      });
+
+      test(
+        'does not bring back a room destroyed after it was requested',
+        () async {
+          await requestReload();
+          firstTracker.deliver(
+            '/voice/rooms/index',
+            renamedRoomEvent(type: 'destroyed'),
+            messageId: 145,
+          );
+
+          await answerReload();
+
+          expect(controller.room(firstSite, 7), isNull);
+          expect(controller.directory(firstSite)?.rooms, isEmpty);
+          expect(firstTracker.subscriberCount('/voice/rooms/7'), 0);
+        },
+      );
+
+      test('keeps a room created after it was requested', () async {
+        await requestReload();
+        firstTracker.deliver('/voice/rooms/index', {
+          'type': 'created',
+          'room': {'id': 99, 'name': 'New room', 'slug': 'new-room'},
+        }, messageId: 145);
+
+        await answerReload();
+
+        expect(controller.directory(firstSite)?.rooms.map((room) => room.id), [
+          7,
+          99,
+        ]);
+        expect(firstTracker.subscriberCount('/voice/rooms/99'), 1);
+      });
+
+      test('applies a reload requested after the event', () async {
+        firstTracker.deliver(
+          '/voice/rooms/index',
+          renamedRoomEvent(),
+          messageId: 145,
+        );
+        firstTracker.deliver(
+          '/voice/rooms/7',
+          speakerRosterEvent('kim'),
+          messageId: 95,
+        );
+        await requestReload();
+
+        await answerReload({...fixture('room'), 'name': 'Edited room'});
+
+        expect(controller.room(firstSite, 7)?.name, 'Edited room');
+        expect(roster(), ['lee', 'sam']);
+      });
+
+      test(
+        'lists a room a reload requested after its destroy still lists',
+        () async {
+          firstTracker.deliver(
+            '/voice/rooms/index',
+            renamedRoomEvent(type: 'destroyed'),
+            messageId: 145,
+          );
+          expect(controller.room(firstSite, 7), isNull);
+          await requestReload();
+
+          await answerReload();
+
+          expect(controller.room(firstSite, 7)?.name, 'Conf Room 1');
+        },
+      );
+    });
+
     test(
       'update microphone publication when the local stage role changes',
       () async {
@@ -5325,6 +5484,27 @@ void main() {
         'room': callRoom(),
       });
 
+      expect(controller.room(firstSite, 9), isNull);
+      expect(firstTracker.subscriberCount('/voice/rooms/9'), 0);
+    });
+
+    test('does not link a room destroyed while resolving it', () async {
+      final controlled = _ControlledVoiceTransport(
+        responses: {'GET /voice/rooms.json': fixture('directory')},
+      )..heldPluginPaths.add('/voice/rooms/call-1a2b.json');
+      useTransport(controlled);
+      await controller.ensureLoaded(firstSite);
+      final resolving = controller.resolveRoom(firstSite, 'call-1a2b');
+      await pumpEventQueue();
+      expect(controlled.pendingPluginGets, hasLength(1));
+
+      firstTracker.deliver('/voice/rooms/index', {
+        'type': 'destroyed',
+        'room': callRoom(),
+      });
+      controlled.pendingPluginGets.single.response.complete(callRoom());
+
+      expect(await resolving, isNull);
       expect(controller.room(firstSite, 9), isNull);
       expect(firstTracker.subscriberCount('/voice/rooms/9'), 0);
     });

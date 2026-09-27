@@ -245,6 +245,11 @@ final class VoiceNotice {
 /// once empty, so nothing else would ever release their channel.
 const _maxLinkedRoomsPerSite = 8;
 
+/// Destroyed rooms remembered per site, so a read requested before the
+/// destroy cannot bring one back. Room ids are never reused, so keeping a
+/// tombstone is never wrong; the bound only keeps the oldest from piling up.
+const _maxDestroyedRoomsPerSite = 16;
+
 typedef VoiceTrackerLookup = PluginLiveChannelHandle? Function(String siteUrl);
 typedef VoiceSiteFlagReader = bool Function(String siteUrl);
 typedef VoiceSiteNameLookup = String? Function(String siteUrl);
@@ -373,6 +378,8 @@ final class VoiceController extends ChangeNotifier {
   final Map<String, Object> _siteSessions = {};
   final Map<String, Object> _directoryRequests = {};
   final Map<String, Map<int, int>> _roomResponseVersions = {};
+  final Map<String, Map<int, int>> _roomLiveVersions = {};
+  final Map<String, Map<int, int>> _destroyedRoomVersions = {};
   int _roomRequestVersion = 0;
   final Map<String, Object> _chatRequests = {};
   final Map<String, _VoiceInviteRef> _pendingInviteRefs = {};
@@ -896,7 +903,9 @@ final class VoiceController extends ChangeNotifier {
         apiKey: credentials.apiKey,
         clientId: credentials.clientId,
       );
-      if (!isCurrent()) return null;
+      if (!isCurrent() || _destroyedSince(siteUrl, room.id, requestVersion)) {
+        return null;
+      }
       room = _acceptRoomResponse(siteUrl, room, requestVersion);
       _rememberLinkedRoom(siteUrl, room);
       _syncSubscriptions(siteUrl);
@@ -993,13 +1002,22 @@ final class VoiceController extends ChangeNotifier {
       if (!isCurrent()) return;
       final incomingRooms = [
         for (final room in directory.rooms)
-          _acceptRoomResponse(siteUrl, room, requestVersion),
+          if (!_destroyedSince(siteUrl, room.id, requestVersion))
+            _acceptRoomResponse(siteUrl, room, requestVersion),
       ];
       final heldRooms = _heldRooms(siteUrl);
+      final listedIds = {for (final room in incomingRooms) room.id};
+      final liveVersions = _roomLiveVersions[siteUrl] ?? const <int, int>{};
       _directories[siteUrl] = VoiceDirectory(
         rooms: List.unmodifiable([
           for (final room in incomingRooms)
             _mergeRoom(heldRooms[room.id], room),
+          // A room a live event listed after this read was requested.
+          for (final room
+              in _directories[siteUrl]?.rooms ?? const <VoiceRoom>[])
+            if (!listedIds.contains(room.id) &&
+                (liveVersions[room.id] ?? 0) > requestVersion)
+              room,
         ]),
         canCreateRoom: directory.canCreateRoom,
         messageBusLastId: directory.messageBusLastId,
@@ -1017,6 +1035,9 @@ final class VoiceController extends ChangeNotifier {
       // it keeps its subscription.
       final retainedIds = _heldRooms(siteUrl).keys.toSet();
       _roomResponseVersions[siteUrl]?.removeWhere(
+        (id, _) => !retainedIds.contains(id),
+      );
+      _roomLiveVersions[siteUrl]?.removeWhere(
         (id, _) => !retainedIds.contains(id),
       );
       _pruneChatAssociations(siteUrl, retainedIds);
@@ -1236,8 +1257,15 @@ final class VoiceController extends ChangeNotifier {
           linked![incoming.id] = _mergeRoom(previous, incoming);
         }
         _refreshCallRoom(siteUrl, incoming);
+        _liveRoomChanged(siteUrl, incoming.id);
       case 'destroyed':
         _roomResponseVersions[siteUrl]?.remove(incoming.id);
+        _roomLiveVersions[siteUrl]?.remove(incoming.id);
+        final destroyed = _destroyedRoomVersions.putIfAbsent(siteUrl, () => {});
+        destroyed[incoming.id] = ++_roomRequestVersion;
+        while (destroyed.length > _maxDestroyedRoomsPerSite) {
+          destroyed.remove(destroyed.keys.first);
+        }
         rooms.removeWhere((room) => room.id == incoming.id);
         _linkedRooms[siteUrl]?.remove(incoming.id);
         _removeChatAssociation(siteUrl, incoming.id);
@@ -1265,6 +1293,8 @@ final class VoiceController extends ChangeNotifier {
 
   // Reads started before a completed join or edit must not undo that write.
   // Concurrent reads use request order; successful writes advance it on receipt.
+  // So do live events, but a broadcast omits the user's own fields: a read it
+  // overtook keeps the room as the events left it and supplies only those.
   VoiceRoom _acceptRoomResponse(
     String siteUrl,
     VoiceRoom incoming,
@@ -1275,8 +1305,20 @@ final class VoiceController extends ChangeNotifier {
       return _heldRooms(siteUrl)[incoming.id] ?? incoming;
     }
     versions[incoming.id] = requestVersion;
-    return incoming;
+    if ((_roomLiveVersions[siteUrl]?[incoming.id] ?? 0) <= requestVersion) {
+      return incoming;
+    }
+    return _heldRooms(siteUrl)[incoming.id]?.withUserFieldsFrom(incoming) ??
+        incoming;
   }
+
+  void _liveRoomChanged(String siteUrl, int roomId) {
+    _roomLiveVersions.putIfAbsent(siteUrl, () => {})[roomId] =
+        ++_roomRequestVersion;
+  }
+
+  bool _destroyedSince(String siteUrl, int roomId, int requestVersion) =>
+      (_destroyedRoomVersions[siteUrl]?[roomId] ?? 0) > requestVersion;
 
   static VoiceRoom _mergeRoom(
     VoiceRoom? held,
@@ -1393,6 +1435,7 @@ final class VoiceController extends ChangeNotifier {
       }
       return;
     }
+    _liveRoomChanged(siteUrl, roomId);
     if (event is VoiceRoleChangedEvent) {
       _record(
         'room.role_changed',
@@ -4757,6 +4800,8 @@ final class VoiceController extends ChangeNotifier {
     _agentSubmissions.removeWhere((key, _) => key.$1 == siteUrl);
     _directoryRequests.remove(siteUrl);
     _roomResponseVersions.remove(siteUrl);
+    _roomLiveVersions.remove(siteUrl);
+    _destroyedRoomVersions.remove(siteUrl);
     _chatRequests.removeWhere((key, _) => key.startsWith('$siteUrl#'));
     _pendingInviteRefs.remove(siteUrl);
     _directories.remove(siteUrl);

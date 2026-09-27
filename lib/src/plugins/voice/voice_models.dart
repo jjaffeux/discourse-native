@@ -560,6 +560,29 @@ class VoiceRoom {
     );
   }
 
+  /// This room's shared fields with the user-specific ones [source]
+  /// supplies: the reverse of [mergeUserFields], for a read that a newer
+  /// broadcast overtook but that is still the only carrier of these.
+  VoiceRoom withUserFieldsFrom(VoiceRoom source) {
+    if (source.id != id) return this;
+    bool supplied(String field) => !source._omittedUserFields.contains(field);
+    return copyWith(
+      canManage: supplied('can_manage') ? source.canManage : null,
+      canInvite: supplied('can_invite') ? source.canInvite : null,
+      chatAvailable: supplied('chat_available') ? source.chatAvailable : null,
+      chatChannelId: supplied('chat_channel_id')
+          ? source.chatChannelId
+          : _unchanged,
+      chatIdleMinutes: supplied('chat_idle_minutes')
+          ? source.chatIdleMinutes
+          : _unchanged,
+      livekitEnabled: supplied('livekit_enabled')
+          ? source.livekitEnabled
+          : _unchanged,
+      membership: supplied('membership') ? source.membership : _unchanged,
+    );
+  }
+
   VoiceRoom withParticipants(List<VoiceParticipant> value) =>
       copyWith(participants: canonicalVoiceParticipants(value));
 

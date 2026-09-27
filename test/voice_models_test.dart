@@ -323,6 +323,37 @@ void main() {
       },
     );
 
+    test(
+      'takes only the user fields a read supplies and keeps the shared ones',
+      () {
+        final held = VoiceRoom.fromJson({
+          ...fixture('room'),
+          'name': 'Renamed room',
+        });
+        final read = VoiceRoom.fromJson({
+          'id': held.id,
+          'name': 'Conf Room 1',
+          'can_manage': false,
+          'membership': null,
+          'chat_channel_id': null,
+        });
+
+        final taken = held.withUserFieldsFrom(read);
+
+        expect(taken.name, 'Renamed room');
+        expect(taken.participants, held.participants);
+        expect(userFields(taken), (false, true, null, true, null, 15, true));
+        expect(
+          userFields(
+            VoiceRoom.fromJson({'id': held.id}).mergeUserFields(taken),
+          ),
+          userFields(taken),
+        );
+        final other = VoiceRoom.fromJson(const {'id': 99, 'can_manage': false});
+        expect(userFields(held.withUserFieldsFrom(other)), userFields(held));
+      },
+    );
+
     test('does not inherit permissions without a matching held room', () {
       final incoming = VoiceRoom.fromJson(const {'id': 99});
       expect(incoming.mergeUserFields(null).canInvite, isFalse);
