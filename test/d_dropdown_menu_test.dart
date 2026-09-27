@@ -1006,6 +1006,35 @@ void main() {
     expect(lastItem.bottom, lessThanOrEqualTo(popup.bottom));
   });
 
+  testWidgets('typeahead scrolls an overflowing menu to the matched row', (
+    tester,
+  ) async {
+    await pumpMenu(
+      tester,
+      child: DDropdownMenu(
+        content: DDropdownMenuContent(
+          constraints: const BoxConstraints(maxHeight: 120),
+          children: [
+            for (var index = 0; index < 19; index++)
+              DDropdownMenuItem(onPressed: _noop, child: Text('Alpha $index')),
+            const DDropdownMenuItem(onPressed: _noop, child: Text('Zulu')),
+          ],
+        ),
+        child: DDropdownMenuTrigger.button(label: const Text('Open')),
+      ),
+    );
+    await open(tester);
+    expect(find.byType(DScrollViewport), findsOneWidget);
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyZ);
+    await tester.pumpAndSettle();
+    expect(focusedRow(tester), 'Dropdown item Zulu');
+    final viewport = tester.getRect(find.byType(DScrollViewport));
+    final row = tester.getRect(find.text('Zulu'));
+    expect(row.top, greaterThanOrEqualTo(viewport.top));
+    expect(row.bottom, lessThanOrEqualTo(viewport.bottom));
+  });
+
   testWidgets(
     'only an overflowing menu gains a draggable scrollbar and wheel input',
     (tester) async {
