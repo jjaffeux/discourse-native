@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'dart:collection';
-import 'dart:ui' show PointerDeviceKind;
+import 'dart:ui' show AppExitResponse, PointerDeviceKind;
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/foundation.dart'
@@ -79,6 +79,10 @@ class DiscourseApp extends StatefulWidget {
   final PluginManifest pluginManifest;
   final ShellRootMode initialRootMode;
   final Stream<String>? notificationOpenUrls;
+
+  /// How long a quit waits for local state to be written before it goes
+  /// ahead regardless; storage that cannot answer must not hold the app open.
+  static const Duration exitFlushTimeout = Duration(milliseconds: 1500);
 
   @override
   State<DiscourseApp> createState() => _DiscourseAppState();
@@ -543,6 +547,21 @@ class _DiscourseAppState extends State<DiscourseApp>
       state != AppLifecycleState.hidden &&
       state != AppLifecycleState.paused &&
       state != AppLifecycleState.detached;
+
+  /// Quitting on desktop — the Quit command, closing the last window, or
+  /// closing the last tab — ends the process with no lifecycle change, so
+  /// the flushes backgrounding runs never happen for it. This is the one
+  /// point where they can: the platform waits for this answer before it
+  /// shuts the engine down.
+  @override
+  Future<AppExitResponse> didRequestAppExit() async {
+    await Future.wait([
+      _controller.flushForExit(),
+      if (widget.diagnostics case final diagnostics?) diagnostics.flush(),
+      _flushPlugins(_plugins),
+    ]).timeout(DiscourseApp.exitFlushTimeout, onTimeout: () => const []);
+    return AppExitResponse.exit;
+  }
 
   @override
   Widget build(BuildContext context) {

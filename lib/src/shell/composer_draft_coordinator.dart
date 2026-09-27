@@ -100,6 +100,10 @@ final class ComposerDraftCoordinator {
   final Map<String, int> _sequences = {};
   int _generation = 0;
 
+  /// Local copies still being written. Each settles without an error: the
+  /// save or stage that started it owns the failure.
+  final Set<Future<void>> _localWrites = {};
+
   ComposerDraftSession openSession(ComposerTarget target) =>
       ComposerDraftSession._(
         this,
@@ -387,6 +391,23 @@ final class ComposerDraftCoordinator {
     _sequences.removeWhere((key, _) => key.startsWith('$siteUrl#'));
   }
 
+  /// Completes once every local draft write already started has settled,
+  /// without waiting for the site. The local copy is what a relaunch
+  /// restores, so a quit need not outlast the network. Never throws.
+  Future<void> localWritesSettled() async {
+    await Future.wait(List.of(_localWrites));
+  }
+
+  Future<T> _trackLocalWrite<T>(Future<T> write) {
+    final settled = write.then<void>(
+      (_) {},
+      onError: (Object _, StackTrace _) {},
+    );
+    _localWrites.add(settled);
+    unawaited(settled.whenComplete(() => _localWrites.remove(settled)));
+    return write;
+  }
+
   void preservePendingLocally(ComposerController? composer) {
     if (composer == null || !composer.draftPersistencePending) return;
     final target = composer.target;
@@ -659,15 +680,17 @@ final class ComposerDraftCoordinator {
   Future<void> _stage(ComposerDraftSave save, ComposerDraftSession session) {
     final key = session._keyFor(save.target);
     final generation = _claimGeneration(key, session);
-    return _localStore.write(
-      save.target.siteUrl,
-      save.target.draftKey,
-      save.draft.encode(),
-      ifCurrent: () =>
-          save.isCurrent() &&
-          session._lease.isCurrent &&
-          generation > (_deletedGenerations[key] ?? -1) &&
-          _latestGenerations[key] == generation,
+    return _trackLocalWrite(
+      _localStore.write(
+        save.target.siteUrl,
+        save.target.draftKey,
+        save.draft.encode(),
+        ifCurrent: () =>
+            save.isCurrent() &&
+            session._lease.isCurrent &&
+            generation > (_deletedGenerations[key] ?? -1) &&
+            _latestGenerations[key] == generation,
+      ),
     );
   }
 
@@ -686,7 +709,7 @@ final class ComposerDraftCoordinator {
     // Preserve the local-first durability guarantee even when an older
     // controller is still draining. Its later queued writes are generation
     // guarded, so they cannot overwrite this newer composer's local copy.
-    final localWrite = () async {
+    final localWrite = _trackLocalWrite(() async {
       DraftWriteException? failure;
       try {
         await _localStore.write(
@@ -705,7 +728,7 @@ final class ComposerDraftCoordinator {
         failure = DraftWriteException(error);
       }
       return failure;
-    }();
+    }());
 
     await _waitForRetiredSaves(target, session);
     if (!lease.isCurrent || !save.isCurrent()) return null;

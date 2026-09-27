@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui' show AppExitResponse;
 
 import 'package:discourse_native/src/app.dart';
 import 'package:discourse_native/src/data/instance_store.dart';
@@ -335,6 +336,63 @@ void main() {
         }
       },
     );
+    testWidgets('flushes plugins and diagnostics before answering a quit', (
+      tester,
+    ) async {
+      final persistence = _TrackingDiagnosticsPersistence();
+      final diagnostics = await DiagnosticsController.create(
+        persistence: persistence,
+        sessionId: 'app-quit-flush',
+      );
+      addTearDown(diagnostics.close);
+      try {
+        final probe = _LifecycleProbe();
+        await tester.pumpWidget(
+          DiscourseApp(
+            store: FakeInstanceStore(),
+            api: FakeDiscourseApi(),
+            authenticator: FakeAuthenticator(),
+            drafts: FakeDraftStore(),
+            forumTabs: FakeForumTabStore(),
+            trackers: FakeSiteTracker.reset(),
+            updater: FakeUpdater(),
+            updateStore: FakeUpdateStore(),
+            diagnostics: diagnostics,
+            pluginManifest: PluginManifest([
+              _LifecycleTestModule('lifecycle-quit', probe),
+            ]),
+            initialRootMode: ShellRootMode.forum,
+          ),
+        );
+        await tester.pumpAndSettle();
+        final statesBeforeQuit = List.of(probe.states);
+        final appendCallsBeforeQuit = persistence.appendCalls;
+        diagnostics.recordLog(name: 'before.quit', source: 'test');
+        expect(persistence.appendCalls, appendCallsBeforeQuit);
+
+        AppExitResponse? response;
+        int? appendCallsAtAnswer;
+        int? flushCallsAtAnswer;
+        unawaited(
+          tester.binding.handleRequestAppExit().then((value) {
+            response = value;
+            appendCallsAtAnswer = persistence.appendCalls;
+            flushCallsAtAnswer = probe.flushCalls;
+          }),
+        );
+        await tester.pump();
+
+        expect(response, AppExitResponse.exit);
+        expect(appendCallsAtAnswer, appendCallsBeforeQuit + 1);
+        expect(flushCallsAtAnswer, 1);
+        // The quit could still be cancelled, so nothing is paced down for it.
+        expect(probe.states, statesBeforeQuit);
+      } finally {
+        await tester.pumpWidget(const SizedBox.shrink());
+        await tester.pump();
+        await diagnostics.close();
+      }
+    });
     testWidgets('releases replaced diagnostics without replacing the shell', (
       tester,
     ) async {
