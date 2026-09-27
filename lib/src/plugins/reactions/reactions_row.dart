@@ -34,8 +34,10 @@ class ReactionsRow extends StatelessWidget {
     final emoji =
         this.emoji ?? PluginUiScope.maybe(context, reactionsEmojiHostService);
     if (controller == null) return _buildPills(context, null, emoji);
+    // Not the controller: every post's reactor load and reaction write
+    // notifies it, and a topic holds one row per post.
     return ListenableBuilder(
-      listenable: controller,
+      listenable: controller.postChanges(siteUrl, post.id),
       builder: (context, _) => _buildPills(context, controller, emoji),
     );
   }
@@ -273,19 +275,18 @@ class ReactorList extends StatelessWidget {
     final reactions =
         controller ?? PluginUiScope.maybe(context, reactionsControllerService);
     if (reactions == null) return const SizedBox.shrink();
-    return ListenableBuilder(
-      listenable: reactions,
-      builder: (context, _) => ReactionUsersList(
-        siteUrl: siteUrl,
-        source: reactions,
-        query: (siteUrl: siteUrl, postId: post.id, filter: filter),
-        select: () => (
-          reactors: reactions.reactors(siteUrl, post.id, filter: filter),
-          error: reactions.error(siteUrl, post.id, filter: filter),
-        ),
-        load: () =>
-            reactions.load(siteUrl: siteUrl, postId: post.id, filter: filter),
+    // The list follows its source itself and redraws only when its own
+    // snapshot changes.
+    return ReactionUsersList(
+      siteUrl: siteUrl,
+      source: reactions.postChanges(siteUrl, post.id),
+      query: (siteUrl: siteUrl, postId: post.id, filter: filter),
+      select: () => (
+        reactors: reactions.reactors(siteUrl, post.id, filter: filter),
+        error: reactions.error(siteUrl, post.id, filter: filter),
       ),
+      load: () =>
+          reactions.load(siteUrl: siteUrl, postId: post.id, filter: filter),
     );
   }
 }

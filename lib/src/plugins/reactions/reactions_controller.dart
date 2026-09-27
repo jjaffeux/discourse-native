@@ -3,12 +3,15 @@
 import 'dart:async';
 
 import 'package:discourse_native/discourse_plugin_sdk.dart';
+import 'package:flutter/foundation.dart';
+
 import 'post_reactors.dart';
 import 'reaction.dart';
 import 'reactions_api.dart';
 import 'reactions_settings.dart';
 
 typedef _ReactionRequestKey = ({String siteUrl, int postId, String? filter});
+typedef _ReactionPostKey = ({String siteUrl, int postId});
 
 const _reactorStorePolicy = StorePolicy(
   maxEntries: 512,
@@ -67,6 +70,8 @@ class ReactionsController extends FrameSafeNotifier {
   final Map<_ReactionRequestKey, String> _errors = {};
   final Map<String, SiteEmojiCatalog> _emojiCatalogs = {};
   final Map<String, Object> _emojiCatalogRequests = {};
+  final _postChanges = _KeyedChanges<_ReactionPostKey>();
+  final _catalogChanges = _KeyedChanges<String>();
 
   static _ReactionRequestKey _key(String siteUrl, int postId, String? filter) =>
       (siteUrl: siteUrl, postId: postId, filter: filter);
@@ -76,6 +81,25 @@ class ReactionsController extends FrameSafeNotifier {
 
   String? error(String siteUrl, int postId, {String? filter}) =>
       _errors[_key(siteUrl, postId, filter)];
+
+  /// Notifies when this post's reactor lists load, when its reaction write
+  /// starts or ends, and when its site is forgotten. A post's row, react
+  /// button and reactor lists listen here rather than to the controller,
+  /// which notifies for every post on screen.
+  Listenable postChanges(String siteUrl, int postId) =>
+      _postChanges.listenable((siteUrl: siteUrl, postId: postId));
+
+  /// Notifies when what [emojiUrlFor] answers for this site may have moved:
+  /// its catalog arrived or was forgotten.
+  Listenable emojiCatalogChanges(String siteUrl) =>
+      _catalogChanges.listenable(siteUrl);
+
+  /// The controller itself still notifies, for consumers that follow every
+  /// post: the summary sheet and the reaction grid.
+  void _changed(String siteUrl, int postId) {
+    _postChanges.changed((siteUrl: siteUrl, postId: postId));
+    notifySafely();
+  }
 
   SiteConfig siteConfigFor(String siteUrl) => _siteState.siteConfigFor(siteUrl);
 
@@ -96,8 +120,9 @@ class ReactionsController extends FrameSafeNotifier {
   }
 
   /// Started from [emojiUrlFor], which runs inside builders listening to this
-  /// controller, so only a stored catalog may notify: waking them after a
-  /// miss would have them read again and start the next load, every frame.
+  /// controller or to [emojiCatalogChanges], so only a stored catalog may
+  /// notify: waking them after a miss would have them read again and start
+  /// the next load, every frame.
   /// A miss is not remembered here; the host keeps a failed site's answer
   /// without traffic until a refresh, and asking again on a later read is
   /// what picks up the catalog that refresh finds.
@@ -111,6 +136,7 @@ class ReactionsController extends FrameSafeNotifier {
       if (!_ownsCatalogRequest(siteUrl, request) || !lease.isCurrent) return;
       if (catalog != null &&
           lease.commit(() => _emojiCatalogs[siteUrl] = catalog)) {
+        _catalogChanges.changed(siteUrl);
         notifySafely();
       }
     } catch (error, stackTrace) {
@@ -171,7 +197,7 @@ class ReactionsController extends FrameSafeNotifier {
     final request = Object();
     final lease = _requestHost.capture(siteUrl);
     _requests[key] = request;
-    notifySafely();
+    _changed(siteUrl, postId);
 
     try {
       final credentials = await _requestHost.credentialsFor(siteUrl);
@@ -206,7 +232,7 @@ class ReactionsController extends FrameSafeNotifier {
     } finally {
       if (_isCurrentRequest(key, request)) {
         _requests.remove(key);
-        notifySafely();
+        _changed(siteUrl, postId);
       }
     }
   }
@@ -219,7 +245,7 @@ class ReactionsController extends FrameSafeNotifier {
     if (isDisposed || !post.canReact) return null;
     final lease = _requestHost.capture(siteUrl);
     if (!_posts.beginWrite(siteUrl, post.id)) return null;
-    notifySafely();
+    _changed(siteUrl, post.id);
 
     try {
       final credential = await _requestHost.writeCredentialFor(siteUrl);
@@ -303,7 +329,7 @@ class ReactionsController extends FrameSafeNotifier {
       return null;
     } finally {
       lease.commit(() => _posts.endWrite(siteUrl, post.id));
-      notifySafely();
+      _changed(siteUrl, post.id);
     }
   }
 
@@ -313,6 +339,10 @@ class ReactionsController extends FrameSafeNotifier {
     _requests.removeWhere((key, _) => key.siteUrl == siteUrl);
     _errors.removeWhere((key, _) => key.siteUrl == siteUrl);
     _cache.forget(siteUrl);
+    // Retained rows keep listening to the same notifiers, so the next load or
+    // write for their post still reaches them.
+    _postChanges.changedWhere((key) => key.siteUrl == siteUrl);
+    _catalogChanges.changed(siteUrl);
     notifySafely();
   }
 
@@ -342,6 +372,70 @@ class ReactionsController extends FrameSafeNotifier {
     _errors.clear();
     _emojiCatalogs.clear();
     _emojiCatalogRequests.clear();
+    _postChanges.dispose();
+    _catalogChanges.dispose();
     super.dispose();
+  }
+}
+
+/// Notifiers answered by key: the same instance for as long as anything
+/// listens to it, so a rebuild does not resubscribe, and dropped once nothing
+/// does, so the posts of a topic scrolled past leave none behind.
+final class _KeyedChanges<K> {
+  final Map<K, _Changes> _held = {};
+
+  Listenable listenable(K key) => _held[key] ??= _Changes(
+    onUnused: (changes) {
+      if (identical(_held[key], changes)) _held.remove(key);
+      changes.dispose();
+    },
+  );
+
+  void changed(K key) => _held[key]?.changed();
+
+  void changedWhere(bool Function(K key) test) {
+    for (final MapEntry(:key, :value) in _held.entries.toList()) {
+      if (test(key)) value.changed();
+    }
+  }
+
+  void dispose() {
+    for (final changes in _held.values) {
+      changes.dispose();
+    }
+    _held.clear();
+  }
+}
+
+/// FrameSafe for the same reason the controller is: a load can start from a
+/// build, and a notification there must wait for the frame.
+final class _Changes extends FrameSafeNotifier {
+  _Changes({required void Function(_Changes changes) onUnused})
+    : _onUnused = onUnused {
+    _checkUse();
+  }
+
+  final void Function(_Changes changes) _onUnused;
+  bool _checking = false;
+
+  void changed() => notifySafely();
+
+  @override
+  void removeListener(VoidCallback listener) {
+    super.removeListener(listener);
+    _checkUse();
+  }
+
+  /// Deferred rather than immediate: a builder that swaps listenables removes
+  /// its listener before adding the next, and a merged or rebuilt listener
+  /// may re-add this same instance in that gap. A listener may also leave
+  /// from inside a notification, when disposing is not allowed.
+  void _checkUse() {
+    if (_checking || isDisposed) return;
+    _checking = true;
+    scheduleMicrotask(() {
+      _checking = false;
+      if (!isDisposed && !hasListeners) _onUnused(this);
+    });
   }
 }

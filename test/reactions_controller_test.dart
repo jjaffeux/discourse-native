@@ -14,6 +14,7 @@ import 'package:discourse_native/src/plugins/reactions/reaction.dart';
 import 'package:discourse_native/src/plugins/reactions/reaction_picker.dart';
 import 'package:discourse_native/src/plugins/reactions/reactions_api.dart';
 import 'package:discourse_native/src/plugins/reactions/reactions_controller.dart';
+import 'package:discourse_native/src/shell/emoji.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -123,6 +124,71 @@ final class _UnusedPostHost implements PluginPostHost {
   bool writeInFlight(String siteUrl, int postId) => false;
 }
 
+/// Holds the post write lane and the post records the way the shell does,
+/// without a shell.
+final class _LanePostHost implements PluginPostHost {
+  _LanePostHost(Iterable<Post> posts)
+    : posts = {for (final post in posts) post.id: post};
+
+  final Map<int, Post> posts;
+  final Set<(String, int)> writes = {};
+
+  @override
+  bool beginWrite(String siteUrl, int postId) => writes.add((siteUrl, postId));
+
+  @override
+  void endWrite(String siteUrl, int postId) => writes.remove((siteUrl, postId));
+
+  @override
+  Post? readPost(String siteUrl, int postId) => posts[postId];
+
+  @override
+  bool topicArchived(String siteUrl, int topicId) => false;
+
+  @override
+  Future<void> refreshPost({
+    required String siteUrl,
+    required int topicId,
+    required int postId,
+    required String? apiKey,
+    required PluginSiteLease lease,
+  }) async {}
+
+  @override
+  void updatePluginRecord<T extends Object>(
+    String siteUrl,
+    int postId,
+    PluginDataKey<T> key,
+    T? Function(T? held) update,
+  ) {
+    final post = posts[postId];
+    if (post == null) return;
+    posts[postId] = post.withPlugins(
+      post.plugins.withValue(key, update(post.plugins.get(key))),
+    );
+  }
+
+  @override
+  bool writeInFlight(String siteUrl, int postId) =>
+      writes.contains((siteUrl, postId));
+}
+
+final class _AcceptedWrites implements ReactionsWriteApi {
+  final List<(int, String)> toggled = [];
+
+  @override
+  Future<Post?> toggleReaction({
+    required String siteUrl,
+    required String apiKey,
+    required int postId,
+    required String reaction,
+    String? clientId,
+  }) async {
+    toggled.add((postId, reaction));
+    return null;
+  }
+}
+
 final class _UnusedEmojiPreferences implements EmojiPreferenceStore {
   @override
   Future<void> clearHistory({
@@ -181,10 +247,13 @@ ReactionsController _controller({
   required ReactionsApi api,
   required PluginRequestHost requests,
   PluginEmojiHost? emoji,
+  PluginPostHost? posts,
+  ReactionsWriteApi? writes,
 }) => ReactionsController(
   api: api,
+  writes: writes,
   requests: requests,
-  posts: _UnusedPostHost(),
+  posts: posts ?? _UnusedPostHost(),
   siteState: PluginSiteStateHost(
     currentUserFor: (_) => null,
     siteConfigFor: (_) => const SiteConfig.unknown(),
@@ -400,6 +469,199 @@ void main() {
       // Settling only proves something if the held emoji asked for a catalog.
       expect(catalog.loads, isPositive);
     });
+
+    testWidgets(
+      'a held reaction redraws from its site catalog when it arrives',
+      (tester) async {
+        installTestMediaPipeline(
+          client: MockClient((_) async => http.Response('', 404)),
+        );
+        final catalog = Completer<SiteEmojiCatalog?>();
+        final emoji = _emojiHost(
+          loadCatalog: (_, {refresh = false}) => catalog.future,
+        );
+        final controller = _controller(
+          api: _SequencedReactorsApi([]),
+          requests: FakePluginRequestHost(),
+          emoji: emoji,
+        );
+        addTearDown(controller.dispose);
+        final post = Post(
+          id: 7,
+          postNumber: 1,
+          username: 'author',
+          cooked: '<p>Post</p>',
+          plugins: PluginData.none.withValue(
+            reactionsDataKey,
+            const Reactions(
+              entries: [Reaction(id: 'clap', count: 1)],
+              mine: Reaction(id: 'clap', count: 1, canUndo: true),
+              userCount: 1,
+            ),
+          ),
+        );
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: AppTheme.light.copyWith(platform: TargetPlatform.macOS),
+            home: Scaffold(
+              body: Center(
+                child: PostReactionButton(
+                  controller: controller,
+                  emoji: emoji,
+                  siteUrl: _siteUrl,
+                  post: post,
+                ),
+              ),
+            ),
+          ),
+        );
+        // Settled first, so the button's own settings read cannot be what
+        // redraws it once the catalog arrives.
+        await tester.pumpAndSettle();
+        String drawn() =>
+            tester.widget<EmojiImage>(find.byType(EmojiImage)).url;
+        expect(
+          drawn(),
+          const SiteConfig.unknown().emojiUrl('clap', siteUrl: _siteUrl),
+        );
+
+        catalog.complete(
+          SiteEmojiCatalog(
+            groups: [
+              SiteEmojiGroup(
+                id: 'default',
+                emojis: const [
+                  SiteEmoji(name: 'clap', url: '$_siteUrl/custom/clap.png'),
+                ],
+              ),
+            ],
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(drawn(), '$_siteUrl/custom/clap.png');
+      },
+    );
+  });
+
+  group('per-post notifications', () {
+    const other = 'https://other.example';
+
+    test(
+      'a post hears its own loads and writes, and its site hears the catalog and forget',
+      () async {
+        final post = Post(
+          id: 7,
+          postNumber: 1,
+          username: 'author',
+          cooked: '<p>Post</p>',
+          canLike: true,
+          plugins: PluginData.none.withValue(
+            reactionsDataKey,
+            const Reactions(entries: [Reaction(id: 'clap', count: 1)]),
+          ),
+        );
+        final writes = _AcceptedWrites();
+        final controller = _controller(
+          api: _SequencedReactorsApi([
+            for (var request = 0; request < 2; request++)
+              Completer<void>()..complete(),
+          ]),
+          requests: FakePluginRequestHost(
+            credentials: FakeApiCredentialReader()..keys[_siteUrl] = 'key',
+          ),
+          posts: _LanePostHost([post]),
+          writes: writes,
+          emoji: _emojiHost(
+            loadCatalog: (_, {refresh = false}) async =>
+                SiteEmojiCatalog(groups: const []),
+          ),
+        );
+        addTearDown(controller.dispose);
+        final changed = <Object>[];
+        for (final (site, id) in const [
+          (_siteUrl, 7),
+          (_siteUrl, 8),
+          (other, 7),
+        ]) {
+          controller
+              .postChanges(site, id)
+              .addListener(() => changed.add((site, id)));
+        }
+        for (final site in const [_siteUrl, other]) {
+          controller
+              .emojiCatalogChanges(site)
+              .addListener(() => changed.add(site));
+        }
+        var controllerChanges = 0;
+        controller.addListener(() => controllerChanges++);
+
+        await controller.load(siteUrl: _siteUrl, postId: 7, filter: 'clap');
+        expect(changed, [(_siteUrl, 7), (_siteUrl, 7)]);
+        expect(controllerChanges, 2);
+
+        changed.clear();
+        expect(
+          await controller.toggle(post, 'clap', siteUrl: _siteUrl),
+          isNull,
+        );
+        expect(writes.toggled, [(7, 'clap')]);
+        expect(changed, [(_siteUrl, 7), (_siteUrl, 7)]);
+        expect(controllerChanges, 4);
+
+        changed.clear();
+        controller.emojiUrlFor(_siteUrl, 'clap');
+        await pumpEventQueue();
+        expect(changed, [_siteUrl]);
+        expect(controllerChanges, 5);
+
+        changed.clear();
+        controller.forget(_siteUrl);
+        expect(
+          changed,
+          unorderedEquals([(_siteUrl, 7), (_siteUrl, 8), _siteUrl]),
+        );
+        expect(controllerChanges, 6);
+
+        // A row that outlives forget still hears its post's next load.
+        changed.clear();
+        await controller.load(siteUrl: _siteUrl, postId: 7);
+        expect(changed, [(_siteUrl, 7), (_siteUrl, 7)]);
+      },
+    );
+
+    test(
+      'a post notifier is kept only while something listens to it',
+      () async {
+        final controller = _controller(
+          api: _SequencedReactorsApi([]),
+          requests: FakePluginRequestHost(),
+        );
+        addTearDown(controller.dispose);
+        void listener() {}
+
+        final held = controller.postChanges(_siteUrl, 7);
+        held.addListener(listener);
+        await pumpEventQueue();
+        expect(controller.postChanges(_siteUrl, 7), same(held));
+
+        // A builder handed a new listenable leaves the old one before joining
+        // the next, and both may be this one.
+        held.removeListener(listener);
+        held.addListener(listener);
+        await pumpEventQueue();
+        expect(controller.postChanges(_siteUrl, 7), same(held));
+
+        held.removeListener(listener);
+        await pumpEventQueue();
+        final next = controller.postChanges(_siteUrl, 7);
+        expect(next, isNot(same(held)));
+
+        // Asked for and never listened to, as by a build that was discarded.
+        await pumpEventQueue();
+        expect(controller.postChanges(_siteUrl, 7), isNot(same(next)));
+      },
+    );
   });
 
   group('forget and site identity', () {
