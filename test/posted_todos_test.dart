@@ -972,15 +972,15 @@ void main() {
     tester,
   ) async {
     // Scrolling a post back into a lazily built list mounts a new renderer for
-    // the same post, and restyling rebuilds it; deriving the checklist anew in
-    // either parses the whole body on the UI thread.
-    final source = cooked(raw);
-    var reads = 0;
-    final counted = _CookedReadCountingPost(
-      cooked: source,
-      onCookedRead: () => reads += 1,
-    );
-    Future<void> render(String html, Key key, {TextStyle? style}) async {
+    // the same post, restyling rebuilds it, and a reaction, a like or a live
+    // refresh hands it a new post with the same body; deriving the checklist
+    // anew in any of them parses the whole body on the UI thread.
+    Future<String> render(
+      String html,
+      Post post,
+      Key key, {
+      TextStyle? style,
+    }) async {
       await tester.pumpWidget(
         MaterialApp(
           theme: AppTheme.light,
@@ -988,7 +988,7 @@ void main() {
             body: CookedHtml(
               key: key,
               html: html,
-              post: counted,
+              post: post,
               siteUrl: site,
               textStyle: style,
               buildAsync: false,
@@ -997,35 +997,50 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      expect(
-        tester.widget<HtmlWidget>(find.byType(HtmlWidget).first).html,
-        PostChecklistDocument(html).annotatedHtml,
-      );
+      final rendered = tester
+          .widget<HtmlWidget>(find.byType(HtmlWidget).first)
+          .html;
+      expect(rendered, PostChecklistDocument(html).annotatedHtml);
       expect(
         tester
             .widgetList<DCheckbox>(find.byType(DCheckbox))
             .map((box) => box.value),
         [false, true],
       );
+      return rendered;
     }
 
     // Built afresh each time, as a wrapping presentation does on every build.
-    String wrapped() => '<div class="post-body">$source</div>';
-    await render(wrapped(), const ValueKey('mounted'));
-    final parsed = reads;
-    expect(parsed, isPositive);
-    await render(wrapped(), const ValueKey('remounted'));
-    await render(
-      wrapped(),
-      const ValueKey('remounted'),
-      style: const TextStyle(fontSize: 20),
+    String wrapped(Post shown) =>
+        '<div class="post-body">${shown.cooked}</div>';
+    // A parse annotates its markup once and keeps the result, so rendering the
+    // very same string is rendering the same parse.
+    final original = post();
+    final parsed = await render(
+      wrapped(original),
+      original,
+      const ValueKey('mounted'),
     );
-    expect(reads, parsed, reason: 'the same post and markup were parsed again');
-    await render(source, const ValueKey('remounted'));
-    expect(
-      reads,
-      greaterThan(parsed),
-      reason: 'other displayed markup has to be compared with the post',
-    );
+    // Every read builds its own post and its own copy of the body.
+    final liked = post().withLike(true);
+    expect(liked.cooked, isNot(same(original.cooked)));
+    for (final (shown, style) in [
+      (original, null),
+      (original, const TextStyle(fontSize: 20)),
+      (liked, null),
+    ]) {
+      expect(
+        await render(
+          wrapped(shown),
+          shown,
+          const ValueKey('remounted'),
+          style: style,
+        ),
+        same(parsed),
+        reason: 'the same markup was parsed again',
+      );
+    }
+    // Other displayed markup is compared with the post, not handed this parse.
+    await render(original.cooked, original, const ValueKey('remounted'));
   });
 }

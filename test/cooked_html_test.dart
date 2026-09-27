@@ -12,6 +12,8 @@ import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/models/user_status.dart';
 import 'package:discourse_native/src/plugin_api/plugin_registry.dart';
 import 'package:discourse_native/src/plugin_api/site_plugin_api.dart';
+import 'package:discourse_native/src/plugins/reactions/reaction.dart';
+import 'package:discourse_native/src/plugins/reactions/reactions_plugin.dart';
 import 'package:discourse_native/src/shell/code_block.dart';
 import 'package:discourse_native/src/shell/cooked_html.dart';
 import 'package:discourse_native/src/shell/emoji.dart';
@@ -47,6 +49,7 @@ Future<void> pumpCooked(
   String html, {
   PluginRegistry? registry,
   Post? post,
+  String? siteUrl,
   bool compactParagraphs = false,
   Map<String, UserStatusReference> mentionedUserStatuses = const {},
 }) async {
@@ -59,6 +62,7 @@ Future<void> pumpCooked(
             html: html,
             registry: registry,
             post: post,
+            siteUrl: siteUrl,
             compactParagraphs: compactParagraphs,
             mentionedUserStatuses: mentionedUserStatuses,
           ),
@@ -1076,6 +1080,58 @@ void main() {
 
     await show(read(likes: 4, clicks: 8, status: 'In a meeting'));
     expect(elements.calls, greaterThan(recounted));
+  });
+
+  testWidgets('a reaction keeps the parsed body that a body record rebuilds', (
+    tester,
+  ) async {
+    const html = '<p>Results so far:</p><div class="tally"></div>';
+    final elements = _CountingCookedElements();
+    final registry = PluginRegistry([
+      elements,
+      const ReactionsPlugin(),
+      const _TallyPlugin(),
+    ]);
+    Post read({int hearts = 1, String tally = 'Three votes'}) => Post(
+      id: 1,
+      postNumber: 1,
+      username: 'sam',
+      cooked: html,
+      plugins: PluginData.none
+          .withValue(
+            reactionsDataKey,
+            Reactions(
+              entries: [Reaction(id: 'heart', count: hearts)],
+              userCount: hearts,
+            ),
+          )
+          .withValue(_tallyRecord, tally),
+    );
+    Future<void> show(Post post) => pumpCooked(
+      tester,
+      html,
+      registry: registry,
+      post: post,
+      siteUrl: 'https://meta.discourse.org',
+    );
+
+    final original = read();
+    await show(original);
+    final parsed = elements.calls;
+    expect(parsed, greaterThan(0));
+    expect(find.text('Three votes'), findsOneWidget);
+
+    // Someone reacted: the footer's record moved, nothing the body draws did.
+    final reacted = read(hearts: 2);
+    expect(reacted.plugins, isNot(original.plugins));
+    await show(reacted);
+    expect(elements.calls, parsed);
+    expect(find.text('Three votes'), findsOneWidget);
+
+    await show(read(hearts: 2, tally: 'Four votes'));
+    expect(elements.calls, greaterThan(parsed));
+    expect(find.text('Three votes'), findsNothing);
+    expect(find.text('Four votes'), findsOneWidget);
   });
 
   group('links', () {
@@ -2348,6 +2404,33 @@ final class _CountingCookedElements implements SitePlugin, CookedElementPlugin {
     calls += 1;
     return null;
   }
+}
+
+const _tallyRecord = PluginDataKey<String>(owner: 'tally', name: 'post');
+
+/// Draws its own post record into the body, as Poll draws its results.
+final class _TallyPlugin
+    implements SitePlugin, PostRecordPlugin<String>, PostBodyPlugin {
+  const _TallyPlugin();
+
+  @override
+  String get name => 'tally';
+
+  @override
+  PluginDataKey<String> get record => _tallyRecord;
+
+  @override
+  String? readPost(Map<String, dynamic> json, String siteUrl) =>
+      json['tally'] as String?;
+
+  @override
+  String? mergeAfterPostEdit(String? held, String? incoming) => incoming;
+
+  @override
+  Widget? postBodyElement(PluginPostBodyContext context, dom.Element element) =>
+      element.classes.contains('tally')
+      ? Text(context.post.plugins.get(_tallyRecord) ?? '')
+      : null;
 }
 
 final class _RoomHashtagPlugin implements SitePlugin, HashtagKindPlugin {
