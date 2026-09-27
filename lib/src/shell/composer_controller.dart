@@ -1561,15 +1561,19 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
         : TextSelection.collapsed(offset: old.text.length);
     final before = old.text.substring(0, selection.start);
     final after = old.text.substring(selection.end);
+    final lineEnding = old.text.contains('\r\n') ? '\r\n' : '\n';
     final block = markdown.trim();
-    final insertion =
-        '${_separatorAfter(before)}$block${_separatorBefore(after)}';
+    final separator = _separatorBefore(after, lineEnding);
+    final insertion = '${_separatorAfter(before, lineEnding)}$block$separator';
+    final caret = after.isEmpty
+        ? insertion.length
+        : insertion.length -
+              separator.length +
+              _followingGapLength('$separator$after');
 
     text.value = old.copyWith(
       text: old.text.replaceRange(selection.start, selection.end, insertion),
-      selection: TextSelection.collapsed(
-        offset: selection.start + insertion.length,
-      ),
+      selection: TextSelection.collapsed(offset: selection.start + caret),
       composing: TextRange.empty,
     );
   }
@@ -1580,15 +1584,68 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
     _insertBlock(markdown);
   }
 
-  static String _separatorAfter(String before) {
-    if (before.isEmpty || before.endsWith('\n\n')) return '';
-    return before.endsWith('\n') ? '\n' : '\n\n';
+  static String _separatorAfter(String before, [String lineEnding = '\n']) {
+    if (before.isEmpty || _endsWithLineBreaks(before, 2)) return '';
+    return _endsWithLineBreaks(before, 1)
+        ? lineEnding
+        : '$lineEnding$lineEnding';
   }
 
-  static String _separatorBefore(String after) {
-    if (after.isEmpty) return '\n\n';
-    if (after.startsWith('\n\n')) return '';
-    return after.startsWith('\n') ? '\n' : '\n\n';
+  static String _separatorBefore(String after, [String lineEnding = '\n']) {
+    if (after.isEmpty) return '$lineEnding$lineEnding';
+    if (_startsWithLineBreaks(after, 2)) return '';
+    return _startsWithLineBreaks(after, 1)
+        ? lineEnding
+        : '$lineEnding$lineEnding';
+  }
+
+  /// The blank line between a block and the next one is structural spacing
+  /// that cannot hold a caret, and the editor only snaps a caret out of it
+  /// when the text is unchanged. The caret after an inserted block therefore
+  /// passes the block's own line break and at most one blank line, landing
+  /// where the next block starts; further empty lines are the author's own.
+  static int _followingGapLength(String source) {
+    var cursor = 0;
+    for (var lineBreaks = 0; lineBreaks < 2; lineBreaks++) {
+      final length = _lineBreakLengthAt(source, cursor);
+      if (length == 0) break;
+      cursor += length;
+    }
+    return cursor;
+  }
+
+  static int _lineBreakLengthAt(String source, int offset) {
+    if (offset >= source.length) return 0;
+    if (source.codeUnitAt(offset) == 0x0A) return 1;
+    return offset + 1 < source.length &&
+            source.codeUnitAt(offset) == 0x0D &&
+            source.codeUnitAt(offset + 1) == 0x0A
+        ? 2
+        : 0;
+  }
+
+  static bool _endsWithLineBreaks(String source, int count) {
+    var cursor = source.length;
+    for (var found = 0; found < count; found++) {
+      if (cursor == 0 || source.codeUnitAt(cursor - 1) != 0x0A) return false;
+      cursor--;
+      if (cursor > 0 && source.codeUnitAt(cursor - 1) == 0x0D) cursor--;
+    }
+    return true;
+  }
+
+  static bool _startsWithLineBreaks(String source, int count) {
+    var cursor = 0;
+    for (var found = 0; found < count; found++) {
+      if (cursor < source.length && source.codeUnitAt(cursor) == 0x0D) {
+        cursor++;
+      }
+      if (cursor >= source.length || source.codeUnitAt(cursor) != 0x0A) {
+        return false;
+      }
+      cursor++;
+    }
+    return true;
   }
 
   void setImageAlt(ComposerImageBlock image, String alt) {
