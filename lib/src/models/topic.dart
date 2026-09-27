@@ -352,6 +352,7 @@ class Topic with Storable<Topic> {
     bool? pinned,
     bool? closed,
     bool? privateMessage,
+    int? unreadPosts,
     bool markRead = false,
   }) => Topic(
     id: id,
@@ -369,7 +370,7 @@ class Topic with Storable<Topic> {
     pinned: pinned ?? this.pinned,
     closed: closed ?? this.closed,
     bookmarked: bookmarked ?? this.bookmarked,
-    unreadPosts: markRead ? 0 : unreadPosts,
+    unreadPosts: markRead ? 0 : unreadPosts ?? this.unreadPosts,
     newPosts: markRead ? 0 : newPosts,
     seen: markRead ? true : seen,
     isNestedView: isNestedView,
