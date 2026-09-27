@@ -104,6 +104,87 @@ void main() {
       },
     );
 
+    // Diagnostics attribute an HTTP request to the operation and correlation
+    // in its zone, so a grant must not lend queued work the releaser's zone.
+    group('queued work starts in the zone that submitted it', () {
+      final origin = Uri.parse('https://forum.example');
+
+      Future<Object?> submit(
+        OriginRequestGate gate,
+        Uri url,
+        String submitter, {
+        Future<void>? hold,
+      }) => runZoned(
+        () => gate.run(url, (_) async {
+          await hold;
+          return Zone.current[#submitter];
+        }),
+        zoneValues: {#submitter: submitter},
+      );
+
+      test('when the origin releases a slot', () async {
+        final gate = OriginRequestGate(
+          maxConcurrentPerOrigin: 1,
+          maxQueuedPerOrigin: 1,
+          cooldownPolicy: OriginRequestCooldownPolicy.wait,
+        );
+        addTearDown(gate.close);
+        final hold = Completer<void>();
+        final active = submit(gate, origin, 'active', hold: hold.future);
+        final queued = submit(gate, origin, 'queued');
+
+        hold.complete();
+
+        expect(await active, 'active');
+        expect(await queued, 'queued');
+      });
+
+      test('when another origin releases an aggregate slot', () async {
+        final gate = OriginRequestGate(
+          maxConcurrent: 1,
+          maxConcurrentPerOrigin: 1,
+          maxQueuedPerOrigin: 1,
+          cooldownPolicy: OriginRequestCooldownPolicy.wait,
+        );
+        addTearDown(gate.close);
+        final hold = Completer<void>();
+        final active = submit(gate, origin, 'active', hold: hold.future);
+        final queued = submit(
+          gate,
+          Uri.parse('https://other.example'),
+          'queued',
+        );
+
+        hold.complete();
+
+        expect(await active, 'active');
+        expect(await queued, 'queued');
+      });
+
+      test('when a cooldown wakes', () async {
+        final scheduler = ManualScheduler();
+        final gate = OriginRequestGate(
+          maxConcurrentPerOrigin: 1,
+          maxQueuedPerOrigin: 1,
+          cooldownPolicy: OriginRequestCooldownPolicy.wait,
+          cooldownFactory: () => OriginCooldown(
+            clock: scheduler.now,
+            timerFactory: scheduler.createTimer,
+          ),
+        );
+        addTearDown(gate.close);
+        gate.extendCooldown(origin, const Duration(seconds: 30));
+        final queued = submit(gate, origin, 'queued');
+
+        runZoned(
+          () => scheduler.advance(const Duration(seconds: 30)),
+          zoneValues: {#submitter: 'wake'},
+        );
+
+        expect(await queued, 'queued');
+      });
+    });
+
     group('when the clock expires before timer delivery', () {
       late ManualScheduler scheduler;
       late Duration elapsed;
