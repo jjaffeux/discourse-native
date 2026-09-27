@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import '../models/group.dart';
 import '../models/group_route.dart';
 import '../plugin_api/plugin_registry.dart';
+import 'adaptive_dialog_action.dart';
 import 'group_page.dart';
 import 'group_pages_coordinator.dart';
 import 'group_pages_port.dart';
@@ -150,6 +151,24 @@ class _GroupDetailView extends StatelessWidget {
         await port.join(owner, group);
         break;
       case GroupMembershipAction.leave:
+        // As on the web, only a group anyone can join again is left without
+        // asking first.
+        if (!group.publicAdmission) {
+          final confirmed = await showDiscourseAlertDialog<bool>(
+            context: context,
+            title: Text('Leave ${group.label}?'),
+            description: const Text(
+              "You won't be able to join it again on your own.",
+            ),
+            cancelLabel: const Text('Cancel'),
+            actionLabel: const Text('Leave group'),
+            cancelResult: false,
+            actionResult: true,
+            actionKey: const ValueKey('confirm-leave-group'),
+            actionVariant: DButtonVariant.destructive,
+          );
+          if (confirmed != true || !context.mounted) return;
+        }
         await port.leave(owner, group);
         break;
       case GroupMembershipAction.request:

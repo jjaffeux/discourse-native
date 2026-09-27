@@ -552,6 +552,60 @@ void main() {
       expect(host.port.openedRequests, isEmpty);
       expect(tester.takeException(), isNull);
     });
+
+    const invitationOnly = Group(
+      id: 4,
+      name: 'staff',
+      fullName: 'Staff',
+      isGroupUser: true,
+      publicExit: true,
+    );
+
+    testWidgets('leaving a group that cannot be rejoined freely asks first', (
+      tester,
+    ) async {
+      final host = _MembershipHost(invitationOnly);
+      addTearDown(host.dispose);
+      await host.pump(tester);
+
+      await tester.tap(find.byKey(const ValueKey('group-leave')));
+      await tester.pumpAndSettle();
+      expect(find.text('Leave Staff?'), findsOneWidget);
+      await tester.tap(find.text('Cancel'));
+      await tester.pumpAndSettle();
+
+      expect(host.port.leaves, isEmpty);
+      expect(find.text('Leave Staff?'), findsNothing);
+
+      await tester.tap(find.byKey(const ValueKey('group-leave')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('confirm-leave-group')));
+      await tester.pumpAndSettle();
+
+      expect(host.port.leaves, [invitationOnly]);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('leaving a group anyone can join does not ask', (tester) async {
+      const open = Group(
+        id: 4,
+        name: 'staff',
+        fullName: 'Staff',
+        isGroupUser: true,
+        publicExit: true,
+        publicAdmission: true,
+      );
+      final host = _MembershipHost(open);
+      addTearDown(host.dispose);
+      await host.pump(tester);
+
+      await tester.tap(find.byKey(const ValueKey('group-leave')));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Leave Staff?'), findsNothing);
+      expect(host.port.leaves, [open]);
+      expect(tester.takeException(), isNull);
+    });
   });
 }
 
@@ -722,6 +776,7 @@ final class _Port implements GroupPagesPort {
   TopicFeed? feed;
   String? username = 'sam';
   final messagedGroups = <String>[];
+  final leaves = <Group>[];
   final membershipRequests = <({Group group, String reason})>[];
   GroupMembershipRequestResult? requestResult;
   Completer<GroupMembershipRequestResult?>? requestGate;
@@ -729,6 +784,12 @@ final class _Port implements GroupPagesPort {
 
   @override
   Listenable get changes => _changes;
+
+  @override
+  Future<bool> leave(GroupPagesOwner owner, Group group) async {
+    leaves.add(group);
+    return true;
+  }
 
   @override
   Future<GroupMembershipRequestResult?> requestMembership(
