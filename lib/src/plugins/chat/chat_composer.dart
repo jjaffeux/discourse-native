@@ -94,7 +94,7 @@ class _ChatUploadDropRegionState extends State<ChatUploadDropRegion> {
   }
 
   @override
-  Widget build(BuildContext context) => DropTarget(
+  Widget build(BuildContext context) => NativeDropTarget(
     key: const ValueKey('chat-upload-drop-target'),
     enable: !context.isTouch,
     onDragEntered: _entered,

@@ -3279,7 +3279,7 @@ class _ComposerEditorState extends State<ComposerEditor> {
             ),
           ),
         ),
-        child: DropTarget(
+        child: NativeDropTarget(
           enable:
               widget.enableDropTarget &&
               !context.isTouch &&
