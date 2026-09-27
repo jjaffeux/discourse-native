@@ -3,7 +3,8 @@ import 'dart:async';
 import 'package:desktop_drop/desktop_drop.dart';
 import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_ui.dart';
-import 'package:flutter/foundation.dart' show ValueListenable;
+import 'package:flutter/foundation.dart'
+    show ValueListenable, defaultTargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -16,6 +17,10 @@ import 'chat_plugin.dart';
 import 'chat_plugin_data.dart';
 import 'chat_services.dart';
 import 'chat_stream_target.dart';
+
+bool get _usesCommandModifier =>
+    defaultTargetPlatform == TargetPlatform.macOS ||
+    defaultTargetPlatform == TargetPlatform.iOS;
 
 class ChatUploadDropController {
   ComposerController? _composer;
@@ -1181,6 +1186,8 @@ class _ChatComposerState extends State<ChatComposer> {
     final actionInShell =
         mobile && MobileFooterActionScope.maybeOf(context) != null;
     _publishMobileAction(context, composer);
+    void openLink() =>
+        unawaited(showComposerLinkDialog(context: context, composer: composer));
 
     return CallbackShortcuts(
       bindings: {
@@ -1194,10 +1201,13 @@ class _ChatComposerState extends State<ChatComposer> {
             composer.toggleMark(ComposerMark.italic),
         const SingleActivator(LogicalKeyboardKey.keyE, meta: true):
             composer.toggleSelectedInlineCode,
-        const SingleActivator(LogicalKeyboardKey.keyL, meta: true): () =>
-            unawaited(
-              showComposerLinkDialog(context: context, composer: composer),
-            ),
+        if (!_usesCommandModifier)
+          const SingleActivator(LogicalKeyboardKey.keyE, control: true):
+              composer.toggleSelectedInlineCode,
+        const SingleActivator(LogicalKeyboardKey.keyL, meta: true): openLink,
+        if (!_usesCommandModifier)
+          const SingleActivator(LogicalKeyboardKey.keyL, control: true):
+              openLink,
         if (widget.editingMessage != null)
           const SingleActivator(LogicalKeyboardKey.escape): _cancelEdit
         else if (_replyTo != null)

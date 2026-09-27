@@ -1424,6 +1424,86 @@ void main() {
       expect(find.byType(ComposerLinkPill), findsOneWidget);
     });
 
+    testWidgets('Control-E and Control-L format chat text off Apple', (
+      tester,
+    ) async {
+      final fixture = await _fixture(
+        pages: {FakeDiscourseApi.chatMessagesKey(9): _emptyPage},
+      );
+      addTearDown(fixture.shell.dispose);
+      await tester.pumpWidget(_TestView(shell: fixture.shell));
+      await tester.pumpAndSettle();
+
+      final controller = _field(tester).controller!;
+      const selected = TextEditingValue(
+        text: 'format me',
+        selection: TextSelection(baseOffset: 0, extentOffset: 6),
+      );
+      controller.value = selected;
+      _field(tester).focusNode!.requestFocus();
+      await tester.pump();
+
+      await _pressControl(tester, LogicalKeyboardKey.keyE);
+
+      expect(controller.text, '`format` me');
+      expect(
+        controller.selection,
+        const TextSelection(baseOffset: 1, extentOffset: 7),
+      );
+
+      controller.value = selected;
+      await tester.pump();
+      await _pressControl(tester, LogicalKeyboardKey.keyL);
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const ValueKey('composer-link-dialog')),
+        findsOneWidget,
+      );
+      expect(
+        tester
+            .widget<DInput>(find.byKey(const ValueKey('composer-link-anchor')))
+            .controller!
+            .text,
+        'format',
+      );
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
+
+    testWidgets('Control-E keeps its line movement on Apple', (tester) async {
+      final fixture = await _fixture(
+        pages: {FakeDiscourseApi.chatMessagesKey(9): _emptyPage},
+      );
+      addTearDown(fixture.shell.dispose);
+      await tester.pumpWidget(_TestView(shell: fixture.shell));
+      await tester.pumpAndSettle();
+
+      final controller = _field(tester).controller!;
+      const selected = TextEditingValue(
+        text: 'format me',
+        selection: TextSelection(baseOffset: 0, extentOffset: 6),
+      );
+      controller.value = selected;
+      _field(tester).focusNode!.requestFocus();
+      await tester.pump();
+
+      await _pressControl(tester, LogicalKeyboardKey.keyE);
+
+      expect(controller.text, 'format me');
+      expect(controller.selection.isCollapsed, isTrue);
+      expect(controller.selection.extentOffset, 9);
+
+      await _pressControl(tester, LogicalKeyboardKey.keyL);
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const ValueKey('composer-link-dialog')), findsNothing);
+
+      controller.value = selected;
+      await tester.pump();
+      await _pressCommandE(tester);
+
+      expect(controller.text, '`format` me');
+    }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
+
     testWidgets('a typed domain becomes a link in chat', (tester) async {
       final fixture = await _fixture(
         pages: {FakeDiscourseApi.chatMessagesKey(9): _emptyPage},
@@ -3597,6 +3677,13 @@ Future<void> _pressCommand(WidgetTester tester, LogicalKeyboardKey key) async {
   await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
   await tester.sendKeyEvent(key);
   await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
+  await tester.pump();
+}
+
+Future<void> _pressControl(WidgetTester tester, LogicalKeyboardKey key) async {
+  await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+  await tester.sendKeyEvent(key);
+  await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
   await tester.pump();
 }
 
