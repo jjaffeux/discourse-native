@@ -640,6 +640,41 @@ void main() {
   });
 
   group('composer image optimization', () {
+    test('thresholds are independent and survive storage', () {
+      final config = SiteConfig.fromSettings(const {
+        'composer_media_optimization_image_bytes_optimization_threshold':
+            700000,
+        'composer_media_optimization_image_resize_dimensions_threshold': 2400,
+        'composer_media_optimization_image_resize_width_target': 1600,
+      });
+      final restored = SiteConfig.fromJson(
+        jsonDecode(jsonEncode(config.toJson())) as Map<String, dynamic>,
+      );
+      expect(restored.composerImageOptimization.bytesThreshold, 700000);
+      expect(
+        restored.composerImageOptimization.resizeDimensionsThreshold,
+        2400,
+      );
+      expect(restored.composerImageOptimization.resizeWidthTarget, 1600);
+      expect(restored, config);
+      for (final value in [-1, 'invalid', true]) {
+        final settings = ComposerImageOptimization.fromJson({
+          'composer_media_optimization_image_bytes_optimization_threshold':
+              value,
+          'composer_media_optimization_image_resize_dimensions_threshold':
+              value,
+        });
+        expect(settings.bytesThreshold, 524288);
+        expect(settings.resizeDimensionsThreshold, 1920);
+      }
+      final zero = ComposerImageOptimization.fromJson(const {
+        'composer_media_optimization_image_bytes_optimization_threshold': 0,
+        'composer_media_optimization_image_resize_dimensions_threshold': 0,
+      });
+      expect(zero.bytesThreshold, 0);
+      expect(zero.resizeDimensionsThreshold, 0);
+    });
+
     test('defaults to core optimisation when settings are absent', () {
       final optimization = SiteConfig.fromSettings(
         const {},

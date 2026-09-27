@@ -948,16 +948,16 @@ class SiteConfig {
   }
 }
 
-/// Core's client-side image optimisation, which the web composer runs before
-/// an upload (`media-optimization-worker.js`). The iOS photo library decodes
-/// and re-encodes each photo it returns — at full resolution and maximum
-/// quality unless told otherwise — so it follows these settings in place of
-/// that worker.
+/// Site policy shared by the pre-upload optimizer and native photo picker.
+/// The picker applies size/quality while exporting mobile JPEGs; other inputs
+/// are prepared by the composer before networking starts.
 @immutable
 final class ComposerImageOptimization {
   const ComposerImageOptimization({
     this.enabled = true,
     this.iosEnabled = true,
+    this.bytesThreshold = defaultBytesThreshold,
+    this.resizeDimensionsThreshold = defaultResizeDimensionsThreshold,
     this.resizeWidthTarget = defaultResizeWidthTarget,
     this.encodeQuality = 0,
     this.imageQuality = defaultImageQuality,
@@ -969,6 +969,14 @@ final class ComposerImageOptimization {
   ) => ComposerImageOptimization(
     enabled: json['composer_media_optimization_image_enabled'] != false,
     iosEnabled: json['composer_ios_media_optimisation_image_enabled'] != false,
+    bytesThreshold: _threshold(
+      json['composer_media_optimization_image_bytes_optimization_threshold'],
+      defaultBytesThreshold,
+    ),
+    resizeDimensionsThreshold: _threshold(
+      json['composer_media_optimization_image_resize_dimensions_threshold'],
+      defaultResizeDimensionsThreshold,
+    ),
     resizeWidthTarget: switch (jsonIntOrNull(
       json['composer_media_optimization_image_resize_width_target'],
     )) {
@@ -981,12 +989,16 @@ final class ComposerImageOptimization {
   );
 
   static const int defaultResizeWidthTarget = 1920;
+  static const int defaultBytesThreshold = 524288;
+  static const int defaultResizeDimensionsThreshold = 1920;
   static const int defaultImageQuality = 90;
 
   final bool enabled;
 
   /// Checked in addition to [enabled], on iOS only, as core does.
   final bool iosEnabled;
+  final int bytesThreshold;
+  final int resizeDimensionsThreshold;
 
   /// Core resizes only past a separate dimensions threshold. A picker can
   /// only cap the width, and both settings default to the same value.
@@ -1009,6 +1021,10 @@ final class ComposerImageOptimization {
   Map<String, dynamic> toJson() => {
     'composer_media_optimization_image_enabled': enabled,
     'composer_ios_media_optimisation_image_enabled': iosEnabled,
+    'composer_media_optimization_image_bytes_optimization_threshold':
+        bytesThreshold,
+    'composer_media_optimization_image_resize_dimensions_threshold':
+        resizeDimensionsThreshold,
     'composer_media_optimization_image_resize_width_target': resizeWidthTarget,
     'composer_media_optimization_image_encode_quality': encodeQuality,
     'image_quality': imageQuality,
@@ -1019,6 +1035,8 @@ final class ComposerImageOptimization {
       other is ComposerImageOptimization &&
       other.enabled == enabled &&
       other.iosEnabled == iosEnabled &&
+      other.bytesThreshold == bytesThreshold &&
+      other.resizeDimensionsThreshold == resizeDimensionsThreshold &&
       other.resizeWidthTarget == resizeWidthTarget &&
       other.encodeQuality == encodeQuality &&
       other.imageQuality == imageQuality;
@@ -1027,6 +1045,8 @@ final class ComposerImageOptimization {
   int get hashCode => Object.hash(
     enabled,
     iosEnabled,
+    bytesThreshold,
+    resizeDimensionsThreshold,
     resizeWidthTarget,
     encodeQuality,
     imageQuality,
@@ -1038,4 +1058,10 @@ final class ComposerImageOptimization {
     final value? when value > 0 && value <= 100 => value,
     _ => null,
   };
+
+  static int _threshold(Object? raw, int fallback) =>
+      switch (jsonIntOrNull(raw)) {
+        final value? when value >= 0 => value,
+        _ => fallback,
+      };
 }

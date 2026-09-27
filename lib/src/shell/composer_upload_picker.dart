@@ -15,8 +15,8 @@ Future<List<ComposerUploadFile>> pickComposerFiles() async {
   return composerUploadFilesFromSelection(files);
 }
 
-/// [optimization] is the site's, so that a photo leaves at the size the web
-/// composer would upload; only iOS applies it. [limit] keeps a selection
+/// [optimization] is the site's; mobile pickers apply it during photo export.
+/// [limit] keeps a selection
 /// within the batch the composer accepts, which would otherwise refuse all
 /// of it.
 Future<List<ComposerUploadFile>> pickComposerImages({
@@ -31,18 +31,29 @@ Future<List<ComposerUploadFile>> pickComposerImages({
     limit: limit != null && limit > 0 ? limit : null,
     requestFullMetadata: false,
   );
-  return composerUploadFilesFromSelection(files);
+  return composerUploadFilesFromSelection(
+    files,
+    photosAlreadyEncoded:
+        defaultTargetPlatform == TargetPlatform.iOS ||
+        defaultTargetPlatform == TargetPlatform.android,
+  );
 }
 
 List<ComposerUploadFile> composerUploadFilesFromSelection(
-  Iterable<selector.XFile> files,
-) {
+  Iterable<selector.XFile> files, {
+  bool photosAlreadyEncoded = false,
+}) {
   return List.unmodifiable([
     for (final file in files)
       ComposerUploadFile(
         name: file.name,
         length: file.length,
         openRead: file.openRead,
+        // The mobile picker already resized and encoded JPEG photos. PNGs
+        // still need the shared transparency/format decision before upload.
+        imageOptimizationApplied:
+            photosAlreadyEncoded &&
+            RegExp(r'\.(jpe?g)$', caseSensitive: false).hasMatch(file.name),
       ),
   ]);
 }
