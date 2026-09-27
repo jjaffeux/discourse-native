@@ -9,6 +9,7 @@ import 'package:discourse_native/src/models/sidebar.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/models/topic_tracking_state.dart';
 import 'package:discourse_native/src/models/user_status.dart';
+import 'package:discourse_native/src/plugin_api/plugin_runtime.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -163,6 +164,8 @@ Post _post(
   likeCount: likeCount,
 );
 
+const _reply = Post(id: 2, postNumber: 2, username: 'replier', cooked: 'reply');
+
 const _closedAction = Post(
   id: 2,
   postNumber: 2,
@@ -214,6 +217,7 @@ _loadIncomingShell() async {
 Future<ShellController> _loadShell(
   FakeDiscourseApi api, {
   FakeAuthenticator? authenticator,
+  InstalledPlugins? plugins,
 }) async {
   final credentials = authenticator ?? FakeAuthenticator();
   credentials.keys[_siteUrl] = 'api-key';
@@ -227,7 +231,7 @@ Future<ShellController> _loadShell(
     authenticator: credentials,
     drafts: FakeDraftStore(),
     trackers: FakeSiteTracker.reset(),
-    plugins: installedPlugins,
+    plugins: plugins ?? installedPlugins,
   );
   await shell.load();
   await pumpEventQueue();
@@ -768,6 +772,299 @@ void main() {
         expect(shell.store.read<Post>(_siteUrl, 1)?.bookmark, isNull);
       },
     );
+
+    test('re-reads a post core says changed', () async {
+      final api = _PostOrderingApi();
+      final shell = await _loadShell(api);
+      addTearDown(shell.dispose);
+      final tracker = await _openTopic(shell);
+
+      const types = ['revised', 'rebaked', 'acted', 'liked', 'unliked'];
+      for (final (index, type) in types.indexed) {
+        tracker.deliverTopicMessage('/topic/7', {'type': type, 'id': 1});
+        await api.waitForPostRequests(index + 1);
+        expect(api.postRequests[index].ids, [1], reason: type);
+        api.postRequests[index].response.complete([_post(type)]);
+        await pumpEventQueue();
+        expect(shell.store.read<Post>(_siteUrl, 1)?.cooked, type);
+      }
+
+      expect(api.postRequests, hasLength(types.length));
+      expect(api.topicsOpened, [7]);
+    });
+
+    test('replays a revision a cached topic missed', () async {
+      final api = _PostOrderingApi();
+      final shell = await _loadShell(api);
+      addTearDown(shell.dispose);
+      final tracker = FakeSiteTracker.built.single;
+      final cached = topicPayload(
+        id: 7,
+        title: 'A topic',
+        posts: [_post('initial')],
+        messageBusLastId: 144,
+      );
+      shell.store.put(_siteUrl, cached.detail);
+      shell.store.putAll(_siteUrl, cached.posts);
+
+      shell.pushContent(
+        ContentRoute.topic(topicId: 7, slug: 'a-topic', title: 'A topic'),
+      );
+      await shell.loadTopic(7, 'a-topic');
+      expect(api.topicsOpened, isEmpty);
+      expect(tracker.watchedChannelLastIds['/topic/7'], 144);
+
+      // Resuming after 144 brings back the edit made while it was closed.
+      tracker.deliverTopicMessage('/topic/7', const {
+        'type': 'revised',
+        'id': 1,
+      });
+      await api.waitForPostRequests(1);
+      api.postRequests.single.response.complete([_post('edited')]);
+      await pumpEventQueue();
+
+      expect(shell.store.read<Post>(_siteUrl, 1)?.cooked, 'edited');
+      expect(api.topicsOpened, isEmpty);
+    });
+
+    test('waits for an active like before re-reading a liked post', () async {
+      final likeGate = Completer<void>();
+      final api = _PostOrderingApi(likeGate: likeGate);
+      final shell = await _loadShell(api);
+      addTearDown(shell.dispose);
+      final tracker = await _openTopic(shell);
+      final post = shell.store.read<Post>(_siteUrl, 1)!.copyWith(canLike: true);
+      shell.store.put(_siteUrl, post);
+
+      final liking = shell.toggleLike(post);
+      await api.likeStarted.future;
+      tracker.deliverTopicMessage('/topic/7', const {'type': 'liked', 'id': 1});
+      await pumpEventQueue();
+
+      expect(api.postRequests, isEmpty);
+      expect(shell.store.read<Post>(_siteUrl, 1)?.likeCount, 1);
+
+      likeGate.complete();
+      expect(await liking, isNull);
+      await api.waitForPostRequests(1);
+      api.postRequests.single.response.complete([
+        _post('initial', likeCount: 2),
+      ]);
+      await pumpEventQueue();
+
+      expect(api.postRequests.single.ids, [1]);
+      expect(shell.store.read<Post>(_siteUrl, 1)?.likeCount, 2);
+    });
+
+    test('does not read a post it does not hold', () async {
+      final api = _PostOrderingApi();
+      final shell = await _loadShell(api);
+      addTearDown(shell.dispose);
+      final tracker = await _openTopic(shell);
+
+      for (final message in const <Map<String, Object?>>[
+        {'type': 'revised', 'id': 99},
+        {'type': 'revised', 'id': '1'},
+        {'type': 'revised', 'id': -1},
+        {'type': 'revised'},
+        {'type': 'read', 'id': 1},
+      ]) {
+        tracker.deliverTopicMessage('/topic/7', message);
+      }
+      await pumpEventQueue();
+
+      expect(api.postRequests, isEmpty);
+      expect(api.topicsOpened, [7]);
+    });
+
+    test('leaves a post named by a topic reload to that reload', () async {
+      final api = _PostOrderingApi();
+      final shell = await _loadShell(api);
+      addTearDown(shell.dispose);
+      final tracker = await _openTopic(shell);
+
+      tracker.deliverTopicMessage('/topic/7', const {
+        'type': 'revised',
+        'id': 1,
+        'reload_topic': true,
+      });
+      await pumpEventQueue();
+
+      expect(api.topicsOpened, [7, 7]);
+      expect(api.postRequests, isEmpty);
+    });
+
+    test('keeps a deleted post the reader can still see', () async {
+      final api = _PostOrderingApi();
+      final shell = await _loadShell(api);
+      addTearDown(shell.dispose);
+      api.topics[7] = topicPayload(
+        id: 7,
+        title: 'A topic',
+        posts: [_post('initial'), _reply],
+      );
+      final tracker = await _openTopic(shell);
+      final deletedAt = DateTime.utc(2026, 9, 27);
+
+      tracker.deliverTopicMessage('/topic/7', const {
+        'type': 'deleted',
+        'id': 2,
+      });
+      await api.waitForPostRequests(1);
+      api.postRequests.single.response.complete([
+        Post(
+          id: 2,
+          postNumber: 2,
+          username: 'replier',
+          cooked: 'reply',
+          deletedAt: deletedAt,
+        ),
+      ]);
+      await pumpEventQueue();
+
+      expect(shell.store.read<Post>(_siteUrl, 2)?.deletedAt, deletedAt);
+      expect(shell.currentTopic?.stream, [1, 2]);
+
+      // Only a deletion's own re-read takes an omission as removal.
+      tracker.deliverTopicMessage('/topic/7/reactions', {'post_id': 2});
+      await api.waitForPostRequests(2);
+      api.postRequests[1].response.complete(const []);
+      await pumpEventQueue();
+
+      expect(shell.store.read<Post>(_siteUrl, 2)?.deletedAt, deletedAt);
+      expect(shell.currentTopic?.stream, [1, 2]);
+    });
+
+    test('drops a post deleted while an earlier re-read was out', () async {
+      final api = _PostOrderingApi();
+      final shell = await _loadShell(api);
+      addTearDown(shell.dispose);
+      api.topics[7] = topicPayload(
+        id: 7,
+        title: 'A topic',
+        posts: [_post('initial'), _reply],
+      );
+      final tracker = await _openTopic(shell);
+
+      tracker.deliverTopicMessage('/topic/7', const {
+        'type': 'revised',
+        'id': 2,
+      });
+      await api.waitForPostRequests(1);
+      api.topics[7] = topicPayload(
+        id: 7,
+        title: 'A topic',
+        posts: [_post('initial')],
+      );
+      tracker.deliverTopicMessage('/topic/7', const {
+        'type': 'deleted',
+        'id': 2,
+      });
+      await pumpEventQueue();
+
+      // The edit's read left before the deletion, so its answer cannot stand.
+      api.postRequests[0].response.complete([_reply]);
+      await api.waitForPostRequests(2);
+      expect(shell.currentTopic?.stream, [1, 2]);
+
+      api.postRequests[1].response.complete(const []);
+      await pumpEventQueue();
+
+      expect(api.postRequests[1].ids, [2]);
+      expect(shell.store.read<Post>(_siteUrl, 2), isNull);
+      expect(shell.currentTopic?.stream, [1]);
+    });
+
+    for (final type in const ['deleted', 'destroyed']) {
+      test('drops a $type post the site no longer returns', () async {
+        final api = _PostOrderingApi();
+        final shell = await _loadShell(api);
+        addTearDown(shell.dispose);
+        api.topics[7] = topicPayload(
+          id: 7,
+          title: 'A topic',
+          posts: [_post('initial'), _reply],
+        );
+        final tracker = await _openTopic(shell);
+        expect(shell.currentTopic?.stream, [1, 2]);
+
+        // A reader who cannot see deleted posts is answered without it, both
+        // by id and in any stream read after the deletion.
+        api.topics[7] = topicPayload(
+          id: 7,
+          title: 'A topic',
+          posts: [_post('initial')],
+        );
+        tracker.deliverTopicMessage('/topic/7', {'type': type, 'id': 2});
+        await api.waitForPostRequests(1);
+        await pumpEventQueue();
+        api.postRequests.single.response.complete(const []);
+        await pumpEventQueue();
+
+        expect(api.postRequests.single.ids, [2]);
+        expect(shell.store.read<Post>(_siteUrl, 2), isNull);
+        expect(shell.currentTopic?.stream, [1]);
+      });
+    }
+
+    test('re-reads a recovered post it still holds', () async {
+      final api = _PostOrderingApi();
+      final shell = await _loadShell(api);
+      addTearDown(shell.dispose);
+      api.topics[7] = topicPayload(
+        id: 7,
+        title: 'A topic',
+        posts: [
+          _post('initial'),
+          Post(
+            id: 2,
+            postNumber: 2,
+            username: 'replier',
+            cooked: 'reply',
+            deletedAt: DateTime.utc(2026, 9, 27),
+          ),
+        ],
+      );
+      final tracker = await _openTopic(shell);
+
+      tracker.deliverTopicMessage('/topic/7', const {
+        'type': 'recovered',
+        'id': 2,
+      });
+      await api.waitForPostRequests(1);
+      api.postRequests.single.response.complete([_reply]);
+      await pumpEventQueue();
+
+      expect(api.postRequests.single.ids, [2]);
+      expect(shell.store.read<Post>(_siteUrl, 2)?.deletedAt, isNull);
+      expect(shell.currentTopic?.stream, [1, 2]);
+    });
+
+    test('reads the stream again for a recovered post it dropped', () async {
+      final api = _PostOrderingApi();
+      // Core owns this without any bundled feature asking for the topic.
+      final plugins = PluginInstaller.install(const PluginManifest([]));
+      addTearDown(plugins.close);
+      final shell = await _loadShell(api, plugins: plugins);
+      addTearDown(shell.dispose);
+      final tracker = await _openTopic(shell);
+
+      api.topics[7] = topicPayload(
+        id: 7,
+        title: 'A topic',
+        posts: [_post('initial'), _reply],
+      );
+      tracker.deliverTopicMessage('/topic/7', const {
+        'type': 'recovered',
+        'id': 2,
+      });
+      await pumpEventQueue();
+
+      expect(api.topicsOpened, [7, 7]);
+      expect(api.postRequests, isEmpty);
+      expect(shell.currentTopic?.stream, [1, 2]);
+      expect(shell.store.read<Post>(_siteUrl, 2), _reply);
+    });
   });
 
   group('session replacement', () {
