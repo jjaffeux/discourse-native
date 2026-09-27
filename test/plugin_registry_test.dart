@@ -10,6 +10,7 @@ import 'package:discourse_native/src/theme/d_icon.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:html/dom.dart' as dom;
 
 import 'support/bundled_plugins.dart';
 
@@ -276,6 +277,29 @@ void main() {
             .get(_recordKey)
             ?.value,
         'held',
+      );
+    });
+
+    test('a post body draws only the records of plugins with a body hook', () {
+      // As in Discourse Events, one plugin may declare the record and the
+      // body hook that draws it as separate capabilities.
+      const registry = PluginRegistry([
+        _RecordPlugin(),
+        _BodyPlugin('drawn'),
+        _DrawnRecordPlugin(),
+      ]);
+      final records = PluginData.none
+          .withValue(_recordKey, const _Record('footer'))
+          .withValue(_drawnKey, 'body');
+
+      expect(registry.postBodyRecords(records), ['body']);
+      expect(registry.postBodyRecords(PluginData.none), [null]);
+      expect(
+        const PluginRegistry([
+          _RecordPlugin(),
+          _DrawnRecordPlugin(),
+        ]).postBodyRecords(records),
+        isEmpty,
       );
     });
   });
@@ -826,6 +850,31 @@ final class _RecordPlugin extends _NamedPlugin
   @override
   _Record? mergeAfterPostEdit(_Record? held, _Record? incoming) =>
       held ?? incoming;
+}
+
+const _drawnKey = PluginDataKey<String>(owner: 'drawn', name: 'post');
+
+final class _DrawnRecordPlugin extends _NamedPlugin
+    implements PostRecordPlugin<String> {
+  const _DrawnRecordPlugin() : super('drawn');
+
+  @override
+  PluginDataKey<String> get record => _drawnKey;
+
+  @override
+  String? readPost(Map<String, dynamic> json, String siteUrl) =>
+      json['drawn'] as String?;
+
+  @override
+  String? mergeAfterPostEdit(String? held, String? incoming) => incoming;
+}
+
+final class _BodyPlugin extends _NamedPlugin implements PostBodyPlugin {
+  const _BodyPlugin(super.name);
+
+  @override
+  Widget? postBodyElement(PluginPostBodyContext context, dom.Element element) =>
+      null;
 }
 
 final class _RecommendationPlugin extends _NamedPlugin

@@ -1275,6 +1275,22 @@ final class PluginRegistry
     return null;
   }
 
+  /// The post records [postBodyElement] can draw, in registry order. A body
+  /// plugin is handed the whole post but reads only the records its plugin
+  /// owns, so a record owned by any other plugin, such as a reaction, never
+  /// changes what a post's body shows.
+  List<Object?> postBodyRecords(PluginData records) {
+    final owners = {
+      for (final plugin in plugins)
+        if (plugin is PostBodyPlugin) plugin.name,
+    };
+    if (owners.isEmpty) return const [];
+    return [
+      for (final plugin in plugins.whereType<PostRecordPlugin<Object>>())
+        if (owners.contains(plugin.record.owner)) records.get(plugin.record),
+    ];
+  }
+
   Widget? cookedElement(String? siteUrl, dom.Element element) {
     for (final plugin in plugins.whereType<CookedElementPlugin>()) {
       final widget = plugin.cookedElement(siteUrl, element);

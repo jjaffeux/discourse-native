@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_widget_from_html_core/flutter_widget_from_html_core.dart';
 import 'package:html/dom.dart' as dom;
 
+import '../foundation/bounded_lru_cache.dart';
 import '../foundation/short_number.dart';
 import '../models/post.dart';
 import '../models/post_checklist.dart';
@@ -425,7 +426,11 @@ class CookedHtml extends StatelessWidget {
           style,
           linkStyle,
           resolvedSiteUrl,
-          post?.plugins,
+          // Only a body plugin's own records reach the builders: a reaction or
+          // an assignment changes far more often than the body it sits under.
+          _ListTrigger(
+            resolvedRegistry.postBodyRecords(post?.plugins ?? PluginData.none),
+          ),
           post?.canEdit,
           post?.isLocalized,
           canToggle,
@@ -482,23 +487,25 @@ final class _MapTrigger<K, V> {
   ]);
 }
 
-// A row scrolled back into a lazily built list, or rebuilt for an unrelated
-// reason, renders the same post again; deriving its checklist anew would parse
-// the whole body on the UI thread, even one long enough for HtmlWidget to
-// parse off it. A post never changes, so the markup it was last displayed
-// with decides the result, and the entry lives exactly as long as the post.
+// A row scrolled back into a lazily built list, rebuilt for an unrelated
+// reason, or handed the post again after a reaction, a like or a live refresh
+// renders the same body; deriving its checklist anew would parse the whole
+// body on the UI thread, even one long enough for HtmlWidget to parse off it.
+// The result depends on nothing but the displayed and the saved markup, which
+// are compared by value because a re-read post and a wrapping presentation
+// both bring new strings, and only the most recently rendered bodies are kept.
 final _displayedChecklists =
-    Expando<({String html, PostChecklistDocument? checklist})>();
+    BoundedLruCache<(String, String), ({PostChecklistDocument? checklist})>(32);
 
 /// Displayed markup keeps the saved post's checkbox indices only while it
 /// presents the same targets in the same order.
 PostChecklistDocument? _displayedChecklist(String html, Post? post) {
   if (post == null || !html.contains('chcklst-box')) return null;
-  if (_displayedChecklists[post] case final memo? when memo.html == html) {
-    return memo.checklist;
-  }
-  final checklist = _checklistFor(html, post.cooked);
-  _displayedChecklists[post] = (html: html, checklist: checklist);
+  final saved = post.cooked;
+  final key = (html, saved);
+  if (_displayedChecklists.read(key) case (:final checklist)) return checklist;
+  final checklist = _checklistFor(html, saved);
+  _displayedChecklists.put(key, (checklist: checklist));
   return checklist;
 }
 

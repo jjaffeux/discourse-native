@@ -259,6 +259,9 @@ final class PluginPostBodyContext {
 abstract interface class PostBodyPlugin {
   /// Only top-level post markup reaches this hook; nested cooked fragments have
   /// no authoritative post serializer record.
+  ///
+  /// A built body is not rebuilt when only another plugin's post record
+  /// changes, so the widget returned must draw only records this plugin owns.
   Widget? postBodyElement(PluginPostBodyContext context, dom.Element element);
 }
 
