@@ -2426,8 +2426,9 @@ void main() {
           final touch =
               Theme.of(tester.element(reply)).platform ==
               TargetPlatform.android;
-          expect(readerBar.height, touch ? 64 : 44);
-          expect(controlHeight, touch ? 48 : 28);
+          // Footer actions are 34px on desktop inside 8px padding.
+          expect(readerBar.height, touch ? 64 : 50);
+          expect(controlHeight, touch ? 48 : 34);
           for (final key in [
             'topic-progress-button',
             if (touch) 'inbox-previous-topic',

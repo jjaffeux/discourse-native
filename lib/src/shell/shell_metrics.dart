@@ -47,11 +47,12 @@ double workspaceTabStripHeightFor(BuildContext context) {
 
 const topicBottomBarPadding = EdgeInsets.all(8);
 
+// Footer actions set the bar, so the list and reader bars grow together.
 double topicBottomBarControlHeight(BuildContext context) {
   return math.max(
     context.isTouch ? DSpacing.touchTarget : 0,
     DControlStyle.scaledHeight(
-      DControlSize.regular,
+      DControlSize.action,
       MediaQuery.textScalerOf(context),
       context: context,
     ),
