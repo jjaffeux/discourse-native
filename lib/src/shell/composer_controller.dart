@@ -2311,6 +2311,9 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
   @override
   bool get loadingBody => _loadingBody;
 
+  /// The loaded body exactly as the site holds it: an edit sends it as
+  /// `original_text`, which the site compares byte-for-byte with the post's
+  /// raw and refuses as a conflict on any difference.
   String? _originalRaw;
 
   @override
@@ -2336,7 +2339,7 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
     if (_disposed) return;
     _loadingBody = false;
     _missingEditBody = false;
-    _originalRaw = raw.trim();
+    _originalRaw = raw;
     final offset = (caretOffset ?? raw.length).clamp(0, raw.length);
     _replaceDocument(
       TextEditingValue(
@@ -2359,6 +2362,13 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
   Duration get openDuration => _now().difference(_openedAt);
 
   String get raw => _uploadPlaceholders.strip(text.text).trim();
+
+  /// The body an edit sends. The site stores a revision right-stripped but
+  /// keeps its start, so trimming it would unindent a leading code block.
+  String get editRaw => _uploadPlaceholders.strip(text.text).trimRight();
+
+  /// Whether saving the edit would change the body the site stores.
+  bool get _bodyEdited => editRaw != _originalRaw?.trimRight();
 
   int draftSequence = 0;
 
@@ -2939,11 +2949,11 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
         raw.isNotEmpty &&
             title.text.trim().isNotEmpty &&
             (_target.targetRecipients?.trim().isNotEmpty ?? false),
-      ComposerMode.postEdit => raw.isNotEmpty && raw != _originalRaw,
+      ComposerMode.postEdit => raw.isNotEmpty && _bodyEdited,
       ComposerMode.topicEdit =>
         title.text.trim().isNotEmpty &&
             taxonomyValidationMessage == null &&
-            (metadataChanged || (raw.isNotEmpty && raw != _originalRaw)),
+            (metadataChanged || (raw.isNotEmpty && _bodyEdited)),
       ComposerMode.categoryEdit =>
         taxonomyValidationMessage == null && metadataChanged,
       ComposerMode.tagsEdit =>

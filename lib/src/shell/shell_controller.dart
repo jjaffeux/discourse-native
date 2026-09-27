@@ -12575,7 +12575,7 @@ class ShellController extends FrameSafeNotifier
     }
 
     if (target.isEdit) {
-      return _submitEdit(composer, target, composer.raw, lease);
+      return _submitEdit(composer, target, composer.editRaw, lease);
     }
 
     // Before any await: the credential round trip below is a gap a second tap
@@ -12808,7 +12808,7 @@ class ShellController extends FrameSafeNotifier
         );
         composer.metadataSettled();
       });
-      if (raw == composer.originalRaw) {
+      if (raw == composer.originalRaw?.trimRight()) {
         lease.commit(() => _closeSubmittedComposer(composer));
         return;
       }
@@ -12845,7 +12845,9 @@ class ShellController extends FrameSafeNotifier
 
   void _storeEditedPost(String siteUrl, Post updated, {required String raw}) {
     final held = store.read<Post>(siteUrl, updated.id);
-    final withRaw = updated.withRaw(raw);
+    // The answer carries the raw the site stored, whitespace normalized; it is
+    // the next edit's `original_text`, so it wins over the text that was sent.
+    final withRaw = updated.raw == null ? updated.withRaw(raw) : updated;
     // Edit responses omit reader-specific actions and plugin state; preserve
     // those values from the held post.
     store.put(

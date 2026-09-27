@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:discourse_native/src/data/discourse_api_contracts.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/post.dart';
@@ -10,6 +11,11 @@ import 'package:flutter_test/flutter_test.dart';
 import 'support/fakes.dart';
 
 const _siteUrl = 'https://meta.discourse.org';
+
+/// The characters `TextCleaner.normalize_whitespaces` maps to a plain space.
+final _normalizedSpaces = RegExp(
+  '[\u00A0\u1680\u180E\u2000-\u200A\u2028\u2029\u202F\u205F\u3000]',
+);
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -225,6 +231,48 @@ void main() {
     expect(api.topicsUpdated, isEmpty);
     expect(controller.visibleComposer, same(composer));
   });
+
+  test('an edit sends the leading whitespace the site stored, as its '
+      'baseline and in its body', () async {
+    const stored = '    indented code\n\nReply body';
+    api.heldRawById[2] = stored;
+    controller.store.put(
+      _siteUrl,
+      controller.store.read<Post>(_siteUrl, 2)!.withRaw(stored),
+    );
+    controller.openEdit(controller.store.read<Post>(_siteUrl, 2)!);
+    final composer = controller.visibleComposer!;
+    expect(composer.canSubmit, isFalse);
+
+    composer.text.text = '    indented code\n\nEdited reply body\n';
+    await controller.submitComposer();
+
+    expect(api.updated.single['originalText'], stored);
+    expect(api.updated.single['raw'], '    indented code\n\nEdited reply body');
+    expect(controller.visibleComposer, isNull);
+  });
+
+  test('a second edit starts from the markdown the site stored for the '
+      'first', () async {
+    api.heldRawById[2] = 'Original reply body';
+    controller.store.put(
+      _siteUrl,
+      controller.store.read<Post>(_siteUrl, 2)!.withRaw('Original reply body'),
+    );
+
+    controller.openEdit(controller.store.read<Post>(_siteUrl, 2)!);
+    controller.visibleComposer!.text.text = 'ありがとう\u3000ございます';
+    await controller.submitComposer();
+    expect(controller.visibleComposer, isNull);
+
+    controller.openEdit(controller.store.read<Post>(_siteUrl, 2)!);
+    controller.visibleComposer!.text.text = 'ありがとうございました';
+    await controller.submitComposer();
+
+    expect(api.updated.last['originalText'], 'ありがとう ございます');
+    expect(controller.visibleComposer, isNull);
+    expect(controller.store.read<Post>(_siteUrl, 2)!.raw, 'ありがとうございました');
+  });
 }
 
 void _replaceWriteAccount(ShellController controller, int postId) {
@@ -241,6 +289,12 @@ final class _EditApi extends FakeDiscourseApi {
 
   /// Markdown the site answers with, only when a read asks for it.
   final rawById = <int, String>{};
+
+  /// Markdown the site holds for posts whose edits it checks, as
+  /// `PostsController#update` does: an `original_text` that is not exactly
+  /// this text is a conflict, and an accepted edit is stored the way
+  /// `PostRevisor` cleans it and answered with that stored raw.
+  final heldRawById = <int, String>{};
 
   @override
   Future<List<Post>> posts({
@@ -285,7 +339,14 @@ final class _EditApi extends FakeDiscourseApi {
       clientId: clientId,
     );
     await beforePostReply?.call();
-    return post;
+    final held = heldRawById[postId];
+    if (held == null) return post;
+    if (originalText != held) {
+      throw const WriteException(WriteFailure.conflict);
+    }
+    final stored = raw.replaceAll(_normalizedSpaces, ' ').trimRight();
+    heldRawById[postId] = stored;
+    return post.withRaw(stored);
   }
 
   @override
