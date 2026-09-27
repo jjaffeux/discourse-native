@@ -6512,12 +6512,15 @@ class ShellController extends FrameSafeNotifier
     final rootChanged = _setForumContentRoot();
 
     // Posts link to the topic they are already in — every cross-post quote
-    // does — and stacking a second copy of it only costs the user a back tap.
-    // A notification is different: it reports a change that happened after
-    // the post may have entered the store, so its target has to be read again.
+    // does — and stacking a second copy of it only costs the user a back tap,
+    // so a link naming a post moves the open reader to it instead, and a bare
+    // topic link leaves the reading position alone. A notification is
+    // different: it reports a change that happened after the post may have
+    // entered the store, so its target has to be read again.
     if (currentContent?.topicId == link.topicId) {
-      if (refresh) {
-        openCurrentTopicPost(link.postNumber ?? 1, loadAroundPost: true);
+      final postNumber = refresh ? link.postNumber ?? 1 : link.postNumber;
+      if (postNumber != null) {
+        openCurrentTopicPost(postNumber, loadAroundPost: refresh);
       } else if (rootChanged) {
         _notify();
       }
