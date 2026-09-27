@@ -73,14 +73,15 @@ final class _GatedClientIdReader implements ApiCredentialReader {
   }
 }
 
-Topic _topic({int id = 1, int lastRead = 0, int highest = 10}) => Topic(
-  id: id,
-  title: 'Topic $id',
-  slug: 'topic-$id',
-  unreadPosts: highest - lastRead,
-  lastReadPostNumber: lastRead,
-  highestPostNumber: highest,
-);
+Topic _topic({int id = 1, int lastRead = 0, int highest = 10, int? unread}) =>
+    Topic(
+      id: id,
+      title: 'Topic $id',
+      slug: 'topic-$id',
+      unreadPosts: unread ?? highest - lastRead,
+      lastReadPostNumber: lastRead,
+      highestPostNumber: highest,
+    );
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -174,7 +175,7 @@ void main() {
             unreadPosts: partial.unreadPosts,
             hasUnread: partial.hasUnread,
           ),
-          (lastReadPostNumber: 5, unreadPosts: 10, hasUnread: true),
+          (lastReadPostNumber: 5, unreadPosts: 5, hasUnread: true),
         );
 
         api.requests.single.response.complete();
@@ -213,6 +214,44 @@ void main() {
         ]);
       },
     );
+
+    test(
+      'a partial read lowers the unread count to the posts past it',
+      () async {
+        const siteUrl = 'https://one.example';
+        store.put(siteUrl, _topic(lastRead: 1, highest: 30));
+        await controller.mark(siteUrl, 1, 25, caughtUp: false);
+
+        expect(store.read<Topic>(siteUrl, 1)!.unreadCount, 5);
+        // A list fetched before the receipt landed still counts from post 1.
+        expect(
+          controller.project(siteUrl, _topic(lastRead: 1, highest: 30)),
+          isA<Topic>()
+              .having((row) => row.lastReadPostNumber, 'lastRead', 25)
+              .having((row) => row.unreadCount, 'unreadCount', 5),
+        );
+        expect(
+          controller.project(siteUrl, _topic(lastRead: 1, highest: 32)),
+          isA<Topic>().having((row) => row.unreadCount, 'unreadCount', 7),
+        );
+      },
+    );
+
+    test('a partial read never gives an untracked row a count', () async {
+      const siteUrl = 'https://one.example';
+      // Core reports no unread posts for topics the reader does not track.
+      store.put(siteUrl, _topic(lastRead: 1, highest: 30, unread: 0));
+      await controller.mark(siteUrl, 1, 25, caughtUp: false);
+
+      final row = store.read<Topic>(siteUrl, 1)!;
+      expect(
+        (
+          lastReadPostNumber: row.lastReadPostNumber,
+          unreadCount: row.unreadCount,
+        ),
+        (lastReadPostNumber: 25, unreadCount: 0),
+      );
+    });
 
     test('a caught-up duplicate clears the optimistic unread state', () async {
       const siteUrl = 'https://one.example';

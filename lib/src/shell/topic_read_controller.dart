@@ -142,8 +142,17 @@ final class TopicReadController {
     int postNumber, {
     required bool caughtUp,
   }) {
+    // Core counts a tracked topic's unread posts from its highest post and
+    // reports none for untracked topics, so a partial read lowers a count but
+    // never starts one. Reaching the row's highest post without catching up
+    // means the row is behind the stream: it keeps its count until a list
+    // update says how many posts follow.
+    final remaining = row.highestPostNumber - position;
     final updated = row.copyWith(
       lastReadPostNumber: position,
+      unreadPosts: remaining > 0 && remaining < row.unreadPosts
+          ? remaining
+          : null,
       // A live list update may know about posts beyond the stream on screen.
       markRead:
           caughtUp &&
