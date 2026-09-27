@@ -3,8 +3,10 @@ import 'dart:developer' as developer;
 
 import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_ui.dart';
-import 'package:flutter/foundation.dart' show ValueListenable;
+import 'package:flutter/foundation.dart'
+    show ValueListenable, precisionErrorTolerance;
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show RenderAbstractViewport;
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import 'package:super_sliver_list/super_sliver_list.dart';
@@ -700,6 +702,11 @@ class _StreamState extends State<ChatMessageStream>
   bool _awayFromPresent = false;
   int _boundaryJumpRevision = 0;
   int _unseenLiveMessages = 0;
+
+  /// Where a reader away from the present was when live arrivals joined the
+  /// window below them. Any scroll before it is applied supersedes it.
+  ({_RetainedChatMessageState row, double top, double pixels})? _arrivalHold;
+
   final _floatingDayState =
       FrameSafeValueNotifier<({DateTime? day, double offset})>((
         day: null,
@@ -748,6 +755,7 @@ class _StreamState extends State<ChatMessageStream>
       _anchoring = false;
       _awayFromPresent = false;
       _unseenLiveMessages = 0;
+      _arrivalHold = null;
       _floatingDayState.value = (day: null, offset: 0);
       _expandedDeletedMessageIds.clear();
       _clearHighlight(notify: false);
@@ -770,11 +778,73 @@ class _StreamState extends State<ChatMessageStream>
         oldWidget.stream.messageIds,
         widget.stream.messageIds,
       );
+      _holdStillThroughArrival();
     }
 
     _holdStillThroughForwardPage(oldWidget);
     _publishPresentState();
     _scheduleLook();
+  }
+
+  /// Keeps what a reader away from the present is reading in place while live
+  /// arrivals join the reversed list below them. The viewport holds its
+  /// pixels rather than its content, so otherwise every row on screen moves up
+  /// by the extent the arrivals add. Within the present slack, the boundary
+  /// that also decides whether an arrival counts as unseen, the list follows
+  /// its live edge instead.
+  void _holdStillThroughArrival() {
+    _arrivalHold = null;
+    if (_anchoring || !_list.isAttached || !_scroll.hasClients) return;
+    // Correcting is a jump, and a jump ends a drag or fling. A moving reader
+    // keeps the gesture and sees the shift.
+    if (_scroll.position.isScrollingNotifier.value) return;
+    final range = _list.visibleRange;
+    final row = range == null ? null : _recentMessages.newestIn(range);
+    final top = row == null ? null : _topScrollOffsetOf(row);
+    if (row == null || top == null) return;
+
+    final hold = (row: row, top: top, pixels: _scroll.position.pixels);
+    _arrivalHold = hold;
+    // The arrivals have an extent only after layout.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !identical(_arrivalHold, hold)) return;
+      _arrivalHold = null;
+      if (!_scroll.hasClients ||
+          _scroll.position.isScrollingNotifier.value ||
+          !_list.isAttached ||
+          !hold.row.mounted) {
+        return;
+      }
+      // A row pushed out of view keeps a stale layout offset.
+      final range = _list.visibleRange;
+      final index = hold.row.widget.index;
+      if (range == null || index < range.$1 || index > range.$2) return;
+      final top = _topScrollOffsetOf(hold.row);
+      if (top == null) return;
+      final shift = top - hold.top;
+      if (shift.abs() <= precisionErrorTolerance) return;
+      // A layout correction that moved the pixels moved the row with them, so
+      // the shift applies to where the reader was.
+      final position = _scroll.position;
+      _scroll.jumpTo(
+        (hold.pixels + shift).clamp(
+          position.minScrollExtent,
+          position.maxScrollExtent,
+        ),
+      );
+    });
+  }
+
+  /// The scroll offset that brings [row]'s top edge to the top of the
+  /// viewport. It is read from the row's last layout, so a scroll that has not
+  /// been laid out yet leaves it unchanged.
+  static double? _topScrollOffsetOf(_RetainedChatMessageState row) {
+    if (!row.mounted) return null;
+    final box = row.context.findRenderObject();
+    if (box is! RenderBox || !box.attached || !box.hasSize) return null;
+    final viewport = RenderAbstractViewport.maybeOf(box);
+    // In the reversed list, an alignment of one is the top, oldest edge.
+    return viewport?.getOffsetToReveal(box, 1).offset;
   }
 
   int _messagesAfterHeldNewest(List<int> held, List<int> current) {
@@ -1522,6 +1592,11 @@ class _StreamState extends State<ChatMessageStream>
                   ),
               onScrollNotification: (notification) {
                 if (notification.depth != 0) return false;
+                // Whoever scrolled since, the reader or a landing, now owns
+                // the position a pending arrival hold would restore.
+                if (notification is ScrollUpdateNotification) {
+                  _arrivalHold = null;
+                }
                 final started = _recording ? developer.Timeline.now : null;
                 // In the reversed list, extentAfter points toward older messages
                 // and extentBefore back toward the present.
@@ -2583,6 +2658,18 @@ class _RecentChatMessages {
         row.release();
       }
     }
+  }
+
+  /// The newest mounted message row inside [range], by the row indices of the
+  /// layout that reported it.
+  _RetainedChatMessageState? newestIn((int, int) range) {
+    _RetainedChatMessageState? newest;
+    for (final row in _mountedRows) {
+      final index = row.widget.index;
+      if (index < range.$1 || index > range.$2) continue;
+      if (newest == null || index < newest.widget.index) newest = row;
+    }
+    return newest;
   }
 
   void syncVisible((int, int)? range) {
