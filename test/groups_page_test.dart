@@ -203,6 +203,53 @@ void main() {
     },
   );
 
+  for (final failed in [false, true]) {
+    testWidgets(
+      'scrolling to the end ${failed ? 'leaves a failed page to Try again' : 'requests the next page'}',
+      (tester) async {
+        var more = 0;
+        await _pump(
+          tester,
+          GroupsPage(
+            siteUrl: 'https://example.invalid',
+            data: GroupsPageData(
+              groups: [
+                for (var id = 1; id <= 30; id++)
+                  Group(id: id, name: 'group-$id'),
+              ],
+              totalRows: 60,
+              loaded: true,
+              hasMore: true,
+              error: failed ? "Couldn't load more groups." : null,
+              pageError: failed,
+            ),
+            onLoadMore: () => more++,
+          ),
+          size: const Size(390, 700),
+        );
+
+        final list = find.byType(CustomScrollView);
+        await tester.fling(list, const Offset(0, -6000), 6000);
+        await tester.pumpAndSettle();
+        for (var drag = 0; drag < 5; drag++) {
+          await tester.drag(list, const Offset(0, 40));
+          await tester.drag(list, const Offset(0, -40));
+          await tester.pumpAndSettle();
+        }
+
+        if (!failed) {
+          expect(more, greaterThan(0));
+          return;
+        }
+        expect(more, 0);
+        await tester.tap(find.text('Try again'));
+        await tester.pump();
+        expect(more, 1);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
   testWidgets('filter clears to all groups on mobile', (tester) async {
     String? type = 'automatic';
     await _pump(

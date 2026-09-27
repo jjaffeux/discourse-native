@@ -67,8 +67,11 @@ class _ChatSearchViewState extends State<ChatSearchView> {
     super.dispose();
   }
 
+  // A failed page is retried only from its Try again row: every scroll
+  // update near the end would otherwise resend it as soon as it fails.
   void _maybeLoadMore() {
     if (!_scroll.hasClients ||
+        _search.globalState(widget.siteUrl).error != null ||
         _scroll.position.extentAfter >
             paginationPrefetchDistance(_scroll.position)) {
       return;

@@ -46,8 +46,11 @@ class _ChatMyThreadsViewState extends State<ChatMyThreadsView> {
     super.dispose();
   }
 
+  // A failed page is retried only from its Try again row: every scroll
+  // update near the end would otherwise resend it as soon as it fails.
   void _maybeLoadMore() {
     if (!_scroll.hasClients ||
+        _chat.myThreadsError(widget.siteUrl) != null ||
         _scroll.position.extentAfter >
             paginationPrefetchDistance(_scroll.position)) {
       return;

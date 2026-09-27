@@ -114,6 +114,40 @@ void main() {
       expect(_offsets(api), [0, 25, 25, 50]);
     });
 
+    testWidgets('a failed page waits for Try again instead of scrolling', (
+      tester,
+    ) async {
+      final api = _BrowseApi(
+        chatBrowsePagesByKey: {
+          FakeDiscourseApi.chatBrowseKey(): ChatChannelBrowsePage(
+            channels: [
+              for (var id = 1; id <= ChatChannelBrowsePage.pageSize; id++)
+                _channel(id),
+            ],
+            hasMore: true,
+          ),
+        },
+      );
+      await _pumpBrowse(tester, api);
+      expect(_offsets(api), [0]);
+
+      final list = find.byKey(const PageStorageKey('chat-browse-channels'));
+      await tester.fling(list, const Offset(0, -6000), 6000);
+      await tester.pumpAndSettle();
+      for (var drag = 0; drag < 5; drag++) {
+        await tester.drag(list, const Offset(0, 40));
+        await tester.drag(list, const Offset(0, -40));
+        await tester.pumpAndSettle();
+      }
+
+      const nextPage = ChatChannelBrowsePage.pageSize;
+      expect(_offsets(api), [0, nextPage]);
+      await tester.tap(find.text('Try again'));
+      await tester.pumpAndSettle();
+      expect(_offsets(api), [0, nextPage, nextPage]);
+      expect(find.text('Try again'), findsOneWidget);
+    });
+
     testWidgets('stops a zero-row page even if marked nonterminal', (
       tester,
     ) async {
