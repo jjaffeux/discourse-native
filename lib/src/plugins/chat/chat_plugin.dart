@@ -620,7 +620,7 @@ class ChatPlugin
       route.id == inboxRouteId ||
       route.id == browseRouteId ||
       route.id == myThreadsRouteId ||
-      (ChatRoute.parse(route.id)?.isThread ?? false);
+      ChatRoute.parse(route.id)?.isInfo == false;
 
   @override
   List<Widget> contentHeaderActions(BuildContext context, ContentRoute route) {

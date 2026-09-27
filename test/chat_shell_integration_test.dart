@@ -2845,7 +2845,7 @@ void _registerChatShellTests() {
         variant: TargetPlatformVariant.only(TargetPlatform.linux),
       );
 
-      testWidgets('shows a direct-message avatar and its live presence', (
+      testWidgets('shows the mockup circular direct-message marker', (
         tester,
       ) async {
         await pumpChat(
@@ -2857,30 +2857,13 @@ void _registerChatShellTests() {
         await tester.tap(sidebarDestination('hawk'));
         await tester.pumpAndSettle();
 
-        final leading = find.byKey(const ValueKey('content-header-leading'));
+        final marker = find.byKey(const ValueKey('chat-channel-header-marker'));
+        expect(tester.getSize(marker), const Size.square(12));
         expect(
-          find.descendant(of: leading, matching: find.byType(ChatUserAvatar)),
-          findsOneWidget,
+          tester.widget<DAvatar>(marker).borderRadius,
+          BorderRadius.circular(6),
         );
-        final ring = find.descendant(
-          of: leading,
-          matching: find.byKey(ChatUserAvatar.onlineRingKey(2)),
-        );
-        expect(ring, findsOneWidget);
-
-        FakeSiteTracker.built.single.deliverPluginMessage(
-          '/presence/chat/online',
-          {
-            'leaving_user_ids': [2],
-          },
-        );
-        await tester.pump();
-
-        expect(ring, findsNothing);
-        expect(
-          find.descendant(of: leading, matching: find.byType(ChatUserAvatar)),
-          findsOneWidget,
-        );
+        expect(find.text('Direct message', findRichText: true), findsOneWidget);
       }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
       testWidgets('the channel title opens routed settings and Back returns', (
@@ -4798,7 +4781,7 @@ void _registerChatShellTests() {
 
         expect(api.chatReadsMarked, isEmpty);
 
-        await tester.tap(find.dIcon(DIcons.arrowLeft));
+        await tester.tap(find.byKey(const ValueKey('chat-channel-back')));
         await tester.pumpAndSettle();
 
         expect(api.chatReadsMarked, isEmpty);
@@ -4843,12 +4826,11 @@ void _registerChatShellTests() {
         expect(find.byType(InstanceSidebar), findsNothing);
         expect(renderedText('Hello there'), findsOneWidget);
 
-        await tester.tap(find.dIcon(DIcons.arrowLeft));
+        await tester.tap(find.byKey(const ValueKey('chat-channel-back')));
         await tester.pumpAndSettle();
 
         expect(renderedText('Hello there'), findsNothing);
-        // The phone Chat inbox lists its rows without a Channels heading.
-        expect(sidebarDestination('Bugs'), findsOneWidget);
+        expect(find.text('Browse chats'), findsOneWidget);
       });
     });
   });
