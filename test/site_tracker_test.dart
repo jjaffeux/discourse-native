@@ -390,21 +390,237 @@ void main() {
           final messages = <String>[];
           tracker.watchTopic(12, [
             '/topic/12',
-          ], (channel, _) => messages.add(channel));
+          ], (channel, _) => messages.add('first $channel'));
+          final firstTopicCallback = bus.retainedCallback('/topic/12');
           tracker.watchTopic(12, [
             '/topic/12',
             '/topic/13',
-          ], (channel, _) => messages.add(channel));
+          ], (channel, _) => messages.add('both $channel'));
           expect(bus.activeSubscriptionCount('/topic/12'), 1);
           expect(bus.activeSubscriptionCount('/topic/13'), 1);
           final oldCallback = bus.retainedCallback('/topic/13');
           bus.deliver('/topic/13', 'visible');
           tracker.watchTopic(12, [
             '/topic/12',
-          ], (channel, _) => messages.add(channel));
+          ], (channel, _) => messages.add('last $channel'));
           oldCallback('closed');
+          firstTopicCallback('still live');
+
+          expect(bus.subscribeCount('/topic/12'), 1);
+          expect(bus.activeSubscriptionCount('/topic/12'), 1);
           expect(bus.activeSubscriptionCount('/topic/13'), 0);
-          expect(messages, ['/topic/13']);
+          // A kept channel dispatches through the latest watch's callback.
+          expect(messages, ['both /topic/13', 'last /topic/12']);
+        },
+      );
+
+      test(
+        'resumes a re-watched topic channel after its last delivery',
+        () async {
+          final bus = _FakeMessageBusSession();
+          final tracker = _tracker(bus);
+          addTearDown(tracker.dispose);
+          const channels = ['/topic/7', '/polls/7'];
+
+          tracker.watchTopic(
+            7,
+            channels,
+            (_, _) {},
+            lastIds: const {'/topic/7': 100},
+          );
+          bus.deliver('/polls/7', 'vote', messageId: 55);
+          tracker.unwatchTopic();
+          tracker.watchTopic(
+            7,
+            channels,
+            (_, _) {},
+            lastIds: const {'/topic/7': 100},
+          );
+
+          expect(bus.lastIds['/topic/7'], 100);
+          expect(bus.lastIds['/polls/7'], 55);
+        },
+      );
+
+      test('resumes a re-watched channel from its status baseline when nothing '
+          'was delivered', () async {
+        final bus = _FakeMessageBusSession();
+        final tracker = _tracker(bus);
+        addTearDown(tracker.dispose);
+
+        tracker.watchTopic(7, ['/topic/7', '/polls/7'], (_, _) {});
+        bus.establishBaseline('/polls/7', 40);
+        tracker.unwatchTopic();
+        tracker.watchTopic(7, ['/topic/7', '/polls/7'], (_, _) {});
+
+        expect(bus.lastIds['/polls/7'], 40);
+        expect(bus.lastIds['/topic/7'], isNull);
+      });
+
+      test('resumes a core topic channel from the newer of its snapshot and '
+          'read position', () async {
+        final bus = _FakeMessageBusSession();
+        final tracker = _tracker(bus);
+        addTearDown(tracker.dispose);
+
+        tracker.watchTopic(
+          7,
+          ['/topic/7'],
+          (_, _) {},
+          lastIds: const {'/topic/7': 100},
+        );
+        bus.deliver('/topic/7', 'edit', messageId: 120);
+        tracker.unwatchTopic();
+        tracker.watchTopic(
+          7,
+          ['/topic/7'],
+          (_, _) {},
+          lastIds: const {'/topic/7': 100},
+        );
+        expect(bus.lastIds['/topic/7'], 120);
+
+        tracker.unwatchTopic();
+        tracker.watchTopic(
+          7,
+          ['/topic/7'],
+          (_, _) {},
+          lastIds: const {'/topic/7': 150},
+        );
+        expect(bus.lastIds['/topic/7'], 150);
+      });
+
+      test(
+        'keeps a visible topic subscribed while another is added and removed',
+        () async {
+          final bus = _FakeMessageBusSession();
+          final tracker = _tracker(bus);
+          addTearDown(tracker.dispose);
+          const first = ['/topic/7', '/polls/7'];
+
+          tracker.watchTopic(
+            7,
+            first,
+            (_, _) {},
+            lastIds: const {'/topic/7': 100},
+          );
+          tracker.watchTopic(
+            7,
+            [...first, '/topic/12', '/polls/12'],
+            (_, _) {},
+            lastIds: const {'/topic/7': 100, '/topic/12': 300},
+          );
+          bus.deliver('/polls/12', 'vote', messageId: 9);
+          tracker.watchTopic(
+            7,
+            first,
+            (_, _) {},
+            lastIds: const {'/topic/7': 100},
+          );
+          tracker.watchTopic(
+            7,
+            [...first, '/topic/12', '/polls/12'],
+            (_, _) {},
+            lastIds: const {'/topic/7': 100, '/topic/12': 300},
+          );
+
+          expect(bus.subscribeCount('/topic/7'), 1);
+          expect(bus.subscribeCount('/polls/7'), 1);
+          expect(bus.subscribeCount('/topic/12'), 2);
+          expect(bus.lastIds['/polls/12'], 9);
+        },
+      );
+
+      test(
+        'forgets read positions of the least recently left channels',
+        () async {
+          final bus = _FakeMessageBusSession();
+          final tracker = _tracker(bus);
+          addTearDown(tracker.dispose);
+          const capacity = SiteTracker.retainedTopicPositionCapacity;
+
+          for (var topicId = 1; topicId <= capacity + 1; topicId++) {
+            tracker.watchTopic(topicId, ['/polls/$topicId'], (_, _) {});
+            bus.deliver('/polls/$topicId', 'vote', messageId: topicId);
+          }
+          tracker.unwatchTopic();
+          tracker.watchTopic(1, ['/polls/1'], (_, _) {});
+          tracker.watchTopic(2, ['/polls/2'], (_, _) {});
+
+          expect(bus.lastIds['/polls/1'], isNull);
+          expect(bus.lastIds['/polls/2'], 2);
+        },
+      );
+
+      test('a replacement tracker starts from no read positions', () async {
+        final firstBus = _FakeMessageBusSession();
+        final first = _tracker(firstBus);
+        first.watchTopic(7, ['/polls/7'], (_, _) {});
+        firstBus.deliver('/polls/7', 'vote', messageId: 55);
+        first.unwatchTopic();
+        await first.dispose();
+
+        // A new session: MessageBus positions never carry across sessions.
+        final secondBus = _FakeMessageBusSession();
+        final second = _tracker(secondBus, apiKey: 'secret');
+        addTearDown(second.dispose);
+        second.watchTopic(7, ['/polls/7'], (_, _) {});
+
+        expect(secondBus.lastIds['/polls/7'], isNull);
+      });
+
+      test(
+        'polls a re-watched channel from the head its first poll reported',
+        () async {
+          final polls = StreamController<Map<String, String>>.broadcast();
+          addTearDown(polls.close);
+          final tracker = SiteTracker(
+            siteUrl: 'https://example.com',
+            onIncomingTopics: () {},
+            onNotifications: (_) {},
+            onReviewableCounts: (_) {},
+            httpClient: MockClient((request) async {
+              final body = request.bodyFields;
+              if (!polls.isClosed) polls.add(body);
+              // A "new messages only" position is answered with the head.
+              final messages = body['/polls/7'] != '-1'
+                  ? const <Object?>[]
+                  : <Object?>[
+                      {
+                        'global_id': -1,
+                        'message_id': -1,
+                        'channel': '/__status',
+                        'data': {'/latest': 5, '/polls/7': 40},
+                      },
+                    ];
+              return http.Response(
+                jsonEncode(messages),
+                200,
+                headers: {'content-type': 'application/json'},
+              );
+            }),
+          );
+          addTearDown(tracker.dispose);
+          Future<Map<String, String>> nextPoll(
+            bool Function(Map<String, String> body) matches,
+          ) => polls.stream
+              .firstWhere(matches)
+              .timeout(const Duration(seconds: 2));
+          const channels = ['/topic/7', '/polls/7'];
+          const snapshot = {'/topic/7': 100};
+
+          tracker.watchTopic(7, channels, (_, _) {}, lastIds: snapshot);
+          final baseline = nextPoll((body) => body['/polls/7'] == '40');
+          tracker.start();
+          await baseline;
+          final left = nextPoll((body) => !body.containsKey('/polls/7'));
+          tracker.unwatchTopic();
+          await left;
+          final resumed = nextPoll((body) => body.containsKey('/polls/7'));
+          tracker.watchTopic(7, channels, (_, _) {}, lastIds: snapshot);
+
+          final body = await resumed;
+          expect(body['/polls/7'], '40');
+          expect(body['/topic/7'], '100');
         },
       );
 
@@ -847,6 +1063,7 @@ final class _FakeMessageBusSession
   final Map<String, List<_FakeMessageBusSubscription>> _subscriptions = {};
   final Map<String, List<void Function(Object?, int)>> _retainedCallbacks = {};
   final Map<String, int?> lastIds = {};
+  final Map<String, int> _subscribeCounts = {};
   final StreamController<Object> _errors = StreamController<Object>.broadcast();
 
   String? failingChannel;
@@ -874,12 +1091,25 @@ final class _FakeMessageBusSession
           .length ??
       0;
 
+  int subscribeCount(String channel) => _subscribeCounts[channel] ?? 0;
+
+  /// Like the client, a handle's position moves on receipt, before delivery.
   void deliver(String channel, Object? data, {int messageId = 1}) {
     final subscriptions = List.of(
       _subscriptions[channel] ?? const <_FakeMessageBusSubscription>[],
     );
     for (final subscription in subscriptions) {
-      if (!subscription.cancelled) subscription.callback(data, messageId);
+      if (subscription.cancelled) continue;
+      subscription.advance(messageId);
+      subscription.callback(data, messageId);
+    }
+  }
+
+  /// The `/__status` head a "new messages only" handle adopts on its first poll.
+  void establishBaseline(String channel, int head) {
+    for (final subscription
+        in _subscriptions[channel] ?? const <_FakeMessageBusSubscription>[]) {
+      if (!subscription.cancelled) subscription.position ??= head;
     }
   }
 
@@ -899,10 +1129,12 @@ final class _FakeMessageBusSession
     }
     final subscription = _FakeMessageBusSubscription(
       onMessage,
+      position: lastId,
       throwsOnCancel: channel == failingCancellationChannel,
       onCancel: onSubscriptionCancel,
     );
     (_subscriptions[channel] ??= []).add(subscription);
+    _subscribeCounts[channel] = subscribeCount(channel) + 1;
     lastIds[channel] = lastId;
     (_retainedCallbacks[channel] ??= []).add(onMessage);
     return subscription;
@@ -937,6 +1169,7 @@ final class _FakeMessageBusSession
 final class _FakeMessageBusSubscription implements SiteMessageBusSubscription {
   _FakeMessageBusSubscription(
     this.callback, {
+    this.position,
     this.throwsOnCancel = false,
     this.onCancel,
   });
@@ -945,6 +1178,16 @@ final class _FakeMessageBusSubscription implements SiteMessageBusSubscription {
   final bool throwsOnCancel;
   final void Function()? onCancel;
   bool cancelled = false;
+  int? position;
+
+  /// As with the client's handle, a cancelled subscription has no position.
+  @override
+  int? get lastId => cancelled ? null : position;
+
+  void advance(int messageId) {
+    final current = position;
+    if (current == null || messageId > current) position = messageId;
+  }
 
   @override
   void cancel() {

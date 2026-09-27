@@ -32,4 +32,19 @@ void main() {
     expect(cache.read('held'), 'new');
     expect(cache.read('third'), 'value');
   });
+
+  test('clearing forgets every entry and keeps the capacity', () {
+    final cache = BoundedLruCache<String, int>(2)
+      ..put('one', 1)
+      ..put('two', 2)
+      ..clear();
+
+    expect(cache.length, 0);
+    expect(cache.read('one'), isNull);
+    cache
+      ..put('three', 3)
+      ..put('four', 4)
+      ..put('five', 5);
+    expect(cache.snapshot, {'four': 4, 'five': 5});
+  });
 }

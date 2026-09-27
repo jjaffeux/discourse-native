@@ -24,4 +24,6 @@ final class BoundedLruCache<K, V> {
     _values[key] = value;
     if (_values.length > capacity) _values.remove(_values.keys.first);
   }
+
+  void clear() => _values.clear();
 }

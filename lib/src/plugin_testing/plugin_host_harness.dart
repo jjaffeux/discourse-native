@@ -613,6 +613,10 @@ final class _MemoryMessageBusSubscription
   final void Function() _remove;
   bool _cancelled = false;
 
+  /// Nothing is ever published, so no position is ever established.
+  @override
+  int? get lastId => null;
+
   @override
   void cancel() {
     if (_cancelled) return;

@@ -385,6 +385,8 @@ class FakeSiteTracker implements SiteTracker, PluginLiveChannelHandle {
 
   void Function(String channel, Object? data)? _onTopicMessage;
 
+  /// Like [SiteTracker], a channel already watched keeps the position it was
+  /// subscribed from, and every channel dispatches to the latest callback.
   @override
   void watchTopic(
     int topicId,
@@ -392,15 +394,15 @@ class FakeSiteTracker implements SiteTracker, PluginLiveChannelHandle {
     void Function(String channel, Object? data) onMessage, {
     Map<String, int?> lastIds = const {},
   }) {
-    if (watchedTopic == topicId &&
-        watchedChannels.length == channels.length &&
-        channels.every(watchedChannels.contains)) {
-      return;
-    }
-    unwatchTopic();
+    final wanted = channels.toSet();
     watchedTopic = topicId;
-    watchedChannels.addAll(channels);
-    for (final channel in channels) {
+    watchedChannels.removeWhere((channel) => !wanted.contains(channel));
+    watchedChannelLastIds.removeWhere(
+      (channel, _) => !wanted.contains(channel),
+    );
+    for (final channel in wanted) {
+      if (watchedChannels.contains(channel)) continue;
+      watchedChannels.add(channel);
       watchedChannelLastIds[channel] = lastIds[channel];
     }
     _onTopicMessage = onMessage;
@@ -494,6 +496,9 @@ final class _FakeSiteMessageBusSubscription
   _FakeSiteMessageBusSubscription(this._cancel);
   final void Function() _cancel;
   bool _cancelled = false;
+
+  @override
+  int? get lastId => null;
 
   @override
   void cancel() {
