@@ -1031,11 +1031,18 @@ void _registerTopicReplyTests() {
       await openTopic(tester, api);
       await tester.tap(find.byTooltip('Reply to this topic'));
       await tester.pumpAndSettle();
+      // Only a sendable reply tells closing apart from sending.
+      await tester.enterText(_composerField, 'Not ready to send this yet');
+      await tester.pumpAndSettle();
+      expect(tester.widget<DButton>(sendButton()).onPressed, isNotNull);
+      expect(find.byTooltip('Save and close'), findsOneWidget);
+
       await _saveAndClose(tester);
       await tester.pumpAndSettle();
 
       expect(find.byType(ComposerPanel), findsNothing);
       expect(api.created, isEmpty);
+      expect(api.draftsSaved.last['data'], contains('Not ready to send this'));
     }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
   });
 }
