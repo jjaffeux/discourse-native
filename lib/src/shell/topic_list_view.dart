@@ -434,8 +434,20 @@ class _TopicListViewState extends State<TopicListView> {
     );
   }
 
+  // A page can land in the controller a frame before this list rebuilds with
+  // it. Read the list's own tab, not whichever tab is active.
+  List<int> _latestTopicIds() {
+    final controller = _controller;
+    final identity = _feedIdentity;
+    if (controller == null || identity == null) return widget.feed.topicIds;
+    return controller
+            .readTab(identity.$3, () => controller.currentFeed)
+            ?.topicIds ??
+        widget.feed.topicIds;
+  }
+
   void _rememberTopic(int topicId, {bool? keyboard}) {
-    final ids = widget.feed.topicIds;
+    final ids = _latestTopicIds();
     final index = ids.indexOf(topicId);
     if (index < 0) return;
     // Mouse navigation remembers the position without leaving a keyboard
@@ -487,7 +499,7 @@ class _TopicListViewState extends State<TopicListView> {
         await controller.loadMoreFeed(identity.$4);
         if (!isCurrent()) return;
       }
-      final currentIds = widget.feed.topicIds;
+      final currentIds = _latestTopicIds();
       if (!isCurrent() || currentIds.isEmpty) return;
       target = target.clamp(0, currentIds.length - 1);
       _rememberTopic(currentIds[target], keyboard: true);

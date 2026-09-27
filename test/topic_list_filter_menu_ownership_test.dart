@@ -145,7 +145,7 @@ void main() {
         await _open(tester, 'tag');
         switch (change) {
           case 'tab':
-            shell.createTab();
+            _createTopicsTab(shell);
             expect(shell.topicListContent, openingFeed);
           case 'tags':
             shell.selectTopicListTags(['replacement']);
@@ -216,7 +216,7 @@ void main() {
         case 'feed':
           await shell.selectTopicListMode(TopicListMode.topYearly);
         case 'tab':
-          shell.createTab();
+          _createTopicsTab(shell);
         case 'forum':
           shell.selectInstance(1);
         case 'account':
@@ -276,6 +276,12 @@ void main() {
     expect(fixture.shell.topicListContent?.categoryId, isNull);
     expect(fixture.observer.pops, 1);
   });
+}
+
+// A new tab opens on the Start page; show the forum's topics in it.
+void _createTopicsTab(ShellController shell) {
+  shell.createTab();
+  shell.selectDestination(shell.currentInstance!.defaultDestination);
 }
 
 Future<void> _open(WidgetTester tester, String menu) async {

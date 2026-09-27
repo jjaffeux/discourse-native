@@ -642,15 +642,12 @@ void main() {
         of: viewport,
         matching: find.byType(DScrollBar),
       );
+      // Activity moved below the opening post; the taxonomy row closes the
+      // header.
+      expect(find.byKey(const ValueKey('topic-header-activity')), findsNothing);
       expect(
         viewportBounds.top,
-        closeTo(
-          tester
-                  .getRect(find.byKey(const ValueKey('topic-header-activity')))
-                  .bottom +
-              20,
-          1,
-        ),
+        closeTo(taxonomyBounds.bottom + DSpacing.lg, 1),
       );
       expect(tester.getRect(scrollbar), viewportBounds);
       final title = find.byKey(const ValueKey('topic-header-title-field'));
@@ -675,7 +672,10 @@ void main() {
         find.descendant(of: toolbar, matching: find.text('Onboarding')),
         findsNothing,
       );
-      expect(tester.widget<TopicTitle>(_compactHeader).style!.fontSize, 20);
+      expect(
+        tester.widget<TopicTitle>(_compactHeader).style!.fontSize,
+        DiscourseTypography.xxl,
+      );
 
       for (final offset in [12.0, 200.0, 199.0, 300.0, 180.0]) {
         scroll.jumpTo(offset);
@@ -1122,33 +1122,30 @@ void main() {
         find.descendant(of: add, matching: find.text('Add tag')),
         findsOneWidget,
       );
+      // Taxonomy controls use the filter size and the back action the chip
+      // size; an editable topic edits its category instead of browsing it.
+      expect(
+        find.byKey(const ValueKey('topic-header-browse-category-22')),
+        findsNothing,
+      );
       final headerControls = [
-        (add, DButtonSize.regular, 44.0),
+        (add, DButtonSize.filter),
         if (find
             .byKey(const ValueKey('topic-close-reader'))
             .evaluate()
             .isNotEmpty)
-          (
-            find.byKey(const ValueKey('topic-close-reader')),
-            DButtonSize.regular,
-            44.0,
-          ),
-        (
-          find.byKey(const ValueKey('topic-header-browse-category-22')),
-          DButtonSize.regular,
-          44.0,
-        ),
+          (find.byKey(const ValueKey('topic-close-reader')), DButtonSize.chip),
         (
           find.byWidgetPredicate(
             (widget) =>
                 widget is DButton && widget.tooltip == 'Edit topic category',
           ),
-          DButtonSize.regular,
-          44.0,
+          DButtonSize.filter,
         ),
       ];
-      for (final (control, size, height) in headerControls) {
+      for (final (control, size) in headerControls) {
         expect(tester.widget<DButton>(control).size, size);
+        final height = DControlStyle.height(size);
         final surface = find.descendant(
           of: control,
           matching: find.byWidgetPredicate(
@@ -1998,7 +1995,8 @@ void main() {
             expect(rect.right, lessThan(width));
             expect(title.left, rect.right + DSpacing.sm);
             expect(rect.top, greaterThanOrEqualTo(title.top));
-            final style = theme.textTheme.titleMedium!;
+            // The lock centres on the header title's first line.
+            final style = theme.textTheme.headlineSmall!;
             final firstLineHeight = style.fontSize! * 2 * style.height!;
             expect(rect.center.dy, closeTo(title.top + firstLineHeight / 2, 1));
             expect(tester.takeException(), isNull);
@@ -2426,8 +2424,9 @@ void main() {
           final touch =
               Theme.of(tester.element(reply)).platform ==
               TargetPlatform.android;
-          expect(readerBar.height, touch ? 64 : 44);
-          expect(controlHeight, touch ? 48 : 28);
+          // Footer actions are 34px on desktop inside 8px padding.
+          expect(readerBar.height, touch ? 64 : 50);
+          expect(controlHeight, touch ? 48 : 34);
           for (final key in [
             'topic-progress-button',
             if (touch) 'inbox-previous-topic',

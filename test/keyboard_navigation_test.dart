@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/bookmark.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
+import 'package:discourse_native/src/models/forum_workspace.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/shell/adaptive_shell.dart';
@@ -101,8 +102,11 @@ void main() {
     tester,
   ) async {
     final setup = await _setup(tester, longPosts: {});
-    setup.shell.openTopicFromList(setup.api.feeds['/latest.json']!.first);
-    await tester.pumpAndSettle();
+    await _readBeside(
+      tester,
+      setup.shell,
+      setup.api.feeds['/latest.json']!.first,
+    );
     final post = find.byKey(const ValueKey('topic-post-keyboard-102'));
     expect(
       tester.getSize(post).height,
@@ -224,7 +228,10 @@ void main() {
         setup.shell.openTopicFromList(setup.api.feeds['/latest.json']!.first);
         await tester.pumpAndSettle();
 
-        final button = find.byKey(const ValueKey('topic-bookmark-button'));
+        // The reader header carries the topic's only bookmark control.
+        final button = find.byKey(
+          const ValueKey('topic-header-bookmark-button'),
+        );
         final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
         addTearDown(mouse.removePointer);
         await mouse.addPointer(location: Offset.zero);
@@ -352,8 +359,12 @@ void main() {
         'G ${next ? 'J' : 'K'} opens the first listed topic from an unlisted topic at ${size.width}px',
         (tester) async {
           final setup = await _setup(tester, size: size);
-          setup.shell.openTopic(_unlistedTopic);
-          await tester.pumpAndSettle();
+          if (size == desktop) {
+            await _readBeside(tester, setup.shell, _unlistedTopic);
+          } else {
+            setup.shell.openTopic(_unlistedTopic);
+            await tester.pumpAndSettle();
+          }
           if (size == desktop) {
             _scrollable(
               tester,
@@ -417,8 +428,7 @@ void main() {
       '${next ? 'Next' : 'Previous'} button opens the first listed topic from an unlisted topic',
       (tester) async {
         final setup = await _setup(tester);
-        setup.shell.openTopic(_unlistedTopic);
-        await tester.pumpAndSettle();
+        await _readBeside(tester, setup.shell, _unlistedTopic);
         _scrollable(tester, find.byType(TopicListView)).controller!.jumpTo(500);
         await tester.pumpAndSettle();
         final source = setup.shell.topicListContent;
@@ -452,8 +462,11 @@ void main() {
         '${keyboard ? 'Shortcut' : 'Button'} scrolls to the ${next ? 'next' : 'previous'} topic outside the viewport',
         (tester) async {
           final setup = await _setup(tester);
-          setup.shell.openTopicFromList(setup.api.feeds['/latest.json']![19]);
-          await tester.pumpAndSettle();
+          await _readBeside(
+            tester,
+            setup.shell,
+            setup.api.feeds['/latest.json']![19],
+          );
           final list = _scrollable(tester, find.byType(TopicListView));
           list.controller!.jumpTo(0);
           await tester.pumpAndSettle();
@@ -474,7 +487,7 @@ void main() {
           expect(list.controller!.offset, greaterThan(0));
           await _moveTopic(tester, next: true);
           expect(_selectedTopics(tester), [target + 1]);
-          expect(setup.shell.currentContent?.topicId, target);
+          expect(setup.shell.readingTopicId, target);
           expect(tester.takeException(), isNull);
         },
         variant: TargetPlatformVariant.only(TargetPlatform.linux),
@@ -486,15 +499,13 @@ void main() {
     tester,
   ) async {
     final setup = await _setup(tester);
-    await tester.tap(find.text('Keyboard topic 1'));
-    await tester.pumpAndSettle();
+    await _openBeside(tester, find.text('Keyboard topic 1'));
     final list = _scrollable(tester, find.byType(TopicListView));
     list.controller!.jumpTo(200);
     await tester.pumpAndSettle();
     final offset = list.controller!.offset;
 
-    await tester.tap(find.text('Keyboard topic 5'));
-    await tester.pumpAndSettle();
+    await _openBeside(tester, find.text('Keyboard topic 5'));
 
     expect(setup.shell.currentContent?.topicId, 5);
     expect(list.controller!.offset, offset);
@@ -502,8 +513,7 @@ void main() {
     await _openAdjacent(tester, next: true);
     _expectTopicVisible(tester, 6);
     final keyboardOffset = list.controller!.offset;
-    await tester.tap(find.text('Keyboard topic 7'));
-    await tester.pumpAndSettle();
+    await _openBeside(tester, find.text('Keyboard topic 7'));
     expect(list.controller!.offset, keyboardOffset);
     await _openAdjacent(tester, next: false);
     _expectTopicVisible(tester, 6);
@@ -515,7 +525,11 @@ void main() {
     (tester) async {
       final setup = await _setup(tester);
       final first = setup.api.feeds['/latest.json']!.first;
-      setup.shell.openTopic(setup.api.feeds['/latest.json?page=1']!.single);
+      await _readBeside(
+        tester,
+        setup.shell,
+        setup.api.feeds['/latest.json?page=1']!.single,
+      );
       setup.api.feeds['/latest.json'] = [];
       setup.api.nextPages.remove('/latest.json');
       await setup.shell.loadFeed(setup.shell.currentFeedId!, force: true);
@@ -630,8 +644,6 @@ void main() {
       final gate = Completer<void>();
       final setup = await _setup(tester, nextPageGate: gate);
       final rows = setup.api.feeds['/latest.json']!;
-      await tester.tap(find.byTooltip('Keep topic tabs with the list'));
-      await tester.pumpAndSettle();
       setup.shell.openTopicFromList(rows.last);
       final originalTab = setup.shell.activeTabId!;
       // Revealing the last row starts the gated page prefetch and its spinner.
@@ -670,49 +682,39 @@ void main() {
       expect(tester.takeException(), isNull);
     }, variant: const TargetPlatformVariant({TargetPlatform.macOS}));
   }
-  for (final openWithKeyboard in [false, true]) {
-    testWidgets(
-      'opening a topic with ${openWithKeyboard ? 'the keyboard' : 'the mouse'} retains its selection as the cursor moves',
-      (tester) async {
-        final setup = await _setup(tester);
-        if (openWithKeyboard) {
-          await _moveTopic(tester, next: true);
-          expect(_topicItem(tester, 1).selected, isTrue);
-          expect(
-            _topicItem(tester, 1).selectionStyle,
-            DItemSelectionStyle.leadingAccent,
-          );
-          await tester.sendKeyEvent(LogicalKeyboardKey.enter);
-        } else {
-          await tester.tap(find.text('Keyboard topic 1'));
-        }
-        await tester.pumpAndSettle();
-        expect(setup.shell.currentContent?.topicId, 1);
-        expect(_topicItem(tester, 1).selected, isTrue);
 
-        await _moveTopic(tester, next: true);
-        _scrollable(tester, find.byType(TopicListView)).controller!.jumpTo(0);
-        await tester.pumpAndSettle();
-        expect(setup.shell.currentContent?.topicId, 1);
-        expect(_topicItem(tester, 1).selected, isTrue);
-        expect(_topicItem(tester, 2).selected, isTrue);
-        expect(_topicItem(tester, 2).variant, DItemVariant.standard);
-        expect(
-          _topicItem(tester, 2).selectionStyle,
-          DItemSelectionStyle.leadingAccent,
-        );
-        expect(_selectedTopics(tester), [2]);
+  // The keyboard opens a topic in the list's own tab, so only a reader opened
+  // beside the list leaves a list whose cursor can move.
+  testWidgets(
+    'opening a topic with the mouse retains its selection as the cursor moves',
+    (tester) async {
+      final setup = await _setup(tester);
+      await _openBeside(tester, find.text('Keyboard topic 1'));
+      expect(setup.shell.currentContent?.topicId, 1);
+      expect(_topicItem(tester, 1).selected, isTrue);
 
-        await _moveTopic(tester, next: false);
-        expect(_topicItem(tester, 1).selected, isTrue);
-        expect(_topicItem(tester, 1).variant, DItemVariant.standard);
-        expect(_topicItem(tester, 2).selected, isFalse);
-        expect(_selectedTopics(tester), [1]);
-        expect(tester.takeException(), isNull);
-      },
-      variant: TargetPlatformVariant.only(TargetPlatform.linux),
-    );
-  }
+      await _moveTopic(tester, next: true);
+      _scrollable(tester, find.byType(TopicListView)).controller!.jumpTo(0);
+      await tester.pumpAndSettle();
+      expect(setup.shell.readingTopicId, 1);
+      expect(_topicItem(tester, 1).selected, isTrue);
+      expect(_topicItem(tester, 2).selected, isTrue);
+      expect(_topicItem(tester, 2).variant, DItemVariant.standard);
+      expect(
+        _topicItem(tester, 2).selectionStyle,
+        DItemSelectionStyle.leadingAccent,
+      );
+      expect(_selectedTopics(tester), [2]);
+
+      await _moveTopic(tester, next: false);
+      expect(_topicItem(tester, 1).selected, isTrue);
+      expect(_topicItem(tester, 1).variant, DItemVariant.standard);
+      expect(_topicItem(tester, 2).selected, isFalse);
+      expect(_selectedTopics(tester), [1]);
+      expect(tester.takeException(), isNull);
+    },
+    variant: TargetPlatformVariant.only(TargetPlatform.linux),
+  );
 
   for (final size in [desktop, laptop]) {
     for (final openKey in [LogicalKeyboardKey.keyO, LogicalKeyboardKey.enter]) {
@@ -737,8 +739,8 @@ void main() {
           await tester.pumpAndSettle();
           expect(shell.currentContent?.topicId, 2);
           expect(setup.api.topicPostNumbersOpened.last, 2);
-          await _moveTopic(tester, next: true);
-          await _moveTopic(tester, next: false);
+          // The reader replaces the list in its tab, so list moves are off.
+          await _moveTopic(tester, next: true, handled: false);
           expect(shell.currentContent?.topicId, 2);
 
           await tester.sendKeyEvent(LogicalKeyboardKey.keyJ);
@@ -770,10 +772,7 @@ void main() {
           expect(await tester.sendKeyEvent(LogicalKeyboardKey.keyU), isTrue);
           await tester.pumpAndSettle();
           expect(shell.currentContent?.isTopic, isFalse);
-          expect(_selectedTopics(tester), isEmpty);
-          await _moveTopic(tester, next: true, shift: false);
-          expect(_selectedTopics(tester), [1]);
-          await _moveTopic(tester, next: true, shift: false);
+          // The list returns with the keyboard selection on the topic read.
           expect(_selectedTopics(tester), [2]);
           await _moveTopic(tester, next: true, shift: false);
           expect(_selectedTopics(tester), [3]);
@@ -791,24 +790,25 @@ void main() {
     'list and reader commands keep independent selections in split view',
     (tester) async {
       final setup = await _setup(tester);
-      await _moveTopic(tester, next: true);
-      await tester.sendKeyEvent(LogicalKeyboardKey.keyO);
-      await tester.pumpAndSettle();
+      await _readBeside(
+        tester,
+        setup.shell,
+        setup.api.feeds['/latest.json']!.first,
+      );
+      expect(_selectedTopics(tester), [1]);
       await tester.sendKeyEvent(LogicalKeyboardKey.keyJ);
       await tester.pumpAndSettle();
       final posts = _selectedPosts(tester);
+      expect(posts, isNotEmpty);
       final reader = _scrollable(tester, find.byType(TopicView));
       final offset = reader.controller!.offset;
 
+      // Moving the list cursor focuses the list's panel, not the reader.
       await _moveTopic(tester, next: true);
       expect(_selectedTopics(tester), [2]);
       expect(_selectedPosts(tester), posts);
-      expect(setup.shell.currentContent?.topicId, 1);
+      expect(setup.shell.readingTopicId, 1);
       expect(reader.controller!.offset, offset);
-      await tester.sendKeyEvent(LogicalKeyboardKey.keyK);
-      await tester.pumpAndSettle();
-      expect(_selectedTopics(tester), [2]);
-      expect(_selectedPosts(tester), [102]);
       expect(await tester.sendKeyEvent(LogicalKeyboardKey.enter), isTrue);
       await tester.pumpAndSettle();
       expect(setup.shell.currentContent?.topicId, 2);
@@ -869,7 +869,6 @@ void main() {
       await tester.sendKeyEvent(key);
     }
     expect(setup.shell.currentContent?.topicId, 1);
-    expect(_selectedTopics(tester), [1]);
     expect(setup.shell.visibleComposer?.target.replyToPostNumber, isNull);
     expect(setup.api.createdBookmarks, isEmpty);
 
@@ -889,7 +888,6 @@ void main() {
     await tester.sendKeyEvent(LogicalKeyboardKey.keyB);
     await tester.pumpAndSettle();
     expect(setup.shell.currentContent?.topicId, 1);
-    expect(_selectedTopics(tester), [1]);
     expect(setup.api.createdBookmarks, isEmpty);
     await tester.sendKeyEvent(LogicalKeyboardKey.escape);
     await tester.pumpAndSettle();
@@ -956,7 +954,12 @@ void main() {
       }
       gate.complete();
       await tester.pumpAndSettle();
-      expect(_selectedTopics(tester), [afterRequest == 'finish' ? 31 : 30]);
+      // An opened topic reads in the list's own tab, replacing the list.
+      expect(_selectedTopics(tester), switch (afterRequest) {
+        'finish' => [31],
+        'open topic' => isEmpty,
+        _ => [30],
+      });
       expect(
         setup.shell.currentContent?.topicId,
         afterRequest == 'open topic' ? 30 : null,
@@ -1008,7 +1011,7 @@ void main() {
       final originalTab = setup.shell.activeTabId!;
       await _moveTopic(tester, next: true);
       await _moveTopic(tester, next: true);
-      setup.shell.createTab();
+      _createTopicsTab(setup.shell);
       await tester.pumpAndSettle();
       final secondTab = setup.shell.activeTabId!;
       expect(secondTab, isNot(originalTab));
@@ -1064,6 +1067,36 @@ void main() {
     expect(await tester.sendKeyEvent(LogicalKeyboardKey.keyR), isFalse);
     expect(setup.shell.visibleComposer, isNull);
   }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
+}
+
+// Desktop panels keep the list beside its reader only when the reader opens
+// in the secondary panel; an ordinary open reads in the list's own tab.
+Future<void> _readBeside(
+  WidgetTester tester,
+  ShellController shell,
+  Topic topic,
+) async {
+  shell.openLinkInPanel(
+    '/t/${topic.slug}/${topic.id}/${topic.lastUnreadPostNumber ?? 1}',
+    title: topic.title,
+    panel: ForumPanel.secondary,
+  );
+  await tester.pumpAndSettle();
+}
+
+// A shift-click is the pointer's way to read beside the list.
+Future<void> _openBeside(WidgetTester tester, Finder row) async {
+  await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+  await tester.pump();
+  await tester.tap(row, warnIfMissed: false);
+  await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+  await tester.pumpAndSettle();
+}
+
+// A new tab opens on the Start page; show the forum's topics in it.
+void _createTopicsTab(ShellController shell) {
+  shell.createTab();
+  shell.selectDestination(shell.currentInstance!.defaultDestination);
 }
 
 DItem _topicItem(WidgetTester tester, int topicId) =>
