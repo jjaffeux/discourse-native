@@ -2028,9 +2028,17 @@ class ShellController extends FrameSafeNotifier
         _forumWorkspaces[workspace.siteUrl] = normalized;
       }
     }
+    // Only forums on the rail keep Start page visits: a removal may have ended
+    // before its visits were saved away, and older builds kept them. An empty
+    // rail may be a list that could not be decoded, so it must not erase every
+    // forum's visits.
+    var recentDestinationsChanged =
+        stored.isNotEmpty &&
+        recentDestinations.retainSites({
+          for (final instance in stored) instance.url,
+        });
     // Existing installations have tab history but no separate Start page
     // visits yet. Seed it once so those visits appear after the upgrade.
-    var seededRecentDestinations = false;
     for (final workspace in _forumWorkspaces.values) {
       if (recentDestinations.hasVisits(
         workspace.siteUrl,
@@ -2040,20 +2048,20 @@ class ShellController extends FrameSafeNotifier
       }
       for (final tab in workspace.tabs) {
         for (final location in tab.backHistory) {
-          seededRecentDestinations |= recentDestinations.remember(
+          recentDestinationsChanged |= recentDestinations.remember(
             workspace.siteUrl,
             workspace.accountIdentity,
             location.contentStack.last,
           );
         }
-        seededRecentDestinations |= recentDestinations.remember(
+        recentDestinationsChanged |= recentDestinations.remember(
           workspace.siteUrl,
           workspace.accountIdentity,
           tab.currentContent,
         );
       }
     }
-    if (seededRecentDestinations) unawaited(recentDestinations.save());
+    if (recentDestinationsChanged) unawaited(recentDestinations.save());
     if (workspacesNormalized) _persistWorkspaces();
     final initialInstance = currentInstance;
     // A persisted palette is already good enough for the first frame. Its
@@ -2333,6 +2341,14 @@ class ShellController extends FrameSafeNotifier
     try {
       await instanceStore.save(List.of(_instances));
       unawaited(aggregate.pruneForums(_instances));
+      // Start page visits name private messages and direct chats, so every
+      // account's visits leave with the forum. Only a durable removal drops
+      // them: a rollback restores the forum with its visits, and a re-add
+      // that landed during the save owns the URL's visits again.
+      if (_instanceAt(held.url) == null &&
+          recentDestinations.forgetSite(held.url)) {
+        unawaited(recentDestinations.save());
+      }
       return true;
     } catch (_) {
       if (isDisposed ||

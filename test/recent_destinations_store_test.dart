@@ -96,4 +96,61 @@ void main() {
       ]);
     });
   });
+
+  group('RecentDestinationsStore forums', () {
+    const otherSite = 'https://other.example';
+    final message = ContentRoute.topic(
+      topicId: 7,
+      slug: 'contract-renewal',
+      title: 'Contract renewal with Acme',
+    );
+
+    /// Two accounts' visits to [_site] and one to [otherSite], already saved.
+    Future<(MemoryRecentDestinationsPersistence, RecentDestinationsStore)>
+    visited() async {
+      final persistence = MemoryRecentDestinationsPersistence();
+      final store = RecentDestinationsStore(persistence: persistence)
+        ..remember(_site, _account, message)
+        ..remember(_site, 'anonymous', _other)
+        ..remember(otherSite, _account, _fromSidebar);
+      await store.save();
+      expect(persistence.value, contains(message.title));
+      return (persistence, store);
+    }
+
+    Future<void> expectOnlyOtherSite(
+      MemoryRecentDestinationsPersistence persistence,
+    ) async {
+      final reloaded = RecentDestinationsStore(persistence: persistence);
+      await reloaded.load();
+      expect(reloaded.hasVisits(_site, _account), isFalse);
+      expect(reloaded.hasVisits(_site, 'anonymous'), isFalse);
+      expect(reloaded.categoriesFor(otherSite, _account), [_fromSidebar]);
+      expect(persistence.value, isNot(contains(message.title)));
+      expect(persistence.value, isNot(contains(_site)));
+    }
+
+    test(
+      'forgetting a forum drops every account and keeps the others',
+      () async {
+        final (persistence, store) = await visited();
+
+        expect(store.forgetSite(_site), isTrue);
+        expect(store.forgetSite(_site), isFalse);
+        await store.save();
+
+        await expectOnlyOtherSite(persistence);
+      },
+    );
+
+    test('retaining forums drops every account of the rest', () async {
+      final (persistence, store) = await visited();
+
+      expect(store.retainSites({otherSite}), isTrue);
+      expect(store.retainSites({otherSite}), isFalse);
+      await store.save();
+
+      await expectOnlyOtherSite(persistence);
+    });
+  });
 }

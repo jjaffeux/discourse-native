@@ -112,6 +112,21 @@ class RecentDestinationsStore {
     return true;
   }
 
+  /// Drops every account's visits to [siteUrl]. Returns whether any were held.
+  bool forgetSite(String siteUrl) {
+    final held = _entries.length;
+    _entries.removeWhere((_, entry) => entry.siteUrl == siteUrl);
+    return _entries.length != held;
+  }
+
+  /// Drops every account's visits to a forum outside [siteUrls]. Returns
+  /// whether any were held.
+  bool retainSites(Set<String> siteUrls) {
+    final held = _entries.length;
+    _entries.removeWhere((_, entry) => !siteUrls.contains(entry.siteUrl));
+    return _entries.length != held;
+  }
+
   Future<void> load() async {
     final String? raw;
     try {
