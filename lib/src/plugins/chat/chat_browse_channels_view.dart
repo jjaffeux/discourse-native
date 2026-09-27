@@ -5,6 +5,7 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
 import 'chat_channel.dart';
+import 'chat_chrome_scroll_view.dart';
 import 'chat_controller.dart';
 import 'chat_plugin.dart';
 import 'chat_services.dart';
@@ -141,80 +142,78 @@ class _ChatBrowseChannelsViewState extends State<ChatBrowseChannelsView> {
   };
 
   @override
-  Widget build(BuildContext context) => Column(
-    children: [
-      FocusTraversalGroup(
-        policy: WidgetOrderTraversalPolicy(),
-        child: ContentReadingLaneBox(
-          padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
-          child: Column(
-            children: [
-              DInput(
-                size: DControlSize.field,
-                key: const ValueKey('chat-browse-filter'),
-                controller: _filterController,
-                labelText: 'Find a channel',
-                prefix: const DIcon(DIcons.magnifyingGlass),
-              ),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  Expanded(
-                    child: DSelect<ChatChannelBrowseStatus>.controlled(
-                      size: DControlSize.filter,
-                      isExpanded: true,
-                      key: const ValueKey('chat-browse-status'),
-                      value: _status,
-                      label: const Text('Status'),
-                      entries: [
-                        for (final status in ChatChannelBrowseStatus.values)
-                          DSelectOption(
-                            value: status,
-                            label: _statusLabel(status),
-                            child: Text(_statusLabel(status)),
-                          ),
-                      ],
-                      onChanged: (status) {
-                        if (status == null || status == _status) return;
-                        setState(() => _status = status);
-                        unawaited(_load(reset: true));
-                      },
-                      initialValue: _status,
-                    ),
+  Widget build(BuildContext context) => ChatChromeScrollView(
+    header: FocusTraversalGroup(
+      policy: WidgetOrderTraversalPolicy(),
+      child: ContentReadingLaneBox(
+        padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
+        child: Column(
+          children: [
+            DInput(
+              size: DControlSize.field,
+              key: const ValueKey('chat-browse-filter'),
+              controller: _filterController,
+              labelText: 'Find a channel',
+              prefix: const DIcon(DIcons.magnifyingGlass),
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(
+                  child: DSelect<ChatChannelBrowseStatus>.controlled(
+                    size: DControlSize.filter,
+                    isExpanded: true,
+                    key: const ValueKey('chat-browse-status'),
+                    value: _status,
+                    label: const Text('Status'),
+                    entries: [
+                      for (final status in ChatChannelBrowseStatus.values)
+                        DSelectOption(
+                          value: status,
+                          label: _statusLabel(status),
+                          child: Text(_statusLabel(status)),
+                        ),
+                    ],
+                    onChanged: (status) {
+                      if (status == null || status == _status) return;
+                      setState(() => _status = status);
+                      unawaited(_load(reset: true));
+                    },
+                    initialValue: _status,
                   ),
-                  const SizedBox(width: DSpacing.controlGap),
-                  Expanded(
-                    child: DSelect<ChatChannelJoinedFilter>.controlled(
-                      size: DControlSize.filter,
-                      isExpanded: true,
-                      key: const ValueKey('chat-browse-joined'),
-                      value: _joined,
-                      label: const Text('Membership'),
-                      entries: [
-                        for (final joined in ChatChannelJoinedFilter.values)
-                          DSelectOption(
-                            value: joined,
-                            label: _joinedLabel(joined),
-                            child: Text(_joinedLabel(joined)),
-                          ),
-                      ],
-                      onChanged: (joined) {
-                        if (joined != null) setState(() => _joined = joined);
-                      },
-                      initialValue: _joined,
-                    ),
+                ),
+                const SizedBox(width: DSpacing.controlGap),
+                Expanded(
+                  child: DSelect<ChatChannelJoinedFilter>.controlled(
+                    size: DControlSize.filter,
+                    isExpanded: true,
+                    key: const ValueKey('chat-browse-joined'),
+                    value: _joined,
+                    label: const Text('Membership'),
+                    entries: [
+                      for (final joined in ChatChannelJoinedFilter.values)
+                        DSelectOption(
+                          value: joined,
+                          label: _joinedLabel(joined),
+                          child: Text(_joinedLabel(joined)),
+                        ),
+                    ],
+                    onChanged: (joined) {
+                      if (joined != null) setState(() => _joined = joined);
+                    },
+                    initialValue: _joined,
                   ),
-                ],
-              ),
-            ],
-          ),
+                ),
+              ],
+            ),
+          ],
         ),
       ),
-      Expanded(child: _buildResults(context)),
-    ],
+    ),
+    list: _buildResults,
   );
 
-  Widget _buildResults(BuildContext context) {
+  Widget _buildResults(BuildContext context, bool lazy) {
     if (_loading) {
       return const SizedBox.shrink();
     }
@@ -229,51 +228,67 @@ class _ChatBrowseChannelsViewState extends State<ChatBrowseChannelsView> {
     }
     final resultCount = channels.isEmpty ? 1 : channels.length;
     final hasFooter = _loadingMore || _error != null || _hasMore;
+    final itemCount = resultCount + (hasFooter ? 1 : 0);
+    Widget item(BuildContext context, int index) {
+      if (channels.isEmpty && index == 0) {
+        return _BrowseMessage(
+          icon: DIcons.magnifyingGlass,
+          message: _hasMore
+              ? 'No matching channels loaded yet.'
+              : 'No channels match these filters.',
+        );
+      }
+      if (index < channels.length) {
+        return _ChannelCard(
+          siteUrl: widget.siteUrl,
+          channel: channels[index],
+          chat: _chat,
+          onChanged: _replaceChannel,
+        );
+      }
+      if (_loadingMore) {
+        return const SizedBox.shrink();
+      }
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        child: Column(
+          children: [
+            if (_error case final error?) ...[
+              Text(error, textAlign: TextAlign.center),
+              const SizedBox(height: 8),
+            ],
+            DButton(
+              label: Text(_error == null ? 'Load more' : 'Try again'),
+              onPressed: () => unawaited(_load(reset: false)),
+            ),
+          ],
+        ),
+      );
+    }
+
     return ContentReadingLane(
       basePadding: const EdgeInsets.fromLTRB(12, 4, 12, 16),
-      builder: (context, lane) => ListView.builder(
-        key: const PageStorageKey('chat-browse-channels'),
-        controller: _scrollController,
-        physics: const AlwaysScrollableScrollPhysics(),
-        padding: lane.padding,
-        itemCount: resultCount + (hasFooter ? 1 : 0),
-        itemBuilder: (context, index) {
-          if (channels.isEmpty && index == 0) {
-            return _BrowseMessage(
-              icon: DIcons.magnifyingGlass,
-              message: _hasMore
-                  ? 'No matching channels loaded yet.'
-                  : 'No channels match these filters.',
-            );
-          }
-          if (index < channels.length) {
-            return _ChannelCard(
-              siteUrl: widget.siteUrl,
-              channel: channels[index],
-              chat: _chat,
-              onChanged: _replaceChannel,
-            );
-          }
-          if (_loadingMore) {
-            return const SizedBox.shrink();
-          }
-          return Padding(
-            padding: const EdgeInsets.symmetric(vertical: 12),
-            child: Column(
-              children: [
-                if (_error case final error?) ...[
-                  Text(error, textAlign: TextAlign.center),
-                  const SizedBox(height: 8),
+      builder: (context, lane) => lazy
+          ? ListView.builder(
+              key: const PageStorageKey('chat-browse-channels'),
+              controller: _scrollController,
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: lane.padding,
+              itemCount: itemCount,
+              itemBuilder: item,
+            )
+          // Scrolling with the filters cannot prefetch the next page, so its
+          // Load more row stays the way to reach it.
+          : Padding(
+              padding: lane.padding,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  for (var index = 0; index < itemCount; index++)
+                    item(context, index),
                 ],
-                DButton(
-                  label: Text(_error == null ? 'Load more' : 'Try again'),
-                  onPressed: () => unawaited(_load(reset: false)),
-                ),
-              ],
+              ),
             ),
-          );
-        },
-      ),
     );
   }
 

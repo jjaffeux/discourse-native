@@ -1,10 +1,15 @@
 import 'dart:async';
 
-import 'package:discourse_native/discourse_ui.dart' show DSpinner;
+import 'package:discourse_native/discourse_ui.dart'
+    show DButton, DDropdownMenuItem, DSpinner;
 import 'package:discourse_native/src/models/discourse_user.dart';
+import 'package:discourse_native/src/models/site_config.dart';
+import 'package:discourse_native/src/plugin_api/plugin_data.dart';
 import 'package:discourse_native/src/plugin_api/plugin_scope.dart';
 import 'package:discourse_native/src/plugins/chat/chat_browse_channels_view.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
+import 'package:discourse_native/src/plugins/chat/chat_notification_counter.dart';
+import 'package:discourse_native/src/plugins/chat/chat_plugin_data.dart';
 import 'package:discourse_native/src/plugins/chat/chat_services.dart';
 import 'package:discourse_native/src/shell/content_reading_lane.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
@@ -15,6 +20,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'support/bundled_plugins.dart';
 import 'support/fakes.dart';
+import 'support/shell_test_harness.dart';
 
 const _site = 'https://meta.discourse.org';
 const _user = DiscourseUser(id: 7, username: 'joffreyj');
@@ -440,6 +446,229 @@ void main() {
       ]);
     });
   });
+
+  group('ChatBrowseChannelsView on a phone', () {
+    _mobileTest(
+      'a normal height keeps the filters fixed above the scrolling channels',
+      (tester) async {
+        final api = await _pumpMobileBrowse(tester, phone);
+        final filter = tester.getRect(_filter);
+        final card = tester.getRect(_card(3));
+        expect(tester.getRect(_list).bottom, tester.getRect(_browse).bottom);
+
+        await tester.drag(_list, const Offset(0, -200));
+        await tester.pumpAndSettle();
+        expect(tester.getRect(_card(3)).top, lessThan(card.top));
+        expect(tester.getRect(_filter), filter);
+
+        await tester.fling(_list, const Offset(0, -6000), 6000);
+        await tester.pumpAndSettle();
+        expect(_offsets(api), [0, ChatChannelBrowsePage.pageSize]);
+        expect(tester.getRect(_filter), filter);
+        expect(tester.takeException(), isNull);
+      },
+    );
+
+    _mobileTest(
+      'a keyboard over large text on a narrow phone keeps the filters usable '
+      'at the top',
+      (tester) async {
+        final api = await _pumpShortBrowse(tester);
+        final browse = tester.getRect(_browse);
+        expect(_list, findsNothing);
+        expect(tester.getRect(_filter).top, greaterThanOrEqualTo(browse.top));
+        expect(tester.getRect(_filter).bottom, lessThan(browse.bottom));
+        expect(_filter.hitTestable(), findsOneWidget);
+
+        api.chatBrowsePagesByKey[FakeDiscourseApi.chatBrowseKey(
+          filter: 'Channel',
+        )] = ChatChannelBrowsePage(
+          channels: [_channel(1, following: true), _channel(2)],
+        );
+        await tester.enterText(_filter, 'Channel');
+        await tester.pump(const Duration(milliseconds: 350));
+        await tester.pumpAndSettle();
+        expect(api.chatBrowseRequested.last.filter, 'Channel');
+        expect(_card(2), findsOneWidget);
+        expect(_card(3), findsNothing);
+
+        // Doubled text wraps the label, so the trigger is the value below it.
+        final membership = find.descendant(
+          of: _joined,
+          matching: find.text('All'),
+        );
+        await tester.ensureVisible(membership);
+        await tester.pumpAndSettle();
+        await tester.tap(membership);
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Joined').last);
+        await tester.pumpAndSettle();
+        expect(_card(1), findsOneWidget);
+        expect(_card(2), findsNothing);
+        expect(tester.takeException(), isNull);
+      },
+    );
+
+    _mobileTest(
+      'a keyboard over large text on a narrow phone scrolls the filters away '
+      'to reach every channel and Load more',
+      (tester) async {
+        final api = await _pumpShortBrowse(tester);
+        final browse = tester.getRect(_browse);
+        final loadMore = find.widgetWithText(DButton, 'Load more');
+
+        for (final target in [
+          _card(ChatChannelBrowsePage.pageSize),
+          loadMore,
+        ]) {
+          await tester.scrollUntilVisible(target, 100, scrollable: _scrollable);
+          final rect = tester.getRect(target);
+          expect(rect.top, greaterThanOrEqualTo(browse.top));
+          expect(rect.bottom, lessThanOrEqualTo(browse.bottom));
+          expect(target.hitTestable(), findsOneWidget);
+        }
+        expect(tester.getRect(_filter).bottom, lessThan(browse.top));
+        expect(_offsets(api), [0]);
+
+        await tester.tap(loadMore);
+        await tester.pumpAndSettle();
+        expect(_offsets(api), [0, ChatChannelBrowsePage.pageSize]);
+        expect(_card(ChatChannelBrowsePage.pageSize + 1), findsOneWidget);
+        expect(loadMore, findsNothing);
+        expect(tester.takeException(), isNull);
+      },
+    );
+
+    _mobileTest(
+      'dismissing the keyboard fixes the filters above the channels again',
+      (tester) async {
+        tester.platformDispatcher.textScaleFactorTestValue = 2;
+        addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+        await _pumpMobileBrowse(tester, const Size(320, 720));
+        final filter = tester.getRect(_filter);
+        final list = tester.getRect(_list);
+        expect(list.bottom, tester.getRect(_browse).bottom);
+
+        tester.view.viewInsets = const FakeViewPadding(bottom: 280);
+        addTearDown(tester.view.resetViewInsets);
+        await tester.pumpAndSettle();
+        await tester.drag(_status, const Offset(0, -150));
+        await tester.pumpAndSettle();
+        expect(tester.getRect(_filter).top, lessThan(filter.top));
+
+        tester.view.resetViewInsets();
+        await tester.pumpAndSettle();
+
+        expect(tester.getRect(_filter), filter);
+        expect(tester.getRect(_list), list);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  });
+}
+
+final _browse = find.byType(ChatBrowseChannelsView);
+final _filter = find.byKey(const ValueKey('chat-browse-filter'));
+final _status = find.byKey(const ValueKey('chat-browse-status'));
+final _joined = find.byKey(const ValueKey('chat-browse-joined'));
+final _list = find.byKey(const PageStorageKey('chat-browse-channels'));
+final _scrollable = find
+    .descendant(of: _browse, matching: find.byType(Scrollable))
+    .first;
+
+void _mobileTest(String name, WidgetTesterCallback callback) => testWidgets(
+  name,
+  callback,
+  variant: const TargetPlatformVariant({
+    TargetPlatform.iOS,
+    TargetPlatform.android,
+  }),
+);
+
+/// The production mobile shell on Browse channels, with more channels than a
+/// phone shows at once and a further page behind them.
+Future<_BrowseApi> _pumpMobileBrowse(WidgetTester tester, Size size) async {
+  final user = DiscourseUser(
+    id: 7,
+    username: 'joffreyj',
+    plugins: PluginData.none.withValue(
+      chatCurrentUserDataKey,
+      const ChatCurrentUser(hasChatEnabled: true, canDirectMessage: true),
+    ),
+  );
+  final config = SiteConfig(
+    plugins: PluginData.none.withValue(
+      chatSettingsDataKey,
+      const ChatSettings(chatEnabled: true, publicChannelsEnabled: true),
+    ),
+  );
+  final api = _BrowseApi(
+    user: user,
+    totals: chatNotificationTotals(),
+    siteConfigs: {_site: config},
+    feeds: const {'/latest.json': []},
+    chatChannelsBySite: {
+      _site: ChatChannels(public: [_channel(1, following: true)]),
+    },
+    chatBrowsePagesByKey: {
+      FakeDiscourseApi.chatBrowseKey(): ChatChannelBrowsePage(
+        channels: [
+          for (var id = 1; id <= ChatChannelBrowsePage.pageSize; id++)
+            _channel(id, following: id == 1),
+        ],
+        hasMore: true,
+      ),
+      FakeDiscourseApi.chatBrowseKey(
+        offset: ChatChannelBrowsePage.pageSize,
+      ): ChatChannelBrowsePage(
+        channels: [_channel(ChatChannelBrowsePage.pageSize + 1)],
+      ),
+    },
+  );
+  await pumpShell(
+    tester,
+    size,
+    instances: [
+      instance(
+        'meta.discourse.org',
+        title: 'Meta',
+      ).copyWith(user: user, config: config),
+    ],
+    authenticator: FakeAuthenticator()..keys[_site] = 'key',
+    api: api,
+  );
+  // Enlarged text on a narrow phone moves Chat into the dock's More menu.
+  final dockTab = find.byKey(const ValueKey('mobile-mode-panel/chat'));
+  if (dockTab.evaluate().isEmpty) {
+    await tester.tap(find.byKey(const ValueKey('mobile-mode-more')));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.descendant(
+        of: find.byType(DDropdownMenuItem),
+        matching: find.text('Chat'),
+      ),
+    );
+  } else {
+    await tester.tap(dockTab);
+  }
+  await tester.pumpAndSettle();
+  await tester.tap(find.byKey(const ValueKey('chat-inbox-browse')));
+  await tester.pumpAndSettle();
+  expect(_browse, findsOneWidget);
+  return api;
+}
+
+/// Browse channels on a 320x720 phone with doubled text under a 280px
+/// keyboard, which leaves the channels no room below the filters.
+Future<_BrowseApi> _pumpShortBrowse(WidgetTester tester) async {
+  tester.platformDispatcher.textScaleFactorTestValue = 2;
+  addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+  final api = await _pumpMobileBrowse(tester, const Size(320, 720));
+  tester.view.viewInsets = const FakeViewPadding(bottom: 280);
+  addTearDown(tester.view.resetViewInsets);
+  await tester.pumpAndSettle();
+  expect(tester.takeException(), isNull);
+  return api;
 }
 
 ChatChannel _channel(int id, {bool following = false}) => ChatChannel(
@@ -520,7 +749,14 @@ Completer<void> _holdPage(_BrowseApi api, {required int offset}) {
 }
 
 class _BrowseApi extends FakeDiscourseApi {
-  _BrowseApi({required super.chatBrowsePagesByKey}) : super(user: _user);
+  _BrowseApi({
+    required super.chatBrowsePagesByKey,
+    super.user = _user,
+    super.totals,
+    super.siteConfigs,
+    super.feeds,
+    super.chatChannelsBySite,
+  });
 
   final gates = <String, Completer<void>>{};
 
