@@ -50,7 +50,9 @@ String chatInboxEmptyMessage(ChatInboxFilter filter) => filter.unreadOnly
       };
 
 DateTime? chatInboxActivityAt(ChatChannel channel) {
-  var latest = channel.lastMessageAt;
+  // Empty channels can carry a timestamp without an actual last message.
+  // Ignore it for both inbox ordering and the displayed activity time.
+  var latest = (channel.lastMessageId ?? 0) > 0 ? channel.lastMessageAt : null;
   for (final replyAt in channel.unreadThreadOverview.values) {
     if (latest == null || replyAt.isAfter(latest)) latest = replyAt;
   }
