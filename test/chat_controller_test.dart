@@ -71,6 +71,29 @@ ChatMessage message(
   bookmark: bookmark,
 );
 
+const List<ChatMessageAuthor> threadParticipants = [
+  ChatMessageAuthor(id: 3, username: 'kris'),
+  ChatMessageAuthor(id: 4, username: 'lee'),
+];
+
+/// A thread's original message as the messages page serializes it, which is
+/// the only channel payload that loads the thread's participants.
+ChatMessage threadRoot() => ChatMessage(
+  id: 1,
+  channelId: 9,
+  threadId: 3,
+  cooked: '<p>1</p>',
+  raw: '1',
+  author: const ChatMessageAuthor(id: 2, username: 'sam'),
+  createdAt: DateTime.utc(2026, 5, 5, 10),
+  thread: const ChatThreadPreview(
+    threadId: 3,
+    replyCount: 2,
+    participantCount: 4,
+    participantUsers: threadParticipants,
+  ),
+);
+
 ChatMessagePage page(
   List<ChatMessage> messages, {
   bool canLoadMorePast = false,
@@ -6287,6 +6310,50 @@ void main() {
       );
     });
 
+    test(
+      'keeps the thread participants a pinned root was loaded with',
+      () async {
+        // The pins serializer omits thread participants, so the snapshot must
+        // not strip the avatars the channel page drew on the root.
+        final pin = ChatPin.fromJson(const {
+          'id': 91,
+          'chat_message_id': 1,
+          'pinned_by': {'id': 7, 'username': 'reader'},
+          'message': {
+            'id': 1,
+            'chat_channel_id': 9,
+            'thread_id': 3,
+            'message': '1',
+            'cooked': '<p>1</p>',
+            'created_at': '2026-05-05T10:00:00.000Z',
+            'user': {'id': 2, 'username': 'sam'},
+            'thread': {
+              'id': 3,
+              'reply_count': 2,
+              'preview': {'last_reply_id': 18},
+            },
+          },
+        }, site);
+        final subject = build(
+          currentUser: currentUser,
+          pins: {
+            9: (pins: [pin], membership: null),
+          },
+        );
+        addTearDown(subject.chat.dispose);
+        subject.store.put(site, channel(9, threadingEnabled: true));
+        subject.store.put(site, threadRoot());
+
+        await subject.chat.loadPinnedMessages(site, 9);
+
+        final held = subject.store.read<ChatMessage>(site, 1)!;
+        expect(held.pinned, isTrue);
+        expect(held.thread?.lastReplyId, 18);
+        expect(held.thread?.participantCount, 4);
+        expect(held.thread?.participantUsers, threadParticipants);
+      },
+    );
+
     int pinnedId(int channelId, int index) => 100000 + channelId * 100 + index;
 
     ChatPins pinsOf(int channelId, {int count = ChatPin.maximumPerChannel}) => (
@@ -8089,6 +8156,95 @@ void main() {
         expect(updated.availableFlags, ['notify_moderators']);
         expect(updated.userFlagStatus, 2);
         expect(updated.reactions.single.reacted, isTrue);
+      },
+    );
+
+    test(
+      'live edits of a thread root keep the participants they omit',
+      () async {
+        // Core serializes participants only for the messages page, the thread
+        // detail and `update_thread_original_message`; the anonymous live
+        // serializer leaves them out, which is not a report of none.
+        final subject = build(
+          currentUser: currentUser,
+          messages: {
+            key(9): page([threadRoot()]),
+          },
+        );
+        addTearDown(subject.chat.dispose);
+        subject.store.put(site, channel(9, threadingEnabled: true));
+        final tracker = attachTracker(subject.chat);
+        await subject.chat.openChannel(site, 9);
+        final view = subject.chat.beginViewingChannel(site, 9);
+        addTearDown(() => subject.chat.endViewingChannel(site, 9, view));
+
+        Map<String, dynamic> rootEvent(String type, String cooked) => {
+          'type': type,
+          'chat_message': {
+            'id': 1,
+            'chat_channel_id': 9,
+            'thread_id': 3,
+            'message': 'edited',
+            'cooked': cooked,
+            'created_at': '2026-05-05T10:00:00.000Z',
+            'edited': true,
+            'user': {'id': 2, 'username': 'sam'},
+            'thread': {
+              'id': 3,
+              'reply_count': 3,
+              'preview': {
+                'last_reply_id': 18,
+                'last_reply_excerpt': 'latest',
+                'last_reply_created_at': '2026-05-05T12:00:00.000Z',
+                'last_reply_user': {'id': 4, 'username': 'lee'},
+              },
+            },
+          },
+        };
+        tracker.deliverPluginMessage('/chat/9', rootEvent('edit', '<p>e</p>'));
+        tracker.deliverPluginMessage(
+          '/chat/9',
+          rootEvent('processed', '<p><b>e</b></p>'),
+        );
+
+        final updated = subject.store.read<ChatMessage>(site, 1)!;
+        expect(updated.cooked, '<p><b>e</b></p>');
+        expect(updated.thread?.replyCount, 3);
+        expect(updated.thread?.lastReplyId, 18);
+        expect(updated.thread?.participantCount, 4);
+        expect(updated.thread?.participantUsers, threadParticipants);
+      },
+    );
+
+    test(
+      'a root preview update that finds no participants clears them',
+      () async {
+        // `update_thread_original_message` recounts participants every time,
+        // so its omitted block is a thread with none left, not a skipped one.
+        final subject = build(
+          currentUser: currentUser,
+          messages: {
+            key(9): page([threadRoot()]),
+          },
+        );
+        addTearDown(subject.chat.dispose);
+        subject.store.put(site, channel(9, threadingEnabled: true));
+        final tracker = attachTracker(subject.chat);
+        await subject.chat.openChannel(site, 9);
+        final view = subject.chat.beginViewingChannel(site, 9);
+        addTearDown(() => subject.chat.endViewingChannel(site, 9, view));
+
+        tracker.deliverPluginMessage('/chat/9', {
+          'type': 'update_thread_original_message',
+          'original_message_id': 1,
+          'thread_id': 3,
+          'preview': {'reply_count': 0},
+        });
+
+        final updated = subject.store.read<ChatMessage>(site, 1)!;
+        expect(updated.thread?.replyCount, 0);
+        expect(updated.thread?.participantCount, 0);
+        expect(updated.thread?.participantUsers, isEmpty);
       },
     );
   });

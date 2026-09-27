@@ -557,6 +557,35 @@ void main() {
       ]);
     });
 
+    test('reads omitted thread participants as unreported, not as none', () {
+      // Core serializes participants only where the caller loaded them, so
+      // live, pin and search payloads leave both keys out of the preview.
+      final omitted = messageFrom(
+        message(
+          threadId: 3,
+          thread: const {
+            'id': 3,
+            'reply_count': 2,
+            'preview': {'last_reply_id': 18},
+          },
+        ),
+      );
+      final empty = messageFrom(
+        message(
+          threadId: 3,
+          thread: const {
+            'id': 3,
+            'reply_count': 2,
+            'preview': {'participant_users': <Object>[]},
+          },
+        ),
+      );
+
+      expect(omitted.thread!.participantCount, isNull);
+      expect(omitted.thread!.participantUsers, isEmpty);
+      expect(empty.thread!.participantCount, 0);
+    });
+
     test(
       'reads nothing it was not sent rather than inventing defaults it was',
       () {

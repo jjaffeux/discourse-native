@@ -231,7 +231,13 @@ final class ChatThread with Storable<ChatThread> {
     this.originalMessage,
   }) : _reportedTracking = tracking;
 
-  factory ChatThread.fromJson(Map<String, dynamic> json, String siteUrl) {
+  /// [participantsLoaded] is false only for a creation response, which can
+  /// answer with an existing thread without querying its participants.
+  factory ChatThread.fromJson(
+    Map<String, dynamic> json,
+    String siteUrl, {
+    bool participantsLoaded = true,
+  }) {
     final messageBusLastIds = jsonObject(
       jsonObject(json['meta'])['message_bus_last_ids'],
     );
@@ -248,7 +254,11 @@ final class ChatThread with Storable<ChatThread> {
         json['current_user_membership'],
       ),
       preview: json['preview'] is Map<String, dynamic>
-          ? ChatThreadPreview.fromJson(json, siteUrl)
+          ? ChatThreadPreview.fromJson(
+              json,
+              siteUrl,
+              participantsLoaded: participantsLoaded,
+            )
           : null,
       lastMessageId: jsonIntOrNull(json['last_message_id']),
       force: json['force'] == true,

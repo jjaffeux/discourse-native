@@ -443,7 +443,14 @@ class ChatThreadPreview {
   });
 
   /// A thread remains valid without its optional preview block.
-  static ChatThreadPreview? fromJson(Object? value, String url) {
+  ///
+  /// [participantsLoaded] marks a payload whose serializer always queried
+  /// participants, where an omitted block reports a thread with none.
+  static ChatThreadPreview? fromJson(
+    Object? value,
+    String url, {
+    bool participantsLoaded = false,
+  }) {
     if (value is! Map<String, dynamic>) return null;
     final preview = jsonObject(value['preview']);
     final user = jsonObject(preview['last_reply_user']);
@@ -463,7 +470,10 @@ class ChatThreadPreview {
       lastReplyId: jsonIntOrNull(preview['last_reply_id']),
       lastReplyUser: lastReplyUser,
       participantCount:
-          jsonIntOrNull(preview['participant_count']) ?? participants.length,
+          jsonIntOrNull(preview['participant_count']) ??
+          (participantsLoaded || preview['participant_users'] is List
+              ? participants.length
+              : null),
       participantUsers: participants,
       lastReplyUsername: jsonText(user['username']),
       lastReplyAvatarUrl: resolveAvatarUrl(
@@ -484,11 +494,41 @@ class ChatThreadPreview {
 
   /// Total distinct participants, which can exceed [participantUsers] because
   /// the server deliberately serializes only a small representative set.
+  ///
+  /// Null when the payload left participants out. Core serializes them only
+  /// where its caller loaded them, which live, pin and search payloads never
+  /// do, so absence is not a report of none.
   final int? participantCount;
   final List<ChatMessageAuthor> participantUsers;
 
   final String? lastReplyUsername;
   final String? lastReplyAvatarUrl;
+
+  bool get _reportsParticipants =>
+      participantCount != null || participantUsers.isNotEmpty;
+
+  /// Keeps [held]'s participants when this preview of the same thread was
+  /// serialized without any.
+  ChatThreadPreview withParticipantsFrom(ChatThreadPreview held) {
+    if (held.threadId != threadId ||
+        _reportsParticipants ||
+        !held._reportsParticipants) {
+      return this;
+    }
+    return ChatThreadPreview(
+      threadId: threadId,
+      replyCount: replyCount,
+      title: title,
+      lastReplyAt: lastReplyAt,
+      lastReplyExcerpt: lastReplyExcerpt,
+      lastReplyId: lastReplyId,
+      lastReplyUser: lastReplyUser,
+      participantCount: held.participantCount,
+      participantUsers: held.participantUsers,
+      lastReplyUsername: lastReplyUsername,
+      lastReplyAvatarUrl: lastReplyAvatarUrl,
+    );
+  }
 
   @override
   bool operator ==(Object other) =>
@@ -1367,9 +1407,20 @@ class ChatMessage with Storable<ChatMessage> {
     );
   }
 
-  /// Avoids waking rows for unchanged records in overlapping pages.
+  /// Avoids waking rows for unchanged records in overlapping pages, and keeps
+  /// thread participants that only the messages page, the thread detail and
+  /// `update_thread_original_message` serialize.
   @override
-  ChatMessage merge(ChatMessage incoming) => this == incoming ? this : incoming;
+  ChatMessage merge(ChatMessage incoming) {
+    final kept = switch ((thread, incoming.thread)) {
+      (final held?, final arriving?) => arriving.withParticipantsFrom(held),
+      (_, final arriving) => arriving,
+    };
+    final reconciled = identical(kept, incoming.thread)
+        ? incoming
+        : incoming.withThreadPreview(kept);
+    return this == reconciled ? this : reconciled;
+  }
 
   @override
   bool operator ==(Object other) =>

@@ -91,6 +91,38 @@ void main() {
       expect(message(), isNot(message(bookmark: bookmark)));
     });
 
+    test('only a report of participants replaces the held ones', () {
+      const participants = [ChatMessageAuthor(id: 3, username: 'kris')];
+      ChatMessage rootOf(int threadId, {int? count, bool users = false}) =>
+          message().withThreadPreview(
+            ChatThreadPreview(
+              threadId: threadId,
+              replyCount: 1,
+              participantCount: count,
+              participantUsers: users ? participants : const [],
+            ),
+          );
+      final store = Store()..put(siteUrl, rootOf(3, count: 1, users: true));
+      final ref = store.ref<ChatMessage>(siteUrl, 7);
+      var changes = 0;
+      ref.addListener(() => changes++);
+
+      store.put(siteUrl, rootOf(3));
+      expect(changes, 0);
+      expect(ref.value?.thread?.participantCount, 1);
+      expect(ref.value?.thread?.participantUsers, participants);
+
+      store.put(siteUrl, rootOf(3, count: 0));
+      expect(ref.value?.thread?.participantCount, 0);
+      expect(ref.value?.thread?.participantUsers, isEmpty);
+
+      store
+        ..put(siteUrl, rootOf(3, count: 1, users: true))
+        ..put(siteUrl, rootOf(4));
+      expect(ref.value?.thread?.participantCount, isNull);
+      expect(ref.value?.thread?.participantUsers, isEmpty);
+    });
+
     test('mutation helpers preserve a bookmark until explicitly cleared', () {
       const bookmark = Bookmark(
         id: 81,

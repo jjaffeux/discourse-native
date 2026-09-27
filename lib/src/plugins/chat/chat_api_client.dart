@@ -969,7 +969,7 @@ final class ChatApiClient implements ChatApi {
       clientId: clientId,
       body: {'original_message_id': originalMessageId, 'title': ?title},
     );
-    return ChatThread.fromJson(body, siteUrl);
+    return ChatThread.fromJson(body, siteUrl, participantsLoaded: false);
   }
 
   @override
