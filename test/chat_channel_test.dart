@@ -262,6 +262,65 @@ void main() {
     );
   });
 
+  group('reconciling a channel-list refresh', () {
+    ChatChannel listed({Map<String, dynamic>? author}) => ChatChannel.fromJson({
+      ...categoryChannel(),
+      'last_message': {
+        'id': 41,
+        'created_at': '2026-09-08T10:00:00Z',
+        'excerpt': '<p>Ready</p>',
+        'user': ?author,
+      },
+    }, site);
+
+    // The GET answers with the list as it stood before [live] was recorded.
+    ChatChannel reconciled(ChatChannel fetched, ChatChannel live) {
+      final refresh = ChatChannelRefresh(publicIds: [9], directIds: []);
+      refresh.recordChange(fetched, live);
+      return refresh
+          .reconcile(
+            ChatChannels(public: [fetched]),
+            public: [live],
+            direct: [],
+          )
+          .public
+          .single;
+    }
+
+    test('keeps the author of a message that arrived during it', () {
+      final fetched = listed(author: const {'id': 7});
+      final live = fetched.withNewMessage(
+        42,
+        DateTime.utc(2026, 9, 8, 11),
+        markRead: false,
+        incrementUnread: true,
+        preview: 'Next message',
+        userId: 8,
+      );
+
+      expect(reconciled(fetched, live).lastMessageUserId, 8);
+    });
+
+    test('keeps an author that hydration named for the same message', () {
+      final fetched = listed();
+      final live = fetched.withLastMessagePreview(
+        fetched.lastMessagePreview,
+        userId: 8,
+      );
+
+      expect(reconciled(fetched, live).lastMessageUserId, 8);
+    });
+
+    test('keeps the listed author when only membership changed', () {
+      final fetched = listed(author: const {'id': 7});
+
+      expect(
+        reconciled(fetched, fetched.withStarred(true)).lastMessageUserId,
+        7,
+      );
+    });
+  });
+
   group('reading a channel', () {
     test(
       'takes the title the site computed rather than naming anyone again',

@@ -2609,6 +2609,7 @@ void main() {
         final live = subject.chat.channel(site, 12)!;
         expect(live.tracking.unreadCount, 1);
         expect(live.tracking.mentionCount, 1);
+        expect(live.lastMessageUserId, 2);
         api.releaseRefresh(old);
         await refresh;
         expect(subject.chat.channel(site, 12), live);
