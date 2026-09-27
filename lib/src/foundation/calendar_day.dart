@@ -44,6 +44,10 @@ int _calendarDaysFrom(DateTime now, DateTime day) {
 
 String monthName(int month) => _months[month - 1];
 
+/// [monthName] cut to its first three letters, which is every English
+/// month's abbreviation, so there is no second table to drift from it.
+String shortMonthName(int month) => monthName(month).substring(0, 3);
+
 const List<String> _months = [
   'January',
   'February',

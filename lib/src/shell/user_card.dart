@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
+import '../foundation/calendar_day.dart';
 import '../foundation/uri_path.dart';
 import '../models/discourse_instance.dart';
 import '../models/user_card.dart';
@@ -14,6 +15,7 @@ import 'avatar_image.dart';
 import 'cooked_html.dart';
 import 'external_link.dart';
 import 'inline_action.dart';
+import 'relative_time.dart';
 import 'shell_controller.dart';
 import 'shell_scope.dart';
 import 'skeleton_fill.dart';
@@ -589,7 +591,10 @@ class _CardContent extends StatelessWidget {
               if (card.createdAt case final joined?)
                 _Metadata(label: 'Joined', value: _month(joined)),
               if (card.timeRead > 0)
-                _Metadata(label: 'Time read', value: _duration(card.timeRead)),
+                _Metadata(
+                  label: 'Time read',
+                  value: durationLabel(card.timeRead).short,
+                ),
             ],
           ),
         ],
@@ -601,29 +606,9 @@ class _CardContent extends StatelessWidget {
     );
   }
 
-  static const List<String> _months = [
-    'Jan',
-    'Feb',
-    'Mar',
-    'Apr',
-    'May',
-    'Jun',
-    'Jul',
-    'Aug',
-    'Sep',
-    'Oct',
-    'Nov',
-    'Dec',
-  ];
-
-  static String _month(DateTime when) =>
-      '${_months[when.month - 1]} ${when.year}';
-
-  static String _duration(int seconds) {
-    final hours = seconds ~/ Duration.secondsPerHour;
-    if (hours > 0) return '${hours}h';
-    final minutes = seconds ~/ Duration.secondsPerMinute;
-    return minutes > 0 ? '${minutes}m' : '${seconds}s';
+  static String _month(DateTime when) {
+    final day = calendarDay(when)!;
+    return '${shortMonthName(day.month)} ${day.year}';
   }
 
   static String _websiteLabel(String website) {

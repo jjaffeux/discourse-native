@@ -60,6 +60,28 @@ void main() {
     });
   });
 
+  group('shortMonthName', () {
+    test('abbreviates every month', () {
+      expect(
+        [for (var month = 1; month <= 12; month++) shortMonthName(month)],
+        [
+          'Jan',
+          'Feb',
+          'Mar',
+          'Apr',
+          'May',
+          'Jun',
+          'Jul',
+          'Aug',
+          'Sep',
+          'Oct',
+          'Nov',
+          'Dec',
+        ],
+      );
+    });
+  });
+
   group('upcomingDayName', () {
     test('names today and tomorrow, and leaves other days to the caller', () {
       final now = DateTime(2026, 3, 9, 14);

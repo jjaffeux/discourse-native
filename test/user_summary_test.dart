@@ -96,16 +96,6 @@ const _summary = UserSummary(
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
-  group('duration formatting', () {
-    test('matches the web summary units', () {
-      expect(summaryDuration(100000), (short: '1d', long: '1 day'));
-      expect(summaryDuration(1000), (short: '17m', long: '17 mins'));
-      expect(summaryDuration(0), (short: '<1m', long: 'less than 1 min'));
-      expect(summaryDuration(2700), (short: '1h', long: 'about 1 hour'));
-      expect(summaryDuration(7776000), (short: '3mon', long: '3 months'));
-    });
-  });
-
   group('route lifecycle', () {
     for (final layout in [
       (name: 'compact', size: const Size(390, 844)),

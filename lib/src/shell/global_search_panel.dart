@@ -4,6 +4,7 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/theme/discourse_typography.dart';
 import 'package:flutter/material.dart';
 
+import '../foundation/calendar_day.dart';
 import '../models/topic.dart';
 import '../plugin_api/global_search.dart' show GlobalSearchLookup;
 import '../plugin_api/plugin_scope.dart';
@@ -570,8 +571,10 @@ class _GlobalSearchPanelState extends State<GlobalSearchPanel> {
   }
 }
 
-String _searchDate(DateTime value) =>
-    '${value.day} ${const ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][value.month - 1]} ${value.year}';
+String _searchDate(DateTime value) {
+  final day = calendarDay(value)!;
+  return '${day.day} ${shortMonthName(day.month)} ${day.year}';
+}
 
 class _SearchHighlight extends StatelessWidget {
   const _SearchHighlight({

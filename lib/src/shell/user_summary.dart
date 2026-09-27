@@ -327,7 +327,7 @@ class _ProfileCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final user = instance.user!;
     final name = user.name?.trim();
-    final time = summaryDuration(summary.timeRead);
+    final time = durationLabel(summary.timeRead);
     return DCard(
       key: const ValueKey('user-summary-profile'),
       spacing: DSpacing.xl,
@@ -530,8 +530,8 @@ class _Reading extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final time = summaryDuration(summary.timeRead);
-    final recent = summaryDuration(summary.recentTimeRead);
+    final time = durationLabel(summary.timeRead);
+    final recent = durationLabel(summary.recentTimeRead);
     return _SectionStack(
       children: [
         if (summary.canSeeSummaryStats)
@@ -1368,68 +1368,6 @@ class _SummaryLoadingSkeleton extends StatelessWidget {
 }
 
 String _number(int value) => NumberFormat.decimalPattern().format(value);
-
-typedef SummaryDuration = ({String short, String long});
-
-SummaryDuration summaryDuration(int seconds) {
-  final safe = seconds < 0 ? 0 : seconds;
-  final minutes = (safe / 60).round().clamp(1, 1 << 31);
-  if (safe <= 59) {
-    return (short: '<1m', long: 'less than 1 min');
-  }
-  if (minutes <= 44) {
-    return (
-      short: '${minutes}m',
-      long: '$minutes ${minutes == 1 ? 'min' : 'mins'}',
-    );
-  }
-  if (minutes <= 89) {
-    return (short: '1h', long: 'about 1 hour');
-  }
-  if (minutes <= 1409) {
-    final count = (minutes / 60).round();
-    return (
-      short: '${count}h',
-      long: 'about $count ${count == 1 ? 'hour' : 'hours'}',
-    );
-  }
-  if (minutes <= 2519) {
-    return (short: '1d', long: '1 day');
-  }
-  if (minutes <= 129599) {
-    final count = (minutes / 1440).round();
-    return (short: '${count}d', long: '$count days');
-  }
-  if (minutes <= 525599) {
-    final count = (minutes / 43200).round();
-    return (
-      short: '${count}mon',
-      long: '$count ${count == 1 ? 'month' : 'months'}',
-    );
-  }
-
-  final years = minutes / 525600;
-  final remainder = years % 1;
-  if (remainder < 0.25) {
-    final count = years.floor();
-    return (
-      short: '${count}y',
-      long: 'about $count ${count == 1 ? 'year' : 'years'}',
-    );
-  }
-  if (remainder < 0.75) {
-    final count = years.floor();
-    return (
-      short: '> ${count}y',
-      long: 'over $count ${count == 1 ? 'year' : 'years'}',
-    );
-  }
-  final count = years.floor() + 1;
-  return (
-    short: '${count}y',
-    long: 'almost $count ${count == 1 ? 'year' : 'years'}',
-  );
-}
 
 String _shortUrl(String source) {
   final uri = Uri.tryParse(source);
