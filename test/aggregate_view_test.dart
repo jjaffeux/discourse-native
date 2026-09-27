@@ -3,14 +3,18 @@ import 'dart:async';
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/app.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
+import 'package:discourse_native/src/models/site_basic_info.dart';
 import 'package:discourse_native/src/models/site_emoji.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/models/topic_filter.dart';
 import 'package:discourse_native/src/shell/aggregate_view.dart';
+import 'package:discourse_native/src/shell/forum_settings_page.dart';
 import 'package:discourse_native/src/shell/forum_tabs_bar.dart';
+import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/site_emoji_image.dart';
 import 'package:discourse_native/src/shell/topic_filter_input.dart';
+import 'package:discourse_native/src/shell/topic_list_view.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart'
@@ -605,10 +609,133 @@ void main() {
       debugDefaultTargetPlatformOverride = previousPlatform;
     }
   });
+
+  testWidgets('an unrelated shell change rebuilds nothing on the page', (
+    tester,
+  ) async {
+    await _pumpMixedAggregateView(tester);
+    expect(find.byType(TopicListRow), findsWidgets);
+    final page = tester.element(find.byType(AggregateView));
+    final shell = ShellScope.read(page);
+    var notified = 0;
+    void count() => notified++;
+    shell.addListener(count);
+    addTearDown(() => shell.removeListener(count));
+    final rebuilt = <Widget>[];
+    final previousRebuildCallback = debugOnRebuildDirtyWidget;
+    debugOnRebuildDirtyWidget = (element, builtOnce) {
+      previousRebuildCallback?.call(element, builtOnce);
+      element.visitAncestorElements((ancestor) {
+        if (!identical(ancestor, page)) return true;
+        rebuilt.add(element.widget);
+        return false;
+      });
+    };
+    addTearDown(() => debugOnRebuildDirtyWidget = previousRebuildCallback);
+
+    shell.notifyPluginStateChanged();
+    await tester.pump();
+
+    expect(notified, 1);
+    expect(rebuilt, isEmpty);
+  });
+
+  testWidgets('the page follows the Settings tab the shell opens', (
+    tester,
+  ) async {
+    await _pumpMixedAggregateView(tester);
+    final shell = ShellScope.read(tester.element(find.byType(AggregateView)));
+    final feedNotifications = _countFeedNotifications(shell);
+    expect(find.byType(ForumSettingsPage), findsNothing);
+
+    shell.openCurrentSettings();
+    await tester.pumpAndSettle();
+
+    expect(find.byType(ForumSettingsPage), findsOneWidget);
+    expect(find.byType(TopicListRow), findsNothing);
+    expect(
+      tester.widget<ForumTabsBar>(find.byType(ForumTabsBar)).selectedId,
+      'settings',
+    );
+
+    shell.closeAggregateSettings();
+    await tester.pumpAndSettle();
+
+    expect(find.byType(ForumSettingsPage), findsNothing);
+    expect(find.byType(TopicListRow), findsWidgets);
+    expect(feedNotifications(), 0);
+  });
+
+  testWidgets('rows and filters follow a forum the shell renames', (
+    tester,
+  ) async {
+    final gate = Completer<void>();
+    final fixture = await _pumpMixedAggregateView(
+      tester,
+      basicInfos: {
+        'https://one.example': const SiteBasicInfo(title: 'One renamed'),
+      },
+      basicInfoGate: gate,
+    );
+    expect(fixture.api.basicInfoRequested, contains('https://one.example'));
+    final shell = ShellScope.read(tester.element(find.byType(AggregateView)));
+    await tester.tap(find.byKey(const ValueKey('aggregate-filter-collapse')));
+    await tester.pumpAndSettle();
+    final feedNotifications = _countFeedNotifications(shell);
+    Finder inRows(String text) => find.descendant(
+      of: find.byType(TopicListRow),
+      matching: find.text(text),
+    );
+    Finder inFilter(String text) => find.descendant(
+      of: find.byKey(const ValueKey('aggregate-filter-https://one.example')),
+      matching: find.text(text),
+    );
+    expect(inRows('One'), findsWidgets);
+    expect(inFilter('One'), findsOneWidget);
+
+    gate.complete();
+    await tester.pumpAndSettle();
+
+    expect(inRows('One'), findsNothing);
+    expect(inRows('One renamed'), findsWidgets);
+    expect(inFilter('One renamed'), findsOneWidget);
+    expect(feedNotifications(), 0);
+  });
+
+  testWidgets('a filter offers categories the shell learns while it is open', (
+    tester,
+  ) async {
+    final fixture = await _pumpMixedAggregateView(tester);
+    final siteUrl = fixture.forumUrls.first;
+    final shell = ShellScope.read(tester.element(find.byType(AggregateView)));
+    await tester.tap(find.byKey(const ValueKey('aggregate-filter-collapse')));
+    await tester.pumpAndSettle();
+    final feedNotifications = _countFeedNotifications(shell);
+    Iterable<int> offered() => tester
+        .widget<TopicFilterInput>(
+          find.byWidgetPredicate(
+            (widget) => widget is TopicFilterInput && widget.siteUrl == siteUrl,
+          ),
+        )
+        .categories
+        .map((category) => category.id);
+    expect(offered(), isNot(contains(3)));
+
+    await shell.searchTopicCategoriesForEditor(siteUrl: siteUrl, term: 'bugs');
+    await tester.pump();
+
+    expect(offered(), containsAll([3, 4]));
+    expect(feedNotifications(), 0);
+  });
 }
 
 Future<({List<String> forumUrls, FakeDiscourseApi api})>
-_pumpMixedAggregateView(WidgetTester tester, {bool empty = false}) async {
+_pumpMixedAggregateView(
+  WidgetTester tester, {
+  bool empty = false,
+  Map<String, SiteBasicInfo> basicInfos = const {},
+  Completer<void>? basicInfoGate,
+}) async {
   SharedPreferences.setMockInitialValues({});
   tester.view.physicalSize = const Size(1000, 800);
   tester.view.devicePixelRatio = 1;
@@ -661,6 +788,8 @@ _pumpMixedAggregateView(WidgetTester tester, {bool empty = false}) async {
       '2023': [TopicFilterLookupValue(name: '2023-cap-polo-order')],
     },
     feedGates: <String, Completer<void>>{},
+    basicInfos: basicInfos,
+    basicInfoGate: basicInfoGate,
     categoryList: const [
       TopicCategory(id: 1, name: 'Design', slug: 'design', color: 'AA00AA'),
       TopicCategory(
@@ -714,6 +843,16 @@ _pumpMixedAggregateView(WidgetTester tester, {bool empty = false}) async {
   await tester.pumpAndSettle();
   expect(find.byType(TopicFilterInput), findsNothing);
   return (forumUrls: forums.map((forum) => forum.url).toList(), api: api);
+}
+
+/// The facade tests pass only if the facade itself redraws the page, so they
+/// also show that the Aggregate feed never notified on its behalf.
+ValueGetter<int> _countFeedNotifications(ShellController shell) {
+  var notifications = 0;
+  void count() => notifications++;
+  shell.aggregate.addListener(count);
+  addTearDown(() => shell.aggregate.removeListener(count));
+  return () => notifications;
 }
 
 Future<void> _openAggregate(WidgetTester tester) async {
