@@ -544,6 +544,197 @@ void main() {
       },
     );
 
+    test(
+      'a mute silences the microphone without waiting behind signaling',
+      () async {
+        final microphone = _FakeTrack('mic', 'audio');
+        final signaling = _HeldSignaling();
+        final media = _heldSignalingSession(
+          signaling,
+          audioPublishingAllowed: true,
+          getUserMedia: (_) async => _FakeStream('mic-stream', [microphone]),
+        );
+        addTearDown(media.dispose);
+        addTearDown(signaling.release);
+        await media.connect();
+        final joining = _joinBehindHeldOffer(media, signaling);
+        await signaling.holding;
+
+        var settled = false;
+        final muting = media.setMuted(true).then((_) => settled = true);
+
+        expect(microphone.enabled, isFalse);
+        await _pumpEventQueue();
+        expect(settled, isFalse);
+
+        signaling.release();
+        await joining;
+        await muting;
+        expect(microphone.enabled, isFalse);
+      },
+    );
+
+    test('a queued unmute cannot undo a later mute', () async {
+      final microphone = _FakeTrack('mic', 'audio');
+      final signaling = _HeldSignaling();
+      final media = _heldSignalingSession(
+        signaling,
+        audioPublishingAllowed: true,
+        getUserMedia: (_) async => _FakeStream('mic-stream', [microphone]),
+      );
+      addTearDown(media.dispose);
+      addTearDown(signaling.release);
+      await media.connect();
+      await media.setMuted(true);
+      final joining = _joinBehindHeldOffer(media, signaling);
+      await signaling.holding;
+      final writes = microphone.enabledWrites.length;
+
+      final unmuting = media.setMuted(false);
+      final muting = media.setMuted(true);
+      signaling.release();
+      await joining;
+      await unmuting;
+      await muting;
+
+      expect(microphone.enabledWrites.skip(writes), isNot(contains(true)));
+      expect(microphone.enabled, isFalse);
+    });
+
+    test(
+      'a mute during an unmute capture keeps the new microphone silent',
+      () async {
+        final microphone = _FakeTrack('mic', 'audio');
+        final capturing = Completer<void>();
+        final captured = Completer<rtc.MediaStream>();
+        final media = _meshSession(
+          peer: _FakePeerConnection(),
+          audioPublishingAllowed: true,
+          getUserMedia: (_) {
+            capturing.complete();
+            return captured.future;
+          },
+        );
+        addTearDown(media.dispose);
+        addTearDown(() {
+          if (!captured.isCompleted) {
+            captured.complete(_FakeStream('mic-stream', [microphone]));
+          }
+        });
+
+        final unmuting = media.setMuted(false);
+        await capturing.future;
+        final muting = media.setMuted(true);
+        captured.complete(_FakeStream('mic-stream', [microphone]));
+        await unmuting;
+        await muting;
+
+        expect(microphone.enabledWrites, isNot(contains(true)));
+        expect(microphone.enabled, isFalse);
+      },
+    );
+
+    test(
+      'stopping a screen share silences it without waiting behind signaling',
+      () async {
+        final screenVideo = _FakeTrack('screen-video', 'video');
+        final screenAudio = _FakeTrack('screen-audio', 'audio');
+        final screen = _FakeStream('screen-stream', [screenVideo, screenAudio]);
+        final signaling = _HeldSignaling();
+        final media = _heldSignalingSession(
+          signaling,
+          audioPublishingAllowed: false,
+          getDisplayMedia: (_) async => screen,
+        );
+        addTearDown(media.dispose);
+        addTearDown(signaling.release);
+        await media.connect();
+        await media.setScreenShareEnabled(true);
+        final joining = _joinBehindHeldOffer(media, signaling);
+        await signaling.holding;
+
+        final stopping = media.setScreenShareEnabled(false);
+
+        expect([screenVideo.enabled, screenAudio.enabled], [false, false]);
+        await _pumpEventQueue();
+        expect(screen.disposed, isFalse);
+
+        signaling.release();
+        await joining;
+        await stopping;
+        expect(media.screenSharing, isFalse);
+        expect([screen.disposed, screenVideo.stopped], [true, true]);
+      },
+    );
+
+    test(
+      'a share stopped while it waits behind signaling never captures',
+      () async {
+        var captures = 0;
+        final signaling = _HeldSignaling();
+        final media = _heldSignalingSession(
+          signaling,
+          audioPublishingAllowed: false,
+          getDisplayMedia: (_) async {
+            captures++;
+            return _FakeStream('screen-stream', [
+              _FakeTrack('screen-video', 'video'),
+            ]);
+          },
+        );
+        addTearDown(media.dispose);
+        addTearDown(signaling.release);
+        await media.connect();
+        final joining = _joinBehindHeldOffer(media, signaling);
+        await signaling.holding;
+
+        final starting = media.setScreenShareEnabled(true);
+        final stopping = media.setScreenShareEnabled(false);
+        signaling.release();
+        await joining;
+        await starting;
+        await stopping;
+
+        expect(captures, 0);
+        expect(media.screenSharing, isFalse);
+      },
+    );
+
+    test(
+      'a share stopped during its capture is released unpublished',
+      () async {
+        final screenVideo = _FakeTrack('screen-video', 'video');
+        final screen = _FakeStream('screen-stream', [screenVideo]);
+        final capturing = Completer<void>();
+        final captured = Completer<rtc.MediaStream>();
+        final peer = _FakePeerConnection();
+        final media = _meshSession(
+          peer: peer,
+          audioPublishingAllowed: false,
+          getDisplayMedia: (_) {
+            capturing.complete();
+            return captured.future;
+          },
+        );
+        addTearDown(media.dispose);
+        addTearDown(() {
+          if (!captured.isCompleted) captured.complete(screen);
+        });
+        await media.connect();
+
+        final starting = media.setScreenShareEnabled(true);
+        await capturing.future;
+        final stopping = media.setScreenShareEnabled(false);
+        captured.complete(screen);
+        await starting;
+        await stopping;
+
+        expect(media.screenSharing, isFalse);
+        expect(peer.events, isNot(contains('replace:video:screen-video')));
+        expect([screen.disposed, screenVideo.stopped], [true, true]);
+      },
+    );
+
     test('discards a cancelled camera capture before publishing it', () async {
       final camera = _FakeTrack('camera', 'video');
       final stream = _FakeStream('camera-stream', [camera]);
@@ -845,12 +1036,16 @@ void main() {
             screenVideo,
             screenAudio,
           ]);
+          var captures = 0;
           final peer = _FakePeerConnection();
           final media = _meshSession(
             peer: peer,
             audioPublishingAllowed: false,
             getUserMedia: (_) async => _FakeStream('camera-stream', [camera]),
-            getDisplayMedia: (_) async => screen,
+            getDisplayMedia: (_) async {
+              captures++;
+              return screen;
+            },
           );
           addTearDown(media.dispose);
           await media.connect();
@@ -882,6 +1077,12 @@ void main() {
             ],
             [0, 0, 0, 0],
           );
+          // The user asked for the share to stop, so the retained capture
+          // stays silent until they start sharing again.
+          expect([screenVideo.enabled, screenAudio.enabled], [false, false]);
+          await media.setScreenShareEnabled(true);
+          expect([screenVideo.enabled, screenAudio.enabled], [true, true]);
+          expect(captures, 1);
 
           sender.onReplaceTrack = null;
           await media.setScreenShareEnabled(false);
@@ -2943,6 +3144,50 @@ void main() {
 
       expect(adapter.calls, ['cancel-listener', 'disconnect', 'dispose-room']);
     });
+
+    test(
+      'a mute silences the microphone before the SDK publish queue',
+      () async {
+        final microphone = _FakeTrack('mic', 'audio');
+        final participant = _BusyLiveKitParticipant()
+          ..published(lk.TrackSource.microphone, microphone);
+        final media = _liveKitSession(
+          _FakeLiveKitRoomAdapter(room: _FakeLiveKitRoom(participant)),
+        );
+        addTearDown(media.dispose);
+        addTearDown(participant.settle);
+
+        final muting = media.setMuted(true);
+
+        expect(microphone.enabled, isFalse);
+        expect(participant.applied, isEmpty);
+        participant.settle();
+        await muting;
+        expect(participant.applied, ['microphone:false']);
+        expect(media.shouldPublishMicrophone, isFalse);
+      },
+    );
+
+    test('stopping a share silences it before the SDK publish queue', () async {
+      final screenVideo = _FakeTrack('screen-video', 'video');
+      final screenAudio = _FakeTrack('screen-audio', 'audio');
+      final participant = _BusyLiveKitParticipant()
+        ..published(lk.TrackSource.screenShareVideo, screenVideo)
+        ..published(lk.TrackSource.screenShareAudio, screenAudio);
+      final media = _liveKitSession(
+        _FakeLiveKitRoomAdapter(room: _FakeLiveKitRoom(participant)),
+      );
+      addTearDown(media.dispose);
+      addTearDown(participant.settle);
+
+      final stopping = media.setScreenShareEnabled(false);
+
+      expect([screenVideo.enabled, screenAudio.enabled], [false, false]);
+      expect(participant.applied, isEmpty);
+      participant.settle();
+      await stopping;
+      expect(participant.applied, ['screenShare:false']);
+    });
   });
 
   group('VoiceReconnectCoordinator', () {
@@ -3793,6 +4038,74 @@ final class _FakeLiveKitParticipant implements lk.LocalParticipant {
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
+final class _PublishedLiveKitTrack implements lk.LocalTrack {
+  _PublishedLiveKitTrack(this.mediaStreamTrack);
+
+  @override
+  final rtc.MediaStreamTrack mediaStreamTrack;
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+final class _PublishedLiveKitPublication
+    implements lk.LocalTrackPublication<lk.LocalTrack> {
+  _PublishedLiveKitPublication(this.track);
+
+  @override
+  final lk.LocalTrack track;
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+/// A local participant whose SDK publish queue is still busy, as while a
+/// camera or share negotiates with the server: the SDK runs mute and unpublish
+/// only after that publish settles.
+final class _BusyLiveKitParticipant implements lk.LocalParticipant {
+  final Map<lk.TrackSource, lk.LocalTrackPublication> _publications = {};
+  final Completer<void> _publishing = Completer<void>();
+  final List<String> applied = [];
+
+  void published(lk.TrackSource source, rtc.MediaStreamTrack track) =>
+      _publications[source] = _PublishedLiveKitPublication(
+        _PublishedLiveKitTrack(track),
+      );
+
+  void settle() {
+    if (!_publishing.isCompleted) _publishing.complete();
+  }
+
+  @override
+  lk.LocalTrackPublication? getTrackPublicationBySource(
+    lk.TrackSource source,
+  ) => _publications[source];
+
+  @override
+  Future<lk.LocalTrackPublication?> setMicrophoneEnabled(
+    bool enabled, {
+    lk.AudioCaptureOptions? audioCaptureOptions,
+  }) async {
+    await _publishing.future;
+    applied.add('microphone:$enabled');
+    return _publications[lk.TrackSource.microphone];
+  }
+
+  @override
+  Future<lk.LocalTrackPublication?> setScreenShareEnabled(
+    bool enabled, {
+    bool? captureScreenAudio,
+    lk.ScreenShareCaptureOptions? screenShareCaptureOptions,
+  }) async {
+    await _publishing.future;
+    applied.add('screenShare:$enabled');
+    return null;
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
 final class _FakeTransceiver implements rtc.RTCRtpTransceiver {
   _FakeTransceiver({
     required this.mid,
@@ -3886,6 +4199,7 @@ final class _FakeTrack implements rtc.MediaStreamTrack {
   bool remoteStopIsNoop = false;
   double volume = 1;
   bool _enabled = true;
+  final List<bool> enabledWrites = [];
 
   @override
   rtc.StreamTrackCallback? onEnded;
@@ -3894,7 +4208,10 @@ final class _FakeTrack implements rtc.MediaStreamTrack {
   bool get enabled => _enabled;
 
   @override
-  set enabled(bool value) => _enabled = value;
+  set enabled(bool value) {
+    enabledWrites.add(value);
+    _enabled = value;
+  }
 
   @override
   Future<void> stop() async {
@@ -3957,6 +4274,60 @@ final class _FakeStream extends rtc.MediaStream {
 }
 
 Future<void> _pumpEventQueue() => Future<void>.delayed(Duration.zero);
+
+const _meshJoiner = VoiceParticipant(
+  id: 30,
+  username: 'joiner',
+  role: VoiceRole.participant,
+);
+
+/// Signaling whose POSTs can be held open, as on a slow network.
+final class _HeldSignaling {
+  Completer<void>? _gate;
+  final Completer<void> _holding = Completer<void>();
+
+  /// Completes once a POST is waiting on the held gate.
+  Future<void> get holding => _holding.future;
+
+  Future<void> send(int recipientId, Map<String, Object?> event) async {
+    final gate = _gate;
+    if (gate == null || gate.isCompleted) return;
+    if (!_holding.isCompleted) _holding.complete();
+    await gate.future;
+  }
+
+  void hold() => _gate = Completer<void>();
+
+  void release() {
+    if (_gate case final gate? when !gate.isCompleted) gate.complete();
+  }
+}
+
+MeshVoiceMediaSession _heldSignalingSession(
+  _HeldSignaling signaling, {
+  required bool audioPublishingAllowed,
+  VoiceUserMediaGetter? getUserMedia,
+  VoiceUserMediaGetter? getDisplayMedia,
+}) => MeshVoiceMediaSession(
+  join: _meshJoin(localUserId: 10, remoteUserId: 20),
+  localUserId: 10,
+  sendSignal: signaling.send,
+  audioPublishingAllowed: audioPublishingAllowed,
+  createPeerConnection: (_) async => _FakePeerConnection(),
+  getUserMedia: getUserMedia,
+  getDisplayMedia: getDisplayMedia,
+);
+
+/// Adds [_meshJoiner] to the roster while [signaling] holds its POSTs. The
+/// local user has the lower id, so the offer to the joiner is sent from inside
+/// the mesh mutation queue and everything queued after it waits for that POST.
+Future<void> _joinBehindHeldOffer(
+  MeshVoiceMediaSession media,
+  _HeldSignaling signaling,
+) {
+  signaling.hold();
+  return media.syncParticipants([...media.join.room.participants, _meshJoiner]);
+}
 
 final class _ManualTimer implements Timer {
   _ManualTimer(this.delay, this._callback);
