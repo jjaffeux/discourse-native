@@ -731,6 +731,11 @@ const _paragraph =
 /// Types a character at the end of [document] and deletes it again the way
 /// the editor applies an edit: input formatters, the new value, then the
 /// microtasks the edit queued, so that everything a keystroke pays is timed.
+///
+/// The caret starts at the end, where typing leaves it. The editor scans for
+/// the block under a valid caret on every edit, and that scan is most of what
+/// a keystroke costs. Its caches hold one document each, which the two edits
+/// alternate, so both edits rescan the way every keystroke does.
 int Function() _keystrokes(
   String document, {
   required int settled,
@@ -748,6 +753,9 @@ int Function() _keystrokes(
   }
   composer.text.text = document;
   if (inFlight) composer.addImages([_file], document.indexOf('\n\n'));
+  composer.text.selection = TextSelection.collapsed(
+    offset: composer.text.text.length,
+  );
   expect(composer.uploads, hasLength(inFlight ? 1 : 0));
 
   final microtasks = <void Function()>[];
@@ -767,7 +775,7 @@ int Function() _keystrokes(
     }
   }
 
-  return () => zone.run(() {
+  int keystroke() => zone.run(() {
     final value = composer.text.value;
     apply(
       TextEditingValue(
@@ -778,6 +786,16 @@ int Function() _keystrokes(
     apply(value);
     return composer.raw.length;
   });
+
+  // An edit that finds its document already scanned times only cache hits.
+  final scans = composer.text.scans;
+  keystroke();
+  expect(
+    composer.text.scans - scans,
+    2,
+    reason: 'each of the two edits must scan the document it produces',
+  );
+  return keystroke;
 }
 
 Future<void> _pump(
