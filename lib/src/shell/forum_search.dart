@@ -63,7 +63,6 @@ class _ForumSearchState extends State<ForumSearch> {
   double _anchorTop = 6;
   double? _layoutWidth;
   Size? _layoutViewport;
-  String? _lastExternalQuery;
   String? _selectedResultId;
 
   bool get _surfaceOpen => widget.fullScreen ? _page != null : _popover.isOpen;
@@ -98,7 +97,6 @@ class _ForumSearchState extends State<ForumSearch> {
     _shell = shell;
     _search = shell.search;
     _global = shell.globalSearch;
-    _lastExternalQuery = _search.query;
     _search.addListener(_searchChanged);
     _global.addListener(_globalChanged);
     shell.addListener(_siteChanged);
@@ -140,10 +138,6 @@ class _ForumSearchState extends State<ForumSearch> {
   void _searchChanged() {
     if (!mounted) return;
     _syncSite();
-    if (_lastExternalQuery != _search.query) {
-      _lastExternalQuery = _search.query;
-      _global.setQuery(_search.query);
-    }
     _syncText();
     if (_syncScheduled) return;
     _syncScheduled = true;

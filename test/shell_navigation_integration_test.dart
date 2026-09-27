@@ -298,7 +298,7 @@ void _registerShellNavigationTests() {
         tester.element(find.byType(MainContent)),
       );
 
-      controller.search.setQuery('matches');
+      controller.globalSearch.setQuery('matches');
       controller.search.requestFocus();
       await tester.pumpAndSettle();
 
@@ -312,7 +312,7 @@ void _registerShellNavigationTests() {
 
       expect(controller.search.panelOpen, isFalse);
       expect(searchInput.hasFocus, isFalse);
-      expect(controller.search.query, 'matches');
+      expect(controller.globalSearch.query, 'matches');
     }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
   });
 

@@ -430,21 +430,6 @@ abstract interface class ShellSearchApi {
     required String apiKey,
     String? clientId,
   });
-
-  Future<void> resetRecentSearches({
-    required String siteUrl,
-    required String apiKey,
-    String? clientId,
-  });
-
-  Future<void> logSearchClick({
-    required String siteUrl,
-    required String apiKey,
-    required int searchLogId,
-    required Object resultId,
-    required SearchResultKind resultKind,
-    String? clientId,
-  });
 }
 
 abstract interface class CategoryQueriesApi {

@@ -206,60 +206,6 @@ void main() {
       expect(sent.headers['User-Api-Key'], 'secret');
       expect(sent.headers['User-Api-Client-Id'], 'client');
     });
-
-    test(
-      'resetting recent searches deletes the authenticated endpoint',
-      () async {
-        late http.Request sent;
-        final api = _searchApi(
-          client: MockClient((request) async {
-            sent = request;
-            return http.Response(jsonEncode({'success': 'OK'}), 200);
-          }),
-        );
-
-        await api.resetRecentSearches(
-          siteUrl: 'https://example.com',
-          apiKey: 'secret',
-          clientId: 'client',
-        );
-
-        expect(
-          (sent.method, sent.url.path),
-          ('DELETE', '/u/recent-searches.json'),
-        );
-        expect(sent.headers['User-Api-Key'], 'secret');
-        expect(sent.headers['User-Api-Client-Id'], 'client');
-      },
-    );
-
-    test('search click tracking posts the result identity', () async {
-      late http.Request sent;
-      final api = _searchApi(
-        client: MockClient((request) async {
-          sent = request;
-          return http.Response(jsonEncode({'success': 'OK'}), 200);
-        }),
-      );
-
-      await api.logSearchClick(
-        siteUrl: 'https://example.com',
-        apiKey: 'secret',
-        searchLogId: 22,
-        resultId: 91,
-        resultKind: SearchResultKind.topic,
-        clientId: 'client',
-      );
-
-      expect((sent.method, sent.url.path), ('POST', '/search/click.json'));
-      expect(sent.headers['User-Api-Key'], 'secret');
-      expect(sent.headers['User-Api-Client-Id'], 'client');
-      expect(jsonDecode(sent.body), {
-        'search_log_id': 22,
-        'search_result_id': 91,
-        'search_result_type': 'topic',
-      });
-    });
   });
   group('searchUsers', () {
     test('asks with the term, the limit and the topic', () async {
