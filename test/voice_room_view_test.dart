@@ -1371,6 +1371,201 @@ void main() {
       expect(conversation.closeCalls, 1);
       expect(tester.takeException(), isNull);
     });
+
+    testWidgets('shows a failed load instead of an empty conversation', (
+      tester,
+    ) async {
+      final harness = _Harness(
+        discourseApi: RecordingPluginTransport(
+          failures: const {
+            'GET /voice/rooms/7/chat_session.json': SocketException('offline'),
+          },
+        ),
+      );
+      addTearDown(harness.dispose);
+
+      await _openRoomChat(tester, harness);
+
+      expect(find.text("Couldn't load room chat."), findsOneWidget);
+      expect(find.text('No messages yet.'), findsNothing);
+
+      await tester.tap(find.byTooltip('Close'));
+      await tester.pumpAndSettle();
+    });
+
+    testWidgets('keeps the text of a failed send and shows why', (
+      tester,
+    ) async {
+      final messages = _chatPage(id: 10, username: 'sam', name: 'Sam').messages;
+      final conversations = FakeChatConversationCapability();
+      final conversation = conversations.seed(
+        siteUrl: _siteUrl,
+        channelId: 42,
+        threadId: 99,
+        snapshot: ChatConversationSnapshot(messages: messages),
+        snapshotAfterSend: ChatConversationSnapshot(
+          messages: messages,
+          error: 'Message not sent.',
+        ),
+      );
+      final harness = _Harness(
+        discourseApi: _roomChatTransport(),
+        chatConversations: conversations,
+      );
+      addTearDown(harness.dispose);
+
+      await _openRoomChat(tester, harness);
+      final composer = find.widgetWithText(TextField, 'Message the room');
+      final text = tester.widget<TextField>(composer).controller!;
+      await tester.enterText(composer, 'hello room');
+      await tester.tap(find.byTooltip('Send message'));
+      await tester.pumpAndSettle();
+
+      expect(conversation.sentMessages, ['hello room']);
+      expect(text.text, 'hello room');
+      expect(find.text('Message not sent.'), findsOneWidget);
+      expect(find.text('Sam'), findsOneWidget);
+
+      await tester.tap(find.byTooltip('Close'));
+      await tester.pumpAndSettle();
+    });
+
+    testWidgets('holds Send while a message is in flight', (tester) async {
+      final conversations = FakeChatConversationCapability();
+      final conversation = conversations.seed(
+        siteUrl: _siteUrl,
+        channelId: 42,
+        threadId: 99,
+        snapshot: ChatConversationSnapshot(
+          messages: _chatPage(id: 10, username: 'sam', name: 'Sam').messages,
+        ),
+      );
+      final gate = conversation.sendGate = Completer<void>();
+      addTearDown(() {
+        if (!gate.isCompleted) gate.complete();
+      });
+      final harness = _Harness(
+        discourseApi: _roomChatTransport(),
+        chatConversations: conversations,
+      );
+      addTearDown(harness.dispose);
+
+      await _openRoomChat(tester, harness);
+      final composer = find.widgetWithText(TextField, 'Message the room');
+      final text = tester.widget<TextField>(composer).controller!;
+      await tester.enterText(composer, 'hi');
+      await tester.tap(find.byTooltip('Send message'));
+      await tester.pump();
+      await tester.enterText(composer, 'there');
+      await tester.tap(find.byTooltip('Send message'));
+      await tester.pump();
+
+      expect(
+        find.descendant(
+          of: find.byTooltip('Send message'),
+          matching: find.byType(DSpinner),
+        ),
+        findsOneWidget,
+      );
+      expect(conversation.sentMessages, ['hi']);
+      expect(text.text, 'there');
+
+      gate.complete();
+      await tester.pumpAndSettle();
+      expect(conversation.sentMessages, ['hi']);
+      expect(text.text, 'there');
+      await tester.tap(find.byTooltip('Send message'));
+      await tester.pumpAndSettle();
+      expect(conversation.sentMessages, ['hi', 'there']);
+
+      await tester.tap(find.byTooltip('Close'));
+      await tester.pumpAndSettle();
+    });
+
+    testWidgets('holds Send while the conversation reports a send', (
+      tester,
+    ) async {
+      final messages = _chatPage(id: 10, username: 'sam', name: 'Sam').messages;
+      final conversations = FakeChatConversationCapability();
+      final conversation = conversations.seed(
+        siteUrl: _siteUrl,
+        channelId: 42,
+        threadId: 99,
+        snapshot: ChatConversationSnapshot(messages: messages),
+      );
+      final harness = _Harness(
+        discourseApi: _roomChatTransport(),
+        chatConversations: conversations,
+      );
+      addTearDown(harness.dispose);
+
+      await _openRoomChat(tester, harness);
+      conversation.setSnapshot(
+        ChatConversationSnapshot(messages: messages, sending: true),
+      );
+      await tester.pump();
+      final composer = find.widgetWithText(TextField, 'Message the room');
+      final text = tester.widget<TextField>(composer).controller!;
+      await tester.enterText(composer, 'later');
+      await tester.tap(find.byTooltip('Send message'));
+      await tester.pump();
+
+      expect(conversation.sentMessages, isEmpty);
+      expect(text.text, 'later');
+
+      conversation.setSnapshot(ChatConversationSnapshot(messages: messages));
+      await tester.pump();
+      await tester.tap(find.byTooltip('Send message'));
+      await tester.pumpAndSettle();
+      expect(conversation.sentMessages, ['later']);
+      expect(text.text, isEmpty);
+
+      await tester.tap(find.byTooltip('Close'));
+      await tester.pumpAndSettle();
+    });
+
+    testWidgets('keeps the conversation visible while older messages load', (
+      tester,
+    ) async {
+      final messages = _chatPage(
+        id: 10,
+        username: 'sam',
+        name: 'Sam',
+        canLoadMorePast: true,
+      ).messages;
+      final conversations = FakeChatConversationCapability();
+      final conversation = conversations.seed(
+        siteUrl: _siteUrl,
+        channelId: 42,
+        threadId: 99,
+        snapshot: ChatConversationSnapshot(
+          messages: messages,
+          canLoadMorePast: true,
+        ),
+      );
+      final harness = _Harness(
+        discourseApi: _roomChatTransport(),
+        chatConversations: conversations,
+      );
+      addTearDown(harness.dispose);
+
+      await _openRoomChat(tester, harness);
+      // A conversation reports an older page's load as loading.
+      conversation.setSnapshot(
+        ChatConversationSnapshot(
+          messages: messages,
+          loading: true,
+          canLoadMorePast: true,
+        ),
+      );
+      await tester.pump();
+
+      expect(find.text('Sam'), findsOneWidget);
+      expect(find.text('Load older messages'), findsOneWidget);
+
+      await tester.tap(find.byTooltip('Close'));
+      await tester.pumpAndSettle();
+    });
   });
 
   group('membership management', () {
@@ -3392,6 +3587,30 @@ ChatMessagePage _chatPage({
   canLoadMoreFuture: false,
   targetMessageId: null,
 );
+
+RecordingPluginTransport _roomChatTransport() => RecordingPluginTransport(
+  responses: const {
+    'GET /voice/rooms/7/chat_session.json': {'channel_id': 42, 'thread_id': 99},
+  },
+);
+
+Future<void> _openRoomChat(WidgetTester tester, _Harness harness) async {
+  final room = _room(
+    chatAvailable: true,
+    participants: const [
+      VoiceParticipant(id: 1, username: 'sam', role: VoiceRole.participant),
+    ],
+  );
+  await tester.pumpWidget(
+    _app(
+      harness.controller,
+      room: room,
+      call: _call(room, harness.media.createSession()),
+    ),
+  );
+  await tester.tap(find.byTooltip('Room chat'));
+  await tester.pumpAndSettle();
+}
 
 Future<void> _join(_Harness harness, VoiceRoom room) =>
     harness.controller.join(siteUrl: _siteUrl, siteName: 'Voice', room: room);
