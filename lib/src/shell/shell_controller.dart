@@ -14454,6 +14454,14 @@ class ShellController extends FrameSafeNotifier
     }
 
     _replaceInstance(held, applied);
+    // Every phase follows a rotation that invalidated each Aggregate tab
+    // holding this forum, and only an open restarts a tab. Reopening here,
+    // once the rail carries this phase's account, keeps an Aggregate on
+    // screen loading and paging the other forums without reading the
+    // credential of a forum that is being signed out.
+    if (_rootMode == ShellRootMode.aggregate) {
+      unawaited(aggregate.open(_instances));
+    }
     if (currentInstance?.url == replacement.url) {
       switch (phase) {
         case AccountSessionPhase.connecting:
