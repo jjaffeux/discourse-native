@@ -5,6 +5,7 @@ import 'package:flutter/widgets.dart';
 import 'app.dart';
 import 'data/byte_cache_store.dart';
 import 'data/linux_application_directories.dart';
+import 'data/linux_preferences_store.dart';
 import 'data/media_pipeline.dart';
 import 'diagnostics/diagnostics.dart';
 import 'foundation/timezone_environment.dart';
@@ -21,6 +22,10 @@ typedef AppBootstrapUnhandledErrorReporter =
 
 abstract interface class AppBootstrapHost {
   void ensureFlutterInitialized();
+
+  /// Runs before anything can reach preferences: `SharedPreferences` caches
+  /// its first read for the rest of the process.
+  void installPreferencesStore();
 
   Future<void> initializeTimezoneEnvironment();
 
@@ -83,6 +88,7 @@ final class AppBootstrap {
     runZonedGuarded<void>(
       () {
         _host.ensureFlutterInitialized();
+        _host.installPreferencesStore();
         _host.createDiagnostics();
         try {
           _host.installDiagnosticsSink();
@@ -155,6 +161,11 @@ final class _ProductionAppBootstrapHost implements AppBootstrapHost {
   @override
   void ensureFlutterInitialized() {
     WidgetsFlutterBinding.ensureInitialized();
+  }
+
+  @override
+  void installPreferencesStore() {
+    LinuxPreferencesStore.install();
   }
 
   @override

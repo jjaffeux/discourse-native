@@ -1,8 +1,13 @@
 import 'dart:async';
 import 'dart:collection';
+import 'dart:io';
 
 import 'package:discourse_native/src/app.dart';
 import 'package:discourse_native/src/data/instance_store.dart';
+import 'package:discourse_native/src/data/linux_preferences_store.dart';
+import 'package:discourse_native/src/diagnostics/diagnostic_event.dart';
+import 'package:discourse_native/src/diagnostics/diagnostics_controller.dart';
+import 'package:discourse_native/src/diagnostics/diagnostics_persistence.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
@@ -10,6 +15,7 @@ import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:shared_preferences_platform_interface/shared_preferences_platform_interface.dart';
 
 import 'support/fakes.dart';
 
@@ -72,6 +78,53 @@ void main() {
       InstanceLoadStatus.failed,
       InstanceLoadStatus.ready,
     ]);
+  });
+
+  test('a torn Linux preferences file no longer stops every launch', () async {
+    final directory = await Directory.systemTemp.createTemp(
+      'discourse-native-startup-preferences-',
+    );
+    addTearDown(() => directory.delete(recursive: true));
+    final file = File('${directory.path}/$linuxSharedPreferencesFileName');
+    // What a full disk during shared_preferences_linux's in-place rewrite left.
+    await file.writeAsString('{"flutter.discourse_native.instances":"[');
+    final diagnostics = await DiagnosticsController.create(
+      persistence: MemoryDiagnosticsPersistence(),
+      sessionId: 'startup-preferences',
+    );
+    final binding = DiagnosticsSink.install(diagnostics);
+    addTearDown(() async {
+      binding.close();
+      await diagnostics.close();
+    });
+
+    Future<ShellController> launch() async {
+      SharedPreferencesStorePlatform.instance = LinuxPreferencesStore(
+        file: () => file,
+      );
+      SharedPreferences.resetStatic();
+      final controller = _controller(InstanceStore());
+      addTearDown(controller.dispose);
+      await controller.load();
+      return controller;
+    }
+
+    final first = await launch();
+    expect(first.loadStatus, InstanceLoadStatus.ready);
+    expect(first.instances, isEmpty);
+    expect(await first.addInstance(instance('saved.example')), isTrue);
+
+    final relaunched = await launch();
+    expect(relaunched.loadStatus, InstanceLoadStatus.ready);
+    expect(relaunched.instances.map((site) => site.url), [
+      'https://saved.example',
+    ]);
+    expect(
+      diagnostics.events.whereType<ErrorDiagnosticEvent>().where(
+        (event) => event.operation == 'preferences.decode',
+      ),
+      hasLength(1),
+    );
   });
 
   test(

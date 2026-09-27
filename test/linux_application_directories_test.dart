@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:discourse_native/src/data/linux_application_directories.dart';
+import 'package:discourse_native/src/data/linux_preferences_store.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -48,10 +49,19 @@ void main() {
       '{"flutter.recent":"Private title"}',
     );
 
-    // shared_preferences_linux rewrites the file in place, which keeps the
-    // mode; a replace-by-rename would silently undo this step.
-    preferences.writeAsStringSync('{"flutter.recent":"Later title"}');
+    // Saves replace the file by rename rather than rewriting it in place, and
+    // each replacement is made owner-only itself.
+    expect(
+      await LinuxPreferencesStore(
+        file: () => preferences,
+      ).setValue('String', 'flutter.recent', 'Later title'),
+      isTrue,
+    );
     expect(await _mode(preferences), 0x180); // 0600
+    expect(
+      await preferences.readAsString(),
+      '{"flutter.recent":"Later title"}',
+    );
   });
 
   test('creates missing directories without inventing preferences', () async {
