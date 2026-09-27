@@ -635,10 +635,18 @@ class _BlockScanner {
     final tags = RegExp(r'\[(/?)([a-zA-Z][\w-]*)(?:[= ][^\]]*)?\]');
     final open = <(String, int)>[];
     final ranges = <(int, int)>[];
+    // Spans are disjoint and in document order, so the first to reach a tag's
+    // end is the only one that can contain it. Tag ends ascend too, so one
+    // forward cursor finds every covering span; searching the spans for each
+    // tag would make a document of quotes quadratic.
+    var cursor = 0;
     for (final tag in tags.allMatches(source)) {
-      final covering = spans
-          .where((span) => span.start <= tag.start && span.end >= tag.end)
-          .firstOrNull;
+      while (cursor < spans.length && spans[cursor].end < tag.end) {
+        cursor++;
+      }
+      final covering = cursor < spans.length && spans[cursor].start <= tag.start
+          ? spans[cursor]
+          : null;
       if (covering?.kind == ComposerBlockKind.code ||
           covering?.kind == ComposerBlockKind.component) {
         continue;
@@ -656,9 +664,11 @@ class _BlockScanner {
       }
     }
     for (final range in ranges) {
-      final first = spans.indexWhere((span) => span.end > range.$1);
-      final last = spans.lastIndexWhere((span) => span.start < range.$2);
-      if (first < 0 || last <= first) continue;
+      // Merging keeps spans disjoint and in order, so both bounds are binary
+      // searches rather than a scan of every span for each container.
+      final first = _firstSpan(spans, (span) => span.end > range.$1);
+      final last = _firstSpan(spans, (span) => span.start >= range.$2) - 1;
+      if (first == spans.length || last <= first) continue;
       final protected = _Span(
         spans[first].start,
         spans[last].end,
@@ -668,6 +678,22 @@ class _BlockScanner {
       spans.replaceRange(first, last + 1, [protected]);
     }
     return spans;
+  }
+
+  /// The index of the first span passing [test], or the length when none does.
+  /// Every span after one that passes must pass too.
+  static int _firstSpan(List<_Span> spans, bool Function(_Span) test) {
+    var low = 0;
+    var high = spans.length;
+    while (low < high) {
+      final middle = low + ((high - low) >> 1);
+      if (test(spans[middle])) {
+        high = middle;
+      } else {
+        low = middle + 1;
+      }
+    }
+    return low;
   }
 
   bool _interrupts(int i) =>
@@ -685,12 +711,19 @@ class _BlockScanner {
       _html.hasMatch(lines[i].text) ||
       _atomAt(lines[i].start) != null;
 
-  ComposerBlockAtom? _atomAt(int start) {
-    ComposerBlockAtom? accepted;
+  ComposerBlockAtom? _atomAt(int start) => _atomsByStart[start];
+
+  // Nearly every line asks for its atom, so atoms are resolved once by start.
+  // Callers list them grouped by parser rather than in document order, and
+  // searching all of them for each line would make a document of images
+  // quadratic.
+  late final _atomsByStart = _acceptedAtoms();
+
+  Map<int, ComposerBlockAtom> _acceptedAtoms() {
+    final accepted = <int, ComposerBlockAtom>{};
     for (final atom in atoms) {
-      if (atom.start != start ||
-          atom.end <= start ||
-          atom.end > source.length) {
+      final start = atom.start;
+      if (start < 0 || atom.end <= start || atom.end > source.length) {
         continue;
       }
       // Component parsers sometimes include separators. They belong to the
@@ -703,8 +736,10 @@ class _BlockScanner {
       if (end < source.length && source[end] != '\n' && source[end] != '\r') {
         continue;
       }
-      if (accepted == null || end > accepted.end) {
-        accepted = ComposerBlockAtom(start, end, label: atom.label);
+      // The longest atom at a start wins, and the first listed breaks a tie.
+      final current = accepted[start];
+      if (current == null || end > current.end) {
+        accepted[start] = ComposerBlockAtom(start, end, label: atom.label);
       }
     }
     return accepted;

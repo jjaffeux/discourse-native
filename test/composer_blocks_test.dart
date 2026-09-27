@@ -586,6 +586,171 @@ void main() {
       );
     });
   });
+
+  group('embedded blocks', () {
+    List<_Block> blocks(ComposerBlockIndex index) => [
+      for (final block in index.blocks)
+        (
+          block.start,
+          block.end,
+          block.kind,
+          block.movable,
+          block.componentLabel,
+        ),
+    ];
+
+    test('keep the longest atom at a line, or the first listed of equals', () {
+      const source = 'Image\n\nQuote\nBody\n\nText';
+      final index = ComposerBlockIndex.parse(
+        source,
+        atoms: const [
+          ComposerBlockAtom(7, 12, label: 'Shorter'),
+          ComposerBlockAtom(0, 5, label: 'Image'),
+          ComposerBlockAtom(7, 15, label: 'Ends mid-line'),
+          ComposerBlockAtom(7, 17, label: 'Quote'),
+          ComposerBlockAtom(7, 18, label: 'Same with its line break'),
+        ],
+      );
+      expect(blocks(index), [
+        (0, 5, ComposerBlockKind.component, true, 'Image'),
+        (7, 17, ComposerBlockKind.component, true, 'Quote'),
+        (19, 23, ComposerBlockKind.paragraph, true, null),
+      ]);
+    });
+
+    test('match searches of every atom and span for generated documents', () {
+      // The scan once searched every atom for each line, and every span for
+      // each BBCode tag and container. Atoms are listed out of document order,
+      // compete at a line, end mid-line or past their line breaks, and tags
+      // and containers cross lines and blocks; the corpus must reach each.
+      const pieces = [
+        'Text',
+        'More words',
+        '![shot](upload://a)',
+        '![image|690x388](upload://b)',
+        'x [wrap] y',
+        'y [/wrap] z',
+        'q [quote="user, post:1"] r',
+        's [/quote] t',
+        'p [wrap=a',
+        'b] c',
+        'd [date=2026-09-21] e',
+        'f [spoiler]g[/spoiler] h',
+      ];
+      const breaks = ['\n', '\n\n', '\r\n', '\r\n\r\n', '\n\n\n'];
+      const labels = ['Image', 'Quote', 'Poll'];
+      final random = Random(1618);
+      final reached = <_Embedding, int>{
+        for (final shape in _Embedding.values) shape: 0,
+      };
+      for (var round = 0; round < 3000; round++) {
+        final buffer = StringBuffer();
+        final starts = <int>[];
+        final ends = <int>[];
+        for (var i = random.nextInt(16); i >= 0; i--) {
+          starts.add(buffer.length);
+          buffer.write(pieces[random.nextInt(pieces.length)]);
+          ends.add(buffer.length);
+          if (i > 0 || random.nextBool()) {
+            buffer.write(breaks[random.nextInt(breaks.length)]);
+          }
+        }
+        final source = buffer.toString();
+        final atoms = <ComposerBlockAtom>[];
+        for (var i = random.nextInt(8); i > 0; i--) {
+          final start = atoms.isNotEmpty && random.nextInt(3) == 0
+              ? atoms[random.nextInt(atoms.length)].start
+              : random.nextInt(4) == 0
+              ? random.nextInt(source.length)
+              : starts[random.nextInt(starts.length)];
+          final later = [
+            for (final end in ends)
+              if (end > start) end,
+          ];
+          final end = later.isEmpty || random.nextInt(4) == 0
+              ? start + 1 + random.nextInt(8)
+              : later[random.nextInt(later.length)] + random.nextInt(3);
+          atoms.add(
+            ComposerBlockAtom(
+              start,
+              end,
+              label: labels[random.nextInt(labels.length)],
+            ),
+          );
+        }
+        expect(
+          blocks(ComposerBlockIndex.parse(source, atoms: atoms)),
+          _searchedScan(source, atoms, reached),
+          reason:
+              'in ${jsonEncode(source)} with '
+              '${[for (final atom in atoms) (atom.start, atom.end, atom.label)]}',
+        );
+      }
+      expect(
+        reached.values,
+        everyElement(greaterThan(100)),
+        reason: '$reached',
+      );
+    });
+
+    for (final (name, block, isAtom) in [
+      ('image', (int i) => '![image|690x388](upload://$i.png)', true),
+      (
+        'quote',
+        (int i) => '[quote="user, post:$i, topic:1"]\nQuoted $i\n[/quote]',
+        true,
+      ),
+      (
+        'details',
+        (int i) => '[details="Summary $i"]\nHidden $i\n[/details]',
+        false,
+      ),
+    ]) {
+      test('cost the $name count, not its square', () {
+        // Every keystroke scans the whole document: nearly every line asks
+        // for its atom, every BBCode tag for the block covering it, and every
+        // container for the blocks it joins. Images reach only the atom
+        // lookup, quotes add their tags, and details are containers no parser
+        // registers. Timed at the parse, an eightfold document this large
+        // separates one lookup from a search of every atom or block, which
+        // per-line work hides in small documents.
+        (String, List<ComposerBlockAtom>) document(int count) {
+          final buffer = StringBuffer();
+          final atoms = <ComposerBlockAtom>[];
+          for (var i = 0; i < count; i++) {
+            buffer.write('Paragraph $i\n\n');
+            final source = block(i);
+            if (isAtom) {
+              atoms.add(
+                ComposerBlockAtom(buffer.length, buffer.length + source.length),
+              );
+            }
+            buffer.write('$source\n\n');
+          }
+          return (buffer.toString(), atoms);
+        }
+
+        final (smallSource, smallAtoms) = document(2000);
+        final (largeSource, largeAtoms) = document(16000);
+        final (:small, :large) = measureScaling(
+          () => ComposerBlockIndex.parse(
+            smallSource,
+            atoms: smallAtoms,
+          ).blocks.length,
+          () => ComposerBlockIndex.parse(
+            largeSource,
+            atoms: largeAtoms,
+          ).blocks.length,
+        );
+
+        expect(
+          large,
+          lessThan(small * 25),
+          reason: 'eight times the blocks took ${large / small} times as long',
+        );
+      });
+    }
+  });
 }
 
 enum _Retention { shifted, containsEdit, fresh }
@@ -645,4 +810,158 @@ List<int> _searchedIds(
     ids.add(id);
   }
   return ids;
+}
+
+typedef _Block = (
+  int start,
+  int end,
+  ComposerBlockKind kind,
+  bool movable,
+  String? label,
+);
+
+enum _Embedding {
+  longerListedLater,
+  equalListedLater,
+  endsMidLine,
+  spansLines,
+  tagInComponent,
+  tagAcrossBlocks,
+  containerJoinsBlocks,
+  containerInOneBlock,
+}
+
+/// The scan of a document of plain lines and embedded blocks, stated as a
+/// search of every atom for each line and of every span for each BBCode tag
+/// and container.
+List<_Block> _searchedScan(
+  String source,
+  List<ComposerBlockAtom> atoms,
+  Map<_Embedding, int> reached,
+) {
+  void reach(_Embedding shape) => reached.update(shape, (n) => n + 1);
+  int trimmed(int start, int end) {
+    while (end > start &&
+        (source[end - 1] == '\n' || source[end - 1] == '\r')) {
+      end--;
+    }
+    return end;
+  }
+
+  atoms = [
+    for (final atom in atoms)
+      if (atom.start >= 0 && atom.end <= source.length && atom.end > atom.start)
+        ComposerBlockAtom(
+          atom.start,
+          trimmed(atom.start, atom.end),
+          label: atom.label,
+        ),
+  ];
+  final lines = <(int, int)>[];
+  for (var start = 0; start < source.length;) {
+    final newline = source.indexOf('\n', start);
+    var end = newline < 0 ? source.length : newline;
+    if (end > start && source[end - 1] == '\r') end--;
+    lines.add((start, end));
+    start = newline < 0 ? source.length : newline + 1;
+  }
+  bool blank(int i) =>
+      source.substring(lines[i].$1, lines[i].$2).trim().isEmpty;
+  ComposerBlockAtom? atomAt(int start) {
+    ComposerBlockAtom? accepted;
+    for (final atom in atoms) {
+      if (atom.start != start ||
+          atom.end <= start ||
+          atom.end > source.length) {
+        continue;
+      }
+      final end = trimmed(start, atom.end);
+      if (end < source.length && source[end] != '\n' && source[end] != '\r') {
+        reach(_Embedding.endsMidLine);
+        continue;
+      }
+      if (accepted == null || end > accepted.end) {
+        if (accepted != null) reach(_Embedding.longerListedLater);
+        accepted = ComposerBlockAtom(start, end, label: atom.label);
+      } else if (end == accepted.end && atom.label != accepted.label) {
+        reach(_Embedding.equalListedLater);
+      }
+    }
+    return accepted;
+  }
+
+  final spans = <_Block>[];
+  var i = 0;
+  while (i < lines.length) {
+    if (blank(i)) {
+      i++;
+      continue;
+    }
+    final first = i;
+    final atom = atomAt(lines[i].$1);
+    if (atom != null) {
+      while (i + 1 < lines.length && lines[i + 1].$1 < atom.end) {
+        i++;
+      }
+      if (i > first) reach(_Embedding.spansLines);
+      spans.add((
+        lines[first].$1,
+        lines[i].$2,
+        ComposerBlockKind.component,
+        true,
+        atom.label,
+      ));
+      i++;
+      continue;
+    }
+    i++;
+    while (i < lines.length && !blank(i) && atomAt(lines[i].$1) == null) {
+      i++;
+    }
+    spans.add((
+      lines[first].$1,
+      lines[i - 1].$2,
+      ComposerBlockKind.paragraph,
+      true,
+      null,
+    ));
+  }
+
+  final tags = RegExp(r'\[(/?)([a-zA-Z][\w-]*)(?:[= ][^\]]*)?\]');
+  final open = <(String, int)>[];
+  final ranges = <(int, int)>[];
+  for (final tag in tags.allMatches(source)) {
+    final covering = spans
+        .where((span) => span.$1 <= tag.start && span.$2 >= tag.end)
+        .firstOrNull;
+    if (covering == null) reach(_Embedding.tagAcrossBlocks);
+    if (covering?.$3 == ComposerBlockKind.component) {
+      reach(_Embedding.tagInComponent);
+      continue;
+    }
+    final name = tag[2]!.toLowerCase();
+    if (name == 'date' || name == 'time') continue;
+    if (tag[1]!.isEmpty) {
+      open.add((name, tag.start));
+    } else {
+      final start = open.lastIndexWhere((entry) => entry.$1 == name);
+      if (start >= 0) {
+        ranges.add((open[start].$2, tag.end));
+        open.removeRange(start, open.length);
+      }
+    }
+  }
+  for (final range in ranges) {
+    final first = spans.indexWhere((span) => span.$2 > range.$1);
+    final last = spans.lastIndexWhere((span) => span.$1 < range.$2);
+    if (first < 0 || last <= first) {
+      reach(_Embedding.containerInOneBlock);
+      continue;
+    }
+    reach(_Embedding.containerJoinsBlocks);
+    spans.replaceRange(first, last + 1, [
+      (spans[first].$1, spans[last].$2, ComposerBlockKind.opaque, false, null),
+    ]);
+  }
+  return spans;
 }
