@@ -215,11 +215,16 @@ void _registerShellNavigationTests() {
     testWidgets('global search clears its query and keeps the editor focused', (
       tester,
     ) async {
+      final api = GlobalSearchFixtureApi();
       await pumpShell(
         tester,
         laptop,
-        api: GlobalSearchFixtureApi(),
+        api: api,
         instances: globalSearchFixtureSites,
+        authenticator: FakeAuthenticator.signedIn(
+          globalSearchFixtureSites,
+          site: api,
+        ),
       );
       final shell = ShellScope.read(tester.element(find.byType(MainContent)));
       await tester.tap(find.byKey(ForumSearch.inputKey));
@@ -249,6 +254,10 @@ void _registerShellNavigationTests() {
             laptop,
             api: api,
             instances: globalSearchFixtureSites,
+            authenticator: FakeAuthenticator.signedIn(
+              globalSearchFixtureSites,
+              site: api,
+            ),
           );
           final shell = ShellScope.read(
             tester.element(find.byType(MainContent)),

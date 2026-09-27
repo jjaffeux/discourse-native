@@ -746,7 +746,8 @@ ShellController _controller({
 }) => ShellController(
   instanceStore: FakeInstanceStore(instances),
   api: api,
-  authenticator: authenticator ?? FakeAuthenticator(),
+  authenticator:
+      authenticator ?? FakeAuthenticator.signedIn(instances, site: api),
   drafts: FakeDraftStore(),
   trackers: FakeSiteTracker.reset(),
   updater: updater ?? FakeUpdater(),

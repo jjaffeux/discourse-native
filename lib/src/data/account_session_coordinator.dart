@@ -508,7 +508,32 @@ final class AccountSessionCoordinator {
     String siteUrl, {
     required String apiKey,
     required SiteLease lease,
-  }) async {
+  }) => _expireStoredKey(siteUrl, apiKey, lease);
+
+  /// Signs a signed-in forum out locally once reading its key storage has
+  /// answered that it holds none.
+  ///
+  /// The account snapshot and its key are stored apart and can come back
+  /// apart: an iPhone set up from another device's unencrypted backup gets the
+  /// app's preferences but not its Keychain items, and Linux's private storage
+  /// file can be lost while preferences survive. Such a forum reads
+  /// anonymously and has every write refused while it still shows the account.
+  /// Only an answer counts: a read that failed, as a locked Keychain or an
+  /// undecodable file does, says nothing about the key and must not reach
+  /// this. The guards of [expireRejectedKey] apply, so a key stored since the
+  /// empty read belongs to a newer sign-in and leaves the forum alone.
+  Future<AccountDisconnectionResult> expireMissingKey(
+    String siteUrl, {
+    required SiteLease lease,
+  }) => _expireStoredKey(siteUrl, null, lease);
+
+  /// Expires the key the forum was found holding under [lease], null when
+  /// storage held none, unless storage now answers something else.
+  Future<AccountDisconnectionResult> _expireStoredKey(
+    String siteUrl,
+    String? apiKey,
+    SiteLease lease,
+  ) async {
     if (_operations.containsKey(siteUrl) || !lease.isCurrent) {
       return AccountDisconnectionResult.stale(lifecycle.capture(siteUrl));
     }

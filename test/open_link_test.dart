@@ -594,19 +594,21 @@ Future<ShellController> _pumpLink(
   List<String> messageGroupNames = const [],
   FakeDiscourseApi? api,
 }) async {
+  final instances = [
+    instance('one.example').copyWith(
+      user: signedIn
+          ? DiscourseUser(
+              username: 'j.jaffeux',
+              messageGroupNames: messageGroupNames,
+            )
+          : null,
+    ),
+  ];
+  final site = api ?? FakeDiscourseApi(feeds: const {'/latest.json': []});
   final controller = ShellController(
-    instanceStore: FakeInstanceStore([
-      instance('one.example').copyWith(
-        user: signedIn
-            ? DiscourseUser(
-                username: 'j.jaffeux',
-                messageGroupNames: messageGroupNames,
-              )
-            : null,
-      ),
-    ]),
-    api: api ?? FakeDiscourseApi(feeds: const {'/latest.json': []}),
-    authenticator: FakeAuthenticator(),
+    instanceStore: FakeInstanceStore(instances),
+    api: site,
+    authenticator: FakeAuthenticator.signedIn(instances, site: site),
     drafts: FakeDraftStore(),
     forumTabs: FakeForumTabStore(),
     forumTabsEnabled: tabsEnabled,

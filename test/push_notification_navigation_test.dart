@@ -43,7 +43,7 @@ void main() {
           _connected('two.example'),
         ]),
         api: api,
-        authenticator: FakeAuthenticator(),
+        authenticator: _readerKeys(api),
         drafts: FakeDraftStore(),
         forumTabs: FakeForumTabStore(),
         trackers: FakeSiteTracker.reset(),
@@ -74,7 +74,7 @@ void main() {
     final controller = ShellController(
       instanceStore: FakeInstanceStore([_connected('one.example')]),
       api: api,
-      authenticator: FakeAuthenticator(),
+      authenticator: _readerKeys(api),
       drafts: FakeDraftStore(),
       forumTabs: FakeForumTabStore(),
       trackers: FakeSiteTracker.reset(),
@@ -120,7 +120,7 @@ void main() {
         final controller = ShellController(
           instanceStore: FakeInstanceStore([_connected('one.example')]),
           api: api,
-          authenticator: FakeAuthenticator(),
+          authenticator: _readerKeys(api),
           drafts: FakeDraftStore(),
           forumTabs: FakeForumTabStore(),
           trackers: FakeSiteTracker.reset(),
@@ -183,7 +183,7 @@ void main() {
             _connected(site, groups: ['team']),
           ]),
           api: api,
-          authenticator: FakeAuthenticator(),
+          authenticator: _readerKeys(api, groups: ['team']),
           drafts: FakeDraftStore(),
           forumTabs: FakeForumTabStore(),
           trackers: FakeSiteTracker.reset(),
@@ -241,12 +241,13 @@ void main() {
   test(
     'inbox notifications for inboxes the reader lacks stay unhandled',
     () async {
+      final api = FakeDiscourseApi(feeds: const {'/latest.json': []});
       final controller = ShellController(
         instanceStore: FakeInstanceStore([
           _connected('one.example', groups: ['team']),
         ]),
-        api: FakeDiscourseApi(feeds: const {'/latest.json': []}),
-        authenticator: FakeAuthenticator(),
+        api: api,
+        authenticator: _readerKeys(api, groups: ['team']),
         drafts: FakeDraftStore(),
         forumTabs: FakeForumTabStore(),
         trackers: FakeSiteTracker.reset(),
@@ -267,13 +268,14 @@ void main() {
   );
 
   test('notification navigation rejects unsafe and unowned URLs', () async {
+    final api = FakeDiscourseApi(feeds: const {'/latest.json': []});
     final controller = ShellController(
       instanceStore: FakeInstanceStore([
         _connected('one.example'),
         instance('signed-out.example'),
       ]),
-      api: FakeDiscourseApi(feeds: const {'/latest.json': []}),
-      authenticator: FakeAuthenticator(),
+      api: api,
+      authenticator: _readerKeys(api),
       drafts: FakeDraftStore(),
       forumTabs: FakeForumTabStore(),
       trackers: FakeSiteTracker.reset(),
@@ -311,7 +313,7 @@ void main() {
         _connected('two.example'),
       ]),
       api: api,
-      authenticator: FakeAuthenticator(),
+      authenticator: _readerKeys(api),
       drafts: FakeDraftStore(),
       forumTabs: FakeForumTabStore(),
       trackers: FakeSiteTracker.reset(),
@@ -344,10 +346,11 @@ void main() {
       ]),
     );
     addTearDown(plugins.close);
+    final api = FakeDiscourseApi(feeds: const {'/latest.json': []});
     final controller = ShellController(
       instanceStore: FakeInstanceStore([_connected('one.example')]),
-      api: FakeDiscourseApi(feeds: const {'/latest.json': []}),
-      authenticator: FakeAuthenticator(),
+      api: api,
+      authenticator: _readerKeys(api),
       drafts: FakeDraftStore(),
       forumTabs: FakeForumTabStore(),
       trackers: FakeSiteTracker.reset(),
@@ -384,7 +387,7 @@ void main() {
       final controller = ShellController(
         instanceStore: FakeInstanceStore([_connected('one.example')]),
         api: api,
-        authenticator: FakeAuthenticator(),
+        authenticator: _readerKeys(api),
         drafts: FakeDraftStore(),
         forumTabs: FakeForumTabStore(),
         trackers: FakeSiteTracker.reset(),
@@ -421,7 +424,7 @@ void main() {
       DiscourseApp(
         store: _GatedInstanceStore(stored.future),
         api: api,
-        authenticator: FakeAuthenticator(),
+        authenticator: _readerKeys(api),
         drafts: FakeDraftStore(),
         forumTabs: FakeForumTabStore(),
         trackers: FakeSiteTracker.reset(),
@@ -459,7 +462,7 @@ void main() {
       DiscourseApp(
         store: FakeInstanceStore([_connected('one.example')]),
         api: api,
-        authenticator: FakeAuthenticator(),
+        authenticator: _readerKeys(api),
         drafts: FakeDraftStore(),
         forumTabs: FakeForumTabStore(),
         trackers: FakeSiteTracker.reset(),
@@ -497,6 +500,16 @@ DiscourseInstance _connected(String host, {List<String> groups = const []}) =>
     instance(host).copyWith(
       user: DiscourseUser(id: 1, username: 'reader', messageGroupNames: groups),
     );
+
+/// Storage holding the reader's key for every forum these tests sign in,
+/// each of which [site] answers as the reader.
+FakeAuthenticator _readerKeys(
+  FakeDiscourseApi site, {
+  List<String> groups = const [],
+}) => FakeAuthenticator.signedIn([
+  for (final host in ['one.example', 'two.example', 'one.example/forum'])
+    _connected(host, groups: groups),
+], site: site);
 
 TopicPayload _reactionTopic({List<Reaction> reactions = const []}) =>
     topicPayload(

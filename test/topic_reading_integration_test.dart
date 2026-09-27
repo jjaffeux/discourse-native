@@ -4199,11 +4199,13 @@ void _registerTopicReadingTests() {
         topics: {7: detail()},
       );
 
+      final instances = [instance('meta.discourse.org').copyWith(user: reader)];
       await pumpShell(
         tester,
         desktop,
-        instances: [instance('meta.discourse.org').copyWith(user: reader)],
+        instances: instances,
         api: api,
+        authenticator: FakeAuthenticator.signedIn(instances, site: api),
       );
       await tester.tap(contentText('A real topic'));
       await tester.pumpAndSettle();

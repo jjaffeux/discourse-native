@@ -824,6 +824,10 @@ class FakeDiscourseApi
 
   final DiscourseUser? user;
 
+  /// Accounts answered for particular keys ahead of [user], so a forum signed
+  /// in before the test began reads back as the account it stored.
+  final Map<String, DiscourseUser> accounts = {};
+
   final SiteMessageBusBootstrap? messageBusBootstrapResult;
   final Completer<void>? messageBusBootstrapGate;
   final List<String> messageBusBootstrapRequests = [];
@@ -1509,7 +1513,8 @@ class FakeDiscourseApi
     String? clientId,
   }) async {
     currentUserRequests.add(siteUrl);
-    return user ??
+    return accounts[apiKey] ??
+        user ??
         const DiscourseUser(id: 7, username: 'joffreyj', name: 'Joffrey');
   }
 
@@ -4237,6 +4242,25 @@ class FakeAuthenticator implements Authenticator {
     this.disconnectFailure,
     this.apiKeyFailure,
   });
+
+  /// Holds a key for every signed-in forum in [instances], as storage does
+  /// once each has connected, and has [site] answer each key with the account
+  /// that forum stored. A signed-in forum whose storage holds no key is signed
+  /// out by its first account refresh.
+  factory FakeAuthenticator.signedIn(
+    Iterable<DiscourseInstance> instances, {
+    required FakeDiscourseApi site,
+  }) {
+    final authenticator = FakeAuthenticator();
+    for (final instance in instances) {
+      final user = instance.user;
+      if (user == null) continue;
+      final key = 'signed-in-key:${instance.url}';
+      authenticator.keys[instance.url] = key;
+      site.accounts[key] = user;
+    }
+    return authenticator;
+  }
 
   final UserApiCredentials? credentials;
   final UserApiAuthFailure? failure;

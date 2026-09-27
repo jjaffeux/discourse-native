@@ -444,14 +444,17 @@ ShellController _controller({
   bool forumTabsEnabled = true,
   FakeDiscourseApi? api,
   List<DiscourseInstance> instances = const [_site],
-}) => ShellController(
-  instanceStore: FakeInstanceStore(instances),
-  api: api ?? FakeDiscourseApi(feeds: const {'/latest.json': []}),
-  authenticator: FakeAuthenticator(),
-  drafts: FakeDraftStore(),
-  forumTabs: FakeForumTabStore(),
-  forumTabsEnabled: forumTabsEnabled,
-  store: store,
-  aggregatePreferences: AggregatePreferencesStore.memory(),
-  trackers: FakeSiteTracker.reset(),
-);
+}) {
+  final site = api ?? FakeDiscourseApi(feeds: const {'/latest.json': []});
+  return ShellController(
+    instanceStore: FakeInstanceStore(instances),
+    api: site,
+    authenticator: FakeAuthenticator.signedIn(instances, site: site),
+    drafts: FakeDraftStore(),
+    forumTabs: FakeForumTabStore(),
+    forumTabsEnabled: forumTabsEnabled,
+    store: store,
+    aggregatePreferences: AggregatePreferencesStore.memory(),
+    trackers: FakeSiteTracker.reset(),
+  );
+}

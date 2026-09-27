@@ -31,6 +31,7 @@ import 'package:discourse_native/src/shell/forum_settings_controller.dart';
 import 'package:discourse_native/src/shell/global_search_models.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show PlatformException;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -822,6 +823,36 @@ final class _UnansweredClientIdAuthenticator extends FakeAuthenticator {
   Future<String> clientId() {
     clientIdReads++;
     return Completer<String>().future;
+  }
+}
+
+/// Answers every key read with what storage held when it was asked. Reads
+/// asked while [hold] is in force wait for its release, like a platform read
+/// that has already found nothing and whose answer is still on its way back.
+final class _HeldKeyReadAuthenticator extends FakeAuthenticator {
+  Completer<void>? _hold;
+  int heldReads = 0;
+  Completer<void>? authorizeGate;
+  final authorizeStarted = Completer<void>();
+
+  Completer<void> hold() => _hold = Completer<void>();
+
+  void stopHolding() => _hold = null;
+
+  @override
+  Future<String?> apiKeyFor(String siteUrl) async {
+    final hold = _hold;
+    if (hold != null) heldReads++;
+    final answer = await super.apiKeyFor(siteUrl);
+    await hold?.future;
+    return answer;
+  }
+
+  @override
+  Future<UserApiCredentials> authorize(String siteUrl) async {
+    if (!authorizeStarted.isCompleted) authorizeStarted.complete();
+    await authorizeGate?.future;
+    return super.authorize(siteUrl);
   }
 }
 
@@ -1672,6 +1703,165 @@ void main() {
         expect(shell.connectError, isNull);
       });
     }
+  });
+
+  group('missing account key', () {
+    // Preferences and private storage come back apart: an iPhone set up from
+    // another device's unencrypted backup gets the rail but not its Keychain
+    // items, and Linux's private storage file can be lost on its own.
+    const missingKeyError =
+        'The sign-in for meta.discourse.org is no longer saved on this '
+        'device. Sign in again to continue.';
+
+    ShellController keylessShell(
+      FakeInstanceStore store,
+      FakeAuthenticator authenticator, {
+      FakeDiscourseApi? api,
+    }) {
+      final shell = ShellController(
+        instanceStore: store,
+        api: api ?? FakeDiscourseApi(),
+        authenticator: authenticator,
+        drafts: FakeDraftStore(),
+        trackers: FakeSiteTracker.reset(),
+      );
+      addTearDown(shell.dispose);
+      return shell;
+    }
+
+    DiscourseInstance connected() => instance(
+      'meta.discourse.org',
+    ).copyWith(user: const DiscourseUser(id: 7, username: 'account'));
+
+    Future<DiscourseUser?> storedUser(FakeInstanceStore store) async =>
+        (await store.load())
+            .singleWhere((instance) => instance.url == _siteUrl)
+            .user;
+
+    test('signs the forum out and offers to sign in again', () async {
+      final api = FakeDiscourseApi();
+      final store = FakeInstanceStore([connected()]);
+      final authenticator = FakeAuthenticator();
+      final shell = keylessShell(store, authenticator, api: api);
+
+      await shell.load();
+      await pumpEventQueue();
+
+      expect(shell.currentInstance?.user, isNull);
+      expect(await storedUser(store), isNull);
+      expect(authenticator.disconnected, [_siteUrl]);
+      expect(api.revoked, isEmpty);
+      expect(shell.connectError, missingKeyError);
+
+      await shell.connectCurrentInstance();
+
+      expect(shell.currentInstance?.user?.username, 'joffreyj');
+      expect((await storedUser(store))?.username, 'joffreyj');
+      expect(authenticator.keys[_siteUrl], 'api-key');
+      expect(shell.connectError, isNull);
+    });
+
+    final unreadable = <String, Object>{
+      'a locked Keychain': PlatformException(
+        code: 'Unexpected security result code',
+        details: -25308,
+      ),
+      'an undecodable private storage file': const FormatException(
+        'Invalid private storage format',
+      ),
+    };
+    for (final MapEntry(key: name, value: failure) in unreadable.entries) {
+      test('keeps the account through $name', () async {
+        final store = FakeInstanceStore([connected()]);
+        final authenticator = FakeAuthenticator(apiKeyFailure: failure);
+        final shell = keylessShell(store, authenticator);
+
+        await shell.load();
+        await pumpEventQueue();
+
+        expect(shell.currentInstance?.user?.username, 'account');
+        expect((await storedUser(store))?.username, 'account');
+        expect(authenticator.disconnected, isEmpty);
+        expect(shell.connectError, isNull);
+      });
+    }
+
+    test('leaves a signed-out forum without a key alone', () async {
+      final store = FakeInstanceStore([instance('meta.discourse.org')]);
+      final authenticator = FakeAuthenticator();
+      final shell = keylessShell(store, authenticator);
+
+      await shell.load();
+      await pumpEventQueue();
+
+      expect(shell.currentInstance?.url, _siteUrl);
+      expect(authenticator.disconnected, isEmpty);
+      expect(shell.connectError, isNull);
+    });
+
+    // Selecting the forum refreshes its account, and every key read that
+    // selection asks is held: each has found no key and not yet answered.
+    Future<
+      ({ShellController shell, FakeInstanceStore store, Completer<void> held})
+    >
+    selectHeld(_HeldKeyReadAuthenticator authenticator) async {
+      final store = FakeInstanceStore([
+        instance('try.discourse.org'),
+        connected(),
+      ]);
+      final shell = keylessShell(store, authenticator);
+      await shell.load();
+      await pumpEventQueue();
+      expect(shell.currentInstance?.url, 'https://try.discourse.org');
+
+      final held = authenticator.hold();
+      shell.selectInstance(1);
+      authenticator.stopHolding();
+      expect(shell.currentInstance?.url, _siteUrl);
+      expect(authenticator.heldReads, isPositive);
+      return (shell: shell, store: store, held: held);
+    }
+
+    test('a sign-in stored while an empty read is held keeps it', () async {
+      final authenticator = _HeldKeyReadAuthenticator();
+      final (:shell, :store, :held) = await selectHeld(authenticator);
+
+      await shell.connectCurrentInstance();
+      expect(authenticator.keys[_siteUrl], 'api-key');
+
+      held.complete();
+      await pumpEventQueue();
+
+      expect(shell.currentInstance?.user?.username, 'joffreyj');
+      expect((await storedUser(store))?.username, 'joffreyj');
+      expect(authenticator.keys[_siteUrl], 'api-key');
+      expect(authenticator.disconnected, isEmpty);
+      expect(shell.connectError, isNull);
+    });
+
+    test(
+      'an empty read answering during sign-in leaves the forum to it',
+      () async {
+        final authenticator = _HeldKeyReadAuthenticator()
+          ..authorizeGate = Completer<void>();
+        final (:shell, :store, :held) = await selectHeld(authenticator);
+
+        final signingIn = shell.connectCurrentInstance();
+        await authenticator.authorizeStarted.future;
+        held.complete();
+        await pumpEventQueue();
+        expect(shell.currentInstance?.user?.username, 'account');
+
+        authenticator.authorizeGate!.complete();
+        await signingIn;
+
+        expect(shell.currentInstance?.user?.username, 'joffreyj');
+        expect((await storedUser(store))?.username, 'joffreyj');
+        expect(authenticator.keys[_siteUrl], 'api-key');
+        expect(authenticator.disconnected, isEmpty);
+        expect(shell.connectError, isNull);
+      },
+    );
   });
 
   group('connection and removal operations', () {
