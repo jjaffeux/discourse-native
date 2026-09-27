@@ -2787,14 +2787,24 @@ class _TopicBottomBar extends StatelessWidget {
       rounded: !context.isTouch,
       padding: EdgeInsets.zero,
       child: ForumTabLayoutBuilder(
-        builder: (context, _) => ConstrainedBox(
+        builder: (context, constraints) => ConstrainedBox(
           constraints: BoxConstraints(minHeight: topicBottomBarHeight(context)),
           child: Padding(
             padding: topicBottomBarPadding,
             child: Row(
               children: [
                 if (showReply || showArchive)
-                  Expanded(
+                  // Actions keep their natural width, up to three fifths of the
+                  // bar, and progress takes the rest: at large text sizes its
+                  // label scales down instead of Reply sliding underneath it.
+                  ConstrainedBox(
+                    constraints: BoxConstraints(
+                      maxWidth:
+                          (constraints.maxWidth -
+                              topicBottomBarPadding.horizontal) *
+                          3 /
+                          5,
+                    ),
                     child: Wrap(
                       key: const ValueKey('topic-footer-actions'),
                       spacing: DSpacing.controlGap,
@@ -2832,28 +2842,28 @@ class _TopicBottomBar extends StatelessWidget {
                               : const MessageArchiveButtonPlaceholder(),
                       ],
                     ),
-                  )
-                else
-                  const Spacer(),
-                ListenableBuilder(
-                  listenable: viewport.progressPositionListenable,
-                  builder: (context, _) {
-                    final position = viewport.progressPosition;
-                    if (position == null || totalPosts <= 1) {
-                      return const SizedBox.shrink();
-                    }
-                    return Align(
-                      alignment: AlignmentDirectional.centerEnd,
-                      child: Padding(
-                        padding: const EdgeInsetsDirectional.only(start: 8),
-                        child: TopicProgressPopover(
-                          controller: controller,
-                          position: position,
-                          total: totalPosts,
+                  ),
+                Expanded(
+                  child: ListenableBuilder(
+                    listenable: viewport.progressPositionListenable,
+                    builder: (context, _) {
+                      final position = viewport.progressPosition;
+                      if (position == null || totalPosts <= 1) {
+                        return const SizedBox.shrink();
+                      }
+                      return Align(
+                        alignment: AlignmentDirectional.centerEnd,
+                        child: Padding(
+                          padding: const EdgeInsetsDirectional.only(start: 8),
+                          child: TopicProgressPopover(
+                            controller: controller,
+                            position: position,
+                            total: totalPosts,
+                          ),
                         ),
-                      ),
-                    );
-                  },
+                      );
+                    },
+                  ),
                 ),
               ],
             ),

@@ -1308,6 +1308,39 @@ void main() {
       expect(find.text('1 / 3'), findsOneWidget);
     });
 
+    for (final reduceMotion in [false, true]) {
+      testWidgets('stepping ${reduceMotion ? 'jumps under' : 'slides without'} '
+          'Reduce Motion', (tester) async {
+        tester.platformDispatcher.accessibilityFeaturesTestValue =
+            FakeAccessibilityFeatures(disableAnimations: reduceMotion);
+        addTearDown(
+          tester.platformDispatcher.clearAccessibilityFeaturesTestValue,
+        );
+        await pumpCooked(tester, threeImages);
+        await tester.tap(thumbnail());
+        await tester.pumpAndSettle();
+        double page() =>
+            tester.widget<PageView>(find.byType(PageView)).controller!.page!;
+
+        for (final (key, target, counter) in [
+          (LogicalKeyboardKey.arrowRight, 1.0, '2 / 3'),
+          (LogicalKeyboardKey.arrowLeft, 0.0, '1 / 3'),
+        ]) {
+          await tester.sendKeyEvent(key);
+          await tester.pump();
+          if (reduceMotion) {
+            expect(page(), target);
+          } else {
+            expect(page(), isNot(target));
+            expect(tester.hasRunningAnimations, isTrue);
+          }
+          await tester.pumpAndSettle();
+          expect(page(), target);
+          expect(find.text(counter), findsOneWidget);
+        }
+      });
+    }
+
     testWidgets('offers arrows to a pointer', (tester) async {
       await pumpCookedOn(tester, threeImages, TargetPlatform.macOS);
       await tester.tap(thumbnail(1));
