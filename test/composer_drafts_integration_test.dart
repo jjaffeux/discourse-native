@@ -2889,6 +2889,77 @@ void _registerComposerAndDraftTests() {
       // too, or reopening the composer offers to write the reply again.
       expect(drafts.saved, isEmpty);
     }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
+
+    for (final recheck in [false, true]) {
+      testWidgets(
+        'a reply found posted by ${recheck ? 'Check again' : 'the check'} '
+        'leaves no draft behind',
+        (tester) async {
+          final drafts = FakeDraftStore();
+          final api = FakeDiscourseApi(
+            feeds: {'/latest.json': listed},
+            topics: {7: detail()},
+            postsById: {
+              2: const Post(
+                id: 2,
+                postNumber: 2,
+                username: 'joffreyj',
+                cooked: '<p>Going out now</p>',
+                raw: 'Going out now',
+              ),
+            },
+            writeFailure: const WriteException(WriteFailure.unreachable),
+            draftFailure: const WriteException(WriteFailure.unreachable),
+          );
+          final landed = topicPayload(
+            id: 7,
+            title: 'A real topic',
+            posts: detail().posts,
+            stream: const [1, 2],
+            postsCount: 2,
+            canCreatePost: true,
+          );
+          final sendButton = find.descendant(
+            of: find.byType(ComposerPanel),
+            matching: find.byKey(const ValueKey('composer-submit')),
+          );
+
+          await openComposer(tester, api, drafts: drafts);
+          await tester.enterText(_composerField, 'Going out now');
+          await settleDraft(tester);
+          expect(drafts.saved, isNotEmpty);
+
+          if (recheck) {
+            api.topics.remove(7);
+          } else {
+            api.topics[7] = landed;
+          }
+          await tester.tap(sendButton);
+          await tester.pumpAndSettle();
+          if (recheck) {
+            expect(tester.widget<DButton>(sendButton).tooltip, 'Check again');
+            api.topics[7] = landed;
+            await tester.tap(sendButton);
+            await tester.pumpAndSettle();
+          }
+
+          expect(api.created, hasLength(1));
+          expect(find.byType(ComposerPanel), findsNothing);
+          // The site dropped its copy when it took the reply. Ours surviving
+          // would put the text back in the next reply, whose first save hands
+          // it to the site again: the second post the check exists to prevent.
+          expect(drafts.saved, isEmpty);
+
+          await tester.tap(find.byTooltip('Reply to this topic'));
+          await tester.pumpAndSettle();
+          expect(
+            tester.widget<TextField>(_composerField).controller!.text,
+            isEmpty,
+          );
+        },
+        variant: TargetPlatformVariant.only(TargetPlatform.linux),
+      );
+    }
   });
 }
 
