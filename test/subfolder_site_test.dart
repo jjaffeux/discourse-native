@@ -164,6 +164,36 @@ void main() {
       expect(shell.currentContent?.groupRoute, GroupRoute.detail('staff'));
     });
 
+    test('opens the message a membership request produced', () async {
+      final api = FakeDiscourseApi(
+        topics: {
+          42: topicPayload(
+            id: 42,
+            title: 'Membership request',
+            posts: const [
+              Post(
+                id: 1,
+                postNumber: 1,
+                username: 'alice',
+                cooked: '<p>I run the help desk.</p>',
+              ),
+            ],
+          ),
+        },
+      );
+      final shell = await loadShell(api);
+      addTearDown(shell.dispose);
+
+      // Discourse writes the path with the forum's subfolder already on it.
+      ShellGroupPagesPort(shell).openMembershipRequest((
+        siteUrl: _siteUrl,
+        accountIdentity: shell.currentAccountIdentity!,
+        tabId: shell.activeTabId,
+      ), '/forum/t/membership-request/42');
+
+      expect(shell.currentContent?.topicId, 42);
+    });
+
     testWidgets('shows the card of a user found by search in the app', (
       tester,
     ) async {

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 
 import '../data/api_credentials.dart';
+import '../data/discourse_api_contracts.dart';
 import '../data/groups_api.dart';
 import '../data/site_lifecycle.dart';
 import '../diagnostics/diagnostics_controller.dart';
@@ -42,6 +43,8 @@ final class GroupDirectoryQuery {
 }
 
 const Object _absent = Object();
+
+const _saveFailureMessage = "Couldn't save that group change.";
 
 List<T> _immutableSnapshot<T>(List<T> values) =>
     values.isEmpty ? const [] : List<T>.unmodifiable(values);
@@ -327,6 +330,27 @@ final class GroupLogsState {
   final bool loaded;
   final String? error;
   final bool pageError;
+}
+
+/// How a membership request the site answered ended.
+sealed class GroupMembershipRequestResult {
+  const GroupMembershipRequestResult();
+}
+
+final class GroupMembershipRequestSent extends GroupMembershipRequestResult {
+  const GroupMembershipRequestSent({this.messageUrl});
+
+  /// The private message Discourse opened with the group's owners, as the
+  /// site wrote it. Its path already carries a subfolder forum's prefix.
+  final String? messageUrl;
+}
+
+final class GroupMembershipRequestFailed extends GroupMembershipRequestResult {
+  const GroupMembershipRequestFailed(this.message);
+
+  /// The site's own refusal, such as a request already pending, when it gave
+  /// one; otherwise the generic failure.
+  final String message;
 }
 
 typedef _DirectoryKey = ({String siteUrl, GroupDirectoryQuery query});
@@ -1065,22 +1089,42 @@ final class GroupsController extends FrameSafeNotifier {
     ),
   );
 
-  Future<bool> requestMembership(
+  /// Null when there is no answer to show: another change to the group was
+  /// still in flight, no account could send it, or the site or account
+  /// changed before the site answered.
+  Future<GroupMembershipRequestResult?> requestMembership(
     DiscourseInstance instance,
     Group group,
     String reason,
-  ) => _mutate(instance, group, 'groups.requestMembership', (
-    apiKey,
-    clientId,
   ) async {
-    await api.requestMembership(
-      siteUrl: instance.url,
-      apiKey: apiKey,
-      clientId: clientId,
-      groupName: group.name,
-      reason: reason,
+    String? messageUrl;
+    Object? failure;
+    final sent = await _mutate(
+      instance,
+      group,
+      'groups.requestMembership',
+      (apiKey, clientId) async {
+        messageUrl = await api.requestMembership(
+          siteUrl: instance.url,
+          apiKey: apiKey,
+          clientId: clientId,
+          groupName: group.name,
+          reason: reason,
+        );
+      },
+      // A request changes nothing the group payload reports, so the message
+      // it produced opens without waiting on a re-read.
+      refreshDetail: false,
+      onFailure: (error) => failure = error,
     );
-  });
+    if (sent) return GroupMembershipRequestSent(messageUrl: messageUrl);
+    return switch (failure) {
+      null => null,
+      final WriteException error when error.errors.isNotEmpty =>
+        GroupMembershipRequestFailed(error.message),
+      _ => const GroupMembershipRequestFailed(_saveFailureMessage),
+    };
+  }
 
   Future<bool> handleRequest(
     DiscourseInstance instance,
@@ -1378,6 +1422,7 @@ final class GroupsController extends FrameSafeNotifier {
     Future<void> Function(String apiKey, String clientId) write, {
     bool refreshDetail = true,
     VoidCallback? removeCachedRows,
+    ValueSetter<Object>? onFailure,
   }) async {
     final key = _groupKey(instance.url, group.name);
     if (isDisposed || _mutations.containsKey(key)) return false;
@@ -1430,8 +1475,9 @@ final class GroupsController extends FrameSafeNotifier {
         _details[key] = GroupDetailState(
           detail: held.detail,
           loaded: held.loaded,
-          error: "Couldn't save that group change.",
+          error: _saveFailureMessage,
         );
+        onFailure?.call(error);
       }
       return false;
     } finally {

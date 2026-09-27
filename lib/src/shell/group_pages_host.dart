@@ -6,9 +6,11 @@ import 'package:flutter/material.dart';
 import '../models/group.dart';
 import '../models/group_route.dart';
 import '../plugin_api/plugin_registry.dart';
+import 'adaptive_dialog_action.dart';
 import 'group_page.dart';
 import 'group_pages_coordinator.dart';
 import 'group_pages_port.dart';
+import 'groups_controller.dart';
 import 'groups_page.dart';
 import 'topic_list_view.dart';
 
@@ -149,41 +151,51 @@ class _GroupDetailView extends StatelessWidget {
         await port.join(owner, group);
         break;
       case GroupMembershipAction.leave:
+        // As on the web, only a group anyone can join again is left without
+        // asking first.
+        if (!group.publicAdmission) {
+          final confirmed = await showDiscourseAlertDialog<bool>(
+            context: context,
+            title: Text('Leave ${group.label}?'),
+            description: const Text(
+              "You won't be able to join it again on your own.",
+            ),
+            cancelLabel: const Text('Cancel'),
+            actionLabel: const Text('Leave group'),
+            cancelResult: false,
+            actionResult: true,
+            actionKey: const ValueKey('confirm-leave-group'),
+            actionVariant: DButtonVariant.destructive,
+          );
+          if (confirmed != true || !context.mounted) return;
+        }
         await port.leave(owner, group);
         break;
       case GroupMembershipAction.request:
-        final controller = TextEditingController(
-          text: group.membershipRequestTemplate,
-        );
-        final reason = await showDialog<String>(
+        final navigationIdentity = coordinator.navigationIdentity;
+        final reason = await showDDialog<String>(
           context: context,
-          builder: (context) => AlertDialog(
-            title: Text('Request to join ${group.label}'),
-            content: DTextarea(
-              controller: controller,
-              minLines: 3,
-              maxLines: 8,
-              autofocus: true,
-              labelText: 'Reason',
-            ),
-            actions: [
-              DButton(
-                label: const Text('Cancel'),
-                onPressed: () => Navigator.pop(context),
-              ),
-              DButton(
-                label: const Text('Send request'),
-                onPressed: () => Navigator.pop(context, controller.text),
-                variant: DButtonVariant.primary,
-              ),
-            ],
-          ),
+          builder: (context, controller) =>
+              _MembershipRequestDialog(group: group, controller: controller),
         );
-        controller.dispose();
-        if (reason?.trim().isNotEmpty == true) {
-          await port.requestMembership(owner, group, reason!);
+        if (reason == null || reason.trim().isEmpty) return;
+        final result = await port.requestMembership(owner, group, reason);
+        if (!context.mounted) return;
+        switch (result) {
+          // Discourse files the request as a private message to the group's
+          // owners; the web client routes there, and so does the page that
+          // sent it, unless it has since been left.
+          case GroupMembershipRequestSent(:final messageUrl?)
+              when identical(
+                coordinator.navigationIdentity,
+                navigationIdentity,
+              ):
+            port.openMembershipRequest(owner, messageUrl);
+          case GroupMembershipRequestFailed(:final message):
+            DToast.show(context, message, type: DToastType.error);
+          case GroupMembershipRequestSent() || null:
+            break;
         }
-        break;
     }
   }
 
@@ -292,4 +304,75 @@ class _GroupDetailView extends StatelessWidget {
       },
     );
   }
+}
+
+/// Owns the reason field, so the field outlives the dialog's exit transition
+/// rather than being disposed while the closing route still draws it.
+class _MembershipRequestDialog extends StatefulWidget {
+  const _MembershipRequestDialog({
+    required this.group,
+    required this.controller,
+  });
+
+  final Group group;
+  final DDialogController<String> controller;
+
+  @override
+  State<_MembershipRequestDialog> createState() =>
+      _MembershipRequestDialogState();
+}
+
+class _MembershipRequestDialogState extends State<_MembershipRequestDialog> {
+  late final TextEditingController _reason = TextEditingController(
+    text: widget.group.membershipRequestTemplate,
+  );
+
+  // Discourse requires a reason, and the web form holds its submit until one
+  // is written.
+  bool get _canSend => _reason.text.trim().isNotEmpty;
+
+  @override
+  void dispose() {
+    _reason.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => DDialogContent(
+    key: const ValueKey('group-request-dialog'),
+    semanticLabel: 'Request to join ${widget.group.label}',
+    maxWidth: 460,
+    children: [
+      DDialogHeader(
+        children: [
+          DDialogTitle(child: Text('Request to join ${widget.group.label}')),
+        ],
+      ),
+      DTextarea(
+        controller: _reason,
+        minLines: 3,
+        maxLines: 8,
+        autofocus: true,
+        labelText: 'Reason',
+        onChanged: (_) => setState(() {}),
+      ),
+      DDialogFooter(
+        children: [
+          DButton(
+            label: const Text('Cancel'),
+            variant: DButtonVariant.outline,
+            onPressed: widget.controller.close,
+          ),
+          DButton(
+            key: const ValueKey('send-group-request'),
+            label: const Text('Send request'),
+            variant: DButtonVariant.primary,
+            onPressed: _canSend
+                ? () => widget.controller.close(_reason.text)
+                : null,
+          ),
+        ],
+      ),
+    ],
+  );
 }
