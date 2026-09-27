@@ -238,6 +238,7 @@ void main() {
         {
           'leaving_user_ids': [2],
         },
+        messageId: 48,
       );
       await tester.pumpAndSettle();
       expect(ring, findsNothing);
