@@ -5149,15 +5149,23 @@ class ChatController extends FrameSafeNotifier {
 
   /// Shares one bounded initial sidebar load per site; live tracking keeps it
   /// fresh, while failure leaves the site without a chat section.
+  ///
+  /// [force] is reserved for an explicit retry or refresh by the reader.
   Future<void> loadChannels(String siteUrl, {bool force = false}) {
     if (isDisposed) return Future.value();
     final key = _channelsKey(siteUrl);
     if (!force && _publicIds.containsKey(siteUrl)) return Future.value();
-    if ((_attempts[key] ?? 0) >= maxChannelAttempts) return Future.value();
 
     // The shortcut must await the shared task before choosing its destination.
     final active = _channelRequests[key];
     if (active != null) return active;
+
+    // The cap stops automatic callers hammering a site that will not answer;
+    // an explicit retry is the later UI event it waits for, so it starts a
+    // fresh budget. It sits below the join so an attempt in flight keeps its
+    // count.
+    if (force) _attempts.remove(key);
+    if ((_attempts[key] ?? 0) >= maxChannelAttempts) return Future.value();
 
     final run = Object();
     _channelRuns[key] = run;

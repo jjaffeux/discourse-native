@@ -3418,6 +3418,61 @@ void main() {
       );
     });
 
+    test('an explicit retry is still heard once loads are given up', () async {
+      final channels = <String, ChatChannels>{};
+      final subject = build(channels: channels);
+      for (var i = 0; i < 10; i++) {
+        await subject.chat.loadChannels(site);
+      }
+      expect(subject.chat.channelsError(site), isNotNull);
+
+      channels[site] = ChatChannels(public: [channel(9)]);
+      await subject.chat.loadChannels(site, force: true);
+
+      expect(
+        subject.api.chatChannelsRequested.length,
+        ChatController.maxChannelAttempts + 1,
+      );
+      expect(subject.chat.publicChannels(site).map((c) => c.id), [9]);
+      expect(subject.chat.channelsError(site), isNull);
+    });
+
+    test('a failed explicit retry leaves automatic loads bounded', () async {
+      final subject = build();
+      for (var i = 0; i < 10; i++) {
+        await subject.chat.loadChannels(site);
+      }
+
+      await subject.chat.loadChannels(site, force: true);
+      for (var i = 0; i < 10; i++) {
+        await subject.chat.loadChannels(site);
+      }
+
+      expect(
+        subject.api.chatChannelsRequested.length,
+        ChatController.maxChannelAttempts * 2,
+      );
+      expect(subject.chat.channelsError(site), isNotNull);
+    });
+
+    test('a retry that joins a load in flight keeps it counted', () async {
+      final gate = Completer<void>();
+      final subject = build(channelGate: gate);
+
+      final first = subject.chat.loadChannels(site);
+      final retry = subject.chat.loadChannels(site, force: true);
+      gate.complete();
+      await Future.wait([first, retry]);
+      for (var i = 0; i < 10; i++) {
+        await subject.chat.loadChannels(site);
+      }
+
+      expect(
+        subject.api.chatChannelsRequested.length,
+        ChatController.maxChannelAttempts,
+      );
+    });
+
     test(
       'loads a filtered channel member page through the active session',
       () async {
