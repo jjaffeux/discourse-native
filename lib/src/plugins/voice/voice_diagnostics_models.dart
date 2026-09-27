@@ -329,6 +329,39 @@ abstract final class VoiceDiagnosticsRedactor {
     r'''\b(ufrag)\s+[^\s"',;\\]+''',
     caseSensitive: false,
   );
+  // libwebrtc's own log lines name both credentials bare: `Set ICE ufrag: X
+  // pwd: Y`, `remote ICE parameters: ufrag=X`, `unknown ufrag: X` and a bad
+  // STUN integrity check's `password_=Y`. A value never starts with another
+  // label, so an empty ufrag cannot take the `pwd:` after it as its value
+  // and leave the password standing.
+  static final RegExp _nativeIceCredential = RegExp(
+    r'''(?<![A-Za-z0-9])(ufrag|pwd|password_)([ \t]*[:=][ \t]*)(?!(?:ufrag|pwd|password_)[ \t]*[:=])[^\s"',;\\]+''',
+    caseSensitive: false,
+  );
+  // A STUN binding request carries `remote-ufrag:local-ufrag` as USERNAME,
+  // and libwebrtc logs whichever half failed to match.
+  static final RegExp _nativeStunUsername = RegExp(
+    r'''\b(bad (?:local|remote) username) [^\s"',;\\]+''',
+    caseSensitive: false,
+  );
+  // Candidate::ToString(), and ToSensitiveString() which masks only the
+  // addresses, print `Cand[:foundation:component:protocol:priority:address:
+  // type:related-address:ufrag:pwd:network-id:network-cost:generation]`, so
+  // every gathered, remote or peer-reflexive candidate libwebrtc logs carries
+  // the ICE ufrag and password in unlabelled fields. An address is
+  // `host:port`, with an IPv6 host in brackets. Only that exact shape is
+  // rewritten field by field; any other `Cand[` is redacted to the end of its
+  // line, since a stray colon would move the password out of its slot.
+  static final RegExp _nativeCandidate = RegExp(
+    r'\bCand\[(?:'
+    '(:$_candidateField:\\d+:$_candidateField:\\d+:'
+    '$_candidateAddress:$_candidateField:$_candidateAddress)'
+    ':($_candidateField):($_candidateField)'
+    r'(:\d+:\d+:\d+\])'
+    r'|[^\r\n]*)',
+  );
+  static const String _candidateField = r'[^:\[\]\s]*';
+  static const String _candidateAddress = r'(?:\[[^\[\]\s]*\]|[^:\[\]\s]*):\d+';
   static final RegExp _iceServerRepresentation = RegExp(
     r'\b(?:rtc[-_ ]?)?(?:ice|turn)[-_ ]?servers?\b\s*(?:[:=]\s*)?(?:\[[\s\S]{0,4096}?\]|\{[\s\S]{0,4096}?\}|\([\s\S]{0,4096}?\))',
     caseSensitive: false,
@@ -360,6 +393,15 @@ abstract final class VoiceDiagnosticsRedactor {
       _candidateUfrag,
       (match) => '${match.group(1)} <redacted>',
     );
+    text = text.replaceAllMapped(_nativeCandidate, _redactNativeCandidate);
+    text = text.replaceAllMapped(
+      _nativeIceCredential,
+      (match) => '${match.group(1)}${match.group(2)}<redacted>',
+    );
+    text = text.replaceAllMapped(
+      _nativeStunUsername,
+      (match) => '${match.group(1)} <redacted>',
+    );
     text = text.replaceAllMapped(
       _iceServerRepresentation,
       (match) => match
@@ -389,6 +431,16 @@ abstract final class VoiceDiagnosticsRedactor {
       return '${text.substring(0, maximumLength)}…<truncated>';
     }
     return text;
+  }
+
+  static String _redactNativeCandidate(Match match) {
+    final head = match.group(1);
+    if (head == null) return 'Cand[<redacted>]';
+    // An empty field leaks nothing and shows that a remote candidate arrived
+    // before the description carrying its password.
+    String redact(String value) => value.isEmpty ? value : '<redacted>';
+    return 'Cand[$head:${redact(match.group(2)!)}:'
+        '${redact(match.group(3)!)}${match.group(4)}';
   }
 
   static Map<String, Object?> data(
