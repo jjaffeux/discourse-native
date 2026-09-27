@@ -95,7 +95,9 @@ class TopicListNavigation extends StatelessWidget {
         connected: controller.currentInstance?.isConnected == true,
         unifiedNew: controller.currentInstance?.user?.unifiedNewEnabled == true,
         allCount: counts.all,
-        unreadCount: controller.currentTotals?.topicTrackingUnread ?? 0,
+        // Unread lists exactly the topics Replies counts, so it shares that
+        // count's category and tag scope and its live tracking.
+        unreadCount: counts.replies,
         topicCount: counts.topics,
         replyCount: counts.replies,
         siteUrl: siteUrl,

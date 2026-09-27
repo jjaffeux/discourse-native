@@ -1065,7 +1065,7 @@ void main() {
     expect(controller.sidebarBadgeFor('latest').count, 1060);
   });
 
-  testWidgets('New counts follow category and tag filters and live reads', (
+  testWidgets('Feed counts follow category and tag filters and live reads', (
     tester,
   ) async {
     const parent = TopicCategory(id: 1, name: 'Parent', color: '111111');
@@ -1128,6 +1128,11 @@ void main() {
       tester.widget<TopicFeedMenu>(find.byType(TopicFeedMenu)).newCount,
       4,
     );
+    // Unified New's totals carry no unread count; Unread is Replies' count.
+    expect(
+      tester.widget<TopicFeedMenu>(find.byType(TopicFeedMenu)).unreadCount,
+      1,
+    );
 
     controller.selectTopicListCategory(parent);
     await tester.pumpAndSettle();
@@ -1135,6 +1140,10 @@ void main() {
     expect(
       tester.widget<TopicFeedMenu>(find.byType(TopicFeedMenu)).newCount,
       3,
+    );
+    expect(
+      tester.widget<TopicFeedMenu>(find.byType(TopicFeedMenu)).unreadCount,
+      1,
     );
 
     controller.selectTopicListTags(['bug-fixes']);
@@ -1162,6 +1171,13 @@ void main() {
       ),
       findsOneWidget,
     );
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('topic-list-unread')),
+        matching: find.text('1'),
+      ),
+      findsOneWidget,
+    );
 
     await tester.tap(find.byKey(const ValueKey('topic-list-new-replies')));
     await tester.pumpAndSettle();
@@ -1184,6 +1200,10 @@ void main() {
       tester.widget<TopicFeedMenu>(find.byType(TopicFeedMenu)).newCount,
       1,
     );
+    expect(
+      tester.widget<TopicFeedMenu>(find.byType(TopicFeedMenu)).unreadCount,
+      0,
+    );
 
     controller.selectTopicListTags(['Bug Fixes', 'urgent']);
     await tester.pumpAndSettle();
@@ -1204,6 +1224,101 @@ void main() {
     controller.selectTopicListTags([]);
     await tester.pumpAndSettle();
     expect(controller.topicListNewCounts, (all: 3, topics: 3, replies: 0));
+
+    FakeSiteTracker.built.single.deliverTopicTracking(const {
+      'topic_id': 14,
+      'message_type': 'unread',
+      'payload': {'highest_post_number': 3, 'notification_level': 2},
+    });
+    await tester.pumpAndSettle();
+    expect(controller.topicListNewCounts, (all: 4, topics: 3, replies: 1));
+    expect(
+      tester.widget<TopicFeedMenu>(find.byType(TopicFeedMenu)).unreadCount,
+      1,
+    );
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('legacy Unread counts the filtered category, not the forum', (
+    tester,
+  ) async {
+    const support = TopicCategory(id: 1, name: 'Support', color: '111111');
+    const general = TopicCategory(id: 2, name: 'General', color: '222222');
+    final setup = await _controller(
+      user: const DiscourseUser(id: 7, username: 'sam'),
+      categoryList: [support, general],
+      trackingState: TopicTrackingState(const [
+        TrackedTopicState(
+          topicId: 10,
+          categoryId: 1,
+          highestPostNumber: 4,
+          lastReadPostNumber: 1,
+          notificationLevel: 2,
+        ),
+        TrackedTopicState(topicId: 11, categoryId: 1, createdInNewPeriod: true),
+        TrackedTopicState(
+          topicId: 12,
+          categoryId: 2,
+          highestPostNumber: 4,
+          lastReadPostNumber: 1,
+          notificationLevel: 2,
+        ),
+        TrackedTopicState(
+          topicId: 13,
+          categoryId: 2,
+          highestPostNumber: 6,
+          lastReadPostNumber: 2,
+          notificationLevel: 3,
+        ),
+      ]),
+    );
+    final controller = setup.controller;
+    addTearDown(controller.dispose);
+    await tester.pumpWidget(
+      ShellScope(
+        controller: controller,
+        child: MaterialApp(
+          theme: AppTheme.light,
+          home: const Scaffold(body: TopicListNavigation(child: SizedBox())),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    TopicFeedMenu menu() =>
+        tester.widget<TopicFeedMenu>(find.byType(TopicFeedMenu));
+
+    // The forum-wide legacy list keeps core's totals, as its New count does.
+    expect((menu().newCount, menu().unreadCount), (1054, 5));
+
+    controller.selectTopicListCategory(support);
+    await tester.pumpAndSettle();
+    expect((menu().newCount, menu().unreadCount), (1, 1));
+    await _openFeed(tester);
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('topic-list-unread')),
+        matching: find.text('1'),
+      ),
+      findsOneWidget,
+    );
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+
+    controller.selectTopicListCategory(general);
+    await tester.pumpAndSettle();
+    expect((menu().newCount, menu().unreadCount), (0, 2));
+
+    FakeSiteTracker.built.single.deliverTopicTracking(const {
+      'topic_id': 12,
+      'message_type': 'read',
+      'payload': {'last_read_post_number': 4},
+    });
+    await tester.pumpAndSettle();
+    expect((menu().newCount, menu().unreadCount), (0, 1));
+
+    controller.selectTopicListCategory(null);
+    await tester.pumpAndSettle();
+    expect((menu().newCount, menu().unreadCount), (1054, 5));
     expect(tester.takeException(), isNull);
   });
 
