@@ -434,7 +434,7 @@ class _DHoverCardState extends State<DHoverCard>
       if (MediaQuery.disableAnimationsOf(context) &&
           (_allocatedAnimation?.isAnimating ?? false)) {
         _animation.value = _open ? 1 : 0;
-        if (!_open) _portal.hide();
+        if (!_open) _hidePortal();
       }
     });
   }
@@ -499,7 +499,7 @@ class _DHoverCardState extends State<DHoverCard>
       _DHoverCardLayers.deactivate(this);
       if (noMotion) {
         _animation.value = 0;
-        _portal.hide();
+        _hidePortal();
       } else {
         _animation.reverse();
       }
@@ -509,10 +509,18 @@ class _DHoverCardState extends State<DHoverCard>
     _controller._changed();
   }
 
+  // The content's MouseRegion leaves the tree with the portal without
+  // reporting an exit. A hidden card is not hovered: a flag left set would
+  // keep every later opening from closing when the pointer leaves.
+  void _hidePortal() {
+    _contentHovered = false;
+    _portal.hide();
+  }
+
   void _animationStatus(AnimationStatus status) {
     if (!mounted) return;
     if (status == AnimationStatus.dismissed) {
-      _portal.hide();
+      _hidePortal();
       widget.onOpenChangeComplete?.call(false);
     } else if (status == AnimationStatus.completed) {
       widget.onOpenChangeComplete?.call(true);
@@ -550,7 +558,9 @@ class _DHoverCardState extends State<DHoverCard>
       _closeTimer = null;
       return;
     }
-    _closeTimer?.cancel();
+    // A pending close keeps its deadline; movement outside the pair does not
+    // postpone it.
+    if (_closeTimer?.isActive ?? false) return;
     final delay = widget.trigger.closeDelay;
     if (delay == Duration.zero) {
       _request(false, reason);
