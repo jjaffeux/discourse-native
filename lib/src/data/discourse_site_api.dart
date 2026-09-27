@@ -634,10 +634,27 @@ final class DiscourseSiteApi {
       final scheme = Uri.tryParse(baseUrl)?.scheme;
       return '${scheme == null || scheme.isEmpty ? 'https' : scheme}:$icon';
     }
-    if (icon.startsWith('http://') || icon.startsWith('https://')) return icon;
+    if (icon.startsWith('http://')) return _ownArtworkOverHttps(icon, baseUrl);
+    if (icon.startsWith('https://')) return icon;
     // Server-provided root-relative paths already include any forum subfolder.
     if (icon.startsWith('/')) return '${Uri.parse(baseUrl).origin}$icon';
     return '$baseUrl/$icon';
+  }
+
+  /// Discourse makes its own artwork absolute with `http` unless the site
+  /// forces https, which is off by default. A forum answering over https
+  /// serves that artwork there too, while image loading refuses remote
+  /// plaintext; artwork on any other host or port is left as written.
+  static String _ownArtworkOverHttps(String icon, String baseUrl) {
+    final link = Uri.tryParse(icon);
+    final base = Uri.tryParse(baseUrl);
+    if (link == null ||
+        base == null ||
+        base.scheme != 'https' ||
+        link.authority != base.authority) {
+      return icon;
+    }
+    return link.replace(scheme: 'https').toString();
   }
 
   static Iterable<Map<String, dynamic>> _flattenCategories(

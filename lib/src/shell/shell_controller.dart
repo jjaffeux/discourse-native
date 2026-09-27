@@ -1368,7 +1368,7 @@ class ShellController extends FrameSafeNotifier
 
     final Uri target;
     try {
-      target = requireSafeHttpUrl(Uri.parse(url));
+      target = requireSafeHttpUrl(_notificationSpelling(Uri.parse(url)));
     } on FormatException {
       return false;
     } on UnsafeHttpTransportException {
@@ -1403,6 +1403,23 @@ class ShellController extends FrameSafeNotifier
     }
     if (openListUrl(absolute)) return _revealNotificationTarget();
     return false;
+  }
+
+  /// Discourse spells the URL a push carries with `http` unless the site
+  /// forces https, which is off by default, so a forum this app reaches over
+  /// https names its own pages in plaintext. Nothing is fetched from a
+  /// notification URL — it only selects a route — so such a URL is read as
+  /// the page of the connected https forum serving that host and port. Any
+  /// other plaintext URL is left for the transport check to refuse.
+  Uri _notificationSpelling(Uri link) {
+    if (link.scheme != 'http') return link;
+    final owned = _instances.any(
+      (instance) =>
+          instance.isConnected &&
+          Uri.parse(instance.url).scheme == 'https' &&
+          instance.serves(link),
+    );
+    return owned ? link.replace(scheme: 'https') : link;
   }
 
   bool _revealNotificationTarget() {

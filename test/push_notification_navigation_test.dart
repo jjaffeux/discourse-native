@@ -181,15 +181,84 @@ void main() {
 
     for (final url in const [
       'https://elsewhere.example/t/topic/1',
+      'http://elsewhere.example/t/topic/1',
       'https://signed-out.example/t/topic/1',
-      'http://one.example/t/topic/1',
+      'http://signed-out.example/t/topic/1',
       'https://user:secret@one.example/t/topic/1',
+      'http://user:secret@one.example/t/topic/1',
+      'http://one.example:8080/t/topic/1',
+      'ftp://one.example/t/topic/1',
       'https://one.example/u/reader',
     ]) {
       expect(await controller.openNotificationUrl(url), isFalse, reason: url);
     }
     expect(controller.currentInstance?.url, 'https://one.example');
     expect(controller.currentContent?.topicId, isNull);
+  });
+
+  // Discourse spells a push URL with `http` unless the site forces https,
+  // which it does not by default, while the app reaches the forum over https.
+  test('a plaintext push URL opens its connected https forum', () async {
+    final api = FakeDiscourseApi(
+      feeds: const {'/latest.json': []},
+      topics: {42: topicPayload(id: 42, title: 'Plaintext push')},
+    );
+    final controller = ShellController(
+      instanceStore: FakeInstanceStore([
+        _connected('one.example'),
+        _connected('two.example'),
+      ]),
+      api: api,
+      authenticator: FakeAuthenticator(),
+      drafts: FakeDraftStore(),
+      forumTabs: FakeForumTabStore(),
+      trackers: FakeSiteTracker.reset(),
+    );
+    addTearDown(controller.dispose);
+    await controller.load();
+
+    expect(
+      await controller.openNotificationUrl(
+        'http://two.example/t/plaintext-push/42/3',
+      ),
+      isTrue,
+    );
+    await _waitForTopic(controller);
+
+    expect(controller.currentInstance?.url, 'https://two.example');
+    expect(controller.currentContent?.topicId, 42);
+    expect(controller.currentContent?.postNumber, 3);
+    expect(api.topicPostNumbersOpened, [3]);
+  });
+
+  test('a plaintext push URL reaches plugins spelled https', () async {
+    final opened = <String>[];
+    final plugins = PluginInstaller.install(
+      PluginManifest([
+        _NotificationLinkModule((url) async {
+          opened.add(url);
+          return true;
+        }),
+      ]),
+    );
+    addTearDown(plugins.close);
+    final controller = ShellController(
+      instanceStore: FakeInstanceStore([_connected('one.example')]),
+      api: FakeDiscourseApi(feeds: const {'/latest.json': []}),
+      authenticator: FakeAuthenticator(),
+      drafts: FakeDraftStore(),
+      forumTabs: FakeForumTabStore(),
+      trackers: FakeSiteTracker.reset(),
+      plugins: plugins,
+    );
+    addTearDown(controller.dispose);
+    await controller.load();
+
+    expect(
+      await controller.openNotificationUrl('http://one.example/chat/c/-/9/44'),
+      isTrue,
+    );
+    expect(opened, ['https://one.example/chat/c/-/9/44']);
   });
 
   test(
