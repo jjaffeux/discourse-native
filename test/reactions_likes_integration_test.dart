@@ -1119,6 +1119,62 @@ void _registerReactionAndLikeTests() {
       tester.view.resetPhysicalSize();
     });
 
+    testWidgets('the mobile sheet closes when the site no longer has them', (
+      tester,
+    ) async {
+      final previous = debugDefaultTargetPlatformOverride;
+      debugDefaultTargetPlatformOverride = TargetPlatform.android;
+      try {
+        final api = await openTopic(
+          tester,
+          config: configured,
+          posts: [
+            post(reactions: [(id: 'heart', count: 1)], userCount: 1),
+          ],
+          reactorsById: {
+            '1': const PostReactors(
+              postId: 1,
+              total: 1,
+              reactors: [
+                PostReactor(id: 3, username: 'sam', reaction: 'heart'),
+              ],
+            ),
+          },
+          reactionFailure: const WriteException(
+            WriteFailure.validation,
+            statusCode: 404,
+          ),
+        );
+        tester.view.physicalSize = const Size(390, 844);
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.byKey(const ValueKey('post-reaction-summary-1')));
+        await tester.pumpAndSettle();
+        await tester.tap(
+          find.descendant(
+            of: find.byType(DSheetContent),
+            matching: find.byType(PostReactionButton),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(api.reacted, [(postId: 1, reaction: 'heart')]);
+        expect(tester.takeException(), isNull);
+        expect(find.byType(DSheetContent), findsNothing);
+        expect(
+          find.byKey(const ValueKey('post-reaction-summary-1')),
+          findsNothing,
+        );
+        expect(
+          find.byKey(const ValueKey('post-reaction-button-1')),
+          findsNothing,
+        );
+      } finally {
+        debugDefaultTargetPlatformOverride = previous;
+        tester.view.resetPhysicalSize();
+      }
+    });
+
     testWidgets('clicking an existing reaction adds the reader to it', (
       tester,
     ) async {
