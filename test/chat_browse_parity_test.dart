@@ -237,6 +237,36 @@ void main() {
     },
   );
 
+  testWidgets('inbox rows announce unread like the channel list', (
+    tester,
+  ) async {
+    final fixture = await _pump(tester);
+    final semantics = tester.ensureSemantics();
+    for (final compact in [false, true]) {
+      for (final unread in [0, 1]) {
+        await fixture.show(
+          ChatInboxRow(
+            siteUrl: _site,
+            channel: _channel(1, 'general', unread: unread),
+            compact: compact,
+            onPressed: () {},
+          ),
+        );
+        final label = tester
+            .getSemantics(find.byKey(const ValueKey('chat-inbox-channel-1')))
+            .label;
+        expect(
+          label,
+          unread > 0
+              ? startsWith('Unread conversation\n')
+              : isNot(contains('Unread')),
+          reason: 'compact: $compact, unread: $unread',
+        );
+      }
+    }
+    semantics.dispose();
+  });
+
   testWidgets('voice scope and unread activity filter the same room data', (
     tester,
   ) async {
