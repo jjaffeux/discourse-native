@@ -204,7 +204,7 @@ void main() {
         find.descendant(of: aggregateButton, matching: find.byType(DTooltip)),
       );
       final aggregateShortcut = aggregateTooltip.shortcut![0];
-      expect(aggregateTooltip.message, 'Aggregate');
+      expect(aggregateTooltip.message, 'All forums');
       expect(aggregateShortcut.trigger, LogicalKeyboardKey.digit1);
       expect(aggregateShortcut.meta, isTrue);
       expect(aggregateShortcut.control, isFalse);
@@ -217,7 +217,7 @@ void main() {
       await mouse.addPointer(location: Offset.zero);
       addTearDown(mouse.removePointer);
       for (final (key, message) in [
-        ('aggregate-rail-button', 'Aggregate'),
+        ('aggregate-rail-button', 'All forums'),
         ('add-instance-rail-button', 'Add a Discourse site'),
         ('styleguide-rail-button', 'Open component styleguide'),
         ('settings-rail-button', 'Settings'),
