@@ -8,7 +8,6 @@ import '../models/post.dart';
 import '../models/topic.dart';
 import '../theme/d_icons.dart';
 import 'open_link.dart';
-import 'platform.dart';
 import 'topic_tag_picker.dart';
 import 'topic_taxonomy_picker.dart';
 
@@ -92,13 +91,11 @@ class TopicHeaderTags extends StatelessWidget {
         String overflowLabel(int visible) => visible == 0
             ? 'Tags · ${tags.length}'
             : '+${tags.length - visible}';
-        final editWidth = context.isTouch
-            ? 48.0
-            : DControlStyle.scaledHeight(
-                DControlSize.filter,
-                MediaQuery.textScalerOf(context),
-                context: context,
-              );
+        final editWidth = DControlStyle.scaledHeight(
+          DControlSize.filter,
+          MediaQuery.textScalerOf(context),
+          context: context,
+        );
         // The overflow editor keeps editing available in narrow readers.
         final showEdit =
             showEditAction &&

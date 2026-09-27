@@ -1,6 +1,5 @@
 import 'dart:math' as math;
 
-import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/widgets.dart';
 
@@ -14,7 +13,7 @@ typedef ChatChromeListBuilder =
     Widget Function(BuildContext context, bool lazy);
 
 /// Fixes a Chat screen's header above its list, and an optional footer below
-/// it, while the list keeps at least a touch target of the viewport. A shorter
+/// it, while the list keeps at least 48px of the viewport. A shorter
 /// viewport, such as a phone keyboard over enlarged text, leaves no room for
 /// that chrome, so the list takes its natural height and the header, rows and
 /// footer scroll as one view. Nested scrolling would strand the footer behind
@@ -112,7 +111,7 @@ class _RenderChromeLayout extends RenderBox
     final footerExtent = footer?.size.height ?? 0;
     final room = _viewportExtent - headerExtent - footerExtent;
     final double listExtent;
-    if (room >= DSpacing.touchTarget) {
+    if (room >= 48) {
       list.layout(BoxConstraints.tightFor(width: width, height: room));
       listExtent = room;
     } else {

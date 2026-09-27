@@ -622,10 +622,7 @@ void main() {
         theme: AppTheme.light.copyWith(platform: TargetPlatform.iOS),
       );
       final bounds = tester.getRect(find.byType(DBadge));
-      expect(bounds.height, size == DBadgeSize.tag ? 23 : 48);
-      if (size != DBadgeSize.tag) {
-        expect(bounds.width, greaterThanOrEqualTo(48));
-      }
+      expect(bounds, tester.getRect(find.byType(AnimatedContainer)));
       expect(
         tester.getSize(find.byType(AnimatedContainer)).height,
         switch (size) {

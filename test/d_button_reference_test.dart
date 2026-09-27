@@ -830,16 +830,13 @@ void main() {
             surface.size,
             Size.square(platform == TargetPlatform.macOS ? 24 : 40),
           );
-          expect(
-            target.size,
-            Size.square(platform == TargetPlatform.macOS ? 24 : 48),
-          );
+          expect(target.size, surface.size);
           expect(
             tester.getSemantics(find.byType(DButton)).rect.size,
             target.size,
           );
           final edge = target.topLeft + const Offset(2, 2);
-          expect(surface.contains(edge), platform == TargetPlatform.macOS);
+          expect(surface.contains(edge), isTrue);
           await tester.tapAt(edge);
           expect(
             presses,
@@ -885,12 +882,7 @@ void main() {
             expect(tester.getSize(material), Size.square(height));
           }
           final target = tester.getRect(find.byType(FilledButton));
-          expect(
-            target.height,
-            platform == TargetPlatform.iOS
-                ? 48
-                : DButton.visualDimensionFor(size),
-          );
+          expect(target.height, height);
           await tester.tapAt(target.topLeft + const Offset(2, 2));
           expect(count, 1);
         }

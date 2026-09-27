@@ -57,7 +57,7 @@ void main() {
         if (platform == TargetPlatform.iOS) {
           expect(
             tester.getSize(find.byType(DButton)).height,
-            greaterThanOrEqualTo(48),
+            tester.getSize(surface).height,
           );
         }
         await tester.tap(find.text('Latest topics'));
@@ -161,7 +161,7 @@ void main() {
   ]) {
     for (final iconOnly in [true, false]) {
       testWidgets(
-        'compact toolbar retains touch targets ($platform, icon: $iconOnly)',
+        'compact toolbar uses its visible bounds ($platform, icon: $iconOnly)',
         (tester) async {
           final semantics = tester.ensureSemantics();
           try {
@@ -207,8 +207,7 @@ void main() {
                   widget.decoration is DButtonDecoration,
             );
             final target = tester.getRect(button);
-            expect(target.height, 48);
-            expect(target.width, greaterThanOrEqualTo(48));
+            expect(target, tester.getRect(surface));
             expect(tester.getSize(surface).height, 24);
             if (iconOnly) expect(tester.getSize(surface).width, 32);
             expect(
@@ -217,7 +216,7 @@ void main() {
             );
             expect(tester.getSemantics(button).rect.size, target.size);
             final edge = target.topLeft + const Offset(2, 2);
-            expect(tester.getRect(surface).contains(edge), isFalse);
+            expect(tester.getRect(surface).contains(edge), isTrue);
             await tester.tapAt(edge);
             await tester.pump();
             expect(presses, 1);
@@ -228,7 +227,7 @@ void main() {
             expect(presses, 2);
             await pump(scale: 2);
             expect(tester.getSize(surface).height, greaterThan(24));
-            expect(tester.getSize(button).height, greaterThanOrEqualTo(48));
+            expect(tester.getSize(button), tester.getSize(surface));
             expect(tester.takeException(), isNull);
             await pump(disabled: true);
             await tester.tap(button);
@@ -272,7 +271,7 @@ void main() {
         final desktop = platform == TargetPlatform.macOS;
         expect(
           tester.getSize(button),
-          desktop ? const Size(20, 34) : const Size(48, 48),
+          desktop ? const Size(20, 34) : const Size(44, 44),
         );
         expect(tester.getSize(find.byIcon(Icons.add)), const Size(14, 14));
         final rect = tester.getRect(button);
@@ -427,8 +426,8 @@ void main() {
       );
       expect(tester.getSize(surface), const Size(44, 44));
       expect(tester.getSize(find.byIcon(Icons.forum)), const Size(18, 18));
-      expect(tester.getSize(find.byType(DButton)), const Size(48, 48));
-      // The padded target outside the painted surface must still activate.
+      expect(tester.getSize(find.byType(DButton)), const Size(44, 44));
+      // The inside edge of the painted surface activates the button.
       await tester.tapAt(
         tester.getTopLeft(find.byType(DButton)) + const Offset(1, 24),
       );
@@ -749,7 +748,7 @@ void main() {
     },
   );
 
-  testWidgets('touch target outside the compact surface remains interactive', (
+  testWidgets('outside the visible button neither hovers nor activates', (
     tester,
   ) async {
     var presses = 0;
@@ -776,23 +775,18 @@ void main() {
     );
     final targetRect = tester.getRect(rendered);
     final surfaceRect = tester.getRect(surface);
-    final paddedPoint = Offset(targetRect.left + 1, targetRect.center.dy);
-
-    expect(surfaceRect.contains(paddedPoint), isFalse);
-    expect(buttonSurface(tester).color, Colors.transparent);
-
+    final outside = targetRect.centerLeft - const Offset(1, 0);
+    expect(targetRect, surfaceRect);
     final pointer = await tester.createGesture(kind: PointerDeviceKind.mouse);
     addTearDown(pointer.removePointer);
     await pointer.addPointer();
-    await pointer.moveTo(paddedPoint);
+    await pointer.moveTo(outside);
     await tester.pump();
-
-    expect(
-      buttonSurface(tester).color,
-      DTokens.of(tester.element(rendered)).buttonTheme.accent.hover,
-    );
-
-    await tester.tapAt(paddedPoint);
+    expect(buttonSurface(tester).color, Colors.transparent);
+    await tester.tapAt(outside);
+    await tester.pump();
+    expect(presses, 0);
+    await tester.tapAt(surfaceRect.center);
     await tester.pump();
     expect(presses, 1);
   });
@@ -1092,8 +1086,8 @@ void main() {
 
           if (loading) {
             final rendered = find.byType(FilledButton);
-            expect(tester.getSize(rendered).width, moreOrLessEquals(48));
-            expect(tester.getSize(rendered).height, moreOrLessEquals(48));
+            expect(tester.getSize(rendered).width, moreOrLessEquals(40));
+            expect(tester.getSize(rendered).height, moreOrLessEquals(44));
             expect(rendered, paintsExactlyCountTimes(#drawParagraph, 0));
             expect(find.byType(DSpinner), findsOneWidget);
           }
@@ -1238,7 +1232,7 @@ void main() {
           );
           expect(
             tester.getSize(find.byType(FilledButton)),
-            const Size.square(48),
+            const Size.square(44),
           );
         }
       }

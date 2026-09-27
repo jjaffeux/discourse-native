@@ -1064,7 +1064,9 @@ void main() {
 
       expect(find.byType(DScrollBar), findsOneWidget);
       expect(find.byType(DScrollViewport), findsOneWidget);
-      final scrollbar = tester.widget<RawScrollbar>(find.byType(RawScrollbar));
+      final scrollbar = tester.widget<RawScrollbar>(
+        find.byWidgetPredicate((widget) => widget is RawScrollbar),
+      );
       expect(scrollbar.thumbVisibility, isTrue);
       expect(scrollbar.interactive, isTrue);
       final area = tester.getRect(find.byType(DScrollViewport));
@@ -1479,7 +1481,7 @@ void main() {
     expect(itemRegion.cursor, SystemMouseCursors.basic);
   });
 
-  testWidgets('iOS rows expose 48px touch bounds without changing typography', (
+  testWidgets('iOS rows use their visible bounds and typography', (
     tester,
   ) async {
     debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
@@ -1488,7 +1490,7 @@ void main() {
       await open(tester);
       final profile = tester.getRect(find.text('Profile').first);
       final billing = tester.getRect(find.text('Billing').first);
-      expect(billing.top - profile.top, closeTo(48, 0.1));
+      expect(billing.top - profile.top, closeTo(33.5, 0.1));
       expect(profile.height, closeTo(20, 0.1));
     } finally {
       debugDefaultTargetPlatformOverride = null;

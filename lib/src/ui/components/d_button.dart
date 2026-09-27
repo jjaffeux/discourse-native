@@ -57,7 +57,7 @@ enum DButtonDensity {
   standard,
 
   /// Hierarchical back link: 13px medium text, an 11px chevron and no insets.
-  /// Pair with [DButtonVariant.inline]; mobile retains a 48px touch target.
+  /// Pair with [DButtonVariant.inline]; the hit area follows the label.
   backLink,
   mobileNavigation,
 
@@ -71,7 +71,7 @@ enum DButtonDensity {
   mobileDockAction,
 
   /// Short toolbar surfaces: 24px high, 32px wide for icon-only actions,
-  /// with 14px icons and at least 48px targets on every platform.
+  /// with 14px icons and matching hit areas on every platform.
   compactToolbar,
 
   /// Narrow desktop block actions, retaining regular icons and height.
@@ -340,7 +340,7 @@ extension DiscourseButtonThemeAccess on ThemeData {
 /// [focusNode] is borrowed and never disposed. [label] accepts rich content;
 /// Text can opt into wrapping using its own softWrap and maxLines properties.
 /// Icon-only controls require an accessible tooltip. Desktop surfaces follow
-/// the shared Native sizes, with larger mobile surfaces and at least 48px touch targets.
+/// the shared Native sizes, with platform-sized surfaces and matching hit areas.
 /// The painted surface is a [DButtonDecoration]: state changes transition
 /// together over 150ms, except hover changes and popup dismissal, which apply
 /// immediately to avoid lingering highlights.
@@ -437,13 +437,13 @@ class DButton extends StatelessWidget {
   final DButtonSize size;
 
   /// Mobile navigation supersedes [size] with a 44px surface, 18px icon and
-  /// regular typography. It retains a 48px target and grows with text scaling.
+  /// regular typography. It grows with text scaling.
   /// Mobile dock supersedes [size] with a 46px clear surface and 11px label;
   /// DMobileDockItem supplies its selected icon capsule and inline count.
   /// Mobile dock action supersedes [size] with a 44px surface and 20px icon;
   /// icon-only, it takes its parent's width with the icon centred.
   /// Compact toolbar supersedes [size] with small typography, 14px icons and
-  /// 24px artwork (32px wide for icon-only actions), retaining a 48px target.
+  /// 24px artwork (32px wide for icon-only actions), with matching hit areas.
   /// Chat message actions use 26px artwork, 11px icons and 6px corners.
   final DButtonDensity density;
 
@@ -690,12 +690,6 @@ class DButton extends StatelessWidget {
               (MediaQuery.textScalerOf(context).scale(fontSize) - fontSize) *
                   1.5
         : standardDimension;
-    final touch =
-        mobileNavigation ||
-        mobileDock ||
-        mobileDockAction ||
-        compactToolbar ||
-        DControlStyle.isTouch(context);
     final enabled = onPressed != null && !loading;
     final baseRadius =
         borderRadius ??
@@ -712,18 +706,12 @@ class DButton extends StatelessWidget {
         );
     final direction = Directionality.of(context);
     final joined = DJoinedControlScope.maybeOf(context);
-    // Joined artwork must fill the touch target along the joining axis;
-    // invisible Material padding would otherwise split the shared border.
-    final surfaceWidth = composerBlock && !touch
+    final surfaceWidth = composerBlock
         ? composerBlockWidth(context)
-        : touch && joined?.axis == Axis.horizontal
-        ? visualDimension.clamp(48.0, double.infinity)
         : compactToolbar || effectiveSize == DControlSize.chip
         ? visualDimension + 8
         : visualDimension;
-    final surfaceHeight = touch && joined?.axis == Axis.vertical
-        ? visualDimension.clamp(48.0, double.infinity)
-        : visualDimension;
+    final surfaceHeight = visualDimension;
     final iconOnlySurfaceSize = Size(surfaceWidth, surfaceHeight);
     var radius =
         joined?.resolveRadius(baseRadius, direction) ??
@@ -807,13 +795,10 @@ class DButton extends StatelessWidget {
     final style = ButtonStyle(
       minimumSize: WidgetStatePropertyAll(
         fillsSlot
-            ? Size(48, surfaceHeight)
+            ? Size(0, surfaceHeight)
             : _iconOnly && !intrinsicIcon
             ? iconOnlySurfaceSize
-            : Size(
-                touch && joined?.axis == Axis.horizontal ? 48 : 0,
-                surfaceHeight,
-              ),
+            : Size(0, surfaceHeight),
       ),
       fixedSize: _iconOnly && !intrinsicIcon && !fillsSlot
           ? WidgetStatePropertyAll(iconOnlySurfaceSize)
@@ -895,9 +880,7 @@ class DButton extends StatelessWidget {
       surfaceTintColor: const WidgetStatePropertyAll(Colors.transparent),
       animationDuration: effectiveAnimationDuration,
       visualDensity: VisualDensity.standard,
-      tapTargetSize: touch
-          ? MaterialTapTargetSize.padded
-          : MaterialTapTargetSize.shrinkWrap,
+      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
       splashFactory: NoSplash.splashFactory,
       mouseCursor: WidgetStateProperty.resolveWith(
         (states) => states.contains(WidgetState.disabled)

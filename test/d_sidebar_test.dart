@@ -654,8 +654,15 @@ void main() {
         DSidebarTrigger,
       ]) {
         final bounds = tester.getRect(find.byType(type).first);
-        expect(bounds.height, greaterThanOrEqualTo(48));
-        expect(bounds.width, greaterThanOrEqualTo(48));
+        expect(
+          bounds.height,
+          type == DSidebarMenuButton
+              ? 44
+              : type == DSidebarTrigger
+              ? 44
+              : 20,
+        );
+        expect(bounds.width, greaterThan(0));
       }
       final bounds = tester.getRect(find.byType(DSidebarMenuAction));
       await tester.tapAt(bounds.bottomRight - const Offset(2, 2));
@@ -756,7 +763,7 @@ void main() {
     final scrollbar = tester.widget<RawScrollbar>(
       find.descendant(
         of: find.byType(DSidebarContent),
-        matching: find.byType(RawScrollbar),
+        matching: find.byWidgetPredicate((widget) => widget is RawScrollbar),
       ),
     );
     expect(scrollbar.thumbColor, Colors.transparent);

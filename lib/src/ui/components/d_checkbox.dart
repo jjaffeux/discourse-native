@@ -18,9 +18,8 @@ import 'd_label.dart';
 /// [title] and [subtitle] form one accessible, clickable label. Keep links and
 /// other independently interactive content outside those slots. [secondary]
 /// remains outside the control's semantics and focus owner. Borrowed [focusNode]
-/// is never disposed. Default pointer targets are 40×32, inline targets 24×32,
-/// and touch targets 48×48; the painted
-/// control always remains 16×16 logical pixels.
+/// is never disposed. The unlabelled control and its hit area are 16×16 logical
+/// pixels on every platform. Inline spacing stays outside the hit area.
 class DCheckbox extends StatefulWidget {
   const DCheckbox({
     super.key,
@@ -89,18 +88,16 @@ class DCheckbox extends StatefulWidget {
   final ValueChanged<bool>? onShowFocusHighlight;
   final EdgeInsetsGeometry contentPadding;
 
-  /// Positions an unlabelled checkbox within its unchanged click target.
-  /// Labelled checkboxes always align their artwork with the label row.
-  /// Inline checkboxes retain start alignment and honor the vertical alignment.
+  /// Positions the control within any extra space assigned by its parent.
+  /// That surrounding space is not interactive.
   final AlignmentGeometry alignment;
 
-  /// Uses artwork plus the standard 8px label gap for an unlabelled desktop
-  /// checkbox embedded before editable text. Artwork aligns to the start.
-  /// Touch platforms retain their full 48px target. Ignored when [title] is set.
+  /// Adds a non-interactive 8px gap before adjacent editable text.
+  /// Ignored when [title] is set.
   final bool inline;
 
   /// Aligns inline artwork with the first line of adjacent text using this
-  /// style. The full click target is retained; only the artwork moves.
+  /// style. Alignment padding stays outside the control's hit area.
   /// Omit for a checkbox centered within an inline text span. Ignored when
   /// [inline] is false or [title] is set.
   final TextStyle? inlineTextStyle;
@@ -153,42 +150,7 @@ class _DCheckboxState extends State<DCheckbox> {
   Widget build(BuildContext context) {
     final tokens = DTokens.of(context);
     final dark = Theme.of(context).brightness == Brightness.dark;
-    final touch = switch (Theme.of(context).platform) {
-      TargetPlatform.android ||
-      TargetPlatform.iOS ||
-      TargetPlatform.fuchsia => true,
-      _ => false,
-    };
     final checked = _current == true;
-    final targetHeight = touch ? 48.0 : 32.0;
-    var alignment = widget.alignment.resolve(Directionality.of(context));
-    if (widget.inline) {
-      var vertical = alignment.y;
-      if (widget.inlineTextStyle case final style? when widget.title == null) {
-        final painter = TextPainter(
-          text: TextSpan(
-            text: ' ',
-            style: DefaultTextStyle.of(context).style.merge(style),
-          ),
-          textDirection: Directionality.of(context),
-          textScaler: MediaQuery.textScalerOf(context),
-        )..layout();
-        final center = painter
-            .getBoxesForSelection(
-              const TextSelection(baseOffset: 0, extentOffset: 1),
-            )
-            .first
-            .toRect()
-            .center
-            .dy;
-        painter.dispose();
-        vertical = ((center - 8) / (targetHeight - 16) * 2 - 1).clamp(-1, 1);
-      }
-      alignment = AlignmentDirectional(
-        -1,
-        vertical,
-      ).resolve(Directionality.of(context));
-    }
     final border = checked
         ? tokens.primary
         : widget.invalid
@@ -239,17 +201,9 @@ class _DCheckboxState extends State<DCheckbox> {
       ),
     );
     Widget content = widget.title == null
-        ? SizedBox(
-            width: touch
-                ? 48
-                : widget.inline
-                ? 16 + DSpacing.sm
-                : 40,
-            height: targetHeight,
-            child: Align(alignment: alignment, child: artwork),
-          )
+        ? artwork
         : ConstrainedBox(
-            constraints: BoxConstraints(minHeight: touch ? 48 : 16),
+            constraints: const BoxConstraints(minHeight: 16),
             child: Row(
               crossAxisAlignment: widget.subtitle == null
                   ? CrossAxisAlignment.center
@@ -349,7 +303,42 @@ class _DCheckboxState extends State<DCheckbox> {
         ],
       );
     }
-    return Padding(padding: widget.contentPadding, child: content);
+    var padding = widget.contentPadding;
+    if (widget.inline && widget.title == null) {
+      var top = 0.0;
+      if (widget.inlineTextStyle case final style?) {
+        final painter = TextPainter(
+          text: TextSpan(
+            text: ' ',
+            style: DefaultTextStyle.of(context).style.merge(style),
+          ),
+          textDirection: Directionality.of(context),
+          textScaler: MediaQuery.textScalerOf(context),
+        )..layout();
+        final center = painter
+            .getBoxesForSelection(
+              const TextSelection(baseOffset: 0, extentOffset: 1),
+            )
+            .first
+            .toRect()
+            .center
+            .dy;
+        painter.dispose();
+        top = (center - 8).clamp(0, double.infinity);
+      }
+      padding = padding.add(
+        EdgeInsetsDirectional.only(top: top, end: DSpacing.sm),
+      );
+    }
+    return Padding(
+      padding: padding,
+      child: Align(
+        alignment: widget.alignment,
+        widthFactor: 1,
+        heightFactor: 1,
+        child: content,
+      ),
+    );
   }
 }
 

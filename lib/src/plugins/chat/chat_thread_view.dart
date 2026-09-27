@@ -105,7 +105,6 @@ class _ChatThreadSplit extends StatefulWidget {
 
   static const double minimumPaneWidth = 320;
   static const double dividerWidth = 1;
-  static const double dividerHitWidth = 9;
   static const double minimumTotalWidth = minimumPaneWidth * 2 + dividerWidth;
 
   final String siteUrl;
@@ -150,10 +149,7 @@ class _ChatThreadSplitState extends State<_ChatThreadSplit> {
           maximum,
         );
 
-        final hitWidth = DResizableHandle.resolveHitExtent(
-          context,
-          _ChatThreadSplit.dividerHitWidth,
-        );
+        final hitWidth = DResizableHandle.visualExtent();
         final hitOverlap = (hitWidth - _ChatThreadSplit.dividerWidth) / 2;
         return Stack(
           fit: StackFit.expand,

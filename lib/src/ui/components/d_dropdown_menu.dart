@@ -1324,7 +1324,6 @@ class _DropdownMenuItemSurfaceState extends State<_DropdownMenuItemSurface> {
               : DControlStyle.rowHover(tokens)
         : Colors.transparent;
     final foreground = destructive ? tokens.destructive : tokens.foreground;
-    final mobile = DControlStyle.isTouch(context);
     final startPadding = widget.inset ? 28.0 : 8.0;
     const endPadding = 8.0;
     const trailingGap = 8.0;
@@ -1422,12 +1421,7 @@ class _DropdownMenuItemSurfaceState extends State<_DropdownMenuItemSurface> {
                   : null,
               child: DefaultTextStyle.merge(
                 style: TextStyle(color: foreground),
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(
-                    minHeight: mobile ? DSpacing.touchTarget : 0,
-                  ),
-                  child: Center(heightFactor: 1, child: row),
-                ),
+                child: Center(heightFactor: 1, child: row),
               ),
             ),
           ),

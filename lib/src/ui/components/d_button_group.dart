@@ -27,7 +27,7 @@ class DButtonGroup extends StatefulWidget {
        assert(semanticLabel == null || semanticLabel != '');
 
   /// Places equal-sized icon buttons with [DSpacing.controlGap] between their
-  /// painted surfaces. On touch platforms their 48px targets may overlap in
+  /// painted surfaces. The visible controls remain separated by
   /// the gap, while each button retains its normal size and semantics.
   const DButtonGroup.spaced({
     super.key,
@@ -75,17 +75,14 @@ class _DButtonGroupState extends State<DButtonGroup> {
         MediaQuery.textScalerOf(context),
         context: context,
       );
-      final targetSize = DControlStyle.isTouch(context)
-          ? visualSize.clamp(DSpacing.touchTarget, double.infinity)
-          : visualSize;
       final step = visualSize + DSpacing.controlGap;
       return Semantics(
         container: true,
         explicitChildNodes: true,
         label: widget.semanticLabel,
         child: SizedBox(
-          width: targetSize + (children.length - 1) * step,
-          height: targetSize,
+          width: visualSize + (children.length - 1) * step,
+          height: visualSize,
           child: Stack(
             clipBehavior: Clip.none,
             children: [
@@ -340,7 +337,7 @@ class _RenderButtonGroup extends RenderFlex {
   @override
   void performLayout() {
     super.performLayout();
-    // Separators follow painted controls, not their invisible touch padding.
+    // Separators follow the adjacent painted controls.
     Rect? surfaceBounds;
     var foundSurface = false;
     void collectSurfaces(RenderObject node) {

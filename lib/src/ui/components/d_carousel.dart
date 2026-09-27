@@ -9,6 +9,7 @@ import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
 import '../foundation/tokens.dart';
 import 'd_button.dart';
+import 'd_tooltip.dart';
 
 enum DCarouselAlignment { start, center }
 
@@ -775,4 +776,65 @@ class DCarouselPrevious extends DCarouselNavigation {
 class DCarouselNext extends DCarouselNavigation {
   const DCarouselNext({super.key, super.semanticLabel, super.size})
     : super(direction: DCarouselNavigationDirection.next);
+}
+
+/// A carousel position indicator whose interaction matches its painted pill.
+class DCarouselDot extends StatelessWidget {
+  const DCarouselDot({
+    super.key,
+    required this.selected,
+    required this.semanticLabel,
+    required this.onPressed,
+    this.color,
+    this.focusNode,
+    this.onFocusChange,
+  });
+
+  static const diameter = 10.0;
+  static const selectedWidth = 22.0;
+
+  final bool selected;
+  final String semanticLabel;
+  final VoidCallback onPressed;
+  final Color? color;
+  final FocusNode? focusNode;
+  final ValueChanged<bool>? onFocusChange;
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+    container: true,
+    button: true,
+    selected: selected,
+    label: semanticLabel,
+    onTap: onPressed,
+    child: ExcludeSemantics(
+      child: DTooltip(
+        message: semanticLabel,
+        excludeFromSemantics: true,
+        child: InkWell(
+          focusNode: focusNode,
+          onFocusChange: onFocusChange,
+          onTap: onPressed,
+          borderRadius: BorderRadius.circular(16),
+          child: AnimatedContainer(
+            duration: DMotion.duration(
+              context,
+              const Duration(milliseconds: 250),
+            ),
+            curve: Curves.easeOut,
+            width: selected ? selectedWidth : diameter,
+            height: diameter,
+            decoration: BoxDecoration(
+              color:
+                  color ??
+                  (selected
+                      ? DTokens.of(context).foreground
+                      : DTokens.of(context).border),
+              borderRadius: BorderRadius.circular(16),
+            ),
+          ),
+        ),
+      ),
+    ),
+  );
 }

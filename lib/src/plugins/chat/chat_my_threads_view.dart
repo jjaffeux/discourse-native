@@ -236,7 +236,9 @@ class ChatBrowseThreadRow extends StatelessWidget {
   final ChatThread thread;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => LayoutBuilder(builder: _buildRow);
+
+  Widget _buildRow(BuildContext context, BoxConstraints constraints) {
     final chat = PluginUiScope.require(context, chatControllerService);
     final channel = chat.channel(siteUrl, thread.channelId);
     final preview = thread.preview;
@@ -261,6 +263,9 @@ class ChatBrowseThreadRow extends StatelessWidget {
     return DItem(
       key: ValueKey('chat-my-thread-${thread.id}'),
       shape: DItemShape.fullWidth,
+      padding: constraints.maxWidth < 600
+          ? const EdgeInsets.symmetric(vertical: DSpacing.md)
+          : null,
       semanticLabel:
           'Open thread $title${channel == null ? '' : ' in ${channel.title}'}, ${_replyCountLabel(thread.replyCount)}${unread ? ', unread' : ''}',
       onPressed: () => unawaited(_open(context, chat)),

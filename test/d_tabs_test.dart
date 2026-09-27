@@ -90,12 +90,12 @@ void main() {
       for (final element in find.byType(DTabTrigger<String>).evaluate()) {
         final rect = tester.getRect(find.byWidget(element.widget));
         expect(rect.width, greaterThanOrEqualTo(48));
-        expect(rect.height, greaterThanOrEqualTo(48));
+        expect(rect.height, closeTo(56 * .85, .01));
       }
       final settings = find.byKey(const ValueKey('compact-settings'));
       final settingsRect = tester.getRect(settings);
-      expect(settingsRect.width, greaterThanOrEqualTo(48));
-      expect(settingsRect.height, greaterThanOrEqualTo(48));
+      expect(settingsRect.width, 44);
+      expect(settingsRect.height, 44);
       await tester.tapAt(settingsRect.topLeft + const Offset(2, 2));
       expect(settingsOpened, isTrue);
       final chatRect = tester.getRect(find.byType(DTabTrigger<String>).last);
@@ -204,7 +204,7 @@ void main() {
     for (final element in triggers.evaluate()) {
       final rect = tester.getRect(find.byWidget(element.widget));
       expect(rect.width, 80);
-      expect(rect.height, greaterThanOrEqualTo(48));
+      expect(rect.height, 56);
     }
     await tester.tap(find.byTooltip('Settings'));
     await tester.pumpAndSettle();
@@ -264,9 +264,9 @@ void main() {
         final triggers = find.byType(DTabTrigger<String>);
         final first = tester.getRect(triggers.at(0));
         final second = tester.getRect(triggers.at(1));
-        expect(first.width, 48);
+        expect(first.width, 44);
         expect(first.height, greaterThanOrEqualTo(48));
-        expect((first.center.dx - second.center.dx).abs(), 48);
+        expect((first.center.dx - second.center.dx).abs(), 44);
         await tester.tap(find.byIcon(Icons.home));
         await tester.sendKeyEvent(LogicalKeyboardKey.end);
         await tester.sendKeyEvent(LogicalKeyboardKey.enter);
@@ -323,7 +323,7 @@ void main() {
     );
     await tester.pumpAndSettle();
     for (final element in find.byType(DTabTrigger<String>).evaluate()) {
-      expect(tester.getSize(find.byWidget(element.widget)).width, 48);
+      expect(tester.getSize(find.byWidget(element.widget)).width, 44);
     }
     expect(tester.takeException(), isNull);
   });
@@ -465,7 +465,7 @@ void main() {
         expect(outer.bottom - inner.bottom, greaterThanOrEqualTo(3));
         expect(
           tester.getSize(find.byType(DTabTrigger<String>)).height,
-          greaterThanOrEqualTo(48),
+          tester.getSize(artwork).height,
         );
       }
     }
@@ -1492,7 +1492,7 @@ void main() {
     expect(find.text('Panel two'), findsOneWidget);
   });
 
-  testWidgets('narrow large-text lists scroll and touch targets are 48px', (
+  testWidgets('narrow large-text lists scroll with natural targets', (
     tester,
   ) async {
     await mount(
@@ -1510,8 +1510,8 @@ void main() {
       greaterThanOrEqualTo(48),
     );
     final triggerSize = tester.getSize(find.byType(DTabTrigger<String>).first);
-    expect(triggerSize.width, greaterThanOrEqualTo(48));
-    expect(triggerSize.height, greaterThanOrEqualTo(48));
+    expect(triggerSize.width, greaterThanOrEqualTo(44));
+    expect(triggerSize.height, greaterThanOrEqualTo(44));
     await tester.scrollUntilVisible(
       find.text('Three'),
       100,
@@ -1531,7 +1531,11 @@ void main() {
     for (final trigger in find.byType(DTabTrigger<String>).evaluate()) {
       final size = tester.getSize(find.byElementPredicate((e) => e == trigger));
       expect(size.width, greaterThanOrEqualTo(48));
-      expect(size.height, greaterThanOrEqualTo(48));
+      final artwork = find.descendant(
+        of: find.byWidget(trigger.widget),
+        matching: find.byType(AnimatedContainer),
+      );
+      expect(size.height, tester.getSize(artwork).height);
     }
   });
 

@@ -254,7 +254,7 @@ void main() {
 
         final divider = find.bySemanticsLabel('Thread pane width');
         expect(divider, findsOneWidget);
-        expect(tester.getSize(divider).width, 9);
+        expect(tester.getSize(divider).width, 1);
         final border = find.byKey(const ValueKey('chat-thread-divider-border'));
         expect(tester.getSize(border), Size(1, tester.getSize(divider).height));
         final channelStream = find.descendant(

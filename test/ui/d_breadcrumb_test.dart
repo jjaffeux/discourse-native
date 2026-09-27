@@ -167,7 +167,7 @@ void main() {
       const DBreadcrumbLink(onPressed: _noop, child: Text('Home')),
       platform: TargetPlatform.iOS,
     );
-    expect(tester.getSize(find.byType(DBreadcrumbLink)).height, 48);
+    expect(tester.getSize(find.byType(DBreadcrumbLink)).height, 21);
 
     await pumpBreadcrumb(
       tester,

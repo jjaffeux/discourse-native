@@ -1020,10 +1020,6 @@ class _DCalendarState extends State<DCalendar> {
       value,
       MediaQuery.textScalerOf(context).scale(DiscourseTypography.sm) + 12,
     );
-    final platform = Theme.of(context).platform;
-    if (platform == TargetPlatform.iOS || platform == TargetPlatform.android) {
-      value = math.max(value, DSpacing.touchTarget);
-    }
     return value;
   }
 

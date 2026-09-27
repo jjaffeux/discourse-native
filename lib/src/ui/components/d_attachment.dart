@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../theme/discourse_typography.dart';
+import '../foundation/control_style.dart';
 import '../foundation/focus_highlight.dart';
 import '../foundation/tokens.dart';
 import 'd_button.dart';
@@ -244,13 +245,7 @@ class _DAttachmentState extends State<DAttachment> {
     }
     if (actions.isNotEmpty) {
       if (children.isNotEmpty) children.add(SizedBox(width: gap));
-      final touch = switch (Theme.of(context).platform) {
-        TargetPlatform.android || TargetPlatform.iOS => true,
-        _ => false,
-      };
-      final actionWidth = touch
-          ? actions.first.touchVisualWidth
-          : actions.first.horizontalVisualWidth;
+      final actionWidth = actions.first.visualWidth(context);
       children.add(SizedBox(width: actionWidth));
     }
     return Row(mainAxisSize: MainAxisSize.min, children: children);
@@ -479,11 +474,15 @@ class DAttachmentActions extends StatelessWidget {
     ),
   );
 
-  double get touchVisualWidth => children.fold(
+  double visualWidth(BuildContext context) => children.fold(
     0,
     (width, action) =>
         width +
-        math.max(DSpacing.touchTarget, DButton.visualDimensionFor(action.size)),
+        DControlStyle.scaledHeight(
+          action.size,
+          MediaQuery.textScalerOf(context),
+          context: context,
+        ),
   );
 
   @override

@@ -365,13 +365,10 @@ class _AlertLinkButton extends StatelessWidget {
   );
 }
 
-double _actionSize(BuildContext context) => math.max(
-  context.isTouch ? DSpacing.touchTarget : 30,
-  DControlStyle.scaledHeight(
-    DControlSize.post,
-    MediaQuery.textScalerOf(context),
-    context: context,
-  ),
+double _actionSize(BuildContext context) => DControlStyle.scaledHeight(
+  DControlSize.post,
+  MediaQuery.textScalerOf(context),
+  context: context,
 );
 
 class _AlertActionButton extends StatelessWidget {

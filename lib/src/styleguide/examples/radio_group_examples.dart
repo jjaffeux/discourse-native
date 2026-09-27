@@ -10,7 +10,7 @@ final radioGroupExamples = ComponentExamples(
   description: 'Select one option from a group of choices.',
   notes:
       'A 16px radio with an 8px dot, 1px border and 3px focus/invalid ring follows base-nova. '
-      'Label rows use 12px gaps and 14px labels; desktop rows follow intrinsic content height; touch bounds are at least 48×48. '
+      'Label rows use 12px gaps and 14px labels; rows follow intrinsic content height on every platform. '
       'Use DRadioGroup for local initialValue or DRadioGroup.controlled for parent-owned groupValue. '
       'Both integrate with Form validator/onSaved/reset. readOnly preserves focus and blocks selection; nullable item overrides inherit it. required announces the requirement while validator owns enforcement and error text. Tab enters once, arrows wrap and skip disabled items; Space selects and Enter is inert, as on the reference span. The pointer cursor stays the default arrow; only a disabled item shows the forbidden cursor. The root is a grid with 8px gaps, supplied here by the caller\'s Column spacing or the Field composition. '
       'The frozen Default example composes DLabel; Description, Choice Card, Fieldset, Disabled, Invalid and RTL compose the accepted DField family while each DRadioGroupItem remains the sole radio, focus and selection owner. '

@@ -67,7 +67,7 @@ class DJoinedControlScope extends InheritedWidget {
       _boundary != oldWidget._boundary;
 }
 
-/// Marks the painted bounds separately from a control's padded touch target.
+/// Marks the painted bounds of a joined control.
 class DJoinedControlSurface extends SingleChildRenderObjectWidget {
   const DJoinedControlSurface({super.key, required super.child});
 

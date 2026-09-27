@@ -33,9 +33,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('expanded rows reserve their outer targets by default', (
-    tester,
-  ) async {
+  testWidgets('expanded rows measure the visible controls', (tester) async {
     await tester.pumpWidget(
       MaterialApp(
         theme: AppTheme.light.copyWith(platform: TargetPlatform.iOS),
@@ -75,7 +73,9 @@ void main() {
   });
 
   for (final direction in TextDirection.values) {
-    testWidgets('aligned rows keep full targets in $direction', (tester) async {
+    testWidgets('aligned rows leave surrounding gaps inactive in $direction', (
+      tester,
+    ) async {
       await tester.pumpWidget(
         MaterialApp(
           theme: AppTheme.light.copyWith(platform: TargetPlatform.iOS),
@@ -114,7 +114,7 @@ void main() {
       // These points sit beyond the painted row, inside the padded parent.
       await tester.tapAt(previous.topCenter - const Offset(0, 8));
       await tester.pump();
-      expect(find.text('Month 8'), findsOneWidget);
+      expect(find.text('Month 9'), findsOneWidget);
       await tester.tapAt(next.topCenter - const Offset(0, 8));
       await tester.pump();
       expect(find.text('Month 9'), findsOneWidget);
@@ -132,6 +132,9 @@ void main() {
       await tester.pump();
       expect(find.text('Month 10'), findsOneWidget);
       await tester.tapAt(today.bottomCenter + const Offset(0, 8));
+      await tester.pump();
+      expect(find.text('Month 10'), findsOneWidget);
+      await tester.tapAt(today.center);
       await tester.pump();
       expect(find.text('Month 9'), findsOneWidget);
       expect(tester.takeException(), isNull);
@@ -192,13 +195,12 @@ void main() {
           if (platform != TargetPlatform.macOS) {
             for (final label in ['a', 'b']) {
               final target = tester.getSize(find.byKey(ValueKey(label)));
-              expect(target.width, greaterThanOrEqualTo(48));
-              expect(target.height, greaterThanOrEqualTo(48));
+              expect(target, artwork(tester, label).size);
             }
             if (scale == 1) {
               await tester.tapAt(Offset(upper.center.dx, upper.bottom + 1));
               await tester.tapAt(Offset(lower.center.dx, lower.top - 1));
-              expect(presses, ['a', 'b']);
+              expect(presses, isEmpty);
             }
           }
           await tester.tapAt(upper.center);

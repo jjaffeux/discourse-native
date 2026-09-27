@@ -23,7 +23,9 @@ void main() {
       'Reference demo',
     ]);
   });
-  testWidgets('touch group actions keep separate 48px targets', (tester) async {
+  testWidgets('touch group actions keep separate visible targets', (
+    tester,
+  ) async {
     final example = avatarExamples.examples.firstWhere(
       (e) => e.title == 'Group actions',
     );
@@ -44,8 +46,19 @@ void main() {
       expect(buttons, findsNWidgets(3));
       for (var i = 0; i < 3; i++) {
         final bounds = tester.getRect(buttons.at(i));
-        expect(bounds.width, greaterThanOrEqualTo(48));
-        expect(bounds.height, greaterThanOrEqualTo(48));
+        expect(
+          bounds.size,
+          tester.getSize(
+            find.descendant(
+              of: buttons.at(i),
+              matching: find.byWidgetPredicate(
+                (widget) =>
+                    widget is AnimatedContainer &&
+                    widget.decoration is DButtonDecoration,
+              ),
+            ),
+          ),
+        );
         if (i > 0) {
           expect(bounds.overlaps(tester.getRect(buttons.at(i - 1))), isFalse);
         }

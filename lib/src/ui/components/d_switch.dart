@@ -108,7 +108,7 @@ class _DSwitchState extends State<DSwitch> {
       focused: _focusVisible,
       interactive: _enabled && !widget.readOnly && (_hovered || _pressed),
     );
-    return MergeSemantics(
+    final control = MergeSemantics(
       child: Semantics(
         toggled: _checked,
         enabled: _enabled,
@@ -170,17 +170,16 @@ class _DSwitchState extends State<DSwitch> {
                       _focusVisible,
                       _hovered,
                     ) ??
-                    SizedBox(
-                      width: 48,
-                      height: 48,
-                      child: Center(child: artwork),
-                    ),
+                    artwork,
               ),
             ),
           ),
         ),
       ),
     );
+    return widget._content != null
+        ? control
+        : Align(widthFactor: 1, heightFactor: 1, child: control);
   }
 }
 
@@ -322,14 +321,6 @@ class DSwitchTile extends StatelessWidget {
       return AnimatedContainer(
         duration: DMotion.duration(context, const Duration(milliseconds: 150)),
         curve: const Cubic(0.4, 0, 0.2, 1),
-        constraints: BoxConstraints(
-          minHeight: switch (Theme.of(context).platform) {
-            TargetPlatform.android ||
-            TargetPlatform.iOS ||
-            TargetPlatform.fuchsia => DSpacing.touchTarget,
-            _ => 0,
-          },
-        ),
         padding: choiceCard
             ? const EdgeInsets.all(10).add(contentPadding)
             : hoverHighlight

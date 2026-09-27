@@ -815,10 +815,6 @@ class _DQuestionnaireChoiceTileState extends State<DQuestionnaireChoiceTile> {
         : checked
         ? tokens.primary.withValues(alpha: tokens.primary.a * .4)
         : tokens.colors.outlineVariant;
-    final touch = switch (Theme.of(context).platform) {
-      TargetPlatform.iOS || TargetPlatform.android => true,
-      _ => false,
-    };
     final semanticLabel =
         widget.choice.semanticLabel ??
         switch (widget.choice.label) {
@@ -887,7 +883,7 @@ class _DQuestionnaireChoiceTileState extends State<DQuestionnaireChoiceTile> {
                   : null,
               child: AnimatedContainer(
                 duration: DMotion.duration(context, DMotion.change),
-                constraints: BoxConstraints(minHeight: touch ? 48 : 44),
+                constraints: const BoxConstraints(minHeight: 44),
                 padding: const EdgeInsetsDirectional.fromSTEB(12, 10, 12, 10),
                 decoration: BoxDecoration(
                   color: background,

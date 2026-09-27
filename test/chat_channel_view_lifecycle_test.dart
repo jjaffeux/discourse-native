@@ -1149,7 +1149,7 @@ void main() {
       );
     }
 
-    testWidgets('jump to latest is a named 44-pixel keyboard target', (
+    testWidgets('jump to latest is a named compact keyboard target', (
       tester,
     ) async {
       final api = _ChatApi(
@@ -1179,7 +1179,7 @@ void main() {
         final target = find
             .ancestor(of: icon, matching: find.byType(InkWell))
             .last;
-        expect(tester.getSize(target), const Size.square(44));
+        expect(tester.getSize(target), const Size.square(34));
         expect(
           tester.getCenter(target).dx,
           tester.getCenter(find.byType(ChatChannelView)).dx,

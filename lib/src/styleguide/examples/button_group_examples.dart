@@ -46,7 +46,7 @@ final buttonGroupExamples = ComponentExamples(
       title: 'Orientation',
       description:
           'The vertical group keeps one outside radius and horizontal joins. '
-          'Icon actions expose their own labels and 48px touch targets.',
+          'Icon actions expose their own labels and matching hit areas.',
       states: const ['Vertical', 'Icon only', 'Keyboard', 'Touch'],
       code: '''DButtonGroup(
   orientation: DButtonGroupOrientation.vertical,

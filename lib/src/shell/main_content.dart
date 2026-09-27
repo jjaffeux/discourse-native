@@ -582,7 +582,6 @@ class _TopicInboxWorkspaceState extends State<_TopicInboxWorkspace> {
                       // list fills the reader, the shell or composer owns its edge.
                       dividerWidth: 1,
                       gap: context.isTouch ? 0 : workspacePanelGap,
-                      handleWidth: context.isTouch ? 2 : workspacePanelGap,
                       child: _RetainedTopicListPane(
                         key: ValueKey((
                           state.siteUrl,
@@ -655,16 +654,6 @@ class _TopicInboxWorkspaceState extends State<_TopicInboxWorkspace> {
                                                   ],
                                                 ],
                                               ),
-                                        // The footer padding already clears the desktop handle.
-                                        trailingInset: split
-                                            ? DResizableHandle.resolveHitExtent(
-                                                    context,
-                                                    8,
-                                                  ) -
-                                                  topicBottomBarPadding
-                                                          .horizontal /
-                                                      2
-                                            : 0,
                                       ),
                                 ),
                           child: _FeedBackedContent(

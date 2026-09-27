@@ -626,13 +626,10 @@ class _MobileComposerViewportState extends State<_MobileComposerViewport> {
   Widget build(BuildContext context) {
     _scheduleOverflowUpdate();
     final headerExtent =
-        math.max(
-          DSpacing.touchTarget,
-          DControlStyle.scaledHeight(
-            DControlSize.regular,
-            MediaQuery.textScalerOf(context),
-            context: context,
-          ),
+        DControlStyle.scaledHeight(
+          DControlSize.regular,
+          MediaQuery.textScalerOf(context),
+          context: context,
         ) +
         16;
     return NotificationListener<ScrollMetricsNotification>(
@@ -1255,9 +1252,8 @@ class _ComposerEditorState extends State<ComposerEditor> {
   );
   static const _menuGap = 4.0;
   static const _imageMenuPreferredWidth = 310.0;
-  static const _galleryMenuButtonExtent = DSpacing.touchTarget;
-  static const _galleryMenuContentWidth = _galleryMenuButtonExtent * 4;
-  static const _galleryMenuHeight = _galleryMenuButtonExtent;
+  double get _galleryMenuHeight => _GalleryComposerMenu.controlExtent(context);
+  double get _galleryMenuContentWidth => _galleryMenuHeight * 4;
 
   final GlobalKey _stackKey = GlobalKey();
   ComposerQuoteBlock? _pointerDownQuote;
@@ -2916,7 +2912,7 @@ class _ComposerEditorState extends State<ComposerEditor> {
     final topLeft = stack.globalToLocal(rect.topLeft);
     final bottomRight = stack.globalToLocal(rect.bottomRight);
     final width = math.min(_galleryMenuContentWidth, constraints.maxWidth);
-    const height = _galleryMenuHeight;
+    final height = _galleryMenuHeight;
     final left = topLeft.dx.clamp(
       0.0,
       constraints.maxWidth > width ? constraints.maxWidth - width : 0.0,
@@ -3705,6 +3701,13 @@ class _ImageComposerMenu extends StatelessWidget {
 enum _GalleryAddChoice { upload, existing }
 
 class _GalleryComposerMenu extends StatelessWidget {
+  static double controlExtent(BuildContext context) =>
+      DControlStyle.scaledHeight(
+        DControlSize.regular,
+        MediaQuery.textScalerOf(context),
+        context: context,
+      );
+
   const _GalleryComposerMenu({
     required this.width,
     required this.gallery,
@@ -3743,12 +3746,12 @@ class _GalleryComposerMenu extends StatelessWidget {
           clipBehavior: Clip.antiAlias,
           child: SizedBox(
             width: width,
-            height: _ComposerEditorState._galleryMenuHeight,
+            height: controlExtent(context),
             child: SingleChildScrollView(
               scrollDirection: Axis.horizontal,
               child: SizedBox(
-                width: _ComposerEditorState._galleryMenuContentWidth,
-                height: _ComposerEditorState._galleryMenuHeight,
+                width: controlExtent(context) * 4,
+                height: controlExtent(context),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [

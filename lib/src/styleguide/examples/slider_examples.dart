@@ -16,8 +16,7 @@ final sliderExamples = ComponentExamples(
       'vertical increases upward. step:null enables continuous pointer input. '
       'A null callback disables input. DSliderField and DMultiSliderField support '
       'Form validation, save, reset and external updates. The base-nova 12px '
-      'white thumb, 4px track and 3px ring retain 48px transparent interaction '
-      'bounds. No value tooltip is invented. During a drag controlled values remain authoritative; '
+      'white thumb, 4px track and 3px ring use the visible control bounds. No value tooltip is invented. During a drag controlled values remain authoritative; '
       'parent acceptance, clamping and external updates render immediately. '
       'onChangeCancel does not undo changes already delivered to onChanged.',
   examples: [

@@ -51,10 +51,7 @@ void main() {
       );
       for (final button in buttons.evaluate()) {
         final finder = find.byWidget(button.widget);
-        expect(
-          tester.getSize(finder).width,
-          platform == TargetPlatform.iOS ? 48 : 30,
-        );
+        expect(tester.getSize(finder).width, 30);
         await tester.tap(finder);
       }
       expect(activations, ['Reply', 'More']);
@@ -98,8 +95,8 @@ void main() {
         }
         for (final button in find.byType(FilledButton).evaluate()) {
           final rect = tester.getRect(find.byWidget(button.widget));
-          expect(rect.width, greaterThanOrEqualTo(48));
-          expect(rect.height, greaterThanOrEqualTo(48));
+          expect(rect.width, greaterThanOrEqualTo(40));
+          expect(rect.height, greaterThanOrEqualTo(40));
           await tester.tapAt(rect.center);
         }
         expect(activations, 2);
@@ -743,7 +740,7 @@ void main() {
     );
   });
 
-  testWidgets('touch targets stay 48px while desktop artwork remains compact', (
+  testWidgets('targets follow their artwork on touch and desktop', (
     tester,
   ) async {
     await _pump(
@@ -768,7 +765,7 @@ void main() {
     );
 
     for (final button in find.byType(FilledButton).evaluate()) {
-      expect(tester.getSize(find.byWidget(button.widget)).height, 48);
+      expect(tester.getSize(find.byWidget(button.widget)).height, 40);
     }
   });
 

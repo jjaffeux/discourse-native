@@ -120,14 +120,12 @@ class ResizablePane extends StatefulWidget {
     this.maximumWidth = double.infinity,
     this.widthOverride,
     this.resizeEnabled = true,
-    this.handleWidth = 2,
     this.keyboardStep = 16,
-    this.dividerWidth = 0,
+    this.dividerWidth = 1,
     this.gap = 0,
     this.focusedDividerWidth = 3,
   }) : assert(!maximumWidth.isNaN),
        assert(gap.isFinite && gap >= 0),
-       assert(handleWidth.isFinite && handleWidth > 0),
        assert(keyboardStep.isFinite && keyboardStep > 0),
        assert(dividerWidth.isFinite && dividerWidth >= 0),
        assert(focusedDividerWidth.isFinite && focusedDividerWidth >= 0);
@@ -143,7 +141,6 @@ class ResizablePane extends StatefulWidget {
   final double? widthOverride;
   final bool resizeEnabled;
 
-  final double handleWidth;
   final double keyboardStep;
   final double dividerWidth;
 
@@ -179,7 +176,10 @@ class _ResizablePaneState extends State<ResizablePane> {
           widget.widthOverride ??
           widget.controller.effectiveWidth(maximum: widget.maximumWidth);
       final handleExtent = widget.resizeEnabled
-          ? DResizableHandle.resolveHitExtent(context, widget.handleWidth)
+          ? DResizableHandle.visualExtent(
+              withHandle: widget.gap > 0,
+              dividerThickness: widget.gap > 0 ? 0 : widget.dividerWidth,
+            )
           : 0.0;
       return SizedBox(
         width: width,

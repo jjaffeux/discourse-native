@@ -49,33 +49,38 @@ void main() {
       }
     },
   );
-  testWidgets('iOS production adapters provide 48px transparent drag regions', (
-    tester,
-  ) async {
-    for (final example in resizableExamples.examples.where(
-      (e) => e.title.startsWith('Production'),
-    )) {
-      await tester.pumpWidget(
-        MaterialApp(
-          theme: AppTheme.light.copyWith(platform: TargetPlatform.iOS),
-          home: Scaffold(
-            body: SizedBox(
-              width: 640,
-              child: Builder(builder: example.builder),
+  testWidgets(
+    'iOS production adapters use the visible divider as their drag region',
+    (tester) async {
+      for (final example in resizableExamples.examples.where(
+        (e) => e.title.startsWith('Production'),
+      )) {
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: AppTheme.light.copyWith(platform: TargetPlatform.iOS),
+            home: Scaffold(
+              body: SizedBox(
+                width: 640,
+                child: Builder(builder: example.builder),
+              ),
             ),
           ),
-        ),
-      );
-      for (final handle in find.byType(DResizableHandle).evaluate()) {
-        expect(
-          tester.getSize(find.byWidget(handle.widget)).width,
-          greaterThanOrEqualTo(48),
-          reason: example.title,
         );
+        for (final handle in find.byType(DResizableHandle).evaluate()) {
+          expect(
+            tester.getSize(find.byWidget(handle.widget)).width,
+            DResizableHandle.visualExtent(
+              withHandle: (handle.widget as DResizableHandle).withHandle,
+              dividerThickness:
+                  (handle.widget as DResizableHandle).dividerThickness,
+            ),
+            reason: example.title,
+          );
+        }
+        expect(tester.takeException(), isNull);
       }
-      expect(tester.takeException(), isNull);
-    }
-  });
+    },
+  );
   testWidgets(
     'controlled example supports collapse, restore and dynamic panels',
     (tester) async {

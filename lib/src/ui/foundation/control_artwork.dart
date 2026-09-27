@@ -1,7 +1,7 @@
 import 'package:flutter/rendering.dart';
 import 'package:flutter/widgets.dart';
 
-/// Marks control artwork independently of its larger interaction target.
+/// Marks the visible bounds of a control.
 class DControlArtwork extends SingleChildRenderObjectWidget {
   const DControlArtwork({super.key, required super.child});
 

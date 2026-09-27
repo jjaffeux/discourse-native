@@ -219,9 +219,7 @@ class _Attachment extends StatelessWidget {
         siteUrl: siteUrl,
         child: DAttachment(
           size: DAttachmentSize.extraSmall,
-          // The attachment border sits outside the trigger's content box. Keep
-          // the link itself at the established 44 logical-pixel hit target.
-          constraints: const BoxConstraints(minWidth: 160, minHeight: 46),
+          constraints: const BoxConstraints(minWidth: 160),
           children: [
             const DAttachmentMedia(child: DIcon(DIcons.paperclip, size: 16)),
             DAttachmentContent(

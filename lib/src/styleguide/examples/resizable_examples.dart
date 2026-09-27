@@ -16,7 +16,7 @@ final resizableExamples = ComponentExamples(
       'Controllers are borrowed and attach to one group; dispose them in the host. '
       'Arrow keys resize, Shift accelerates, Home/End reach limits, Enter toggles '
       'collapse, double-click restores the default. RTL mirrors horizontal input. '
-      'Native transparent targets are 24px on desktop and at least 48px on iOS/Android; hitExtent can enlarge them further. '
+      'Resize gestures start on the visible divider or grip. '
       'Infeasible minima are clipped and excess maximum space stays empty; switch '
       'responsive modes before that point. Layout is not a Form input.',
   examples: [
@@ -216,7 +216,7 @@ class _ControlledState extends State<_Controlled> {
               defaultSize: DResizableSize.percent(30),
               child: _Label('Left'),
             ),
-            const DResizableHandle(withHandle: true, hitExtent: 44),
+            const DResizableHandle(withHandle: true),
             if (_extra) ...[
               const DResizablePanel(
                 id: 'middle',
@@ -225,7 +225,7 @@ class _ControlledState extends State<_Controlled> {
                 preservePixelSize: true,
                 child: _Label('Fixed'),
               ),
-              const DResizableHandle(withHandle: true, hitExtent: 44),
+              const DResizableHandle(withHandle: true),
             ],
             const DResizablePanel(
               id: 'right',
@@ -303,7 +303,7 @@ class _OtherAdaptersState extends State<_OtherAdapters> {
   Widget build(BuildContext context) => LayoutBuilder(
     builder: (context, constraints) {
       final maximum = (constraints.maxWidth - 80).clamp(100.0, 320.0);
-      final hitExtent = DResizableHandle.resolveHitExtent(context, 24);
+      final hitExtent = DResizableHandle.visualExtent();
       return Column(
         children: [
           SizedBox(
@@ -319,7 +319,7 @@ class _OtherAdaptersState extends State<_OtherAdapters> {
                         top: 0,
                         bottom: 0,
                         end: 0,
-                        width: DResizableHandle.resolveHitExtent(context, 24),
+                        width: DResizableHandle.visualExtent(),
                         child: DResizableHandle.standalone(
                           semanticLabel: 'Resize local User column',
                           value: _column.clamp(100, maximum),
@@ -572,7 +572,7 @@ class _ControlledState extends State<_Controlled> {
               defaultSize: DResizableSize.percent(30),
               child: _Label('Left'),
             ),
-            const DResizableHandle(withHandle: true, hitExtent: 44),
+            const DResizableHandle(withHandle: true),
             if (_extra) ...[
               const DResizablePanel(
                 id: 'middle',
@@ -581,7 +581,7 @@ class _ControlledState extends State<_Controlled> {
                 preservePixelSize: true,
                 child: _Label('Fixed'),
               ),
-              const DResizableHandle(withHandle: true, hitExtent: 44),
+              const DResizableHandle(withHandle: true),
             ],
             const DResizablePanel(
               id: 'right',
@@ -726,7 +726,7 @@ class _OtherAdaptersState extends State<_OtherAdapters> {
   Widget build(BuildContext context) => LayoutBuilder(
     builder: (context, constraints) {
       final maximum = (constraints.maxWidth - 80).clamp(100.0, 320.0);
-    final hitExtent = DResizableHandle.resolveHitExtent(context, 24);
+    final hitExtent = DResizableHandle.visualExtent();
       return Column(
         children: [
           SizedBox(
@@ -739,7 +739,7 @@ class _OtherAdaptersState extends State<_OtherAdapters> {
                     children: [
                       const Positioned.fill(child: _Label('User column')),
                       PositionedDirectional(top: 0, bottom: 0, end: 0,
-                        width: DResizableHandle.resolveHitExtent(context, 24),
+                        width: DResizableHandle.visualExtent(),
                         child: DResizableHandle.standalone(
                         semanticLabel: 'Resize local User column',
                         value: _column.clamp(100, maximum),

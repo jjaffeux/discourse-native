@@ -14,13 +14,13 @@ final toggleExamples = ComponentExamples(
       'Read-only toggles keep focus and secondary long-press inspection while preventing value changes. '
       'Long press never toggles the value and is suppressed when disabled. '
       'Space, Enter, pointer and native semantics toggle the value; disabled controls do not enter traversal or activate. '
-      'Visual surfaces are 24/28/32px with 48px touch targets, 12/14/16px icons, exact icon-side padding, '
+      'Visual surfaces are 24/28/32px with hit areas matching their surfaces, 12/14/16px icons, exact icon-side padding, '
       'Lucide example artwork, live palette/font/radius, RTL composition and reduced motion.',
   examples: [
     StyleguideExample(
       title: 'Reaction',
       description:
-          'Compact emoji and count with a full touch target on mobile.',
+          'Compact emoji and count with a matching hit area on mobile.',
       code:
           "DToggle(density: DToggleDensity.reaction, variant: DToggleVariant.outline, icon: Icon(Icons.favorite), child: Text('1'))",
       builder: (_) => const DToggle(

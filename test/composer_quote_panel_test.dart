@@ -589,7 +589,24 @@ void main() {
 
       await _pumpPanel(tester, shell, composer);
       await tester.pump();
-      await tester.tapAt(tester.getCenter(find.byTooltip('Remove quote')));
+      final removeBounds = tester.getRect(find.byTooltip('Remove quote'));
+      final quote = composer.text.quoteBlocks.single;
+      expect(
+        composer.text.isQuoteRemoveAtGlobalPosition(quote, removeBounds.center),
+        isTrue,
+      );
+      for (final outside in [
+        removeBounds.centerLeft - const Offset(1, 0),
+        removeBounds.centerRight + const Offset(1, 0),
+        removeBounds.topCenter - const Offset(0, 1),
+        removeBounds.bottomCenter + const Offset(0, 1),
+      ]) {
+        expect(
+          composer.text.isQuoteRemoveAtGlobalPosition(quote, outside),
+          isFalse,
+        );
+      }
+      await tester.tapAt(removeBounds.center);
       await tester.pump();
 
       expect(composer.text.text, isEmpty);

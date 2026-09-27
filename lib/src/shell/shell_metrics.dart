@@ -3,8 +3,6 @@ import 'dart:math' as math;
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
-import 'platform.dart';
-
 // Measured from the desktop mockup. Gutters belong to the workspace layout.
 const double workspacePanelGap = 12;
 const double workspaceEdgeInset = 6;
@@ -49,13 +47,10 @@ const topicBottomBarPadding = EdgeInsets.all(8);
 
 // Footer actions set the bar, so the list and reader bars grow together.
 double topicBottomBarControlHeight(BuildContext context) {
-  return math.max(
-    context.isTouch ? DSpacing.touchTarget : 0,
-    DControlStyle.scaledHeight(
-      DControlSize.action,
-      MediaQuery.textScalerOf(context),
-      context: context,
-    ),
+  return DControlStyle.scaledHeight(
+    DControlSize.action,
+    MediaQuery.textScalerOf(context),
+    context: context,
   );
 }
 

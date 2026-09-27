@@ -565,7 +565,10 @@ class _DResizablePanelGroupState extends State<DResizablePanelGroup> {
         final total = horizontal ? constraints.maxWidth : constraints.maxHeight;
         final hit = math.min(
           total,
-          DResizableHandle.resolveHitExtent(context, h.hitExtent),
+          DResizableHandle.visualExtent(
+            withHandle: h.withHandle,
+            dividerThickness: h.dividerThickness,
+          ),
         );
         final handleStart = (position + .5 - hit / 2)
             .clamp(0.0, math.max(0.0, total - hit))
@@ -654,20 +657,16 @@ class _HandleBinding extends InheritedWidget {
 /// standalone mode shares all interaction/painting with grouped panels.
 /// [reverse] grows a trailing pane when moving toward the logical start.
 class DResizableHandle extends StatefulWidget {
-  /// Coarse-input platforms retain a transparent 48px drag/semantics target.
-  /// App-owned edge layouts must apply this extent to their positioned region.
-  static double resolveHitExtent(BuildContext context, double desktopExtent) =>
-      switch (Theme.of(context).platform) {
-        TargetPlatform.iOS ||
-        TargetPlatform.android => math.max(48, desktopExtent),
-        _ => desktopExtent,
-      };
+  /// Width of the visible divider or grip, perpendicular to the resize axis.
+  static double visualExtent({
+    bool withHandle = false,
+    double dividerThickness = 1,
+  }) => math.max(withHandle ? 4 : 0, dividerThickness);
 
   const DResizableHandle({
     super.key,
     this.withHandle = false,
     this.disabled = false,
-    this.hitExtent = 24,
     this.semanticLabel = 'Resize panel',
     this.focusNode,
     this.keyboardStep = 10,
@@ -691,7 +690,6 @@ class DResizableHandle extends StatefulWidget {
        trackUnrenderedChanges = true,
        onReset = null,
        onToggle = null,
-       assert(hitExtent > 0),
        assert(keyboardStep > 0);
 
   const DResizableHandle.standalone({
@@ -721,15 +719,14 @@ class DResizableHandle extends StatefulWidget {
     this.gestureKey,
     this.dividerKey,
     this.valueFormatter,
-  }) : hitExtent = 24,
-       assert(keyboardStep > 0),
+  }) : assert(keyboardStep > 0),
        assert(min <= max);
   final bool withHandle, disabled, reverse, disableDoubleClick;
 
   /// Accumulates pointer updates that arrive before the next frame. App adapters
   /// can disable this when saved widths must follow only rendered geometry.
   final bool trackUnrenderedChanges;
-  final double hitExtent, value, min, max, keyboardStep, dividerThickness;
+  final double value, min, max, keyboardStep, dividerThickness;
   final double? focusedDividerThickness;
   final Axis orientation;
   final String semanticLabel;
@@ -875,7 +872,16 @@ class _DResizableHandleState extends State<DResizableHandle> {
     Widget place(double thickness, Widget child) {
       final offset = _binding?.paintOffset;
       if (offset == null) {
-        return Align(alignment: widget.dividerAlignment, child: child);
+        return Align(
+          alignment: widget.dividerAlignment,
+          child: OverflowBox(
+            minWidth: horizontal ? thickness : null,
+            maxWidth: horizontal ? thickness : null,
+            minHeight: horizontal ? null : thickness,
+            maxHeight: horizontal ? null : thickness,
+            child: child,
+          ),
+        );
       }
       return horizontal
           ? Positioned(
@@ -909,92 +915,106 @@ class _DResizableHandleState extends State<DResizableHandle> {
             : t.border,
       ),
     );
-    return MouseRegion(
-      cursor: !enabled
-          ? SystemMouseCursors.basic
-          : horizontal
-          ? SystemMouseCursors.resizeLeftRight
-          : SystemMouseCursors.resizeUpDown,
-      child: Focus(
-        key: widget.focusKey,
-        focusNode: _focus,
-        canRequestFocus: enabled,
-        onKeyEvent: _key,
-        onFocusChange: (v) {
-          if (!v) _commit();
-          if (mounted) setState(() => _focused = v);
-        },
-        child: Semantics(
-          key: widget.semanticsKey,
-          container: true,
-          slider: true,
-          enabled: enabled,
-          focusable: enabled,
-          focused: _focused,
-          label: widget.semanticLabel,
-          value: _format(_value),
-          increasedValue: enabled && _increase != _value
-              ? _format(_increase)
-              : null,
-          decreasedValue: enabled && _decrease != _value
-              ? _format(_decrease)
-              : null,
-          onIncrease: enabled && _increase != _value
-              ? () {
-                  _delta(widget.keyboardStep, keyboard: true);
-                  _commit();
-                }
-              : null,
-          onDecrease: enabled && _decrease != _value
-              ? () {
-                  _delta(-widget.keyboardStep, keyboard: true);
-                  _commit();
-                }
-              : null,
-          child: GestureDetector(
-            key: widget.gestureKey,
-            behavior: HitTestBehavior.opaque,
-            onHorizontalDragStart: enabled && horizontal ? start : null,
-            onHorizontalDragUpdate: enabled && horizontal ? update : null,
-            onHorizontalDragEnd: enabled && horizontal ? (_) => end() : null,
-            onHorizontalDragCancel: enabled && horizontal ? end : null,
-            onVerticalDragStart: enabled && !horizontal ? start : null,
-            onVerticalDragUpdate: enabled && !horizontal ? update : null,
-            onVerticalDragEnd: enabled && !horizontal ? (_) => end() : null,
-            onVerticalDragCancel: enabled && !horizontal ? end : null,
-            onDoubleTap: enabled && !widget.disableDoubleClick
-                ? _binding?.onReset ?? widget.onReset
-                : null,
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                line,
-                if (widget.withHandle)
-                  place(
-                    4,
-                    Center(
-                      child: Container(
-                        width: horizontal ? 4 : 24,
-                        height: horizontal ? 24 : 4,
-                        decoration: BoxDecoration(
-                          color: t.border,
-                          borderRadius: BorderRadius.circular(t.radius),
+    final extent = DResizableHandle.visualExtent(
+      withHandle: widget.withHandle,
+      dividerThickness: widget.dividerThickness,
+    );
+    final gripOnly = widget.withHandle && widget.dividerThickness == 0;
+    return Align(
+      alignment: widget.dividerAlignment,
+      child: SizedBox(
+        width: horizontal ? extent : (gripOnly ? 24 : null),
+        height: horizontal ? (gripOnly ? 24 : null) : extent,
+        child: MouseRegion(
+          cursor: !enabled
+              ? SystemMouseCursors.basic
+              : horizontal
+              ? SystemMouseCursors.resizeLeftRight
+              : SystemMouseCursors.resizeUpDown,
+          child: Focus(
+            key: widget.focusKey,
+            focusNode: _focus,
+            canRequestFocus: enabled,
+            onKeyEvent: _key,
+            onFocusChange: (v) {
+              if (!v) _commit();
+              if (mounted) setState(() => _focused = v);
+            },
+            child: Semantics(
+              key: widget.semanticsKey,
+              container: true,
+              slider: true,
+              enabled: enabled,
+              focusable: enabled,
+              focused: _focused,
+              label: widget.semanticLabel,
+              value: _format(_value),
+              increasedValue: enabled && _increase != _value
+                  ? _format(_increase)
+                  : null,
+              decreasedValue: enabled && _decrease != _value
+                  ? _format(_decrease)
+                  : null,
+              onIncrease: enabled && _increase != _value
+                  ? () {
+                      _delta(widget.keyboardStep, keyboard: true);
+                      _commit();
+                    }
+                  : null,
+              onDecrease: enabled && _decrease != _value
+                  ? () {
+                      _delta(-widget.keyboardStep, keyboard: true);
+                      _commit();
+                    }
+                  : null,
+              child: GestureDetector(
+                key: widget.gestureKey,
+                behavior: HitTestBehavior.opaque,
+                onHorizontalDragStart: enabled && horizontal ? start : null,
+                onHorizontalDragUpdate: enabled && horizontal ? update : null,
+                onHorizontalDragEnd: enabled && horizontal
+                    ? (_) => end()
+                    : null,
+                onHorizontalDragCancel: enabled && horizontal ? end : null,
+                onVerticalDragStart: enabled && !horizontal ? start : null,
+                onVerticalDragUpdate: enabled && !horizontal ? update : null,
+                onVerticalDragEnd: enabled && !horizontal ? (_) => end() : null,
+                onVerticalDragCancel: enabled && !horizontal ? end : null,
+                onDoubleTap: enabled && !widget.disableDoubleClick
+                    ? _binding?.onReset ?? widget.onReset
+                    : null,
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    line,
+                    if (widget.withHandle)
+                      place(
+                        4,
+                        Center(
+                          child: Container(
+                            width: horizontal ? 4 : 24,
+                            height: horizontal ? 24 : 4,
+                            decoration: BoxDecoration(
+                              color: t.border,
+                              borderRadius: BorderRadius.circular(t.radius),
+                            ),
+                          ),
                         ),
                       ),
-                    ),
-                  ),
-                if (focusVisible)
-                  place(
-                    3,
-                    Container(
-                      width: horizontal ? 3 : double.infinity,
-                      height: horizontal ? double.infinity : 3,
-                      decoration: BoxDecoration(
-                        border: Border.all(color: t.focusRing),
+                    if (focusVisible)
+                      place(
+                        3,
+                        Container(
+                          width: horizontal ? 3 : double.infinity,
+                          height: horizontal ? double.infinity : 3,
+                          decoration: BoxDecoration(
+                            border: Border.all(color: t.focusRing),
+                          ),
+                        ),
                       ),
-                    ),
-                  ),
-              ],
+                  ],
+                ),
+              ),
             ),
           ),
         ),

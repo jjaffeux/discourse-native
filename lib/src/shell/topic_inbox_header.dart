@@ -77,10 +77,6 @@ class TopicInboxHeader extends StatelessWidget {
     final hasTopic = topic != null && siteUrl != null;
     final placeholders = loading && !hasTopic;
     final preview = this.preview;
-    final taxonomyInset = _touchTargetInset(
-      context,
-      _taxonomyRowHeight(context),
-    );
     final Widget? taxonomy = hasTopic
         ? _TopicHeaderTaxonomy(
             siteUrl: siteUrl,
@@ -106,9 +102,7 @@ class TopicInboxHeader extends StatelessWidget {
           ),
           child: _TopicHeaderReadingLane(
             child: Padding(
-              padding: EdgeInsets.symmetric(
-                vertical: math.max(0, 16 - taxonomyInset),
-              ),
+              padding: const EdgeInsets.symmetric(vertical: 16),
               child: taxonomy,
             ),
           ),
@@ -138,13 +132,6 @@ double _taxonomyRowHeight(BuildContext context) => DControlStyle.scaledHeight(
   MediaQuery.textScalerOf(context),
   context: context,
 );
-
-// Native controls reserve touch space outside their painted surface. Count
-// that space toward the page gutters instead of adding it a second time.
-double _touchTargetInset(BuildContext context, double artworkHeight) =>
-    context.isTouch
-    ? math.max(0, (DSpacing.touchTarget - artworkHeight) / 2)
-    : 0;
 
 class _TopicHeaderTaxonomyPlaceholder extends StatelessWidget {
   const _TopicHeaderTaxonomyPlaceholder({required this.categories});
@@ -267,11 +254,7 @@ class _TopicHeaderToolbar extends StatelessWidget {
         availableWidth: constraints.maxWidth,
       );
       final padding = lane.padding.add(
-        EdgeInsetsDirectional.only(
-          start: 16,
-          end: 16,
-          top: math.max(0, 16 - backTargetInset(context)),
-        ),
+        const EdgeInsetsDirectional.only(start: 16, end: 16, top: 16),
       );
       return ColoredBox(
         color: ForumWindowBackground.surfaceColor(
@@ -287,9 +270,7 @@ class _TopicHeaderToolbar extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Padding(
-                  padding: EdgeInsets.only(
-                    bottom: math.max(0, 10 - backTargetInset(context)),
-                  ),
+                  padding: const EdgeInsets.only(bottom: 10),
                   child: TopicCloseButton(
                     canReturnToSidebar: header.canReturnToSidebar,
                     backToList: !header.keepTopicListOpen,
@@ -302,15 +283,6 @@ class _TopicHeaderToolbar extends StatelessWidget {
         ),
       );
     },
-  );
-
-  double backTargetInset(BuildContext context) => _touchTargetInset(
-    context,
-    (MediaQuery.textScalerOf(
-              context,
-            ).scale(DButton.fontSizeFor(DButtonSize.toolbar)) *
-            DiscourseTypography.lineHeightSmall)
-        .ceilToDouble(),
   );
 }
 

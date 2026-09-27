@@ -44,8 +44,9 @@ enum DSliderThumbCollisionBehavior {
 /// keyboard increment of one hundredth of the range. Values may be off-step
 /// (for example a live playback position); user input snaps to the step grid.
 /// The caller owns [focusNode]. Standard visuals use a 4px track and 12px thumb;
-/// [DSliderVariant.filled] uses a 40px capsule. Both retain a 48px hit area.
-/// [DSliderVariant.ramp] uses a 26px track, with 48px touch targets on mobile.
+/// [DSliderVariant.filled] uses a 40px capsule.
+/// [DSliderVariant.ramp] uses a 26px track. Interaction follows the visible
+/// track and thumb extent on every platform.
 class DSlider extends StatelessWidget {
   const DSlider({
     super.key,
@@ -525,14 +526,11 @@ class _DMultiSliderState extends State<DMultiSlider> {
   @override
   Widget build(BuildContext context) {
     final tokens = DTokens.of(context);
-    final touch = {
-      TargetPlatform.iOS,
-      TargetPlatform.android,
-      TargetPlatform.fuchsia,
-    }.contains(Theme.of(context).platform);
-    final crossExtent = widget.variant == DSliderVariant.ramp && !touch
-        ? 26.0
-        : 48.0;
+    final crossExtent = switch (widget.variant) {
+      DSliderVariant.standard => 12.0,
+      DSliderVariant.filled => 40.0,
+      DSliderVariant.ramp => 26.0,
+    };
     return Semantics(
       container: true,
       explicitChildNodes: true,
@@ -783,7 +781,7 @@ class _SliderThumbState extends State<_SliderThumb> {
               ? (widget.vertical ? 6.0 : 24.0)
               : 12.0;
           final offset = widget.filled
-              ? widget.offset.clamp(5.0, 43.0)
+              ? widget.offset.clamp(5.0, widget.crossExtent - 5)
               : widget.offset;
           return Stack(
             clipBehavior: Clip.none,
@@ -969,8 +967,9 @@ class _SliderTrack extends CustomPainter {
   final Color muted, primary;
   @override
   void paint(Canvas canvas, Size size) {
-    final inset = filled ? 4.0 : 22.0;
-    final breadth = 48 - 2 * inset;
+    final crossExtent = vertical ? size.width : size.height;
+    final breadth = filled ? 40.0 : 4.0;
+    final inset = (crossExtent - breadth) / 2;
     final rect = vertical
         ? Rect.fromLTWH(inset, 0, breadth, size.height)
         : Rect.fromLTWH(0, inset, size.width, breadth);
@@ -980,8 +979,18 @@ class _SliderTrack extends CustomPainter {
     void segment(double a, double b, Color color) {
       canvas.drawRect(
         vertical
-            ? Rect.fromLTRB(inset, math.min(a, b), 48 - inset, math.max(a, b))
-            : Rect.fromLTRB(math.min(a, b), inset, math.max(a, b), 48 - inset),
+            ? Rect.fromLTRB(
+                inset,
+                math.min(a, b),
+                crossExtent - inset,
+                math.max(a, b),
+              )
+            : Rect.fromLTRB(
+                math.min(a, b),
+                inset,
+                math.max(a, b),
+                crossExtent - inset,
+              ),
         Paint()..color = color,
       );
     }

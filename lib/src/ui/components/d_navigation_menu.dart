@@ -995,7 +995,6 @@ class _NavigationActionState extends State<_NavigationAction> {
     final radius = widget.triggerStyle
         ? tokens.controlRadius
         : DControlStyle.rowRadius;
-    final touch = Theme.of(context).platform == TargetPlatform.iOS;
     final visualHeight = widget.triggerStyle
         ? DControlStyle.scaledHeight(
             widget.size,
@@ -1042,10 +1041,7 @@ class _NavigationActionState extends State<_NavigationAction> {
           onTapUp: interactive ? (_) => setState(() => _pressed = false) : null,
           onTap: interactive ? widget.onPressed : null,
           child: ConstrainedBox(
-            constraints: BoxConstraints(
-              minHeight: touch ? DSpacing.touchTarget : 0,
-              minWidth: touch ? DSpacing.touchTarget : 0,
-            ),
+            constraints: const BoxConstraints(),
             child: Center(
               widthFactor: 1,
               heightFactor: 1,

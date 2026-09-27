@@ -43,9 +43,8 @@ const _transitionCurve = Cubic(.4, 0, .2, 1);
 /// span. The regular visual height is 22px; [DBadgeSize.compact] uses 16px
 /// height, 12/14px type and narrower insets. [DBadgeSize.control] opts into
 /// regular control height, typography and artwork metrics for the platform.
-/// All sizes grow with text. Touch actions reserve a transparent 48px target,
-/// except inline [DBadgeSize.tag] links which use the pill bounds. Only ghost and
-/// link paint a hover treatment on a static badge, so other static variants do
+/// All sizes grow with text. Actions and links use their visible pill bounds.
+/// Only ghost and link paint a hover treatment on a static badge, so other variants do
 /// not track the pointer. Borrowed focus nodes are never disposed. Colors are
 /// resolved every build, including custom palettes.
 class DBadge extends StatefulWidget {
@@ -380,22 +379,6 @@ class _DBadgeState extends State<DBadge> {
     visual = DControlArtwork(
       child: Opacity(opacity: _enabled ? 1 : .5, child: visual),
     );
-    if (_interactive &&
-        !tag &&
-        switch (Theme.of(context).platform) {
-          TargetPlatform.iOS ||
-          TargetPlatform.android ||
-          TargetPlatform.fuchsia => true,
-          _ => false,
-        }) {
-      visual = ConstrainedBox(
-        constraints: const BoxConstraints(
-          minWidth: DSpacing.touchTarget,
-          minHeight: DSpacing.touchTarget,
-        ),
-        child: Center(widthFactor: 1, heightFactor: 1, child: visual),
-      );
-    }
     final semantics = Semantics(
       container: _interactive,
       button: widget._interaction == _BadgeInteraction.action,

@@ -287,7 +287,7 @@ class _ComposerBlockSurfaceState extends State<ComposerBlockSurface> {
     final visible = viewport is RenderBox && viewport.hasSize
         ? bounds.intersect(viewport.localToGlobal(Offset.zero) & viewport.size)
         : bounds;
-    const edge = DSpacing.touchTarget;
+    const edge = 48.0;
     final delta = pointer.dy < visible.top + edge
         ? -((visible.top + edge - pointer.dy) / edge).clamp(0, 1) * 10
         : pointer.dy > visible.bottom - edge

@@ -11,6 +11,13 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+Finder controlSemantics([Finder? target]) => find
+    .descendant(
+      of: target ?? find.byType(DSwitch),
+      matching: find.byType(MergeSemantics),
+    )
+    .first;
+
 void main() {
   Future<void> mount(
     WidgetTester tester,
@@ -37,7 +44,7 @@ void main() {
     ),
   );
 
-  testWidgets('desktop rows are intrinsic and touch rows retain 48px targets', (
+  testWidgets('rows use intrinsic bounds on desktop and touch platforms', (
     tester,
   ) async {
     for (final platform in [
@@ -47,8 +54,6 @@ void main() {
       TargetPlatform.android,
       TargetPlatform.iOS,
     ]) {
-      final touch =
-          platform == TargetPlatform.android || platform == TargetPlatform.iOS;
       for (final card in [false, true]) {
         for (final description in [false, true]) {
           var changes = 0;
@@ -69,7 +74,7 @@ void main() {
           final intrinsic = card
               ? (description ? 65.0 : 42.0)
               : (description ? 42.25 : 20.0);
-          expect(height, closeTo(touch && intrinsic < 48 ? 48 : intrinsic, .3));
+          expect(height, closeTo(intrinsic, .3));
           await tester.tapAt(
             tester.getBottomLeft(find.byType(DSwitchTile)) +
                 const Offset(4, -2),
@@ -217,7 +222,7 @@ void main() {
       expect(focus.hasFocus, isTrue);
       expect(
         tester
-                .getSemantics(find.byType(DSwitch))
+                .getSemantics(controlSemantics())
                 .getSemanticsData()
                 .flagsCollection
                 .isToggled ==
@@ -228,7 +233,7 @@ void main() {
       await tester.pumpAndSettle();
       await tester.sendKeyEvent(LogicalKeyboardKey.enter);
       await tester.pumpAndSettle();
-      final node = tester.getSemantics(find.byType(DSwitch));
+      final node = tester.getSemantics(controlSemantics());
       node.owner!.performAction(node.id, SemanticsAction.tap);
       await tester.pumpAndSettle();
       expect(changes, [true, false, true, false]);
@@ -246,7 +251,7 @@ void main() {
       expect(calls, 1);
       expect(
         tester
-                .getSemantics(find.byType(DSwitch))
+                .getSemantics(controlSemantics())
                 .getSemanticsData()
                 .flagsCollection
                 .isToggled ==
@@ -292,7 +297,7 @@ void main() {
 
       expect(focus.hasFocus, isTrue);
       expect(
-        tester.getSemantics(find.byType(DSwitch)),
+        tester.getSemantics(controlSemantics()),
         isSemantics(
           label: 'Read-only setting',
           isToggled: true,
@@ -316,55 +321,56 @@ void main() {
     },
   );
 
-  testWidgets('exact track thumb and directional travel retain 48px targets', (
-    tester,
-  ) async {
-    for (final small in [false, true]) {
-      for (final rtl in [false, true]) {
-        var checked = false;
-        late StateSetter update;
-        await mount(
-          tester,
-          StatefulBuilder(
-            builder: (_, setState) {
-              update = setState;
-              return DSwitch(
-                size: small ? DSwitchSize.small : DSwitchSize.standard,
-                value: checked,
-                onChanged: (v) => setState(() => checked = v),
-              );
-            },
-          ),
-          rtl: rtl,
-          reduced: true,
-        );
-        final track = find.descendant(
-          of: find.byType(DSwitch),
-          matching: find.byType(AnimatedContainer),
-        );
-        final thumb = find.descendant(
-          of: track,
-          matching: find.byWidgetPredicate(
-            (w) => w is SizedBox && w.width == (small ? 10 : 14),
-          ),
-        );
-        expect(tester.getSize(track), Size(small ? 24 : 30, small ? 16 : 20));
-        expect(tester.getSize(thumb), Size.square(small ? 10 : 14));
-        final start = tester.getCenter(thumb).dx;
-        update(() => checked = true);
-        await tester.pump();
-        expect(
-          tester.getCenter(thumb).dx - start,
-          closeTo((small ? 8 : 10) * (rtl ? -1 : 1), .001),
-        );
-        final target = find.descendant(
-          of: find.byType(DSwitch),
-          matching: find.byType(GestureDetector),
-        );
-        expect(tester.getSize(target).height, 48);
+  testWidgets(
+    'track bounds match the target through directional thumb travel',
+    (tester) async {
+      for (final small in [false, true]) {
+        for (final rtl in [false, true]) {
+          var checked = false;
+          late StateSetter update;
+          await mount(
+            tester,
+            StatefulBuilder(
+              builder: (_, setState) {
+                update = setState;
+                return DSwitch(
+                  size: small ? DSwitchSize.small : DSwitchSize.standard,
+                  value: checked,
+                  onChanged: (v) => setState(() => checked = v),
+                );
+              },
+            ),
+            rtl: rtl,
+            reduced: true,
+          );
+          final track = find.descendant(
+            of: find.byType(DSwitch),
+            matching: find.byType(AnimatedContainer),
+          );
+          final thumb = find.descendant(
+            of: track,
+            matching: find.byWidgetPredicate(
+              (w) => w is SizedBox && w.width == (small ? 10 : 14),
+            ),
+          );
+          expect(tester.getSize(track), Size(small ? 24 : 30, small ? 16 : 20));
+          expect(tester.getSize(thumb), Size.square(small ? 10 : 14));
+          final start = tester.getCenter(thumb).dx;
+          update(() => checked = true);
+          await tester.pump();
+          expect(
+            tester.getCenter(thumb).dx - start,
+            closeTo((small ? 8 : 10) * (rtl ? -1 : 1), .001),
+          );
+          final target = find.descendant(
+            of: find.byType(DSwitch),
+            matching: find.byType(GestureDetector),
+          );
+          expect(tester.getSize(target), tester.getSize(track));
+        }
       }
-    }
-  });
+    },
+  );
 
   testWidgets(
     'form validates saves resets and follows external controlled changes',
@@ -455,7 +461,7 @@ void main() {
       await tester.pump();
       expect(changes, 1);
       expect(navigationShortcutsAllowed(page, activation: true), isFalse);
-      final node = tester.getSemantics(find.byType(DSwitch));
+      final node = tester.getSemantics(controlSemantics());
       expect(node.label, contains('Share'));
       expect(node.label, contains('Across devices'));
       expect(
@@ -491,7 +497,7 @@ void main() {
         );
         expect(
           tester
-                  .getSemantics(find.byType(DSwitch))
+                  .getSemantics(controlSemantics())
                   .getSemanticsData()
                   .flagsCollection
                   .isToggled ==
@@ -537,7 +543,7 @@ void main() {
       expect(field.currentState!.value, true);
       expect(
         tester
-            .getSemantics(find.byType(DSwitch))
+            .getSemantics(controlSemantics())
             .getSemanticsData()
             .flagsCollection
             .isToggled,
@@ -551,7 +557,7 @@ void main() {
       expect(field.currentState!.value, false);
       expect(
         tester
-            .getSemantics(find.byType(DSwitch))
+            .getSemantics(controlSemantics())
             .getSemanticsData()
             .flagsCollection
             .isToggled,
@@ -587,7 +593,7 @@ void main() {
       expect(ring.ringWidth, 1);
       expect(
         tester
-            .getSemantics(find.byType(DSwitch))
+            .getSemantics(controlSemantics())
             .getSemanticsData()
             .validationResult,
         SemanticsValidationResult.invalid,

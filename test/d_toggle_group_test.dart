@@ -45,9 +45,9 @@ void main() {
     final frame = find.byKey(const ValueKey('toggle-group-compact-frame'));
     final toggles = find.byType(DToggle);
     expect(tester.getSize(frame), const Size(68, 32));
-    expect(tester.getSize(group), const Size(96, 48));
+    expect(tester.getSize(group), const Size(68, 32));
     for (final toggle in toggles.evaluate()) {
-      expect(tester.getSize(find.byWidget(toggle.widget)), const Size(48, 48));
+      expect(tester.getSize(find.byWidget(toggle.widget)), const Size(30, 26));
     }
     for (final artwork
         in find

@@ -219,10 +219,8 @@ class _RadioScope<T> extends InheritedWidget {
 /// The entire label row activates the radio and has one focus/semantics owner.
 /// Keep independent links outside [label] and [description]. A bare item needs
 /// [semanticLabel]. Borrowed [focusNode] is never disposed by this widget.
-/// Touch platforms keep transparent 48px bounds around the 16px visual; a
-/// pointer layout keeps the reference's compact bounds, so a bare item's hit
-/// area is its 16px circle and an associated label or Field row supplies the
-/// larger target. Like the reference `<span role="radio">`, the pointer cursor
+/// A bare item's hit area is its 16px circle. An associated label or Field row
+/// activates the complete visible choice. Like the reference, the pointer cursor
 /// stays the default arrow, Space is the only activation key and Enter is
 /// inert; label slots activate through [ActivateIntent] rather than a key.
 class DRadioGroupItem<T> extends StatefulWidget {
@@ -340,12 +338,6 @@ class _DRadioGroupItemState<T> extends State<DRadioGroupItem<T>> {
         _focus.hasFocus &&
         FocusManager.instance.highlightMode == FocusHighlightMode.traditional;
     final dark = Theme.of(context).brightness == Brightness.dark;
-    final touch = switch (Theme.of(context).platform) {
-      TargetPlatform.iOS ||
-      TargetPlatform.android ||
-      TargetPlatform.fuchsia => true,
-      _ => false,
-    };
     final border = checked
         ? tokens.primary
         : invalid
@@ -523,10 +515,7 @@ class _DRadioGroupItemState<T> extends State<DRadioGroupItem<T>> {
             builder: (context, state) => Opacity(
               opacity: enabled ? 1 : 0.5,
               child: ConstrainedBox(
-                constraints: BoxConstraints(
-                  minWidth: touch ? 48 : 16,
-                  minHeight: touch ? 48 : 16,
-                ),
+                constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
                 // A choice card fills the height it is given, so cards side by
                 // side in a row share the tallest one's height, as grid items
                 // stretch on the web.

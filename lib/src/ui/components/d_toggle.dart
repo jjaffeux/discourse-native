@@ -11,7 +11,7 @@ import '../foundation/tokens.dart';
 /// Toggle surface treatments, including the inset group's segmented choices.
 enum DToggleVariant { standard, outline, segmented }
 
-/// Application artwork presets retain separate touch targets.
+/// Application artwork presets use matching hit areas.
 /// [chatReaction] matches the chat mockup's 24px pill and 999px radius.
 enum DToggleDensity { standard, reaction, chatReaction, tile, compactInset }
 
@@ -51,8 +51,6 @@ class DToggleVisualStyle {
     this.borderRadius,
     this.borderEdges = DToggleBorderEdges.all,
     this.expandArtwork = false,
-    this.targetAlignment,
-    this.targetPadding = EdgeInsets.zero,
   });
 
   final BorderRadiusGeometry? borderRadius;
@@ -60,10 +58,6 @@ class DToggleVisualStyle {
 
   /// Fill the width assigned by a parent group instead of hugging the label.
   final bool expandArtwork;
-
-  /// Position compact artwork inside its larger interaction target.
-  final AlignmentGeometry? targetAlignment;
-  final EdgeInsetsGeometry targetPadding;
 }
 
 /// A two-state button with native pressed-toggle semantics.
@@ -72,7 +66,7 @@ class DToggleVisualStyle {
 /// by [initialPressed]. [onPressedChanged] observes or updates that state but
 /// is not required for the control to remain focusable. [focusNode] is
 /// borrowed and never disposed. Desktop artwork follows base-nova's compact
-/// bounds while touch platforms receive an invisible 48px minimum target.
+/// bounds on every platform, without invisible target padding.
 class DToggle extends StatefulWidget {
   const DToggle({
     super.key,
@@ -150,7 +144,7 @@ class DToggle extends StatefulWidget {
 
   /// Reaction densities supersede [size]. Chat reactions use 24px artwork,
   /// 12px emoji/counts and pill corners; ordinary reactions use 28px artwork,
-  /// 18px icons and 12px counts. Touch targets remain at least 48px and scaling grows
+  /// 18px icons and 12px counts. Text scaling grows
   /// the artwork to fit its content.
   final DToggleDensity density;
   final String? semanticLabel;
@@ -297,12 +291,6 @@ class _DToggleState extends State<DToggle> {
         : reaction
         ? 16.0
         : DControlStyle.lineHeight(widget.size, context: context);
-    final touch = switch (theme.platform) {
-      TargetPlatform.android ||
-      TargetPlatform.iOS ||
-      TargetPlatform.fuchsia => true,
-      _ => false,
-    };
     final activeSurface =
         _current || (_enabled && (_hovered || _pointerPressed));
     final borderColor = widget.invalid
@@ -480,24 +468,7 @@ class _DToggleState extends State<DToggle> {
       ),
     );
 
-    final targetConstraints = BoxConstraints(
-      minWidth: touch ? DSpacing.touchTarget : visualWidth,
-      minHeight: touch ? DSpacing.touchTarget : visualDimension,
-    );
-    final target = ConstrainedBox(
-      constraints: targetConstraints,
-      child: Padding(
-        padding: widget.visualStyle?.targetPadding ?? EdgeInsets.zero,
-        child: Align(
-          alignment: widget.visualStyle?.targetAlignment ?? Alignment.center,
-          widthFactor: widget.visualStyle?.expandArtwork == true ? null : 1,
-          heightFactor: 1,
-          child: artwork,
-        ),
-      ),
-    );
-
-    return MergeSemantics(
+    final control = MergeSemantics(
       child: Semantics(
         container: true,
         button: true,
@@ -558,12 +529,13 @@ class _DToggleState extends State<DToggle> {
                       _toggle();
                     }
                   : null,
-              child: Opacity(opacity: _enabled ? 1 : .6, child: target),
+              child: Opacity(opacity: _enabled ? 1 : .6, child: artwork),
             ),
           ),
         ),
       ),
     );
+    return Align(widthFactor: 1, heightFactor: 1, child: control);
   }
 }
 

@@ -868,7 +868,7 @@ class _DDataTableState<T> extends State<DDataTable<T>> {
             top: 0,
             bottom: 0,
             end: 0,
-            width: DResizableHandle.resolveHitExtent(context, 24),
+            width: DResizableHandle.visualExtent(),
             child: DResizableHandle.standalone(
               semanticLabel: 'Resize ${column.label} column',
               value: _columnWidth(column),
@@ -1252,10 +1252,11 @@ class DDataTablePagination extends StatelessWidget {
     // border, gap and chevron to fit with large text or custom page sizes.
     final pageSizeWidth = math.max(70.0, widestValue.ceilToDouble() + 42);
     final scale = MediaQuery.textScalerOf(context).scale(1);
-    final directionHeight = switch (Theme.of(context).platform) {
-      TargetPlatform.iOS || TargetPlatform.android => 48.0,
-      _ => 32.0,
-    };
+    final directionHeight = DControlStyle.scaledHeight(
+      DControlSize.small,
+      MediaQuery.textScalerOf(context),
+      context: context,
+    );
 
     Widget rowsPerPage() => Wrap(
       spacing: 8,

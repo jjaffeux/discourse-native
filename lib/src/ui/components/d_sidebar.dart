@@ -61,18 +61,6 @@ Color _sidebarGuideColor(BuildContext context) {
   return tokens.foreground;
 }
 
-class _SidebarTouchTarget extends StatelessWidget {
-  const _SidebarTouchTarget({required this.child});
-  final Widget child;
-  @override
-  Widget build(BuildContext context) => _touchPlatform(context)
-      ? ConstrainedBox(
-          constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
-          child: Align(heightFactor: 1, child: child),
-        )
-      : child;
-}
-
 enum DSidebarSide { left, right }
 
 enum DSidebarVariant { sidebar, floating, inset }
@@ -1239,109 +1227,107 @@ class _DSidebarMenuButtonState extends State<DSidebarMenuButton> {
             onTapDown: enabled ? (_) => _handlePointerDown() : null,
             onTapCancel: _handlePointerCancel,
             onTapUp: (_) => setState(() => pressed = false),
-            child: _SidebarTouchTarget(
-              child: Opacity(
-                opacity: enabled ? 1 : .5,
-                child: Container(
-                  constraints: BoxConstraints(minHeight: minHeight),
-                  padding: EdgeInsetsDirectional.only(
-                    start: collapsedLarge
-                        ? 0
-                        : !iconOnly && widget.icon != null
-                        ? math.min(
-                            8,
-                            math.max(
-                              verticalPadding,
-                              (minHeight - widget.iconSize) / 2,
+            child: Opacity(
+              opacity: enabled ? 1 : .5,
+              child: Container(
+                constraints: BoxConstraints(minHeight: minHeight),
+                padding: EdgeInsetsDirectional.only(
+                  start: collapsedLarge
+                      ? 0
+                      : !iconOnly && widget.icon != null
+                      ? math.min(
+                          8,
+                          math.max(
+                            verticalPadding,
+                            (minHeight - widget.iconSize) / 2,
+                          ),
+                        )
+                      : 8,
+                  end: collapsedLarge ? 0 : 8,
+                  top: verticalPadding,
+                  bottom: verticalPadding,
+                ),
+                decoration: BoxDecoration(
+                  color: active
+                      ? t.hover
+                      : widget.variant == DSidebarMenuButtonVariant.outline
+                      ? t.background
+                      : null,
+                  borderRadius: BorderRadius.circular(t.radius * .8),
+                ),
+                foregroundDecoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(t.radius * .8),
+                  border: focus
+                      ? Border.all(color: t.focusRing, width: 2)
+                      : widget.variant == DSidebarMenuButtonVariant.outline
+                      ? Border.all(color: t.border)
+                      : null,
+                ),
+                child: _SidebarTrailingInset(
+                  metrics: _ItemScope.of(context)?.metrics,
+                  direction: Directionality.of(context),
+                  child: IconTheme(
+                    data: IconThemeData(size: 16, color: t.foreground),
+                    child: DefaultTextStyle(
+                      maxLines:
+                          iconOnly ||
+                              MediaQuery.textScalerOf(context).scale(14) <= 14
+                          ? 1
+                          : null,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodyMedium!.copyWith(
+                        fontSize: fontSize,
+                        height:
+                            DControlStyle.lineHeight(
+                              widget.size,
+                              context: context,
+                            ) /
+                            fontSize,
+                        color: t.foreground,
+                        fontWeight: widget.isActive
+                            ? FontWeight.w500
+                            : FontWeight.w400,
+                      ),
+                      child: Row(
+                        children: [
+                          if (widget.icon != null)
+                            ExcludeSemantics(
+                              child: SizedBox(
+                                width: widget.iconSize,
+                                height: widget.iconSize,
+                                child: widget.icon,
+                              ),
                             ),
-                          )
-                        : 8,
-                    end: collapsedLarge ? 0 : 8,
-                    top: verticalPadding,
-                    bottom: verticalPadding,
-                  ),
-                  decoration: BoxDecoration(
-                    color: active
-                        ? t.hover
-                        : widget.variant == DSidebarMenuButtonVariant.outline
-                        ? t.background
-                        : null,
-                    borderRadius: BorderRadius.circular(t.radius * .8),
-                  ),
-                  foregroundDecoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(t.radius * .8),
-                    border: focus
-                        ? Border.all(color: t.focusRing, width: 2)
-                        : widget.variant == DSidebarMenuButtonVariant.outline
-                        ? Border.all(color: t.border)
-                        : null,
-                  ),
-                  child: _SidebarTrailingInset(
-                    metrics: _ItemScope.of(context)?.metrics,
-                    direction: Directionality.of(context),
-                    child: IconTheme(
-                      data: IconThemeData(size: 16, color: t.foreground),
-                      child: DefaultTextStyle(
-                        maxLines:
-                            iconOnly ||
-                                MediaQuery.textScalerOf(context).scale(14) <= 14
-                            ? 1
-                            : null,
-                        overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.bodyMedium!.copyWith(
-                          fontSize: fontSize,
-                          height:
-                              DControlStyle.lineHeight(
-                                widget.size,
-                                context: context,
-                              ) /
-                              fontSize,
-                          color: t.foreground,
-                          fontWeight: widget.isActive
-                              ? FontWeight.w500
-                              : FontWeight.w400,
-                        ),
-                        child: Row(
-                          children: [
-                            if (widget.icon != null)
-                              ExcludeSemantics(
-                                child: SizedBox(
-                                  width: widget.iconSize,
-                                  height: widget.iconSize,
-                                  child: widget.icon,
-                                ),
+                          if (iconOnly &&
+                              widget.icon != null &&
+                              widget.semanticLabel == null &&
+                              widget.tooltip == null)
+                            SizedBox.shrink(
+                              child: Opacity(
+                                opacity: 0,
+                                alwaysIncludeSemantics: true,
+                                child: widget.child,
                               ),
-                            if (iconOnly &&
-                                widget.icon != null &&
-                                widget.semanticLabel == null &&
-                                widget.tooltip == null)
-                              SizedBox.shrink(
-                                child: Opacity(
-                                  opacity: 0,
-                                  alwaysIncludeSemantics: true,
-                                  child: widget.child,
-                                ),
+                            ),
+                          if (!iconOnly) ...[
+                            if (widget.icon != null) const SizedBox(width: 8),
+                            Flexible(
+                              child: ExcludeSemantics(
+                                excluding: widget.semanticLabel != null,
+                                child: widget.child,
                               ),
-                            if (!iconOnly) ...[
-                              if (widget.icon != null) const SizedBox(width: 8),
-                              Flexible(
-                                child: ExcludeSemantics(
-                                  excluding: widget.semanticLabel != null,
-                                  child: widget.child,
-                                ),
-                              ),
-                            ],
-                            if (iconOnly && widget.icon == null)
-                              Expanded(
-                                child: ExcludeSemantics(
-                                  excluding:
-                                      widget.semanticLabel != null ||
-                                      widget.tooltip != null,
-                                  child: widget.child,
-                                ),
-                              ),
+                            ),
                           ],
-                        ),
+                          if (iconOnly && widget.icon == null)
+                            Expanded(
+                              child: ExcludeSemantics(
+                                excluding:
+                                    widget.semanticLabel != null ||
+                                    widget.tooltip != null,
+                                child: widget.child,
+                              ),
+                            ),
+                        ],
                       ),
                     ),
                   ),
@@ -1475,27 +1461,25 @@ class _DSidebarMenuActionState extends State<DSidebarMenuAction> {
                   focus = false;
                 }),
           onTapCancel: _handlePointerCancel,
-          child: _SidebarTouchTarget(
-            child: Opacity(
-              opacity: reveal ? (widget.onPressed != null ? 1 : .5) : 0,
-              child: Container(
-                width: 20,
-                height: 20,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: hover || widget.expanded == true ? t.hover : null,
-                  borderRadius: BorderRadius.circular(t.radius * .8),
-                ),
-                foregroundDecoration: focus
-                    ? BoxDecoration(
-                        border: Border.all(color: t.focusRing, width: 2),
-                        borderRadius: BorderRadius.circular(t.radius * .8),
-                      )
-                    : null,
-                child: IconTheme(
-                  data: IconThemeData(size: 16, color: t.foreground),
-                  child: widget.child,
-                ),
+          child: Opacity(
+            opacity: reveal ? (widget.onPressed != null ? 1 : .5) : 0,
+            child: Container(
+              width: 20,
+              height: 20,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: hover || widget.expanded == true ? t.hover : null,
+                borderRadius: BorderRadius.circular(t.radius * .8),
+              ),
+              foregroundDecoration: focus
+                  ? BoxDecoration(
+                      border: Border.all(color: t.focusRing, width: 2),
+                      borderRadius: BorderRadius.circular(t.radius * .8),
+                    )
+                  : null,
+              child: IconTheme(
+                data: IconThemeData(size: 16, color: t.foreground),
+                child: widget.child,
               ),
             ),
           ),
@@ -1727,7 +1711,7 @@ class DSidebarTrigger extends StatelessWidget {
   final FocusNode? focusNode;
   @override
   Widget build(BuildContext context) => SizedBox(
-    width: _touchPlatform(context) ? 48 : 32,
+    width: 32,
     child: DSidebarMenuButton(
       semanticLabel: semanticLabel,
       focusNode: focusNode,

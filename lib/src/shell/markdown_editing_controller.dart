@@ -983,7 +983,7 @@ class MarkdownEditingController extends TextEditingController {
         ?.findRenderObject();
     if (renderObject is! RenderBox || !renderObject.hasSize) return false;
     final rect = _editorPaintRect(renderObject);
-    return rect.inflate(4).contains(globalPosition);
+    return rect.contains(globalPosition);
   }
 
   Rect? collapsedQuoteGlobalRect(ComposerQuoteBlock block) {

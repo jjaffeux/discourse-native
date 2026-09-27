@@ -619,7 +619,6 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
               resizeKey: 'diagnostics',
               semanticsLabel: 'Resize diagnostics panel',
               maximumWidth: panelMaximumWidth,
-              handleWidth: diagnosticsPanelResizeHandleWidth,
               dividerWidth: 1,
               child: panel,
             );
@@ -1139,9 +1138,6 @@ class _WideShellState extends State<_WideShell> {
                               maximumWidth: windowMaximum,
                               dividerWidth: 1,
                               gap: context.isTouch ? 0 : workspacePanelGap,
-                              handleWidth: context.isTouch
-                                  ? 2
-                                  : workspacePanelGap,
                               child: const WorkspacePanel(
                                 atRightEdge: false,
                                 child: InstanceSidebar(),

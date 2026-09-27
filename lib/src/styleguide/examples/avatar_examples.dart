@@ -239,11 +239,11 @@ $_plusUsage''',
           'Each avatar is a separate DButton with its own accessible name and '
           'local action. Tab visits members in reading order. At 200% text, '
           'the buttons grow with their avatars and narrow groups wrap. '
-          'Touch layouts separate buttons so their 48px targets do not overlap.',
+          'Controls keep their visible spacing on every platform.',
       states: const ['Composition', 'Keyboard', 'Focus', 'Independent actions'],
       code:
           '''// Desktop composition. On touch layouts, put the same buttons in a
-// Wrap(spacing: 8, runSpacing: 8, children: buttons) for separate 48px targets.
+// Wrap(spacing: 8, runSpacing: 8, children: buttons) for separate controls.
 DAvatarGroup(children: [
   DButton(
     semanticLabel: 'Open Chris',

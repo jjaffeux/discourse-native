@@ -453,7 +453,6 @@ class _DesktopPanelsState extends State<DesktopPanels>
               maximumWidth: maximumMainWidth,
               widthOverride: mainWidth,
               gap: workspacePanelGap,
-              handleWidth: workspacePanelGap,
               child: const SizedBox.shrink(),
             );
             const docked = PanelRail.width + workspacePanelGap;

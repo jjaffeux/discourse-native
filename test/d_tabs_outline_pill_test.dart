@@ -55,10 +55,7 @@ void main() {
             BorderRadius.circular(DRadius.pill),
           );
           expect(decoration(i).boxShadow, isNull);
-          expect(
-            tester.getSize(tabs.at(i)).height,
-            greaterThanOrEqualTo(DSpacing.touchTarget),
-          );
+          expect(tester.getSize(tabs.at(i)).height, 40);
         }
         await tester.tap(find.text('Replies'));
         await tester.pump();

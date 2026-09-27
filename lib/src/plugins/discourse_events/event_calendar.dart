@@ -369,17 +369,14 @@ final class _EventCalendarState extends State<EventCalendar> {
           DControlWrap(
             direction: Axis.vertical,
             wrap: false,
-            reserveTouchTargets: false,
             spacing: 10,
             children: [
               DControlWrap(
                 wrap: false,
-                reserveTouchTargets: false,
                 spacing: 8,
                 children: [
                   DControlExpanded(
                     child: DControlWrap(
-                      reserveTouchTargets: false,
                       spacing: 8,
                       runSpacing: 8,
                       children: [
@@ -422,7 +419,6 @@ final class _EventCalendarState extends State<EventCalendar> {
               ),
               DControlWrap(
                 wrap: false,
-                reserveTouchTargets: false,
                 spacing: 8,
                 children: [
                   navigation(-1),

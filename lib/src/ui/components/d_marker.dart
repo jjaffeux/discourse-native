@@ -135,12 +135,8 @@ class _DMarkerState extends State<DMarker> {
         },
       );
     }
-    final touch = switch (Theme.of(context).platform) {
-      TargetPlatform.iOS || TargetPlatform.android => true,
-      _ => false,
-    };
     content = Container(
-      constraints: BoxConstraints(minHeight: interactive && touch ? 48 : 16),
+      constraints: const BoxConstraints(minHeight: 16),
       width: double.infinity,
       padding: widget.variant == DMarkerVariant.border
           ? const EdgeInsets.only(bottom: 8)

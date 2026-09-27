@@ -7,7 +7,7 @@ import '../../theme/discourse_typography.dart';
 import 'tokens.dart';
 
 /// General controls adapt to the platform. Application presets reproduce the
-/// mockup artwork on every platform, independently of the 48px touch target.
+/// mockup artwork on every platform, with matching hit areas.
 enum DControlSize {
   small,
   regular,
@@ -37,7 +37,7 @@ enum DControlSize {
   /// Footer actions: 34px on desktop, 44px on mobile, with 12px artwork.
   action,
 
-  /// Post reactions and actions: 30px artwork with a separate touch target.
+  /// Post reactions and actions: 30px artwork with a matching hit area.
   post,
 
   /// Desktop workspace document tab: 35px artwork and 13px label.

@@ -158,7 +158,7 @@ void main() {
       child: const DMarkerContent(child: Text('Details')),
     );
     await pump(tester, child, platform: TargetPlatform.iOS);
-    expect(tester.getSize(find.byType(DMarker)).height, 48);
+    expect(tester.getSize(find.byType(DMarker)).height, 20);
     expect(
       tester
           .getSemantics(find.byType(DMarker))

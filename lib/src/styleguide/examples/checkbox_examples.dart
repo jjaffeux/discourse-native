@@ -13,7 +13,7 @@ final checkboxExamples = ComponentExamples(
       'DCheckbox.defaultValue for local default state. Null is mixed with '
       'tristate enabled. DCheckboxFormField integrates validation, save and reset. '
       'Independent actions belong outside title/subtitle. Reference control is '
-      '16px with 14px Lucide artwork; invisible native targets are larger. '
+      '16px with 14px Lucide artwork and a matching hit area. '
       'Use the shared preview controls for live light/dark/custom palettes, '
       '360px width, 200% text, RTL and reduced motion.',
   examples: [
@@ -112,7 +112,7 @@ DCheckbox.defaultValue(invalid: true, title: Text('Accept terms'))''',
     StyleguideExample(
       title: 'Inline text alignment',
       description:
-          'Align artwork with the first text line while retaining the full click target.',
+          'Align artwork with the first text line and keep spacing outside its hit area.',
       states: const ['Inline', 'Wrapped label'],
       code:
           '''const style = TextStyle(fontSize: DiscourseTypography.sm, height: 1.6);

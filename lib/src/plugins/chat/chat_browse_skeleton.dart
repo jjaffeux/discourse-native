@@ -20,7 +20,9 @@ class ChatBrowseSkeleton extends StatelessWidget {
   final EdgeInsetsGeometry padding;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => LayoutBuilder(builder: _buildRows);
+
+  Widget _buildRows(BuildContext context, BoxConstraints constraints) {
     final threads = page == ChatBrowsePage.threads;
     final channels = page == ChatBrowsePage.channels;
     final content = DSkeletonRegion(
@@ -33,6 +35,9 @@ class ChatBrowseSkeleton extends StatelessWidget {
             const DSeparator(),
             DItem(
               shape: DItemShape.fullWidth,
+              padding: threads && constraints.maxWidth < 600
+                  ? const EdgeInsets.symmetric(vertical: DSpacing.md)
+                  : null,
               children: [
                 if (!threads)
                   DItemMedia(

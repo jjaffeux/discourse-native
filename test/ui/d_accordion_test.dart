@@ -535,7 +535,7 @@ void main() {
       );
       expect(
         tester.getSize(find.byKey(const ValueKey('trigger-a'))).height,
-        48,
+        40,
       );
     },
   );

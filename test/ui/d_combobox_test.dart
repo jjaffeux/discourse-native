@@ -1320,14 +1320,17 @@ void main() {
         theme: ThemeData(platform: TargetPlatform.iOS),
       ),
     );
-    expect(tester.getSize(find.byType(DInputGroupButton)).height, 48);
+    expect(tester.getSize(find.byType(DInputGroupButton)).height, 44);
     await tester.tap(find.byType(TextField));
     await tester.pumpAndSettle();
     expect(
       tester.getRect(find.text('SvelteKit').last).height,
       lessThanOrEqualTo(48),
     );
-    expect(tester.getRect(find.byType(DComboboxItem<String>).first).height, 48);
+    expect(
+      tester.getRect(find.byType(DComboboxItem<String>).first).height,
+      33.5,
+    );
   });
 
   testWidgets('touch items grow past their minimum target for scaled text', (
@@ -1367,7 +1370,7 @@ void main() {
     expect(tester.takeException(), isNull);
     expect(
       tester.getSize(find.byType(DComboboxItem<String>)).height,
-      greaterThan(DSpacing.touchTarget),
+      greaterThan(48.0),
     );
   });
 
