@@ -146,13 +146,18 @@ class _NewTabPageState extends State<NewTabPage> {
       (section) =>
           section.id.startsWith('chat') || section.id == 'direct-messages',
     );
-    final events = registry
-        ?.communitySidebarDestinations(context)
-        .where(
-          (destination) =>
-              destination.id == 'events-upcoming' && destination.enabled,
-        )
-        .firstOrNull;
+    // Contributed community shortcuts are the ones the phone dock offers;
+    // core must not name the feature that supplies them.
+    final shortcuts =
+        registry
+            ?.communitySidebarDestinations(context)
+            .where(
+              (destination) =>
+                  destination.mobileNavigationLabel != null &&
+                  destination.enabled,
+            )
+            .toList() ??
+        const <SidebarDestination>[];
     final categories = siteUrl == null
         ? <ContentRoute>[]
         : shell!.recentCategoriesFor(siteUrl);
@@ -479,12 +484,12 @@ class _NewTabPageState extends State<NewTabPage> {
                               onPressed: () =>
                                   openLink(context, shell.siteLink('/badges')),
                             ),
-                            if (events != null)
+                            for (final shortcut in shortcuts)
                               _LinkButton(
-                                label: 'Upcoming events',
-                                icon: events.icon,
+                                label: shortcut.label,
+                                icon: shortcut.icon,
                                 onPressed: () =>
-                                    shell.selectDestination(events),
+                                    shell.selectDestination(shortcut),
                               ),
                             _LinkButton(
                               label: 'Users',
