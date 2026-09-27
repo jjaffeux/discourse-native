@@ -1,4 +1,6 @@
-import 'package:discourse_native/src/data/plugin_transport.dart';
+import 'dart:convert';
+
+import 'package:discourse_native/src/data/discourse_api.dart';
 import 'package:discourse_native/src/plugin_api/discourse_model_codec.dart';
 import 'package:discourse_native/src/plugin_api/plugin_registry.dart';
 import 'package:discourse_native/src/plugins/assign/assign_plugin.dart';
@@ -6,6 +8,8 @@ import 'package:discourse_native/src/plugins/assign/assigned_group.dart';
 import 'package:discourse_native/src/plugins/assign/assigned_group_api.dart';
 import 'package:discourse_native/src/plugins/assign/assignment.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 
 final class _RecordingTransport implements PluginApiTransport {
   Map<String, dynamic> response = const {};
@@ -166,6 +170,53 @@ void main() {
         path: 'https://elsewhere.example/topics.json',
       ),
       throwsArgumentError,
+    );
+  });
+
+  test('topic pagination follows a subfolder forum\'s cursor', () async {
+    const subfolderSite = 'https://example.com/forum';
+    final requested = <Uri>[];
+    final transport = DiscourseApi(
+      client: MockClient((request) async {
+        requested.add(request.url);
+        return http.Response(
+          jsonEncode({
+            'topic_list': {
+              'topics': const <Object>[],
+              'more_topics_url':
+                  '/forum/topics/group-topics-assigned/support'
+                  '?page=${requested.length}',
+            },
+          }),
+          200,
+        );
+      }),
+    );
+    addTearDown(transport.close);
+    final api = AssignedGroupApiClient(transport, models);
+
+    final first = await api.topics(
+      siteUrl: subfolderSite,
+      apiKey: 'key',
+      groupName: 'support',
+      filter: const AssignedGroupFilter.everyone(),
+    );
+    await api.topicPage(
+      siteUrl: subfolderSite,
+      apiKey: 'key',
+      path: first.nextPagePath!,
+    );
+
+    expect(requested, hasLength(2));
+    expect(
+      requested.first.path,
+      '/forum/topics/group-topics-assigned/support.json',
+    );
+    expect(
+      requested.last,
+      Uri.parse(
+        '$subfolderSite/topics/group-topics-assigned/support.json?page=1',
+      ),
     );
   });
 }

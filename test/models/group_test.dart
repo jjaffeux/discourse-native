@@ -221,6 +221,19 @@ void main() {
     expect(unsafe.nextPagePath, isNull);
   });
 
+  test('directory continuation is read below a forum\'s subfolder', () {
+    const subfolderSite = 'https://example.com/forum';
+    GroupDirectoryPage page(String cursor) => GroupDirectoryPage.fromWire({
+      'load_more_groups': cursor,
+    }, subfolderSite);
+
+    expect(
+      page('/forum/groups?page=1&type=my').nextPagePath,
+      '/groups.json?page=1&type=my',
+    );
+    expect(page('/groups?page=1').nextPagePath, isNull);
+  });
+
   test(
     'members derive owner and primary status and retain paging metadata',
     () {

@@ -193,6 +193,24 @@ class DiscourseInstance {
     return segments == null ? null : Uri(pathSegments: ['', ...segments]).path;
   }
 
+  /// [reference], a root-relative address the forum wrote, as the path and
+  /// query a request appends to [siteUrl]; null when it is not root-relative
+  /// or not under the forum's subfolder. Discourse writes its next-page
+  /// cursors with the subfolder in front, and [siteUrl] already ends in it,
+  /// so a cursor appended as written names a page that does not exist.
+  static String? pathAndQueryWithinUrl(String siteUrl, String? reference) {
+    if (reference == null) return null;
+    final link = Uri.tryParse(reference);
+    if (link == null ||
+        link.hasScheme ||
+        link.hasAuthority ||
+        !link.path.startsWith('/')) {
+      return null;
+    }
+    final path = pathWithinUrl(siteUrl, link);
+    return path == null ? null : link.replace(path: path).toString();
+  }
+
   static List<String>? pathSegmentsWithin(String siteUrl, Uri link) {
     final baseUri = Uri.tryParse(siteUrl);
     if (baseUri == null) return null;

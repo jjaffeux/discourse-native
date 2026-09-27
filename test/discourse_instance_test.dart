@@ -26,6 +26,29 @@ void main() {
     }
   });
 
+  test('a server-written address keeps its query below the forum prefix', () {
+    String? within(String siteUrl, String? reference) =>
+        DiscourseInstance.pathAndQueryWithinUrl(siteUrl, reference);
+
+    const subfolder = 'https://example.com/my%20forum';
+    expect(
+      within(subfolder, '/my%20forum/tag/a%2Fb?page=1&q=x+y'),
+      '/tag/a%2Fb?page=1&q=x+y',
+    );
+    expect(within('https://example.com', '/latest?page=1'), '/latest?page=1');
+    for (final reference in [
+      null,
+      '/latest?page=1',
+      '/my%20forums/latest?page=1',
+      'my%20forum/latest?page=1',
+      '//example.com/my%20forum/latest?page=1',
+      'https://example.com/my%20forum/latest?page=1',
+      '/my%20forum/%FF?page=1',
+    ]) {
+      expect(within(subfolder, reference), isNull, reason: reference);
+    }
+  });
+
   group('DiscourseInstance.monogram', () {
     String monogram(String title) =>
         DiscourseInstance(url: 'https://example.com', title: title).monogram;

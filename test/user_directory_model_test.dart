@@ -117,6 +117,24 @@ void main() {
     expect(page.nextPagePath, contains('page=1'));
   });
 
+  test('reads the continuation below a forum\'s subfolder', () {
+    UserDirectoryPage page(String cursor) => UserDirectoryPage.fromWire({
+      'meta': {'load_more_directory_items': cursor},
+    }, 'https://example.com/forum');
+
+    expect(
+      page('/forum/directory_items.json?period=weekly&page=1').nextPagePath,
+      '/directory_items.json?period=weekly&page=1',
+    );
+    expect(page('/directory_items.json?page=1').nextPagePath, isNull);
+    expect(
+      page(
+        'https://elsewhere.example/directory_items.json?page=1',
+      ).nextPagePath,
+      isNull,
+    );
+  });
+
   test('rejects malformed users without discarding valid column metadata', () {
     expect(
       () => UserDirectoryPage.fromWire(const {
