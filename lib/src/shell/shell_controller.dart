@@ -3264,11 +3264,11 @@ class ShellController extends FrameSafeNotifier
       if (currentContent?.isTopic == true) handleBack();
       return;
     }
-    if (desktopTopicTabs && activeTabId != null) {
-      closeTab(activeTabId!);
+    final active = activeTab;
+    if (active != null && _readerClosesTab(active)) {
+      closeTab(active.id);
       return;
     }
-    final active = activeTab;
     if (active == null ||
         topicListContent == null ||
         !active.currentContent.isTopic) {
@@ -3286,16 +3286,35 @@ class ShellController extends FrameSafeNotifier
       if (currentContent?.isTopic == true) handleBack();
       return;
     }
-    if (desktopTopicTabs && activeTab?.currentContent.isTopic == true) {
-      closeTab(activeTab!.id);
-      return;
-    }
     final active = activeTab;
     if (active == null || !active.currentContent.isTopic) return;
+    if (_readerClosesTab(active)) {
+      closeTab(active.id);
+      return;
+    }
     _replaceActiveTab(_closeTopicRoute(active));
     _syncTopicChannels();
     _notify();
     if (currentInstance case final instance?) _hydrateActiveTab(instance);
+  }
+
+  // Ordinary clicks push a topic over its list in the same tab, so closing
+  // the reader returns to that list. The tab itself closes only when it holds
+  // nothing but the conversation, or when it reads beside its source list
+  // shown in the other panel.
+  bool _readerClosesTab(ForumTab tab) {
+    if (!desktopTopicTabs || !tab.currentContent.isTopic) return false;
+    final sourceIndex = tab.contentStack.lastIndexWhere(
+      (route) => !route.isTopic,
+    );
+    if (sourceIndex < 0) return true;
+    final source = tab.contentStack[sourceIndex];
+    final other = currentWorkspace?.selectedTabIn(
+      tab.panel == ForumPanel.main ? ForumPanel.secondary : ForumPanel.main,
+    );
+    return other != null &&
+        other.id != tab.id &&
+        other.currentContent.id == source.id;
   }
 
   ForumTab _closeTopicRoute(ForumTab tab) {
