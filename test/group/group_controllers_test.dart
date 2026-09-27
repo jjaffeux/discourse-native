@@ -362,6 +362,32 @@ void main() {
       expect(tags.values.keys, unorderedEquals(groupTagKeys));
     });
 
+    test('serializes the SMTP switch as the string the server compares', () {
+      final controller = GroupManageController(
+        group: const Group(
+          id: 9,
+          name: 'support',
+          smtpEnabled: true,
+          smtpServer: 'smtp.example.com',
+          smtpPort: 587,
+          emailUsername: 'support@example.com',
+        ),
+        subsection: GroupRoute.email,
+      );
+      addTearDown(controller.dispose);
+
+      expect(controller.buildUpdate().values['smtp_enabled'], 'true');
+
+      // GroupsController clears the stored SMTP settings only for
+      // `smtp_enabled == "false"`, and Group#record_email_setting_changes!
+      // then re-enables SMTP whenever those settings are still present. A
+      // JSON false therefore leaves SMTP switched on.
+      controller.setSmtpEnabled(false);
+      final disabled = controller.buildUpdate();
+      expect(controller.snapshot.dirty, isTrue);
+      expect(disabled.values['smtp_enabled'], 'false');
+    });
+
     test('validation rejects an empty group name before submission', () async {
       var submissions = 0;
       final controller = GroupManageController(

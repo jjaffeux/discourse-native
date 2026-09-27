@@ -267,7 +267,10 @@ final class GroupManageController extends ChangeNotifier {
           'incoming_email': _value('incoming_email'),
         },
         GroupRoute.email => {
-          'smtp_enabled': _smtpEnabled,
+          // The controller clears the SMTP settings only for
+          // `smtp_enabled == "false"`, and the group re-enables SMTP while
+          // they remain, so a JSON false leaves SMTP switched on.
+          'smtp_enabled': _smtpEnabled.toString(),
           'smtp_server': _value('smtp_server'),
           'smtp_port': _nullableInt('smtp_port'),
           'smtp_ssl_mode': _nullableInt('smtp_ssl_mode'),
