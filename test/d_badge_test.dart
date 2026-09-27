@@ -212,13 +212,13 @@ void main() {
       final semantics = tester.ensureSemantics();
       try {
         await _pump(tester, const DBadge(child: Text('Badge')));
-        expect(tester.getSize(find.byType(DBadge)).height, 20);
+        expect(tester.getSize(find.byType(DBadge)).height, 22);
         final paragraph = tester.renderObject<RenderParagraph>(
           find.text('Badge'),
         );
         final style = (paragraph.text as TextSpan).style!;
         expect(style.fontSize, 12);
-        expect(style.height, 16 / 12);
+        expect(style.height, DiscourseTypography.lineHeightCaption);
         expect(style.fontWeight, FontWeight.w500);
         final node = tester.getSemantics(find.text('Badge'));
         expect(node.flagsCollection.isButton, isFalse);
@@ -628,8 +628,8 @@ void main() {
         tester.getSize(find.byType(AnimatedContainer)).height,
         switch (size) {
           DBadgeSize.compact => 16,
-          DBadgeSize.regular => 20,
-          DBadgeSize.control => 44,
+          DBadgeSize.regular => 22,
+          DBadgeSize.control => DControlStyle.height(DControlSize.filter),
         },
       );
       await tester.tapAt(bounds.topCenter + const Offset(0, 2));

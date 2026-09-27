@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 import 'dart:ui' show ViewFocusEvent, ViewFocusState;
 
+import 'package:flutter/foundation.dart' show precisionErrorTolerance;
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -1338,7 +1339,10 @@ class _RenderPopover extends RenderShiftedBox {
     if (config.sideCollision == DPopoverCollision.flip) {
       final opposite = _opposite(_side);
       final extent = vertical ? childSize.height : childSize.width;
-      if (extent > room(_side) && room(opposite) > room(_side)) {
+      // A centred trigger leaves equal room on both sides up to rounding
+      // noise; only genuinely more room justifies leaving the requested side.
+      if (extent > room(_side) &&
+          room(opposite) - room(_side) > precisionErrorTolerance) {
         _side = opposite;
       }
     }

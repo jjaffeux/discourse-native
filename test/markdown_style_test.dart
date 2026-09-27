@@ -12,7 +12,7 @@ void main() {
   );
 
   test('uses the exact cooked heading scale', () {
-    final expected = [30.0, 24.0, 20.0, 18.0, 16.0, 14.0];
+    final expected = [28.0, 22.0, 18.0, 17.0, 14.0, 14.0];
 
     for (var level = 1; level <= 6; level++) {
       final style = markdownStyle(Md.heading, '$level', base, theme);
@@ -52,6 +52,9 @@ void main() {
       markdownStyle(Md.htmlTag, 'small', base, theme).fontSize,
       DiscourseTypography.base * 0.75,
     );
-    expect(markdownStyle(Md.codeBlock, null, base, theme).fontSize, 14);
+    expect(
+      markdownStyle(Md.codeBlock, null, base, theme).fontSize,
+      DiscourseTypography.base * 0.875,
+    );
   });
 }

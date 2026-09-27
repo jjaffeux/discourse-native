@@ -260,7 +260,8 @@ class _CompactWeek extends StatelessWidget {
                                               color: isToday
                                                   ? tokens.primary
                                                   : tokens.mutedForeground,
-                                              fontSize: 13,
+                                              fontSize:
+                                                  DiscourseTypography.control,
                                               fontWeight: isToday
                                                   ? FontWeight.w700
                                                   : FontWeight.w500,
@@ -276,7 +277,7 @@ class _CompactWeek extends StatelessWidget {
                                         child: Text(
                                           '+$hidden',
                                           style: TextStyle(
-                                            fontSize: 12,
+                                            fontSize: DiscourseTypography.xs,
                                             color: tokens.mutedForeground,
                                           ),
                                         ),
@@ -480,7 +481,8 @@ class DCalendarScheduleEntry extends StatelessWidget {
                                           subtitle!,
                                           style: TextStyle(
                                             color: tokens.mutedForeground,
-                                            fontSize: 12.5,
+                                            fontSize:
+                                                DiscourseTypography.preview,
                                           ),
                                         ),
                                     ],
@@ -492,7 +494,7 @@ class DCalendarScheduleEntry extends StatelessWidget {
                               time,
                               style: TextStyle(
                                 color: tokens.mutedForeground,
-                                fontSize: 12.5,
+                                fontSize: DiscourseTypography.preview,
                               ),
                             );
                             if (scaler.scale(14) > 21 ||

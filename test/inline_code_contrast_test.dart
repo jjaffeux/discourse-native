@@ -70,7 +70,7 @@ void main() {
         );
         expect(text.data, 'a  b');
         expect(text.style!.color, theme.colorScheme.primary);
-        expect(text.style!.fontSize, 14);
+        expect(text.style!.fontSize, DiscourseTypography.base * 0.875);
         final decoration =
             tester
                     .widget<DecoratedBox>(
@@ -88,7 +88,7 @@ void main() {
         );
         expect(
           padding.padding,
-          const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+          const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
         );
         expect(tester.takeException(), isNull);
       }

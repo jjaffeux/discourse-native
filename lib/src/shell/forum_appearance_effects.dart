@@ -2,6 +2,7 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
 import '../models/forum_background.dart';
+import '../theme/discourse_typography.dart';
 import 'theme_icons.dart';
 
 /// Window effect controls shared by a theme editor or appearance settings.
@@ -172,7 +173,7 @@ class _RampField extends StatelessWidget {
               readout ?? '${(value * 100).round()}%',
               style: TextStyle(
                 color: DTokens.of(context).mutedForeground,
-                fontSize: 12.5,
+                fontSize: DiscourseTypography.preview,
                 fontWeight: FontWeight.w600,
                 fontFeatures: const [FontFeature.tabularFigures()],
               ),

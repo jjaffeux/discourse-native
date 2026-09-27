@@ -120,7 +120,7 @@ void main() {
       expect(label.height, closeTo(19.25, .5));
       expect(description.height, closeTo(21, .1));
       expect(editor.left - label.left, closeTo(11, .1));
-      expect(editor.top - label.bottom, closeTo(12, .1));
+      expect(editor.top - label.bottom, closeTo(15, .1));
       await tester.pumpWidget(
         _app(
           Center(

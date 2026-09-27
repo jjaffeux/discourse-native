@@ -89,7 +89,7 @@ void main() {
         await tester.pump();
         final style = DefaultTextStyle.of(tester.element(_hint)).style;
         expect(style.fontSize, 12);
-        expect(style.height, 16 / 12);
+        expect(style.height, DiscourseTypography.lineHeightCaption);
         expect(style.fontWeight, FontWeight.w400);
         expect(style.letterSpacing, 0);
         final tokens = theme.extension<DTokens>()!;
@@ -250,7 +250,7 @@ void main() {
       still: true,
     );
     expect(_hint, findsOneWidget);
-    expect(tester.getRect(_surface(_hint)).height, 28);
+    expect(tester.getRect(_surface(_hint)).height, 30);
     expect(
       tester.getRect(_surface(_hint)).bottom,
       tester.getRect(find.byType(DTooltip)).top - 4,

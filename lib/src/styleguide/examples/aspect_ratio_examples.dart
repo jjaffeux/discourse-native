@@ -44,7 +44,7 @@ final aspectRatioExamples = ComponentExamples(
       title: 'RTL figure',
       description:
           'The reference Arabic figure: a 384px maximum cover, an 8px gap, '
-          'and centered muted 14px/20px caption. The caption grows naturally '
+          'and centered muted 12.5px/18.75px caption. The caption grows naturally '
           'with text scaling; it sits outside the ratio container.',
       states: const ['Arabic', 'RTL', 'Caption', 'Text scaling'],
       code: '''DDirection(

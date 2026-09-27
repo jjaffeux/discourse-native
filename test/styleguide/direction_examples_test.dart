@@ -175,7 +175,7 @@ void main() {
       Theme.of(tester.element(menuLabel)).colorScheme,
       theme.value.colorScheme,
     );
-    expect(DTokens.of(tester.element(menuLabel)).radius, 12);
+    expect(DTokens.of(tester.element(menuLabel)).radius, DRadius.control);
 
     // Updating the first row's label must not reorder keyboard navigation.
     await tester.sendKeyEvent(LogicalKeyboardKey.home);

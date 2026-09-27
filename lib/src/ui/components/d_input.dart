@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'dart:ui' show SemanticsValidationResult;
 
 import 'package:flutter/material.dart';
@@ -549,8 +550,10 @@ class _InputSurface extends StatelessWidget {
               ),
             ),
             padding: EdgeInsets.symmetric(
+              // The inset includes the 1px border painted inside the surface;
+              // edge-to-edge presets have no inset left to give it.
               horizontal: DControlStyle.isApplicationSize(size)
-                  ? DControlStyle.horizontalInset(size) - 1
+                  ? math.max(0, DControlStyle.horizontalInset(size) - 1)
                   : 10,
             ),
             decoration: _InputSurfaceDecoration(

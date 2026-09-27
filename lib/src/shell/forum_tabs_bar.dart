@@ -1150,7 +1150,7 @@ class _TabSwitcherHistoryToggle extends StatelessWidget {
           ),
           style: Theme.of(context).textTheme.labelSmall?.copyWith(
             color: muted,
-            fontSize: 12,
+            fontSize: DiscourseTypography.xs,
             letterSpacing: 0.24,
           ),
         ),
@@ -1185,7 +1185,7 @@ class _TabSwitcherRow extends StatelessWidget {
         : theme.colorScheme.onSurface;
     final labelStyle = theme.textTheme.bodyMedium?.copyWith(
       color: foreground,
-      fontSize: 14,
+      fontSize: DiscourseTypography.sm,
       fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
     );
     final maxLines = MediaQuery.textScalerOf(context).scale(14) > 21 ? null : 1;
