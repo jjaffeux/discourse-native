@@ -574,22 +574,18 @@ class _InstanceRailListState extends State<_InstanceRailList> {
                   ? forumSwitchShortcutKeys[index + 1]
                   : null,
               onTap: () => widget.controller.selectInstance(index),
+              onMoveUp: moveUp,
+              onMoveDown: moveDown,
             );
             return KeyedSubtree(
               key: ValueKey(instance.url),
-              child: Semantics(
-                customSemanticsActions: {
-                  const CustomSemanticsAction(label: 'Move up'): ?moveUp,
-                  const CustomSemanticsAction(label: 'Move down'): ?moveDown,
-                },
-                child: _RailInsertionSlot(
-                  before: visibleSlot == index,
-                  after:
-                      visibleSlot == widget.state.instances.length &&
-                      index == widget.state.instances.length - 1,
-                  color: theme.colorScheme.primary,
-                  child: _draggableItem(itemContext, index, instance, item),
-                ),
+              child: _RailInsertionSlot(
+                before: visibleSlot == index,
+                after:
+                    visibleSlot == widget.state.instances.length &&
+                    index == widget.state.instances.length - 1,
+                color: theme.colorScheme.primary,
+                child: _draggableItem(itemContext, index, instance, item),
               ),
             );
           },
@@ -916,27 +912,31 @@ class _AggregateRailButtonState extends State<_AggregateRailButton> {
           child: MouseRegion(
             onEnter: (_) => setState(() => _hovered = true),
             onExit: (_) => setState(() => _hovered = false),
-            child: Semantics(
-              selected: widget.selected,
-              child: DButton.iconOnly(
-                key: const ValueKey('aggregate-rail-button'),
-                icon: const DIcon(DIcons.circleNodes),
-                tooltip: 'All forums',
-                tooltipSide: DTooltipSide.right,
-                shortcut: widget.shortcutKey == null
-                    ? null
-                    : DShortcut(
-                        primaryShortcutForPlatform(
-                          theme.platform,
-                          widget.shortcutKey!,
+            // Merged so the selected state lands on the button node a screen
+            // reader announces rather than on an unnamed parent around it.
+            child: MergeSemantics(
+              child: Semantics(
+                selected: widget.selected,
+                child: DButton.iconOnly(
+                  key: const ValueKey('aggregate-rail-button'),
+                  icon: const DIcon(DIcons.circleNodes),
+                  tooltip: 'All forums',
+                  tooltipSide: DTooltipSide.right,
+                  shortcut: widget.shortcutKey == null
+                      ? null
+                      : DShortcut(
+                          primaryShortcutForPlatform(
+                            theme.platform,
+                            widget.shortcutKey!,
+                          ),
                         ),
-                      ),
-                variant: DButtonVariant.transparentBackground,
-                backgroundColor: Colors.transparent,
-                interactiveBackgroundColor: Colors.transparent,
-                size: DButtonSize.large,
-                foregroundColor: foreground,
-                onPressed: widget.onTap,
+                  variant: DButtonVariant.transparentBackground,
+                  backgroundColor: Colors.transparent,
+                  interactiveBackgroundColor: Colors.transparent,
+                  size: DButtonSize.large,
+                  foregroundColor: foreground,
+                  onPressed: widget.onTap,
+                ),
               ),
             ),
           ),
@@ -1343,6 +1343,8 @@ class _RailItem extends StatefulWidget {
     required this.badgeCount,
     required this.shortcutKey,
     required this.onTap,
+    required this.onMoveUp,
+    required this.onMoveDown,
   });
 
   final DiscourseInstance instance;
@@ -1351,6 +1353,8 @@ class _RailItem extends StatefulWidget {
   final int badgeCount;
   final LogicalKeyboardKey? shortcutKey;
   final VoidCallback onTap;
+  final VoidCallback? onMoveUp;
+  final VoidCallback? onMoveDown;
 
   @override
   State<_RailItem> createState() => _RailItemState();
@@ -1428,52 +1432,66 @@ class _RailItemState extends State<_RailItem> {
             instance: widget.instance,
             accent: accent,
             shortcutKey: widget.shortcutKey,
-            child: InkWell(
-              onTap: widget.onTap,
-              onHover: _handleHover,
-              mouseCursor: context.isTouch ? null : SystemMouseCursors.grab,
-              borderRadius: BorderRadius.circular(_railControlExtent / 2),
-              child: SizedBox.square(
-                dimension: _railControlExtent,
-                child: Center(
-                  child: Stack(
-                    clipBehavior: Clip.none,
-                    children: [
-                      SizedBox.square(
-                        dimension: _railVisualSize,
-                        child: _InstanceIcon(
-                          instance: widget.instance,
-                          foreground: avatarForeground,
-                          background: avatarBackground,
-                          selected: widget.selected,
-                        ),
-                      ),
-                      if (widget.badgeCount > 0)
-                        Positioned(
-                          right: -1.5,
-                          bottom: -1.5,
-                          child: ConstrainedBox(
-                            constraints: const BoxConstraints(
-                              maxWidth: _railVisualSize + 4,
-                            ),
-                            child: DBadge.overlay(
-                              key: ValueKey(
-                                'instance-rail-badge-${widget.instance.url}',
-                              ),
-                              backgroundColor: badgeBackground,
-                              foregroundColor: badgeForeground,
-                              ringColor: railSurface,
-                              semanticLabel:
-                                  '${widget.badgeCount} unread notifications',
-                              child: Text(
-                                widget.badgeCount > 999
-                                    ? '999+'
-                                    : '${widget.badgeCount}',
-                              ),
+            child: Semantics(
+              button: true,
+              selected: widget.selected,
+              customSemanticsActions: {
+                const CustomSemanticsAction(label: 'Move up'): ?widget.onMoveUp,
+                const CustomSemanticsAction(label: 'Move down'):
+                    ?widget.onMoveDown,
+              },
+              child: InkWell(
+                onTap: widget.onTap,
+                onHover: _handleHover,
+                mouseCursor: context.isTouch ? null : SystemMouseCursors.grab,
+                borderRadius: BorderRadius.circular(_railControlExtent / 2),
+                child: SizedBox.square(
+                  dimension: _railControlExtent,
+                  child: Center(
+                    child: Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        // The tooltip names the forum. The site icon would
+                        // otherwise make the rail item an unnamed image, and
+                        // the monogram fallback an abbreviation.
+                        SizedBox.square(
+                          dimension: _railVisualSize,
+                          child: ExcludeSemantics(
+                            child: _InstanceIcon(
+                              instance: widget.instance,
+                              foreground: avatarForeground,
+                              background: avatarBackground,
+                              selected: widget.selected,
                             ),
                           ),
                         ),
-                    ],
+                        if (widget.badgeCount > 0)
+                          Positioned(
+                            right: -1.5,
+                            bottom: -1.5,
+                            child: ConstrainedBox(
+                              constraints: const BoxConstraints(
+                                maxWidth: _railVisualSize + 4,
+                              ),
+                              child: DBadge.overlay(
+                                key: ValueKey(
+                                  'instance-rail-badge-${widget.instance.url}',
+                                ),
+                                backgroundColor: badgeBackground,
+                                foregroundColor: badgeForeground,
+                                ringColor: railSurface,
+                                semanticLabel:
+                                    '${widget.badgeCount} unread notifications',
+                                child: Text(
+                                  widget.badgeCount > 999
+                                      ? '999+'
+                                      : '${widget.badgeCount}',
+                                ),
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -1511,6 +1529,9 @@ class _RailTooltip extends StatelessWidget {
     return DTooltip(
       key: ValueKey('instance-rail-tooltip-${instance.url}'),
       message: instance.title,
+      // The forum's title is the rail item's only name. The macOS and Linux
+      // accessibility bridges expose a node's label but not its tooltip.
+      labelTrigger: true,
       side: DTooltipSide.right,
       hoverDelay: const Duration(milliseconds: 280),
       dismissDelay: const Duration(milliseconds: 80),
