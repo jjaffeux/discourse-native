@@ -68,6 +68,17 @@ ChatChannel _channel(int id, {String title = 'Support'}) => ChatChannel(
   threadingEnabled: true,
 );
 
+/// A channel the reader was invited to but does not follow, so the followed
+/// channel snapshot never lists it.
+const ChatChannel _unlistedChannel = ChatChannel(
+  id: 21,
+  title: 'Invited',
+  kind: ChatChannelKind.category,
+  membership: ChatMembership(),
+  tracking: ChatTracking(),
+  threadingEnabled: true,
+);
+
 ChatThread _thread(int channelId, int threadId) {
   final originalMessageId = threadId == 3 ? 40 : threadId * 10;
   return ChatThread(
@@ -165,6 +176,7 @@ void main() {
           direct: const [],
         ),
       },
+      chatChannelsById: const {21: _unlistedChannel},
       chatDirectMessageSearches: {
         'sam': ChatDirectMessageSearchResults(const [
           ChatDirectMessageUser(
@@ -222,6 +234,7 @@ void main() {
         FakeDiscourseApi.chatThreadKey(9, 3): _thread(9, 3),
         FakeDiscourseApi.chatThreadKey(9, 4): _thread(9, 4),
         FakeDiscourseApi.chatThreadKey(12, 7): _thread(12, 7),
+        FakeDiscourseApi.chatThreadKey(21, 5): _thread(21, 5),
       },
       chatThreadPagesByOffset: {
         0: ChatThreadPage(threads: const [_myThread], channels: [_channel(9)]),
@@ -692,18 +705,21 @@ void main() {
     });
 
     group('native URL routing', () {
-      Future<(ShellController, FakeDiscourseApi)> gatedShell({
+      Future<(ShellController, _ChannelDetailGateApi)> gatedShell({
         Completer<void>? channelGate,
+        Completer<void>? channelDetailGate,
         Completer<void>? threadGate,
       }) async {
-        final gatedApi = FakeDiscourseApi(
+        final gatedApi = _ChannelDetailGateApi(
           user: _user,
           feeds: const {'/latest.json': []},
           chatChannelGate: channelGate,
+          channelDetailGate: channelDetailGate,
           chatThreadGate: threadGate,
           chatChannelsBySite: {
             _site: ChatChannels(public: [_channel(9)]),
           },
+          chatChannelsById: const {21: _unlistedChannel},
           chatThreadsByKey: {
             FakeDiscourseApi.chatThreadKey(9, 3): _thread(9, 3),
           },
@@ -958,6 +974,72 @@ void main() {
         },
       );
 
+      test('fetches a channel the followed snapshot omits', () async {
+        expect(shell.chat.channel(_site, 21), isNull);
+
+        expect(await shell.openChatUrl('$_site/chat/c/-/21/88'), isTrue);
+
+        expect(api.chatChannelDetailsRequested, [21]);
+        expect(shell.currentContent?.id, 'chat-c-21');
+        expect(shell.chatNavigation.value?.messageId, 88);
+        expect(shell.chat.channel(_site, 21)?.membership.following, isFalse);
+      });
+
+      test('fetches the channel of a thread the snapshot omits', () async {
+        expect(await shell.openChatUrl('$_site/chat/c/-/21/t/5/89'), isTrue);
+
+        expect(api.chatChannelDetailsRequested, [21]);
+        expect(shell.currentContent?.id, 'chat-c-21-t-5');
+        expect(shell.chatNavigation.value?.messageId, 89);
+      });
+
+      test(
+        'a late channel fetch does not bury a topic opened meanwhile',
+        () async {
+          final detailGate = Completer<void>();
+          final (gated, gatedApi) = await gatedShell(
+            channelDetailGate: detailGate,
+          );
+
+          final chatTap = gated.openNotificationUrl('$_site/chat/c/-/21/88');
+          await pumpEventQueue();
+          expect(gatedApi.heldChannelDetails, [21]);
+          expect(
+            await gated.openNotificationUrl('$_site/t/better-images/77/4'),
+            isTrue,
+          );
+          detailGate.complete();
+
+          expect(await chatTap, isTrue);
+          expect(gated.currentContent?.id, 'topic-77');
+          expect(
+            gated.contentStack.map((route) => route.id),
+            isNot(contains(startsWith('chat-'))),
+          );
+          expect(gated.chatNavigation.value, isNull);
+        },
+      );
+
+      test(
+        'a refused channel fetch stands down once the reader moved on',
+        () async {
+          final detailGate = Completer<void>();
+          final (gated, gatedApi) = await gatedShell(
+            channelDetailGate: detailGate,
+          );
+
+          final chatOpen = gated.openChatUrl('$_site/chat/c/-/99/88');
+          await pumpEventQueue();
+          expect(gatedApi.heldChannelDetails, [99]);
+          expect(gated.openTopicUrl('$_site/t/better-images/77/4'), isTrue);
+          detailGate.complete();
+
+          expect(await chatOpen, isTrue);
+          expect(gated.currentContent?.id, 'topic-77');
+          expect(gated.chatNavigation.value, isNull);
+        },
+      );
+
       test('preserves browser fallback for an inaccessible thread', () async {
         expect(await shell.openChatUrl('$_site/chat/c/-/9/t/99/44'), isFalse);
 
@@ -1136,6 +1218,31 @@ void main() {
           expect(shell.chatNavigation.value?.messageId, 44);
         },
       );
+
+      test('a Chat invitation opens the channel it invites to', () async {
+        final invitation = shell.plugins.registry.resolveNotification(
+          _site,
+          const DiscourseNotification.test(
+            id: 52,
+            typeId: NotificationTypeId(31),
+            data: {
+              'invited_by_username': 'sam',
+              'chat_channel_id': 21,
+              'chat_message_id': 88,
+            },
+          ),
+        );
+        expect(invitation.path, '/chat/c/-/21/88');
+
+        expect(
+          await shell.openNotificationUrl('$_site${invitation.path}'),
+          isTrue,
+        );
+
+        expect(shell.currentContent?.id, 'chat-c-21');
+        expect(shell.chatNavigation.value?.messageId, 88);
+        expect(shell.chat.channel(_site, 21)?.membership.following, isFalse);
+      });
 
       test(
         'a Chat notification opens its exact message in full-page Chat',
@@ -1846,4 +1953,41 @@ void main() {
       });
     });
   });
+}
+
+/// Holds only channel-detail reads, so a link can pass the followed snapshot
+/// and then wait on the channel it has to fetch on its own.
+final class _ChannelDetailGateApi extends FakeDiscourseApi {
+  _ChannelDetailGateApi({
+    super.user,
+    super.feeds,
+    super.chatChannelGate,
+    super.chatThreadGate,
+    super.chatChannelsBySite,
+    super.chatChannelsById,
+    super.chatThreadsByKey,
+    this.channelDetailGate,
+  });
+
+  final Completer<void>? channelDetailGate;
+
+  /// Channel-detail reads that reached the gate, before any is released.
+  final List<int> heldChannelDetails = [];
+
+  @override
+  Future<ChatChannel> chatChannel({
+    required String siteUrl,
+    required String apiKey,
+    required int channelId,
+    String? clientId,
+  }) async {
+    heldChannelDetails.add(channelId);
+    await channelDetailGate?.future;
+    return super.chatChannel(
+      siteUrl: siteUrl,
+      apiKey: apiKey,
+      channelId: channelId,
+      clientId: clientId,
+    );
+  }
 }
