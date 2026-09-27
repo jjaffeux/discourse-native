@@ -552,9 +552,15 @@ void _registerTopicReplyTests() {
       await tester.tap(sendButton());
       await tester.pumpAndSettle();
 
+      final refusal = find.text('Body is too short (minimum is 20 characters)');
+      expect(refusal, findsOneWidget);
+      // Nothing moves focus to the refusal, so drawing it alone is silent.
       expect(
-        find.text('Body is too short (minimum is 20 characters)'),
-        findsOneWidget,
+        tester.getSemantics(refusal),
+        isSemantics(
+          label: 'Body is too short (minimum is 20 characters)',
+          isLiveRegion: true,
+        ),
       );
       expect(find.byType(ComposerPanel), findsOneWidget);
       expect(find.text('no'), findsOneWidget);
@@ -578,7 +584,12 @@ void _registerTopicReplyTests() {
       await tester.tap(sendButton());
       await tester.pumpAndSettle();
 
-      expect(find.text('Your post is in the queue.'), findsOneWidget);
+      final queued = find.text('Your post is in the queue.');
+      expect(queued, findsOneWidget);
+      expect(
+        tester.getSemantics(queued),
+        isSemantics(label: 'Your post is in the queue.', isLiveRegion: true),
+      );
       expect(renderedText('Held for review.'), findsNothing);
 
       expect(tester.widget<DButton>(sendButton()).onPressed, isNull);

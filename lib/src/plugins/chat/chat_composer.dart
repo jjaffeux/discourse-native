@@ -1022,10 +1022,17 @@ class _ChatComposerState extends State<ChatComposer> {
                     padding: const EdgeInsets.fromLTRB(12, 0, 12, 6),
                     child: Align(
                       alignment: Alignment.centerLeft,
-                      child: Text(
-                        message,
-                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      child: Semantics(
+                        container: true,
+                        liveRegion: true,
+                        child: Text(
+                          message,
+                          style: Theme.of(context).textTheme.labelSmall
+                              ?.copyWith(
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.onSurfaceVariant,
+                              ),
                         ),
                       ),
                     ),
@@ -1048,6 +1055,7 @@ class _ChatComposerState extends State<ChatComposer> {
   Widget _replyPreview(BuildContext context, ChatReplyTo reply) {
     final theme = Theme.of(context);
     return Semantics(
+      container: true,
       liveRegion: true,
       child: Row(
         key: const ValueKey('chat-composer-reply'),

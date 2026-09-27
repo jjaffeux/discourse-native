@@ -650,6 +650,35 @@ void main() {
       },
     );
 
+    testWidgets('the reply preview is announced as its own region', (
+      tester,
+    ) async {
+      final fixture = await _fixture(pages: const {}, threadingEnabled: false);
+      addTearDown(fixture.shell.dispose);
+      fixture.shell.chat.retainComposerDraft(
+        _site,
+        const ChatChannelTarget(9),
+        raw: 'Already writing',
+        uploads: const [],
+        replyTo: ChatReplyTo.fromMessage(_message(7)),
+      );
+      await tester.pumpWidget(
+        _ComposerVisibilityView(shell: fixture.shell, visible: true),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        tester.getSemantics(find.byKey(const ValueKey('chat-composer-reply'))),
+        isSemantics(label: 'Replying to @sam\nMessage 7', isLiveRegion: true),
+      );
+      // Without a node of its own the flag merges onto the composer card, and
+      // the card rather than the preview becomes the announced region.
+      final card = tester.getSemantics(
+        find.byKey(const ValueKey('chat-composer')),
+      );
+      expect(card, isSemantics(isLiveRegion: false));
+    });
+
     testWidgets('a GIF replies to the selected message and preserves text', (
       tester,
     ) async {
@@ -1017,6 +1046,53 @@ void main() {
         expect(_text(tester), 'second');
       },
     );
+
+    testWidgets('a refused edit is announced beside the kept text', (
+      tester,
+    ) async {
+      const author = DiscourseUser(id: 2, username: 'sam');
+      const refusal = WriteException(
+        WriteFailure.validation,
+        errors: ['Edits are closed for this message.'],
+      );
+      final fixture = await _fixture(
+        pages: const {},
+        sessionUser: author,
+        editFailure: refusal,
+      );
+      addTearDown(fixture.shell.dispose);
+      final message = ChatMessage(
+        id: 1,
+        channelId: 9,
+        cooked: '<p>first</p>',
+        raw: 'first',
+        author: const ChatMessageAuthor(id: 2, username: 'sam'),
+        createdAt: DateTime.utc(2026, 8, 11),
+      );
+      fixture.shell.chatRecords.put(_site, message);
+      await tester.pumpWidget(
+        _ComposerVisibilityView(
+          shell: fixture.shell,
+          visible: true,
+          editingMessage: message,
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.enterText(_composerField(), 'first, edited');
+      await tester.tap(find.byKey(const ValueKey('chat-composer-send')));
+      await tester.pumpAndSettle();
+
+      expect(fixture.api.chatMessagesEdited.single.messageId, 1);
+      expect(_text(tester), 'first, edited');
+      // Nothing moves focus to the refusal, so drawing it alone is silent.
+      final notice = find.text(refusal.message);
+      expect(notice, findsOneWidget);
+      expect(
+        tester.getSemantics(notice),
+        isSemantics(label: refusal.message, isLiveRegion: true),
+      );
+    });
 
     testWidgets(
       'unmounted composers retain separate channel and thread drafts',
@@ -3368,6 +3444,7 @@ Future<({ShellController shell, FakeDiscourseApi api})> _fixture({
   DiscourseUser? sessionUser,
   Completer<void>? sendGate,
   Completer<void>? editGate,
+  WriteException? editFailure,
   WriteException? sendFailure,
   int? sentMessageId,
   SiteEmojiCatalog? emojiCatalog,
@@ -3389,6 +3466,7 @@ Future<({ShellController shell, FakeDiscourseApi api})> _fixture({
     chatMessagesByKey: pages,
     chatSendGate: sendGate,
     chatEditGate: editGate,
+    chatEditFailure: editFailure,
     chatSendFailure: sendFailure,
     chatSentMessageId: sentMessageId ?? 1,
     chatChannelFollowFailure: followFailure,
