@@ -45,6 +45,7 @@ export 'src/foundation/loopback_host.dart';
 export 'src/foundation/private_file_document.dart'
     show PrivateFileDocument, PrivateFileResult;
 export 'src/foundation/private_file_permissions.dart';
+export 'src/foundation/private_file_staging.dart';
 export 'src/foundation/timezone_environment.dart' show TimezoneEnvironment;
 export 'src/foundation/uri_path.dart' show tryUriPathSegments;
 export 'src/models/bookmark.dart' show Bookmark, BookmarkTargetType;

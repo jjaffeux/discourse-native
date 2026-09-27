@@ -1,10 +1,10 @@
 import 'dart:async';
-import 'dart:typed_data';
+import 'dart:io';
 
 import 'package:discourse_native/src/data/site_image_repository.dart';
 import 'package:discourse_native/src/data/site_lifecycle.dart';
 import 'package:discourse_native/src/shell/image_download.dart';
-import 'package:flutter/widgets.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -13,6 +13,12 @@ import 'support/fakes.dart';
 
 void main() {
   const siteUrl = 'https://forum.example';
+  late Directory temporary;
+
+  setUp(() async {
+    temporary = await Directory.systemTemp.createTemp('image-download-test-');
+  });
+  tearDown(() => temporary.delete(recursive: true));
 
   test('a cancelled desktop save does not fetch the image', () async {
     var requests = 0;
@@ -21,7 +27,7 @@ void main() {
       return http.Response.bytes([1], 200);
     });
     addTearDown(repository.dispose);
-    final environment = _FakeImageDownloadEnvironment();
+    final environment = _FakeImageDownloadEnvironment(temporary);
     final downloader = NativeLightboxImageDownloader(
       platform: TargetPlatform.macOS,
       environment: environment,
@@ -51,6 +57,7 @@ void main() {
     });
     addTearDown(repository.dispose);
     final environment = _FakeImageDownloadEnvironment(
+      temporary,
       savePath: '/chosen/screenshot.png',
     );
     final downloader = NativeLightboxImageDownloader(
@@ -86,6 +93,7 @@ void main() {
       addTearDown(repository.dispose);
       final choice = Completer<String?>();
       final environment = _FakeImageDownloadEnvironment(
+        temporary,
         saveChoice: choice.future,
       );
       final downloader = NativeLightboxImageDownloader(
@@ -113,35 +121,99 @@ void main() {
     },
   );
 
-  test('mobile downloads bytes into the native file-sharing sheet', () async {
-    final repository = _repository(
-      (_) async => http.Response.bytes([4, 5], 200),
-    );
-    addTearDown(repository.dispose);
-    const origin = Rect.fromLTWH(10, 20, 30, 40);
-    final environment = _FakeImageDownloadEnvironment(
-      shareOutcome: ImageDownloadOutcome.shared,
-    );
-    final downloader = NativeLightboxImageDownloader(
-      platform: TargetPlatform.iOS,
-      environment: environment,
-    );
+  group('mobile file-sharing sheet', () {
+    late SiteImageRepository repository;
 
-    final outcome = await downloader.download(
-      url: '$siteUrl/uploads/photo.webp?dl=1',
-      title: null,
-      siteUrl: siteUrl,
-      repository: repository,
-      sharePositionOrigin: origin,
-    );
+    setUp(() {
+      repository = _repository((_) async => http.Response.bytes([4, 5], 200));
+      addTearDown(repository.dispose);
+    });
 
-    expect(outcome, ImageDownloadOutcome.shared);
-    expect(environment.suggestedName, isNull);
-    expect(environment.filename, 'photo.webp');
-    expect(environment.mimeType, 'image/webp');
-    expect(environment.bytes, orderedEquals([4, 5]));
-    expect(environment.shareOrigin, origin);
-    expect(environment.shareCalls, 1);
+    Future<ImageDownloadOutcome> share(
+      _FakeImageDownloadEnvironment environment, {
+      String? title,
+      Rect? origin,
+    }) =>
+        NativeLightboxImageDownloader(
+          platform: TargetPlatform.iOS,
+          environment: environment,
+        ).download(
+          url: '$siteUrl/secure-uploads/photo.webp?dl=1',
+          title: title,
+          siteUrl: siteUrl,
+          repository: repository,
+          sharePositionOrigin: origin,
+        );
+
+    test('receives a private copy named after the image', () async {
+      const origin = Rect.fromLTWH(10, 20, 30, 40);
+      final environment = _FakeImageDownloadEnvironment(
+        temporary,
+        shareOutcome: ImageDownloadOutcome.shared,
+      );
+
+      final outcome = await share(
+        environment,
+        title: 'Private scan.webp',
+        origin: origin,
+      );
+
+      expect(outcome, ImageDownloadOutcome.shared);
+      expect(environment.suggestedName, isNull);
+      final staging = File(environment.sharedPath!).parent;
+      expect(staging.parent.path, temporary.path);
+      expect(staging.path, startsWith('${temporary.path}/image-share-'));
+      expect(environment.filename, 'Private scan.webp');
+      if (!Platform.isWindows) {
+        expect(environment.sharedMode, 0x180); // 0600
+      }
+      expect(environment.mimeType, 'image/webp');
+      expect(environment.bytes, orderedEquals([4, 5]));
+      expect(environment.shareOrigin, origin);
+      expect(environment.shareCalls, 1);
+      expect(temporary.listSync(), isEmpty);
+    });
+
+    test('names an untitled copy after the URL', () async {
+      final environment = _FakeImageDownloadEnvironment(temporary);
+
+      await share(environment);
+
+      expect(environment.filename, 'photo.webp');
+    });
+
+    test('a dismissed sheet leaves no copy behind', () async {
+      final environment = _FakeImageDownloadEnvironment(temporary);
+
+      expect(await share(environment), ImageDownloadOutcome.cancelled);
+      expect(environment.shareCalls, 1);
+      expect(temporary.listSync(), isEmpty);
+    });
+
+    test('a failed share leaves no copy behind', () async {
+      final environment = _FakeImageDownloadEnvironment(
+        temporary,
+        shareError: PlatformException(code: 'error'),
+      );
+
+      await expectLater(share(environment), throwsA(isA<PlatformException>()));
+      expect(environment.shareCalls, 1);
+      expect(temporary.listSync(), isEmpty);
+    });
+
+    test('an account change while staging never reaches the sheet', () async {
+      final environment = _FakeImageDownloadEnvironment(
+        temporary,
+        onTemporaryDirectory: () => repository.lifecycle.invalidate(siteUrl),
+      );
+
+      await expectLater(
+        share(environment),
+        throwsA(isA<ImageDownloadException>()),
+      );
+      expect(environment.shareCalls, 0);
+      expect(temporary.listSync(), isEmpty);
+    });
   });
 
   test(
@@ -149,7 +221,7 @@ void main() {
     () {
       final downloader = NativeLightboxImageDownloader(
         platform: TargetPlatform.android,
-        environment: _FakeImageDownloadEnvironment(),
+        environment: _FakeImageDownloadEnvironment(temporary),
       );
 
       expect(
@@ -227,18 +299,26 @@ SiteImageRepository _repository(
 );
 
 final class _FakeImageDownloadEnvironment implements ImageDownloadEnvironment {
-  _FakeImageDownloadEnvironment({
+  _FakeImageDownloadEnvironment(
+    this.temporary, {
     this.savePath,
     this.saveChoice,
     this.shareOutcome = ImageDownloadOutcome.cancelled,
+    this.shareError,
+    this.onTemporaryDirectory,
   });
 
+  final Directory temporary;
   final String? savePath;
   final Future<String?>? saveChoice;
   final ImageDownloadOutcome shareOutcome;
+  final Object? shareError;
+  final VoidCallback? onTemporaryDirectory;
 
   String? suggestedName;
   String? savedPath;
+  String? sharedPath;
+  int? sharedMode;
   String? filename;
   String? mimeType;
   Uint8List? bytes;
@@ -265,17 +345,25 @@ final class _FakeImageDownloadEnvironment implements ImageDownloadEnvironment {
   }
 
   @override
+  Future<Directory> temporaryDirectory() async {
+    onTemporaryDirectory?.call();
+    return temporary;
+  }
+
+  @override
   Future<ImageDownloadOutcome> shareImage(
-    Uint8List bytes, {
-    required String filename,
+    File file, {
     required String mimeType,
     Rect? sharePositionOrigin,
   }) async {
     shareCalls++;
-    this.bytes = bytes;
-    this.filename = filename;
+    sharedPath = file.path;
+    sharedMode = (await file.stat()).mode & 0x1ff;
+    bytes = await file.readAsBytes();
+    filename = file.uri.pathSegments.last;
     this.mimeType = mimeType;
     shareOrigin = sharePositionOrigin;
+    if (shareError case final error?) throw error;
     return shareOutcome;
   }
 }

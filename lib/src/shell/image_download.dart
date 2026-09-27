@@ -1,9 +1,13 @@
+import 'dart:io';
+
 import 'package:file_selector/file_selector.dart' as selector;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart' as sharing;
 
 import '../data/site_image_repository.dart';
+import '../foundation/private_file_staging.dart';
 import 'download_filename.dart';
 import 'site_url.dart';
 
@@ -19,9 +23,10 @@ abstract interface class ImageDownloadEnvironment {
     required String mimeType,
   });
 
+  Future<Directory> temporaryDirectory();
+
   Future<ImageDownloadOutcome> shareImage(
-    Uint8List bytes, {
-    required String filename,
+    File file, {
     required String mimeType,
     Rect? sharePositionOrigin,
   });
@@ -97,11 +102,20 @@ final class NativeLightboxImageDownloader implements LightboxImageDownloader {
       );
       return ImageDownloadOutcome.saved;
     }
-    return _environment.shareImage(
+    return withStagedPrivateFile(
+      await _environment.temporaryDirectory(),
       image.bytes,
+      prefix: 'image-share-',
       filename: filename,
-      mimeType: mimeType,
-      sharePositionOrigin: sharePositionOrigin,
+      use: (file) async {
+        // Staging yields, and a retired account must not reach the sheet.
+        if (!lease.isCurrent) throw const ImageDownloadException();
+        return _environment.shareImage(
+          file,
+          mimeType: mimeType,
+          sharePositionOrigin: sharePositionOrigin,
+        );
+      },
     );
   }
 }
@@ -131,18 +145,17 @@ final class _NativeImageDownloadEnvironment
   ).saveTo(path);
 
   @override
+  Future<Directory> temporaryDirectory() => getTemporaryDirectory();
+
+  @override
   Future<ImageDownloadOutcome> shareImage(
-    Uint8List bytes, {
-    required String filename,
+    File file, {
     required String mimeType,
     Rect? sharePositionOrigin,
   }) async {
     final result = await sharing.SharePlus.instance.share(
       sharing.ShareParams(
-        files: [
-          sharing.XFile.fromData(bytes, name: filename, mimeType: mimeType),
-        ],
-        fileNameOverrides: [filename],
+        files: [sharing.XFile(file.path, mimeType: mimeType)],
         sharePositionOrigin: sharePositionOrigin,
       ),
     );

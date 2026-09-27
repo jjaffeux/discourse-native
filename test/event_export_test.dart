@@ -6,7 +6,7 @@ import 'package:discourse_native/discourse_plugin_test.dart';
 import 'package:discourse_native/src/plugins/discourse_events/event_export.dart';
 import 'package:file_selector_platform_interface/file_selector_platform_interface.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/widgets.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:share_plus_platform_interface/share_plus_platform_interface.dart';
 
@@ -83,6 +83,7 @@ void main() {
     late TargetPlatform? previousPlatform;
     final sharing = _Sharing();
     late SharePlatform previousSharing;
+    late Directory temporary;
 
     setUpAll(() {
       previousSharing = SharePlatform.instance;
@@ -97,11 +98,40 @@ void main() {
       FileSelectorPlatform.instance = selector;
       sharing.calls.clear();
       sharing.result = Completer<ShareResult>();
+      sharing.entered = Completer<void>();
     });
-    tearDown(() {
+    setUp(() async {
+      temporary = await Directory.systemTemp.createTemp('event-share-test-');
+    });
+    tearDown(() async {
       FileSelectorPlatform.instance = previousSelector;
       debugDefaultTargetPlatformOverride = previousPlatform;
+      await temporary.delete(recursive: true);
     });
+
+    Future<void> share({
+      String filename = 'my-events.ics',
+      bool Function()? isCurrent,
+      Rect? origin,
+      VoidCallback? onTemporaryDirectory,
+    }) {
+      debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+      return saveEventCalendar(
+        calendar,
+        filename: filename,
+        isCurrent: isCurrent ?? () => true,
+        sharePositionOrigin: origin,
+        temporaryDirectory: () async {
+          onTemporaryDirectory?.call();
+          return temporary;
+        },
+      );
+    }
+
+    Future<File> sharedFile() async {
+      await sharing.entered.future;
+      return File(sharing.calls.single.files!.single.path);
+    }
 
     Future<File> destination() async {
       final directory = await Directory.systemTemp.createTemp('event-export-');
@@ -181,23 +211,25 @@ void main() {
     }
 
     test(
-      'shares the snapshot and filename with the original sheet anchor',
+      'shares a private snapshot named for the export, then deletes it',
       () async {
-        debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
         const origin = Rect.fromLTWH(10, 20, 300, 100);
         var current = true;
-        final pending = saveEventCalendar(
-          calendar,
-          filename: 'my-events.ics',
-          isCurrent: () => current,
-          sharePositionOrigin: origin,
-        );
-        expect(sharing.calls, hasLength(1));
+        final pending = share(isCurrent: () => current, origin: origin);
+        final file = await sharedFile();
         final params = sharing.calls.single;
-        expect(params.fileNameOverrides, ['my-events.ics']);
         expect(params.sharePositionOrigin, origin);
         expect(params.files!.single.mimeType, 'text/calendar');
-        expect(await params.files!.single.readAsString(), calendar);
+        expect(file.parent.parent.path, temporary.path);
+        expect(
+          file.parent.path,
+          startsWith('${temporary.path}/calendar-share-'),
+        );
+        expect(file.uri.pathSegments.last, 'my-events.ics');
+        if (!Platform.isWindows) {
+          expect((await file.stat()).mode & 0x1ff, 0x180); // 0600
+        }
+        expect(await file.readAsString(), calendar);
         // Ownership cannot recall a share already handed to the platform.
         current = false;
         sharing.result.complete(
@@ -205,8 +237,51 @@ void main() {
         );
         await pending;
         expect(selector.filenames, isEmpty);
+        expect(temporary.listSync(), isEmpty);
       },
     );
+
+    test('a dismissed share leaves no calendar copy behind', () async {
+      final pending = share();
+      await sharedFile();
+      expect(temporary.listSync(), hasLength(1));
+      sharing.result.complete(
+        const ShareResult('', ShareResultStatus.dismissed),
+      );
+      await pending;
+      expect(temporary.listSync(), isEmpty);
+    });
+
+    test('a failed share leaves no calendar copy behind', () async {
+      final pending = share();
+      await sharedFile();
+      expect(temporary.listSync(), hasLength(1));
+      sharing.result.completeError(PlatformException(code: 'error'));
+      await expectLater(pending, throwsA(isA<PlatformException>()));
+      expect(temporary.listSync(), isEmpty);
+    });
+
+    test('keeps a hostile filename inside its staging directory', () async {
+      final pending = share(filename: '../../escape.ics');
+      final file = await sharedFile();
+      expect(file.parent.parent.path, temporary.path);
+      expect(file.uri.pathSegments.last, '.._.._escape.ics');
+      sharing.result.complete(
+        const ShareResult('target', ShareResultStatus.success),
+      );
+      await pending;
+      expect(temporary.listSync(), isEmpty);
+    });
+
+    test('an export retired while staging never reaches the sheet', () async {
+      var current = true;
+      await share(
+        isCurrent: () => current,
+        onTemporaryDirectory: () => current = false,
+      );
+      expect(sharing.calls, isEmpty);
+      expect(temporary.listSync(), isEmpty);
+    });
 
     test('does not hand an obsolete snapshot to the share sheet', () async {
       debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
@@ -223,10 +298,12 @@ void main() {
 final class _Sharing extends SharePlatform {
   final calls = <ShareParams>[];
   late Completer<ShareResult> result;
+  late Completer<void> entered;
 
   @override
   Future<ShareResult> share(ShareParams params) {
     calls.add(params);
+    entered.complete();
     return result.future;
   }
 }
