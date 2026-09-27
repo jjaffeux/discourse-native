@@ -2,6 +2,8 @@ import 'package:discourse_native/src/plugins/discourse_events/event_calendar_dat
 import 'package:discourse_native/src/plugins/discourse_events/event_data.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:kalender/kalender.dart' as kalender;
+import 'package:timezone/timezone.dart' as tz;
 
 import 'support/event_fixtures.dart';
 
@@ -49,6 +51,144 @@ void main() {
         end: DateTime.utc(2026, 10, 3),
       ),
     );
+  });
+
+  DateTimeRange month(int year, int month, {required int firstDay}) =>
+      EventCalendarPage(
+        EventCalendarView.month,
+        DateTime.utc(year, month, 15),
+      ).days(firstDay: firstDay);
+
+  test('a four-week month requests the fifth row Kalender draws', () {
+    // 1 Feb 2027 is a Monday and February has 28 days, but Kalender never
+    // draws fewer than five rows: 1–7 March is on screen.
+    expect(
+      month(2027, 2, firstDay: 1),
+      DateTimeRange(
+        start: DateTime.utc(2027, 2, 1),
+        end: DateTime.utc(2027, 3, 8),
+      ),
+    );
+  });
+
+  test('Sunday- and Saturday-first four-week months request a fifth row', () {
+    // 1 Feb 2026 is a Sunday; 1 Feb 2025 is a Saturday.
+    expect(
+      month(2026, 2, firstDay: 0),
+      DateTimeRange(
+        start: DateTime.utc(2026, 2, 1),
+        end: DateTime.utc(2026, 3, 8),
+      ),
+    );
+    expect(
+      month(2025, 2, firstDay: 6),
+      DateTimeRange(
+        start: DateTime.utc(2025, 2, 1),
+        end: DateTime.utc(2025, 3, 8),
+      ),
+    );
+  });
+
+  test('a six-row month requests all six rows', () {
+    // 1 Aug 2026 is a Saturday: five leading days push 31 days past 35.
+    final days = month(2026, 8, firstDay: 1);
+    expect(
+      days,
+      DateTimeRange(
+        start: DateTime.utc(2026, 7, 27),
+        end: DateTime.utc(2026, 9, 7),
+      ),
+    );
+    expect(days.duration, const Duration(days: 42));
+  });
+
+  test('the first weekday decides how many rows a month draws', () {
+    // February 2027 is four weeks from Monday (padded to five rows) but five
+    // natural rows from Sunday.
+    expect(
+      month(2027, 2, firstDay: 1),
+      DateTimeRange(
+        start: DateTime.utc(2027, 2, 1),
+        end: DateTime.utc(2027, 3, 8),
+      ),
+    );
+    expect(
+      month(2027, 2, firstDay: 0),
+      DateTimeRange(
+        start: DateTime.utc(2027, 1, 31),
+        end: DateTime.utc(2027, 3, 7),
+      ),
+    );
+    // August 2026 fits five rows from Saturday and needs six from Sunday.
+    expect(
+      month(2026, 8, firstDay: 6),
+      DateTimeRange(
+        start: DateTime.utc(2026, 8, 1),
+        end: DateTime.utc(2026, 9, 5),
+      ),
+    );
+    expect(
+      month(2026, 8, firstDay: 0),
+      DateTimeRange(
+        start: DateTime.utc(2026, 7, 26),
+        end: DateTime.utc(2026, 9, 6),
+      ),
+    );
+  });
+
+  test('month and week requests cover exactly the days Kalender draws', () {
+    final paris = ports.zones.location('Europe/Paris')!;
+    DateTime inParis(DateTime day) =>
+        tz.TZDateTime(paris, day.year, day.month, day.day);
+    // Configured as EventCalendar configures its views, so a Kalender layout
+    // change fails here instead of leaving a drawn row unrequested.
+    final display = kalender.KalenderDateTimeRange(
+      start: inParis(DateTime.utc(1900)),
+      end: inParis(DateTime.utc(2200)),
+    );
+    DateTimeRange drawn(kalender.PageIndexCalculator pages, DateTime day) {
+      final range = pages.rangeFromIndex(
+        pages.indexFromDate(inParis(day), paris),
+        paris,
+      );
+      return DateTimeRange(start: range.start, end: range.end);
+    }
+
+    for (var firstDay = 0; firstDay < 7; firstDay++) {
+      final weekday = firstDay == 0 ? DateTime.sunday : firstDay;
+      final months = kalender.MonthViewConfiguration.singleMonth(
+        displayRange: display,
+        firstDayOfWeek: weekday,
+      ).pageIndexCalculator;
+      final weeks = kalender.MultiDayViewConfiguration.week(
+        displayRange: display,
+        firstDayOfWeek: weekday,
+      ).pageIndexCalculator;
+      // Every month of three years reaches all three row counts, including
+      // the four-week Februaries of 2025, 2026 and 2027.
+      for (var index = 0; index < 36; index++) {
+        final day = DateTime.utc(2025, 1 + index, 15);
+        expect(
+          EventCalendarPage(
+            EventCalendarView.month,
+            day,
+          ).days(firstDay: firstDay),
+          drawn(months, day),
+          reason: 'month of $day, first day $firstDay',
+        );
+      }
+      for (var offset = 0; offset < 14; offset++) {
+        final day = DateTime.utc(2027, 2, 22 + offset);
+        expect(
+          EventCalendarPage(
+            EventCalendarView.week,
+            day,
+          ).days(firstDay: firstDay),
+          drawn(weeks, day),
+          reason: 'week of $day, first day $firstDay',
+        );
+      }
+    }
   });
 
   test('schedule bounds and routes navigate by calendar month', () {

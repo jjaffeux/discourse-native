@@ -27,6 +27,7 @@ void main() {
     ValueChanged<int>? openReply,
     VoidCallback? openWeb,
     TopicCalendarSettings settings = const TopicCalendarSettings(),
+    DateTime? now,
   }) => MaterialApp(
     theme: brightness == Brightness.dark ? AppTheme.dark : AppTheme.light,
     home: Scaffold(
@@ -42,7 +43,7 @@ void main() {
               options: calendarOptions(options),
               settings: settings,
               zones: ports.zones,
-              now: DateTime.utc(2026, 9, 7, 12),
+              now: now ?? DateTime.utc(2026, 9, 7, 12),
               onOpenReply: openReply ?? (_) {},
               onOpenWeb: openWeb ?? () {},
             ),
@@ -318,6 +319,25 @@ void main() {
     );
     await chooseView(tester, 'Week');
     expect(find.text('Sep 6 – Sep 12, 2026'), findsOneWidget);
+  });
+
+  testWidgets('a four-week month reserves height for the rows Kalender draws', (
+    tester,
+  ) async {
+    Future<double> monthHeight(DateTime now) async {
+      await tester.pumpWidget(const SizedBox());
+      await tester.pumpWidget(calendar(now: now));
+      await tester.pumpAndSettle();
+      return tester.getSize(find.byType(kalender.KalenderView)).height;
+    }
+
+    // 1 Feb 2027 and 1 Mar 2027 are Mondays: February's four weeks are drawn
+    // as five rows, like March's five, so each row keeps the same lanes.
+    final february = await monthHeight(DateTime.utc(2027, 2, 10, 12));
+    expect(find.text('February 2027'), findsOneWidget);
+    final march = await monthHeight(DateTime.utc(2027, 3, 10, 12));
+    expect(find.text('March 2027'), findsOneWidget);
+    expect(february, march);
   });
 
   testWidgets('timezone changes preserve the browsed month and all-day dates', (
