@@ -764,6 +764,7 @@ class ChatController extends FrameSafeNotifier {
   final Map<String, ChatThreadMembership?> _threadNotificationConfirmed = {};
   final Map<String, Object> _channelStarWrites = {};
   final Map<String, Object> _channelNotificationWrites = {};
+  final Map<String, Object> _channelMessageResumes = {};
   final Map<String, Object> _channelFollowWrites = {};
   final Map<String, _ChannelSettingsWrite> _channelSettingsWrites = {};
   final Map<({String siteUrl, int messageId}), Object> _messageEditWrites = {};
@@ -1121,27 +1122,34 @@ class ChatController extends FrameSafeNotifier {
     // happened locally meanwhile, and the rollback must not undo a
     // concurrent optimistic star. Muting changes how the channel counts, so
     // the projection, the server's answer and a rollback each publish their
-    // own counter change.
-    void project(ChatMembership source) {
+    // own counter change. Each also moves the channel's new-messages stream
+    // with its muting; restarting it needs fresh cursors, so that waits for a
+    // [settled] membership, the server's answer or a rollback to its state.
+    final changesMuting = held.membership.muted || projectedMembership.muted;
+    void project(ChatMembership source, {bool settled = true}) {
       lease.commit(() {
         final current = channel(siteUrl, channelId) ?? held;
-        _publishListedNotificationChange(
-          siteUrl,
-          () => _putChannel(
-            siteUrl,
-            current.withMembership(
-              current.membership.withNotifications(
-                muted: source.muted,
-                notificationLevel: source.notificationLevel,
-              ),
-            ),
+        final next = current.withMembership(
+          current.membership.withNotifications(
+            muted: source.muted,
+            notificationLevel: source.notificationLevel,
           ),
         );
+        _publishListedNotificationChange(
+          siteUrl,
+          () => _putChannel(siteUrl, next),
+        );
+        if (next.membership.muted) {
+          _channelMessageResumes.remove(key);
+          _liveSync.muteChannel(siteUrl, channelId);
+        } else if (settled && changesMuting) {
+          _resumeChannelMessages(siteUrl, channelId);
+        }
         notifySafely();
       });
     }
 
-    project(projectedMembership);
+    project(projectedMembership, settled: false);
     try {
       final requestCredentials = await _requests.credentialsFor(siteUrl);
       final apiKey = requestCredentials.apiKey;
@@ -1182,6 +1190,65 @@ class ChatController extends FrameSafeNotifier {
       }
       if (!isDisposed) notifySafely();
     }
+  }
+
+  /// Restarts the new-messages stream of a channel that is no longer muted.
+  ///
+  /// The held record's cursors date from its snapshot and a stopped stream
+  /// keeps none of its own, so the channel detail supplies the position to
+  /// start from. The detail carries no tracking, so the unread messages the
+  /// muted snapshot left out arrive with the next channel-list snapshot. A
+  /// later mute withdraws the run and the commit re-checks the record, so a
+  /// mute that lands while the detail is in flight leaves the stream stopped.
+  void _resumeChannelMessages(String siteUrl, int channelId) {
+    if (_liveSync.ownsChannelMessages(siteUrl, channelId)) return;
+    final key = _streamKey(siteUrl, channelId);
+    final run = Object();
+    _channelMessageResumes[key] = run;
+    final lease = _requests.capture(siteUrl);
+    bool isCurrent() => _requestIsCurrent(
+      lease,
+      () => identical(_channelMessageResumes[key], run),
+    );
+
+    Future<void> resume() async {
+      try {
+        final requestCredentials = await _requests.credentialsFor(siteUrl);
+        final apiKey = requestCredentials.apiKey;
+        if (!isCurrent() || apiKey == null) return;
+        final clientId = requestCredentials.clientId;
+        if (!isCurrent()) return;
+        final fresh = await api.chatChannel(
+          siteUrl: siteUrl,
+          apiKey: apiKey,
+          clientId: clientId,
+          channelId: channelId,
+        );
+        if (!isCurrent() || fresh.id != channelId) return;
+        lease.commit(() {
+          final membership = channel(siteUrl, channelId)?.membership;
+          if (membership == null || !membership.following || membership.muted) {
+            return;
+          }
+          _liveSync.unmuteChannel(siteUrl, fresh);
+        });
+      } catch (error, stackTrace) {
+        if (isCurrent()) {
+          _report(
+            error,
+            stackTrace,
+            'chat.resumeChannelMessages',
+            severity: DiagnosticSeverity.warning,
+          );
+        }
+      } finally {
+        if (identical(_channelMessageResumes[key], run)) {
+          _channelMessageResumes.remove(key);
+        }
+      }
+    }
+
+    unawaited(resume());
   }
 
   Future<ChatChannelMembersResult> fetchChannelMembers(
@@ -3766,6 +3833,7 @@ class ChatController extends FrameSafeNotifier {
     // Revocation supersedes reads started while the channel was accessible.
     _channelDetailRuns.remove(key);
     final _ = _channelDetailRequests.remove(key);
+    _channelMessageResumes.remove(key);
     _myThreadRuns.remove(_myThreadsKey(siteUrl));
     final _ = _myThreadRequests.remove(_myThreadsKey(siteUrl));
     final listKey = _channelThreadsKey(siteUrl, channelId);
@@ -6602,6 +6670,7 @@ class ChatController extends FrameSafeNotifier {
     _channelNotificationWrites.removeWhere(
       (key, _) => key.startsWith('$siteUrl~'),
     );
+    _channelMessageResumes.removeWhere((key, _) => key.startsWith('$siteUrl~'));
     _channelFollowWrites.removeWhere((key, _) => key.startsWith('$siteUrl~'));
     _channelSettingsWrites.removeWhere((key, _) => key.startsWith('$siteUrl~'));
     _threadTitleWrites.removeWhere((key, _) => key.startsWith('$siteUrl~'));
@@ -6669,6 +6738,7 @@ class ChatController extends FrameSafeNotifier {
     _threadNotificationConfirmed.clear();
     _channelStarWrites.clear();
     _channelNotificationWrites.clear();
+    _channelMessageResumes.clear();
     _channelFollowWrites.clear();
     _channelSettingsWrites.clear();
     _threadTitleWrites.clear();
