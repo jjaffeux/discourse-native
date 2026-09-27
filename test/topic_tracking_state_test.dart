@@ -704,6 +704,110 @@ void main() {
     expect(tracking.newActivityCounts, (newTopics: 0, newReplies: 0));
   });
 
+  group('a re-read report', () {
+    const settledRow = TrackedTopicState(
+      topicId: 1,
+      highestPostNumber: 10,
+      lastReadPostNumber: 10,
+      categoryId: 1,
+      notificationLevel: 2,
+      isSeen: true,
+    );
+    const unreadRow = TrackedTopicState(
+      topicId: 2,
+      highestPostNumber: 10,
+      lastReadPostNumber: 4,
+      categoryId: 1,
+      notificationLevel: 2,
+      tagIds: {7},
+    );
+    const newRow = TrackedTopicState(
+      topicId: 3,
+      highestPostNumber: 3,
+      categoryId: 1,
+      createdInNewPeriod: true,
+    );
+    const reported = TrackedTopicState(
+      topicId: 4,
+      highestPostNumber: 8,
+      lastReadPostNumber: 6,
+      categoryId: 1,
+      notificationLevel: 2,
+    );
+
+    test('settles the topics it omits when complete', () {
+      final previous = TopicTrackingState([
+        settledRow,
+        unreadRow,
+        newRow,
+        reported.copyWith(lastReadPostNumber: 2),
+      ]);
+      final report = TopicTrackingState([reported]);
+      expect(report.newActivityCounts, (newTopics: 0, newReplies: 1));
+
+      report.keepOmitted(previous, complete: true);
+
+      expect(report.topic(1), same(settledRow));
+      expect(report.topic(2)?.lastReadPostNumber, 10);
+      expect(report.topic(2)?.isUnread, isFalse);
+      expect(report.topic(2)?.tagIds, {7});
+      expect(report.topic(3)?.isNew, isFalse);
+      expect(report.topic(3)?.lastReadPostNumber, isNull);
+      expect(report.topic(4), same(reported));
+      expect(report.newActivityCounts, (newTopics: 0, newReplies: 1));
+      expect(
+        report.tagBadge(tagId: 7, unifiedNew: true, showCount: true),
+        SidebarBadge.none,
+      );
+
+      // A reply after the report still makes a kept topic unread.
+      expect(
+        report.applyMessage(const {
+          'topic_id': 2,
+          'message_type': 'unread',
+          'payload': {'highest_post_number': 11},
+        }),
+        isTrue,
+      );
+      expect(report.topic(2)?.isUnread, isTrue);
+      expect(report.newActivityCounts, (newTopics: 0, newReplies: 2));
+      expect(
+        report.tagBadge(tagId: 7, unifiedNew: true, showCount: true),
+        const SidebarBadge.count(1),
+      );
+    });
+
+    test('cut at its limit keeps only the settled rows it omits', () {
+      final previous = TopicTrackingState([settledRow, unreadRow, newRow]);
+      final report = TopicTrackingState([reported]);
+
+      report.keepOmitted(previous, complete: false);
+
+      expect(report.topic(1), same(settledRow));
+      expect(report.topic(2), isNull);
+      expect(report.topic(3), isNull);
+    });
+
+    test('keeps what was replayed onto it as its newest settled rows', () {
+      final previous = TopicTrackingState([
+        for (var id = 1; id <= settledTopicCap; id++)
+          TrackedTopicState(
+            topicId: id,
+            highestPostNumber: 1,
+            lastReadPostNumber: 1,
+          ),
+      ]);
+      final report = TopicTrackingState()..applyMessage(readMessage(5000));
+
+      report.keepOmitted(previous, complete: true);
+
+      expect(settled(report), hasLength(settledTopicCap));
+      expect(report.topic(5000)?.lastReadPostNumber, 1);
+      expect(report.topic(1), isNull);
+      expect(report.topic(settledTopicCap), isNotNull);
+    });
+  });
+
   test('a live message costs the same however long the session has run', () {
     Duration timeMessages(int sessionTopics) {
       final tracking = TopicTrackingState();

@@ -199,7 +199,7 @@ final class _OneShotGatedAuthenticator extends FakeAuthenticator {
 /// Answers each tracking snapshot read with a fresh report, or, while
 /// [heldSnapshot] is set, with whatever the test completes it with.
 final class _TrackingSnapshotApi extends FakeDiscourseApi {
-  _TrackingSnapshotApi({super.categoryList})
+  _TrackingSnapshotApi({super.categoryList, super.feeds})
     : super(user: const DiscourseUser(id: 1, username: 'author'));
 
   Completer<TopicTrackingState>? heldSnapshot;
@@ -655,6 +655,71 @@ void main() {
 
       expect(shell.instanceFor(_siteUrl), isNull);
       expect(shell.topicTrackingRevisionFor(_siteUrl), 0);
+    });
+
+    test('a re-read keeps what it omits out of a loaded unread list', () async {
+      var now = DateTime.utc(2026, 9, 26, 23);
+      final rows = [
+        for (var id = 1; id <= 3; id++)
+          Topic(
+            id: id,
+            title: 'Topic $id',
+            slug: 'topic-$id',
+            postsCount: 10,
+            highestPostNumber: 10,
+            lastReadPostNumber: 4,
+            unreadPosts: 6,
+            newPosts: 6,
+            seen: true,
+          ),
+      ];
+      TrackedTopicState unread(int topicId) => TrackedTopicState(
+        topicId: topicId,
+        highestPostNumber: 10,
+        lastReadPostNumber: 4,
+        categoryId: 1,
+        notificationLevel: 2,
+      );
+      final api = _TrackingSnapshotApi(
+        categoryList: const [category],
+        feeds: {'/latest.json': rows, '/unread.json': rows},
+      );
+      api.heldSnapshot = Completer()
+        ..complete(TopicTrackingState([unread(1), unread(2), unread(3)]));
+      final shell = await _loadShell(api, clock: () => now);
+      addTearDown(shell.dispose);
+      final tracker = FakeSiteTracker.built.single;
+      await shell.selectTopicListMode(TopicListMode.unread);
+      expect(shell.currentFeed?.topicIds, [1, 2, 3]);
+
+      tracker.deliverTopicTracking(
+        tracked(1, 'read', {
+          'last_read_post_number': 10,
+          'highest_post_number': 10,
+          'notification_level': 2,
+        }),
+      );
+      await pumpEventQueue();
+      expect(shell.currentFeed?.topicIds, [2, 3]);
+
+      // Overnight topic 2 was read elsewhere too, and its message fell out of
+      // the backlog: the report no longer names either topic.
+      api.heldSnapshot = Completer()..complete(TopicTrackingState([unread(3)]));
+      shell.setForeground(false);
+      now = now.add(const Duration(hours: 8));
+      shell.setForeground(true);
+      await pumpEventQueue();
+
+      expect(api.topicTrackingRequests, [_siteUrl, _siteUrl]);
+      expect(shell.currentFeed?.topicIds, [3]);
+      expect(shell.categoryActivityCountFor(_siteUrl, 1), 1);
+
+      tracker.deliverTopicTracking(
+        tracked(2, 'unread', {'highest_post_number': 11}),
+      );
+      await pumpEventQueue();
+      expect(shell.currentFeed?.topicIds, [2, 3]);
+      expect(shell.categoryActivityCountFor(_siteUrl, 1), 2);
     });
   });
 

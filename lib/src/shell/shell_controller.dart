@@ -5239,8 +5239,14 @@ class ShellController extends FrameSafeNotifier
       // operations are idempotent when the response already included one.
       // Admission was decided on arrival, before buffering: a later unmuted
       // hint must neither admit an earlier event nor expire an accepted one.
+      // The report's own length says whether it is complete, so it is
+      // measured before the replay adds topics to it.
+      final complete =
+          snapshot.topics.length < TopicTrackingState.maxReportTopics;
       _replayTopicTrackingEvents(siteUrl, snapshot);
       lease.commit(() {
+        final held = _topicTrackingBySite[siteUrl];
+        if (held != null) snapshot.keepOmitted(held, complete: complete);
         _topicTrackingBySite[siteUrl] = snapshot;
         _topicTrackingSnapshotsLoaded.add(siteUrl);
         _topicTrackingRevisions.update(
