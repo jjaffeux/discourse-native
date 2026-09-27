@@ -67,6 +67,7 @@ import 'examples/sidebar_examples.dart';
 import 'examples/skeleton_examples.dart';
 import 'examples/slider_examples.dart';
 import 'examples/spinner_examples.dart';
+import 'examples/sticky_examples.dart';
 import 'examples/switch_examples.dart';
 import 'examples/table_examples.dart';
 import 'examples/tabs_examples.dart';
@@ -94,6 +95,7 @@ final componentExamples = <String, ComponentExamples>{
   'message-inbox-menu': messageInboxMenuExamples,
   'notification-level-menu': notificationLevelMenuExamples,
   'page-surface': pageSurfaceExamples,
+  'sticky': stickyExamples,
   'notification-dot': notificationDotExamples,
   'category-selector': categorySelectorExamples,
   'tag-selector': tagSelectorExamples,

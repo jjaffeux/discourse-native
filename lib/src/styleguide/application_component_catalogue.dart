@@ -34,6 +34,11 @@ const applicationComponentCatalogue = <ComponentReference>[
     sections: ['Page structure'],
   ),
   ComponentReference(
+    id: 'sticky',
+    name: 'Sticky',
+    sections: ['Bounded avatars'],
+  ),
+  ComponentReference(
     id: 'color-picker',
     name: 'Color picker',
     sections: ['Live color', 'Disabled'],

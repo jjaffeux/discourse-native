@@ -78,6 +78,7 @@ export 'src/ui/components/d_sidebar.dart';
 export 'src/ui/components/d_skeleton.dart';
 export 'src/ui/components/d_slider.dart';
 export 'src/ui/components/d_spinner.dart';
+export 'src/ui/components/d_sticky.dart';
 export 'src/ui/components/d_switch.dart';
 export 'src/ui/components/d_table.dart';
 export 'src/ui/components/d_tabs.dart';
