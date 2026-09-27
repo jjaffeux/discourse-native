@@ -523,6 +523,104 @@ void main() {
       );
     }
 
+    testWidgets('push-to-talk leaves a Space typed in room chat to its field', (
+      tester,
+    ) async {
+      final room = _room(
+        chatAvailable: true,
+        participants: const [
+          VoiceParticipant(id: 1, username: 'sam', role: VoiceRole.participant),
+        ],
+      );
+      final harness = _Harness(
+        discourseApi: RecordingPluginTransport(
+          responses: {
+            'POST /voice/rooms/7/join.json': _joinPayload(room),
+            'POST /voice/rooms/7/state.json': const {},
+            'GET /voice/rooms/7/chat_session.json': const {
+              'channel_id': 42,
+              'thread_id': 99,
+            },
+            'DELETE /voice/rooms/7/leave.json': const {},
+          },
+        ),
+      );
+      addTearDown(harness.dispose);
+      await _join(harness, room);
+      await harness.controller.setPushToTalkEnabled(true);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: VoiceRoomView(
+            roomId: 7,
+            controller: harness.controller,
+            shell: _voiceShell(
+              harness.controller,
+              site: const PluginRouteSite(
+                url: _siteUrl,
+                title: 'Voice',
+                isConnected: true,
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final media = harness.media.sessions.single;
+      Future<void> holdSpaceInRoom() async {
+        expect(await tester.sendKeyDownEvent(LogicalKeyboardKey.space), isTrue);
+        await tester.pumpAndSettle();
+        expect(media.muted, isFalse);
+        expect(await tester.sendKeyUpEvent(LogicalKeyboardKey.space), isTrue);
+        await tester.pumpAndSettle();
+        expect(media.muted, isTrue);
+      }
+
+      await holdSpaceInRoom();
+
+      await tester.tap(find.byTooltip('Room chat'));
+      await tester.pumpAndSettle();
+      final composer = find.widgetWithText(TextField, 'Message the room');
+      await tester.tap(composer);
+      await tester.pumpAndSettle();
+      expect(
+        tester
+            .widget<EditableText>(
+              find.descendant(
+                of: composer,
+                matching: find.byType(EditableText),
+              ),
+            )
+            .focusNode
+            .hasPrimaryFocus,
+        isTrue,
+      );
+
+      // A desktop engine hands the text input only the keys no framework
+      // handler claimed, so an unhandled Space is a space typed in the field.
+      expect(await tester.sendKeyDownEvent(LogicalKeyboardKey.space), isFalse);
+      expect(
+        await tester.sendKeyRepeatEvent(LogicalKeyboardKey.space),
+        isFalse,
+      );
+      expect(
+        await tester.sendKeyRepeatEvent(LogicalKeyboardKey.space),
+        isFalse,
+      );
+      await tester.pumpAndSettle();
+      expect(media.muted, isTrue);
+      expect(harness.controller.call?.muted, isTrue);
+      expect(await tester.sendKeyUpEvent(LogicalKeyboardKey.space), isFalse);
+      await tester.pumpAndSettle();
+      expect(media.muted, isTrue);
+
+      await tester.tap(find.byTooltip('Close'));
+      await tester.pumpAndSettle();
+      await holdSpaceInRoom();
+
+      await harness.controller.leave();
+      await tester.pump();
+    });
+
     testWidgets('exposes controls after joining and reports mute failures', (
       tester,
     ) async {
