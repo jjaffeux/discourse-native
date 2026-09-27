@@ -2249,7 +2249,7 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
       return false;
     }
     final at = offset.clamp(0, source.length);
-    final code = CodeRanges.of(scanMarkdown(source));
+    final code = markdownCodeRanges(source);
     final images = parseComposerImages(source, codeRanges: code);
     final openings = <int>[];
     final marker = RegExp(r'\[(/?)grid\b', caseSensitive: false);

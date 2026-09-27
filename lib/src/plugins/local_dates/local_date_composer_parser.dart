@@ -158,7 +158,9 @@ List<LocalDateComposerBlock> parseLocalDateComposerBlocks(
   CodeRanges? knownCodeRanges,
 }) {
   if (source.isEmpty) return const [];
-  final codeRanges = knownCodeRanges ?? CodeRanges.of(scanMarkdown(source));
+  // Every composer asks on every edit, whether or not the site has dates: a
+  // draft whose brackets open no date tag never needs to know where code is.
+  late final codeRanges = knownCodeRanges ?? markdownCodeRanges(source);
   final blocks = <LocalDateComposerBlock>[];
   var offset = 0;
   var scannedTo = 0;
@@ -166,12 +168,8 @@ List<LocalDateComposerBlock> parseLocalDateComposerBlocks(
   while (offset < source.length) {
     final opening = source.indexOf('[', offset);
     if (opening == -1) break;
-    if (codeRanges.contains(opening)) {
-      offset = opening + 1;
-      continue;
-    }
     final header = _tagAt(source, opening);
-    if (header == null) {
+    if (header == null || codeRanges.contains(opening)) {
       offset = opening + 1;
       continue;
     }

@@ -73,11 +73,14 @@ const int maxSynchronousFenceChars = 512;
 final class CodeRanges {
   const CodeRanges._(this._starts, this._ends);
 
-  factory CodeRanges.of(List<MarkdownRun> runs) {
+  factory CodeRanges.of(List<MarkdownRun> runs) =>
+      CodeRanges._marked(runs, Md.code | Md.codeBlock);
+
+  factory CodeRanges._marked(List<MarkdownRun> runs, int flags) {
     final starts = <int>[];
     final ends = <int>[];
     for (final run in runs) {
-      if (!run.has(Md.code) && !run.has(Md.codeBlock)) continue;
+      if (run.mask & flags == 0) continue;
       if (ends.isNotEmpty && ends.last == run.start) {
         ends[ends.length - 1] = run.end;
       } else {
@@ -284,15 +287,132 @@ List<MarkdownRun> scanMarkdown(
 /// A reader pairing delimiters over the same source has to pair within these
 /// too. Across them, a delimiter the scan left unpaired in one block takes the
 /// closer of a span it drew in the next.
+///
+/// Every scan is remembered for [sharedMarkdownScan], so its lists are
+/// unmodifiable.
 ({List<MarkdownRun> runs, List<({int offset, String text})> blocks})
 scanMarkdownBlocks(String source, {DeferredFenceHighlight? deferHighlight}) {
-  if (source.isEmpty) return (runs: const [], blocks: const []);
+  final scan = _scan(source, deferHighlight);
+  return (runs: scan.runs, blocks: scan.blocks);
+}
 
-  final scan = _Scan(source, deferHighlight);
+_RecentScan _scan(String source, DeferredFenceHighlight? deferHighlight) {
+  if (source.isEmpty) return _RecentScan.empty;
+
+  markdownScanCount += 1;
+  var deferred = false;
+  final scan = _Scan(
+    source,
+    deferHighlight == null
+        ? null
+        : (body, language) {
+            deferred = true;
+            deferHighlight(body, language);
+          },
+  );
   scan.blocks();
   final blocks = scan._blocks();
   scan.inlines(blocks);
-  return (runs: scan.runs(), blocks: blocks);
+  final recent = _RecentScan(
+    source,
+    List.unmodifiable(scan.runs()),
+    List.unmodifiable(blocks),
+    highlighted: !deferred,
+  );
+  _remember(recent);
+  return recent;
+}
+
+/// How many times [scanMarkdownBlocks] has actually scanned a source.
+@visibleForTesting
+int markdownScanCount = 0;
+
+/// [scanMarkdownBlocks] of [source], shared with every other reader of it.
+///
+/// The editor scans its text to paint it, and on the same edit each composer
+/// parser that must leave code alone reads that text again. Asking here
+/// shares one scan between them rather than repeating it for each.
+({List<MarkdownRun> runs, List<({int offset, String text})> blocks})
+sharedMarkdownScan(String source) {
+  final recent = _recentScan(source, highlightedOnly: true);
+  return (runs: recent.runs, blocks: recent.blocks);
+}
+
+/// Where [source] has code, inline or fenced, as [sharedMarkdownScan] finds
+/// it.
+CodeRanges markdownCodeRanges(String source) => _recentScan(source).code;
+
+/// Where [source] has fenced code blocks, leaving out inline code spans, as
+/// [sharedMarkdownScan] finds them.
+CodeRanges markdownFenceRanges(String source) => _recentScan(source).fences;
+
+// A keystroke reads the text before and after its edit, and an embedded
+// editor (a table cell, a list item) reads its own text and its parent's.
+// Only the newest are held: each keeps its whole draft reachable.
+const int _recentScanCapacity = 4;
+
+final List<_RecentScan> _recentScans = [];
+
+final class _RecentScan {
+  _RecentScan(this.source, this.runs, this.blocks, {required this.highlighted});
+
+  static final _RecentScan empty = _RecentScan(
+    '',
+    const [],
+    const [],
+    highlighted: true,
+  );
+
+  final String source;
+  final List<MarkdownRun> runs;
+  final List<({int offset, String text})> blocks;
+
+  /// False when a fence's highlighting was deferred. Its runs then lack that
+  /// fence's scopes, but code is exactly where a full scan would put it.
+  final bool highlighted;
+
+  late final CodeRanges code = CodeRanges.of(runs);
+  late final CodeRanges fences = CodeRanges._marked(runs, Md.codeBlock);
+}
+
+_RecentScan _recentScan(String source, {bool highlightedOnly = false}) {
+  if (source.isEmpty) return _RecentScan.empty;
+  final index = _recentScanIndex(source);
+  if (index >= 0) {
+    final recent = _recentScans[index];
+    if (recent.highlighted || !highlightedOnly) {
+      _recentScans
+        ..removeAt(index)
+        ..insert(0, recent);
+      return recent;
+    }
+  }
+  return _scan(source, null);
+}
+
+void _remember(_RecentScan scan) {
+  final index = _recentScanIndex(scan.source);
+  var kept = scan;
+  if (index >= 0) {
+    final held = _recentScans.removeAt(index);
+    // A deferred fence comes back plain; keep the scan that has its scopes.
+    if (held.highlighted && !scan.highlighted) kept = held;
+  }
+  _recentScans.insert(0, kept);
+  if (_recentScans.length > _recentScanCapacity) _recentScans.removeLast();
+}
+
+// The editor hands every reader the very string it scanned, so identity
+// settles almost every lookup; a draft is only compared when lengths agree.
+int _recentScanIndex(String source) {
+  for (var index = 0; index < _recentScans.length; index += 1) {
+    if (identical(_recentScans[index].source, source)) return index;
+  }
+  for (var index = 0; index < _recentScans.length; index += 1) {
+    final held = _recentScans[index].source;
+    if (held.length == source.length && held == source) return index;
+  }
+  return -1;
 }
 
 class _Scan {

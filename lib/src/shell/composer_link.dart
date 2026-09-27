@@ -47,7 +47,7 @@ List<ComposerLinkBlock> parseComposerLinks(
   List<String> linkifyTlds = SiteConfig.defaultMarkdownLinkifyTlds,
 }) {
   if (source.isEmpty) return const [];
-  final code = codeRanges ?? CodeRanges.of(scanMarkdown(source));
+  final code = codeRanges ?? markdownCodeRanges(source);
   final links = <ComposerLinkBlock>[];
   final markdownRanges = <TextRange>[];
   var offset = 0;
@@ -543,7 +543,7 @@ final class ComposerLinkSyntaxPolicy implements ComposerSyntaxPolicy {
 
   @override
   List<ComposerSyntaxProjection> parse(String source) =>
-      parseWithCodeRanges(source, CodeRanges.of(scanMarkdown(source)));
+      parseWithCodeRanges(source, markdownCodeRanges(source));
 
   List<ComposerSyntaxProjection> parseWithCodeRanges(
     String source,
@@ -711,8 +711,8 @@ TextEditingValue? composerPastedLinkValue(
   final anchor = selection.textInside(current.text);
   if (anchor.trim().isEmpty ||
       anchor.contains('\n') ||
-      CodeRanges.of(
-        scanMarkdown(current.text),
+      markdownCodeRanges(
+        current.text,
       ).overlaps(selection.start, selection.end) ||
       parseComposerLinks(current.text).any(
         (link) => link.start < selection.end && link.end > selection.start,

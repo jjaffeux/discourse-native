@@ -17,7 +17,7 @@ List<ComposerInlineFormat> composerInlineFormats(String source) {
   // Pair within the scan's own blocks. It marks only what it paired there, so
   // a pair across blocks is refused below — but only after it has consumed
   // the closer of a span the editor really draws.
-  final (:runs, :blocks) = scanMarkdownBlocks(source);
+  final (:runs, :blocks) = sharedMarkdownScan(source);
   final code = CodeRanges.of(runs);
   // The runs tile the source in order: the first one ending after an offset
   // holds it, so a lookup bisects rather than walking the whole draft.

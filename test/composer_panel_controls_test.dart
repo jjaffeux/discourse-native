@@ -3,10 +3,14 @@ import 'package:discourse_native/src/models/composer_placement.dart';
 import 'package:discourse_native/src/models/found_user.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/topic.dart';
+import 'package:discourse_native/src/plugins/local_dates/local_date_environment.dart';
+import 'package:discourse_native/src/plugins/local_dates/local_dates_plugin.dart';
 import 'package:discourse_native/src/shell/avatar_image.dart';
 import 'package:discourse_native/src/shell/composer_controller.dart';
 import 'package:discourse_native/src/shell/composer_link.dart';
 import 'package:discourse_native/src/shell/composer_panel.dart';
+import 'package:discourse_native/src/shell/composer_table.dart';
+import 'package:discourse_native/src/shell/markdown_highlight.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
@@ -467,6 +471,64 @@ void main() {
             .text,
         'http://google.fr',
       );
+    });
+
+    testWidgets('a keystroke scans the draft once for every parser', (
+      tester,
+    ) async {
+      // The editor scans each text to paint it. The input formatters read the
+      // text before the edit, and the syntax policies the text after it; each
+      // needs to know where code is, and a site's local-date policy asks on
+      // every draft whether it has a date or not. One scan answers them all.
+      const draft =
+          '[quote="sam, post:5, topic:7, username:sam"]\n'
+          'Quoted, with [a link](https://example.com/q) inside.\n'
+          '[/quote]\n\n'
+          'See [the docs](https://example.com/docs) and `code [x]`.\n\n'
+          '| Name | Value |\n| --- | --- |\n| a | 1 |\n\n'
+          'Typing here';
+      final composer = ComposerController(
+        _replyTarget,
+        syntaxPolicies: [
+          LocalDateComposerSyntaxPolicy(
+            environment: LocalDateEnvironment.instance,
+          ),
+        ],
+      );
+      final shell = await _shell();
+      addTearDown(composer.dispose);
+      addTearDown(shell.dispose);
+      composer.text.value = const TextEditingValue(
+        text: draft,
+        selection: TextSelection.collapsed(offset: draft.length),
+      );
+      await _pumpPanel(tester, shell, composer);
+      composer.focus.requestFocus();
+      await tester.pump();
+      expect(composer.text.quoteBlocks, hasLength(1));
+      expect(
+        composer.text.syntaxBlocks.map((block) => block.kind),
+        containsAll([composerLinkSyntaxKind, composerTableSyntaxKind]),
+      );
+
+      for (final typed in ['a', 'b']) {
+        final before = composer.text.value;
+        final scans = markdownScanCount;
+        tester.testTextInput.updateEditingValue(
+          TextEditingValue(
+            text: '${before.text}$typed',
+            selection: TextSelection.collapsed(offset: before.text.length + 1),
+          ),
+        );
+        await tester.pump();
+
+        expect(
+          markdownScanCount - scans,
+          1,
+          reason: 'typing "$typed" rescanned the draft',
+        );
+      }
+      expect(composer.text.text, '${draft}ab');
     });
 
     testWidgets('shows working formatting controls only for selected text', (

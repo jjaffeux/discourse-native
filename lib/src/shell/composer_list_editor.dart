@@ -459,7 +459,7 @@ class ComposerListBodyController extends ComposerController {
       outdent();
       return before;
     }
-    final code = CodeRanges.of(scanMarkdown(before.text));
+    final code = markdownCodeRanges(before.text);
     if (code.contains(caret) || (caret > 0 && code.contains(caret - 1))) {
       return after;
     }

@@ -50,7 +50,7 @@ ComposerSlashQuery? composerSlashQuery(TextEditingValue value) {
   }
   final prefix = before.substring(0, start);
   if (RegExp(r'^(?: {4}|\t)').hasMatch(prefix.split('\n').last) ||
-      CodeRanges.of(scanMarkdown(value.text)).contains(start) ||
+      markdownCodeRanges(value.text).contains(start) ||
       '`'.allMatches(prefix.split('\n').last).length.isOdd) {
     return null;
   }

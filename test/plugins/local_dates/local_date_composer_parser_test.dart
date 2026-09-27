@@ -125,6 +125,21 @@ void main() {
   });
 
   group('local-date composer scaling', () {
+    test('a draft whose brackets open no date is not scanned for code', () {
+      // Every composer parses every edit, whether or not the site has dates.
+      final source = [
+        for (var link = 0; link < 40; link += 1)
+          'Date-free [link $link](https://example.com/$link) and `[x]`.',
+      ].join('\n\n');
+      final scans = markdownScanCount;
+
+      expect(
+        parseLocalDateComposerBlocks(source, environment: environment),
+        isEmpty,
+      );
+      expect(markdownScanCount, scans);
+    });
+
     for (final quote in ['', ..._quotes.map((pair) => pair.$1)]) {
       test('unfinished $quote attributes scale with the draft', () {
         final unit = '[date date=$quote ';

@@ -121,9 +121,7 @@ List<ComposerTableBlock> parseComposerTables(String source) {
   // The projection and its input formatter both parse every edit. A pipe in
   // prose is not a table: scan for code only once a header and delimiter
   // pair has to be checked against it.
-  late final code = CodeRanges.of(
-    scanMarkdown(source).where((run) => run.has(Md.codeBlock)).toList(),
-  );
+  late final code = markdownFenceRanges(source);
   final lines = <_TableLine?>[];
   var offset = 0;
   for (final text in source.split('\n')) {

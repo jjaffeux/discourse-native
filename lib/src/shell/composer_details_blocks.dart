@@ -67,7 +67,7 @@ String _quoteSummary(String value) {
 /// Complete outer blocks only. Incomplete markup and code examples stay text.
 List<ComposerDetailsBlock> parseComposerDetails(String source) {
   if (!source.toLowerCase().contains('[details')) return const [];
-  final code = CodeRanges.of(scanMarkdown(source));
+  final code = markdownCodeRanges(source);
   final blocks = <ComposerDetailsBlock>[];
   final stack = <_DetailsTag>[];
   var offset = 0;

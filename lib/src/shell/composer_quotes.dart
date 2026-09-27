@@ -58,7 +58,7 @@ List<ComposerQuoteBlock> parseComposerQuotes(
     return const [];
   }
 
-  final codeRanges = knownCodeRanges ?? CodeRanges.of(scanMarkdown(source));
+  final codeRanges = knownCodeRanges ?? markdownCodeRanges(source);
   final tags = _QuoteTagScanner(source);
   final blocks = <ComposerQuoteBlock>[];
   var offset = 0;

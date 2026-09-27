@@ -462,9 +462,11 @@ class _OptimisticLocalDate extends StatelessWidget {
 }
 
 List<SourceRange> _localDateSyntaxRanges(String source) {
-  final code = CodeRanges.of(scanMarkdown(source));
+  final matches = _localDateOpening.allMatches(source).toList();
+  if (matches.isEmpty) return const [];
+  final code = markdownCodeRanges(source);
   return [
-    for (final match in _localDateOpening.allMatches(source))
+    for (final match in matches)
       if (!code.contains(match.start)) SourceRange(match.start, match.end),
   ];
 }

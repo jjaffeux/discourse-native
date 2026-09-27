@@ -67,7 +67,7 @@ List<ComposerTodo> composerTodos(
     visit(item, (offset) => offset, null);
   }
   if (matches.isEmpty) return structured;
-  final code = codeRanges ?? CodeRanges.of(scanMarkdown(source));
+  final code = codeRanges ?? markdownCodeRanges(source);
   final references = {...referenceMarkers, ...composerTaskReferences(source)};
   return [
     ...structured,

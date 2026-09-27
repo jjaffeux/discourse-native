@@ -21,7 +21,7 @@ List<TextRange> composerBlockquotePrefixes(
 }) {
   final matches = _prefix.allMatches(source).toList();
   if (matches.isEmpty) return const [];
-  final code = knownCodeRanges ?? CodeRanges.of(scanMarkdown(source));
+  final code = knownCodeRanges ?? markdownCodeRanges(source);
   return [
     for (final match in matches)
       if (!code.overlaps(match.start, match.end))

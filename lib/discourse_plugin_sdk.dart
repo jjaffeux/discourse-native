@@ -164,8 +164,10 @@ export 'src/shell/markdown_highlight.dart'
         MarkdownRun,
         Md,
         markdownBlocks,
+        markdownCodeRanges,
         markdownPairs,
-        scanMarkdown;
+        scanMarkdown,
+        sharedMarkdownScan;
 export 'src/shell/mobile_footer_action.dart'
     show
         MobileFooterAction,
