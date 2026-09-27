@@ -262,6 +262,112 @@ void main() {
     expect(composer.text.text, 'draft');
   });
 
+  group('inserted blocks leave the caret where the next block starts', () {
+    void expectInsertion(
+      String source, {
+      required int at,
+      required String text,
+      required int caret,
+      required String typed,
+    }) {
+      final composer = ComposerController(_target);
+      addTearDown(composer.dispose);
+      composer.text.value = TextEditingValue(
+        text: source,
+        selection: TextSelection.collapsed(offset: at),
+      );
+
+      expect(
+        composer.insertBlock(
+          expectedValue: composer.text.value,
+          markdown: 'block',
+        ),
+        isTrue,
+      );
+      expect(composer.text.text, text);
+      expect(composer.text.selection, TextSelection.collapsed(offset: caret));
+
+      final inserted = composer.text.value;
+      composer.text.value = inserted.replaced(inserted.selection, 'Then ');
+      expect(composer.text.text, typed);
+    }
+
+    test('past the blank line it adds before one line break', () {
+      expectInsertion(
+        'Before\nAfter',
+        at: 6,
+        text: 'Before\n\nblock\n\nAfter',
+        caret: 15,
+        typed: 'Before\n\nblock\n\nThen After',
+      );
+    });
+
+    test('past the blank line that already follows', () {
+      expectInsertion(
+        'Before\n\nAfter',
+        at: 6,
+        text: 'Before\n\nblock\n\nAfter',
+        caret: 15,
+        typed: 'Before\n\nblock\n\nThen After',
+      );
+    });
+
+    test('on the first empty line the author added past the blank line', () {
+      expectInsertion(
+        'Before\n\n\n\nAfter',
+        at: 6,
+        text: 'Before\n\nblock\n\n\n\nAfter',
+        caret: 15,
+        typed: 'Before\n\nblock\n\nThen \n\nAfter',
+      );
+    });
+
+    test('with the line endings of a CRLF document', () {
+      expectInsertion(
+        'Before\r\nAfter',
+        at: 6,
+        text: 'Before\r\n\r\nblock\r\n\r\nAfter',
+        caret: 19,
+        typed: 'Before\r\n\r\nblock\r\n\r\nThen After',
+      );
+      expectInsertion(
+        'Before\r\n\r\nAfter',
+        at: 6,
+        text: 'Before\r\n\r\nblock\r\n\r\nAfter',
+        caret: 19,
+        typed: 'Before\r\n\r\nblock\r\n\r\nThen After',
+      );
+    });
+
+    test('on the line below the block at the end of the document', () {
+      expectInsertion(
+        'Before',
+        at: 6,
+        text: 'Before\n\nblock\n\n',
+        caret: 15,
+        typed: 'Before\n\nblock\n\nThen ',
+      );
+      expectInsertion(
+        'One\r\nTwo',
+        at: 8,
+        text: 'One\r\nTwo\r\n\r\nblock\r\n\r\n',
+        caret: 21,
+        typed: 'One\r\nTwo\r\n\r\nblock\r\n\r\nThen ',
+      );
+    });
+
+    test('before the first paragraph when prepended', () {
+      final composer = ComposerController(_target);
+      addTearDown(composer.dispose);
+      composer.text.value = _typed('\nAfter');
+
+      composer.prependBlock('block');
+
+      expect(composer.text.text, 'block\n\nAfter');
+      expect(composer.text.selection, const TextSelection.collapsed(offset: 7));
+    });
+  });
+
   testWidgets('serializes draft saves and keeps only the newest queued text', (
     tester,
   ) async {
