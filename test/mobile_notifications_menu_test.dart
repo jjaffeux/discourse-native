@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/notification.dart';
@@ -132,11 +134,155 @@ void main() {
       expect(tester.takeException(), isNull);
     });
   }
+
+  for (final width in [390.0, 900.0]) {
+    testWidgets('reply, message and bookmark tabs count grouped unread '
+        'notifications at ${width}px', (tester) async {
+      final controller = await _mount(tester, width: width);
+      final semantics = tester.ensureSemantics();
+      try {
+        await tester.tap(find.byKey(UserMenuButton.bellKey));
+        await tester.pumpAndSettle();
+        // Opening the Notifications tab bumps the seen marker, so core
+        // publishes seen-scoped totals of zero while the grouped counts still
+        // hold what is unread: mentioned 1, replied 1, group_mentioned 1,
+        // private_message 2, bookmark_reminder 1.
+        controller.accountActivity.applyLiveNotificationState(
+          'https://meta.example',
+          const {
+            'all_unread_notifications_count': 0,
+            'new_personal_messages_notifications_count': 0,
+            'grouped_unread_notifications': {
+              '1': 1,
+              '2': 1,
+              '15': 1,
+              '6': 2,
+              '24': 1,
+            },
+          },
+        );
+        await tester.pumpAndSettle();
+
+        for (final (id, label) in [
+          ('replies', 'Replies, 3 unread'),
+          ('messages', 'Messages, 2 unread'),
+          ('bookmarks', 'Bookmarks, 1 unread'),
+          ('all', 'Notifications'),
+          ('likes', 'Likes'),
+          ('other', 'Other'),
+        ]) {
+          expect(tester.getSemantics(_tab(id)).label, label, reason: id);
+        }
+        if (width >= 600) {
+          for (final (id, count) in [
+            ('replies', '3'),
+            ('messages', '2'),
+            ('bookmarks', '1'),
+          ]) {
+            expect(
+              find.descendant(
+                of: _tab(id),
+                matching: find.descendant(
+                  of: find.byType(DBadge),
+                  matching: find.text(count),
+                ),
+              ),
+              findsOneWidget,
+              reason: id,
+            );
+          }
+        }
+        expect(tester.takeException(), isNull);
+      } finally {
+        semantics.dispose();
+      }
+    });
+
+    testWidgets('tabs without grouped unread notifications carry no badge '
+        'at ${width}px', (tester) async {
+      final controller = await _mount(tester, width: width);
+      final semantics = tester.ensureSemantics();
+      try {
+        await tester.tap(find.byKey(UserMenuButton.bellKey));
+        await tester.pumpAndSettle();
+        // The seen-scoped message count is not the Messages tab's: only an
+        // unread private_message notification is.
+        controller.accountActivity.applyLiveNotificationState(
+          'https://meta.example',
+          const {
+            'all_unread_notifications_count': 0,
+            'new_personal_messages_notifications_count': 2,
+            'grouped_unread_notifications': {'2': 0, '6': 0, '24': 0},
+          },
+        );
+        await tester.pumpAndSettle();
+
+        for (final (id, label) in [
+          ('replies', 'Replies'),
+          ('messages', 'Messages'),
+          ('bookmarks', 'Bookmarks'),
+        ]) {
+          expect(tester.getSemantics(_tab(id)).label, label, reason: id);
+          expect(
+            find.descendant(of: _tab(id), matching: find.byType(DBadge)),
+            findsNothing,
+            reason: id,
+          );
+        }
+        expect(tester.takeException(), isNull);
+      } finally {
+        semantics.dispose();
+      }
+    });
+  }
+
+  testWidgets('touch section list counts grouped unread notifications', (
+    tester,
+  ) async {
+    final controller = await _mount(tester);
+    await tester.tap(find.byKey(UserMenuButton.bellKey));
+    await tester.pumpAndSettle();
+    unawaited(showUserMenuSheet(tester.element(find.byType(UserMenuPanel))));
+    await tester.pumpAndSettle();
+    controller.accountActivity.applyLiveNotificationState(
+      'https://meta.example',
+      const {
+        'all_unread_notifications_count': 0,
+        'new_personal_messages_notifications_count': 0,
+        'grouped_unread_notifications': {'2': 3, '6': 2, '24': 1},
+      },
+    );
+    await tester.pumpAndSettle();
+
+    final sheet = find.byKey(const ValueKey('user-menu-sheet'));
+    for (final (label, count) in [
+      ('Replies', '3'),
+      ('Messages', '2'),
+      ('Bookmarks', '1'),
+    ]) {
+      final tile = find.ancestor(
+        of: find.descendant(of: sheet, matching: find.text(label)),
+        matching: find.byType(DItem),
+      );
+      expect(
+        find.descendant(
+          of: tile,
+          matching: find.descendant(
+            of: find.byType(DBadge),
+            matching: find.text(count),
+          ),
+        ),
+        findsOneWidget,
+        reason: label,
+      );
+    }
+    expect(tester.takeException(), isNull);
+  });
 }
 
 Finder _tab(String id) => find.byKey(ValueKey('user-menu-tab-$id'));
 
-Future<void> _mount(
+Future<ShellController> _mount(
   WidgetTester tester, {
   TargetPlatform platform = TargetPlatform.iOS,
   double width = 390,
@@ -211,4 +357,5 @@ Future<void> _mount(
     ),
   );
   await tester.pumpAndSettle();
+  return controller;
 }
