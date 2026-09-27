@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:io';
 
 import 'package:discourse_native/src/plugins/voice/voice_diagnostics.dart';
 import 'package:discourse_native/src/plugins/voice/voice_sdk_diagnostics.dart';
@@ -78,57 +77,72 @@ void main() {
     },
   );
 
-  test('a stale bridge cannot disable a newer global SDK capture', () async {
-    const channel = MethodChannel('FlutterWebRTC.Method');
-    final severities = <String>[];
-    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-        .setMockMethodCallHandler(channel, (call) async {
-          if (call.method == 'setLogSeverity') {
-            severities.add(
-              (call.arguments as Map<Object?, Object?>)['severity']! as String,
-            );
-          }
-          return null;
-        });
-    final hierarchicalLogging = dart_logging.hierarchicalLoggingEnabled;
-    final baseline = hierarchicalLogging
-        ? livekit.logger.level
-        : dart_logging.Logger.root.level;
-    final nativeWebRtcLogging = Platform.isIOS || Platform.isMacOS;
-    final oldBridge = NativeVoiceDiagnosticsSdkLogBridge();
-    final newBridge = NativeVoiceDiagnosticsSdkLogBridge();
-    final recorder = _RawRecorder();
-    addTearDown(() async {
-      await newBridge.uninstall();
+  for (final nativeWebRtcLogHook in [true, false]) {
+    test('a stale bridge cannot disable a newer global SDK capture '
+        '(native WebRTC log hook: $nativeWebRtcLogHook)', () async {
+      final severities = <String>[];
+      native_logger.Logger? nativeLogger;
+      NativeVoiceDiagnosticsSdkLogBridge bridge() =>
+          NativeVoiceDiagnosticsSdkLogBridge(
+            nativeWebRtcLogHookForTesting: nativeWebRtcLogHook,
+            setWebRtcLoggerForTesting: (logger, severity) async {
+              nativeLogger = logger;
+              severities.add(severity);
+            },
+          );
+      final hierarchicalLogging = dart_logging.hierarchicalLoggingEnabled;
+      final baseline = hierarchicalLogging
+          ? livekit.logger.level
+          : dart_logging.Logger.root.level;
+      final oldBridge = bridge();
+      final newBridge = bridge();
+      final recorder = _RawRecorder();
+      addTearDown(() async {
+        await newBridge.uninstall();
+        await oldBridge.uninstall();
+        if (hierarchicalLogging) {
+          livekit.logger.level = baseline;
+        } else {
+          dart_logging.Logger.root.level = baseline;
+        }
+      });
+
+      await oldBridge.install(recorder);
+      await newBridge.install(recorder);
+      expect(livekit.getLoggingLevel().name, 'ALL');
+      expect(
+        severities,
+        nativeWebRtcLogHook ? ['verbose', 'verbose'] : isEmpty,
+      );
+      expect(
+        recorder.events.where(
+          (event) => event == 'sdk.webrtc.native_log_hook.unavailable',
+        ),
+        hasLength(nativeWebRtcLogHook ? 0 : 2),
+      );
+      final newOwnerLogger = nativeLogger;
+
       await oldBridge.uninstall();
-      if (hierarchicalLogging) {
-        livekit.logger.level = baseline;
-      } else {
-        dart_logging.Logger.root.level = baseline;
-      }
-      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-          .setMockMethodCallHandler(channel, null);
+      expect(livekit.getLoggingLevel().name, 'ALL');
+      expect(
+        severities,
+        nativeWebRtcLogHook ? ['verbose', 'verbose'] : isEmpty,
+      );
+      expect(nativeLogger, same(newOwnerLogger));
+
+      await newBridge.uninstall();
+      expect(livekit.logger.level, baseline);
+      expect(
+        severities,
+        nativeWebRtcLogHook ? ['verbose', 'verbose', 'none'] : isEmpty,
+      );
     });
-
-    await oldBridge.install(recorder);
-    await newBridge.install(recorder);
-    expect(livekit.getLoggingLevel().name, 'ALL');
-    expect(severities, nativeWebRtcLogging ? ['verbose', 'verbose'] : isEmpty);
-
-    await oldBridge.uninstall();
-    expect(livekit.getLoggingLevel().name, 'ALL');
-    expect(severities, nativeWebRtcLogging ? ['verbose', 'verbose'] : isEmpty);
-
-    await newBridge.uninstall();
-    expect(livekit.logger.level, baseline);
-    expect(
-      severities,
-      nativeWebRtcLogging ? ['verbose', 'verbose', 'none'] : isEmpty,
-    );
-  });
+  }
 }
 
 final class _RawRecorder implements VoiceDiagnosticsRecorder {
+  final List<String> events = [];
+
   @override
   bool get captureEnabled => true;
 
@@ -149,5 +163,7 @@ final class _RawRecorder implements VoiceDiagnosticsRecorder {
     String? correlationId,
     String? message,
     Map<String, Object?> data = const {},
-  }) {}
+  }) {
+    events.add(event);
+  }
 }

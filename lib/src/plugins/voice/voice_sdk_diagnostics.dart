@@ -13,8 +13,22 @@ import 'voice_diagnostics.dart';
 /// vendored flutter_webrtc native hook currently exists only on iOS/macOS, so
 /// Linux records an explicit availability marker instead of pretending native
 /// WebRTC lines are being captured there.
+///
+/// The hook's availability and its setter are injectable so both paths run on
+/// whichever host executes the tests. The native logger is process-wide, so
+/// every live bridge must agree on them, as production's always do.
 final class NativeVoiceDiagnosticsSdkLogBridge
     implements VoiceDiagnosticsSdkLogBridge {
+  NativeVoiceDiagnosticsSdkLogBridge({
+    @visibleForTesting bool? nativeWebRtcLogHookForTesting,
+    @visibleForTesting
+    Future<void> Function(native_logger.Logger logger, String severity)?
+    setWebRtcLoggerForTesting,
+  }) : _nativeWebRtcLogHook =
+           nativeWebRtcLogHookForTesting ??
+           (Platform.isIOS || Platform.isMacOS),
+       _setWebRtcLogger = setWebRtcLoggerForTesting ?? rtc.Helper.setLogger;
+
   static final native_logger.Logger _silentWebRtcLogger = native_logger.Logger(
     filter: native_logger.ProductionFilter(),
     level: native_logger.Level.off,
@@ -23,6 +37,10 @@ final class NativeVoiceDiagnosticsSdkLogBridge
   static Future<void> _globalTail = Future<void>.value();
   static void Function()? _enableLiveKitLogging;
   static void Function()? _restoreBaselineLiveKitLevel;
+
+  final bool _nativeWebRtcLogHook;
+  final Future<void> Function(native_logger.Logger logger, String severity)
+  _setWebRtcLogger;
 
   // The subscription spans the explicit capture window and is cancelled by
   // the guarded multi-resource cleanup in uninstall().
@@ -51,7 +69,7 @@ final class NativeVoiceDiagnosticsSdkLogBridge
         },
       );
     });
-    if (!Platform.isIOS && !Platform.isMacOS) {
+    if (!_nativeWebRtcLogHook) {
       await _claimGlobalLogging();
       recorder.recordRaw(
         'sdk.webrtc.native_log_hook.unavailable',
@@ -115,9 +133,9 @@ final class NativeVoiceDiagnosticsSdkLogBridge
       ..remove(this)
       ..add(this);
     _enableLiveKitLogging?.call();
-    if (Platform.isIOS || Platform.isMacOS) {
+    if (_nativeWebRtcLogHook) {
       final logger = _webRtcLogger;
-      if (logger != null) await rtc.Helper.setLogger(logger, 'verbose');
+      if (logger != null) await _setWebRtcLogger(logger, 'verbose');
     }
   });
 
@@ -128,16 +146,16 @@ final class NativeVoiceDiagnosticsSdkLogBridge
 
     final replacement = _globalOwners.lastOrNull;
     await runVoiceSdkCleanup([
-      if (Platform.isIOS || Platform.isMacOS)
+      if (_nativeWebRtcLogHook)
         () async {
           final logger = replacement?._webRtcLogger;
           if (logger == null) {
             // flutter_webrtc retains the logger and does not accept null.
             // A process-lifetime silent logger safely absorbs late native
             // lines after the final capture owner leaves.
-            await rtc.Helper.setLogger(_silentWebRtcLogger, 'none');
+            await _setWebRtcLogger(_silentWebRtcLogger, 'none');
           } else {
-            await rtc.Helper.setLogger(logger, 'verbose');
+            await _setWebRtcLogger(logger, 'verbose');
           }
         },
       () {
