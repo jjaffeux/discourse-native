@@ -29,7 +29,7 @@ void main() {
       await _pump(tester, ports, onOpen: () => opened++);
       expect(find.text('OCT'), findsOneWidget);
       expect(find.text('14'), findsOneWidget);
-      expect(find.text('Wed · 20:00'), findsOneWidget);
+      expect(find.text('Wed · 8:00 PM'), findsOneWidget);
       expect(
         tester.getTopLeft(find.text('OCT')).dx,
         lessThan(tester.getTopLeft(find.text(_title)).dx),
@@ -47,7 +47,10 @@ void main() {
       expect(find.text('Event schedule'), findsOneWidget);
       expect(find.text('Starts'), findsOneWidget);
       expect(find.text('Ends'), findsOneWidget);
-      expect(find.text('Wednesday, October 14, 2026 · 21:00'), findsOneWidget);
+      expect(
+        find.text('Wednesday, October 14, 2026 · 9:00 PM'),
+        findsOneWidget,
+      );
       expect(find.text('Europe/Paris'), findsOneWidget);
       await tester.sendKeyEvent(LogicalKeyboardKey.escape);
       await tester.pumpAndSettle();
@@ -57,6 +60,16 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
+
+  testWidgets('times follow the reader clock', (tester) async {
+    final ports = EventTestPorts();
+    addTearDown(ports.close);
+    await _pump(tester, ports, use24HourClock: true);
+    expect(find.text('Wed · 20:00'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('event-schedule-trigger')));
+    await tester.pumpAndSettle();
+    expect(find.text('Wednesday, October 14, 2026 · 21:00'), findsOneWidget);
+  });
 
   testWidgets(
     'reader timezone updates both calendar day and an open schedule',
@@ -70,11 +83,11 @@ void main() {
       ports.controller.pluginCurrentUserRefreshed(eventSite);
       await tester.pumpAndSettle();
       expect(find.text('Asia/Tokyo'), findsOneWidget);
-      expect(find.text('Thursday, October 15, 2026 · 03:00'), findsOneWidget);
+      expect(find.text('Thursday, October 15, 2026 · 3:00 AM'), findsOneWidget);
       await tester.sendKeyEvent(LogicalKeyboardKey.escape);
       await tester.pumpAndSettle();
       expect(find.text('15'), findsOneWidget);
-      expect(find.text('Thu · 03:00'), findsOneWidget);
+      expect(find.text('Thu · 3:00 AM'), findsOneWidget);
     },
   );
 
@@ -118,7 +131,7 @@ void main() {
       ),
     );
     expect(find.text('14'), findsOneWidget);
-    expect(find.text('Wed · 20:00'), findsOneWidget);
+    expect(find.text('Wed · 8:00 PM'), findsOneWidget);
   });
 
   testWidgets('multi-day ranges count calendar days across daylight saving', (
@@ -299,7 +312,7 @@ void main() {
               loads[id]!.future;
         }
         await pumpTitles(tester, ports);
-        expect(find.text('Wed · 18:00'), findsNWidgets(titles.length));
+        expect(find.text('Wed · 6:00 PM'), findsNWidgets(titles.length));
         // What each card beside the list holds: one handle per event.
         final handles = [
           for (final id in ids)
@@ -331,7 +344,7 @@ void main() {
 
         ports.environment.setDeviceTimezone('Asia/Tokyo');
         await tester.pumpAndSettle();
-        expect(find.text('Thu · 03:00'), findsNWidgets(titles.length));
+        expect(find.text('Thu · 3:00 AM'), findsNWidgets(titles.length));
         expect(rebuilds, {for (final title in titles) title: 1});
         expect(tester.takeException(), isNull);
       },
@@ -347,14 +360,16 @@ Future<void> _pump(
   bool dark = false,
   bool rtl = false,
   double scale = 1,
+  bool use24HourClock = false,
 }) async {
   await tester.pumpWidget(
     MaterialApp(
       theme: dark ? AppTheme.dark : AppTheme.light,
       builder: (context, child) => MediaQuery(
-        data: MediaQuery.of(
-          context,
-        ).copyWith(textScaler: TextScaler.linear(scale)),
+        data: MediaQuery.of(context).copyWith(
+          textScaler: TextScaler.linear(scale),
+          alwaysUse24HourFormat: use24HourClock,
+        ),
         child: Directionality(
           textDirection: rtl ? TextDirection.rtl : TextDirection.ltr,
           child: child!,

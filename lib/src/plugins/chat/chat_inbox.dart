@@ -500,14 +500,10 @@ class ChatConversationAvatar extends StatelessWidget {
 
 String _activityLabel(BuildContext context, DateTime at) {
   final now = DateTime.now();
-  final localizations = MaterialLocalizations.of(context);
   if (at.year == now.year && at.month == now.month && at.day == now.day) {
-    return localizations.formatTimeOfDay(
-      TimeOfDay.fromDateTime(at),
-      alwaysUse24HourFormat: MediaQuery.alwaysUse24HourFormatOf(context),
-    );
+    return clockTimeLabel(context, at);
   }
-  return localizations.formatShortDate(at);
+  return MaterialLocalizations.of(context).formatShortDate(at);
 }
 
 /// The desktop sidebar's inbox: the mobile inbox's filters and ordering laid

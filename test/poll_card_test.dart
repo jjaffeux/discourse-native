@@ -64,10 +64,17 @@ Future<void> pumpPoll(
   VoidCallback? onConnectAccount,
   DateTime? now,
   DateTime Function()? clock,
+  bool use24HourClock = false,
 }) => tester.pumpWidget(
   MaterialApp(
     theme: AppTheme.light,
     themeAnimationDuration: Duration.zero,
+    builder: (context, child) => MediaQuery(
+      data: MediaQuery.of(
+        context,
+      ).copyWith(alwaysUse24HourFormat: use24HourClock),
+      child: child!,
+    ),
     home: Scaffold(
       body: SingleChildScrollView(
         child: SizedBox(
@@ -492,6 +499,25 @@ void main() {
   });
 
   group('poll deadlines', () {
+    testWidgets('the close time is written on the reader clock', (
+      tester,
+    ) async {
+      // Local wall time, so the expected text holds in any device zone.
+      final closeAt = DateTime(2030, 1, 2, 15, 45);
+      for (final (use24HourClock, time) in [
+        (false, '3:45 PM'),
+        (true, '15:45'),
+      ]) {
+        await pumpPoll(
+          tester,
+          poll(closeAt: closeAt),
+          now: DateTime(2030),
+          use24HourClock: use24HourClock,
+        );
+        expect(find.textContaining(' at $time.'), findsOneWidget);
+      }
+    });
+
     testWidgets(
       'a retained poll closes at its deadline without a parent rebuild',
       (tester) async {

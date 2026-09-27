@@ -233,8 +233,7 @@ class _TranscriptHeader extends StatelessWidget {
     final local = value.toLocal();
     final material = MaterialLocalizations.of(context);
     final date = material.formatShortMonthDay(local);
-    final time = material.formatTimeOfDay(TimeOfDay.fromDateTime(local));
-    return '$date, $time';
+    return '$date, ${clockTimeLabel(context, local)}';
   }
 }
 

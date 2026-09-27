@@ -803,8 +803,9 @@ void main() {
         reminder,
         location: paris,
         now: DateTime.utc(2026, 9, 27, 21),
+        use24HourClock: false,
       ),
-      startsWith('Tomorrow at 8:00'),
+      'Tomorrow at 8:00 AM',
     );
     // 00:30 on Monday in Paris, still Sunday in UTC.
     expect(
@@ -812,17 +813,36 @@ void main() {
         reminder,
         location: paris,
         now: DateTime.utc(2026, 9, 27, 22, 30),
+        use24HourClock: false,
       ),
-      startsWith('Today at 8:00'),
+      'Today at 8:00 AM',
     );
     expect(
       reminderDateLabel(
         reminder,
         location: paris,
         now: DateTime.utc(2026, 9, 26, 12),
+        use24HourClock: false,
       ),
-      startsWith('Sep 28, 2026 at 8:00'),
+      'Sep 28, 2026 at 8:00 AM',
     );
+  });
+
+  test('reminder times follow the reader clock', () {
+    final environment = TimezoneEnvironment.instance..ensureDatabase();
+    final paris = environment.location('Europe/Paris')!;
+    // 20:00 on Monday 28 September in Paris.
+    final reminder = DateTime.utc(2026, 9, 28, 18);
+
+    String label({required bool use24HourClock}) => reminderDateLabel(
+      reminder,
+      location: paris,
+      now: DateTime.utc(2026, 9, 26, 12),
+      use24HourClock: use24HourClock,
+    );
+
+    expect(label(use24HourClock: false), 'Sep 28, 2026 at 8:00 PM');
+    expect(label(use24HourClock: true), 'Sep 28, 2026 at 20:00');
   });
 
   testWidgets('Start page renders emoji in titles and previews', (

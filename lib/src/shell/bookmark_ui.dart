@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:timezone/timezone.dart' as tz;
 
 import '../data/bookmark_reminder_store.dart';
+import '../foundation/clock_time.dart';
 import '../foundation/timezone_environment.dart';
 import '../models/bookmark.dart';
 import '../models/bookmark_reminder.dart';
@@ -1257,7 +1258,7 @@ String _formatReminder(
   final wall = tzDate(instant, environment.location(zoneName)!);
   final localizations = MaterialLocalizations.of(context);
   return '${localizations.formatMediumDate(wall)} at '
-      '${localizations.formatTimeOfDay(TimeOfDay.fromDateTime(wall))}';
+      '${clockTimeLabel(context, wall)}';
 }
 
 tz.TZDateTime tzDate(DateTime instant, tz.Location location) {

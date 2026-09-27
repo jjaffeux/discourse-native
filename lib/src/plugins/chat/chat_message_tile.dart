@@ -1202,10 +1202,7 @@ class _Tile extends StatelessWidget {
         hasBody || message.uploads.isNotEmpty || message.replyTo != null;
     final author = outgoing ? 'you' : message.author.displayName;
     final time = switch (message.createdAt) {
-      final at? => MaterialLocalizations.of(context).formatTimeOfDay(
-        TimeOfDay.fromDateTime(at.toLocal()),
-        alwaysUse24HourFormat: MediaQuery.alwaysUse24HourFormatOf(context),
-      ),
+      final at? => clockTimeLabel(context, at.toLocal()),
       null => null,
     };
     final footer = <Widget>[
@@ -1970,5 +1967,5 @@ class _Tag extends StatelessWidget {
 String _messageDate(BuildContext context, DateTime value) {
   final local = value.toLocal();
   final material = MaterialLocalizations.of(context);
-  return "${material.formatFullDate(local)} · ${material.formatTimeOfDay(TimeOfDay.fromDateTime(local))}";
+  return "${material.formatFullDate(local)} · ${clockTimeLabel(context, local)}";
 }

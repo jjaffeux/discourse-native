@@ -64,6 +64,9 @@ final class _EventCalendarState extends State<EventCalendar> {
   );
 
   String get _locale => Localizations.localeOf(context).toString();
+  bool get _use24HourClock => use24HourClockOf(context);
+  String _time(DateTime value) =>
+      clockTime(value, use24HourClock: _use24HourClock, locale: _locale);
   EventCalendarView get _view => widget.page.view;
   bool get _schedule => _view == EventCalendarView.schedule;
   DateTime _now() => tz.TZDateTime.from(widget.clock(), widget.location);
@@ -685,6 +688,8 @@ final class _EventCalendarState extends State<EventCalendar> {
       today: today,
       time: event.isAllDay
           ? 'All day'
+          : _use24HourClock
+          ? _time(event.localStart)
           : (event.localStart.minute == 0
                     ? DateFormat.j(_locale)
                     : DateFormat.jm(_locale))
@@ -794,7 +799,7 @@ final class _EventCalendarState extends State<EventCalendar> {
 
   String _timeLabel(EventCalendarEntry event) => event.isAllDay
       ? 'All day'
-      : '${DateFormat.Hm(_locale).format(event.localStart)} – ${DateFormat.Hm(_locale).format(event.localEnd)}';
+      : '${_time(event.localStart)} – ${_time(event.localEnd)}';
 
   Widget _tile(
     BuildContext context,
@@ -837,7 +842,7 @@ final class _EventCalendarState extends State<EventCalendar> {
                       if (!event.isAllDay && !compact)
                         TextSpan(
                           text:
-                              '${timeline ? _timeLabel(event) : DateFormat.Hm(_locale).format(event.localStart)} ',
+                              '${timeline ? _timeLabel(event) : _time(event.localStart)} ',
                           style: const TextStyle(fontWeight: FontWeight.normal),
                         ),
                       if (event.event.recurring && !compact)

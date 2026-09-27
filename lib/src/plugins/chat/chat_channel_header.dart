@@ -116,7 +116,7 @@ class ChatChannelHeader extends StatelessWidget {
               text: 'last ${_dayLabel(latest, now ?? DateTime.now())} at ',
             ),
             TextSpan(
-              text: DateFormat('h:mm a').format(latest.toLocal()).toLowerCase(),
+              text: clockTimeLabel(context, latest.toLocal()).toLowerCase(),
               style: emphasis,
             ),
           ],

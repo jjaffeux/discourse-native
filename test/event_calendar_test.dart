@@ -52,6 +52,7 @@ void main() {
     double scale = 1,
     TargetPlatform platform = TargetPlatform.macOS,
     TextDirection direction = TextDirection.ltr,
+    bool use24HourClock = false,
   }) async {
     tester.view.reset();
     tester.view.devicePixelRatio = 1;
@@ -63,9 +64,10 @@ void main() {
         home: Scaffold(
           body: StatefulBuilder(
             builder: (context, setState) => MediaQuery(
-              data: MediaQuery.of(
-                context,
-              ).copyWith(textScaler: TextScaler.linear(scale)),
+              data: MediaQuery.of(context).copyWith(
+                textScaler: TextScaler.linear(scale),
+                alwaysUse24HourFormat: use24HourClock,
+              ),
               child: Directionality(
                 textDirection: direction,
                 child: EventCalendar(
@@ -295,6 +297,25 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
+
+  testWidgets('event times follow the reader clock', (tester) async {
+    await pump(tester, [event(1, name: 'Morning call')]);
+    expect(find.textContaining('9:00 AM ', findRichText: true), findsOneWidget);
+
+    page = EventCalendarPage(
+      EventCalendarView.schedule,
+      DateTime.utc(2026, 9, 8),
+    );
+    await pump(
+      tester,
+      [event(1, name: 'Morning call')],
+      size: const Size(390, 844),
+      platform: TargetPlatform.iOS,
+      use24HourClock: true,
+    );
+    expect(find.text('09:00'), findsOneWidget);
+    expect(find.text('9 am'), findsNothing);
+  });
 
   testWidgets(
     'mobile schedule groups dates, retains metadata and opens an occurrence',

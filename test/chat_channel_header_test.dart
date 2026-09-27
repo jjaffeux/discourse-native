@@ -146,6 +146,20 @@ void main() {
     },
   );
 
+  testWidgets('last activity is written on the reader clock', (tester) async {
+    final messages = [_message(1, date: DateTime(2026, 9, 27, 15, 45))];
+    await _pump(tester, messages: messages);
+    expect(
+      find.text('last today at 3:45 pm', findRichText: true),
+      findsOneWidget,
+    );
+    await _pump(tester, messages: messages, use24HourClock: true);
+    expect(
+      find.text('last today at 15:45', findRichText: true),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('older activity shows its date and singular message count', (
     tester,
   ) async {
@@ -196,6 +210,7 @@ Future<void> _pump(
   VoidCallback? onBack,
   VoidCallback? onOpenDetails,
   double scale = 1,
+  bool use24HourClock = false,
   TargetPlatform platform = TargetPlatform.macOS,
 }) async {
   final shell = ShellController(
@@ -222,7 +237,10 @@ Future<void> _pump(
           theme: AppTheme.dark.copyWith(platform: platform),
           home: Scaffold(
             body: MediaQuery(
-              data: MediaQueryData(textScaler: TextScaler.linear(scale)),
+              data: MediaQueryData(
+                textScaler: TextScaler.linear(scale),
+                alwaysUse24HourFormat: use24HourClock,
+              ),
               child: Align(
                 alignment: Alignment.topCenter,
                 child: ChatChannelHeader(

@@ -1,3 +1,5 @@
+import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/src/foundation/timezone_environment.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/found_user.dart';
 import 'package:discourse_native/src/models/site_config.dart';
@@ -215,6 +217,100 @@ void main() {
     expect(api.userStatusesCleared, [siteUrl]);
     expect(api.doNotDisturbResumes, [siteUrl]);
     expect(shell.currentInstance?.user?.status, isNull);
+  });
+
+  group('expiry tooltip', () {
+    // 18:15 in Asia/Kathmandu, UTC+5:45 all year, so no other zone shows it.
+    final status = UserStatus(
+      description: 'Heads down',
+      emoji: 'technologist',
+      endsAt: DateTime.utc(2030, 2, 3, 12, 30),
+    );
+
+    Future<void> pump(
+      WidgetTester tester, {
+      String? accountTimezone,
+      bool use24HourClock = false,
+    }) async {
+      final user = DiscourseUser(
+        id: 7,
+        username: 'reader',
+        timezone: accountTimezone,
+      );
+      final shell = ShellController(
+        plugins: installedPlugins,
+        instanceStore: FakeInstanceStore([
+          instance('meta.discourse.org').copyWith(user: user),
+        ]),
+        api: FakeDiscourseApi(user: user),
+        authenticator: FakeAuthenticator()..keys[siteUrl] = 'key',
+        drafts: FakeDraftStore(),
+        trackers: FakeSiteTracker.reset(),
+      );
+      addTearDown(shell.dispose);
+      await shell.load();
+      await tester.pumpWidget(
+        ShellScope(
+          controller: shell,
+          child: MaterialApp(
+            theme: AppTheme.light.copyWith(platform: TargetPlatform.macOS),
+            builder: (context, child) => MediaQuery(
+              data: MediaQuery.of(
+                context,
+              ).copyWith(alwaysUse24HourFormat: use24HourClock),
+              child: child!,
+            ),
+            home: Scaffold(
+              body: UserStatusMessage(
+                siteUrl: siteUrl,
+                userId: 42,
+                status: status,
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+    }
+
+    String tooltip(WidgetTester tester) =>
+        tester.widget<DTooltip>(find.byType(DTooltip)).message;
+
+    void holdDeviceTimezone(String name) {
+      final environment = TimezoneEnvironment.instance;
+      final previous = environment.deviceTimezone;
+      addTearDown(() => environment.setDeviceTimezone(previous));
+      environment.setDeviceTimezone(name);
+    }
+
+    testWidgets('dates the expiry in the account zone on the reader clock', (
+      tester,
+    ) async {
+      holdDeviceTimezone('America/New_York');
+      for (final (use24HourClock, time) in [
+        (false, '6:15 PM'),
+        (true, '18:15'),
+      ]) {
+        await pump(
+          tester,
+          accountTimezone: 'Asia/Kathmandu',
+          use24HourClock: use24HourClock,
+        );
+        expect(tooltip(tester), 'Heads down — until Sun, Feb 3 $time');
+      }
+    });
+
+    testWidgets('follows the device zone when the account has none', (
+      tester,
+    ) async {
+      holdDeviceTimezone('Etc/UTC');
+      await pump(tester);
+      expect(tooltip(tester), 'Heads down — until Sun, Feb 3 12:30 PM');
+
+      TimezoneEnvironment.instance.setDeviceTimezone('Asia/Kathmandu');
+      await tester.pump();
+      expect(tooltip(tester), 'Heads down — until Sun, Feb 3 6:15 PM');
+    });
   });
 
   testWidgets('a status message redraws only for its own user', (tester) async {

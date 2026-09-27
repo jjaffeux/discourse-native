@@ -255,6 +255,11 @@ final class _TopicCalendarState extends State<TopicCalendar> {
   }
 
   String get _locale => Localizations.localeOf(context).toString();
+  String _time(DateTime value) => clockTime(
+    value,
+    use24HourClock: use24HourClockOf(context),
+    locale: _locale,
+  );
 
   String _dateLabel(CalendarOccurrence event) {
     final date = DateFormat.yMMMd(_locale);
@@ -264,12 +269,11 @@ final class _TopicCalendarState extends State<TopicCalendar> {
           : ' – ${date.format(event.lastDay)}';
       return '${date.format(event.start)}$end · All day';
     }
-    final time = DateFormat.Hm(_locale);
     final endDay = topicCalendarDay(event.end) == event.firstDay
         ? ''
         : '${date.format(event.end)}, ';
-    return '${date.format(event.start)}, ${time.format(event.start)}'
-        ' – $endDay${time.format(event.end)} ($_timezone)';
+    return '${date.format(event.start)}, ${_time(event.start)}'
+        ' – $endDay${_time(event.end)} ($_timezone)';
   }
 
   void _openDay(DateTime day, List<CalendarOccurrence> events) {
@@ -644,7 +648,7 @@ final class _TopicCalendarState extends State<TopicCalendar> {
             child: Align(
               alignment: AlignmentDirectional.centerStart,
               child: Text(
-                '${event.allDay ? '' : '${DateFormat.Hm(_locale).format(event.start)} '}${event.title}',
+                '${event.allDay ? '' : '${_time(event.start)} '}${event.title}',
                 semanticsLabel: label,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,

@@ -682,8 +682,8 @@ String _dateText(BuildContext context, DateTime value) =>
 
 String _dateTimeText(BuildContext context, DateTime value) {
   final local = value.toLocal();
-  final material = MaterialLocalizations.of(context);
-  return '${material.formatMediumDate(local)} ${material.formatTimeOfDay(TimeOfDay.fromDateTime(local))}';
+  return '${MaterialLocalizations.of(context).formatMediumDate(local)} '
+      '${clockTimeLabel(context, local)}';
 }
 
 class _MemberActions extends StatelessWidget {

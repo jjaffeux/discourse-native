@@ -129,6 +129,7 @@ Widget _tile(
   TextDirection direction = TextDirection.ltr,
   double width = 720,
   double scale = 1,
+  bool use24HourClock = false,
   bool chained = false,
   bool endsGroup = true,
   bool selecting = false,
@@ -153,9 +154,10 @@ Widget _tile(
               width: width,
               child: Builder(
                 builder: (context) => MediaQuery(
-                  data: MediaQuery.of(
-                    context,
-                  ).copyWith(textScaler: TextScaler.linear(scale)),
+                  data: MediaQuery.of(context).copyWith(
+                    textScaler: TextScaler.linear(scale),
+                    alwaysUse24HourFormat: use24HourClock,
+                  ),
                   child: Directionality(
                     textDirection: direction,
                     child: ChatMessageTile(
@@ -461,6 +463,41 @@ void main() {
         expect(find.byType(DDropdownMenuContent), findsNothing);
       },
     );
+
+    testWidgets('the menu header writes its time on the reader clock', (
+      tester,
+    ) async {
+      final controller = await _controller(_message());
+      final local = DateTime.utc(2026, 9, 11).toLocal();
+      String two(int value) => value.toString().padLeft(2, '0');
+      final hour12 = local.hour % 12 == 0 ? 12 : local.hour % 12;
+      final expected = {
+        false: '$hour12:${two(local.minute)} ${local.hour < 12 ? 'AM' : 'PM'}',
+        true: '${two(local.hour)}:${two(local.minute)}',
+      };
+      for (final use24HourClock in [false, true]) {
+        await tester.pumpWidget(const SizedBox.shrink());
+        await tester.pumpWidget(
+          _tile(
+            controller,
+            use24HourClock: use24HourClock,
+            theme: AppTheme.light.copyWith(platform: TargetPlatform.macOS),
+          ),
+        );
+        await tester.pumpAndSettle();
+        await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+        await tester.pump();
+        await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+        await tester.sendKeyEvent(LogicalKeyboardKey.f10);
+        await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+        await tester.pumpAndSettle();
+        expect(
+          tester.widget<Text>(find.byKey(ChatMessageTile.timestampKey(7))).data,
+          endsWith(' · ${expected[use24HourClock]}'),
+          reason: 'use24HourClock: $use24HourClock',
+        );
+      }
+    });
 
     testWidgets(
       'attachment-only messages have one accessible dropdown at narrow 200% RTL',
