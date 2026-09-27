@@ -204,7 +204,7 @@ void main() {
         find.descendant(of: aggregateButton, matching: find.byType(DTooltip)),
       );
       final aggregateShortcut = aggregateTooltip.shortcut![0];
-      expect(aggregateTooltip.message, 'Aggregate');
+      expect(aggregateTooltip.message, 'All forums');
       expect(aggregateShortcut.trigger, LogicalKeyboardKey.digit1);
       expect(aggregateShortcut.meta, isTrue);
       expect(aggregateShortcut.control, isFalse);
@@ -217,7 +217,7 @@ void main() {
       await mouse.addPointer(location: Offset.zero);
       addTearDown(mouse.removePointer);
       for (final (key, message) in [
-        ('aggregate-rail-button', 'Aggregate'),
+        ('aggregate-rail-button', 'All forums'),
         ('add-instance-rail-button', 'Add a Discourse site'),
         ('styleguide-rail-button', 'Open component styleguide'),
         ('settings-rail-button', 'Settings'),
@@ -670,6 +670,8 @@ void main() {
       expect(routedItem.icon, DNativeIcons.topic);
       expect(routedItem.color, color);
 
+      await tester.ensureVisible(find.byKey(ValueKey('forum-tab-$originalId')));
+      await tester.pumpAndSettle();
       await tester.tap(find.byKey(ValueKey('forum-tab-$originalId')));
       await tester.pumpAndSettle();
       expect(controller.activeTabId, originalId);
@@ -694,10 +696,6 @@ void main() {
       expect(_bar(tester).items.map((item) => item.id), contains(newId));
       expect(_bar(tester).selectedId, isNot(originalId));
       expect(_bar(tester).recentlyClosedItems.single.id, originalId);
-      await tester.tap(
-        find.byKey(const ValueKey('forum-tabs-switcher-history')),
-      );
-      await tester.pumpAndSettle();
       await tester.tap(
         find.byKey(ValueKey('forum-tabs-switcher-recent-$originalId')),
       );
