@@ -1707,20 +1707,92 @@ void main() {
     },
   );
 
-  test('a sent thread event inserts only into the thread stream', () {
-    final api = _AdversarialThreadApi(detail: threadDetail());
+  test('a sent thread event inserts only into the thread stream', () async {
+    final api = _AdversarialThreadApi(
+      detail: threadDetail(),
+      pages: {
+        'thread-9-22': threadPage([20]),
+      },
+    );
     final store = Store()..put(site, threadDetail());
     final subject = _controllerFor(api, store: store);
     final tracker = attachTracker(subject.chat);
     final view = subject.chat.beginViewingThread(site, target);
     addTearDown(() => subject.chat.endViewingThread(site, target, view));
+    await subject.chat.openThread(site, target);
 
     tracker.deliverPluginMessage('/chat/9/thread/22', threadSentEvent(30));
 
-    expect(subject.chat.streamFor(site, target).messageIds, [30]);
+    expect(subject.chat.streamFor(site, target).messageIds, [20, 30]);
     expect(subject.chat.stream(site, target.channelId).messageIds, isEmpty);
     expect(subject.store.read<ChatMessage>(site, 30)?.threadId, 22);
   });
+
+  test(
+    'a replayed thread reply waits for the page that establishes the window',
+    () async {
+      final api = _AdversarialThreadApi(
+        detail: threadDetail(),
+        holdDetail: true,
+        holdMessages: true,
+        pages: {
+          'thread-9-22': threadPage([20, 30]),
+        },
+      );
+      // Opening from My threads subscribes at the listed record's cursor, so
+      // the bus replays replies published since the list loaded.
+      final store = Store()..put(site, threadDetail());
+      final subject = _controllerFor(api, store: store);
+      final tracker = attachTracker(subject.chat);
+      final view = subject.chat.beginViewingThread(site, target);
+      addTearDown(() => subject.chat.endViewingThread(site, target, view));
+
+      final opening = subject.chat.openThread(site, target);
+      await api.detailStarted!.future;
+      tracker.deliverPluginMessage('/chat/9/thread/22', threadSentEvent(30));
+      expect(subject.chat.streamFor(site, target).messageIds, isEmpty);
+
+      api.detailGate!.complete();
+      await api.messagesStarted!.future;
+      tracker.deliverPluginMessage('/chat/9/thread/22', threadSentEvent(31));
+      final loading = subject.chat.streamFor(site, target);
+      expect(loading.loading, isTrue);
+      expect(loading.messageIds, isEmpty);
+      expect(loading.pendingNewMessages, 0);
+
+      api.messagesGate!.complete();
+      await opening;
+
+      final stream = subject.chat.streamFor(site, target);
+      expect(stream.messageIds, [20, 30, 31]);
+      expect(stream.atPresent, isTrue);
+    },
+  );
+
+  test(
+    'a failed thread page is not hidden by a reply replayed during it',
+    () async {
+      final api = _AdversarialThreadApi(
+        detail: threadDetail(),
+        holdMessages: true,
+      );
+      final store = Store()..put(site, threadDetail());
+      final subject = _controllerFor(api, store: store);
+      final tracker = attachTracker(subject.chat);
+      final view = subject.chat.beginViewingThread(site, target);
+      addTearDown(() => subject.chat.endViewingThread(site, target, view));
+
+      final opening = subject.chat.openThread(site, target);
+      await api.messagesStarted!.future;
+      tracker.deliverPluginMessage('/chat/9/thread/22', threadSentEvent(30));
+      api.messagesGate!.complete();
+      await opening;
+
+      final stream = subject.chat.streamFor(site, target);
+      expect(stream.messageIds, isEmpty);
+      expect(stream.error, 'Could not load this thread.');
+    },
+  );
 
   test(
     'live replay during an anchored fetch is deduplicated and kept pending',
