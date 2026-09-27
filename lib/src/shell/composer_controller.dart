@@ -323,6 +323,8 @@ enum ComposerState { editing, submitting, checking, unresolved }
 
 enum DraftStatus { clean, saving, saved, failing }
 
+typedef ComposerSubmission = ({String raw, String title, int draftSequence});
+
 class ComposerController extends ChangeNotifier implements ComposerEditorHost {
   ComposerController(
     this._target, {
@@ -2371,6 +2373,21 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
   bool get _bodyEdited => editRaw != _originalRaw?.trimRight();
 
   int draftSequence = 0;
+
+  ComposerSubmission? _submission;
+
+  /// The last create sent, as it was sent. The field stays editable and keeps
+  /// saving drafts while its answer is unknown, so whether it landed is
+  /// decided against this, never against the text or draft as they are now.
+  ComposerSubmission? get submission => _submission;
+
+  /// Records what is about to be sent; call it after the last draft save has
+  /// settled, so [draftSequence] is the sequence the create will advance.
+  ComposerSubmission recordSubmission() => _submission = (
+    raw: raw,
+    title: title.text.trim(),
+    draftSequence: draftSequence,
+  );
 
   Timer? _draftTimer;
   DateTime? _lastDraftSaveAt;

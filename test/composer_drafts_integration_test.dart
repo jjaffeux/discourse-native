@@ -776,6 +776,96 @@ void _registerTopicReplyTests() {
       expect(api.created, hasLength(1));
     }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
+    testWidgets(
+      'Check again looks for what was sent, not what was typed since',
+      (tester) async {
+        final api = FakeDiscourseApi(
+          feeds: {'/latest.json': listed},
+          topics: {7: detail()},
+          postsById: {
+            2: const Post(
+              id: 2,
+              postNumber: 2,
+              username: 'joffreyj',
+              cooked: '<p>It landed.</p>',
+              raw: 'It landed.',
+            ),
+          },
+          writeFailure: const WriteException(WriteFailure.unreachable),
+        );
+
+        await openTopic(tester, api);
+        await tester.tap(find.byTooltip('Reply to this topic'));
+        await tester.pumpAndSettle();
+        await tester.enterText(_composerField, 'It landed.');
+        await tester.pumpAndSettle();
+
+        api.topics.remove(7);
+        await tester.tap(sendButton());
+        await tester.pumpAndSettle();
+        expect(tester.widget<DButton>(sendButton()).tooltip, 'Check again');
+
+        // The field stays editable while the answer is unknown.
+        await tester.enterText(_composerField, 'It landed!');
+        await tester.pumpAndSettle();
+        api.topics[7] = topicPayload(
+          id: 7,
+          title: 'A real topic',
+          posts: [detail().posts.first],
+          stream: const [1, 2],
+          postsCount: 2,
+          canCreatePost: true,
+        );
+        await tester.tap(sendButton());
+        await tester.pumpAndSettle();
+
+        expect(api.created, hasLength(1));
+        expect(find.byType(ComposerPanel), findsNothing);
+      },
+      variant: TargetPlatformVariant.only(TargetPlatform.linux),
+    );
+
+    testWidgets('a reply the site stored with plain spaces is found posted', (
+      tester,
+    ) async {
+      final api = FakeDiscourseApi(
+        feeds: {'/latest.json': listed},
+        topics: {
+          7: topicPayload(
+            id: 7,
+            title: 'A real topic',
+            posts: [detail().posts.first],
+            stream: const [1, 2],
+            postsCount: 2,
+            canCreatePost: true,
+          ),
+        },
+        postsById: {
+          // PostCreator stores TextCleaner.normalize_whitespaces(raw).
+          2: const Post(
+            id: 2,
+            postNumber: 2,
+            username: 'joffreyj',
+            cooked: '<p>ありがとう ございます</p>',
+            raw: 'ありがとう ございます',
+          ),
+        },
+        writeFailure: const WriteException(WriteFailure.unreachable),
+      );
+
+      await openTopic(tester, api);
+      await tester.tap(find.byTooltip('Reply to this topic'));
+      await tester.pumpAndSettle();
+      // An IME space, as a Japanese keyboard types it.
+      await tester.enterText(_composerField, 'ありがとう\u3000ございます');
+      await tester.pumpAndSettle();
+      await tester.tap(sendButton());
+      await tester.pumpAndSettle();
+
+      expect(api.created, hasLength(1));
+      expect(find.byType(ComposerPanel), findsNothing);
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
+
     testWidgets('copy link writes core post URLs to the clipboard', (
       tester,
     ) async {
