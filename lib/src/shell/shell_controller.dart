@@ -8850,8 +8850,14 @@ class ShellController extends FrameSafeNotifier
     }
     // Site settings decide whether an author's deletion withdrew or trashed
     // the topic, and a deleter may no longer be allowed to read a trashed
-    // one, so it is read when next opened rather than now. A read already on
-    // its way predates the deletion and is repeated.
+    // one, so it is read when next opened rather than now.
+    _rereadTopicWhenOpened(siteUrl, topicId);
+  }
+
+  /// Has [topicId] read again when it is next opened, after a write changed
+  /// it on the server without answering with it. A read already on its way
+  /// predates the write and is repeated.
+  void _rereadTopicWhenOpened(String siteUrl, int topicId) {
     final key = _topicKey(siteUrl, topicId);
     if (_topicsLoading.contains(key)) {
       _topicRefreshPending.add(key);
@@ -11024,6 +11030,11 @@ class ShellController extends FrameSafeNotifier
         destinationTopicId: destinationTopicId,
         chronologicalOrder: chronologicalOrder,
         privateMessage: target.privateMessage,
+      );
+      // PostMover publishes nothing to the destination's readers, so a copy
+      // held from an earlier visit would open without the arrived posts.
+      target._lease.commit(
+        () => _rereadTopicWhenOpened(siteUrl, destinationTopicId),
       );
     });
     if (!isTopicPostMoveTargetCurrent(target)) {

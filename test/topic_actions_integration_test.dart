@@ -1628,6 +1628,142 @@ void _registerTopicModerationTests() {
       expect(api.topicsOpened, contains(99));
     }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
+    testWidgets('reads a destination held from an earlier visit again', (
+      tester,
+    ) async {
+      const moved = Post(
+        id: 1,
+        postNumber: 1,
+        username: 'joffreyj',
+        cooked: '<p>Move this body</p>',
+      );
+      const destinationFirst = Post(
+        id: 99,
+        postNumber: 1,
+        username: 'sam',
+        cooked: '<p>Destination body</p>',
+      );
+      final api = FakeDiscourseApi(
+        feeds: {
+          '/latest.json': [
+            ...listed,
+            const Topic(
+              id: 99,
+              title: 'Destination topic',
+              slug: 'destination-topic',
+            ),
+          ],
+        },
+        topics: {
+          7: topicPayload(
+            id: 7,
+            title: 'A real topic',
+            posts: const [
+              moved,
+              Post(
+                id: 2,
+                postNumber: 2,
+                username: 'sam',
+                cooked: '<p>Leave this body</p>',
+              ),
+            ],
+            canMovePosts: true,
+          ),
+          99: topicPayload(
+            id: 99,
+            title: 'Destination topic',
+            posts: const [destinationFirst],
+          ),
+        },
+        searchResults: const {
+          'Destination': SearchResults(
+            hits: [
+              SearchPostHit(
+                postId: 99,
+                topicId: 99,
+                postNumber: 1,
+                topicTitle: 'Destination topic',
+                topicSlug: 'destination-topic',
+                username: 'sam',
+                excerpt: SearchExcerpt([]),
+              ),
+            ],
+          ),
+        },
+      );
+      api.topicMoveUrl = '/t/destination-topic/99';
+      await pumpShell(
+        tester,
+        desktop,
+        api: api,
+        instances: [
+          instance('meta.discourse.org', title: 'Meta').copyWith(user: me),
+        ],
+        authenticator: FakeAuthenticator()
+          ..keys['https://meta.discourse.org'] = 'meta-key',
+      );
+      if (find
+          .byKey(const ValueKey('mobile-bottom-bar'))
+          .evaluate()
+          .isNotEmpty) {
+        await tester.tap(find.byKey(const ValueKey('mobile-mode-topics')));
+        await tester.pumpAndSettle();
+      }
+      await tester.tap(find.text('Destination topic'));
+      await tester.pumpAndSettle();
+      expect(renderedText('Destination body'), findsOneWidget);
+      await tester.tap(find.byKey(ContentNavigationControls.backKey));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('A real topic'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('topic-status-button')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('topic-select-posts')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('topic-post-select-1')));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(
+        find.byKey(const ValueKey('topic-selected-posts-move')),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('topic-selected-posts-move')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Existing topic'));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const ValueKey('topic-move-posts-search')),
+        'Destination',
+      );
+      await tester.pump(const Duration(milliseconds: 350));
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const ValueKey('topic-move-posts-destination-99')),
+        findsOneWidget,
+      );
+      // The server announces nothing on the destination's channel, so only
+      // reading it again shows the posts that arrived.
+      api.topics[99] = topicPayload(
+        id: 99,
+        title: 'Destination topic',
+        posts: const [
+          destinationFirst,
+          Post(
+            id: 1,
+            postNumber: 2,
+            username: 'joffreyj',
+            cooked: '<p>Move this body</p>',
+          ),
+        ],
+      );
+      await tester.tap(find.byKey(const ValueKey('topic-move-posts-submit')));
+      await tester.pumpAndSettle();
+
+      expect(api.movedTopicPosts.single.destinationTopicId, 99);
+      expect(api.topicsOpened.where((id) => id == 99), hasLength(2));
+      expect(renderedText('Destination body'), findsOneWidget);
+      expect(renderedText('Move this body'), findsOneWidget);
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
+
     testWidgets('changes the owner of same-author selected posts', (
       tester,
     ) async {

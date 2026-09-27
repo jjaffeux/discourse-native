@@ -393,6 +393,29 @@ void main() {
     }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
   }
 
+  testWidgets('a destination read already on its way is read again', (
+    tester,
+  ) async {
+    final api = _MoveApi();
+    final shell = await _openDialog(tester, api);
+    final destinationRead = api.destinationRead = Completer<void>();
+    unawaited(shell.loadTopic(99, 'destination'));
+    await tester.pump();
+    expect(api.topicsOpened.where((id) => id == 99), hasLength(1));
+
+    final result = await shell.moveSelectedTopicPostsToExisting(
+      shell.captureTopicPostMoveTarget(_siteA, 7),
+      99,
+    );
+    expect(result.error, isNull);
+    // That read reached the server before the move and answers without it.
+    destinationRead.complete();
+    await tester.pumpAndSettle();
+
+    expect(api.topicsOpened.where((id) => id == 99), hasLength(2));
+    expect(shell.store.read<TopicDetail>(_siteA, 99)?.stream, [99, 1]);
+  }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
+
   testWidgets('a message offers an admin a new message, never a topic', (
     tester,
   ) async {
@@ -660,6 +683,10 @@ class _MoveApi extends FakeDiscourseApi {
   Completer<String>? moveResponse;
   Completer<SearchResults>? searchResponse;
   Completer<List<Post>>? refreshResponse;
+
+  // Holds a read of topic 99 after the server has taken its snapshot.
+  Completer<void>? destinationRead;
+  final destinationPostIds = <int>[];
   final writes = <({String siteUrl, String apiKey})>[];
   final refreshes = <({String siteUrl, int topicId, String? apiKey})>[];
   final searches =
@@ -695,25 +722,34 @@ class _MoveApi extends FakeDiscourseApi {
     Future<void>? abortTrigger,
   }) async {
     topicsOpened.add(id);
-    return topicPayload(
+    final payload = topicPayload(
       id: id,
       title: id == 99 ? 'Destination' : 'Source topic',
       privateMessage: message && id == 7,
       posts: [
-        if (id == 99)
+        if (id == 99) ...[
           const Post(
             id: 99,
             postNumber: 1,
             username: 'destination',
             cooked: '<p>Arrived</p>',
-          )
-        else ...[
+          ),
+          for (final (index, postId) in destinationPostIds.indexed)
+            Post(
+              id: postId,
+              postNumber: index + 2,
+              username: 'author',
+              cooked: '<p>Moved</p>',
+            ),
+        ] else ...[
           if (nonregular) _nonregularPost else _posts.first,
           ..._posts.skip(1),
         ],
       ],
       canMovePosts: true,
     );
+    if (id == 99) await destinationRead?.future;
+    return payload;
   }
 
   @override
@@ -768,6 +804,7 @@ class _MoveApi extends FakeDiscourseApi {
       chronologicalOrder: chronologicalOrder,
       privateMessage: privateMessage,
     );
+    if (destinationTopicId == 99) destinationPostIds.addAll(postIds);
     return moveResponse == null
         ? '/t/destination/99'
         : await moveResponse!.future;
