@@ -19,6 +19,7 @@ class TopicTitle extends StatelessWidget {
     this.overflow,
     this.style,
     this.textAlign,
+    this.leading = const [],
     this.trailing = const [],
   });
 
@@ -28,6 +29,7 @@ class TopicTitle extends StatelessWidget {
   final TextOverflow? overflow;
   final TextStyle? style;
   final TextAlign? textAlign;
+  final List<Widget> leading;
   final List<Widget> trailing;
 
   @override
@@ -38,6 +40,7 @@ class TopicTitle extends StatelessWidget {
     overflow: overflow,
     style: style,
     textAlign: textAlign,
+    leading: leading,
     trailing: trailing,
   );
 }

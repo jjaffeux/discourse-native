@@ -204,7 +204,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('desktop retains the configured default calendar view', (
+  testWidgets('desktop defaults to Month even with an old configured view', (
     tester,
   ) async {
     ports.settings = const EventSettings(
@@ -217,7 +217,7 @@ void main() {
     await pump(tester);
     expect(
       tester.widget<EventCalendar>(find.byType(EventCalendar)).page.view,
-      EventCalendarView.week,
+      EventCalendarView.month,
     );
     expect(tester.takeException(), isNull);
   });
@@ -257,9 +257,8 @@ void main() {
       await pump(tester);
       final stale = Completer<Map<String, dynamic>>();
       ports.transport.responders[read] = (_) => stale.future;
-      await tester.tap(find.byTooltip('Calendar actions'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Refresh'));
+      ports.controller.setForeground(false);
+      ports.controller.setForeground(true);
       await tester.pump();
       final next = Completer<Map<String, dynamic>>();
       ports.transport.responders[read] = (_) => next.future;
@@ -301,14 +300,16 @@ void main() {
       expect(find.text('October 2026'), findsOneWidget);
       await tester.tap(find.text('Today'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Day'));
+      await tester.tap(find.byType(DSelect<EventCalendarView>));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Schedule'));
       await tester.pumpAndSettle();
       expect(transport.queries.map((uri) => uri.queryParameters), [
         for (final (after, before) in [
           ('2026-08-30T22:00:00.000Z', '2026-10-04T22:00:00.000Z'),
           ('2026-09-27T22:00:00.000Z', '2026-11-01T23:00:00.000Z'),
           ('2026-08-30T22:00:00.000Z', '2026-10-04T22:00:00.000Z'),
-          ('2026-09-07T22:00:00.000Z', '2026-09-08T22:00:00.000Z'),
+          ('2026-08-31T22:00:00.000Z', '2026-09-30T22:00:00.000Z'),
         ])
           {
             'include_ongoing': 'true',
@@ -354,69 +355,54 @@ void main() {
     },
   );
 
-  testWidgets(
-    'year requests bounded quarters and retains every daily occurrence',
-    (tester) async {
-      transport.respond = (uri) {
-        final after = DateTime.parse(uri.queryParameters['after']!);
-        final before = DateTime.parse(uri.queryParameters['before']!);
-        return {
-          'events': [
-            eventJson(
-              overrides: {
-                'occurrences': [
-                  for (
-                    var date = DateTime.utc(
-                      after.year,
-                      after.month,
-                      after.day + 1,
-                      9,
-                    );
-                    date.isBefore(before);
-                    date = date.add(const Duration(days: 1))
-                  )
-                    {
-                      'starts_at': date.toIso8601String(),
-                      'ends_at': date
-                          .add(const Duration(hours: 1))
-                          .toIso8601String(),
-                    },
-                ],
-              },
-            ),
-          ],
-        };
-      };
-      await pump(tester);
-      transport.queries.clear();
-      await tester.tap(find.text('Year'));
-      await tester.pumpAndSettle();
-      expect(
-        transport.queries.map(
-          (uri) =>
-              (uri.queryParameters['after'], uri.queryParameters['before']),
-        ),
-        [
-          ('2025-12-31T23:00:00.000Z', '2026-03-31T22:00:00.000Z'),
-          ('2026-03-31T22:00:00.000Z', '2026-06-30T22:00:00.000Z'),
-          ('2026-06-30T22:00:00.000Z', '2026-09-30T22:00:00.000Z'),
-          ('2026-09-30T22:00:00.000Z', '2026-12-31T23:00:00.000Z'),
-        ],
+  for (final view in [
+    EventCalendarView.week,
+    EventCalendarView.day,
+    EventCalendarView.year,
+  ]) {
+    testWidgets('old ${view.name} links open the requested month', (
+      tester,
+    ) async {
+      transport.respond = (_) => {'events': <Object?>[]};
+      await pump(
+        tester,
+        page: EventCalendarPage(view, DateTime.utc(2026, 10, 8)),
       );
-      final calendar = tester.widget<kalender.KalenderView>(
-        find.byType(kalender.KalenderView),
-      );
-      final events = calendar.eventsController.events
-          .whereType<EventCalendarEntry>();
-      expect(events, hasLength(365));
-      expect(events.last.localStart.month, 12);
-      expect(
-        tester.widget<EventCalendar>(find.byType(EventCalendar)).page.date.year,
-        2026,
-      );
+      final calendar = tester.widget<EventCalendar>(find.byType(EventCalendar));
+      expect(calendar.page.view, EventCalendarView.month);
+      expect(calendar.page.date, DateTime.utc(2026, 10, 8));
+      expect(find.text('October 2026'), findsOneWidget);
+      expect(find.byTooltip('Calendar actions'), findsNothing);
+      expect(find.byType(DDropdownMenu), findsNothing);
       expect(tester.takeException(), isNull);
-    },
-  );
+    });
+  }
+
+  testWidgets('default follows window width until a view is selected', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(390, 844);
+    addTearDown(tester.view.reset);
+    transport.respond = (_) => {'events': <Object?>[]};
+    await pump(tester);
+    EventCalendarPage currentPage() =>
+        tester.widget<EventCalendar>(find.byType(EventCalendar)).page;
+    expect(currentPage().view, EventCalendarView.schedule);
+    tester.view.physicalSize = const Size(1000, 844);
+    await tester.pumpAndSettle();
+    expect(currentPage().view, EventCalendarView.month);
+    await tester.tap(find.byType(DSelect<EventCalendarView>));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Schedule'));
+    await tester.pumpAndSettle();
+    tester.view.physicalSize = const Size(390, 844);
+    await tester.pumpAndSettle();
+    tester.view.physicalSize = const Size(1000, 844);
+    await tester.pumpAndSettle();
+    expect(currentPage().view, EventCalendarView.schedule);
+    expect(tester.takeException(), isNull);
+  });
 }
 
 final class _CalendarTransport extends RecordingPluginTransport {

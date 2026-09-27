@@ -218,7 +218,7 @@ void main() {
         );
         final style = (paragraph.text as TextSpan).style!;
         expect(style.fontSize, 12);
-        expect(style.height, DiscourseTypography.lineHeightCaption);
+        expect(style.height, 1.5);
         expect(style.fontWeight, FontWeight.w500);
         final node = tester.getSemantics(find.text('Badge'));
         expect(node.flagsCollection.isButton, isFalse);
@@ -607,7 +607,7 @@ void main() {
     },
   );
 
-  testWidgets('all badge sizes retain an independently tappable 48px target', (
+  testWidgets('badge sizes own their touch targets and inline tag geometry', (
     tester,
   ) async {
     for (final size in DBadgeSize.values) {
@@ -622,14 +622,18 @@ void main() {
         theme: AppTheme.light.copyWith(platform: TargetPlatform.iOS),
       );
       final bounds = tester.getRect(find.byType(DBadge));
-      expect(bounds.height, 48);
-      expect(bounds.width, greaterThanOrEqualTo(48));
+      expect(bounds.height, size == DBadgeSize.tag ? 23 : 48);
+      if (size != DBadgeSize.tag) {
+        expect(bounds.width, greaterThanOrEqualTo(48));
+      }
       expect(
         tester.getSize(find.byType(AnimatedContainer)).height,
         switch (size) {
           DBadgeSize.compact => 16,
           DBadgeSize.regular => 22,
-          DBadgeSize.control => DControlStyle.height(DControlSize.filter),
+          DBadgeSize.control => 30.75,
+          DBadgeSize.tag => 23,
+          DBadgeSize.unread => 19,
         },
       );
       await tester.tapAt(bounds.topCenter + const Offset(0, 2));

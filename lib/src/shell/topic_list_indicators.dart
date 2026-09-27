@@ -7,9 +7,14 @@ Color topicListTitleColor(ThemeData theme, {required bool visited}) =>
     visited ? theme.discourse.whisper : theme.colorScheme.onSurface;
 
 class TopicUnreadBadge extends StatelessWidget {
-  const TopicUnreadBadge({super.key, required this.count});
+  const TopicUnreadBadge({
+    super.key,
+    required this.count,
+    this.compact = false,
+  });
 
   final int count;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
@@ -19,9 +24,14 @@ class TopicUnreadBadge extends StatelessWidget {
       message: label,
       excludeFromSemantics: true,
       child: DBadge(
+        size: compact ? DBadgeSize.unread : DBadgeSize.regular,
         semanticLabel: label,
-        backgroundColor: colors.notificationIndicator,
-        foregroundColor: colors.notificationForeground,
+        backgroundColor: compact
+            ? const Color(0xFFF0A500)
+            : colors.notificationIndicator,
+        foregroundColor: compact
+            ? DTokens.of(context).background
+            : colors.notificationForeground,
         child: Text('$count'),
       ),
     );

@@ -52,7 +52,7 @@ class StreamDaySeparator extends StatelessWidget {
         semanticLabel: actionLabel,
         tooltip: actionLabel,
         variant: DButtonVariant.outline,
-        size: DButtonSize.small,
+        size: DButtonSize.chip,
         shape: DButtonShape.pill,
         backgroundColor: background,
         interactiveBackgroundColor: theme.shell.hover,

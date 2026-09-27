@@ -21,6 +21,7 @@ import 'examples/color_picker_examples.dart';
 import 'examples/combobox_examples.dart';
 import 'examples/command_examples.dart';
 import 'examples/context_menu_examples.dart';
+import 'examples/control_wrap_examples.dart';
 import 'examples/data_table_examples.dart';
 import 'examples/date_picker_examples.dart';
 import 'examples/dialog_examples.dart';
@@ -67,6 +68,7 @@ import 'examples/sidebar_examples.dart';
 import 'examples/skeleton_examples.dart';
 import 'examples/slider_examples.dart';
 import 'examples/spinner_examples.dart';
+import 'examples/sticky_examples.dart';
 import 'examples/switch_examples.dart';
 import 'examples/table_examples.dart';
 import 'examples/tabs_examples.dart';
@@ -94,6 +96,8 @@ final componentExamples = <String, ComponentExamples>{
   'message-inbox-menu': messageInboxMenuExamples,
   'notification-level-menu': notificationLevelMenuExamples,
   'page-surface': pageSurfaceExamples,
+  'control-wrap': controlWrapExamples,
+  'sticky': stickyExamples,
   'notification-dot': notificationDotExamples,
   'category-selector': categorySelectorExamples,
   'tag-selector': tagSelectorExamples,

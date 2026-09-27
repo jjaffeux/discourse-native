@@ -2487,7 +2487,10 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
       );
       final slivers = [
         ...openingSlivers,
-        SliverPadding(padding: readingLane.padding, sliver: postList),
+        SliverPadding(
+          padding: readingLane.padding,
+          sliver: context.isTouch ? postList : DStickySliver(sliver: postList),
+        ),
         if (controller.mobileNavigationEnabled)
           SliverPadding(
             padding: EdgeInsets.only(
@@ -4054,11 +4057,16 @@ class _MoreTopics extends StatelessWidget {
                         : null,
                   ),
                   if (index < selection.topics.length - 1)
-                    DSeparator(
-                      space: 1,
-                      indent: inbox ? 16 : 0,
-                      endIndent: inbox ? 16 : 0,
-                      color: theme.shell.divider,
+                    LayoutBuilder(
+                      builder: (context, constraints) =>
+                          constraints.maxWidth < 600
+                          ? const TopicListSeparator()
+                          : DSeparator(
+                              space: 1,
+                              indent: inbox ? 16 : 0,
+                              endIndent: inbox ? 16 : 0,
+                              color: theme.shell.divider,
+                            ),
                     ),
                 ],
               ],
@@ -4569,6 +4577,236 @@ class _PostTileState extends State<_PostTile> {
   ) {
     final theme = Theme.of(context);
     final post = widget.post;
+    final avatar = UserCardTarget(
+      username: post.username,
+      siteUrl: widget.siteUrl,
+      child: DAvatar.frame(
+        child: SizedBox(
+          width: 32,
+          height: 32,
+          child: AvatarImage(
+            url: post.avatarUrl,
+            size: 32,
+            fallback: ColoredBox(
+              color: theme.shell.floating,
+              child: Center(
+                child: Text(
+                  post.username.isEmpty
+                      ? '?'
+                      : post.username.characters.first.toUpperCase(),
+                  style: theme.textTheme.labelMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    final content = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            if (!context.isTouch) ...[
+              // The avatar lives in the full-height gutter. Keep selection
+              // controls beside the author so they cannot occupy that gutter.
+              const SizedBox.square(dimension: 32),
+              const SizedBox(width: 10),
+            ],
+            if (selection.enabled) ...[
+              DCheckbox(
+                key: ValueKey('topic-post-select-${post.id}'),
+                semanticLabel: 'Select post by ${post.username}',
+                value: selection.selected,
+                onChanged: selection.busy
+                    ? null
+                    : (_) => ShellScope.read(context).toggleTopicPostSelected(
+                        widget.siteUrl,
+                        widget.topic.id,
+                        post.id,
+                      ),
+              ),
+              const SizedBox(width: 4),
+            ],
+            if (context.isTouch) ...[avatar, const SizedBox(width: 10)],
+            Expanded(
+              child: Row(
+                children: [
+                  Flexible(
+                    child: UserCardTarget(
+                      username: post.username,
+                      siteUrl: widget.siteUrl,
+                      child: Text(
+                        post.displayName,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ),
+                  UserStatusMessage(
+                    siteUrl: widget.siteUrl,
+                    userId: post.userId,
+                    status: post.userStatus,
+                    size: 15,
+                    leadingGap: 6,
+                  ),
+                  if (post.isStaff) ...[
+                    const SizedBox(width: 6),
+                    _Tag(label: 'staff', color: theme.colorScheme.primary),
+                  ] else if (post.userTitle case final title?) ...[
+                    const SizedBox(width: 6),
+                    Flexible(
+                      child: Text(
+                        title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ),
+                  ],
+                  if (post.isDeleted) ...[
+                    const SizedBox(width: 6),
+                    _Tag(label: 'deleted', color: theme.colorScheme.error),
+                  ],
+                  if (post.wiki) ...[
+                    const SizedBox(width: 6),
+                    _Tag(label: 'wiki', color: theme.colorScheme.primary),
+                  ],
+                  if (post.locked) ...[
+                    const SizedBox(width: 6),
+                    _Tag(label: 'locked', color: theme.colorScheme.secondary),
+                  ],
+                  if (post.hidden) ...[
+                    const SizedBox(width: 6),
+                    _Tag(label: 'hidden', color: theme.colorScheme.error),
+                  ],
+                  if (post.isModeratorAction) ...[
+                    const SizedBox(width: 6),
+                    _Tag(label: 'moderator', color: theme.colorScheme.primary),
+                  ],
+                ],
+              ),
+            ),
+            if (post.isWhisper) ...[
+              const SizedBox(width: 8),
+              DTooltip(
+                message: 'This post is a private whisper',
+                child: DIcon(
+                  DIcons.farEyeSlash,
+                  size: 14,
+                  color: theme.discourse.whisper,
+                ),
+              ),
+              if (post.createdAt != null) const SizedBox(width: 8),
+            ],
+            if (post.editCount > 0) ...[
+              PostRevisionIndicator(post: post),
+              if (post.createdAt != null) const SizedBox(width: 4),
+            ],
+            if (post.createdAt case final createdAt?)
+              Text(
+                relativeTime(createdAt),
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+          ],
+        ),
+        Padding(
+          padding: EdgeInsetsDirectional.only(start: context.isTouch ? 0 : 39),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (post.notice case final notice?) ...[
+                const SizedBox(height: 10),
+                _PostNoticeBanner(
+                  siteUrl: widget.siteUrl,
+                  post: post,
+                  notice: notice,
+                ),
+              ],
+              const SizedBox(height: 10),
+              ShellSelector<int?>(
+                select: (controller) =>
+                    controller.currentUserFor(widget.siteUrl)?.id,
+                builder: (context, _, _) =>
+                    (PluginScope.maybeOf(context)?.registry ??
+                            PluginRegistry.empty)
+                        .transformPostBody(
+                          context,
+                          widget.siteUrl,
+                          post,
+                          topic: PluginContainingTopic(
+                            id: widget.topic.id,
+                            slug:
+                                ShellScope.read(context).currentContent?.slug ??
+                                'topic',
+                            archived: widget.topic.archived,
+                          ),
+                          builder: (context, displayedCooked) =>
+                              PostTextSelection(
+                                siteUrl: widget.siteUrl,
+                                post: post,
+                                topicId: widget.topic.id,
+                                displayedCooked: displayedCooked,
+                                child: CookedHtml(
+                                  html: displayedCooked,
+                                  renderMode: const ProgressiveHtmlMode(),
+                                  buildAsync: CookedHtml.buildsAsynchronously(
+                                    post.cooked,
+                                  ),
+                                  textStyle: post.isWhisper
+                                      ? theme.textTheme.bodyLarge?.copyWith(
+                                          color: theme.discourse.whisper,
+                                          fontStyle: FontStyle.italic,
+                                          height: DiscourseTypography
+                                              .lineHeightCooked,
+                                        )
+                                      : theme.textTheme.bodyLarge?.copyWith(
+                                          height: DiscourseTypography
+                                              .lineHeightCooked,
+                                        ),
+                                  siteUrl: widget.siteUrl,
+                                  post: post,
+                                  containingTopic: PluginContainingTopic(
+                                    id: widget.topic.id,
+                                    slug:
+                                        ShellScope.read(
+                                          context,
+                                        ).currentContent?.slug ??
+                                        'topic',
+                                    archived: widget.topic.archived,
+                                  ),
+                                  mentionedUserStatuses:
+                                      post.mentionedUserStatuses,
+                                ),
+                              ),
+                        ),
+              ),
+              ...(PluginScope.maybeOf(context)?.registry ??
+                      PluginRegistry.empty)
+                  .postDecorations(context, widget.siteUrl, widget.topic, post),
+              PostFooter(siteUrl: widget.siteUrl, post: post),
+              if (post.inboundLinks.isNotEmpty)
+                _PostInboundLinks(
+                  siteUrl: widget.siteUrl,
+                  links: post.inboundLinks,
+                  expanded: _linksExpanded,
+                  onExpand: () => setState(() => _linksExpanded = true),
+                ),
+            ],
+          ),
+        ),
+      ],
+    );
 
     final tile = ColoredBox(
       color: post.isDeleted
@@ -4580,256 +4818,24 @@ class _PostTileState extends State<_PostTile> {
         persistent: true,
         child: Padding(
           padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  if (selection.enabled) ...[
-                    DCheckbox(
-                      key: ValueKey('topic-post-select-${post.id}'),
-                      semanticLabel: 'Select post by ${post.username}',
-                      value: selection.selected,
-                      onChanged: selection.busy
-                          ? null
-                          : (_) => ShellScope.read(context)
-                                .toggleTopicPostSelected(
-                                  widget.siteUrl,
-                                  widget.topic.id,
-                                  post.id,
-                                ),
-                    ),
-                    const SizedBox(width: 4),
-                  ],
-                  UserCardTarget(
-                    username: post.username,
-                    siteUrl: widget.siteUrl,
-                    child: DAvatar.frame(
-                      child: SizedBox(
-                        width: 32,
-                        height: 32,
-                        child: AvatarImage(
-                          url: post.avatarUrl,
-                          size: 32,
-                          fallback: ColoredBox(
-                            color: theme.shell.floating,
-                            child: Center(
-                              child: Text(
-                                post.username.isEmpty
-                                    ? '?'
-                                    : post.username.characters.first
-                                          .toUpperCase(),
-                                style: theme.textTheme.labelMedium?.copyWith(
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Row(
-                      children: [
-                        Flexible(
-                          child: UserCardTarget(
-                            username: post.username,
-                            siteUrl: widget.siteUrl,
-                            child: Text(
-                              post.displayName,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: theme.textTheme.bodyMedium?.copyWith(
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                          ),
-                        ),
-                        UserStatusMessage(
-                          siteUrl: widget.siteUrl,
-                          userId: post.userId,
-                          status: post.userStatus,
-                          size: 15,
-                          leadingGap: 6,
-                        ),
-                        if (post.isStaff) ...[
-                          const SizedBox(width: 6),
-                          _Tag(
-                            label: 'staff',
-                            color: theme.colorScheme.primary,
-                          ),
-                        ] else if (post.userTitle case final title?) ...[
-                          const SizedBox(width: 6),
-                          Flexible(
-                            child: Text(
-                              title,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                color: theme.colorScheme.onSurfaceVariant,
-                              ),
-                            ),
-                          ),
-                        ],
-                        if (post.isDeleted) ...[
-                          const SizedBox(width: 6),
-                          _Tag(
-                            label: 'deleted',
-                            color: theme.colorScheme.error,
-                          ),
-                        ],
-                        if (post.wiki) ...[
-                          const SizedBox(width: 6),
-                          _Tag(label: 'wiki', color: theme.colorScheme.primary),
-                        ],
-                        if (post.locked) ...[
-                          const SizedBox(width: 6),
-                          _Tag(
-                            label: 'locked',
-                            color: theme.colorScheme.secondary,
-                          ),
-                        ],
-                        if (post.hidden) ...[
-                          const SizedBox(width: 6),
-                          _Tag(label: 'hidden', color: theme.colorScheme.error),
-                        ],
-                        if (post.isModeratorAction) ...[
-                          const SizedBox(width: 6),
-                          _Tag(
-                            label: 'moderator',
-                            color: theme.colorScheme.primary,
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-                  if (post.isWhisper) ...[
-                    const SizedBox(width: 8),
-                    DTooltip(
-                      message: 'This post is a private whisper',
-                      child: DIcon(
-                        DIcons.farEyeSlash,
-                        size: 14,
-                        color: theme.discourse.whisper,
-                      ),
-                    ),
-                    if (post.createdAt != null) const SizedBox(width: 8),
-                  ],
-                  if (post.editCount > 0) ...[
-                    PostRevisionIndicator(post: post),
-                    if (post.createdAt != null) const SizedBox(width: 4),
-                  ],
-                  if (post.createdAt case final createdAt?)
-                    Text(
-                      relativeTime(createdAt),
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                ],
-              ),
-              Padding(
-                padding: EdgeInsetsDirectional.only(
-                  start: context.isTouch ? 0 : 39,
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
+          child: context.isTouch
+              ? content
+              : Stack(
                   children: [
-                    if (post.notice case final notice?) ...[
-                      const SizedBox(height: 10),
-                      _PostNoticeBanner(
-                        siteUrl: widget.siteUrl,
-                        post: post,
-                        notice: notice,
+                    content,
+                    PositionedDirectional(
+                      start: 0,
+                      top: 0,
+                      bottom: 0,
+                      width: 32,
+                      child: DSticky(
+                        key: ValueKey('topic-sticky-avatar-${post.id}'),
+                        topOffset: 14,
+                        child: avatar,
                       ),
-                    ],
-                    const SizedBox(height: 10),
-                    ShellSelector<int?>(
-                      select: (controller) =>
-                          controller.currentUserFor(widget.siteUrl)?.id,
-                      builder: (context, _, _) =>
-                          (PluginScope.maybeOf(context)?.registry ??
-                                  PluginRegistry.empty)
-                              .transformPostBody(
-                                context,
-                                widget.siteUrl,
-                                post,
-                                topic: PluginContainingTopic(
-                                  id: widget.topic.id,
-                                  slug:
-                                      ShellScope.read(
-                                        context,
-                                      ).currentContent?.slug ??
-                                      'topic',
-                                  archived: widget.topic.archived,
-                                ),
-                                builder: (context, displayedCooked) =>
-                                    PostTextSelection(
-                                      siteUrl: widget.siteUrl,
-                                      post: post,
-                                      topicId: widget.topic.id,
-                                      displayedCooked: displayedCooked,
-                                      child: CookedHtml(
-                                        html: displayedCooked,
-                                        renderMode: const ProgressiveHtmlMode(),
-                                        buildAsync:
-                                            CookedHtml.buildsAsynchronously(
-                                              post.cooked,
-                                            ),
-                                        textStyle: post.isWhisper
-                                            ? theme.textTheme.bodyLarge
-                                                  ?.copyWith(
-                                                    color:
-                                                        theme.discourse.whisper,
-                                                    fontStyle: FontStyle.italic,
-                                                    height: DiscourseTypography
-                                                        .lineHeightCooked,
-                                                  )
-                                            : theme.textTheme.bodyLarge
-                                                  ?.copyWith(
-                                                    height: DiscourseTypography
-                                                        .lineHeightCooked,
-                                                  ),
-                                        siteUrl: widget.siteUrl,
-                                        post: post,
-                                        containingTopic: PluginContainingTopic(
-                                          id: widget.topic.id,
-                                          slug:
-                                              ShellScope.read(
-                                                context,
-                                              ).currentContent?.slug ??
-                                              'topic',
-                                          archived: widget.topic.archived,
-                                        ),
-                                        mentionedUserStatuses:
-                                            post.mentionedUserStatuses,
-                                      ),
-                                    ),
-                              ),
                     ),
-                    ...(PluginScope.maybeOf(context)?.registry ??
-                            PluginRegistry.empty)
-                        .postDecorations(
-                          context,
-                          widget.siteUrl,
-                          widget.topic,
-                          post,
-                        ),
-                    PostFooter(siteUrl: widget.siteUrl, post: post),
-                    if (post.inboundLinks.isNotEmpty)
-                      _PostInboundLinks(
-                        siteUrl: widget.siteUrl,
-                        links: post.inboundLinks,
-                        expanded: _linksExpanded,
-                        onExpand: () => setState(() => _linksExpanded = true),
-                      ),
                   ],
                 ),
-              ),
-            ],
-          ),
         ),
       ),
     );

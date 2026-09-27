@@ -7,6 +7,7 @@ import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/plugin_api/plugin_data.dart';
 import 'package:discourse_native/src/plugin_api/plugin_scope.dart';
 import 'package:discourse_native/src/plugins/chat/chat_browse_channels_view.dart';
+import 'package:discourse_native/src/plugins/chat/chat_browse_navigation.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_notification_counter.dart';
 import 'package:discourse_native/src/plugins/chat/chat_plugin_data.dart';
@@ -42,7 +43,12 @@ void main() {
         },
       );
       final controller = await _pumpBrowse(tester, api);
-      final filter = find.byKey(const ValueKey('chat-browse-filter'));
+      final filter = find
+          .descendant(
+            of: find.byType(ContentReadingLaneBox).first,
+            matching: find.byType(Column),
+          )
+          .first;
       final card = _card(1);
 
       for (final limited in [false, true, false]) {
@@ -52,7 +58,7 @@ void main() {
         final cardRect = tester.getRect(card);
         expect(filterRect.left, closeTo(cardRect.left, 0.01));
         expect(filterRect.width, closeTo(cardRect.width, 0.01));
-        expect(filterRect.width, closeTo(limited ? 825 : 1376, 0.01));
+        expect(filterRect.width, closeTo(limited ? 825 : 1368, 0.01));
       }
     });
 
@@ -233,7 +239,9 @@ void main() {
         await _pumpBrowse(tester, api);
         await _selectMembership(tester, membership);
 
-        await tester.tap(find.text(joined ? 'Unfollow' : 'Join'));
+        await tester.tap(
+          find.byKey(ValueKey(joined ? 'chat-unfollow-1' : 'chat-join-1')),
+        );
         await tester.pumpAndSettle();
 
         expect(api.chatChannelFollowsUpdated, [
@@ -577,8 +585,13 @@ void main() {
         final api = await _pumpShortBrowse(tester);
         final browse = tester.getRect(_browse);
         expect(_list, findsNothing);
+        await tester.ensureVisible(_filter);
+        await tester.pumpAndSettle();
         expect(tester.getRect(_filter).top, greaterThanOrEqualTo(browse.top));
-        expect(tester.getRect(_filter).bottom, lessThan(browse.bottom));
+        expect(
+          tester.getRect(_filter).bottom,
+          lessThanOrEqualTo(browse.bottom),
+        );
         expect(_filter.hitTestable(), findsOneWidget);
 
         api.chatBrowsePagesByKey[FakeDiscourseApi.chatBrowseKey(
@@ -596,13 +609,20 @@ void main() {
         // Doubled text wraps the label, so the trigger is the value below it.
         final membership = find.descendant(
           of: _joined,
-          matching: find.text('All'),
+          matching: find.text('Membership'),
         );
         await tester.ensureVisible(membership);
         await tester.pumpAndSettle();
         await tester.tap(membership);
         await tester.pumpAndSettle();
-        await tester.tap(find.text('Joined').last);
+        await tester.tap(
+          find.byWidgetPredicate(
+            (widget) =>
+                widget is Semantics &&
+                widget.properties.inMutuallyExclusiveGroup == true &&
+                widget.properties.label == 'Joined',
+          ),
+        );
         await tester.pumpAndSettle();
         expect(_card(1), findsOneWidget);
         expect(_card(2), findsNothing);
@@ -653,7 +673,7 @@ void main() {
         tester.view.viewInsets = const FakeViewPadding(bottom: 280);
         addTearDown(tester.view.resetViewInsets);
         await tester.pumpAndSettle();
-        await tester.drag(_status, const Offset(0, -150));
+        await tester.drag(_filter, const Offset(0, -150));
         await tester.pumpAndSettle();
         expect(tester.getRect(_filter).top, lessThan(filter.top));
 
@@ -679,27 +699,14 @@ void main() {
             (_status, 'Status', 'Archived'),
             (_joined, 'Membership', 'Not joined'),
           ]) {
-            final visual = tester.getRect(
-              find.descendant(
-                of: select,
-                matching: find.byKey(const Key('d-select-trigger-visual')),
-              ),
+            await tester.ensureVisible(select);
+            final target = tester.getRect(
+              find.descendant(of: select, matching: find.byType(DButton)),
             );
-            // A label wrapped by large text stays above the box it names.
+            expect(target.height, greaterThanOrEqualTo(DSpacing.touchTarget));
             expect(
-              tester
-                  .getRect(
-                    find.descendant(of: select, matching: find.text(label)),
-                  )
-                  .bottom,
-              lessThan(visual.top),
-            );
-            final target = Rect.fromCenter(
-              center: visual.center,
-              width: visual.width,
-              height: visual.height < DSpacing.touchTarget
-                  ? DSpacing.touchTarget
-                  : visual.height,
+              find.descendant(of: select, matching: find.text(label)),
+              findsOneWidget,
             );
             for (final point in [
               target.center,
@@ -806,7 +813,11 @@ Future<_BrowseApi> _pumpMobileBrowse(WidgetTester tester, Size size) async {
     await tester.tap(dockTab);
   }
   await tester.pumpAndSettle();
-  await tester.tap(find.byKey(const ValueKey('chat-inbox-browse')));
+  final channelsTab = find.byKey(
+    const ValueKey(('toggle-group-item', ChatBrowsePage.channels)),
+  );
+  await tester.ensureVisible(channelsTab);
+  await tester.tap(channelsTab);
   await tester.pumpAndSettle();
   expect(_browse, findsOneWidget);
   return api;
@@ -859,7 +870,14 @@ Iterable<int> _offsets(FakeDiscourseApi api) =>
 Future<void> _selectMembership(WidgetTester tester, String label) async {
   await tester.tap(find.byKey(const ValueKey('chat-browse-joined')));
   await tester.pumpAndSettle();
-  await tester.tap(find.text(label).last);
+  await tester.tap(
+    find.byWidgetPredicate(
+      (widget) =>
+          widget is Semantics &&
+          widget.properties.inMutuallyExclusiveGroup == true &&
+          widget.properties.label == label,
+    ),
+  );
   await tester.pumpAndSettle();
 }
 

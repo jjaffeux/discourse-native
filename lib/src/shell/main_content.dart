@@ -231,7 +231,7 @@ class _MainContentBody extends StatelessWidget {
                   (route.isBadges && (route.badgeRoute?.isDirectory ?? true)) ||
                   (route.id == 'user-bookmarks' && state.isConnected));
     final hideDirectoryHeader =
-        (route.isAppearance && !context.isTouch) ||
+        ((route.isAppearance || route.isUsers) && !context.isTouch) ||
         (pageOwnsTitle &&
             !state.canPop &&
             (ShellScope.read(context).mobileNavigationEnabled ||
@@ -487,10 +487,7 @@ class _TopicInboxWorkspaceState extends State<_TopicInboxWorkspace> {
                         maxWidth: navigation == null ? double.infinity : 220,
                       ),
                       child: messages
-                          ? MessageInboxTitle(
-                              selectedGroup: sourceRoute.messageGroupName,
-                              keepTopicOpen: split,
-                            )
+                          ? const MessageInboxTitle()
                           : _TopicListHeadingTitle(
                               siteUrl: state.siteUrl,
                               categoryId: sourceRoute.categoryId,
@@ -525,7 +522,9 @@ class _TopicInboxWorkspaceState extends State<_TopicInboxWorkspace> {
                     : shellHeaderHeight,
               ),
               child: Padding(
-                padding: context.isTouch
+                padding: messages
+                    ? const EdgeInsets.symmetric(vertical: DSpacing.lg)
+                    : context.isTouch
                     ? const EdgeInsets.only(top: 16)
                     : const EdgeInsets.only(top: 24),
                 child: Row(
@@ -1098,10 +1097,7 @@ class _ContentHeader extends StatelessWidget {
               if (showRouteIdentity)
                 Expanded(
                   child: route.isMessages && isConnected
-                      ? MessageInboxTitle(
-                          selectedGroup: route.messageGroupName,
-                          trailing: contentHeaderTitleTrailing,
-                        )
+                      ? MessageInboxTitle(trailing: contentHeaderTitleTrailing)
                       : route.categoryId != null && siteUrl != null
                       ? _CategoryHeaderIdentity(
                           route: route,

@@ -1733,6 +1733,79 @@ void _registerChatShellTests() {
         expect(rows, orderedEquals([...rows]..sort()));
       }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
+      testWidgets(
+        'keeps empty conversations last without displaying placeholder times',
+        (tester) async {
+          final emptyChannel = ChatChannel.fromJson(const {
+            'id': 10,
+            'title': 'Empty channel',
+            'chatable_type': 'Category',
+            'current_user_membership': {'following': true},
+            'last_message': {
+              'id': null,
+              'created_at': '2026-09-27T09:28:00.000Z',
+            },
+          }, site);
+          await pumpChat(
+            tester,
+            size: defaultTargetPlatform == TargetPlatform.linux
+                ? desktop
+                : phone,
+            public: [
+              emptyChannel,
+              channel(
+                9,
+                title: 'General',
+                lastMessageId: 50,
+                lastMessageAt: DateTime.utc(2026, 9, 27, 9, 13),
+              ),
+            ],
+            direct: [
+              dm(
+                12,
+                title: 'hawk',
+                lastMessageId: 51,
+                lastMessageAt: DateTime.utc(2026, 9, 27, 9, 20),
+              ),
+            ],
+          );
+
+          final emptyRow = find.byKey(const ValueKey('chat-inbox-channel-10'));
+          expect(
+            find.descendant(
+              of: emptyRow,
+              matching: find.text('No messages yet'),
+            ),
+            findsOneWidget,
+          );
+          final title = find.descendant(
+            of: emptyRow,
+            matching: find.byType(DItemTitle),
+          );
+          expect(
+            tester
+                .widgetList<Text>(
+                  find.descendant(of: title, matching: find.byType(Text)),
+                )
+                .map((text) => text.data),
+            ['Empty channel'],
+          );
+          final rows = [
+            for (final id in [12, 9, 10])
+              tester
+                  .getTopLeft(find.byKey(ValueKey('chat-inbox-channel-$id')))
+                  .dy,
+          ];
+          expect(rows, orderedEquals([...rows]..sort()));
+          expect(tester.takeException(), isNull);
+        },
+        variant: const TargetPlatformVariant({
+          TargetPlatform.linux,
+          TargetPlatform.iOS,
+          TargetPlatform.android,
+        }),
+      );
+
       testWidgets('keeps the inbox filters while switching sidebar panels', (
         tester,
       ) async {
@@ -2053,9 +2126,14 @@ void _registerChatShellTests() {
               chatChannelsBySite: {
                 site: ChatChannels(public: [channel(9)], direct: [dm(12)]),
               },
-              chatMessagesByKey: {key(9): page(const [])},
+              chatMessagesByKey: {
+                key(9): page(const []),
+                key(12): page(const []),
+              },
             );
             await pumpChat(tester, api: api);
+            await tester.tap(sidebarDestination('hawk'));
+            await tester.pumpAndSettle();
 
             final mouse = await tester.createGesture(
               kind: PointerDeviceKind.mouse,
@@ -2307,8 +2385,14 @@ void _registerChatShellTests() {
         await tester.tap(find.byKey(const ValueKey('chat-inbox-browse')));
         await tester.pumpAndSettle();
 
-        expect(find.text('Ask the community for help.'), findsOneWidget);
-        expect(find.text('7 members'), findsOneWidget);
+        expect(
+          find.descendant(
+            of: find.byType(MainContent),
+            matching: find.text('Browse channels'),
+          ),
+          findsOneWidget,
+        );
+        expect(find.text('No unread messages'), findsNWidgets(2));
         await tester.enterText(
           find.byKey(const ValueKey('chat-browse-filter')),
           'sup',

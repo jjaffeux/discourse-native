@@ -44,6 +44,7 @@ class DMessageInboxMenu<T> extends StatefulWidget {
     required this.onChanged,
     this.semanticLabel = 'Choose inbox',
     this.size = DButtonSize.small,
+    this.variant = DButtonVariant.ghost,
     this.buttonKey,
   }) : assert(options.length > 0);
 
@@ -52,6 +53,7 @@ class DMessageInboxMenu<T> extends StatefulWidget {
   final ValueChanged<T>? onChanged;
   final String semanticLabel;
   final DButtonSize size;
+  final DButtonVariant variant;
   final Key? buttonKey;
 
   @override
@@ -170,7 +172,7 @@ class _DMessageInboxMenuState<T> extends State<DMessageInboxMenu<T>> {
           focusNode: state.focusNode,
           hasPopup: true,
           expanded: state.open,
-          variant: DButtonVariant.ghost,
+          variant: widget.variant,
           size: widget.size,
         ),
       ),

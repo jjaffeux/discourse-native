@@ -132,6 +132,7 @@ class DBreadcrumbLink extends StatefulWidget {
     this.semanticLabel,
     this.focusNode,
     this.autofocus = false,
+    this.compact = false,
   });
 
   final Widget child;
@@ -139,6 +140,10 @@ class DBreadcrumbLink extends StatefulWidget {
   final String? semanticLabel;
   final FocusNode? focusNode;
   final bool autofocus;
+
+  /// Inline metadata uses 11px type and an intrinsic link target. Full-size
+  /// navigation keeps its separate 48px touch target.
+  final bool compact;
 
   /// Creates a link whose destination and callback retain their route type.
   static Widget route<T>({
@@ -210,6 +215,8 @@ class _DBreadcrumbLinkState extends State<DBreadcrumbLink> {
     );
     final interactiveColor = enabled && (_hovered || _focused)
         ? tokens.foreground
+        : widget.compact
+        ? Color.lerp(tokens.background, tokens.foreground, .62)!
         : tokens.mutedForeground;
     final color = enabled
         ? interactiveColor
@@ -255,7 +262,9 @@ class _DBreadcrumbLinkState extends State<DBreadcrumbLink> {
             excludeFromSemantics: true,
             onTap: enabled ? _activate : null,
             child: ConstrainedBox(
-              constraints: BoxConstraints(minHeight: touch ? 48 : 0),
+              constraints: BoxConstraints(
+                minHeight: touch && !widget.compact ? 48 : 0,
+              ),
               child: AnimatedContainer(
                 duration: duration,
                 curve: Curves.easeOut,
@@ -274,7 +283,9 @@ class _DBreadcrumbLinkState extends State<DBreadcrumbLink> {
                     curve: Curves.easeOut,
                     style: Theme.of(context).textTheme.bodyMedium!.copyWith(
                       color: color,
-                      fontSize: DiscourseTypography.sm,
+                      fontSize: widget.compact
+                          ? DiscourseTypography.micro
+                          : DiscourseTypography.sm,
                       height: DiscourseTypography.lineHeightSmall,
                       fontWeight: FontWeight.w400,
                       letterSpacing: 0,

@@ -23,9 +23,8 @@ final _user = DiscourseUser(
 );
 
 final _inbox = find.byType(ChatMobileSidebar);
-final _title = find.descendant(of: _inbox, matching: find.text('Chat'));
-final _footer = find.descendant(of: _inbox, matching: find.byType(DCardFooter));
-const _shortcuts = ['chat-inbox-browse', 'chat-inbox-my-threads'];
+final _title = find.descendant(of: _inbox, matching: find.text('Browse chats'));
+final _navigation = find.byKey(const ValueKey('chat-browse-navigation'));
 
 void _mobileTest(String name, WidgetTesterCallback callback) => testWidgets(
   name,
@@ -102,36 +101,25 @@ Future<void> _pumpChatInbox(WidgetTester tester, Size size) async {
 
 void main() {
   _mobileTest(
-    'a normal height keeps the title, filters and shortcuts fixed around '
-    'the scrolling conversations',
+    'normal height keeps peer navigation and filters above the scrolling chats',
     (tester) async {
       await _pumpChatInbox(tester, phone);
-      final inbox = tester.getRect(_inbox);
       final title = tester.getRect(_title);
-      final row = find.byKey(const ValueKey('chat-inbox-channel-12'));
-      final rowTop = tester.getRect(row).top;
-      expect(tester.getRect(_footer).bottom, inbox.bottom);
-
-      await tester.drag(row, const Offset(0, -100));
+      final navigation = tester.getRect(_navigation);
+      final list = find.descendant(of: _inbox, matching: find.byType(ListView));
+      await tester.drag(list, const Offset(0, -160));
       await tester.pumpAndSettle();
-
-      expect(tester.getRect(row).top, lessThan(rowTop));
       expect(tester.getRect(_title), title);
-      expect(tester.getRect(_footer).bottom, inbox.bottom);
-      for (final key in _shortcuts) {
-        expect(
-          find.byKey(ValueKey(key)).hitTestable(),
-          findsOneWidget,
-          reason: key,
-        );
-      }
+      expect(tester.getRect(_navigation), navigation);
+      expect(find.text('Channels'), findsOneWidget);
+      expect(find.text('Threads'), findsOneWidget);
+      expect(find.byType(DCardFooter), findsNothing);
       expect(tester.takeException(), isNull);
     },
   );
 
   _mobileTest(
-    'a keyboard over large text on a narrow phone scrolls the title, filters '
-    'and shortcuts with the conversations',
+    'keyboard and large text keep navigation and conversations reachable',
     (tester) async {
       tester.platformDispatcher.textScaleFactorTestValue = 2;
       addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
@@ -139,55 +127,41 @@ void main() {
       tester.view.viewInsets = const FakeViewPadding(bottom: 280);
       addTearDown(tester.view.resetViewInsets);
       await tester.pumpAndSettle();
-      expect(tester.takeException(), isNull);
-
-      final inbox = tester.getRect(_inbox);
-      expect(
-        find.byKey(const ValueKey('chat-inbox-kind-filter')).hitTestable(),
-        findsOneWidget,
-      );
-      expect(tester.getRect(_footer).top, greaterThan(inbox.bottom));
-
       final scrollable = find
           .descendant(of: _inbox, matching: find.byType(Scrollable))
           .first;
-      for (final key in _shortcuts) {
-        final shortcut = find.byKey(ValueKey(key));
-        await tester.scrollUntilVisible(shortcut, 100, scrollable: scrollable);
-        final rect = tester.getRect(shortcut);
-        expect(rect.top, greaterThanOrEqualTo(inbox.top), reason: key);
-        expect(rect.bottom, lessThanOrEqualTo(inbox.bottom), reason: key);
-        expect(shortcut.hitTestable(), findsOneWidget, reason: key);
-      }
-      expect(tester.getRect(_title).bottom, lessThan(inbox.top));
+      await tester.scrollUntilVisible(
+        find.byKey(const ValueKey('chat-inbox-channel-20')),
+        100,
+        scrollable: scrollable,
+      );
+      expect(
+        find.byKey(const ValueKey('chat-inbox-channel-20')).hitTestable(),
+        findsOneWidget,
+      );
+      await tester.scrollUntilVisible(_title, -100, scrollable: scrollable);
+      expect(_title.hitTestable(), findsOneWidget);
       expect(tester.takeException(), isNull);
     },
   );
 
-  _mobileTest(
-    'dismissing the keyboard fixes the title and shortcuts around the '
-    'conversations again',
-    (tester) async {
-      tester.platformDispatcher.textScaleFactorTestValue = 2;
-      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
-      await _pumpChatInbox(tester, const Size(320, 720));
-      final title = tester.getRect(_title);
-      final footer = tester.getRect(_footer);
-      expect(footer.bottom, tester.getRect(_inbox).bottom);
-
-      tester.view.viewInsets = const FakeViewPadding(bottom: 280);
-      addTearDown(tester.view.resetViewInsets);
-      await tester.pumpAndSettle();
-      await tester.drag(_title, const Offset(0, -150));
-      await tester.pumpAndSettle();
-      expect(tester.getRect(_title).top, lessThan(title.top));
-
-      tester.view.resetViewInsets();
-      await tester.pumpAndSettle();
-
-      expect(tester.getRect(_title), title);
-      expect(tester.getRect(_footer), footer);
-      expect(tester.takeException(), isNull);
-    },
-  );
+  _mobileTest('dismissing the keyboard fixes the title and navigation again', (
+    tester,
+  ) async {
+    tester.platformDispatcher.textScaleFactorTestValue = 2;
+    addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+    await _pumpChatInbox(tester, const Size(320, 720));
+    final title = tester.getRect(_title);
+    final navigation = tester.getRect(_navigation);
+    tester.view.viewInsets = const FakeViewPadding(bottom: 280);
+    addTearDown(tester.view.resetViewInsets);
+    await tester.pumpAndSettle();
+    await tester.drag(_title, const Offset(0, -150));
+    await tester.pumpAndSettle();
+    tester.view.resetViewInsets();
+    await tester.pumpAndSettle();
+    expect(tester.getRect(_title), title);
+    expect(tester.getRect(_navigation), navigation);
+    expect(tester.takeException(), isNull);
+  });
 }

@@ -1,7 +1,7 @@
 import 'dart:ui' as ui;
 
 import 'package:discourse_native/discourse_ui.dart'
-    show DButton, DButtonShape, DMarker, DMarkerVariant;
+    show DButton, DButtonDecoration, DButtonShape, DMarker, DMarkerVariant;
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/post.dart';
@@ -56,11 +56,13 @@ void main() {
     parentData.layoutOffset = layoutOffset;
   });
 
-  testWidgets('only the rendered date is clickable', (tester) async {
+  testWidgets('mobile date stays compact with a full touch target', (
+    tester,
+  ) async {
     var taps = 0;
     await tester.pumpWidget(
       MaterialApp(
-        theme: AppTheme.light,
+        theme: AppTheme.light.copyWith(platform: TargetPlatform.iOS),
         home: Scaffold(
           body: StreamDaySeparator(
             day: DateTime(2020, 1, 2),
@@ -81,7 +83,17 @@ void main() {
     );
     final separatorRect = tester.getRect(separator);
     final buttonRect = tester.getRect(button);
+    final surface = find.descendant(
+      of: button,
+      matching: find.byWidgetPredicate(
+        (widget) =>
+            widget is AnimatedContainer &&
+            widget.decoration is DButtonDecoration,
+      ),
+    );
 
+    expect(tester.getSize(surface).height, 24);
+    expect(buttonRect.height, 48);
     expect(buttonRect.height, lessThanOrEqualTo(separatorRect.height));
     expect(tester.widget<DButton>(button).shape, DButtonShape.pill);
 
@@ -92,6 +104,10 @@ void main() {
     await tester.tap(date);
     await tester.pump();
     expect(taps, 1);
+
+    await tester.tapAt(buttonRect.topCenter + const Offset(0, 2));
+    await tester.pump();
+    expect(taps, 2);
   });
 
   testWidgets('does not separate a topic opening post made today', (

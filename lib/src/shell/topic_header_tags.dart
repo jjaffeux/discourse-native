@@ -196,11 +196,11 @@ class TopicHeaderTags extends StatelessWidget {
                 );
         }
 
-        return Row(
-          mainAxisSize: MainAxisSize.min,
+        return DControlWrap(
+          wrap: false,
+          spacing: gap,
           children: [
             for (var index = 0; index < visible; index++) ...[
-              if (index > 0) const SizedBox(width: gap),
               SizedBox(
                 width: widths[index],
                 child: chip(
@@ -214,8 +214,15 @@ class TopicHeaderTags extends StatelessWidget {
               ),
             ],
             if (visible < tags.length) ...[
-              if (visible > 0) const SizedBox(width: gap),
-              Flexible(
+              ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxWidth: math.max(
+                    0,
+                    budget -
+                        widths.take(visible).fold(0.0, (a, b) => a + b) -
+                        gap * visible,
+                  ),
+                ),
                 child: chip(
                   overflowLabel(visible),
                   const ValueKey('topic-header-more-tags'),
@@ -226,7 +233,6 @@ class TopicHeaderTags extends StatelessWidget {
               ),
             ],
             if (showEdit) ...[
-              if (tags.isNotEmpty) const SizedBox(width: gap),
               DPopoverTrigger(
                 builder: (context, trigger) => DButton.iconOnly(
                   key: const ValueKey('topic-header-edit-tags'),

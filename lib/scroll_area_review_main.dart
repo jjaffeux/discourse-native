@@ -177,7 +177,6 @@ class _ReviewState extends State<ScrollAreaReviewApp> {
                     onOpen: (_) {},
                     mine: false,
                     onMineChanged: (_) {},
-                    actions: const SizedBox(),
                   ),
                   5 => AssignedGroupPresentationView(
                     siteUrl: 'https://example.invalid',

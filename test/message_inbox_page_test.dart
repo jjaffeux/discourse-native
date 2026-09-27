@@ -234,7 +234,7 @@ void main() {
     (TargetPlatform.linux, 640.0, 2.0),
   ]) {
     testWidgets(
-      'keeps the inbox beside Messages at $width on ${platform.name} with ${textScale}x text',
+      'places message filters below the title at $width on ${platform.name} with ${textScale}x text',
       (tester) async {
         final setup = await _pumpInbox(
           tester,
@@ -251,29 +251,38 @@ void main() {
         final navigation = find.byKey(
           const ValueKey('message-list-navigation'),
         );
+        final folder = tester.getRect(
+          find.byKey(const ValueKey('message-list-menu')),
+        );
+        final divider = tester.getRect(
+          find.byKey(const ValueKey('message-header-separator')),
+        );
         expect(title, findsOneWidget);
         expect(
           find.text('engineering-infrastructure-platform-team'),
           findsOneWidget,
         );
-        expect(
-          tester.getCenter(title).dy,
-          closeTo(tester.getCenter(picker).dy, 1),
-        );
-        expect(
-          tester.getRect(picker).left,
-          greaterThan(tester.getRect(title).right),
-        );
+        expect(tester.getRect(title).bottom, lessThan(folder.top));
+        expect(tester.getCenter(picker).dy, closeTo(folder.center.dy, 1));
+        expect(tester.getRect(picker).left, folder.right + DSpacing.sm);
         expect(tester.getRect(picker).right, lessThanOrEqualTo(width));
-        // The heading sits flush on the navigation row; it must not overlap.
+        expect(divider.top, greaterThan(tester.getRect(picker).bottom));
+        expect(divider.left, folder.left);
         expect(
-          tester.getRect(navigation).top,
-          greaterThanOrEqualTo(tester.getRect(picker).bottom),
-        );
-        final folder = tester.getRect(
-          find.byKey(const ValueKey('message-list-menu')),
+          divider.width,
+          tester.getRect(navigation).width - DSpacing.lg * 2,
         );
         expect(folder.left - tester.getRect(navigation).left, DSpacing.lg);
+        final heading = tester.widget<DText>(
+          find.ancestor(of: title, matching: find.byType(DText)),
+        );
+        expect(heading.variant, DTextVariant.h3);
+        expect(heading.headingLevel, 1);
+        expect(
+          tester.widget<DButton>(picker).variant,
+          DButtonVariant.secondary,
+        );
+        expect(tester.widget<DButton>(picker).size, DButtonSize.filter);
         expect(find.byType(ForumSearch), findsNothing);
         expect(tester.takeException(), isNull);
 

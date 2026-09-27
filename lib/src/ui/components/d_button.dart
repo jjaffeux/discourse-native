@@ -3,6 +3,7 @@ import 'dart:ui' show SemanticsValidationResult, lerpDouble;
 import 'package:flutter/material.dart';
 
 import '../../theme/d_icon.dart';
+import '../foundation/control_artwork.dart';
 import '../foundation/control_style.dart';
 import '../foundation/focus_highlight.dart';
 import '../foundation/joined_control.dart';
@@ -938,7 +939,8 @@ class DButton extends StatelessWidget {
           ),
           child: child,
         );
-        return joined == null ? surface : DJoinedControlSurface(child: surface);
+        final artwork = DControlArtwork(child: surface);
+        return joined == null ? artwork : DJoinedControlSurface(child: artwork);
       },
     );
 

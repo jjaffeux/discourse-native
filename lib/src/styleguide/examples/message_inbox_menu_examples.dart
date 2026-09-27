@@ -11,7 +11,8 @@ final messageInboxMenuExamples = ComponentExamples(
       'DMessageInboxMenu composes DButton and a searchable DCombobox. '
       'Typed options provide names, descriptions, and icons. The caller owns '
       'selection, available groups, navigation, and account lifecycle. Change '
-      'the widget key when its page or account changes. Long trigger names '
+      'size and variant to reuse Native button presets in filter rows. '
+      'Change the widget key when its page or account changes. Long trigger names '
       'truncate, with the full name in the tooltip and accessible label; menu '
       'text wraps and long lists scroll. The selected inbox has a checkmark '
       'and selected semantics. Enter or Space opens and focuses search; typing '
@@ -39,6 +40,22 @@ const DMessageInboxOption(
   icon: DIcon(DIcons.user),
 )''',
       builder: (_) => const _InboxExample(),
+    ),
+    StyleguideExample(
+      title: 'Filter row',
+      description:
+          'A bordered filter-sized trigger for the Messages page toolbar.',
+      code: '''DMessageInboxMenu<String>(
+  value: inbox,
+  options: inboxOptions,
+  onChanged: selectInbox,
+  size: DButtonSize.filter,
+  variant: DButtonVariant.secondary,
+)''',
+      builder: (_) => const _InboxExample(
+        size: DButtonSize.filter,
+        variant: DButtonVariant.secondary,
+      ),
     ),
     StyleguideExample(
       title: 'Group inbox',
@@ -128,11 +145,15 @@ class _InboxExample extends StatefulWidget {
     this.initialValue = 'personal:',
     this.groups = _groups,
     this.enabled = true,
+    this.size = DButtonSize.small,
+    this.variant = DButtonVariant.ghost,
   });
 
   final String initialValue;
   final List<String> groups;
   final bool enabled;
+  final DButtonSize size;
+  final DButtonVariant variant;
 
   @override
   State<_InboxExample> createState() => _InboxExampleState();
@@ -145,6 +166,8 @@ class _InboxExampleState extends State<_InboxExample> {
   Widget build(BuildContext context) => ConstrainedBox(
     constraints: const BoxConstraints(maxWidth: 240),
     child: DMessageInboxMenu<String>(
+      size: widget.size,
+      variant: widget.variant,
       value: _value,
       onChanged: widget.enabled
           ? (value) => setState(() => _value = value)

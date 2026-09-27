@@ -4,14 +4,18 @@ import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
+import 'chat_browse_navigation.dart';
 import 'chat_channel.dart';
+import 'chat_channel_actions.dart';
 import 'chat_chrome_scroll_view.dart';
 import 'chat_controller.dart';
+import 'chat_inbox.dart';
+import 'chat_inbox_filters.dart';
 import 'chat_plugin.dart';
 import 'chat_services.dart';
 import 'chat_shell_service.dart';
 
-enum ChatChannelJoinedFilter { all, joined, notJoined }
+export 'chat_inbox_filters.dart' show ChatChannelJoinedFilter;
 
 class ChatBrowseChannelsView extends StatefulWidget {
   const ChatBrowseChannelsView({super.key, required this.siteUrl});
@@ -50,6 +54,10 @@ class _ChatBrowseChannelsViewState extends State<ChatBrowseChannelsView> {
     super.didChangeDependencies();
     if (_request != null) return;
     _chat = PluginUiScope.require(context, chatControllerService);
+    final saved = _chat.inboxFilters.browseFor(widget.siteUrl);
+    _filterController.text = saved.query;
+    _status = saved.status;
+    _joined = saved.membership;
     _unregisterRefresher = PluginUiScope.require(context, chatShellService)
         .registerRouteRefresher(
           widget.siteUrl,
@@ -72,7 +80,8 @@ class _ChatBrowseChannelsViewState extends State<ChatBrowseChannelsView> {
   // Fed by the field's onChanged rather than a controller listener: the
   // controller also notifies on focus and caret moves, and a reset for those
   // would drop the pages already loaded.
-  void _filterChanged(String _) {
+  void _filterChanged(String query) {
+    _chat.inboxFilters.browseFor(widget.siteUrl).query = query;
     _filterTimer?.cancel();
     _filterTimer = Timer(
       const Duration(milliseconds: 350),
@@ -136,85 +145,123 @@ class _ChatBrowseChannelsViewState extends State<ChatBrowseChannelsView> {
     ChatChannelJoinedFilter.all => _channels,
     ChatChannelJoinedFilter.joined => [
       for (final channel in _channels)
-        if (channel.membership.following) channel,
+        if ((_chat.channel(widget.siteUrl, channel.id) ?? channel)
+            .membership
+            .following)
+          channel,
     ],
     ChatChannelJoinedFilter.notJoined => [
       for (final channel in _channels)
-        if (!channel.membership.following) channel,
+        if (!(_chat.channel(widget.siteUrl, channel.id) ?? channel)
+            .membership
+            .following)
+          channel,
     ],
   };
 
   @override
-  Widget build(BuildContext context) => ChatChromeScrollView(
-    header: FocusTraversalGroup(
-      policy: WidgetOrderTraversalPolicy(),
-      child: ContentReadingLaneBox(
-        padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
-        child: Column(
-          children: [
-            DInput(
-              size: DControlSize.field,
-              key: const ValueKey('chat-browse-filter'),
-              controller: _filterController,
-              onChanged: _filterChanged,
-              labelText: 'Find a channel',
-              prefix: const DIcon(DIcons.magnifyingGlass),
-            ),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                Expanded(
-                  child: DSelect<ChatChannelBrowseStatus>.controlled(
-                    size: DControlSize.filter,
-                    isExpanded: true,
-                    key: const ValueKey('chat-browse-status'),
-                    value: _status,
-                    label: const Text('Status'),
-                    entries: [
-                      for (final status in ChatChannelBrowseStatus.values)
-                        DSelectOption(
-                          value: status,
-                          label: _statusLabel(status),
-                          child: Text(_statusLabel(status)),
-                        ),
+  Widget build(BuildContext context) => ListenableBuilder(
+    listenable: _chat,
+    builder: (context, _) => ChatChromeScrollView(
+      header: FocusTraversalGroup(
+        policy: WidgetOrderTraversalPolicy(),
+        child: ContentReadingLaneBox(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            spacing: DSpacing.md,
+            children: [
+              ChatBrowseNavigation(
+                siteUrl: widget.siteUrl,
+                page: ChatBrowsePage.channels,
+              ),
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  final search = DInput(
+                    size: DControlSize.field,
+                    key: const ValueKey('chat-browse-filter'),
+                    controller: _filterController,
+                    onChanged: _filterChanged,
+                    hintText: 'Find a channel',
+                    semanticLabel: 'Find a channel',
+                    prefix: const DIcon(DIcons.magnifyingGlass),
+                  );
+                  final filters = Wrap(
+                    spacing: DSpacing.controlGap,
+                    runSpacing: DSpacing.controlGap,
+                    children: [
+                      ChatBrowseFilter<ChatChannelBrowseStatus>(
+                        key: const ValueKey('chat-browse-status'),
+                        value: _status,
+                        label: _status == ChatChannelBrowseStatus.all
+                            ? 'Status'
+                            : _statusLabel(_status),
+                        semanticLabel: 'Status',
+                        emphasized: _status != ChatChannelBrowseStatus.all,
+                        entries: [
+                          for (final status in ChatChannelBrowseStatus.values)
+                            DSelectOption(
+                              value: status,
+                              label: _statusLabel(status),
+                              child: Text(_statusLabel(status)),
+                            ),
+                        ],
+                        onChanged: (status) {
+                          if (status == _status) return;
+                          setState(() => _status = status);
+                          _chat.inboxFilters.browseFor(widget.siteUrl).status =
+                              status;
+                          unawaited(_load(reset: true));
+                        },
+                      ),
+                      ChatBrowseFilter<ChatChannelJoinedFilter>(
+                        key: const ValueKey('chat-browse-joined'),
+                        value: _joined,
+                        label: _joined == ChatChannelJoinedFilter.all
+                            ? 'Membership'
+                            : _joinedLabel(_joined),
+                        semanticLabel: 'Membership',
+                        emphasized: _joined != ChatChannelJoinedFilter.all,
+                        entries: [
+                          for (final joined in ChatChannelJoinedFilter.values)
+                            DSelectOption(
+                              value: joined,
+                              label: _joinedLabel(joined),
+                              child: Text(_joinedLabel(joined)),
+                            ),
+                        ],
+                        onChanged: (joined) {
+                          setState(() => _joined = joined);
+                          _chat.inboxFilters
+                                  .browseFor(widget.siteUrl)
+                                  .membership =
+                              joined;
+                        },
+                      ),
                     ],
-                    onChanged: (status) {
-                      if (status == null || status == _status) return;
-                      setState(() => _status = status);
-                      unawaited(_load(reset: true));
-                    },
-                    initialValue: _status,
-                  ),
-                ),
-                const SizedBox(width: DSpacing.controlGap),
-                Expanded(
-                  child: DSelect<ChatChannelJoinedFilter>.controlled(
-                    size: DControlSize.filter,
-                    isExpanded: true,
-                    key: const ValueKey('chat-browse-joined'),
-                    value: _joined,
-                    label: const Text('Membership'),
-                    entries: [
-                      for (final joined in ChatChannelJoinedFilter.values)
-                        DSelectOption(
-                          value: joined,
-                          label: _joinedLabel(joined),
-                          child: Text(_joinedLabel(joined)),
-                        ),
-                    ],
-                    onChanged: (joined) {
-                      if (joined != null) setState(() => _joined = joined);
-                    },
-                    initialValue: _joined,
-                  ),
-                ),
-              ],
-            ),
-          ],
+                  );
+                  return constraints.maxWidth >=
+                          MediaQuery.textScalerOf(context).scale(600)
+                      ? Row(
+                          spacing: DSpacing.controlGap,
+                          children: [
+                            Expanded(child: search),
+                            filters,
+                          ],
+                        )
+                      : Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          spacing: DSpacing.controlGap,
+                          children: [search, filters],
+                        );
+                },
+              ),
+            ],
+          ),
         ),
       ),
+      list: _buildResults,
     ),
-    list: _buildResults,
   );
 
   Widget _buildResults(BuildContext context, bool lazy) {
@@ -243,11 +290,15 @@ class _ChatBrowseChannelsViewState extends State<ChatBrowseChannelsView> {
         );
       }
       if (index < channels.length) {
-        return _ChannelCard(
-          siteUrl: widget.siteUrl,
-          channel: channels[index],
-          chat: _chat,
-          onChanged: _replaceChannel,
+        final channel = channels[index];
+        return ValueListenableBuilder<ChatChannel?>(
+          valueListenable: _chat.channelRef(widget.siteUrl, channel.id),
+          builder: (context, current, _) => _ChannelRow(
+            siteUrl: widget.siteUrl,
+            channel: current ?? channel,
+            chat: _chat,
+            onChanged: _replaceChannel,
+          ),
         );
       }
       if (_loadingMore) {
@@ -271,7 +322,7 @@ class _ChatBrowseChannelsViewState extends State<ChatBrowseChannelsView> {
     }
 
     return ContentReadingLane(
-      basePadding: const EdgeInsets.fromLTRB(12, 4, 12, 16),
+      basePadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
       builder: (context, lane) => lazy
           ? ListView.builder(
               key: const PageStorageKey('chat-browse-channels'),
@@ -320,8 +371,8 @@ class _ChatBrowseChannelsViewState extends State<ChatBrowseChannelsView> {
       };
 }
 
-class _ChannelCard extends StatelessWidget {
-  const _ChannelCard({
+class _ChannelRow extends StatelessWidget {
+  const _ChannelRow({
     required this.siteUrl,
     required this.channel,
     required this.chat,
@@ -344,103 +395,140 @@ class _ChannelCard extends StatelessWidget {
       ChatChannelStatus.closed => 'Closed',
       ChatChannelStatus.archived => 'Archived',
     };
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 5),
-      child: DCard(
-        spacing: 0,
-        key: ValueKey('chat-browse-channel-${channel.id}'),
-        child: InkWell(
-          onTap: following
-              ? () => PluginUiScope.require(
-                  context,
-                  chatShellService,
-                ).openChannel(channel.id)
-              : null,
-          borderRadius: BorderRadius.circular(12),
-          child: Padding(
-            padding: const EdgeInsets.all(12),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.only(top: 4),
-                  child: DIcon(
-                    channel.readRestricted ? DIcons.lock : DIcons.comment,
-                    color: channel.categoryColor,
-                    size: 20,
-                  ),
+    final unread = channel.tracking.unreadCount;
+    final summary =
+        '${unread == 0 ? 'No' : unread} unread ${unread == 1 ? 'message' : 'messages'}${status == null ? '' : ' · $status'}';
+    final row = Column(
+      children: [
+        const DSeparator(),
+        ChatChannelMenu(
+          siteUrl: siteUrl,
+          channelId: channel.id,
+          channel: channel,
+          child: DItem(
+            key: ValueKey('chat-browse-channel-${channel.id}'),
+            shape: DItemShape.fullWidth,
+            onPressed: () => unawaited(_open(context)),
+            children: [
+              DItemMedia(
+                variant: DItemMediaVariant.avatar,
+                child: ChatConversationAvatar(
+                  siteUrl: siteUrl,
+                  channel: channel,
+                  size: 32,
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
+              ),
+              DItemContent(
+                children: [
+                  DItemTitle(
+                    child: Text(
+                      channel.title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  DItemDescription(child: Text(summary)),
+                ],
+              ),
+              DItemActions(
+                children: [
+                  DButton(
+                    key: ValueKey(
+                      following
+                          ? 'chat-unfollow-${channel.id}'
+                          : 'chat-join-${channel.id}',
+                    ),
+                    label: Text(following ? 'Joined' : 'Join'),
+                    semanticLabel:
+                        '${following ? 'Leave' : 'Join'} ${channel.title}',
+                    shape: DButtonShape.pill,
+                    variant: following
+                        ? DButtonVariant.outline
+                        : DButtonVariant.primary,
+                    onPressed: !following && !canJoin
+                        ? null
+                        : () => _changeFollowing(context, !following),
+                    loading: busy,
+                    loadingLabel: Text(following ? 'Leaving…' : 'Joining…'),
+                  ),
+                  if (following)
+                    ChatChannelMenu(
+                      siteUrl: siteUrl,
+                      channelId: channel.id,
+                      channel: channel,
+                    )
+                  else
+                    DDropdownMenu(
+                      content: DDropdownMenuContent(
                         children: [
-                          Expanded(
-                            child: Text(
-                              channel.title,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: Theme.of(context).textTheme.titleSmall,
-                            ),
+                          DDropdownMenuItem(
+                            onPressed: () => unawaited(_open(context)),
+                            child: const Text('Open channel'),
                           ),
-                          if (status != null)
-                            Padding(
-                              padding: const EdgeInsets.only(left: 8),
-                              child: Text(
-                                status,
-                                style: Theme.of(context).textTheme.labelSmall,
-                              ),
+                          if (canJoin)
+                            DDropdownMenuItem(
+                              onPressed: busy
+                                  ? null
+                                  : () => _changeFollowing(context, true),
+                              child: const Text('Join channel'),
                             ),
                         ],
                       ),
-                      const SizedBox(height: 3),
-                      Text(
-                        '${channel.membershipsCount} ${channel.membershipsCount == 1 ? 'member' : 'members'}',
-                        style: Theme.of(context).textTheme.labelMedium,
-                      ),
-                      if (channel.description case final description?
-                          when description.trim().isNotEmpty) ...[
-                        const SizedBox(height: 5),
-                        Text(
-                          description,
-                          maxLines: 3,
-                          overflow: TextOverflow.ellipsis,
+                      child: DDropdownMenuTrigger(
+                        builder: (context, menu) => DButton.iconOnly(
+                          tooltip: 'Open ${channel.title} menu',
+                          icon: const DIcon(DIcons.ellipsisVertical),
+                          variant: DButtonVariant.ghost,
+                          size: DButtonSize.small,
+                          focusNode: menu.focusNode,
+                          hasPopup: true,
+                          expanded: menu.open,
+                          onPressed: menu.toggle,
                         ),
-                      ],
-                      const SizedBox(height: 10),
-                      Align(
-                        alignment: AlignmentDirectional.centerEnd,
-                        child: following
-                            ? DButton(
-                                key: ValueKey('chat-unfollow-${channel.id}'),
-                                label: const Text('Unfollow'),
-                                onPressed: () =>
-                                    _changeFollowing(context, false),
-                                loading: busy,
-                                loadingLabel: const Text('Saving…'),
-                              )
-                            : DButton(
-                                key: ValueKey('chat-join-${channel.id}'),
-                                label: const Text('Join'),
-                                onPressed: !canJoin
-                                    ? null
-                                    : () => _changeFollowing(context, true),
-                                variant: DButtonVariant.primary,
-                                loading: busy,
-                                loadingLabel: const Text('Joining…'),
-                              ),
                       ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
+                    ),
+                ],
+              ),
+            ],
           ),
         ),
-      ),
+      ],
     );
+    if (following) return row;
+    return DContextMenu(
+      content: DContextMenuContent(
+        semanticLabel: '${channel.title} menu',
+        children: [
+          DDropdownMenuItem(
+            onPressed: () => unawaited(_open(context)),
+            child: const Text('Open channel'),
+          ),
+          if (canJoin)
+            DDropdownMenuItem(
+              onPressed: busy ? null : () => _changeFollowing(context, true),
+              child: const Text('Join channel'),
+            ),
+        ],
+      ),
+      child: DContextMenuTrigger(focusable: false, child: row),
+    );
+  }
+
+  Future<void> _open(BuildContext context) async {
+    try {
+      final resolved = await chat.ensureChannel(siteUrl, channel.id);
+      if (!context.mounted) return;
+      if (resolved == null) throw StateError('Channel unavailable');
+      PluginUiScope.require(context, chatShellService).openChannel(channel.id);
+    } catch (_) {
+      if (context.mounted) {
+        DToast.show(
+          context,
+          'Could not open this channel.',
+          type: DToastType.error,
+        );
+      }
+    }
   }
 
   Future<void> _changeFollowing(BuildContext context, bool following) async {

@@ -212,7 +212,8 @@ final class _ChannelChanges {
         before.lastMessageId != after.lastMessageId ||
         before.lastMessageAt != after.lastMessageAt ||
         before.lastMessagePreview != after.lastMessagePreview ||
-        before.lastMessageUserId != after.lastMessageUserId) {
+        before.lastMessageUserId != after.lastMessageUserId ||
+        before.lastMessageUsername != after.lastMessageUsername) {
       _activity = after;
     }
   }
@@ -283,6 +284,7 @@ final class _ChannelChanges {
       lastMessageAt: activity.lastMessageAt,
       lastMessagePreview: activity.lastMessagePreview,
       lastMessageUserId: activity.lastMessageUserId,
+      lastMessageUsername: activity.lastMessageUsername,
       messageBus: snapshot.messageBus,
     );
   }

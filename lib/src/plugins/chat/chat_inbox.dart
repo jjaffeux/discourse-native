@@ -4,10 +4,12 @@ import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
+import 'chat_browse_navigation.dart';
 import 'chat_channel.dart';
 import 'chat_channel_actions.dart';
 import 'chat_controller.dart';
 import 'chat_inbox_filters.dart';
+import 'chat_inbox_rooms.dart';
 import 'chat_plugin_data.dart';
 import 'chat_services.dart';
 import 'chat_shell_service.dart';
@@ -19,6 +21,7 @@ List<ChatChannel> chatInboxConversations(
   String siteUrl,
   ChatInboxFilter filter,
 ) {
+  if (filter.kind == ChatInboxKind.voiceRooms) return const [];
   final settings = chat.siteConfigFor(siteUrl).chatSettings;
   return [
       if (settings.publicChannelsEnabled &&
@@ -47,10 +50,13 @@ String chatInboxEmptyMessage(ChatInboxFilter filter) => filter.unreadOnly
         ChatInboxKind.all => 'No conversations yet.',
         ChatInboxKind.channels => 'You have not joined any channels yet.',
         ChatInboxKind.directMessages => 'You have no direct messages yet.',
+        ChatInboxKind.voiceRooms => 'No voice rooms yet.',
       };
 
 DateTime? chatInboxActivityAt(ChatChannel channel) {
-  var latest = channel.lastMessageAt;
+  // Empty channels can carry a timestamp without an actual last message.
+  // Ignore it for both inbox ordering and the displayed activity time.
+  var latest = (channel.lastMessageId ?? 0) > 0 ? channel.lastMessageAt : null;
   for (final replyAt in channel.unreadThreadOverview.values) {
     if (latest == null || replyAt.isAfter(latest)) latest = replyAt;
   }
@@ -79,9 +85,10 @@ class ChatInboxFilterBar extends StatelessWidget {
     builder: (context, _) {
       final filter = filters.filterFor(siteUrl);
       final dropdowns = <Widget>[
-        _ChatFilter<bool>(
+        ChatBrowseFilter<bool>(
           key: const ValueKey('chat-inbox-activity-filter'),
           label: filter.unreadOnly ? 'Unread' : 'Recent',
+          emphasized: true,
           semanticLabel: 'Chat activity',
           value: filter.unreadOnly,
           entries: const [
@@ -91,32 +98,48 @@ class ChatInboxFilterBar extends StatelessWidget {
           onChanged: (value) =>
               filters.update(siteUrl, filter.copyWith(unreadOnly: value)),
         ),
-        _ChatFilter<ChatInboxKind>(
+        ChatBrowseFilter<ChatInboxKind>(
           key: const ValueKey('chat-inbox-kind-filter'),
           label: switch (filter.kind) {
             ChatInboxKind.all => 'All',
             ChatInboxKind.channels => 'Channels',
-            ChatInboxKind.directMessages => 'DMs',
+            ChatInboxKind.directMessages => 'Direct messages',
+            ChatInboxKind.voiceRooms => 'Voice rooms',
           },
-          icon: compact ? null : DIcons.comment,
+          icon: switch (filter.kind) {
+            ChatInboxKind.all => const DIcon(DIcons.asterisk),
+            ChatInboxKind.channels => const Text('#'),
+            ChatInboxKind.directMessages => const DIcon(DIcons.user),
+            ChatInboxKind.voiceRooms => const DIcon(DIcons.microphoneLines),
+          },
           semanticLabel: 'Conversation type',
           value: filter.kind,
-          entries: const [
-            DSelectOption(
+          entries: [
+            const DSelectOption(
               value: ChatInboxKind.all,
               label: 'All',
               child: Text('All'),
             ),
-            DSelectOption(
+            const DSelectOption(
               value: ChatInboxKind.channels,
               label: 'Channels',
               child: Text('Channels'),
             ),
-            DSelectOption(
+            const DSelectOption(
               value: ChatInboxKind.directMessages,
               label: 'Direct messages',
               child: Text('Direct messages'),
             ),
+            if (PluginUiScope.optional(
+                  context,
+                  chatInboxRoomsService,
+                )?.available(siteUrl) ==
+                true)
+              const DSelectOption(
+                value: ChatInboxKind.voiceRooms,
+                label: 'Voice rooms',
+                child: Text('Voice rooms'),
+              ),
           ],
           onChanged: (value) =>
               filters.update(siteUrl, filter.copyWith(kind: value)),
@@ -138,66 +161,6 @@ class ChatInboxFilterBar extends StatelessWidget {
         ],
       );
     },
-  );
-}
-
-class _ChatFilter<T> extends StatelessWidget {
-  const _ChatFilter({
-    super.key,
-    required this.label,
-    required this.semanticLabel,
-    required this.value,
-    required this.entries,
-    required this.onChanged,
-    this.icon,
-  });
-
-  final String label;
-  final String semanticLabel;
-  final T value;
-  final List<DSelectEntry<T>> entries;
-  final ValueChanged<T> onChanged;
-  final DIconData? icon;
-
-  @override
-  Widget build(BuildContext context) => DSelect<T>.controlled(
-    size: DControlSize.filter,
-    value: value,
-    semanticLabel: semanticLabel,
-    entries: entries,
-    width: 200,
-    align: DPopoverAlign.start,
-    alignItemWithTrigger: false,
-    onChanged: (value) {
-      if (value != null) onChanged(value);
-    },
-    triggerBuilder: (context, state, _) => DButton(
-      size: DControlSize.filter,
-      variant: DButtonVariant.outline,
-      semanticLabel: '$semanticLabel, $label',
-      focusNode: state.focusNode,
-      hasPopup: true,
-      expanded: state.open,
-      onPressed: state.toggle,
-      icon: icon == null ? null : DIcon(icon!),
-      label: Row(
-        mainAxisSize: MainAxisSize.min,
-        spacing: DSpacing.controlGap,
-        children: [
-          Flexible(
-            child: Text(
-              label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                fontWeight: icon == null ? FontWeight.w600 : FontWeight.w400,
-              ),
-            ),
-          ),
-          const DIcon(DNativeIcons.filterChevron, size: 10),
-        ],
-      ),
-    ),
   );
 }
 
@@ -229,7 +192,7 @@ class ChatInboxShortcuts extends StatelessWidget {
         DButton(
           key: const ValueKey('chat-inbox-browse'),
           size: size,
-          icon: const DIcon(DIcons.list),
+          icon: const Text('#'),
           label: Text(shortLabels ? 'Browse' : 'Browse channels'),
           tooltip: shortLabels ? 'Browse channels' : null,
           variant: DButtonVariant.outline,
@@ -240,8 +203,8 @@ class ChatInboxShortcuts extends StatelessWidget {
           key: const ValueKey('chat-inbox-my-threads'),
           size: size,
           icon: const DIcon(DIcons.comments),
-          label: Text(shortLabels ? 'Threads' : 'My threads'),
-          tooltip: shortLabels ? 'My threads' : null,
+          label: Text(shortLabels ? 'Threads' : 'Browse threads'),
+          tooltip: shortLabels ? 'Browse threads' : null,
           variant: DButtonVariant.outline,
           onPressed: shell.openMyThreads,
         ),
@@ -264,21 +227,16 @@ class ChatInboxShortcuts extends StatelessWidget {
   }
 }
 
-/// The desktop Chat panel's pinned actions: starting a conversation first,
-/// then the ways out to every channel and to the reader's threads.
+/// The sidebar's pinned links to the channel and thread directories.
 class ChatSidebarFooter extends StatelessWidget {
   const ChatSidebarFooter({
     super.key,
     required this.browse,
     required this.myThreads,
-    required this.onStartMessage,
-    required this.startMessageShortcut,
   });
 
   final bool browse;
   final bool myThreads;
-  final VoidCallback? onStartMessage;
-  final SingleActivator startMessageShortcut;
 
   @override
   Widget build(BuildContext context) => DecoratedBox(
@@ -292,17 +250,6 @@ class ChatSidebarFooter extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         spacing: DSpacing.controlGap,
         children: [
-          if (onStartMessage case final onPressed?)
-            DButton(
-              key: const ValueKey('chat-sidebar-start-message'),
-              variant: DButtonVariant.primary,
-              shape: DButtonShape.pill,
-              icon: const DIcon(DIcons.plus),
-              label: const Text('Start a message'),
-              tooltip: 'Start a message',
-              shortcut: DShortcut(startMessageShortcut),
-              onPressed: onPressed,
-            ),
           if (browse || myThreads)
             ChatInboxShortcuts(
               browse: browse,
@@ -368,15 +315,18 @@ class ChatInboxRow extends StatelessWidget {
     final ownMessage =
         currentUser?.id != null && channel.lastMessageUserId == currentUser?.id;
     final messagePreview = channel.lastMessagePreview;
-    final preview = unread && count > 0
+    final sender = ownMessage
+        ? 'you: '
+        : !channel.isDirectMessage && channel.lastMessageUsername != null
+        ? '${channel.lastMessageUsername}: '
+        : '';
+    final preview = unread && count > (compact ? 0 : 1)
         ? '$count new ${count == 1 ? 'message' : 'messages'}'
         : unread && threadCount > 0
         ? '$threadCount unread ${threadCount == 1 ? 'thread' : 'threads'}'
         : unread && channel.tracking.mentionCount > 0
         ? '${channel.tracking.mentionCount} new ${channel.tracking.mentionCount == 1 ? 'mention' : 'mentions'}'
-        : (messagePreview == null
-                  ? null
-                  : '${ownMessage ? 'you: ' : ''}$messagePreview') ??
+        : (messagePreview == null ? null : '$sender$messagePreview') ??
               (channel.lastMessageId == null ? 'No messages yet' : '');
     final at = chatInboxActivityAt(channel)?.toLocal();
     final directUser = channel.isDirectMessage && channel.users.length == 1
@@ -393,11 +343,15 @@ class ChatInboxRow extends StatelessWidget {
         shape: compact ? DItemShape.standard : DItemShape.fullWidth,
         size: compact ? DItemSize.sm : DItemSize.standard,
         selected: selected,
+        selectionStyle: compact
+            ? DItemSelectionStyle.strongNeutral
+            : DItemSelectionStyle.leadingAccent,
+        showSelectionIndicator: false,
         onPressed: onPressed,
         children: [
           DItemMedia(
             variant: DItemMediaVariant.avatar,
-            child: _ConversationAvatar(
+            child: ChatConversationAvatar(
               siteUrl: siteUrl,
               channel: channel,
               size: compact ? compactAvatarSize : DAvatarSize.lg.dimension,
@@ -406,40 +360,47 @@ class ChatInboxRow extends StatelessWidget {
           DItemContent(
             children: [
               DItemTitle(
-                child: Row(
-                  spacing: DSpacing.sm,
-                  children: [
-                    Expanded(
-                      child: Text(
-                        channel.title,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontWeight: unread
-                              ? FontWeight.w700
-                              : FontWeight.w500,
+                child: LayoutBuilder(
+                  builder: (context, constraints) => Row(
+                    spacing: DSpacing.sm,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          channel.title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontWeight: unread
+                                ? FontWeight.w700
+                                : FontWeight.w500,
+                          ),
                         ),
                       ),
-                    ),
-                    if (status != null)
-                      UserStatusMessage(
-                        siteUrl: siteUrl,
-                        userId: directUser!.id,
-                        status: status,
-                        size: 14,
-                      ),
-                    if (channel.readRestricted)
-                      const DIcon(DIcons.lock, size: 12),
-                    if (at != null)
-                      Text(
-                        compact
-                            ? relativeTime(at)
-                            : _activityLabel(context, at),
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: tokens.mutedForeground,
+                      if (status != null)
+                        UserStatusMessage(
+                          siteUrl: siteUrl,
+                          userId: directUser!.id,
+                          status: status,
+                          size: 14,
                         ),
-                      ),
-                  ],
+                      if (channel.readRestricted)
+                        const DIcon(DIcons.lock, size: 12),
+                      if (at != null)
+                        ConstrainedBox(
+                          constraints: BoxConstraints(
+                            maxWidth: constraints.maxWidth * .45,
+                          ),
+                          child: Text(
+                            _activityLabel(context, at),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: tokens.mutedForeground,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
                 ),
               ),
               DItemDescription(
@@ -462,8 +423,9 @@ class ChatInboxRow extends StatelessWidget {
   }
 }
 
-class _ConversationAvatar extends StatelessWidget {
-  const _ConversationAvatar({
+class ChatConversationAvatar extends StatelessWidget {
+  const ChatConversationAvatar({
+    super.key,
     required this.siteUrl,
     required this.channel,
     required this.size,
@@ -500,6 +462,7 @@ class _ConversationAvatar extends StatelessWidget {
       return DAvatar(
         dimension: size,
         border: false,
+        borderRadius: BorderRadius.circular(DRadius.bubble),
         decorative: true,
         fallback: DAvatarFallback(
           backgroundColor: color.withValues(alpha: .22),
@@ -525,6 +488,9 @@ class _ConversationAvatar extends StatelessWidget {
     return DAvatar(
       dimension: size,
       border: false,
+      borderRadius: channel.isDirectMessage
+          ? null
+          : BorderRadius.circular(DRadius.bubble),
       decorative: true,
       fallback: fallback,
     );
@@ -555,8 +521,9 @@ class ChatSidebarInbox extends StatelessWidget {
     final chat = PluginUiScope.require(context, chatControllerService);
     final shell = PluginUiScope.require(context, chatShellService);
     final filters = chat.inboxFilters;
+    final rooms = PluginUiScope.optional(context, chatInboxRoomsService);
     return ListenableBuilder(
-      listenable: Listenable.merge([chat, filters, shell]),
+      listenable: Listenable.merge([chat, filters, shell, rooms]),
       builder: (context, _) {
         final filter = filters.filterFor(siteUrl);
         final channels = chatInboxConversations(chat, siteUrl, filter);
@@ -584,7 +551,8 @@ class ChatSidebarInbox extends StatelessWidget {
                       unawaited(chat.loadChannels(siteUrl, force: true)),
                 ),
               )
-            else if (channels.isEmpty)
+            else if (channels.isEmpty &&
+                (rooms?.rooms(siteUrl).isEmpty ?? true))
               SliverToBoxAdapter(
                 child: Padding(
                   key: const ValueKey('chat-inbox-empty'),

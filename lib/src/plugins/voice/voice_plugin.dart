@@ -1,7 +1,9 @@
 import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:flutter/material.dart';
 
+import '../chat/chat_contract.dart';
 import 'voice_call_widget.dart';
+import 'voice_chat_inbox.dart';
 import 'voice_hashtag.dart';
 import 'voice_incoming_call.dart';
 import 'voice_join.dart';
@@ -142,6 +144,12 @@ final class VoicePlugin
     }
     final directory = controller.directory(instance.url);
     if (directory == null) return const [];
+    final inbox = PluginUiScope.require(context, voiceChatInboxService);
+    final rooms = inbox.rooms(instance.url);
+    if (!inbox.includesRooms(instance.url) ||
+        (rooms.isEmpty && !directory.canCreateRoom)) {
+      return const [];
+    }
 
     return [
       SidebarSection(
@@ -154,8 +162,16 @@ final class VoicePlugin
         onAction: directory.canCreateRoom
             ? () => showVoiceRoomEditor(context, siteUrl: instance.url)
             : null,
+        bodyBuilder: (_) => SliverList.list(
+          children: [
+            for (final room in rooms)
+              ChatInboxRoomRow(room: room, compact: true),
+          ],
+        ),
         destinations: [
-          for (final room in directory.rooms) ...[
+          for (final room in directory.rooms.where(
+            (room) => rooms.any((r) => r.id == room.id),
+          )) ...[
             SidebarDestination(
               id: routeId(room.id),
               label: room.name,
@@ -223,8 +239,10 @@ final class VoicePlugin
   }
 
   @override
-  Listenable sidebarListenable(BuildContext context) =>
-      PluginUiScope.require(context, voiceControllerService);
+  Listenable sidebarListenable(BuildContext context) => Listenable.merge([
+    PluginUiScope.require(context, voiceControllerService),
+    PluginUiScope.require(context, voiceChatInboxService).filters,
+  ]);
 
   @override
   Widget? content(BuildContext context, ContentRoute route) {

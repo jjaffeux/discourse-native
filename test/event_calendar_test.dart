@@ -3,6 +3,7 @@ import 'package:discourse_native/src/plugins/discourse_events/event_calendar.dar
 import 'package:discourse_native/src/plugins/discourse_events/event_calendar_data.dart';
 import 'package:discourse_native/src/plugins/discourse_events/event_data.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
+import 'package:discourse_native/src/ui/foundation/control_artwork.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kalender/kalender.dart' as kalender;
@@ -75,7 +76,6 @@ void main() {
                   onOpen: (event) => opened.add(event.event.id),
                   mine: mine,
                   onMineChanged: (value) => setState(() => mine = value),
-                  actions: const SizedBox(width: 40),
                   clock: eventTestNow,
                 ),
               ),
@@ -123,39 +123,84 @@ void main() {
     },
   );
 
-  testWidgets(
-    'day week month and year controls navigate the matching periods',
-    (tester) async {
-      await pump(tester, [event(1)]);
-      await tester.tap(find.text('Week'));
-      await tester.pumpAndSettle();
-      expect(find.text('Sep 7 – Sep 13, 2026'), findsOneWidget);
-      expect(
-        find.textContaining('09:00 – 10:00', findRichText: true),
-        findsOneWidget,
-      );
-      await tester.tap(find.byTooltip('Next week'));
-      await tester.pumpAndSettle();
-      expect(page.date, DateTime.utc(2026, 9, 15));
-      await tester.tap(find.text('Today'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Day'));
-      await tester.pumpAndSettle();
-      expect(find.text('September 8, 2026'), findsOneWidget);
-      await tester.tap(find.text('Year'));
-      await tester.pumpAndSettle();
-      expect(find.text('2026'), findsOneWidget);
-      expect(find.textContaining('Morning', findRichText: true), findsNothing);
-      await tester.tap(find.byTooltip('Next year'));
-      await tester.pumpAndSettle();
-      expect(find.text('2027'), findsOneWidget);
-      expect(find.textContaining('Event 1', findRichText: true), findsNothing);
-      await tester.tap(find.text('Month'));
-      await tester.pumpAndSettle();
-      expect(find.text('January 2027'), findsOneWidget);
-      expect(tester.takeException(), isNull);
-    },
-  );
+  for (final platform in [TargetPlatform.macOS, TargetPlatform.iOS]) {
+    for (final width in [390.0, 800.0, 1300.0]) {
+      testWidgets('$platform header matches mockup at $width', (tester) async {
+        await pump(
+          tester,
+          [event(1)],
+          size: Size(width, 844),
+          platform: platform,
+        );
+        final header = find.byKey(const ValueKey('event-calendar-header'));
+        Finder button(String label) =>
+            find.ancestor(of: find.text(label), matching: find.byType(DButton));
+        Rect surface(Finder control) => tester.getRect(
+          find.descendant(of: control, matching: find.byType(DControlArtwork)),
+        );
+        final scope = surface(button('All events'));
+        final view = surface(button('Month'));
+        final today = surface(button('Today'));
+        final previous = surface(find.byTooltip('Previous month'));
+        final next = surface(find.byTooltip('Next month'));
+        final title = tester.getRect(find.text('Events'));
+        final period = tester.getRect(find.text('September 2026'));
+        final separator = tester.getRect(
+          find.descendant(of: header, matching: find.byType(DSeparator)),
+        );
+        expect(title.left, 16);
+        expect(title.top, 16);
+        expect(scope.left, 16);
+        expect(scope.top - title.bottom, closeTo(16, .01));
+        expect(view.left - scope.right, closeTo(8, .01));
+        expect(view.top, scope.top);
+        expect(today.center.dy, scope.center.dy);
+        expect(today.right, closeTo(width - 16, .01));
+        expect(previous.left, closeTo(16, .01));
+        expect(next.right, closeTo(width - 16, .01));
+        expect(previous.top - scope.bottom, closeTo(10, .01));
+        expect(period.center.dx, closeTo(width / 2, .01));
+        expect(period.center.dy, previous.center.dy);
+        expect(separator.top - previous.bottom, closeTo(14, .01));
+        expect(separator.left, 16);
+        expect(separator.width, width - 32);
+        expect(tester.getRect(header).bottom - separator.bottom, 16);
+        final headingStyle = tester.widget<Text>(find.text('Events')).style!;
+        expect(headingStyle.fontSize, 22);
+        expect(headingStyle.fontWeight, FontWeight.w700);
+        final periodStyle = tester
+            .widget<Text>(find.text('September 2026'))
+            .style!;
+        expect(periodStyle.fontSize, 13.5);
+        expect(periodStyle.fontWeight, FontWeight.w600);
+        expect(
+          tester.widget<Text>(find.text('All events')).style!.fontWeight,
+          FontWeight.w600,
+        );
+        expect(
+          tester.widget<Text>(find.text('Month')).style!.fontWeight,
+          FontWeight.w400,
+        );
+        expect(find.byType(DToggleGroup<bool>), findsNothing);
+        expect(find.byTooltip('Calendar actions'), findsNothing);
+        await tester.tap(find.byType(DSelect<EventCalendarView>));
+        await tester.pumpAndSettle();
+        for (final label in ['Week', 'Day', 'Year']) {
+          expect(find.text(label), findsNothing);
+        }
+        await tester.tap(find.text('Schedule'));
+        await tester.pumpAndSettle();
+        expect(page.view, EventCalendarView.schedule);
+        await tester.tap(find.byTooltip('Next month'));
+        await tester.pumpAndSettle();
+        expect(find.text('October 2026'), findsOneWidget);
+        await tester.tap(find.text('Today'));
+        await tester.pumpAndSettle();
+        expect(page.date, DateTime.utc(2026, 9, 8));
+        expect(tester.takeException(), isNull);
+      });
+    }
+  }
 
   testWidgets(
     'crowded months scroll and offer every hidden event in the day dialog',
@@ -191,11 +236,11 @@ void main() {
       expect(tester.takeException(), isNull);
       await tester.tap(find.byType(DSelect<EventCalendarView>));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Day'));
+      await tester.tap(find.text('Schedule'));
       await tester.pumpAndSettle();
-      await tester.tap(find.byTooltip('Next day'));
+      await tester.tap(find.byTooltip('Next month'));
       await tester.pumpAndSettle();
-      expect(page.date, DateTime.utc(2026, 9, 9));
+      expect(page.date, DateTime.utc(2026, 10));
       expect(tester.takeException(), isNull);
     },
   );

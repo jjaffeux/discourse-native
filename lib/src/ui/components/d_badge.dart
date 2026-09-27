@@ -3,6 +3,7 @@ import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
 
 import '../../theme/discourse_typography.dart';
+import '../foundation/control_artwork.dart';
 import '../foundation/control_style.dart';
 import '../foundation/tokens.dart';
 
@@ -13,6 +14,13 @@ enum DBadgeVariant { primary, secondary, destructive, outline, ghost, link }
 enum DBadgeSize {
   regular,
   compact,
+
+  /// Inline taxonomy: 11px labels with 2px/9px insets. Link targets follow
+  /// the pill instead of reserving a separate control row on touch screens.
+  tag,
+
+  /// Inline topic counts: 11px bold labels with 1px/6px insets.
+  unread,
 
   /// Matches the mockup taxonomy chips: 30.75px with 12.5px labels.
   control,
@@ -30,13 +38,13 @@ const _transitionCurve = Cubic(.4, 0, .2, 1);
 /// owns navigation, loading and domain state; compose a DSpinner in [leading] or
 /// [trailing] and use [semanticValue] / [liveRegion] for a changing status.
 /// Children must not contain independent controls. Inline artwork is decorative
-/// and fitted to 12px; label text inherits 12/16px medium metrics, can wrap,
+/// and fitted to 12px; label text inherits 12/18px medium metrics, can wrap,
 /// and stays selectable inside an enclosing selection area like the reference
-/// span. The regular visual height is 20px; [DBadgeSize.compact] uses 16px
+/// span. The regular visual height is 22px; [DBadgeSize.compact] uses 16px
 /// height, 12/14px type and narrower insets. [DBadgeSize.control] opts into
 /// regular control height, typography and artwork metrics for the platform.
-/// All sizes grow with text. Touch actions
-/// reserve a transparent 48px target around the compact visual. Only ghost and
+/// All sizes grow with text. Touch actions reserve a transparent 48px target,
+/// except inline [DBadgeSize.tag] links which use the pill bounds. Only ghost and
 /// link paint a hover treatment on a static badge, so other static variants do
 /// not track the pointer. Borrowed focus nodes are never disposed. Colors are
 /// resolved every build, including custom palettes.
@@ -200,12 +208,16 @@ class _DBadgeState extends State<DBadge> {
   Widget build(BuildContext context) {
     final tokens = DTokens.of(context);
     final compact = widget.size == DBadgeSize.compact;
+    final tag = widget.size == DBadgeSize.tag;
+    final unread = widget.size == DBadgeSize.unread;
     final overlay = widget._overlay;
     final control = widget.size == DBadgeSize.control;
     final fontSize = control
         ? DControlStyle.fontSize(DControlSize.filter, context: context)
         : overlay
         ? 10.0
+        : tag || unread
+        ? DiscourseTypography.micro
         : DiscourseTypography.xs;
     final lineHeight = control
         ? DControlStyle.lineHeight(DControlSize.filter, context: context) /
@@ -251,7 +263,7 @@ class _DBadgeState extends State<DBadge> {
     final destructiveRing =
         widget.invalid || widget.variant == DBadgeVariant.destructive;
     final ringColor = destructiveRing ? tokens.destructive : tokens.focusRing;
-    const radius = BorderRadius.all(Radius.circular(DRadius.pill));
+    final radius = BorderRadius.circular(unread ? 10 : DRadius.pill);
     final border = widget.invalid
         ? tokens.destructive
         : focus
@@ -269,7 +281,7 @@ class _DBadgeState extends State<DBadge> {
         curve: _transitionCurve,
         clipBehavior: Clip.antiAlias,
         constraints: BoxConstraints(
-          minWidth: overlay ? 14 : 0,
+          minWidth: overlay ? 14 : (unread ? 18 : 0),
           minHeight: control
               ? DControlStyle.scaledHeight(
                   DControlSize.filter,
@@ -278,11 +290,11 @@ class _DBadgeState extends State<DBadge> {
                 )
               : overlay
               ? 14
-              : (compact ? 16 : 20),
+              : (tag || unread ? 0 : (compact ? 16 : 20)),
         ),
         decoration: BoxDecoration(
           color: widget.backgroundColor ?? baseBackground,
-          border: overlay ? null : Border.all(color: border),
+          border: overlay || unread ? null : Border.all(color: border),
           borderRadius: radius,
         ),
         foregroundDecoration: _BadgeRing(
@@ -297,6 +309,10 @@ class _DBadgeState extends State<DBadge> {
         // Compact counts keep 12px type with 14px leading inside a 1px border.
         padding: overlay
             ? const EdgeInsets.symmetric(horizontal: 3, vertical: 1)
+            : tag
+            ? const EdgeInsets.symmetric(horizontal: 9, vertical: 2)
+            : unread
+            ? const EdgeInsets.symmetric(horizontal: 6, vertical: 1)
             : EdgeInsetsDirectional.fromSTEB(
                 control
                     ? 11
@@ -320,6 +336,10 @@ class _DBadgeState extends State<DBadge> {
                   height: lineHeight,
                   fontWeight: overlay
                       ? FontWeight.w600
+                      : unread
+                      ? FontWeight.w700
+                      : tag
+                      ? FontWeight.w400
                       : control
                       ? FontWeight.w400
                       : FontWeight.w500,
@@ -357,8 +377,11 @@ class _DBadgeState extends State<DBadge> {
     if (overlay) {
       visual = FittedBox(fit: BoxFit.scaleDown, child: visual);
     }
-    visual = Opacity(opacity: _enabled ? 1 : .5, child: visual);
+    visual = DControlArtwork(
+      child: Opacity(opacity: _enabled ? 1 : .5, child: visual),
+    );
     if (_interactive &&
+        !tag &&
         switch (Theme.of(context).platform) {
           TargetPlatform.iOS ||
           TargetPlatform.android ||

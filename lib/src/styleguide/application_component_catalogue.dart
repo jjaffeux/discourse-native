@@ -4,6 +4,11 @@ import 'styleguide_example.dart';
 /// component reference catalogue.
 const applicationComponentCatalogue = <ComponentReference>[
   ComponentReference(
+    id: 'control-wrap',
+    name: 'Control wrap',
+    sections: ['Compact controls'],
+  ),
+  ComponentReference(
     id: 'audio-player',
     name: 'Audio player',
     sections: ['Playback', 'Loading', 'Unavailable'],
@@ -32,6 +37,11 @@ const applicationComponentCatalogue = <ComponentReference>[
     id: 'page-surface',
     name: 'Page surface',
     sections: ['Page structure'],
+  ),
+  ComponentReference(
+    id: 'sticky',
+    name: 'Sticky',
+    sections: ['Bounded avatars'],
   ),
   ComponentReference(
     id: 'color-picker',
@@ -74,6 +84,7 @@ const applicationComponentCatalogue = <ComponentReference>[
     name: 'Message inbox menu',
     sections: [
       'Personal and groups',
+      'Filter row',
       'Group inbox',
       'Personal only',
       'Many groups',

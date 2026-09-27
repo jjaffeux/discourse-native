@@ -142,6 +142,15 @@ final itemExamples = ComponentExamples(
         code: _codes[kind]!,
         builder: (_) => _ItemExample(kind: kind),
       ),
+    StyleguideExample(
+      title: 'Filled selection',
+      description:
+          'Topic rows use a rounded accent fill without an outline or leading stripe.',
+      code:
+          "DItem(selectionStyle: DItemSelectionStyle.filled, selected: true, showSelectionIndicator: false, onPressed: openTopic, children: [DItemContent(children: [DItemTitle(child: Text('Topic'))])])",
+      builder: (_) =>
+          const _SelectionExample(style: DItemSelectionStyle.filled),
+    ),
   ],
 );
 

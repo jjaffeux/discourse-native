@@ -4,6 +4,7 @@ import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/plugin_api/plugin_runtime.dart';
 import 'package:discourse_native/src/plugins/assign/assign_module.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
+import 'package:discourse_native/src/ui/foundation/control_artwork.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -16,6 +17,7 @@ TopicPayload mobileTopicPayload({
   bool canEditTags = true,
   bool privateMessage = false,
   bool? canAssign,
+  List<TopicTag> tags = const [TopicTag(id: 1, name: 'show-and-tell')],
 }) => (
   detail: TopicDetail(
     id: 7,
@@ -31,9 +33,7 @@ TopicPayload mobileTopicPayload({
     plugins: pluginRegistry.readTopic({
       'can_assign': ?canAssign,
     }, 'https://meta.discourse.org'),
-    tags: privateMessage
-        ? const []
-        : const [TopicTag(id: 1, name: 'show-and-tell')],
+    tags: privateMessage ? const [] : tags,
     participants: const [
       TopicParticipant(username: 'mira'),
       TopicParticipant(username: 'solene'),
@@ -76,6 +76,40 @@ void main() {
     TargetPlatform.iOS,
     TargetPlatform.android,
   });
+  testWidgets('mobile tag overflow and wrapped rows have 8px painted gaps', (
+    tester,
+  ) async {
+    await pumpMobileShellFixture(
+      tester,
+      size: const Size(320, 1000),
+      topic: mobileTopicPayload(
+        tags: const [
+          TopicTag(id: 1, name: 'ui'),
+          TopicTag(id: 2, name: 'long-hidden-tag'),
+        ],
+      ),
+    );
+    await tester.tap(find.byKey(const ValueKey('topic-card-7')));
+    await tester.pumpAndSettle();
+    Rect surface(Key key) => tester.getRect(
+      find.descendant(
+        of: find.byKey(key),
+        matching: find.byType(DControlArtwork),
+      ),
+    );
+    final tag = surface(const ValueKey(('topic-header-tag', 'ui')));
+    final overflow = surface(const ValueKey('topic-header-more-tags'));
+    final bookmark = surface(const ValueKey('topic-header-bookmark-button'));
+    expect(overflow.left - tag.right, closeTo(8, .001));
+    expect(bookmark.top - tag.bottom, closeTo(8, .001));
+    await tester.tap(find.byKey(const ValueKey('topic-header-more-tags')));
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const ValueKey('topic-tag-picker-query')),
+      findsOneWidget,
+    );
+    expect(tester.takeException(), isNull);
+  }, variant: platforms);
   for (final (enabled, allowed) in [
     (true, true),
     (true, false),
@@ -112,7 +146,7 @@ void main() {
   ) async {
     await pumpMobileTopicFixture(tester);
     final actions = find.byKey(const ValueKey('topic-header-taxonomy'));
-    final wrap = tester.widget<Wrap>(actions);
+    final wrap = tester.widget<DControlWrap>(actions);
     expect(wrap.spacing, 8);
     expect(wrap.runSpacing, 8);
     final bookmark = find.byKey(const ValueKey('topic-header-bookmark-button'));

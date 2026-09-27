@@ -762,7 +762,33 @@ class _TopicListViewState extends State<TopicListView> {
                       // The separated delegate addresses topics and gaps.
                       return index < 0 ? null : index * 2;
                     },
-                    separatorBuilder: (context, _) => const DSeparator(),
+                    separatorBuilder: (context, index) => lane.width >= 600
+                        ? const DSeparator()
+                        : ValueListenableBuilder<_TopicListCursor?>(
+                            valueListenable: _cursor!,
+                            builder: (context, cursor, _) {
+                              final current = feed.topicIds[index];
+                              final next = index + 1 < feed.topicIds.length
+                                  ? feed.topicIds[index + 1]
+                                  : null;
+                              final keyboardId =
+                                  cursor != null &&
+                                      (cursor.keyboard ||
+                                          readingTopicId == cursor.topicId)
+                                  ? cursor.topicId
+                                  : null;
+                              final selectedId = widget.inbox
+                                  ? readingTopicId
+                                  : null;
+                              return TopicListSeparator(
+                                besideSelection:
+                                    current == keyboardId ||
+                                    next != null && next == keyboardId ||
+                                    current == selectedId ||
+                                    next != null && next == selectedId,
+                              );
+                            },
+                          ),
                     itemBuilder: (context, index) {
                       if (_recording) {
                         _recordScrollEvent('topicList.row.built', {
@@ -1129,6 +1155,26 @@ class _TopicRowState extends State<_TopicRow> {
   }
 }
 
+/// Topic rows share inset rules on narrow panes and flush rules on desktop.
+class TopicListSeparator extends StatelessWidget {
+  const TopicListSeparator({super.key, this.besideSelection = false});
+
+  final bool besideSelection;
+
+  @override
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, constraints) {
+      if (constraints.maxWidth >= 600) return const DSeparator();
+      if (besideSelection) return const SizedBox.shrink();
+      return DSeparator(
+        indent: 16,
+        endIndent: 16,
+        color: DTokens.of(context).footerBorder,
+      );
+    },
+  );
+}
+
 class TopicListRow extends StatelessWidget {
   const TopicListRow({
     super.key,
@@ -1335,8 +1381,10 @@ class _CategoryBreadcrumb extends StatelessWidget {
     required this.category,
     required this.siteUrl,
     required this.onOpen,
+    this.compact = false,
   });
 
+  final bool compact;
   final TopicCategory? parent;
   final TopicCategory category;
   final String siteUrl;
@@ -1359,6 +1407,7 @@ class _CategoryBreadcrumb extends StatelessWidget {
                 child: _CategoryBadge(
                   key: ValueKey(('topic-row-parent-category', parent.id)),
                   category: parent,
+                  compact: compact,
                   siteUrl: siteUrl,
                   label: parent.name,
                   semanticLabel: 'Parent category: ${parent.name}',
@@ -1388,6 +1437,7 @@ class _CategoryBreadcrumb extends StatelessWidget {
                     child: _CategoryBadge(
                       key: ValueKey(('topic-row-category', category.id)),
                       category: category,
+                      compact: compact,
                       siteUrl: siteUrl,
                       label: category.name,
                       semanticLabel: 'Category: ${category.name}',
@@ -1412,7 +1462,9 @@ class _CategoryBadge extends StatelessWidget {
     required this.label,
     required this.semanticLabel,
     required this.onTap,
+    this.compact = false,
   });
+  final bool compact;
   final TopicCategory category;
   final String siteUrl;
   final String label;
@@ -1423,6 +1475,7 @@ class _CategoryBadge extends StatelessWidget {
   Widget build(BuildContext context) => DTooltip(
     message: label,
     child: DBreadcrumbLink(
+      compact: compact,
       onPressed: onTap,
       semanticLabel: semanticLabel,
       child: Row(
@@ -1455,7 +1508,9 @@ class _TopicTag extends StatelessWidget {
     required this.tag,
     required this.onTap,
     required this.onMiddleClick,
+    this.compact = false,
   });
+  final bool compact;
   final TopicTag tag;
   final VoidCallback onTap;
   final Future<void> Function() onMiddleClick;
@@ -1466,8 +1521,15 @@ class _TopicTag extends StatelessWidget {
     onTertiaryTapUp: (_) => onMiddleClick(),
     child: DBadge.link(
       variant: DBadgeVariant.outline,
-      size: DBadgeSize.compact,
-      foregroundColor: DTokens.of(context).mutedForeground,
+      size: compact ? DBadgeSize.tag : DBadgeSize.compact,
+      backgroundColor: compact ? DTokens.of(context).footerBorder : null,
+      foregroundColor: compact
+          ? Color.lerp(
+              DTokens.of(context).background,
+              DTokens.of(context).foreground,
+              .62,
+            )
+          : DTokens.of(context).mutedForeground,
       semanticLabel: 'Tag: ${tag.name}',
       onPressed: onTap,
       child: Text(tag.name),

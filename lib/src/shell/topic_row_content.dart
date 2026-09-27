@@ -1,21 +1,30 @@
 part of 'topic_list_view.dart';
 
-Widget _topicRowCategory(BuildContext context, _TopicRowBody row) =>
-    _CategoryBreadcrumb(
-      parent: row.parentCategory,
-      category: row.category!,
-      siteUrl: row.siteUrl,
-      onOpen: (category) => ShellScope.maybeRead(
-        context,
-      )?.openCategory(category, siteUrl: row.siteUrl),
-    );
+Widget _topicRowCategory(
+  BuildContext context,
+  _TopicRowBody row, {
+  bool compact = false,
+}) => _CategoryBreadcrumb(
+  parent: row.parentCategory,
+  compact: compact,
+  category: row.category!,
+  siteUrl: row.siteUrl,
+  onOpen: (category) => ShellScope.maybeRead(
+    context,
+  )?.openCategory(category, siteUrl: row.siteUrl),
+);
 
-List<Widget> _topicRowTags(BuildContext context, _TopicRowBody row) {
+List<Widget> _topicRowTags(
+  BuildContext context,
+  _TopicRowBody row, {
+  bool compact = false,
+}) {
   final controller = ShellScope.maybeRead(context);
   return [
-    for (final tag in row.topic.tags.take(2))
+    for (final tag in compact ? row.topic.tags : row.topic.tags.take(2))
       _TopicTag(
         tag: tag,
+        compact: compact,
         onTap: () => controller?.openTopicTag(
           tag,
           siteUrl: row.siteUrl,
@@ -28,7 +37,7 @@ List<Widget> _topicRowTags(BuildContext context, _TopicRowBody row) {
           newTab: true,
         ),
       ),
-    if (row.topic.tags.length > 2)
+    if (!compact && row.topic.tags.length > 2)
       _TopicTagOverflow(tags: row.topic.tags.skip(2).toList()),
   ];
 }
@@ -44,8 +53,23 @@ class _TopicListTitle extends StatelessWidget {
     final topic = row.topic;
     final style = row.titleStyle ?? theme.textTheme.titleSmall;
     final largeText = MediaQuery.textScalerOf(context).scale(14) > 21;
+    final tokens = DTokens.of(context);
+    final statusIcons = [
+      for (final (shown, icon, label) in [
+        (topic.pinned, DIcons.thumbtack, 'Pinned'),
+        (topic.closed, DIcons.lock, 'Closed'),
+        (topic.bookmarked, DIcons.bookmark, 'Bookmarked'),
+      ])
+        if (shown)
+          DIcon(
+            icon,
+            size: 11,
+            color: tokens.mutedForeground,
+            semanticLabel: label,
+          ),
+    ];
     return DItemTitle(
-      maxLines: largeText ? null : 2,
+      maxLines: mobile || largeText ? null : 2,
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         spacing: 6,
@@ -66,7 +90,7 @@ class _TopicListTitle extends StatelessWidget {
               theme.colorScheme.primary,
             ),
           ])
-            if (shown)
+            if (shown && !mobile)
               SizedBox(
                 height:
                     MediaQuery.textScalerOf(
@@ -86,17 +110,34 @@ class _TopicListTitle extends StatelessWidget {
             child: TopicTitle(
               topic.title,
               siteUrl: row.siteUrl,
-              maxLines: largeText ? null : 2,
-              overflow: largeText ? TextOverflow.clip : TextOverflow.ellipsis,
+              maxLines: mobile || largeText ? null : 2,
+              overflow: mobile || largeText
+                  ? TextOverflow.clip
+                  : TextOverflow.ellipsis,
               style: style?.copyWith(
-                color: topicListTitleColor(
-                  theme,
-                  visited: topic.visited && !topic.hasUnseenActivity,
-                ),
+                color: mobile
+                    ? (topic.visited && !topic.hasUnseenActivity
+                          ? Color.lerp(tokens.background, tokens.foreground, .9)
+                          : tokens.foreground)
+                    : topicListTitleColor(
+                        theme,
+                        visited: topic.visited && !topic.hasUnseenActivity,
+                      ),
                 fontWeight: topic.visited && !topic.hasUnseenActivity
                     ? FontWeight.w500
                     : FontWeight.w700,
               ),
+              leading: [
+                if (mobile && statusIcons.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsetsDirectional.only(end: 6),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      spacing: 3,
+                      children: statusIcons,
+                    ),
+                  ),
+              ],
               trailing: [
                 if (topic.showNewTopicDot || topic.showNewRepliesDot)
                   Padding(
@@ -113,6 +154,7 @@ class _TopicListTitle extends StatelessWidget {
                     child: TopicUnreadBadge(
                       key: ValueKey('inbox-row-unread-${topic.id}'),
                       count: topic.unreadCount,
+                      compact: mobile,
                     ),
                   ),
               ],

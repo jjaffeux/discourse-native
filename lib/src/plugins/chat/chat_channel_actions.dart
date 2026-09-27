@@ -19,10 +19,14 @@ class ChatChannelMenu extends StatelessWidget {
     required this.siteUrl,
     required this.channelId,
     this.child,
+    this.channel,
   });
 
   final String siteUrl;
   final int channelId;
+
+  /// A directory row can provide a channel not yet held by the inbox.
+  final ChatChannel? channel;
 
   /// The row receiving context gestures; omitted for a visible menu button.
   final Widget? child;
@@ -32,7 +36,8 @@ class ChatChannelMenu extends StatelessWidget {
     final chat = PluginUiScope.require(context, chatControllerService);
     return ValueListenableBuilder<ChatChannel?>(
       valueListenable: chat.channelRef(siteUrl, channelId),
-      builder: (context, channel, _) {
+      builder: (context, current, _) {
+        final channel = current ?? this.channel;
         if (channel == null || !channel.membership.following) {
           return child ?? const SizedBox.shrink();
         }
@@ -296,6 +301,7 @@ Future<void> _leaveChannel(
     return;
   }
 
+  if (shell.visibleChannelId != channel.id) return;
   final remaining = [
     ...chat.publicChannels(siteUrl),
     ...chat.directChannels(siteUrl),

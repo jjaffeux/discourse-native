@@ -210,13 +210,13 @@ void main() {
   }
 
   for (final width in [280.0, 640.0, 1200.0]) {
-    testWidgets('one full-width layout ignores legacy mode at $width', (
+    testWidgets('one topic layout ignores legacy mode at $width', (
       tester,
     ) async {
       await _setup(tester, width: width);
       final row = find.byKey(const ValueKey('topic-card-1'));
-      expect(tester.getRect(row).left, 0);
-      expect(tester.getRect(row).width, width);
+      expect(tester.getRect(row).left, width < 600 ? 16 : 0);
+      expect(tester.getRect(row).width, width < 600 ? width - 32 : width);
       expect(find.byType(DTable), findsNothing);
       expect(find.byKey(const ValueKey('topic-list-display')), findsNothing);
       expect(tester.takeException(), isNull);
@@ -260,11 +260,8 @@ void main() {
       );
       expect(tester.getRect(age).top, closeTo(tester.getRect(title).top, 1));
       expect(tester.getRect(age).top, lessThan(tester.getRect(tags).top));
-      expect(
-        tester.getRect(age).right,
-        closeTo(tester.getRect(card).right - 16, 1),
-      );
-      expect(within(find.text('24 replies')), findsOneWidget);
+      expect(tester.getRect(age).right, closeTo(width - 16, 1));
+      expect(within(find.textContaining('24 replies')), findsOneWidget);
       await tester.tap(date);
       await tester.pumpAndSettle();
       expect(find.text('Event schedule').hitTestable(), findsOneWidget);
@@ -381,7 +378,10 @@ void main() {
           findsNothing,
         );
         expect(
-          find.descendant(of: card, matching: find.text('24 replies')),
+          find.descendant(
+            of: card,
+            matching: find.textContaining('24 replies'),
+          ),
           findsOneWidget,
         );
         expect(
@@ -390,14 +390,14 @@ void main() {
         );
         final replies = find.descendant(
           of: card,
-          matching: find.text('24 replies'),
+          matching: find.textContaining('24 replies'),
         );
         expect(
           tester.getRect(replies).width,
           closeTo(tester.getSize(replies).width, .01),
           reason: 'Inline metadata must apply text scaling only once.',
         );
-        expect(tester.getRect(card).width, width);
+        expect(tester.getRect(card).width, width < 600 ? width - 32 : width);
         expect(tester.getRect(card).width, lessThanOrEqualTo(width));
         expect(tester.takeException(), isNull);
       },
@@ -495,7 +495,10 @@ void main() {
       final parent = within(find.text('Discourse Native App'));
       final child = within(find.text('Features'));
       for (final label in [parent, child]) {
-        expect(tester.getSize(label).height, closeTo(21 * scale, .01));
+        expect(
+          tester.getSize(label).height,
+          closeTo(((width < 600 ? 16.5 : 21) * scale).ceilToDouble(), .01),
+        );
       }
       final chevron = within(
         find.byKey(const ValueKey(('topic-row-category-chevron', 1, 2))),

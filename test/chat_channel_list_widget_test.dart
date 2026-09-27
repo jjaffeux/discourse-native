@@ -284,13 +284,11 @@ void main() {
     (tester) async {
       final api = await _pump(tester, supported: false);
       final shell = ShellScope.read(tester.element(find.byType(MainContent)));
-      final action = find.byKey(const ValueKey('chat-sidebar-start-message'));
-      expect(tester.widget<DButton>(action).variant, DButtonVariant.primary);
-      // Pinned beneath the inbox rather than above its filters.
       expect(
-        tester.getRect(action).top,
-        greaterThan(tester.getRect(_sidebar(find.text('Sam'))).bottom),
+        find.byKey(const ValueKey('chat-sidebar-start-message')),
+        findsNothing,
       );
+      expect(find.byKey(const ValueKey('chat-inbox-browse')), findsOneWidget);
 
       shell.pluginSession.require(chatShellService).openChannels();
       await tester.pumpAndSettle();
@@ -298,7 +296,9 @@ void main() {
         find.byKey(const ValueKey('chat-list-options-channels')),
         findsNothing,
       );
-      await tester.tap(action);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.meta);
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyK);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.meta);
       await tester.pumpAndSettle();
       expect(find.text('Start chatting'), findsOneWidget);
       expect(api.userPreferenceUpdates, isEmpty);

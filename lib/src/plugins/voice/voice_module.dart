@@ -4,6 +4,7 @@ import '../chat/chat_contract.dart';
 import 'voice_api.dart';
 import 'voice_call_controller_port.dart';
 import 'voice_call_port.dart';
+import 'voice_chat_inbox.dart';
 import 'voice_controller.dart';
 import 'voice_diagnostics.dart';
 import 'voice_diagnostics_plugin.dart';
@@ -107,6 +108,10 @@ final class VoiceModule implements PluginModule {
           currentUsername: (siteUrl) =>
               siteState.currentUserFor(siteUrl)?.username,
         );
+        final inboxRooms = dependencies.require(chatInboxRoomsService);
+        final detachInbox = inboxRooms.attach(
+          VoiceChatInbox(controller, shell),
+        );
         final callPort = VoiceCallControllerPort(
           controller: controller,
           shell: shell,
@@ -116,8 +121,10 @@ final class VoiceModule implements PluginModule {
             controller: controller,
             callPort: callPort,
             retention: retention,
+            detachInbox: detachInbox,
           ),
           services: [
+            PluginService<Object>(voiceChatInboxService, inboxRooms),
             PluginService<Object>(voiceControllerService, controller),
             PluginService<Object>(voiceShellService, shell),
             PluginService<Object>(voiceCallPortService, callPort),
@@ -145,11 +152,13 @@ final class _VoiceSessionLifecycle extends PluginSessionLifecycle {
     required this.controller,
     required this.callPort,
     required this.retention,
+    required this.detachInbox,
   });
 
   final VoiceController controller;
   final VoiceCallPort callPort;
   final _VoiceBackgroundRetention retention;
+  final void Function() detachInbox;
 
   @override
   void setForeground(bool foreground) => controller.setForeground(foreground);
@@ -162,6 +171,7 @@ final class _VoiceSessionLifecycle extends PluginSessionLifecycle {
 
   @override
   Future<void> close() async {
+    detachInbox();
     try {
       await Future.wait([callPort.close(), controller.close()]);
     } finally {
