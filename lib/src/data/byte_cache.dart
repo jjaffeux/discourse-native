@@ -98,6 +98,21 @@ abstract class ByteCache<T extends Object> {
 
   bool isCached(String url) => _cache.containsKey(url) && !_cooledDown(url);
 
+  /// Response bytes currently retained for decoded entries.
+  int get cachedBytes => _cachedBytes;
+
+  /// Evicts least-recently-used entries until at most [bytes] are retained.
+  ///
+  /// This releases only what the cache retains: callers already holding
+  /// delivered values keep them, and loads still in flight publish normally
+  /// under this cache's own limits.
+  void trimTo(int bytes) {
+    assert(bytes >= 0);
+    while (_cachedBytes > bytes) {
+      _evictLeastRecentlyUsed();
+    }
+  }
+
   T? cached(String url) {
     final entry = _cache[url];
     if (entry != null) _touch(url);
@@ -229,9 +244,13 @@ abstract class ByteCache<T extends Object> {
     _cachedBytes += byteSize;
 
     while (_cache.length > maxEntries || _cachedBytes > maxCachedBytes) {
-      final evicted = _cache.remove(_cache.keys.first)!;
-      _cachedBytes -= evicted.byteSize;
+      _evictLeastRecentlyUsed();
     }
+  }
+
+  void _evictLeastRecentlyUsed() {
+    final evicted = _cache.remove(_cache.keys.first)!;
+    _cachedBytes -= evicted.byteSize;
   }
 
   void _touch(String url) {

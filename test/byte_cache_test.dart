@@ -423,6 +423,59 @@ void main() {
       },
     );
 
+    test(
+      'trimming evicts least-recently-used entries and keeps its accounting',
+      () async {
+        const sizes = {'a': 2, 'b': 3, 'c': 4, 'd': 1};
+        final requests = <String, int>{};
+        final held = Completer<void>();
+        final cache = _TestByteCache(
+          maxCachedBytes: 9,
+          client: MockClient((request) async {
+            final key = request.url.pathSegments.single;
+            requests.update(key, (count) => count + 1, ifAbsent: () => 1);
+            if (key == 'd') await held.future;
+            return http.Response.bytes(List.filled(sizes[key]!, 1), 200);
+          }),
+        );
+        addTearDown(() {
+          if (!held.isCompleted) held.complete();
+          cache.close();
+        });
+        String url(String key) => 'https://site.test/$key';
+        List<String> retained() => [
+          for (final key in sizes.keys)
+            if (cache.isCached(url(key))) key,
+        ];
+
+        await cache.load(url('a'));
+        await cache.load(url('b'));
+        await cache.load(url('c'));
+        expect(cache.cached(url('a')), hasLength(2));
+        expect(cache.cachedBytes, 9);
+
+        cache.trimTo(6);
+        expect(retained(), ['a', 'c']);
+        expect(cache.cachedBytes, 6);
+
+        // Readmission fills the cache to its own cap again, no further.
+        await cache.load(url('b'));
+        expect(retained(), ['a', 'b', 'c']);
+        expect(cache.cachedBytes, 9);
+        expect(requests, {'a': 1, 'b': 2, 'c': 1});
+
+        final inFlight = cache.load(url('d'));
+        cache.trimTo(0);
+        expect(retained(), isEmpty);
+        expect(cache.cachedBytes, 0);
+
+        held.complete();
+        expect(await inFlight, [1]);
+        expect(retained(), ['d']);
+        expect(cache.cachedBytes, 1);
+      },
+    );
+
     test('synchronous cache reads keep a visible image recent', () async {
       final cache = _TestByteCache(
         maxEntries: 2,

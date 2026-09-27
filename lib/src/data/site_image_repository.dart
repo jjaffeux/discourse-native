@@ -28,19 +28,28 @@ final class SiteImageBytes {
 ///
 /// Caches are memory-only and scoped to one [SiteLifecycle] lease. Disconnect
 /// and reconnect cannot expose bytes fetched for the previous account.
+///
+/// Every forum shares one [maxCachedBytes] budget, the most a single forum
+/// could retain on its own, so reading several forums costs no more memory
+/// than reading one. The forum that just loaded may keep the whole budget;
+/// the others give up their least recently used images first.
 final class SiteImageRepository {
   SiteImageRepository({
     required this.credentials,
     required this.lifecycle,
     http.Client? client,
-  }) : _client = client ?? http.Client(),
+    this.maxCachedBytes = 64 * 1024 * 1024,
+  }) : assert(maxCachedBytes > 0),
+       _client = client ?? http.Client(),
        _ownsClient = client == null;
 
   final ApiCredentialReader credentials;
   final SiteLifecycle lifecycle;
+  final int maxCachedBytes;
   final http.Client _client;
   final bool _ownsClient;
 
+  /// Ordered from least to most recently used.
   final Map<String, _SiteImageSession> _sessions = {};
   final Map<String, _SiteImageOpening> _opening = {};
   bool _disposed = false;
@@ -54,31 +63,55 @@ final class SiteImageRepository {
     if (_disposed || session == null || !session.lease.isCurrent) return null;
 
     final bytes = await session.cache.load(url);
-    return !_disposed &&
-            session.lease.isCurrent &&
-            identical(_sessions[siteUrl], session)
-        ? bytes
-        : null;
+    if (_disposed ||
+        !session.lease.isCurrent ||
+        !identical(_sessions[siteUrl], session)) {
+      return null;
+    }
+    _trimOtherSessions(session);
+    return bytes;
   }
 
-  bool isCached({required String siteUrl, required String url}) {
-    final session = _sessions[siteUrl];
-    return session != null &&
-        session.lease.isCurrent &&
-        session.cache.isCached(url);
-  }
+  bool isCached({required String siteUrl, required String url}) =>
+      _use(siteUrl)?.cache.isCached(url) ?? false;
 
-  SiteImageBytes? cached({required String siteUrl, required String url}) {
+  SiteImageBytes? cached({required String siteUrl, required String url}) =>
+      _use(siteUrl)?.cache.cached(url);
+
+  _SiteImageSession? _use(String siteUrl) {
     final session = _sessions[siteUrl];
     if (_disposed || session == null || !session.lease.isCurrent) return null;
-    return session.cache.cached(url);
+    _sessions
+      ..remove(siteUrl)
+      ..[siteUrl] = session;
+    return session;
+  }
+
+  /// Brings the retained total back within [maxCachedBytes] at the expense
+  /// of every session except [active], least recently used first.
+  ///
+  /// A trimmed session stays open even once empty: it still owns transfers
+  /// that mounted images await and the credentials that authorize them. An
+  /// empty session retains only bounded failure records, and there is one per
+  /// connected forum until [forget] removes it.
+  void _trimOtherSessions(_SiteImageSession active) {
+    var retained = 0;
+    for (final session in _sessions.values) {
+      retained += session.cache.cachedBytes;
+    }
+    for (final session in _sessions.values.toList(growable: false)) {
+      if (retained <= maxCachedBytes) return;
+      if (identical(session, active)) continue;
+      final before = session.cache.cachedBytes;
+      final excess = retained - maxCachedBytes;
+      session.cache.trimTo(before > excess ? before - excess : 0);
+      retained -= before - session.cache.cachedBytes;
+    }
   }
 
   Future<_SiteImageSession?> _session(String siteUrl) {
-    final existing = _sessions[siteUrl];
-    if (existing != null && existing.lease.isCurrent) {
-      return SynchronousFuture(existing);
-    }
+    final existing = _use(siteUrl);
+    if (existing != null) return SynchronousFuture(existing);
 
     // A lifecycle change can replace an account without an explicit forget.
     _sessions.remove(siteUrl)?.cache.close();
@@ -112,6 +145,7 @@ final class SiteImageRepository {
         lease: opening.lease,
         cache: _AuthenticatedSiteImageCache(
           client: _client,
+          maxCachedBytes: maxCachedBytes,
           authenticatedOrigin: origin,
           apiKey: apiKey,
           clientId: clientId,
@@ -163,14 +197,11 @@ final class _SiteImageSession {
 final class _AuthenticatedSiteImageCache extends ByteCache<SiteImageBytes> {
   _AuthenticatedSiteImageCache({
     required super.client,
+    required super.maxCachedBytes,
     required this.authenticatedOrigin,
     required this.apiKey,
     required this.clientId,
-  }) : super(
-         maxEntries: 256,
-         maxResponseBytes: 32 * 1024 * 1024,
-         maxCachedBytes: 64 * 1024 * 1024,
-       );
+  }) : super(maxEntries: 256, maxResponseBytes: 32 * 1024 * 1024);
 
   final String authenticatedOrigin;
   final String? apiKey;
