@@ -63,7 +63,57 @@ void main() {
     expect(offsets(), [0, 20, 20]);
     expect(find.text('Try again'), findsOneWidget);
   });
+
+  testWidgets('reopening the directory adds new threads to a held channel', (
+    tester,
+  ) async {
+    final firstPage = FakeDiscourseApi.chatChannelThreadPageKey(9, 0);
+    final pages = {
+      firstPage: ChatThreadPage(threads: [_thread(1)], hasMore: true),
+      FakeDiscourseApi.chatChannelThreadPageKey(9, 1): ChatThreadPage(
+        threads: [_thread(2)],
+      ),
+    };
+    final api = FakeDiscourseApi(
+      user: _user,
+      chatBrowsePagesByKey: _browsePages,
+      chatChannelThreadPagesByKey: pages,
+    );
+    final controller = await _pump(tester, api);
+    Iterable<int> offsets() =>
+        api.chatChannelThreadPagesRequested.map((request) => request.offset);
+    await tester.tap(find.text('Load more'));
+    await tester.pumpAndSettle();
+    expect(offsets(), [0, 1]);
+    expect(find.text('Thread 2'), findsOneWidget);
+
+    await _mount(tester, controller, shown: false);
+    pages[firstPage] = ChatThreadPage(
+      threads: [_thread(3), _thread(1)],
+      hasMore: true,
+    );
+    await _mount(tester, controller);
+    await tester.pumpAndSettle();
+
+    expect(offsets(), [0, 1, 0]);
+    expect(find.text('Thread 1'), findsOneWidget);
+    expect(find.text('Thread 2'), findsOneWidget);
+    expect(find.text('Thread 3'), findsOneWidget);
+  });
 }
+
+final _browsePages = {
+  FakeDiscourseApi.chatBrowseKey(): const ChatChannelBrowsePage(
+    channels: [
+      ChatChannel(
+        id: 9,
+        title: 'general',
+        kind: ChatChannelKind.category,
+        threadingEnabled: true,
+      ),
+    ],
+  ),
+};
 
 ChatThread _thread(int id) => ChatThread(
   id: id,
@@ -79,7 +129,7 @@ ChatThread _thread(int id) => ChatThread(
   ),
 );
 
-Future<void> _pump(WidgetTester tester, FakeDiscourseApi api) async {
+Future<ShellController> _pump(WidgetTester tester, FakeDiscourseApi api) async {
   final controller = ShellController(
     plugins: installedPlugins,
     instanceStore: FakeInstanceStore([
@@ -92,17 +142,30 @@ Future<void> _pump(WidgetTester tester, FakeDiscourseApi api) async {
   );
   addTearDown(controller.dispose);
   await controller.load();
-  await tester.pumpWidget(
-    ShellScope(
-      controller: controller,
-      child: PluginUiScope.own(
-        chatPluginId,
-        MaterialApp(
-          theme: AppTheme.light,
-          home: const Scaffold(body: ChatMyThreadsView(siteUrl: _site)),
+  await _mount(tester, controller);
+  await tester.pumpAndSettle();
+  return controller;
+}
+
+/// Mounts the thread directory under [controller], or unmounts it while
+/// keeping the controller's chat state.
+Future<void> _mount(
+  WidgetTester tester,
+  ShellController controller, {
+  bool shown = true,
+}) => tester.pumpWidget(
+  ShellScope(
+    controller: controller,
+    child: PluginUiScope.own(
+      chatPluginId,
+      MaterialApp(
+        theme: AppTheme.light,
+        home: Scaffold(
+          body: shown
+              ? const ChatMyThreadsView(siteUrl: _site)
+              : const SizedBox.shrink(),
         ),
       ),
     ),
-  );
-  await tester.pumpAndSettle();
-}
+  ),
+);

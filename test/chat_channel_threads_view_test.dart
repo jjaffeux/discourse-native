@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/plugin_api/plugin_data.dart';
@@ -26,6 +28,13 @@ import 'support/shell_test_harness.dart';
 const _site = 'https://meta.discourse.org';
 const _user = DiscourseUser(id: 7, username: 'reader');
 const _channelId = 9;
+const _channel = ChatChannel(
+  id: _channelId,
+  title: 'Support',
+  kind: ChatChannelKind.category,
+  membership: ChatMembership(following: true),
+  threadingEnabled: true,
+);
 
 void main() {
   testWidgets('a failed page waits for Try again instead of scrolling', (
@@ -76,6 +85,82 @@ void main() {
     await tester.pumpAndSettle();
     expect(offsets(), [0, 20, 20]);
     expect(find.text('Try again'), findsOneWidget);
+  });
+
+  testWidgets('reopening the list adds new threads behind the held rows', (
+    tester,
+  ) async {
+    final firstPage = FakeDiscourseApi.chatChannelThreadPageKey(_channelId, 0);
+    final pages = {
+      firstPage: ChatThreadPage(threads: [_thread(1)], hasMore: true),
+      FakeDiscourseApi.chatChannelThreadPageKey(_channelId, 1): ChatThreadPage(
+        threads: [_thread(2)],
+      ),
+    };
+    final api = _GatedThreadsApi(
+      user: _user,
+      chatChannelsBySite: {
+        _site: const ChatChannels(public: [_channel]),
+      },
+      chatChannelThreadPagesByKey: pages,
+    );
+    final controller = await _pump(tester, api);
+    Iterable<int> offsets() =>
+        api.chatChannelThreadPagesRequested.map((request) => request.offset);
+    await tester.tap(find.text('Load more'));
+    await tester.pumpAndSettle();
+    expect(offsets(), [0, 1]);
+    expect(find.text('Thread 2'), findsOneWidget);
+
+    await _mount(tester, controller, shown: false);
+    pages[firstPage] = ChatThreadPage(
+      threads: [_thread(3), _thread(1)],
+      hasMore: true,
+    );
+    final gate = api.pageGate = Completer<void>();
+    await _mount(tester, controller);
+    await tester.pump();
+
+    expect(offsets(), [0, 1, 0]);
+    expect(find.text('Thread 1'), findsOneWidget);
+    expect(find.text('Thread 2'), findsOneWidget);
+    expect(find.text('Thread 3'), findsNothing);
+
+    gate.complete();
+    await tester.pumpAndSettle();
+
+    expect(find.text('Thread 1'), findsOneWidget);
+    expect(find.text('Thread 2'), findsOneWidget);
+    expect(find.text('Thread 3'), findsOneWidget);
+  });
+
+  testWidgets('a failed refresh on reopening keeps the held rows quietly', (
+    tester,
+  ) async {
+    final firstPage = FakeDiscourseApi.chatChannelThreadPageKey(_channelId, 0);
+    final pages = {
+      firstPage: ChatThreadPage(threads: [_thread(1)]),
+    };
+    final api = FakeDiscourseApi(
+      user: _user,
+      chatChannelsBySite: {
+        _site: const ChatChannels(public: [_channel]),
+      },
+      chatChannelThreadPagesByKey: pages,
+    );
+    final controller = await _pump(tester, api);
+    Iterable<int> offsets() =>
+        api.chatChannelThreadPagesRequested.map((request) => request.offset);
+
+    await _mount(tester, controller, shown: false);
+    pages.remove(firstPage);
+    await _mount(tester, controller);
+    await tester.pumpAndSettle();
+
+    expect(offsets(), [0, 0]);
+    expect(find.text('Thread 1'), findsOneWidget);
+    expect(find.text('Could not load this channel’s threads.'), findsNothing);
+    expect(find.text('Try again'), findsNothing);
   });
 
   group('on a narrow phone', () {
@@ -204,7 +289,7 @@ Future<void> _pumpMobileThreads(WidgetTester tester) async {
   );
 }
 
-Future<void> _pump(WidgetTester tester, FakeDiscourseApi api) async {
+Future<ShellController> _pump(WidgetTester tester, FakeDiscourseApi api) async {
   final controller = ShellController(
     plugins: installedPlugins,
     instanceStore: FakeInstanceStore([
@@ -220,21 +305,68 @@ Future<void> _pump(WidgetTester tester, FakeDiscourseApi api) async {
   await controller.pluginSession
       .require(chatControllerService)
       .loadChannels(_site);
-  await tester.pumpWidget(
-    ShellScope(
-      controller: controller,
-      child: PluginUiScope.own(
-        chatPluginId,
-        MaterialApp(
-          theme: AppTheme.light,
-          home: const Scaffold(
-            body: ChatChannelThreadsView(siteUrl: _site, channelId: _channelId),
-          ),
+  await _mount(tester, controller);
+  await tester.pumpAndSettle();
+  return controller;
+}
+
+/// Mounts the threads list under [controller], or unmounts it while keeping
+/// the controller's chat state.
+Future<void> _mount(
+  WidgetTester tester,
+  ShellController controller, {
+  bool shown = true,
+}) => tester.pumpWidget(
+  ShellScope(
+    controller: controller,
+    child: PluginUiScope.own(
+      chatPluginId,
+      MaterialApp(
+        theme: AppTheme.light,
+        home: Scaffold(
+          body: shown
+              ? const ChatChannelThreadsView(
+                  siteUrl: _site,
+                  channelId: _channelId,
+                )
+              : const SizedBox.shrink(),
         ),
       ),
     ),
-  );
-  await tester.pumpAndSettle();
+  ),
+);
+
+/// Holds channel thread pages behind [pageGate] while one is set, so a test
+/// can look at the list while a refresh is in flight.
+final class _GatedThreadsApi extends FakeDiscourseApi {
+  _GatedThreadsApi({
+    super.user,
+    super.chatChannelsBySite,
+    super.chatChannelThreadPagesByKey,
+  });
+
+  Completer<void>? pageGate;
+
+  @override
+  Future<ChatThreadPage> chatChannelThreads({
+    required String siteUrl,
+    required String apiKey,
+    required int channelId,
+    int offset = 0,
+    int limit = ChatThreadPage.pageSize,
+    String? clientId,
+  }) async {
+    final page = await super.chatChannelThreads(
+      siteUrl: siteUrl,
+      apiKey: apiKey,
+      channelId: channelId,
+      offset: offset,
+      limit: limit,
+      clientId: clientId,
+    );
+    if (pageGate case final held?) await held.future;
+    return page;
+  }
 }
 
 /// The title's whole line box at [scale], so a clipped title cannot pass.

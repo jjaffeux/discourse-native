@@ -74,7 +74,15 @@ class _ChatChannelThreadsViewState extends State<ChatChannelThreadsView> {
     if (!_ready) {
       _chat = PluginUiScope.require(context, chatControllerService);
       _ready = true;
-      unawaited(_chat.loadChannelThreads(widget.siteUrl, widget.channelId));
+      // Live events never add a thread to a held list, so each visit
+      // revalidates it behind the rows already shown.
+      unawaited(
+        _chat.loadChannelThreads(
+          widget.siteUrl,
+          widget.channelId,
+          revalidate: true,
+        ),
+      );
     }
     _syncViewing();
   }

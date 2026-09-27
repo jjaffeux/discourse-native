@@ -5383,11 +5383,16 @@ class ChatController extends FrameSafeNotifier {
     }
   }
 
+  /// A [force]d load replaces a held list with its first page. [revalidate]
+  /// instead refreshes that page into the held list, as the web list refetches
+  /// on each visit: threads started since join the pages already read, and a
+  /// failure leaves the held list as it was, without an error to retry.
   Future<void> loadChannelThreads(
     String siteUrl,
     int channelId, {
     bool more = false,
     bool force = false,
+    bool revalidate = false,
     ChatChannel? directoryChannel,
   }) {
     if (isDisposed || channelId <= 0) return Future.value();
@@ -5402,21 +5407,28 @@ class ChatController extends FrameSafeNotifier {
     if (more && !channelThreadsHaveMore(siteUrl, channelId)) {
       return Future.value();
     }
-    if (!more && !force && _channelThreadIds.containsKey(key)) {
-      return Future.value();
-    }
+    final held = _channelThreadIds.containsKey(key);
+    final merge = !more && !force && revalidate && held;
+    if (!more && !force && !merge && held) return Future.value();
     final active = _channelThreadListRequests[key];
     // A refresh supersedes a page already in flight: joining it would append
     // that page and leave the list unrefreshed. Replacing the run token drops
     // the older request's commit and error write.
-    if (active != null && (more || !force)) return active;
+    if (active != null && (more || !(force || merge))) return active;
 
     final offset = more ? (_channelThreadOffsets[key] ?? 0) : 0;
     final run = Object();
     _channelThreadListRuns[key] = run;
     late final Future<void> request;
-    request = _loadChannelThreads(siteUrl, channelId, key, offset, run)
-        .whenComplete(() {
+    request =
+        _loadChannelThreads(
+          siteUrl,
+          channelId,
+          key,
+          offset,
+          run,
+          merge: merge,
+        ).whenComplete(() {
           if (identical(_channelThreadListRequests[key], request)) {
             final _ = _channelThreadListRequests.remove(key);
           }
@@ -5435,8 +5447,9 @@ class ChatController extends FrameSafeNotifier {
     int channelId,
     String key,
     int offset,
-    Object run,
-  ) async {
+    Object run, {
+    required bool merge,
+  }) async {
     final lease = _requests.capture(siteUrl);
     bool ownsRequest() => identical(_channelThreadListRuns[key], run);
     final refresh = _beginThreadListRefresh(siteUrl);
@@ -5461,22 +5474,38 @@ class ChatController extends FrameSafeNotifier {
           for (final thread in page.threads)
             if (thread.channelId == channelId) thread.id,
         ];
-        if (offset == 0) {
-          _channelThreadIds[key] = List.unmodifiable(incoming);
+        if (merge) {
+          final held = _channelThreadIds[key] ?? const <int>[];
+          final listed = held.toSet();
+          final added = [
+            for (final id in incoming)
+              if (listed.add(id)) id,
+          ];
+          _channelThreadIds[key] = List.unmodifiable([...added, ...held]);
+          // Rows newly on the first page push the server's later pages down,
+          // as a local thread creation does; whether more remain is unchanged.
+          _channelThreadOffsets[key] =
+              (_channelThreadOffsets[key] ?? held.length) + added.length;
         } else {
-          final seen = <int>{};
-          _channelThreadIds[key] = List.unmodifiable([
-            for (final id in [...?_channelThreadIds[key], ...incoming])
-              if (seen.add(id)) id,
-          ]);
+          if (offset == 0) {
+            _channelThreadIds[key] = List.unmodifiable(incoming);
+          } else {
+            final seen = <int>{};
+            _channelThreadIds[key] = List.unmodifiable([
+              for (final id in [...?_channelThreadIds[key], ...incoming])
+                if (seen.add(id)) id,
+            ]);
+          }
+          _channelThreadOffsets[key] = offset + page.threads.length;
+          _channelThreadsHaveMore[key] = page.hasMore;
         }
-        _channelThreadOffsets[key] = offset + page.threads.length;
-        _channelThreadsHaveMore[key] = page.hasMore;
         _errors.remove(key);
       });
     } catch (error, stackTrace) {
       if (!_requestIsCurrent(lease, ownsRequest)) return;
       _report(error, stackTrace, 'chat.loadChannelThreads');
+      // The held list is still the reader's; the next visit revalidates it.
+      if (merge) return;
       lease.commit(() {
         _errors[key] = 'Could not load this channel’s threads.';
       });
