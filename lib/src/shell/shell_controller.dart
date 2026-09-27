@@ -996,6 +996,17 @@ class ShellController extends FrameSafeNotifier
     return (value: value);
   }
 
+  /// Reads the client id to send beside [apiKey]; an anonymous request reads
+  /// none, since reading it can raise the platform's notification prompt (see
+  /// [ApiCredentialReader.clientId]).
+  Future<_SessionValue<String?>?> _readClientIdFor(
+    SiteLease lease,
+    String? apiKey,
+  ) => _readSessionValue(
+    lease,
+    () async => apiKey == null ? null : await authenticator.clientId(),
+  );
+
   Future<T> _awaitTopicLoadStage<T>(
     Future<T> stage,
     Stopwatch elapsed,
@@ -2784,7 +2795,7 @@ class ShellController extends FrameSafeNotifier
     final session = lease ?? lifecycle.capture(siteUrl);
     final version = _customSidebarSectionVersions[siteUrl] ?? 0;
     try {
-      final identity = await _readSessionValue(session, authenticator.clientId);
+      final identity = await _readClientIdFor(session, apiKey);
       if (identity == null ||
           !session.isCurrent ||
           currentInstance?.url != siteUrl) {
@@ -3791,7 +3802,7 @@ class ShellController extends FrameSafeNotifier
         lease,
         () => credentials.apiKeyFor(siteUrl),
       );
-      final identity = await _readSessionValue(lease, authenticator.clientId);
+      final identity = await _readClientIdFor(lease, credential?.value);
       if (credential?.value == null || identity == null || !lease.isCurrent) {
         return 'Reconnect to dismiss new topics.';
       }
@@ -4033,7 +4044,7 @@ class ShellController extends FrameSafeNotifier
   Future<List<T>> _filterLookup<T>(
     String siteUrl,
     String operation,
-    Future<List<T>> Function(String? apiKey, String clientId) lookup,
+    Future<List<T>> Function(String? apiKey, String? clientId) lookup,
   ) async {
     final lease = lifecycle.capture(siteUrl);
     try {
@@ -4042,7 +4053,7 @@ class ShellController extends FrameSafeNotifier
         () => credentials.apiKeyFor(siteUrl),
       );
       if (credential == null) return const [];
-      final identity = await _readSessionValue(lease, authenticator.clientId);
+      final identity = await _readClientIdFor(lease, credential.value);
       if (identity == null || !lease.isCurrent) return const [];
       final found = await lookup(credential.value, identity.value);
       return !isDisposed && lease.isCurrent ? found : const [];
@@ -4616,14 +4627,16 @@ class ShellController extends FrameSafeNotifier
     final lease = lifecycle.capture(siteUrl);
 
     final String? apiKey;
-    final String clientId;
+    final String? clientId;
     try {
       // The persisted account state, not a credential that may have failed
       // to delete, decides whether this session may open private channels.
       apiKey = instance.isConnected
           ? await credentials.apiKeyFor(siteUrl)
           : null;
-      clientId = await authenticator.clientId();
+      // An anonymous bus sends no client id, and a signed-out forum must not
+      // raise the platform's notification prompt by reading one.
+      clientId = apiKey == null ? null : await authenticator.clientId();
     } catch (error, stackTrace) {
       if (isDisposed || !lease.isCurrent) return;
       _reportOperationalError(error, stackTrace, 'messageBus.readCredentials');
@@ -4638,7 +4651,7 @@ class ShellController extends FrameSafeNotifier
     final categoryPreferenceVersion =
         _categoryNotificationPreferenceVersions[siteUrl] ?? 0;
     final pluginUserOptionVersion = _pluginUserOptionVersions[siteUrl] ?? 0;
-    final bootstrap = apiKey == null
+    final bootstrap = apiKey == null || clientId == null
         ? null
         : await _messageBusBootstrap(
             siteUrl: siteUrl,
@@ -4753,7 +4766,7 @@ class ShellController extends FrameSafeNotifier
         return;
       }
       _trackers[siteUrl] = tracker;
-      if (apiKey != null) {
+      if (apiKey != null && clientId != null) {
         if (userId != null) {
           try {
             tracker.watchTopicTrackingState(
@@ -13957,7 +13970,7 @@ class ShellController extends FrameSafeNotifier
         () => credentials.apiKeyFor(siteUrl),
       );
       if (credential == null) return const [];
-      final identity = await _readSessionValue(lease, authenticator.clientId);
+      final identity = await _readClientIdFor(lease, credential.value);
       if (identity == null || !lease.isCurrent) return const [];
       found = await api.search.searchHashtags(
         siteUrl: siteUrl,
@@ -14032,7 +14045,7 @@ class ShellController extends FrameSafeNotifier
         () => credentials.apiKeyFor(siteUrl),
       );
       if (credential == null) return;
-      final identity = await _readSessionValue(lease, authenticator.clientId);
+      final identity = await _readClientIdFor(lease, credential.value);
       if (identity == null || !lease.isCurrent) return;
       final found = await api.lookups.lookupHashtags(
         siteUrl: siteUrl,
@@ -14092,7 +14105,7 @@ class ShellController extends FrameSafeNotifier
         () => credentials.apiKeyFor(siteUrl),
       );
       if (credential == null) return;
-      final identity = await _readSessionValue(lease, authenticator.clientId);
+      final identity = await _readClientIdFor(lease, credential.value);
       if (identity == null || !lease.isCurrent) return;
       final real = await api.lookups.checkMentions(
         siteUrl: siteUrl,
@@ -14136,7 +14149,7 @@ class ShellController extends FrameSafeNotifier
         () => credentials.apiKeyFor(siteUrl),
       );
       if (credential == null) return const FoundUsersAndGroups();
-      final identity = await _readSessionValue(lease, authenticator.clientId);
+      final identity = await _readClientIdFor(lease, credential.value);
       if (identity == null || !lease.isCurrent) {
         return const FoundUsersAndGroups();
       }
@@ -14174,7 +14187,7 @@ class ShellController extends FrameSafeNotifier
         () => credentials.apiKeyFor(siteUrl),
       );
       if (credential == null) return const [];
-      final identity = await _readSessionValue(lease, authenticator.clientId);
+      final identity = await _readClientIdFor(lease, credential.value);
       if (identity == null || !lease.isCurrent) return const [];
       found = await api.lookups.searchUsers(
         siteUrl: siteUrl,
@@ -16961,11 +16974,13 @@ final class _ShellPluginRequestHost implements PluginRequestHost {
       _ShellPluginSiteLease(_shell.lifecycle.capture(siteUrl));
 
   @override
-  Future<PluginRequestCredentials> credentialsFor(String siteUrl) async =>
-      PluginRequestCredentials(
-        apiKey: await _shell.credentials.apiKeyFor(siteUrl),
-        clientId: await _shell.credentials.clientId(),
-      );
+  Future<PluginRequestCredentials> credentialsFor(String siteUrl) async {
+    final apiKey = await _shell.credentials.apiKeyFor(siteUrl);
+    return PluginRequestCredentials(
+      apiKey: apiKey,
+      clientId: apiKey == null ? '' : await _shell.credentials.clientId(),
+    );
+  }
 
   @override
   Future<PluginWriteCredential> writeCredentialFor(String siteUrl) =>

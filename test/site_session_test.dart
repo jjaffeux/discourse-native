@@ -13,6 +13,7 @@ import 'package:discourse_native/src/models/search_results.dart';
 import 'package:discourse_native/src/models/site_appearance.dart';
 import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/models/topic.dart';
+import 'package:discourse_native/src/plugin_api/core_plugin_host.dart';
 import 'package:discourse_native/src/plugin_api/plugin_runtime.dart';
 import 'package:discourse_native/src/plugin_api/shell_extensions.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
@@ -460,6 +461,26 @@ final class _CurrentUserObserverModule implements PluginModule {
 
 final class _TestPluginSessionLifecycle extends PluginSessionLifecycle {}
 
+final class _RequestHostModule implements PluginModule {
+  final host = Completer<PluginRequestHost>();
+
+  @override
+  PluginDescriptor get descriptor =>
+      const PluginDescriptor(id: PluginId('request-host-test'));
+
+  @override
+  void register(PluginRegistrar registrar) {
+    registrar.addSession((bindings, _) {
+      if (!host.isCompleted) {
+        host.complete(bindings.require(corePluginRequestPort));
+      }
+      return PluginSessionContribution(
+        lifecycle: _TestPluginSessionLifecycle(),
+      );
+    }, requires: const [corePluginRequestPort]);
+  }
+}
+
 final class _ThrowingCurrentUserObserver implements PluginCurrentUserObserver {
   const _ThrowingCurrentUserObserver(this.calls);
 
@@ -630,6 +651,7 @@ final class _CredentialRecordingApi extends FakeDiscourseApi {
   final List<String?> feedKeys = [];
   final List<String?> topicKeys = [];
   final List<String?> searchKeys = [];
+  final List<String?> searchClientIds = [];
 
   @override
   Future<TopicList> topicList({
@@ -683,6 +705,7 @@ final class _CredentialRecordingApi extends FakeDiscourseApi {
     String? clientId,
   }) {
     searchKeys.add(apiKey);
+    searchClientIds.add(clientId);
     return super.searchPosts(
       siteUrl: siteUrl,
       term: term,
@@ -693,6 +716,18 @@ final class _CredentialRecordingApi extends FakeDiscourseApi {
       apiKey: apiKey,
       clientId: clientId,
     );
+  }
+}
+
+/// A platform whose push registration never answers: an Apple notification
+/// permission prompt left open, or APNs out of reach.
+final class _UnansweredClientIdAuthenticator extends FakeAuthenticator {
+  int clientIdReads = 0;
+
+  @override
+  Future<String> clientId() {
+    clientIdReads++;
+    return Completer<String>().future;
   }
 }
 
@@ -1348,6 +1383,10 @@ void main() {
         await pumpEventQueue();
         expect(api.searchKeys, isNotEmpty);
         expect(api.searchKeys, everyElement(expectedKey));
+        expect(
+          api.searchClientIds,
+          everyElement(connected ? 'test-client' : null),
+        );
 
         final post = shell.store.read<Post>(_siteUrl, 70)!;
         expect(post.canToggleLike, isTrue);
@@ -1363,6 +1402,57 @@ void main() {
         expect(authenticator.keys[_siteUrl], 'stored-account-key');
       });
     }
+  });
+
+  group('signed-out client id', () {
+    // Reading the client id asks Apple platforms for a push registration,
+    // which raises the notification permission prompt and can wait out the
+    // whole registration timeout. The site ignores the id without a key.
+    test(
+      'adding a public forum reads it without waiting for a client id',
+      () async {
+        final authenticator = _UnansweredClientIdAuthenticator();
+        final api = _CredentialRecordingApi();
+        final requestHost = _RequestHostModule();
+        final plugins = PluginInstaller.install(PluginManifest([requestHost]));
+        final shell = ShellController(
+          instanceStore: FakeInstanceStore(),
+          api: api,
+          authenticator: authenticator,
+          drafts: FakeDraftStore(),
+          trackers: FakeSiteTracker.reset(),
+          plugins: plugins,
+        );
+        addTearDown(() async {
+          shell.dispose();
+          await Future<void>.delayed(Duration.zero);
+          await plugins.close();
+        });
+
+        await shell.load();
+        expect(await shell.addInstance(instance('meta.discourse.org')), isTrue);
+        await pumpEventQueue();
+
+        expect(shell.currentInstance?.url, _siteUrl);
+        expect(api.feedKeys, [null]);
+        expect(FakeSiteTracker.built.map((tracker) => tracker.siteUrl), [
+          _siteUrl,
+        ]);
+
+        shell.search.setQuery('public forum');
+        shell.search.showTopics();
+        await pumpEventQueue();
+        expect(api.searchKeys, [null]);
+        expect(api.searchClientIds, [null]);
+
+        final requests = await requestHost.host.future;
+        final credentials = requests.credentialsFor(_siteUrl);
+        await pumpEventQueue();
+        expect(authenticator.clientIdReads, 0);
+        expect((await credentials).apiKey, isNull);
+        expect((await credentials).clientId, isEmpty);
+      },
+    );
   });
 
   group('connection and removal operations', () {

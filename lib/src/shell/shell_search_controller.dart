@@ -403,7 +403,7 @@ class ShellSearchController extends ChangeNotifier {
     try {
       final apiKey = await credentials.apiKeyFor(request.siteUrl);
       if (!_isCurrent(request)) return;
-      final clientId = await credentials.clientId();
+      final clientId = apiKey == null ? null : await credentials.clientId();
       if (!_isCurrent(request)) return;
 
       if (request.suggestion case final match?) {
@@ -471,7 +471,7 @@ class ShellSearchController extends ChangeNotifier {
     _SearchRequest request,
     _SuggestionMatch match, {
     required String? apiKey,
-    required String clientId,
+    required String? clientId,
   }) async {
     final term = request.term.trim();
     return switch (match.source) {

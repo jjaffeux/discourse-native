@@ -353,6 +353,33 @@ void main() {
           expect(api.configCalls, 4);
         },
       );
+
+      test('a signed-out site loads without reading a client id', () async {
+        // Reading it may raise the platform's notification permission prompt,
+        // and the site ignores the id without a key.
+        final api = _PresentationApi()
+          ..appearance = siteAppearance(accent: const Color(0xFF445566))
+          ..config = const SiteConfig(emojiSet: 'google');
+        final credentials = _Credentials(apiKey: null);
+        final controller = _controller(api, credentials: credentials);
+
+        await Future.wait([
+          controller.refreshAppearance(site),
+          controller.refreshConfig(site),
+          controller.ensureCustomEmojis(site),
+          controller.refreshEmojiCatalog(site),
+          controller.refreshEmojiSearchAliases(site),
+        ]);
+
+        expect(api.appearanceCalls, 1);
+        expect(api.configCalls, 1);
+        expect(api.customCalls, 1);
+        expect(api.emojiCalls, 1);
+        expect(api.emojiAliasCalls, 1);
+        expect(credentials.apiKeySites, List.filled(5, site));
+        expect(credentials.clientIdCalls, 0);
+        expect(controller.configFor(site).emojiSet, 'google');
+      });
     });
 
     group('emoji metadata', () {
@@ -769,13 +796,16 @@ SitePresentationController _controller(
 }
 
 final class _Credentials implements ApiCredentialReader {
+  _Credentials({this.apiKey = 'key'});
+
+  final String? apiKey;
   final List<String> apiKeySites = [];
   int clientIdCalls = 0;
 
   @override
   Future<String?> apiKeyFor(String siteUrl) async {
     apiKeySites.add(siteUrl);
-    return 'key';
+    return apiKey;
   }
 
   @override

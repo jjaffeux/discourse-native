@@ -63,6 +63,9 @@ final class PluginRequestCredentials {
   });
 
   final String? apiKey;
+
+  /// Empty without [apiKey]: the site reads the client id only beside a key,
+  /// and reading it can raise the platform's notification prompt.
   final String clientId;
 }
 

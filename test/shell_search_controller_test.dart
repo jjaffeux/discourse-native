@@ -621,7 +621,7 @@ void main() {
       expect(search.hits, isEmpty);
       expect(api.terms, ['first', 'second']);
       expect(credentials.apiKeySites, [site, site]);
-      expect(credentials.clientIdReads, 2);
+      expect(credentials.clientIdReads, 0);
     });
 
     testWidgets('publishes only the newest result when responses cross', (
@@ -687,6 +687,36 @@ void main() {
   });
 
   group('account ownership', () {
+    testWidgets('only a search carrying a key reads the client id', (
+      tester,
+    ) async {
+      // Reading it may raise the platform's notification permission prompt,
+      // and the site ignores the id without a key.
+      final api = _SearchApi();
+      final credentials = _RecordingCredentials();
+      final search = ShellSearchController(
+        api: api,
+        credentials: credentials,
+        lifecycle: SiteLifecycle(),
+      )..selectSite(site);
+      addTearDown(search.dispose);
+
+      search.setQuery('anonymous');
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.pump();
+      expect(api.terms, ['anonymous']);
+      expect(api.clientIds, [null]);
+      expect(credentials.clientIdReads, 0);
+
+      credentials.keys[site] = 'key';
+      search.setQuery('keyed');
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.pump();
+      expect(api.terms, ['anonymous', 'keyed']);
+      expect(api.clientIds, [null, 'test-client']);
+      expect(credentials.clientIdReads, 1);
+    });
+
     for (final duringLoading in [false, true]) {
       testWidgets(
         'an account change while ${duringLoading ? 'announcing loading' : 'debouncing'} cancels the query',
@@ -979,6 +1009,7 @@ class _SearchApi extends FakeDiscourseApi {
   final List<String> terms = [];
   final List<String?> typeFilters = [];
   final List<int?> topicIds = [];
+  final List<String?> clientIds = [];
   final Map<String, Completer<SearchResults>> _answers = {};
   final List<String> hashtagTerms = [];
   final List<List<String>> hashtagOrders = [];
@@ -1004,6 +1035,7 @@ class _SearchApi extends FakeDiscourseApi {
     terms.add(term);
     typeFilters.add(typeFilter);
     topicIds.add(topicId);
+    clientIds.add(clientId);
     return (_answers[term] ??= Completer<SearchResults>()).future;
   }
 

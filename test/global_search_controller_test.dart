@@ -92,6 +92,35 @@ void main() {
     );
   }
 
+  for (final keyed in [false, true]) {
+    testWidgets('${keyed ? 'a keyed' : 'an anonymous'} site '
+        '${keyed ? 'sends' : 'reads no'} client id', (tester) async {
+      // Reading it may raise the platform's notification permission prompt,
+      // and the site ignores the id without a key.
+      final api = _EngineApi();
+      final credentials = _CountingCredentials();
+      if (keyed) credentials.keys[_site] = 'key';
+      final search = GlobalSearchController(
+        api: api,
+        credentials: credentials,
+        lifecycle: SiteLifecycle(),
+        debounceDuration: const Duration(milliseconds: 1),
+      )..configure(siteUrl: _site, capabilities: _caps);
+      addTearDown(search.dispose);
+
+      search.addCondition(
+        const GlobalSearchCondition(filterId: 'author', value: ['sam']),
+      );
+      await tester.pump(const Duration(milliseconds: 10));
+      await search.lookupCategoryChoices('support');
+
+      expect(api.requests, hasLength(1));
+      expect(api.clientIds, hasLength(3));
+      expect(api.clientIds, everyElement(keyed ? 'test-client' : null));
+      expect(credentials.clientIdReads, keyed ? 3 : 0);
+    });
+  }
+
   testWidgets('clearing all filters rejects pending filtered results', (
     tester,
   ) async {
@@ -1310,6 +1339,7 @@ class _EngineApi extends GlobalSearchApi {
   List<GlobalSearchFilterChoice> categoryValues = const [];
   Completer<GlobalSearchCategoryPage>? categoryGate;
   Completer<void>? categoryStarted;
+  final clientIds = <String?>[];
 
   @override
   Future<GlobalSearchCategoryPage> lookupCategoryChoices({
@@ -1319,6 +1349,7 @@ class _EngineApi extends GlobalSearchApi {
     required String term,
     int page = 1,
   }) async {
+    clientIds.add(clientId);
     if (categoryStarted?.isCompleted == false) categoryStarted!.complete();
     return categoryGate?.future ??
         GlobalSearchCategoryPage(choices: categoryValues);
@@ -1346,7 +1377,11 @@ class _EngineApi extends GlobalSearchApi {
     required String? apiKey,
     String? clientId,
     required GlobalSearchCapabilities base,
-  }) async => capabilitiesGate?.future ?? base;
+  }) async {
+    clientIds.add(clientId);
+    return capabilitiesGate?.future ?? base;
+  }
+
   @override
   Future<GlobalSearchPage> search({
     required String siteUrl,
@@ -1355,10 +1390,21 @@ class _EngineApi extends GlobalSearchApi {
     required GlobalSearchRequest request,
   }) async {
     requests.add(request);
+    clientIds.add(clientId);
     if (!hold) return const GlobalSearchPage();
     final completer = Completer<GlobalSearchPage>();
     pending.add(completer);
     return completer.future;
+  }
+}
+
+final class _CountingCredentials extends FakeApiCredentialReader {
+  int clientIdReads = 0;
+
+  @override
+  Future<String> clientId() {
+    clientIdReads++;
+    return super.clientId();
   }
 }
 
