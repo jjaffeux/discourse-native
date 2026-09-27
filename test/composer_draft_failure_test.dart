@@ -55,9 +55,15 @@ void main() {
 
     expect(opened.api.draftsSaved, hasLength(1));
     expect(opened.composer.localDraftFailed, isTrue);
+    final failure = find.text("Couldn't save this draft on this device.");
+    expect(failure, findsOneWidget);
+    // The header's draft status already announces this failure.
     expect(
-      find.text("Couldn't save this draft on this device."),
-      findsOneWidget,
+      tester.getSemantics(failure),
+      isSemantics(
+        label: "Couldn't save this draft on this device.",
+        isLiveRegion: false,
+      ),
     );
     expect(
       find.text('Not saved on the site — kept on this device only.'),

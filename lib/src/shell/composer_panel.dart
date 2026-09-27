@@ -525,6 +525,7 @@ class ComposerPanel extends StatelessWidget {
                             error != null ||
                             composer.localDraftFailed ||
                             composer.taxonomyValidationMessage != null,
+                        announce: error != null || notice != null,
                         busy: busy,
                         label: submitLabel,
                         onSubmit: onSubmit,
@@ -4428,6 +4429,7 @@ class _Footer extends StatelessWidget {
     required this.pickImages,
     required this.message,
     required this.isError,
+    required this.announce,
     required this.busy,
     required this.label,
     required this.onSubmit,
@@ -4440,6 +4442,12 @@ class _Footer extends StatelessWidget {
   final ComposerImagePicker pickImages;
   final String? message;
   final bool isError;
+
+  /// Whether [message] reports the outcome of something just done — a submit,
+  /// a pick, a discard — which lands away from focus and must be spoken. A
+  /// standing taxonomy requirement is not news, and a draft-save failure is
+  /// already announced by the header.
+  final bool announce;
   final bool busy;
   final String label;
   final VoidCallback? onSubmit;
@@ -4462,12 +4470,16 @@ class _Footer extends StatelessWidget {
 
     final status = message == null
         ? const SizedBox.shrink()
-        : Text(
-            message!,
-            style: theme.textTheme.labelSmall?.copyWith(
-              color: isError
-                  ? theme.colorScheme.error
-                  : theme.colorScheme.onSurfaceVariant,
+        : Semantics(
+            container: true,
+            liveRegion: announce,
+            child: Text(
+              message!,
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: isError
+                    ? theme.colorScheme.error
+                    : theme.colorScheme.onSurfaceVariant,
+              ),
             ),
           );
     final toolbar = composer.target.isTaxonomyEdit
