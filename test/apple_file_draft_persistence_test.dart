@@ -235,6 +235,69 @@ void main() {
       ));
       expect(legacy.events, isEmpty);
     });
+
+    test('records no key blocker which a site blocker covers', () async {
+      final legacy = _LegacyDraftStorage({key: 'stale'});
+      final storage = AppleFileDraftPersistence(
+        file: file,
+        legacyStorage: legacy,
+      );
+      await storage.deletePrefix(sitePrefix);
+
+      await storage.write(key, 'current');
+      await storage.delete(key);
+
+      expect(jsonDecode(await file.readAsString()), {
+        'version': 1,
+        'values': <String, Object?>{},
+        'blockedLegacyKeys': <Object?>[],
+        'blockedLegacyPrefixes': [sitePrefix],
+      });
+      expect(await storage.read(key), (
+        value: null,
+        allowPreferenceFallback: false,
+      ));
+      expect(legacy.events, isEmpty);
+    });
+
+    test('drops stored key blockers a site blocker covers on write', () async {
+      const coveredKey = '${sitePrefix}topic_7';
+      final seeded = jsonEncode({
+        'version': 1,
+        'values': <String, Object?>{},
+        'blockedLegacyKeys': [coveredKey, otherKey],
+        'blockedLegacyPrefixes': [sitePrefix],
+      });
+      await file.parent.create(recursive: true);
+      await file.writeAsString(seeded);
+      final legacy = _LegacyDraftStorage({
+        coveredKey: 'stale',
+        otherKey: 'other-stale',
+      });
+      final storage = AppleFileDraftPersistence(
+        file: file,
+        legacyStorage: legacy,
+      );
+
+      await storage.delete(coveredKey);
+      expect(await file.readAsString(), seeded);
+
+      await storage.write(key, 'current');
+
+      expect(jsonDecode(await file.readAsString()), {
+        'version': 1,
+        'values': {key: 'current'},
+        'blockedLegacyKeys': [otherKey],
+        'blockedLegacyPrefixes': [sitePrefix],
+      });
+      for (final blocked in [coveredKey, otherKey]) {
+        expect(await storage.read(blocked), (
+          value: null,
+          allowPreferenceFallback: false,
+        ));
+      }
+      expect(legacy.events, isEmpty);
+    });
   });
 
   group('corrupt file handling', () {
