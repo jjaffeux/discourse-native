@@ -333,7 +333,9 @@ class TopicStatusButton extends StatefulWidget {
       _TopicCommand.pinned => current.hasPinPreference,
       _TopicCommand.selectPosts => current.canSelectPosts,
       _TopicCommand.closed => current.canCloseTopic,
-      _TopicCommand.archived => current.canArchiveTopic,
+      _TopicCommand.archived => current.canChangeStatus(
+        TopicStatusProperty.archived,
+      ),
       _TopicCommand.visible => current.canToggleTopicVisibility,
       _TopicCommand.delete => current.canDeleteTopic,
       _TopicCommand.recover => current.canRecoverTopic,
@@ -414,7 +416,7 @@ class TopicStatusButton extends StatefulWidget {
           leading: const DIcon(DIcons.lock),
           child: Text(topic.closed ? 'Open topic' : 'Close topic'),
         ),
-      if (topic.canArchiveTopic)
+      if (topic.canChangeStatus(TopicStatusProperty.archived))
         DDropdownMenuItem(
           onPressed: () => select(_TopicCommand.archived),
           key: const ValueKey('topic-status-archived'),

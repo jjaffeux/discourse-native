@@ -839,9 +839,15 @@ class TopicDetail with Storable<TopicDetail> {
     ],
   );
 
+  /// Whether the viewer may toggle [property] from the topic's actions.
+  ///
+  /// TopicViewDetailsSerializer sends `can_archive_topic` to staff on
+  /// private messages too, but the web's topic admin menu never offers it
+  /// there: archiving a message stops its participants replying, while
+  /// filing it away for oneself is the inbox archive, [messageArchived].
   bool canChangeStatus(TopicStatusProperty property) => switch (property) {
     TopicStatusProperty.closed => canCloseTopic,
-    TopicStatusProperty.archived => canArchiveTopic,
+    TopicStatusProperty.archived => canArchiveTopic && !privateMessage,
     TopicStatusProperty.visible => canToggleTopicVisibility,
   };
 
@@ -853,7 +859,7 @@ class TopicDetail with Storable<TopicDetail> {
 
   bool get hasStatusActions =>
       canCloseTopic ||
-      canArchiveTopic ||
+      canChangeStatus(TopicStatusProperty.archived) ||
       canToggleTopicVisibility ||
       canDeleteTopic ||
       canRecoverTopic ||
