@@ -34,6 +34,7 @@ final class _TopicSiteApi extends FakeDiscourseApi {
   final topicCreates = <String>[];
   bool createLands = true;
   bool createdByReachable = true;
+  bool draftSavesReachable = true;
 
   /// Topic#title after TextCleaner.clean_title with title_prettify.
   String Function(String title) storedTitle = (title) => title;
@@ -48,13 +49,14 @@ final class _TopicSiteApi extends FakeDiscourseApi {
     String? owner,
     String? clientId,
   }) async {
+    if (!draftSavesReachable) {
+      throw const WriteException(WriteFailure.unreachable);
+    }
     final current = sequences[draftKey] ?? 0;
-    // A draft at another sequence is a conflict the client retries with
-    // force_save, which advances it; with no draft at all the controller
-    // sets it again at the current sequence.
-    final saved = drafts.containsKey(draftKey) && sequence != current
-        ? current + 1
-        : current;
+    // Draft.set advances the sequence on every save of an existing draft
+    // (after a force_save retry when the client's sequence is stale); with no
+    // draft at all DraftsController sets it at the current sequence.
+    final saved = drafts.containsKey(draftKey) ? current + 1 : current;
     sequences[draftKey] = saved;
     drafts[draftKey] = data;
     return saved;
@@ -197,6 +199,23 @@ void main() {
     await shell.submitComposer();
 
     expect(composer.isDisposed, isTrue);
+    expect(api.topicCreates, hasLength(1));
+  });
+
+  test('a draft still at the sent sequence reads as not posted even when '
+      'the last save before sending never reached the site', () async {
+    final composer = await compose('Printer is on fire', 'Please send help.');
+    api.createLands = false;
+    api.draftSavesReachable = false;
+    // Flushed as the submit starts, but the site keeps the earlier text at
+    // the sequence the create is then sent at.
+    composer.text.text = 'Please send help, quickly.';
+
+    await shell.submitComposer();
+    await shell.recheckComposer();
+
+    expect(composer.state, ComposerState.editing);
+    expect(composer.canSubmit, isTrue);
     expect(api.topicCreates, hasLength(1));
   });
 

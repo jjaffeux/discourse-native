@@ -13075,13 +13075,12 @@ class ShellController extends FrameSafeNotifier
       );
       if (!session.isCurrent) return;
       final draft = retained.draft;
-      // Creating the topic advances the draft sequence, and a save after that
-      // recreates the draft at the new one; only a draft still at the sequence
-      // the create was sent at shows that the create never ran.
-      if (draft != null &&
-          retained.sequence == sent.draftSequence &&
-          _titleKey(draft.title ?? '') == _titleKey(sent.title) &&
-          _storedRaw(draft.reply) == _storedRaw(sent.raw)) {
+      // Creating the topic advances the draft sequence, and so does every save
+      // after it, including one that recreates the draft the create removed.
+      // A draft still at the sequence the create was sent at therefore shows
+      // the create never ran, whatever it holds: the last save before sending
+      // may not have reached the site.
+      if (draft != null && retained.sequence == sent.draftSequence) {
         session.commit(() => composer.checkedNotPosted(failure));
         return;
       }
