@@ -742,8 +742,8 @@ void main() {
       final tracker = await _openTopic(shell);
 
       tracker.deliverTopicMessage('/topic/7/reactions', {'post_id': 1});
-      tracker.deliverTopicMessage('/topic/7/reactions', {'post_id': 1});
       await api.waitForPostRequests(1);
+      tracker.deliverTopicMessage('/topic/7/reactions', {'post_id': 1});
       await pumpEventQueue();
       expect(api.postRequests, hasLength(1));
 
@@ -755,6 +755,197 @@ void main() {
       await pumpEventQueue();
 
       expect(shell.store.read<Post>(_siteUrl, 1)?.cooked, 'newer');
+    });
+
+    Future<
+      ({ShellController shell, _PostOrderingApi api, FakeSiteTracker tracker})
+    >
+    openWithHeldPosts(int count, {Completer<void>? likeGate}) async {
+      final api = _PostOrderingApi(likeGate: likeGate);
+      final shell = await _loadShell(api);
+      addTearDown(shell.dispose);
+      api.topics[7] = topicPayload(
+        id: 7,
+        title: 'A topic',
+        posts: [
+          _post('initial', canLike: true),
+          for (var id = 2; id <= count; id++) _streamPost(id),
+        ],
+      );
+      final tracker = await _openTopic(shell);
+      for (var id = 1; id <= count; id++) {
+        expect(shell.store.read<Post>(_siteUrl, id), isNotNull);
+      }
+      return (shell: shell, api: api, tracker: tracker);
+    }
+
+    Post reread(int id) =>
+        Post(id: id, postNumber: id, username: 'replier', cooked: 'read $id');
+
+    test('reads the posts one poll answer names in one request', () async {
+      final (:shell, :api, :tracker) = await openWithHeldPosts(5);
+
+      // Core's own post messages beside a feature's, in one delivered run.
+      tracker
+        ..deliverTopicMessage('/topic/7', const {'type': 'liked', 'id': 3})
+        ..deliverTopicMessage('/topic/7', const {'type': 'revised', 'id': 1})
+        ..deliverTopicMessage('/topic/7/reactions', {'post_id': 5})
+        ..deliverTopicMessage('/topic/7', const {'type': 'acted', 'id': 2});
+      await api.waitForPostRequests(1);
+      await pumpEventQueue();
+
+      expect(api.postRequests.single.ids, [3, 1, 5, 2]);
+      api.postRequests.single.response.complete([
+        for (final id in const [1, 2, 3, 5]) reread(id),
+      ]);
+      await pumpEventQueue();
+
+      for (final id in const [1, 2, 3, 5]) {
+        expect(shell.store.read<Post>(_siteUrl, id)?.cooked, 'read $id');
+      }
+      expect(shell.store.read<Post>(_siteUrl, 4)?.cooked, 'post 4');
+      expect(api.postRequests, hasLength(1));
+    });
+
+    test('reads a post one poll answer names twice once', () async {
+      final (:shell, :api, :tracker) = await openWithHeldPosts(1);
+
+      tracker
+        ..deliverTopicMessage('/topic/7', const {'type': 'liked', 'id': 1})
+        ..deliverTopicMessage('/topic/7', const {'type': 'revised', 'id': 1})
+        ..deliverTopicMessage('/topic/7/reactions', {'post_id': 1})
+        ..deliverTopicMessage('/topic/7', const {'type': 'liked', 'id': 1});
+      await api.waitForPostRequests(1);
+      api.postRequests.single.response.complete([reread(1)]);
+      await pumpEventQueue();
+
+      expect(api.postRequests.single.ids, [1]);
+      expect(shell.store.read<Post>(_siteUrl, 1)?.cooked, 'read 1');
+    });
+
+    test("reads a long answer's posts twenty at a time", () async {
+      final (:shell, :api, :tracker) = await openWithHeldPosts(25);
+
+      for (var id = 1; id <= 25; id++) {
+        tracker.deliverTopicMessage('/topic/7', {'type': 'liked', 'id': id});
+      }
+      await api.waitForPostRequests(2);
+      await pumpEventQueue();
+
+      expect(
+        [for (final request in api.postRequests) request.ids],
+        [
+          [for (var id = 1; id <= 20; id++) id],
+          [21, 22, 23, 24, 25],
+        ],
+      );
+      for (final request in api.postRequests) {
+        request.response.complete([for (final id in request.ids) reread(id)]);
+      }
+      await pumpEventQueue();
+
+      for (var id = 1; id <= 25; id++) {
+        expect(shell.store.read<Post>(_siteUrl, id)?.cooked, 'read $id');
+      }
+      expect(api.postRequests, hasLength(2));
+    });
+
+    test('reads a post named while its read is out once more', () async {
+      final (:shell, :api, :tracker) = await openWithHeldPosts(2);
+
+      tracker
+        ..deliverTopicMessage('/topic/7', const {'type': 'liked', 'id': 1})
+        ..deliverTopicMessage('/topic/7', const {'type': 'liked', 'id': 2});
+      await api.waitForPostRequests(1);
+      expect(api.postRequests.single.ids, [1, 2]);
+
+      // The read that is out may have been answered before any of these.
+      tracker
+        ..deliverTopicMessage('/topic/7', const {'type': 'liked', 'id': 1})
+        ..deliverTopicMessage('/topic/7', const {'type': 'revised', 'id': 1})
+        ..deliverTopicMessage('/topic/7', const {'type': 'liked', 'id': 1});
+      await pumpEventQueue();
+      expect(api.postRequests, hasLength(1));
+
+      api.postRequests[0].response.complete([_post('older'), reread(2)]);
+      await api.waitForPostRequests(2);
+      await pumpEventQueue();
+      expect(api.postRequests[1].ids, [1]);
+      expect(shell.store.read<Post>(_siteUrl, 1)?.cooked, 'initial');
+      expect(shell.store.read<Post>(_siteUrl, 2)?.cooked, 'read 2');
+
+      api.postRequests[1].response.complete([_post('newer')]);
+      await pumpEventQueue();
+
+      expect(shell.store.read<Post>(_siteUrl, 1)?.cooked, 'newer');
+      expect(api.postRequests, hasLength(2));
+    });
+
+    test('leaves a queued post a write takes to the write', () async {
+      final likeGate = Completer<void>();
+      final (:shell, :api, :tracker) = await openWithHeldPosts(
+        2,
+        likeGate: likeGate,
+      );
+      final post = shell.store.read<Post>(_siteUrl, 1)!;
+
+      // The reader likes the first post before the run's read leaves.
+      tracker
+        ..deliverTopicMessage('/topic/7', const {'type': 'revised', 'id': 1})
+        ..deliverTopicMessage('/topic/7', const {'type': 'revised', 'id': 2});
+      final liking = shell.toggleLike(post);
+      await api.waitForPostRequests(1);
+      await pumpEventQueue();
+      expect(api.postRequests.single.ids, [2]);
+
+      api.postRequests.single.response.complete([reread(2)]);
+      await pumpEventQueue();
+      expect(shell.store.read<Post>(_siteUrl, 1)?.liked, isTrue);
+
+      likeGate.complete();
+      expect(await liking, isNull);
+      await api.waitForPostRequests(2);
+      expect(api.postRequests[1].ids, [1]);
+      api.postRequests[1].response.complete([
+        _post('edited', canLike: true, likeCount: 1),
+      ]);
+      await pumpEventQueue();
+
+      expect(shell.store.read<Post>(_siteUrl, 1)?.cooked, 'edited');
+      expect(shell.store.read<Post>(_siteUrl, 2)?.cooked, 'read 2');
+      expect(api.postRequests, hasLength(2));
+    });
+
+    test('a deletion read beside other posts drops only its post', () async {
+      final api = _PostOrderingApi();
+      // Core's own handling only: the Topic Calendar also reads the stream
+      // again after a deletion.
+      final plugins = PluginInstaller.install(const PluginManifest([]));
+      addTearDown(plugins.close);
+      final shell = await _loadShell(api, plugins: plugins);
+      addTearDown(shell.dispose);
+      api.topics[7] = topicPayload(
+        id: 7,
+        title: 'A topic',
+        posts: [_post('initial'), _reply],
+      );
+      final tracker = await _openTopic(shell);
+
+      tracker
+        ..deliverTopicMessage('/topic/7', const {'type': 'revised', 'id': 1})
+        ..deliverTopicMessage('/topic/7', const {'type': 'deleted', 'id': 2});
+      await api.waitForPostRequests(1);
+      await pumpEventQueue();
+      expect(api.postRequests.single.ids, [1, 2]);
+
+      api.postRequests.single.response.complete([_post('edited')]);
+      await pumpEventQueue();
+
+      expect(shell.store.read<Post>(_siteUrl, 1)?.cooked, 'edited');
+      expect(shell.store.read<Post>(_siteUrl, 2), isNull);
+      expect(shell.currentTopic?.stream, [1]);
+      expect(api.topicsOpened, [7]);
+      expect(api.postRequests, hasLength(1));
     });
 
     test('reveals a closed-topic small action from a created event', () async {
