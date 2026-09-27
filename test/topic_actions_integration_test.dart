@@ -5,6 +5,7 @@ import 'package:discourse_native/src/models/found_user.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/search_results.dart';
 import 'package:discourse_native/src/models/site_config.dart';
+import 'package:discourse_native/src/models/site_emoji.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/models/user_card.dart';
 import 'package:discourse_native/src/plugins/reactions/reactions_settings.dart';
@@ -1839,24 +1840,24 @@ void _registerTopicModerationTests() {
       return controller;
     }
 
+    final realTopic = topicPayload(
+      id: 7,
+      title: 'A real topic',
+      posts: [
+        const Post(
+          id: 1,
+          postNumber: 1,
+          username: 'sam',
+          cooked: '<p>First post body</p>',
+        ),
+      ],
+      stream: const [1],
+    );
+
     FakeDiscourseApi serving({Map<String, SiteConfig> configs = const {}}) =>
         FakeDiscourseApi(
           feeds: {'/latest.json': const []},
-          topics: {
-            7: topicPayload(
-              id: 7,
-              title: 'A real topic',
-              posts: [
-                const Post(
-                  id: 1,
-                  postNumber: 1,
-                  username: 'sam',
-                  cooked: '<p>First post body</p>',
-                ),
-              ],
-              stream: const [1],
-            ),
-          },
+          topics: {7: realTopic},
           siteConfigs: configs,
         );
 
@@ -1947,6 +1948,101 @@ void _registerTopicModerationTests() {
       expect(api.siteConfigsRequested, hasLength(3));
     });
 
+    ({int config, int custom, int catalog}) asked(_OutagePresentationApi api) =>
+        (
+          config: api.siteConfigsRequested.where((url) => url == site).length,
+          custom: api.customEmojisRequired.where((url) => url == site).length,
+          catalog: api.emojisRequested.where((url) => url == site).length,
+        );
+
+    Future<void> exhaustDuringOutage(
+      ShellController controller,
+      WidgetTester tester,
+      _OutagePresentationApi api,
+    ) async {
+      await controller.load();
+      for (var i = 0; i < 3; i++) {
+        await controller.loadTopic(7, 'a-real-topic', force: true);
+        await tester.pump();
+      }
+      api.offline = false;
+      final before = asked(api);
+      await controller.loadTopic(7, 'a-real-topic', force: true);
+      await tester.pump();
+      expect(asked(api), before, reason: 'topic opens stay given up');
+      expect(controller.knowsEmoji(site, 'party_parrot'), isFalse);
+      expect(controller.knowsEmoji(site, 'tada'), isFalse);
+    }
+
+    _OutagePresentationApi outage() => _OutagePresentationApi(
+      feeds: {'/latest.json': const []},
+      topics: {7: realTopic},
+      siteConfigs: {site: reactionsOn},
+      customEmojisBySite: const {
+        site: {'party_parrot': '/uploads/parrot.gif'},
+      },
+      emojisBySite: const {
+        site: [SiteEmoji(name: 'tada', url: '/images/emoji/tada.png')],
+      },
+    );
+
+    testWidgets('selecting a site given up on during an outage asks again', (
+      tester,
+    ) async {
+      final api = outage();
+      final controller = controllerWith(
+        tester,
+        api,
+        store: FakeInstanceStore([
+          instance('meta.discourse.org'),
+          instance('other.example.com'),
+        ]),
+      );
+      await exhaustDuringOutage(controller, tester, api);
+
+      controller.selectInstance(1);
+      controller.selectInstance(0);
+      await tester.pump();
+
+      expect(controller.knowsEmoji(site, 'party_parrot'), isTrue);
+      expect(
+        controller.emojiUrlFor(site, 'party_parrot'),
+        '$site/uploads/parrot.gif',
+      );
+      expect(controller.knowsEmoji(site, 'tada'), isTrue);
+      expect(controller.siteConfigFor(site), reactionsOn);
+
+      final recovered = asked(api);
+      controller.selectInstance(1);
+      controller.selectInstance(0);
+      await tester.pump();
+      expect(asked(api), recovered, reason: 'held values are not refetched');
+    });
+
+    testWidgets('returning to the app asks a given-up site again', (
+      tester,
+    ) async {
+      final api = outage();
+      final controller = controllerWith(tester, api);
+      await exhaustDuringOutage(controller, tester, api);
+
+      controller
+        ..setForeground(false)
+        ..setForeground(true);
+      await tester.pump();
+
+      expect(controller.knowsEmoji(site, 'party_parrot'), isTrue);
+      expect(controller.knowsEmoji(site, 'tada'), isTrue);
+      expect(controller.siteConfigFor(site), reactionsOn);
+
+      final recovered = asked(api);
+      controller
+        ..setForeground(false)
+        ..setForeground(true);
+      await tester.pump();
+      expect(asked(api), recovered, reason: 'held values are not refetched');
+    });
+
     testWidgets('signing out forgets what the site said', (tester) async {
       // On a login_required site the settings were only readable as that
       // account, so keeping an answer that can no longer be refreshed would
@@ -2021,4 +2117,67 @@ void _registerTopicModerationTests() {
       );
     }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
   });
+}
+
+final class _OutagePresentationApi extends FakeDiscourseApi {
+  _OutagePresentationApi({
+    super.feeds,
+    super.topics,
+    super.siteConfigs,
+    super.customEmojisBySite,
+    super.emojisBySite,
+  });
+
+  bool offline = true;
+
+  @override
+  Future<SiteConfig> siteConfig({
+    required String siteUrl,
+    String? apiKey,
+    String? clientId,
+  }) async {
+    if (!offline) {
+      return super.siteConfig(
+        siteUrl: siteUrl,
+        apiKey: apiKey,
+        clientId: clientId,
+      );
+    }
+    siteConfigsRequested.add(siteUrl);
+    throw SiteLookupException(SiteLookupFailure.unreachable, siteUrl);
+  }
+
+  @override
+  Future<Map<String, String>> customEmojis({
+    required String siteUrl,
+    String? apiKey,
+    String? clientId,
+  }) async {
+    if (!offline) {
+      return super.customEmojis(
+        siteUrl: siteUrl,
+        apiKey: apiKey,
+        clientId: clientId,
+      );
+    }
+    customEmojisRequired.add(siteUrl);
+    throw SiteLookupException(SiteLookupFailure.unreachable, siteUrl);
+  }
+
+  @override
+  Future<SiteEmojiCatalog> emojiCatalog({
+    required String siteUrl,
+    String? apiKey,
+    String? clientId,
+  }) async {
+    if (!offline) {
+      return super.emojiCatalog(
+        siteUrl: siteUrl,
+        apiKey: apiKey,
+        clientId: clientId,
+      );
+    }
+    emojisRequested.add(siteUrl);
+    throw SiteLookupException(SiteLookupFailure.unreachable, siteUrl);
+  }
 }

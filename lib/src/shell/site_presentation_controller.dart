@@ -215,6 +215,11 @@ final class SitePresentationController extends FrameSafeNotifier {
   Future<void> ensureConfig(String siteUrl) =>
       _configRequest(siteUrl, refresh: false);
 
+  Future<void> warmConfig(String siteUrl) {
+    _configs.forgiveAttempts(siteUrl);
+    return ensureConfig(siteUrl);
+  }
+
   Future<SiteConfig?> resolveConfig(String siteUrl) async {
     await ensureConfig(siteUrl);
     if (isDisposed) return null;
@@ -306,6 +311,11 @@ final class SitePresentationController extends FrameSafeNotifier {
     } finally {
       if (!isDisposed) lease.commit(() => _customEmojis.finish(siteUrl));
     }
+  }
+
+  Future<void> warmCustomEmojis(String siteUrl) {
+    _customEmojis.forgiveAttempts(siteUrl);
+    return ensureCustomEmojis(siteUrl);
   }
 
   SiteEmojiCatalog? emojiCatalogFor(String siteUrl) => _emojiCatalogs[siteUrl];
@@ -613,6 +623,11 @@ final class _RetryingSiteCache<T> {
     _attempts[siteUrl] = attempts + 1;
     _loading.add(siteUrl);
     return true;
+  }
+
+  void forgiveAttempts(String siteUrl) {
+    if (_loading.contains(siteUrl) || _values.containsKey(siteUrl)) return;
+    _attempts.remove(siteUrl);
   }
 
   void complete(String siteUrl, T value) {
