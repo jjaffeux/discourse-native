@@ -91,6 +91,7 @@ class _VoiceRoomControllerView extends StatefulWidget {
 
 class _VoiceRoomControllerViewState extends State<_VoiceRoomControllerView> {
   late _VoiceRoomPresentation _presentation;
+  bool _pushToTalkHeld = false;
 
   @override
   void initState() {
@@ -103,10 +104,22 @@ class _VoiceRoomControllerViewState extends State<_VoiceRoomControllerView> {
   void didUpdateWidget(_VoiceRoomControllerView oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (!identical(oldWidget.controller, widget.controller)) {
+      _releasePushToTalk(oldWidget.controller);
       oldWidget.controller.removeListener(_controllerChanged);
       widget.controller.addListener(_controllerChanged);
     }
     _presentation = _select();
+  }
+
+  /// Mutes a push-to-talk hold whose Space release can no longer reach this
+  /// room: focus left it, which on desktop includes the window deactivating,
+  /// or the room closed.
+  void _releasePushToTalk(VoiceController controller) {
+    if (!_pushToTalkHeld) return;
+    _pushToTalkHeld = false;
+    // Muting notifies every listener synchronously, and a room can close while
+    // the widget tree is locked.
+    scheduleMicrotask(() => unawaited(controller.setMuted(true)));
   }
 
   _VoiceRoomPresentation _select() {
@@ -167,6 +180,9 @@ class _VoiceRoomControllerViewState extends State<_VoiceRoomControllerView> {
     }
     return Focus(
       autofocus: true,
+      onFocusChange: (focused) {
+        if (!focused) _releasePushToTalk(widget.controller);
+      },
       onKeyEvent: (_, event) {
         if (!widget.controller.pushToTalkEnabled ||
             (!Platform.isMacOS && !Platform.isLinux) ||
@@ -174,8 +190,10 @@ class _VoiceRoomControllerViewState extends State<_VoiceRoomControllerView> {
           return KeyEventResult.ignored;
         }
         if (event is KeyDownEvent) {
+          _pushToTalkHeld = true;
           unawaited(widget.controller.setMuted(false));
         } else if (event is KeyUpEvent) {
+          _pushToTalkHeld = false;
           unawaited(widget.controller.setMuted(true));
         }
         return KeyEventResult.handled;
@@ -199,6 +217,7 @@ class _VoiceRoomControllerViewState extends State<_VoiceRoomControllerView> {
   @override
   void dispose() {
     widget.controller.removeListener(_controllerChanged);
+    _releasePushToTalk(widget.controller);
     super.dispose();
   }
 }

@@ -1929,6 +1929,10 @@ final class VoiceController extends ChangeNotifier {
     final revision = Object();
     _joinRevision = revision;
     bool isCurrent() => siteIsCurrent() && identical(_joinRevision, revision);
+    // Push to talk and the saved devices are restored asynchronously; a join
+    // that raced the restore would open the microphone of a user who chose to
+    // speak only while holding Space.
+    await _devicePreferencesLoaded;
     final credentials = await _requestCredentials(
       siteUrl,
       ifCurrent: isCurrent,
@@ -2162,11 +2166,11 @@ final class VoiceController extends ChangeNotifier {
         this.room(siteUrl, room.id) ?? room,
         response.room,
       );
-      final initiallyMuted = !_canPublishAudio(
-        joinedRoom,
-        joinedRoom.participants,
-        userId,
-      );
+      // Push to talk speaks only while Space is held, so it joins muted even
+      // where the room would let the user speak.
+      final initiallyMuted =
+          _pushToTalkEnabled ||
+          !_canPublishAudio(joinedRoom, joinedRoom.participants, userId);
       await media.setMuted(initiallyMuted);
       if (!isCurrent()) {
         _record(

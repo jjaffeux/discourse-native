@@ -3691,13 +3691,16 @@ void main() {
           }
         });
         useTransport(transport);
-        await joinRoom();
+        // A join waits for the device read, so the selection lands while the
+        // join is waiting and the read answers after it.
+        final joining = joinRoom();
         watch();
         await controller.selectCamera('new-camera');
 
         devices.complete(
           const VoiceDevicePreferences(cameraDeviceId: 'old-camera'),
         );
+        await joining;
         await pumpEventQueue();
 
         expect(controller.cameraDeviceId, 'new-camera');
@@ -5702,6 +5705,66 @@ void main() {
       );
       expect(join.body['skip_status'], isTrue);
     });
+
+    Future<void> joinOpenRoom() async {
+      await controller.ensureLoaded(firstSite);
+      await controller.join(
+        siteUrl: firstSite,
+        siteName: 'One',
+        room: controller.room(firstSite, 7)!,
+      );
+    }
+
+    void expectJoinedMuted() {
+      expect(controller.call!.muted, isTrue);
+      expect(mediaFactory.sessions.single.muted, isTrue);
+      expect(systemCall.systemMuted, isTrue);
+      final state = transport.writes.lastWhere(
+        (write) => write.path.endsWith('/state.json'),
+      );
+      expect(state.body['muted'], isTrue);
+    }
+
+    test('a restored push-to-talk choice joins an open room muted', () async {
+      transport.responses['POST /voice/rooms/7/join.json'] = fixture(
+        'join_mesh',
+      );
+      preferences.devices = const VoiceDevicePreferences(
+        pushToTalkEnabled: true,
+      );
+      useTransport(transport);
+      await pumpEventQueue();
+      expect(controller.pushToTalkEnabled, isTrue);
+
+      await joinOpenRoom();
+
+      expectJoinedMuted();
+    });
+
+    test(
+      'a join that starts before push-to-talk is restored still joins muted',
+      () async {
+        transport.responses['POST /voice/rooms/7/join.json'] = fixture(
+          'join_mesh',
+        );
+        final devices = Completer<VoiceDevicePreferences>();
+        preferences.onReadDevices = () => devices.future;
+        addTearDown(() {
+          if (!devices.isCompleted) {
+            devices.complete(const VoiceDevicePreferences());
+          }
+        });
+        useTransport(transport);
+
+        final joining = joinOpenRoom();
+        await pumpEventQueue();
+        expect(controller.call, isNull);
+        devices.complete(const VoiceDevicePreferences(pushToTalkEnabled: true));
+        await joining;
+
+        expectJoinedMuted();
+      },
+    );
 
     test('the default status choice leaves the join request alone', () async {
       await controller.ensureLoaded(firstSite);

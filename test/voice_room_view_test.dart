@@ -446,6 +446,83 @@ void main() {
       await tester.pump();
     });
 
+    for (final release in ['loses focus', 'closes']) {
+      testWidgets(
+        'mutes push-to-talk held while the room $release before Space is released',
+        (tester) async {
+          final room = _room(
+            participants: const [
+              VoiceParticipant(
+                id: 1,
+                username: 'sam',
+                role: VoiceRole.participant,
+              ),
+            ],
+          );
+          final harness = _Harness(joinRoom: room);
+          addTearDown(harness.dispose);
+          await _join(harness, room);
+          await harness.controller.setPushToTalkEnabled(true);
+          final shell = _voiceShell(
+            harness.controller,
+            site: const PluginRouteSite(
+              url: _siteUrl,
+              title: 'Voice',
+              isConnected: true,
+            ),
+          );
+          Widget app({required bool roomOpen}) => MaterialApp(
+            home: Column(
+              children: [
+                // The shell keeps drawing the call after its room closes.
+                ListenableBuilder(
+                  listenable: harness.controller,
+                  builder: (context, _) => Text(
+                    harness.controller.call?.muted ?? false ? 'Muted' : 'Live',
+                  ),
+                ),
+                if (roomOpen)
+                  Expanded(
+                    child: VoiceRoomView(
+                      roomId: 7,
+                      controller: harness.controller,
+                      shell: shell,
+                    ),
+                  ),
+              ],
+            ),
+          );
+          await tester.pumpWidget(app(roomOpen: true));
+          await tester.pumpAndSettle();
+          final media = harness.media.sessions.single;
+          expect(
+            await tester.sendKeyDownEvent(LogicalKeyboardKey.space),
+            isTrue,
+          );
+          await tester.pumpAndSettle();
+          expect(media.muted, isFalse);
+          expect(find.text('Live'), findsOneWidget);
+
+          // Desktop focus leaves the room when the window deactivates, and
+          // the Space release is then delivered elsewhere or not at all.
+          if (release == 'loses focus') {
+            tester.binding.focusManager.primaryFocus!.unfocus();
+          } else {
+            await tester.pumpWidget(app(roomOpen: false));
+          }
+          await tester.pumpAndSettle();
+          expect(tester.takeException(), isNull);
+          expect(media.muted, isTrue);
+          expect(harness.controller.call?.muted, isTrue);
+          expect(find.text('Muted'), findsOneWidget);
+
+          await tester.sendKeyUpEvent(LogicalKeyboardKey.space);
+          await harness.controller.leave();
+          await tester.pump();
+        },
+      );
+    }
+
     testWidgets('exposes controls after joining and reports mute failures', (
       tester,
     ) async {
