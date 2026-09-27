@@ -1178,10 +1178,10 @@ final class ChatLiveSyncCoordinator {
     final held = _host.channelFor(siteUrl, channelId);
     if (held == null) return;
     _host.didReceiveChannelStatus(siteUrl, channelId);
-    _host.putChannel(
-      siteUrl,
-      held.withRemoteStatus(ChatChannelStatus.read(rawStatus)),
-    );
+    // Only an open channel's mentions count toward the account's Chat total.
+    final updated = held.withRemoteStatus(ChatChannelStatus.read(rawStatus));
+    _host.putChannel(siteUrl, updated);
+    _host.publishNotificationChange(siteUrl, held, updated);
     _host.notifyCanonicalChange();
   }
 

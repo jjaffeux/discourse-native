@@ -1119,16 +1119,21 @@ class ChatController extends FrameSafeNotifier {
     // view that lands while the request is in flight stays on the live
     // membership: the server's answer carries cursors older than a read that
     // happened locally meanwhile, and the rollback must not undo a
-    // concurrent optimistic star.
+    // concurrent optimistic star. Muting changes how the channel counts, so
+    // the projection, the server's answer and a rollback each publish their
+    // own counter change.
     void project(ChatMembership source) {
       lease.commit(() {
         final current = channel(siteUrl, channelId) ?? held;
-        _putChannel(
+        _publishListedNotificationChange(
           siteUrl,
-          current.withMembership(
-            current.membership.withNotifications(
-              muted: source.muted,
-              notificationLevel: source.notificationLevel,
+          () => _putChannel(
+            siteUrl,
+            current.withMembership(
+              current.membership.withNotifications(
+                muted: source.muted,
+                notificationLevel: source.notificationLevel,
+              ),
             ),
           ),
         );
@@ -1506,7 +1511,10 @@ class ChatController extends FrameSafeNotifier {
         if (current != null &&
             fresh.id == current.id &&
             !token.receivedStatus) {
-          _putChannel(siteUrl, current.withRemoteStatus(fresh.status));
+          _publishListedNotificationChange(
+            siteUrl,
+            () => _putChannel(siteUrl, current.withRemoteStatus(fresh.status)),
+          );
         }
         notifySafely();
       });
@@ -1594,10 +1602,14 @@ class ChatController extends FrameSafeNotifier {
           membership,
           membershipsCount: current.membershipsCount + memberDelta,
         );
-        _putChannel(siteUrl, next);
-        final ids = (next.isDirectMessage ? _directIds : _publicIds)
-            .putIfAbsent(siteUrl, () => []);
-        if (membership.following) {
+        _publishListedNotificationChange(siteUrl, () {
+          _putChannel(siteUrl, next);
+          final ids = (next.isDirectMessage ? _directIds : _publicIds)
+              .putIfAbsent(siteUrl, () => []);
+          if (!membership.following) {
+            ids.remove(next.id);
+            return;
+          }
           if (!ids.contains(next.id)) ids.add(next.id);
           if (!next.isDirectMessage) {
             ids.sort((left, right) {
@@ -1608,9 +1620,10 @@ class ChatController extends FrameSafeNotifier {
               );
             });
           }
+        });
+        if (membership.following) {
           _liveSync.adoptChannel(siteUrl, next, includeActivity: true);
         } else {
-          ids.remove(next.id);
           _liveSync.stopFollowingChannel(siteUrl, next.id);
         }
         notifySafely();
@@ -1777,13 +1790,15 @@ class ChatController extends FrameSafeNotifier {
         channel =
             this.channel(siteUrl, channel.id)?.withServerSettings(channel) ??
             channel;
-        _putChannel(siteUrl, channel);
-        final direct = _directIds[siteUrl] ?? const <int>[];
-        _directIds[siteUrl] = [
-          channel.id,
-          for (final id in direct)
-            if (id != channel.id) id,
-        ];
+        _publishListedNotificationChange(siteUrl, () {
+          _putChannel(siteUrl, channel);
+          final direct = _directIds[siteUrl] ?? const <int>[];
+          _directIds[siteUrl] = [
+            channel.id,
+            for (final id in direct)
+              if (id != channel.id) id,
+          ];
+        });
         _liveSync.adoptChannel(siteUrl, channel, includeActivity: true);
         notifySafely();
       });
@@ -1832,20 +1847,22 @@ class ChatController extends FrameSafeNotifier {
     lease.commit(() {
       final listed = _directIds[siteUrl];
       var sidebarChanged = false;
-      for (final item in result.items) {
-        if (item case ChatDirectMessageChannel(:final channel)) {
-          final held = _store.read<ChatChannel>(siteUrl, channel.id);
-          _store.put(siteUrl, held?.withServerSettings(channel) ?? channel);
-          if (listed != null &&
-              channel.isDirectMessage &&
-              channel.membership.following &&
-              !listed.contains(channel.id)) {
-            listed.insert(0, channel.id);
-            _liveSync.adoptChannel(siteUrl, channel, includeActivity: true);
-            sidebarChanged = true;
+      _publishListedNotificationChange(siteUrl, () {
+        for (final item in result.items) {
+          if (item case ChatDirectMessageChannel(:final channel)) {
+            final held = _store.read<ChatChannel>(siteUrl, channel.id);
+            _store.put(siteUrl, held?.withServerSettings(channel) ?? channel);
+            if (listed != null &&
+                channel.isDirectMessage &&
+                channel.membership.following &&
+                !listed.contains(channel.id)) {
+              listed.insert(0, channel.id);
+              _liveSync.adoptChannel(siteUrl, channel, includeActivity: true);
+              sidebarChanged = true;
+            }
           }
         }
-      }
+      });
       if (sidebarChanged) {
         notifySafely();
       }
@@ -1853,15 +1870,45 @@ class ChatController extends FrameSafeNotifier {
     return result;
   }
 
-  static int _notificationContribution(ChatChannel channel) =>
-      channel.isDirectMessage
-      ? channel.tracking.unreadCount
-      : channel.tracking.mentionCount;
+  // Mirrors Chat::ChannelFetcher.unreads_total, the server's side of this
+  // counter: it sums mentions over followed open category channels (muting
+  // does not clear a mention) and unread messages over followed direct
+  // messages (a muted one reports none).
+  static int _notificationContribution(ChatChannel channel) {
+    final membership = channel.membership;
+    if (!membership.following) return 0;
+    if (channel.isDirectMessage) {
+      return membership.muted ? 0 : channel.tracking.unreadCount;
+    }
+    return channel.status == ChatChannelStatus.open
+        ? channel.tracking.mentionCount
+        : 0;
+  }
 
   int _chatNotifications(String siteUrl) => [
     ...publicChannels(siteUrl),
     ...directChannels(siteUrl),
   ].fold(0, (count, channel) => count + _notificationContribution(channel));
+
+  /// Publishes how far [change] moved the listed channels' share of the
+  /// persisted counter, which otherwise waits for a totals refresh to correct
+  /// it. Snapshots, follows, kicks, mutes, staff status writes and newly
+  /// listed channels go through here; reads and live events publish their one
+  /// channel's change directly. Before the first snapshot the totals payload
+  /// is the counter's only baseline, so nothing is published.
+  void _publishListedNotificationChange(
+    String siteUrl,
+    void Function() change,
+  ) {
+    if (!_publicIds.containsKey(siteUrl)) {
+      change();
+      return;
+    }
+    final before = _chatNotifications(siteUrl);
+    change();
+    final delta = _chatNotifications(siteUrl) - before;
+    if (delta != 0) onChatNotificationsDelta?.call(siteUrl, delta);
+  }
 
   void _publishNotificationChange(
     String siteUrl,
@@ -1873,23 +1920,24 @@ class ChatController extends FrameSafeNotifier {
     if (delta != 0) onChatNotificationsDelta?.call(siteUrl, delta);
   }
 
-  void _insertLiveChannel(String siteUrl, ChatChannel incoming) {
-    if (incoming.isDirectMessage && incoming.membership.following) {
-      final ids = _directIds.putIfAbsent(siteUrl, () => []);
-      if (!ids.contains(incoming.id)) ids.add(incoming.id);
-      return;
-    }
-    if (!incoming.isCategoryChannel) return;
-    final ids = _publicIds.putIfAbsent(siteUrl, () => []);
-    if (!ids.contains(incoming.id)) ids.add(incoming.id);
-    ids.sort((a, b) {
-      final left = channel(siteUrl, a);
-      final right = channel(siteUrl, b);
-      return (left?.slug ?? left?.title ?? '').toLowerCase().compareTo(
-        (right?.slug ?? right?.title ?? '').toLowerCase(),
-      );
-    });
-  }
+  void _insertLiveChannel(String siteUrl, ChatChannel incoming) =>
+      _publishListedNotificationChange(siteUrl, () {
+        if (incoming.isDirectMessage && incoming.membership.following) {
+          final ids = _directIds.putIfAbsent(siteUrl, () => []);
+          if (!ids.contains(incoming.id)) ids.add(incoming.id);
+          return;
+        }
+        if (!incoming.isCategoryChannel) return;
+        final ids = _publicIds.putIfAbsent(siteUrl, () => []);
+        if (!ids.contains(incoming.id)) ids.add(incoming.id);
+        ids.sort((a, b) {
+          final left = channel(siteUrl, a);
+          final right = channel(siteUrl, b);
+          return (left?.slug ?? left?.title ?? '').toLowerCase().compareTo(
+            (right?.slug ?? right?.title ?? '').toLowerCase(),
+          );
+        });
+      });
 
   Object? _beginLiveChannelFollow(String siteUrl, int channelId) {
     final key = _streamKey(siteUrl, channelId);
@@ -3706,8 +3754,10 @@ class ChatController extends FrameSafeNotifier {
   void _removeKickedChannelState(String siteUrl, int channelId) {
     _channelRefreshes[siteUrl]?.removeChannel(channelId);
     final key = _streamKey(siteUrl, channelId);
-    _publicIds[siteUrl]?.remove(channelId);
-    _directIds[siteUrl]?.remove(channelId);
+    _publishListedNotificationChange(siteUrl, () {
+      _publicIds[siteUrl]?.remove(channelId);
+      _directIds[siteUrl]?.remove(channelId);
+    });
     _partialChannelIds[siteUrl]?.remove(channelId);
     final threadPrefix = '$siteUrl~channel-$channelId-thread-';
     // Revocation supersedes reads started while the channel was accessible.
@@ -5059,29 +5109,23 @@ class ChatController extends FrameSafeNotifier {
           direct: directChannels(siteUrl),
         );
         _channelRefreshes.remove(siteUrl);
-        final replacingSnapshot = _publicIds.containsKey(siteUrl);
-        final previousNotifications = replacingSnapshot
-            ? _chatNotifications(siteUrl)
-            : 0;
-        _store.putAll(siteUrl, channels.public);
-        _store.putAll(siteUrl, channels.direct);
-        _partialChannelIds[siteUrl]?.removeAll([
-          for (final channel in [...channels.public, ...channels.direct])
-            channel.id,
-        ]);
-        for (final channel in [...channels.public, ...channels.direct]) {
-          if (_liveSync.isViewingChannel(siteUrl, channel.id)) {
-            _advanceLastViewedAt(siteUrl, channel.id, notify: false);
+        _publishListedNotificationChange(siteUrl, () {
+          _store.putAll(siteUrl, channels.public);
+          _store.putAll(siteUrl, channels.direct);
+          _partialChannelIds[siteUrl]?.removeAll([
+            for (final channel in [...channels.public, ...channels.direct])
+              channel.id,
+          ]);
+          for (final channel in [...channels.public, ...channels.direct]) {
+            if (_liveSync.isViewingChannel(siteUrl, channel.id)) {
+              _advanceLastViewedAt(siteUrl, channel.id, notify: false);
+            }
           }
-        }
-        _publicIds[siteUrl] = [for (final c in channels.public) c.id];
-        _directIds[siteUrl] = [for (final c in channels.direct) c.id];
+          _publicIds[siteUrl] = [for (final c in channels.public) c.id];
+          _directIds[siteUrl] = [for (final c in channels.direct) c.id];
+        });
         if (hasThreads(siteUrl) == hadThreads) {
           _hasThreads[siteUrl] = channels.hasThreads;
-        }
-        if (replacingSnapshot) {
-          final delta = _chatNotifications(siteUrl) - previousNotifications;
-          if (delta != 0) onChatNotificationsDelta?.call(siteUrl, delta);
         }
         _liveSync.replace(
           siteUrl,
