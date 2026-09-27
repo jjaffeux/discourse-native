@@ -1,3 +1,4 @@
+import 'package:discourse_native/discourse_ui.dart' show DDropdownMenuItem;
 import 'package:discourse_native/src/data/discourse_api_contracts.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
@@ -11,6 +12,8 @@ import 'package:discourse_native/src/plugins/assign/assign_notifications.dart';
 import 'package:discourse_native/src/plugins/assign/assign_services.dart';
 import 'package:discourse_native/src/plugins/assign/assignment.dart';
 import 'package:discourse_native/src/plugins/assign/assignment_controller.dart';
+import 'package:discourse_native/src/plugins/assign/assignment_sheet.dart';
+import 'package:discourse_native/src/shell/post_actions.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
@@ -18,10 +21,12 @@ import 'package:discourse_native/src/theme/d_icon.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:discourse_native/src/ui/components/d_toast.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/bundled_plugins.dart';
 import 'support/fakes.dart';
+import 'support/shell_test_harness.dart';
 
 const _site = 'https://meta.discourse.org';
 
@@ -926,7 +931,10 @@ void main() {
       expect(find.byKey(const Key('assign-topic-property')), findsOneWidget);
       expect(postMenu.entries.map((entry) => entry.label), ['Assign post']);
       expect(identical(topicPropertiesRebuildOn, assignments), isTrue);
-      expect(identical(postMenuRebuildOn, assignments), isTrue);
+      expect(
+        identical(postMenuRebuildOn, assignments.permissionChanges(_site)),
+        isTrue,
+      );
       final initialTopicPropertiesBuilds = topicPropertiesBuilds;
       final initialPostMenuBuilds = postMenuBuilds;
 
@@ -942,7 +950,10 @@ void main() {
       expect(postMenuBuilds, greaterThan(initialPostMenuBuilds));
       expect(find.byKey(const Key('assign-topic-property')), findsNothing);
       expect(postMenu.entries, isEmpty);
-      expect(identical(postMenu.rebuildOn, assignments), isTrue);
+      expect(
+        identical(postMenu.rebuildOn, assignments.permissionChanges(_site)),
+        isTrue,
+      );
     });
 
     testWidgets('keep an assigned post read-only after a legacy 404', (
@@ -988,28 +999,32 @@ void main() {
               body: Builder(
                 builder: (context) {
                   final registry = PluginScope.of(context).registry;
-                  return ListenableBuilder(
-                    listenable: assignments,
-                    builder: (context, _) {
-                      final topic = shell.currentTopic!;
-                      final post = shell.store.read<Post>(_site, 12)!;
-                      return Column(
-                        children: [
-                          for (final section in registry.topicProperties(
-                            context,
-                            _site,
-                            topic,
-                          ))
-                            ...section.values,
-                          ...registry.postDecorations(
-                            context,
-                            _site,
-                            topic,
-                            post,
-                          ),
-                        ],
-                      );
-                    },
+                  final topic = shell.currentTopic!;
+                  return Column(
+                    children: [
+                      ListenableBuilder(
+                        listenable: assignments,
+                        builder: (context, _) => Column(
+                          children: [
+                            for (final section in registry.topicProperties(
+                              context,
+                              _site,
+                              shell.currentTopic!,
+                            ))
+                              ...section.values,
+                          ],
+                        ),
+                      ),
+                      // Built once, as the stream builds a post whose record
+                      // has not changed: the row follows its site's
+                      // permission by itself.
+                      ...registry.postDecorations(
+                        context,
+                        _site,
+                        topic,
+                        shell.store.read<Post>(_site, 12)!,
+                      ),
+                    ],
                   );
                 },
               ),
@@ -1067,6 +1082,163 @@ void main() {
       await shell.loadTopic(7, 'topic');
       expect(api.topicsOpened, [7, 7, 7]);
     });
+  });
+
+  group('rebuild isolation', () {
+    const listed = Topic(id: 7, title: 'Assigned topic', slug: 'topic');
+    const sam = AssignmentUser(username: 'sam', name: 'Sam');
+
+    Assignment assignedTo(int postId) =>
+        Assignment(assignee: sam, postId: postId, postNumber: postId - 10);
+
+    // The topic carries no Assign record of its own, so the reload after a
+    // write changes the written post alone. A topic record that moved would
+    // redraw every post, which is the host's doing rather than Assign's.
+    TopicPayload topic({required Set<int> assigned}) => topicPayload(
+      id: 7,
+      title: listed.title,
+      posts: [
+        const Post(
+          id: 11,
+          postNumber: 1,
+          username: 'author',
+          cooked: '<p>Opening post</p>',
+        ),
+        for (final id in const [12, 13, 14])
+          Post(
+            id: id,
+            postNumber: id - 10,
+            username: 'author',
+            cooked: '<p>Reply $id</p>',
+            plugins: PluginData.none.withValue(
+              assignmentsDataKey,
+              Assignments(
+                canAssign: true,
+                direct: assigned.contains(id) ? assignedTo(id) : null,
+              ),
+            ),
+          ),
+      ],
+    );
+
+    Future<(FakeDiscourseApi, ShellController)> openTopic(
+      WidgetTester tester,
+    ) async {
+      final api = FakeDiscourseApi(
+        user: _assignUser(),
+        feeds: const {
+          '/latest.json': [listed],
+        },
+        topics: {
+          7: topic(assigned: {13}),
+        },
+        siteConfigs: const {_site: SiteConfig.unknown()},
+        pluginResponses: const {
+          'PUT /assign/assign.json': {'success': 'OK'},
+          'PUT /assign/unassign.json': {'success': 'OK'},
+        },
+      );
+      // Tall enough to lay out every reply below the topic map.
+      await pumpShell(
+        tester,
+        const Size(1440, 1400),
+        api: api,
+        instances: [
+          instance('meta.discourse.org').copyWith(user: _assignUser()),
+        ],
+        authenticator: FakeAuthenticator()..keys[_site] = 'api-key',
+      );
+      await tester.tap(find.text(listed.title));
+      await tester.pumpAndSettle();
+      expect(find.byType(PostActionsFooter), findsNWidgets(4));
+      expect(find.byType(AssignmentDetailRow), findsOneWidget);
+      return (
+        api,
+        ShellScope.read(tester.element(find.byType(PostActions).first)),
+      );
+    }
+
+    /// Rebuilds from now on of each post's action bar, which redraws whenever
+    /// the post's menu is read again from every plugin, and of its assignment
+    /// row; keyed by post ID.
+    Map<int, int> countRebuilds() {
+      final rebuilds = <int, int>{};
+      final previous = debugOnRebuildDirtyWidget;
+      debugOnRebuildDirtyWidget = (element, builtOnce) {
+        previous?.call(element, builtOnce);
+        if (element.widget is! PostActionsFooter &&
+            element.widget is! AssignmentDetailRow) {
+          return;
+        }
+        final post = element.findAncestorWidgetOfExactType<PostActions>();
+        if (post == null) return;
+        rebuilds.update(post.post.id, (count) => count + 1, ifAbsent: () => 1);
+      };
+      addTearDown(() => debugOnRebuildDirtyWidget = previous);
+      return rebuilds;
+    }
+
+    Future<List<String>> menuLabels(WidgetTester tester, int postNumber) async {
+      await tester.tap(
+        find.bySemanticsLabel('More actions for post $postNumber'),
+      );
+      await tester.pumpAndSettle();
+      final labels = [
+        for (final label in const ['Assign post', 'Edit assignment'])
+          if (find
+              .widgetWithText(DDropdownMenuItem, label)
+              .evaluate()
+              .isNotEmpty)
+            label,
+      ];
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+      return labels;
+    }
+
+    testWidgets(
+      'assigning one post and unassigning another redraws each alone',
+      (tester) async {
+        final (api, shell) = await openTopic(tester);
+        expect(await menuLabels(tester, 2), ['Assign post']);
+        expect(await menuLabels(tester, 3), ['Edit assignment']);
+
+        var rebuilds = countRebuilds();
+        api.topics[7] = topic(assigned: {12, 13});
+        expect(
+          await _assignments(
+            shell,
+          ).assign(_site, const AssignmentTarget.post(12, topicId: 7), sam),
+          isNull,
+        );
+        await tester.pumpAndSettle();
+        expect(rebuilds.keys, [
+          12,
+        ], reason: 'assigning post 12 must not redraw other posts');
+
+        rebuilds = countRebuilds();
+        api.topics[7] = topic(assigned: {12});
+        expect(
+          await _assignments(
+            shell,
+          ).unassign(_site, const AssignmentTarget.post(13, topicId: 7)),
+          isNull,
+        );
+        await tester.pumpAndSettle();
+        expect(rebuilds.keys, [
+          13,
+        ], reason: 'unassigning post 13 must not redraw other posts');
+
+        expect(api.pluginWrites.map((write) => write.path), [
+          '/assign/assign.json',
+          '/assign/unassign.json',
+        ]);
+        expect(await menuLabels(tester, 2), ['Edit assignment']);
+        expect(await menuLabels(tester, 3), ['Assign post']);
+        expect(await menuLabels(tester, 4), ['Assign post']);
+      },
+      variant: TargetPlatformVariant.only(TargetPlatform.linux),
+    );
   });
 }
 

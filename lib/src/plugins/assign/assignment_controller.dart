@@ -1,6 +1,8 @@
 // ignore_for_file: prefer_initializing_formals
 
 import 'package:discourse_native/discourse_plugin_sdk.dart';
+import 'package:flutter/foundation.dart';
+
 import 'assign_api.dart';
 import 'assignment.dart';
 
@@ -109,6 +111,7 @@ class AssignmentController extends FrameSafeNotifier
   final Map<({String siteUrl, AssignmentTarget target}), Object> _writes = {};
   final Map<String, Object> _restoreSessions = {};
   final Set<String> _legacyFallbackUnavailable = {};
+  final Map<String, _PermissionChanges> _permissionChanges = {};
 
   static const _targetUnavailable =
       'This assignment target is no longer available.';
@@ -118,6 +121,25 @@ class AssignmentController extends FrameSafeNotifier
 
   bool isWriting(String siteUrl, AssignmentTarget target) =>
       _writes.containsKey((siteUrl: siteUrl, target: target));
+
+  /// Notifies when what [canAssign] answers for this site may have moved
+  /// through state held here rather than in the host's records: its legacy
+  /// fallback was withdrawn or restored. A post's menu and assignment row read
+  /// nothing else from this controller, so they listen here rather than to the
+  /// controller, which also notifies at the start and end of every write; a
+  /// topic draws one of each per post.
+  ///
+  /// One per site for the controller's lifetime: sites are few, and a
+  /// retained row may still hold it after its site is forgotten.
+  Listenable permissionChanges(String siteUrl) =>
+      _permissionChanges[siteUrl] ??= _PermissionChanges();
+
+  /// The controller itself still notifies, for consumers that also follow
+  /// writes: the topic's assignment properties.
+  void _permissionChanged(String siteUrl) {
+    _permissionChanges[siteUrl]?.changed();
+    notifySafely();
+  }
 
   bool canAssign(String siteUrl, AssignmentTarget target) {
     final snapshot = _permissionSnapshot?.call(siteUrl, target);
@@ -149,20 +171,23 @@ class AssignmentController extends FrameSafeNotifier
   void _invalidateLegacyFallback(String siteUrl) {
     final changed = _legacyFallbackUnavailable.add(siteUrl);
     _legacyInvalidator?.call(siteUrl);
-    if (changed) notifySafely();
+    if (changed) _permissionChanged(siteUrl);
   }
 
   @override
   void pluginCurrentUserRefreshed(String siteUrl) {
-    if (_legacyFallbackUnavailable.remove(siteUrl)) notifySafely();
+    if (_legacyFallbackUnavailable.remove(siteUrl)) _permissionChanged(siteUrl);
   }
 
   void forget(String siteUrl) {
     final before = _writes.length;
     _writes.removeWhere((key, _) => key.siteUrl == siteUrl);
     _restoreSessions.remove(siteUrl);
-    final fallbackChanged = _legacyFallbackUnavailable.remove(siteUrl);
-    if (_writes.length != before || fallbackChanged) notifySafely();
+    if (_legacyFallbackUnavailable.remove(siteUrl)) {
+      _permissionChanged(siteUrl);
+    } else if (_writes.length != before) {
+      notifySafely();
+    }
   }
 
   Future<AssignmentSuggestions> suggestions(
@@ -427,8 +452,17 @@ class AssignmentController extends FrameSafeNotifier
     _writes.clear();
     _restoreSessions.clear();
     _legacyFallbackUnavailable.clear();
+    for (final changes in _permissionChanges.values) {
+      changes.dispose();
+    }
+    _permissionChanges.clear();
     super.dispose();
   }
 }
 
 typedef _AssignmentSession = ({String apiKey, String clientId});
+
+/// FrameSafe for the same reason the controller is, which keeps it headless.
+final class _PermissionChanges extends FrameSafeNotifier {
+  void changed() => notifySafely();
+}

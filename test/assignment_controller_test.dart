@@ -5,6 +5,7 @@ import 'package:discourse_native/src/plugin_api/core_plugin_host.dart';
 import 'package:discourse_native/src/plugins/assign/assign_api.dart';
 import 'package:discourse_native/src/plugins/assign/assignment.dart';
 import 'package:discourse_native/src/plugins/assign/assignment_controller.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 const _site = 'https://example.com';
@@ -373,6 +374,121 @@ void main() {
       snapshotController.pluginCurrentUserRefreshed(_site);
       expect(states, hasLength(4));
     });
+  });
+
+  group('site permission changes', () {
+    const otherSite = 'https://other.example.com';
+
+    /// What [read] answered at each notification of [listenable].
+    List<T> heard<T>(Listenable listenable, T Function() read) {
+      final answers = <T>[];
+      void listener() => answers.add(read());
+      listenable.addListener(listener);
+      addTearDown(() => listenable.removeListener(listener));
+      return answers;
+    }
+
+    AssignmentController legacyController() {
+      transport.writeFailure = const WriteException(
+        WriteFailure.unreachable,
+        statusCode: 404,
+      );
+      final legacy = AssignmentController(
+        api: AssignApi(transport),
+        requests: requests,
+        permissionSnapshot: (_, _) =>
+            (valid: true, recordPermission: null, freshAccountCanAssign: true),
+        reloadTopic: (siteUrl, topicId) async =>
+            reloads.add((siteUrl: siteUrl, topicId: topicId)),
+      );
+      addTearDown(legacy.dispose);
+      return legacy;
+    }
+
+    test('a write notifies the controller but not its permission', () async {
+      final gate = Completer<void>();
+      transport.writeGate = gate;
+      final writing = heard(
+        controller,
+        () => controller.isWriting(_site, _topic),
+      );
+      final permission = heard(
+        controller.permissionChanges(_site),
+        () => controller.canAssign(_site, _topic),
+      );
+
+      final write = controller.assign(
+        _site,
+        _topic,
+        const AssignmentUser(username: 'sam'),
+      );
+      await transport.writeStarted.future;
+      expect(writing, [true]);
+
+      gate.complete();
+      expect(await write, isNull);
+      controller.forget(_site);
+
+      expect(writing, [true, false]);
+      expect(permission, isEmpty);
+    });
+
+    test('a legacy fallback notifies its own site as it moves', () async {
+      final legacy = legacyController();
+      final permission = heard(
+        legacy.permissionChanges(_site),
+        () => legacy.canAssign(_site, _topic),
+      );
+      final elsewhere = heard(
+        legacy.permissionChanges(otherSite),
+        () => legacy.canAssign(otherSite, _topic),
+      );
+      expect(
+        identical(
+          legacy.permissionChanges(_site),
+          legacy.permissionChanges(_site),
+        ),
+        isTrue,
+      );
+
+      expect(
+        await legacy.unassign(_site, _topic),
+        'This assignment target is no longer available.',
+      );
+      expect(permission, [false]);
+
+      legacy.pluginCurrentUserRefreshed(_site);
+      expect(permission, [false, true]);
+
+      legacy.pluginCurrentUserRefreshed(_site);
+      expect(permission, [false, true]);
+      expect(elsewhere, isEmpty);
+    });
+
+    test(
+      'forget notifies only when it restores a withdrawn fallback',
+      () async {
+        final legacy = legacyController();
+        final changes = legacy.permissionChanges(_site);
+        final permission = heard(
+          changes,
+          () => legacy.canAssign(_site, _topic),
+        );
+
+        legacy.forget(_site);
+        expect(permission, isEmpty);
+
+        await legacy.unassign(_site, _topic);
+        legacy.forget(_site);
+
+        expect(permission, [false, true]);
+        // A retained row keeps listening across the forget and must still hear
+        // the site's next change.
+        expect(identical(legacy.permissionChanges(_site), changes), isTrue);
+        await legacy.unassign(_site, _topic);
+        expect(permission, [false, true, false]);
+      },
+    );
   });
 
   group('stale async work', () {
