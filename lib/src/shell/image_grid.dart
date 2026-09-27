@@ -46,14 +46,20 @@ class ImageGridItem {
 
   bool get isLightbox => anchor != null && image != null;
 
-  String? get plainSrc {
+  dom.Element? get _plainImage {
     if (isLightbox) return null;
-    final img = element.localName == 'img'
+    return element.localName == 'img'
         ? element
         : descendantWhere(element, (e) => e.localName == 'img');
-    final src = img?.attributes['src'];
+  }
+
+  String? get plainSrc {
+    final src = _plainImage?.attributes['src'];
     return (src == null || src.isEmpty) ? null : src;
   }
+
+  /// Larger copies of [plainSrc] by screen density; see [srcsetCandidate].
+  String? get plainSrcset => _plainImage?.attributes['srcset'];
 
   double get mosaicHeightUnit {
     final size = declared;
@@ -340,7 +346,11 @@ class ImageGridTile extends StatelessWidget {
             child: ClipRRect(
               borderRadius: BorderRadius.circular(4),
               child: SiteImage(
-                url: src,
+                url: srcsetCandidate(
+                  src: src,
+                  srcset: item.plainSrcset,
+                  devicePixelRatio: MediaQuery.devicePixelRatioOf(context),
+                ),
                 siteUrl: siteUrl,
                 fit: fit,
                 width: double.infinity,

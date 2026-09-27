@@ -69,6 +69,141 @@ int coarseDecodePixels(int physicalPixels) {
   return (physicalPixels + step - 1) ~/ step * step;
 }
 
+/// The `srcset` source an image drawn on a screen of [devicePixelRatio]
+/// should load, or [src] when [srcset] offers no density to choose from.
+///
+/// Discourse's post processor points an optimized image's `src` at the copy
+/// sized for 1x and lists larger copies in `srcset` by density
+/// (`responsive_post_image_sizes`, 1.5x and 2x by default), leaving the choice
+/// to the browser. Drawing `src` on a 2x screen upscales half the pixels the
+/// image needs. This takes the smallest density that covers
+/// [devicePixelRatio], or the largest when none does, with [src] standing in
+/// for 1x when [srcset] lists no 1x, as it does in a browser.
+///
+/// The choice follows the screen alone, so a resizing layout never switches
+/// source, or cache entry. Width descriptors are chosen by layout width
+/// through `sizes` instead, so a [srcset] using them yields [src], as does
+/// one with no valid candidate. The URL is returned as written, to be
+/// resolved the way [src] is.
+String srcsetCandidate({
+  required String src,
+  required String? srcset,
+  required double devicePixelRatio,
+}) {
+  final densities = srcset == null ? null : _srcsetDensities(srcset);
+  if (densities == null) return src;
+  if (src.isNotEmpty) densities.putIfAbsent(1, () => src);
+  if (densities.isEmpty) return src;
+  final ordered = densities.keys.toList()..sort();
+  final chosen = ordered.firstWhere(
+    (density) => density >= devicePixelRatio - _srcsetDensityTolerance,
+    orElse: () => ordered.last,
+  );
+  return densities[chosen]!;
+}
+
+/// How far a density may fall short of the screen's and still be chosen.
+/// Common ratios sit exactly on the densities Discourse lists, so without it
+/// a 1x screen reported as 1.0000001 would switch to the 1.5x source.
+const _srcsetDensityTolerance = 0.01;
+
+final _srcsetPositiveInteger = RegExp(r'^\d*[1-9]\d*$');
+final _srcsetFloatingPoint = RegExp(
+  r'^-?(?:\d+(?:\.\d+)?|\.\d+)(?:[eE][-+]?\d+)?$',
+);
+final _srcsetTrailingCommas = RegExp(r',+$');
+
+// ASCII whitespace, as the standard defines it.
+bool _isSrcsetSpace(int char) =>
+    const {0x09, 0x0A, 0x0C, 0x0D, 0x20}.contains(char);
+
+/// The density candidates in [srcset], the first of each density winning, or
+/// null when one describes a width.
+///
+/// Follows the HTML standard's "parse a srcset attribute": a URL runs to the
+/// next whitespace, so it may contain commas, and only trailing commas end
+/// it. A candidate the standard rejects is skipped.
+Map<double, String>? _srcsetDensities(String srcset) {
+  final densities = <double, String>{};
+  final length = srcset.length;
+  var position = 0;
+  while (true) {
+    while (position < length &&
+        (_isSrcsetSpace(srcset.codeUnitAt(position)) ||
+            srcset.codeUnitAt(position) == 0x2C)) {
+      position++;
+    }
+    if (position >= length) return densities;
+
+    final start = position;
+    while (position < length && !_isSrcsetSpace(srcset.codeUnitAt(position))) {
+      position++;
+    }
+    var url = srcset.substring(start, position);
+    final descriptors = <String>[];
+    if (url.endsWith(',')) {
+      url = url.replaceFirst(_srcsetTrailingCommas, '');
+    } else {
+      // Whitespace separates descriptors and a comma ends the candidate,
+      // except within parentheses.
+      final descriptor = StringBuffer();
+      var inParentheses = false;
+      while (position < length) {
+        final char = srcset.codeUnitAt(position++);
+        if (inParentheses) {
+          descriptor.writeCharCode(char);
+          inParentheses = char != 0x29;
+        } else if (_isSrcsetSpace(char) || char == 0x2C) {
+          if (descriptor.isNotEmpty) {
+            descriptors.add(descriptor.toString());
+            descriptor.clear();
+          }
+          if (char == 0x2C) break;
+        } else {
+          descriptor.writeCharCode(char);
+          inParentheses = char == 0x28;
+        }
+      }
+      if (descriptor.isNotEmpty) descriptors.add(descriptor.toString());
+    }
+
+    double? density;
+    var width = false;
+    var height = false;
+    var valid = true;
+    for (final descriptor in descriptors) {
+      final value = descriptor.substring(0, descriptor.length - 1);
+      switch (descriptor[descriptor.length - 1]) {
+        case 'w'
+            when !width &&
+                density == null &&
+                _srcsetPositiveInteger.hasMatch(value):
+          width = true;
+        case 'x'
+            when !width &&
+                !height &&
+                density == null &&
+                _srcsetFloatingPoint.hasMatch(value):
+          density = double.parse(value);
+        case 'h'
+            when !height &&
+                density == null &&
+                _srcsetPositiveInteger.hasMatch(value):
+          height = true;
+        default:
+          valid = false;
+      }
+      if (!valid) break;
+    }
+    if (!valid || (height && !width)) continue;
+    if (width) return null;
+    final candidate = density ?? 1;
+    if (candidate.isFinite && candidate >= 0) {
+      densities.putIfAbsent(candidate, () => url);
+    }
+  }
+}
+
 /// The most source pixels [FittedMemoryImage] decodes.
 ///
 /// A fit bounds the bitmap a decode keeps, not what it allocates on the way:

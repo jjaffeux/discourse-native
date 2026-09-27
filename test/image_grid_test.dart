@@ -2,6 +2,7 @@ import 'dart:ui' show Tristate;
 
 import 'package:discourse_native/src/shell/image_grid.dart';
 import 'package:discourse_native/src/shell/lightbox.dart';
+import 'package:discourse_native/src/shell/site_image.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/material.dart';
@@ -36,9 +37,10 @@ Future<void> pumpGrid(
   WidgetTester tester,
   String source, {
   double width = 800,
+  double devicePixelRatio = 1,
 }) async {
   tester.view.physicalSize = Size(width, 1400);
-  tester.view.devicePixelRatio = 1;
+  tester.view.devicePixelRatio = devicePixelRatio;
   addTearDown(tester.view.reset);
   await pumpCooked(tester, source);
   await tester.pumpAndSettle();
@@ -241,6 +243,35 @@ void main() {
       expect(provider.width, lessThanOrEqualTo(500));
       expect(provider.allowUpscaling, isFalse);
       semantics.dispose();
+    });
+
+    testWidgets('draws a plain image from its srcset', (tester) async {
+      await pumpGrid(
+        tester,
+        '<div class="d-image-grid">${item('big')}'
+        '<img src="https://example.com/plain.png" width="300" height="200" '
+        'srcset="https://example.com/plain.png, '
+        'https://example.com/plain_450.png 1.5x, '
+        'https://example.com/plain_600.png 2x">'
+        '</div>',
+        devicePixelRatio: 2,
+      );
+
+      final urls = tester
+          .widgetList<SiteImage>(
+            find.descendant(
+              of: find.byType(ImageGridTile),
+              matching: find.byType(SiteImage),
+            ),
+          )
+          .map((image) => image.url);
+      expect(
+        urls,
+        unorderedEquals([
+          'https://example.com/big-t.png',
+          'https://example.com/plain_600.png',
+        ]),
+      );
     });
 
     testWidgets('uses three columns when there is room', (tester) async {

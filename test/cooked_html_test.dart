@@ -681,6 +681,110 @@ void main() {
     });
   });
 
+  group('images with a srcset', () {
+    const site = 'https://meta.discourse.org';
+    const base = '$site/uploads/default/optimized/2X/a/abc_2';
+    // What Discourse's post processor writes by default.
+    const discourse =
+        '${base}_690x388.png, ${base}_1035x582.png 1.5x, '
+        '${base}_1380x776.png 2x';
+
+    Future<String> drawnAt(
+      WidgetTester tester,
+      double devicePixelRatio, {
+      String srcset = discourse,
+    }) async {
+      tester.view.devicePixelRatio = devicePixelRatio;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.dark,
+          home: Scaffold(
+            body: SingleChildScrollView(
+              child: CookedHtml(
+                html:
+                    '<p><img src="${base}_690x388.png" width="690" '
+                    'height="388" srcset="$srcset"></p>',
+                siteUrl: site,
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      return tester.widget<SiteImage>(find.byType(SiteImage)).url;
+    }
+
+    for (final (ratio, size) in [
+      (1.0, '690x388'),
+      (1.25, '1035x582'),
+      (2.0, '1380x776'),
+      (3.0, '1380x776'),
+    ]) {
+      testWidgets('load the $size candidate at ${ratio}x', (tester) async {
+        expect(await drawnAt(tester, ratio), '${base}_$size.png');
+      });
+    }
+
+    for (final (description, srcset) in [
+      (
+        'width descriptors',
+        '${base}_690x388.png 690w, ${base}_1380x776.png 1380w',
+      ),
+      ('an unreadable srcset', 'not a srcset, at all'),
+      ('a candidate on the device', 'file:///etc/secret.png 2x'),
+    ]) {
+      testWidgets('load src for $description', (tester) async {
+        expect(await drawnAt(tester, 2, srcset: srcset), '${base}_690x388.png');
+      });
+    }
+
+    testWidgets('resolve a relative candidate against the site', (
+      tester,
+    ) async {
+      // See 'loads a secure cooked image with the connected account'.
+      final loadingWidget = WidgetFactory.debugDeterministicLoadingWidget;
+      WidgetFactory.debugDeterministicLoadingWidget = true;
+      addTearDown(
+        () => WidgetFactory.debugDeterministicLoadingWidget = loadingWidget,
+      );
+      tester.view.physicalSize = const Size(800, 1200);
+      tester.view.devicePixelRatio = 2;
+      addTearDown(tester.view.reset);
+      final authenticator = FakeAuthenticator()..keys[site] = 'account-key';
+      final lifecycle = SiteLifecycle();
+      final sent = <http.Request>[];
+      final siteImages = SiteImageRepository(
+        credentials: authenticator,
+        lifecycle: lifecycle,
+        client: MockClient((request) async {
+          sent.add(request);
+          return http.Response.bytes(onePixelPng, 200);
+        }),
+      );
+
+      await pumpCookedInShell(
+        tester,
+        '<p><img src="/secure-uploads/optimized/abc_690x388.png" '
+        'width="690" height="388" '
+        'srcset="/secure-uploads/optimized/abc_690x388.png, '
+        '/secure-uploads/optimized/abc_1380x776.png 2x"></p>',
+        authenticator: authenticator,
+        lifecycle: lifecycle,
+        siteImages: siteImages,
+      );
+
+      expect(
+        tester.widget<SiteImage>(find.byType(SiteImage)).url,
+        '$site/secure-uploads/optimized/abc_1380x776.png',
+      );
+      expect(sent.map((request) => request.url), [
+        Uri.parse('$site/secure-uploads/optimized/abc_1380x776.png'),
+      ]);
+      expect(sent.single.headers['User-Api-Key'], 'account-key');
+    });
+  });
+
   test('containing topics have value semantics for HTML rebuild triggers', () {
     final id = int.parse('1');
     final first = PluginContainingTopic(id: id, slug: 'topic', archived: false);
