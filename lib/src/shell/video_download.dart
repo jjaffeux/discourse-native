@@ -258,17 +258,27 @@ final class VideoDownloadException implements Exception {
 }
 
 String videoDownloadFilename({required String title, required Uri url}) =>
-    downloadFilename(title: title, url: url.toString(), fallback: 'video');
+    downloadFilename(
+      title: title,
+      url: url.toString(),
+      fallback: 'video',
+      mediaExtensions: _videoMimeTypes.keys,
+    );
 
 String _videoMimeType(String filename) =>
-    switch (filename.split('.').last.toLowerCase()) {
-      'mp4' || 'm4v' => 'video/mp4',
-      'mov' => 'video/quicktime',
-      'webm' => 'video/webm',
-      'ogv' || 'ogg' => 'video/ogg',
-      'avi' => 'video/x-msvideo',
-      'mkv' => 'video/x-matroska',
-      _ => 'application/octet-stream',
-    };
+    _videoMimeTypes[filename.split('.').last.toLowerCase()] ??
+    'application/octet-stream';
+
+// Also the only extensions a video's title may keep as its own.
+const _videoMimeTypes = {
+  'mp4': 'video/mp4',
+  'm4v': 'video/mp4',
+  'mov': 'video/quicktime',
+  'webm': 'video/webm',
+  'ogv': 'video/ogg',
+  'ogg': 'video/ogg',
+  'avi': 'video/x-msvideo',
+  'mkv': 'video/x-matroska',
+};
 
 const _redirectStatuses = {301, 302, 303, 307, 308};

@@ -59,19 +59,24 @@ class EmbeddedOneboxData {
         },
       );
     }
+    // The allowlist lets any author put data-onebox-src on a div or aside, but
+    // an aside keeps the onebox class only when the server's onebox layout
+    // wrote it. Any other ancestor could send "Open in browser" somewhere
+    // other than the embed the card names.
     for (
       dom.Element? parent = element.parent;
       parent != null;
       parent = parent.parent
     ) {
+      if (parent.localName != 'aside' || !parent.classes.contains('onebox')) {
+        continue;
+      }
       final original = oneboxHttpUri(
         parent.attributes['data-onebox-src'],
         siteUrl: siteUrl,
       );
-      if (original != null) {
-        externalUri = original;
-        break;
-      }
+      if (original != null) externalUri = original;
+      break;
     }
     final title = element.attributes['title']?.trim();
     return EmbeddedOneboxData(

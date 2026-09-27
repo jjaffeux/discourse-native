@@ -53,6 +53,38 @@ void main() {
     },
   );
 
+  test('only a server onebox names the link an embed opens in the browser', () {
+    const maps = 'https://www.google.com/maps/embed?pb=abc';
+    EmbeddedOneboxData embed(String wrapper) => EmbeddedOneboxData.from(
+      html
+          .parseFragment(
+            wrapper.replaceFirst('%', '<iframe src="$maps"></iframe>'),
+          )
+          .querySelector('iframe')!,
+      siteUrl: 'https://forum.example',
+    )!;
+
+    // Authors may put data-* on their own divs and asides.
+    for (final wrapper in [
+      '<div data-onebox-src="https://evil.example/maps-login">%</div>',
+      '<aside class="quote" data-onebox-src="https://evil.example/">%</aside>',
+      '<div class="onebox" data-onebox-src="https://evil.example/">'
+          '<p>%</p></div>',
+    ]) {
+      expect(embed(wrapper).externalUri, Uri.parse(maps), reason: wrapper);
+    }
+
+    expect(
+      embed(
+        '<div data-onebox-src="https://evil.example/">'
+        '<aside class="onebox allowlistedgeneric" '
+        'data-onebox-src="https://maps.example/place">'
+        '<article class="onebox-body">%</article></aside></div>',
+      ).externalUri,
+      Uri.parse('https://maps.example/place'),
+    );
+  });
+
   test('normalizes protocol-relative URLs and finite dimensions', () {
     final element = html
         .parseFragment(

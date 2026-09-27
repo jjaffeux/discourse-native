@@ -32,6 +32,7 @@ void main() {
     TargetPlatform platform = TargetPlatform.macOS,
     Duration timeout = const Duration(seconds: 30),
     Uri? source,
+    String title = 'Demo clip',
   }) =>
       NativeVideoDownloader(
         platform: platform,
@@ -40,7 +41,7 @@ void main() {
         requestTimeout: timeout,
       ).download(
         url: source ?? url,
-        title: 'Demo clip',
+        title: title,
         siteUrl: siteUrl,
         credentials: const _Credentials(),
         lifecycle: lifecycle,
@@ -113,6 +114,21 @@ void main() {
       expect(directory.listSync(), isEmpty);
     },
   );
+
+  test('shares a dotted title as the video type it downloads', () async {
+    await download(
+      MockClient((_) async => http.Response.bytes([4, 5], 200)),
+      platform: TargetPlatform.iOS,
+      source: Uri.parse('$siteUrl/uploads/default/original/1X/abc123.mov'),
+      title: 'Screen Recording 2024-01-02 at 10.45.12',
+    );
+
+    expect(
+      environment.sharedName,
+      'Screen Recording 2024-01-02 at 10.45.12.mov',
+    );
+    expect(environment.mimeType, 'video/quicktime');
+  });
 
   test('streams videos larger than the image cache limit', () async {
     environment.savePath = '${directory.path}/large.mp4';
@@ -382,6 +398,15 @@ void main() {
       'a clip.webm',
     );
     expect(videoDownloadFilename(title: '..', url: url), 'video.mp4');
+    expect(videoDownloadFilename(title: 'Clip.MOV', url: url), 'Clip.MOV');
+    expect(
+      videoDownloadFilename(title: 'Release v2.0', url: url),
+      'Release v2.0.mp4',
+    );
+    expect(
+      videoDownloadFilename(title: 'Invoice.command', url: url),
+      'Invoice.command.mp4',
+    );
   });
 }
 
