@@ -603,10 +603,14 @@ final class AssignPlugin
     if (post.postNumber == 1) return PostMenuContribution.none;
     final postAssignments = post.plugins.get(assignmentsDataKey);
     final topic = menu.topic;
-    final assignmentController = PluginUiScope.maybe(
+    // The only controller state this menu reads is the site's permission.
+    // The assignment it names is the post's and topic's records, whose
+    // changes already redraw this post; the controller would redraw every
+    // post's action bar at the start and end of any post's write.
+    final permissionChanges = PluginUiScope.maybe(
       context,
       assignmentControllerService,
-    );
+    )?.permissionChanges(siteUrl);
     if (topic == null ||
         !_canAssignRecord(
           context,
@@ -614,7 +618,7 @@ final class AssignPlugin
           AssignmentTarget.post(post.id, topicId: topic.id),
           postAssignments?.canAssign,
         )) {
-      return PostMenuContribution(rebuildOn: assignmentController);
+      return PostMenuContribution(rebuildOn: permissionChanges);
     }
     final aggregate = topic.plugins.get(assignmentsDataKey);
     final existing = aggregate == null
@@ -639,7 +643,7 @@ final class AssignPlugin
     );
 
     return PostMenuContribution(
-      rebuildOn: assignmentController,
+      rebuildOn: permissionChanges,
       entries: [
         PostAction(
           icon: existing == null ? DIcons.userPlus : DIcons.pencil,
@@ -973,8 +977,10 @@ Widget _assignmentPermissionBuilder({
 }) {
   final controller = PluginUiScope.maybe(context, assignmentControllerService);
   if (controller == null) return builder(recordPermission == true);
+  // Not the controller: it notifies for every write, and a topic holds one
+  // row per assigned post.
   return ListenableBuilder(
-    listenable: controller,
+    listenable: controller.permissionChanges(siteUrl),
     builder: (context, _) => builder(controller.canAssign(siteUrl, target)),
   );
 }
