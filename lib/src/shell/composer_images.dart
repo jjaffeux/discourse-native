@@ -200,11 +200,21 @@ String _uploadCaption(String filename) {
   // Brackets are dropped from a *filename* rather than escaped: the alt is a
   // caption the app invented from a name, and a name is better read without
   // them than with backslashes through it.
-  return (dot > 0 ? filename.substring(0, dot) : filename).replaceAll(
+  final base = (dot > 0 ? filename.substring(0, dot) : filename).replaceAll(
     RegExp(r'[\[\]]'),
     '',
   );
+  // The iOS photo library names every photo after a temporary file. Like
+  // core's `markdownNameFromFileName` for a GUID name, caption it for what
+  // it is rather than have a screen reader spell the GUID out.
+  return _photoLibraryTemporaryName.hasMatch(base) ? 'image' : base;
 }
+
+/// `image_picker_` and `NSProcessInfo.globallyUniqueString`.
+final RegExp _photoLibraryTemporaryName = RegExp(
+  r'^image_picker_[0-9a-f]{8}-[0-9a-f-]+$',
+  caseSensitive: false,
+);
 
 String flattenImageAlt(String value) =>
     value.replaceAll(_altSeparators, ' ').replaceAll(_altSpaceRuns, ' ').trim();

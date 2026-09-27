@@ -110,6 +110,38 @@ void main() {
         '![photo](upload://two)',
       );
     });
+
+    test('captions a photo-library temporary name as an image', () {
+      ComposerUploadResult named(String filename) => ComposerUploadResult(
+        id: 4,
+        originalFilename: filename,
+        shortUrl: 'upload://photo',
+        url: 'https://example.com/photo.jpg',
+        width: 1920,
+        height: 1440,
+      );
+
+      expect(
+        uploadImageMarkdown(
+          named(
+            'image_picker_9F1C2A3B-4D5E-4F60-8A7B-1C2D3E4F5A6B-1234-'
+            '0000012AB34CD56E.jpg',
+          ),
+        ),
+        '![image|1920x1440](upload://photo)',
+      );
+      for (final kept in [
+        'image_picker_holiday.jpg',
+        'my image_picker_9F1C2A3B-4D5E.jpg',
+        '9F1C2A3B-4D5E-4F60-8A7B-1C2D3E4F5A6B.jpg',
+      ]) {
+        expect(
+          uploadImageMarkdown(named(kept)),
+          '![${kept.substring(0, kept.lastIndexOf('.'))}|1920x1440]'
+          '(upload://photo)',
+        );
+      }
+    });
   });
 
   group('parseComposerImages', () {
