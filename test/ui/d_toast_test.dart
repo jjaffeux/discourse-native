@@ -266,6 +266,104 @@ void main() {
     expect(find.text('Keyboard'), findsNothing);
   });
 
+  testWidgets('dismissing the last toast by keyboard releases its pause', (
+    tester,
+  ) async {
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    final controller = DToastController();
+    addTearDown(controller.dispose);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: DToaster(
+          controller: controller,
+          child: const Focus(autofocus: true, child: Text('Content')),
+        ),
+      ),
+    );
+    controller.add(const DToastOptions(description: 'Focused', duration: null));
+    await tester.pump();
+    await tester.sendKeyEvent(LogicalKeyboardKey.f6);
+    await tester.pump();
+    expect(primaryFocus?.debugLabel, 'Toast viewport');
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pump();
+    expect(find.text('Focused'), findsNothing);
+
+    controller.add(
+      const DToastOptions(description: 'Later', duration: Duration(seconds: 2)),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 3));
+    expect(find.text('Later'), findsNothing);
+  });
+
+  testWidgets('closing the last toast under the pointer releases its pause', (
+    tester,
+  ) async {
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    final controller = DToastController();
+    addTearDown(controller.dispose);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: DToaster(controller: controller, child: const Text('Content')),
+      ),
+    );
+    controller.add(const DToastOptions(description: 'Hovered', duration: null));
+    await tester.pump();
+    final close = tester.getCenter(find.byTooltip('Close toast'));
+    final gesture = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    await gesture.addPointer(location: close);
+    await tester.pump();
+    await gesture.down(close);
+    await gesture.up();
+    await tester.pump();
+    expect(find.text('Hovered'), findsNothing);
+    await gesture.moveTo(Offset.zero);
+    await tester.pump();
+
+    controller.add(
+      const DToastOptions(description: 'Later', duration: Duration(seconds: 2)),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 3));
+    expect(find.text('Later'), findsNothing);
+    await gesture.removePointer();
+  });
+
+  testWidgets('a toast replacing the last one under the pointer stays paused', (
+    tester,
+  ) async {
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    final controller = DToastController();
+    addTearDown(controller.dispose);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: DToaster(controller: controller, child: const Text('Content')),
+      ),
+    );
+    const timed = DToastOptions(
+      description: 'Timed',
+      duration: Duration(seconds: 2),
+    );
+    controller.add(timed);
+    await tester.pump();
+    final gesture = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    await gesture.addPointer(location: tester.getCenter(find.text('Timed')));
+    await tester.pump();
+
+    controller
+      ..closeAll()
+      ..add(timed);
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 3));
+    expect(find.text('Timed'), findsOneWidget);
+
+    await gesture.moveTo(Offset.zero);
+    await tester.pump(const Duration(seconds: 3));
+    expect(find.text('Timed'), findsNothing);
+    await gesture.removePointer();
+  });
+
   testWidgets('owned controller ignores a late promise after scope disposal', (
     tester,
   ) async {
