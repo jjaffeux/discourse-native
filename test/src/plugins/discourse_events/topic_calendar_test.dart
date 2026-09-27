@@ -25,7 +25,6 @@ void main() {
     double scale = 1,
     Brightness brightness = Brightness.light,
     ValueChanged<int>? openReply,
-    VoidCallback? openWeb,
     TopicCalendarSettings settings = const TopicCalendarSettings(),
     DateTime? now,
   }) => MaterialApp(
@@ -45,7 +44,6 @@ void main() {
               zones: ports.zones,
               now: now ?? DateTime.utc(2026, 9, 7, 12),
               onOpenReply: openReply ?? (_) {},
-              onOpenWeb: openWeb ?? () {},
             ),
           ),
         ),
@@ -365,21 +363,16 @@ void main() {
     expect(text.semanticsLabel, contains('Oct 25, 2026 · All day'));
   });
 
-  testWidgets('hidden weekdays offer a working web fallback', (tester) async {
-    var opened = false;
+  testWidgets('hidden weekdays have no web button', (tester) async {
     for (final options in ['data-weekends="false"', 'data-hidden-days="2"']) {
-      await tester.pumpWidget(
-        calendar(options: options, openWeb: () => opened = true),
-      );
+      await tester.pumpWidget(calendar(options: options));
       await tester.pumpAndSettle();
       expect(find.byType(kalender.KalenderView), findsNothing);
       expect(
-        find.text('Open the web calendar to view its configured weekdays.'),
+        find.text('Calendars with hidden weekdays are not supported.'),
         findsOneWidget,
       );
-      await tester.tap(find.text('Open web calendar'));
-      expect(opened, isTrue);
-      opened = false;
+      expect(find.text('Open web calendar'), findsNothing);
     }
   });
 

@@ -21,7 +21,6 @@ final class TopicCalendar extends StatefulWidget {
     required this.options,
     required this.zones,
     required this.onOpenReply,
-    required this.onOpenWeb,
     this.settings = const TopicCalendarSettings(),
     this.accountTimezone,
     this.now,
@@ -33,7 +32,6 @@ final class TopicCalendar extends StatefulWidget {
   final PluginTimezoneHost zones;
   final String? accountTimezone;
   final ValueChanged<int> onOpenReply;
-  final VoidCallback onOpenWeb;
   final DateTime? now;
 
   @override
@@ -363,7 +361,7 @@ final class _TopicCalendarState extends State<TopicCalendar> {
               child: Text(
                 hiddenDays.length == 7
                     ? 'All weekdays are hidden in this calendar.'
-                    : 'Open the web calendar to view its configured weekdays.',
+                    : 'Calendars with hidden weekdays are not supported.',
               ),
             )
           else ...[
@@ -455,18 +453,6 @@ final class _TopicCalendarState extends State<TopicCalendar> {
                 ),
               ),
           ],
-          Padding(
-            padding: const EdgeInsets.all(4),
-            child: Align(
-              alignment: AlignmentDirectional.centerStart,
-              child: DButton(
-                variant: DButtonVariant.link,
-                onPressed: widget.onOpenWeb,
-                icon: const Icon(Icons.open_in_browser),
-                label: const Text('Open web calendar'),
-              ),
-            ),
-          ),
         ],
       ),
     );

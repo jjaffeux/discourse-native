@@ -63,9 +63,8 @@ configured holiday topic uses usernames for its standalone entries.
 
 The current upstream cooker no longer serializes `tzPicker`; native calendars
 always offer a timezone selector. Kalender's month view has seven fixed weekday
-columns; `weekends=false` and nonempty `hiddenDays` retain an explicit web
-fallback. **Open web calendar** also covers year views, static blocks, calendar
-subscriptions, and add-to-calendar exports. There is no native export button,
+columns; `weekends=false` and nonempty `hiddenDays` show an unsupported state.
+The native calendar has no web-calendar footer. There is no native export button,
 including when `showAddToCalendar="false"`. Quoted calendars and cooked fragments
 without the first post's data retain a readable fallback. Review Kalender's
 pre-1.0 API changes and rerun the adapter/widget tests before upgrading it.

@@ -120,7 +120,6 @@ final class TopicCalendarPlugin
           postNumber: number,
           highlight: true,
         ),
-        onOpenWeb: openWeb,
       ),
     );
   }
