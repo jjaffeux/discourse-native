@@ -1,9 +1,12 @@
+import 'dart:async';
+
 import 'package:discourse_native/src/data/aggregate_preferences_store.dart';
 import 'package:discourse_native/src/data/store.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/forum_workspace.dart';
 import 'package:discourse_native/src/models/topic.dart';
+import 'package:discourse_native/src/shell/aggregate_feed_controller.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -43,6 +46,94 @@ void main() {
     controller.aggregate.selectTab(firstTab);
     expect(controller.aggregate.state.topics, isEmpty);
   });
+
+  test(
+    'signing out a forum while Aggregate loads shows the other forum',
+    () async {
+      const twoForumPage = '/filter.json?per_page=15';
+      const oneForumPage = '/filter.json?per_page=30';
+      final api = _SiteFeedsApi();
+      api.replies['${_site.url}|$twoForumPage'] = TopicList(
+        topics: [_bumped(1, 10)],
+      );
+      api.replies['${_site.url}|$oneForumPage'] = TopicList(
+        topics: [_bumped(1, 10)],
+      );
+      final held = api.holds['${_second.url}|$twoForumPage'] =
+          Completer<void>();
+      final controller = _aggregateController(api);
+      addTearDown(controller.dispose);
+      await controller.load();
+      await pumpEventQueue();
+      expect(controller.aggregate.state.loading, isTrue);
+
+      expect(await controller.disconnectInstance(_second.url), isTrue);
+      held.complete();
+      await pumpEventQueue();
+
+      final state = controller.aggregate.state;
+      expect(controller.rootMode, ShellRootMode.aggregate);
+      expect(state.loading, isFalse);
+      expect(state.loaded, isTrue);
+      expect(state.topics, [AggregateTopicRef(siteUrl: _site.url, topicId: 1)]);
+      expect(api.filterRequests, [
+        '${_site.url}|$twoForumPage',
+        '${_second.url}|$twoForumPage',
+        '${_site.url}|$oneForumPage',
+      ]);
+    },
+  );
+
+  test(
+    'removing a forum while Aggregate is shown keeps paging the other',
+    () async {
+      const twoForumPage = '/filter.json?per_page=15';
+      const oneForumPage = '/filter.json?per_page=30';
+      const nextPage = '/filter.json?page=1&per_page=30';
+      final api = _SiteFeedsApi();
+      api.replies['${_site.url}|$twoForumPage'] = TopicList(
+        topics: [for (var id = 1; id <= 15; id++) _bumped(id, 30 - id)],
+        moreTopicsUrl: '/filter?page=1&per_page=15',
+      );
+      api.replies['${_second.url}|$twoForumPage'] = TopicList(
+        topics: [for (var id = 1; id <= 15; id++) _bumped(id, 59 - id)],
+      );
+      api.replies['${_site.url}|$oneForumPage'] = TopicList(
+        topics: [for (var id = 1; id <= 30; id++) _bumped(id, 59 - id)],
+        moreTopicsUrl: '/filter?page=1&per_page=30',
+      );
+      api.replies['${_site.url}|$nextPage'] = TopicList(
+        topics: [_bumped(31, 0)],
+      );
+      final controller = _aggregateController(api);
+      addTearDown(controller.dispose);
+      await controller.load();
+      await pumpEventQueue();
+      expect(controller.aggregate.state.topics, hasLength(30));
+
+      expect(
+        await controller.removeInstance(
+          controller.instances.singleWhere((i) => i.url == _second.url),
+        ),
+        isTrue,
+      );
+      await pumpEventQueue();
+      await controller.aggregate.loadMore();
+
+      final state = controller.aggregate.state;
+      expect(controller.rootMode, ShellRootMode.aggregate);
+      expect(state.topics, [
+        for (var id = 1; id <= 31; id++)
+          AggregateTopicRef(siteUrl: _site.url, topicId: id),
+      ]);
+      expect(api.filterRequests, [
+        '${_site.url}|$twoForumPage',
+        '${_second.url}|$twoForumPage',
+        '${_site.url}|$oneForumPage',
+        '${_site.url}|$nextPage',
+      ]);
+    },
+  );
 
   test('adding a forum leaves narrowed aggregate tabs narrowed', () async {
     const added = DiscourseInstance(
@@ -289,6 +380,63 @@ const _site = DiscourseInstance(
   url: 'https://one.example',
   title: 'One',
   user: DiscourseUser(username: 'sam'),
+);
+
+const _second = DiscourseInstance(
+  url: 'https://two.example',
+  title: 'Two',
+  user: DiscourseUser(username: 'sam'),
+);
+
+Topic _bumped(int id, int minute) => Topic(
+  id: id,
+  title: 'Topic $id',
+  slug: 'topic-$id',
+  bumpedAt: DateTime.utc(2026, 1, 1, 0, minute),
+);
+
+/// Answers `/filter.json` per forum, so two forums can share a page path.
+final class _SiteFeedsApi extends FakeDiscourseApi {
+  _SiteFeedsApi() : super(feeds: const {'/latest.json': []});
+
+  final Map<String, TopicList> replies = {};
+  final Map<String, Completer<void>> holds = {};
+  final List<String> filterRequests = [];
+
+  @override
+  Future<TopicList> topicList({
+    required String siteUrl,
+    required String path,
+    String? apiKey,
+    String? clientId,
+  }) async {
+    if (!path.startsWith('/filter')) {
+      return super.topicList(
+        siteUrl: siteUrl,
+        path: path,
+        apiKey: apiKey,
+        clientId: clientId,
+      );
+    }
+    final key = '$siteUrl|$path';
+    filterRequests.add(key);
+    await holds[key]?.future;
+    return replies[key] ?? const TopicList(topics: []);
+  }
+}
+
+/// Two signed-in forums, opened on Aggregate.
+ShellController _aggregateController(FakeDiscourseApi api) => ShellController(
+  instanceStore: FakeInstanceStore(const [_site, _second]),
+  api: api,
+  authenticator: FakeAuthenticator()
+    ..keys[_site.url] = 'one'
+    ..keys[_second.url] = 'two',
+  drafts: FakeDraftStore(),
+  forumTabs: FakeForumTabStore(),
+  aggregatePreferences: AggregatePreferencesStore.memory(),
+  trackers: FakeSiteTracker.reset(),
+  initialRootMode: ShellRootMode.aggregate,
 );
 
 ShellController _controller({
