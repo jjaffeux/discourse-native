@@ -110,12 +110,17 @@ final class BookmarkReminderCalculator {
         ),
       );
     }
-    final mondayDelta = (DateTime.monday - wallNow.weekday + 7) % 7;
-    final untilMonday = mondayDelta == 0 ? 7 : mondayDelta;
+    // The web's start of next business week: the Monday of the Sunday-first
+    // week one week from now. On Sunday that is eight days out rather than
+    // the Monday Tomorrow already offers, and only on Sunday and Monday does
+    // it pass over the coming Monday, so only then is it "Next Monday".
+    final untilMonday = wallNow.weekday == DateTime.sunday
+        ? 8
+        : 8 - wallNow.weekday;
     suggestions.add(
       BookmarkReminderSuggestion(
         preset: BookmarkReminderPreset.nextMonday,
-        label: 'Next Monday',
+        label: untilMonday >= 7 ? 'Next Monday' : 'Monday',
         instant: _dayAtEight(wallNow, untilMonday).toUtc(),
       ),
     );
