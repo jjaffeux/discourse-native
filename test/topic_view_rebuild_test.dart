@@ -85,25 +85,26 @@ void main() {
     expect(find.byType(CookedHtml), findsOneWidget);
     expect(find.byType(PostActions), findsOneWidget);
 
-    var cookedRebuilds = 0;
     final rebuilt = <Element>{};
+    final cooked = tester.element(find.byType(CookedHtml));
     final actions = tester.element(find.byType(PostActions));
     final actionChildren = <Element>[];
     actions.visitChildren(actionChildren.add);
     expect(actionChildren, hasLength(1));
     final actionsSelector = actionChildren.single;
     final previousRebuildHook = debugOnRebuildDirtyWidget;
+    // A rebuild is recognised by element identity: the framework records
+    // `builtOnce` only while `debugPrintRebuildDirtyWidgets` is on.
     debugOnRebuildDirtyWidget = (element, builtOnce) {
       previousRebuildHook?.call(element, builtOnce);
       rebuilt.add(element);
-      if (builtOnce && element.widget is CookedHtml) cookedRebuilds += 1;
     };
     addTearDown(() => debugOnRebuildDirtyWidget = previousRebuildHook);
 
     controller.selectInstance(0);
     await tester.pump();
 
-    expect(cookedRebuilds, 0);
+    expect(rebuilt, isNot(contains(cooked)));
     expect(rebuilt, isNot(contains(actions)));
     expect(rebuilt, isNot(contains(actionsSelector)));
   });
