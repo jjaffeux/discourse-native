@@ -346,6 +346,32 @@ void main() {
       expect(columnBottoms.values.toSet(), hasLength(1));
     });
 
+    // A grid wraps whatever Markdown it was given, and a quote or an onebox
+    // among the images is taller than the square it was counted as.
+    testWidgets('clips an item taller than its tile instead of overflowing', (
+      tester,
+    ) async {
+      await pumpGrid(
+        tester,
+        '<div class="d-image-grid">${item('a')}${item('b')}'
+        '<blockquote><p>${'A quoted line that wraps. ' * 30}</p></blockquote>'
+        '</div>',
+        width: 400,
+      );
+
+      expect(tester.takeException(), isNull);
+      final quote = find.textContaining('A quoted line', findRichText: true);
+      final tile = tester.getRect(
+        find.ancestor(of: quote, matching: find.byType(ImageGridTile)),
+      );
+      expect(
+        tile.bottom,
+        lessThanOrEqualTo(tester.getRect(find.byType(ImageGridMosaic)).bottom),
+      );
+      // Laid out at its own height rather than squeezed into the tile.
+      expect(tester.getSize(quote).height, greaterThan(tile.height));
+    });
+
     testWidgets('leaves a grid of one image stacked', (tester) async {
       await pumpGrid(tester, grid(1));
 
