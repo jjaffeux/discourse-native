@@ -9,6 +9,7 @@ import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/forum_workspace.dart';
 import 'package:discourse_native/src/models/notification.dart';
 import 'package:discourse_native/src/models/post.dart';
+import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/shell/notification_list.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
@@ -21,6 +22,7 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/fakes.dart';
+import 'support/shell_test_harness.dart' show watchBrowser;
 import 'support/topic_post_list.dart';
 import 'support/topic_scroll_capture.dart';
 
@@ -317,6 +319,39 @@ void main() {
     expect(find.byType(UserMenuPanel), findsNothing);
   }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 
+  testWidgets('a group inbox summary opens the inbox in the app', (
+    tester,
+  ) async {
+    final launched = watchBrowser(tester);
+    const inbox = '/topics/private-messages-group/reader/team.json';
+    final (controller, api) = await _pumpMenu(
+      tester,
+      messageGroupNames: const ['team'],
+      notification: DiscourseNotification.test(
+        id: 1,
+        typeId: NotificationTypeId(
+          CoreNotificationTypes.groupMessageSummary.wireId,
+        ),
+        data: const {
+          'group_id': 3,
+          'group_name': 'team',
+          'inbox_count': 2,
+          'username': 'reader',
+        },
+      ),
+      feeds: const {'/latest.json': [], inbox: []},
+    );
+
+    await tester.tap(find.byKey(_rowKey));
+    await tester.pumpAndSettle();
+
+    expect(launched, isEmpty);
+    expect(controller.currentContent?.id, 'messages-group-team');
+    expect(api.feedPaths, contains(inbox));
+    expect(api.markedRead, [1]);
+    expect(find.byType(UserMenuPanel), findsNothing);
+  }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
+
   testWidgets('right-click opens a notification in the secondary panel', (
     tester,
   ) async {
@@ -389,13 +424,20 @@ Future<(ShellController, FakeDiscourseApi)> _pumpMenu(
   Map<int, TopicPayload> topics = const {},
   DiagnosticsController? diagnostics,
   Completer<void>? topicGate,
+  DiscourseNotification? notification,
+  List<String> messageGroupNames = const [],
+  Map<String, List<Topic>> feeds = const {'/latest.json': []},
 }) async {
   tester.view.physicalSize = const Size(1440, 900);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
 
-  const user = DiscourseUser(id: 1, username: 'reader');
-  final notification = DiscourseNotification.test(
+  final user = DiscourseUser(
+    id: 1,
+    username: 'reader',
+    messageGroupNames: messageGroupNames,
+  );
+  notification ??= DiscourseNotification.test(
     id: 1,
     typeId: NotificationTypeId(type.wireId),
     topicId: 42,
@@ -412,7 +454,7 @@ Future<(ShellController, FakeDiscourseApi)> _pumpMenu(
     otherNotificationList: [notification],
     reminderList: [notification],
     bookmarkList: const [],
-    feeds: const {'/latest.json': []},
+    feeds: feeds,
     topics: topics,
     topicGate: topicGate,
   );

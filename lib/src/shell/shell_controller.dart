@@ -1401,6 +1401,7 @@ class ShellController extends FrameSafeNotifier
     if (_openTopicUrl(absolute, refresh: true)) {
       return _revealNotificationTarget();
     }
+    if (openCorePageUrl(absolute)) return _revealNotificationTarget();
     if (openListUrl(absolute)) return _revealNotificationTarget();
     return false;
   }
@@ -6751,8 +6752,8 @@ class ShellController extends FrameSafeNotifier
         ? BadgeRoute.parse(absolute, siteUrl: instance.url)
         : null;
     final ContentRoute route;
-    if (_isOwnMessagesUrl(instance, target)) {
-      route = ContentRoute.messages();
+    if (_ownMessagesRoute(instance, target) case final messages?) {
+      route = messages;
     } else if (instance.pathWithin(target) == '/u' &&
         !target.hasQuery &&
         !target.hasFragment) {
@@ -6864,17 +6865,47 @@ class ShellController extends FrameSafeNotifier
     return route;
   }
 
-  bool _isOwnMessagesUrl(DiscourseInstance instance, Uri target) {
-    final username = instance.user?.username;
-    if (username == null || target.hasQuery || target.hasFragment) return false;
-    final path = instance.pathWithin(target);
-    if (path == '/my/messages') return true;
-    final segments = Uri.tryParse(path ?? '')?.pathSegments;
-    return segments != null &&
-        segments.length == 3 &&
-        segments[0] == 'u' &&
-        segments[1].toLowerCase() == username.toLowerCase() &&
-        segments[2] == 'messages';
+  /// The native inbox a link to the reader's own messages names, spelled as
+  /// the web routes it under `/u/{me}/messages` or `/my/messages`: the
+  /// personal inbox and its `unread`, `sent` and `archive` folders, and
+  /// `group/{name}` with its `unread` and `archive` folders. A group-message
+  /// summary notification links to a group inbox. Null — the browser — for
+  /// another reader's messages, a group whose messages this account cannot
+  /// read, and a folder the app has no list for.
+  ContentRoute? _ownMessagesRoute(DiscourseInstance instance, Uri target) {
+    final user = instance.user;
+    if (user == null || target.hasQuery || target.hasFragment) return null;
+    final List<String> inbox;
+    switch (DiscourseInstance.pathSegmentsWithin(instance.url, target)) {
+      case ['my', 'messages', ...final rest]:
+        inbox = rest;
+      case ['u', final username, 'messages', ...final rest]
+          when username.toLowerCase() == user.username.toLowerCase():
+        inbox = rest;
+      default:
+        return null;
+    }
+    final (groupName, folder) = switch (inbox) {
+      ['group', final name, ...final folder] => (name, folder),
+      _ => (null, inbox),
+    };
+    // The route keeps the server's spelling so it is the same list, under the
+    // same id, as the one the inbox selector opens.
+    final group = groupName == null
+        ? null
+        : user.messageGroupNames
+              .where((name) => name.toLowerCase() == groupName.toLowerCase())
+              .firstOrNull;
+    if (groupName != null && group == null) return null;
+    final mode = switch (folder) {
+      [] => MessageListMode.inbox,
+      ['unread'] => MessageListMode.unread,
+      ['sent'] => MessageListMode.sent,
+      ['archive'] => MessageListMode.archive,
+      _ => null,
+    };
+    if (mode == null || (group != null && !mode.supportsGroup)) return null;
+    return ContentRoute.messages(groupName: group, mode: mode);
   }
 
   TabOpenResult openContentInNewTab(
@@ -7316,12 +7347,8 @@ class ShellController extends FrameSafeNotifier
     final route = destination.route;
     // Topics, category and tag lists, badges and groups have their own openers.
     if (TopicListMode.fromRoute(route) == null &&
-        !const {
-          'messages',
-          'users',
-          'all-categories',
-          'all-tags',
-        }.contains(route.id)) {
+        !route.isMessages &&
+        !const {'users', 'all-categories', 'all-tags'}.contains(route.id)) {
       return false;
     }
     final index = _instances.indexWhere(

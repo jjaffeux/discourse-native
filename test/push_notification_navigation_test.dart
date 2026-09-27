@@ -6,7 +6,9 @@ import 'package:discourse_native/src/data/notification_opens.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
+import 'package:discourse_native/src/models/notification.dart';
 import 'package:discourse_native/src/models/post.dart';
+import 'package:discourse_native/src/plugin_api/notification_types.dart';
 import 'package:discourse_native/src/plugin_api/plugin_data.dart';
 import 'package:discourse_native/src/plugin_api/plugin_runtime.dart';
 import 'package:discourse_native/src/plugin_api/shell_extensions.dart';
@@ -163,6 +165,106 @@ void main() {
       });
     }
   }
+
+  for (final site in ['one.example', 'one.example/forum']) {
+    test(
+      'inbox notifications open their native message list ($site)',
+      () async {
+        final siteUrl = 'https://$site';
+        final api = FakeDiscourseApi(
+          feeds: const {
+            '/latest.json': [],
+            '/topics/private-messages/reader.json': [],
+            '/topics/private-messages-group/reader/team.json': [],
+          },
+        );
+        final controller = ShellController(
+          instanceStore: FakeInstanceStore([
+            _connected(site, groups: ['team']),
+          ]),
+          api: api,
+          authenticator: FakeAuthenticator(),
+          drafts: FakeDraftStore(),
+          forumTabs: FakeForumTabStore(),
+          trackers: FakeSiteTracker.reset(),
+        );
+        addTearDown(controller.dispose);
+        await controller.load();
+
+        for (final (notification, routeId, feedPath) in [
+          (
+            DiscourseNotification.test(
+              id: 1,
+              typeId: NotificationTypeId(
+                CoreNotificationTypes.groupMessageSummary.wireId,
+              ),
+              data: const {
+                'group_id': 3,
+                'group_name': 'team',
+                'inbox_count': 2,
+                'username': 'reader',
+              },
+            ),
+            'messages-group-team',
+            '/topics/private-messages-group/reader/team.json',
+          ),
+          (
+            DiscourseNotification.test(
+              id: 2,
+              typeId: NotificationTypeId(
+                CoreNotificationTypes.membershipRequestConsolidated.wireId,
+              ),
+              data: const {'group_name': 'team', 'count': 3},
+            ),
+            'messages',
+            '/topics/private-messages/reader.json',
+          ),
+        ]) {
+          final path = resolveCoreNotification(siteUrl, notification).path!;
+          final url = controller.siteLink(path, siteUrl: siteUrl);
+
+          expect(
+            await controller.openNotificationUrl(url),
+            isTrue,
+            reason: url,
+          );
+          await pumpEventQueue();
+
+          expect(controller.currentContent?.id, routeId, reason: url);
+          expect(controller.currentFeedId, routeId, reason: url);
+          expect(api.feedPaths, contains(feedPath), reason: url);
+        }
+      },
+    );
+  }
+
+  test(
+    'inbox notifications for inboxes the reader lacks stay unhandled',
+    () async {
+      final controller = ShellController(
+        instanceStore: FakeInstanceStore([
+          _connected('one.example', groups: ['team']),
+        ]),
+        api: FakeDiscourseApi(feeds: const {'/latest.json': []}),
+        authenticator: FakeAuthenticator(),
+        drafts: FakeDraftStore(),
+        forumTabs: FakeForumTabStore(),
+        trackers: FakeSiteTracker.reset(),
+      );
+      addTearDown(controller.dispose);
+      await controller.load();
+
+      for (final url in const [
+        'https://one.example/u/reader/messages/group/other',
+        'https://one.example/u/other/messages/group/team',
+        'https://one.example/u/reader/messages/group/team/sent',
+        'https://one.example/u/reader/messages/new',
+      ]) {
+        expect(await controller.openNotificationUrl(url), isFalse, reason: url);
+      }
+      expect(controller.currentContent?.id, 'latest');
+    },
+  );
 
   test('notification navigation rejects unsafe and unowned URLs', () async {
     final controller = ShellController(
@@ -391,9 +493,10 @@ void main() {
   });
 }
 
-DiscourseInstance _connected(String host) => instance(
-  host,
-).copyWith(user: const DiscourseUser(id: 1, username: 'reader'));
+DiscourseInstance _connected(String host, {List<String> groups = const []}) =>
+    instance(host).copyWith(
+      user: DiscourseUser(id: 1, username: 'reader', messageGroupNames: groups),
+    );
 
 TopicPayload _reactionTopic({List<Reaction> reactions = const []}) =>
     topicPayload(

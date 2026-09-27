@@ -81,20 +81,78 @@ void main() {
     }
   }
 
-  testWidgets('another user’s inbox URL stays outside native messages', (
-    tester,
-  ) async {
-    final launched = watchBrowser(tester);
-    final controller = await _pumpLink(
-      tester,
-      url: 'https://one.example/u/another-user/messages',
-      signedIn: true,
-    );
-    await tester.tap(find.text('Open link'));
-    await tester.pumpAndSettle();
-    expect(controller.currentContent?.id, isNot('messages'));
-    expect(launched, ['https://one.example/u/another-user/messages']);
-  });
+  for (final (url, routeId, feedPath) in const [
+    (
+      'https://one.example/u/j.jaffeux/messages/group/team',
+      'messages-group-team',
+      '/topics/private-messages-group/j.jaffeux/team.json',
+    ),
+    (
+      'https://one.example/my/messages/group/Team/archive',
+      'messages-group-team/archive',
+      '/topics/private-messages-group/j.jaffeux/team/archive.json',
+    ),
+    (
+      'https://one.example/u/J.Jaffeux/messages/sent',
+      'messages-sent',
+      '/topics/private-messages-sent/j.jaffeux.json',
+    ),
+  ]) {
+    for (final newTab in [false, true]) {
+      testWidgets('opens $url natively (new tab: $newTab)', (tester) async {
+        final launched = watchBrowser(tester);
+        final api = FakeDiscourseApi(
+          feeds: {'/latest.json': const [], feedPath: const []},
+        );
+        final controller = await _pumpLink(
+          tester,
+          url: url,
+          signedIn: true,
+          messageGroupNames: const ['team'],
+          api: api,
+        );
+        controller.pushContent(ContentRoute.newTab());
+        await tester.pumpAndSettle();
+
+        await tester.tap(
+          find.text('Open link'),
+          kind: PointerDeviceKind.mouse,
+          buttons: newTab ? kMiddleMouseButton : kPrimaryMouseButton,
+        );
+        await tester.pumpAndSettle();
+
+        expect(launched, isEmpty);
+        if (newTab) {
+          expect(controller.tabsForCurrentForum, hasLength(2));
+          controller.selectTab(controller.tabsForCurrentForum.last.id);
+          await tester.pumpAndSettle();
+        }
+        expect(controller.currentContent?.id, routeId);
+        expect(controller.currentFeedId, routeId);
+        expect(api.feedPaths, contains(feedPath));
+      });
+    }
+  }
+
+  for (final url in const [
+    'https://one.example/u/another-user/messages',
+    'https://one.example/u/another-user/messages/group/team',
+    'https://one.example/u/j.jaffeux/messages/group/other',
+  ]) {
+    testWidgets('$url stays outside native messages', (tester) async {
+      final launched = watchBrowser(tester);
+      final controller = await _pumpLink(
+        tester,
+        url: url,
+        signedIn: true,
+        messageGroupNames: const ['team'],
+      );
+      await tester.tap(find.text('Open link'));
+      await tester.pumpAndSettle();
+      expect(controller.currentContent?.isMessages, isFalse);
+      expect(launched, [url]);
+    });
+  }
 
   for (final newTab in [false, true]) {
     testWidgets('opens the forum latest URL natively (new tab: $newTab)', (
@@ -533,12 +591,18 @@ Future<ShellController> _pumpLink(
   bool tabsEnabled = true,
   bool desktopPanels = false,
   bool signedIn = false,
+  List<String> messageGroupNames = const [],
   FakeDiscourseApi? api,
 }) async {
   final controller = ShellController(
     instanceStore: FakeInstanceStore([
       instance('one.example').copyWith(
-        user: signedIn ? const DiscourseUser(username: 'j.jaffeux') : null,
+        user: signedIn
+            ? DiscourseUser(
+                username: 'j.jaffeux',
+                messageGroupNames: messageGroupNames,
+              )
+            : null,
       ),
     ]),
     api: api ?? FakeDiscourseApi(feeds: const {'/latest.json': []}),
