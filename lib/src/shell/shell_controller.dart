@@ -62,6 +62,7 @@ import '../models/forum_workspace.dart';
 import '../models/found_group.dart';
 import '../models/found_hashtag.dart';
 import '../models/found_user.dart';
+import '../models/group.dart';
 import '../models/group_route.dart';
 import '../models/incoming_topics.dart';
 import '../models/json.dart';
@@ -9621,8 +9622,32 @@ class ShellController extends FrameSafeNotifier
   void openPrivateMessage({
     required String siteUrl,
     required String targetRecipients,
+  }) => _openPrivateMessage(
+    siteUrl: siteUrl,
+    targetRecipients: targetRecipients,
+    permitted: (user) => user.canSendPrivateMessages,
+  );
+
+  /// Opens a new message addressed to [group] alone.
+  ///
+  /// Core answers the group's `messageable` with
+  /// `can_send_private_message?(group)` for the reader, which admits a group
+  /// messageable by everyone even when the reader may not start messages in
+  /// general, so that flag is the whole permission.
+  void openGroupMessage({required String siteUrl, required Group group}) =>
+      _openPrivateMessage(
+        siteUrl: siteUrl,
+        targetRecipients: group.name,
+        permitted: (_) => group.messageable,
+      );
+
+  void _openPrivateMessage({
+    required String siteUrl,
+    required String targetRecipients,
+    required bool Function(DiscourseUser user) permitted,
   }) {
     final instance = currentInstance;
+    final user = instance?.user;
     final source = topicListContent;
     final route = source?.isMessages == true ? source : currentContent;
     final tabId = activeTabId;
@@ -9633,7 +9658,8 @@ class ShellController extends FrameSafeNotifier
         .where((recipient) => recipient.isNotEmpty)
         .join(',');
     if (instance?.url != siteUrl ||
-        instance?.user?.canSendPrivateMessages != true ||
+        user == null ||
+        !permitted(user) ||
         route?.isTopic != false ||
         tabId == null ||
         feedId == null) {

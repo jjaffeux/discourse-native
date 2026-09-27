@@ -287,6 +287,23 @@ void main() {
       });
     }
 
+    testWidgets(
+      'a messageable group offers Message without general message permission',
+      (tester) async {
+        final port = await pumpGroup(
+          tester,
+          messageable: true,
+          canSendPrivateMessages: false,
+        );
+
+        await tester.tap(find.byKey(const ValueKey('group-message')));
+        await tester.pump();
+
+        expect(port.messagedGroups, ['support']);
+        expect(find.byKey(const ValueKey('group-tab-messages')), findsNothing);
+      },
+    );
+
     testWidgets('a group the server does not mark messageable offers none', (
       tester,
     ) async {
