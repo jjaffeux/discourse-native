@@ -153,6 +153,7 @@ class ReactionsRow extends StatelessWidget {
     PluginEmojiHost? emoji,
   ) {
     String? filter;
+    var closing = false;
     if (controller != null) {
       unawaited(controller.load(siteUrl: siteUrl, postId: post.id));
     }
@@ -170,6 +171,20 @@ class ReactionsRow extends StatelessWidget {
                 listenable: controller ?? const AlwaysStoppedAnimation(null),
                 builder: (context, _) {
                   final current = controller?.post(siteUrl, post.id) ?? post;
+                  final reactions = current.reactions;
+                  if (reactions == null) {
+                    // A 404 toggle or a refresh without the plugin removes
+                    // the record and, with it, the row that opened this
+                    // sheet. The pop waits for the frame because the
+                    // navigator cannot change routes mid-build.
+                    if (!closing) {
+                      closing = true;
+                      WidgetsBinding.instance.addPostFrameCallback(
+                        (_) => sheet.close(),
+                      );
+                    }
+                    return const SizedBox.shrink();
+                  }
                   return Column(
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -177,7 +192,7 @@ class ReactionsRow extends StatelessWidget {
                       ReactionPills(
                         padding: const EdgeInsets.only(top: 10),
                         children: [
-                          for (final entry in current.reactions!.entries)
+                          for (final entry in reactions.entries)
                             DToggle(
                               key: ValueKey('post-reaction-filter-${entry.id}'),
                               size: DToggleSize.large,
