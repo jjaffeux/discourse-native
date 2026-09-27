@@ -217,6 +217,7 @@ final class FakeVoiceMediaSession extends ChangeNotifier
   void Function(bool)? afterSetCamera;
   final List<bool> cameraRequests = [];
   Completer<void>? muteGate;
+  Completer<void>? audioPublishingGate;
   String? selectedAudioInput;
   String? selectedAudioOutput;
   String? selectedCamera;
@@ -275,6 +276,7 @@ final class FakeVoiceMediaSession extends ChangeNotifier
   @override
   Future<void> setAudioPublishingAllowed(bool allowed) async {
     audioPublishingAllowed = allowed;
+    await audioPublishingGate?.future;
     if (audioPublishingFailure case final failure?) throw failure;
   }
 
@@ -2437,6 +2439,46 @@ void main() {
         });
         await Future<void>.delayed(Duration.zero);
         expect(media.audioPublishingAllowed, isTrue);
+      },
+    );
+
+    test(
+      'silence a demoted speaker before the publishing change settles',
+      () async {
+        await controller.ensureLoaded(firstSite);
+        await controller.join(
+          siteUrl: firstSite,
+          siteName: 'One',
+          room: controller.room(firstSite, 7)!,
+        );
+        final media = mediaFactory.sessions.single;
+        firstTracker.deliver('/voice/rooms/7', {
+          'type': 'role_change',
+          'user_id': 1,
+          'role': 'speaker',
+        });
+        await pumpEventQueue();
+        await controller.setMuted(false);
+        expect(media.muted, isFalse);
+        final publishing = Completer<void>();
+        media.audioPublishingGate = publishing;
+        addTearDown(() {
+          if (!publishing.isCompleted) publishing.complete();
+        });
+
+        firstTracker.deliver('/voice/rooms/7', {
+          'type': 'role_change',
+          'user_id': 1,
+          'role': 'participant',
+        });
+        await pumpEventQueue();
+
+        expect(controller.call?.muted, isTrue);
+        expect(media.muted, isTrue);
+        publishing.complete();
+        await pumpEventQueue();
+        expect(media.audioPublishingAllowed, isFalse);
+        expect(media.muted, isTrue);
       },
     );
 
@@ -5476,6 +5518,36 @@ void main() {
         expect(media.audioPublishingAllowed, isFalse);
         expect(media.muted, isTrue);
         expect(notices, isEmpty);
+      },
+    );
+
+    test(
+      'silences a speaker the retype demotes before publishing settles',
+      () async {
+        transport.responses['POST /voice/rooms/7/join.json'] = openJoin();
+        await controller.ensureLoaded(firstSite);
+        await controller.join(
+          siteUrl: firstSite,
+          siteName: 'One',
+          room: controller.room(firstSite, 7)!,
+        );
+        final media = mediaFactory.sessions.single;
+        expect(media.muted, isFalse);
+        final publishing = Completer<void>();
+        media.audioPublishingGate = publishing;
+        addTearDown(() {
+          if (!publishing.isCompleted) publishing.complete();
+        });
+
+        firstTracker.deliver('/voice/rooms/index', renamedRoomEvent());
+        await pumpEventQueue();
+
+        expect(controller.call?.muted, isTrue);
+        expect(media.muted, isTrue);
+        publishing.complete();
+        await pumpEventQueue();
+        expect(media.audioPublishingAllowed, isFalse);
+        expect(media.muted, isTrue);
       },
     );
 
