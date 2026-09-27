@@ -166,6 +166,29 @@ void main() {
   });
 
   group('ChatMessage value semantics', () {
+    test('messages mentioning a user with a status hash by value', () {
+      ChatMessage parse() => ChatMessage.fromJson(const {
+        'id': 7,
+        'chat_channel_id': 3,
+        'cooked': '<p>Hi @alex</p>',
+        'user': {'id': 1, 'username': 'sam'},
+        'mentioned_users': [
+          {
+            'id': 3,
+            'username': 'alex',
+            'status': {'description': 'Travelling', 'emoji': 'airplane'},
+          },
+        ],
+      }, siteUrl);
+      final first = parse();
+      final second = parse();
+
+      expect(first.mentionedUserStatuses, isNotEmpty);
+      expect(second, first);
+      expect(second.hashCode, first.hashCode);
+      expect(first.hashCode, first.hashCode);
+    });
+
     test(
       'local HTML updates notify rows without changing canonical content',
       () {

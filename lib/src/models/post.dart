@@ -441,7 +441,12 @@ class Post with Storable<Post> {
     cooked,
     avatarUrl,
     userStatus,
-    Object.hashAllUnordered(mentionedUserStatuses.entries),
+    // MapEntry hashes by identity while == uses mapEquals, so the statuses
+    // must be hashed by key/value pairs to keep equal posts on one hash code.
+    Object.hashAllUnordered([
+      for (final entry in mentionedUserStatuses.entries)
+        Object.hash(entry.key, entry.value),
+    ]),
     createdAt,
     updatedAt,
     userTitle,
