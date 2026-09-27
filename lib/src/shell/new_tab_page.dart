@@ -4,8 +4,10 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:timezone/timezone.dart' as tz;
 
 import '../foundation/calendar_day.dart';
+import '../foundation/timezone_environment.dart';
 import '../models/bookmark.dart';
 import '../models/content_route.dart';
 import '../models/forum_workspace.dart';
@@ -122,6 +124,7 @@ class _NewTabPageState extends State<NewTabPage> {
       listenable: Listenable.merge([
         shell.accountActivity.bookmarksListenable,
         shell.topicFeeds,
+        TimezoneEnvironment.instance,
         ...?PluginScope.maybeOf(context)?.registry.sidebarListenables(context),
       ]),
       builder: (context, _) => _buildPage(context),
@@ -556,12 +559,31 @@ String? _recentRouteUrl(String? siteUrl, ContentRoute route) {
       : resolveSiteRootPath(siteUrl, '/chat/c/-/${channel.group(1)}');
 }
 
-String _reminderDate(DateTime date) {
-  final local = date.toLocal();
+/// Reminders are dated and named in the reader's zone, the account's when it
+/// has one, as the bookmark sheet that set them shows them. [now] is read in
+/// the same zone, or Today and Tomorrow would compare two calendars.
+@visibleForTesting
+String reminderDateLabel(
+  DateTime date, {
+  required tz.Location location,
+  required DateTime now,
+}) {
+  final wall = tz.TZDateTime.from(date, location);
   final label =
-      upcomingDayName(local, now: DateTime.now()) ??
-      DateFormat.yMMMd().format(local);
-  return '$label at ${DateFormat.jm().format(local)}';
+      upcomingDayName(wall, now: tz.TZDateTime.from(now, location)) ??
+      DateFormat.yMMMd().format(wall);
+  return '$label at ${DateFormat.jm().format(wall)}';
+}
+
+String _reminderDate(DateTime date, {String? accountTimezone}) {
+  final environment = TimezoneEnvironment.instance;
+  return reminderDateLabel(
+    date,
+    location: environment.location(
+      environment.readerTimezone(accountTimezone),
+    )!,
+    now: DateTime.now(),
+  );
 }
 
 class _StartPageEntry {
@@ -827,7 +849,12 @@ class _StartSection extends StatelessWidget {
                         const SizedBox(width: DSpacing.sm),
                         Flexible(
                           child: Text(
-                            _reminderDate(reminder),
+                            _reminderDate(
+                              reminder,
+                              accountTimezone: ShellScope.maybeRead(
+                                context,
+                              )?.currentUserFor(siteUrl)?.timezone,
+                            ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),

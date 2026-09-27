@@ -41,12 +41,12 @@ final class BookmarkReminderCalculator {
       BookmarkReminderSuggestion(
         preset: BookmarkReminderPreset.tomorrow,
         label: 'Tomorrow',
-        instant: _dayAtEight(wallNow, 1).toUtc(),
+        instant: _instant(_dayAtEight(wallNow, 1)),
       ),
       BookmarkReminderSuggestion(
         preset: BookmarkReminderPreset.inThreeDays,
         label: 'In 3 days',
-        instant: _dayAtEight(wallNow, 3).toUtc(),
+        instant: _instant(_dayAtEight(wallNow, 3)),
       ),
     ];
   }
@@ -80,7 +80,7 @@ final class BookmarkReminderCalculator {
         BookmarkReminderSuggestion(
           preset: BookmarkReminderPreset.laterToday,
           label: 'Later today',
-          instant: candidate.toUtc(),
+          instant: _instant(candidate),
         ),
       );
     }
@@ -88,7 +88,7 @@ final class BookmarkReminderCalculator {
       BookmarkReminderSuggestion(
         preset: BookmarkReminderPreset.tomorrow,
         label: 'Tomorrow',
-        instant: _dayAtEight(wallNow, 1).toUtc(),
+        instant: _instant(_dayAtEight(wallNow, 1)),
       ),
     );
     if (wallNow.weekday <= DateTime.wednesday) {
@@ -96,7 +96,7 @@ final class BookmarkReminderCalculator {
         BookmarkReminderSuggestion(
           preset: BookmarkReminderPreset.laterThisWeek,
           label: 'Later this week',
-          instant: _dayAtEight(wallNow, 2).toUtc(),
+          instant: _instant(_dayAtEight(wallNow, 2)),
         ),
       );
     }
@@ -106,7 +106,7 @@ final class BookmarkReminderCalculator {
         BookmarkReminderSuggestion(
           preset: BookmarkReminderPreset.thisWeekend,
           label: 'This weekend',
-          instant: _dayAtEight(wallNow, untilSaturday).toUtc(),
+          instant: _instant(_dayAtEight(wallNow, untilSaturday)),
         ),
       );
     }
@@ -121,7 +121,7 @@ final class BookmarkReminderCalculator {
       BookmarkReminderSuggestion(
         preset: BookmarkReminderPreset.nextMonday,
         label: untilMonday >= 7 ? 'Next Monday' : 'Monday',
-        instant: _dayAtEight(wallNow, untilMonday).toUtc(),
+        instant: _instant(_dayAtEight(wallNow, untilMonday)),
       ),
     );
     final nextMonth = wallNow.month == DateTime.december
@@ -131,11 +131,19 @@ final class BookmarkReminderCalculator {
       BookmarkReminderSuggestion(
         preset: BookmarkReminderPreset.nextMonth,
         label: 'Next month',
-        instant: nextMonth.toUtc(),
+        instant: _instant(nextMonth),
       ),
     );
     return List.unmodifiable(suggestions);
   }
+
+  /// Eight o'clock on the next calendar day in [location]: the "Tomorrow"
+  /// every time-shortcut picker offers, bookmark or status, as web's
+  /// `timeShortcuts(timezone).tomorrow()`.
+  static DateTime tomorrow({
+    required DateTime now,
+    required tz.Location location,
+  }) => _instant(_dayAtEight(tz.TZDateTime.from(now, location), 1));
 
   static DateTime? resolveWallTime({
     required tz.Location location,
@@ -158,8 +166,17 @@ final class BookmarkReminderCalculator {
         value.minute != minute) {
       return null;
     }
-    return value.toUtc();
+    return _instant(value);
   }
+
+  /// Instants leave as plain UTC [DateTime]s. A [tz.TZDateTime] answers
+  /// `toLocal()` in the timezone package's own local zone, which is never set,
+  /// so a caller showing the instant in the device zone would show UTC.
+  static DateTime _instant(tz.TZDateTime value) =>
+      DateTime.fromMicrosecondsSinceEpoch(
+        value.microsecondsSinceEpoch,
+        isUtc: true,
+      );
 
   static tz.TZDateTime _dayAtEight(tz.TZDateTime now, int days) =>
       tz.TZDateTime(now.location, now.year, now.month, now.day + days, 8);

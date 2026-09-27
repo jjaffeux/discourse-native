@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/data/discourse_api.dart';
+import 'package:discourse_native/src/foundation/timezone_environment.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/do_not_disturb.dart';
 import 'package:discourse_native/src/models/site_config.dart';
@@ -16,10 +17,15 @@ import 'package:discourse_native/src/shell/user_status_editor.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:timezone/timezone.dart' as tz;
 
 import 'support/fakes.dart';
 
 const _site = 'https://meta.discourse.org';
+
+/// UTC+14 all year, so no CI or developer device shares its wall time.
+const _zone = 'Pacific/Kiritimati';
+
 const _user = DiscourseUser(
   id: 7,
   username: 'reader',
@@ -262,7 +268,7 @@ void main() {
         final stored = original == 'custom'
             ? DateTime.now().add(const Duration(days: 3))
             : null;
-        final api = await _open(tester, endsAt: stored);
+        final api = await _open(tester, endsAt: stored, timezone: _zone);
         if (original != 'Never' && original != 'custom') {
           await _select(tester, original);
         }
@@ -289,9 +295,11 @@ void main() {
         } else if (original == 'custom') {
           expect(submitted, stored!.toUtc());
         } else if (original == 'Tomorrow') {
+          final today = tz.TZDateTime.from(before, _location());
+          // Eight o'clock on the next Kiritimati day is 18:00 UTC on this one.
           expect(
             submitted,
-            DateTime(before.year, before.month, before.day + 1, 8, 30).toUtc(),
+            DateTime.utc(today.year, today.month, today.day, 18),
           );
         } else {
           final hours = original == '1 hour' ? 1 : 2;
@@ -307,7 +315,7 @@ void main() {
   testWidgets(
     'accepted custom expiry is retained after reopening and cancelling',
     (tester) async {
-      final api = await _open(tester);
+      final api = await _open(tester, timezone: _zone);
       await _select(tester, 'Custom date and time');
       final date = tester
           .widget<DatePickerDialog>(find.byType(DatePickerDialog))
@@ -317,11 +325,12 @@ void main() {
       final time = tester
           .widget<TimePickerDialog>(find.byType(TimePickerDialog))
           .initialTime;
-      final expected = DateTime(
+      // The picked wall time is the account's: UTC+14.
+      final expected = DateTime.utc(
         date.year,
         date.month,
         date.day,
-        time.hour,
+        time.hour - 14,
         time.minute,
       );
       await tester.tap(find.text('OK'));
@@ -333,9 +342,41 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text('Save'));
       await tester.pumpAndSettle();
-      expect(api.userStatusesSet.single.endsAt?.toUtc(), expected.toUtc());
+      expect(api.userStatusesSet.single.endsAt?.toUtc(), expected);
     },
   );
+
+  testWidgets('a stored expiry is shown and edited in the account timezone', (
+    tester,
+  ) async {
+    final year = DateTime.now().year + 1;
+    // 02:00 on 16 June at UTC+14.
+    final stored = DateTime.utc(year, 6, 15, 12);
+    final api = await _open(tester, endsAt: stored, timezone: _zone);
+    expect(find.textContaining('Jun 16 2:00'), findsOneWidget);
+
+    await _select(tester, 'Custom date and time');
+    expect(
+      tester
+          .widget<DatePickerDialog>(find.byType(DatePickerDialog))
+          .initialDate,
+      DateTime(year, 6, 16),
+    );
+    await tester.tap(find.text('OK'));
+    await tester.pumpAndSettle();
+    expect(
+      tester
+          .widget<TimePickerDialog>(find.byType(TimePickerDialog))
+          .initialTime,
+      const TimeOfDay(hour: 2, minute: 0),
+    );
+    await tester.tap(find.text('OK'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Save'));
+    await tester.pumpAndSettle();
+
+    expect(api.userStatusesSet.single.endsAt?.toUtc(), stored);
+  });
 
   testWidgets(
     'stored expiry beyond picker bounds opens and cancellation preserves it',
@@ -364,14 +405,19 @@ Future<void> _select(WidgetTester tester, String label) async {
   await tester.pumpAndSettle();
 }
 
+tz.Location _location() =>
+    (TimezoneEnvironment.instance..ensureDatabase()).location(_zone)!;
+
 Future<FakeDiscourseApi> _open(
   WidgetTester tester, {
   DateTime? endsAt,
+  String? timezone,
   FakeDiscourseApi? api,
 }) async {
   final user = DiscourseUser(
     id: 7,
     username: 'reader',
+    timezone: timezone,
     status: UserStatus(description: 'Working', emoji: 'house', endsAt: endsAt),
   );
   api ??= FakeDiscourseApi(
