@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/gestures.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
@@ -44,9 +45,18 @@ class ComposerBlockSurface extends StatefulWidget {
   final bool expands;
   final Listenable? geometryChanges;
 
+  /// Marks a control inside a block that answers a touch long press itself,
+  /// such as a context-menu trigger. Touch moves claim long presses ahead of
+  /// the block's content, so a press on [child] would otherwise move the block
+  /// and leave the control's own long-press action unreachable.
+  static Widget ownsLongPress({required Widget child}) =>
+      MetaData(metaData: _ownsLongPress, child: child);
+
   @override
   State<ComposerBlockSurface> createState() => _ComposerBlockSurfaceState();
 }
+
+const _ownsLongPress = Object();
 
 class _ComposerBlockSurfaceState extends State<ComposerBlockSurface> {
   final _bounds = GlobalKey();
@@ -333,10 +343,24 @@ class _ComposerBlockSurfaceState extends State<ComposerBlockSurface> {
     for (final block in composer.blocks.index.blocks) {
       final rect = widget.blockRect(block);
       if (block.movable && rect != null && rect.contains(position)) {
+        if (_longPressOwnedAt(position)) return null;
         return _BlockDrag(composer, block.id, composer.blocks.revision);
       }
     }
     return null;
+  }
+
+  bool _longPressOwnedAt(Offset position) {
+    final box = _bounds.currentContext?.findRenderObject();
+    if (box is! RenderBox || !box.hasSize) return false;
+    final result = BoxHitTestResult();
+    box.hitTest(result, position: box.globalToLocal(position));
+    for (final entry in result.path) {
+      if (entry.target case RenderMetaData(metaData: _ownsLongPress)) {
+        return true;
+      }
+    }
+    return false;
   }
 
   bool _startTouchDrag(_BlockDrag drag) {
