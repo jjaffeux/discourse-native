@@ -113,7 +113,7 @@ final class AppleFileDraftPersistence implements DraftPersistence {
       }
 
       state.values[key] = legacyValue;
-      state.blockedLegacyKeys.add(key);
+      state.blockLegacyKey(key);
       return PrivateFileResult((
         value: legacyValue,
         allowPreferenceFallback: false,
@@ -124,14 +124,14 @@ final class AppleFileDraftPersistence implements DraftPersistence {
   @override
   Future<void> write(String key, String value) => _document.update((state) {
     state.values[key] = value;
-    state.blockedLegacyKeys.add(key);
+    state.blockLegacyKey(key);
     return PrivateFileResult.done;
   });
 
   @override
   Future<void> delete(String key) => _document.update((state) {
     state.values.remove(key);
-    state.blockedLegacyKeys.add(key);
+    state.blockLegacyKey(key);
     return PrivateFileResult.done;
   });
 
@@ -143,12 +143,8 @@ final class AppleFileDraftPersistence implements DraftPersistence {
     return PrivateFileResult.done;
   });
 
-  _DraftProbe _probe(_DraftFileState state, String key) => (
-    value: state.values[key],
-    blocked:
-        state.blockedLegacyKeys.contains(key) ||
-        state.blockedLegacyPrefixes.any(key.startsWith),
-  );
+  _DraftProbe _probe(_DraftFileState state, String key) =>
+      (value: state.values[key], blocked: state.blocksLegacy(key));
 
   static DraftPersistenceRead _result(_DraftProbe probe) =>
       (value: probe.value, allowPreferenceFallback: !probe.blocked);
@@ -208,14 +204,32 @@ final class _DraftFileState {
           'Invalid draft storage: blockers must be strings',
         );
       }
-      return _DraftFileState(
+      final state = _DraftFileState(
         values: values,
         blockedLegacyKeys: rawKeys.cast<String>().toSet(),
         blockedLegacyPrefixes: rawPrefixes.cast<String>().toSet(),
       );
+      // Covered key blockers are redundant (see [blockLegacyKey]). Dropping
+      // them on decode lets an existing file shrink with its next real change;
+      // a lookup still never rewrites, because an update compares encodings
+      // taken after decoding.
+      return state..blockedLegacyKeys.removeWhere(state._coveredBySite);
     }
     throw const FormatException('Invalid draft storage format');
   }
+
+  bool blocksLegacy(String key) =>
+      blockedLegacyKeys.contains(key) || _coveredBySite(key);
+
+  /// Site blockers are never lifted, so a key blocker under one cannot change
+  /// what [blocksLegacy] answers. Recording it anyway would permanently grow,
+  /// by one entry per draft ever saved or cleared, the file which each
+  /// composer autosave rereads and rewrites.
+  void blockLegacyKey(String key) {
+    if (!_coveredBySite(key)) blockedLegacyKeys.add(key);
+  }
+
+  bool _coveredBySite(String key) => blockedLegacyPrefixes.any(key.startsWith);
 
   Map<String, Object> toJson() => {
     'version': _draftFileFormatVersion,
