@@ -134,6 +134,56 @@ void main() {
     expect(emoji.siteUrl, forum.url);
   });
 
+  testWidgets(
+    'reports a failure, not an empty result, when every forum fails',
+    (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      tester.view.physicalSize = const Size(1000, 800);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+
+      const user = DiscourseUser(username: 'sam');
+      const filterPath = '/filter.json?per_page=30';
+      final forum = instance('one.example', title: 'One').copyWith(user: user);
+      final authenticator = FakeAuthenticator()..keys[forum.url] = 'key';
+      // No filter feed: the fake answers that path as an unreachable site.
+      final api = FakeDiscourseApi(
+        user: user,
+        feeds: const {'/latest.json': []},
+      );
+
+      await tester.pumpWidget(
+        DiscourseApp(
+          store: FakeInstanceStore([forum]),
+          api: api,
+          authenticator: authenticator,
+          drafts: FakeDraftStore(),
+          forumTabs: FakeForumTabStore(),
+          trackers: FakeSiteTracker.reset(),
+          updater: FakeUpdater(),
+          updateStore: FakeUpdateStore(),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await _openAggregate(tester);
+      await tester.pumpAndSettle();
+
+      expect(find.text('No matching topics'), findsNothing);
+      expect(find.text('1 forum could not be refreshed.'), findsOneWidget);
+
+      final requested = api.feedPaths
+          .where((path) => path == filterPath)
+          .length;
+      await tester.tap(find.text('Retry'));
+      await tester.pumpAndSettle();
+      expect(
+        api.feedPaths.where((path) => path == filterPath).length,
+        requested + 1,
+      );
+      expect(find.text('1 forum could not be refreshed.'), findsOneWidget);
+    },
+  );
+
   testWidgets('shows token autocomplete inside the forum filters menu', (
     tester,
   ) async {
