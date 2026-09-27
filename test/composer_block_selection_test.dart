@@ -235,9 +235,10 @@ void main() {
           );
           final before = surface.blockRect(composer.blocks.index.blocks.first)!;
           final after = surface.blockRect(composer.blocks.index.blocks.last)!;
+          // Adjacent components keep at least the half-line paragraph gap.
           expect(
             after.top - before.bottom,
-            greaterThanOrEqualTo(rendered.preferredLineHeight * .9),
+            greaterThanOrEqualTo(rendered.preferredLineHeight * .5),
           );
           expect(painted.length, composer.text.text.length);
           expect(composer.text.text, '${first.value}\n${second.value}');
@@ -246,6 +247,50 @@ void main() {
       );
     }
   }
+
+  testWidgets('lists stay on their own side of a poll boundary', (
+    tester,
+  ) async {
+    final poll = _blocks['poll']!;
+    final source = '* Before\n$poll\n$_table';
+    final composer = await _pump(tester, source);
+    expect(
+      [
+        for (final block in composer.text.syntaxBlocks)
+          (block.kind.name, block.source),
+      ],
+      [
+        ('list-item', '* Before'),
+        ('poll', poll),
+        ('list-item', '* Tea'),
+        ('list-item', '* Coffee'),
+        ('table', _table),
+      ],
+    );
+    final rendered = tester
+        .state<EditableTextState>(_field(composer))
+        .renderEditable;
+    final painted = rendered.text!.toPlainText(includeSemanticsLabels: false);
+    expect(painted[source.indexOf(poll)], '￼');
+    expect(painted[source.indexOf(_table)], '￼');
+
+    // The caret inside the poll shows its source. Each option keeps its list
+    // editor, which holds neither the closing tag nor the following table.
+    composer.text.selection = TextSelection.collapsed(
+      offset: source.indexOf('[poll]') + 3,
+    );
+    await tester.pumpAndSettle();
+    expect(
+      tester
+          .widgetList<ComposerRichBodyEditor>(
+            find.byType(ComposerRichBodyEditor),
+          )
+          .map((editor) => editor.composer.text.text),
+      ['Before', 'Tea', 'Coffee'],
+    );
+    expect(composer.text.text, source);
+    expect(tester.takeException(), isNull);
+  });
 
   for (final entry in _blocks.entries) {
     testWidgets(
@@ -306,9 +351,10 @@ void main() {
             final render = tester
                 .state<EditableTextState>(_field(composer))
                 .renderEditable;
+            // The hidden blank line before the component shares its line.
             expect(
               render.getLineAtOffset(TextPosition(offset: offset)).start,
-              8,
+              7,
             );
             expect(
               render.getLocalRectForCaret(TextPosition(offset: offset)).height,
@@ -422,11 +468,12 @@ void main() {
           final painted = rendered.text!.toPlainText(
             includeSemanticsLabels: false,
           );
+          // One line break remains; the required blank line is hidden.
           expect(
             '\n'.allMatches(
               painted.substring(0, composer.text.text.indexOf(second)),
             ),
-            hasLength(2),
+            hasLength(1),
           );
           expect(tester.takeException(), isNull);
         },
@@ -459,7 +506,7 @@ void main() {
                   TextPosition(offset: composer.text.text.length),
                 )
                 .start,
-            8,
+            7,
             reason: 'The end of the component must share its rendered line',
           );
           expect(

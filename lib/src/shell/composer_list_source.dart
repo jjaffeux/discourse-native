@@ -134,9 +134,20 @@ final _interrupt = RegExp(
 final _rule = RegExp(
   r'^ {0,3}(?:(?:\*[ \t]*){3,}|(?:-[ \t]*){3,}|(?:_[ \t]*){3,})$',
 );
+final _blockOpening = RegExp(
+  r'^ {0,3}\[([a-zA-Z][\w-]*)(?:[= ][^\]]*)?\][ \t]*$',
+);
+final _blockClosing = RegExp(r'^ {0,3}\[/([a-zA-Z][\w-]*)\][ \t]*$');
 
 /// Parses outer list items; each body's same parser supplies its nested items.
 /// Fenced and indented code keep apparent task markers literal.
+///
+/// A BBCode block such as a poll bounds items as Discourse's block rule does:
+/// its content is parsed only up to the closing tag, so an item inside it never
+/// continues past that tag, and its opening tag ends a lazy continuation as it
+/// ends a paragraph. Which tags a site registers is not known here, so any tag
+/// on a line of its own counts once it is closed; an unclosed one may be a
+/// reference link, and Discourse never closes a block at the end of a document.
 List<ComposerListItem> composerListItems(
   String source, {
   Set<String> referenceMarkers = const {},
@@ -156,8 +167,20 @@ List<ComposerListItem> composerListItems(
     start = end + 1;
   }
   final result = <ComposerListItem>[];
+  final blocks = source.contains('[/')
+      ? _blockClosingLines(lines)
+      : const <int, int>{};
+  // Closing lines of the blocks around the current line, innermost last.
+  final closings = <int>[];
   String? outerFence;
   for (var i = 0; i < lines.length;) {
+    if (i == closings.lastOrNull) {
+      // A fence left open inside a block ends with it too.
+      closings.removeLast();
+      outerFence = null;
+      i++;
+      continue;
+    }
     final line = lines[i];
     final fence = _fence.firstMatch(line.text);
     if (outerFence != null) {
@@ -167,6 +190,12 @@ List<ComposerListItem> composerListItems(
     }
     if (fence != null) {
       outerFence = fence[1];
+      i++;
+      continue;
+    }
+    final closing = blocks[i];
+    if (closing != null && closing < (closings.lastOrNull ?? lines.length)) {
+      closings.add(closing);
       i++;
       continue;
     }
@@ -191,10 +220,13 @@ List<ComposerListItem> composerListItems(
     var blank = false;
     var paragraph = remainder.isNotEmpty;
     String? itemFence = _fence.firstMatch(remainder)?[1];
-    while (next < lines.length) {
+    // An enclosing block's closing tag ends its content as the end of the
+    // document would.
+    final limit = closings.lastOrNull ?? lines.length;
+    while (next < limit) {
       final following = lines[next];
       if (following.text.trim().isEmpty) {
-        if (next == lines.length - 1 &&
+        if (next == limit - 1 &&
             _indentWidth(following.text) >= contentIndent) {
           last = next;
         }
@@ -208,13 +240,15 @@ List<ComposerListItem> composerListItems(
       final belongs = width >= contentIndent;
       final relative = following.text.substring(removed);
       if (!belongs) {
+        final closing = blocks[next];
         if (itemFence != null ||
             blank ||
             !paragraph ||
             _listMarker.hasMatch(following.text) ||
             _interrupt.hasMatch(following.text) ||
             _fence.hasMatch(following.text) ||
-            _rule.hasMatch(following.text)) {
+            _rule.hasMatch(following.text) ||
+            (closing != null && closing < limit)) {
           break;
         }
       } else if (itemFence != null) {
@@ -260,6 +294,27 @@ List<ComposerListItem> composerListItems(
     i = last + 1;
   }
   return result;
+}
+
+/// The closing line of each BBCode block, keyed by its opening line. Tags on
+/// lines of their own pair as Discourse's block rule pairs them: with the next
+/// closing tag of the same name that is not taken by a nested opening tag,
+/// whether or not a fence lies between them.
+Map<int, int> _blockClosingLines(
+  List<({int start, int end, String text})> lines,
+) {
+  final blocks = <int, int>{};
+  final unclosed = <String, List<int>>{};
+  for (var i = 0; i < lines.length; i++) {
+    final text = lines[i].text;
+    if (_blockOpening.firstMatch(text) case final opening?) {
+      (unclosed[opening[1]!.toLowerCase()] ??= []).add(i);
+    } else if (_blockClosing.firstMatch(text) case final closing?) {
+      final opened = unclosed[closing[1]!.toLowerCase()];
+      if (opened != null && opened.isNotEmpty) blocks[opened.removeLast()] = i;
+    }
+  }
+  return blocks;
 }
 
 Set<String> composerTaskReferences(String source) => RegExp(

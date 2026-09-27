@@ -69,7 +69,11 @@ List<MermaidComposerBlock> parseMermaidComposerBlocks(String source) {
     }
     if (j == lines.length) break;
     if (info == 'mermaid') {
-      final end = lines[j].end - (source[lines[j].end - 1] == '\n' ? 1 : 0);
+      // The block ends with its closing fence. A CRLF belongs to the gap after
+      // it, as it does for every other component.
+      var end = lines[j].end;
+      if (source[end - 1] == '\n') end--;
+      if (end > lines[j].start && source[end - 1] == '\r') end--;
       var bodyEnd = lines[j].start;
       if (bodyEnd > line.end && source[bodyEnd - 1] == '\n') bodyEnd--;
       if (bodyEnd > line.end && source[bodyEnd - 1] == '\r') bodyEnd--;
@@ -133,8 +137,11 @@ class _MermaidProjection implements ComposerInteractiveSyntaxProjection {
       document.composing.start < end &&
       document.composing.end > start;
   @override
-  int caretAfter(String document) =>
-      end < document.length && document[end] == '\n' ? end + 1 : end;
+  int caretAfter(String document) {
+    if (document.startsWith('\r\n', end)) return end + 2;
+    return document.startsWith('\n', end) ? end + 1 : end;
+  }
+
   @override
   TextEditingValue moveCaretAfter(TextEditingValue document) {
     final text = end == document.text.length
