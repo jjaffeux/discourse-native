@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui' show AppExitResponse;
 
 import 'package:discourse_native/src/app.dart';
 import 'package:discourse_native/src/data/discourse_api.dart';
@@ -59,6 +60,82 @@ void main() {
       await tester.pumpWidget(const SizedBox.shrink());
     }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
   }
+
+  testWidgets('a quit request preserves a draft before its debounce fires', (
+    tester,
+  ) async {
+    final gate = Completer<void>();
+    final drafts = _GatedDraftStore();
+    addTearDown(() {
+      if (!gate.isCompleted) gate.complete();
+      if (!drafts.release.isCompleted) drafts.release.complete();
+    });
+    final api = FakeDiscourseApi(draftGate: gate);
+    final shell = await _pumpApp(tester, api: api, drafts: drafts);
+    final composer = await _openReply(shell);
+    await tester.pumpAndSettle();
+
+    await tester.enterText(
+      find.descendant(
+        of: find.byType(ComposerPanel),
+        matching: find.byType(TextField),
+      ),
+      'Typed just before quitting',
+    );
+    expect(drafts.started.isCompleted, isFalse);
+
+    AppExitResponse? response;
+    unawaited(
+      tester.binding.handleRequestAppExit().then((value) => response = value),
+    );
+    await tester.pump();
+    expect(drafts.started.isCompleted, isTrue);
+    expect(response, isNull);
+
+    // The answer waits for the local copy and not for the site's.
+    drafts.release.complete();
+    await tester.pump();
+    expect(response, AppExitResponse.exit);
+    expect(_localReply(drafts), 'Typed just before quitting');
+    expect(gate.isCompleted, isFalse);
+    expect(composer.isDisposed, isFalse);
+
+    gate.complete();
+    await tester.pumpWidget(const SizedBox.shrink());
+  }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
+
+  testWidgets('a quit request stops waiting on a stuck draft store', (
+    tester,
+  ) async {
+    final drafts = _GatedDraftStore();
+    addTearDown(() {
+      if (!drafts.release.isCompleted) drafts.release.complete();
+    });
+    final api = FakeDiscourseApi(
+      draftFailure: const WriteException(WriteFailure.unreachable),
+    );
+    final shell = await _pumpApp(tester, api: api, drafts: drafts);
+    final composer = await _openReply(shell);
+    composer.text.text = 'Storage never answers';
+
+    AppExitResponse? response;
+    unawaited(
+      tester.binding.handleRequestAppExit().then((value) => response = value),
+    );
+    await tester.pump();
+    expect(drafts.started.isCompleted, isTrue);
+
+    await tester.pump(
+      DiscourseApp.exitFlushTimeout - const Duration(milliseconds: 1),
+    );
+    expect(response, isNull);
+    await tester.pump(const Duration(milliseconds: 1));
+    expect(response, AppExitResponse.exit);
+
+    drafts.release.complete();
+    await composer.finishDraftSaves();
+    await tester.pumpWidget(const SizedBox.shrink());
+  }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
   testWidgets('backgrounding stages the latest edit behind a remote save', (
     tester,

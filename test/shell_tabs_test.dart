@@ -1,3 +1,6 @@
+import 'dart:async';
+import 'dart:ui' show AppExitResponse;
+
 import 'package:discourse_native/src/data/recent_destinations_store.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
@@ -5,10 +8,13 @@ import 'package:discourse_native/src/models/forum_workspace.dart';
 import 'package:discourse_native/src/models/sidebar.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
+import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/fakes.dart';
+import 'support/shell_test_harness.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -1202,6 +1208,55 @@ void main() {
       });
     });
   });
+
+  testWidgets('a quit request persists an anchor still inside its debounce', (
+    tester,
+  ) async {
+    final forumTabs = _GatedForumTabStore();
+    addTearDown(() {
+      if (!forumTabs.release.isCompleted) forumTabs.release.complete();
+    });
+    await pumpShell(tester, desktop, forumTabs: forumTabs);
+    final shell = tester.widget<ShellScope>(find.byType(ShellScope)).notifier!;
+    shell.pushContent(_topic(909, 'Quit topic'));
+    await tester.pumpAndSettle();
+    final siteUrl = shell.currentInstance!.url;
+    final savesBeforeScroll = forumTabs.saveCount;
+
+    forumTabs.gated = true;
+    shell.saveTopicScrollPost(909, 33, viewportOffset: -8);
+    AppExitResponse? response;
+    unawaited(
+      tester.binding.handleRequestAppExit().then((value) => response = value),
+    );
+    await tester.pump();
+
+    expect(forumTabs.saveCount, savesBeforeScroll + 1);
+    final anchor = forumTabs.workspaces
+        .singleWhere((workspace) => workspace.siteUrl == siteUrl)
+        .activeTab
+        .anchors['topic-909'];
+    expect(anchor?.itemId, 33);
+    expect(anchor?.offset, -8);
+    // The answer waits for the write to land, not merely to start.
+    expect(response, isNull);
+
+    forumTabs.release.complete();
+    await tester.pump();
+    expect(response, AppExitResponse.exit);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+}
+
+final class _GatedForumTabStore extends FakeForumTabStore {
+  final release = Completer<void>();
+  bool gated = false;
+
+  @override
+  Future<void> save(Iterable<ForumWorkspace> workspaces) async {
+    await super.save(workspaces);
+    if (gated) await release.future;
+  }
 }
 
 ContentRoute _topic(int id, String title) =>

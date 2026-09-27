@@ -1451,6 +1451,10 @@ class ShellController extends FrameSafeNotifier
   Timer? _anchorPersistTimer;
   bool _anchorPersistencePending = false;
 
+  /// Settles with the newest workspace write. Those writes are serial, so
+  /// every earlier one has settled by then too.
+  Future<void> _workspacesSaved = Future<void>.value();
+
   ForumWorkspace? get currentWorkspace {
     final siteUrl = currentInstance?.url;
     return siteUrl == null ? null : _forumWorkspaces[siteUrl];
@@ -1920,7 +1924,10 @@ class ShellController extends FrameSafeNotifier
     // Any full write already carries the in-memory anchors, so a waiting
     // anchor window has nothing left to add.
     _anchorPersistencePending = false;
-    unawaited(forumTabs.save(_forumWorkspaces.values));
+    // The store reports its own failures; this only records when it is done.
+    _workspacesSaved = forumTabs
+        .save(_forumWorkspaces.values)
+        .then<void>((_) {}, onError: (Object _, StackTrace _) {});
   }
 
   void _schedulePersistAnchors() {
@@ -5946,6 +5953,22 @@ class ShellController extends FrameSafeNotifier
   void _disposeTracking(String siteUrl) {
     final tracker = _trackers.remove(siteUrl);
     tracker?.dispose().ignore();
+  }
+
+  /// Writes what a quit would otherwise lose — a tab selection or anchor
+  /// still inside its debounce, and each composer's pending draft — and
+  /// completes once it is on this device. A desktop quit ends the process
+  /// without a lifecycle change, so [setForeground] never runs for it. The
+  /// quit may still be cancelled, so nothing is paced down here, and the
+  /// sites' copies of the drafts are left to finish on their own.
+  Future<void> flushForExit() async {
+    if (isDisposed) return;
+    _flushPendingAnchorPersist();
+    if (_tabSelectionPersistencePending) _persistWorkspaces();
+    for (final composer in _composers.values) {
+      unawaited(composer.flushDraftOnBackground());
+    }
+    await Future.wait([_workspacesSaved, _composerDrafts.localWritesSettled()]);
   }
 
   void setForeground(bool foreground) {
