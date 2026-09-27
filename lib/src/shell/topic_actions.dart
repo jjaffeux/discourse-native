@@ -172,7 +172,8 @@ class TopicShareButton extends StatelessWidget {
           config: instance.config,
           username: instance.user?.username,
         ),
-        onReplyAsNewTopic: topic.canReplyAsNewTopic
+        privateMessage: topic.privateMessage,
+        onReplyAsNewTopic: controller.canReplyAsNewTopic(topic)
             ? captureShareReplyAsNewTopic(
                 context: context,
                 siteUrl: siteUrl,

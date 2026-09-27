@@ -112,12 +112,14 @@ Future<void> showTopicShareSheet({
   required String title,
   required String url,
   Future<void> Function()? onReplyAsNewTopic,
+  bool privateMessage = false,
 }) => _showShareSheet(
   context: context,
   heading: 'Share this topic',
   title: title,
   url: url,
   onReplyAsNewTopic: onReplyAsNewTopic,
+  privateMessage: privateMessage,
 );
 
 Future<void> showPostShareSheet({
@@ -126,12 +128,14 @@ Future<void> showPostShareSheet({
   required String url,
   required int postNumber,
   Future<void> Function()? onReplyAsNewTopic,
+  bool privateMessage = false,
 }) => _showShareSheet(
   context: context,
   heading: 'Share post #$postNumber',
   title: topicTitle,
   url: url,
   onReplyAsNewTopic: onReplyAsNewTopic,
+  privateMessage: privateMessage,
 );
 
 Future<void> _showShareSheet({
@@ -140,6 +144,7 @@ Future<void> _showShareSheet({
   required String title,
   required String url,
   Future<void> Function()? onReplyAsNewTopic,
+  required bool privateMessage,
 }) => showShellSheet<void>(
   context: context,
   title: heading,
@@ -155,8 +160,8 @@ Future<void> _showShareSheet({
             constraints: const BoxConstraints(),
             child: DButton(
               key: const ValueKey('topic-share-reply-as-new-topic'),
-              label: const Text(
-                'Reply as new topic',
+              label: Text(
+                privateMessage ? 'Reply as new message' : 'Reply as new topic',
                 maxLines: 2,
                 softWrap: true,
               ),

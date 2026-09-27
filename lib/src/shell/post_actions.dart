@@ -280,12 +280,15 @@ class _PostActionsState extends State<PostActions> {
                 topicTitle: topicTitle!,
                 url: url,
                 postNumber: post.postNumber,
+                privateMessage: topic?.privateMessage == true,
                 onReplyAsNewTopic:
-                    topic?.canReplyAsNewTopic == true && canonicalUrl != null
+                    topic != null &&
+                        controller.canReplyAsNewTopic(topic) &&
+                        canonicalUrl != null
                     ? captureShareReplyAsNewTopic(
                         context: context,
                         siteUrl: widget.siteUrl,
-                        topicId: topic!.id,
+                        topicId: topic.id,
                         continuation: topicContinuationMarkdown(
                           title: topic.title,
                           url: canonicalUrl,
