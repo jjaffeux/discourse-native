@@ -1641,6 +1641,125 @@ void main() {
       },
     );
 
+    test(
+      'a kick releases the page it cancels so the window can be reclaimed',
+      () async {
+        final api = _GatedPastPageApi(
+          chatChannelsBySite: {
+            site: ChatChannels(
+              public: [channel(9)],
+              kickMessageBusLastIds: const {9: 72},
+            ),
+          },
+          chatMessagesByKey: {
+            key(9): page([message(5, minute: 5)], canLoadMorePast: true),
+            key(9, before: 5): page([message(1, minute: 1)]),
+            key(10): page([message(8, minute: 8)]),
+          },
+        );
+        final subject = build(
+          api: api,
+          currentUser: currentUser,
+          maxRetainedCanonicalMessageIdsPerSite: 50,
+        );
+        addTearDown(subject.chat.dispose);
+        final tracker = attachTracker(subject.chat);
+        await subject.chat.loadChannels(site);
+        await subject.chat.openChannel(site, 9);
+        final view = subject.chat.beginViewingChannel(site, 9);
+        final older = subject.chat.loadOlder(site, 9);
+        await api.pastPageStarted.future;
+
+        tracker.deliverPluginMessage('/chat/9/kick', {'channel_id': 9});
+        api.pastPage.complete();
+        await older;
+        subject.chat.endViewingChannel(site, 9, view);
+        await subject.chat.openChannel(site, 10);
+
+        expect(subject.store.read<ChatMessage>(site, 1), isNull);
+        expect(subject.chat.stream(site, 9).fetchedOnce, isFalse);
+        expect(subject.chat.retainedTargetCountForTesting(site), 1);
+      },
+    );
+
+    test(
+      'a reader re-added after a kick reopens without waiting out the cooldown',
+      () async {
+        final now = DateTime.utc(2026, 8, 11, 10);
+        final subject = build(
+          currentUser: currentUser,
+          channels: {
+            site: ChatChannels(
+              public: [channel(9)],
+              kickMessageBusLastIds: const {9: 72},
+            ),
+          },
+          messages: {
+            key(9): page([message(1)]),
+          },
+          clock: () => now,
+        );
+        addTearDown(subject.chat.dispose);
+        final tracker = attachTracker(subject.chat);
+        await subject.chat.loadChannels(site);
+        await subject.chat.openChannel(site, 9);
+
+        tracker.deliverPluginMessage('/chat/9/kick', {'channel_id': 9});
+        await subject.chat.loadChannels(site, force: true);
+        expect(subject.chat.channel(site, 9), isNotNull);
+        await subject.chat.openChannel(site, 9);
+
+        final stream = subject.chat.stream(site, 9);
+        expect(subject.api.chatMessagesRequested, hasLength(2));
+        expect(stream.error, isNull);
+        expect(stream.messageIds, [1]);
+      },
+    );
+
+    test(
+      'a kick drops live arrivals parked behind the window it ends',
+      () async {
+        final subject = build(
+          currentUser: currentUser,
+          channels: {
+            site: ChatChannels(
+              public: [channel(9)],
+              kickMessageBusLastIds: const {9: 72},
+            ),
+          },
+          messages: {
+            key(9): page([message(5, minute: 5)], canLoadMoreFuture: true),
+          },
+        );
+        addTearDown(subject.chat.dispose);
+        final tracker = attachTracker(subject.chat);
+        await subject.chat.loadChannels(site);
+        await subject.chat.openChannel(site, 9);
+        final view = subject.chat.beginViewingChannel(site, 9);
+        addTearDown(() => subject.chat.endViewingChannel(site, 9, view));
+        tracker.deliverPluginMessage('/chat/9', {
+          'type': 'sent',
+          'chat_message': {
+            'id': 7,
+            'chat_channel_id': 9,
+            'cooked': '<p>7</p>',
+            'created_at': '2026-05-05T10:07:00.000Z',
+            'user': {'id': 2, 'username': 'sam'},
+          },
+        });
+        expect(subject.chat.stream(site, 9).pendingNewMessages, 1);
+
+        tracker.deliverPluginMessage('/chat/9/kick', {'channel_id': 9});
+        await subject.chat.loadChannels(site, force: true);
+        await subject.chat.openChannel(site, 9, force: true);
+
+        final stream = subject.chat.stream(site, 9);
+        expect(stream.messageIds, [5]);
+        expect(stream.canLoadMoreFuture, isTrue);
+        expect(stream.pendingNewMessages, 0);
+      },
+    );
+
     test('reorders direct messages when a new-message event arrives', () async {
       final deltas = <int>[];
       final subject = build(
@@ -8343,6 +8462,42 @@ final class _SessionReadRaceApi extends FakeDiscourseApi {
       secondReadStarted.complete();
       await secondReadGate.future;
     }
+  }
+}
+
+final class _GatedPastPageApi extends FakeDiscourseApi {
+  _GatedPastPageApi({super.chatChannelsBySite, super.chatMessagesByKey});
+
+  final Completer<void> pastPage = Completer<void>();
+  final Completer<void> pastPageStarted = Completer<void>();
+
+  @override
+  Future<ChatMessagePage> chatMessages({
+    required String siteUrl,
+    required int channelId,
+    int? before,
+    int? after,
+    int? targetMessageId,
+    bool fromLastRead = false,
+    int pageSize = 50,
+    String? apiKey,
+    String? clientId,
+  }) async {
+    if (before != null) {
+      pastPageStarted.complete();
+      await pastPage.future;
+    }
+    return super.chatMessages(
+      siteUrl: siteUrl,
+      channelId: channelId,
+      before: before,
+      after: after,
+      targetMessageId: targetMessageId,
+      fromLastRead: fromLastRead,
+      pageSize: pageSize,
+      apiKey: apiKey,
+      clientId: clientId,
+    );
   }
 }
 
