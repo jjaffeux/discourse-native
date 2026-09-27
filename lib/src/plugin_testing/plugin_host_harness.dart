@@ -216,6 +216,7 @@ final class _PluginHostDependencies {
       storage: secureStorage,
       legacyClientIds: secureStorage,
       clientIds: _MemoryClientIdPersistence(),
+      pushClientIds: _MemoryClientIdPersistence(),
       tokenGenerator: () => 'test-client',
     );
     for (final site in scenarioSites) {

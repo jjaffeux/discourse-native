@@ -14,9 +14,12 @@ abstract interface class ClientIdPersistence {
 }
 
 final class PreferencesClientIdPersistence implements ClientIdPersistence {
-  const PreferencesClientIdPersistence();
+  const PreferencesClientIdPersistence() : _key = 'discourse_native.client_id';
 
-  static const _key = 'discourse_native.client_id';
+  const PreferencesClientIdPersistence.pushRegistration()
+    : _key = 'discourse_native.push_client_id';
+
+  final String _key;
 
   @override
   Future<String?> read() async {
@@ -33,23 +36,28 @@ final class PreferencesClientIdPersistence implements ClientIdPersistence {
 }
 
 /// API keys use [PrivateStorage]: the Data Protection Keychain on Apple, and a
-/// mode-0600 XDG data file on Linux. The non-secret client id lives in
+/// mode-0600 XDG data file on Linux. The non-secret client ids live in
 /// preferences.
 class SecureStore {
   SecureStore({
     PrivateStorage? storage,
     PrivateStorage? legacyClientIds,
     ClientIdPersistence? clientIds,
+    ClientIdPersistence? pushClientIds,
     String Function()? tokenGenerator,
   }) : _storage = storage ?? platformCredentialStorage,
        _legacyClientIds =
            legacyClientIds ?? storage ?? platformLegacyClientIdStorage,
        _clientIds = clientIds ?? _defaultClientIds,
+       _pushClientIds = pushClientIds ?? _defaultPushClientIds,
        _tokenGenerator = tokenGenerator ?? randomToken;
 
   static const String _legacyClientIdEntry = 'client_id';
+  static const String _pushClientIdEntry = 'push_client_id';
   static const ClientIdPersistence _defaultClientIds =
       PreferencesClientIdPersistence();
+  static const ClientIdPersistence _defaultPushClientIds =
+      PreferencesClientIdPersistence.pushRegistration();
   static final SerialOperationQueue _clientIdOperations =
       SerialOperationQueue();
   static final Expando<_ApiKeyState> _apiKeyStates = Expando<_ApiKeyState>(
@@ -59,10 +67,14 @@ class SecureStore {
   final PrivateStorage _storage;
   final PrivateStorage? _legacyClientIds;
   final ClientIdPersistence _clientIds;
+  final ClientIdPersistence _pushClientIds;
   final String Function() _tokenGenerator;
 
   String? _clientId;
   Future<String>? _clientIdRequest;
+  ({String? value})? _pushClientId;
+  Future<String?>? _pushClientIdRequest;
+  Object _pushClientIdVersion = Object();
   late final _ApiKeyState _apiKeyState = _apiKeyStates[_storage] ??=
       _ApiKeyState();
 
@@ -121,6 +133,68 @@ class SecureStore {
     final created = _tokenGenerator();
     await _clientIds.write(created);
     return created;
+  }
+
+  /// The client id of the newest push registration this install has recorded,
+  /// or null before it has recorded one. An empty or malformed stored value
+  /// is none.
+  ///
+  /// A read never answers a value older than a [writePushClientId] issued
+  /// before it completed.
+  Future<String?> readPushClientId() {
+    if (_pushClientId case (:final value)) return Future.value(value);
+    final pending = _pushClientIdRequest;
+    if (pending != null) return pending;
+
+    late final Future<String?> request;
+    request = _loadPushClientId().whenComplete(() {
+      if (identical(_pushClientIdRequest, request)) {
+        _pushClientIdRequest = null;
+      }
+    });
+    return _pushClientIdRequest = request;
+  }
+
+  Future<String?> _loadPushClientId() async {
+    final version = _pushClientIdVersion;
+    final String? value;
+    try {
+      value = await _clientIdOperations.run<String?>(
+        owner: _pushClientIds,
+        key: _pushClientIdEntry,
+        operation: () async {
+          final stored = await _pushClientIds.read();
+          return stored == null || stored.isEmpty ? null : stored;
+        },
+      );
+    } catch (_) {
+      if (identical(_pushClientIdVersion, version)) rethrow;
+      return _loadPushClientId();
+    }
+    // A write issued while this read waited is queued behind it, so reading
+    // again answers what that write left.
+    if (!identical(_pushClientIdVersion, version)) return _loadPushClientId();
+    return (_pushClientId = (value: value)).value;
+  }
+
+  /// Completes once [value] is what [readPushClientId] answers, from this
+  /// store and from any store opened later. An unchanged value is not
+  /// rewritten.
+  Future<void> writePushClientId(String value) async {
+    final version = _pushClientIdVersion = Object();
+    _pushClientId = null;
+    await _clientIdOperations.run<void>(
+      owner: _pushClientIds,
+      key: _pushClientIdEntry,
+      operation: () async {
+        if (await _pushClientIds.read() != value) {
+          await _pushClientIds.write(value);
+        }
+      },
+    );
+    if (identical(_pushClientIdVersion, version)) {
+      _pushClientId = (value: value);
+    }
   }
 
   /// Reads a site's key once per storage owner and coalesces the initial lookup.
