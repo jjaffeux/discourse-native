@@ -1,13 +1,18 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:discourse_native/src/data/discourse_api.dart';
+import 'package:discourse_native/src/data/discourse_transport.dart';
 import 'package:discourse_native/src/diagnostics/diagnostics.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/post.dart';
+import 'package:discourse_native/src/plugin_api/discourse_model_codec.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 
 import 'support/fakes.dart';
 
@@ -236,6 +241,41 @@ void main() {
       },
     );
 
+    test('removes a forum whose key the site already refuses', () async {
+      final transport = DiscourseTransport.create(
+        client: MockClient(
+          (_) async => http.Response(
+            jsonEncode({
+              'errors': [
+                'You are not permitted to view the requested resource.',
+              ],
+              'error_type': 'invalid_access',
+            }),
+            403,
+          ),
+        ),
+      );
+      addTearDown(transport.close);
+      api.revokeThrough = DiscourseAccountApi(
+        transport,
+        const DiscourseModelCodec.core(),
+      );
+
+      expect(
+        await controller.removeInstance(controller.currentInstance!),
+        isTrue,
+      );
+
+      expect(controller.instances, isEmpty);
+      expect(authenticator.keys, isNot(contains(_siteUrl)));
+      expect(authenticator.disconnected, [_siteUrl]);
+      expect(api.revoked, [_siteUrl]);
+      expect(
+        _operationEvents(diagnostics, 'authentication.revokeKey'),
+        isEmpty,
+      );
+    });
+
     test(
       'aborts disconnect before credential removal when drafts cannot clear',
       () async {
@@ -320,6 +360,9 @@ final class _InstrumentedFailureApi extends FakeDiscourseApi {
   final Completer<void> likeStarted = Completer<void>();
   Object? revokeError;
 
+  /// Answers revocation with the production client's reading of a response.
+  DiscourseAccountApi? revokeThrough;
+
   @override
   Future<Post?> likePost({
     required String siteUrl,
@@ -350,5 +393,6 @@ final class _InstrumentedFailureApi extends FakeDiscourseApi {
   }) async {
     revoked.add(siteUrl);
     if (revokeError case final error?) throw error;
+    await revokeThrough?.revokeApiKey(siteUrl: siteUrl, apiKey: apiKey);
   }
 }
