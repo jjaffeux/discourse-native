@@ -559,6 +559,17 @@ class _DiscourseAppState extends State<DiscourseApp>
     return AppExitResponse.exit;
   }
 
+  /// The app has no URL routes. Any page can open the `discourse` scheme that
+  /// sign-in names as its callback, and [WidgetsApp] pushes each URL the
+  /// platform opens as a named route: a second shell, or a missing-generator
+  /// error once it carries a query. This observer is registered before the
+  /// [MaterialApp] below it builds, so claiming the push here keeps it from
+  /// that navigator, and from being relayed back to the system, which would
+  /// only route the scheme to this app again.
+  @override
+  Future<bool> didPushRouteInformation(RouteInformation routeInformation) =>
+      Future.value(true);
+
   @override
   Widget build(BuildContext context) {
     // Above MaterialApp so that sheets and dialogs, which build under its

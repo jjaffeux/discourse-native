@@ -35,6 +35,12 @@
 	</array>
 	<key>CFBundleVersion</key>
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
+	<!-- Any web page or app can open the discourse scheme registered above,
+	     and the engine would push each such URL as a Flutter route. The app
+	     has no URL routes, and sign-in's web authentication session receives
+	     its callback in-process without this. -->
+	<key>FlutterDeepLinkingEnabled</key>
+	<false/>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>NSAppTransportSecurity</key>
