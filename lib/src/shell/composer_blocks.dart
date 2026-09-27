@@ -83,10 +83,8 @@ class ComposerBlockIndex {
           ),
     ];
     final spans = _BlockScanner(source, atoms).scan();
-    var nextId = previous == null
-        ? 0
-        : previous.blocks.fold(0, (n, b) => math.max(n, b.id + 1));
-    final used = <int>{};
+    final old = previous?.blocks ?? const <ComposerBodyBlock>[];
+    var nextId = old.fold(0, (n, b) => math.max(n, b.id + 1));
     var prefix = 0;
     var oldSuffix = previous?.source.length ?? 0;
     var newSuffix = source.length;
@@ -104,33 +102,45 @@ class ComposerBlockIndex {
         newSuffix--;
       }
     }
+    // Blocks are disjoint and in document order, so the first to reach the end
+    // of the edit is the only one that can contain all of it.
+    final reaching = old.where((block) => block.end >= oldSuffix).firstOrNull;
+    final edited = reaching != null && reaching.start <= prefix
+        ? reaching
+        : null;
     final blocks = <ComposerBodyBlock>[];
+    // An untouched block keeps its identity at its shifted position. Those
+    // positions ascend through the previous blocks as span starts do, so one
+    // forward walk finds every match; searching them per span would make each
+    // keystroke quadratic in block count.
+    var cursor = 0;
     for (final span in spans) {
       final raw = source.substring(span.start, span.end);
       ComposerBodyBlock? retained;
-      if (previous != null) {
-        for (final old in previous.blocks) {
-          if (used.contains(old.id) || old.kind != span.kind) continue;
-          final mappedStart = old.start >= oldSuffix
-              ? old.start + newSuffix - oldSuffix
-              : old.start;
-          final unchanged = old.end <= prefix || old.start >= oldSuffix;
-          if (unchanged && mappedStart == span.start && old.source == raw) {
-            retained = old;
-            break;
-          }
-          // A local edit inside a single block retains its identity.
-          if (old.start <= prefix &&
-              old.end >= oldSuffix &&
-              span.start == old.start &&
-              span.end >= newSuffix) {
-            retained = old;
-            break;
-          }
+      for (; cursor < old.length; cursor++) {
+        final candidate = old[cursor];
+        final shifted = candidate.end <= prefix
+            ? candidate.start
+            : candidate.start >= oldSuffix
+            ? candidate.start + newSuffix - oldSuffix
+            : null;
+        if (shifted == null || shifted < span.start) continue;
+        if (shifted == span.start &&
+            candidate.kind == span.kind &&
+            candidate.source == raw) {
+          retained = candidate;
         }
+        break;
+      }
+      // A local edit inside a single block retains its identity.
+      if (retained == null &&
+          edited != null &&
+          edited.kind == span.kind &&
+          edited.start == span.start &&
+          span.end >= newSuffix) {
+        retained = edited;
       }
       final id = retained?.id ?? nextId++;
-      used.add(id);
       blocks.add(
         ComposerBodyBlock(
           id: id,
