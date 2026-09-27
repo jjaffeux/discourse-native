@@ -13490,7 +13490,19 @@ class ShellController extends FrameSafeNotifier
     } on WriteException catch (e) {
       // A refusal is certain — the site answered and said no. Not reaching it
       // is not: the post may well have been created and only the answer lost.
-      if (e.failure == WriteFailure.unreachable) {
+      // A request that never left has nothing to look for, and offline the
+      // look would fail too, stranding the post on "may have posted".
+      if (e.notSent) {
+        lease.commit(
+          () => composer.failed(
+            const WriteException(
+              WriteFailure.unreachable,
+              errors: ["Couldn't reach the site. Nothing was posted."],
+              notSent: true,
+            ),
+          ),
+        );
+      } else if (e.failure == WriteFailure.unreachable) {
         if (target.createsTopic) {
           await _reconcileNewTopic(target, sent, composer, e, lease: lease);
         } else {

@@ -32,7 +32,10 @@ final class _TopicSiteApi extends FakeDiscourseApi {
   final drafts = <String, String>{};
   final sequences = <String, int>{};
   final topicCreates = <String>[];
+  final draftReads = <String>[];
+  final topicListReads = <String>[];
   bool createLands = true;
+  WriteException createFailure = const WriteException(WriteFailure.unreachable);
   bool createdByReachable = true;
   bool draftSavesReachable = true;
 
@@ -68,10 +71,13 @@ final class _TopicSiteApi extends FakeDiscourseApi {
     required String apiKey,
     required String draftKey,
     String? clientId,
-  }) async => (
-    draft: ComposerDraft.decode(drafts[draftKey]),
-    sequence: sequences[draftKey] ?? 0,
-  );
+  }) async {
+    draftReads.add(draftKey);
+    return (
+      draft: ComposerDraft.decode(drafts[draftKey]),
+      sequence: sequences[draftKey] ?? 0,
+    );
+  }
 
   @override
   Future<TopicList> topicList({
@@ -80,6 +86,7 @@ final class _TopicSiteApi extends FakeDiscourseApi {
     String? apiKey,
     String? clientId,
   }) async {
+    topicListReads.add(path);
     if (path == _createdBy && !createdByReachable) {
       throw SiteLookupException(SiteLookupFailure.unreachable, siteUrl);
     }
@@ -124,7 +131,7 @@ final class _TopicSiteApi extends FakeDiscourseApi {
         raw: raw.replaceAll(_unicodeSpace, ' ').trimRight(),
       );
     }
-    throw const WriteException(WriteFailure.unreachable);
+    throw createFailure;
   }
 }
 
@@ -228,5 +235,28 @@ void main() {
     expect(composer.state, ComposerState.editing);
     expect(composer.canSubmit, isTrue);
     expect(api.topicCreates, hasLength(1));
+  });
+
+  test('a create that never reached the site is not looked for', () async {
+    final composer = await compose('Printer is on fire', 'Please send help.');
+    api.createLands = false;
+    api.createFailure = const WriteException(
+      WriteFailure.unreachable,
+      notSent: true,
+    );
+    final draftReads = api.draftReads.length;
+    final topicListReads = api.topicListReads.length;
+
+    await shell.submitComposer();
+
+    expect(api.topicCreates, hasLength(1));
+    expect(api.draftReads, hasLength(draftReads));
+    expect(api.topicListReads, hasLength(topicListReads));
+    expect(composer.state, ComposerState.editing);
+    expect(composer.canSubmit, isTrue);
+    expect(
+      composer.error?.message,
+      "Couldn't reach the site. Nothing was posted.",
+    );
   });
 }

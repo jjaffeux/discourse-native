@@ -5050,7 +5050,9 @@ class ChatController extends FrameSafeNotifier {
               delivery: ChatMessageDelivery.failed,
               error: failure.message,
               failure: failure,
-              deliveryUncertain: failure.failure == WriteFailure.unreachable,
+              deliveryUncertain:
+                  failure.failure == WriteFailure.unreachable &&
+                  !failure.notSent,
             );
     });
     return canonicalAlreadyArrived;
@@ -5106,7 +5108,7 @@ class ChatController extends FrameSafeNotifier {
       if (local == null) continue;
       if (local.delivery == ChatMessageDelivery.sending ||
           local.deliveryUncertain ||
-          local.sendFailure?.failure == WriteFailure.rateLimited ||
+          local.sendRetryable ||
           local.delivery == ChatMessageDelivery.sent &&
               !local.canonicalReceived) {
         return true;

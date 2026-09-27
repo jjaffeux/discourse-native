@@ -843,7 +843,7 @@ class ChatMessage with Storable<ChatMessage> {
   final ChatMessageDelivery delivery;
   final String? sendError;
 
-  /// Transient structured refusal; only confirmed rate limits permit a retry.
+  /// Transient structured refusal; see [permitsRetry].
   final WriteException? sendFailure;
   final bool retryWaiting;
 
@@ -852,6 +852,18 @@ class ChatMessage with Storable<ChatMessage> {
 
   bool get isDeleted => deletedAt != null;
   bool get isOptimistic => stagedId != null;
+
+  bool get sendRetryable => switch (sendFailure) {
+    final failure? => permitsRetry(failure),
+    null => false,
+  };
+
+  /// A confirmed rate limit and a request that never reached the site are
+  /// both transient and certain to have left nothing there. A refusal would
+  /// only be refused again, and any other unreachable failure may have been
+  /// accepted with only the answer lost, which a resend would post twice.
+  static bool permitsRetry(WriteException failure) =>
+      failure.failure == WriteFailure.rateLimited || failure.notSent;
 
   /// Applies a current local cook while awaiting canonical content. The caller
   /// must first verify the cook's source, revision, account and context identity.
