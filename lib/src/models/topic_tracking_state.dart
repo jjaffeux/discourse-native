@@ -251,6 +251,7 @@ final class TopicTrackingState {
       case 'unread':
       case 'read':
         final payload = jsonObject(value['payload']);
+        if (held != null && _predates(payload, held)) return false;
         final merged = TrackedTopicState.fromMessage(
           topicId: topicId,
           payload: payload,
@@ -265,6 +266,34 @@ final class TopicTrackingState {
         // not alter core's countable per-topic snapshot.
         return false;
     }
+  }
+
+  /// Whether [payload] is behind [held] on the reader's last read post or the
+  /// topic's highest post, and ahead on neither. Core moves both only
+  /// forward — it publishes `read` only when the reader got further — save
+  /// that deleting the last post lowers the highest one. Such a message was
+  /// therefore published before the row was known: a snapshot read after it,
+  /// or a message on another channel that the same poll delivered first,
+  /// since core answers a backlog channel by channel rather than in the
+  /// order it published. Applying it would take the topic back.
+  static bool _predates(Map<String, dynamic> payload, TrackedTopicState held) {
+    var behind = false;
+    var ahead = false;
+    void compare(int reported, int current) {
+      if (reported < current) behind = true;
+      if (reported > current) ahead = true;
+    }
+
+    if (jsonIntOrNull(payload['highest_post_number']) case final highest?) {
+      compare(highest, held.highestPostNumber);
+    }
+    if (payload.containsKey('last_read_post_number')) {
+      compare(
+        jsonIntOrNull(payload['last_read_post_number']) ?? 0,
+        held.lastReadPostNumber ?? 0,
+      );
+    }
+    return behind && !ahead;
   }
 }
 

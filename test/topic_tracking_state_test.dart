@@ -535,6 +535,65 @@ void main() {
     expect(badge(), SidebarBadge.none);
   });
 
+  test('a message the row has already passed leaves it unchanged', () {
+    const held = TrackedTopicState(
+      topicId: 20,
+      highestPostNumber: 12,
+      lastReadPostNumber: 10,
+      categoryId: 1,
+      notificationLevel: 2,
+    );
+    final tracking = TopicTrackingState([held]);
+    Map<String, Object?> message(String type, Map<String, Object?> payload) => {
+      'topic_id': 20,
+      'message_type': type,
+      'payload': payload,
+    };
+
+    for (final stale in [
+      message('read', {
+        'last_read_post_number': 4,
+        'highest_post_number': 5,
+        'notification_level': 2,
+      }),
+      message('read', {
+        'last_read_post_number': 10,
+        'highest_post_number': 10,
+        'notification_level': 2,
+      }),
+      message('unread', {'highest_post_number': 11}),
+      message('new_topic', {
+        'last_read_post_number': null,
+        'highest_post_number': 1,
+        'created_in_new_period': true,
+      }),
+    ]) {
+      expect(tracking.applyMessage(stale), isFalse, reason: '$stale');
+      expect(tracking.topic(20), same(held));
+    }
+
+    expect(
+      tracking.applyMessage(message('unread', {'highest_post_number': 13})),
+      isTrue,
+    );
+    expect(tracking.topic(20)?.highestPostNumber, 13);
+
+    // Deleting post 13 lowered the highest post, yet a read that got further
+    // than the row is newer than it.
+    expect(
+      tracking.applyMessage(
+        message('read', {
+          'last_read_post_number': 12,
+          'highest_post_number': 12,
+          'notification_level': 2,
+        }),
+      ),
+      isTrue,
+    );
+    expect(tracking.topic(20)?.lastReadPostNumber, 12);
+    expect(tracking.topic(20)?.highestPostNumber, 12);
+  });
+
   Map<String, Object?> newTopicMessage(int topicId) => {
     'topic_id': topicId,
     'message_type': 'new_topic',

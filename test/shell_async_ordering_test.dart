@@ -196,6 +196,28 @@ final class _OneShotGatedAuthenticator extends FakeAuthenticator {
   }
 }
 
+/// Answers each tracking snapshot read with a fresh report, or, while
+/// [heldSnapshot] is set, with whatever the test completes it with.
+final class _TrackingSnapshotApi extends FakeDiscourseApi {
+  _TrackingSnapshotApi({super.categoryList})
+    : super(user: const DiscourseUser(id: 1, username: 'author'));
+
+  Completer<TopicTrackingState>? heldSnapshot;
+
+  @override
+  Future<TopicTrackingState> topicTrackingState({
+    required String siteUrl,
+    required String apiKey,
+    required String username,
+    String? clientId,
+  }) async {
+    topicTrackingRequests.add(siteUrl);
+    final held = heldSnapshot;
+    heldSnapshot = null;
+    return held == null ? TopicTrackingState() : held.future;
+  }
+}
+
 Post _post(
   String cooked, {
   bool canDelete = false,
@@ -287,6 +309,7 @@ Future<ShellController> _loadShell(
   FakeDiscourseApi api, {
   FakeAuthenticator? authenticator,
   InstalledPlugins? plugins,
+  DateTime Function()? clock,
 }) async {
   final credentials = authenticator ?? FakeAuthenticator();
   credentials.keys[_siteUrl] = 'api-key';
@@ -301,6 +324,7 @@ Future<ShellController> _loadShell(
     drafts: FakeDraftStore(),
     trackers: FakeSiteTracker.reset(),
     plugins: plugins ?? installedPlugins,
+    clock: clock,
   );
   await shell.load();
   await pumpEventQueue();
@@ -477,6 +501,160 @@ void main() {
       expect(notifications, 0);
       await pumpEventQueue();
       expect(notifications, 1);
+    });
+
+    Map<String, Object?> tracked(
+      int topicId,
+      String type,
+      Map<String, Object?> payload,
+    ) => {
+      'topic_id': topicId,
+      'message_type': type,
+      'payload': {'category_id': 1, ...payload},
+    };
+
+    test('resuming after a long absence re-reads the snapshot', () async {
+      var now = DateTime.utc(2026, 9, 26, 23);
+      final api = _TrackingSnapshotApi(categoryList: const [category]);
+      final shell = await _loadShell(api, clock: () => now);
+      addTearDown(shell.dispose);
+      final tracker = FakeSiteTracker.built.single;
+      expect(api.topicTrackingRequests, [_siteUrl]);
+
+      shell.setForeground(false);
+      now = now.add(const Duration(hours: 8));
+      shell.setForeground(true);
+      await pumpEventQueue();
+
+      // Overnight the site kept only each channel's last 100 messages, so the
+      // resume poll cannot replay everything the stopped tracker missed.
+      expect(api.topicTrackingRequests, [_siteUrl, _siteUrl]);
+      expect(shell.topicTrackingRevisionFor(_siteUrl), 2);
+      expect(tracker.pollNowCalls, 1);
+    });
+
+    test('a short app switch leaves tracking to the resume poll', () async {
+      var now = DateTime.utc(2026, 9, 27, 9);
+      final api = _TrackingSnapshotApi(categoryList: const [category]);
+      final shell = await _loadShell(api, clock: () => now);
+      addTearDown(shell.dispose);
+
+      for (var switches = 0; switches < 3; switches++) {
+        shell.setForeground(false);
+        now = now.add(const Duration(seconds: 50));
+        shell.setForeground(true);
+        await pumpEventQueue();
+      }
+
+      // Each absence is judged alone, however many add up.
+      expect(api.topicTrackingRequests, [_siteUrl]);
+      expect(FakeSiteTracker.built.single.pollNowCalls, 3);
+    });
+
+    test('messages replayed during the re-read cannot take it back', () async {
+      var now = DateTime.utc(2026, 9, 26, 23);
+      final api = _TrackingSnapshotApi(categoryList: const [category]);
+      final shell = await _loadShell(api, clock: () => now);
+      addTearDown(shell.dispose);
+      final tracker = FakeSiteTracker.built.single;
+
+      final snapshot = Completer<TopicTrackingState>();
+      api.heldSnapshot = snapshot;
+      shell.setForeground(false);
+      now = now.add(const Duration(hours: 8));
+      shell.setForeground(true);
+      await pumpEventQueue();
+      expect(api.topicTrackingRequests, [_siteUrl, _siteUrl]);
+
+      // The resume poll's backlog lands while the report is in flight.
+      // These reads were published before the report was taken: replayed
+      // onto it, they would lower topic 7's read position and settle
+      // topic 8, whose last two replies are still unread.
+      tracker
+        ..deliverTopicTracking(
+          tracked(7, 'read', {
+            'last_read_post_number': 4,
+            'highest_post_number': 5,
+            'notification_level': 2,
+          }),
+        )
+        ..deliverTopicTracking(
+          tracked(8, 'read', {
+            'last_read_post_number': 6,
+            'highest_post_number': 6,
+            'notification_level': 2,
+          }),
+        )
+        // Published after the report was taken.
+        ..deliverTopicTracking(
+          tracked(7, 'unread', {'highest_post_number': 13}),
+        )
+        ..deliverTopicTracking(
+          tracked(9, 'new_topic', {
+            'last_read_post_number': null,
+            'highest_post_number': 1,
+            'created_in_new_period': true,
+          }),
+        );
+      final report = TopicTrackingState([
+        const TrackedTopicState(
+          topicId: 7,
+          highestPostNumber: 12,
+          lastReadPostNumber: 10,
+          categoryId: 1,
+          notificationLevel: 2,
+        ),
+        const TrackedTopicState(
+          topicId: 8,
+          highestPostNumber: 8,
+          lastReadPostNumber: 6,
+          categoryId: 1,
+          notificationLevel: 2,
+        ),
+      ]);
+      final revision = shell.topicTrackingRevisionFor(_siteUrl);
+      snapshot.complete(report);
+      await pumpEventQueue();
+
+      expect(shell.topicTrackingRevisionFor(_siteUrl), revision + 1);
+      expect(report.topic(7)?.lastReadPostNumber, 10);
+      expect(report.topic(7)?.highestPostNumber, 13);
+      expect(report.topic(8)?.lastReadPostNumber, 6);
+      expect(report.topic(8)?.highestPostNumber, 8);
+      expect(report.topic(9)?.isNew, isTrue);
+      expect(shell.categoryActivityCountFor(_siteUrl, 1), 2);
+    });
+
+    test('a forum removed during the re-read drops its answer', () async {
+      var now = DateTime.utc(2026, 9, 26, 23);
+      final api = _TrackingSnapshotApi(categoryList: const [category]);
+      final shell = await _loadShell(api, clock: () => now);
+      addTearDown(shell.dispose);
+
+      final snapshot = Completer<TopicTrackingState>();
+      api.heldSnapshot = snapshot;
+      shell.setForeground(false);
+      now = now.add(const Duration(hours: 8));
+      shell.setForeground(true);
+      await pumpEventQueue();
+      expect(api.topicTrackingRequests, [_siteUrl, _siteUrl]);
+
+      expect(await shell.removeInstance(shell.currentInstance!), isTrue);
+      snapshot.complete(
+        TopicTrackingState([
+          const TrackedTopicState(
+            topicId: 7,
+            highestPostNumber: 12,
+            lastReadPostNumber: 10,
+            categoryId: 1,
+            notificationLevel: 2,
+          ),
+        ]),
+      );
+      await pumpEventQueue();
+
+      expect(shell.instanceFor(_siteUrl), isNull);
+      expect(shell.topicTrackingRevisionFor(_siteUrl), 0);
     });
   });
 

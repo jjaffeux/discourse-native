@@ -756,6 +756,58 @@ void main() {
         everyElement(1),
       );
     });
+
+    test(
+      're-reads each signed-in forum tracking after a long absence',
+      () async {
+        const firstUrl = 'https://first.example';
+        const secondUrl = 'https://second.example';
+        const user = DiscourseUser(id: 7, username: 'reader');
+        var now = DateTime.utc(2026, 9, 26, 23);
+        final api = FakeDiscourseApi(user: user);
+        final shell = ShellController(
+          instanceStore: FakeInstanceStore([
+            instance('public.example'),
+            instance('first.example').copyWith(user: user),
+            instance('second.example').copyWith(user: user),
+          ]),
+          api: api,
+          authenticator: FakeAuthenticator()
+            ..keys[firstUrl] = 'first-key'
+            ..keys[secondUrl] = 'second-key',
+          drafts: FakeDraftStore(),
+          trackers: FakeSiteTracker.reset(),
+          updateStore: FakeUpdateStore(),
+          clock: () => now,
+        );
+        addTearDown(shell.dispose);
+
+        await shell.load();
+        await pumpEventQueue();
+        expect(FakeSiteTracker.built, hasLength(3));
+        expect(
+          api.topicTrackingRequests,
+          unorderedEquals([firstUrl, secondUrl]),
+        );
+
+        shell.setForeground(false);
+        now = now.add(const Duration(seconds: 59));
+        shell.setForeground(true);
+        await pumpEventQueue();
+        expect(api.topicTrackingRequests, hasLength(2));
+
+        shell.setForeground(false);
+        now = now.add(const Duration(minutes: 1));
+        shell.setForeground(true);
+        await pumpEventQueue();
+
+        // The selected public forum polls too, but has no report to re-read.
+        expect(
+          api.topicTrackingRequests,
+          unorderedEquals([firstUrl, secondUrl, firstUrl, secondUrl]),
+        );
+      },
+    );
   });
 
   group('disposed controller guards', () {
