@@ -2,7 +2,9 @@ import 'dart:async';
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/data/site_lifecycle.dart';
+import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/site_emoji.dart';
+import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/plugins/chat/chat_global_search.dart';
 import 'package:discourse_native/src/shell/global_search_api.dart';
 import 'package:discourse_native/src/shell/global_search_controller.dart';
@@ -12,6 +14,7 @@ import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/site_emoji_image.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
+import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -555,6 +558,106 @@ void main() {
     expect(find.byType(GlobalSearchPanel), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets('shell notifications for unrelated state rebuild no result row', (
+    tester,
+  ) async {
+    final controller = await _pump(
+      tester,
+      results: [
+        for (var index = 0; index < 100; index++)
+          GlobalSearchResult(
+            id: 'row-$index',
+            scope: GlobalSearchScope.forum,
+            title: 'Result $index',
+            excerpt: 'Excerpt for result $index',
+            path: '/t/result/$index',
+            categoryId: 7,
+          ),
+      ],
+    );
+    controller.setQuery('result');
+    await tester.pumpAndSettle();
+    expect(_key('global-search-result-row-0'), findsOneWidget);
+    final shell = ShellScope.read(
+      tester.element(find.byType(GlobalSearchPanel)),
+    );
+    unawaited(shell.load());
+    await tester.pumpAndSettle();
+    var shellNotifications = 0, searchNotifications = 0;
+    void countShell() => shellNotifications++;
+    void countSearch() => searchNotifications++;
+    shell.addListener(countShell);
+    controller.addListener(countSearch);
+    addTearDown(() {
+      shell.removeListener(countShell);
+      controller.removeListener(countSearch);
+    });
+    final rebuiltRows = <String>[];
+    final previousRebuildCallback = debugOnRebuildDirtyWidget;
+    debugOnRebuildDirtyWidget = (element, builtOnce) {
+      if (element.widget.key case ValueKey<String>(
+        :final value,
+      ) when value.startsWith('global-search-result-')) {
+        rebuiltRows.add(value);
+      }
+      previousRebuildCallback?.call(element, builtOnce);
+    };
+    addTearDown(() => debugOnRebuildDirtyWidget = previousRebuildCallback);
+
+    shell.pushContent(
+      const ContentRoute(
+        id: 'unrelated',
+        title: 'Unrelated route',
+        icon: DIcons.comments,
+      ),
+    );
+    await tester.pump();
+
+    expect(shellNotifications, greaterThan(0));
+    expect(searchNotifications, 0);
+    expect(rebuiltRows, isEmpty);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('a category that loads after its results appears on their rows', (
+    tester,
+  ) async {
+    const site = 'https://example.com';
+    final controller = await _pump(
+      tester,
+      results: const [
+        GlobalSearchResult(
+          id: 'late',
+          scope: GlobalSearchScope.forum,
+          title: 'Categorised result',
+          path: '/t/categorised/1',
+          categoryId: 7,
+        ),
+      ],
+      categories: const [
+        TopicCategory(id: 7, name: 'Late category', color: '0088CC'),
+      ],
+    );
+    controller.setQuery('categorised');
+    await tester.pumpAndSettle();
+    final row = _key('global-search-result-late');
+    final chip = find.descendant(of: row, matching: find.text('Late category'));
+    expect(row, findsOneWidget);
+    expect(chip, findsNothing);
+
+    final shell = ShellScope.read(
+      tester.element(find.byType(GlobalSearchPanel)),
+    );
+    unawaited(shell.load());
+    await tester.pumpAndSettle();
+    unawaited(shell.loadCategories(site));
+    await tester.pumpAndSettle();
+
+    expect(shell.categoryFor(7, siteUrl: site)?.name, 'Late category');
+    expect(chip, findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
 }
 
 Finder _key(String key) => find.byKey(ValueKey(key));
@@ -579,6 +682,7 @@ Future<GlobalSearchController> _pump(
   double textScale = 1,
   bool dark = true,
   SiteLifecycle? lifecycle,
+  List<TopicCategory> categories = const [],
 }) async {
   tester.view.physicalSize = viewport;
   tester.view.devicePixelRatio = 1;
@@ -608,6 +712,7 @@ Future<GlobalSearchController> _pump(
           SiteEmoji(name: 'wave', url: '/images/emoji/wave.png', tonable: true),
         ],
       },
+      categoryList: categories,
     ),
     authenticator: FakeAuthenticator(),
     drafts: FakeDraftStore(),
