@@ -817,9 +817,12 @@ class _DMessageScrollerViewportState extends State<DMessageScrollerViewport>
       if (_restoreHold(hold)) return;
       _pendingRestore = null;
     }
+    // Restoring is a jump, and a jump ends a live drag or fling, so a resize
+    // under a moving reader is left uncorrected; the scroll's end recaptures.
     if (_readerHold case final hold?
         when _mode == _ScrollerMode.free &&
-            widget.preserveReaderPositionOnResize) {
+            widget.preserveReaderPositionOnResize &&
+            !_scroll.position.isScrollingNotifier.value) {
       if (_restoreHold(hold)) return;
     }
     if (_mode == _ScrollerMode.anchored &&
@@ -1318,6 +1321,14 @@ class _DMessageScrollerViewportState extends State<DMessageScrollerViewport>
     if (notification is ScrollStartNotification &&
         notification.dragDetails != null) {
       _noteUserIntent();
+    } else if (notification is ScrollUpdateNotification &&
+        _mode == _ScrollerMode.free &&
+        !_restoring) {
+      // A hold taken before this movement names a position the reader has
+      // left. The virtualizer reports a new visible range on nearly every
+      // frame, and a content change queued ahead of the end-of-scroll
+      // recapture would otherwise restore it and jump the reader back.
+      _readerHold = null;
     } else if (notification is ScrollEndNotification &&
         _mode == _ScrollerMode.free) {
       _scheduleReaderHoldCapture();
