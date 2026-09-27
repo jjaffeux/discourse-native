@@ -3329,6 +3329,9 @@ class ShellController extends FrameSafeNotifier
     );
   }
 
+  /// New's counts for the topic list on screen, scoped to its category and
+  /// tags. `replies` counts the unread topics in every mode, the forum-wide
+  /// legacy list included, so the feed menu's Unread shows it too.
   ({int all, int topics, int replies}) get topicListNewCounts {
     final route = topicListContent ?? currentContent;
     final categoryId = route?.categoryId;
@@ -3380,6 +3383,8 @@ class ShellController extends FrameSafeNotifier
       final tracking = _topicTrackingBySite[instance!.url];
       if (tracking == null ||
           !_topicTrackingSnapshotsLoaded.contains(instance.url)) {
+        // Core's totals give a unified-New account one combined count and no
+        // unread one, so the subsets and Unread wait for the snapshot.
         return (all: totals?.topicTrackingNew ?? 0, topics: 0, replies: 0);
       }
       final counts = tracking.newActivityCounts;
