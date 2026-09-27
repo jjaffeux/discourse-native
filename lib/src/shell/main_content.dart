@@ -231,7 +231,7 @@ class _MainContentBody extends StatelessWidget {
                   (route.isBadges && (route.badgeRoute?.isDirectory ?? true)) ||
                   (route.id == 'user-bookmarks' && state.isConnected));
     final hideDirectoryHeader =
-        (route.isAppearance && !context.isTouch) ||
+        ((route.isAppearance || route.isUsers) && !context.isTouch) ||
         (pageOwnsTitle &&
             !state.canPop &&
             (ShellScope.read(context).mobileNavigationEnabled ||

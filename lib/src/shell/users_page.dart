@@ -587,6 +587,12 @@ class _UsersPageState extends State<UsersPage> {
               constraints.maxWidth - DSpacing.lg * 2,
             );
             final stackSearch = constraints.maxWidth < 480 * textScale;
+            final searchWidth = stackSearch
+                ? toolbarWidth
+                : math.min(
+                    240.0,
+                    math.max(120.0, constraints.maxWidth - 278 - periodWidth),
+                  );
             final visibleMetrics = data.columns.where(
               (column) =>
                   !_hiddenColumnIds.contains(_metricColumnWidthKey(column)),
@@ -644,15 +650,7 @@ class _UsersPageState extends State<UsersPage> {
                         crossAxisAlignment: WrapCrossAlignment.center,
                         children: [
                           SizedBox(
-                            width: stackSearch
-                                ? toolbarWidth
-                                : math.min(
-                                    240,
-                                    math.max(
-                                      120,
-                                      constraints.maxWidth - 278 - periodWidth,
-                                    ),
-                                  ),
+                            width: searchWidth,
                             child: DDataTableFilterField(
                               key: const ValueKey('users-search'),
                               size: DControlSize.field,
@@ -663,100 +661,119 @@ class _UsersPageState extends State<UsersPage> {
                             ),
                           ),
                           SizedBox(
-                            width: stackSearch ? toolbarWidth : null,
+                            width: stackSearch
+                                ? toolbarWidth
+                                : toolbarWidth -
+                                      searchWidth -
+                                      DSpacing.controlGap,
                             child: Wrap(
-                              alignment: WrapAlignment.end,
+                              alignment: stackSearch
+                                  ? WrapAlignment.end
+                                  : WrapAlignment.spaceBetween,
                               spacing: DSpacing.controlGap,
                               runSpacing: DSpacing.sm,
                               crossAxisAlignment: WrapCrossAlignment.center,
                               children: [
-                                SizedBox(
-                                  width: periodWidth,
-                                  child: DSelect<UserDirectoryPeriod>(
-                                    size: DControlSize.filter,
-                                    key: const ValueKey('users-period-filter'),
-                                    width: periodWidth,
-                                    value: data.query.period,
-                                    semanticLabel: 'Activity period',
-                                    enabled: widget.onPeriodChanged != null,
-                                    onChanged: (value) {
-                                      if (value != null) {
-                                        widget.onPeriodChanged?.call(value);
-                                      }
-                                    },
-                                    entries: [
-                                      for (final period
-                                          in UserDirectoryPeriod
-                                              .values
-                                              .reversed)
-                                        DSelectItem(
-                                          value: period,
-                                          textValue: period.label,
-                                          child: Text(period.label),
+                                Wrap(
+                                  spacing: DSpacing.controlGap,
+                                  runSpacing: DSpacing.sm,
+                                  crossAxisAlignment: WrapCrossAlignment.center,
+                                  children: [
+                                    SizedBox(
+                                      width: periodWidth,
+                                      child: DSelect<UserDirectoryPeriod>(
+                                        size: DControlSize.filter,
+                                        key: const ValueKey(
+                                          'users-period-filter',
                                         ),
-                                    ],
-                                  ),
-                                ),
-                                SizedBox(
-                                  width: math.min(
-                                    126 * textScale,
-                                    math.max(
-                                      0.0,
-                                      toolbarWidth -
-                                          periodWidth -
-                                          DSpacing.controlGap,
-                                    ),
-                                  ),
-                                  child: DCombobox<String>.controlled(
-                                    key: const ValueKey('users-group-filter'),
-                                    value: data.query.group ?? '__all_groups__',
-                                    anchor: const DComboboxInput<String>(
-                                      size: DControlSize.filter,
-                                      semanticLabel: 'Filter by group',
-                                      placeholder: 'All groups',
-                                    ),
-                                    content: const DComboboxContent(
-                                      children: [
-                                        DComboboxEmpty<String>(
-                                          child: Text('No groups found.'),
-                                        ),
-                                        DComboboxList<String>(),
-                                      ],
-                                    ),
-                                    enabled: widget.onGroupChanged != null,
-                                    filter: (value, query, label) =>
-                                        query ==
-                                            (data.query.group ??
-                                                'All groups') ||
-                                        label.toLowerCase().contains(
-                                          query.toLowerCase(),
-                                        ),
-                                    onChanged: (value, reason) =>
-                                        widget.onGroupChanged?.call(
-                                          value == '__all_groups__'
-                                              ? null
-                                              : value,
-                                        ),
-                                    options: [
-                                      const DComboboxOption(
-                                        value: '__all_groups__',
-                                        label: 'All groups',
-                                      ),
-                                      for (final group
-                                          in (<String>{
-                                            ...data.groupNames,
-                                            ?data.query.group,
-                                          }.toList()..sort(
-                                            (a, b) => a.toLowerCase().compareTo(
-                                              b.toLowerCase(),
+                                        width: periodWidth,
+                                        value: data.query.period,
+                                        semanticLabel: 'Activity period',
+                                        enabled: widget.onPeriodChanged != null,
+                                        onChanged: (value) {
+                                          if (value != null) {
+                                            widget.onPeriodChanged?.call(value);
+                                          }
+                                        },
+                                        entries: [
+                                          for (final period
+                                              in UserDirectoryPeriod
+                                                  .values
+                                                  .reversed)
+                                            DSelectItem(
+                                              value: period,
+                                              textValue: period.label,
+                                              child: Text(period.label),
                                             ),
-                                          )))
-                                        DComboboxOption(
-                                          value: group,
-                                          label: group,
+                                        ],
+                                      ),
+                                    ),
+                                    SizedBox(
+                                      width: math.min(
+                                        126 * textScale,
+                                        math.max(
+                                          0.0,
+                                          toolbarWidth -
+                                              periodWidth -
+                                              DSpacing.controlGap,
                                         ),
-                                    ],
-                                  ),
+                                      ),
+                                      child: DCombobox<String>.controlled(
+                                        key: const ValueKey(
+                                          'users-group-filter',
+                                        ),
+                                        value:
+                                            data.query.group ??
+                                            '__all_groups__',
+                                        anchor: const DComboboxInput<String>(
+                                          size: DControlSize.filter,
+                                          semanticLabel: 'Filter by group',
+                                          placeholder: 'All groups',
+                                        ),
+                                        content: const DComboboxContent(
+                                          children: [
+                                            DComboboxEmpty<String>(
+                                              child: Text('No groups found.'),
+                                            ),
+                                            DComboboxList<String>(),
+                                          ],
+                                        ),
+                                        enabled: widget.onGroupChanged != null,
+                                        filter: (value, query, label) =>
+                                            query ==
+                                                (data.query.group ??
+                                                    'All groups') ||
+                                            label.toLowerCase().contains(
+                                              query.toLowerCase(),
+                                            ),
+                                        onChanged: (value, reason) =>
+                                            widget.onGroupChanged?.call(
+                                              value == '__all_groups__'
+                                                  ? null
+                                                  : value,
+                                            ),
+                                        options: [
+                                          const DComboboxOption(
+                                            value: '__all_groups__',
+                                            label: 'All groups',
+                                          ),
+                                          for (final group
+                                              in (<String>{
+                                                ...data.groupNames,
+                                                ?data.query.group,
+                                              }.toList()..sort(
+                                                (a, b) => a
+                                                    .toLowerCase()
+                                                    .compareTo(b.toLowerCase()),
+                                              )))
+                                            DComboboxOption(
+                                              value: group,
+                                              label: group,
+                                            ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
                                 ),
                                 DDataTableColumnToggle<UserDirectoryItem>(
                                   key: const ValueKey('users-columns'),
