@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:discourse_native/src/data/discourse_request_coordinator.dart';
 import 'package:discourse_native/src/data/media_request_coordinator.dart';
 import 'package:discourse_native/src/data/origin_cooldown.dart';
+import 'package:discourse_native/src/diagnostics/diagnostics_controller.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 
@@ -564,6 +565,49 @@ void main() {
           ),
           throwsA(isA<StateError>()),
         );
+      });
+    }
+
+    for (final lane in _lanes) {
+      test('a request queued in the ${lane.name} lane keeps its caller\'s '
+          'diagnostics operation', () async {
+        final coordinator = DiscourseRequestCoordinator(
+          maxConcurrentPerOrigin: 1,
+          maxConcurrentTransfersPerOrigin: 1,
+        );
+        addTearDown(coordinator.close);
+        final origin = Uri.parse('https://forum.example');
+        final activeResponse = Completer<http.Response>();
+        final active = DiagnosticsSink.runOperation(
+          'site.refresh',
+          () => coordinator.run(
+            origin.resolve('/active'),
+            () => activeResponse.future,
+            transfer: lane.transfer,
+          ),
+        );
+        String? submittedCorrelation;
+        ({String? operation, String? correlation})? sent;
+        final queued = DiagnosticsSink.runOperation('topic.load', () {
+          submittedCorrelation = DiagnosticsSink.currentCorrelationId;
+          return coordinator.run(origin.resolve('/queued'), () async {
+            sent = (
+              operation: DiagnosticsSink.currentOperation,
+              correlation: DiagnosticsSink.currentCorrelationId,
+            );
+            return http.Response('{}', 200);
+          }, transfer: lane.transfer);
+        });
+
+        // The queued request is admitted by the active one finishing.
+        activeResponse.complete(http.Response('{}', 200));
+        await Future.wait([active, queued]);
+
+        expect(submittedCorrelation, isNotNull);
+        expect(sent, (
+          operation: 'topic.load',
+          correlation: submittedCorrelation,
+        ));
       });
     }
 

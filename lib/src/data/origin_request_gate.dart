@@ -56,6 +56,11 @@ final class OriginRequestGate {
   /// [operation] starts synchronously when capacity is granted. This keeps the
   /// gate suitable for callers whose delegation timing is observable while
   /// still returning one future for queued and immediately-started work.
+  ///
+  /// Queued work is granted from whichever lease release or cooldown wake
+  /// frees capacity, but always starts in the zone that called [run]: that
+  /// zone carries the caller's diagnostics operation and correlation, which
+  /// an HTTP request records when it starts.
   Future<T> run<T>(
     Uri url,
     Future<T> Function(OriginRequestContext context) operation, {
@@ -356,9 +361,11 @@ final class _RunAdmission<T> implements _PendingAdmission {
 
   final Future<T> Function(OriginRequestContext context) operation;
   final Completer<T> result = Completer();
+  final Zone _submitter = Zone.current;
 
   @override
-  void grant(OriginRequestLease lease) => unawaited(_run(lease));
+  void grant(OriginRequestLease lease) =>
+      unawaited(_submitter.run(() => _run(lease)));
 
   Future<void> _run(OriginRequestLease lease) async {
     try {
