@@ -481,15 +481,28 @@ final class _MapTrigger<K, V> {
   ]);
 }
 
+// A row scrolled back into a lazily built list, or rebuilt for an unrelated
+// reason, renders the same post again; deriving its checklist anew would parse
+// the whole body on the UI thread, even one long enough for HtmlWidget to
+// parse off it. A post never changes, so the markup it was last displayed
+// with decides the result, and the entry lives exactly as long as the post.
+final _displayedChecklists =
+    Expando<({String html, PostChecklistDocument? checklist})>();
+
 /// Displayed markup keeps the saved post's checkbox indices only while it
 /// presents the same targets in the same order.
 PostChecklistDocument? _displayedChecklist(String html, Post? post) {
-  final savedHtml = post?.cooked;
-  if (savedHtml == null ||
-      !html.contains('chcklst-box') ||
-      !savedHtml.contains('chcklst-box')) {
-    return null;
+  if (post == null || !html.contains('chcklst-box')) return null;
+  if (_displayedChecklists[post] case final memo? when memo.html == html) {
+    return memo.checklist;
   }
+  final checklist = _checklistFor(html, post.cooked);
+  _displayedChecklists[post] = (html: html, checklist: checklist);
+  return checklist;
+}
+
+PostChecklistDocument? _checklistFor(String html, String savedHtml) {
+  if (!savedHtml.contains('chcklst-box')) return null;
   final document = PostChecklistDocument(html);
   // Identical markup has identical targets, so it needs no second parse.
   if (html == savedHtml) return document;

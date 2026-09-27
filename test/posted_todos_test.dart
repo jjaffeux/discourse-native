@@ -17,6 +17,7 @@ import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_widget_from_html_core/flutter_widget_from_html_core.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
@@ -330,6 +331,69 @@ void main() {
       PostChecklistDocument(doc.withStates({0: true, 2: true})).fingerprint,
       doc.fingerprint,
     );
+  });
+
+  test('annotation numbers owned boxes in order without altering markup', () {
+    // The annotated markup is what HtmlWidget renders and where each checkbox
+    // finds its target, so it is pinned byte for byte.
+    final shapes = [
+      (
+        cooked(raw),
+        '<p><span class="chcklst-box fa-square-o" data-chk-src="0:0" '
+            'data-native-checklist-index="0"></span> First<br>'
+            '<span class="chcklst-box checked fa-square-check-o" '
+            'data-chk-src="1:0" data-native-checklist-index="1"></span> '
+            'Second</p>',
+      ),
+      (
+        '<p><span class="chcklst-box"></span>One</p>'
+            '<aside class="quote" data-post="1"><span class="chcklst-box" '
+            'data-native-checklist-index="0"></span>Quoted</aside>'
+            '<details><summary>Tasks</summary><span class="chcklst-box '
+            'checked permanent"></span>Locked<span class="chcklst-box"></span>'
+            'Three</details>',
+        '<p><span class="chcklst-box" data-native-checklist-index="0"></span>'
+            'One</p><aside class="quote" data-post="1">'
+            '<span class="chcklst-box"></span>Quoted</aside><details>'
+            '<summary>Tasks</summary><span class="chcklst-box checked '
+            'permanent" data-native-checklist-index="1"></span>Locked'
+            '<span class="chcklst-box" data-native-checklist-index="2"></span>'
+            'Three</details>',
+      ),
+      (
+        '<ul><li><span class="chcklst-box fa-square-o" data-chk-src="0:0">'
+            '</span> Parent<ul><li><span class="chcklst-box checked '
+            'fa-square-check-o" data-chk-src="1:2"></span> Child</li></ul>'
+            '</li></ul><div class="md-table"><table><thead><tr><th>Task</th>'
+            '</tr></thead><tbody><tr><td><span class="chcklst-box fa-square-o" '
+            'data-chk-src="4:2"></span> Cell &amp; &lt;b&gt;</td></tr></tbody>'
+            '</table></div>',
+        '<ul><li><span class="chcklst-box fa-square-o" data-chk-src="0:0" '
+            'data-native-checklist-index="0"></span> Parent<ul><li>'
+            '<span class="chcklst-box checked fa-square-check-o" '
+            'data-chk-src="1:2" data-native-checklist-index="1"></span> Child'
+            '</li></ul></li></ul><div class="md-table"><table><thead><tr>'
+            '<th>Task</th></tr></thead><tbody><tr><td>'
+            '<span class="chcklst-box fa-square-o" data-chk-src="4:2" '
+            'data-native-checklist-index="2"></span> Cell &amp; &lt;b&gt;</td>'
+            '</tr></tbody></table></div>',
+      ),
+      (
+        '<div class="post-body" data-native-checklist-index="9"><p>'
+            '<span class="chcklst-box" data-chk-src="x"></span>Legacy</p></div>',
+        '<div class="post-body"><p><span class="chcklst-box" data-chk-src="x" '
+            'data-native-checklist-index="0"></span>Legacy</p></div>',
+      ),
+    ];
+    for (final (source, annotated) in shapes) {
+      final doc = PostChecklistDocument(source);
+      expect(doc.annotatedHtml, annotated);
+      expect(doc.annotatedHtml, same(doc.annotatedHtml));
+      expect(
+        PostChecklistDocument(doc.annotatedHtml).targets.map((t) => t.source),
+        doc.targets.map((t) => t.source),
+      );
+    }
   });
 
   test(
@@ -901,6 +965,67 @@ void main() {
       long,
       short,
       reason: 'eight times the tasks read the post $long times against $short',
+    );
+  });
+
+  testWidgets('a checklist post rendered again reuses its parse of the post', (
+    tester,
+  ) async {
+    // Scrolling a post back into a lazily built list mounts a new renderer for
+    // the same post, and restyling rebuilds it; deriving the checklist anew in
+    // either parses the whole body on the UI thread.
+    final source = cooked(raw);
+    var reads = 0;
+    final counted = _CookedReadCountingPost(
+      cooked: source,
+      onCookedRead: () => reads += 1,
+    );
+    Future<void> render(String html, Key key, {TextStyle? style}) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light,
+          home: Scaffold(
+            body: CookedHtml(
+              key: key,
+              html: html,
+              post: counted,
+              siteUrl: site,
+              textStyle: style,
+              buildAsync: false,
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        tester.widget<HtmlWidget>(find.byType(HtmlWidget).first).html,
+        PostChecklistDocument(html).annotatedHtml,
+      );
+      expect(
+        tester
+            .widgetList<DCheckbox>(find.byType(DCheckbox))
+            .map((box) => box.value),
+        [false, true],
+      );
+    }
+
+    // Built afresh each time, as a wrapping presentation does on every build.
+    String wrapped() => '<div class="post-body">$source</div>';
+    await render(wrapped(), const ValueKey('mounted'));
+    final parsed = reads;
+    expect(parsed, isPositive);
+    await render(wrapped(), const ValueKey('remounted'));
+    await render(
+      wrapped(),
+      const ValueKey('remounted'),
+      style: const TextStyle(fontSize: 20),
+    );
+    expect(reads, parsed, reason: 'the same post and markup were parsed again');
+    await render(source, const ValueKey('remounted'));
+    expect(
+      reads,
+      greaterThan(parsed),
+      reason: 'other displayed markup has to be compared with the post',
     );
   });
 }
