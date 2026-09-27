@@ -584,8 +584,10 @@ final class DiscourseTopicApi {
           'title': trimmedTitle,
         'category_id': ?categoryId,
         if (tagIds.isNotEmpty) 'tag_ids': tagIds,
+        // The controller compares `chronological_order == "true"`; a JSON
+        // boolean appends the posts at the destination's end.
         if (destinationTopicId != null)
-          'chronological_order': chronologicalOrder,
+          'chronological_order': chronologicalOrder.toString(),
       },
     );
     final url = jsonText(body['url']);
@@ -658,7 +660,9 @@ final class DiscourseTopicApi {
       method: 'PUT',
       apiKey: apiKey,
       clientId: clientId,
-      body: {'locked': locked},
+      // The controller locks only for `locked === "true"` and unlocks on
+      // anything else, a JSON boolean included.
+      body: {'locked': locked.toString()},
     );
   }
 
@@ -790,7 +794,10 @@ final class DiscourseTopicApi {
       body: {
         'id': topicId,
         'post_action_type_id': postActionTypeId,
-        'flag_topic': true,
+        // The post lookup accepts a JSON boolean, but the creator targets the
+        // topic only for `flag_topic == "true"`; otherwise the flag lands on
+        // the first post.
+        'flag_topic': 'true',
         'message': ?message,
       },
     );

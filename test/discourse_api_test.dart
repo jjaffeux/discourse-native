@@ -4910,7 +4910,69 @@ void _writeGroups() {
         expect(jsonDecode(sent.body), {
           'post_ids': [42, 43],
           'destination_topic_id': 99,
-          'chronological_order': true,
+          // TopicsController compares `chronological_order == "true"`, so a
+          // JSON boolean appends the posts at the destination's end.
+          'chronological_order': 'true',
+        });
+      },
+    );
+
+    test(
+      'sends an unchecked chronological order as the string false',
+      () async {
+        late http.Request sent;
+        final api = DiscourseApi(
+          client: MockClient((request) async {
+            sent = request;
+            return http.Response(
+              jsonEncode({'success': true, 'url': '/t/destination/99'}),
+              200,
+            );
+          }),
+        );
+
+        await api.movePosts(
+          siteUrl: 'https://meta.discourse.org',
+          apiKey: 'the-key',
+          topicId: 7,
+          postIds: const [42],
+          destinationTopicId: 99,
+        );
+
+        expect(jsonDecode(sent.body), {
+          'post_ids': [42],
+          'destination_topic_id': 99,
+          'chronological_order': 'false',
+        });
+      },
+    );
+
+    test(
+      'moves posts into a new topic without a chronological order',
+      () async {
+        late http.Request sent;
+        final api = DiscourseApi(
+          client: MockClient((request) async {
+            sent = request;
+            return http.Response(
+              jsonEncode({'success': true, 'url': '/t/split/100'}),
+              200,
+            );
+          }),
+        );
+
+        await api.movePosts(
+          siteUrl: 'https://meta.discourse.org',
+          apiKey: 'the-key',
+          topicId: 7,
+          postIds: const [42],
+          title: 'A split topic',
+          chronologicalOrder: true,
+        );
+
+        expect(jsonDecode(sent.body), {
+          'post_ids': [42],
+          'title': 'A split topic',
         });
       },
     );
@@ -5010,7 +5072,28 @@ void _writeGroups() {
 
       expect(sent.method, 'PUT');
       expect(sent.url.path, '/posts/42/locked.json');
-      expect(jsonDecode(sent.body), {'locked': true});
+      // PostsController#locked compares `params[:locked] === "true"` and
+      // unlocks on anything else, a JSON boolean included.
+      expect(jsonDecode(sent.body), {'locked': 'true'});
+    });
+
+    test('sends an unlock as the string false', () async {
+      late http.Request sent;
+      final api = DiscourseApi(
+        client: MockClient((request) async {
+          sent = request;
+          return http.Response('', 204);
+        }),
+      );
+
+      await api.updatePostLocked(
+        siteUrl: 'https://meta.discourse.org',
+        apiKey: 'the-key',
+        postId: 42,
+        locked: false,
+      );
+
+      expect(jsonDecode(sent.body), {'locked': 'false'});
     });
   });
 
@@ -5288,7 +5371,10 @@ void _writeGroups() {
         expect(jsonDecode(sent.body), {
           'id': 7,
           'post_action_type_id': 8,
-          'flag_topic': true,
+          // The post lookup accepts either form, but PostActionCreator only
+          // targets the topic for `flag_topic == "true"`; a JSON boolean
+          // files the flag against the first post instead.
+          'flag_topic': 'true',
           'message': 'This whole topic is promotional.',
         });
       },
