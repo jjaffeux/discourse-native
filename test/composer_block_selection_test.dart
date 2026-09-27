@@ -248,6 +248,50 @@ void main() {
     }
   }
 
+  testWidgets('lists stay on their own side of a poll boundary', (
+    tester,
+  ) async {
+    final poll = _blocks['poll']!;
+    final source = '* Before\n$poll\n$_table';
+    final composer = await _pump(tester, source);
+    expect(
+      [
+        for (final block in composer.text.syntaxBlocks)
+          (block.kind.name, block.source),
+      ],
+      [
+        ('list-item', '* Before'),
+        ('poll', poll),
+        ('list-item', '* Tea'),
+        ('list-item', '* Coffee'),
+        ('table', _table),
+      ],
+    );
+    final rendered = tester
+        .state<EditableTextState>(_field(composer))
+        .renderEditable;
+    final painted = rendered.text!.toPlainText(includeSemanticsLabels: false);
+    expect(painted[source.indexOf(poll)], '￼');
+    expect(painted[source.indexOf(_table)], '￼');
+
+    // The caret inside the poll shows its source. Each option keeps its list
+    // editor, which holds neither the closing tag nor the following table.
+    composer.text.selection = TextSelection.collapsed(
+      offset: source.indexOf('[poll]') + 3,
+    );
+    await tester.pumpAndSettle();
+    expect(
+      tester
+          .widgetList<ComposerRichBodyEditor>(
+            find.byType(ComposerRichBodyEditor),
+          )
+          .map((editor) => editor.composer.text.text),
+      ['Before', 'Tea', 'Coffee'],
+    );
+    expect(composer.text.text, source);
+    expect(tester.takeException(), isNull);
+  });
+
   for (final entry in _blocks.entries) {
     testWidgets(
       '${entry.key} boundary carets can reselect a component at the start of the document',

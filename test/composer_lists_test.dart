@@ -53,6 +53,69 @@ void main() {
     );
   });
 
+  for (final newline in ['\n', '\r\n']) {
+    test('a closed BBCode block bounds list items (${newline.length})', () {
+      List<String> items(List<String> lines) => [
+        for (final item in composerListItems(lines.join(newline)))
+          item.source.replaceAll(newline, '\n'),
+      ];
+
+      // Discourse cooks a block's content between its tags, so an item inside
+      // one ends at the closing tag instead of continuing lazily past it.
+      const poll = ['[poll]', '* Tea', '* Coffee', '[/poll]'];
+      expect(items([...poll, 'After']), ['* Tea', '* Coffee']);
+      expect(items([...poll, '| Name | Cost |', '| --- | --- |']), [
+        '* Tea',
+        '* Coffee',
+      ]);
+      expect(items(['[poll]', '* Tea', '  [/poll]', 'After']), ['* Tea']);
+      expect(
+        items(['[quote="sam, post:1, topic:1"]', '- Quoted', '[/quote]']),
+        ['- Quoted'],
+      );
+      // The closing tag ends the block the way the end of a document would.
+      expect(items(['[poll]', '* Tea', '  ', '[/poll]']), ['* Tea\n  ']);
+      expect(items(['[poll]', '* Tea', '  * Green', '[/poll]']), [
+        '* Tea\n  * Green',
+      ]);
+      expect(
+        composerListItems(
+          ['1. First', '[poll]', '1. Tea', '[/poll]', '2. Next'].join(newline),
+        ).map((item) => item.number),
+        [1, 1, 2],
+      );
+
+      // Its opening tag interrupts a lazy continuation as it does a paragraph.
+      expect(items(['* Before', ...poll]), ['* Before', '* Tea', '* Coffee']);
+      expect(
+        items([
+          '* Before',
+          '[details="Summary"]',
+          'Body',
+          '[/details]',
+          'After',
+        ]),
+        ['* Before'],
+      );
+
+      // Unclosed or unmatched tags, a tag inside a fence and a block indented
+      // into an item leave Markdown's ordinary continuation alone.
+      expect(items(['* Item', '[details]', 'more']), [
+        '* Item\n[details]\nmore',
+      ]);
+      expect(items(['* Item', '[/poll]', 'more']), ['* Item\n[/poll]\nmore']);
+      expect(items(['* Item', '[poll]', '[/details]']), [
+        '* Item\n[poll]\n[/details]',
+      ]);
+      expect(items(['* Item', '  [details]', '  Body', '  [/details]']), [
+        '* Item\n  [details]\n  Body\n  [/details]',
+      ]);
+      expect(items(['```', '[poll]', '```', '* Item', '[/poll]']), [
+        '* Item\n[/poll]',
+      ]);
+    });
+  }
+
   test(
     'converting a heading or list preserves text, descendants and caret',
     () {
