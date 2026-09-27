@@ -305,7 +305,12 @@ final class ShellGroupPagesPort implements GroupPagesPort {
   @override
   void openGroup(GroupPagesOwner owner, String groupName) {
     if (!isCurrent(owner)) return;
-    _shell.openGroupUrl(Uri(pathSegments: ['g', groupName]).path);
+    _shell.openGroupUrl(
+      _shell.siteLink(
+        Uri(pathSegments: ['g', groupName]).path,
+        siteUrl: owner.siteUrl,
+      ),
+    );
   }
 
   @override

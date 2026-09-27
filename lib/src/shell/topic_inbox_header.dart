@@ -23,6 +23,7 @@ import 'platform.dart';
 import 'relative_time.dart';
 import 'shell_metrics.dart';
 import 'shell_scope.dart';
+import 'site_url.dart';
 import 'skeleton_fill.dart';
 import 'topic_actions.dart';
 import 'topic_category_picker.dart';
@@ -934,7 +935,7 @@ class _TopicCategoryControl extends StatelessWidget {
         );
         return browseOnly && value != null
             ? LinkTarget(
-                url: '/c/${value.id}',
+                url: resolveSiteRootPath(siteUrl, '/c/${value.id}'),
                 title: value.name,
                 siteUrl: siteUrl,
                 child: chip,
@@ -1035,7 +1036,7 @@ class _CategoryChip extends StatelessWidget {
           ),
           if (navigate != null)
             LinkTarget(
-              url: '/c/${category!.id}',
+              url: resolveSiteRootPath(siteUrl, '/c/${category!.id}'),
               title: category!.name,
               siteUrl: siteUrl,
               child: DButton.iconOnly(

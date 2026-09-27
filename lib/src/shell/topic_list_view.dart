@@ -27,6 +27,7 @@ import 'relative_time.dart';
 import 'shell_controller.dart';
 import 'shell_scope.dart';
 import 'site_emoji_text.dart';
+import 'site_url.dart';
 import 'skeleton_fill.dart';
 import 'topic_list_indicators.dart';
 import 'topic_list_layout.dart';
@@ -1339,7 +1340,7 @@ class _CategoryBreadcrumb extends StatelessWidget {
           if (parent != null) ...[
             DBreadcrumbItem(
               child: LinkTarget(
-                url: '/c/${parent.id}',
+                url: resolveSiteRootPath(siteUrl, '/c/${parent.id}'),
                 title: parent.name,
                 siteUrl: siteUrl,
                 child: _CategoryBadge(
@@ -1368,7 +1369,7 @@ class _CategoryBreadcrumb extends StatelessWidget {
                   ),
                 Flexible(
                   child: LinkTarget(
-                    url: '/c/${category.id}',
+                    url: resolveSiteRootPath(siteUrl, '/c/${category.id}'),
                     title: category.name,
                     siteUrl: siteUrl,
                     child: _CategoryBadge(

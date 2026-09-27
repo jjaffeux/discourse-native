@@ -6150,6 +6150,13 @@ class ShellController extends FrameSafeNotifier
   String absoluteUrl(String url, {String? siteUrl}) =>
       resolveSiteUrl(url, siteUrl ?? currentInstance?.url);
 
+  /// [path], a root path this app builds, on [siteUrl] or the current forum;
+  /// see [resolveSiteRootPath]. Without a forum it is returned as it is.
+  String siteLink(String path, {String? siteUrl}) {
+    final site = siteUrl ?? currentInstance?.url;
+    return site == null ? path : resolveSiteRootPath(site, path);
+  }
+
   bool openTopicUrl(String url) => _openTopicUrl(url);
 
   TabOpenResult openLinkInNewTab(

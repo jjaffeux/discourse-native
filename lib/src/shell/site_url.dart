@@ -24,3 +24,10 @@ String resolveSitePath(String siteUrl, String path) {
   final base = Uri.parse(siteUrl.endsWith('/') ? siteUrl : '$siteUrl/');
   return base.resolve(path).toString();
 }
+
+/// Resolves a root path this app builds, such as `/latest` or `/u/sam`, against
+/// the site it belongs to. Such a path is written as if the forum were served
+/// from the root, so a subfolder forum's prefix is added here. Links Discourse
+/// wrote already carry that prefix and go through [resolveSiteUrl] instead.
+String resolveSiteRootPath(String siteUrl, String path) =>
+    resolveSitePath(siteUrl, path.startsWith('/') ? path.substring(1) : path);

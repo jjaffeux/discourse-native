@@ -19,6 +19,7 @@ import 'open_link.dart';
 import 'relative_time.dart';
 import 'shell_scope.dart';
 import 'site_emoji_text.dart';
+import 'site_url.dart';
 import 'start_page_drag.dart';
 
 /// The landing surface for an otherwise empty forum tab.
@@ -181,7 +182,7 @@ class _NewTabPageState extends State<NewTabPage> {
       label: 'Chat',
       icon: DIcons.comments,
     );
-    void openCategories() => openLink(context, '/categories');
+    void openCategories() => openLink(context, shell!.siteLink('/categories'));
     void openChat() => shell!.selectDestination(chatDestination);
     void openBookmarks() => shell!.selectDestination(
       const SidebarDestination(
@@ -196,6 +197,7 @@ class _NewTabPageState extends State<NewTabPage> {
         _StartPageEntry.fromRoute(
           route,
           () => _openRoute(context, route),
+          siteUrl: siteUrl,
           count: route.categoryId == null
               ? null
               : shell!.categoryActivityCountFor(siteUrl!, route.categoryId!),
@@ -207,6 +209,7 @@ class _NewTabPageState extends State<NewTabPage> {
         _StartPageEntry.fromRoute(
           ContentRoute.fromDestination(destination),
           () => destination.onTap?.call(),
+          siteUrl: siteUrl,
           destination: destination,
         ),
     ];
@@ -223,8 +226,9 @@ class _NewTabPageState extends State<NewTabPage> {
           count: topic.unreadCount,
           time: topic.bumpedAt == null ? null : relativeTime(topic.bumpedAt!),
           description: topic.excerpt,
-          path: '/t/${topic.slug}/${topic.id}',
-          onPressed: () => openLink(context, '/t/${topic.slug}/${topic.id}'),
+          path: shell!.siteLink('/t/${topic.slug}/${topic.id}'),
+          onPressed: () =>
+              openLink(context, shell.siteLink('/t/${topic.slug}/${topic.id}')),
         ),
     ];
     final bookmarkRows = [
@@ -255,7 +259,7 @@ class _NewTabPageState extends State<NewTabPage> {
           id: 'closed-${tab.id}',
           title: tab.currentContent.title,
           icon: tab.currentContent.icon,
-          path: _recentRouteUrl(tab.currentContent),
+          path: _recentRouteUrl(siteUrl, tab.currentContent),
           onPressed: () => shell!.reopenClosedTab(tab.id),
         ),
     ];
@@ -432,14 +436,14 @@ class _NewTabPageState extends State<NewTabPage> {
                               _LinkButton(
                                 label: 'Latest topics',
                                 icon: DIcons.layerGroup,
-                                url: '/latest',
+                                url: shell.siteLink('/latest'),
                                 onPressed: widget.onBrowseTopics,
                               ),
                             if (categoryRows.isEmpty)
                               _LinkButton(
                                 label: 'Categories',
                                 icon: DIcons.tag,
-                                url: '/categories',
+                                url: shell.siteLink('/categories'),
                                 onPressed: openCategories,
                               ),
                             if (hasChat && chatRows.isEmpty)
@@ -455,21 +459,25 @@ class _NewTabPageState extends State<NewTabPage> {
                               _LinkButton(
                                 label: 'Messages',
                                 icon: DIcons.inbox,
-                                url: '/my/messages',
-                                onPressed: () =>
-                                    openLink(context, '/my/messages'),
+                                url: shell.siteLink('/my/messages'),
+                                onPressed: () => openLink(
+                                  context,
+                                  shell.siteLink('/my/messages'),
+                                ),
                               ),
                             _LinkButton(
                               label: 'Groups',
                               icon: DIcons.users,
-                              url: '/g',
-                              onPressed: () => openLink(context, '/g'),
+                              url: shell.siteLink('/g'),
+                              onPressed: () =>
+                                  openLink(context, shell.siteLink('/g')),
                             ),
                             _LinkButton(
                               label: 'Badges',
                               icon: DIcons.certificate,
-                              url: '/badges',
-                              onPressed: () => openLink(context, '/badges'),
+                              url: shell.siteLink('/badges'),
+                              onPressed: () =>
+                                  openLink(context, shell.siteLink('/badges')),
                             ),
                             if (events != null)
                               _LinkButton(
@@ -481,8 +489,9 @@ class _NewTabPageState extends State<NewTabPage> {
                             _LinkButton(
                               label: 'Users',
                               icon: DIcons.user,
-                              url: '/u',
-                              onPressed: () => openLink(context, '/u'),
+                              url: shell.siteLink('/u'),
+                              onPressed: () =>
+                                  openLink(context, shell.siteLink('/u')),
                             ),
                             if (forum?.user != null)
                               _LinkButton(
@@ -516,7 +525,7 @@ class _NewTabPageState extends State<NewTabPage> {
   void _openRoute(BuildContext context, ContentRoute route) {
     final site = ShellScope.read(context).currentInstance;
     if (site == null) return;
-    if (_recentRouteUrl(route) case final url?) {
+    if (_recentRouteUrl(site.url, route) case final url?) {
       unawaited(openLink(context, url, title: route.title));
     } else {
       ShellScope.read(context).pushContent(route);
@@ -524,15 +533,21 @@ class _NewTabPageState extends State<NewTabPage> {
   }
 }
 
-String? _recentRouteUrl(ContentRoute route) {
+String? _recentRouteUrl(String? siteUrl, ContentRoute route) {
+  if (siteUrl == null) return null;
   if (route.topicId case final id?) {
-    return '/t/${route.slug ?? 'topic'}/$id';
+    return resolveSiteRootPath(siteUrl, '/t/${route.slug ?? 'topic'}/$id');
   }
   if (route.feedPath case final path?) {
-    return path.endsWith('.json') ? path.substring(0, path.length - 5) : path;
+    return resolveSiteRootPath(
+      siteUrl,
+      path.endsWith('.json') ? path.substring(0, path.length - 5) : path,
+    );
   }
   final channel = RegExp(r'^chat-c-([1-9][0-9]*)$').firstMatch(route.id);
-  return channel == null ? null : '/chat/c/-/${channel.group(1)}';
+  return channel == null
+      ? null
+      : resolveSiteRootPath(siteUrl, '/chat/c/-/${channel.group(1)}');
 }
 
 String _reminderDate(DateTime date) {
@@ -561,6 +576,7 @@ class _StartPageEntry {
   factory _StartPageEntry.fromRoute(
     ContentRoute route,
     VoidCallback onPressed, {
+    required String? siteUrl,
     SidebarDestination? destination,
     int? count,
     String? description,
@@ -574,7 +590,7 @@ class _StartPageEntry {
         ? null
         : relativeTime(destination!.lastActivityAt!),
     description: description ?? destination?.preview ?? route.subtitle,
-    path: _recentRouteUrl(route),
+    path: _recentRouteUrl(siteUrl, route),
     onPressed: onPressed,
   );
 

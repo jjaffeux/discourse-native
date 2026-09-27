@@ -17,6 +17,7 @@ import 'global_search_models.dart';
 import 'open_link.dart';
 import 'shell_scope.dart';
 import 'site_emoji_text.dart';
+import 'site_url.dart';
 
 part 'global_search_category_editor.dart';
 part 'global_search_filter_picker.dart';
@@ -427,11 +428,14 @@ class _GlobalSearchPanelState extends State<GlobalSearchPanel> {
 
   Widget _result(GlobalSearchResult result) {
     final controller = widget.controller;
+    final site = controller.siteUrl;
     return KeyedSubtree(
       key: _resultKeys.putIfAbsent(result.id, GlobalKey.new),
       child: LinkTarget(
-        url: result.path,
-        siteUrl: controller.siteUrl,
+        url: site == null
+            ? result.path
+            : resolveSiteRootPath(site, result.path),
+        siteUrl: site,
         title: result.title,
         child: Focus(
           canRequestFocus: false,
