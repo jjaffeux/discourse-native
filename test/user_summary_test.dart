@@ -9,9 +9,11 @@ import 'package:discourse_native/src/models/forum_workspace.dart';
 import 'package:discourse_native/src/models/notification_totals.dart';
 import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/models/user_summary.dart';
+import 'package:discourse_native/src/shell/forum_search.dart';
+import 'package:discourse_native/src/shell/global_search_filters.dart';
+import 'package:discourse_native/src/shell/global_search_models.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
-import 'package:discourse_native/src/shell/shell_search_controller.dart';
 import 'package:discourse_native/src/shell/user_menu.dart';
 import 'package:discourse_native/src/shell/user_menu_button.dart';
 import 'package:discourse_native/src/shell/user_summary.dart';
@@ -230,21 +232,68 @@ void main() {
       );
     }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
-    testWidgets('category counts enter the web-equivalent search filters', (
-      tester,
-    ) async {
-      final fixture = await _pump(tester);
-      await _openSummaryFromMenu(tester);
+    for (final layout in [
+      (name: 'compact', size: const Size(390, 844)),
+      (name: 'wide', size: const Size(1440, 900)),
+    ]) {
+      for (final count in [
+        (label: 'Search 2 topics by @reader in Support', firstPosts: true),
+        (label: 'Search 7 replies by @reader in Support', firstPosts: false),
+      ]) {
+        testWidgets(
+          'category ${count.firstPosts ? 'topic' : 'reply'} counts open the '
+          'web full-page search filters in ${layout.name} layout',
+          (tester) async {
+            final fixture = await _pump(tester, size: layout.size);
+            await _openSummaryFromMenu(tester);
+            await _selectSummaryTab(tester, 'Reading');
+            fixture.api.pluginReadPaths.clear();
 
-      await _selectSummaryTab(tester, 'Reading');
-      await tester.tap(
-        find.bySemanticsLabel('Search 2 topics by @reader in Support'),
-      );
-      await tester.pump();
+            final link = find.bySemanticsLabel(count.label);
+            await tester.ensureVisible(link);
+            await tester.pumpAndSettle();
+            await tester.tap(link);
+            await tester.pump();
+            // Run past both controllers' typing debounce, so a search that is
+            // only scheduled still reaches the fake API before the assertions.
+            await tester.pump(const Duration(seconds: 1));
+            await tester.pumpAndSettle();
 
-      expect(fixture.controller.search.query, '@reader #support in:first');
-      expect(fixture.controller.search.mode, SearchMode.topics);
-    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
+            final global = fixture.controller.globalSearch;
+            final expected = [
+              '@reader',
+              '#support',
+              if (count.firstPosts) 'in:first',
+            ];
+            expect(find.byKey(ForumSearch.panelKey), findsOneWidget);
+            expect(global.scope, GlobalSearchScope.forum);
+            expect(global.query, isEmpty);
+            expect(
+              global.conditions.map(
+                (condition) => globalSearchConditionToken(
+                  condition,
+                  capabilities: global.capabilities,
+                ),
+              ),
+              expected,
+            );
+            expect(
+              fixture.api.pluginReadPaths
+                  .map(Uri.parse)
+                  .where((uri) => uri.path.startsWith('/search'))
+                  .map((uri) => (uri.path, uri.queryParameters['q'])),
+              [('/search.json', expected.join(' '))],
+            );
+            expect(
+              fixture.api.searchesRequested,
+              isEmpty,
+              reason: 'nothing renders the legacy search session',
+            );
+          },
+          variant: TargetPlatformVariant.only(TargetPlatform.linux),
+        );
+      }
+    }
   });
 
   group('content states', () {
