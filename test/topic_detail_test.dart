@@ -656,6 +656,18 @@ void main() {
       expect(merged.stream, [1, 400]);
     });
 
+    test('drops an ID the refetch leaves out between posts it returned', () {
+      // The site no longer serves post 2 to this reader. Kept, it would move
+      // behind post 3 and hold the topic open with a post no read can fill.
+      final merged = detail(
+        stream: [1, 2, 3, 400],
+        postsCount: 400,
+      ).merge(detail(stream: [1, 3], postsCount: 398));
+
+      expect(merged.stream, [1, 3, 400]);
+      expect(merged.postsCount, 399);
+    });
+
     test('keeps recommendations when a partial refetch omits them', () {
       const recommendations = TopicRecommendations(
         sources: [

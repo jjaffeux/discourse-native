@@ -1388,7 +1388,12 @@ void main() {
           tester.view.devicePixelRatio = 1;
           addTearDown(tester.view.reset);
           final site = instance('meta.example');
-          final api = FakeDiscourseApi(feeds: const {'/latest.json': []});
+          // Paging stays out, keeping posts on both sides of the window: a
+          // page answered without them would mean the site no longer has them.
+          final api = FakeDiscourseApi(
+            feeds: const {'/latest.json': []},
+            postGate: Completer<void>(),
+          );
           final controller = ShellController(
             instanceStore: FakeInstanceStore([site]),
             api: api,
@@ -1454,7 +1459,9 @@ void main() {
               ),
             ),
           );
-          await tester.pumpAndSettle();
+          // The paging skeleton pulses for as long as paging is out.
+          await tester.pump();
+          await tester.pump();
           expect(controller.currentTopicHasEarlier, isTrue);
           expect(controller.currentTopicHasMore, isTrue);
           final scroll = topicPostList(tester).controller!;
@@ -1489,7 +1496,7 @@ void main() {
             debugDefaultTargetPlatformOverride = previousPlatform;
           }
 
-          await tester.pumpAndSettle();
+          await tester.pump();
           rebuild(() => showSidebar = false);
           await tester.pump();
 
