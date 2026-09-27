@@ -154,12 +154,14 @@ class _ForumTabsBarState extends State<ForumTabsBar> {
   static const _minimumTabWidth = 110.0;
   Widget? _contents;
   final _barKey = GlobalKey();
+  final _tabRowKey = GlobalKey();
   final _tabKeys = <String, GlobalKey>{};
   final _tabsScrollController = ScrollController();
   bool _canScrollBackward = false;
   bool _canScrollForward = false;
   ForumTabItem? _dropItem;
   int _dropIndex = 0;
+  Offset? _pointerGlobal;
   String? _geometryTabId;
   List<double> _tabCenters = const [];
   List<Rect> _tabRects = const [];
@@ -168,12 +170,14 @@ class _ForumTabsBarState extends State<ForumTabsBar> {
   void initState() {
     super.initState();
     _tabsScrollController.addListener(_updateScrollControls);
+    _tabsScrollController.addListener(_followScrolledDrop);
     _revealSelectedTab();
   }
 
   @override
   void dispose() {
     _tabsScrollController.removeListener(_updateScrollControls);
+    _tabsScrollController.removeListener(_followScrolledDrop);
     _tabsScrollController.dispose();
     super.dispose();
   }
@@ -230,16 +234,39 @@ class _ForumTabsBarState extends State<ForumTabsBar> {
     });
   }
 
+  /// The row holding the tabs, which moves with the strip's scroll offset.
+  RenderBox? get _tabRow =>
+      _tabRowKey.currentContext?.findRenderObject() as RenderBox?;
+
+  /// Records the tab slots in [_tabRow]'s own coordinates. The strip can
+  /// scroll while a tab is carried — pressing a tab re-centres it, and the
+  /// wheel still scrolls — so the slots must travel with the tabs; pointer
+  /// positions and the insertion bar go through the row's current transform.
   void _captureDropGeometry(String id) {
     if (_geometryTabId == id) return;
     _geometryTabId = id;
+    final row = _tabRow;
     _tabRects = [
-      for (final item in widget.items)
-        if (_tabKeys[item.id]?.currentContext?.findRenderObject()
-            case final RenderBox box)
-          box.localToGlobal(Offset.zero) & box.size,
+      if (row != null)
+        for (final item in widget.items)
+          if (_tabKeys[item.id]?.currentContext?.findRenderObject()
+              case final RenderBox box)
+            box.localToGlobal(Offset.zero, ancestor: row) & box.size,
     ];
     _tabCenters = [for (final rect in _tabRects) rect.center.dx];
+  }
+
+  /// A pointer held still while the strip scrolls points at another gap, so
+  /// the gap and the bar marking it follow the tabs rather than the pointer's
+  /// last move.
+  void _followScrolledDrop() {
+    if (!mounted || (_dropItem == null && widget.incomingTab == null)) return;
+    setState(() {
+      if (_pointerGlobal case final pointer? when _dropItem != null) {
+        _dropIndex = _indexAt(_dropItem!.id, pointer);
+      }
+      _contents = null;
+    });
   }
 
   void _scheduleGeometryReset() {
@@ -254,12 +281,15 @@ class _ForumTabsBarState extends State<ForumTabsBar> {
     });
   }
 
-  /// The gap [id] would be inserted into when dropped at [position].
+  /// The gap [id] would be inserted into when dropped at [globalPosition].
   ///
   /// The two gaps touching a strip tab's own slot would not move it, so a
   /// neighbour answers its far side wherever the pointer is on it, and the
   /// slot itself answers a gap that [_destinationFor] declines.
-  int _indexAt(String id, Offset position) {
+  int _indexAt(String id, Offset globalPosition) {
+    final row = _tabRow;
+    if (row == null) return widget.items.length;
+    final position = row.globalToLocal(globalPosition);
     final rtl = Directionality.of(context) == TextDirection.rtl;
     var gap = widget.items.length;
     for (var index = 0; index < _tabCenters.length; index++) {
@@ -306,6 +336,7 @@ class _ForumTabsBarState extends State<ForumTabsBar> {
     final item = _droppable(details.data);
     if (item == null) return false;
     _captureDropGeometry(item.id);
+    _pointerGlobal = details.offset;
     setState(() {
       _dropItem = item;
       _dropIndex = _indexAt(item.id, details.offset);
@@ -325,6 +356,7 @@ class _ForumTabsBarState extends State<ForumTabsBar> {
       icon: DIcons.link,
     );
     _captureDropGeometry(item.id);
+    _pointerGlobal = details.offset;
     setState(() {
       _dropItem = item;
       _dropIndex = _indexAt(item.id, details.offset);
@@ -335,6 +367,7 @@ class _ForumTabsBarState extends State<ForumTabsBar> {
 
   void _moveLinkDrop(DragTargetDetails<StartPageDrag> details) {
     if (_dropItem == null) return;
+    _pointerGlobal = details.offset;
     final index = _indexAt('incoming-start-page-link', details.offset);
     if (index == _dropIndex) return;
     setState(() {
@@ -345,6 +378,7 @@ class _ForumTabsBarState extends State<ForumTabsBar> {
 
   void _moveDrop(DragTargetDetails<String> details) {
     if (_dropItem == null) return;
+    _pointerGlobal = details.offset;
     final index = _indexAt(details.data, details.offset);
     if (index == _dropIndex) return;
     setState(() {
@@ -355,6 +389,7 @@ class _ForumTabsBarState extends State<ForumTabsBar> {
 
   void _clearDrop() {
     if (_dropItem == null) return;
+    _pointerGlobal = null;
     setState(() {
       _dropItem = null;
       _contents = null;
@@ -468,8 +503,12 @@ class _ForumTabsBarState extends State<ForumTabsBar> {
           : (rtl
                 ? (previous.left + next.right) / 2
                 : (previous.right + next.left) / 2);
-      if (_barKey.currentContext?.findRenderObject() case final RenderBox box) {
-        indicatorLeft = position - box.localToGlobal(Offset.zero).dx - 1.5;
+      if ((_barKey.currentContext?.findRenderObject(), _tabRow) case (
+        final RenderBox bar,
+        final RenderBox row,
+      )) {
+        indicatorLeft =
+            row.localToGlobal(Offset(position, 0), ancestor: bar).dx - 1.5;
       }
     }
     return Container(
@@ -554,6 +593,7 @@ class _ForumTabsBarState extends State<ForumTabsBar> {
                           explicitChildNodes: true,
                           label: 'Open tabs in ${widget.forumName}',
                           child: Row(
+                            key: _tabRowKey,
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               for (final (index, item)
