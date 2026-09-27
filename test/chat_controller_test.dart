@@ -169,6 +169,7 @@ ChatChannel channel(
   WriteException? pinFailure,
   Completer<void>? pinGate,
   Map<int, ChatPins> pins = const {},
+  Completer<void>? pinsGate,
   WriteException? flagFailure,
   Completer<void>? flagGate,
   WriteException? rebakeFailure,
@@ -232,6 +233,7 @@ ChatChannel channel(
     chatPinFailure: pinFailure,
     chatPinGate: pinGate,
     chatPinsByChannel: pins,
+    chatPinnedMessagesGate: pinsGate,
     chatFlagFailure: flagFailure,
     chatFlagGate: flagGate,
     chatRebakeFailure: rebakeFailure,
@@ -5429,6 +5431,157 @@ void main() {
         subject.chat.channel(site, 9)?.membership.lastViewedPinsAt,
         isNotNull,
       );
+    });
+
+    int pinnedId(int channelId, int index) => 100000 + channelId * 100 + index;
+
+    ChatPins pinsOf(int channelId, {int count = ChatPin.maximumPerChannel}) => (
+      pins: [
+        for (var index = 0; index < count; index++)
+          ChatPin(
+            id: pinnedId(channelId, index),
+            messageId: pinnedId(channelId, index),
+            message: ChatMessage(
+              id: pinnedId(channelId, index),
+              channelId: channelId,
+              cooked: '<p>pinned</p>',
+              author: const ChatMessageAuthor(id: 2, username: 'sam'),
+              pinned: true,
+            ),
+            pinnedBy: const ChatMessageAuthor(id: 7, username: 'reader'),
+          ),
+      ],
+      membership: null,
+    );
+
+    test(
+      'shares its channel’s message budget and is refetched after eviction',
+      () async {
+        final pins = {
+          for (var channelId = 1; channelId <= 6; channelId++)
+            channelId: pinsOf(channelId),
+        };
+        final subject = build(
+          messages: {
+            for (var channelId = 1; channelId <= 6; channelId++)
+              key(channelId): page([message(1000 + channelId)]),
+          },
+          pins: pins,
+          maxRetainedCanonicalMessageIdsPerSite: 120,
+        );
+        addTearDown(subject.chat.dispose);
+
+        for (var channelId = 1; channelId <= 6; channelId++) {
+          await subject.chat.openChannel(site, channelId);
+          await subject.chat.loadPinnedMessages(site, channelId);
+        }
+
+        // Each one-message window claims a page (50) and its snapshot a row
+        // per pin (20), so two such channels (140) exceed 120.
+        expect(subject.chat.retainedTargetCountForTesting(site), 1);
+        expect(subject.chat.pinSnapshotCountForTesting(site), 1);
+        expect(
+          subject.chat.pinsListenable(site, 6).value.pins,
+          hasLength(ChatPin.maximumPerChannel),
+        );
+
+        pins[1] = pinsOf(1, count: 1);
+        await subject.chat.openChannel(site, 1);
+        await subject.chat.loadPinnedMessages(site, 1);
+
+        expect(
+          subject.api.chatPinnedMessagesRequested.where((id) => id == 1),
+          hasLength(2),
+        );
+        expect(
+          subject.chat.pinsListenable(site, 1).value.pins.single.messageId,
+          pinnedId(1, 0),
+        );
+        expect(subject.chat.pinSnapshotCountForTesting(site), 1);
+      },
+    );
+
+    test(
+      'retains the channel of a snapshot loaded before its window',
+      () async {
+        final subject = build(
+          pins: {
+            for (var channelId = 1; channelId <= 4; channelId++)
+              channelId: pinsOf(channelId),
+          },
+          maxRetainedCanonicalMessageIdsPerSite: 100,
+        );
+        addTearDown(subject.chat.dispose);
+
+        for (var channelId = 1; channelId <= 4; channelId++) {
+          await subject.chat.loadPinnedMessages(site, channelId);
+        }
+
+        expect(subject.chat.retainedTargetCountForTesting(site), 1);
+        expect(subject.chat.pinSnapshotCountForTesting(site), 1);
+      },
+    );
+
+    test('keeps an observed snapshot together with its channel', () async {
+      final subject = build(
+        messages: {
+          for (var channelId = 1; channelId <= 4; channelId++)
+            key(channelId): page([message(1000 + channelId)]),
+        },
+        pins: {
+          for (var channelId = 1; channelId <= 4; channelId++)
+            channelId: pinsOf(channelId),
+        },
+        maxRetainedCanonicalMessageIdsPerSite: 100,
+      );
+      addTearDown(subject.chat.dispose);
+      final observed = subject.chat.pinsListenable(site, 1);
+      void observe() {}
+      observed.addListener(observe);
+      addTearDown(() => observed.removeListener(observe));
+
+      for (var channelId = 1; channelId <= 4; channelId++) {
+        await subject.chat.openChannel(site, channelId);
+        await subject.chat.loadPinnedMessages(site, channelId);
+      }
+
+      expect(subject.chat.pinsListenable(site, 1), same(observed));
+      expect(observed.value.pins, hasLength(ChatPin.maximumPerChannel));
+      expect(subject.chat.stream(site, 1).messageIds, [1001]);
+      expect(subject.api.chatPinnedMessagesRequested, [1, 2, 3, 4]);
+      expect(
+        subject.chat.pinSnapshotCountForTesting(site),
+        subject.chat.retainedTargetCountForTesting(site),
+      );
+    });
+
+    test('drops a snapshot answered after its channel was evicted', () async {
+      final gate = Completer<void>();
+      final subject = build(
+        messages: {
+          for (var channelId = 1; channelId <= 3; channelId++)
+            key(channelId): page([message(1000 + channelId)]),
+        },
+        pins: {1: pinsOf(1)},
+        pinsGate: gate,
+        maxRetainedCanonicalMessageIdsPerSite: 100,
+      );
+      addTearDown(subject.chat.dispose);
+
+      await subject.chat.openChannel(site, 1);
+      final answer = subject.chat.loadPinnedMessages(site, 1);
+      await Future<void>.delayed(Duration.zero);
+      expect(subject.api.chatPinnedMessagesRequested, [1]);
+
+      await subject.chat.openChannel(site, 2);
+      await subject.chat.openChannel(site, 3);
+      expect(subject.chat.stream(site, 1).fetchedOnce, isFalse);
+
+      gate.complete();
+      await answer;
+
+      expect(subject.chat.pinSnapshotCountForTesting(site), 0);
+      expect(subject.store.read<ChatMessage>(site, pinnedId(1, 0)), isNull);
     });
   });
 

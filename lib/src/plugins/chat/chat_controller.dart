@@ -659,6 +659,10 @@ class ChatController extends FrameSafeNotifier {
       .fold(0, (total, entry) => total + entry.value.messageIds.length);
 
   @visibleForTesting
+  int pinSnapshotCountForTesting(String siteUrl) =>
+      _pinListRefs.keys.where((key) => key.startsWith('$siteUrl~')).length;
+
+  @visibleForTesting
   int pinnedMessageCountForTesting(String siteUrl) => _messagePins.entries
       .where((entry) => _retainedTargets[entry.key]?.siteUrl == siteUrl)
       .fold(0, (total, entry) => total + entry.value.length);
@@ -2292,6 +2296,9 @@ class ChatController extends FrameSafeNotifier {
     () => FrameSafeValueNotifier(const ChatPinsState()),
   );
 
+  /// A snapshot belongs to its channel's retained target: it is weighed
+  /// against the site's message budget and released when the target is
+  /// evicted, so a revisit fetches the pins again.
   Future<void> loadPinnedMessages(
     String siteUrl,
     int channelId, {
@@ -2305,6 +2312,10 @@ class ChatController extends FrameSafeNotifier {
     if (!force && (ref.value.fetched || _pinListRequests.containsKey(key))) {
       return;
     }
+    final target = ChatChannelTarget(channelId);
+    final targetKey = _targetKey(siteUrl, target);
+    _rememberTarget(siteUrl, target);
+    _enforceSiteRetention(siteUrl, keep: targetKey);
     final request = Object();
     final lease = _requests.capture(siteUrl);
     _pinListRequests[key] = request;
@@ -2347,6 +2358,7 @@ class ChatController extends FrameSafeNotifier {
           pins: List.unmodifiable(snapshot.pins),
           fetched: true,
         );
+        _enforceSiteRetention(siteUrl, keep: targetKey);
       });
     } catch (error, stackTrace) {
       if (!ownsRequest()) return;
@@ -4333,9 +4345,25 @@ class ChatController extends FrameSafeNotifier {
     (_messagePins[key] ??= _ChatMessagePinSet(_store, siteUrl)).retain(desired);
   }
 
+  /// The pinned-message snapshot key owned by a retained channel target.
+  String? _retainedPinsKey(String key) {
+    final identity = _retainedTargets[key];
+    if (identity == null || identity.target is! ChatChannelTarget) return null;
+    return _pinsKey(identity.siteUrl, identity.target.channelId);
+  }
+
+  /// A window claims at least a page. A channel's pin snapshot claims a row
+  /// per pin as well, since those messages occupy the same Store partition
+  /// the budget is derived from; a pin also inside the window is counted
+  /// twice, which can only evict sooner.
   int _retentionWeight(String key) {
     final messageCount = _streams[key]?.messageIds.length ?? 0;
-    return messageCount < pageSize ? pageSize : messageCount;
+    final windowWeight = messageCount < pageSize ? pageSize : messageCount;
+    final pinsKey = _retainedPinsKey(key);
+    final pinCount = pinsKey == null
+        ? 0
+        : _pinListRefs[pinsKey]?.value.pins.length ?? 0;
+    return windowWeight + pinCount;
   }
 
   void _enforceSiteRetention(String siteUrl, {String? keep}) {
@@ -4360,9 +4388,11 @@ class ChatController extends FrameSafeNotifier {
 
   bool _canEvictRetainedTarget(String key) {
     final identity = _retainedTargets[key];
+    final pinsKey = _retainedPinsKey(key);
     if (identity == null ||
         _liveSync.isViewingTarget(identity.siteUrl, identity.target) ||
         (_streamRefs[key]?.hasListeners ?? false) ||
+        (pinsKey != null && (_pinListRefs[pinsKey]?.hasListeners ?? false)) ||
         (_composerDraftRefs[key]?.hasListeners ?? false) ||
         _composerDraftRefs[key]?.value != null ||
         (_streams[key]?.localMessageIds.isNotEmpty ?? false) ||
@@ -4392,6 +4422,17 @@ class ChatController extends FrameSafeNotifier {
 
   void _evictRetainedTarget(String key) {
     _preparedCooking?.cancel(('draft', key));
+    final pinsKey = _retainedPinsKey(key);
+    if (pinsKey != null) {
+      // Disowning the request stops a late snapshot from repopulating a
+      // channel the budget has already released.
+      _pinListRequests.remove(pinsKey);
+      final pinsRef = _pinListRefs.remove(pinsKey);
+      if (pinsRef != null) {
+        pinsRef.value = const ChatPinsState();
+        pinsRef.dispose();
+      }
+    }
     _retainedTargets.remove(key);
     _streams.remove(key);
     _abandonWindowWork(key);
