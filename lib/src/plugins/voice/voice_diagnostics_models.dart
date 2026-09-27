@@ -302,7 +302,7 @@ abstract final class VoiceDiagnosticsRedactor {
   static final RegExp _sensitiveAssignment = RegExp(
     // Wire names such as user_api_key and push_token end in a sensitive word;
     // a regex word boundary would miss that suffix after an underscore.
-    r'''["']?(?<![A-Za-z0-9])(authorization|proxy[-_ ]?authorization|cookie|set[-_ ]?cookie|x[-_ ]?api[-_ ]?key|api[-_ ]?key|access[-_ ]?token|refresh[-_ ]?token|auth[-_ ]?token|token|password|passwd|secret|credential|client[-_ ]?(?:id|secret)|participant[-_ ]?session[-_ ]?id|ice[-_ ]?(?:pwd|password|ufrag)|livekit[-_ ]?(?:token|jwt|key|secret|credential|password)|turn[-_ ]?(?:username|token|key|secret|credential|password))\b["']?\s*[:=]\s*(?:"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|[^\s,;]+)''',
+    r'''["']?(?<![A-Za-z0-9])(authorization|proxy[-_ ]?authorization|cookie|set[-_ ]?cookie|x[-_ ]?api[-_ ]?key|api[-_ ]?key|access[-_ ]?token|refresh[-_ ]?token|auth[-_ ]?token|token|password|passwd|secret|credential|client[-_ ]?(?:id|secret)|participant[-_ ]?session[-_ ]?id|ice[-_ ]?(?:pwd|password|ufrag)|username[-_ ]?fragment|livekit[-_ ]?(?:token|jwt|key|secret|credential|password)|turn[-_ ]?(?:username|token|key|secret|credential|password))\b["']?\s*[:=]\s*(?:"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|[^\s,;]+)''',
     caseSensitive: false,
   );
   static final RegExp _authorization = RegExp(
@@ -319,6 +319,14 @@ abstract final class VoiceDiagnosticsRedactor {
   );
   static final RegExp _inlineIceCredential = RegExp(
     r'\b(ice[-_ ]?(?:pwd|password|ufrag))\b\s*[:=]\s*[^\s,;]+',
+    caseSensitive: false,
+  );
+  // A candidate line repeats the SDP's `a=ice-ufrag:` value as a bare
+  // `ufrag <value>` extension attribute. The value also stops at quotes and
+  // backslashes so a candidate embedded in serialized signaling keeps the
+  // delimiters around it.
+  static final RegExp _candidateUfrag = RegExp(
+    r'''\b(ufrag)\s+[^\s"',;\\]+''',
     caseSensitive: false,
   );
   static final RegExp _iceServerRepresentation = RegExp(
@@ -347,6 +355,10 @@ abstract final class VoiceDiagnosticsRedactor {
     text = text.replaceAllMapped(
       _inlineIceCredential,
       (match) => '${match.group(1)}=<redacted>',
+    );
+    text = text.replaceAllMapped(
+      _candidateUfrag,
+      (match) => '${match.group(1)} <redacted>',
     );
     text = text.replaceAllMapped(
       _iceServerRepresentation,
@@ -476,7 +488,10 @@ abstract final class VoiceDiagnosticsRedactor {
         normalized == 'participantsessionid' ||
         normalized.contains('icepwd') ||
         normalized.contains('icepassword') ||
-        normalized.contains('iceufrag')) {
+        normalized.contains('iceufrag') ||
+        // RTCIceCandidateInit and candidate stats spell the ufrag out, and
+        // transport stats prefix it (`iceLocalUsernameFragment`).
+        normalized.contains('usernamefragment')) {
       return true;
     }
     if (normalized.endsWith('id')) return false;

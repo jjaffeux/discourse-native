@@ -188,6 +188,21 @@ void main() {
               'a=ice-pwd:sdp-password\r\n'
               'a=candidate:1 1 udp 1 192.0.2.7 5000 typ host',
           'candidate': 'candidate:2 1 udp 1 198.51.100.2 6000 typ srflx',
+          // libwebrtc appends the ufrag the SDP's a=ice-ufrag line carries.
+          'localCandidate': {
+            'candidate':
+                'candidate:3 1 udp 1 198.51.100.3 7000 typ srflx '
+                'ufrag cand-ufrag-secret network-id 1',
+            'sdpMid': '0',
+          },
+          'stats': {
+            'usernameFragment': 'stats-ufrag-secret',
+            'iceLocalUsernameFragment': 'transport-ufrag-secret',
+          },
+          'trickle':
+              '{"candidate":"candidate:4 1 udp 1 198.51.100.4 8000 typ host '
+              'ufrag json-cand-ufrag-secret","usernameFragment":'
+              '"json-ufrag-secret"}',
           'ip': '203.0.113.8',
           'deviceId': 'microphone-stable-id',
           'deviceLabel': "Alice's AirPods",
@@ -232,6 +247,10 @@ void main() {
         'inline-participant-session-secret',
         'structured-ice-pwd-secret',
         'structured-ice-ufrag-secret',
+        'cand-ufrag-secret',
+        'stats-ufrag-secret',
+        'transport-ufrag-secret',
+        'json-ufrag-secret',
         'escaped-ice-secret',
         'escaped-client-secret',
         'inline-turn-username-secret',
@@ -248,6 +267,8 @@ void main() {
         '192.0.2.7',
         'candidate:2',
         '198.51.100.2',
+        '198.51.100.3 7000 typ srflx ufrag <redacted> network-id 1',
+        r'198.51.100.4 8000 typ host ufrag <redacted>\"',
         '203.0.113.8',
         'microphone-stable-id',
         "Alice's AirPods",
