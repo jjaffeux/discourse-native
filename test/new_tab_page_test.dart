@@ -1,4 +1,5 @@
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/src/foundation/timezone_environment.dart';
 import 'package:discourse_native/src/models/bookmark.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
@@ -742,6 +743,86 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.textContaining('2030'), findsOneWidget);
     expect(find.text('Post #2'), findsOneWidget);
+  });
+
+  testWidgets('bookmark reminders are dated in the account timezone', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({
+      'discourse_native.panel_tutorial_dismissed': true,
+      'discourse_native.start_page_compact': false,
+    });
+    const site = 'https://meta.discourse.org';
+    // UTC+5:45 all year, so no other device zone renders this wall time.
+    const user = DiscourseUser(username: 'reader', timezone: 'Asia/Kathmandu');
+    final api = FakeDiscourseApi(
+      user: user,
+      bookmarkList: [
+        Bookmark(
+          id: 18,
+          title: 'Saved topic',
+          path: '/t/saved-topic/18',
+          bookmarkableType: 'Post',
+          postNumber: 2,
+          reminderAt: DateTime.utc(2030, 1, 2, 20),
+        ),
+      ],
+    );
+    await pumpShell(
+      tester,
+      desktop,
+      instances: [instance('meta.discourse.org').copyWith(user: user)],
+      authenticator: FakeAuthenticator()..keys[site] = 'key',
+      api: api,
+    );
+    final shell = ShellScope.read(
+      tester.element(find.byType(MainContent).first),
+    );
+    await shell.loadBookmarks(site);
+    shell.pushContent(ContentRoute.newTab());
+    await tester.pumpAndSettle();
+
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('start-page-recent-bookmark-18')),
+        matching: find.textContaining('Jan 3, 2030 at 1:45'),
+      ),
+      findsOneWidget,
+    );
+  });
+
+  test('reminder day names compare days in the reminder zone', () {
+    final environment = TimezoneEnvironment.instance..ensureDatabase();
+    final paris = environment.location('Europe/Paris')!;
+    // 08:00 on Monday 28 September in Paris.
+    final reminder = DateTime.utc(2026, 9, 28, 6);
+
+    // 23:00 on Sunday in Paris, still Sunday in UTC.
+    expect(
+      reminderDateLabel(
+        reminder,
+        location: paris,
+        now: DateTime.utc(2026, 9, 27, 21),
+      ),
+      startsWith('Tomorrow at 8:00'),
+    );
+    // 00:30 on Monday in Paris, still Sunday in UTC.
+    expect(
+      reminderDateLabel(
+        reminder,
+        location: paris,
+        now: DateTime.utc(2026, 9, 27, 22, 30),
+      ),
+      startsWith('Today at 8:00'),
+    );
+    expect(
+      reminderDateLabel(
+        reminder,
+        location: paris,
+        now: DateTime.utc(2026, 9, 26, 12),
+      ),
+      startsWith('Sep 28, 2026 at 8:00'),
+    );
   });
 
   testWidgets('Start page renders emoji in titles and previews', (

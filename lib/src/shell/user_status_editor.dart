@@ -2,7 +2,10 @@ import 'dart:async';
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
+import 'package:timezone/timezone.dart' as tz;
 
+import '../foundation/timezone_environment.dart';
+import '../models/bookmark_reminder.dart';
 import '../models/user_status.dart';
 import '../plugin_api/emoji_usage.dart';
 import 'emoji_picker.dart';
@@ -97,10 +100,21 @@ class _UserStatusDialogState extends State<_UserStatusDialog> {
     _description = TextEditingController(text: initial?.description ?? '');
     _emoji = initial?.emoji ?? 'speech_balloon';
     _pauseNotifications = widget.initialPauseNotifications;
-    _customEndsAt = initial?.endsAt?.toLocal();
+    _customEndsAt = initial?.endsAt;
     _expiry = _customEndsAt == null
         ? _StatusExpiry.never
         : _StatusExpiry.custom;
+  }
+
+  /// Expiry shortcuts and the custom wall time are the account's, as on the
+  /// web's status modal, with the device zone only as the fallback.
+  tz.Location get _readerLocation {
+    final environment = TimezoneEnvironment.instance;
+    return environment.location(
+      environment.readerTimezone(
+        widget.controller.currentUserFor(widget.siteUrl)?.timezone,
+      ),
+    )!;
   }
 
   Future<void> _pickEmoji() async {
@@ -143,30 +157,52 @@ class _UserStatusDialogState extends State<_UserStatusDialog> {
 
     _picking = true;
     try {
+      final location = _readerLocation;
       final now = DateTime.now();
-      final initial = _customEndsAt?.isAfter(now) == true
-          ? _customEndsAt!
-          : now.add(const Duration(days: 1));
-      final lastDate = DateTime(now.year + 5);
+      final wallNow = tz.TZDateTime.from(now, location);
+      final wallInitial = tz.TZDateTime.from(
+        _customEndsAt?.isAfter(now) == true
+            ? _customEndsAt!
+            : now.add(const Duration(days: 1)),
+        location,
+      );
+      // Picker dates represent account-local calendar days, not instants.
+      final firstDate = DateTime(wallNow.year, wallNow.month, wallNow.day);
+      final lastDate = DateTime(wallNow.year + 5);
+      final initialDate = DateTime(
+        wallInitial.year,
+        wallInitial.month,
+        wallInitial.day,
+      );
       final date = await showDatePicker(
         context: context,
-        initialDate: initial.isAfter(lastDate) ? lastDate : initial,
-        firstDate: now,
+        initialDate: initialDate.isAfter(lastDate) ? lastDate : initialDate,
+        firstDate: firstDate,
         lastDate: lastDate,
+        currentDate: firstDate,
       );
       if (date == null || !mounted || !_isCurrent) return;
       final time = await showTimePicker(
         context: context,
-        initialTime: TimeOfDay.fromDateTime(initial),
+        initialTime: TimeOfDay(
+          hour: wallInitial.hour,
+          minute: wallInitial.minute,
+        ),
       );
       if (time == null || !_isCurrent) return;
-      final endsAt = DateTime(
-        date.year,
-        date.month,
-        date.day,
-        time.hour,
-        time.minute,
+      final endsAt = BookmarkReminderCalculator.resolveWallTime(
+        location: location,
+        date: date,
+        hour: time.hour,
+        minute: time.minute,
       );
+      if (endsAt == null) {
+        setState(
+          () => _error =
+              'That local time does not exist because of daylight saving time.',
+        );
+        return;
+      }
       if (!endsAt.isAfter(DateTime.now())) {
         setState(() => _error = 'Choose a time in the future.');
         return;
@@ -187,12 +223,9 @@ class _UserStatusDialogState extends State<_UserStatusDialog> {
       _StatusExpiry.never => null,
       _StatusExpiry.oneHour => now.add(const Duration(hours: 1)),
       _StatusExpiry.twoHours => now.add(const Duration(hours: 2)),
-      _StatusExpiry.tomorrow => DateTime(
-        now.year,
-        now.month,
-        now.day + 1,
-        8,
-        30,
+      _StatusExpiry.tomorrow => BookmarkReminderCalculator.tomorrow(
+        now: now,
+        location: _readerLocation,
       ),
       _StatusExpiry.custom => _customEndsAt,
     };
@@ -254,6 +287,10 @@ class _UserStatusDialogState extends State<_UserStatusDialog> {
     final theme = Theme.of(context);
     final description = _description.text.trim();
     final preview = description.isEmpty ? null : description;
+    final customEndsAt = _expiry == _StatusExpiry.custom ? _customEndsAt : null;
+    final until = customEndsAt == null
+        ? null
+        : tz.TZDateTime.from(customEndsAt, _readerLocation);
     return AlertDialog(
       title: const Text('Set custom status'),
       content: SizedBox(
@@ -341,11 +378,11 @@ class _UserStatusDialogState extends State<_UserStatusDialog> {
                 initialValue: _expiry,
                 enabled: !_busy,
               ),
-              if (_expiry == _StatusExpiry.custom && _customEndsAt != null) ...[
+              if (until != null) ...[
                 const SizedBox(height: 8),
                 Text(
-                  'Until ${MaterialLocalizations.of(context).formatMediumDate(_customEndsAt!)} '
-                  '${MaterialLocalizations.of(context).formatTimeOfDay(TimeOfDay.fromDateTime(_customEndsAt!))}',
+                  'Until ${MaterialLocalizations.of(context).formatMediumDate(until)} '
+                  '${MaterialLocalizations.of(context).formatTimeOfDay(TimeOfDay.fromDateTime(until))}',
                   style: theme.textTheme.bodySmall,
                 ),
               ],

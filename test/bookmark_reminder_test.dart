@@ -1,6 +1,7 @@
 import 'package:discourse_native/src/foundation/timezone_environment.dart';
 import 'package:discourse_native/src/models/bookmark_reminder.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:timezone/timezone.dart' as tz;
 
 void main() {
   final environment = TimezoneEnvironment.instance..ensureDatabase();
@@ -16,6 +17,73 @@ void main() {
     expect(suggestions[0].instant, DateTime.utc(2026, 8, 24, 16));
     expect(suggestions[1].instant, DateTime.utc(2026, 8, 25, 6));
     expect(suggestions[2].instant, DateTime.utc(2026, 8, 27, 6));
+  });
+
+  test('tomorrow is eight o\'clock on the next account-zone day', () {
+    for (final scenario in [
+      (
+        zone: 'Pacific/Kiritimati',
+        now: DateTime.utc(2026, 1, 1, 23, 30),
+        tomorrow: DateTime.utc(2026, 1, 2, 18),
+      ),
+      (
+        zone: 'America/Los_Angeles',
+        now: DateTime.utc(2026, 1, 2, 0, 30),
+        tomorrow: DateTime.utc(2026, 1, 2, 16),
+      ),
+    ]) {
+      final location = environment.location(scenario.zone)!;
+      final tomorrow = BookmarkReminderCalculator.tomorrow(
+        now: scenario.now,
+        location: location,
+      );
+
+      expect(tomorrow, scenario.tomorrow, reason: scenario.zone);
+      expect(
+        BookmarkReminderCalculator.quickSuggestions(
+          now: scenario.now,
+          location: location,
+        ).singleWhere((s) => s.preset == BookmarkReminderPreset.tomorrow),
+        isA<BookmarkReminderSuggestion>().having(
+          (s) => s.instant,
+          'instant',
+          tomorrow,
+        ),
+      );
+    }
+  });
+
+  test('instants leave as plain UTC DateTimes', () {
+    // A TZDateTime would answer toLocal() in UTC rather than the device zone,
+    // so a status saved from one would show its expiry in UTC.
+    final location = environment.location('Europe/Paris')!;
+    final now = DateTime.utc(2026, 8, 24, 10);
+    final instants = [
+      for (final suggestion in [
+        ...BookmarkReminderCalculator.quickSuggestions(
+          now: now,
+          location: location,
+        ),
+        ...BookmarkReminderCalculator.fullSuggestions(
+          now: now,
+          location: location,
+          suggestWeekends: true,
+        ),
+      ])
+        suggestion.instant,
+      BookmarkReminderCalculator.tomorrow(now: now, location: location),
+      BookmarkReminderCalculator.resolveWallTime(
+        location: location,
+        date: DateTime(2026, 8, 25),
+        hour: 9,
+        minute: 15,
+      )!,
+    ];
+
+    for (final instant in instants) {
+      expect(instant, isNot(isA<tz.TZDateTime>()));
+      expect(instant.isUtc, isTrue);
+    }
   });
 
   test('full reminders obey cutoffs and the weekend setting', () {
