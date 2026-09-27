@@ -1,6 +1,8 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/src/data/composer_layout_store.dart';
 import 'package:discourse_native/src/models/app_settings.dart';
 import 'package:discourse_native/src/models/bookmark.dart';
 import 'package:discourse_native/src/models/content_route.dart';
@@ -15,6 +17,9 @@ import 'package:discourse_native/src/plugin_api/site_plugin_api.dart';
 import 'package:discourse_native/src/plugins/assign/assign_plugin.dart';
 import 'package:discourse_native/src/shell/adaptive_shell.dart';
 import 'package:discourse_native/src/shell/avatar_image.dart';
+import 'package:discourse_native/src/shell/composer_panel.dart';
+import 'package:discourse_native/src/shell/composer_presentation.dart';
+import 'package:discourse_native/src/shell/composer_presentation_controller.dart';
 import 'package:discourse_native/src/shell/content_reading_lane.dart';
 import 'package:discourse_native/src/shell/cooked_html.dart';
 import 'package:discourse_native/src/shell/main_content.dart';
@@ -2427,53 +2432,98 @@ void main() {
   testWidgets(
     'topic list and reader bottom bars align at every text scale',
     (tester) async {
-      final setup = await _setup(tester);
+      final setup = await _setup(tester, postCount: 40);
       setup.controller.openTopicFromList(setup.rows.first);
       addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
-      for (final scale in [1.0, 1.25, 1.5, 2.0]) {
-        tester.platformDispatcher.textScaleFactorTestValue = scale;
-        await tester.pumpAndSettle();
-        final listBar = tester.getRect(
-          find.byKey(
-            const ValueKey('topic-list-bottom-bar'),
-            skipOffstage: false,
-          ),
-        );
-        final readerBar = tester.getRect(
-          find.byKey(const ValueKey('topic-bottom-bar')),
-        );
-        expect(listBar.height, readerBar.height, reason: 'Text scale $scale');
-        expect(listBar.top, readerBar.top, reason: 'Text scale $scale');
-        expect(listBar.bottom, readerBar.bottom, reason: 'Text scale $scale');
-        if (scale == 1) {
-          final reply = find.byKey(const ValueKey('topic-reply-button'));
-          final controlHeight = tester.getSize(reply).height;
-          final touch =
-              Theme.of(tester.element(reply)).platform ==
-              TargetPlatform.android;
-          // Footer actions are 34px on desktop inside 8px padding.
-          expect(readerBar.height, touch ? 64 : 50);
-          expect(controlHeight, touch ? 48 : 34);
-          for (final key in [
-            'topic-progress-button',
-            if (touch) 'inbox-previous-topic',
-            if (touch) 'inbox-next-topic',
-          ]) {
-            final control = find.byKey(ValueKey(key));
-            expect(tester.getSize(control).height, controlHeight);
-            expect(
-              tester.getRect(control).center.dy,
-              closeTo(tester.getRect(reply).center.dy, .01),
-            );
+      for (final width in [1100.0, 420.0, 380.0]) {
+        tester.view.physicalSize = Size(width, 800);
+        for (final scale in [1.0, 1.25, 1.5, 1.75, 2.0]) {
+          final reason = 'Width $width, text scale $scale';
+          tester.platformDispatcher.textScaleFactorTestValue = scale;
+          await tester.pumpAndSettle();
+          final listBar = tester.getRect(
+            find.byKey(
+              const ValueKey('topic-list-bottom-bar'),
+              skipOffstage: false,
+            ),
+          );
+          final readerBar = tester.getRect(
+            find.byKey(const ValueKey('topic-bottom-bar')),
+          );
+          expect(listBar.height, readerBar.height, reason: reason);
+          expect(listBar.top, readerBar.top, reason: reason);
+          expect(listBar.bottom, readerBar.bottom, reason: reason);
+          if (scale == 1 && width == 1100) {
+            final reply = find.byKey(const ValueKey('topic-reply-button'));
+            final controlHeight = tester.getSize(reply).height;
+            final touch =
+                Theme.of(tester.element(reply)).platform ==
+                TargetPlatform.android;
+            // Footer actions are 34px on desktop inside 8px padding.
+            expect(readerBar.height, touch ? 64 : 50);
+            expect(controlHeight, touch ? 48 : 34);
+            for (final key in [
+              'topic-progress-button',
+              if (touch) 'inbox-previous-topic',
+              if (touch) 'inbox-next-topic',
+            ]) {
+              final control = find.byKey(ValueKey(key));
+              expect(tester.getSize(control).height, controlHeight);
+              expect(
+                tester.getRect(control).center.dy,
+                closeTo(tester.getRect(reply).center.dy, .01),
+              );
+            }
           }
+          _expectReplyClearsProgress(tester, reason);
+          expect(tester.takeException(), isNull, reason: reason);
         }
-        expect(tester.takeException(), isNull);
       }
     },
     variant: const TargetPlatformVariant({
       TargetPlatform.macOS,
       TargetPlatform.android,
     }),
+  );
+
+  testWidgets(
+    'reader footer keeps Reply clear of progress beside a docked composer',
+    (tester) async {
+      // A composer docked at its widest leaves the reader its minimum width,
+      // as an 800px window does beside the sidebar rail.
+      SharedPreferences.setMockInitialValues({
+        ComposerLayoutStore.storageKey: jsonEncode(
+          const ComposerLayoutPreference(sideWidth: 800).toJson(),
+        ),
+      });
+      final setup = await _setup(tester, composerDock: true, postCount: 40);
+      tester.view.physicalSize = const Size(800, 600);
+      setup.controller.openTopicFromList(setup.rows.first);
+      await tester.pumpAndSettle();
+      final progress = find.byKey(const ValueKey('topic-progress-button'));
+      final naturalProgress = tester.getSize(progress);
+      await tester.tap(find.byKey(const ValueKey('topic-reply-button')));
+      await tester.pumpAndSettle();
+      final readerBar = tester.getRect(
+        find.byKey(const ValueKey('topic-bottom-bar')),
+      );
+      expect(readerBar.width, ComposerPresentationController.readerMinimum);
+      expect(
+        tester.getRect(find.byType(ComposerPanel)).left,
+        greaterThan(readerBar.right),
+      );
+      // At the default text size the narrow reader costs progress nothing.
+      expect(tester.getSize(progress), naturalProgress);
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+      for (final scale in [1.5, 1.75, 2.0]) {
+        final reason = 'Text scale $scale';
+        tester.platformDispatcher.textScaleFactorTestValue = scale;
+        await tester.pumpAndSettle();
+        _expectReplyClearsProgress(tester, reason);
+        expect(tester.takeException(), isNull, reason: reason);
+      }
+    },
+    variant: TargetPlatformVariant.only(TargetPlatform.macOS),
   );
 
   testWidgets('bookmark and notification controls appear only in the header', (
@@ -3226,6 +3276,18 @@ void main() {
   );
 }
 
+void _expectReplyClearsProgress(WidgetTester tester, String reason) {
+  final bar = tester.getRect(find.byKey(const ValueKey('topic-bottom-bar')));
+  final reply = tester.getRect(
+    find.byKey(const ValueKey('topic-reply-button')),
+  );
+  final progress = tester.getRect(
+    find.byKey(const ValueKey('topic-progress-button')),
+  );
+  expect(reply.right, lessThanOrEqualTo(progress.left), reason: reason);
+  expect(progress.right, lessThanOrEqualTo(bar.right), reason: reason);
+}
+
 Future<void> _scrollReaderToTop(WidgetTester tester) async {
   final shell = ShellScope.read(tester.element(find.byType(TopicView)));
   final jump = shell.jumpToCurrentTopicIndex(0);
@@ -3238,6 +3300,8 @@ _setup(
   WidgetTester tester, {
   ThemeData? theme,
   bool windowCorners = false,
+  bool composerDock = false,
+  int postCount = 4,
   Completer<void>? topicGate,
   PluginRegistry registry = PluginRegistry.empty,
   bool recommendations = false,
@@ -3283,14 +3347,14 @@ _setup(
         replyCount: 3,
         unreadPosts: 3,
         lastReadPostNumber: 1,
-        highestPostNumber: 4,
+        highestPostNumber: postCount,
         plugins: registry.readTopic(topicPluginPayload, site.url),
       ),
   ];
   final posts = {
     for (final row in rows)
       row.id: [
-        for (var number = 1; number <= 4; number++)
+        for (var number = 1; number <= postCount; number++)
           Post(
             id: row.id * 100 + number,
             postNumber: number,
@@ -3349,7 +3413,7 @@ _setup(
             id: row.id,
             title: row.title,
             stream: posts[row.id]!.map((post) => post.id).toList(),
-            postsCount: 4,
+            postsCount: postCount,
             replyCount: 3,
             views: activityStats ? 61 : 0,
             likeCount: activityStats ? 29 : 0,
@@ -3420,6 +3484,15 @@ _setup(
                 ? TopicPresentationPreferences(
                     child: WorkspacePanelCorner(
                       radius: 10,
+                      child: MainContent(
+                        layout: ShellLayout.expanded,
+                        registry: registry,
+                      ),
+                    ),
+                  )
+                : composerDock
+                ? ComposerPresentationHost(
+                    child: TopicWorkspace(
                       child: MainContent(
                         layout: ShellLayout.expanded,
                         registry: registry,
