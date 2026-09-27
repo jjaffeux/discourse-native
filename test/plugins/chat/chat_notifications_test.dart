@@ -21,9 +21,12 @@ DiscourseNotification chatNotification(
   'data': data,
 });
 
+const _siteUrl = 'https://forum.example';
+
 void main() {
   test('Chat owns its wording, actor aliases and icon', () {
     final resolved = registry.resolveNotification(
+      _siteUrl,
       chatNotification(
         29,
         data: const {
@@ -49,16 +52,21 @@ void main() {
     };
 
     expect(
-      registry.resolveNotification(chatNotification(29, data: data)).path,
+      registry
+          .resolveNotification(_siteUrl, chatNotification(29, data: data))
+          .path,
       '/chat/c/-/9/t/3',
     );
     expect(
-      registry.resolveNotification(chatNotification(40, data: data)).path,
+      registry
+          .resolveNotification(_siteUrl, chatNotification(40, data: data))
+          .path,
       '/chat/c/-/9/t/3/44',
     );
     expect(
       registry
           .resolveNotification(
+            _siteUrl,
             chatNotification(
               33,
               topicId: 12,
@@ -74,6 +82,7 @@ void main() {
 
   test('malformed Chat route data stays visible without an unsafe path', () {
     final resolved = registry.resolveNotification(
+      _siteUrl,
       chatNotification(
         31,
         data: const {

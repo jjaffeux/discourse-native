@@ -418,5 +418,7 @@ final class _TestAlertPlugin
   ];
 }
 
-ResolvedNotification? _ignoreNotification(DiscourseNotification notification) =>
-    null;
+ResolvedNotification? _ignoreNotification(
+  String _,
+  DiscourseNotification notification,
+) => null;

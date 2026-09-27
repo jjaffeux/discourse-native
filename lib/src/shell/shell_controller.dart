@@ -3100,7 +3100,7 @@ class ShellController extends FrameSafeNotifier
 
   @override
   String pluginAbsoluteUrl(String path, {required String siteUrl}) =>
-      absoluteUrl(path, siteUrl: siteUrl);
+      siteLink(path, siteUrl: siteUrl);
 
   @override
   Future<bool> openPluginNotificationUrl(String url) =>

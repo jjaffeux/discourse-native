@@ -465,7 +465,7 @@ Future<void> _openPluginUserMenuLink(
   String siteUrl,
   String path,
 ) async {
-  final url = controller.absoluteUrl(path, siteUrl: siteUrl);
+  final url = controller.siteLink(path, siteUrl: siteUrl);
   if (await controller.openNotificationUrl(url)) return;
   await openExternalLink(url);
 }

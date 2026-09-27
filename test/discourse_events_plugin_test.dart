@@ -13,6 +13,8 @@ import 'package:html/parser.dart' as html;
 
 import 'support/event_fixtures.dart';
 
+const _siteUrl = 'https://forum.example';
+
 void main() {
   test(
     'events install alone, and core-only models remain unaware of their schemas',
@@ -68,6 +70,7 @@ void main() {
             'data': data,
           });
       final reminder = eventNotificationTypes[0].decode(
+        _siteUrl,
         row(27, {
           'event_name': 'Planning',
           'display_username': 'recipient',
@@ -78,11 +81,13 @@ void main() {
       expect(reminder.presentation.phrase, 'Planning is starting soon');
       expect(reminder.path, contains('700'));
       final invitation = eventNotificationTypes[1].decode(
+        _siteUrl,
         row(28, {'event_name': 'Planning', 'display_username': 'sam'}),
       )!;
       expect(invitation.presentation.actor, 'sam');
       expect(invitation.presentation.phrase, 'invited you to Planning');
       final assigned = eventNotificationTypes[1].decode(
+        _siteUrl,
         row(28, {
           'event_name': 'Planning',
           'display_username': 'sam',

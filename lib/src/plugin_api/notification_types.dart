@@ -1,6 +1,7 @@
 import 'package:discourse_plugin_api/discourse_plugin_api.dart';
 import 'package:flutter/foundation.dart';
 
+import '../models/discourse_instance.dart';
 import '../models/json.dart';
 import '../models/notification.dart';
 import '../theme/d_icon.dart';
@@ -45,14 +46,33 @@ final class ResolvedNotification {
   const ResolvedNotification({required this.presentation, this.path});
 
   final NotificationPresentation presentation;
+
+  /// Where opening the notification leads, written from the forum root the
+  /// way a forum served at its host's root would write it (`/t/a-topic/7/2`,
+  /// `/g/staff`, `/chat/c/-/5/44`) on every forum. The shell puts a subfolder
+  /// forum's prefix in front when it opens the path, so a decoder builds its
+  /// paths without knowing where the forum is served.
+  ///
+  /// A link the server wrote, such as a bookmark reminder's
+  /// `bookmarkable_url`, already starts with that prefix. A decoder that
+  /// forwards one removes the prefix first, with
+  /// `DiscourseInstance.pathAndQueryWithinUrl` against the site it was given,
+  /// so every path means the same thing and the prefix is added exactly once;
+  /// a link that is not under the forum leaves no path.
   final String? path;
 }
 
+/// [siteUrl] is the forum [notification] came from, which a decoder needs
+/// only to forward a link the server wrote; see [ResolvedNotification.path].
+///
 /// Returning null means the payload was not usable and asks core to render its
 /// safe fallback. The registry also isolates thrown decoder errors so one
 /// malformed plugin row cannot make the user menu unusable.
 typedef NotificationTypeDecoder =
-    ResolvedNotification? Function(DiscourseNotification notification);
+    ResolvedNotification? Function(
+      String siteUrl,
+      DiscourseNotification notification,
+    );
 
 enum CoreNotificationMenuSection { likes }
 
@@ -277,11 +297,12 @@ const coreNotificationTypes = <PluginNotificationType>[
 ];
 
 ResolvedNotification resolveCoreNotification(
+  String siteUrl,
   DiscourseNotification notification,
 ) {
   for (final definition in coreNotificationTypes) {
     if (definition.wireType.wireId == notification.typeId.value) {
-      return definition.decode(notification) ??
+      return definition.decode(siteUrl, notification) ??
           fallbackNotification(notification);
     }
   }
@@ -311,6 +332,7 @@ String? notificationTopicPath(DiscourseNotification notification) {
 }
 
 ResolvedNotification? _decodeCoreNotification(
+  String siteUrl,
   DiscourseNotification notification,
 ) {
   final type = notification.typeId.value;
@@ -380,7 +402,7 @@ ResolvedNotification? _decodeCoreNotification(
       actor: actor,
       phrase: phrase,
     ),
-    path: _corePath(notification),
+    path: _corePath(siteUrl, notification),
   );
 }
 
@@ -428,7 +450,7 @@ DIconData _coreIcon(int type) {
       };
 }
 
-String? _corePath(DiscourseNotification notification) {
+String? _corePath(String siteUrl, DiscourseNotification notification) {
   final data = notification.data;
   final type = notification.typeId.value;
   final username = jsonText(data['username']);
@@ -453,9 +475,12 @@ String? _corePath(DiscourseNotification notification) {
     return topicPath;
   }
 
-  if (data['bookmarkable_url'] case final String path
-      when _isSafeSiteRelativePath(path)) {
-    return path;
+  // Discourse writes this link with the forum's subfolder in front.
+  if (data['bookmarkable_url'] case final String written) {
+    if (DiscourseInstance.pathAndQueryWithinUrl(siteUrl, written)
+        case final path?) {
+      return path;
+    }
   }
   if (data['group_id'] != null && username != null && group != null) {
     return '/u/$username/messages/group/$group';
@@ -555,12 +580,6 @@ String? _badgePath(Map<String, Object?> data) {
 String _actingUsername(String? username) => username == null
     ? ''
     : '?acting_username=${Uri.encodeQueryComponent(username)}';
-
-bool _isSafeSiteRelativePath(String path) {
-  if (!path.startsWith('/') || path.startsWith('//')) return false;
-  final uri = Uri.tryParse(path);
-  return uri != null && !uri.hasScheme && !uri.hasAuthority;
-}
 
 String _badgeSlug(String name) {
   final result = StringBuffer();

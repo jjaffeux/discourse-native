@@ -18,6 +18,8 @@ DiscourseNotification notification({
   'data': data,
 });
 
+const _siteUrl = 'https://forum.example';
+
 void main() {
   for (final manifest in [
     bundledPluginManifest,
@@ -53,6 +55,7 @@ void main() {
         ]) {
           test('renders the upstream $phase reminder payload', () {
             final resolved = plugins.registry.resolveNotification(
+              _siteUrl,
               notification(
                 data: {
                   'topic_title': 'Planning',
@@ -71,6 +74,7 @@ void main() {
 
         test('reminder uses the server display title ahead of event_name', () {
           final resolved = plugins.registry.resolveNotification(
+            _siteUrl,
             notification(
               data: {
                 'topic_title': 'Planning',
@@ -91,6 +95,7 @@ void main() {
             ({}, 'an event'),
           ]) {
             final resolved = plugins.registry.resolveNotification(
+              _siteUrl,
               notification(data: {...data, 'message': 'future.reminder'}),
             );
             expect(resolved.presentation.phrase, 'Reminder for $title');
@@ -100,6 +105,7 @@ void main() {
 
         test('invitations retain their actor and event name', () {
           final resolved = plugins.registry.resolveNotification(
+            _siteUrl,
             notification(
               type: 28,
               data: {
@@ -119,13 +125,17 @@ void main() {
           for (final type in [27, 28]) {
             expect(
               plugins.registry
-                  .resolveNotification(notification(type: type, topicId: null))
+                  .resolveNotification(
+                    _siteUrl,
+                    notification(type: type, topicId: null),
+                  )
                   .path,
               isNull,
             );
             expect(
               plugins.registry
                   .resolveNotification(
+                    _siteUrl,
                     notification(type: type, slug: '', postNumber: null),
                   )
                   .path,

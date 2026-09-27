@@ -10,6 +10,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'support/chat_shell.dart';
 import 'support/fakes.dart';
 
+const _siteUrl = 'https://forum.example';
+
 void main() {
   test('core-only preserves and safely presents an unknown plugin row', () {
     final plugins = PluginInstaller.install(corePluginManifest);
@@ -27,7 +29,10 @@ void main() {
     };
 
     final notification = DiscourseNotification.fromJson(source);
-    final resolved = plugins.registry.resolveNotification(notification);
+    final resolved = plugins.registry.resolveNotification(
+      _siteUrl,
+      notification,
+    );
 
     expect(notification.typeId, const NotificationTypeId(29));
     expect(notification.typeName, const NotificationTypeName('chat_mention'));

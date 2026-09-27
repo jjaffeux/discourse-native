@@ -12,6 +12,7 @@ import 'external_link.dart';
 import 'open_link.dart';
 import 'shell_controller.dart';
 import 'site_emoji_text.dart';
+import 'site_url.dart';
 import 'user_menu_message.dart';
 
 @immutable
@@ -22,9 +23,12 @@ class NotificationDescription {
     this.actor,
   });
 
-  factory NotificationDescription.of(DiscourseNotification notification) {
+  factory NotificationDescription.of(
+    String siteUrl,
+    DiscourseNotification notification,
+  ) {
     return NotificationDescription.fromPresentation(
-      resolveCoreNotification(notification).presentation,
+      resolveCoreNotification(siteUrl, notification).presentation,
     );
   }
 
@@ -297,7 +301,10 @@ class _PluginNotificationsSectionState
             child: Align(
               alignment: Alignment.center,
               child: LinkTarget(
-                url: link.path,
+                url: widget.host.pluginAbsoluteUrl(
+                  link.path,
+                  siteUrl: widget.siteUrl,
+                ),
                 siteUrl: widget.siteUrl,
                 child: DButton(
                   key: ValueKey(
@@ -375,8 +382,8 @@ class _PluginNotificationsSectionState
           children: [
             ...feed.notifications.map((notification) {
               final resolved =
-                  registry?.resolveNotification(notification) ??
-                  resolveCoreNotification(notification);
+                  registry?.resolveNotification(widget.siteUrl, notification) ??
+                  resolveCoreNotification(widget.siteUrl, notification);
               return NotificationRow(
                 siteUrl: widget.siteUrl,
                 notification: notification,
@@ -424,7 +431,7 @@ class _NotificationSectionViewState extends State<_NotificationSectionView> {
 
     if (path == null) return;
 
-    final url = controller.absoluteUrl(path, siteUrl: widget.siteUrl);
+    final url = controller.siteLink(path, siteUrl: widget.siteUrl);
     if (newTab) {
       await openLink(context, url, newTab: true);
       return;
@@ -500,6 +507,7 @@ class _NotificationSectionViewState extends State<_NotificationSectionView> {
           children: [
             ...currentFeed.notifications.map((notification) {
               final resolved = controller.plugins.registry.resolveNotification(
+                widget.siteUrl,
                 notification,
               );
               return NotificationRow(
@@ -534,6 +542,8 @@ class NotificationRow extends StatelessWidget {
   final DiscourseNotification notification;
   final VoidCallback onTap;
   final VoidCallback? onMiddleClick;
+
+  /// Written from the forum root, as [ResolvedNotification.path] is.
   final String? linkPath;
   final ResolvedNotification? resolved;
 
@@ -542,7 +552,7 @@ class NotificationRow extends StatelessWidget {
     final theme = Theme.of(context);
     final tokens = DTokens.of(context);
     final description = resolved == null
-        ? NotificationDescription.of(notification)
+        ? NotificationDescription.of(siteUrl, notification)
         : NotificationDescription.fromPresentation(resolved!.presentation);
     final line = switch (description.actor) {
       final actor? => '$actor ${description.phrase}',
@@ -619,6 +629,10 @@ class NotificationRow extends StatelessWidget {
     final path = linkPath;
     return path == null
         ? interactive
-        : LinkTarget(url: path, siteUrl: siteUrl, child: interactive);
+        : LinkTarget(
+            url: resolveSiteRootPath(siteUrl, path),
+            siteUrl: siteUrl,
+            child: interactive,
+          );
   }
 }

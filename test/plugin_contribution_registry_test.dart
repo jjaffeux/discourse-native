@@ -868,6 +868,7 @@ final class _FeedDefinition {
 }
 
 ResolvedNotification _fakeNotificationDecoder(
+  String _,
   DiscourseNotification notification,
 ) => fallbackNotification(notification);
 
