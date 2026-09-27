@@ -30,6 +30,7 @@ import 'package:discourse_native/src/shell/mobile_shell.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/title_bar.dart';
+import 'package:discourse_native/src/shell/topic_list_view.dart';
 import 'package:discourse_native/src/shell/user_menu_button.dart';
 import 'package:discourse_native/src/shell/users_page.dart';
 import 'package:discourse_native/src/theme/d_icon_glyph.dart';
@@ -1789,6 +1790,61 @@ void main() {
     expect(shell.handleForward(), isTrue);
     await tester.pumpAndSettle();
     expect(shell.currentContent?.id, 'users');
+    expect(tester.takeException(), isNull);
+  });
+
+  _mobileTest('topic feed refreshes redraw the list without the chrome', (
+    tester,
+  ) async {
+    final shell = await pumpMobileShellFixture(tester);
+    expect(shell.currentFeedId, 'latest');
+    var shellNotifications = 0;
+    void countShellNotification() => shellNotifications++;
+    shell.addListener(countShellNotification);
+    addTearDown(() => shell.removeListener(countShellNotification));
+    var feedNotifications = 0;
+    void countFeedNotification() => feedNotifications++;
+    shell.topicFeeds.addListener(countFeedNotification);
+    addTearDown(() => shell.topicFeeds.removeListener(countFeedNotification));
+
+    // The header and bar are render-object elements, which report no rebuild
+    // of their own; a rebuilt root shows up in the components beneath them.
+    Iterable<Element> subtree(Finder root) => find
+        .descendant(of: root, matching: find.byWidgetPredicate((_) => true))
+        .evaluate();
+    final dockItems = find.byType(DMobileDockItem).evaluate().toList();
+    expect(dockItems, hasLength(greaterThanOrEqualTo(4)));
+    final panels = find
+        .byType(InstanceSidebar, skipOffstage: false)
+        .evaluate()
+        .toList();
+    expect(panels, isNotEmpty);
+    final chrome = {
+      ...subtree(_header),
+      ...subtree(_bar),
+      ...dockItems,
+      ...panels,
+      tester.element(find.byType(MobileHistoryGestures)),
+    };
+    final list = tester.element(find.byType(TopicListView));
+    final rebuilt = <Element>{};
+    final previousRebuildCallback = debugOnRebuildDirtyWidget;
+    debugOnRebuildDirtyWidget = (element, builtOnce) {
+      rebuilt.add(element);
+      previousRebuildCallback?.call(element, builtOnce);
+    };
+    addTearDown(() => debugOnRebuildDirtyWidget = previousRebuildCallback);
+
+    final refresh = shell.loadFeed('latest', force: true);
+    await tester.pump();
+    await refresh;
+    await tester.pump();
+
+    expect(feedNotifications, greaterThan(0));
+    expect(shellNotifications, 0);
+    expect(rebuilt, contains(list));
+    expect(rebuilt.intersection(chrome), isEmpty);
+    expect(find.byKey(const ValueKey('topic-card-7')), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
