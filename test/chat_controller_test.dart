@@ -1589,6 +1589,89 @@ void main() {
       expect(deltas, [1]);
     });
 
+    test('a kick takes the channel’s mentions off the Chat counter', () async {
+      final deltas = <int>[];
+      final subject = build(
+        currentUser: currentUser,
+        onChatNotificationsDelta: (_, delta) => deltas.add(delta),
+        channels: {
+          site: ChatChannels(
+            public: [channel(9, lastRead: 1, mentions: 2)],
+            kickMessageBusLastIds: const {9: 72},
+          ),
+        },
+      );
+      final tracker = attachTracker(subject.chat);
+      await subject.chat.loadChannels(site);
+
+      tracker.deliverPluginMessage('/chat/9/kick', {'channel_id': 9});
+
+      expect(subject.chat.publicChannels(site), isEmpty);
+      expect(deltas, [-2]);
+    });
+
+    test('a closed channel’s mentions leave the Chat counter until it '
+        'reopens', () async {
+      final deltas = <int>[];
+      final subject = build(
+        currentUser: currentUser,
+        onChatNotificationsDelta: (_, delta) => deltas.add(delta),
+        channels: {
+          site: ChatChannels(
+            public: [channel(9, lastRead: 1, mentions: 2)],
+            channelStatusBusLastId: 84,
+          ),
+        },
+      );
+      final tracker = attachTracker(subject.chat);
+      await subject.chat.loadChannels(site);
+
+      tracker.deliverPluginMessage('/chat/channel-status', {
+        'chat_channel_id': 9,
+        'status': 'closed',
+      });
+      expect(deltas, [-2]);
+
+      tracker.deliverPluginMessage('/chat/channel-status', {
+        'chat_channel_id': 9,
+        'status': 'open',
+      });
+      expect(deltas, [-2, 2]);
+    });
+
+    test(
+      'a reopened direct message adds its unread message to the Chat counter',
+      () async {
+        final deltas = <int>[];
+        final subject = build(
+          currentUser: currentUser,
+          onChatNotificationsDelta: (_, delta) => deltas.add(delta),
+          channels: {site: const ChatChannels(newChannelBusLastId: 80)},
+        );
+        final tracker = attachTracker(subject.chat);
+        await subject.chat.loadChannels(site);
+
+        tracker.deliverPluginMessage(
+          '/chat/new-channel',
+          newDirectChannelEvent(
+            channelId: 13,
+            messageId: 60,
+            newMessagesLastId: 81,
+            following: false,
+          ),
+        );
+        // Unfollowed memberships count toward nothing until the follow lands.
+        expect(deltas, isEmpty);
+
+        await pumpEventQueue();
+
+        expect(subject.chat.directChannels(site).map((channel) => channel.id), [
+          13,
+        ]);
+        expect(deltas, [1]);
+      },
+    );
+
     test('removes a channel when this account is kicked', () async {
       final subject = build(
         currentUser: currentUser,
@@ -3470,6 +3553,168 @@ void main() {
         expect(subject.chat.shortcutChannel(site, lastChannelId: 12), isNull);
       },
     );
+
+    test(
+      'closing a direct message takes its unread messages off the Chat counter',
+      () async {
+        final deltas = <int>[];
+        final direct = channel(
+          12,
+          kind: ChatChannelKind.directMessage,
+          lastRead: 1,
+          unread: 3,
+        );
+        final subject = build(
+          currentUser: currentUser,
+          onChatNotificationsDelta: (_, delta) => deltas.add(delta),
+          channels: {
+            site: ChatChannels(direct: [direct]),
+          },
+        );
+        await subject.chat.loadChannels(site);
+
+        expect(
+          await subject.chat.updateChannelFollowing(site, direct, false),
+          isNull,
+        );
+        expect(deltas, [-3]);
+
+        // The next snapshot omits the closed DM without subtracting it again.
+        subject.api.chatChannelsBySite[site] = const ChatChannels();
+        await subject.chat.loadChannels(site, force: true);
+        expect(deltas, [-3]);
+      },
+    );
+
+    test('leaving a channel takes its mentions off the Chat counter', () async {
+      final deltas = <int>[];
+      final public = channel(9, lastRead: 1, mentions: 2);
+      final subject = build(
+        currentUser: currentUser,
+        onChatNotificationsDelta: (_, delta) => deltas.add(delta),
+        channels: {
+          site: ChatChannels(public: [public]),
+        },
+      );
+      await subject.chat.loadChannels(site);
+
+      expect(
+        await subject.chat.updateChannelFollowing(site, public, false),
+        isNull,
+      );
+
+      expect(subject.chat.publicChannels(site), isEmpty);
+      expect(deltas, [-2]);
+    });
+
+    test(
+      'muting a direct message takes its unread messages off the Chat counter',
+      () async {
+        final deltas = <int>[];
+        final subject = build(
+          currentUser: currentUser,
+          onChatNotificationsDelta: (_, delta) => deltas.add(delta),
+          channels: {
+            site: ChatChannels(
+              direct: [
+                channel(
+                  12,
+                  kind: ChatChannelKind.directMessage,
+                  lastRead: 1,
+                  unread: 3,
+                  lastMessageId: 4,
+                ),
+              ],
+              newMessageBusLastIds: const {12: 50},
+            ),
+          },
+        );
+        final tracker = attachTracker(subject.chat);
+        await subject.chat.loadChannels(site);
+
+        expect(
+          await subject.chat.updateChannelNotifications(site, 12, muted: true),
+          isNull,
+        );
+        expect(subject.chat.channel(site, 12)?.membership.muted, isTrue);
+        expect(deltas, [-3]);
+
+        tracker.deliverPluginMessage(
+          '/chat/12/new-messages',
+          newMessageEvent(
+            channelId: 12,
+            messageId: 5,
+            authorId: 2,
+            createdAt: '2026-05-05T10:05:00.000Z',
+          ),
+          messageId: 51,
+        );
+
+        expect(deltas, [-3]);
+      },
+    );
+
+    test('a refused mute puts its unread messages back on the Chat '
+        'counter', () async {
+      final deltas = <int>[];
+      final gate = Completer<void>();
+      final subject = build(
+        currentUser: currentUser,
+        onChatNotificationsDelta: (_, delta) => deltas.add(delta),
+        channelNotificationGate: gate,
+        channelNotificationFailure: const WriteException(
+          WriteFailure.forbidden,
+        ),
+        channels: {
+          site: ChatChannels(
+            direct: [
+              channel(
+                12,
+                kind: ChatChannelKind.directMessage,
+                lastRead: 1,
+                unread: 3,
+              ),
+            ],
+          ),
+        },
+      );
+      await subject.chat.loadChannels(site);
+
+      final update = subject.chat.updateChannelNotifications(
+        site,
+        12,
+        muted: true,
+      );
+      await pumpEventQueue();
+      expect(deltas, [-3]);
+
+      gate.complete();
+      expect(await update, isNotNull);
+
+      expect(subject.chat.channel(site, 12)?.membership.muted, isFalse);
+      expect(deltas, [-3, 3]);
+    });
+
+    test('muting a channel keeps its mentions on the Chat counter, as the '
+        'server’s total does', () async {
+      final deltas = <int>[];
+      final subject = build(
+        currentUser: currentUser,
+        onChatNotificationsDelta: (_, delta) => deltas.add(delta),
+        channels: {
+          site: ChatChannels(public: [channel(9, lastRead: 1, mentions: 2)]),
+        },
+      );
+      await subject.chat.loadChannels(site);
+
+      expect(
+        await subject.chat.updateChannelNotifications(site, 9, muted: true),
+        isNull,
+      );
+
+      expect(subject.chat.channel(site, 9)?.membership.muted, isTrue);
+      expect(deltas, isEmpty);
+    });
 
     test('does not join a closed or unauthorized channel', () async {
       final subject = build(currentUser: currentUser);
