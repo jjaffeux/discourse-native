@@ -12,3 +12,6 @@ intrinsic-height grid at 390, 700 and 1100 logical pixels. Flutter 3.47.4 widget
 test renderer, default test fonts/platform, 1200 × 900 viewport, DPR 1. Production
 `CategoriesPage`, `AppTheme.light`, natural title wrapping, no fixed card height.
 It includes 118-pixel empty cards and taller cards with real featured titles.
+Heights were re-recorded after the shared type scale moved row titles to
+`DiscourseTypography.rowTitle` (14.5 at 1.35 leading); the positions and widths
+are unchanged.

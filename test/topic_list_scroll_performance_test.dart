@@ -61,8 +61,12 @@ void main() {
         expect(desktopAuthor(), findsOneWidget);
         await resize(599);
         expect(desktopAuthor(), findsNothing);
+        // The compact card states the last poster in one activity line.
         expect(
-          find.descendant(of: row, matching: find.text('sam')),
+          find.descendant(
+            of: row,
+            matching: find.text('Last post by sam · 1 replies'),
+          ),
           findsOneWidget,
         );
         await resize(600);

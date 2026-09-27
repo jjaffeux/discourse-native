@@ -93,6 +93,14 @@ void main() {
           tester.element(find.byType(MainContent)),
         );
         final mobile = controller.mobileNavigationEnabled;
+        if (!mobile) {
+          // The main panel is a list column beside the secondary one, where
+          // the directory shows its compact calendar without event titles.
+          await tester.tap(
+            find.byKey(const ValueKey('minimize-panel-secondary')),
+          );
+          await tester.pumpAndSettle();
+        }
         // The phone dock spills Events into its More menu.
         final upcoming = mobile
             ? find.byKey(const ValueKey('mobile-mode-more'))

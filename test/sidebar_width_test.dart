@@ -7,6 +7,7 @@ import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/sidebar.dart';
 import 'package:discourse_native/src/shell/adaptive_shell.dart';
 import 'package:discourse_native/src/shell/app_text_scale.dart';
+import 'package:discourse_native/src/shell/desktop_panels.dart';
 import 'package:discourse_native/src/shell/instance_rail.dart';
 import 'package:discourse_native/src/shell/instance_sidebar.dart';
 import 'package:discourse_native/src/shell/main_content.dart';
@@ -40,7 +41,9 @@ void main() {
     final toggle = find.byKey(const ValueKey('rail-sidebar-toggle'));
     final sidebarWidth = tester.getSize(find.byType(InstanceSidebar)).width;
     final content = tester.element(find.byType(MainContent));
-    final contentWidth = tester.getSize(find.byType(MainContent)).width;
+    // The main panel keeps its own width beside the secondary panel, so the
+    // space the sidebar gives up is measured across the whole panel area.
+    final panelsWidth = tester.getSize(find.byType(DesktopPanels)).width;
     expect(
       tester.getTopLeft(toggle).dy,
       lessThan(
@@ -60,8 +63,8 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byType(InstanceSidebar), findsNothing);
     expect(
-      tester.getSize(find.byType(MainContent)).width,
-      greaterThan(contentWidth),
+      tester.getSize(find.byType(DesktopPanels)).width,
+      greaterThan(panelsWidth),
     );
     expect(tester.element(find.byType(MainContent)), same(content));
     expect(tester.widget<DButton>(toggle).tooltip, 'Expand sidebar');

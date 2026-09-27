@@ -136,6 +136,7 @@ class LinkTarget extends StatefulWidget {
     required this.child,
     this.title,
     this.siteUrl,
+    this.longPressEnabled = true,
   }) : content = null,
        action = null;
 
@@ -144,6 +145,7 @@ class LinkTarget extends StatefulWidget {
     required ContentRoute this.content,
     required this.child,
     this.siteUrl,
+    this.longPressEnabled = true,
   }) : url = null,
        title = null,
        action = null;
@@ -152,6 +154,7 @@ class LinkTarget extends StatefulWidget {
     super.key,
     required this.action,
     required this.child,
+    this.longPressEnabled = true,
   }) : url = null,
        title = null,
        siteUrl = null,
@@ -163,6 +166,11 @@ class LinkTarget extends StatefulWidget {
   final ContentRoute? content;
   final void Function({required bool newTab, ForumPanel? panel})? action;
   final Widget child;
+
+  /// False where a touch long press already means something else, such as
+  /// starting a drag in a reorderable list; secondary clicks still open the
+  /// menu.
+  final bool longPressEnabled;
 
   @override
   State<LinkTarget> createState() => _LinkTargetState();
@@ -260,6 +268,7 @@ class _LinkTargetState extends State<LinkTarget> {
           child: DContextMenuTrigger(
             focusable: false,
             captureSecondaryTap: true,
+            longPressEnabled: widget.longPressEnabled,
             child: GestureDetector(
               behavior: HitTestBehavior.opaque,
               excludeFromSemantics: true,

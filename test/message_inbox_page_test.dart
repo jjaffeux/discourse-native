@@ -265,9 +265,10 @@ void main() {
           greaterThan(tester.getRect(title).right),
         );
         expect(tester.getRect(picker).right, lessThanOrEqualTo(width));
+        // The heading sits flush on the navigation row; it must not overlap.
         expect(
           tester.getRect(navigation).top,
-          greaterThan(tester.getRect(picker).bottom),
+          greaterThanOrEqualTo(tester.getRect(picker).bottom),
         );
         final folder = tester.getRect(
           find.byKey(const ValueKey('message-list-menu')),

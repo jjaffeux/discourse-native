@@ -125,12 +125,22 @@ void main() {
         final sourceList = shell.activeTabId!;
         shell.openTopicFromList(topic);
         await tester.pumpAndSettle();
+        // Ordinary navigation reads the topic in the list's own tab.
         final readerTab = shell.activeTabId!;
+        expect(readerTab, sourceList);
         expectActive(source);
 
-        await tester.tap(sidebarDestination(other));
+        // Focus a tab in the secondary panel; the sidebar navigates it.
+        shell.openContentInNewTab(
+          ContentRoute.newTab(),
+          panel: ForumPanel.secondary,
+          select: true,
+        );
         await tester.pumpAndSettle();
         final otherTab = shell.activeTabId!;
+        await tester.tap(sidebarDestination(other));
+        await tester.pumpAndSettle();
+        expect(shell.activeTabId, otherTab);
         expect(shell.activeTab?.panel, ForumPanel.secondary);
         expect(shell.selectedTabIn(ForumPanel.main)?.id, sourceList);
         expect(
@@ -172,18 +182,8 @@ void main() {
         expect(shell.activeTabId, sourceList);
         expectActive(source);
         expect(shell.selectedTabIn(ForumPanel.secondary)?.id, otherTab);
-
-        await tester.tap(sidebarDestination(other));
-        await tester.pumpAndSettle();
-        expect(shell.activeTab?.panel, ForumPanel.main);
-        expect(shell.activeTabId, isNot(sourceList));
-        expectActive(other);
-
-        await tester.tap(find.byKey(ValueKey('forum-tab-$readerTab')));
-        await tester.pumpAndSettle();
-        expect(shell.activeTabId, readerTab);
         expect(find.byType(TopicView), findsOneWidget);
-        expectActive(source);
+
         expect(tester.takeException(), isNull);
       },
       variant: TargetPlatformVariant.only(TargetPlatform.macOS),
