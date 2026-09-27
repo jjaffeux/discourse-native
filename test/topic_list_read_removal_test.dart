@@ -9,6 +9,7 @@ import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/models/topic_tracking_state.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
+import 'package:discourse_native/src/shell/topic_list_indicators.dart';
 import 'package:discourse_native/src/shell/topic_list_view.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -270,6 +271,108 @@ void main() {
     expect(tester.takeException(), isNull);
   }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
+  testWidgets('dismissing New clears the markers of a cached Latest list', (
+    tester,
+  ) async {
+    final (shell, api, _) = await _setup(
+      tester,
+      mode: TopicListMode.newActivity,
+      newIds: {3},
+    );
+    api.dismissedNewIds = [1, 2, 3];
+    api.feeds['/new.json'] = [];
+    expect(await shell.dismissNewTopics(), isNull);
+    await shell.selectTopicListMode(TopicListMode.latest);
+    await tester.pumpAndSettle();
+    // Latest is served from its cached page, so only the shared records can
+    // carry the dismissal onto it.
+    expect(api.feedPaths.where((path) => path == '/latest.json'), hasLength(1));
+    _expectDismissed(shell, [1, 2, 3]);
+    final dismissedNew = shell.store.read<Topic>(_site, 3)!;
+    expect(dismissedNew.lastReadPostNumber, isNull);
+    expect(dismissedNew.visited, isFalse);
+    expect(shell.store.read<Topic>(_site, 1)!.lastReadPostNumber, 10);
+    expect(tester.takeException(), isNull);
+  }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
+
+  testWidgets('a dismissal from another device clears loaded rows', (
+    tester,
+  ) async {
+    final (shell, _, _) = await _setup(
+      tester,
+      mode: TopicListMode.latest,
+      newIds: {3},
+    );
+    expect(find.byType(TopicUnreadBadge), findsNWidgets(2));
+    expect(find.byType(TopicStateDot), findsOneWidget);
+    final tracker = FakeSiteTracker.built.single;
+    tracker.deliverTopicTracking(const {
+      'message_type': 'dismiss_new',
+      'payload': {
+        'topic_ids': [3],
+      },
+    });
+    tracker.deliverTopicTracking(const {
+      'message_type': 'dismiss_new_posts',
+      'payload': {
+        'topic_ids': [1, 2, 3],
+      },
+    });
+    await tester.pumpAndSettle();
+    _expectDismissed(shell, [1, 2, 3]);
+    // Core moves only an existing read position when dismissing new posts.
+    expect(shell.store.read<Topic>(_site, 3)!.lastReadPostNumber, isNull);
+    expect(tester.takeException(), isNull);
+  }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
+
+  testWidgets('stale refresh does not restore dismissed markers', (
+    tester,
+  ) async {
+    final (shell, api, _) = await _setup(
+      tester,
+      mode: TopicListMode.latest,
+      newIds: {3},
+    );
+    final gate = Completer<void>();
+    api.feedGates['/latest.json'] = gate;
+    final refresh = shell.loadFeed(TopicListMode.latest.routeId, force: true);
+    await tester.pump();
+    final tracker = FakeSiteTracker.built.single;
+    tracker.deliverTopicTracking(const {
+      'message_type': 'dismiss_new',
+      'payload': {
+        'topic_ids': [3],
+      },
+    });
+    tracker.deliverTopicTracking(const {
+      'message_type': 'dismiss_new_posts',
+      'payload': {
+        'topic_ids': [1, 2],
+      },
+    });
+    gate.complete();
+    await refresh;
+    await tester.pumpAndSettle();
+    _expectDismissed(shell, [1, 2, 3]);
+
+    // A reply since the dismissal counts once a list reports it, while the
+    // other rows' pre-dismissal shapes stay cleared.
+    api.feeds['/latest.json'] = [
+      _row(1, highestPostNumber: 11, lastReadPostNumber: 10),
+      _row(2),
+      _row(3, isNew: true),
+    ];
+    await shell.loadFeed(TopicListMode.latest.routeId, force: true);
+    await tester.pumpAndSettle();
+    expect(shell.store.read<Topic>(_site, 1)!.unreadCount, 1);
+    expect(
+      find.descendant(of: _card(1), matching: find.byType(TopicUnreadBadge)),
+      findsOneWidget,
+    );
+    _expectDismissed(shell, [2, 3]);
+    expect(tester.takeException(), isNull);
+  }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
+
   testWidgets(
     'removal keeps a scrolled selection in place and keyboard order follows IDs',
     (tester) async {
@@ -371,6 +474,22 @@ void main() {
 
 Finder _card(int id) => find.byKey(ValueKey('topic-card-$id'));
 
+void _expectDismissed(ShellController shell, List<int> ids) {
+  for (final id in ids) {
+    final topic = shell.store.read<Topic>(_site, id)!;
+    expect(topic.showUnreadCount, isFalse, reason: 'topic $id count');
+    expect(topic.showNewTopicDot, isFalse, reason: 'topic $id dot');
+    expect(_card(id), findsOneWidget);
+    for (final marker in [TopicUnreadBadge, TopicStateDot]) {
+      expect(
+        find.descendant(of: _card(id), matching: find.byType(marker)),
+        findsNothing,
+        reason: 'topic $id $marker',
+      );
+    }
+  }
+}
+
 // Desktop panels keep a list beside its reader only when the reader opens in
 // the secondary panel; a plain click reads in the list's own tab, and a
 // shift-click is the pointer's way to read beside the list.
@@ -386,30 +505,38 @@ Future<(ShellController, FakeDiscourseApi, List<Topic>)> _setup(
   WidgetTester tester, {
   TopicListMode mode = TopicListMode.unread,
   int count = 3,
+  Set<int> newIds = const {},
   Size size = desktop,
   Completer<void>? nextPageGate,
 }) async {
-  final rows = [for (var id = 1; id <= count; id++) _row(id)];
+  final rows = [
+    for (var id = 1; id <= count; id++) _row(id, isNew: newIds.contains(id)),
+  ];
   final tracking = TopicTrackingState([
     for (final row in rows)
-      TrackedTopicState(
-        topicId: row.id,
-        highestPostNumber: 10,
-        lastReadPostNumber: 4,
-        notificationLevel: 2,
-      ),
+      newIds.contains(row.id)
+          ? TrackedTopicState(
+              topicId: row.id,
+              highestPostNumber: 10,
+              createdInNewPeriod: true,
+            )
+          : TrackedTopicState(
+              topicId: row.id,
+              highestPostNumber: 10,
+              lastReadPostNumber: 4,
+              notificationLevel: 2,
+            ),
   ]);
+  final feedPath = mode.feedPath ?? '/latest.json';
   final api = FakeDiscourseApi(
     user: _user,
     trackingState: tracking,
     feeds: {
       '/latest.json': rows,
-      mode.feedPath!: rows,
+      feedPath: rows,
       if (nextPageGate != null) '/unread.json?page=1': [_row(count + 1)],
     },
-    nextPages: {
-      if (nextPageGate != null) mode.feedPath!: '/unread.json?page=1',
-    },
+    nextPages: {if (nextPageGate != null) feedPath: '/unread.json?page=1'},
     feedGates: {'/unread.json?page=1': ?nextPageGate},
     // An empty stream keeps this test's explicit reading observations in
     // control while exercising the real sidebar, reader route and selectors.
@@ -444,7 +571,13 @@ Future<(ShellController, FakeDiscourseApi, List<Topic>)> _setup(
   return (shell, api, rows);
 }
 
-Topic _row(int id) => Topic(
+/// A new row is one core serializes as never read: unseen, with no position.
+Topic _row(
+  int id, {
+  bool isNew = false,
+  int highestPostNumber = 10,
+  int lastReadPostNumber = 4,
+}) => Topic(
   id: id,
   title: id.isEven
       ? 'Topic $id with a longer title that wraps onto another line'
@@ -453,8 +586,10 @@ Topic _row(int id) => Topic(
   excerpt: id.isEven
       ? 'A variable-height topic with some extra context.'
       : null,
-  postsCount: 10,
-  highestPostNumber: 10,
-  lastReadPostNumber: 4,
-  unreadPosts: 6,
+  postsCount: highestPostNumber,
+  highestPostNumber: highestPostNumber,
+  lastReadPostNumber: isNew ? null : lastReadPostNumber,
+  unreadPosts: isNew ? 0 : highestPostNumber - lastReadPostNumber,
+  newPosts: isNew ? 0 : highestPostNumber - lastReadPostNumber,
+  seen: !isNew,
 );
