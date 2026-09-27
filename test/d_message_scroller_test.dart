@@ -827,6 +827,143 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
+
+  group('reader drags', () {
+    // Rows own a tap recognizer, as transcript content does, so a touch drag
+    // starts once it crosses the slop rather than at pointer down.
+    Future<void Function(double grow)> pumpTranscript(
+      WidgetTester tester,
+      ScrollController scroll, {
+      DMessageScrollerController? controller,
+    }) async {
+      var grow = 0.0;
+      late StateSetter rebuild;
+      await tester.pumpWidget(
+        host(
+          StatefulBuilder(
+            builder: (context, setState) {
+              rebuild = setState;
+              return DMessageScrollerProvider(
+                controller: controller,
+                initialPosition: DMessageScrollerInitialPosition.start,
+                child: DMessageScroller(
+                  children: [
+                    DMessageScrollerViewport.builder(
+                      scrollController: scroll,
+                      itemCount: 200,
+                      itemIdBuilder: (index) => 'row-$index',
+                      itemBuilder: (_, index) => SizedBox(
+                        height: 40 + (index % 5) * 17 + grow,
+                        child: GestureDetector(
+                          onTap: () {},
+                          child: Text('Row $index'),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      return (double value) => rebuild(() => grow = value);
+    }
+
+    Future<TestGesture> dragTowardEnd(
+      WidgetTester tester, {
+      PointerDeviceKind kind = PointerDeviceKind.touch,
+      int steps = 12,
+    }) async {
+      final gesture = await tester.startGesture(
+        tester.getCenter(find.byType(DMessageScrollerViewport)),
+        kind: kind,
+      );
+      await tester.pump(const Duration(milliseconds: 16));
+      for (var step = 0; step < steps; step++) {
+        await gesture.moveBy(const Offset(0, -25));
+        await tester.pump(const Duration(milliseconds: 16));
+      }
+      return gesture;
+    }
+
+    // The reader position is captured when a drag starts, while the
+    // virtualizer reports a new visible range on nearly every drag frame. A
+    // wheel event recaptures on each tick, so only a continuous drag shows it.
+    for (final kind in [PointerDeviceKind.touch, PointerDeviceKind.trackpad]) {
+      testWidgets('a ${kind.name} drag is not pulled back to where it began', (
+        tester,
+      ) async {
+        final scroll = ScrollController();
+        addTearDown(scroll.dispose);
+        await pumpTranscript(tester, scroll);
+
+        final gesture = await dragTowardEnd(tester, kind: kind);
+        final released = scroll.offset;
+        expect(released, greaterThan(250));
+
+        await gesture.up();
+        await tester.pumpAndSettle();
+        expect(scroll.offset, greaterThanOrEqualTo(released));
+      });
+    }
+
+    testWidgets(
+      'a finished drag holds its resting row when earlier rows grow',
+      (tester) async {
+        final scroll = ScrollController();
+        final controller = DMessageScrollerController();
+        addTearDown(scroll.dispose);
+        addTearDown(controller.dispose);
+        final grow = await pumpTranscript(
+          tester,
+          scroll,
+          controller: controller,
+        );
+        final gesture = await dragTowardEnd(tester);
+        await gesture.up();
+        await tester.pumpAndSettle();
+
+        final held = controller.state.visibleMessageIds.first;
+        expect(held, isNot('row-0'));
+        final heldRow = find.text('Row ${held.substring('row-'.length)}');
+        final top = tester.getTopLeft(heldRow).dy;
+
+        grow(30);
+        await tester.pumpAndSettle();
+        expect(tester.getTopLeft(heldRow).dy, closeTo(top, 1));
+      },
+    );
+
+    // Correcting a resize is a jump, and a jump would end the drag. A single
+    // step only crosses the slop: the drag has started but not yet moved.
+    for (final steps in [1, 12]) {
+      testWidgets(
+        'earlier rows growing under a finger resting after $steps drag steps '
+        'keep the drag',
+        (tester) async {
+          final scroll = ScrollController();
+          addTearDown(scroll.dispose);
+          final grow = await pumpTranscript(tester, scroll);
+          scroll.jumpTo(400);
+          await tester.pumpAndSettle();
+          final gesture = await dragTowardEnd(tester, steps: steps);
+
+          grow(30);
+          await tester.pump();
+          await tester.pump();
+          final resting = scroll.offset;
+          await gesture.moveBy(const Offset(0, -100));
+          await tester.pump();
+          expect(scroll.offset, closeTo(resting + 100, 1));
+
+          await gesture.up();
+          await tester.pumpAndSettle();
+        },
+      );
+    }
+  });
 }
 
 class _MutableTranscript extends StatefulWidget {
