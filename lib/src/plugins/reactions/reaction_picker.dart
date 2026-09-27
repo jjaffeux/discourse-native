@@ -31,6 +31,7 @@ class PostReactionButton extends StatefulWidget {
 class _PostReactionButtonState extends State<PostReactionButton> {
   final GlobalKey<HoverPanelState> _panel = GlobalKey();
   Object? _operation;
+  late Listenable _changes = _listenable();
 
   bool get _busy => _operation != null;
 
@@ -47,9 +48,18 @@ class _PostReactionButtonState extends State<PostReactionButton> {
         oldWidget.siteUrl != widget.siteUrl ||
         oldWidget.post.id != widget.post.id) {
       _operation = null;
+      _changes = _listenable();
       unawaited(_loadSettings());
     }
   }
+
+  /// Not the controller: every post's reactor load and reaction write
+  /// notifies it, and a topic holds one button per post. The site's catalog
+  /// decides where a held reaction's emoji is drawn from.
+  Listenable _listenable() => Listenable.merge([
+    widget.controller.postChanges(widget.siteUrl, widget.post.id),
+    widget.controller.emojiCatalogChanges(widget.siteUrl),
+  ]);
 
   bool _isCurrent(ReactionPickerSession session) =>
       mounted &&
@@ -129,7 +139,7 @@ class _PostReactionButtonState extends State<PostReactionButton> {
 
   @override
   Widget build(BuildContext context) => ListenableBuilder(
-    listenable: widget.controller,
+    listenable: _changes,
     builder: (context, _) {
       final controller = widget.controller;
       final settings = controller

@@ -13,10 +13,12 @@ import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/plugins/reactions/post_reactors.dart';
 import 'package:discourse_native/src/plugins/reactions/reaction_picker.dart';
 import 'package:discourse_native/src/plugins/reactions/reactions_row.dart';
+import 'package:discourse_native/src/plugins/reactions/reactions_services.dart';
 import 'package:discourse_native/src/shell/composer_panel.dart';
 import 'package:discourse_native/src/shell/emoji.dart';
 import 'package:discourse_native/src/shell/emoji_picker.dart';
 import 'package:discourse_native/src/shell/hover_panel.dart';
+import 'package:discourse_native/src/shell/post_actions.dart';
 import 'package:discourse_native/src/shell/post_likes.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/site_emoji_image.dart';
@@ -1927,5 +1929,157 @@ void _registerReactionAndLikeTests() {
 
       expect(find.textContaining('who reacted'), findsOneWidget);
     }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
+
+    group('rebuild isolation', () {
+      const ids = [1, 2, 3];
+
+      Future<FakeDiscourseApi> openPosts(
+        WidgetTester tester, {
+        Completer<void>? reactionGate,
+      }) async {
+        final api = await openTopic(
+          tester,
+          config: configured,
+          posts: [
+            for (final id in ids)
+              post(id: id, reactions: [(id: 'clap', count: 2)], userCount: 2),
+          ],
+          reactorsById: {
+            '1:clap': const PostReactors(
+              postId: 1,
+              filter: 'clap',
+              total: 2,
+              reactors: [
+                PostReactor(id: 3, username: 'sam', reaction: 'clap'),
+                PostReactor(id: 4, username: 'codinghorror', reaction: 'clap'),
+              ],
+            ),
+          },
+          reactionGate: reactionGate,
+        );
+        expect(find.byType(ReactionsRow), findsNWidgets(ids.length));
+        expect(find.byType(PostReactionButton), findsNWidgets(ids.length));
+        return api;
+      }
+
+      Finder clap(int postId) =>
+          find.byKey(ValueKey('post-reaction-$postId-clap'));
+
+      /// Rebuilds from now on of each post's reaction pills and react button,
+      /// which both draw a [DToggle], and of its action bar, which redraws
+      /// whenever the post's menu is read again from every plugin; keyed by
+      /// post ID. Focus moving between posts redraws other parts of them.
+      Map<int, int> countRebuilds() {
+        final rebuilds = <int, int>{};
+        final previous = debugOnRebuildDirtyWidget;
+        debugOnRebuildDirtyWidget = (element, builtOnce) {
+          previous?.call(element, builtOnce);
+          if (element.widget is! DToggle &&
+              element.widget is! PostActionsFooter) {
+            return;
+          }
+          final post = element.findAncestorWidgetOfExactType<PostActions>();
+          if (post == null) return;
+          rebuilds.update(
+            post.post.id,
+            (count) => count + 1,
+            ifAbsent: () => 1,
+          );
+        };
+        addTearDown(() => debugOnRebuildDirtyWidget = previous);
+        return rebuilds;
+      }
+
+      testWidgets(
+        'resting on one pill loads its reactors without redrawing other posts',
+        (tester) async {
+          final api = await openPosts(tester);
+          final gesture = await tester.createGesture(
+            kind: PointerDeviceKind.mouse,
+          );
+          await gesture.addPointer(location: Offset.zero);
+          addTearDown(gesture.removePointer);
+          await tester.pumpAndSettle();
+          final rebuilds = countRebuilds();
+
+          await gesture.moveTo(tester.getCenter(clap(1)));
+          await tester.pump(const Duration(milliseconds: 300));
+          await tester.pumpAndSettle();
+
+          expect(api.reactorsRequested, [(postId: 1, filter: 'clap')]);
+          expect(
+            find.descendant(
+              of: find.byType(ReactorList),
+              matching: find.text('codinghorror'),
+            ),
+            findsOneWidget,
+          );
+          expect(rebuilds.keys, [
+            1,
+          ], reason: 'loading post 1 reactors must not redraw other posts');
+        },
+        variant: TargetPlatformVariant.only(TargetPlatform.linux),
+      );
+
+      testWidgets('a reaction write redraws the reacting post alone', (
+        tester,
+      ) async {
+        final gate = Completer<void>();
+        final api = await openPosts(tester, reactionGate: gate);
+        // The site's emoji catalog is read by the first held reaction drawn,
+        // and every react button on the site redraws once when it arrives.
+        // Read it first, so only the write is measured.
+        ShellScope.read(tester.element(find.byType(ReactionsRow).first))
+            .pluginSession
+            .require(reactionsControllerService)
+            .emojiUrlFor(site, 'clap');
+        // Pressing a post moves the topic's reading cursor onto it, which
+        // redraws the post that held it; that is not what is measured here.
+        await tester.tap(find.text('First post body', findRichText: true));
+        await tester.pumpAndSettle();
+        final rebuilds = countRebuilds();
+        DToggle pill(int postId) => tester.widget<DToggle>(
+          find.descendant(of: clap(postId), matching: find.byType(DToggle)),
+        );
+
+        await tester.tap(clap(1));
+        await tester.pump();
+        expect(api.reacted, [(postId: 1, reaction: 'clap')]);
+        expect(pill(1).enabled, isFalse);
+        expect(pill(2).enabled, isTrue);
+        expect(rebuilds.keys, [1]);
+
+        gate.complete();
+        await tester.pumpAndSettle();
+        expect(pill(1).enabled, isTrue);
+        expect(pill(1).pressed, isTrue);
+        expect(pill(2).pressed, isFalse);
+        expect(rebuilds.keys, [
+          1,
+        ], reason: 'a write on post 1 must not redraw other posts');
+      }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
+
+      testWidgets('React follows the post write lane of its own post', (
+        tester,
+      ) async {
+        await openPosts(tester);
+        final shell = ShellScope.read(
+          tester.element(find.byType(ReactionsRow).first),
+        );
+        await openPostMenu(tester);
+        DDropdownMenuItem react() => tester.widget(menuAction('React'));
+        expect(react().onPressed, isNotNull);
+
+        // Held by the host, as a core write does, with no reactions state
+        // changing: only the shell says the post is busy.
+        expect(shell.beginPluginPostWrite(site, 1), isTrue);
+        await tester.pump();
+        expect(react().onPressed, isNull);
+
+        shell.endPluginPostWrite(site, 1);
+        await tester.pump();
+        expect(react().onPressed, isNotNull);
+      }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
+    });
   });
 }

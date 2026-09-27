@@ -87,6 +87,9 @@ class ReactionsPlugin
       reactionsControllerService,
     );
     final emoji = PluginUiScope.require(context, reactionsEmojiHostService);
+    // The host's post write lane, which the post's action bar already follows,
+    // so this menu names no rebuildOn: the controller would rebuild every
+    // action bar on screen for any post's reactor load or reaction write.
     final writeInFlight = controller.writeInFlight(siteUrl, post.id);
 
     return PostMenuContribution(
@@ -113,7 +116,6 @@ class ReactionsPlugin
           ),
         ),
       ],
-      rebuildOn: controller,
     );
   }
 }
