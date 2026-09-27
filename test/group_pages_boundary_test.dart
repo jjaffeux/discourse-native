@@ -50,6 +50,28 @@ void main() {
     );
   });
 
+  test('a membership request message opens through in-app topic routing', () {
+    final shell = _Shell();
+    addTearDown(shell.dispose);
+    final port = ShellGroupPagesPort(shell);
+    final owner = (
+      siteUrl: shell.currentInstance.url,
+      accountIdentity: shell.currentAccountIdentity,
+      tabId: shell.activeTabId,
+    );
+
+    port.openMembershipRequest(owner, '/t/membership-request/42');
+    port.openMembershipRequest((
+      siteUrl: owner.siteUrl,
+      accountIdentity: 'user:two',
+      tabId: owner.tabId,
+    ), '/t/membership-request/43');
+
+    expect(shell.openedTopicUrls, [
+      'https://one.example/t/membership-request/42',
+    ]);
+  });
+
   for (final navigateBeforeBind in [false, true]) {
     test(
       'directory redirect ${navigateBeforeBind ? 'rejects navigation before the next bind' : 'replaces the current group'}',
@@ -105,6 +127,13 @@ final class _Shell extends ShellController {
 
   ContentRoute content = ContentRoute.group(GroupRoute.detail('staff'));
   int directoryReplacements = 0;
+  final openedTopicUrls = <String>[];
+
+  @override
+  bool openTopicUrl(String url) {
+    openedTopicUrls.add(url);
+    return true;
+  }
 
   @override
   DiscourseInstance get currentInstance =>

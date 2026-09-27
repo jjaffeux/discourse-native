@@ -356,14 +356,20 @@ final class ShellGroupPagesPort implements GroupPagesPort {
   }
 
   @override
-  Future<bool> requestMembership(
+  Future<GroupMembershipRequestResult?> requestMembership(
     GroupPagesOwner owner,
     Group group,
     String reason,
   ) async {
     final instance = _instance(owner);
-    return instance != null &&
-        await _shell.groups.requestMembership(instance, group, reason);
+    if (instance == null) return null;
+    return _shell.groups.requestMembership(instance, group, reason);
+  }
+
+  @override
+  void openMembershipRequest(GroupPagesOwner owner, String messageUrl) {
+    if (!isCurrent(owner)) return;
+    _shell.openTopicUrl(_shell.absoluteUrl(messageUrl, siteUrl: owner.siteUrl));
   }
 
   @override

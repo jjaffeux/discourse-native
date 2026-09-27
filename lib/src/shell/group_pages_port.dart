@@ -39,11 +39,15 @@ abstract interface class GroupPagesPort implements GroupPagesCoordinatorPort {
 
   Future<bool> leave(GroupPagesOwner owner, Group group);
 
-  Future<bool> requestMembership(
+  Future<GroupMembershipRequestResult?> requestMembership(
     GroupPagesOwner owner,
     Group group,
     String reason,
   );
+
+  /// Opens the private message a membership request produced, as the web
+  /// client does once the request is sent.
+  void openMembershipRequest(GroupPagesOwner owner, String messageUrl);
 
   Future<bool> deleteGroup(GroupPagesOwner owner, Group group);
 

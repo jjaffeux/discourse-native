@@ -442,6 +442,162 @@ void main() {
       expect(tester.takeException(), isNull);
     });
   });
+
+  group('membership', () {
+    const requestable = Group(
+      id: 4,
+      name: 'staff',
+      fullName: 'Staff',
+      allowMembershipRequests: true,
+      membershipRequestTemplate: 'I run the help desk.',
+    );
+    const messageUrl = '/t/membership-request-from-sam-to-staff/42';
+
+    Future<void> sendRequest(WidgetTester tester) async {
+      await tester.tap(find.byKey(const ValueKey('group-request')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Send request'));
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('a sent request opens the message it produced', (tester) async {
+      final host = _MembershipHost(requestable)
+        ..port.requestResult = const GroupMembershipRequestSent(
+          messageUrl: messageUrl,
+        );
+      addTearDown(host.dispose);
+      await host.pump(tester);
+
+      await sendRequest(tester);
+
+      expect(host.port.membershipRequests, [
+        (group: requestable, reason: 'I run the help desk.'),
+      ]);
+      expect(host.port.openedRequests, [
+        (owner: host.port.owner, messageUrl: messageUrl),
+      ]);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('a request cannot be sent without a reason', (tester) async {
+      const untemplated = Group(
+        id: 4,
+        name: 'staff',
+        fullName: 'Staff',
+        allowMembershipRequests: true,
+      );
+      final host = _MembershipHost(untemplated)
+        ..port.requestResult = const GroupMembershipRequestSent(
+          messageUrl: messageUrl,
+        );
+      addTearDown(host.dispose);
+      await host.pump(tester);
+
+      await tester.tap(find.byKey(const ValueKey('group-request')));
+      await tester.pumpAndSettle();
+      DButton send() => tester.widget<DButton>(
+        find.byKey(const ValueKey('send-group-request')),
+      );
+      expect(send().onPressed, isNull);
+
+      await tester.enterText(
+        find.descendant(
+          of: find.byType(DTextarea),
+          matching: find.byType(EditableText),
+        ),
+        'I run the help desk.',
+      );
+      await tester.pump();
+      expect(send().onPressed, isNotNull);
+      await tester.tap(find.text('Send request'));
+      await tester.pumpAndSettle();
+
+      expect(host.port.membershipRequests, [
+        (group: untemplated, reason: 'I run the help desk.'),
+      ]);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('a refused request shows what the site said', (tester) async {
+      const refusal = 'You have already requested membership for this group.';
+      final host = _MembershipHost(requestable)
+        ..port.requestResult = const GroupMembershipRequestFailed(refusal);
+      addTearDown(host.dispose);
+      await host.pump(tester);
+
+      await sendRequest(tester);
+
+      expect(host.port.membershipRequests, hasLength(1));
+      expect(host.port.openedRequests, isEmpty);
+      expect(find.text(refusal), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('a request answered after its page was left stays there', (
+      tester,
+    ) async {
+      final host = _MembershipHost(requestable);
+      addTearDown(host.dispose);
+      final gate = host.port.requestGate =
+          Completer<GroupMembershipRequestResult?>();
+      await host.pump(tester);
+
+      await sendRequest(tester);
+      expect(host.port.membershipRequests, hasLength(1));
+      host.route = GroupRoute.detail('moderators');
+      await host.pump(tester);
+      gate.complete(const GroupMembershipRequestSent(messageUrl: messageUrl));
+      await tester.pumpAndSettle();
+
+      expect(host.port.openedRequests, isEmpty);
+      expect(tester.takeException(), isNull);
+    });
+  });
+}
+
+final class _MembershipHost {
+  _MembershipHost(Group group)
+    : port = _Port()
+        ..group = GroupPageData(
+          detail: GroupDetail(group: group),
+          loaded: true,
+        );
+
+  final coordinator = GroupPagesCoordinator();
+  final _Port port;
+  GroupRoute route = GroupRoute.detail('staff');
+
+  Future<void> pump(WidgetTester tester) async {
+    coordinator.bind(
+      port,
+      GroupPagesRouteSnapshot(
+        owner: port.owner,
+        routeId: route.id,
+        groupNamespace: true,
+        route: route,
+        canPopContent: false,
+      ),
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light,
+        builder: (context, child) => DToaster(child: child!),
+        home: Scaffold(
+          body: GroupPagesHost(
+            coordinator: coordinator,
+            port: port,
+            registry: PluginRegistry.empty,
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+  }
+
+  void dispose() {
+    coordinator.dispose();
+    port.dispose();
+  }
 }
 
 enum _DeleteDestination {
@@ -566,9 +722,28 @@ final class _Port implements GroupPagesPort {
   TopicFeed? feed;
   String? username = 'sam';
   final messagedGroups = <String>[];
+  final membershipRequests = <({Group group, String reason})>[];
+  GroupMembershipRequestResult? requestResult;
+  Completer<GroupMembershipRequestResult?>? requestGate;
+  final openedRequests = <({GroupPagesOwner owner, String messageUrl})>[];
 
   @override
   Listenable get changes => _changes;
+
+  @override
+  Future<GroupMembershipRequestResult?> requestMembership(
+    GroupPagesOwner owner,
+    Group group,
+    String reason,
+  ) async {
+    membershipRequests.add((group: group, reason: reason));
+    final gate = requestGate;
+    return gate == null ? requestResult : await gate.future;
+  }
+
+  @override
+  void openMembershipRequest(GroupPagesOwner owner, String messageUrl) =>
+      openedRequests.add((owner: owner, messageUrl: messageUrl));
 
   @override
   bool isCurrent(GroupPagesOwner value) => value == owner;

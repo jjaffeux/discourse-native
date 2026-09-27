@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:discourse_native/src/data/discourse_api_contracts.dart';
 import 'package:discourse_native/src/data/groups_api.dart';
 import 'package:discourse_native/src/data/plugin_transport.dart';
 import 'package:discourse_native/src/data/site_lifecycle.dart';
@@ -1679,6 +1680,124 @@ void main() {
     expect(state.total, 2);
     expect(state.nextOffset, 3);
   });
+
+  test(
+    'a sent membership request answers with the message it opened',
+    () async {
+      final transport = _ControlledGroupTransport()
+        ..onWrite = (_) => {
+          'success': 'OK',
+          'relative_url': '/t/membership-request-from-sam-to-support/42',
+        };
+      final credentials = FakeApiCredentialReader(
+        clientIdValue: 'native-client',
+      )..keys[_site] = 'secret';
+      final controller = _controller(transport, credentials: credentials);
+      addTearDown(controller.dispose);
+
+      final result = await controller.requestMembership(
+        _connectedInstance,
+        const Group(id: 7, name: 'support', allowMembershipRequests: true),
+        'I run the help desk.',
+      );
+
+      expect(
+        result,
+        isA<GroupMembershipRequestSent>().having(
+          (sent) => sent.messageUrl,
+          'messageUrl',
+          '/t/membership-request-from-sam-to-support/42',
+        ),
+      );
+      expect(
+        transport.writes.single.path,
+        '/groups/support/request_membership.json',
+      );
+      // Nothing the group payload reports changes, so the message is not held
+      // behind a re-read of the group.
+      expect(transport.gets, isEmpty);
+      expect(controller.detailState(_site, 'support').mutating, isFalse);
+    },
+  );
+
+  for (final (name, failure, message) in [
+    (
+      'the site refusal',
+      const WriteException(
+        WriteFailure.conflict,
+        errors: ['You have already requested membership for this group.'],
+        statusCode: 409,
+      ),
+      'You have already requested membership for this group.',
+    ),
+    (
+      'the generic failure without a site message',
+      const WriteException(WriteFailure.unreachable),
+      "Couldn't save that group change.",
+    ),
+    (
+      'the generic failure for a local error',
+      StateError('unexpected'),
+      "Couldn't save that group change.",
+    ),
+  ]) {
+    test('a failed membership request answers with $name', () async {
+      final transport = _ControlledGroupTransport()
+        ..onWrite = (_) => throw failure;
+      final credentials = FakeApiCredentialReader(
+        clientIdValue: 'native-client',
+      )..keys[_site] = 'secret';
+      final controller = _controller(transport, credentials: credentials);
+      addTearDown(controller.dispose);
+
+      final result = await controller.requestMembership(
+        _connectedInstance,
+        const Group(id: 7, name: 'support', allowMembershipRequests: true),
+        'I run the help desk.',
+      );
+
+      expect(
+        result,
+        isA<GroupMembershipRequestFailed>().having(
+          (failed) => failed.message,
+          'message',
+          message,
+        ),
+      );
+      expect(controller.detailState(_site, 'support').mutating, isFalse);
+    });
+  }
+
+  test('a superseded membership request answers with nothing', () async {
+    final transport = _ControlledGroupTransport()
+      ..onWrite = (_) => throw const WriteException(
+        WriteFailure.conflict,
+        errors: ['You have already requested membership for this group.'],
+        statusCode: 409,
+      );
+    final credentials = FakeApiCredentialReader(clientIdValue: 'native-client')
+      ..keys[_site] = 'secret';
+    final lifecycle = SiteLifecycle();
+    final controller = _controller(
+      transport,
+      credentials: credentials,
+      lifecycle: lifecycle,
+    );
+    addTearDown(controller.dispose);
+    final write = transport.holdWrite();
+
+    final request = controller.requestMembership(
+      _connectedInstance,
+      const Group(id: 7, name: 'support', allowMembershipRequests: true),
+      'I run the help desk.',
+    );
+    await write.started.future;
+    lifecycle.invalidate(_site);
+    controller.forget(_site);
+    write.release.complete();
+
+    expect(await request, isNull);
+  });
 }
 
 GroupsController _controller(
@@ -1880,6 +1999,7 @@ final class _OffsetGroupTransport implements PluginApiTransport {
 final class _ControlledGroupTransport
     implements PluginApiTransport, PluginJsonListTransport {
   void Function(String path)? onGet;
+  Map<String, dynamic> Function(String path)? onWrite;
   final List<Completer<Map<String, dynamic>>> objects = [];
   final List<Completer<List<Map<String, dynamic>>>> lists = [];
   final List<({String path, String? apiKey, String? clientId})> gets = [];
@@ -1939,7 +2059,7 @@ final class _ControlledGroupTransport
       pending.started.complete();
       await pending.release.future;
     }
-    return const {};
+    return onWrite?.call(path) ?? const {};
   }
 }
 
