@@ -211,6 +211,68 @@ void main() {
     expect(triggerFocus.hasFocus, isTrue);
   });
 
+  testWidgets(
+    'trigger builder does not rerun for ancestor MediaQuery changes or '
+    'parent rebuilds that keep the same trigger',
+    (tester) async {
+      var triggerBuilds = 0;
+      final trigger = DDialogTrigger(
+        builder: (context, show) {
+          triggerBuilds++;
+          return DButton(onPressed: show, label: const Text('Open'));
+        },
+      );
+      const content = DDialogContent(
+        semanticLabel: 'Isolated dialog',
+        children: [DDialogTitle(child: Text('Isolated dialog'))],
+      );
+      final mounted = DDialog<void>(trigger: trigger, content: content);
+      var keyboard = 0.0;
+      var rebuildDialog = false;
+      late StateSetter update;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: StatefulBuilder(
+              builder: (context, setState) {
+                update = setState;
+                return MediaQuery(
+                  data: MediaQueryData(
+                    size: const Size(800, 600),
+                    viewInsets: EdgeInsets.only(bottom: keyboard),
+                  ),
+                  child: Center(
+                    child: rebuildDialog
+                        ? DDialog<void>(trigger: trigger, content: content)
+                        : mounted,
+                  ),
+                );
+              },
+            ),
+          ),
+        ),
+      );
+      expect(triggerBuilds, 1);
+
+      for (final inset in [96.0, 192.0, 288.0, 0.0]) {
+        update(() => keyboard = inset);
+        await tester.pump();
+      }
+      expect(triggerBuilds, 1);
+
+      update(() => rebuildDialog = true);
+      await tester.pump();
+      update(() {});
+      await tester.pump();
+      expect(triggerBuilds, 1);
+
+      await tester.tap(find.text('Open'));
+      await tester.pumpAndSettle();
+      expect(find.text('Isolated dialog'), findsOneWidget);
+      expect(triggerBuilds, 1);
+    },
+  );
+
   testWidgets('controlled barrier request waits for caller state update', (
     tester,
   ) async {

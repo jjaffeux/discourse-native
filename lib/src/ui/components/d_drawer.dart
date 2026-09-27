@@ -369,6 +369,12 @@ class _DDrawerState<T> extends State<DDrawer<T>> {
     if (mounted) _syncRoute();
   });
 
+  // Handed to the trigger scope as a tear-off, which compares equal across
+  // builds. This state rebuilds on every MediaQuery and Theme change because
+  // it captures the route environment; a fresh closure would make the scope
+  // notify and rerun the trigger builder each time.
+  void _openFromTrigger() => _requestOpen(DDrawerChangeReason.trigger);
+
   void _requestOpen(DDrawerChangeReason reason) {
     if (_desiredOpen) return;
     final details = DDrawerChangeDetails<T>(open: true, reason: reason);
@@ -515,10 +521,7 @@ class _DDrawerState<T> extends State<DDrawer<T>> {
         if (mounted) updateNotifiers();
       });
     }
-    return _DDrawerRootScope(
-      open: () => _requestOpen(DDrawerChangeReason.trigger),
-      child: widget.trigger,
-    );
+    return _DDrawerRootScope(open: _openFromTrigger, child: widget.trigger);
   }
 
   @override

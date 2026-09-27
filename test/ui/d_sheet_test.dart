@@ -585,6 +585,59 @@ void main() {
     expect(triggerFocus.hasFocus, isTrue);
   });
 
+  testWidgets('trigger builder does not rerun for ancestor keyboard insets', (
+    tester,
+  ) async {
+    var triggerBuilds = 0;
+    final sheet = DSheet<void>(
+      trigger: DSheetTrigger(
+        builder: (context, open) {
+          triggerBuilds++;
+          return DButton(onPressed: open, label: const Text('Open'));
+        },
+      ),
+      content: const DSheetContent(
+        side: DSheetSide.bottom,
+        semanticLabel: 'Message actions',
+        children: [
+          DSheetHeader(children: [DSheetTitle(child: Text('Message actions'))]),
+        ],
+      ),
+    );
+    var keyboard = 0.0;
+    late StateSetter update;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: StatefulBuilder(
+            builder: (context, setState) {
+              update = setState;
+              return MediaQuery(
+                data: MediaQueryData(
+                  size: const Size(800, 600),
+                  viewInsets: EdgeInsets.only(bottom: keyboard),
+                ),
+                child: Center(child: sheet),
+              );
+            },
+          ),
+        ),
+      ),
+    );
+    expect(triggerBuilds, 1);
+
+    for (final inset in [96.0, 192.0, 288.0, 0.0]) {
+      update(() => keyboard = inset);
+      await tester.pump();
+    }
+    expect(triggerBuilds, 1);
+
+    await tester.tap(find.text('Open'));
+    await tester.pumpAndSettle();
+    expect(find.text('Message actions'), findsOneWidget);
+    expect(triggerBuilds, 1);
+  });
+
   testWidgets('physical sides and centered panels match their geometry', (
     tester,
   ) async {

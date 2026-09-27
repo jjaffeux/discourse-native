@@ -304,6 +304,12 @@ class _DDialogState<T> extends State<DDialog<T>> {
     });
   }
 
+  // Handed to the trigger scope as a tear-off, which compares equal across
+  // builds. This state rebuilds on every MediaQuery and Theme change because
+  // it captures the route environment; a fresh closure would make the scope
+  // notify and rerun the trigger builder, often a whole row, each time.
+  void _openFromTrigger() => _requestOpen(DDialogChangeReason.trigger);
+
   void _requestOpen(DDialogChangeReason reason) {
     if (_desiredOpen) return;
     widget.onOpenChanged?.call(
@@ -415,10 +421,7 @@ class _DDialogState<T> extends State<DDialog<T>> {
     if (_environment.value != nextEnvironment) {
       _updateRouteValue(_environment, nextEnvironment);
     }
-    return _DDialogRootScope(
-      open: () => _requestOpen(DDialogChangeReason.trigger),
-      child: widget.trigger,
-    );
+    return _DDialogRootScope(open: _openFromTrigger, child: widget.trigger);
   }
 
   @override
