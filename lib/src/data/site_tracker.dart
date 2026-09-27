@@ -1,9 +1,11 @@
 import 'dart:async';
+import 'dart:math';
 
 import 'package:http/http.dart' as http;
 import 'package:message_bus_client/message_bus_client.dart';
 
 import '../diagnostics/diagnostics_controller.dart';
+import '../foundation/bounded_lru_cache.dart';
 import '../models/incoming_topics.dart';
 import '../plugin_api/live_channels.dart';
 import '../plugin_api/plugin_manifest.dart';
@@ -44,6 +46,11 @@ abstract interface class SiteMessageBusErrorSource {
 }
 
 abstract interface class SiteMessageBusSubscription {
+  /// The channel position this subscription has read to: the last message it
+  /// received, or the head its first poll reported when it started from new
+  /// messages only. Null before that first poll and once cancelled.
+  int? get lastId;
+
   void cancel();
 }
 
@@ -221,13 +228,30 @@ class SiteTracker {
     lastId: lastId ?? _initialLastIds[channel],
   );
 
-  final List<SiteMessageBusSubscription> _topicSubscriptions = [];
-  final Set<String> _watchedTopicChannels = {};
+  /// How many left topic channels keep their read position. Each visible
+  /// topic has a core channel and a few plugin ones, so this covers the last
+  /// few dozen topics a reader moved between.
+  static const int retainedTopicPositionCapacity = 128;
+
+  final Map<String, SiteMessageBusSubscription> _topicSubscriptions = {};
+
+  /// Where each recently left topic channel was read to. MessageBus positions
+  /// belong to this session, so they live and die with the tracker.
+  final BoundedLruCache<String, int> _topicPositions = BoundedLruCache(
+    retainedTopicPositionCapacity,
+  );
+  void Function(String channel, Object? data)? _onWatchedTopicMessage;
   int? _watchedTopic;
-  int _topicWatchRevision = 0;
 
   int? get watchedTopic => _watchedTopic;
 
+  /// Makes [channels] the watched topic channels. A channel already watched
+  /// keeps its subscription and position and only adopts [onMessage]; a
+  /// channel that was watched before in this session resumes where it was
+  /// left, or from its [lastIds] snapshot when that is newer. Re-subscribing
+  /// a kept channel from its snapshot would replay what it already delivered,
+  /// and starting a left one from new messages only would drop what was
+  /// published while it was away.
   void watchTopic(
     int topicId,
     List<String> channels,
@@ -235,22 +259,18 @@ class SiteTracker {
     Map<String, int?> lastIds = const {},
   }) {
     _ensureActive();
-    if (_watchedTopic == topicId &&
-        _watchedTopicChannels.length == channels.toSet().length &&
-        channels.every(_watchedTopicChannels.contains)) {
-      return;
-    }
-    unwatchTopic();
     _watchedTopic = topicId;
-    _watchedTopicChannels.addAll(channels);
-    final revision = _topicWatchRevision;
+    _onWatchedTopicMessage = onMessage;
+    final wanted = channels.toSet();
+    for (final channel in [..._topicSubscriptions.keys]) {
+      if (!wanted.contains(channel)) _leaveTopicChannel(channel);
+    }
     try {
-      for (final channel in channels.toSet()) {
-        _topicSubscriptions.add(
-          _bus.subscribe(channel, (data, _) {
-            if (_disposed || revision != _topicWatchRevision) return;
-            onMessage(channel, data);
-          }, lastId: lastIds[channel]),
+      for (final channel in wanted) {
+        if (_topicSubscriptions.containsKey(channel)) continue;
+        _topicSubscriptions[channel] = _subscribeTopicChannel(
+          channel,
+          _newerPosition(lastIds[channel], _topicPositions.read(channel)),
         );
       }
     } catch (_) {
@@ -260,30 +280,56 @@ class SiteTracker {
   }
 
   void unwatchTopic() {
-    _topicWatchRevision += 1;
-    final subscriptions = List.of(_topicSubscriptions);
-    _topicSubscriptions.clear();
-    _watchedTopicChannels.clear();
     _watchedTopic = null;
-    for (final subscription in subscriptions) {
-      try {
-        subscription.cancel();
-      } catch (error, stackTrace) {
-        if (!_disposed) {
-          DiagnosticsSink.current.reportError(
-            error,
-            stackTrace,
-            operation: 'messageBus.unsubscribeTopic',
-            source: 'message_bus',
-            severity: DiagnosticSeverity.warning,
-            handled: true,
-            degraded: true,
-          );
-        }
-        // The bus close is the final cleanup boundary. One broken channel
-        // handle must not retain every later subscription or prevent close.
-      }
+    _onWatchedTopicMessage = null;
+    for (final channel in [..._topicSubscriptions.keys]) {
+      _leaveTopicChannel(channel);
     }
+  }
+
+  SiteMessageBusSubscription _subscribeTopicChannel(
+    String channel,
+    int? lastId,
+  ) {
+    final gate = _MessageBusCallbackGate();
+    final subscription = _bus.subscribe(channel, (data, _) {
+      // A kept channel reports to whichever watch last asked for it.
+      if (_disposed || !gate.isOpen) return;
+      _onWatchedTopicMessage?.call(channel, data);
+    }, lastId: lastId);
+    return _LifecycleBoundMessageBusSubscription(subscription, gate);
+  }
+
+  void _leaveTopicChannel(String channel) {
+    // Removed before cancelling: a cancellation can re-enter disposal.
+    final subscription = _topicSubscriptions.remove(channel);
+    if (subscription == null) return;
+    // A cancelled handle no longer reports its position.
+    final position = subscription.lastId;
+    if (position != null) _topicPositions.put(channel, position);
+    try {
+      subscription.cancel();
+    } catch (error, stackTrace) {
+      if (!_disposed) {
+        DiagnosticsSink.current.reportError(
+          error,
+          stackTrace,
+          operation: 'messageBus.unsubscribeTopic',
+          source: 'message_bus',
+          severity: DiagnosticSeverity.warning,
+          handled: true,
+          degraded: true,
+        );
+      }
+      // The bus close is the final cleanup boundary. One broken channel
+      // handle must not retain every later subscription or prevent close.
+    }
+  }
+
+  static int? _newerPosition(int? snapshot, int? retained) {
+    if (snapshot == null) return retained;
+    if (retained == null) return snapshot;
+    return max(snapshot, retained);
   }
 
   void watchTopicTrackingState(
@@ -381,6 +427,7 @@ class SiteTracker {
     _disposed = true;
     _polling = false;
     unwatchTopic();
+    _topicPositions.clear();
     incoming.resetAll();
     completion.complete(_close());
     return completion.future;
@@ -556,6 +603,13 @@ final class _MessageBusSubscription implements SiteMessageBusSubscription {
 
   final MessageBusSubscription _subscription;
 
+  /// The client reports `-1` both before its baseline and once cancelled.
+  @override
+  int? get lastId {
+    final position = _subscription.lastId;
+    return position < 0 ? null : position;
+  }
+
   @override
   void cancel() => _subscription.cancel();
 }
@@ -573,6 +627,9 @@ final class _LifecycleBoundMessageBusSubscription
   final SiteMessageBusSubscription _subscription;
   final _MessageBusCallbackGate _gate;
   bool _cancelled = false;
+
+  @override
+  int? get lastId => _subscription.lastId;
 
   @override
   void cancel() {
