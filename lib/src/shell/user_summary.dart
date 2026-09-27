@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart' hide TextDirection;
 
 import '../data/site_lifecycle.dart';
+import '../foundation/count_label.dart';
 import '../models/discourse_instance.dart';
 import '../models/user_summary.dart';
 import '../plugin_api/plugin_scope.dart';
@@ -495,7 +496,8 @@ class _Connections extends StatelessWidget {
             siteUrl: siteUrl,
             users: summary.mostRepliedToUsers,
             emptyMessage: 'No replies yet.',
-            countLabel: 'replies',
+            noun: 'reply',
+            pluralNoun: 'replies',
           ),
         ),
         _PairedSections(
@@ -505,7 +507,7 @@ class _Connections extends StatelessWidget {
               siteUrl: siteUrl,
               users: summary.mostLikedByUsers,
               emptyMessage: 'No likes yet.',
-              countLabel: 'likes',
+              noun: 'like',
             ),
           ),
           right: _SummarySection(
@@ -514,7 +516,7 @@ class _Connections extends StatelessWidget {
               siteUrl: siteUrl,
               users: summary.mostLikedUsers,
               emptyMessage: 'No likes yet.',
-              countLabel: 'likes',
+              noun: 'like',
             ),
           ),
         ),
@@ -866,7 +868,7 @@ class _SummaryTopicRow extends StatelessWidget {
     final label = [
       'Open ${topic.title}',
       ?date,
-      if (likes > 0) '$likes likes',
+      if (likes > 0) countLabel(likes, 'like'),
     ].join(', ');
     return DItem(
       size: DItemSize.xs,
@@ -961,7 +963,8 @@ class _SummaryLinkRow extends StatelessWidget {
     size: DItemSize.xs,
     padding: const EdgeInsets.symmetric(vertical: DSpacing.sm),
     semanticLabel:
-        'Open external link ${_shortUrl(link.url)}, ${link.clicks} clicks',
+        'Open external link ${_shortUrl(link.url)}, '
+        '${countLabel(link.clicks, 'click')}',
     link: true,
     onPressed: () => unawaited(openExternalLink(link.url)),
     footer: DItemFooter(
@@ -994,7 +997,11 @@ class _SummaryLinkRow extends StatelessWidget {
           ),
         ],
       ),
-      ExcludeSemantics(child: _Caption('${_number(link.clicks)} clicks')),
+      ExcludeSemantics(
+        child: _Caption(
+          countLabel(link.clicks, 'click', number: _number(link.clicks)),
+        ),
+      ),
     ],
   );
 }
@@ -1004,12 +1011,14 @@ class _UserRows extends StatelessWidget {
     required this.siteUrl,
     required this.users,
     required this.emptyMessage,
-    required this.countLabel,
+    required this.noun,
+    this.pluralNoun,
   });
   final String siteUrl;
   final List<UserSummaryUser> users;
   final String emptyMessage;
-  final String countLabel;
+  final String noun;
+  final String? pluralNoun;
 
   @override
   Widget build(BuildContext context) => users.isEmpty
@@ -1022,7 +1031,8 @@ class _UserRows extends StatelessWidget {
                 username: user.username,
                 siteUrl: siteUrl,
                 semanticLabel:
-                    'View profile for ${user.displayName}, ${user.count} $countLabel',
+                    'View profile for ${user.displayName}, '
+                    '${countLabel(user.count, noun, plural: pluralNoun)}',
                 child: DItem(
                   size: DItemSize.xs,
                   padding: const EdgeInsets.symmetric(vertical: DSpacing.sm),
@@ -1047,7 +1057,9 @@ class _UserRows extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
                         DText(_number(user.count), variant: DTextVariant.small),
-                        _Caption(countLabel),
+                        _Caption(
+                          countNoun(user.count, noun, plural: pluralNoun),
+                        ),
                       ],
                     ),
                   ],
@@ -1171,7 +1183,8 @@ class _CategoryRows extends StatelessWidget {
                       : DButton(
                           variant: DButtonVariant.link,
                           semanticLabel:
-                              'Search ${topics ? category.topicCount : category.postCount} ${topics ? 'topics' : 'replies'} by @$username in ${category.name}',
+                              'Search ${topics ? countLabel(category.topicCount, 'topic') : countLabel(category.postCount, 'reply', plural: 'replies')} '
+                              'by @$username in ${category.name}',
                           onPressed: () =>
                               _search(context, category, topics: topics),
                           label: Text(

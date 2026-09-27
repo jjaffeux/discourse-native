@@ -210,7 +210,7 @@ void main() {
         expect(composer.categoryId, 5);
         expect(
           composer.taxonomyValidationMessage,
-          'Choose at least 1 tags for this category.',
+          'Choose at least 1 tag for this category.',
         );
         expect(composer.raw, harness.continuation);
         expect(composer.raw, isNot(contains('?u=')));

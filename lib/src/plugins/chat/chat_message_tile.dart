@@ -1909,7 +1909,8 @@ class _AvatarFallback extends StatelessWidget {
   );
 }
 
-String _replyCountLabel(int count) => count == 1 ? '1 reply' : '$count replies';
+String _replyCountLabel(int count) =>
+    countLabel(count, 'reply', plural: 'replies');
 
 String? _nonEmpty(String? value) {
   final text = value?.trim();

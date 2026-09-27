@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:html/dom.dart' as dom;
 
+import '../../foundation/count_label.dart';
 import '../../theme/d_icons.dart';
 import '../../theme/discourse_typography.dart';
 import '../cooked_dom.dart';
@@ -457,7 +458,7 @@ class _PostActionsState extends State<_PostActions> {
                   likes,
                   style: const TextStyle(fontWeight: FontWeight.w700),
                 ),
-                semanticLabel: '$likes likes. Like on X',
+                semanticLabel: '${_metricLabel(likes, 'like')}. Like on X',
                 isLink: true,
                 onPressed: data.statusId == null
                     ? null
@@ -472,7 +473,8 @@ class _PostActionsState extends State<_PostActions> {
                 size: DButtonSize.post,
                 icon: const Icon(Icons.repeat),
                 label: Text(reposts),
-                semanticLabel: '$reposts reposts. View post on X',
+                semanticLabel:
+                    '${_metricLabel(reposts, 'repost')}. View post on X',
                 isLink: true,
                 onPressed: url == null ? null : () => openLink(context, url),
               ),
@@ -527,6 +529,12 @@ class _PostActionsState extends State<_PostActions> {
     );
   }
 }
+
+/// The onebox writes each metric through Discourse's prettify_number: a plain
+/// whole number below a thousand, an abbreviation ("1.2K") from there. Only a
+/// written "1" is singular; an abbreviation does not parse and never is.
+String _metricLabel(String written, String noun) =>
+    countLabel(int.tryParse(written) ?? 0, noun, number: written);
 
 const _xLogo = DIconData(
   'onebox-x-logo',

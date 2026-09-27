@@ -691,8 +691,11 @@ class _GlobalSearchConditionEditorState
                 DCommandItem<String>(
                   value: choice.value,
                   checked: _values.contains(choice.value),
-                  semanticLabel:
-                      '${choice.label}${choice.topicCount == null ? '' : ', ${choice.topicCount} topics'}',
+                  semanticLabel: switch (choice.topicCount) {
+                    final count? =>
+                      '${choice.label}, ${countLabel(count, 'topic')}',
+                    null => choice.label,
+                  },
                   trailing: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [

@@ -281,6 +281,23 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  for (final (count, label) in [(1, '1 badge'), (2, '2 badges')]) {
+    testWidgets('a card with $label counts them in agreement', (tester) async {
+      final api = await _pumpTarget(tester, size: const Size(1800, 1100));
+      await _open(tester);
+      api.requests.single.complete(
+        UserCard(username: 'sam', name: 'Sam Example', badgeCount: count),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        find.descendant(of: _surface, matching: find.text(label)),
+        findsOneWidget,
+      );
+      expect(tester.takeException(), isNull);
+    });
+  }
+
   testWidgets(
     'hover preview has a small skeleton and shares the card request',
     (tester) async {

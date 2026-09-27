@@ -159,11 +159,11 @@ class _GlobalSearchCategoryEditorState
         ? 'Categories unavailable'
         : _hasMore
         ? _total == null
-              ? '${_choices.length} categories loaded'
+              ? '${countLabel(_choices.length, 'category', plural: 'categories')} loaded'
               : '${_choices.length} of $_total categories'
         : _query.text.trim().isEmpty
         ? 'All categories · ${_choices.length}'
-        : '${_choices.length} categories found';
+        : '${countLabel(_choices.length, 'category', plural: 'categories')} found';
     return Material(
       type: MaterialType.transparency,
       child: Padding(

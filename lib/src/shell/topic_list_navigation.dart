@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
+import '../foundation/count_label.dart';
 import '../models/content_route.dart';
 import '../models/sidebar_tag.dart';
 import '../models/topic.dart';
@@ -375,7 +376,7 @@ class TopicFeedMenu extends StatelessWidget {
       ),
       onPressed: () => onSelected(value),
       semanticLabel:
-          '${itemLabel(value)}${count > 0 ? ', $count topics' : ''}${selected == value ? ', selected' : ''}',
+          '${itemLabel(value)}${count > 0 ? ', ${countLabel(count, 'topic')}' : ''}${selected == value ? ', selected' : ''}',
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [

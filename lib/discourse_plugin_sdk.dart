@@ -40,6 +40,7 @@ export 'src/diagnostics/diagnostics_redactor.dart' show redactHomeDirectories;
 export 'src/diagnostics/diagnostics_scope.dart' show DiagnosticsScope;
 export 'src/diagnostics/topic_scroll_capture.dart';
 export 'src/foundation/calendar_day.dart';
+export 'src/foundation/count_label.dart';
 export 'src/foundation/diagnostic_errors.dart' show reportImageError;
 export 'src/foundation/frame_safe_notifier.dart'
     show FrameSafeNotifier, FrameSafeValueNotifier;

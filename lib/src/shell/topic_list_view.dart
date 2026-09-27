@@ -8,6 +8,7 @@ import 'package:super_sliver_list/super_sliver_list.dart';
 import '../app_shortcuts.dart';
 import '../diagnostics/diagnostics_scope.dart';
 import '../diagnostics/topic_scroll_capture.dart';
+import '../foundation/count_label.dart';
 import '../models/discourse_instance.dart';
 import '../models/topic.dart';
 import '../models/topic_feed.dart';
