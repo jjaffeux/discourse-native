@@ -82,6 +82,19 @@ class Ref<T extends Object> extends ChangeNotifier
   }
 }
 
+/// A held ref's place in its `(site, record type)` partition, linked in
+/// least-recently-used order so the partition's oldest ref is its first.
+final class _Slot extends LinkedListEntry<_Slot> {
+  _Slot(this.key, this.ref, this.lastUse);
+
+  final (String, Type, Object) key;
+  final Ref<Object> ref;
+
+  /// The store's use count at this ref's creation or last touch, which orders
+  /// the refs of different partitions by recency.
+  int lastUse;
+}
+
 class Store {
   Store({int? maxEntries, StorePolicy? policy})
     : assert(maxEntries == null || maxEntries > 0),
@@ -100,12 +113,16 @@ class Store {
 
   final StorePolicy? policy;
 
-  final LinkedHashMap<(String, Type, Object), Ref<Object>> _refs =
-      LinkedHashMap();
+  final LinkedHashMap<(String, Type, Object), _Slot> _refs = LinkedHashMap();
+
+  /// The same slots by site and record type. A store at capacity evicts for
+  /// every new record, so choosing a victim reads the head of each partition
+  /// rather than walking every held ref.
+  final Map<String, Map<Type, LinkedList<_Slot>>> _partitions = {};
+  int _uses = 0;
 
   final Map<(String, Type), int> _generations = {};
   final Map<String, int> _entriesBySite = {};
-  final Map<(String, Type), int> _entriesByPartition = {};
 
   int _evictions = 0;
   int _recordEvictions = 0;
@@ -125,22 +142,21 @@ class Store {
     final key = (siteUrl, T, id);
     final held = _refs[key];
     if (held != null) {
-      _touch(key, held);
-      return held as Ref<T>;
+      _touch(held);
+      return held.ref as Ref<T>;
     }
 
     final created = Ref<T>._(null);
-    _refs[key] = created;
-    _incrementCounts(key);
+    _hold(key, created);
     _trim(keep: key);
     return created;
   }
 
   T? read<T extends Storable<T>>(String siteUrl, Object id) {
-    final key = (siteUrl, T, id);
-    final cell = _refs[key] as Ref<T>?;
-    if (cell != null) _touch(key, cell);
-    return cell?.value;
+    final slot = _refs[(siteUrl, T, id)];
+    if (slot == null) return null;
+    _touch(slot);
+    return (slot.ref as Ref<T>).value;
   }
 
   /// Answers without changing least-recently-used order or allocating a ref.
@@ -148,7 +164,7 @@ class Store {
   /// Consumers which retain record IDs separately from this bounded store use
   /// this to validate that their window is still backed before reusing it.
   bool containsRecord<T extends Storable<T>>(String siteUrl, Object id) =>
-      (_refs[(siteUrl, T, id)] as Ref<T>?)?.value != null;
+      _refs[(siteUrl, T, id)]?.ref.value != null;
 
   T put<T extends Storable<T>>(String siteUrl, T record) {
     final cell = _cell<T>(siteUrl, record.storeId);
@@ -168,7 +184,7 @@ class Store {
     Object id,
     T Function(T held) change,
   ) {
-    final cell = _refs[(siteUrl, T, id)] as Ref<T>?;
+    final cell = _refs[(siteUrl, T, id)]?.ref as Ref<T>?;
     final held = cell?.value;
     if (cell == null || held == null) return;
     final next = change(held);
@@ -178,7 +194,7 @@ class Store {
 
   void remove<T extends Storable<T>>(String siteUrl, Object id) {
     final key = (siteUrl, T, id);
-    final cell = _refs[key] as Ref<T>?;
+    final cell = _refs[key]?.ref as Ref<T>?;
     if (cell?.value != null) _bump(siteUrl, T);
     cell?._set(null);
     if (cell != null && !cell._isObserved) _removeRef(key);
@@ -192,7 +208,7 @@ class Store {
     final ids = [
       for (final entry in _refs.entries)
         if (entry.key.$1 == siteUrl && entry.key.$2 == T)
-          if (entry.value.value case final T record)
+          if (entry.value.ref.value case final T record)
             if (matches(record)) entry.key.$3,
     ];
     for (final id in ids) {
@@ -200,9 +216,13 @@ class Store {
     }
   }
 
-  void _touch((String, Type, Object) key, Ref<Object> ref) {
-    _refs.remove(key);
-    _refs[key] = ref;
+  void _touch(_Slot slot) {
+    _refs.remove(slot.key);
+    _refs[slot.key] = slot;
+    final partition = slot.list!;
+    slot.unlink();
+    partition.add(slot);
+    slot.lastUse = ++_uses;
   }
 
   void _trim({required (String, Type, Object) keep}) {
@@ -230,80 +250,89 @@ class Store {
   int _siteLength(String siteUrl) => _entriesBySite[siteUrl] ?? 0;
 
   int _partitionLength(String siteUrl, Type type) =>
-      _entriesByPartition[(siteUrl, type)] ?? 0;
+      _partitions[siteUrl]?[type]?.length ?? 0;
 
   (String, Type, Object)? _oldestEvictable({
     required (String, Type, Object) keep,
-    String? siteUrl,
-    Type? type,
+    required String siteUrl,
+    required Type type,
+  }) => switch (_partitions[siteUrl]?[type]) {
+    null => null,
+    final partition => _oldestEvictableIn(partition, keep: keep)?.key,
+  };
+
+  /// Observed refs and `keep` are the only slots passed over.
+  _Slot? _oldestEvictableIn(
+    LinkedList<_Slot> partition, {
+    required (String, Type, Object) keep,
   }) {
-    for (final entry in _refs.entries) {
-      final key = entry.key;
-      if (key == keep || entry.value._isObserved) continue;
-      if (siteUrl != null && key.$1 != siteUrl) continue;
-      if (type != null && key.$2 != type) continue;
-      return key;
+    for (final slot in partition) {
+      if (slot.ref._isObserved || slot.key == keep) continue;
+      return slot;
     }
     return null;
   }
 
+  /// Takes the oldest candidate of the site's largest record-type partition.
   (String, Type, Object)? _fairTypeVictim({
     required (String, Type, Object) keep,
     required String siteUrl,
   }) {
-    final totals = <Type, int>{};
-    final candidates = <Type, (String, Type, Object)>{};
-    for (final entry in _refs.entries) {
-      final key = entry.key;
-      if (key.$1 != siteUrl) continue;
-      totals[key.$2] = (totals[key.$2] ?? 0) + 1;
-      if (key != keep &&
-          !entry.value._isObserved &&
-          !candidates.containsKey(key.$2)) {
-        candidates[key.$2] = key;
+    final types = _partitions[siteUrl];
+    if (types == null) return null;
+    _Slot? victim;
+    var victimShare = 0;
+    for (final partition in types.values) {
+      final candidate = _oldestEvictableIn(partition, keep: keep);
+      if (candidate == null) continue;
+      if (victim == null ||
+          _yieldsFirst(
+            partition.length,
+            candidate.lastUse,
+            victimShare,
+            victim.lastUse,
+          )) {
+        victim = candidate;
+        victimShare = partition.length;
       }
     }
-    return _largestPartitionCandidate(totals, candidates);
+    return victim?.key;
   }
 
+  /// Takes from the site holding the most refs, then from its largest
+  /// record-type partition.
   (String, Type, Object)? _fairSiteAndTypeVictim({
     required (String, Type, Object) keep,
   }) {
-    final totals = <String, int>{};
-    final oldestCandidates = <String, (String, Type, Object)>{};
-    for (final entry in _refs.entries) {
-      final key = entry.key;
-      totals[key.$1] = (totals[key.$1] ?? 0) + 1;
-      if (key != keep &&
-          !entry.value._isObserved &&
-          !oldestCandidates.containsKey(key.$1)) {
-        oldestCandidates[key.$1] = key;
+    String? victimSite;
+    var victimShare = 0;
+    var victimUse = 0;
+    for (final MapEntry(key: siteUrl, value: types) in _partitions.entries) {
+      int? oldestUse;
+      for (final partition in types.values) {
+        final use = _oldestEvictableIn(partition, keep: keep)?.lastUse;
+        if (use != null && (oldestUse == null || use < oldestUse)) {
+          oldestUse = use;
+        }
+      }
+      if (oldestUse == null) continue;
+      final share = _siteLength(siteUrl);
+      if (victimSite == null ||
+          _yieldsFirst(share, oldestUse, victimShare, victimUse)) {
+        victimSite = siteUrl;
+        victimShare = share;
+        victimUse = oldestUse;
       }
     }
-    final site = _largestCandidate(totals, oldestCandidates);
-    return site == null ? null : _fairTypeVictim(keep: keep, siteUrl: site);
+    return victimSite == null
+        ? null
+        : _fairTypeVictim(keep: keep, siteUrl: victimSite);
   }
 
-  (String, Type, Object)? _largestPartitionCandidate(
-    Map<Type, int> totals,
-    Map<Type, (String, Type, Object)> candidates,
-  ) {
-    final type = _largestCandidate(totals, candidates);
-    return type == null ? null : candidates[type];
-  }
-
-  K? _largestCandidate<K, V>(Map<K, int> totals, Map<K, V> candidates) {
-    K? largest;
-    var largestCount = -1;
-    for (final key in candidates.keys) {
-      final count = totals[key] ?? 0;
-      if (count > largestCount) {
-        largest = key;
-        largestCount = count;
-      }
-    }
-    return largest;
-  }
+  /// A larger share yields first; equal shares fall back to the
+  /// least-recently-used order of their oldest candidates.
+  static bool _yieldsFirst(int share, int use, int thanShare, int thanUse) =>
+      share > thanShare || (share == thanShare && use < thanUse);
 
   bool _evict((String, Type, Object)? key) {
     if (key == null) return false;
@@ -317,42 +346,38 @@ class Store {
     return true;
   }
 
-  void _incrementCounts((String, Type, Object) key) {
+  void _hold((String, Type, Object) key, Ref<Object> ref) {
+    final slot = _Slot(key, ref, ++_uses);
+    _refs[key] = slot;
+    ((_partitions[key.$1] ??= {})[key.$2] ??= LinkedList()).add(slot);
     _entriesBySite[key.$1] = (_entriesBySite[key.$1] ?? 0) + 1;
-    final partition = (key.$1, key.$2);
-    _entriesByPartition[partition] = (_entriesByPartition[partition] ?? 0) + 1;
   }
 
   Ref<Object>? _removeRef((String, Type, Object) key) {
     final removed = _refs.remove(key);
     if (removed == null) return null;
-    _decrementCounts(key);
-    return removed;
-  }
-
-  void _decrementCounts((String, Type, Object) key) {
+    final types = _partitions[key.$1]!;
+    final partition = removed.list!;
+    removed.unlink();
+    if (partition.isEmpty) types.remove(key.$2);
     final siteCount = _entriesBySite[key.$1]! - 1;
     if (siteCount == 0) {
       _entriesBySite.remove(key.$1);
+      _partitions.remove(key.$1);
     } else {
       _entriesBySite[key.$1] = siteCount;
     }
-    final partition = (key.$1, key.$2);
-    final partitionCount = _entriesByPartition[partition]! - 1;
-    if (partitionCount == 0) {
-      _entriesByPartition.remove(partition);
-    } else {
-      _entriesByPartition[partition] = partitionCount;
-    }
+    return removed.ref;
   }
 
   void forget(String siteUrl) {
     final _ = _generations.removeWhere((key, _) => key.$1 == siteUrl);
+    _entriesBySite.remove(siteUrl);
+    _partitions.remove(siteUrl);
     final forgotten = <Ref<Object>>[];
-    _refs.removeWhere((key, ref) {
+    _refs.removeWhere((key, slot) {
       if (key.$1 != siteUrl) return false;
-      forgotten.add(ref);
-      _decrementCounts(key);
+      forgotten.add(slot.ref);
       return true;
     });
     // Detach every ref before notifying. A listener may synchronously look up
@@ -369,9 +394,9 @@ class Store {
   StoreStatistics get statisticsForTesting {
     var records = 0;
     var observedEntries = 0;
-    for (final entry in _refs.entries) {
-      if (entry.value.value != null) records++;
-      if (entry.value._isObserved) observedEntries++;
+    for (final slot in _refs.values) {
+      if (slot.ref.value != null) records++;
+      if (slot.ref._isObserved) observedEntries++;
     }
     return StoreStatistics(
       entries: _refs.length,
@@ -382,8 +407,9 @@ class Store {
       policy: policy,
       entriesBySite: Map.unmodifiable(_entriesBySite),
       entriesByPartition: Map.unmodifiable({
-        for (final entry in _entriesByPartition.entries)
-          (siteUrl: entry.key.$1, type: entry.key.$2): entry.value,
+        for (final MapEntry(key: siteUrl, value: types) in _partitions.entries)
+          for (final MapEntry(key: type, value: partition) in types.entries)
+            (siteUrl: siteUrl, type: type): partition.length,
       }),
     );
   }
