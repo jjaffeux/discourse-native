@@ -55,17 +55,30 @@ final class DiscourseGetRequestKey {
 /// Bounds requests per origin and turns a site-wide 429 into a shared origin
 /// cooldown.
 ///
+/// Long transfers such as uploads run in their own lane. A photo on a slow
+/// uplink holds its connection for minutes, and in the ordinary lane a few of
+/// them would take every slot and queue topic opens, feed refreshes and draft
+/// saves behind whole files. Each lane has its own slots and its own backlog,
+/// so neither waits for the other's capacity; a site therefore sees at most
+/// [maxConcurrentPerOrigin] plus [maxConcurrentTransfersPerOrigin] connections
+/// from this coordinator. The lanes share only the server's request-wide
+/// cooldown. They stay independent only while the HTTP client opens a
+/// connection per admitted request: dart:io's `maxConnectionsPerHost` is left
+/// unset, and a per-host cap there would queue both lanes together again.
+///
 /// This coordinator deliberately does not retry. A queued operation is sent
 /// once when capacity and the server's cooldown allow it; an operation that
 /// already received a response remains the caller's result.
 final class DiscourseRequestCoordinator {
   DiscourseRequestCoordinator({
     this.maxConcurrentPerOrigin = 4,
+    this.maxConcurrentTransfersPerOrigin = 2,
     this.maxQueuedPerOrigin = 64,
     this.defaultRateLimitCooldown = const Duration(seconds: 15),
     DateTime Function()? clock,
     OriginCooldown Function()? cooldownFactory,
   }) : assert(maxConcurrentPerOrigin > 0),
+       assert(maxConcurrentTransfersPerOrigin > 0),
        assert(maxQueuedPerOrigin > 0),
        assert(defaultRateLimitCooldown >= Duration.zero),
        _clock = clock ?? DateTime.now,
@@ -74,36 +87,53 @@ final class DiscourseRequestCoordinator {
          maxQueuedPerOrigin: maxQueuedPerOrigin,
          cooldownPolicy: OriginRequestCooldownPolicy.wait,
          cooldownFactory: cooldownFactory,
+       ),
+       _transfers = OriginRequestGate(
+         maxConcurrentPerOrigin: maxConcurrentTransfersPerOrigin,
+         maxQueuedPerOrigin: maxQueuedPerOrigin,
+         cooldownPolicy: OriginRequestCooldownPolicy.wait,
+         cooldownFactory: cooldownFactory,
        );
 
   final int maxConcurrentPerOrigin;
 
+  /// Uploads share one uplink, so more parallel transfers only divide it;
+  /// this cap keeps a large batch from opening a connection per file.
+  final int maxConcurrentTransfersPerOrigin;
+
   /// A slow or rate-limited site must not let refreshes and navigation retain
   /// an unlimited number of request closures, bodies, and completers. Active
-  /// requests do not count toward this backlog limit.
+  /// requests do not count toward this backlog limit, and each lane keeps its
+  /// own backlog of this size.
   final int maxQueuedPerOrigin;
   final Duration defaultRateLimitCooldown;
   final DateTime Function() _clock;
 
   final OriginRequestGate _gate;
+  final OriginRequestGate _transfers;
   final Map<DiscourseGetRequestKey, Future<http.Response>> _gets = {};
 
+  /// [transfer] routes a request whose body or response takes minutes to move
+  /// into the transfer lane. Transfers are never shared, so [coalesce] is not
+  /// accepted with it.
   Future<http.Response> run(
     Uri url,
     Future<http.Response> Function() send, {
     DiscourseGetRequestKey? coalesce,
     Future<void>? abortTrigger,
+    bool transfer = false,
   }) {
+    assert(!transfer || coalesce == null);
     if (_gate.isClosed) {
       return Future.error(StateError('Request coordinator is closed.'));
     }
 
-    if (coalesce case final key? when abortTrigger == null) {
+    if (coalesce case final key? when abortTrigger == null && !transfer) {
       final active = _gets[key];
       if (active != null) return active;
 
       late final Future<http.Response> request;
-      request = _enqueue(url, send).whenComplete(() {
+      request = _enqueue(_gate, url, send).whenComplete(() {
         if (identical(_gets[key], request)) {
           final removed = _gets.remove(key);
           assert(identical(removed, request));
@@ -113,21 +143,33 @@ final class DiscourseRequestCoordinator {
       return request;
     }
 
-    return _enqueue(url, send, abortTrigger: abortTrigger);
+    return _enqueue(
+      transfer ? _transfers : _gate,
+      url,
+      send,
+      abortTrigger: abortTrigger,
+    );
   }
 
   Future<http.Response> _enqueue(
+    OriginRequestGate lane,
     Uri url,
     Future<http.Response> Function() send, {
     Future<void>? abortTrigger,
   }) => _translateGateErrors(
-    _gate.run(url, (lease) async {
+    lane.run(url, (lease) async {
       final response = await send();
       if (response.statusCode == 429 && _pausesOrigin(response)) {
         final delay =
             explicitRetryAfter(response, now: _clock()) ??
             defaultRateLimitCooldown;
         lease.extendCooldown(delay);
+        // A request-wide limiter counts the site's requests whichever lane
+        // sent them, so the other lane must wait out the same delay.
+        (identical(lane, _gate) ? _transfers : _gate).extendCooldown(
+          url,
+          delay,
+        );
       }
       return response;
     }, abortTrigger: abortTrigger),
@@ -148,6 +190,7 @@ final class DiscourseRequestCoordinator {
 
   void close() {
     _gate.close();
+    _transfers.close();
     _gets.clear();
   }
 

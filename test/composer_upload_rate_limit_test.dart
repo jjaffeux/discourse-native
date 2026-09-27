@@ -299,13 +299,19 @@ void main() {
   );
 
   testWidgets(
-    'cancelling an upload queued behind a busy origin settles it unsent',
+    'cancelling an upload queued behind other uploads settles it unsent',
     (tester) async {
       final client = _InFlightClient();
-      final transport = _transport(tester, client, maxConcurrentPerOrigin: 1);
-      final api = DiscourseApi(transport: transport);
+      final api = DiscourseApi(
+        transport: _transport(
+          tester,
+          client,
+          maxConcurrentTransfersPerOrigin: 1,
+        ),
+      );
       addTearDown(api.close);
-      final read = _holdSlot(transport);
+      final releaseSlot = Completer<void>();
+      final held = _holdTransferSlot(api, releaseSlot.future);
       final abort = Completer<void>();
       Object? failure;
       unawaited(
@@ -315,16 +321,16 @@ void main() {
         ).then<void>((_) {}, onError: (Object error) => failure = error),
       );
       await tester.pump();
-      expect(client.sent, ['GET /latest.json']);
+      expect(client.sent, ['POST /uploads.json']);
 
       abort.complete();
       await tester.pump();
       expect(failure, _uploadError('Upload cancelled.'));
 
-      client.release.complete(_emptyObject());
+      releaseSlot.complete();
       await tester.pump();
-      expect((await read).statusCode, 200);
-      expect(client.sent, ['GET /latest.json']);
+      expect(await held, _uploadError('Upload cancelled.'));
+      expect(client.sent, ['POST /uploads.json']);
     },
   );
 
@@ -332,10 +338,12 @@ void main() {
     tester,
   ) async {
     final client = _InFlightClient();
-    final transport = _transport(tester, client, maxConcurrentPerOrigin: 1);
-    final api = DiscourseApi(transport: transport);
+    final api = DiscourseApi(
+      transport: _transport(tester, client, maxConcurrentTransfersPerOrigin: 1),
+    );
     addTearDown(api.close);
-    final read = _holdSlot(transport);
+    final releaseSlot = Completer<void>();
+    final held = _holdTransferSlot(api, releaseSlot.future);
     Object? failure;
     unawaited(
       _upload(
@@ -344,20 +352,47 @@ void main() {
     );
     await tester.pump();
     await tester.pump(const Duration(minutes: 4));
-    expect(client.sent, ['GET /latest.json']);
+    expect(client.sent, ['POST /uploads.json']);
 
-    client.release.complete(_emptyObject());
+    releaseSlot.complete();
     await tester.pump();
-    expect((await read).statusCode, 200);
-    expect(client.sent, ['GET /latest.json', 'POST /uploads.json']);
+    expect(await held, _uploadError('Upload cancelled.'));
+    expect(client.sent, ['POST /uploads.json', 'POST /uploads.json']);
+    expect(client.aborted, ['POST /uploads.json']);
 
     await tester.pump(const Duration(minutes: 5) - const Duration(seconds: 1));
     expect(failure, isNull);
-    expect(client.aborted, isEmpty);
+    expect(client.aborted, hasLength(1));
 
     await tester.pump(const Duration(seconds: 1));
     expect(failure, _uploadError("Couldn't upload photo.png."));
-    expect(client.aborted, ['POST /uploads.json']);
+    expect(client.aborted, hasLength(2));
+  });
+
+  testWidgets('an upload does not wait for reads that fill the origin', (
+    tester,
+  ) async {
+    final client = _InFlightClient();
+    final transport = _transport(tester, client, maxConcurrentPerOrigin: 1);
+    final api = DiscourseApi(transport: transport);
+    addTearDown(api.close);
+    final read = _holdSlot(transport);
+    final abort = Completer<void>();
+    Object? failure;
+    unawaited(
+      _upload(
+        api,
+        abortTrigger: abort.future,
+      ).then<void>((_) {}, onError: (Object error) => failure = error),
+    );
+    await tester.pump();
+    expect(client.sent, ['GET /latest.json', 'POST /uploads.json']);
+
+    abort.complete();
+    client.release.complete(_emptyObject());
+    await tester.pump();
+    expect(failure, _uploadError('Upload cancelled.'));
+    expect((await read).statusCode, 200);
   });
 
   testWidgets(
@@ -395,6 +430,7 @@ DiscourseTransport _transport(
   WidgetTester tester,
   http.Client client, {
   int maxConcurrentPerOrigin = 4,
+  int maxConcurrentTransfersPerOrigin = 2,
 }) {
   final start = tester.binding.clock.now();
   return DiscourseTransport(
@@ -403,6 +439,7 @@ DiscourseTransport _transport(
     1024 * 1024,
     coordinator: DiscourseRequestCoordinator(
       maxConcurrentPerOrigin: maxConcurrentPerOrigin,
+      maxConcurrentTransfersPerOrigin: maxConcurrentTransfersPerOrigin,
       clock: tester.binding.clock.now,
       cooldownFactory: () => OriginCooldown(
         clock: () => tester.binding.clock.now().difference(start),
@@ -429,6 +466,14 @@ Future<http.Response> _holdSlot(DiscourseTransport transport) => transport.get(
   siteUrl: 'https://example.com',
   requestTimeout: const Duration(hours: 1),
 );
+
+/// An upload that holds a transfer slot until [release] cancels it, completing
+/// with that cancellation.
+Future<Object?> _holdTransferSlot(DiscourseApi api, Future<void> release) =>
+    _upload(
+      api,
+      abortTrigger: release,
+    ).then<Object?>((_) => null, onError: (Object error) => error);
 
 Matcher _uploadError(String message) => isA<ComposerUploadException>().having(
   (error) => error.message,
