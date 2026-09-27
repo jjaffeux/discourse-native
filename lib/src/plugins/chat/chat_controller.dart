@@ -473,7 +473,7 @@ class ChatController extends FrameSafeNotifier {
           final write = _channelSettingsWrites[_streamKey(siteUrl, channelId)];
           write?.receivedStatus = true;
         },
-        putMessage: (siteUrl, message) => _store.put(siteUrl, message),
+        putMessage: _putMessage,
         putLiveMessage: (siteUrl, message, preservePersonalizedState) =>
             _putLiveMessage(
               siteUrl,
@@ -3975,6 +3975,14 @@ class ChatController extends FrameSafeNotifier {
     return (ids: seam.ids, stragglers: seam.admittedPending);
   }
 
+  void _putMessage(String siteUrl, ChatMessage message) {
+    final previous = _store.read<ChatMessage>(siteUrl, message.id);
+    _store.put(siteUrl, message);
+    if (previous?.thread?.threadId != message.thread?.threadId) {
+      _bumpStreamsHolding(siteUrl, message.id);
+    }
+  }
+
   /// Invalidates ID-keyed projections when a live record changes rendered shape.
   void _putLiveMessage(
     String siteUrl,
@@ -3998,7 +4006,8 @@ class ChatController extends FrameSafeNotifier {
     _updateChannelMessagePreview(siteUrl, effective);
     if (replaced != null &&
         (replaced.isDeleted != effective.isDeleted ||
-            replaced.pinned != effective.pinned)) {
+            replaced.pinned != effective.pinned ||
+            replaced.thread?.threadId != effective.thread?.threadId)) {
       _bumpStreamsHolding(siteUrl, message.id);
     }
   }
@@ -5674,7 +5683,7 @@ class ChatController extends FrameSafeNotifier {
     if (originalId == null || preview == null) return;
     final original = _store.read<ChatMessage>(siteUrl, originalId);
     if (original == null || original.channelId != detail.channelId) return;
-    _store.put(siteUrl, original.withThreadPreview(preview));
+    _putMessage(siteUrl, original.withThreadPreview(preview));
   }
 
   Future<ChatThread?> createThread(
@@ -5734,7 +5743,7 @@ class ChatController extends FrameSafeNotifier {
         }
         final original = _store.read<ChatMessage>(siteUrl, originalMessageId);
         if (original != null && created.preview != null) {
-          _store.put(siteUrl, original.withThreadPreview(created.preview));
+          _putMessage(siteUrl, original.withThreadPreview(created.preview));
         }
         notifySafely();
       });

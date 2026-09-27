@@ -55,7 +55,11 @@ void main() {
 
   testWidgets('opening a channel focuses its composer', (tester) async {
     final controller = await _controller(
-      _ChatApi(openPages: {firstSite: [_messagesPage(1, 1)]}),
+      _ChatApi(
+        openPages: {
+          firstSite: [_messagesPage(1, 1)],
+        },
+      ),
       sites: const [firstSite],
     );
     addTearDown(controller.dispose);
@@ -953,6 +957,10 @@ void main() {
             controller.chat.stream(firstSite, 9).messageIds.last,
             window + 1,
           );
+          expect(
+            find.text('${window + 1} messages', findRichText: true),
+            findsOneWidget,
+          );
           return reads.count;
         } finally {
           await tester.pumpWidget(const SizedBox.shrink());
@@ -1338,7 +1346,10 @@ void main() {
         await wheel(-20);
         expect(tester.getBottomLeft(bar).dy, closeTo(hiddenBottom + 20, 1));
         expect(bar.hitTestable(), findsNothing);
-        await wheel(-80);
+        final headerHeight = tester
+            .getSize(find.byKey(const ValueKey('chat-channel-header')))
+            .height;
+        await wheel(-headerHeight - tester.getSize(bar).height);
         expect(bar.hitTestable(), findsOneWidget);
         await wheel(2000);
         expect(position.pixels, 0);
@@ -1852,6 +1863,42 @@ void main() {
   });
 
   group('live updates and mounted presentation', () {
+    testWidgets('header thread counts follow live thread creation', (
+      tester,
+    ) async {
+      final controller = await _controller(
+        _ChatApi(
+          openPages: {
+            firstSite: [_messagesPage(1, 2)],
+          },
+        ),
+        sites: const [firstSite],
+      );
+      addTearDown(controller.dispose);
+      controller.chatRecords.put(firstSite, _channel(lastRead: 2));
+      await tester.pumpWidget(_TestView(controller: controller));
+      await tester.pumpAndSettle();
+      expect(find.text('2 messages', findRichText: true), findsOneWidget);
+      expect(find.text('1 thread', findRichText: true), findsNothing);
+      final tracker = FakeSiteTracker.built.singleWhere(
+        (tracker) => tracker.siteUrl == firstSite,
+      );
+      void update(int replies) => tracker.deliverPluginMessage('/chat/9', {
+        'type': 'update_thread_original_message',
+        'original_message_id': 1,
+        'thread_id': 3,
+        'preview': {'reply_count': replies},
+      });
+      update(1);
+      await tester.pump();
+      expect(find.text('1 thread', findRichText: true), findsOneWidget);
+      final revision = controller.chat.stream(firstSite, 9).revision;
+      update(2);
+      await tester.pump();
+      expect(find.text('1 thread', findRichText: true), findsOneWidget);
+      expect(controller.chat.stream(firstSite, 9).revision, revision);
+    });
+
     for (final deletedCount in [1, 2]) {
       testWidgets(
         'reading a DM ending in $deletedCount deleted messages clears its unread badge',
@@ -2180,6 +2227,8 @@ void main() {
         'deleted_at': '2026-05-05T11:00:00.000Z',
       });
       await tester.pump();
+
+      expect(find.text('2 messages', findRichText: true), findsOneWidget);
 
       expect(
         find.textContaining('Message 2', findRichText: true),
