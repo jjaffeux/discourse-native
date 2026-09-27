@@ -145,6 +145,40 @@ void main() {
   );
 
   test(
+    'reader changes follow the timezone and account, never an event load or write',
+    () async {
+      final handle = ports.controller.acquire(
+        eventSite,
+        PostEvent.decode(current)!,
+      );
+      var readerChanges = 0;
+      var controllerChanges = 0;
+      ports.controller.readerChanges.addListener(() => readerChanges++);
+      ports.controller.addListener(() => controllerChanges++);
+
+      await handle.refresh();
+      ports.transport.responders[create] = (_) {
+        current = eventJson(overrides: {'watching_invitee': watching()});
+        return {'invitee': watching()};
+      };
+      await handle.respond('going');
+      expect(handle.event!.watching!.status, 'going');
+      expect(ports.transport.writes, hasLength(1));
+      expect(readerChanges, 0);
+      expect(controllerChanges, isPositive);
+
+      ports.environment.setDeviceTimezone('Asia/Tokyo');
+      expect(readerChanges, 1);
+      ports.controller.pluginCurrentUserRefreshed(eventSite);
+      expect(readerChanges, 2);
+      await handle.refresh();
+      ports.controller.forget(eventSite);
+      expect(readerChanges, 3);
+      handle.dispose();
+    },
+  );
+
+  test(
     'same numeric event on different sites never shares personalized state',
     () async {
       ports.transport.responders[read] = (r) => {
