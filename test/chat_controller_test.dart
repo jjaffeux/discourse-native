@@ -10,7 +10,10 @@ import 'package:discourse_native/src/data/store.dart';
 import 'package:discourse_native/src/models/bookmark.dart';
 import 'package:discourse_native/src/models/composer_upload.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
+import 'package:discourse_native/src/models/notification_type_counts.dart';
 import 'package:discourse_native/src/models/post_flag.dart';
+import 'package:discourse_native/src/models/sidebar_tag.dart';
+import 'package:discourse_native/src/models/user_status.dart';
 import 'package:discourse_native/src/plugin_api/plugin_data.dart';
 import 'package:discourse_native/src/plugin_api/plugin_manifest.dart';
 import 'package:discourse_native/src/plugins/chat/chat_api.dart';
@@ -5790,6 +5793,169 @@ void main() {
       expect(await subject.chat.rebakeMessage(site, 12), isNotNull);
       expect(subject.store.read<ChatMessage>(site, 12), same(held));
     });
+  });
+
+  group('the account fields the permission checks read', () {
+    test('change with the reader and staff, not the rest of the account', () {
+      for (final unrelated in [
+        currentUser.withDraftCount(4),
+        currentUser.withStatus(
+          const UserStatus(description: 'In a meeting', emoji: 'calendar'),
+        ),
+        currentUser.withDoNotDisturbUntil(DateTime.utc(2026, 9, 1)),
+        currentUser.withHidePresence(true),
+      ]) {
+        expect(unrelated, isNot(currentUser));
+        expect(unrelated.chatAccountAccess, currentUser.chatAccountAccess);
+      }
+
+      for (final changed in [
+        const DiscourseUser(id: 8, username: 'reader'),
+        const DiscourseUser(id: 7, username: 'reader', staff: true),
+        // Restored from a snapshot that predates stored account ids.
+        const DiscourseUser(username: 'reader'),
+      ]) {
+        expect(changed.chatAccountAccess, isNot(currentUser.chatAccountAccess));
+      }
+    });
+
+    for (final staff in [false, true]) {
+      test(
+        'decide every check, whatever the rest of the account (staff: $staff)',
+        () {
+          final reader = DiscourseUser(id: 7, username: 'reader', staff: staff);
+          // Differs from the reader in every other core field.
+          final lookalike = DiscourseUser(
+            id: 7,
+            username: 'lookalike',
+            name: 'Lookalike',
+            avatarUrl: '$site/lookalike.png',
+            status: const UserStatus(description: 'Away', emoji: 'palm_tree'),
+            draftCount: 3,
+            canCreateTopic: true,
+            canCreateGroup: true,
+            canChangePostOwner: true,
+            admin: true,
+            staff: staff,
+            whisperer: true,
+            canSendPrivateMessages: true,
+            canInviteToForum: true,
+            canReview: true,
+            groups: const ['trust_level_4'],
+            messageGroupNames: const ['moderators'],
+            sidebarCategoryIds: const [9],
+            sidebarTags: const [SidebarTag(id: 1, name: 'bug', slug: 'bug')],
+            displaySidebarTags: true,
+            unifiedNewEnabled: true,
+            sidebarShowCountOfNewItems: true,
+            likesNotificationsDisabled: true,
+            trackedCategoryIds: const [9],
+            watchedCategoryIds: const [9],
+            watchedFirstPostCategoryIds: const [9],
+            mutedCategoryIds: const [9],
+            indirectlyMutedCategoryIds: const [9],
+            doNotDisturbUntil: DateTime.utc(2026, 9, 1),
+            doNotDisturbChannelPosition: 3,
+            groupedUnreadNotifications: NotificationTypeCounts.empty,
+            timezone: 'Europe/Paris',
+            hidePresence: true,
+            bookmarkAutoDeletePreference: BookmarkAutoDeletePreference.never,
+          );
+          expect(lookalike.chatAccountAccess, reader.chatAccountAccess);
+
+          final checked = [
+            message(1, authorId: 7),
+            message(2, availableFlags: const ['spam']),
+            message(
+              3,
+              authorId: 7,
+              deletedAt: DateTime.utc(2026),
+              deletedById: 7,
+            ),
+            message(4, deletedAt: DateTime.utc(2026), deletedById: 7),
+            message(5, deletedAt: DateTime.utc(2026), deletedById: 2),
+          ];
+          final channels = [
+            channel(9),
+            channel(9, following: false),
+            channel(
+              9,
+              canModerate: true,
+              canDeleteSelf: true,
+              canDeleteOthers: true,
+              canManagePins: true,
+              canFlag: true,
+            ),
+            channel(
+              9,
+              status: ChatChannelStatus.closed,
+              canDeleteSelf: true,
+              canFlag: true,
+            ),
+            channel(9, status: ChatChannelStatus.readOnly),
+          ];
+          final threads = [
+            for (final authorId in [7, 2])
+              ChatThread(
+                id: 3,
+                channelId: 9,
+                status: 'open',
+                replyCount: 1,
+                originalMessage: ChatThreadOriginalMessage(
+                  id: 1,
+                  channelId: 9,
+                  author: ChatMessageAuthor(id: authorId, username: 'sam'),
+                ),
+              ),
+          ];
+          List<bool> answersFor(DiscourseUser? user) {
+            final subject = build(currentUser: user);
+            addTearDown(subject.chat.dispose);
+            final chat = subject.chat;
+            for (final held in checked) {
+              subject.store.put(site, held);
+            }
+            final answers = <bool>[];
+            for (final held in channels) {
+              subject.store.put(site, held);
+              answers.addAll([
+                for (final message in checked) ...[
+                  chat.canBookmarkMessage(site, message),
+                  chat.canEditMessage(site, message),
+                  chat.canDeleteMessage(site, message),
+                  chat.canRestoreMessage(site, message),
+                  chat.canPinMessage(site, message),
+                  chat.canRebakeMessage(site, message),
+                  chat.canFlagMessage(site, message),
+                  chat.canAddReactionToMessage(site, message),
+                  chat.canReplyToMessage(site, message),
+                  chat.canRemoveReactionFromMessage(site, message),
+                ],
+                chat.canSendMessage(site, 9),
+                chat.canDeleteMessages(site, 9, const [1, 2]),
+                chat.canMoveMessages(site, 9, const [1, 2]),
+                chat.canEditChannelMetadata(site, 9),
+                chat.canChangeChannelStatus(site, 9),
+                for (final thread in threads)
+                  chat.canEditThreadTitle(site, thread),
+              ]);
+            }
+            return answers;
+          }
+
+          final answers = answersFor(reader);
+          expect(answersFor(lookalike), answers);
+          // The checks do read each of those fields.
+          for (final changed in [
+            null,
+            DiscourseUser(id: 8, username: 'reader', staff: staff),
+            DiscourseUser(id: 7, username: 'reader', staff: !staff),
+          ]) {
+            expect(answersFor(changed), isNot(answers));
+          }
+        },
+      );
+    }
   });
 
   group('generating a selected-message transcript', () {

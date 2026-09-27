@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/data/media_pipeline.dart';
 import 'package:discourse_native/src/data/site_image_repository.dart';
@@ -46,6 +48,7 @@ Future<ShellController> chatScrollController({
   bool rich = false,
   Uint8List? animatedBytes,
   DiscourseUser? reader,
+  Completer<DiscourseUser>? sessionUser,
 }) async {
   final imageBytes =
       animatedBytes ??
@@ -54,7 +57,8 @@ Future<ShellController> chatScrollController({
               'packages/discourse_native/src/styleguide/assets/item/model-lg.jpg',
             )).buffer.asUint8List()
           : null);
-  final api = FakeDiscourseApi(
+  final api = _ChatScrollApi(
+    sessionUser: sessionUser,
     user: const DiscourseUser(id: 1, username: 'reader1'),
     chatMessagesByKey: {
       '9': (
@@ -153,6 +157,23 @@ Future<ShellController> chatScrollController({
   );
   await controller.chat.openChannel(chatScrollSite, 9);
   return controller;
+}
+
+final class _ChatScrollApi extends FakeDiscourseApi {
+  _ChatScrollApi({this.sessionUser, super.user, super.chatMessagesByKey});
+
+  /// Answers the session's account refresh when completed; until then the
+  /// stored account stays current.
+  final Completer<DiscourseUser>? sessionUser;
+
+  @override
+  Future<DiscourseUser> currentUser({
+    required String siteUrl,
+    required String apiKey,
+    String? clientId,
+  }) =>
+      sessionUser?.future ??
+      super.currentUser(siteUrl: siteUrl, apiKey: apiKey, clientId: clientId);
 }
 
 /// Unique URLs force real image loading/decoding on the outward pass, then

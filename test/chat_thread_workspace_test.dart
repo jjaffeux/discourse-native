@@ -468,6 +468,57 @@ void main() {
     );
 
     testWidgets(
+      'account changes rows do not read keep held messages at $width pixels',
+      (tester) async {
+        final fixture = await _fixture(
+          channelPage: _workspaceMessagesPage(1),
+          threadPage: _workspaceMessagesPage(101, threadId: _threadId),
+        );
+        addTearDown(fixture.shell.dispose);
+        await _pumpWorkspace(tester, fixture.shell, width: width);
+        final held = find
+            .byType(CookedHtml, skipOffstage: false)
+            .evaluate()
+            .toSet();
+        expect(
+          find.descendant(
+            of: find.byType(ChatThreadView),
+            matching: find.byType(CookedHtml, skipOffstage: false),
+          ),
+          findsAtLeastNWidgets(10),
+        );
+        final shell = fixture.shell.pluginSession.require(chatShellService);
+        var shellChanges = 0;
+        void countShellChange() => shellChanges++;
+        shell.addListener(countShellChange);
+        addTearDown(() => shell.removeListener(countShellChange));
+        final tracker = FakeSiteTracker.built.lastWhere(
+          (tracker) => tracker.siteUrl == _siteUrl,
+        );
+        final rebuilt = _recordMessageRebuilds();
+
+        // Each replaces the account record the rows' permission checks read.
+        tracker.deliverPluginMessage('/user-drafts/7', const {
+          'draft_count': 4,
+        });
+        await tester.pumpAndSettle();
+        tracker.deliverPluginMessage('/user-status', const {
+          '7': {'description': 'In a meeting', 'emoji': 'calendar'},
+        });
+        await tester.pumpAndSettle();
+
+        expect(shell.currentUser?.draftCount, 4);
+        expect(shell.currentUser?.status?.description, 'In a meeting');
+        expect(shellChanges, 2);
+        expect(rebuilt, isEmpty);
+        expect(
+          find.byType(CookedHtml, skipOffstage: false).evaluate().toSet(),
+          held,
+        );
+      },
+    );
+
+    testWidgets(
       'the thread pane follows the site settings and account at $width pixels',
       (tester) async {
         final siteConfigGate = Completer<void>();
@@ -519,8 +570,12 @@ void main() {
             ),
         };
         expect(gap, findsNothing);
+        final split = find.byType(ChatChannelView).evaluate().isNotEmpty;
+        expect(split, width >= 1440);
         expect(actionsOf(202), contains('Copy link'));
         expect(actionsOf(202), isNot(contains('Rebuild HTML')));
+        if (split) expect(actionsOf(10), isNot(contains('Rebuild HTML')));
+        expect(find.byTooltip('Thread settings'), findsNothing);
 
         // The site's settings arrive after the restored thread has drawn
         // with the defaults.
@@ -539,6 +594,8 @@ void main() {
         );
         await tester.pumpAndSettle();
         expect(actionsOf(202), contains('Rebuild HTML'));
+        if (split) expect(actionsOf(10), contains('Rebuild HTML'));
+        expect(find.byTooltip('Thread settings'), findsOneWidget);
       },
     );
   }
