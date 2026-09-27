@@ -531,34 +531,39 @@ void main() {
       );
       final globalCaret = caret.shift(render.localToGlobal(Offset.zero));
 
-      expect(globalCaret.top - galleryRect.bottom, inInclusiveRange(-8, 32));
-      expect(
-        render.getPositionForPoint(render.localToGlobal(caret.center)).offset,
-        gallery.end,
+      // A terminal gallery has no trailing caret line: its end caret sits
+      // beside the gallery on the same line.
+      _expectSameLineEndCaret(globalCaret, galleryRect);
+      final besideGallery = render.localToGlobal(caret.center);
+      _expectGalleryEndOffset(
+        render.getPositionForPoint(besideGallery).offset,
+        gallery,
       );
       expect(render.plainText.length, source.length);
 
-      final editableRect = tester.getRect(find.byType(EditableText));
-      final belowGallery = Offset(
-        galleryRect.left + 24,
-        editableRect.bottom - 24,
-      );
       expect(
-        tester.getRect(find.byType(EditableText)).contains(belowGallery),
+        tester.getRect(find.byType(EditableText)).contains(besideGallery),
         isTrue,
       );
       expect(
-        composer.text.collapsedGalleryAtGlobalPosition(belowGallery),
+        composer.text.collapsedGalleryAtGlobalPosition(besideGallery),
         isNull,
       );
 
-      await tester.tapAt(belowGallery);
+      composer.text.selection = TextSelection.collapsed(offset: gallery.start);
+      await tester.pump();
+      await tester.tapAt(besideGallery);
       await tester.pump();
       await tester.pump();
 
-      expect(
-        composer.text.selection,
-        TextSelection.collapsed(offset: gallery.end),
+      final tapped = composer.text.selection;
+      expect(tapped.isCollapsed, isTrue);
+      _expectGalleryEndOffset(tapped.extentOffset, gallery);
+      _expectSameLineEndCaret(
+        render
+            .getLocalRectForCaret(tapped.extent)
+            .shift(render.localToGlobal(Offset.zero)),
+        galleryRect,
       );
       expect(
         find.byKey(const ValueKey('composer-gallery-toolbar')),
@@ -619,7 +624,7 @@ void main() {
         TextPosition(offset: gallery.end),
       );
       final globalCaret = caret.shift(render.localToGlobal(Offset.zero));
-      expect(globalCaret.top - galleryRect.bottom, inInclusiveRange(-8, 32));
+      _expectSameLineEndCaret(globalCaret, galleryRect);
 
       final context = tester.element(editable);
       final style = tester.widget<EditableText>(editable).style;
@@ -640,7 +645,7 @@ void main() {
       );
       expect(after, isNot(same(before)));
 
-      // Keep the trailing caret line visible after the layout is rebuilt.
+      // Keep the end caret visible after the layout is rebuilt.
       tester
           .state<EditableTextState>(editable)
           .bringIntoView(TextPosition(offset: gallery.end));
@@ -648,25 +653,23 @@ void main() {
       final trailingCaret = render.getLocalRectForCaret(
         TextPosition(offset: gallery.end),
       );
-      final belowGallery = render.localToGlobal(trailingCaret.center);
-      await tester.tapAt(belowGallery);
+      final besideGallery = render.localToGlobal(trailingCaret.center);
+      composer.text.selection = TextSelection.collapsed(offset: gallery.start);
+      await tester.pump();
+      await tester.tapAt(besideGallery);
       await tester.pump();
       await tester.pump();
 
-      expect(
-        composer.text.selection,
-        TextSelection.collapsed(offset: gallery.end),
-      );
-      final caretAfterTap = render.getLocalRectForCaret(
-        TextPosition(offset: gallery.end),
-      );
+      final tapped = composer.text.selection;
+      expect(tapped.isCollapsed, isTrue);
+      _expectGalleryEndOffset(tapped.extentOffset, gallery);
+      final caretAfterTap = render.getLocalRectForCaret(tapped.extent);
       final globalCaretAfterTap = caretAfterTap.shift(
         render.localToGlobal(Offset.zero),
       );
-      expect(
-        globalCaretAfterTap.top -
-            tester.getRect(find.byType(ComposerImageGalleryPreview)).bottom,
-        inInclusiveRange(-8, 32),
+      _expectSameLineEndCaret(
+        globalCaretAfterTap,
+        tester.getRect(find.byType(ComposerImageGalleryPreview)),
       );
       expect(
         find.byKey(const ValueKey('composer-gallery-toolbar')),
@@ -1156,9 +1159,10 @@ void main() {
       final beforeEnter = composer.text.value;
       await tester.sendKeyEvent(LogicalKeyboardKey.enter);
       await tester.pump();
+      // Enter starts a separated paragraph before the selected component.
       expect(
         composer.text.text,
-        beforeEnter.text.replaceRange(gallery.start, gallery.start, '\n'),
+        beforeEnter.text.replaceRange(gallery.start, gallery.start, '\n\n'),
       );
       expect(composer.text.selection.extentOffset, gallery.start);
       expect(composer.text.keyboardSelectedProjection, isNull);
@@ -1356,9 +1360,10 @@ void main() {
           expect(composer.text.keyboardSelectedProjection, isNotNull);
           await tester.sendKeyEvent(LogicalKeyboardKey.numpadEnter);
           await tester.pump();
+          // Enter starts a separated paragraph before the selected component.
           expect(
             composer.text.text,
-            source.replaceRange(gallery.start, gallery.start, '\n'),
+            source.replaceRange(gallery.start, gallery.start, '\n\n'),
           );
           expect(composer.text.selection.extentOffset, gallery.start);
           expect(_composerEditable(tester).showCursor, isTrue);
@@ -1819,6 +1824,20 @@ EditableText _composerEditable(WidgetTester tester) =>
         ),
       ),
     );
+
+/// The end caret of a terminal gallery is painted beside it, not below it.
+void _expectSameLineEndCaret(Rect caret, Rect gallery) {
+  expect(caret.left, closeTo(gallery.right, 1));
+  expect(caret.top, lessThanOrEqualTo(gallery.bottom));
+  expect(caret.bottom, greaterThanOrEqualTo(gallery.top));
+}
+
+/// Flutter may resolve a point beside a collapsed gallery to any of its
+/// layout-neutral source offsets. Each paints at the gallery's end, and
+/// [ComposerImageGalleryInputFormatter] places text typed there after it.
+void _expectGalleryEndOffset(int offset, ComposerImageGalleryBlock gallery) {
+  expect(offset, inInclusiveRange(gallery.start + 1, gallery.end));
+}
 
 const _target = ComposerTarget(
   siteUrl: 'https://meta.discourse.org',
