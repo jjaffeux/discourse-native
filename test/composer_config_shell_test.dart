@@ -164,6 +164,58 @@ void main() {
       }
     });
   });
+
+  test(
+    'each upload carries the size limit the site validator applies',
+    () async {
+      const settings = {
+        'authorized_extensions': 'png|mp4',
+        'max_image_size_kb': 5120,
+        'max_attachment_size_kb': 20480,
+      };
+      for (final (staff, place, name, limit) in [
+        (
+          false,
+          _Place.topic,
+          'clip.mp4',
+          const ComposerUploadSizeLimit(20480 * 1024, enforced: true),
+        ),
+        (
+          false,
+          _Place.topic,
+          'photo.png',
+          const ComposerUploadSizeLimit(5120 * 1024, enforced: false),
+        ),
+        (
+          false,
+          _Place.messageTopic,
+          'clip.mp4',
+          const ComposerUploadSizeLimit(20480 * 1024, enforced: true),
+        ),
+        (
+          true,
+          _Place.messageTopic,
+          'clip.mp4',
+          const ComposerUploadSizeLimit(20480 * 1024, enforced: false),
+        ),
+      ]) {
+        final fixture = await _uploadFixture(
+          staff: staff,
+          place: place,
+          settings: settings,
+        );
+
+        fixture.composer.addFiles([_file(name)], 0);
+        await pumpEventQueue();
+
+        expect(
+          fixture.api.composerUploads.single.sizeLimit,
+          limit,
+          reason: '$name (staff: $staff, ${place.name})',
+        );
+      }
+    },
+  );
 }
 
 enum _Place { newMessage, messageTopic, topic }

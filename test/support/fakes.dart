@@ -1361,6 +1361,7 @@ class FakeDiscourseApi
       String filename,
       ComposerUploadType uploadType,
       bool forPrivateMessage,
+      ComposerUploadSizeLimit? sizeLimit,
     })
   >
   composerUploads = [];
@@ -4025,6 +4026,7 @@ class FakeDiscourseApi
     required Future<void> abortTrigger,
     ComposerUploadType uploadType = ComposerUploadType.composer,
     bool forPrivateMessage = false,
+    ComposerUploadSizeLimit? sizeLimit,
     String? clientId,
   }) async {
     composerUploads.add((
@@ -4032,6 +4034,7 @@ class FakeDiscourseApi
       filename: file.name,
       uploadType: uploadType,
       forPrivateMessage: forPrivateMessage,
+      sizeLimit: sizeLimit,
     ));
     final result = composerUploadResult;
     if (result == null) {

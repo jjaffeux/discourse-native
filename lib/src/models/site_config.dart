@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 
 import '../plugin_api/plugin_data.dart';
+import 'composer_upload.dart';
 import 'invite.dart';
 import 'json.dart';
 
@@ -28,6 +29,8 @@ class SiteConfig {
     this.authorizedExtensions = defaultAuthorizedExtensions,
     this.authorizedExtensionsForStaff = const [],
     this.allowStaffToUploadAnyFileInPm = true,
+    this.maxImageSizeKb = defaultMaxImageSizeKb,
+    this.maxAttachmentSizeKb = defaultMaxAttachmentSizeKb,
     this.simultaneousUploads = defaultSimultaneousUploads,
     this.maxImageWidth = 690,
     this.maxImageHeight = 500,
@@ -67,6 +70,8 @@ class SiteConfig {
 
   static const String defaultEmojiSet = 'twitter';
   static const int defaultSimultaneousUploads = 15;
+  static const int defaultMaxImageSizeKb = 10240;
+  static const int defaultMaxAttachmentSizeKb = 10240;
 
   /// A local resource ceiling even when core's `0` asks for no batch limit.
   static const int maximumSimultaneousUploads = 30;
@@ -168,6 +173,14 @@ class SiteConfig {
       ),
       allowStaffToUploadAnyFileInPm:
           json['allow_staff_to_upload_any_file_in_pm'] != false,
+      maxImageSizeKb: _positiveInt(
+        json['max_image_size_kb'],
+        defaultMaxImageSizeKb,
+      ),
+      maxAttachmentSizeKb: _positiveInt(
+        json['max_attachment_size_kb'],
+        defaultMaxAttachmentSizeKb,
+      ),
       simultaneousUploads: _simultaneousUploads(json['simultaneous_uploads']),
       maxImageWidth: _positiveInt(json['max_image_width'], 690),
       maxImageHeight: _positiveInt(json['max_image_height'], 500),
@@ -268,6 +281,11 @@ class SiteConfig {
     ),
     allowStaffToUploadAnyFileInPm:
         json['allowStaffToUploadAnyFileInPm'] != false,
+    maxImageSizeKb: _positiveInt(json['maxImageSizeKb'], defaultMaxImageSizeKb),
+    maxAttachmentSizeKb: _positiveInt(
+      json['maxAttachmentSizeKb'],
+      defaultMaxAttachmentSizeKb,
+    ),
     simultaneousUploads: _simultaneousUploads(json['simultaneousUploads']),
     maxImageWidth: _positiveInt(json['maxImageWidth'], 690),
     maxImageHeight: _positiveInt(json['maxImageHeight'], 500),
@@ -352,6 +370,8 @@ class SiteConfig {
       'authorizedExtensions': authorizedExtensions,
       'authorizedExtensionsForStaff': authorizedExtensionsForStaff,
       'allowStaffToUploadAnyFileInPm': allowStaffToUploadAnyFileInPm,
+      'maxImageSizeKb': maxImageSizeKb,
+      'maxAttachmentSizeKb': maxAttachmentSizeKb,
       'simultaneousUploads': simultaneousUploads,
       'maxImageWidth': maxImageWidth,
       'maxImageHeight': maxImageHeight,
@@ -446,6 +466,8 @@ class SiteConfig {
   /// Lets staff attach any file to a new message or a post in one, which the
   /// server honours only for an upload marked `for_private_message`.
   final bool allowStaffToUploadAnyFileInPm;
+  final int maxImageSizeKb;
+  final int maxAttachmentSizeKb;
   final int simultaneousUploads;
   final int maxImageWidth;
   final int maxImageHeight;
@@ -542,6 +564,23 @@ class SiteConfig {
     );
   }
 
+  /// Mirrors core's upload checks: the server downsizes an image to fit its
+  /// limit rather than refusing it, so only an attachment's limit is enforced
+  /// before sending.
+  ComposerUploadSizeLimit uploadSizeLimit(
+    String filename, {
+    required bool staff,
+    bool privateMessage = false,
+  }) {
+    final image = isImageFilename(filename);
+    return ComposerUploadSizeLimit(
+      (image ? maxImageSizeKb : maxAttachmentSizeKb) * 1024,
+      enforced:
+          !image &&
+          !_staffUploadsAnyFile(staff: staff, privateMessage: privateMessage),
+    );
+  }
+
   /// Mirrors the early return in core's `UploadValidator`.
   bool _staffUploadsAnyFile({
     required bool staff,
@@ -591,6 +630,8 @@ class SiteConfig {
         authorizedExtensions: authorizedExtensions,
         authorizedExtensionsForStaff: authorizedExtensionsForStaff,
         allowStaffToUploadAnyFileInPm: allowStaffToUploadAnyFileInPm,
+        maxImageSizeKb: maxImageSizeKb,
+        maxAttachmentSizeKb: maxAttachmentSizeKb,
         simultaneousUploads: simultaneousUploads,
         maxImageWidth: maxImageWidth,
         maxImageHeight: maxImageHeight,
@@ -654,6 +695,8 @@ class SiteConfig {
         authorizedExtensionsForStaff,
       ) &&
       other.allowStaffToUploadAnyFileInPm == allowStaffToUploadAnyFileInPm &&
+      other.maxImageSizeKb == maxImageSizeKb &&
+      other.maxAttachmentSizeKb == maxAttachmentSizeKb &&
       other.simultaneousUploads == simultaneousUploads &&
       other.maxImageWidth == maxImageWidth &&
       other.maxImageHeight == maxImageHeight &&
@@ -715,6 +758,8 @@ class SiteConfig {
     Object.hashAll(authorizedExtensions),
     Object.hashAll(authorizedExtensionsForStaff),
     allowStaffToUploadAnyFileInPm,
+    maxImageSizeKb,
+    maxAttachmentSizeKb,
     simultaneousUploads,
     maxImageWidth,
     maxImageHeight,

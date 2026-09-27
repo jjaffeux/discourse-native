@@ -372,6 +372,7 @@ final class _UploadApi extends FakeDiscourseApi {
     required Future<void> abortTrigger,
     ComposerUploadType uploadType = ComposerUploadType.composer,
     bool forPrivateMessage = false,
+    ComposerUploadSizeLimit? sizeLimit,
     String? clientId,
   }) {
     final call = _UploadCall(file);

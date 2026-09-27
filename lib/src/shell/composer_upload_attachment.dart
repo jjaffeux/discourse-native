@@ -71,7 +71,7 @@ class ComposerUploadAttachment extends StatelessWidget {
         ),
         DAttachmentActions(
           children: [
-            if (failed)
+            if (failed && upload.retryable)
               DAttachmentAction(
                 icon: const Icon(Icons.refresh),
                 tooltip: 'Retry upload',

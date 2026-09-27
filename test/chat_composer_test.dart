@@ -2521,6 +2521,11 @@ void main() {
           fixture.api.composerUploads.single.uploadType,
           ChatPlugin.messageUploadType,
         );
+        expect(
+          fixture.api.composerUploads.single.sizeLimit,
+          const ComposerUploadSizeLimit(10240 * 1024, enforced: true),
+          reason: 'a chat attachment is held to the site limit before sending',
+        );
         expect(find.text(name), findsOneWidget);
         await tester.tap(find.byKey(const ValueKey('chat-composer-send')));
         await tester.pumpAndSettle();

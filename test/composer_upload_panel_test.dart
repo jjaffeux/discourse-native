@@ -1032,6 +1032,49 @@ void main() {
       await tester.pump();
       expect(find.text('photo.png'), findsNothing);
     });
+
+    testWidgets('a file refused for its size offers no retry', (tester) async {
+      var calls = 0;
+      final composer = ComposerController(
+        _target,
+        imageUploader: (file, {required onProgress, required abortTrigger}) {
+          calls++;
+          throw ComposerUploadException.tooLarge(
+            file.name,
+            maxBytes: 10 * 1024 * 1024,
+          );
+        },
+      );
+      final shell = await _shell();
+      addTearDown(composer.dispose);
+      addTearDown(shell.dispose);
+      await _pumpPanel(tester, shell, composer);
+
+      composer.text.text = 'body';
+      composer.addFiles([
+        ComposerUploadFile(
+          name: 'clip.mov',
+          length: _file.length,
+          openRead: _file.openRead,
+        ),
+      ], 4);
+      await tester.pump();
+
+      expect(
+        find.text('clip.mov is too large (maximum size is 10 MB).'),
+        findsOneWidget,
+      );
+      expect(find.byTooltip('Retry upload'), findsNothing);
+      expect(find.byTooltip('Remove upload'), findsOneWidget);
+      composer.retryUpload(composer.uploads.single.id);
+      await tester.pump();
+      expect(calls, 1);
+      expect(composer.uploads.single.status, ComposerUploadStatus.failed);
+
+      await tester.tap(find.byTooltip('Remove upload'));
+      await tester.pump();
+      expect(composer.uploads, isEmpty);
+    });
   });
 
   group('image selection and editing', () {

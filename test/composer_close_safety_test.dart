@@ -235,6 +235,7 @@ final class _SessionApi extends FakeDiscourseApi {
     required Future<void> abortTrigger,
     ComposerUploadType uploadType = ComposerUploadType.composer,
     bool forPrivateMessage = false,
+    ComposerUploadSizeLimit? sizeLimit,
     String? clientId,
   }) {
     uploadStarted.complete();

@@ -1096,6 +1096,7 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
     // for an already active row loses its abort trigger and lets two requests
     // race to decide which result is inserted.
     if (_uploads[index].status != ComposerUploadStatus.failed ||
+        !_uploads[index].retryable ||
         !pending.failed) {
       return;
     }
@@ -1182,6 +1183,10 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
             error: switch (error) {
               ComposerUploadException(:final displayMessage) => displayMessage,
               _ => "Couldn't upload ${file.name}.",
+            },
+            retryable: switch (error) {
+              ComposerUploadException(:final retryable) => retryable,
+              _ => true,
             },
           );
           _flushReadyUploads(pending.batch);

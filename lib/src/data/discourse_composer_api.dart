@@ -214,6 +214,7 @@ final class DiscourseComposerApi {
     required Future<void> abortTrigger,
     ComposerUploadType uploadType = ComposerUploadType.composer,
     bool forPrivateMessage = false,
+    ComposerUploadSizeLimit? sizeLimit,
     String? clientId,
   }) async {
     final int fileLength;
@@ -230,6 +231,13 @@ final class DiscourseComposerApi {
       rethrow;
     } catch (_) {
       throw ComposerUploadException("Couldn't read ${file.name}.");
+    }
+    // The validator only measures a file once all of it has arrived.
+    if (sizeLimit case ComposerUploadSizeLimit(
+      :final maxBytes,
+      enforced: true,
+    ) when fileLength > maxBytes) {
+      throw ComposerUploadException.tooLarge(file.name, maxBytes: maxBytes);
     }
 
     late http.Response response;
@@ -261,6 +269,14 @@ final class DiscourseComposerApi {
 
       decoded = DiscourseTransport.decodeObjectOrEmpty(response.body);
       if (response.statusCode >= 200 && response.statusCode < 300) break;
+      // A proxy's body limit, answered in its own HTML rather than JSON.
+      if (response.statusCode == 413) {
+        throw ComposerUploadException.tooLarge(
+          file.name,
+          maxBytes: sizeLimit?.maxBytes,
+          statusCode: 413,
+        );
+      }
       final retryAfter = response.statusCode == 429
           ? DiscourseRequestCoordinator.explicitRetryAfter(response) ??
                 _transport.coordinator.defaultRateLimitCooldown

@@ -13192,6 +13192,7 @@ class ShellController extends FrameSafeNotifier
     if (identity == null || !lease.isCurrent) {
       throw const ComposerUploadException('Upload cancelled.');
     }
+    final forPrivateMessage = _uploadsForPrivateMessage(target);
     return api.composerPersistence.uploadComposerImage(
       siteUrl: target.siteUrl,
       apiKey: held.value.apiKey!,
@@ -13200,7 +13201,12 @@ class ShellController extends FrameSafeNotifier
       onProgress: onProgress,
       abortTrigger: abortTrigger,
       uploadType: target.policy?.uploadType ?? ComposerUploadType.composer,
-      forPrivateMessage: _uploadsForPrivateMessage(target),
+      forPrivateMessage: forPrivateMessage,
+      sizeLimit: siteConfigFor(target.siteUrl).uploadSizeLimit(
+        file.name,
+        staff: currentUserFor(target.siteUrl)?.staff == true,
+        privateMessage: forPrivateMessage,
+      ),
     );
   }
 
