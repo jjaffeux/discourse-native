@@ -1,6 +1,7 @@
 import 'package:discourse_native/src/data/store.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_thread.dart';
+import 'package:discourse_native/src/plugins/chat/chat_thread_list_refresh.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 const site = 'https://meta.discourse.org';
@@ -191,6 +192,82 @@ void main() {
       final thread = ChatThread.fromJson(threadJson(), site);
 
       expect(thread.copyWith(clearMembership: true).membership, isNull);
+    });
+  });
+
+  group('thread-list refresh', () {
+    const tracked = ChatThreadMembership(
+      threadId: 22,
+      notificationLevel: ChatThreadNotificationLevel.tracking,
+      lastReadMessageId: 17,
+    );
+    // Held when the request began.
+    final start = ChatThread.fromJson(threadJson(detail: false), site).copyWith(
+      membership: tracked,
+      tracking: const ChatTracking(unreadCount: 2),
+    );
+    // Differs from [start] in level, read position and counts alike.
+    final page = ChatThread.fromJson(threadJson(detail: false), site).copyWith(
+      membership: const ChatThreadMembership(
+        threadId: 22,
+        notificationLevel: ChatThreadNotificationLevel.normal,
+        lastReadMessageId: 30,
+      ),
+      tracking: ChatTracking.none,
+    );
+
+    ChatThread committed(ChatThread before, ChatThread after) {
+      final store = Store()..put(site, after);
+      final refresh = ChatThreadListRefresh()..recordChange(before, after);
+      return store.put(site, refresh.reconcile(page, after));
+    }
+
+    test('keeps a local level but takes the page read state', () {
+      final held = committed(
+        start,
+        start.copyWith(
+          membership: tracked.withNotificationLevel(
+            ChatThreadNotificationLevel.watching,
+          ),
+        ),
+      );
+
+      expect(
+        held.membership?.notificationLevel,
+        ChatThreadNotificationLevel.watching,
+      );
+      expect(held.membership?.lastReadMessageId, 30);
+      expect(held.tracking, ChatTracking.none);
+    });
+
+    test('keeps a local read with its counts but takes the page level', () {
+      final held = committed(
+        start,
+        start.copyWith(membership: tracked.withLastReadMessageId(40)),
+      );
+
+      expect(
+        held.membership?.notificationLevel,
+        ChatThreadNotificationLevel.normal,
+      );
+      expect(held.membership?.lastReadMessageId, 40);
+      expect(held.tracking, const ChatTracking(unreadCount: 2));
+    });
+
+    test('keeps a membership that a refused first choice removed', () {
+      final none = start.copyWith(clearMembership: true);
+      final optimistic = none.copyWith(
+        membership: const ChatThreadMembership(
+          threadId: 22,
+          notificationLevel: ChatThreadNotificationLevel.watching,
+        ),
+      );
+      final refresh = ChatThreadListRefresh()
+        ..recordChange(none, optimistic)
+        ..recordChange(optimistic, none);
+      final store = Store()..put(site, none);
+
+      expect(store.put(site, refresh.reconcile(page, none)).membership, isNull);
     });
   });
 }
