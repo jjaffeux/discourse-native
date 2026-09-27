@@ -198,6 +198,11 @@ abstract interface class ComposerEditorHost {
   bool get isNewTopic;
   bool get isReply;
 
+  /// Whether what this editor posts is private: a new message, or a reply to
+  /// or edit of a post in a message topic, as upstream's composer
+  /// `privateMessage` is.
+  bool get isPrivateMessage;
+
   /// Whether this editor currently admits user authoring commands. Loading,
   /// submitting, checking, closing, discarding and retired editors do not.
   bool get isEditing;

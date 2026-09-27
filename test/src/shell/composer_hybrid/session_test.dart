@@ -615,6 +615,9 @@ final class _RecordingEditorHost implements ComposerEditorHost {
   bool get isReply => true;
 
   @override
+  bool get isPrivateMessage => false;
+
+  @override
   bool get isEditing => true;
 
   @override
@@ -671,6 +674,9 @@ final class _FakeEditorHost implements ComposerEditorHost {
 
   @override
   bool get isReply => true;
+
+  @override
+  bool get isPrivateMessage => false;
 
   @override
   bool get isEditing => true;

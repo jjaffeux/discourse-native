@@ -41,22 +41,29 @@ final class AiProofreadingController extends FrameSafeNotifier
   );
 
   /// The site preference only ever applies to these composers: every other
-  /// one posts exactly as written.
-  static bool _covers(ComposerEditorHost composer) =>
-      !composer.isPluginTarget && (composer.isNewTopic || composer.isReply);
+  /// one posts exactly as written. A reply in a message topic is covered only
+  /// where the site lets the helper into messages; the site does not enforce
+  /// that itself, and a preference set on a public reply must not carry
+  /// message text there.
+  bool _covers(ComposerEditorHost composer) =>
+      !composer.isPluginTarget &&
+      (composer.isNewTopic || composer.isReply) &&
+      (!composer.isPrivateMessage ||
+          _settingsFor(composer.siteUrl)?.helperAllowedInPrivateMessages ==
+              true);
+
+  DiscourseAiSettings? _settingsFor(String siteUrl) =>
+      _siteState.siteConfigFor(siteUrl).plugins.discourseAiSettings;
 
   bool isAvailable(ComposerEditorHost composer) {
     if (!composer.isCurrent || !_covers(composer)) return false;
-    final settings = _siteState
-        .siteConfigFor(composer.siteUrl)
-        .plugins
-        .discourseAiSettings;
     final currentUser = _freshAccount.recordFor(
       composer.siteUrl,
       discourseAiCurrentUserDataKey,
     );
-    return settings?.proofreadingAvailable == true &&
-        currentUser?.canUseAssistant == true;
+    return _settingsFor(composer.siteUrl)?.proofreadingAvailable == true &&
+        currentUser?.canUseAssistant == true &&
+        currentUser?.canProofread == true;
   }
 
   bool isEnabled(ComposerEditorHost composer) {

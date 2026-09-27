@@ -43,6 +43,7 @@ import 'package:discourse_native/src/plugins/chat/chat_plugin_data.dart';
 import 'package:discourse_native/src/plugins/chat/chat_reactors.dart';
 import 'package:discourse_native/src/plugins/chat/chat_search.dart';
 import 'package:discourse_native/src/plugins/chat/chat_thread.dart';
+import 'package:discourse_native/src/plugins/discourse_ai/ai_proofreading_data.dart';
 import 'package:discourse_native/src/plugins/discourse_ai/ai_summary.dart';
 import 'package:discourse_native/src/plugins/gifs/gif.dart';
 import 'package:discourse_native/src/plugins/gifs/gifs_settings.dart';
@@ -198,6 +199,9 @@ const _keys = [
   'has_cached_summary',
   'ai_topic_summary',
   'summarized_text',
+  'ai_helper_enabled_features',
+  'ai_helper_prompts',
+  'can_use_assistant',
   'user_summary',
   'topic_ids',
   'most_liked_by_users',
@@ -648,6 +652,16 @@ void main() {
       probe(
         'AiSummaryStreamFailure',
         () => AiSummaryStreamFailure.fromJson(json),
+        json,
+      );
+      probe(
+        'DiscourseAiSettings',
+        () => DiscourseAiSettings.fromWire(json),
+        json,
+      );
+      probe(
+        'DiscourseAiCurrentUser',
+        () => DiscourseAiCurrentUser.fromWire(json),
         json,
       );
 

@@ -9653,6 +9653,7 @@ class ShellController extends FrameSafeNotifier
       replyToPostNumber: replyToPostNumber,
       replyToUsername: replyToUsername,
       replyingToWhisper: targetsWhisper,
+      privateMessageTopic: currentTopic?.privateMessage ?? false,
     );
     final composer = _buildTextComposer(target, persistsDraft: true);
     _setComposer(composer);
@@ -9750,6 +9751,7 @@ class ShellController extends FrameSafeNotifier
       mode: editsTopic ? ComposerMode.topicEdit : ComposerMode.postEdit,
       initialCategoryId: editsTopic ? detail?.categoryId : null,
       initialTags: editsTopic ? detail?.tags ?? const [] : const [],
+      privateMessageTopic: detail?.privateMessage ?? false,
     );
     // No `onSaveDraft`: Discourse files a topic's drafts under one key, so
     // saving here would overwrite an unfinished reply with the text of a post
@@ -10057,6 +10059,7 @@ class ShellController extends FrameSafeNotifier
       mode: ComposerMode.tagsEdit,
       initialCategoryId: detail.categoryId,
       initialTags: detail.tags,
+      privateMessageTopic: detail.privateMessage,
     );
     _setComposer(
       ComposerController(

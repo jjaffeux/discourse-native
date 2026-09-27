@@ -35,21 +35,33 @@ import 'support/fakes.dart';
 
 const _siteUrl = 'https://meta.discourse.org';
 
-final _enabledConfig = SiteConfig(
+SiteConfig _configWith({
+  bool allowedInPrivateMessages = false,
+  bool contextMenuEnabled = true,
+}) => SiteConfig(
   plugins: PluginData.none.withValue(
     discourseAiSettingsDataKey,
-    const DiscourseAiSettings(enabled: true, helperEnabled: true),
+    DiscourseAiSettings(
+      enabled: true,
+      helperEnabled: true,
+      helperAllowedInPrivateMessages: allowedInPrivateMessages,
+      helperContextMenuEnabled: contextMenuEnabled,
+    ),
   ),
 );
 
-final _allowedUser = DiscourseUser(
+final _enabledConfig = _configWith();
+
+DiscourseUser _userWith({bool canProofread = true}) => DiscourseUser(
   id: 7,
   username: 'reader',
   plugins: PluginData.none.withValue(
     discourseAiCurrentUserDataKey,
-    const DiscourseAiCurrentUser(canUseAssistant: true),
+    DiscourseAiCurrentUser(canUseAssistant: true, canProofread: canProofread),
   ),
 );
+
+final _allowedUser = _userWith();
 
 const _replyTarget = ComposerTarget(
   siteUrl: _siteUrl,
@@ -73,6 +85,14 @@ const _messageTarget = ComposerTarget(
   topicTitle: 'New message',
   mode: ComposerMode.privateMessage,
   targetRecipients: 'sam',
+);
+
+const _messageReplyTarget = ComposerTarget(
+  siteUrl: _siteUrl,
+  topicId: 8,
+  slug: 'a-message',
+  topicTitle: 'A message',
+  privateMessageTopic: true,
 );
 
 const _userWithoutAssistant = DiscourseUser(id: 7, username: 'reader');
@@ -192,12 +212,18 @@ Future<({ShellController shell, FakeDiscourseApi api})> _openReply({
   },
   WriteException? proofreadingFailure,
   SiteConfig? config,
+  bool privateMessage = false,
 }) async {
   final api = FakeDiscourseApi(
     user: _allowedUser,
     feeds: const {'/latest.json': <Topic>[]},
     topics: {
-      7: topicPayload(id: 7, title: 'Native writing', canCreatePost: true),
+      7: topicPayload(
+        id: 7,
+        title: 'Native writing',
+        canCreatePost: true,
+        privateMessage: privateMessage,
+      ),
     },
     siteConfigs: {_siteUrl: config ?? _enabledConfig},
     pluginResponses: proofreadingResponse == null
@@ -267,13 +293,105 @@ void main() {
       plugin.readSiteSettings(const {
         'discourse_ai_enabled': true,
         'ai_helper_enabled': true,
+        'ai_helper_allowed_in_pm': true,
+        'ai_helper_enabled_features': 'suggestions|context_menu',
       }, _siteUrl),
-      const DiscourseAiSettings(enabled: true, helperEnabled: true),
+      const DiscourseAiSettings(
+        enabled: true,
+        helperEnabled: true,
+        helperAllowedInPrivateMessages: true,
+        helperContextMenuEnabled: true,
+      ),
     );
+    for (final features in [
+      null,
+      '',
+      'suggestions',
+      const ['suggestions'],
+    ]) {
+      final settings = plugin.readSiteSettings({
+        'discourse_ai_enabled': true,
+        'ai_helper_enabled': true,
+        'ai_helper_enabled_features': features,
+      }, _siteUrl);
+
+      expect(settings.helperAllowedInPrivateMessages, isFalse);
+      expect(settings.helperContextMenuEnabled, isFalse, reason: '$features');
+      expect(settings.proofreadingAvailable, isFalse);
+    }
     expect(plugin.readCurrentUser(const {}, _siteUrl), isNull);
     expect(
-      plugin.readCurrentUser(const {'can_use_assistant': true}, _siteUrl),
-      const DiscourseAiCurrentUser(canUseAssistant: true),
+      plugin.readCurrentUser(const {
+        'can_use_assistant': true,
+        'ai_helper_prompts': [
+          {'name': 'translate'},
+          {'name': 'proofread'},
+        ],
+      }, _siteUrl),
+      const DiscourseAiCurrentUser(canUseAssistant: true, canProofread: true),
+    );
+    for (final prompts in [
+      null,
+      'proofread',
+      const ['proofread'],
+      const [
+        {'name': 'translate'},
+      ],
+    ]) {
+      expect(
+        plugin.readCurrentUser({
+          'can_use_assistant': true,
+          'ai_helper_prompts': prompts,
+        }, _siteUrl),
+        const DiscourseAiCurrentUser(
+          canUseAssistant: true,
+          canProofread: false,
+        ),
+        reason: '$prompts',
+      );
+    }
+  });
+
+  test('stored AI records keep every gate and read older ones as closed', () {
+    const plugin = AiProofreadingPlugin();
+    const settings = DiscourseAiSettings(
+      enabled: true,
+      helperEnabled: true,
+      helperAllowedInPrivateMessages: true,
+      helperContextMenuEnabled: true,
+    );
+    const user = DiscourseAiCurrentUser(
+      canUseAssistant: true,
+      canProofread: true,
+    );
+    Object? stored(Object? value) => jsonDecode(jsonEncode(value));
+
+    expect(
+      plugin.siteSettingsCodec.decode(
+        stored(plugin.siteSettingsCodec.encode(settings)),
+      ),
+      settings,
+    );
+    expect(
+      plugin.currentUserCodec.decode(
+        stored(plugin.currentUserCodec.encode(user)),
+      ),
+      user,
+    );
+    expect(
+      plugin.siteSettingsCodec.decode(
+        stored({'enabled': true, 'helperEnabled': true}),
+      ),
+      const DiscourseAiSettings(
+        enabled: true,
+        helperEnabled: true,
+        helperAllowedInPrivateMessages: false,
+        helperContextMenuEnabled: false,
+      ),
+    );
+    expect(
+      plugin.currentUserCodec.decode(stored({'canUseAssistant': true})),
+      const DiscourseAiCurrentUser(canUseAssistant: true, canProofread: false),
     );
   });
 
@@ -283,6 +401,7 @@ void main() {
     final reply = ComposerController(_replyTarget);
     final newTopic = ComposerController(_newTopicTarget);
     final message = ComposerController(_messageTarget);
+    final messageReply = ComposerController(_messageReplyTarget);
     final edit = ComposerController(
       const ComposerTarget(
         siteUrl: _siteUrl,
@@ -296,24 +415,92 @@ void main() {
     addTearDown(reply.dispose);
     addTearDown(newTopic.dispose);
     addTearDown(message.dispose);
+    addTearDown(messageReply.dispose);
     addTearDown(edit.dispose);
 
     expect(controller.isAvailable(reply), isTrue);
     expect(controller.isAvailable(newTopic), isTrue);
     expect(controller.isAvailable(message), isFalse);
+    expect(controller.isAvailable(messageReply), isFalse);
     expect(controller.isAvailable(edit), isFalse);
   });
 
   test('stays hidden without both AI settings and user permission', () {
     final disabled = _controller(config: const SiteConfig.unknown());
     final disallowed = _controller(user: _userWithoutAssistant);
+    final withoutComposerHelper = _controller(
+      config: _configWith(contextMenuEnabled: false),
+    );
+    final outsideProofreaderGroups = _controller(
+      user: _userWith(canProofread: false),
+    );
     final composer = ComposerController(_replyTarget);
     addTearDown(disabled.dispose);
     addTearDown(disallowed.dispose);
+    addTearDown(withoutComposerHelper.dispose);
+    addTearDown(outsideProofreaderGroups.dispose);
     addTearDown(composer.dispose);
 
     expect(disabled.isAvailable(composer), isFalse);
     expect(disallowed.isAvailable(composer), isFalse);
+    expect(withoutComposerHelper.isAvailable(composer), isFalse);
+    expect(outsideProofreaderGroups.isAvailable(composer), isFalse);
+  });
+
+  test(
+    'a remembered choice never sends a message reply to the helper',
+    () async {
+      final api = FakeDiscourseApi(
+        pluginResponses: const {
+          'POST $aiProofreadingPath': {
+            'suggestions': ['A polished private reply.'],
+          },
+        },
+      );
+      final controller = _controller(api: api);
+      final reply = ComposerController(_replyTarget);
+      final messageReply = ComposerController(_messageReplyTarget);
+      addTearDown(controller.dispose);
+      addTearDown(reply.dispose);
+      addTearDown(messageReply.dispose);
+      controller.setEnabled(reply, true);
+      messageReply.text.text = 'a private reply with typo';
+
+      final result = await controller.prepareComposerSubmit(messageReply);
+
+      expect(result.failure, isNull);
+      expect(result.changed, isFalse);
+      expect(messageReply.raw, 'a private reply with typo');
+      expect(api.pluginWrites, isEmpty);
+      expect(controller.isEnabled(reply), isTrue);
+    },
+  );
+
+  test('a message reply is proofread where the site allows it', () async {
+    final api = FakeDiscourseApi(
+      pluginResponses: const {
+        'POST $aiProofreadingPath': {
+          'suggestions': ['A polished private reply.'],
+        },
+      },
+    );
+    final controller = _controller(
+      api: api,
+      config: _configWith(allowedInPrivateMessages: true),
+    );
+    final messageReply = ComposerController(_messageReplyTarget);
+    addTearDown(controller.dispose);
+    addTearDown(messageReply.dispose);
+    messageReply.text.text = 'a private reply with typo';
+
+    expect(controller.isAvailable(messageReply), isTrue);
+    controller.setEnabled(messageReply, true);
+    final result = await controller.prepareComposerSubmit(messageReply);
+
+    expect(result.failure, isNull);
+    expect(result.changed, isTrue);
+    expect(messageReply.raw, 'A polished private reply.');
+    expect(api.pluginWrites.single.path, aiProofreadingPath);
   });
 
   test('remembers the choice independently for each forum', () async {
@@ -792,6 +979,57 @@ void main() {
     expect(fixture.api.pluginWrites, isEmpty);
     expect(fixture.api.created.single['raw'], 'this is the original reply');
     expect(fixture.shell.visibleComposer, isNull);
+  });
+
+  testWidgets(
+    'a reply in a message topic hides Proofread and posts as written',
+    (tester) async {
+      await tester.runAsync(
+        () => const AiProofreadingPreferenceStore().write(
+          siteUrl: _siteUrl,
+          enabled: true,
+        ),
+      );
+      final fixture = await _openReply(privateMessage: true);
+      addTearDown(fixture.shell.dispose);
+      final composer = fixture.shell.visibleComposer!;
+      await _pumpComposer(tester, fixture.shell);
+      await tester.pump();
+
+      expect(composer.isPrivateMessage, isTrue);
+      expect(find.byKey(const ValueKey('composer-options')), findsNothing);
+
+      composer.text.text = 'this is the private reply';
+      await fixture.shell.submitComposer();
+
+      expect(fixture.api.pluginWrites, isEmpty);
+      expect(fixture.api.created.single['raw'], 'this is the private reply');
+      expect(fixture.shell.visibleComposer, isNull);
+    },
+  );
+
+  testWidgets('a reply in a message topic is proofread where the site allows', (
+    tester,
+  ) async {
+    await tester.runAsync(
+      () => const AiProofreadingPreferenceStore().write(
+        siteUrl: _siteUrl,
+        enabled: true,
+      ),
+    );
+    final fixture = await _openReply(
+      privateMessage: true,
+      config: _configWith(allowedInPrivateMessages: true),
+    );
+    addTearDown(fixture.shell.dispose);
+    await _pumpComposer(tester, fixture.shell);
+    await tester.pump();
+    fixture.shell.visibleComposer!.text.text = 'this is the private reply';
+
+    await fixture.shell.submitComposer();
+
+    expect(fixture.api.pluginWrites.single.path, aiProofreadingPath);
+    expect(fixture.api.created.single['raw'], 'This is the polished reply.');
   });
 
   for (final scenario in [

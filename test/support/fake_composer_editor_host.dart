@@ -38,6 +38,9 @@ final class FakeComposerEditorHost implements ComposerEditorHost {
   bool get isReply => true;
 
   @override
+  bool get isPrivateMessage => false;
+
+  @override
   bool get isEditing => true;
 
   @override
