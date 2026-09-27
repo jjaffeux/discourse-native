@@ -494,12 +494,14 @@ void main() {
       composer.focus.requestFocus();
       await tester.pumpAndSettle();
 
+      // A text selection also shows the floating formatting toolbar.
       expect(
         find.byKey(const ValueKey('composer-selection-toolbar')),
-        findsNothing,
+        findsOneWidget,
       );
-      expect(find.byTooltip('Bold'), findsOneWidget);
-      expect(find.byTooltip('Italic'), findsOneWidget);
+      // The footer and the floating toolbar each offer them.
+      expect(find.byTooltip('Bold'), findsNWidgets(2));
+      expect(find.byTooltip('Italic'), findsNWidgets(2));
 
       final click = await tester.startGesture(
         tester.getCenter(find.byKey(const ValueKey('composer-format-bold'))),
@@ -528,9 +530,10 @@ void main() {
         composer.focus.requestFocus();
         await tester.pumpAndSettle();
 
+        // A text selection also shows the floating formatting toolbar.
         expect(
           find.byKey(const ValueKey('composer-selection-toolbar')),
-          findsNothing,
+          findsOneWidget,
         );
         final create = tester.getCenter(
           find.widgetWithText(DButton, 'Create topic'),
@@ -965,9 +968,10 @@ void main() {
           find.byKey(const ValueKey('composer-submit')).hitTestable(),
           findsOneWidget,
         );
+        // A text selection also shows the floating formatting toolbar.
         expect(
           find.byKey(const ValueKey('composer-selection-toolbar')),
-          findsNothing,
+          findsOneWidget,
         );
         expect(tester.takeException(), isNull);
       },

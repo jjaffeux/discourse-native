@@ -1406,11 +1406,13 @@ void main() {
       final shell = await _shell();
       addTearDown(composer.dispose);
       addTearDown(shell.dispose);
+      // A terminal gallery has no caret line after it; the prose below is
+      // where an image dragged out of the gallery lands.
       composer.text.text =
           '[grid]\n'
           '![one|640x480](upload://one)\n'
           '![two|640x480](upload://two)\n'
-          '[/grid]';
+          '[/grid]\n\nAfter';
       composer.text.selection = const TextSelection.collapsed(offset: 0);
       await _pumpPanel(tester, shell, composer);
       await tester.pumpAndSettle();
@@ -2084,7 +2086,8 @@ void main() {
           await tester.pump();
           await tester.sendKeyEvent(LogicalKeyboardKey.enter);
           await tester.pump();
-          expect(composer.text.text, '$prefix\n$source');
+          // Enter starts a separated paragraph before the selected component.
+          expect(composer.text.text, '$prefix\n\n$source');
           expect(
             composer.text.selection,
             TextSelection.collapsed(offset: prefix.length),

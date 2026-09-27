@@ -499,9 +499,13 @@ void main() {
       final pill = find.byType(PollComposerPill);
       final block = composer.text.pollBlocks.single;
 
-      final afterPoll = composer.text.pollCaretAfter(block);
+      // The blank lines around the poll are structural and hold no caret, so
+      // the caret moves between the surrounding paragraphs and the poll's own
+      // boundaries.
+      final beforePoll = _source.indexOf('\n\n[poll');
       final trailingCaret = block.start + block.source.trimRight().length;
-      composer.text.selection = TextSelection.collapsed(offset: afterPoll);
+      final afterPoll = _source.indexOf('After the poll.');
+      composer.text.selection = TextSelection.collapsed(offset: trailingCaret);
       composer.focus.requestFocus();
       await tester.pump();
       expect(find.text('Edit poll'), findsNothing);
@@ -510,7 +514,7 @@ void main() {
 
       await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
       await tester.pump();
-      expect(composer.text.selection.extentOffset, afterPoll);
+      expect(composer.text.selection.extentOffset, trailingCaret);
       expect(tester.widget<PollComposerPill>(pill).highlighted, isTrue);
       expect(_composerEditable(tester).showCursor, isFalse);
       expect(find.byType(PollComposerPill), findsOneWidget);
@@ -523,9 +527,7 @@ void main() {
       expect(_composerEditable(tester).showCursor, isTrue);
       expect(find.byType(PollComposerPill), findsOneWidget);
 
-      composer.text.selection = TextSelection.collapsed(
-        offset: block.start - 1,
-      );
+      composer.text.selection = TextSelection.collapsed(offset: beforePoll);
       await tester.pump();
       expect(
         await tester.sendKeyDownEvent(LogicalKeyboardKey.arrowRight),
@@ -550,9 +552,7 @@ void main() {
       expect(_composerEditable(tester).showCursor, isTrue);
       await tester.sendKeyUpEvent(LogicalKeyboardKey.arrowRight);
 
-      composer.text.selection = TextSelection.collapsed(
-        offset: block.start - 1,
-      );
+      composer.text.selection = TextSelection.collapsed(offset: beforePoll);
       await tester.pump();
       expect(
         await tester.sendKeyDownEvent(LogicalKeyboardKey.arrowRight),
@@ -585,13 +585,13 @@ void main() {
       expect(find.byType(PollComposerPill), findsOneWidget);
       await tester.sendKeyUpEvent(LogicalKeyboardKey.arrowRight);
 
-      composer.text.selection = TextSelection.collapsed(offset: afterPoll + 1);
+      composer.text.selection = TextSelection.collapsed(offset: afterPoll);
       expect(
         await tester.sendKeyDownEvent(LogicalKeyboardKey.arrowLeft),
         isTrue,
       );
       await tester.pump();
-      expect(composer.text.selection.extentOffset, afterPoll);
+      expect(composer.text.selection.extentOffset, trailingCaret);
       expect(composer.text.keyboardSelectedPoll, isNull);
 
       expect(
@@ -599,7 +599,7 @@ void main() {
         isTrue,
       );
       await tester.pump();
-      expect(composer.text.selection.extentOffset, afterPoll);
+      expect(composer.text.selection.extentOffset, trailingCaret);
       expect(composer.text.keyboardSelectedPoll, isNotNull);
       expect(tester.widget<PollComposerPill>(pill).highlighted, isTrue);
 
@@ -621,9 +621,10 @@ void main() {
       await tester.sendKeyEvent(LogicalKeyboardKey.enter);
       await tester.pump();
       expect(find.text('Edit poll'), findsNothing);
+      // Enter starts a separated paragraph before the selected component.
       expect(
         composer.text.text,
-        selectedValue.text.replaceRange(block.start, block.start, '\n'),
+        selectedValue.text.replaceRange(block.start, block.start, '\n\n'),
       );
       expect(
         composer.text.selection,
@@ -664,9 +665,10 @@ void main() {
         (candidate) => candidate.start == block.start,
       );
       composer.focus.requestFocus();
+      // The blank lines around the poll are structural and hold no caret.
       for (final (key, expectedOffset) in [
-        (LogicalKeyboardKey.arrowUp, block.start - 1),
-        (LogicalKeyboardKey.arrowDown, composer.text.pollCaretAfter(block)),
+        (LogicalKeyboardKey.arrowUp, _source.indexOf('\n\n[poll')),
+        (LogicalKeyboardKey.arrowDown, _source.indexOf('After the poll.')),
       ]) {
         composer.text.selectPillForKeyboard(occurrence);
         await tester.pump();
@@ -776,7 +778,6 @@ void main() {
 
       final pill = find.byType(PollComposerPill);
       final pillRect = tester.getRect(pill);
-      final block = composer.text.pollBlocks.single;
       final gesture = await tester.startGesture(
         Offset(pillRect.right + 1, pillRect.center.dy),
         kind: PointerDeviceKind.mouse,
@@ -791,7 +792,7 @@ void main() {
       expect(composer.text.text, _source);
       expect(
         composer.text.selection.extentOffset,
-        composer.text.pollCaretAfter(block),
+        _source.indexOf('After the poll.'),
       );
       expect(composer.text.keyboardSelectedPoll, isNull);
       expect(_composerEditable(tester).showCursor, isTrue);
@@ -809,7 +810,7 @@ void main() {
         selection: TextSelection.collapsed(offset: _source.length),
       );
 
-      // Keep the pill and its trailing caret line in view during multi-clicks.
+      // Keep the pill and the paragraph after it in view during multi-clicks.
       await tester.pumpWidget(
         MaterialApp(
           theme: AppTheme.dark,
@@ -854,7 +855,7 @@ void main() {
       expect(composer.text.text, _source);
       expect(
         composer.text.selection,
-        TextSelection.collapsed(offset: composer.text.pollCaretAfter(block)),
+        TextSelection.collapsed(offset: _source.indexOf('After the poll.')),
       );
       await _closeComposerAfterAssertions(tester, shell);
     });
@@ -1700,9 +1701,10 @@ void main() {
       await tester.pump(const Duration(milliseconds: 500));
       expect(find.text('Edit date and time'), findsNothing);
       final start = selectedValue.text.indexOf('[date');
+      // Enter starts a separated paragraph before the selected component.
       expect(
         composer.text.text,
-        selectedValue.text.replaceRange(start, start, '\n'),
+        selectedValue.text.replaceRange(start, start, '\n\n'),
       );
       expect(composer.text.selection, TextSelection.collapsed(offset: start));
       expect(composer.text.keyboardSelectedLocalDate, isNull);
