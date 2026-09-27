@@ -232,7 +232,7 @@ class _GroupDetailView extends StatelessWidget {
             if (coordinator.replaceMemberQuery(
               coordinator.memberQuery.copyWith(filter: value),
             )) {
-              unawaited(coordinator.requestLoad(refresh: true));
+              unawaited(coordinator.reloadSection());
             }
           },
           onMemberSortChanged: (order, ascending) {
@@ -242,7 +242,7 @@ class _GroupDetailView extends StatelessWidget {
                 ascending: ascending,
               ),
             )) {
-              unawaited(coordinator.requestLoad(refresh: true));
+              unawaited(coordinator.reloadSection());
             }
           },
           onSearchUsers: (query) => port.searchUsers(owner, query),

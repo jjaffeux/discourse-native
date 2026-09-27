@@ -193,6 +193,72 @@ void main() {
     });
   });
 
+  group('GroupPagesCoordinator member queries', () {
+    test('a member query change reloads only its section', () async {
+      final port = _Port()..detailGate = Completer<void>();
+      final subject = GroupPagesCoordinator();
+      addTearDown(subject.dispose);
+      subject.bind(
+        port,
+        _groupSnapshot(port.owner, GroupRoute.detail('staff')),
+      );
+
+      subject.replaceMemberQuery(const GroupPagesMemberQuery(filter: 'sam'));
+      // The detail gate stays closed: completing proves nothing waited on it.
+      await subject.reloadSection();
+
+      expect(port.loads, ['section:staff:members']);
+      expect(port.sections, [
+        (query: const GroupPagesMemberQuery(filter: 'sam'), refresh: true),
+      ]);
+    });
+
+    test(
+      'a load from before the query change cannot list the old query',
+      () async {
+        final port = _Port()..detailGate = Completer<void>();
+        final subject = GroupPagesCoordinator();
+        addTearDown(subject.dispose);
+        subject.bind(
+          port,
+          _groupSnapshot(port.owner, GroupRoute.detail('staff')),
+        );
+        final initial = subject.requestLoad();
+        await Future<void>.delayed(Duration.zero);
+
+        subject.replaceMemberQuery(const GroupPagesMemberQuery(filter: 'sam'));
+        await subject.reloadSection();
+        port.detailGate!.complete();
+        await initial;
+
+        expect(port.loads, ['detail:staff', 'section:staff:members']);
+        expect(port.sections.single.query.filter, 'sam');
+      },
+    );
+
+    test('a full refresh still reloads the group before its section', () async {
+      final port = _Port()..detailGate = Completer<void>();
+      final subject = GroupPagesCoordinator();
+      addTearDown(subject.dispose);
+      subject.bind(
+        port,
+        _groupSnapshot(port.owner, GroupRoute.detail('staff')),
+      );
+      subject.replaceMemberQuery(const GroupPagesMemberQuery(filter: 'sam'));
+
+      final refresh = subject.requestLoad(refresh: true);
+      await Future<void>.delayed(Duration.zero);
+      expect(port.loads, ['detail:staff']);
+      port.detailGate!.complete();
+      await refresh;
+
+      expect(port.loads, ['detail:staff', 'section:staff:members']);
+      expect(port.sections, [
+        (query: const GroupPagesMemberQuery(filter: 'sam'), refresh: true),
+      ]);
+    });
+  });
+
   group('GroupPagesCoordinator directory redirects', () {
     test('a rebuilt adapter preserves the current visit', () {
       final port = _Port();
@@ -345,6 +411,7 @@ final class _Port implements GroupPagesCoordinatorPort {
   );
   Completer<void>? detailGate;
   final List<String> loads = [];
+  final List<({GroupPagesMemberQuery query, bool refresh})> sections = [];
   final List<({GroupRoute route, String? feedPath})> selected = [];
   final List<bool> backRequests = [];
   int directoryReplacements = 0;
@@ -385,6 +452,7 @@ final class _Port implements GroupPagesCoordinatorPort {
     required bool more,
   }) async {
     loads.add('section:${route.groupName}:${route.section}');
+    sections.add((query: memberQuery, refresh: refresh));
   }
 
   @override
