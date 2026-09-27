@@ -1471,6 +1471,38 @@ void main() {
   );
 
   test(
+    'a refused notification level keeps a read made while it was in flight',
+    () async {
+      final api = _AdversarialThreadApi(detail: threadDetail())
+        ..holdNotification(
+          failure: const WriteException(WriteFailure.unreachable),
+        );
+      final store = Store()..put(site, threadDetail());
+      final subject = _controllerFor(api, store: store);
+
+      final updating = subject.chat.updateThreadNotificationLevel(
+        site,
+        target,
+        ChatThreadNotificationLevel.watching,
+      );
+      await api.notificationStarted!.future;
+      await subject.chat.markReadFor(site, target, 40);
+      expect(api.threadReads, const [
+        (channelId: 9, threadId: 22, messageId: 40),
+      ]);
+      api.notificationGate!.complete();
+
+      expect(await updating, isFalse);
+      final membership = subject.chat.thread(site, 22)?.membership;
+      expect(
+        membership?.notificationLevel,
+        ChatThreadNotificationLevel.tracking,
+      );
+      expect(membership?.lastReadMessageId, 40);
+    },
+  );
+
+  test(
     'root preview events are authoritative and duplicate delivery never increments twice',
     () async {
       final api = _AdversarialThreadApi(

@@ -5874,6 +5874,9 @@ class ChatController extends FrameSafeNotifier {
     }
   }
 
+  /// The write owns only the notification level. A read or a cursor moved off
+  /// a deleted reply while it was in flight stays on the live membership, so
+  /// the rollback rebases on it rather than on the saved membership.
   void _rollbackThreadNotification(
     String key,
     _QueuedThreadNotification write,
@@ -5883,14 +5886,22 @@ class ChatController extends FrameSafeNotifier {
     write.lease.commit(() {
       final current = thread(write.siteUrl, write.target.threadId);
       if (current != null) {
-        _updateThread(
-          write.siteUrl,
-          current.id,
-          (held) => held.copyWith(
-            membership: previous,
-            clearMembership: previous == null,
-          ),
-        );
+        _updateThread(write.siteUrl, current.id, (held) {
+          final membership = held.membership;
+          // With nothing confirmed, the membership exists only because of the
+          // refused choice, and a read cannot advance without one.
+          if (previous == null || membership == null) {
+            return held.copyWith(
+              membership: previous,
+              clearMembership: previous == null,
+            );
+          }
+          return held.copyWith(
+            membership: membership.withNotificationLevel(
+              previous.notificationLevel,
+            ),
+          );
+        });
       }
     });
   }
