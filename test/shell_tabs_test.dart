@@ -664,7 +664,7 @@ void main() {
         expect(main, isNotNull);
         expect(main!.id, isNot(movedId));
         expect(main.currentContent.title, 'Start page');
-        expect(main.currentContent.icon, DIcons.grip);
+        expect(main.currentContent.icon, DIcons.house);
       });
 
       test('closing other tabs keeps a Start page in the emptied panel', () {
@@ -1166,5 +1166,5 @@ void _expectNewTabRoot(ShellController controller) {
   expect(controller.destinationId, 'new-tab');
   expect(_routeIds(controller), ['new-tab']);
   expect(controller.currentContent?.title, 'Start page');
-  expect(controller.currentContent?.icon, DIcons.grip);
+  expect(controller.currentContent?.icon, DIcons.house);
 }

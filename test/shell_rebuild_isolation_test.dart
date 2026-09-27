@@ -539,7 +539,7 @@ void main() {
       await tester.pumpAndSettle();
 
       final inactiveTabId = controller.activeTabId!;
-      controller.createTab();
+      _createTopicsTab(controller);
       await tester.pumpAndSettle();
 
       final activeTabId = controller.activeTabId!;
@@ -625,7 +625,7 @@ void main() {
     final firstTabId = controller.activeTabId!;
     final firstViewport = tester.element(find.byType(TopicListView));
 
-    controller.createTab();
+    _createTopicsTab(controller);
     await tester.pumpAndSettle();
 
     expect(find.byType(TopicListView), findsOneWidget);
@@ -644,6 +644,12 @@ void main() {
 }
 
 void _noop() {}
+
+// A new tab opens on the Start page; these tests compare two topic lists.
+void _createTopicsTab(ShellController controller) {
+  controller.createTab();
+  controller.selectDestination(controller.currentInstance!.defaultDestination);
+}
 
 Element _onlyChild(Element parent) {
   final children = <Element>[];

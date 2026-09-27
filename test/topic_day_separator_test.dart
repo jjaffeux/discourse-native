@@ -176,17 +176,19 @@ void main() {
             .controller!;
         scroll.jumpTo(0);
         await tester.pumpAndSettle();
-        final activity = find.byKey(const ValueKey('topic-header-activity'));
+        // The taxonomy row is the header's last row; activity moved below the
+        // opening post.
+        final header = find.byKey(const ValueKey('topic-header-taxonomy'));
         final date = find.byKey(ValueKey(('topic-day', day)));
         final floating = find.byKey(ValueKey(('topic-floating-day', day)));
         expect(floating, findsNothing);
         expect(
           tester.getRect(date).top,
-          greaterThan(tester.getRect(activity).bottom),
+          greaterThan(tester.getRect(header).bottom),
         );
         final firstPost = find.byKey(const ValueKey('topic-post-highlight-1'));
         expect(
-          tester.getRect(firstPost).top - tester.getRect(activity).bottom,
+          tester.getRect(firstPost).top - tester.getRect(header).bottom,
           lessThanOrEqualTo(scale == 1 ? 48 : 64),
           reason: 'the opening should not reserve a full day-boundary gap',
         );

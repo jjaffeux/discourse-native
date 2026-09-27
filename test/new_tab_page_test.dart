@@ -28,6 +28,11 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'support/fakes.dart';
 import 'support/shell_test_harness.dart';
 
+// The mobile dock labels its Chat panel too; section headings are asserted
+// on the Start page itself.
+Finder startPageText(String text) =>
+    find.descendant(of: find.byType(NewTabPage), matching: find.text(text));
+
 void main() {
   testWidgets('the app width setting applies to tab content', (tester) async {
     SharedPreferences.setMockInitialValues({
@@ -397,7 +402,7 @@ void main() {
         reason: label,
       );
     }
-    expect(find.text('Chat'), findsNothing);
+    expect(startPageText('Chat'), findsNothing);
 
     shell.openTopicUrl('/t/recent-topic/42');
     shell.pushContent(ContentRoute.newTab());
@@ -528,7 +533,7 @@ void main() {
     );
     shell.pushContent(ContentRoute.newTab());
     await tester.pumpAndSettle();
-    expect(find.text('Chat'), findsOneWidget);
+    expect(startPageText('Chat'), findsOneWidget);
     expect(find.text('General'), findsOneWidget);
     await tester.tap(find.byTooltip('Comfortable'));
     await tester.pumpAndSettle();
@@ -978,7 +983,7 @@ void main() {
     shell.pushContent(ContentRoute.newTab());
     await tester.pumpAndSettle();
     expect(find.text('Alex'), findsOneWidget);
-    expect(find.text('Chat'), findsOneWidget);
+    expect(startPageText('Chat'), findsOneWidget);
     await tester.tap(find.byTooltip('Comfortable'));
     await tester.pumpAndSettle();
     final directCard = find.byKey(

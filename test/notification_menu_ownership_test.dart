@@ -339,10 +339,17 @@ final class _Harness {
   }
 
   Future<void> open(WidgetTester tester) async {
+    // The topic reader's header keys its trigger apart from the default a
+    // standalone button keeps.
+    const headerKey = ValueKey('topic-header-notification-button');
+    final defaultKey = ValueKey(
+      '${category ? 'category' : 'topic'}-notification-level-button',
+    );
     await tester.tap(
-      find.byKey(
-        ValueKey(
-          '${category ? 'category' : 'topic'}-notification-level-button',
+      find.descendant(
+        of: wrapper,
+        matching: find.byWidgetPredicate(
+          (widget) => widget.key == headerKey || widget.key == defaultKey,
         ),
       ),
     );
