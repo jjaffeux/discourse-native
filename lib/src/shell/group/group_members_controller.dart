@@ -20,6 +20,7 @@ final class GroupMemberFilterController extends ChangeNotifier {
   final Duration debounceDuration;
   ValueChanged<String>? onFilterChanged;
   String _filter;
+  String? _sent;
   Timer? _debounce;
 
   void update({
@@ -29,16 +30,24 @@ final class GroupMemberFilterController extends ChangeNotifier {
     this.onFilterChanged = onFilterChanged;
     if (_filter == filter) return;
     _filter = filter;
+    // The field's own filter comes back trimmed, possibly after further
+    // keystrokes: rewriting the text for it would drop trailing whitespace or
+    // characters typed since, and invalidate the caret, so only a filter the
+    // field did not send replaces its text.
+    final echo = filter == _sent || filter == searchController.text.trim();
+    _sent = null;
+    if (echo) return;
     _debounce?.cancel();
     if (searchController.text != filter) searchController.text = filter;
   }
 
   void search(String value) {
     _debounce?.cancel();
-    _debounce = Timer(
-      debounceDuration,
-      () => onFilterChanged?.call(value.trim()),
-    );
+    _debounce = Timer(debounceDuration, () {
+      final filter = value.trim();
+      _sent = filter;
+      onFilterChanged?.call(filter);
+    });
   }
 
   @override

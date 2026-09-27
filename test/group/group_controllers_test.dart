@@ -6,6 +6,7 @@ import 'package:discourse_native/src/models/group_route.dart';
 import 'package:discourse_native/src/shell/group/group_manage_controller.dart';
 import 'package:discourse_native/src/shell/group/group_members_controller.dart';
 import 'package:discourse_native/src/shell/group/group_page_types.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -46,6 +47,59 @@ void main() {
 
       expect(controller.searchController.text, 'restored');
       expect(searches, isEmpty);
+    });
+
+    test('the echoed trimmed filter keeps the typed whitespace', () async {
+      final searches = <String>[];
+      final controller = GroupMemberFilterController(
+        filter: '',
+        onFilterChanged: searches.add,
+        debounceDuration: Duration.zero,
+      );
+      addTearDown(controller.dispose);
+      controller.searchController.value = const TextEditingValue(
+        text: 'sam ',
+        selection: TextSelection.collapsed(offset: 4),
+      );
+      controller.search('sam ');
+      await _flushTimers();
+      expect(searches, ['sam']);
+
+      controller.update(filter: 'sam', onFilterChanged: searches.add);
+
+      expect(controller.searchController.text, 'sam ');
+      expect(
+        controller.searchController.selection,
+        const TextSelection.collapsed(offset: 4),
+      );
+    });
+
+    test('a delayed filter echo keeps keystrokes typed after it', () async {
+      final searches = <String>[];
+      final controller = GroupMemberFilterController(
+        filter: '',
+        onFilterChanged: searches.add,
+        debounceDuration: Duration.zero,
+      );
+      addTearDown(controller.dispose);
+      controller.searchController.text = 'sam';
+      controller.search('sam');
+      await _flushTimers();
+      controller.searchController.value = const TextEditingValue(
+        text: 'sam s',
+        selection: TextSelection.collapsed(offset: 5),
+      );
+      controller.search('sam s');
+
+      controller.update(filter: 'sam', onFilterChanged: searches.add);
+      expect(controller.searchController.text, 'sam s');
+      expect(
+        controller.searchController.selection,
+        const TextSelection.collapsed(offset: 5),
+      );
+      await _flushTimers();
+
+      expect(searches, ['sam', 'sam s']);
     });
   });
 

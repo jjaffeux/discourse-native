@@ -710,6 +710,99 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('the echoed trimmed search keeps the typed whitespace', (
+    tester,
+  ) async {
+    var query = const UserDirectoryQuery();
+    final searches = <String>[];
+    late StateSetter update;
+    await _pump(
+      tester,
+      StatefulBuilder(
+        builder: (context, setState) {
+          update = setState;
+          return UsersPage(
+            siteUrl: 'https://example.com',
+            data: UsersPageData(
+              items: const [_sam],
+              columns: const [_likes],
+              loaded: true,
+              query: query,
+            ),
+            onSearchChanged: (value) {
+              searches.add(value);
+              setState(() => query = query.copyWith(search: value));
+            },
+          );
+        },
+      ),
+    );
+    final search = find.byKey(const ValueKey('users-search'));
+    TextEditingController field() => tester
+        .widget<EditableText>(
+          find.descendant(of: search, matching: find.byType(EditableText)),
+        )
+        .controller;
+
+    await tester.enterText(search, 'john ');
+    await tester.pump(const Duration(milliseconds: 351));
+    await tester.pump();
+
+    expect(searches, ['john']);
+    expect(query.search, 'john');
+    expect(field().text, 'john ');
+    expect(field().selection, const TextSelection.collapsed(offset: 5));
+
+    await tester.enterText(search, 'draft');
+    update(() => query = const UserDirectoryQuery(search: 'restored'));
+    await tester.pump();
+    expect(field().text, 'restored');
+    await tester.pump(const Duration(milliseconds: 351));
+    expect(searches, ['john']);
+    expect(query.search, 'restored');
+    expect(field().text, 'restored');
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('a delayed search echo keeps keystrokes typed after it', (
+    tester,
+  ) async {
+    var query = const UserDirectoryQuery();
+    final searches = <String>[];
+    late StateSetter update;
+    await _pump(
+      tester,
+      StatefulBuilder(
+        builder: (context, setState) {
+          update = setState;
+          return UsersPage(
+            siteUrl: 'https://example.com',
+            data: UsersPageData(
+              items: const [_sam],
+              columns: const [_likes],
+              loaded: true,
+              query: query,
+            ),
+            onSearchChanged: searches.add,
+          );
+        },
+      ),
+    );
+    final search = find.byKey(const ValueKey('users-search'));
+    await tester.enterText(search, 'john');
+    await tester.pump(const Duration(milliseconds: 351));
+    expect(searches, ['john']);
+
+    await tester.enterText(search, 'john s');
+    update(() => query = query.copyWith(search: 'john'));
+    await tester.pump();
+    expect(tester.widget<DDataTableFilterField>(search).value, 'john s');
+
+    await tester.pump(const Duration(milliseconds: 351));
+    expect(searches, ['john', 'john s']);
+    expect(tester.takeException(), isNull);
+  });
+
   for (final changesAccount in [false, true]) {
     testWidgets(
       'pending search stays with its ${changesAccount ? 'account' : 'forum'}',

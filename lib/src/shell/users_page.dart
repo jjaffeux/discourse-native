@@ -182,6 +182,7 @@ class UsersPage extends StatefulWidget {
 
 class _UsersPageState extends State<UsersPage> {
   late String _searchText;
+  String? _sentSearch;
   Map<String, double> _columnMaxima = const {};
   final ScrollController _horizontal = ScrollController();
   final ScrollController _vertical = ScrollController();
@@ -277,9 +278,20 @@ class _UsersPageState extends State<UsersPage> {
       _columnWidthsDirty = false;
       _restoreColumnWidths();
     }
-    if (ownerChanged ||
-        oldWidget.data.query.search != widget.data.query.search) {
-      _searchText = widget.data.query.search;
+    final search = widget.data.query.search;
+    if (ownerChanged) {
+      _searchText = search;
+      _sentSearch = null;
+    } else if (oldWidget.data.query.search != search) {
+      // The field's own search comes back trimmed, possibly after further
+      // keystrokes: rewriting the field for it would drop trailing whitespace
+      // or characters typed since, and move the caret, so only a search the
+      // field did not send replaces its text.
+      if (search != _sentSearch && search != _searchText.trim()) {
+        _searchDebounce?.cancel();
+        _searchText = search;
+      }
+      _sentSearch = null;
     }
     if (!listEquals(oldWidget.data.items, widget.data.items) ||
         !listEquals(oldWidget.data.columns, widget.data.columns)) {
@@ -454,10 +466,11 @@ class _UsersPageState extends State<UsersPage> {
   void _search(String value) {
     setState(() => _searchText = value);
     _searchDebounce?.cancel();
-    _searchDebounce = Timer(
-      const Duration(milliseconds: 350),
-      () => widget.onSearchChanged?.call(value.trim()),
-    );
+    _searchDebounce = Timer(const Duration(milliseconds: 350), () {
+      final search = value.trim();
+      _sentSearch = search;
+      widget.onSearchChanged?.call(search);
+    });
   }
 
   List<DDataTableColumn<UserDirectoryItem>> _columns(double metricWidth) => [
