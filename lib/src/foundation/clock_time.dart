@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:flutter/widgets.dart';
+import 'package:intl/date_symbol_data_local.dart';
 import 'package:intl/intl.dart';
 
 /// Whether the reader set their device to a 24-hour clock. When they have
@@ -17,6 +20,10 @@ String clockTime(
   required bool use24HourClock,
   String? locale,
 }) {
+  // Until the bundled symbol tables are installed, intl throws when asked
+  // about any locale other than en_US, so a label drawn before any date
+  // picker or calendar would throw for every other reader.
+  unawaited(_localeData);
   // A locale without date symbols falls back to the default one rather than
   // throwing from a label.
   final known = Intl.verifiedLocale(
@@ -38,6 +45,10 @@ String clockTimeLabel(BuildContext context, DateTime value) => clockTime(
   use24HourClock: use24HourClockOf(context),
   locale: Localizations.maybeLocaleOf(context)?.toString(),
 );
+
+/// initializeDateFormatting installs the bundled symbol tables synchronously;
+/// its Future only preserves the cross-platform loader contract.
+final _localeData = initializeDateFormatting();
 
 /// Keyed by verified locale, so a locale whose symbols arrive later is not
 /// held to the fallback it was first formatted with.
