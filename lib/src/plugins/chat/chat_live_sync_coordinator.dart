@@ -64,6 +64,7 @@ final class ChatLiveSyncHost {
     required this.cancelReconciliationChannel,
     required this.forgetReconciliation,
     required this.disposeReconciliation,
+    required this.resyncChannels,
     required this.report,
   });
 
@@ -164,6 +165,9 @@ final class ChatLiveSyncHost {
   cancelReconciliationChannel;
   final void Function(String siteUrl) forgetReconciliation;
   final VoidCallback disposeReconciliation;
+  // Re-reads the channel snapshot in the background. Its state and cursors
+  // arrive through [ChatLiveSyncCoordinator.replace].
+  final void Function(String siteUrl) resyncChannels;
   final void Function(
     Object error,
     StackTrace stackTrace,
@@ -318,6 +322,7 @@ final class ChatLiveSyncCoordinator {
           !site.newMessageCursors.containsKey(id),
     );
     site.presence = channels.presence;
+    site.presenceResyncing = false;
     _presenceRefs[siteUrl]?.value = channels.presence.userIds;
 
     _syncPresence(site);
@@ -828,7 +833,18 @@ final class ChatLiveSyncCoordinator {
       operation: 'chat.presence.subscribe',
       onMessage: (data, messageId) {
         final held = site.presence;
-        if (held == null) return;
+        if (held == null || site.presenceResyncing) return;
+        // Every reader is sent the same stream, so its ids are contiguous, as
+        // web presence assumes: a skipped id is a delivery the trimmed backlog
+        // no longer holds, such as a departure while the app was away. A diff
+        // over that gap would keep the departed user online for the session,
+        // so diffs wait for one snapshot however many gapped ones arrive.
+        final last = held.lastMessageId;
+        if (last != null && messageId != last + 1) {
+          site.presenceResyncing = true;
+          _host.resyncChannels(site.siteUrl);
+          return;
+        }
         final updated = held.withMessage(data, lastMessageId: messageId);
         site.presence = updated;
         _presenceRefs[site.siteUrl]?.value = updated.userIds;
@@ -1597,6 +1613,10 @@ final class _ChatLiveSite {
   PluginLiveChannelHandle? tracker;
   ChatPresence? presence;
   _OwnedLiveSubscription? presenceSubscription;
+  // Not carried by [copyForReplacement]: a replacement resumes from the held
+  // cursor and detects the same gap again, so a resync whose snapshot can no
+  // longer commit cannot silence presence for the next account session.
+  bool presenceResyncing = false;
 
   Map<int, int?> newMessageCursors = {};
   Map<int, int?> newMentionCursors = {};

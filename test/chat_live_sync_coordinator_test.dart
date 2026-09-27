@@ -208,6 +208,75 @@ void main() {
       expect(root.cancelCalls, 1);
       expect(thread.cancelCalls, 1);
     });
+
+    test('contiguous presence ids apply their diffs', () {
+      final fixture = _Fixture();
+      addTearDown(fixture.coordinator.dispose);
+      final tracker = _LiveChannels();
+      fixture.coordinator.replace(_site, _snapshot());
+      fixture.coordinator.attachTracker(_site, tracker);
+      final online = fixture.coordinator.onlineUserIdsListenable(_site);
+
+      tracker.deliver('/presence/chat/online', {
+        'entering_users': [
+          {'id': 5, 'username': 'e'},
+        ],
+      }, messageId: 48);
+      tracker.deliver('/presence/chat/online', {
+        'leaving_user_ids': [2],
+      }, messageId: 49);
+
+      expect(online.value, {5});
+      expect(fixture.resyncs, isEmpty);
+    });
+
+    test('a presence id gap asks for one snapshot instead of applying its '
+        'diffs', () {
+      final fixture = _Fixture();
+      addTearDown(fixture.coordinator.dispose);
+      final tracker = _LiveChannels();
+      fixture.coordinator.replace(_site, _snapshot());
+      fixture.coordinator.attachTracker(_site, tracker);
+      final online = fixture.coordinator.onlineUserIdsListenable(_site);
+
+      // The snapshot read to 47; the site trimmed 48..147 from its backlog,
+      // among them user 2 leaving, so the resumed poll starts at 148.
+      tracker.deliver('/presence/chat/online', {
+        'entering_users': [
+          {'id': 5, 'username': 'e'},
+        ],
+      }, messageId: 148);
+      tracker.deliver('/presence/chat/online', {
+        'entering_users': [
+          {'id': 6, 'username': 'f'},
+        ],
+      }, messageId: 149);
+      tracker.deliver('/presence/chat/online', {
+        'leaving_user_ids': [5],
+      }, messageId: 150);
+
+      expect(online.value, {2});
+      expect(fixture.coordinator.isOnline(_site, 5), isFalse);
+      expect(fixture.resyncs, [_site]);
+
+      fixture.coordinator.replace(
+        _site,
+        const ChatChannels(
+          public: [_channel],
+          presence: ChatPresence(userIds: {6}, lastMessageId: 150),
+        ),
+      );
+      expect(online.value, {6});
+      expect(tracker.lastId('/presence/chat/online'), 150);
+
+      tracker.deliver('/presence/chat/online', {
+        'entering_users': [
+          {'id': 7, 'username': 'g'},
+        ],
+      }, messageId: 151);
+      expect(online.value, {6, 7});
+      expect(fixture.resyncs, [_site]);
+    });
   });
 }
 
@@ -312,6 +381,7 @@ final class _Fixture {
         cancelReconciliationChannel: (_, _) {},
         forgetReconciliation: (_) {},
         disposeReconciliation: () {},
+        resyncChannels: resyncs.add,
         report: (_, _, _, _) {},
       ),
     );
@@ -320,6 +390,7 @@ final class _Fixture {
   final _Requests requests;
   late final ChatLiveSyncCoordinator coordinator;
   final List<String> newMessages = [];
+  final List<String> resyncs = [];
   bool hasThreads = false;
 }
 

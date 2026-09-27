@@ -30,10 +30,13 @@ typedef ChatApiFactory = ChatApi Function(PluginApiTransport transport);
 typedef ChatStoreFactory = Store Function(StorePolicy policy);
 
 final class ChatModule implements PluginModule {
-  const ChatModule({this.apiFactory, this.storeFactory});
+  const ChatModule({this.apiFactory, this.storeFactory, this.clock});
 
   final ChatApiFactory? apiFactory;
   final ChatStoreFactory? storeFactory;
+
+  /// Chat's wall clock, which also measures how long the app was away.
+  final DateTime Function()? clock;
 
   @override
   PluginDescriptor get descriptor => PluginDescriptor(
@@ -89,6 +92,7 @@ final class ChatModule implements PluginModule {
                 (current) => current + delta,
               ),
           onSiteUnreachable: accountEvents.markSiteUnreachable,
+          clock: clock,
           messageContextFor: (siteUrl) {
             final context = navigation.visibleTopicContext;
             if (context == null || context.siteUrl != siteUrl) return null;
@@ -183,6 +187,9 @@ final class _ChatSessionLifecycle extends PluginSessionLifecycle {
   final ChatInboxRooms inboxRooms;
   final ChatSearchController searchController;
   final ChatShellService shell;
+
+  @override
+  void setForeground(bool foreground) => controller.setForeground(foreground);
 
   @override
   void forget(String siteUrl) {

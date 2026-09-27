@@ -2451,7 +2451,7 @@ void main() {
           'entering_users': [
             {'id': 2, 'username': 'hawk'},
           ],
-        });
+        }, messageId: 48);
         expect(subject.chat.isOnline(site, 2), isTrue);
       },
     );
@@ -3371,6 +3371,214 @@ void main() {
       expect(online.value, isEmpty);
       expect(tracker.pluginChannelCallbacks['/presence/chat/online'], isEmpty);
     });
+
+    group('returning to the foreground', () {
+      const away = ChatController.resumeResyncThreshold;
+
+      test(
+        'after a long absence revalidates the held list once, in the background',
+        () async {
+          var now = DateTime.utc(2026, 9, 27, 12);
+          final snapshots = {
+            site: ChatChannels(
+              public: [channel(9)],
+              presence: const ChatPresence(userIds: {2}, lastMessageId: 47),
+              newMessageBusLastIds: const {9: 51},
+            ),
+          };
+          final subject = build(
+            currentUser: currentUser,
+            channels: snapshots,
+            clock: () => now,
+          );
+          addTearDown(subject.chat.dispose);
+          final tracker = attachTracker(subject.chat);
+          await subject.chat.loadChannels(site);
+
+          // The site trimmed what was published while the app was away; the
+          // fresh snapshot's cursors and presence stand in for it.
+          snapshots[site] = ChatChannels(
+            public: [channel(9)],
+            presence: const ChatPresence(userIds: {5}, lastMessageId: 150),
+            newMessageBusLastIds: const {9: 210},
+          );
+          subject.chat.setForeground(false);
+          now = now.add(away);
+          subject.chat.setForeground(true);
+
+          expect(subject.chat.channelsLoading(site), isFalse);
+          await pumpEventQueue();
+          expect(subject.api.chatChannelsRequested, [site, site]);
+          expect(tracker.pluginChannelLastIds['/chat/9/new-messages'], 210);
+          expect(tracker.pluginChannelLastIds['/presence/chat/online'], 150);
+          expect(subject.chat.onlineUserIdsListenable(site).value, {5});
+
+          subject.chat.setForeground(true);
+          await pumpEventQueue();
+          expect(subject.api.chatChannelsRequested, [site, site]);
+        },
+      );
+
+      test('after a short switch keeps the held list', () async {
+        var now = DateTime.utc(2026, 9, 27, 12);
+        final subject = build(
+          channels: {
+            site: ChatChannels(public: [channel(9)]),
+          },
+          clock: () => now,
+        );
+        addTearDown(subject.chat.dispose);
+        await subject.chat.loadChannels(site);
+
+        subject.chat.setForeground(false);
+        now = now.add(away - const Duration(seconds: 1));
+        subject.chat.setForeground(true);
+        await pumpEventQueue();
+
+        expect(subject.api.chatChannelsRequested, [site]);
+      });
+
+      test(
+        'a revalidation cannot regress tracking accepted during its read',
+        () async {
+          var now = DateTime.utc(2026, 9, 27, 12);
+          final old = ChatChannels(
+            direct: [
+              channel(
+                12,
+                kind: ChatChannelKind.directMessage,
+                lastRead: 1,
+                unread: 2,
+              ),
+            ],
+            userTrackingBusLastId: 90,
+          );
+          final api = _GatedChannelRefreshApi(old);
+          final subject = build(
+            api: api,
+            currentUser: currentUser,
+            clock: () => now,
+          );
+          addTearDown(subject.chat.dispose);
+          final tracker = attachTracker(subject.chat);
+          await subject.chat.loadChannels(site);
+
+          final started = api.holdRefresh();
+          subject.chat.setForeground(false);
+          now = now.add(away);
+          subject.chat.setForeground(true);
+          await started;
+          tracker.deliverPluginMessage('/chat/user-tracking-state/7', {
+            'channel_id': 12,
+            'last_read_message_id': 3,
+            'unread_count': 0,
+            'mention_count': 0,
+            'watched_threads_unread_count': 0,
+          }, messageId: 91);
+          // Computed before the read landed, the snapshot still counts it.
+          api.releaseRefresh(old);
+          await pumpEventQueue();
+
+          final refreshed = subject.chat.channel(site, 12)!;
+          expect(refreshed.membership.lastReadMessageId, 3);
+          expect(refreshed.tracking.unreadCount, 0);
+          expect(
+            tracker.pluginChannelLastIds['/chat/user-tracking-state/7'],
+            91,
+          );
+        },
+      );
+
+      test(
+        'a failed revalidation keeps the held list without an error',
+        () async {
+          var now = DateTime.utc(2026, 9, 27, 12);
+          final snapshots = {
+            site: ChatChannels(public: [channel(9)]),
+          };
+          final subject = build(channels: snapshots, clock: () => now);
+          addTearDown(subject.chat.dispose);
+          await subject.chat.loadChannels(site);
+
+          snapshots.remove(site);
+          subject.chat.setForeground(false);
+          now = now.add(away);
+          subject.chat.setForeground(true);
+          await pumpEventQueue();
+
+          expect(subject.api.chatChannelsRequested, [site, site]);
+          expect(subject.chat.channelsLoaded(site), isTrue);
+          expect(subject.chat.channelsError(site), isNull);
+          expect(subject.chat.publicChannels(site).map((c) => c.id), [9]);
+        },
+      );
+
+      test(
+        'a refresh joining a revalidation is drawn and failed as the reader’s',
+        () async {
+          var now = DateTime.utc(2026, 9, 27, 12);
+          final api = _GatedChannelRefreshApi(
+            ChatChannels(public: [channel(9)]),
+          );
+          final subject = build(api: api, clock: () => now);
+          addTearDown(subject.chat.dispose);
+          await subject.chat.loadChannels(site);
+
+          final started = api.holdRefresh();
+          subject.chat.setForeground(false);
+          now = now.add(away);
+          subject.chat.setForeground(true);
+          await started;
+          expect(subject.chat.channelsLoading(site), isFalse);
+
+          final refresh = subject.chat.loadChannels(site, force: true);
+          expect(subject.chat.channelsLoading(site), isTrue);
+          api.detachRefresh().completeError(
+            const SiteLookupException(SiteLookupFailure.unreachable, site),
+          );
+          await refresh;
+
+          expect(subject.api.chatChannelsRequested, [site, site]);
+          expect(subject.chat.channelsError(site), isNotNull);
+        },
+      );
+    });
+
+    test(
+      'a presence id gap revalidates the list once for a snapshot',
+      () async {
+        final snapshots = {
+          site: ChatChannels(
+            public: [channel(9)],
+            presence: const ChatPresence(userIds: {2}, lastMessageId: 47),
+          ),
+        };
+        final subject = build(currentUser: currentUser, channels: snapshots);
+        addTearDown(subject.chat.dispose);
+        final tracker = attachTracker(subject.chat);
+        await subject.chat.loadChannels(site);
+
+        snapshots[site] = ChatChannels(
+          public: [channel(9)],
+          presence: const ChatPresence(userIds: {5}, lastMessageId: 149),
+        );
+        tracker.deliverPluginMessage('/presence/chat/online', {
+          'entering_users': [
+            {'id': 5, 'username': 'kris'},
+          ],
+        }, messageId: 148);
+        tracker.deliverPluginMessage('/presence/chat/online', {
+          'leaving_user_ids': [2],
+        }, messageId: 149);
+        expect(subject.chat.onlineUserIdsListenable(site).value, {2});
+        expect(subject.chat.channelsLoading(site), isFalse);
+        await pumpEventQueue();
+
+        expect(subject.api.chatChannelsRequested, [site, site]);
+        expect(subject.chat.onlineUserIdsListenable(site).value, {5});
+        expect(tracker.pluginChannelLastIds['/presence/chat/online'], 149);
+      },
+    );
 
     test(
       'collapses two callers arriving before the first answer into one ask',

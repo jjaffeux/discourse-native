@@ -549,6 +549,8 @@ class ChatController extends FrameSafeNotifier {
         cancelReconciliationChannel: _sendCoordinator.cancelChannel,
         forgetReconciliation: _sendCoordinator.forget,
         disposeReconciliation: _sendCoordinator.dispose,
+        resyncChannels: (siteUrl) =>
+            unawaited(loadChannels(siteUrl, revalidate: true)),
         report: (error, stackTrace, operation, severity) =>
             _report(error, stackTrace, operation, severity: severity),
       ),
@@ -713,11 +715,21 @@ class ChatController extends FrameSafeNotifier {
   /// Allows retries when no later UI event would trigger one.
   static const int maxChannelAttempts = 3;
 
+  /// How long the app must have been away before returning re-reads every
+  /// held channel list. MessageBus keeps a bounded backlog per channel (100
+  /// messages on a default Discourse), so a resumed poll cannot replay
+  /// activity, tracking or presence published beyond it. A shorter switch
+  /// rarely outruns that backlog, and re-reading each forum's list on every
+  /// app switch would cost a request per forum for nothing.
+  static const Duration resumeResyncThreshold = Duration(minutes: 1);
+
   final Set<String> _loading = {};
   final Map<String, String> _errors = {};
   final Map<String, int> _attempts = {};
   final Map<String, Future<void>> _channelRequests = {};
   final Map<String, Object> _channelRuns = {};
+  final Set<String> _channelRevalidations = {};
+  DateTime? _backgroundedAt;
   final Map<String, Future<ChatChannel?>> _channelDetailRequests = {};
   final Map<String, Object> _channelDetailRuns = {};
   final Map<String, Future<void>> _myThreadRequests = {};
@@ -944,8 +956,10 @@ class ChatController extends FrameSafeNotifier {
   bool channelsLoaded(String siteUrl) =>
       _publicIds.containsKey(siteUrl) && _directIds.containsKey(siteUrl);
 
-  bool channelsLoading(String siteUrl) =>
-      _loading.contains(_channelsKey(siteUrl));
+  bool channelsLoading(String siteUrl) {
+    final key = _channelsKey(siteUrl);
+    return _loading.contains(key) && !_channelRevalidations.contains(key);
+  }
 
   ChatComposerDraft? composerDraftFor(
     String siteUrl,
@@ -5173,28 +5187,66 @@ class ChatController extends FrameSafeNotifier {
     }
   }
 
+  /// Returning after [resumeResyncThreshold] revalidates every held channel
+  /// list, whose snapshot replaces the cursors and presence the resumed poll
+  /// could not catch up; live changes accepted during that read still win.
+  void setForeground(bool foreground) {
+    if (isDisposed) return;
+    if (!foreground) {
+      _backgroundedAt ??= _clock();
+      return;
+    }
+    final backgroundedAt = _backgroundedAt;
+    _backgroundedAt = null;
+    if (backgroundedAt == null ||
+        _clock().difference(backgroundedAt) < resumeResyncThreshold) {
+      return;
+    }
+    for (final siteUrl in _publicIds.keys.toList()) {
+      unawaited(loadChannels(siteUrl, revalidate: true));
+    }
+  }
+
   /// Shares one bounded initial sidebar load per site; live tracking keeps it
   /// fresh, while failure leaves the site without a chat section.
   ///
   /// [force] is reserved for an explicit retry or refresh by the reader.
-  Future<void> loadChannels(String siteUrl, {bool force = false}) {
+  /// [revalidate] re-reads a held list in the background once live tracking
+  /// can no longer vouch for it: it is not drawn as loading, and a failure
+  /// leaves the held list as it was, without an error to retry.
+  Future<void> loadChannels(
+    String siteUrl, {
+    bool force = false,
+    bool revalidate = false,
+  }) {
     if (isDisposed) return Future.value();
     final key = _channelsKey(siteUrl);
-    if (!force && _publicIds.containsKey(siteUrl)) return Future.value();
+    if (revalidate) {
+      // Only a held list is revalidated; a first load stays with its caller.
+      if (!_publicIds.containsKey(siteUrl)) return Future.value();
+    } else if (!force && _publicIds.containsKey(siteUrl)) {
+      return Future.value();
+    }
 
     // The shortcut must await the shared task before choosing its destination.
     final active = _channelRequests[key];
-    if (active != null) return active;
+    if (active != null) {
+      // A reader joining a background read owns its loading state and error.
+      if (!revalidate && _channelRevalidations.remove(key)) notifySafely();
+      return active;
+    }
 
     // The cap stops automatic callers hammering a site that will not answer;
     // an explicit retry is the later UI event it waits for, so it starts a
     // fresh budget. It sits below the join so an attempt in flight keeps its
-    // count.
-    if (force) _attempts.remove(key);
+    // count. A revalidation is already bounded by the absence or the gap that
+    // asked for it, so it never waits on a budget an earlier failure spent.
+    if (force || revalidate) _attempts.remove(key);
     if ((_attempts[key] ?? 0) >= maxChannelAttempts) return Future.value();
 
     final run = Object();
     _channelRuns[key] = run;
+    if (revalidate) _channelRevalidations.add(key);
     late final Future<void> request;
     request = _loadChannels(siteUrl, key, run).whenComplete(() {
       if (identical(_channelRequests[key], request)) {
@@ -5203,6 +5255,7 @@ class ChatController extends FrameSafeNotifier {
       }
       if (identical(_channelRuns[key], run)) {
         _channelRuns.remove(key);
+        _channelRevalidations.remove(key);
       }
     });
     _channelRequests[key] = request;
@@ -5274,6 +5327,7 @@ class ChatController extends FrameSafeNotifier {
     } catch (error, stackTrace) {
       if (!_requestIsCurrent(lease, ownsRequest)) return;
       _report(error, stackTrace, 'chat.loadChannels');
+      if (_channelRevalidations.contains(key)) return;
       lease.commit(() {
         _errors[key] = 'Could not load this site’s chat channels.';
       });
@@ -6736,6 +6790,7 @@ class ChatController extends FrameSafeNotifier {
     _loading.removeWhere((key) => key.startsWith('$siteUrl~'));
     _channelRequests.removeWhere((key, _) => key.startsWith('$siteUrl~'));
     _channelRuns.removeWhere((key, _) => key.startsWith('$siteUrl~'));
+    _channelRevalidations.removeWhere((key) => key.startsWith('$siteUrl~'));
     _channelDetailRequests.removeWhere((key, _) => key.startsWith('$siteUrl~'));
     _channelDetailRuns.removeWhere((key, _) => key.startsWith('$siteUrl~'));
     _myThreadRequests.removeWhere((key, _) => key.startsWith('$siteUrl~'));

@@ -10,13 +10,16 @@ import 'package:discourse_native/src/models/forum_workspace.dart';
 import 'package:discourse_native/src/models/sidebar.dart';
 import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/models/user_flair.dart';
-import 'package:discourse_native/src/plugin_api/plugin_manifest.dart';
+import 'package:discourse_native/src/plugin_api/plugin_runtime.dart';
 import 'package:discourse_native/src/plugin_api/plugin_scope.dart';
 import 'package:discourse_native/src/plugin_api/site_plugin_api.dart';
+import 'package:discourse_native/src/plugins/chat/chat_api.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel_view.dart';
+import 'package:discourse_native/src/plugins/chat/chat_controller.dart';
 import 'package:discourse_native/src/plugins/chat/chat_direct_message_search.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message.dart';
+import 'package:discourse_native/src/plugins/chat/chat_module.dart';
 import 'package:discourse_native/src/plugins/chat/chat_my_threads_view.dart';
 import 'package:discourse_native/src/plugins/chat/chat_notification_counter.dart';
 import 'package:discourse_native/src/plugins/chat/chat_plugin.dart';
@@ -700,6 +703,55 @@ void main() {
           await pumpEventQueue();
 
           expect(api.chatNotificationCalls, before);
+        },
+      );
+
+      test(
+        'the session foreground hook revalidates Chat after a long absence',
+        () async {
+          var now = DateTime.utc(2026, 9, 27, 12);
+          final plugins = PluginInstaller.install(
+            PluginManifest([
+              ChatModule(
+                apiFactory: (transport) => transport as ChatApi,
+                clock: () => now,
+              ),
+            ]),
+          );
+          final chatApi = FakeDiscourseApi(
+            user: _user,
+            chatChannelsBySite: {
+              _site: ChatChannels(public: [_channel(9)]),
+            },
+          );
+          final resumed = ShellController(
+            plugins: plugins,
+            instanceStore: FakeInstanceStore([
+              instance('meta.discourse.org').copyWith(user: _user),
+            ]),
+            api: chatApi,
+            authenticator: FakeAuthenticator()..keys[_site] = 'meta-key',
+            drafts: FakeDraftStore(),
+            trackers: FakeSiteTracker.factory,
+            updateStore: FakeUpdateStore(),
+            ownsApi: false,
+          );
+          addTearDown(() async {
+            resumed.dispose();
+            await resumed.pluginTeardown;
+            await plugins.close();
+          });
+          await resumed.load();
+          await resumed.chat.loadChannels(_site);
+          final before = chatApi.chatChannelsRequested.length;
+
+          resumed.setForeground(false);
+          await pumpEventQueue();
+          now = now.add(ChatController.resumeResyncThreshold);
+          resumed.setForeground(true);
+          await pumpEventQueue();
+
+          expect(chatApi.chatChannelsRequested, hasLength(before + 1));
         },
       );
     });

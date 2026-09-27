@@ -2582,7 +2582,7 @@ void _registerChatShellTests() {
         final tracker = FakeSiteTracker.built.single;
         tracker.deliverPluginMessage('/presence/chat/online', {
           'leaving_user_ids': [2],
-        });
+        }, messageId: 48);
         await tester.pump();
 
         expect(ring, findsNothing);
@@ -3641,7 +3641,7 @@ void _registerChatShellTests() {
         final tracker = FakeSiteTracker.built.single;
         tracker.deliverPluginMessage('/presence/chat/online', {
           'leaving_user_ids': [2],
-        });
+        }, messageId: 48);
         await tester.pump();
         expect(ring, findsNothing);
 
@@ -3649,7 +3649,7 @@ void _registerChatShellTests() {
           'entering_users': [
             {'id': 2, 'username': 'sam'},
           ],
-        });
+        }, messageId: 49);
         await tester.pump();
         expect(ring, findsOneWidget);
       }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
