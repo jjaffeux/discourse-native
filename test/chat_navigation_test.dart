@@ -1790,9 +1790,11 @@ void main() {
           const ValueKey('content-header-title-action'),
         );
         final button = tester.widget<DButton>(titleAction);
-        expect(button.variant, DButtonVariant.transparentBackground);
-        expect(button.size, DButtonSize.large);
-        expect(button.icon, isNotNull);
+        expect(button.variant, DButtonVariant.inline);
+        expect(
+          find.byKey(const ValueKey('chat-channel-header-marker')),
+          findsOneWidget,
+        );
         expect(tester.getSize(titleAction).width, lessThan(200));
         final star = find.byKey(const ValueKey('chat-channel-star-button'));
         expect(star, findsOneWidget);

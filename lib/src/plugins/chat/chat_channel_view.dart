@@ -12,6 +12,7 @@ import 'package:flutter/services.dart';
 import 'package:super_sliver_list/super_sliver_list.dart';
 
 import 'chat_channel.dart';
+import 'chat_channel_header.dart';
 import 'chat_composer.dart';
 import 'chat_controller.dart';
 import 'chat_message.dart';
@@ -30,11 +31,13 @@ class ChatChannelView extends StatelessWidget {
     required this.channelId,
     this.autofocusMessageStream = true,
     this.autofocusComposer = true,
+    this.showHeader = true,
   });
 
   final int channelId;
   final bool autofocusMessageStream;
   final bool autofocusComposer;
+  final bool showHeader;
 
   @override
   Widget build(BuildContext context) =>
@@ -52,6 +55,7 @@ class ChatChannelView extends StatelessWidget {
             chat: chat,
             autofocusMessageStream: autofocusMessageStream,
             autofocusComposer: autofocusComposer,
+            showHeader: showHeader,
           );
         },
       );
@@ -95,6 +99,7 @@ class _ChatChannelBody extends StatefulWidget {
     required this.chat,
     required this.autofocusMessageStream,
     required this.autofocusComposer,
+    required this.showHeader,
   });
 
   final String siteUrl;
@@ -103,6 +108,7 @@ class _ChatChannelBody extends StatefulWidget {
   final ChatController chat;
   final bool autofocusMessageStream;
   final bool autofocusComposer;
+  final bool showHeader;
 
   @override
   State<_ChatChannelBody> createState() => _ChatChannelBodyState();
@@ -121,6 +127,7 @@ class _ChatChannelBodyState extends State<_ChatChannelBody> {
   int? _projectedRevision;
   int? _projectedShowTimeGapDays;
   List<ChatStreamItem> _items = const [];
+  ChatChannelActivity _activity = const ChatChannelActivity();
   int? _highlightMessageId;
   int _highlightRequest = 0;
   bool _selectingMessages = false;
@@ -260,6 +267,7 @@ class _ChatChannelBodyState extends State<_ChatChannelBody> {
   Widget _buildContent(ChatStreamState stream) {
     final hasMessages =
         stream.messageIds.isNotEmpty || stream.localMessageIds.isNotEmpty;
+    if (!hasMessages) _activity = const ChatChannelActivity();
     if (hasMessages) {
       // Local sends remain visible while the first page loads or has failed.
       _syncProjection(stream);
@@ -311,14 +319,38 @@ class _ChatChannelBodyState extends State<_ChatChannelBody> {
       child: DPageSurface(
         framed: false,
         hideHeaderOnScroll: true,
-        header: channel?.hasPinnedMessages == true
-            ? ChatPinnedBar(
+        header: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (widget.showHeader)
+              ChatChannelHeader(
+                siteUrl: widget.siteUrl,
+                channelId: widget.channelId,
+                channel: channel,
+                stream: stream,
+                activity: _activity,
+                onBack: () => PluginUiScope.require(
+                  context,
+                  chatShellService,
+                ).openChats(),
+                onOpenDetails: () =>
+                    PluginUiScope.require(
+                      context,
+                      chatShellService,
+                    ).openChannelInfo(
+                      siteUrl: widget.siteUrl,
+                      channelId: widget.channelId,
+                    ),
+              ),
+            if (channel?.hasPinnedMessages == true)
+              ChatPinnedBar(
                 siteUrl: widget.siteUrl,
                 channel: channel!,
                 chat: widget.chat,
                 onJumpToMessage: _jumpToMessage,
-              )
-            : null,
+              ),
+          ],
+        ),
         footer: _selectingMessages
             ? ChatMessageSelectionBar(
                 siteUrl: widget.siteUrl,
@@ -502,6 +534,7 @@ class _ChatChannelBodyState extends State<_ChatChannelBody> {
         _extendProjectionIntoFuture(stream);
     if (!extended) {
       final messages = widget.chat.messages(widget.siteUrl, widget.channelId);
+      _activity = const ChatChannelActivity().adding(messages);
       // Use the opening snapshot so read receipts cannot move the divider.
       _items = buildChatStream(
         messages,
@@ -562,6 +595,7 @@ class _ChatChannelBodyState extends State<_ChatChannelBody> {
     );
     if (projected == null) return false;
     _items = projected;
+    _activity = _activity.adding(prepended);
     return true;
   }
 
@@ -615,6 +649,7 @@ class _ChatChannelBodyState extends State<_ChatChannelBody> {
     );
     if (projected == null) return false;
     _items = projected;
+    _activity = _activity.adding(appended);
     return true;
   }
 

@@ -5,6 +5,7 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
 import 'chat_browse_navigation.dart';
+import 'chat_browse_skeleton.dart';
 import 'chat_channel.dart';
 import 'chat_chrome_scroll_view.dart';
 import 'chat_inbox.dart';
@@ -31,7 +32,9 @@ class ChatMobileSidebar extends StatelessWidget {
         final channels = chatInboxConversations(chat, siteUrl, filter);
         final rooms = roomService?.rooms(siteUrl) ?? const <ChatInboxRoom>[];
         final error = chat.channelsError(siteUrl);
-        final loading = !chat.channelsLoaded(siteUrl) && error == null;
+        final loading =
+            chat.channelsLoading(siteUrl) ||
+            (!chat.channelsLoaded(siteUrl) && error == null);
         final colors = DTokens.of(context);
         Widget row(ChatChannel channel) => ValueListenableBuilder<ChatChannel?>(
           key: ValueKey(channel.id),
@@ -62,8 +65,10 @@ class ChatMobileSidebar extends StatelessWidget {
           list: (context, lazy) => ContentReadingLane(
             basePadding: const EdgeInsets.symmetric(horizontal: 16),
             builder: (context, lane) => loading
-                ? const Center(
-                    child: DSpinner(semanticLabel: 'Loading conversations'),
+                ? ChatBrowseSkeleton(
+                    page: ChatBrowsePage.chats,
+                    scrollable: lazy,
+                    padding: lane.padding,
                   )
                 : error != null && channels.isEmpty && rooms.isEmpty
                 ? ChatInboxError(

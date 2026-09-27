@@ -146,8 +146,7 @@ final class VoicePlugin
     if (directory == null) return const [];
     final inbox = PluginUiScope.require(context, voiceChatInboxService);
     final rooms = inbox.rooms(instance.url);
-    if (!inbox.includesRooms(instance.url) ||
-        (rooms.isEmpty && !directory.canCreateRoom)) {
+    if (rooms.isEmpty) {
       return const [];
     }
 
@@ -156,12 +155,7 @@ final class VoicePlugin
         id: 'voice-rooms',
         title: 'Voice rooms',
         showHeader: true,
-        collapsible: true,
-        actionIcon: DIcons.plus,
-        actionLabel: 'Create voice room',
-        onAction: directory.canCreateRoom
-            ? () => showVoiceRoomEditor(context, siteUrl: instance.url)
-            : null,
+        collapsible: false,
         bodyBuilder: (_) => SliverList.list(
           children: [
             for (final room in rooms)
@@ -178,9 +172,6 @@ final class VoicePlugin
               icon: room.type == VoiceRoomType.stage
                   ? DIcons.earListen
                   : DIcons.microphoneLines,
-              trailingLabel: room.participants.isEmpty
-                  ? null
-                  : '${room.participants.length}',
               onTap: () async {
                 final replaceRoomPage =
                     roomIdIn(shell.currentContent?.id ?? '') != null;
@@ -218,20 +209,6 @@ final class VoicePlugin
                 ),
               ),
             ),
-            for (final participant in room.participants)
-              SidebarDestination(
-                id: 'voice-room-${room.id}-user-${participant.id}',
-                label: participant.name ?? participant.username,
-                icon: DIcons.user,
-                avatarUrl: participant.avatarUrl(instance.url),
-                trailingLabel: participant.handRaisedAt != null
-                    ? '✋'
-                    : participant.muted
-                    ? 'muted'
-                    : null,
-                indent: 1,
-                enabled: false,
-              ),
           ],
         ],
       ),

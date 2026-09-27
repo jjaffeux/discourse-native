@@ -430,7 +430,7 @@ void main() {
     });
   }
 
-  _desktopTest('empty accessible Voice directory retains room creation', (
+  _desktopTest('empty accessible Voice directory has no creation button', (
     tester,
   ) async {
     await pumpTabs(tester, rooms: false);
@@ -440,7 +440,8 @@ void main() {
       tester.getRect(tab('chat')).centerLeft + const Offset(8, 0),
     );
     await tester.pumpAndSettle();
-    expect(find.byTooltip('Create voice room'), findsOneWidget);
+    expect(find.byTooltip('Create voice room'), findsNothing);
+    expect(find.text('Voice rooms'), findsNothing);
     expect(sidebarDestination('Topics'), findsNothing);
   });
 
@@ -481,6 +482,10 @@ void main() {
     expect(tester.widget<DTabs<String>>(tabs).value, 'chat');
     expect(sidebarDestination('General'), findsNothing);
     expect(sidebarDestination('Watercooler'), findsOneWidget);
+    expect(find.byTooltip('Create voice room'), findsNothing);
+    expect(find.bySemanticsLabel('Collapse Voice rooms'), findsNothing);
+    expect(find.bySemanticsLabel('Expand Voice rooms'), findsNothing);
+    expect(find.text('Empty'), findsNothing);
     expect(sidebarDestination('Topics'), findsNothing);
   });
 

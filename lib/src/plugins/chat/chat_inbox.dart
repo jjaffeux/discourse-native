@@ -254,7 +254,7 @@ class ChatSidebarFooter extends StatelessWidget {
             ChatInboxShortcuts(
               browse: browse,
               myThreads: myThreads,
-              size: DControlSize.small,
+              size: DControlSize.action,
               shortLabels: true,
             ),
         ],
@@ -321,7 +321,7 @@ class ChatInboxRow extends StatelessWidget {
         ? '${channel.lastMessageUsername}: '
         : '';
     final preview = unread && count > (compact ? 0 : 1)
-        ? '$count new ${count == 1 ? 'message' : 'messages'}'
+        ? '$count ${count == 1 ? 'message' : 'messages'}'
         : unread && threadCount > 0
         ? '$threadCount unread ${threadCount == 1 ? 'thread' : 'threads'}'
         : unread && channel.tracking.mentionCount > 0
