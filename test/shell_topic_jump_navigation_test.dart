@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:discourse_native/src/models/content_route.dart';
+import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/search_results.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
@@ -9,6 +10,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'support/fakes.dart';
 
 const _siteUrl = 'https://meta.example';
+const _reader = DiscourseUser(id: 7, username: 'reader');
 const _topic = TopicDetail(
   id: 1,
   title: 'One',
@@ -243,9 +245,12 @@ Future<
 >
 _fixture() async {
   final api = _JumpApi();
-  final authenticator = _GatedAuthenticator();
+  // Only a signed-in forum reads its stored key, so a gated lookup is reached.
+  final authenticator = _GatedAuthenticator()..keys[_siteUrl] = 'api-key';
   final shell = ShellController(
-    instanceStore: FakeInstanceStore([instance('meta.example')]),
+    instanceStore: FakeInstanceStore([
+      instance('meta.example').copyWith(user: _reader),
+    ]),
     api: api,
     authenticator: authenticator,
     drafts: FakeDraftStore(),

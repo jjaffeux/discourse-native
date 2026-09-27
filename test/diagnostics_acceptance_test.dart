@@ -8,6 +8,7 @@ import 'package:discourse_native/src/data/store.dart';
 import 'package:discourse_native/src/diagnostics/diagnostics.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
+import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/models/topic.dart';
@@ -23,6 +24,7 @@ import 'package:http/io_client.dart';
 import 'support/fakes.dart';
 
 const _siteUrl = 'https://meta.example';
+const _reader = DiscourseUser(id: 7, username: 'reader');
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -79,8 +81,11 @@ void main() {
     test('bounds a stalled credential read and clears loading state', () async {
       final credentials = _StalledAuthenticator();
       final api = FakeDiscourseApi(feeds: const {'/latest.json': []});
+      // Only a signed-in forum reads its stored key, so the read can stall.
       final shell = ShellController(
-        instanceStore: FakeInstanceStore([instance('meta.example')]),
+        instanceStore: FakeInstanceStore([
+          instance('meta.example').copyWith(user: _reader),
+        ]),
         api: api,
         authenticator: credentials,
         drafts: FakeDraftStore(),
@@ -98,11 +103,13 @@ void main() {
           title: 'Stalled credentials',
         ),
       );
+      final reads = credentials.reads;
       final timers = <_ManualTimer>[];
       final loading = _withManualTimers(
         timers,
         () => shell.loadTopic(7, 'stalled-credentials'),
       );
+      expect(credentials.reads, greaterThan(reads));
       expect(timers, hasLength(1));
       expect(timers.single.delay, greaterThan(Duration.zero));
       expect(
@@ -662,8 +669,13 @@ class _TimeoutApi extends FakeDiscourseApi {
 }
 
 final class _StalledAuthenticator extends FakeAuthenticator {
+  int reads = 0;
+
   @override
-  Future<String?> apiKeyFor(String siteUrl) => Completer<String?>().future;
+  Future<String?> apiKeyFor(String siteUrl) {
+    reads++;
+    return Completer<String?>().future;
+  }
 }
 
 final class _GatedTimeoutApi extends _TimeoutApi {
