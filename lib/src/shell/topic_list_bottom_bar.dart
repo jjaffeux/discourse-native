@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 
 import '../app_shortcuts.dart';
 import '../models/content_route.dart';
+import '../models/forum_workspace.dart';
 import '../models/topic.dart';
 import '../theme/app_theme.dart';
 import '../theme/d_icons.dart';
@@ -90,12 +91,33 @@ bool openAdjacentTopic(
         ? null
         : shell.store.read<Topic>(siteUrl, target);
     if (topic != null) {
+      if (_readerBeside(shell) case final reader?) shell.selectTab(reader);
       shell.openTopicFromList(topic, revealInList: true);
     }
   }
 
   unawaited(open());
   return true;
+}
+
+// The arrows follow the topic being read, which a desktop list can show in
+// the other panel; selecting that reader keeps the list in place.
+String? _readerBeside(ShellController shell) {
+  final active = shell.activeTab;
+  if (!shell.desktopPanelsEnabled ||
+      active == null ||
+      active.currentContent.isTopic) {
+    return null;
+  }
+  final other = shell.selectedTabIn(
+    active.panel == ForumPanel.main ? ForumPanel.secondary : ForumPanel.main,
+  );
+  if (other == null ||
+      !other.currentContent.isTopic ||
+      other.currentContent.topicId != shell.readingTopicId) {
+    return null;
+  }
+  return other.id;
 }
 
 class TopicListBottomBar extends StatelessWidget {
