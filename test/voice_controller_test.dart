@@ -226,7 +226,7 @@ final class FakeVoiceMediaSession extends ChangeNotifier
   final List<(int, Map<String, dynamic>)> signals = [];
 
   @override
-  Object? get localVideoTrack => null;
+  Object? localVideoTrack;
 
   @override
   bool get screenSharing => screen;
@@ -4046,6 +4046,67 @@ void main() {
         expect(stateWrites.last.body['screen'], isFalse);
       },
     );
+
+    // The sidebar, the chat inbox and the call port all redraw on this
+    // controller, while participant tiles listen to the media session.
+    test('stays quiet for media events that change only speakers', () async {
+      await controller.ensureLoaded(firstSite);
+      await controller.join(
+        siteUrl: firstSite,
+        siteName: 'One',
+        room: controller.room(firstSite, 7)!,
+      );
+      await pumpEventQueue();
+      final media = mediaFactory.sessions.single;
+      var notifications = 0;
+      controller.addListener(() => notifications++);
+
+      for (var event = 0; event < 20; event++) {
+        media.speaking = event.isEven ? const {2} : const {};
+        media.notifyListeners();
+      }
+      await pumpEventQueue();
+
+      expect(notifications, 0);
+      expect(controller.call?.status, VoiceCallStatus.connected);
+    });
+
+    test('notifies for media state read through the call', () async {
+      await controller.ensureLoaded(firstSite);
+      await controller.join(
+        siteUrl: firstSite,
+        siteName: 'One',
+        room: controller.room(firstSite, 7)!,
+      );
+      await pumpEventQueue();
+      final media = mediaFactory.sessions.single;
+      var notifications = 0;
+      controller.addListener(() => notifications++);
+
+      // The call port draws its local preview from the media session.
+      media.localVideoTrack = Object();
+      media.notifyListeners();
+      expect(notifications, 1);
+      media.notifyListeners();
+      expect(notifications, 1);
+      media.localVideoTrack = Object();
+      media.notifyListeners();
+      expect(notifications, 2);
+      media.localVideoTrack = null;
+      media.notifyListeners();
+      expect(notifications, 3);
+
+      media.screen = true;
+      media.notifyListeners();
+      expect(notifications, 4);
+      media.notifyListeners();
+      expect(notifications, 4);
+
+      media.connectionState = VoiceMediaConnectionState.reconnecting;
+      media.notifyListeners();
+      expect(notifications, 5);
+      expect(controller.call?.status, VoiceCallStatus.reconnecting);
+    });
   });
 
   group('remembered camera', () {

@@ -259,6 +259,17 @@ typedef VoiceUserIdLookup = int? Function(String siteUrl);
 typedef VoiceCapabilityResolver = Future<bool?> Function(String siteUrl);
 typedef _VoiceRequestCredentials = ({String apiKey, String clientId});
 
+/// The media state the controller's listeners read through
+/// [VoiceCallSnapshot.media] rather than from the snapshot itself: the call
+/// port's local preview, and the connection and screen share the call's
+/// status is derived from. Speaking and remote tracks are not in it;
+/// participant tiles listen to the media session for those.
+typedef _VoiceMediaView = ({
+  VoiceMediaConnectionState connectionState,
+  bool screenSharing,
+  Object? localVideoTrack,
+});
+
 /// Optional cancellation boundary for a Voice message-bus adapter whose
 /// native teardown is asynchronous.
 abstract interface class VoiceAwaitableSubscriptionTeardown {
@@ -404,6 +415,8 @@ final class VoiceController extends ChangeNotifier {
       Expando<_VoiceParticipantSession>();
   final Expando<VoiceSignalBatcher> _signalBatchers =
       Expando<VoiceSignalBatcher>();
+  // Per media session, the media state its last event was compared against.
+  final Expando<_VoiceMediaView> _mediaViews = Expando<_VoiceMediaView>();
   Timer? _heartbeat;
   Future<void>? _heartbeatRequest;
   bool _heartbeatPending = false;
@@ -2248,6 +2261,7 @@ final class VoiceController extends ChangeNotifier {
         await _disposeMedia(media, 'voice.media.disposeAfterCancelledJoin');
         return;
       }
+      _mediaViews[media] = _mediaView(media);
       media.addListener(_mediaChanged);
       if (_incomingCall case final incoming?
           when incoming.siteUrl == siteUrl && incoming.call.roomId == room.id) {
@@ -4692,10 +4706,24 @@ final class VoiceController extends ChangeNotifier {
     );
   }
 
+  static _VoiceMediaView _mediaView(VoiceMediaSession media) => (
+    connectionState: media.connectionState,
+    screenSharing: media.screenSharing,
+    localVideoTrack: media.localVideoTrack,
+  );
+
+  static bool _sameMediaView(_VoiceMediaView a, _VoiceMediaView b) =>
+      a.connectionState == b.connectionState &&
+      a.screenSharing == b.screenSharing &&
+      identical(a.localVideoTrack, b.localVideoTrack);
+
   void _mediaChanged() {
     if (_disposed) return;
     final call = _call;
     if (call != null) {
+      final seen = _mediaViews[call.media];
+      final view = _mediaView(call.media);
+      _mediaViews[call.media] = view;
       if (!call.muted &&
           call.media.speakingParticipantIds.contains(
             _userIdFor(call.siteUrl),
@@ -4703,7 +4731,7 @@ final class VoiceController extends ChangeNotifier {
         _idleTracker.recordVoiceActivity();
       }
       var updated = call;
-      final status = switch (call.media.connectionState) {
+      final status = switch (view.connectionState) {
         VoiceMediaConnectionState.connected => VoiceCallStatus.connected,
         VoiceMediaConnectionState.reconnecting => VoiceCallStatus.reconnecting,
         VoiceMediaConnectionState.failed => VoiceCallStatus.failed,
@@ -4727,7 +4755,7 @@ final class VoiceController extends ChangeNotifier {
           data: {
             'from': call.status.name,
             'to': status.name,
-            'mediaConnectionState': call.media.connectionState.name,
+            'mediaConnectionState': view.connectionState.name,
           },
         );
         updated = updated.copyWith(
@@ -4741,7 +4769,7 @@ final class VoiceController extends ChangeNotifier {
       final screenShareEnded =
           updated.status != VoiceCallStatus.leaving &&
           updated.screenSharing &&
-          !call.media.screenSharing;
+          !view.screenSharing;
       if (screenShareEnded) {
         _record(
           'media.screen_share.ended',
@@ -4764,8 +4792,17 @@ final class VoiceController extends ChangeNotifier {
         unawaited(_requestStateSync());
         _restorePreferredCamera();
       }
+      // Speaking, connection-quality and remote-track events arrive several
+      // times a second for as long as a call lasts. This controller drives
+      // the sidebar, the chat inbox and the call port, none of which reads
+      // them; participant tiles listen to the media session for those. Only
+      // a changed call, or media state read through it, is worth a redraw.
+      if (!identical(updated, call) ||
+          seen == null ||
+          !_sameMediaView(seen, view)) {
+        notifyListeners();
+      }
     }
-    notifyListeners();
   }
 
   void _onSystemAction(VoiceSystemCallAction action) {
