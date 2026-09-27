@@ -5198,6 +5198,10 @@ class ShellController extends FrameSafeNotifier
         'messageBus.resolveAccount',
         severity: DiagnosticSeverity.warning,
       );
+      if (error is ApiKeyRejectedException) {
+        await _expireRejectedAccount(siteUrl, apiKey, lease);
+        return null;
+      }
       lease.commit(() {
         if (_instanceAt(siteUrl)?.user?.hidePresence == null &&
             !_hidePresenceWrites.containsKey(siteUrl)) {
@@ -5218,6 +5222,34 @@ class ShellController extends FrameSafeNotifier
       categoryPreferenceVersion,
       pluginUserOptionVersion,
     );
+  }
+
+  /// Every request carrying a key the site refuses fails the same way, so the
+  /// forum is signed out and offers Sign in instead of keeping an account
+  /// that nothing can be done with. That includes a suspended account, whose
+  /// key the site would accept again once the suspension ends: the web client
+  /// shows such an account signed out too, and signing in works again then.
+  Future<void> _expireRejectedAccount(
+    String siteUrl,
+    String apiKey,
+    SiteLease lease,
+  ) async {
+    final host = _instanceAt(siteUrl)?.host;
+    if (host == null) return;
+    final result = await _accountSessions.expireRejectedKey(
+      siteUrl,
+      apiKey: apiKey,
+      lease: lease,
+    );
+    if (isDisposed ||
+        result.outcome != AccountDisconnectionOutcome.disconnected) {
+      return;
+    }
+    result.lease?.commit(() {
+      _connectErrors[siteUrl] =
+          '$host no longer accepts this sign-in. Sign in again to continue.';
+      _notify();
+    });
   }
 
   DiscourseUser? _acceptFreshCurrentUserSnapshot(

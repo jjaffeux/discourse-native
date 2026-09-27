@@ -809,6 +809,81 @@ void main() {
     });
   });
 
+  group('currentUser', () {
+    test('recognizes a key the site refuses before the action runs', () async {
+      String? path;
+      final api = _accountApi(
+        client: MockClient((request) async {
+          path = request.url.path;
+          return _invalidAccess();
+        }),
+      );
+
+      await expectLater(
+        api.currentUser(siteUrl: 'https://meta.discourse.org', apiKey: 'k'),
+        throwsA(
+          isA<ApiKeyRejectedException>()
+              .having((error) => error.statusCode, 'statusCode', 403)
+              .having(
+                (error) => error.failure,
+                'failure',
+                SiteLookupFailure.notDiscourse,
+              ),
+        ),
+      );
+      expect(path, '/session/current.json');
+    });
+
+    test('does not mistake another failure for a refused key', () async {
+      final failures = <String, Future<http.Response> Function()>{
+        'web application firewall page': () async => http.Response(
+          '<html><body>Access denied</body></html>',
+          403,
+          headers: {'content-type': 'text/html'},
+        ),
+        'empty refusal': () async => http.Response('', 403),
+        'refusal that does not decode in its charset': () async =>
+            http.Response.bytes(
+              [0xff, 0xfe],
+              403,
+              headers: {'content-type': 'application/json; charset=utf-8'},
+            ),
+        'request without an account': () async => http.Response(
+          jsonEncode({
+            'errors': ['You need to be logged in to do that.'],
+            'error_type': 'not_logged_in',
+          }),
+          403,
+        ),
+        'unauthorized without a body': () async => http.Response('', 401),
+        'refused key behind an unauthorized status': () async =>
+            _invalidAccess(statusCode: 401),
+        'refused key behind a server error': () async =>
+            _invalidAccess(statusCode: 500),
+        'unavailable site': () async => http.Response('', 503),
+        'rate limit': () async => http.Response('', 429),
+        'missing route': () async => http.Response('', 404),
+        'unreachable site': () async =>
+            throw http.ClientException('Connection timed out'),
+      };
+
+      for (final MapEntry(key: name, value: respond) in failures.entries) {
+        final api = _accountApi(client: MockClient((_) => respond()));
+
+        await expectLater(
+          api.currentUser(siteUrl: 'https://meta.discourse.org', apiKey: 'k'),
+          throwsA(
+            allOf(
+              isA<SiteLookupException>(),
+              isNot(isA<ApiKeyRejectedException>()),
+            ),
+          ),
+          reason: name,
+        );
+      }
+    });
+  });
+
   group('revokeApiKey', () {
     test('posts the key back to the site', () async {
       String? path;

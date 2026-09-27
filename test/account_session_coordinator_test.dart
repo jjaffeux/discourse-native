@@ -650,6 +650,113 @@ void main() {
     }
   });
 
+  group('AccountSessionCoordinator rejected key expiry', () {
+    test('signs out and deletes the refused key without revoking it', () async {
+      final fixture = _Fixture();
+
+      final result = await fixture.coordinator.expireRejectedKey(
+        _siteUrl,
+        apiKey: _oldKey,
+        lease: fixture.lifecycle.capture(_siteUrl),
+      );
+
+      expect(result.outcome, AccountDisconnectionOutcome.disconnected);
+      expect(result.lease?.isCurrent, isTrue);
+      expect(fixture.current.user, isNull);
+      expect((await fixture.durable).user, isNull);
+      expect(fixture.authenticator.keys[_siteUrl], isNull);
+      expect(fixture.api.revocationCount, 0);
+      expect(fixture.events, [
+        'credential:read',
+        'lifecycle:clear',
+        'presentation:disconnecting',
+        'instances:save:signed-out',
+        'credential:delete',
+        'lifecycle:clear',
+        'presentation:disconnected',
+      ]);
+    });
+
+    test(
+      'keeps the key when the signed-out snapshot cannot be saved',
+      () async {
+        final fixture = _Fixture(failingSaveCalls: {1, 2});
+
+        final result = await fixture.coordinator.expireRejectedKey(
+          _siteUrl,
+          apiKey: _oldKey,
+          lease: fixture.lifecycle.capture(_siteUrl),
+        );
+
+        expect(result.outcome, AccountDisconnectionOutcome.failed);
+        expect(fixture.current.user, _accountA);
+        expect((await fixture.durable).user, _accountA);
+        expect(fixture.authenticator.keys[_siteUrl], _oldKey);
+        expect(fixture.events, isNot(contains('credential:delete')));
+        fixture.expectPrivateStateIsCoherent();
+      },
+    );
+
+    test('leaves a key stored since the refusal alone', () async {
+      final fixture = _Fixture();
+      final lease = fixture.lifecycle.capture(_siteUrl);
+      fixture.authenticator.keys[_siteUrl] = _newKey;
+
+      final result = await fixture.coordinator.expireRejectedKey(
+        _siteUrl,
+        apiKey: _oldKey,
+        lease: lease,
+      );
+
+      expect(result.outcome, AccountDisconnectionOutcome.stale);
+      expect(fixture.current.user, _accountA);
+      expect(fixture.authenticator.keys[_siteUrl], _newKey);
+      expect(fixture.events, ['credential:read']);
+    });
+
+    test('cannot sign out an account connected after the refusal', () async {
+      final fixture = _Fixture();
+      final lease = fixture.lifecycle.capture(_siteUrl);
+      final connected = await fixture.coordinator.connect(_siteUrl);
+      fixture.events.clear();
+
+      final result = await fixture.coordinator.expireRejectedKey(
+        _siteUrl,
+        apiKey: _oldKey,
+        lease: lease,
+      );
+
+      expect(connected.outcome, AccountConnectionOutcome.connected);
+      expect(result.outcome, AccountDisconnectionOutcome.stale);
+      expect(fixture.current.user, _accountB);
+      expect((await fixture.durable).user, _accountB);
+      expect(fixture.authenticator.keys[_siteUrl], _newKey);
+      expect(fixture.events, isEmpty);
+    });
+
+    test('stands aside for a connection already under way', () async {
+      final fixture = _Fixture();
+      fixture.authenticator.authorizeGate = Completer<void>();
+      final lease = fixture.lifecycle.capture(_siteUrl);
+
+      final connecting = fixture.coordinator.connect(_siteUrl);
+      await fixture.authenticator.authorizeStarted.future;
+      final result = await fixture.coordinator.expireRejectedKey(
+        _siteUrl,
+        apiKey: _oldKey,
+        lease: lease,
+      );
+      fixture.authenticator.authorizeGate!.complete();
+      final connected = await connecting;
+
+      expect(result.outcome, AccountDisconnectionOutcome.stale);
+      expect(connected.outcome, AccountConnectionOutcome.connected);
+      expect(fixture.current.user, _accountB);
+      expect(fixture.authenticator.keys[_siteUrl], _newKey);
+      fixture.expectPrivateStateIsCoherent();
+    });
+  });
+
   group('AccountSessionCoordinator real-store disconnect', () {
     test('coalesced disconnects durably sign out both sites', () async {
       final fixture = await _RealStoreFixture.create();
