@@ -3580,21 +3580,46 @@ class ShellController extends FrameSafeNotifier
     lifecycle.capture(currentInstance?.url ?? '').session,
   ));
 
-  bool get canDismissNewTopics =>
-      currentInstance?.isConnected == true &&
-      (currentTopicListMode == TopicListMode.newActivity ||
-          currentTopicListMode == TopicListMode.newTopics ||
-          currentTopicListMode == TopicListMode.newReplies) &&
-      currentFeed?.topicIds.isNotEmpty == true;
+  bool get canDismissNewTopics => _dismissNewScope != null;
+
+  // reset-new looks `tag_name` up case-sensitively and, finding nothing,
+  // drops the tag: the dismissal widens to every new topic in the category,
+  // or on the whole forum. The list matched its tags case-insensitively, so
+  // the only safe name is the exact one its own topics carry, and a list none
+  // of whose topics carries it offers no dismissal.
+  ({String? tagName})? get _dismissNewScope {
+    final instance = currentInstance;
+    final mode = currentTopicListMode;
+    final feed = currentFeed;
+    if (instance == null ||
+        !instance.isConnected ||
+        (mode != TopicListMode.newActivity &&
+            mode != TopicListMode.newTopics &&
+            mode != TopicListMode.newReplies) ||
+        feed == null ||
+        feed.topicIds.isEmpty) {
+      return null;
+    }
+    final requested = topicListContent?.tagNames.firstOrNull?.toLowerCase();
+    if (requested == null) return (tagName: null);
+    for (final id in feed.topicIds) {
+      final topic = store.read<Topic>(instance.url, id);
+      for (final tag in topic?.tags ?? const <TopicTag>[]) {
+        if (tag.name.toLowerCase() == requested) return (tagName: tag.name);
+      }
+    }
+    return null;
+  }
 
   Future<String?> dismissNewTopics() async {
     final instance = currentInstance;
     final route = topicListContent;
     final mode = currentTopicListMode;
+    final scope = _dismissNewScope;
     if (instance == null ||
         route == null ||
         mode == null ||
-        !canDismissNewTopics ||
+        scope == null ||
         dismissingNewTopics) {
       return null;
     }
@@ -3646,7 +3671,7 @@ class ShellController extends FrameSafeNotifier
         dismissTopics: topics,
         dismissPosts: posts,
         categoryId: route.categoryId,
-        tagName: route.tagNames.firstOrNull,
+        tagName: scope.tagName,
         topicIds: topicIds,
       );
       if (!lease.isCurrent || isDisposed) return null;
@@ -3715,16 +3740,17 @@ class ShellController extends FrameSafeNotifier
     final instance = currentInstance;
     if (instance == null) return;
     final source = topicListContent;
+    final tags = _topicListFilterTagNames(instance.url, source);
     final route = query.trim().isEmpty
         ? ContentRoute.filteredTopicList(
             TopicListMode.latest,
             categoryId: source?.categoryId,
-            tags: source?.tagNames ?? const [],
+            tags: tags,
           )
         : ContentRoute.topicFilter(
             query,
             categoryId: source?.categoryId,
-            tags: source?.tagNames ?? const [],
+            tags: tags,
           );
     _replaceTopicListContent(
       route,
@@ -15015,13 +15041,14 @@ class ShellController extends FrameSafeNotifier
     }
 
     final source = topicListContent;
+    final tags = _topicListFilterTagNames(instance.url, source);
     final route =
         _topicListFilterRoute(
           siteUrl: instance.url,
           mode: mode,
           category: categoryFor(source?.categoryId),
-          tagName: source?.tagName,
-          tags: source?.tagNames ?? const [],
+          tagName: tags.firstOrNull,
+          tags: tags,
         ).withTopicListQueryFrom(
           source?.isAdvancedTopicFilter == true ? null : source,
         );
@@ -15055,11 +15082,13 @@ class ShellController extends FrameSafeNotifier
     bool keepTopicOpen = false,
   }) {
     final route = topicListContent;
-    if (route?.isTopicListFilter != true) return;
+    final siteUrl = currentInstance?.url;
+    if (route?.isTopicListFilter != true || siteUrl == null) return;
+    final tags = _topicListFilterTagNames(siteUrl, route);
     _selectTopicListFilter(
       category: category,
-      tagName: route!.tagName,
-      tags: route.tagNames,
+      tagName: tags.firstOrNull,
+      tags: tags,
       keepTopicOpen: keepTopicOpen,
     );
   }
@@ -15164,6 +15193,35 @@ class ShellController extends FrameSafeNotifier
       tagName: null,
       keepTopicOpen: keepTopicOpen,
     );
+  }
+
+  /// The tags [route] passes on to a list that narrows it. `tags[]`, the
+  /// Filter box's `tag:` and a `/tags/c/…/<tag>` segment all look tags up by
+  /// name, but a `/tag/<slug>/<id>` list carries the URL slug core derives
+  /// from the name (`café` is `cafe`, `中文` is `7-tag`), so its id picks the
+  /// name. An unknown tag keeps its slug.
+  List<String> _topicListFilterTagNames(String siteUrl, ContentRoute? route) {
+    if (route == null) return const [];
+    final id = route.tagId;
+    final name = id == null ? null : _tagNameFor(siteUrl, id, route.id);
+    return name == null ? route.tagNames : [name];
+  }
+
+  /// The tag's own list goes first: it follows a rename the sidebar, top tags
+  /// and directory have not seen, and names tags none of them hold, such as
+  /// one opened from a topic.
+  String? _tagNameFor(String siteUrl, int id, String listId) {
+    final listed = topicFeeds.feedFor(siteUrl, listId)?.topicIds;
+    for (final topicId in listed ?? const <int>[]) {
+      final topic = store.read<Topic>(siteUrl, topicId);
+      for (final tag in topic?.tags ?? const <TopicTag>[]) {
+        if (tag.id == id) return tag.name;
+      }
+    }
+    for (final tag in _knownTagsFor(siteUrl)) {
+      if (tag.id == id) return tag.name;
+    }
+    return null;
   }
 
   ContentRoute _topicListFilterRoute({

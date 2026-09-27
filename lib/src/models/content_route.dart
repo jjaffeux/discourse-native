@@ -653,6 +653,13 @@ class ContentRoute {
     return tag == null ? const [] : [tag];
   }
 
+  /// A `/tag/<slug>/<id>` list names its tag by id. Its [tagName] is then the
+  /// URL slug core derives from the name, not the name filters look tags up by.
+  int? get tagId {
+    final link = _listLink;
+    return link?.kind == ListKind.tag ? link!.id : null;
+  }
+
   bool get isTopicListFilter =>
       TopicListMode.fromRoute(this) != null ||
       categoryId != null ||

@@ -397,6 +397,21 @@ void main() {
       );
     });
 
+    test('reads the id an identified tag list names its tag by', () {
+      final identified = ContentRoute.list(ListLink.parse('/tag/7-tag/7')!);
+      expect(identified.tagId, 7);
+      expect(identified.tagName, '7-tag');
+      expect(ContentRoute.list(ListLink.parse('/tag/ux')!).tagId, isNull);
+      expect(ContentRoute.list(ListLink.parse('/c/support/5')!).tagId, isNull);
+      expect(
+        ContentRoute.filteredTopicList(
+          TopicListMode.newActivity,
+          tags: const ['中文'],
+        ).tagId,
+        isNull,
+      );
+    });
+
     test('filtered modes round trip category, multiple tags, and period', () {
       for (final mode in TopicListMode.values) {
         final route = ContentRoute.filteredTopicList(
