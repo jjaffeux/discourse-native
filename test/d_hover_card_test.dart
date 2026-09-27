@@ -46,11 +46,15 @@ void main() {
       );
 
       await tester.pumpWidget(layout(false));
+      // Only an open card observes global pointers, so open it before the
+      // move to route a press while it is inactive.
+      controller.open();
+      await tester.pumpAndSettle();
       await tester.pumpWidget(layout(true));
       expect(tester.takeException(), isNull);
 
-      controller.open();
       await tester.pumpAndSettle();
+      expect(controller.isOpen, isTrue);
       expect(find.text('Reparented preview'), findsOneWidget);
       await tester.tapAt(const Offset(4, 4));
       await tester.pumpAndSettle();
@@ -58,6 +62,68 @@ void main() {
       expect(find.text('Reparented preview'), findsNothing);
     },
   );
+
+  testWidgets('only open or pending cards observe global pointer events', (
+    tester,
+  ) async {
+    final router = GestureBinding.instance.pointerRouter;
+    final controllers = [
+      for (var index = 0; index < 20; index += 1) DHoverCardController(),
+    ];
+    for (final controller in controllers) {
+      addTearDown(controller.dispose);
+    }
+    Widget cards({required bool mounted}) => _app(
+      Wrap(
+        children: [
+          if (mounted)
+            for (var index = 0; index < controllers.length; index += 1)
+              DHoverCard(
+                controller: controllers[index],
+                trigger: DHoverCardTrigger(
+                  builder: (context, state) => TextButton(
+                    focusNode: state.focusNode,
+                    onPressed: () {},
+                    child: Text('Idle $index'),
+                  ),
+                ),
+                content: DHoverCardContent(child: Text('Preview $index')),
+              ),
+        ],
+      ),
+    );
+
+    await tester.pumpWidget(cards(mounted: false));
+    final idle = router.debugGlobalRouteCount;
+    await tester.pumpWidget(cards(mounted: true));
+    expect(router.debugGlobalRouteCount, idle);
+
+    controllers.first.open();
+    await tester.pumpAndSettle();
+    expect(router.debugGlobalRouteCount, idle + 1);
+    controllers.first.close();
+    await tester.pumpAndSettle();
+    expect(router.debugGlobalRouteCount, idle);
+
+    // A pending opening listens for a press on its trigger.
+    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    addTearDown(mouse.removePointer);
+    await mouse.addPointer(location: Offset.zero);
+    await mouse.moveTo(tester.getCenter(find.text('Idle 1')));
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(router.debugGlobalRouteCount, idle + 1);
+    await mouse.moveTo(Offset.zero);
+    await tester.pump();
+    expect(router.debugGlobalRouteCount, idle);
+    await tester.pump(const Duration(milliseconds: 600));
+    expect(find.text('Preview 1'), findsNothing);
+
+    controllers.last.open();
+    await tester.pumpAndSettle();
+    expect(router.debugGlobalRouteCount, idle + 1);
+    await tester.pumpWidget(cards(mounted: false));
+    expect(router.debugGlobalRouteCount, idle);
+  });
 
   testWidgets('mouse uses the opening and closing delays', (tester) async {
     await tester.pumpWidget(_app(const _Card()));
