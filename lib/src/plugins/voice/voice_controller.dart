@@ -3327,7 +3327,9 @@ final class VoiceController extends ChangeNotifier {
   }) async {
     if (_disposed) return;
     final call = _call;
-    if (call == null) return;
+    // A leaving call's media is already being released; a control that lands
+    // meanwhile must not restart capture on it.
+    if (call == null || call.status == VoiceCallStatus.leaving) return;
     _call = update(call);
     notifyListeners();
     try {
@@ -3582,6 +3584,22 @@ final class VoiceController extends ChangeNotifier {
   }) async {
     final correlationId = _correlationFor(call);
     try {
+      // The room already shows the user gone, so capture stops before the
+      // server hears about it: the leave request can take a round trip, a
+      // timeout, or a gated backlog, and peers must not keep receiving the
+      // microphone, camera, or screen meanwhile. The participant session id
+      // the request carries is keyed on the media, not cleared by disposal.
+      try {
+        call.media.removeListener(_mediaChanged);
+      } catch (error, stackTrace) {
+        _report(error, stackTrace, 'voice.media.removeListener');
+      }
+      _record(
+        'media.dispose.started',
+        component: 'media',
+        correlationId: correlationId,
+      );
+      final mediaDisposal = _disposeMedia(call.media, 'voice.media.dispose');
       if (notifyServer) {
         try {
           _record(
@@ -3637,17 +3655,7 @@ final class VoiceController extends ChangeNotifier {
         );
       }
 
-      try {
-        call.media.removeListener(_mediaChanged);
-      } catch (error, stackTrace) {
-        _report(error, stackTrace, 'voice.media.removeListener');
-      }
-      _record(
-        'media.dispose.started',
-        component: 'media',
-        correlationId: correlationId,
-      );
-      await _disposeMedia(call.media, 'voice.media.dispose');
+      await mediaDisposal;
       _record(
         'media.dispose.completed',
         component: 'media',
