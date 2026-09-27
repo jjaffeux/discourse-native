@@ -19,6 +19,7 @@ const _replacementUser = DiscourseUser(
   username: 'replacement',
   staff: true,
 );
+const _author = DiscourseUser(id: 3, username: 'author');
 
 enum _Action { pin, closed, archived, visible, delete, recover }
 
@@ -224,7 +225,232 @@ void main() {
       _expectState(shell, _Action.recover, false);
     });
   });
+
+  // Neither endpoint answers with the topic, and PostDestroyer changes more
+  // than its deletion: an author who cannot moderate the topic withdraws it
+  // (closed, not deleted), and taking that back reopens it.
+  group('the topic follows PostDestroyer', () {
+    for (final firstPost in [false, true]) {
+      final via = firstPost ? 'its first post' : 'the topic';
+
+      test(
+        'an author taking back a withdrawal through $via reopens the topic',
+        () async {
+          final (:shell, :api) = await _fixture(
+            _Action.recover,
+            user: _author,
+            listedClosed: true,
+            topic: _topic(
+              withdrawn: true,
+              closed: true,
+              moderator: false,
+              posts: [_withdrawnPost],
+            ),
+            recovered: _topic(
+              moderator: false,
+              canCreatePost: true,
+              posts: [_post(1)],
+            ),
+            postsById: {1: _post(1)},
+          );
+          api.readGate = Completer<void>();
+          final reads = api.topicsOpened.length;
+
+          final recovering = _recover(shell, firstPost);
+          await api.waitForWrites(1);
+          api.writes.single.result.complete();
+          expect(await recovering, isNull);
+
+          final topic = shell.store.read<TopicDetail>(_siteUrl, _topicId)!;
+          expect(topic.closed, isFalse);
+          expect(shell.store.read<Topic>(_siteUrl, _topicId)!.closed, isFalse);
+          expect(topic.deletedAt, isNull);
+          expect(topic.canRecoverTopic, isFalse);
+          // Whether it takes replies again is only the server's to say.
+          await pumpEventQueue();
+          expect(api.topicsOpened, hasLength(reads + 1));
+          expect(
+            shell.store.read<TopicDetail>(_siteUrl, _topicId)!.canCreatePost,
+            isFalse,
+          );
+
+          api.readGate!.complete();
+          await pumpEventQueue();
+          final reread = shell.store.read<TopicDetail>(_siteUrl, _topicId)!;
+          expect(reread.canCreatePost, isTrue);
+          expect(reread.closed, isFalse);
+        },
+      );
+
+      test(
+        'staff recovering a closed topic through $via leave it closed',
+        () async {
+          final (:shell, :api) = await _fixture(
+            _Action.recover,
+            listedClosed: true,
+            topic: _topic(
+              deleted: true,
+              closed: true,
+              posts: [_deletedPost(1)],
+            ),
+            recovered: _topic(
+              closed: true,
+              canCreatePost: true,
+              posts: [_post(1)],
+            ),
+            postsById: {1: _post(1)},
+          );
+          api.readGate = Completer<void>();
+
+          final recovering = _recover(shell, firstPost);
+          await api.waitForWrites(1);
+          api.writes.single.result.complete();
+          expect(await recovering, isNull);
+
+          final topic = shell.store.read<TopicDetail>(_siteUrl, _topicId)!;
+          expect(topic.deletedAt, isNull);
+          expect(topic.closed, isTrue);
+          expect(shell.store.read<Topic>(_siteUrl, _topicId)!.closed, isTrue);
+
+          api.readGate!.complete();
+          await pumpEventQueue();
+          final reread = shell.store.read<TopicDetail>(_siteUrl, _topicId)!;
+          expect(reread.canCreatePost, isTrue);
+          expect(reread.closed, isTrue);
+        },
+      );
+    }
+
+    test('an author deleting a topic withdraws it', () async {
+      final (:shell, :api) = await _fixture(
+        _Action.delete,
+        user: _author,
+        topic: _topic(moderator: false, canCreatePost: true, posts: [_post(1)]),
+        deleted: _topic(
+          withdrawn: true,
+          closed: true,
+          moderator: false,
+          posts: [_withdrawnPost],
+        ),
+      );
+      final reads = api.topicsOpened.length;
+
+      final deleting = shell.setTopicDeleted(_siteUrl, _topicId, true);
+      await api.waitForWrites(1);
+      api.writes.single.result.complete();
+      expect(await deleting, isNull);
+
+      final topic = shell.store.read<TopicDetail>(_siteUrl, _topicId)!;
+      expect(topic.deletedAt, isNull);
+      expect(topic.closed, isTrue);
+      expect(shell.store.read<Topic>(_siteUrl, _topicId)!.closed, isTrue);
+      expect(topic.canRecoverTopic, isTrue);
+      expect(topic.canDeleteTopic, isTrue);
+
+      // Site settings can make the server trash it instead, which the author
+      // may no longer read, so the topic is read again when next opened.
+      await pumpEventQueue();
+      expect(api.topicsOpened, hasLength(reads));
+      await shell.loadTopic(_topicId, 'topic');
+      expect(api.topicsOpened, hasLength(reads + 1));
+      expect(
+        shell.store.read<TopicDetail>(_siteUrl, _topicId)!.canCreatePost,
+        isFalse,
+      );
+    });
+
+    test(
+      'a moderator deleting a topic trashes it and leaves it open',
+      () async {
+        final (:shell, :api) = await _fixture(_Action.delete);
+        final reads = api.topicsOpened.length;
+
+        final deleting = shell.setTopicDeleted(_siteUrl, _topicId, true);
+        await api.waitForWrites(1);
+        api.writes.single.result.complete();
+        expect(await deleting, isNull);
+
+        final topic = shell.store.read<TopicDetail>(_siteUrl, _topicId)!;
+        expect(topic.deletedAt, isNotNull);
+        expect(topic.closed, isFalse);
+        expect(shell.store.read<Topic>(_siteUrl, _topicId)!.closed, isFalse);
+
+        await shell.loadTopic(_topicId, 'topic');
+        expect(api.topicsOpened, hasLength(reads + 1));
+      },
+    );
+
+    test('a read sent before a withdrawal lands is read again', () async {
+      final (:shell, :api) = await _fixture(
+        _Action.delete,
+        user: _author,
+        topic: _topic(moderator: false, posts: [_post(1)]),
+        deleted: _topic(
+          withdrawn: true,
+          closed: true,
+          moderator: false,
+          posts: [_withdrawnPost],
+        ),
+      );
+      final gate = api.readGate = Completer<void>();
+      final reading = shell.loadTopic(_topicId, 'topic', force: true);
+      await pumpEventQueue();
+      final reads = api.topicsOpened.length;
+
+      final deleting = shell.setTopicDeleted(_siteUrl, _topicId, true);
+      await api.waitForWrites(1);
+      api.writes.single.result.complete();
+      expect(await deleting, isNull);
+      expect(shell.store.read<TopicDetail>(_siteUrl, _topicId)!.closed, isTrue);
+
+      gate.complete();
+      await reading;
+      await pumpEventQueue();
+      expect(api.topicsOpened, hasLength(reads + 1));
+      final topic = shell.store.read<TopicDetail>(_siteUrl, _topicId)!;
+      expect(topic.closed, isTrue);
+      expect(topic.canRecoverTopic, isTrue);
+    });
+  });
 }
+
+Future<String?> _recover(ShellController shell, bool firstPost) => firstPost
+    ? shell.recoverPost(shell.store.read<Post>(_siteUrl, 1)!)
+    : shell.setTopicDeleted(_siteUrl, _topicId, false);
+
+TopicPayload _topic({
+  bool deleted = false,
+  bool withdrawn = false,
+  bool closed = false,
+  bool moderator = true,
+  bool canCreatePost = false,
+  List<Post> posts = const [],
+}) => topicPayload(
+  id: _topicId,
+  title: 'Topic',
+  posts: posts,
+  unpinned: true,
+  visible: false,
+  closed: closed,
+  deletedAt: deleted ? DateTime.utc(2026) : null,
+  canCreatePost: canCreatePost,
+  canCloseTopic: moderator,
+  canArchiveTopic: moderator,
+  canToggleTopicVisibility: moderator,
+  canDeleteTopic: !deleted,
+  canRecoverTopic: deleted || withdrawn,
+);
+
+// PostDestroyer#mark_for_deletion keeps the post but marks it user_deleted.
+const _withdrawnPost = Post(
+  id: 1,
+  postNumber: 1,
+  username: 'author',
+  cooked: '<p>(topic withdrawn by author)</p>',
+  userId: 3,
+  userDeleted: true,
+  canRecover: true,
+);
 
 Post _post(int number) => Post(
   id: number,
@@ -316,31 +542,33 @@ void _expectState(ShellController shell, _Action action, bool changed) {
   }
 }
 
+/// [topic] is what the site serves at first, and [deleted] and [recovered]
+/// what it serves once it accepts a deletion or a recovery.
 Future<({ShellController shell, _GatedTopicApi api})> _fixture(
   _Action action, {
+  DiscourseUser user = _originalUser,
+  bool listedClosed = false,
   List<Post> posts = const [],
   Map<int, Post> postsById = const {},
+  TopicPayload? topic,
+  TopicPayload? deleted,
+  TopicPayload? recovered,
 }) async {
-  final deleted = action == _Action.recover;
+  final served =
+      topic ?? _topic(deleted: action == _Action.recover, posts: posts);
   final api = _GatedTopicApi(
-    topicPayload(
-      id: _topicId,
-      title: 'Topic',
-      posts: posts,
-      unpinned: true,
-      visible: false,
-      deletedAt: deleted ? DateTime.utc(2026) : null,
-      canCloseTopic: true,
-      canArchiveTopic: true,
-      canToggleTopicVisibility: true,
-      canDeleteTopic: !deleted,
-      canRecoverTopic: deleted,
-    ),
+    served,
+    originalUser: user,
+    listedClosed: listedClosed,
+    deletedTopic: deleted ?? _topic(deleted: true, posts: posts),
+    recoveredTopic:
+        recovered ??
+        _topic(posts: [for (final post in posts) postsById[post.id] ?? post]),
     postsById: postsById,
   );
   final shell = ShellController(
     instanceStore: FakeInstanceStore([
-      instance('meta.discourse.org').copyWith(user: _originalUser),
+      instance('meta.discourse.org').copyWith(user: user),
     ]),
     api: api,
     authenticator: FakeAuthenticator()..keys[_siteUrl] = _originalKey,
@@ -358,7 +586,7 @@ Future<({ShellController shell, _GatedTopicApi api})> _fixture(
   await shell.load();
   await shell.loadFeed('latest');
   // Post actions write to the topic on screen.
-  if (posts.isNotEmpty) {
+  if (served.posts.isNotEmpty) {
     shell.pushContent(
       ContentRoute.topic(topicId: _topicId, slug: 'topic', title: 'Topic'),
     );
@@ -368,13 +596,58 @@ Future<({ShellController shell, _GatedTopicApi api})> _fixture(
 }
 
 class _GatedTopicApi extends FakeDiscourseApi {
-  _GatedTopicApi(TopicPayload topic, {super.postsById})
-    : super(
-        feeds: const {
-          '/latest.json': [Topic(id: _topicId, title: 'Topic', slug: 'topic')],
-        },
-        topics: {_topicId: topic},
-      );
+  _GatedTopicApi(
+    TopicPayload topic, {
+    required this.originalUser,
+    required bool listedClosed,
+    required this.deletedTopic,
+    required this.recoveredTopic,
+    super.postsById,
+  }) : super(
+         feeds: {
+           '/latest.json': [
+             Topic(
+               id: _topicId,
+               title: 'Topic',
+               slug: 'topic',
+               closed: listedClosed,
+             ),
+           ],
+         },
+         topics: {_topicId: topic},
+       );
+
+  final DiscourseUser originalUser;
+  final TopicPayload deletedTopic;
+  final TopicPayload recoveredTopic;
+
+  /// Holds topic reads, which answer with what the site served when sent.
+  Completer<void>? readGate;
+
+  @override
+  Future<TopicPayload> topic({
+    required String siteUrl,
+    required String slug,
+    required int id,
+    int? postNumber,
+    bool summary = false,
+    String? apiKey,
+    String? clientId,
+    Future<void>? abortTrigger,
+  }) async {
+    final served = await super.topic(
+      siteUrl: siteUrl,
+      slug: slug,
+      id: id,
+      postNumber: postNumber,
+      summary: summary,
+      apiKey: apiKey,
+      clientId: clientId,
+      abortTrigger: abortTrigger,
+    );
+    await readGate?.future;
+    return served;
+  }
 
   final writes =
       <
@@ -406,7 +679,7 @@ class _GatedTopicApi extends FakeDiscourseApi {
     required String siteUrl,
     required String apiKey,
     String? clientId,
-  }) async => apiKey == _originalKey ? _originalUser : _replacementUser;
+  }) async => apiKey == _originalKey ? originalUser : _replacementUser;
 
   @override
   Future<void> updateTopicPinForUser({
@@ -433,7 +706,10 @@ class _GatedTopicApi extends FakeDiscourseApi {
     required String apiKey,
     required int topicId,
     String? clientId,
-  }) => _hold(siteUrl, apiKey, topicId);
+  }) async {
+    await _hold(siteUrl, apiKey, topicId);
+    topics[_topicId] = deletedTopic;
+  }
 
   @override
   Future<void> recoverTopic({
@@ -441,7 +717,10 @@ class _GatedTopicApi extends FakeDiscourseApi {
     required String apiKey,
     required int topicId,
     String? clientId,
-  }) => _hold(siteUrl, apiKey, topicId);
+  }) async {
+    await _hold(siteUrl, apiKey, topicId);
+    topics[_topicId] = recoveredTopic;
+  }
 
   @override
   Future<void> recoverPost({
@@ -457,5 +736,7 @@ class _GatedTopicApi extends FakeDiscourseApi {
       clientId: clientId,
     );
     await _hold(siteUrl, apiKey, _topicId);
+    // Recovering the first post recovers its topic.
+    if (postId == 1) topics[_topicId] = recoveredTopic;
   }
 }

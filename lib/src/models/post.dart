@@ -861,12 +861,35 @@ class TopicDetail with Storable<TopicDetail> {
         visible: property == TopicStatusProperty.visible ? enabled : null,
       );
 
-  TopicDetail withDeletion(bool deleted, DateTime changedAt) => copyWith(
-    deletedAt: deleted ? changedAt : null,
-    clearDeletedAt: !deleted,
-    canDeleteTopic: !deleted,
-    canRecoverTopic: deleted,
-  );
+  /// The topic once the viewer's deletion of it is accepted, as
+  /// PostDestroyer#destroy (discourse lib/post_destroyer.rb) leaves it. A
+  /// deleter who can moderate the topic, which is what [canCloseTopic] grants,
+  /// trashes it. Otherwise the deleter is its author, whose deletion withdraws
+  /// it instead (mark_for_deletion): the topic is closed rather than deleted,
+  /// stays deletable, and becomes recoverable. A site that deletes removed
+  /// posts at once, or a deleter in a group allowed to delete everything,
+  /// trashes it all the same, which only a re-read shows.
+  TopicDetail afterDeletion(DateTime deletedAt) => canCloseTopic
+      ? copyWith(
+          deletedAt: deletedAt,
+          canDeleteTopic: false,
+          canRecoverTopic: true,
+        )
+      : copyWith(closed: true, canRecoverTopic: true);
+
+  /// The topic once its recovery is accepted, as PostDestroyer#recover leaves
+  /// it. A topic that is recoverable without being deleted is one its author
+  /// withdrew, and user_recovered reopens it; staff_recovered leaves a deleted
+  /// topic as closed as it was. A topic that is neither has nothing to
+  /// recover.
+  TopicDetail afterRecovery() => deletedAt == null && !canRecoverTopic
+      ? this
+      : copyWith(
+          clearDeletedAt: true,
+          closed: deletedAt == null ? false : null,
+          canDeleteTopic: true,
+          canRecoverTopic: false,
+        );
 
   final ComposerDraft? draft;
 
