@@ -38,6 +38,7 @@ final class DiscourseAiModule implements PluginModule {
           requests: bindings.require(corePluginRequestPort),
           siteState: bindings.require(corePluginSiteStatePort),
           freshAccount: bindings.require(corePluginFreshAccountPort),
+          currentUserId: bindings.require(corePluginUserPort),
           diagnostics: bindings.require(pluginDiagnosticsReporterPort),
         );
         return PluginSessionContribution(
@@ -59,6 +60,7 @@ final class DiscourseAiModule implements PluginModule {
         corePluginTrackerPort,
         corePluginSiteStatePort,
         corePluginFreshAccountPort,
+        corePluginUserPort,
         pluginDiagnosticsReporterPort,
       ],
     );
@@ -72,7 +74,10 @@ final class _DiscourseAiSessionLifecycle extends PluginSessionLifecycle {
   final AiProofreadingController proofreading;
 
   @override
-  void forget(String siteUrl) => summary.forget(siteUrl);
+  void forget(String siteUrl) {
+    summary.forget(siteUrl);
+    proofreading.forget(siteUrl);
+  }
 
   @override
   void close() {
