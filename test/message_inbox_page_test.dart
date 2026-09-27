@@ -607,6 +607,68 @@ void main() {
     expect(setup.api.topicsCreated, isEmpty);
   });
 
+  for (final group in [true, false]) {
+    testWidgets(
+      'a message sent from ${group ? 'the group inbox' : 'Sent'} joins it',
+      (tester) async {
+        final setup = await _pumpInbox(tester);
+        final shell = setup.controller;
+        final api = setup.api;
+        if (group) {
+          shell.selectMessageInbox('team');
+        } else {
+          shell.selectMessageListMode(MessageListMode.sent);
+        }
+        await tester.pumpAndSettle();
+        final path = group ? _groupInbox : _sent;
+        const created = Topic(
+          id: 901,
+          title: 'A brand new conversation',
+          slug: 'created-topic',
+          privateMessage: true,
+        );
+        api.topics[created.id] = (
+          detail: const TopicDetail(
+            id: 901,
+            title: 'A brand new conversation',
+            stream: [9001],
+            postsCount: 1,
+            privateMessage: true,
+          ),
+          posts: const [
+            Post(
+              id: 9001,
+              postNumber: 1,
+              username: 'reader',
+              userId: 1,
+              cooked: '<p>Hello there, how are you doing?</p>',
+            ),
+          ],
+        );
+        await tester.tap(find.byKey(const ValueKey('new-message-button')));
+        await tester.pumpAndSettle();
+        final composer = shell.visibleComposer!;
+        if (!group) composer.setRecipients(['sam']);
+        composer.title.text = created.title;
+        composer.text.text = 'Hello there, how are you doing?';
+        api.feeds[path] = [created, ...api.feeds[path]!];
+        final reads = api.feedPaths.length;
+
+        await shell.submitComposer();
+        await tester.pumpAndSettle();
+
+        expect(api.topicsCreated, hasLength(1));
+        expect(shell.currentContent?.topicId, 901);
+        expect(find.byKey(const ValueKey('topic-card-901')), findsOneWidget);
+        // Core lists a message nobody else has posted in under Sent and the
+        // group inbox only; unopened folders wait until they are opened.
+        expect(api.feedPaths.sublist(reads), [path]);
+        expect(tester.takeException(), isNull);
+      },
+      variant: TargetPlatformVariant.only(TargetPlatform.macOS),
+    );
+  }
+
   testWidgets(
     'keeps Personal visible without groups and hides unauthorized compose',
     (tester) async {

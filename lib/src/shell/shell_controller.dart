@@ -8844,27 +8844,18 @@ class ShellController extends FrameSafeNotifier
         topicId,
         (topic) => topic.copyWith(messageArchived: archived),
       );
-      // Core updates the user's inbox and every recipient group they belong to.
-      // Refresh already-open folders, including cached archives in other tabs.
-      for (final group in <String?>[
-        null,
-        ...instance!.user!.messageGroupNames,
-      ]) {
-        for (final mode in MessageListMode.values) {
-          if (group != null && !mode.supportsGroup) continue;
-          final route = ContentRoute.messages(groupName: group, mode: mode);
-          if (topicFeeds.feedFor(siteUrl, route.id) == null) continue;
-          unawaited(
-            topicFeeds.load(
-              instance: instance,
-              destinationId: route.id,
-              path: mode.feedPathFor(instance.user!.username, groupName: group),
-              incoming: null,
-              force: true,
-            ),
-          );
-        }
-      }
+      // Core moves it for the user and each of its groups they belong to. The
+      // account's message groups can predate a group's first message; the
+      // topic names its groups as they are.
+      _refreshMessageFolders(
+        siteUrl,
+        personal: MessageListMode.values,
+        group: MessageListMode.values,
+        groupNames: {
+          ...instance!.user!.messageGroupNames,
+          ...held.allowedMessageGroups,
+        },
+      );
       return null;
     } on WriteException catch (error) {
       return error.message;
@@ -8875,6 +8866,69 @@ class ShellController extends FrameSafeNotifier
       return const WriteException(WriteFailure.unreachable).message;
     } finally {
       lease.commit(() => _messageArchiveWrites.remove(key));
+    }
+  }
+
+  /// Re-reads the folders on [siteUrl] a message may just have entered or
+  /// left: the [personal] ones, and the [group] ones of each of [groupNames],
+  /// both under Messages and on the group's page, whose Inbox and Archive tabs
+  /// are cached apart. A folder not yet loaded is left to load when opened.
+  void _refreshMessageFolders(
+    String siteUrl, {
+    required Iterable<MessageListMode> personal,
+    required Iterable<MessageListMode> group,
+    required Iterable<String> groupNames,
+  }) {
+    final instance = _instanceAt(siteUrl);
+    final username = instance?.user?.username;
+    if (instance == null || username == null) return;
+    void refresh(String destinationId, String path) {
+      if (topicFeeds.feedFor(siteUrl, destinationId) == null) return;
+      unawaited(
+        topicFeeds.load(
+          instance: instance,
+          destinationId: destinationId,
+          path: path,
+          incoming: null,
+          force: true,
+        ),
+      );
+    }
+
+    for (final mode in personal) {
+      refresh(ContentRoute.messages(mode: mode).id, mode.feedPathFor(username));
+    }
+    final groupModes = [
+      for (final mode in group)
+        if (mode.supportsGroup) mode,
+    ];
+    final pageTabs = <String?>[
+      if (groupModes.contains(MessageListMode.inbox)) ...[
+        null,
+        GroupRoute.inbox,
+      ],
+      if (groupModes.contains(MessageListMode.archive)) GroupRoute.archive,
+    ];
+    for (final name in groupNames) {
+      try {
+        for (final mode in groupModes) {
+          refresh(
+            ContentRoute.messages(groupName: name, mode: mode).id,
+            mode.feedPathFor(username, groupName: name),
+          );
+        }
+        for (final subsection in pageTabs) {
+          final route = GroupRoute.detail(
+            name,
+            section: GroupRoute.messages,
+            subsection: subsection,
+          );
+          refresh(route.id, route.topicFeedPath(username)!);
+        }
+      } on ArgumentError {
+        // A recipient no group route can name has no group folders.
+        continue;
+      }
     }
   }
 
@@ -14473,6 +14527,20 @@ class ShellController extends FrameSafeNotifier
     _composerDrafts.settleAfterSubmission(composer, lease);
     final wasRetained = _ownsComposer(composer);
     _closeSubmittedComposer(composer);
+    if (target.isPrivateMessage) {
+      // Core lists a new message under its author's Sent and each recipient
+      // group's inbox, but not their own Inbox until someone else posts. The
+      // site holds it whether or not this composer is still the one shown.
+      _refreshMessageFolders(
+        target.siteUrl,
+        personal: const [MessageListMode.sent],
+        group: const [MessageListMode.inbox],
+        groupNames: {
+          for (final name in (target.targetRecipients ?? '').split(','))
+            if (name.trim().isNotEmpty) name.trim(),
+        },
+      );
+    }
     if (!wasRetained) return;
     final origin = target.originFeedId;
     final workspace = _forumWorkspaces[target.siteUrl];
