@@ -1617,6 +1617,58 @@ void main() {
       );
     });
 
+    testWidgets('a replayed send cannot credit a read before the first page', (
+      tester,
+    ) async {
+      final gate = Completer<void>();
+      final api = _ChatApi(
+        openPages: {
+          firstSite: [_messagesPage(1, 3)],
+        },
+        gatedOpen: (siteUrl: firstSite, number: 1, gate: gate),
+      );
+      final controller = await _controller(api, sites: const [firstSite]);
+      addTearDown(controller.dispose);
+      controller.chatRecords.put(firstSite, _channel(lastRead: 1));
+
+      await tester.pumpWidget(_TestView(controller: controller));
+      await tester.pump();
+
+      // The root subscription resumes from the channel-list cursor, so the
+      // bus replays sends newer than the list while the page is in flight.
+      final tracker = FakeSiteTracker.built.singleWhere(
+        (tracker) => tracker.siteUrl == firstSite,
+      );
+      expect(tracker.pluginChannelCallbacks['/chat/9'], isNotEmpty);
+      tracker.deliverPluginMessage('/chat/9', {
+        'type': 'sent',
+        'chat_message': {
+          'id': 3,
+          'chat_channel_id': 9,
+          'cooked': '<p>Message 3</p>',
+          'created_at': '2026-01-01T00:03:00.000Z',
+          'user': {'id': 2, 'username': 'sam'},
+        },
+      });
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 600));
+      await tester.pump();
+
+      expect(find.byType(ChatMessageTile), findsNothing);
+      expect(api.chatReadsMarked, isEmpty);
+
+      gate.complete();
+      await tester.pumpAndSettle();
+
+      expect(
+        controller.chat
+            .streamFor(firstSite, const ChatChannelTarget(9))
+            .lastReadOnOpen,
+        1,
+      );
+      await tester.pump(const Duration(milliseconds: 600));
+    });
+
     testWidgets('a paused dwell resumes without crediting hidden time', (
       tester,
     ) async {

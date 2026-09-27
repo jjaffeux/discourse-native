@@ -4528,6 +4528,180 @@ void main() {
         expect(unreachable, [site]);
       },
     );
+
+    group('live arrivals before the first page', () {
+      // The root subscription resumes from the channel-list cursor, so opening
+      // a channel that moved since the list loaded replays those sends,
+      // usually before the page that establishes the window has landed.
+      Map<String, dynamic> replayed(int id, {int? authorId = 2}) => {
+        'type': 'sent',
+        'chat_message': {
+          'id': id,
+          'chat_channel_id': 9,
+          'cooked': '<p>$id</p>',
+          'created_at': DateTime.utc(2026, 5, 5, 10, id).toIso8601String(),
+          'user': {'id': authorId, 'username': 'sam'},
+        },
+      };
+
+      Future<
+        ({
+          ChatController chat,
+          FakeSiteTracker tracker,
+          Object view,
+          Future<void> opening,
+          Map<String, ChatMessagePage> pages,
+          Completer<void> gate,
+        })
+      >
+      openingGated({int? maxRetainedCanonicalMessageIdsPerSite}) async {
+        final gate = Completer<void>();
+        final pages = <String, ChatMessagePage>{};
+        final subject = build(
+          currentUser: currentUser,
+          channels: {
+            site: ChatChannels(
+              public: [channel(9, lastRead: 4, unread: 3)],
+              channelMessageBusLastIds: const {9: 80},
+            ),
+          },
+          messages: pages,
+          messageGate: gate,
+          sentMessageId: 42,
+          maxRetainedCanonicalMessageIdsPerSite:
+              maxRetainedCanonicalMessageIdsPerSite,
+        );
+        addTearDown(subject.chat.dispose);
+        final tracker = attachTracker(subject.chat);
+        await subject.chat.loadChannels(site);
+        final opening = subject.chat.openChannel(site, 9);
+        final view = subject.chat.beginViewingChannel(site, 9);
+        addTearDown(() => subject.chat.endViewingChannel(site, 9, view));
+        expect(tracker.pluginChannelLastIds['/chat/9'], 80);
+        return (
+          chat: subject.chat,
+          tracker: tracker,
+          view: view,
+          opening: opening,
+          pages: pages,
+          gate: gate,
+        );
+      }
+
+      test('wait for a present page and then extend it', () async {
+        final subject = await openingGated();
+
+        subject.tracker.deliverPluginMessage('/chat/9', replayed(7));
+
+        final loading = subject.chat.stream(site, 9);
+        expect(loading.loading, isTrue);
+        expect(loading.messageIds, isEmpty);
+        expect(loading.pendingNewMessages, 0);
+
+        subject.pages[key(9)] = page([
+          message(4, minute: 4),
+          message(5, minute: 5),
+        ]);
+        subject.gate.complete();
+        await subject.opening;
+
+        final stream = subject.chat.stream(site, 9);
+        expect(stream.messageIds, [4, 5, 7]);
+        expect(stream.atPresent, isTrue);
+      });
+
+      test('count only what lies beyond an anchored page', () async {
+        final subject = await openingGated();
+
+        subject.tracker.deliverPluginMessage('/chat/9', replayed(5));
+        subject.tracker.deliverPluginMessage('/chat/9', replayed(7));
+        expect(subject.chat.stream(site, 9).messageIds, isEmpty);
+
+        subject.pages[key(9)] = page([
+          message(4, minute: 4),
+          message(5, minute: 5),
+        ], canLoadMoreFuture: true);
+        subject.gate.complete();
+        await subject.opening;
+
+        final stream = subject.chat.stream(site, 9);
+        expect(stream.messageIds, [4, 5]);
+        expect(stream.pendingNewMessages, 1);
+        expect(stream.lastReadOnOpen, 4);
+      });
+
+      test('leave a failed first page reporting its failure', () async {
+        final subject = await openingGated();
+
+        subject.tracker.deliverPluginMessage('/chat/9', replayed(7));
+        subject.gate.complete();
+        await subject.opening;
+
+        final stream = subject.chat.stream(site, 9);
+        expect(stream.messageIds, isEmpty);
+        expect(stream.error, 'Could not load this channel.');
+      });
+
+      test('do not pin a window whose first page failed', () async {
+        final subject = await openingGated(
+          maxRetainedCanonicalMessageIdsPerSite: 50,
+        );
+
+        subject.tracker.deliverPluginMessage('/chat/9', replayed(7));
+        subject.gate.complete();
+        await subject.opening;
+        subject.chat.endViewingChannel(site, 9, subject.view);
+        subject.pages[key(10)] = page([message(8, minute: 8)]);
+        await subject.chat.openChannel(site, 10);
+
+        expect(subject.chat.retainedTargetCountForTesting(site), 1);
+      });
+
+      test('are not adopted by a window nothing is fetching', () async {
+        final subject = build(
+          currentUser: currentUser,
+          messages: {
+            key(9): page([message(5, minute: 5), message(7, minute: 7)]),
+          },
+        );
+        addTearDown(subject.chat.dispose);
+        final tracker = attachTracker(subject.chat);
+        final view = subject.chat.beginViewingChannel(site, 9);
+        addTearDown(() => subject.chat.endViewingChannel(site, 9, view));
+
+        tracker.deliverPluginMessage('/chat/9', replayed(7));
+        expect(subject.chat.stream(site, 9).messageIds, isEmpty);
+        expect(subject.chat.stream(site, 9).fetchedOnce, isFalse);
+
+        await subject.chat.openChannel(site, 9);
+
+        expect(subject.api.chatMessagesRequested, hasLength(1));
+        expect(subject.chat.stream(site, 9).messageIds, [5, 7]);
+      });
+
+      test('keep an own send visible and retire it on the page', () async {
+        final subject = await openingGated();
+
+        await subject.chat
+            .sendMessage(site, 9, OutgoingChatMessage.text('mine'))!
+            .settled;
+        subject.tracker.deliverPluginMessage(
+          '/chat/9',
+          replayed(42, authorId: currentUser.id),
+        );
+        final loading = subject.chat.stream(site, 9);
+        expect(loading.messageIds, isEmpty);
+        expect(loading.localMessageIds, hasLength(1));
+
+        subject.pages[key(9)] = page([message(5, minute: 5)]);
+        subject.gate.complete();
+        await subject.opening;
+
+        final stream = subject.chat.stream(site, 9);
+        expect(stream.messageIds, [5, 42]);
+        expect(stream.localMessageIds, isEmpty);
+      });
+    });
   });
 
   group('sending a message', () {

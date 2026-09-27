@@ -4371,6 +4371,17 @@ class ChatController extends FrameSafeNotifier {
     ChatStreamState window,
     ChatMessage message,
   ) {
+    if (!window.fetchedOnce) {
+      // Only a page establishes a window: subscriptions resume from an older
+      // snapshot cursor, so a replayed arrival would stand in for the present
+      // and let a read receipt skip the unread backlog. The record is already
+      // stored; a page in flight settles the parked id at its edge, and any
+      // later page is requested after the arrival was published.
+      if (_loading.contains(key)) {
+        _pendingLiveMessageIds.putIfAbsent(key, () => {}).add(message.id);
+      }
+      return;
+    }
     if (window.canLoadMoreFuture) {
       // Never merge a live edge into anchored history; the resulting hole
       // could not be filled by either paging direction.
@@ -6125,7 +6136,9 @@ class ChatController extends FrameSafeNotifier {
             arrived: page.messages,
             mode: ChatTimelineMergeMode.sortedUnion,
           );
-          pendingIds.addAll(arrivedWhileLoading.map((message) => message.id));
+          pendingIds
+            ..removeAll(pageIds)
+            ..addAll(arrivedWhileLoading.map((message) => message.id));
         } else {
           // Admit parked sent events that outran the page reaching present.
           final seam = _withSeamStragglers(
@@ -6171,6 +6184,8 @@ class ChatController extends FrameSafeNotifier {
       lease.commit(() {
         if (!identical(_streamGenerations[key], generation)) return;
         final current = _streams[key] ?? const ChatStreamState();
+        // A retry's page holds whatever was parked for a failed first page.
+        if (!current.fetchedOnce) _pendingLiveMessageIds.remove(key);
         final replacesDestination =
             current.messageIds.isEmpty && current.localMessageIds.isEmpty;
         _setStream(
