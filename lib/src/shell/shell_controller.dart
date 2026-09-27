@@ -60,6 +60,7 @@ import '../models/found_user.dart';
 import '../models/group_route.dart';
 import '../models/json.dart';
 import '../models/list_link.dart';
+import '../models/live_refresh_id.dart';
 import '../models/notification.dart';
 import '../models/notification_totals.dart';
 import '../models/notification_type_counts.dart';
@@ -4088,8 +4089,10 @@ class ShellController extends FrameSafeNotifier
           if (channel == coreChannel) {
             _applyTopicNotificationMessage(siteUrl, topicId, data, lease);
           }
-          if ((channel == coreChannel &&
-                  _coreTopicMessageRefreshesStream(data)) ||
+          final core = channel == coreChannel
+              ? _coreTopicMessageInvalidation(siteUrl, data)
+              : _noCoreTopicInvalidation;
+          if (core.stream ||
               plugins.registry.staleTopic(topicId, channel, data)) {
             unawaited(
               _refetchTopic(siteUrl, topicId, routes[topicId]?.slug ?? ''),
@@ -4098,6 +4101,11 @@ class ShellController extends FrameSafeNotifier
           final stale = plugins.registry.stalePosts(channel, data);
           if (stale.isNotEmpty) {
             unawaited(_refreshPosts(siteUrl, topicId, stale));
+          }
+          if (core.post case final id?) {
+            unawaited(
+              _refreshPosts(siteUrl, topicId, {id}, deletion: core.deletion),
+            );
           }
         }
       },
@@ -4111,20 +4119,68 @@ class ShellController extends FrameSafeNotifier
     );
   }
 
-  static bool _coreTopicMessageRefreshesStream(Object? data) {
-    if (data is! Map) return false;
-    return data['type'] == 'created' || data['reload_topic'] == true;
+  /// `Post#publish_change_to_clients!` types, each naming one post by `id`.
+  static const _corePostMessageTypes = {
+    'revised',
+    'rebaked',
+    'acted',
+    'liked',
+    'unliked',
+    'deleted',
+    'destroyed',
+    'recovered',
+  };
+
+  static const ({bool stream, int? post, bool deletion})
+  _noCoreTopicInvalidation = (stream: false, post: null, deletion: false);
+
+  /// Whether a core `/topic/{id}` message changes the stream, or only the one
+  /// post it names. A named post is re-read only while held, so an edit, like
+  /// or deletion reaches a reader who is looking at it, including one whose
+  /// cached topic is replayed from `messageBusLastId`. `deletion` marks the
+  /// messages after which a re-read that omits the post means it is gone.
+  ({bool stream, int? post, bool deletion}) _coreTopicMessageInvalidation(
+    String siteUrl,
+    Object? data,
+  ) {
+    if (data is! Map) return _noCoreTopicInvalidation;
+    final type = data['type'];
+    // As on the web client, a reload replaces the message's per-post handling.
+    if (type == 'created' || data['reload_topic'] == true) {
+      return (stream: true, post: null, deletion: false);
+    }
+    final postId = _corePostMessageTypes.contains(type)
+        ? liveRefreshId(data['id'])
+        : null;
+    if (postId == null) return _noCoreTopicInvalidation;
+    // A reader who could not see the deleted post no longer holds it, and its
+    // recovery has to put it back at its place in the stream.
+    if (type == 'recovered' && store.read<Post>(siteUrl, postId) == null) {
+      return (stream: true, post: null, deletion: false);
+    }
+    return (
+      stream: false,
+      post: postId,
+      deletion: type == 'deleted' || type == 'destroyed',
+    );
   }
 
   Future<void> _refreshPosts(
     String siteUrl,
     int topicId,
-    Set<int> postIds,
-  ) async {
+    Set<int> postIds, {
+    bool deletion = false,
+  }) async {
     final eligible = <int>[];
     for (final id in postIds) {
       final key = _postKey(siteUrl, id);
-      if (store.read<Post>(siteUrl, id) == null) continue;
+      if (store.read<Post>(siteUrl, id) == null) {
+        _postRefreshDeletions.remove(key);
+        continue;
+      }
+      // Kept until a read of this post commits, since the read that answers
+      // may be a replay after an earlier read or a write.
+      if (deletion) _postRefreshDeletions.add(key);
       if (_postWritesInFlight.containsKey(key)) {
         // A poll/reaction echo received during a write is useful, but not yet:
         // the pre-write personalized post could land over the write response.
@@ -4172,14 +4228,35 @@ class ShellController extends FrameSafeNotifier
         apiKey: credential.value,
       );
       lease.commit(() {
-        final current = [
+        bool current(int postId) =>
+            requestOwns(postId) &&
+            !_postRefreshPending.contains(_postKey(siteUrl, postId));
+        final fresh = [
           for (final post in posts)
-            if (requestOwns(post.id) &&
-                !_postRefreshPending.contains(_postKey(siteUrl, post.id)))
-              post,
+            if (current(post.id)) post,
         ];
-        if (current.isEmpty) return;
-        store.putAll(siteUrl, current);
+        // After a deletion, a read by id that leaves the post out means this
+        // reader can no longer see it, as the web client concludes when its
+        // own read fails. A full topic refetch keeps held ids, so nothing else
+        // takes it out of the stream. No other read's omission removes a post.
+        final answered = {for (final post in posts) post.id};
+        final gone = [
+          for (final id in wanted)
+            if (!answered.contains(id) &&
+                current(id) &&
+                _postRefreshDeletions.contains(_postKey(siteUrl, id)))
+              id,
+        ];
+        if (fresh.isEmpty && gone.isEmpty) return;
+        store.putAll(siteUrl, fresh);
+        for (final id in gone) {
+          store.remove<Post>(siteUrl, id);
+          store.update<TopicDetail>(
+            siteUrl,
+            topicId,
+            (detail) => detail.withoutPostId(id),
+          );
+        }
         _notify();
       });
     } catch (error, stackTrace) {
@@ -4206,6 +4283,7 @@ class ShellController extends FrameSafeNotifier
               retry.add(id);
             } else {
               _postRefreshTopics.remove(key);
+              _postRefreshDeletions.remove(key);
             }
           }
         }
@@ -11140,6 +11218,10 @@ class ShellController extends FrameSafeNotifier
 
   final Map<String, int> _postRefreshTopics = {};
 
+  /// Posts named by a core deletion whose next committed re-read decides
+  /// whether they are still visible.
+  final Set<String> _postRefreshDeletions = {};
+
   bool _beginPostWrite(String key) {
     if (_postWritesInFlight.containsKey(key)) return false;
     _holdPostWrite(key);
@@ -14291,6 +14373,7 @@ class ShellController extends FrameSafeNotifier
     _postRefreshRequests.removeWhere((key, _) => key.startsWith('$siteUrl~'));
     _postRefreshPending.removeWhere((key) => key.startsWith('$siteUrl~'));
     _postRefreshTopics.removeWhere((key, _) => key.startsWith('$siteUrl~'));
+    _postRefreshDeletions.removeWhere((key) => key.startsWith('$siteUrl~'));
     _topicsLoading.removeWhere((key) => key.startsWith('$siteUrl#'));
     _topicRefreshPending.removeWhere((key) => key.startsWith('$siteUrl#'));
     _topicRefreshPostNumbers.removeWhere(
