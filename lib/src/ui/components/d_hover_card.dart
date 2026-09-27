@@ -558,7 +558,9 @@ class _DHoverCardState extends State<DHoverCard>
       _closeTimer = null;
       return;
     }
-    _closeTimer?.cancel();
+    // A pending close keeps its deadline; movement outside the pair does not
+    // postpone it.
+    if (_closeTimer?.isActive ?? false) return;
     final delay = widget.trigger.closeDelay;
     if (delay == Duration.zero) {
       _request(false, reason);

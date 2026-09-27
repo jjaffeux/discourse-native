@@ -148,6 +148,35 @@ void main() {
     expect(find.text('Supplementary preview'), findsNothing);
   });
 
+  testWidgets(
+    'the close delay keeps its deadline while the pointer moves outside the pair',
+    (tester) async {
+      await tester.pumpWidget(
+        _app(
+          const _Card(
+            delay: Duration.zero,
+            closeDelay: Duration(milliseconds: 200),
+          ),
+        ),
+      );
+      final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      addTearDown(mouse.removePointer);
+      await mouse.addPointer(location: Offset.zero);
+      await mouse.moveTo(tester.getCenter(find.text('Destination')));
+      await tester.pumpAndSettle();
+      expect(find.text('Supplementary preview'), findsOneWidget);
+      await mouse.moveTo(const Offset(20, 20));
+      await tester.pump(const Duration(milliseconds: 150));
+      await mouse.moveTo(const Offset(30, 30));
+      await tester.pump(const Duration(milliseconds: 40));
+      expect(find.text('Supplementary preview'), findsOneWidget);
+      await mouse.moveTo(const Offset(40, 40));
+      await tester.pump(const Duration(milliseconds: 20));
+      await tester.pumpAndSettle();
+      expect(find.text('Supplementary preview'), findsNothing);
+    },
+  );
+
   testWidgets('pressing the trigger cancels a pending preview', (tester) async {
     var presses = 0;
     await tester.pumpWidget(
