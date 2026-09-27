@@ -54,7 +54,7 @@ class ForumTabStore {
   static const String storageKey = 'discourse_native.forum_tabs';
   static const int formatVersion = 1;
   final ForumTabPersistence _persistence;
-  late final CoalescingSnapshotWriter<String> _snapshots =
+  late final CoalescingSnapshotWriter<List<ForumWorkspace>> _snapshots =
       CoalescingSnapshotWriter(
         owner: _persistence,
         key: storageKey,
@@ -103,18 +103,35 @@ class ForumTabStore {
     }
   }
 
+  /// Completes once these workspaces, or newer ones saved before their write
+  /// started, are written, or once that write's failure has been reported.
   Future<void> save(Iterable<ForumWorkspace> workspaces) {
     if (_unreadable) return Future<void>.value();
-    final encoded = jsonEncode({
-      'version': formatVersion,
-      'workspaces': [for (final workspace in workspaces) workspace.toJson()],
-    });
-    return _snapshots.save(encoded);
+    // Workspaces are immutable, so copying the list captures the snapshot.
+    // It is encoded only when its write starts: navigation and scrolling save
+    // far more often than a write completes, and a snapshot superseded before
+    // then is never encoded at all.
+    return _snapshots.save(List.unmodifiable(workspaces));
   }
 
-  Future<void> _persistSnapshot(String encoded) async {
+  /// Byte for byte the `jsonEncode` of the versioned document holding each
+  /// workspace's `toJson()`, assembled from the encodings its unchanged tabs
+  /// and history entries already hold.
+  static String encode(Iterable<ForumWorkspace> workspaces) {
+    final out = StringBuffer('{"version":$formatVersion,"workspaces":[');
+    var first = true;
+    for (final workspace in workspaces) {
+      if (!first) out.write(',');
+      first = false;
+      workspace.writeJson(out);
+    }
+    out.write(']}');
+    return out.toString();
+  }
+
+  Future<void> _persistSnapshot(List<ForumWorkspace> workspaces) async {
     try {
-      final saved = await _persistence.write(encoded);
+      final saved = await _persistence.write(encode(workspaces));
       if (!saved) throw StateError('Could not persist forum tabs.');
     } catch (error, stackTrace) {
       reportStorageFailure(error, stackTrace, 'forumTabs.save');
