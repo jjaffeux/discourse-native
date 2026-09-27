@@ -99,6 +99,10 @@ final class PreferencesController extends FrameSafeNotifier {
   final Map<String, Object> _loadRequests = {};
   final Map<String, Future<void>> _loadTasks = {};
   final Map<_PreferencesLane, int> _revisions = {};
+  // Counts dispatched saves. A read issued before a save bypassed the write
+  // queue and cannot reflect it, so it must not replace that save's confirmed
+  // values.
+  final Map<_PreferencesLane, int> _writeGenerations = {};
   final Map<_PreferenceSave, int> _sectionRevisions = {};
   final Map<_PreferenceSave, Object> _latestSaves = {};
 
@@ -137,6 +141,7 @@ final class PreferencesController extends FrameSafeNotifier {
     final request = Object();
     final lease = lifecycle.capture(siteUrl);
     final revision = _revisions[lane] ?? 0;
+    final writeGeneration = _writeGenerations[lane] ?? 0;
     _loadRequests[siteUrl] = request;
     _states[siteUrl] =
         (_states[siteUrl] ??
@@ -178,7 +183,8 @@ final class PreferencesController extends FrameSafeNotifier {
       );
       if (preferences == null ||
           !_isCurrentLoad(lease, lane, request) ||
-          (_revisions[lane] ?? 0) != revision) {
+          (_revisions[lane] ?? 0) != revision ||
+          (_writeGenerations[lane] ?? 0) != writeGeneration) {
         return;
       }
       _commitLoad(lease, lane, request, () {
@@ -271,6 +277,7 @@ final class PreferencesController extends FrameSafeNotifier {
     if (values.isEmpty) return false;
 
     _latestSaves[saveKey] = request;
+    _writeGenerations[lane] = (_writeGenerations[lane] ?? 0) + 1;
     _states[instance.url] = state.copyWith(
       pendingWrites: state.pendingWrites + 1,
       error: null,
@@ -359,6 +366,7 @@ final class PreferencesController extends FrameSafeNotifier {
     changed = _loadRequests.remove(siteUrl) != null || changed;
     final _ = _loadTasks.remove(siteUrl);
     _revisions.removeWhere((lane, _) => lane.siteUrl == siteUrl);
+    _writeGenerations.removeWhere((lane, _) => lane.siteUrl == siteUrl);
     _sectionRevisions.removeWhere((save, _) => save.lane.siteUrl == siteUrl);
     _latestSaves.removeWhere((save, _) => save.lane.siteUrl == siteUrl);
     if (changed && !isDisposed) notifySafely();
@@ -460,6 +468,7 @@ final class PreferencesController extends FrameSafeNotifier {
     _loadRequests.clear();
     _loadTasks.clear();
     _revisions.clear();
+    _writeGenerations.clear();
     _sectionRevisions.clear();
     _latestSaves.clear();
     super.dispose();
