@@ -125,12 +125,15 @@ void main() {
     expect(_fill(tester, '@mArTiN'), const Color(0xFFDDCCEE));
   });
 
-  testWidgets('matches the profile href, leaving other mentions unchanged', (
+  testWidgets('needs both the label and the profile href to name the reader', (
     tester,
   ) async {
+    // A tap opens the card the label names, so a pill whose link and label
+    // disagree is not the reader's mention whichever of the two names them.
     await _pumpMentions(
       tester,
       html: '''
+        <p><a class="mention" href="/u/Martin">@maRTin</a></p>
         <p><a class="mention" href="/u/martin">@different-label</a></p>
         <p><a class="mention" href="/u/sam">@martin</a></p>
         <p><a class="mention-group" href="/groups/martin">@Martin</a></p>
@@ -139,11 +142,14 @@ void main() {
       ''',
     );
 
-    expect(
-      _fill(tester, '@different-label'),
-      AppTheme.dark.shell.currentUserMention,
-    );
-    for (final label in ['@martin', '@Martin', '@MARTIN', '@martin2']) {
+    expect(_fill(tester, '@maRTin'), AppTheme.dark.shell.currentUserMention);
+    for (final label in [
+      '@different-label',
+      '@martin',
+      '@Martin',
+      '@MARTIN',
+      '@martin2',
+    ]) {
       expect(_fill(tester, label), AppTheme.dark.shell.mention);
     }
   });

@@ -6,7 +6,9 @@ import 'package:discourse_native/discourse_ui.dart'
 import 'package:discourse_native/src/data/app_settings_store.dart';
 import 'package:discourse_native/src/data/site_image_repository.dart';
 import 'package:discourse_native/src/data/site_lifecycle.dart';
+import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/forum_workspace.dart';
+import 'package:discourse_native/src/models/group_route.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/models/user_status.dart';
@@ -21,6 +23,7 @@ import 'package:discourse_native/src/shell/hashtag.dart';
 import 'package:discourse_native/src/shell/image_decode.dart';
 import 'package:discourse_native/src/shell/inline_code.dart';
 import 'package:discourse_native/src/shell/mention.dart';
+import 'package:discourse_native/src/shell/open_link.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/site_image.dart';
@@ -43,6 +46,7 @@ import 'support/blank_png.dart';
 import 'support/fakes.dart';
 import 'support/finders.dart';
 import 'support/media_pipeline.dart';
+import 'support/shell_test_harness.dart' show watchBrowser;
 
 Future<void> pumpCooked(
   WidgetTester tester,
@@ -82,6 +86,7 @@ Future<ShellController> pumpCookedInShell(
   SiteImageRepository? siteImages,
   SiteLifecycle? lifecycle,
   AppSettingsPersistence? appSettingsPersistence,
+  DiscourseInstance? site,
   Widget? child,
 }) async {
   installTestMediaPipeline(
@@ -90,7 +95,7 @@ Future<ShellController> pumpCookedInShell(
 
   final siteLifecycle = lifecycle ?? SiteLifecycle();
   final controller = ShellController(
-    instanceStore: FakeInstanceStore([instance('meta.discourse.org')]),
+    instanceStore: FakeInstanceStore([site ?? instance('meta.discourse.org')]),
     api: api ?? FakeDiscourseApi(),
     authenticator: authenticator ?? FakeAuthenticator(),
     drafts: FakeDraftStore(),
@@ -1649,6 +1654,181 @@ void main() {
 
   group('mentions', () {
     const sam = '<p>ask <a class="mention" href="/u/sam">@sam</a> about it</p>';
+    const meta = 'https://meta.discourse.org';
+
+    String? mentionLink(WidgetTester tester) => tester
+        .widget<LinkTarget>(
+          find.descendant(
+            of: find.byType(MentionPill),
+            matching: find.byType(LinkTarget),
+          ),
+        )
+        .url;
+
+    // Discourse's sanitizer keeps `a.mention` and `a.mention-group` with any
+    // href, so an author can draw a real-looking pill that links anywhere.
+    // The web client never follows it: a click shows the card for the
+    // anchor's text.
+    for (final (kind, href) in [
+      ('an off-site link', 'https://evil.example/login'),
+      ('a topic link', '/t/some-topic/99'),
+      ('another profile', '/u/sam'),
+      ('its own profile', '/u/admin'),
+    ]) {
+      testWidgets('a user mention with $kind opens the named user card', (
+        tester,
+      ) async {
+        final launched = watchBrowser(tester);
+        final api = FakeDiscourseApi();
+        final controller = await pumpCookedInShell(
+          tester,
+          '',
+          api: api,
+          child: CookedHtml(
+            html: '<p>ask <a class="mention" href="$href">@Admin</a></p>',
+            siteUrl: meta,
+          ),
+        );
+        final before = controller.currentContent;
+
+        expect(mentionLink(tester), '$meta/u/admin');
+
+        await tester.tap(find.text('@Admin'));
+        await tester.pumpAndSettle();
+
+        expect(
+          find.byKey(const ValueKey<String>('user-card-surface')),
+          findsOneWidget,
+        );
+        expect(api.cardsRequested, ['admin']);
+        expect(controller.currentContent, before);
+        expect(launched, isEmpty);
+      });
+    }
+
+    for (final (kind, site, href) in [
+      ('a subfolder forum', 'https://example.com/forum', '/forum/groups/staff'),
+      ('an off-site link', meta, 'https://evil.example/login'),
+      ('a topic link', meta, '/t/some-topic/99'),
+    ]) {
+      testWidgets('a group mention with $kind opens the named group', (
+        tester,
+      ) async {
+        final launched = watchBrowser(tester);
+        final controller = await pumpCookedInShell(
+          tester,
+          '',
+          site: DiscourseInstance(url: site, title: 'Forum', apiVersion: 4),
+          child: CookedHtml(
+            html: '<p><a class="mention-group" href="$href">@Staff</a></p>',
+            siteUrl: site,
+          ),
+        );
+
+        expect(mentionLink(tester), '$site/g/staff');
+
+        await tester.tap(find.text('@Staff'));
+        await tester.pump();
+
+        expect(
+          controller.currentContent?.groupRoute,
+          GroupRoute.detail('staff'),
+        );
+        expect(launched, isEmpty);
+      });
+    }
+
+    testWidgets('a unicode username opens its card', (tester) async {
+      final api = FakeDiscourseApi();
+      await pumpCookedInShell(
+        tester,
+        '',
+        api: api,
+        child: const CookedHtml(
+          html: '<p><a class="mention" href="/u/%C3%A9t%C3%A9">@Été</a></p>',
+          siteUrl: meta,
+        ),
+      );
+
+      expect(mentionLink(tester), '$meta/u/%C3%A9t%C3%A9');
+
+      await tester.tap(find.text('@Été'));
+      await tester.pumpAndSettle();
+
+      expect(api.cardsRequested, ['été']);
+    });
+
+    testWidgets('a label that is not a name leaves the pill inert', (
+      tester,
+    ) async {
+      final launched = watchBrowser(tester);
+      final api = FakeDiscourseApi();
+      await pumpCookedInShell(
+        tester,
+        '',
+        api: api,
+        child: const CookedHtml(
+          html:
+              '<p><a class="mention" href="https://evil.example/">'
+              '@admin/../t/1</a></p>',
+          siteUrl: meta,
+        ),
+      );
+
+      expect(mentionLink(tester), isNull);
+
+      await tester.tap(find.text('@admin/../t/1'));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const ValueKey<String>('user-card-surface')),
+        findsNothing,
+      );
+      expect(api.cardsRequested, isEmpty);
+      expect(launched, isEmpty);
+    });
+
+    for (final (href, shown) in [
+      ('/u/sam', true),
+      ('https://evil.example/login', false),
+      ('https://evil.example/u/sam', false),
+      ('/t/some-topic/99', false),
+      ('/u/alex', false),
+    ]) {
+      testWidgets('a status sits beside $href only for its own mention', (
+        tester,
+      ) async {
+        await pumpCookedInShell(
+          tester,
+          '',
+          emoji: MockClient(
+            (_) async => http.Response.bytes(
+              onePixelPng,
+              200,
+              headers: {'content-type': 'image/png'},
+            ),
+          ),
+          child: CookedHtml(
+            html:
+                '<p><a class="mention" href="$href">@Sam</a> and '
+                '<a class="mention-group" href="/groups/sam">@sam</a></p>',
+            siteUrl: meta,
+            mentionedUserStatuses: const {
+              'sam': UserStatusReference(
+                userId: 42,
+                status: UserStatus(description: 'At lunch', emoji: 'sandwich'),
+              ),
+            },
+          ),
+        );
+
+        expect(find.byType(MentionPill), findsNWidgets(2));
+        expect(
+          find.byType(UserStatusMessage),
+          shown ? findsOneWidget : findsNothing,
+        );
+      });
+    }
 
     testWidgets('are drawn as a pill rather than as a link', (tester) async {
       await pumpCooked(tester, sam);
@@ -1696,10 +1876,7 @@ void main() {
 
       expect(find.byType(MentionPill), findsOneWidget);
       expect(find.text('@staff'), findsOneWidget);
-      expect(
-        tester.widget<MentionPill>(find.byType(MentionPill)).href,
-        '/g/staff',
-      );
+      expect(mentionLink(tester), '/g/staff');
     });
 
     testWidgets('one the site could not resolve stays text', (tester) async {
