@@ -145,6 +145,7 @@ const _keys = [
   'ref',
   'relative_url',
   'description',
+  'topic_template',
   'group',
   'grouped_search_result',
   'posts',

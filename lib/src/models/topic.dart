@@ -769,6 +769,7 @@ class TopicCategory with Storable<TopicCategory> {
     this.isUncategorized = false,
     this.notificationLevel = CategoryNotificationLevel.normal,
     this.featuredTopics = const [],
+    this.topicTemplate,
   });
 
   factory TopicCategory.fromJson(Map<String, dynamic> json) => TopicCategory(
@@ -799,6 +800,12 @@ class TopicCategory with Storable<TopicCategory> {
         if (jsonIntOrNull(topic['id']) case final id? when id > 0)
           CategoryFeaturedTopic.fromJson(topic),
     ]),
+    // Kept exactly as the site holds it: core inserts it verbatim and compares
+    // the body with it to tell an untouched template from an edited one.
+    topicTemplate: switch (json['topic_template']) {
+      final String template when template.trim().isNotEmpty => template,
+      _ => null,
+    },
   );
 
   final int id;
@@ -827,6 +834,10 @@ class TopicCategory with Storable<TopicCategory> {
 
   final List<CategoryFeaturedTopic> featuredTopics;
 
+  /// The body a new topic in this category starts from, or null when it has
+  /// none.
+  final String? topicTemplate;
+
   bool get canCreateTopic => permission == 1;
   bool get isMuted => notificationLevel == CategoryNotificationLevel.muted;
 
@@ -849,6 +860,7 @@ class TopicCategory with Storable<TopicCategory> {
         isUncategorized: isUncategorized,
         notificationLevel: level,
         featuredTopics: featuredTopics,
+        topicTemplate: topicTemplate,
       );
 
   int get colorValue => categoryColorValue(color);
@@ -880,7 +892,8 @@ class TopicCategory with Storable<TopicCategory> {
           other.position == position &&
           other.isUncategorized == isUncategorized &&
           other.notificationLevel == notificationLevel &&
-          listEquals(other.featuredTopics, featuredTopics);
+          listEquals(other.featuredTopics, featuredTopics) &&
+          other.topicTemplate == topicTemplate;
 
   @override
   int get hashCode => Object.hash(
@@ -901,6 +914,7 @@ class TopicCategory with Storable<TopicCategory> {
     isUncategorized,
     notificationLevel,
     Object.hashAll(featuredTopics),
+    topicTemplate,
   );
 }
 

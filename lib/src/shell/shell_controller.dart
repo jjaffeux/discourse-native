@@ -9821,6 +9821,32 @@ class ShellController extends FrameSafeNotifier
       categoryFor(composer.categoryId, siteUrl: siteUrl)?.minimumRequiredTags ??
           0,
     );
+    unawaited(_applyInitialTopicTemplate(composer, isCurrent));
+  }
+
+  /// Core applies the template of the category a new topic opens in. A draft
+  /// being restored outranks it: filling the field first would advance the
+  /// revision the restore checks and leave it refusing a field that is no
+  /// longer empty. Opening does not wait for it: a restore can be waiting on
+  /// the site.
+  Future<void> _applyInitialTopicTemplate(
+    ComposerController composer,
+    bool Function() isCurrent,
+  ) async {
+    final restore = _composerDrafts.restoreTaskFor(composer);
+    if (restore == null) return;
+    try {
+      if (!await restore) return;
+    } catch (_) {
+      return;
+    }
+    if (!isCurrent()) return;
+    composer.applyInitialTopicTemplateIfUntouched(
+      categoryFor(
+        composer.categoryId,
+        siteUrl: composer.target.siteUrl,
+      )?.topicTemplate,
+    );
   }
 
   /// Whether [topic] offers continuing in a new topic, or, from a message, in
@@ -10127,12 +10153,18 @@ class ShellController extends FrameSafeNotifier
     ComposerController composer,
     int? categoryId,
   ) async {
-    final category = topicComposerCategories(
-      composer.target.siteUrl,
-    ).where((category) => category.id == categoryId).firstOrNull;
+    final categories = topicComposerCategories(composer.target.siteUrl);
+    TopicCategory? find(int? id) =>
+        categories.where((category) => category.id == id).firstOrNull;
+    final previous = find(composer.categoryId);
+    final category = find(categoryId);
     composer.setCategory(
       categoryId,
       minimumRequiredTags: category?.minimumRequiredTags ?? 0,
+    );
+    composer.applyTopicTemplate(
+      category?.topicTemplate,
+      replacing: previous?.topicTemplate,
     );
     if (composer.tags.isEmpty) return;
     final kept = <TopicTag>[];
@@ -13498,6 +13530,14 @@ class ShellController extends FrameSafeNotifier
     }
 
     final target = composer.target;
+    if (target.isNewTopic) {
+      if (_newTopicRefusal(composer) case final refusal?) {
+        composer.failed(
+          WriteException(WriteFailure.validation, errors: [refusal]),
+        );
+        return;
+      }
+    }
     // Read before the awaits: a reply retargeted at a whisper while this one
     // is out would otherwise post what was written in public as a whisper.
     final whisper = composer.whisper;
@@ -13648,6 +13688,28 @@ class ShellController extends FrameSafeNotifier
     } else {
       lease.commit(() => _applyCreation(target, creation, composer, lease));
     }
+  }
+
+  /// What core's composer refuses to send for a new topic before asking the
+  /// site: a body that, trimmed, is still its category's template, and, on a
+  /// site that has templates but no uncategorized topics, a topic with no
+  /// category.
+  String? _newTopicRefusal(ComposerController composer) {
+    final siteUrl = composer.target.siteUrl;
+    final categoryId = composer.categoryId;
+    final template = categoryFor(categoryId, siteUrl: siteUrl)?.topicTemplate;
+    if (template != null && composer.raw == template.trim()) {
+      return 'Please add details and specifics to your topic by editing the '
+          'topic template.';
+    }
+    if (categoryId == null &&
+        !siteConfigFor(siteUrl).allowUncategorizedTopics &&
+        topicComposerCategories(
+          siteUrl,
+        ).any((category) => category.topicTemplate != null)) {
+      return 'You must choose a category.';
+    }
+    return null;
   }
 
   Future<void> _submitEdit(

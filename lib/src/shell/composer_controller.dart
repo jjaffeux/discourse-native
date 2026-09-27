@@ -549,9 +549,11 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
       !listEquals(_tags, _originalTags);
 
   /// Core treats whitespace-only differences as unchanged when deciding
-  /// whether Discard needs confirmation.
+  /// whether Discard needs confirmation. An applied category template is the
+  /// body's baseline, as core makes it the composer's original text.
   bool get hasChanges =>
-      text.text.trim() != (_originalRaw ?? '').trim() ||
+      text.text.trim() !=
+          (_originalRaw ?? _appliedTopicTemplate ?? '').trim() ||
       (_target.isPrivateMessage &&
           _target.targetRecipients != _originalRecipients) ||
       ((_target.createsTopic || _target.editsTopicMetadata) &&
@@ -695,6 +697,44 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
     _originalTags = next;
     _recomputeCanSubmit();
     _notify();
+  }
+
+  /// The category template this composer last put in its body. It stays the
+  /// baseline of [hasChanges] until the document is replaced.
+  String? _appliedTopicTemplate;
+
+  /// Mirrors core's `applyTopicTemplate` for a new topic whose category has
+  /// changed: a body that is empty, or still exactly [replacing] (the previous
+  /// category's template), becomes [template], or empty when the category has
+  /// none. Anything else was written by the author and stays.
+  ///
+  /// The template belongs to the category choice, which undo does not revisit,
+  /// so it replaces the document rather than becoming a step undo could take
+  /// back. It is not a draft of its own: only a save the author's changes
+  /// already scheduled goes on to carry it.
+  void applyTopicTemplate(String? template, {String? replacing}) {
+    if (_disposed || !_target.isNewTopic || !isEditing) return;
+    final body = text.text;
+    if (body.isNotEmpty && body != replacing) return;
+    final next = template ?? '';
+    if (next == body) return;
+    final draftWasPending = _draftTimer?.isActive ?? false;
+    _replaceDocument(
+      TextEditingValue(
+        text: next,
+        selection: TextSelection.collapsed(offset: next.length),
+      ),
+    );
+    _appliedTopicTemplate = template;
+    if (draftWasPending) _scheduleDraft();
+    _notify();
+  }
+
+  /// The template of the category a new topic opens in. A composer the author
+  /// has already typed, chosen or restored into keeps what it holds.
+  void applyInitialTopicTemplateIfUntouched(String? template) {
+    if (_disposed || !_untouched) return;
+    applyTopicTemplate(template);
   }
 
   /// Takes what the site stored as the baseline of the next metadata write.
@@ -2945,6 +2985,7 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
 
   void _replaceDocument(TextEditingValue value) {
     _draftTimer?.cancel();
+    _appliedTopicTemplate = null;
     autocomplete.close();
     _replacingDocument = true;
     try {

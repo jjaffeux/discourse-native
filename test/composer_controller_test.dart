@@ -897,6 +897,147 @@ void main() {
     });
   });
 
+  group('topic templates', () {
+    const bugTemplate = '### Steps to reproduce\n\n### Expected\n';
+    const featureTemplate = '### What problem does this solve?\n';
+
+    ComposerController newTopic({
+      Future<int?> Function(ComposerDraftSave save)? onSaveDraft,
+    }) {
+      final composer = ComposerController(
+        _newTopicTarget,
+        onSaveDraft: onSaveDraft,
+      );
+      addTearDown(composer.dispose);
+      return composer;
+    }
+
+    test('an empty new topic takes its category template as its baseline', () {
+      final composer = newTopic()..history.startSession();
+
+      composer.applyInitialTopicTemplateIfUntouched(bugTemplate);
+
+      expect(composer.text.text, bugTemplate);
+      expect(composer.hasChanges, isFalse);
+      expect(composer.draftPending, isFalse);
+      // Undo would leave the chosen category without its template.
+      expect(composer.history.canUndo, isFalse);
+
+      composer.text.text = '${bugTemplate}It crashes on launch.';
+      expect(composer.hasChanges, isTrue);
+    });
+
+    test('changing category swaps an untouched template only', () {
+      final composer = newTopic()..history.startSession();
+      composer.applyTopicTemplate(bugTemplate);
+
+      composer.applyTopicTemplate(featureTemplate, replacing: bugTemplate);
+      expect(composer.text.text, featureTemplate);
+      expect(composer.hasChanges, isFalse);
+      expect(composer.history.canUndo, isFalse);
+
+      composer.applyTopicTemplate(null, replacing: featureTemplate);
+      expect(composer.text.text, isEmpty);
+      expect(composer.hasChanges, isFalse);
+
+      composer.applyTopicTemplate(bugTemplate);
+      const edited = '${bugTemplate}It crashes on launch.';
+      composer.text.text = edited;
+      composer.applyTopicTemplate(featureTemplate, replacing: bugTemplate);
+      expect(composer.text.text, edited);
+      composer.applyTopicTemplate(null, replacing: bugTemplate);
+      expect(composer.text.text, edited);
+    });
+
+    test('a body typed before a category is chosen is kept', () {
+      final composer = newTopic();
+      composer.text.text = 'Typed before choosing';
+
+      composer.applyTopicTemplate(bugTemplate);
+
+      expect(composer.text.text, 'Typed before choosing');
+      expect(composer.hasChanges, isTrue);
+    });
+
+    testWidgets('a swap keeps a save the author already scheduled', (
+      tester,
+    ) async {
+      final saves = <ComposerDraftSave>[];
+      final composer = newTopic(
+        onSaveDraft: (save) async {
+          saves.add(save);
+          return save.sequence + 1;
+        },
+      );
+
+      composer.applyInitialTopicTemplateIfUntouched(bugTemplate);
+      await tester.pump(ComposerController.draftDebounce);
+      await tester.pump();
+      expect(saves, isEmpty);
+
+      composer.title.text = 'Crash on launch';
+      composer.applyTopicTemplate(featureTemplate, replacing: bugTemplate);
+      expect(composer.draftPending, isTrue);
+      await tester.pump(ComposerController.draftDebounce);
+      await tester.pump();
+
+      expect(saves.single.draft.title, 'Crash on launch');
+      expect(saves.single.draft.reply, featureTemplate);
+    });
+
+    test('a restored draft keeps its body, even an empty one', () {
+      for (final reply in ['My own words', '']) {
+        final composer = newTopic();
+        expect(
+          composer.restore(
+            ComposerDraft(
+              reply: reply,
+              action: ComposerDraft.createTopicAction,
+              categoryId: 5,
+            ),
+          ),
+          isTrue,
+        );
+
+        composer.applyInitialTopicTemplateIfUntouched(bugTemplate);
+
+        expect(composer.text.text, reply);
+      }
+    });
+
+    test('replies, messages and edits never take a template', () {
+      final targets = [
+        _target,
+        const ComposerTarget(
+          siteUrl: 'https://meta.discourse.org',
+          topicId: 0,
+          slug: '',
+          topicTitle: 'New message',
+          mode: ComposerMode.privateMessage,
+          targetRecipients: 'sam',
+        ),
+        const ComposerTarget(
+          siteUrl: 'https://meta.discourse.org',
+          topicId: 7,
+          slug: 'a-topic',
+          topicTitle: 'A topic',
+          mode: ComposerMode.topicEdit,
+          editingPostId: 11,
+          editingPostNumber: 1,
+        ),
+      ];
+      for (final target in targets) {
+        final composer = ComposerController(target);
+        addTearDown(composer.dispose);
+
+        composer.applyInitialTopicTemplateIfUntouched(bugTemplate);
+        composer.applyTopicTemplate(bugTemplate);
+
+        expect(composer.text.text, isEmpty, reason: '${target.mode}');
+      }
+    });
+  });
+
   group('private message drafts', () {
     test(
       'recipients can be chosen after opening and restored from a draft',
@@ -2701,6 +2842,14 @@ const _target = ComposerTarget(
   topicId: 7,
   slug: 'a-topic',
   topicTitle: 'A topic',
+);
+
+const _newTopicTarget = ComposerTarget(
+  siteUrl: 'https://meta.discourse.org',
+  topicId: 0,
+  slug: '',
+  topicTitle: 'New topic',
+  mode: ComposerMode.newTopic,
 );
 
 const _tokenSyntaxKind = ComposerSyntaxKind(
