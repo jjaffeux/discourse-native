@@ -666,13 +666,17 @@ final class ChatLiveSyncCoordinator {
         if (current != null && current.channelId != channelId) return;
         if (heldThread != null && heldThread.channelId != channelId) return;
         if (current == null && heldThread == null) return;
-        final parsed = ChatThreadPreview.fromJson({
-          'id': threadId,
-          'reply_count': jsonInt(preview['reply_count']),
-          // Incremental events omit title; retain it until detail refreshes.
-          'title': heldThread?.title ?? current?.thread?.title,
-          'preview': preview,
-        }, siteUrl);
+        final parsed = ChatThreadPreview.fromJson(
+          {
+            'id': threadId,
+            'reply_count': jsonInt(preview['reply_count']),
+            // Incremental events omit title; retain it until detail refreshes.
+            'title': heldThread?.title ?? current?.thread?.title,
+            'preview': preview,
+          },
+          siteUrl,
+          participantsLoaded: true,
+        );
         if (parsed == null) return;
         if (current != null) {
           _host.putMessage(siteUrl, current.withThreadPreview(parsed));

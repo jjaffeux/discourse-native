@@ -1971,6 +1971,11 @@ void main() {
         replyCount: 4,
         title: 'New title',
         lastReplyId: 104,
+        participantCount: 2,
+        participantUsers: [
+          ChatMessageAuthor(id: 2, username: 'sam'),
+          ChatMessageAuthor(id: 3, username: 'lee'),
+        ],
       );
       final api = _SequencedDetailApi();
       final store = Store()

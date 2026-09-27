@@ -105,6 +105,25 @@ void main() {
       expect(thread.preview?.participantUsers, hasLength(2));
     });
 
+    test('reads omitted participants as none unless creation skipped them', () {
+      // List and detail endpoints always query participants; creation, which
+      // can answer with an existing thread, never does.
+      final omitted = {
+        ...threadJson(),
+        'preview': {'last_reply_id': 108},
+      };
+
+      expect(ChatThread.fromJson(omitted, site).preview?.participantCount, 0);
+      expect(
+        ChatThread.fromJson(
+          omitted,
+          site,
+          participantsLoaded: false,
+        ).preview?.participantCount,
+        isNull,
+      );
+    });
+
     test('unknown thread notification levels safely read as normal', () {
       expect(
         ChatThreadNotificationLevel.fromJson(99),
