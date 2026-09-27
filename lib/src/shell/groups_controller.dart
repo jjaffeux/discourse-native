@@ -570,7 +570,9 @@ final class GroupsController extends FrameSafeNotifier {
     String groupName, {
     bool refresh = false,
   }) async {
+    if (isDisposed) return;
     final key = _groupKey(instance.url, groupName);
+    _touchQuery(_details, key);
     final held = detailState(instance.url, groupName);
     if (_requests.containsKey(key) || (!refresh && held.loaded)) return;
     final token = _start(key, instance.url, groupName: groupName);
@@ -579,6 +581,15 @@ final class GroupsController extends FrameSafeNotifier {
       loading: true,
       loaded: held.loaded,
       mutating: held.mutating,
+    );
+    _trimQueries(
+      _details,
+      instance.url,
+      siteOf: (key) => key.siteUrl,
+      // A write in flight owns this entry's mutating flag and writes the entry
+      // back when it settles; evicting it would show the group idle mid-write
+      // and re-add the entry outside this bound.
+      pinned: _mutations.containsKey,
     );
     notifySafely();
     try {
@@ -828,11 +839,13 @@ final class GroupsController extends FrameSafeNotifier {
     bool refresh = false,
     bool more = false,
   }) async {
+    if (isDisposed) return;
     final key = (
       siteUrl: instance.url,
       groupName: _normalize(groupName),
       mentions: mentions,
     );
+    _touchQuery(_activities, key);
     final held = activityState(instance.url, groupName, mentions: mentions);
     if (_requests.containsKey(key) ||
         (!refresh && !more && held.loaded) ||
@@ -847,6 +860,7 @@ final class GroupsController extends FrameSafeNotifier {
       loadingMore: more,
       loaded: held.loaded,
     );
+    _trimQueries(_activities, instance.url, siteOf: (key) => key.siteUrl);
     notifySafely();
     try {
       final auth = await _credentialsFor(instance, token);
@@ -908,8 +922,10 @@ final class GroupsController extends FrameSafeNotifier {
     String groupName, {
     bool refresh = false,
   }) async {
+    if (isDisposed) return;
     final key = _groupKey(instance.url, groupName);
     final requestKey = ('permissions', key);
+    _touchQuery(_permissions, key);
     final held = permissionsState(instance.url, groupName);
     if (_requests.containsKey(requestKey) || (!refresh && held.loaded)) return;
     final token = _start(requestKey, instance.url, groupName: groupName);
@@ -917,6 +933,12 @@ final class GroupsController extends FrameSafeNotifier {
       permissions: held.permissions,
       loading: true,
       loaded: held.loaded,
+    );
+    _trimQueries(
+      _permissions,
+      instance.url,
+      siteOf: (key) => key.siteUrl,
+      requestKeyOf: (key) => ('permissions', key),
     );
     notifySafely();
     try {
@@ -953,8 +975,10 @@ final class GroupsController extends FrameSafeNotifier {
     bool refresh = false,
     bool more = false,
   }) async {
+    if (isDisposed) return;
     final key = _groupKey(instance.url, groupName);
     final requestKey = ('logs', key);
+    _touchQuery(_logs, key);
     final held = logsState(instance.url, groupName);
     if (_requests.containsKey(requestKey) ||
         (!refresh && !more && held.loaded) ||
@@ -969,6 +993,12 @@ final class GroupsController extends FrameSafeNotifier {
       loading: !more,
       loadingMore: more,
       loaded: held.loaded,
+    );
+    _trimQueries(
+      _logs,
+      instance.url,
+      siteOf: (key) => key.siteUrl,
+      requestKeyOf: (key) => ('logs', key),
     );
     notifySafely();
     try {
@@ -1426,12 +1456,14 @@ final class GroupsController extends FrameSafeNotifier {
     String siteUrl, {
     required String Function(K) siteOf,
     Object Function(K)? requestKeyOf,
+    bool Function(K)? pinned,
   }) {
     final keys = states.keys
         .where((key) => siteOf(key) == siteUrl)
         .toList(growable: false);
     if (keys.length <= _cachedQueriesPerSite) return;
     for (final key in keys.take(keys.length - _cachedQueriesPerSite)) {
+      if (pinned?.call(key) ?? false) continue;
       states.remove(key);
       // Eviction also revokes the old page, so returning to this query can
       // load immediately without an earlier completion replacing it.

@@ -241,6 +241,144 @@ void main() {
     });
   }
 
+  for (final kind in _GroupPageCache.values) {
+    group('group ${kind.name} retention', () {
+      test(
+        'keeps sixteen recent groups per forum and refreshes reuse order',
+        () async {
+          const other = DiscourseInstance(
+            url: 'https://other.example',
+            title: 'Other',
+            user: DiscourseUser(username: 'sam'),
+          );
+          final transport = _ControlledGroupTransport();
+          final credentials = FakeApiCredentialReader()
+            ..keys[_site] = 'key'
+            ..keys[other.url] = 'other-key';
+          final controller = _controller(transport, credentials: credentials);
+          addTearDown(controller.dispose);
+          kind.respond(transport, 99);
+          await kind.load(controller, other, 'other');
+          for (var index = 0; index <= 16; index++) {
+            kind.respond(transport, index);
+            await kind.load(controller, _connectedInstance, 'group-$index');
+          }
+
+          expect(kind.ids(controller, _site, 'group-0'), isEmpty);
+          for (var index = 1; index <= 16; index++) {
+            expect(kind.ids(controller, _site, 'group-$index'), [index]);
+          }
+          expect(kind.ids(controller, other.url, 'other'), [99]);
+          expect(kind.requests(transport), 18);
+
+          await kind.load(controller, _connectedInstance, 'group-1');
+          kind.respond(transport, 17);
+          await kind.load(controller, _connectedInstance, 'group-17');
+          expect(kind.ids(controller, _site, 'group-1'), [1]);
+          expect(kind.ids(controller, _site, 'group-2'), isEmpty);
+          expect(kind.ids(controller, _site, 'group-17'), [17]);
+          expect(kind.requests(transport), 19);
+
+          kind.respond(transport, 100);
+          await kind.load(controller, _connectedInstance, 'group-0');
+          expect(kind.ids(controller, _site, 'group-0'), [100]);
+          expect(kind.requests(transport), 20);
+        },
+      );
+
+      test('a late page for an evicted group does not repopulate it', () async {
+        final started = Completer<void>();
+        final transport = _ControlledGroupTransport()
+          ..onGet = (_) {
+            if (!started.isCompleted) started.complete();
+          };
+        final release = kind.hold(transport);
+        addTearDown(() => release(1));
+        final credentials = FakeApiCredentialReader()..keys[_site] = 'key';
+        final controller = _controller(transport, credentials: credentials);
+        addTearDown(controller.dispose);
+        final loading = kind.load(controller, _connectedInstance, 'old');
+        await started.future;
+        for (var index = 0; index < 16; index++) {
+          kind.respond(transport, index + 10);
+          await kind.load(controller, _connectedInstance, 'group-$index');
+        }
+        release(1);
+        await loading;
+
+        expect(kind.ids(controller, _site, 'old'), isEmpty);
+        for (var index = 0; index < 16; index++) {
+          expect(kind.ids(controller, _site, 'group-$index'), [index + 10]);
+        }
+      });
+
+      test(
+        'evicts request ownership so a late page cannot replace a reload',
+        () async {
+          final started = Completer<void>();
+          final transport = _ControlledGroupTransport()
+            ..onGet = (_) {
+              if (!started.isCompleted) started.complete();
+            };
+          final release = kind.hold(transport);
+          addTearDown(() => release(1));
+          final credentials = FakeApiCredentialReader()..keys[_site] = 'key';
+          final controller = _controller(transport, credentials: credentials);
+          addTearDown(controller.dispose);
+          final loading = kind.load(controller, _connectedInstance, 'old');
+          await started.future;
+          for (var index = 0; index < 16; index++) {
+            kind.respond(transport, index + 10);
+            await kind.load(controller, _connectedInstance, 'group-$index');
+          }
+          kind.respond(transport, 100);
+          await kind.load(controller, _connectedInstance, 'old');
+          release(1);
+          await loading;
+
+          expect(kind.ids(controller, _site, 'old'), [100]);
+          expect(kind.requests(transport), 18);
+        },
+      );
+    });
+  }
+
+  test(
+    'a group detail with a write in flight outlives the retention bound',
+    () async {
+      final transport = _ControlledGroupTransport();
+      final credentials = FakeApiCredentialReader()..keys[_site] = 'key';
+      final controller = _controller(transport, credentials: credentials);
+      addTearDown(controller.dispose);
+      const detail = _GroupPageCache.detail;
+      detail.respond(transport, 1);
+      await controller.loadDetail(_connectedInstance, 'busy');
+      final write = transport.holdWrite();
+      final joining = controller.join(
+        _connectedInstance,
+        const Group(id: 1, name: 'busy'),
+      );
+      await write.started.future;
+      for (var index = 0; index < 16; index++) {
+        detail.respond(transport, index + 10);
+        await controller.loadDetail(_connectedInstance, 'group-$index');
+      }
+
+      final pending = controller.detailState(_site, 'busy');
+      expect(pending.detail?.group.id, 1);
+      expect(pending.mutating, isTrue);
+      expect(detail.ids(controller, _site, 'group-0'), [10]);
+
+      detail.respond(transport, 2);
+      write.release.complete();
+      expect(await joining, isTrue);
+
+      expect(detail.ids(controller, _site, 'busy'), [2]);
+      expect(detail.ids(controller, _site, 'group-0'), isEmpty);
+      expect(detail.ids(controller, _site, 'group-1'), [11]);
+    },
+  );
+
   for (final requesters in [false, true]) {
     test(
       '${requesters ? 'requesters' : 'members'} stop when the server repeats an offset',
@@ -1750,6 +1888,16 @@ final class _ControlledGroupTransport
     ({String path, String method, Map<String, Object?> body, String? clientId})
   >
   writes = [];
+  ({Completer<void> started, Completer<void> release})? _pendingWrite;
+
+  ({Completer<void> started, Completer<void> release}) holdWrite() {
+    final pending = (started: Completer<void>(), release: Completer<void>());
+    _pendingWrite = pending;
+    addTearDown(() {
+      if (!pending.release.isCompleted) pending.release.complete();
+    });
+    return pending;
+  }
 
   @override
   Future<Map<String, dynamic>> pluginGetJson({
@@ -1785,6 +1933,12 @@ final class _ControlledGroupTransport
     String? clientId,
   }) async {
     writes.add((path: path, method: method, body: body, clientId: clientId));
+    final pending = _pendingWrite;
+    if (pending != null) {
+      _pendingWrite = null;
+      pending.started.complete();
+      await pending.release.future;
+    }
     return const {};
   }
 }
@@ -1847,4 +2001,90 @@ enum _SearchableGroupCache {
       'meta': {'total': 1, 'limit': 30, 'offset': 0},
     },
   };
+}
+
+enum _GroupPageCache {
+  detail,
+  activity,
+  permissions,
+  logs;
+
+  Future<void> load(
+    GroupsController controller,
+    DiscourseInstance instance,
+    String groupName,
+  ) => switch (this) {
+    detail => controller.loadDetail(instance, groupName),
+    activity => controller.loadActivity(instance, groupName, mentions: false),
+    permissions => controller.loadPermissions(instance, groupName),
+    logs => controller.loadLogs(instance, groupName),
+  };
+
+  Iterable<int> ids(
+    GroupsController controller,
+    String siteUrl,
+    String groupName,
+  ) => switch (this) {
+    detail => [?controller.detailState(siteUrl, groupName).detail?.group.id],
+    activity =>
+      controller
+          .activityState(siteUrl, groupName, mentions: false)
+          .posts
+          .map((post) => post.id),
+    permissions =>
+      controller
+          .permissionsState(siteUrl, groupName)
+          .permissions
+          .map((permission) => permission.category.id),
+    logs =>
+      controller
+          .logsState(siteUrl, groupName)
+          .logs
+          .map((log) => int.parse(log.subject!)),
+  };
+
+  int requests(_ControlledGroupTransport transport) =>
+      transport.gets.length + transport.listGets.length;
+
+  /// Queues a response for this page and returns its delivery.
+  void Function(int id) hold(_ControlledGroupTransport transport) {
+    if (this == permissions) {
+      final pending = Completer<List<Map<String, dynamic>>>();
+      transport.lists.add(pending);
+      return (id) {
+        if (pending.isCompleted) return;
+        pending.complete([
+          {
+            'permission_type': 1,
+            'category': {'id': id, 'name': 'Category $id'},
+          },
+        ]);
+      };
+    }
+    final pending = Completer<Map<String, dynamic>>();
+    transport.objects.add(pending);
+    return (id) {
+      if (pending.isCompleted) return;
+      pending.complete(switch (this) {
+        detail => {
+          'group': {'id': id, 'name': 'group-$id'},
+        },
+        activity => {
+          'posts': [
+            {'id': id, 'topic_id': id, 'created_at': '2026-09-01T12:00:00Z'},
+          ],
+        },
+        logs => {
+          'logs': [
+            {'action': 'change_group_setting', 'subject': '$id'},
+          ],
+          'all_loaded': true,
+        },
+        permissions => throw StateError('Permissions are a JSON list.'),
+      });
+    };
+  }
+
+  void respond(_ControlledGroupTransport transport, int id) =>
+      hold(transport)(id);
 }
