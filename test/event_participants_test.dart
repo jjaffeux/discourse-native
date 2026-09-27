@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:discourse_native/discourse_plugin_sdk.dart';
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/plugins/discourse_events/event_data.dart';
 import 'package:discourse_native/src/plugins/discourse_events/event_participants.dart';
 import 'package:flutter/material.dart';
@@ -86,6 +87,70 @@ void main() {
       await tester.tap(find.text('Done'));
       await tester.pumpAndSettle();
       expect(ports.channels.subscriberCount('/discourse-post-event/700'), 1);
+    },
+  );
+
+  testWidgets(
+    'participant sheet reloads its roster when access returns after a failed re-read or account refresh',
+    (tester) async {
+      final handle = ports.controller.acquire(
+        eventSite,
+        PostEvent.decode(current)!,
+      );
+      addTearDown(handle.dispose);
+      await handle.refresh();
+      ports
+              .transport
+              .responders['GET /discourse-post-event/events/42/invitees.json?filter'] =
+          (_) => {
+            'invitees': [watching()],
+          };
+      await pump(tester, (context) => showEventParticipants(context, handle));
+      expect(find.text('@lee'), findsOneWidget);
+      bool searchEnabled() =>
+          tester.widget<DInput>(find.byType(DInput)).enabled;
+      bool tabsEnabled() =>
+          tester.widget<DTabs<String>>(find.byType(DTabs<String>)).enabled;
+      void expectWithdrawn() {
+        expect(find.text('@lee'), findsNothing);
+        expect(
+          find.text('Participant details are no longer available.'),
+          findsOneWidget,
+        );
+        expect(searchEnabled(), isFalse);
+        expect(tabsEnabled(), isFalse);
+      }
+
+      void expectRestored() {
+        expect(find.text('@lee'), findsOneWidget);
+        expect(
+          find.text('Participant details are no longer available.'),
+          findsNothing,
+        );
+        expect(searchEnabled(), isTrue);
+        expect(tabsEnabled(), isTrue);
+      }
+
+      const read = 'GET /discourse-post-event/events/42.json';
+      final respond = ports.transport.responders[read]!;
+      ports.transport.responders[read] = (_) =>
+          throw const WriteException(WriteFailure.unreachable);
+      await handle.refresh();
+      await tester.pumpAndSettle();
+      expectWithdrawn();
+      ports.transport.responders[read] = respond;
+      await handle.refresh();
+      await tester.pumpAndSettle();
+      expectRestored();
+
+      final reread = Completer<Map<String, dynamic>>();
+      ports.transport.responders[read] = (_) => reread.future;
+      ports.controller.pluginCurrentUserRefreshed(eventSite);
+      await tester.pump();
+      expectWithdrawn();
+      reread.complete({'event': current});
+      await tester.pumpAndSettle();
+      expectRestored();
     },
   );
 

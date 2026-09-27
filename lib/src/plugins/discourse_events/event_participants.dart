@@ -47,6 +47,12 @@ class _ParticipantsState extends State<_Participants> {
   int _generation = 0;
   bool _loading = false;
 
+  /// Availability as of the last change this sheet handled. Access can return
+  /// after a failed re-read or an account refresh; the roster was withdrawn
+  /// when it left, so it must be read again rather than left disabled behind
+  /// the withdrawal notice with no way to retry.
+  bool _wasAvailable = true;
+
   bool get _available =>
       widget.handle.isCurrent &&
       widget.handle.authoritative &&
@@ -60,7 +66,12 @@ class _ParticipantsState extends State<_Participants> {
   }
 
   void _changed() {
-    if (!_available) {
+    final available = _available;
+    final returned = available && !_wasAvailable;
+    _wasAvailable = available;
+    if (returned) {
+      unawaited(_load());
+    } else if (!available) {
       _debounce?.cancel();
       _generation++;
       setState(() {
