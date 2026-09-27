@@ -7,6 +7,7 @@ class MainFlutterWindow: NSWindow {
   private var flutterController: FlutterViewController?
   private var windowChannel: FlutterMethodChannel?
   private var youtubeScrollChannel: FlutterMethodChannel?
+  private var pasteboardChannel: FlutterMethodChannel?
   private var launchScreen: LaunchScreenView?
 
   override func awakeFromNib() {
@@ -56,6 +57,7 @@ class MainFlutterWindow: NSWindow {
       to: flutterViewController.engine.binaryMessenger
     )
     attachWindowChannel(to: flutterViewController.engine.binaryMessenger)
+    attachPasteboardChannel(to: flutterViewController.engine.binaryMessenger)
     youtubeScrollChannel = FlutterMethodChannel(
       name: "org.discourse.native/youtube_scroll",
       binaryMessenger: flutterViewController.engine.binaryMessenger
@@ -180,6 +182,23 @@ class MainFlutterWindow: NSWindow {
       }
     }
     windowChannel = channel
+  }
+
+  /// The pasteboard plugin reads every URL as a file path, so a copied web
+  /// link would name a local file. Paste reads copied files through this.
+  private func attachPasteboardChannel(to messenger: FlutterBinaryMessenger) {
+    let channel = FlutterMethodChannel(
+      name: "org.discourse.native/pasteboard",
+      binaryMessenger: messenger
+    )
+    channel.setMethodCallHandler { call, result in
+      guard call.method == "fileURLPaths" else {
+        result(FlutterMethodNotImplemented)
+        return
+      }
+      result(pasteboardFilePaths(NSPasteboard.general))
+    }
+    pasteboardChannel = channel
   }
 }
 

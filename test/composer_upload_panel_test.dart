@@ -241,7 +241,7 @@ void main() {
           });
           addTearDown(() => messenger.setMockMethodCallHandler(channel, null));
 
-          final files = await readComposerClipboardFiles();
+          final files = (await tester.runAsync(readComposerClipboardFiles))!;
 
           expect(files, hasLength(1));
           expect(files.single.name, name);
@@ -257,6 +257,111 @@ void main() {
         },
       );
     }
+
+    testWidgets('macOS reads copied files only through the file-URL channel', (
+      tester,
+    ) async {
+      final directory = Directory.systemTemp.createTempSync(
+        'discourse-native-clipboard-',
+      );
+      addTearDown(() => directory.deleteSync(recursive: true));
+      final copiedFile = File('${directory.path}/copied.pdf')
+        ..writeAsBytesSync(const [4, 5, 6]);
+      final pluginCalls = _mockPasteboardPlugin(tester, files: const []);
+      final fileUrlCalls = _mockPasteboardFileUrls(tester, [copiedFile.path]);
+
+      final files = await tester.runAsync(readComposerClipboardFiles);
+
+      expect(files!.single.name, 'copied.pdf');
+      expect(await tester.runAsync(files.single.length), 3);
+      expect(fileUrlCalls, ['fileURLPaths']);
+      expect(pluginCalls, isEmpty);
+    }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
+
+    testWidgets(
+      'clipboard paths that are not regular files are never uploaded',
+      (tester) async {
+        final directory = Directory.systemTemp.createTempSync(
+          'discourse-native-clipboard-',
+        );
+        addTearDown(() => directory.deleteSync(recursive: true));
+        // Finder also publishes the copied item's icon as an image, so paths
+        // which cannot be uploaded must not fall through to the pixel read.
+        final pluginCalls = _mockPasteboardPlugin(
+          tester,
+          files: [directory.path, '${directory.path}/deleted.png'],
+          image: Uint8List.fromList(const [80, 78, 71]),
+        );
+
+        final files = await tester.runAsync(readComposerClipboardFiles);
+
+        expect(files, isEmpty);
+        expect(pluginCalls, ['files']);
+      },
+    );
+
+    testWidgets(
+      'a copied web link on macOS pastes as text, not the local file its path names',
+      (tester) async {
+        final directory = Directory.systemTemp.createTempSync(
+          'discourse-native-clipboard-',
+        );
+        addTearDown(() => directory.deleteSync(recursive: true));
+        final private = File('${directory.path}/draft.json')
+          ..writeAsStringSync('{}');
+        final link = 'https://attacker.example${private.path}';
+        // pasteboard 0.5.0 answers `files` for a copied web link with the
+        // link's path; the native file-URL read answers with nothing.
+        final pluginCalls = _mockPasteboardPlugin(
+          tester,
+          files: [private.path],
+        );
+        _mockPasteboardFileUrls(tester, const []);
+        final messenger = tester.binding.defaultBinaryMessenger;
+        messenger.setMockMethodCallHandler(SystemChannels.platform, (
+          call,
+        ) async {
+          return switch (call.method) {
+            'Clipboard.getData' => {'text': link},
+            'Clipboard.hasStrings' => {'value': true},
+            _ => null,
+          };
+        });
+        addTearDown(
+          () =>
+              messenger.setMockMethodCallHandler(SystemChannels.platform, null),
+        );
+        const config = SiteConfig(authorizedExtensions: ['*']);
+        final uploaded = <String>[];
+        final composer = ComposerController(
+          _target,
+          canUploadImage: (name) => config.canUploadImage(name, staff: false),
+          canUploadFile: (name) => config.canUploadFile(name, staff: false),
+          imageUploader:
+              (file, {required onProgress, required abortTrigger}) async {
+                uploaded.add(file.name);
+                throw StateError('A copied link must not upload a file');
+              },
+        );
+        final shell = await _shell();
+        addTearDown(composer.dispose);
+        addTearDown(shell.dispose);
+        composer.text.value = const TextEditingValue(
+          text: 'See ',
+          selection: TextSelection.collapsed(offset: 4),
+        );
+        await _pumpPanel(tester, shell, composer);
+
+        await _pasteShortcut(tester);
+
+        expect(composer.text.text, 'See $link');
+        expect(composer.uploads, isEmpty);
+        expect(uploaded, isEmpty);
+        expect(composer.notice, isNull);
+        expect(pluginCalls, isNot(contains('files')));
+      },
+      variant: TargetPlatformVariant.only(TargetPlatform.macOS),
+    );
 
     for (final extension in ['png', 'mp4']) {
       testWidgets(
@@ -2189,6 +2294,43 @@ Future<void> _pumpPanel(
 );
 
 Future<List<ComposerUploadFile>> _cancelImagePick() async => const [];
+
+/// Answers the pasteboard plugin's channel and records each method it is asked.
+List<String> _mockPasteboardPlugin(
+  WidgetTester tester, {
+  required List<String> files,
+  Uint8List? image,
+}) {
+  const channel = MethodChannel('pasteboard');
+  final messenger = tester.binding.defaultBinaryMessenger;
+  final calls = <String>[];
+  messenger.setMockMethodCallHandler(channel, (call) async {
+    calls.add(call.method);
+    return switch (call.method) {
+      'files' => files,
+      'image' => image,
+      _ => fail('Unexpected pasteboard method: ${call.method}'),
+    };
+  });
+  addTearDown(() => messenger.setMockMethodCallHandler(channel, null));
+  return calls;
+}
+
+/// Answers the macOS runner's file-URL-only pasteboard channel.
+List<String> _mockPasteboardFileUrls(WidgetTester tester, List<String> paths) {
+  const channel = MethodChannel('org.discourse.native/pasteboard');
+  final messenger = tester.binding.defaultBinaryMessenger;
+  final calls = <String>[];
+  messenger.setMockMethodCallHandler(channel, (call) async {
+    calls.add(call.method);
+    return switch (call.method) {
+      'fileURLPaths' => paths,
+      _ => fail('Unexpected pasteboard method: ${call.method}'),
+    };
+  });
+  addTearDown(() => messenger.setMockMethodCallHandler(channel, null));
+  return calls;
+}
 
 Future<void> _pasteShortcut(WidgetTester tester) async {
   final modifier = switch (defaultTargetPlatform) {
