@@ -1,4 +1,5 @@
 import 'package:discourse_native/src/data/store.dart';
+import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_thread.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -127,6 +128,42 @@ void main() {
         expect(store.read<ChatThread>(site, 22), same(held));
       },
     );
+
+    test('store merge accepts an explicit zero tracking but keeps tracking a '
+        'detail payload omits', () {
+      ChatThreadPage page(Map<String, dynamic> tracking) =>
+          ChatThreadPage.fromJson({
+            'threads': [threadJson(detail: false)],
+            'tracking': tracking,
+          }, site);
+      final store = Store()
+        ..put(site, ChatThread.fromJson(threadJson(), site))
+        ..putAll(
+          site,
+          page({
+            '22': {'unread_count': 2, 'mention_count': 1},
+          }).threads,
+        );
+
+      store.put(site, ChatThread.fromJson(threadJson(), site));
+      final unread = store.read<ChatThread>(site, 22)!;
+      expect(
+        unread.tracking,
+        const ChatTracking(unreadCount: 2, mentionCount: 1),
+      );
+      expect(
+        unread.withDetail(ChatThread.fromJson(threadJson(), site)).tracking,
+        unread.tracking,
+      );
+
+      // Core leaves a read thread out of the page's tracking map.
+      store.putAll(site, page(const {}).threads);
+      expect(store.read<ChatThread>(site, 22)?.tracking, ChatTracking.none);
+
+      store.put(site, unread);
+      store.put(site, unread.copyWith(tracking: ChatTracking.none));
+      expect(store.read<ChatThread>(site, 22)?.tracking, ChatTracking.none);
+    });
 
     test(
       'membership helpers update notification and read state independently',
