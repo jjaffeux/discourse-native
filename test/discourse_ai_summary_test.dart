@@ -470,7 +470,9 @@ void main() {
       expect(fixture.api.pluginReadPaths, [_summaryPath]);
       expect(fixture.api.pluginWrites.single.body, {
         'stream': true,
-        'skip_age_check': true,
+        // The summary controller compares `skip_age_check == "true"`, so a
+        // JSON boolean would hand back the same outdated cached summary.
+        'skip_age_check': 'true',
       });
       expect(fixture.callbacks, hasLength(1));
 
