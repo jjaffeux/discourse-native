@@ -307,7 +307,9 @@ class ChatInboxRow extends StatelessWidget {
   static const double compactAvatarSize = 32;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => LayoutBuilder(builder: _buildRow);
+
+  Widget _buildRow(BuildContext context, BoxConstraints constraints) {
     final unread = channel.badge.isVisible;
     final count = channel.tracking.unreadCount;
     final threadCount = channel.tracking.watchedThreadsUnreadCount > 0
@@ -346,6 +348,9 @@ class ChatInboxRow extends StatelessWidget {
       child: DItem(
         key: ValueKey('chat-inbox-channel-${channel.id}'),
         shape: compact ? DItemShape.standard : DItemShape.fullWidth,
+        padding: !compact && constraints.maxWidth < 600
+            ? const EdgeInsets.symmetric(vertical: DSpacing.md)
+            : null,
         size: compact ? DItemSize.sm : DItemSize.standard,
         selected: selected,
         selectionStyle: compact

@@ -393,7 +393,9 @@ class _ChannelRow extends StatelessWidget {
   final ValueChanged<ChatChannel> onChanged;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => LayoutBuilder(builder: _buildRow);
+
+  Widget _buildRow(BuildContext context, BoxConstraints constraints) {
     final following = channel.membership.following;
     final busy = chat.channelFollowWriteInFlight(siteUrl, channel.id);
     final canJoin = channel.canJoin && channel.status == ChatChannelStatus.open;
@@ -416,6 +418,9 @@ class _ChannelRow extends StatelessWidget {
           child: DItem(
             key: ValueKey('chat-browse-channel-${channel.id}'),
             shape: DItemShape.fullWidth,
+            padding: constraints.maxWidth < 600
+                ? const EdgeInsets.symmetric(vertical: DSpacing.md)
+                : null,
             onPressed: () => unawaited(_open(context)),
             children: [
               DItemMedia(

@@ -58,33 +58,46 @@ ChatChannel _channel(int id, String name, {int unread = 0}) => ChatChannel(
 
 void main() {
   for (final width in [320.0, 430.0, 900.0]) {
-    testWidgets('thread content aligns with its dividers at width $width', (
-      tester,
-    ) async {
-      await _pump(
-        tester,
-        size: Size(width, 800),
-        platform: width < 600 ? TargetPlatform.iOS : TargetPlatform.macOS,
-      );
-      await _tab(tester, ChatBrowsePage.threads);
+    for (final page in ChatBrowsePage.values) {
+      testWidgets(
+        '${page.name} content aligns with its dividers at width $width',
+        (tester) async {
+          final fixture = await _pump(
+            tester,
+            size: Size(width, 800),
+            platform: width < 600 ? TargetPlatform.iOS : TargetPlatform.macOS,
+          );
+          await _tab(tester, page);
+          if (page == ChatBrowsePage.chats) {
+            final provider = _Rooms();
+            final detach = fixture.rooms.attach(provider);
+            addTearDown(detach);
+            addTearDown(provider.dispose);
+            await tester.pumpAndSettle();
+          }
+          final row = find.byKey(
+            ValueKey(switch (page) {
+              ChatBrowsePage.chats => 'chat-inbox-channel-1',
+              ChatBrowsePage.channels => 'chat-browse-channel-1',
+              ChatBrowsePage.threads => 'chat-my-thread-1',
+            }),
+          );
+          final divider = tester.getRect(find.byType(DSeparator).first);
+          final inset = width < 600 ? 0.0 : 16.0;
+          void expectAligned(Finder row) {
+            final bounds = _rowContentBounds(tester, row);
+            expect(bounds.left, closeTo(divider.left + inset, .01));
+            expect(bounds.right, closeTo(divider.right - inset, .01));
+          }
 
-      final row = find.byKey(const ValueKey('chat-my-thread-1'));
-      final content = find.descendant(
-        of: row,
-        matching: find.byType(DItemContent),
+          expectAligned(row);
+          if (page == ChatBrowsePage.chats) {
+            expectAligned(find.byType(ChatInboxRoomRow).first);
+          }
+          expect(tester.takeException(), isNull);
+        },
       );
-      final divider = find.byType(DSeparator).first;
-      final inset = width < 600 ? 0.0 : 16.0;
-      expect(
-        tester.getRect(content).left,
-        closeTo(tester.getRect(divider).left + inset, .01),
-      );
-      expect(
-        tester.getRect(content).right,
-        closeTo(tester.getRect(divider).right - inset, .01),
-      );
-      expect(tester.takeException(), isNull);
-    });
+    }
   }
 
   for (final page in ChatBrowsePage.values) {
@@ -120,24 +133,17 @@ void main() {
         addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
         await tester.pump();
         expect(tester.takeException(), isNull);
-        if (page == ChatBrowsePage.threads) {
-          final content = find.descendant(
-            of: skeleton,
-            matching: find.byType(DItemContent),
-          );
-          final divider = find.descendant(
-            of: skeleton,
-            matching: find.byType(DSeparator),
-          );
-          expect(
-            tester.getRect(content.first).left,
-            tester.getRect(divider.first).left,
-          );
-          expect(
-            tester.getRect(content.first).right,
-            tester.getRect(divider.first).right,
-          );
-        }
+        final row = find
+            .descendant(of: skeleton, matching: find.byType(DItem))
+            .first;
+        final divider = tester.getRect(
+          find
+              .descendant(of: skeleton, matching: find.byType(DSeparator))
+              .first,
+        );
+        final bounds = _rowContentBounds(tester, row);
+        expect(bounds.left, divider.left);
+        expect(bounds.right, divider.right);
         gate.complete();
         await request;
         await tester.pumpAndSettle();
@@ -382,6 +388,22 @@ void main() {
     );
     expect(tester.takeException(), isNull);
   });
+}
+
+Rect _rowContentBounds(WidgetTester tester, Finder row) {
+  final parts = find.descendant(
+    of: row,
+    matching: find.byWidgetPredicate(
+      (widget) =>
+          widget is DItemMedia ||
+          widget is DItemContent ||
+          widget is DItemActions,
+    ),
+  );
+  return parts
+      .evaluate()
+      .map((element) => tester.getRect(find.byWidget(element.widget)))
+      .reduce((a, b) => a.expandToInclude(b));
 }
 
 Future<void> _tab(WidgetTester tester, ChatBrowsePage page) async {

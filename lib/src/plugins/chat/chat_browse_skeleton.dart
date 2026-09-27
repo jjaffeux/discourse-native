@@ -23,6 +23,9 @@ class ChatBrowseSkeleton extends StatelessWidget {
   Widget build(BuildContext context) => LayoutBuilder(builder: _buildRows);
 
   Widget _buildRows(BuildContext context, BoxConstraints constraints) {
+    final rowWidth = constraints
+        .deflate(padding.resolve(Directionality.of(context)))
+        .maxWidth;
     final threads = page == ChatBrowsePage.threads;
     final channels = page == ChatBrowsePage.channels;
     final content = DSkeletonRegion(
@@ -35,7 +38,7 @@ class ChatBrowseSkeleton extends StatelessWidget {
             const DSeparator(),
             DItem(
               shape: DItemShape.fullWidth,
-              padding: threads && constraints.maxWidth < 600
+              padding: rowWidth < 600
                   ? const EdgeInsets.symmetric(vertical: DSpacing.md)
                   : null,
               children: [
