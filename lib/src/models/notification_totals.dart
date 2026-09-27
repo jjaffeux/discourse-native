@@ -22,6 +22,18 @@ class NotificationTotals {
     this.username,
     this.groupedUnreadNotifications = NotificationTypeCounts.unavailable,
     this.pluginCounters = PluginNotificationCounters.none,
+  }) : _unsentFields = const {};
+
+  const NotificationTotals._response({
+    required this.unreadNotifications,
+    required this.unreadPersonalMessages,
+    required this.unseenReviewables,
+    required this.topicTrackingUnread,
+    required this.topicTrackingNew,
+    required this.username,
+    required this.groupedUnreadNotifications,
+    required this.pluginCounters,
+    required this._unsentFields,
   });
 
   factory NotificationTotals.fromJson(
@@ -30,10 +42,12 @@ class NotificationTotals {
         const EmptyPluginNotificationCounterCodec(),
   }) {
     final tracking = jsonObject(json['topic_tracking']);
-    return NotificationTotals(
+    final personalMessages = _optionalCount(json['unread_personal_messages']);
+    final reviewables = _optionalCount(json['unseen_reviewables']);
+    return NotificationTotals._response(
       unreadNotifications: _count(json['unread_notifications']),
-      unreadPersonalMessages: _count(json['unread_personal_messages']),
-      unseenReviewables: _count(json['unseen_reviewables']),
+      unreadPersonalMessages: personalMessages ?? 0,
+      unseenReviewables: reviewables ?? 0,
       topicTrackingUnread: _count(tracking['unread']),
       topicTrackingNew: _count(tracking['new']),
       username: jsonText(json['username']),
@@ -41,6 +55,11 @@ class NotificationTotals {
         json['grouped_unread_notifications'],
       ),
       pluginCounters: counterCodec.readLiveNotificationCounters(json),
+      unsentFields: {
+        if (personalMessages == null)
+          NotificationTotalsField.unreadPersonalMessages,
+        if (reviewables == null) NotificationTotalsField.unseenReviewables,
+      },
     );
   }
 
@@ -168,14 +187,20 @@ class NotificationTotals {
         ? live.unreadNotifications
         : response.unreadNotifications,
     unreadPersonalMessages:
-        updatedFields.contains(
+        response._unsentFields.contains(
+              NotificationTotalsField.unreadPersonalMessages,
+            ) ||
+            updatedFields.contains(
               NotificationTotalsField.unreadPersonalMessages,
             ) ||
             live.unreadPersonalMessages != before.unreadPersonalMessages
         ? live.unreadPersonalMessages
         : response.unreadPersonalMessages,
     unseenReviewables:
-        updatedFields.contains(NotificationTotalsField.unseenReviewables) ||
+        response._unsentFields.contains(
+              NotificationTotalsField.unseenReviewables,
+            ) ||
+            updatedFields.contains(NotificationTotalsField.unseenReviewables) ||
             live.unseenReviewables != before.unseenReviewables
         ? live.unseenReviewables
         : response.unseenReviewables,
@@ -212,6 +237,13 @@ class NotificationTotals {
   final String? username;
   final NotificationTypeCounts groupedUnreadNotifications;
   final PluginNotificationCounters pluginCounters;
+
+  /// Core counts a totals response left out. `UserNotificationTotalSerializer`
+  /// sends personal messages only to members of the PM-enabled groups and
+  /// reviewables only to staff, while the live channels always carry both, so
+  /// an omission says nothing about the account. It only steers
+  /// [mergeRefresh]; it is neither stored nor part of equality.
+  final Set<NotificationTotalsField> _unsentFields;
 
   int get coreBadge =>
       unreadNotifications + unreadPersonalMessages + unseenReviewables;
