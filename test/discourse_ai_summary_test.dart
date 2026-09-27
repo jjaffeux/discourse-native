@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:discourse_cooking/discourse_cooking.dart';
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/data/application_cooking.dart';
+import 'package:discourse_native/src/data/discourse_api.dart';
 import 'package:discourse_native/src/diagnostics/diagnostics_controller.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/site_config.dart';
@@ -12,6 +13,7 @@ import 'package:discourse_native/src/plugin_api/core_plugin_host.dart';
 import 'package:discourse_native/src/plugin_api/plugin_data.dart';
 import 'package:discourse_native/src/plugin_api/plugin_runtime.dart';
 import 'package:discourse_native/src/plugin_api/plugin_scope.dart';
+import 'package:discourse_native/src/plugins/discourse_ai/ai_generation_write.dart';
 import 'package:discourse_native/src/plugins/discourse_ai/ai_summary.dart';
 import 'package:discourse_native/src/plugins/discourse_ai/ai_summary_api.dart';
 import 'package:discourse_native/src/plugins/discourse_ai/ai_summary_controller.dart';
@@ -21,6 +23,8 @@ import 'package:discourse_native/src/plugins/discourse_ai/discourse_ai_services.
 import 'package:discourse_native/src/shell/cooked_html.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 
 import 'support/fakes.dart';
 
@@ -448,6 +452,74 @@ void main() {
     expect(fixture.callbacks, isEmpty);
   });
 
+  testWidgets('a summary generated without streaming may outlast a write', (
+    tester,
+  ) async {
+    final site = _HeldSite();
+    final request = _Settled(
+      _heldSummaries(
+        site,
+      ).load(siteUrl: _siteUrl, topicId: 7, hasCachedSummary: false).result,
+    );
+    await tester.pump();
+    expect(site.requests.single.url.path, _summaryPath);
+    expect(jsonDecode(site.requests.single.body), isEmpty);
+    await tester.pump(const Duration(seconds: 30));
+    expect(request.done, isFalse);
+
+    site.reply(summaryResponse());
+    await tester.pump();
+
+    expect(request.error, isNull);
+    expect(request.value?.text, 'The important parts of the discussion.');
+  });
+
+  testWidgets('a summary generated without streaming stops at its deadline', (
+    tester,
+  ) async {
+    final site = _HeldSite();
+    final request = _Settled(
+      _heldSummaries(
+        site,
+      ).load(siteUrl: _siteUrl, topicId: 7, hasCachedSummary: false).result,
+    );
+    await tester.pump();
+    await tester.pump(aiGenerationTimeout - const Duration(seconds: 1));
+    expect(request.done, isFalse);
+
+    await tester.pump(const Duration(seconds: 1));
+
+    expect(request.error, _timedOut);
+  });
+
+  testWidgets('a streamed summary request keeps the ordinary write deadline', (
+    tester,
+  ) async {
+    final site = _HeldSite();
+    final tracker = FakeSiteTracker(
+      siteUrl: _siteUrl,
+      onIncomingTopics: () {},
+      onNotifications: (_) {},
+      onReviewableCounts: (_) {},
+      apiKey: 'api-key',
+    );
+    final request = _Settled(
+      _heldSummaries(
+        site,
+        tracker: tracker,
+      ).load(siteUrl: _siteUrl, topicId: 7, hasCachedSummary: false).result,
+    );
+    await tester.pump();
+    expect(jsonDecode(site.requests.single.body), {'stream': true});
+    await tester.pump(const Duration(seconds: 9));
+    expect(request.done, isFalse);
+
+    await tester.pump(const Duration(seconds: 1));
+
+    expect(request.error, _timedOut);
+    expect(tracker.pluginChannelCallbacks[_summaryChannel], isEmpty);
+  });
+
   testWidgets(
     'regenerate starts a new request after a cached outdated summary',
     (tester) async {
@@ -606,6 +678,71 @@ void main() {
     );
     expect(api.responses, hasLength(1));
   });
+}
+
+final _timedOut = isA<WriteException>().having(
+  (error) => error.cause,
+  'cause',
+  isA<TimeoutException>(),
+);
+
+/// The production transport against a site whose one request is answered
+/// only when the test says so, so the deadline it applies is the real one.
+final class _HeldSite {
+  _HeldSite() {
+    api = DiscourseApi(
+      client: MockClient((request) {
+        requests.add(request);
+        return _reply.future;
+      }),
+    );
+    addTearDown(api.close);
+  }
+
+  late final DiscourseApi api;
+  final requests = <http.Request>[];
+  final _reply = Completer<http.Response>();
+
+  void reply(Map<String, Object?> body) => _reply.complete(
+    http.Response(
+      jsonEncode(body),
+      200,
+      headers: {'content-type': 'application/json'},
+    ),
+  );
+}
+
+AiSummaryController _heldSummaries(_HeldSite site, {FakeSiteTracker? tracker}) {
+  final controller = AiSummaryController(
+    api: AiSummaryApi(site.api),
+    requests: FakePluginRequestHost(
+      credentials: FakeApiCredentialReader()..keys[_siteUrl] = 'api-key',
+    ),
+    trackerFor: (_) => tracker,
+  );
+  addTearDown(controller.dispose);
+  return controller;
+}
+
+final class _Settled<T> {
+  _Settled(Future<T> future) {
+    unawaited(
+      future.then<void>(
+        (result) {
+          value = result;
+          done = true;
+        },
+        onError: (Object failure) {
+          error = failure;
+          done = true;
+        },
+      ),
+    );
+  }
+
+  T? value;
+  Object? error;
+  bool done = false;
 }
 
 final class _DelayedCredentials extends FakeApiCredentialReader {

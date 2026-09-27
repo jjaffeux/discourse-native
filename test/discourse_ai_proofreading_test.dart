@@ -1,8 +1,9 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:discourse_native/discourse_ui.dart'
     show DDropdownMenuCheckboxItem;
-import 'package:discourse_native/src/data/discourse_api_contracts.dart';
+import 'package:discourse_native/src/data/discourse_api.dart';
 import 'package:discourse_native/src/data/site_lifecycle.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
@@ -11,7 +12,9 @@ import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/plugin_api/core_plugin_host.dart';
 import 'package:discourse_native/src/plugin_api/plugin_data.dart';
 import 'package:discourse_native/src/plugin_api/plugin_runtime.dart';
+import 'package:discourse_native/src/plugin_api/shell_extensions.dart';
 import 'package:discourse_native/src/plugins/bundled_plugin_manifest.dart';
+import 'package:discourse_native/src/plugins/discourse_ai/ai_generation_write.dart';
 import 'package:discourse_native/src/plugins/discourse_ai/ai_proofreading_api.dart';
 import 'package:discourse_native/src/plugins/discourse_ai/ai_proofreading_controller.dart';
 import 'package:discourse_native/src/plugins/discourse_ai/ai_proofreading_data.dart';
@@ -25,6 +28,8 @@ import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 
 import 'support/fakes.dart';
 
@@ -120,10 +125,36 @@ final class _GatedProofreadingTransport extends FakeDiscourseApi {
   }
 }
 
+/// The production transport against a site whose one request is answered
+/// only when the test says so, so the deadline it applies is the real one.
+final class _HeldSite {
+  _HeldSite() {
+    api = DiscourseApi(
+      client: MockClient((request) {
+        requests.add(request);
+        return _reply.future;
+      }),
+    );
+    addTearDown(api.close);
+  }
+
+  late final DiscourseApi api;
+  final requests = <http.Request>[];
+  final _reply = Completer<http.Response>();
+
+  void reply(Map<String, Object?> body) => _reply.complete(
+    http.Response(
+      jsonEncode(body),
+      200,
+      headers: {'content-type': 'application/json'},
+    ),
+  );
+}
+
 AiProofreadingController _controller({
   SiteConfig? config,
   DiscourseUser? user,
-  FakeDiscourseApi? api,
+  PluginApiTransport? api,
   SiteLifecycle? lifecycle,
   _FreshAccountHost? freshAccount,
   AiProofreadingPreferenceStore preferences =
@@ -325,6 +356,67 @@ void main() {
       });
     },
   );
+
+  testWidgets('a proofread slower than an ordinary write is still applied', (
+    tester,
+  ) async {
+    final site = _HeldSite();
+    final controller = _controller(api: site.api);
+    final composer = ComposerController(_replyTarget);
+    addTearDown(controller.dispose);
+    addTearDown(composer.dispose);
+    composer.text.text = 'a long reply with typo';
+    controller.setEnabled(composer, true);
+
+    PluginComposerSubmitPreparation? result;
+    unawaited(
+      controller.prepareComposerSubmit(composer).then((value) {
+        result = value;
+      }),
+    );
+    await tester.pump();
+    expect(site.requests.single.url.path, aiProofreadingPath);
+    await tester.pump(const Duration(seconds: 30));
+    expect(result, isNull);
+
+    site.reply({
+      'suggestions': ['A polished long reply.'],
+    });
+    await tester.pump();
+
+    expect(result?.failure, isNull);
+    expect(result?.changed, isTrue);
+    expect(composer.raw, 'A polished long reply.');
+  });
+
+  testWidgets('a proofread past its deadline posts what was written', (
+    tester,
+  ) async {
+    final site = _HeldSite();
+    final controller = _controller(api: site.api);
+    final composer = ComposerController(_replyTarget);
+    addTearDown(controller.dispose);
+    addTearDown(composer.dispose);
+    composer.text.text = 'a long reply with typo';
+    controller.setEnabled(composer, true);
+
+    PluginComposerSubmitPreparation? result;
+    unawaited(
+      controller.prepareComposerSubmit(composer).then((value) {
+        result = value;
+      }),
+    );
+    await tester.pump();
+    await tester.pump(aiGenerationTimeout - const Duration(seconds: 1));
+    expect(result, isNull);
+
+    await tester.pump(const Duration(seconds: 1));
+
+    expect(result?.failure, isNull);
+    expect(result?.changed, isFalse);
+    expect(composer.raw, 'a long reply with typo');
+    expect(controller.isEnabled(composer), isTrue);
+  });
 
   test('does not overwrite a body changed during proofreading', () async {
     final gate = Completer<void>();

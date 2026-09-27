@@ -3,4 +3,5 @@ export 'package:discourse_plugin_api/discourse_plugin_api.dart'
         PluginApiTransport,
         PluginJsonListTransport,
         PluginJsonQueryTransport,
+        PluginLongRunningWriteTransport,
         PluginTextTransport;

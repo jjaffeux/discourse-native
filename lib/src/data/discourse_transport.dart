@@ -423,6 +423,7 @@ final class DiscourseTransport {
     required String apiKey,
     required Map<String, Object?> body,
     String? clientId,
+    Duration? requestTimeout,
   }) async {
     final http.Response response;
     try {
@@ -438,6 +439,7 @@ final class DiscourseTransport {
         siteUrl: siteUrl,
         apiKey: apiKey,
         clientId: clientId,
+        requestTimeout: requestTimeout,
       );
     } catch (error, stackTrace) {
       throw WriteException(

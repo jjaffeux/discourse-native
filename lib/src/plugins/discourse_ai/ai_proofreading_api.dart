@@ -1,5 +1,7 @@
 import 'package:discourse_native/discourse_plugin_sdk.dart';
 
+import 'ai_generation_write.dart';
+
 const aiProofreadingPath = '/discourse-ai/ai-helper/suggest';
 
 final class AiProofreadingApi {
@@ -12,10 +14,10 @@ final class AiProofreadingApi {
     required String apiKey,
     required String text,
   }) async {
-    final body = await _transport.pluginWriteJson(
+    final body = await postAiGeneration(
+      _transport,
       siteUrl: siteUrl,
       path: aiProofreadingPath,
-      method: 'POST',
       apiKey: apiKey,
       body: {'text': text, 'mode': 'proofread'},
     );
