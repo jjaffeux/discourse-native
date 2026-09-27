@@ -348,7 +348,8 @@ class FakeSiteTracker implements SiteTracker, PluginLiveChannelHandle {
   final IncomingTopics incoming = IncomingTopics();
   void Function(Object? data)? _onTopicTrackingState;
 
-  bool polling = true;
+  /// Like [SiteTracker], polling begins only when the owner calls [start].
+  bool polling = false;
   int pollNowCalls = 0;
   bool disposed = false;
 

@@ -8308,7 +8308,7 @@ final class _TrackingEvents {
         _messages = const [];
         return http.Response(jsonEncode(messages), 200);
       }),
-    )..stop();
+    );
     _tracker.watchPluginChannelWithPosition('/chat/test-sync', (_, _) {
       _tracker.stop();
       _delivered!.complete();

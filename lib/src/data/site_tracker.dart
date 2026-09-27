@@ -48,6 +48,10 @@ abstract interface class SiteMessageBusSubscription {
 }
 
 class SiteTracker {
+  /// Registers the core channels without polling. The owner adds every other
+  /// channel it needs and then calls [start], so the first request already
+  /// carries all of them: a channel added after a poll is sent makes that poll
+  /// stale, and the client aborts it and polls again.
   SiteTracker({
     required this.siteUrl,
     required this.onIncomingTopics,
@@ -90,7 +94,6 @@ class SiteTracker {
     try {
       _listenForErrors();
       _subscribe();
-      start();
     } catch (_) {
       dispose().ignore();
       rethrow;
@@ -384,10 +387,10 @@ class SiteTracker {
   }
 
   Future<void> _close() async {
-    // Start closing the bus before the first asynchronous suspension. This is
-    // important when construction fails part-way through subscribing: a real
-    // message-bus client may already have scheduled its next poll, and test
-    // sessions likewise promise that [close] is invoked synchronously.
+    // Start closing the bus before the first asynchronous suspension, so a
+    // started client cannot send a poll it had already scheduled. Test
+    // sessions likewise promise that [close] is invoked synchronously,
+    // including when construction fails part-way through subscribing.
     try {
       // Both futures need error handlers immediately. Awaiting cancellation
       // first leaves an early bus-close failure unhandled while it is pending.
@@ -512,6 +515,8 @@ SiteMessageBusSession _createMessageBus({
 final class _MessageBusSession
     implements SiteMessageBusSession, SiteMessageBusErrorSource {
   _MessageBusSession(this._client) {
+    // `subscribe` starts a client that was never started or stopped. Stopping
+    // it first leaves [SiteTracker.start] as the only way polling begins.
     _client.stop();
   }
 

@@ -14,6 +14,8 @@ import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/ui/components/d_toast.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 
 import 'support/fakes.dart';
 
@@ -548,6 +550,71 @@ void main() {
         expect(FakeSiteTracker.built.single.polling, isTrue);
       },
     );
+
+    test('opens the first poll with every channel startup registers', () async {
+      const siteUrl = 'https://first.example';
+      const user = DiscourseUser(id: 7, username: 'reader');
+      final polls = <Map<String, String>>[];
+      final held = Completer<http.Response>();
+      addTearDown(() {
+        if (!held.isCompleted) held.complete(http.Response('[]', 200));
+      });
+      SiteTracker trackers({
+        required String siteUrl,
+        required void Function() onIncomingTopics,
+        required void Function(Object? data) onNotifications,
+        required void Function(Object? data) onReviewableCounts,
+        int? userId,
+        String? apiKey,
+        String? clientId,
+        bool Function()? shouldLongPoll,
+        Map<String, int?> initialLastIds = const {},
+      }) => SiteTracker(
+        siteUrl: siteUrl,
+        onIncomingTopics: onIncomingTopics,
+        onNotifications: onNotifications,
+        onReviewableCounts: onReviewableCounts,
+        userId: userId,
+        apiKey: apiKey,
+        clientId: clientId,
+        shouldLongPoll: shouldLongPoll,
+        initialLastIds: initialLastIds,
+        httpClient: MockClient((request) {
+          polls.add(request.bodyFields);
+          return held.future;
+        }),
+      );
+      final shell = ShellController(
+        instanceStore: FakeInstanceStore([
+          instance('first.example').copyWith(user: user),
+        ]),
+        api: FakeDiscourseApi(user: user),
+        authenticator: FakeAuthenticator()..keys[siteUrl] = 'first-key',
+        drafts: FakeDraftStore(),
+        trackers: trackers,
+        updateStore: FakeUpdateStore(),
+      );
+      addTearDown(shell.dispose);
+
+      await shell.load();
+      await pumpEventQueue();
+
+      expect(polls, hasLength(1));
+      expect(
+        polls.single.keys,
+        containsAll([
+          '/latest',
+          '/new',
+          '/notification/7',
+          '/reviewable_counts/7',
+          '/unread/7',
+          '/user-status',
+          '/user-drafts/7',
+          '/do-not-disturb/7',
+        ]),
+        reason: 'a poll sent before these are registered is thrown away',
+      );
+    });
 
     test('preserves tracker startup across a site switch', () async {
       const firstUrl = 'https://first.example';
