@@ -5,10 +5,12 @@ import 'dart:typed_data';
 import 'package:discourse_native/discourse_ui.dart';
 
 import 'package:discourse_native/src/models/site_emoji.dart';
+import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/shell/emoji.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/site_emoji_image.dart';
+import 'package:discourse_native/src/shell/topic_list_view.dart';
 import 'package:discourse_native/src/shell/topic_title.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
@@ -63,6 +65,60 @@ void main() {
       findsOneWidget,
     );
   });
+
+  for (final inTopicList in [false, true]) {
+    testWidgets(
+      'renders the calendar alias in a topic ${inTopicList ? 'row' : 'header'}',
+      (tester) async {
+        final controller = _controller();
+        addTearDown(controller.dispose);
+        final artworkRequests = <Uri>[];
+        _replaceEmojiCache(
+          MockClient((request) async {
+            artworkRequests.add(request.url);
+            return http.Response.bytes(_emojiPng, 200);
+          }),
+        );
+        const title = 'Team Availability :calendar:';
+
+        await tester.pumpWidget(
+          ShellScope(
+            controller: controller,
+            child: MaterialApp(
+              theme: AppTheme.light,
+              home: Scaffold(
+                body: inTopicList
+                    ? TopicListRow(
+                        siteUrl: 'https://meta.example',
+                        topic: const Topic(id: 1, title: title, slug: 'team'),
+                        onTap: () {},
+                      )
+                    : const TopicTitle(title, siteUrl: 'https://meta.example'),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        final emoji = tester.widget<SiteEmojiImage>(
+          find.byType(SiteEmojiImage),
+        );
+        expect(emoji.name, 'date');
+        expect(emoji.alt, ':calendar:');
+        expect(artworkRequests, [
+          Uri.parse('https://meta.example/images/emoji/twitter/date.png'),
+        ]);
+        expect(
+          find.descendant(
+            of: find.byType(SiteEmojiImage),
+            matching: find.byType(Image),
+          ),
+          findsOneWidget,
+        );
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
 
   testWidgets('sizes inline emoji to the topic title text', (tester) async {
     final controller = _controller();
@@ -419,6 +475,7 @@ ShellController _controller() => ShellController(
         ),
         SiteEmoji(name: 'wave', url: '/images/emoji/wave.png', tonable: true),
         SiteEmoji(name: 'sparkles', url: '/images/emoji/sparkles.png'),
+        SiteEmoji(name: 'date', url: '/images/emoji/twitter/date.png'),
       ],
     },
   ),
