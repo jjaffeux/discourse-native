@@ -580,9 +580,9 @@ void main() {
           syntaxPolicies: const [PollComposerSyntaxPolicy()],
         );
         addTearDown(controller.dispose);
-        final projected = controller.pollBlocks.single;
+        final projected = controller.syntaxBlocks.single;
         expect(
-          controller.pollCaretAfter(projected),
+          controller.syntaxCaretAfter(projected),
           projected.end + lineEndingLength,
         );
       }

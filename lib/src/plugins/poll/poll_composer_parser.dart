@@ -77,19 +77,6 @@ extension PollComposerEditing on MarkdownEditingController {
     return null;
   }
 
-  int pollCaretAfter(PollComposerBlock block) {
-    final occurrence = _pollOccurrence(block);
-    if (occurrence != null) return syntaxCaretAfter(occurrence);
-    var offset = block.end;
-    if (offset >= text.length) return offset;
-    if (text.codeUnitAt(offset) == 0x0D &&
-        offset + 1 < text.length &&
-        text.codeUnitAt(offset + 1) == 0x0A) {
-      return offset + 2;
-    }
-    return text.codeUnitAt(offset) == 0x0A ? offset + 1 : offset;
-  }
-
   PollComposerBlock? collapsedPollAtOffset(int offset) {
     final occurrence = collapsedSyntaxAtOffset(offset);
     return occurrence == null ? null : _pollBlock(occurrence);

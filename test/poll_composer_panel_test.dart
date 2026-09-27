@@ -760,9 +760,7 @@ void main() {
 
       final pill = find.byType(PollComposerPill);
       final poll = composer.text.pollBlocks.single;
-      composer.text.selection = TextSelection.collapsed(
-        offset: composer.text.pollCaretAfter(poll),
-      );
+      composer.text.selection = TextSelection.collapsed(offset: poll.end);
       await tester.pump();
       final position = tester.getCenter(pill);
       final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
@@ -954,7 +952,6 @@ void main() {
           expect(find.text('Edit poll'), findsNothing);
           expect(composer.text.text, expected);
           expect(composer.text.selection.extentOffset, expected.length);
-          expect(composer.text.pollCaretAfter(block), expected.length);
           expect(composer.text.isPollCollapsed(block), isTrue);
           await _closeComposerAfterAssertions(tester, shell);
         },
@@ -1008,7 +1005,6 @@ void main() {
           expect(find.text('Edit poll'), findsNothing);
           expect(composer.text.text, expected);
           expect(composer.text.selection.extentOffset, expected.length);
-          expect(composer.text.pollCaretAfter(block), expected.length);
           expect(composer.text.isPollCollapsed(block), isTrue);
           expect(composer.text.keyboardSelectedPoll, isNull);
           expect(_composerEditable(tester).showCursor, isTrue);
@@ -1378,8 +1374,7 @@ void main() {
         ),
       );
       final poll = composer.text.pollBlocks.single;
-      final afterPoll = composer.text.pollCaretAfter(poll);
-      composer.text.selection = TextSelection.collapsed(offset: afterPoll);
+      composer.text.selection = TextSelection.collapsed(offset: poll.end);
       composer.focus.requestFocus();
       composer.autocomplete.update(
         const TextEditingValue(
@@ -1491,9 +1486,7 @@ void main() {
         await tester.pump();
 
         final poll = composer.text.pollBlocks.single;
-        composer.text.selection = TextSelection.collapsed(
-          offset: composer.text.pollCaretAfter(poll),
-        );
+        composer.text.selection = TextSelection.collapsed(offset: poll.end);
         composer.focus.requestFocus();
         await tester.pump();
         await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
@@ -1546,9 +1539,7 @@ void main() {
       await tester.pump(const Duration(milliseconds: 600));
 
       final poll = composer.text.pollBlocks.single;
-      composer.text.selection = TextSelection.collapsed(
-        offset: composer.text.pollCaretAfter(poll),
-      );
+      composer.text.selection = TextSelection.collapsed(offset: poll.end);
       await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
       await tester.pump();
       expect(composer.text.keyboardSelectedPoll, isNotNull);
@@ -1597,9 +1588,7 @@ void main() {
         await tester.pump();
 
         final poll = composer.text.pollBlocks.single;
-        composer.text.selection = TextSelection.collapsed(
-          offset: composer.text.pollCaretAfter(poll),
-        );
+        composer.text.selection = TextSelection.collapsed(offset: poll.end);
         composer.focus.requestFocus();
         await tester.pump();
         await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
@@ -1643,8 +1632,6 @@ void main() {
           await tester.pump();
 
           final block = composer.text.pollBlocks.single;
-          final afterPoll = composer.text.pollCaretAfter(block);
-          expect(afterPoll, source.length);
           await tester.sendKeyEvent(LogicalKeyboardKey.backspace);
           await tester.pump();
 
