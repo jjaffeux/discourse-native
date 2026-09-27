@@ -173,24 +173,33 @@ final class ImageDownloadException implements Exception {
 }
 
 String imageDownloadFilename({required String? title, required String url}) =>
-    downloadFilename(title: title, url: url, fallback: 'image');
+    downloadFilename(
+      title: title,
+      url: url,
+      fallback: 'image',
+      mediaExtensions: _imageMimeTypes.keys,
+    );
 
 String imageMimeType(String filename, {required bool isSvg}) {
   if (isSvg) return 'image/svg+xml';
-  return switch (_extension(filename)) {
-    'avif' => 'image/avif',
-    'bmp' => 'image/bmp',
-    'gif' => 'image/gif',
-    'heic' => 'image/heic',
-    'heif' => 'image/heif',
-    'jpg' || 'jpeg' => 'image/jpeg',
-    'png' => 'image/png',
-    'svg' => 'image/svg+xml',
-    'tif' || 'tiff' => 'image/tiff',
-    'webp' => 'image/webp',
-    _ => 'application/octet-stream',
-  };
+  return _imageMimeTypes[_extension(filename)] ?? 'application/octet-stream';
 }
+
+// Also the only extensions a image's title may keep as its own.
+const _imageMimeTypes = {
+  'avif': 'image/avif',
+  'bmp': 'image/bmp',
+  'gif': 'image/gif',
+  'heic': 'image/heic',
+  'heif': 'image/heif',
+  'jpg': 'image/jpeg',
+  'jpeg': 'image/jpeg',
+  'png': 'image/png',
+  'svg': 'image/svg+xml',
+  'tif': 'image/tiff',
+  'tiff': 'image/tiff',
+  'webp': 'image/webp',
+};
 
 String? _extension(String filename) {
   final match = RegExp(r'\.([A-Za-z0-9]{1,10})$').firstMatch(filename);

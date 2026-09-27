@@ -1,7 +1,10 @@
+/// [mediaExtensions] are the lower-case extensions a title may end with for
+/// this kind of media.
 String downloadFilename({
   required String? title,
   required String url,
   required String fallback,
+  required Iterable<String> mediaExtensions,
 }) {
   final urlName = _urlFilename(url);
   final trimmedTitle = title?.trim();
@@ -21,10 +24,17 @@ String downloadFilename({
     filename = fallback;
   }
 
+  // A title is the author's prose: the composer writes an upload's name
+  // without its extension, so a trailing dot may end a time or a version,
+  // and an author can end it with any extension at all. Keep only one that
+  // names this kind of media or the fetched file; otherwise the file would
+  // be saved and shared as something its bytes are not.
   final extension = _extension(filename);
-  if (extension == null) {
-    final urlExtension = _extension(urlName ?? '');
-    if (urlExtension != null) filename = '$filename.$urlExtension';
+  final urlExtension = _extension(urlName ?? '');
+  if (urlExtension != null &&
+      extension != urlExtension &&
+      !mediaExtensions.contains(extension)) {
+    filename = '$filename.$urlExtension';
   }
 
   // Windows refuses these device names even when they have an extension.

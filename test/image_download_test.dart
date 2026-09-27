@@ -182,6 +182,15 @@ void main() {
       expect(environment.filename, 'photo.webp');
     });
 
+    test('shares a dotted title as the image type it downloads', () async {
+      final environment = _FakeImageDownloadEnvironment(temporary);
+
+      await share(environment, title: 'Screenshot 2024-01-02 at 10.45.12');
+
+      expect(environment.filename, 'Screenshot 2024-01-02 at 10.45.12.webp');
+      expect(environment.mimeType, 'image/webp');
+    });
+
     test('a dismissed sheet leaves no copy behind', () async {
       final environment = _FakeImageDownloadEnvironment(temporary);
 
@@ -285,6 +294,21 @@ void main() {
         ),
         'A useful diagram.svg',
       );
+    });
+
+    test('a dotted title still names the image it downloads', () {
+      String named(String title) => imageDownloadFilename(
+        title: title,
+        url: '$siteUrl/uploads/short-url/abc123.png?dl=1',
+      );
+
+      // The composer's alt for "Screenshot … at 10.45.12.png".
+      final screenshot = named('Screenshot 2024-01-02 at 10.45.12');
+      expect(screenshot, 'Screenshot 2024-01-02 at 10.45.12.png');
+      expect(imageMimeType(screenshot, isSvg: false), 'image/png');
+      expect(named('Release v2.0'), 'Release v2.0.png');
+      expect(named('Invoice.command'), 'Invoice.command.png');
+      expect(named('Scan.HEIC'), 'Scan.HEIC');
     });
   });
 }
