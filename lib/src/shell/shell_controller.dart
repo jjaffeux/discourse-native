@@ -4328,8 +4328,9 @@ class ShellController extends FrameSafeNotifier
       final current = _instanceAt(siteUrl);
       if (isDisposed || current == null) return;
 
-      // Validate visibility before constructing SiteTracker, whose constructor
-      // immediately opens MessageBus. Plugin leases explicitly retain it.
+      // A site that is neither visible nor retained by a plugin lease gets no
+      // tracker, subscriptions or plugin attachments; _syncTracking builds
+      // them once it qualifies.
       final selectedAndVisible = _foreground && currentInstance?.url == siteUrl;
       final connectedAndVisible =
           _foreground && (_instanceAt(siteUrl)?.isConnected ?? false);
@@ -4507,12 +4508,12 @@ class ShellController extends FrameSafeNotifier
           _foreground && currentInstance?.url == siteUrl;
       final stillConnectedAndVisible =
           _foreground && (_instanceAt(siteUrl)?.isConnected ?? false);
-      if (!stillSelectedAndVisible &&
-          !stillConnectedAndVisible &&
-          !_backgroundRetention.retains(siteUrl)) {
-        tracker.stop();
-      } else if (stillSelectedAndVisible) {
-        _syncTopicWatch(siteUrl, tracker);
+      if (stillSelectedAndVisible) _syncTopicWatch(siteUrl, tracker);
+      // Last, so the first poll carries every channel registered above.
+      if (stillSelectedAndVisible ||
+          stillConnectedAndVisible ||
+          _backgroundRetention.retains(siteUrl)) {
+        tracker.start();
       }
     });
   }

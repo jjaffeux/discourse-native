@@ -54,6 +54,7 @@ void main() {
           }),
         );
         addTearDown(tracker.dispose);
+        tracker.start();
 
         final request = await firstRequest.future.timeout(
           const Duration(seconds: 1),
@@ -269,6 +270,60 @@ void main() {
 
     group('polling lifecycle', () {
       test(
+        'sends its first poll on start, carrying every registered channel',
+        () async {
+          // A channel added after a poll is sent makes that poll stale: the
+          // client aborts it, after waiting up to firstChunkTimeout for a
+          // pending `/__status` baseline, and polls again.
+          final polls = <Map<String, String>>[];
+          final held = Completer<http.Response>();
+          addTearDown(() {
+            if (!held.isCompleted) held.complete(http.Response('[]', 200));
+          });
+          final tracker = SiteTracker(
+            siteUrl: 'https://example.com',
+            userId: 42,
+            apiKey: 'secret',
+            clientId: 'client-id',
+            onIncomingTopics: () {},
+            onNotifications: (_) {},
+            onReviewableCounts: (_) {},
+            httpClient: MockClient((request) {
+              polls.add(request.bodyFields);
+              return held.future;
+            }),
+          );
+          addTearDown(tracker.dispose);
+
+          tracker.watchTopicTrackingState(42, (_) {});
+          tracker.watchPluginChannel('/user-status', (_) {});
+          await pumpEventQueue();
+
+          expect(polls, isEmpty);
+
+          tracker.start();
+          await pumpEventQueue();
+
+          expect(polls, hasLength(1));
+          expect(
+            polls.single.keys,
+            containsAll([
+              '/latest',
+              '/new',
+              '/notification/42',
+              '/reviewable_counts/42',
+              '/unread',
+              '/unread/42',
+              '/delete',
+              '/recover',
+              '/destroy',
+              '/user-status',
+            ]),
+          );
+        },
+      );
+
+      test(
         'avoids redundant bus work across start, stop, and pollNow',
         () async {
           final bus = _FakeMessageBusSession();
@@ -294,6 +349,7 @@ void main() {
         final bus = _FakeMessageBusSession();
         final tracker = _tracker(bus);
         addTearDown(tracker.dispose);
+        tracker.start();
         tracker.stop();
         bus.failNextStart = true;
 
@@ -311,6 +367,7 @@ void main() {
           final bus = _FakeMessageBusSession()..failNextStop = true;
           final tracker = _tracker(bus);
           addTearDown(tracker.dispose);
+          tracker.start();
 
           expect(tracker.stop, throwsStateError);
           tracker.pollNow();
