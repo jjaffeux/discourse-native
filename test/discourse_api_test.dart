@@ -4890,8 +4890,49 @@ void _writeGroups() {
         'agree_with_first_reply_flag': true,
       });
       expect(jsonDecode(sent[1].body), {
-        'post_ids': [44, 45],
+        'post_ids': ['44', '45'],
       });
+    });
+
+    test('merges posts past the controller\'s plucked-id guard', () async {
+      final existing = {44, 45, 46};
+      final api = DiscourseApi(
+        client: MockClient((request) async {
+          // PostsController#merge_posts raises InvalidParameters when
+          // `Post.where(id: post_ids).order(:id).pluck(:id) == post_ids`.
+          final body = jsonDecode(request.body) as Map<String, Object?>;
+          final postIds = body['post_ids']! as List<Object?>;
+          final plucked = [
+            for (final id in postIds)
+              if (existing.contains(int.tryParse('$id'))) int.parse('$id'),
+          ]..sort();
+          final refused =
+              plucked.length == postIds.length &&
+              Iterable<int>.generate(
+                plucked.length,
+              ).every((i) => plucked[i] == postIds[i]);
+          if (refused) {
+            return http.Response(
+              jsonEncode({
+                'errors': [
+                  'You supplied invalid parameters to the request: post_ids',
+                ],
+              }),
+              400,
+            );
+          }
+          return http.Response('', 204);
+        }),
+      );
+
+      await expectLater(
+        api.mergePosts(
+          siteUrl: 'https://meta.discourse.org',
+          apiKey: 'the-key',
+          postIds: const [44, 45, 46],
+        ),
+        completes,
+      );
     });
 
     test('rejects empty, duplicate, and one-post merge selections', () async {

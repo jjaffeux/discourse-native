@@ -532,7 +532,14 @@ final class DiscourseTopicApi {
       method: 'PUT',
       apiKey: apiKey,
       clientId: clientId,
-      body: {'post_ids': postIds},
+      // The controller refuses the merge when `Post.where(id:).order(:id)`
+      // plucks ids equal to `params[:post_ids]`, so a JSON integer array in
+      // ascending order is always a 400. Strings, as a form submit sends
+      // them, never compare equal; `where(id:)` casts them, and the merger
+      // orders the posts by post number itself.
+      body: {
+        'post_ids': [for (final id in postIds) '$id'],
+      },
     );
   }
 
