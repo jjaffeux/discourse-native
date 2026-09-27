@@ -4,6 +4,7 @@ import '../models/composer_upload.dart';
 import 'composer_controller.dart';
 import 'composer_details_blocks.dart';
 import 'composer_galleries.dart';
+import 'composer_upload_placeholder.dart';
 
 /// A rich editor over one details body. The enclosing draft owns uploads and
 /// submission; this controller owns only local selection and editing history.
@@ -63,20 +64,15 @@ class ComposerDetailsBodyController extends ComposerController {
   bool get isEditing => super.isEditing && parent.isEditing;
 
   @override
-  Map<int, String> get uploadPlaceholders => parent.uploadPlaceholders;
+  ComposerUploadPlaceholders get uploadPlaceholders =>
+      parent.uploadPlaceholders;
   @override
   List<ComposerUploadItem> get uploads => parent.uploads;
   @override
   bool get hasActiveUploads => parent.hasActiveUploads;
 
   @override
-  String get raw {
-    var source = text.text;
-    for (final marker in uploadPlaceholders.values) {
-      source = source.replaceAll('$marker\n', '').replaceAll(marker, '');
-    }
-    return source.trim();
-  }
+  String get raw => uploadPlaceholders.strip(text.text).trim();
 
   void _activate() {
     if (focus.hasPrimaryFocus) parent.activateEmbeddedEditor(this);

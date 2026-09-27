@@ -839,18 +839,10 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
   final Map<int, _PendingComposerUpload> _pendingUploads = {};
   int _nextUploadId = 0;
   int _nextUploadBatch = 0;
-  final Map<int, String> _uploadPlaceholders = {};
+  late final _uploadPlaceholders = ComposerUploadPlaceholders(this);
   bool _updatingUploadPlaceholders = false;
 
-  Map<int, String> get uploadPlaceholders =>
-      Map.unmodifiable(_uploadPlaceholders);
-
-  String _withoutUploadPlaceholders(String source) {
-    for (final marker in _uploadPlaceholders.values) {
-      source = source.replaceAll('$marker\n', '').replaceAll(marker, '');
-    }
-    return source;
-  }
+  ComposerUploadPlaceholders get uploadPlaceholders => _uploadPlaceholders;
 
   void _replaceUploadPlaceholder(
     int id,
@@ -1042,10 +1034,7 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
         ),
       );
       added.add(id);
-      if (!_target.isPlugin) {
-        _uploadPlaceholders[id] =
-            '\uFFFCupload-${identityHashCode(this)}-$id\uFFFC';
-      }
+      if (!_target.isPlugin) _uploadPlaceholders.add(id);
     }
     if (!_target.isPlugin) {
       final at = gallery?.end ?? anchor;
@@ -2370,7 +2359,7 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
   Duration get typingDuration => _typing.elapsed;
   Duration get openDuration => _now().difference(_openedAt);
 
-  String get raw => _withoutUploadPlaceholders(text.text).trim();
+  String get raw => _uploadPlaceholders.strip(text.text).trim();
 
   int draftSequence = 0;
 
@@ -2396,7 +2385,7 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
   bool get draftPersistencePending => draftPending || _draftSaveTask != null;
 
   ComposerDraft get draft => ComposerDraft(
-    reply: _withoutUploadPlaceholders(text.text),
+    reply: _uploadPlaceholders.strip(text.text),
     action: _target.isPrivateMessage
         ? ComposerDraft.privateMessageAction
         : _target.isNewTopic
@@ -2874,10 +2863,12 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
     if (!_updatingUploadPlaceholders && !_target.isPlugin) {
       scheduleMicrotask(() {
         if (_disposed) return;
-        for (final entry in _uploadPlaceholders.entries) {
-          if (!_pendingUploads.containsKey(entry.key)) {
-            _replaceUploadPlaceholder(entry.key, '', removeLine: true);
-          }
+        final settled = [
+          for (final slot in _uploadPlaceholders.find(text.text))
+            if (!_pendingUploads.containsKey(slot.id)) slot.id,
+        ];
+        for (final id in settled) {
+          _replaceUploadPlaceholder(id, '', removeLine: true);
         }
       });
     }
