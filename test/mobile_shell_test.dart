@@ -96,6 +96,7 @@ Future<ShellController> pumpMobileShellFixture(
   bool chat = true,
   int chatUnreadCount = 0,
   TopicPayload? topic,
+  PluginManifest? pluginManifest,
   ChatChannels? conversations,
 }) async {
   final config = SiteConfig(
@@ -115,10 +116,12 @@ Future<ShellController> pumpMobileShellFixture(
   await pumpShell(
     tester,
     size,
-    pluginManifest: PluginManifest([
-      ...bundledWidgetTestManifest.modules,
-      if (voice) const VoiceModule.withoutDiagnostics(),
-    ]),
+    pluginManifest:
+        pluginManifest ??
+        PluginManifest([
+          ...bundledWidgetTestManifest.modules,
+          if (voice) const VoiceModule.withoutDiagnostics(),
+        ]),
     instances: [
       instance(
         'meta.discourse.org',

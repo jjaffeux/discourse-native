@@ -76,7 +76,7 @@ class TopicHeaderTags extends StatelessWidget {
           fontWeight: FontWeight.w400,
           letterSpacing: 0,
         );
-        const gap = 7.0;
+        const gap = DSpacing.sm;
         double labelWidth(String label) {
           final painter = TextPainter(
             text: TextSpan(text: label, style: style),
