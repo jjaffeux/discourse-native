@@ -201,6 +201,19 @@ void main() {
     },
   );
 
+  testWidgets('category links name their category once', (tester) async {
+    final semantics = tester.ensureSemantics();
+    await _pump(tester);
+    // iOS speaks a node's tooltip after its label.
+    final link = tester
+        .getSemantics(find.bySemanticsLabel('Category: Community').first)
+        .getSemanticsData();
+    expect(link.flagsCollection.isLink, isTrue);
+    expect(link.tooltip, isEmpty);
+    expect(find.byTooltip('Community'), findsWidgets);
+    semantics.dispose();
+  });
+
   testWidgets('metadata links activate independently of the topic row', (
     tester,
   ) async {

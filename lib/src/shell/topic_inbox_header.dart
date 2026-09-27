@@ -377,7 +377,8 @@ class _TopicHeaderTitle extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
               style: style,
             );
-      title = DTooltip(message: value, child: text);
+      // The title text already names the topic in full, even when clipped.
+      title = DTooltip(message: value, excludeFromSemantics: true, child: text);
     }
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
