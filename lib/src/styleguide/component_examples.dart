@@ -21,6 +21,7 @@ import 'examples/color_picker_examples.dart';
 import 'examples/combobox_examples.dart';
 import 'examples/command_examples.dart';
 import 'examples/context_menu_examples.dart';
+import 'examples/control_wrap_examples.dart';
 import 'examples/data_table_examples.dart';
 import 'examples/date_picker_examples.dart';
 import 'examples/dialog_examples.dart';
@@ -94,6 +95,7 @@ final componentExamples = <String, ComponentExamples>{
   'message-inbox-menu': messageInboxMenuExamples,
   'notification-level-menu': notificationLevelMenuExamples,
   'page-surface': pageSurfaceExamples,
+  'control-wrap': controlWrapExamples,
   'notification-dot': notificationDotExamples,
   'category-selector': categorySelectorExamples,
   'tag-selector': tagSelectorExamples,

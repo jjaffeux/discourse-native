@@ -3,6 +3,7 @@ import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
 
 import '../../theme/discourse_typography.dart';
+import '../foundation/control_artwork.dart';
 import '../foundation/control_style.dart';
 import '../foundation/tokens.dart';
 
@@ -376,7 +377,9 @@ class _DBadgeState extends State<DBadge> {
     if (overlay) {
       visual = FittedBox(fit: BoxFit.scaleDown, child: visual);
     }
-    visual = Opacity(opacity: _enabled ? 1 : .5, child: visual);
+    visual = DControlArtwork(
+      child: Opacity(opacity: _enabled ? 1 : .5, child: visual),
+    );
     if (_interactive &&
         !tag &&
         switch (Theme.of(context).platform) {

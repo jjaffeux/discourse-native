@@ -31,6 +31,7 @@ export 'src/ui/components/d_color_picker.dart';
 export 'src/ui/components/d_combobox.dart';
 export 'src/ui/components/d_command.dart';
 export 'src/ui/components/d_context_menu.dart';
+export 'src/ui/components/d_control_wrap.dart';
 export 'src/ui/components/d_data_table.dart';
 export 'src/ui/components/d_date_picker.dart';
 export 'src/ui/components/d_dialog.dart';

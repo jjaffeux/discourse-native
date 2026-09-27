@@ -4,6 +4,11 @@ import 'styleguide_example.dart';
 /// component reference catalogue.
 const applicationComponentCatalogue = <ComponentReference>[
   ComponentReference(
+    id: 'control-wrap',
+    name: 'Control wrap',
+    sections: ['Compact controls'],
+  ),
+  ComponentReference(
     id: 'audio-player',
     name: 'Audio player',
     sections: ['Playback', 'Loading', 'Unavailable'],
