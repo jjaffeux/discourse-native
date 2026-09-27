@@ -519,9 +519,9 @@ void main() {
       1,
     ].map((id) => tester.getTopLeft(row(id)).dy).toList();
     expect(positions, orderedEquals([...positions]..sort()));
-    expect(find.text('4 new messages'), findsOneWidget);
-    expect(find.text('3 new messages'), findsOneWidget);
-    expect(find.text('9 new messages'), findsNothing);
+    expect(find.text('4 messages'), findsOneWidget);
+    expect(find.text('3 messages'), findsOneWidget);
+    expect(find.text('9 messages'), findsNothing);
     expect(find.text('you: Will follow up in the morning.'), findsNWidgets(2));
     await _selectChatActivity(tester, 'Unread');
     expect(row(2), findsOneWidget);

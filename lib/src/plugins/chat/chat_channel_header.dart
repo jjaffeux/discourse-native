@@ -192,16 +192,16 @@ class ChatChannelHeader extends StatelessWidget {
                   DText(
                     '·',
                     style: TextStyle(
-                      fontSize: 12.5,
-                      height: 1.5,
+                      fontSize: DiscourseTypography.preview,
+                      height: DiscourseTypography.lineHeightSmall,
                       color: theme.discourse.primaryLowMid,
                     ),
                   ),
                 DText.rich(
                   metadata[index],
                   style: TextStyle(
-                    fontSize: 12.5,
-                    height: 1.5,
+                    fontSize: DiscourseTypography.preview,
+                    height: DiscourseTypography.lineHeightSmall,
                     color: tokens.mutedForeground,
                   ),
                 ),
