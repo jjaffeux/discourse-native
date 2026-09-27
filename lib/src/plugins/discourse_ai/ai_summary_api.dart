@@ -34,7 +34,13 @@ final class AiSummaryApi {
     method: 'POST',
     apiKey: apiKey,
     clientId: clientId,
-    body: {if (stream) 'stream': true, if (regenerate) 'skip_age_check': true},
+    body: {
+      // The controller only tests `stream` for truthiness, so a boolean works.
+      if (stream) 'stream': true,
+      // The controller compares `skip_age_check == "true"`; a JSON boolean
+      // re-serves the outdated cached summary.
+      if (regenerate) 'skip_age_check': 'true',
+    },
   );
 
   static AiTopicSummary _requireSummary(Map<String, dynamic> body) =>
