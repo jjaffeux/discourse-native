@@ -571,6 +571,9 @@ final class MeshVoiceMediaSession extends _VoiceMediaNotifier {
   final Map<int, Future<void>> _peerCreations = {};
   final Map<int, _MeshSendSlots> _sendSlots = {};
   final Map<int, _MeshRemoteSlots> _remoteTracks = {};
+  // Outlives each peer, as under LiveKit: a participant who leaves, or stops
+  // being received on a stage, is heard at the volume chosen for them when
+  // they return during this session.
   final Map<int, double> _participantVolumes = {};
   final Map<int, VoiceRole> _participantRoles = {};
   final Set<int> _currentRemoteParticipantIds = {};
@@ -957,7 +960,6 @@ final class MeshVoiceMediaSession extends _VoiceMediaNotifier {
     final gone = _peers.keys.where((id) => !wanted.contains(id)).toList();
     for (final id in gone) {
       await _closePeer(id);
-      _participantVolumes.remove(id);
     }
     for (final id in changedRoles.difference(gone.toSet())) {
       await _closePeer(id);
