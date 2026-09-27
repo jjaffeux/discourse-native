@@ -1525,12 +1525,23 @@ class FakeDiscourseApi
     return updated;
   }
 
+  final customSidebarSectionRequests = <String>[];
+
+  /// Like the server, a held response answers with the sections as they were
+  /// when requested.
+  Completer<void>? customSidebarSectionsGate;
+
   @override
   Future<List<SidebarSection>> customSidebarSections({
     required String siteUrl,
     String? apiKey,
     String? clientId,
-  }) async => customSidebarSectionsBySite[siteUrl] ?? const [];
+  }) async {
+    customSidebarSectionRequests.add(siteUrl);
+    final sections = customSidebarSectionsBySite[siteUrl] ?? const [];
+    await customSidebarSectionsGate?.future;
+    return sections;
+  }
 
   @override
   Future<NotificationTotals> notificationTotals({

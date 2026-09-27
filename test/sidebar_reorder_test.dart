@@ -609,4 +609,78 @@ void main() {
     expect(_order(tester), ['Handbook', 'Roadmap', 'Support']);
     expect(tester.takeException(), isNull);
   });
+
+  void publish(FakeSiteTracker tracker) =>
+      tracker.deliverPluginMessage('/refresh-sidebar-sections', null);
+
+  void editOnServer(FakeDiscourseApi api, List<int> order) =>
+      api.customSidebarSectionsBySite[_site] = [
+        SidebarSection.customFromJson(
+          _json(public: true, order: order),
+          index: 0,
+        )!,
+      ];
+
+  platformTest('reloads sections when Core announces a public change', (
+    tester,
+  ) async {
+    final api = await _pump(tester);
+    expect(api.customSidebarSectionRequests, [_site]);
+    editOnServer(api, [11, 22, 33, 44]);
+    publish(FakeSiteTracker.built.single);
+    await tester.pumpAndSettle();
+    expect(sidebarDestination('Link 44'), findsOneWidget);
+    expect(_sectionOrder(tester, 9), [11, 22, 33, 44]);
+    expect(api.customSidebarSectionRequests, [_site, _site]);
+    expect(tester.takeException(), isNull);
+  });
+
+  platformTest('a later announcement supersedes a reload in flight', (
+    tester,
+  ) async {
+    final api = await _pump(tester);
+    final tracker = FakeSiteTracker.built.single;
+    final earlier = api.customSidebarSectionsGate = Completer<void>();
+    editOnServer(api, [11, 22]);
+    publish(tracker);
+    await tester.pump();
+    api.customSidebarSectionsGate = null;
+    editOnServer(api, [11, 22, 33, 44]);
+    publish(tracker);
+    await tester.pumpAndSettle();
+    expect(_sectionOrder(tester, 9), [11, 22, 33, 44]);
+    earlier.complete();
+    await tester.pumpAndSettle();
+    expect(_sectionOrder(tester, 9), [11, 22, 33, 44]);
+    expect(api.customSidebarSectionRequests, hasLength(3));
+    expect(tester.takeException(), isNull);
+  });
+
+  platformTest('an announcement for a previous account does not reload', (
+    tester,
+  ) async {
+    final api = await _pump(tester);
+    // A transport may already have queued the previous account's delivery.
+    final queued = FakeSiteTracker
+        .built
+        .single
+        .pluginChannelCallbacks['/refresh-sidebar-sections']!
+        .single;
+    final controller = ShellScope.read(
+      tester.element(find.byType(InstanceSidebar)),
+    );
+    await controller.disconnectCurrentInstance();
+    await tester.pumpAndSettle();
+    await controller.connectCurrentInstance();
+    await tester.pumpAndSettle();
+    expect(controller.currentInstance!.isConnected, isTrue);
+    final requests = api.customSidebarSectionRequests.length;
+    queued(null);
+    await tester.pumpAndSettle();
+    expect(api.customSidebarSectionRequests, hasLength(requests));
+    publish(FakeSiteTracker.built.last);
+    await tester.pumpAndSettle();
+    expect(api.customSidebarSectionRequests, hasLength(requests + 1));
+    expect(tester.takeException(), isNull);
+  });
 }

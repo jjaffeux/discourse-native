@@ -2565,6 +2565,10 @@ class ShellController extends FrameSafeNotifier
   final Set<String> _customSidebarSectionsLoaded = {};
   final Map<String, Future<void>> _customSidebarSectionRequests = {};
   final Map<String, DateTime> _customSidebarSectionAttemptedAt = {};
+
+  /// Advanced when Core announces a section change, so a load that was
+  /// already in flight cannot commit the sections from before it.
+  final Map<String, int> _customSidebarSectionVersions = {};
   final Map<
     String,
     ({
@@ -2778,6 +2782,7 @@ class ShellController extends FrameSafeNotifier
     SiteLease? lease,
   }) async {
     final session = lease ?? lifecycle.capture(siteUrl);
+    final version = _customSidebarSectionVersions[siteUrl] ?? 0;
     try {
       final identity = await _readSessionValue(session, authenticator.clientId);
       if (identity == null ||
@@ -2792,6 +2797,7 @@ class ShellController extends FrameSafeNotifier
         clientId: identity.value,
       );
       session.commit(() {
+        if ((_customSidebarSectionVersions[siteUrl] ?? 0) != version) return;
         _customSidebarSections[siteUrl] = sections;
         _customSidebarSectionsLoaded.add(siteUrl);
         _notify();
@@ -2804,6 +2810,48 @@ class ShellController extends FrameSafeNotifier
         'sidebar.loadCustomSections',
         severity: DiagnosticSeverity.warning,
       );
+    }
+  }
+
+  /// Core announces every public section create, edit, reorder, move and
+  /// delete to signed-in readers, and the web client re-fetches on it. Edits
+  /// to private sections announce nothing on either client.
+  void _invalidateCustomSidebarSections(String siteUrl, SiteLease lease) {
+    _customSidebarSectionsLoaded.remove(siteUrl);
+    _customSidebarSectionAttemptedAt.remove(siteUrl);
+    _customSidebarSectionRequests.remove(siteUrl)?.ignore();
+    _customSidebarSectionVersions.update(
+      siteUrl,
+      (value) => value + 1,
+      ifAbsent: () => 1,
+    );
+    // Another site's selection path reloads it once it is shown again.
+    if (currentInstance?.url != siteUrl) return;
+    unawaited(_reloadCustomSidebarSections(siteUrl, lease));
+  }
+
+  Future<void> _reloadCustomSidebarSections(
+    String siteUrl,
+    SiteLease lease,
+  ) async {
+    final _SessionValue<String?>? credential;
+    try {
+      credential = await _readSessionValue(
+        lease,
+        () => credentials.apiKeyFor(siteUrl),
+      );
+    } catch (error, stackTrace) {
+      if (isDisposed || !lease.isCurrent) return;
+      _reportOperationalError(
+        error,
+        stackTrace,
+        'sidebar.loadCustomSections',
+        severity: DiagnosticSeverity.warning,
+      );
+      return;
+    }
+    if (credential?.value case final apiKey?) {
+      await _refreshCustomSidebarSections(siteUrl, apiKey, lease: lease);
     }
   }
 
@@ -4746,6 +4794,20 @@ class ShellController extends FrameSafeNotifier
             error,
             stackTrace,
             'messageBus.subscribeUserStatus',
+            severity: DiagnosticSeverity.warning,
+          );
+        }
+        try {
+          tracker.watchPluginChannel(
+            '/refresh-sidebar-sections',
+            (_) =>
+                commit(() => _invalidateCustomSidebarSections(siteUrl, lease)),
+          );
+        } catch (error, stackTrace) {
+          _reportOperationalError(
+            error,
+            stackTrace,
+            'messageBus.subscribeSidebarSections',
             severity: DiagnosticSeverity.warning,
           );
         }
@@ -14952,6 +15014,7 @@ class ShellController extends FrameSafeNotifier
     _customSidebarSectionsLoaded.remove(siteUrl);
     _customSidebarSectionAttemptedAt.remove(siteUrl);
     _customSidebarSectionRequests.remove(siteUrl)?.ignore();
+    _customSidebarSectionVersions.remove(siteUrl);
     _siteNotificationTypes.remove(siteUrl);
     _siteNotificationTypeRequests.remove(siteUrl)?.ignore();
     _sitePresentation?.forget(siteUrl);
