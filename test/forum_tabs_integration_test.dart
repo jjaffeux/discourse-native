@@ -6,8 +6,11 @@ import 'package:discourse_native/src/app.dart';
 import 'package:discourse_native/src/app_shortcuts.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
+import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/forum_workspace.dart';
+import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/topic.dart';
+import 'package:discourse_native/src/shell/composer_panel.dart';
 import 'package:discourse_native/src/shell/desktop_panels.dart';
 import 'package:discourse_native/src/shell/forum_search.dart';
 import 'package:discourse_native/src/shell/forum_tabs_bar.dart';
@@ -515,6 +518,113 @@ void main() {
     }
   }
 
+  for (final platform in const [TargetPlatform.macOS, TargetPlatform.linux]) {
+    for (final tabCount in const [1, 2]) {
+      testWidgets(
+        '${platform.name} primary W in a focused composer closes only the '
+        'composer with $tabCount open tab(s)',
+        (tester) => _withPlatform(platform, () async {
+          const me = DiscourseUser(username: 'joffreyj', name: 'Joffrey');
+          const topic = Topic(
+            id: 7,
+            title: 'A real topic',
+            slug: 'a-real-topic',
+          );
+          await _pumpShell(
+            tester,
+            instances: [
+              instance('one.example', title: 'One').copyWith(user: me),
+            ],
+            authenticator: FakeAuthenticator()
+              ..keys['https://one.example'] = 'one-key',
+            api: FakeDiscourseApi(
+              feeds: const {
+                '/latest.json': [topic],
+              },
+              topics: {
+                topic.id: topicPayload(
+                  id: topic.id,
+                  title: topic.title,
+                  canCreatePost: true,
+                  posts: const [
+                    Post(
+                      id: 1,
+                      postNumber: 1,
+                      username: 'sam',
+                      cooked: '<p>First post body</p>',
+                    ),
+                  ],
+                ),
+              },
+            ),
+          );
+          final controller = ShellScope.read(
+            tester.element(find.byType(MainContent)),
+          );
+          if (tabCount == 2) {
+            controller.createTab();
+            await tester.pumpAndSettle();
+          }
+          controller.openTopic(topic);
+          await tester.pumpAndSettle();
+          final tabIds = [
+            for (final tab in controller.tabsForCurrentForum) tab.id,
+          ];
+          final activeTabId = controller.activeTabId!;
+          expect(tabIds, hasLength(tabCount));
+
+          controller.openReply();
+          await tester.pumpAndSettle();
+          final body = find
+              .descendant(
+                of: find.byType(ComposerPanel),
+                matching: find.byType(EditableText),
+              )
+              .first;
+          await tester.tap(body);
+          await tester.enterText(body, 'A reply in progress');
+          await tester.pumpAndSettle();
+          final modifier = platform == TargetPlatform.macOS
+              ? LogicalKeyboardKey.metaLeft
+              : LogicalKeyboardKey.controlLeft;
+
+          expect(
+            await _pressShortcut(tester, modifier, LogicalKeyboardKey.keyW),
+            isTrue,
+          );
+          await tester.pumpAndSettle();
+
+          expect(find.byType(ComposerPanel), findsNothing);
+          expect(controller.visibleComposer, isNull);
+          expect(controller.tabsForCurrentForum.map((tab) => tab.id), tabIds);
+          expect(controller.activeTabId, activeTabId);
+          expect(controller.currentContent?.topicId, topic.id);
+          expect(binding.exitRequests, isEmpty);
+
+          // Outside the composer the chord closes the tab as before.
+          expect(
+            await _pressShortcut(tester, modifier, LogicalKeyboardKey.keyW),
+            isTrue,
+          );
+          await tester.pumpAndSettle();
+
+          if (tabCount == 1) {
+            expect(binding.exitRequests, [
+              (type: AppExitType.cancelable, exitCode: 0),
+            ]);
+            expect(controller.tabsForCurrentForum.map((tab) => tab.id), tabIds);
+          } else {
+            expect(binding.exitRequests, isEmpty);
+            expect(controller.tabsForCurrentForum.map((tab) => tab.id), [
+              for (final id in tabIds)
+                if (id != activeTabId) id,
+            ]);
+          }
+        }),
+      );
+    }
+  }
+
   for (final platform in const [
     TargetPlatform.macOS,
     TargetPlatform.linux,
@@ -998,6 +1108,7 @@ Future<void> _pumpShell(
   Size size = _medium,
   Key? key,
   FakeDiscourseApi? api,
+  FakeAuthenticator? authenticator,
   FakeForumTabStore? forumTabs,
 }) async {
   tester.view.physicalSize = size;
@@ -1015,7 +1126,7 @@ Future<void> _pumpShell(
       key: key,
       store: FakeInstanceStore(configuredInstances),
       api: api ?? FakeDiscourseApi(feeds: const {'/latest.json': []}),
-      authenticator: FakeAuthenticator(),
+      authenticator: authenticator ?? FakeAuthenticator(),
       drafts: FakeDraftStore(),
       forumTabs: forumTabs ?? FakeForumTabStore(),
       trackers: FakeSiteTracker.reset(),

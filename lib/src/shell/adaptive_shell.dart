@@ -18,6 +18,7 @@ import '../theme/app_theme.dart';
 import '../theme/d_icons.dart';
 import 'aggregate_view.dart';
 import 'bookmark_ui.dart';
+import 'composer_panel.dart';
 import 'composer_presentation.dart';
 import 'desktop_navigation.dart';
 import 'desktop_panels.dart';
@@ -142,16 +143,18 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
       unawaited(controller.refreshCurrentTab());
       return true;
     }
-    if (contentBackShortcutForPlatform(
-      defaultTargetPlatform,
-    ).accepts(event, keyboard)) {
+    final backShortcut = contentBackShortcutForPlatform(defaultTargetPlatform);
+    if (backShortcut.accepts(event, keyboard)) {
+      if (_focusOwnsHistoryShortcut(backShortcut)) return false;
       return controller.rootMode == ShellRootMode.forum &&
           controller.canPopContent &&
           controller.handleBack(canReturnToSidebar: false);
     }
-    if (contentForwardShortcutForPlatform(
+    final forwardShortcut = contentForwardShortcutForPlatform(
       defaultTargetPlatform,
-    ).accepts(event, keyboard)) {
+    );
+    if (forwardShortcut.accepts(event, keyboard)) {
+      if (_focusOwnsHistoryShortcut(forwardShortcut)) return false;
       return controller.handleForward();
     }
     if (newTopicShortcut.accepts(event, keyboard)) {
@@ -253,6 +256,7 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
       return _openTab(controller);
     }
     if (event.logicalKey == LogicalKeyboardKey.keyW) {
+      if (_focusOwnsCloseShortcut) return false;
       return _closeCurrentTab(controller);
     }
     if (event.logicalKey == LogicalKeyboardKey.arrowLeft) {
@@ -434,6 +438,30 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
   // Navigator's scope. Editable controls still own their keyboard input.
   bool get _formControlHasFocus =>
       !navigationShortcutsAllowed(context, matchFocusRoute: false);
+
+  // Off macOS the history chords are Alt+Arrow, which text fields also bind
+  // to caret movement. Handlers here run before the focus tree, not instead
+  // of it, so claiming the chord would move the caret and leave the page in
+  // one keystroke.
+  bool _focusOwnsHistoryShortcut(SingleActivator shortcut) =>
+      shortcut.alt && _formControlHasFocus;
+
+  // The composer binds the close chord to closing itself. Handlers here run
+  // before the focus tree, not instead of it, so claiming the chord as well
+  // would also close the tab under the composer, or quit the app when that
+  // tab is the last one.
+  bool get _focusOwnsCloseShortcut {
+    final focusContext = FocusManager.instance.primaryFocus?.context;
+    if (focusContext == null) return false;
+    // A detached focus cannot be searched (see navigationShortcutsAllowed),
+    // and closing the tab, or the app, on a guess is the worse failure.
+    if (!focusContext.mounted ||
+        (focusContext is Element &&
+            focusContext.renderObject?.attached != true)) {
+      return true;
+    }
+    return focusContext.findAncestorWidgetOfExactType<ComposerPanel>() != null;
+  }
 
   @override
   Widget build(BuildContext context) {
