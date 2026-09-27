@@ -59,7 +59,8 @@ List<ComposerImageBlock> parseComposerImages(
   String source, {
   CodeRanges? codeRanges,
 }) {
-  if (source.isEmpty) return const [];
+  // Every image starts with its opener; without one, skip the markdown scan.
+  if (!source.contains('![')) return const [];
   final code = codeRanges ?? CodeRanges.of(scanMarkdown(source));
   final images = <ComposerImageBlock>[];
   var offset = 0;
