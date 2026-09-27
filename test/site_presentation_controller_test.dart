@@ -354,6 +354,54 @@ void main() {
         },
       );
 
+      test('warming retries an exhausted budget but reuses a hit', () async {
+        final api = _PresentationApi()..configError = StateError('offline');
+        final controller = _controller(api);
+
+        for (var i = 0; i < 3; i++) {
+          await controller.ensureConfig(site);
+        }
+        expect(api.configCalls, 3);
+
+        api
+          ..configError = null
+          ..config = const SiteConfig(emojiSet: 'google');
+        // Topic opens stay bounded once the outage has spent the budget.
+        await controller.ensureConfig(site);
+        expect(api.configCalls, 3);
+        expect(controller.cookingSettingsAreStale(site), isTrue);
+
+        await controller.warmConfig(site);
+        expect(api.configCalls, 4);
+        expect(controller.configFor(site).emojiSet, 'google');
+        expect(controller.cookingSettingsAreStale(site), isFalse);
+
+        await controller.warmConfig(site);
+        expect(api.configCalls, 4);
+      });
+
+      test('warming shares a request in flight and a fresh snapshot', () async {
+        final gate = Completer<SiteConfig>();
+        final api = _PresentationApi()..configGate = gate;
+        final controller = _controller(api);
+
+        final ensuring = controller.ensureConfig(site);
+        await api.configRequestStarted.future;
+        final warming = controller.warmConfig(site);
+        gate.complete(const SiteConfig(emojiSet: 'google'));
+        await Future.wait([ensuring, warming]);
+        expect(api.configCalls, 1);
+
+        final persistedApi = _PresentationApi();
+        final persisted = _controller(
+          persistedApi,
+          persisted: const {site: SiteConfig(emojiSet: 'apple')},
+        );
+        await persisted.warmConfig(site);
+        expect(persistedApi.configCalls, 0);
+        expect(persisted.configFor(site).emojiSet, 'apple');
+      });
+
       test('a signed-out site loads without reading a client id', () async {
         // Reading it may raise the platform's notification permission prompt,
         // and the site ignores the id without a key.
@@ -567,6 +615,38 @@ void main() {
         expect(await controller.warmEmojiCatalog(site), isNotNull);
         expect(api.emojiCalls, 2);
       });
+
+      test(
+        'custom emoji warming retries an exhausted budget but reuses a hit',
+        () async {
+          final api = _PresentationApi()..customError = StateError('offline');
+          final controller = _controller(api);
+
+          for (var i = 0; i < 3; i++) {
+            await controller.ensureCustomEmojis(site);
+          }
+          expect(api.customCalls, 3);
+
+          api
+            ..customError = null
+            ..custom = {'party_parrot': '/uploads/parrot.gif'};
+          // Topic opens stay bounded once the outage has spent the budget.
+          await controller.ensureCustomEmojis(site);
+          expect(api.customCalls, 3);
+          expect(controller.knowsEmoji(site, 'party_parrot'), isFalse);
+
+          await controller.warmCustomEmojis(site);
+          expect(api.customCalls, 4);
+          expect(controller.knowsEmoji(site, 'party_parrot'), isTrue);
+          expect(
+            controller.emojiUrlFor(site, 'party_parrot'),
+            'https://meta.example/uploads/parrot.gif',
+          );
+
+          await controller.warmCustomEmojis(site);
+          expect(api.customCalls, 4);
+        },
+      );
 
       test('explicit refresh recovers failed metadata', () async {
         await _installDiagnostics('emoji-metadata-retry');
@@ -829,6 +909,7 @@ final class _PresentationApi {
   int configCalls = 0;
 
   Map<String, String> custom = const {};
+  Object? customError;
   int customCalls = 0;
 
   List<SiteEmoji> emojis = const [];
@@ -874,6 +955,7 @@ final class _PresentationApi {
     String? clientId,
   }) async {
     customCalls++;
+    if (customError case final error?) throw error;
     return custom;
   }
 

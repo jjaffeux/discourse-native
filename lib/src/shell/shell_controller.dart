@@ -6073,6 +6073,13 @@ class ShellController extends FrameSafeNotifier
         _retryTopicTrackingLoad(entry.key);
       }
     }
+    // A reader with one forum never reselects it, so returning to the app is
+    // its recovery point. Held values answer without a request.
+    if (instance != null && (!instance.loginRequired || instance.isConnected)) {
+      unawaited(_presentation.warmConfig(instance.url));
+      unawaited(_presentation.warmCustomEmojis(instance.url));
+      unawaited(_presentation.warmEmojiCatalog(instance.url));
+    }
   }
 
   final _topicPrefetch = TopicPrefetchController();
@@ -15549,10 +15556,11 @@ class ShellController extends FrameSafeNotifier
     }
     // Category navigation is first-class shell state. It cannot depend on the
     // default topic feed succeeding, and its ordering/defaults live in the
-    // client settings payload.
+    // client settings payload. Selection warms rather than ensures because
+    // topic opens may already have spent every attempt during an outage.
     if (canRead) {
-      unawaited(_presentation.ensureConfig(instance.url));
-      unawaited(_presentation.ensureCustomEmojis(instance.url));
+      unawaited(_presentation.warmConfig(instance.url));
+      unawaited(_presentation.warmCustomEmojis(instance.url));
       if (!instance.isConnected) {
         unawaited(_refreshCustomSidebarSections(instance.url, null));
       }
