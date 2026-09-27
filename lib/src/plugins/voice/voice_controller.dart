@@ -1327,16 +1327,19 @@ final class VoiceController extends ChangeNotifier {
     _call = call.copyWith(room: room, muted: canPublishAudio ? null : true);
     if (canPublishAudio != couldPublishAudio) {
       _observe(() async {
-        await _runHandled(
-          () => call.media.setAudioPublishingAllowed(canPublishAudio),
-          'voice.media.audioPublishing',
-        );
+        // The call already shows a demoted speaker muted, so silence the
+        // microphone first; the publishing change can wait behind queued
+        // media work.
         if (!canPublishAudio) {
           await _runHandled(
             () => call.media.setMuted(true),
             'voice.media.rosterMute',
           );
         }
+        await _runHandled(
+          () => call.media.setAudioPublishingAllowed(canPublishAudio),
+          'voice.media.audioPublishing',
+        );
       }, 'voice.media.roomUpdate');
     }
     if (stopsVideo) {
@@ -1765,16 +1768,19 @@ final class VoiceController extends ChangeNotifier {
       );
       _observe(() async {
         if (userId != null) {
-          await _runHandled(
-            () => call.media.setAudioPublishingAllowed(canPublishAudio),
-            'voice.media.audioPublishing',
-          );
+          // The call already shows a demoted speaker muted, so silence the
+          // microphone first; the publishing change can wait behind queued
+          // media work.
           if (!canPublishAudio) {
             await _runHandled(
               () => call.media.setMuted(true),
               'voice.media.rosterMute',
             );
           }
+          await _runHandled(
+            () => call.media.setAudioPublishingAllowed(canPublishAudio),
+            'voice.media.audioPublishing',
+          );
         }
         await _runHandled(
           () => call.media.syncParticipants(participants),

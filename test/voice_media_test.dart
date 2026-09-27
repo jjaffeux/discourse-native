@@ -793,6 +793,137 @@ void main() {
       },
     );
 
+    test(
+      'turning the camera off silences it without waiting behind signaling',
+      () async {
+        final camera = _FakeTrack('camera', 'video');
+        final signaling = _HeldSignaling();
+        final media = _heldSignalingSession(
+          signaling,
+          audioPublishingAllowed: false,
+          getUserMedia: (_) async => _FakeStream('camera-stream', [camera]),
+        );
+        addTearDown(media.dispose);
+        addTearDown(signaling.release);
+        await media.connect();
+        await media.setCameraEnabled(true);
+        final joining = _joinBehindHeldOffer(media, signaling);
+        await signaling.holding;
+
+        final stopping = media.setCameraEnabled(false);
+
+        expect(camera.enabled, isFalse);
+        await _pumpEventQueue();
+        expect(camera.stopped, isFalse);
+
+        signaling.release();
+        await joining;
+        await stopping;
+        expect(camera.stopped, isTrue);
+        expect(media.localVideoTrack, isNull);
+      },
+    );
+
+    test('a queued camera-on cannot undo a later camera-off', () async {
+      var captures = 0;
+      final signaling = _HeldSignaling();
+      final media = _heldSignalingSession(
+        signaling,
+        audioPublishingAllowed: false,
+        getUserMedia: (_) async {
+          captures++;
+          return _FakeStream('camera-stream', [_FakeTrack('camera', 'video')]);
+        },
+      );
+      addTearDown(media.dispose);
+      addTearDown(signaling.release);
+      await media.connect();
+      final joining = _joinBehindHeldOffer(media, signaling);
+      await signaling.holding;
+
+      final starting = media.setCameraEnabled(true);
+      final stopping = media.setCameraEnabled(false);
+      signaling.release();
+      await joining;
+      await starting;
+      await stopping;
+
+      expect(captures, 0);
+      expect(media.localVideoTrack, isNull);
+    });
+
+    test(
+      'a camera turned off during its capture is released unpublished',
+      () async {
+        final camera = _FakeTrack('camera', 'video');
+        final stream = _FakeStream('camera-stream', [camera]);
+        final capturing = Completer<void>();
+        final captured = Completer<rtc.MediaStream>();
+        final peer = _FakePeerConnection();
+        final media = _meshSession(
+          peer: peer,
+          audioPublishingAllowed: false,
+          getUserMedia: (_) {
+            capturing.complete();
+            return captured.future;
+          },
+        );
+        addTearDown(media.dispose);
+        addTearDown(() {
+          if (!captured.isCompleted) captured.complete(stream);
+        });
+        await media.connect();
+
+        final starting = media.setCameraEnabled(true);
+        await capturing.future;
+        final stopping = media.setCameraEnabled(false);
+        captured.complete(stream);
+        await starting;
+        await stopping;
+
+        expect(media.localVideoTrack, isNull);
+        expect(peer.events, isNot(contains('replace:video:camera')));
+        expect([stream.disposed, camera.stopped], [true, true]);
+      },
+    );
+
+    test(
+      'a camera that cannot be switched off stays silent until turned on',
+      () async {
+        final camera = _FakeTrack('camera', 'video');
+        var captures = 0;
+        final peer = _FakePeerConnection();
+        final media = _meshSession(
+          peer: peer,
+          audioPublishingAllowed: false,
+          getUserMedia: (_) async {
+            captures++;
+            return _FakeStream('camera-stream', [camera]);
+          },
+        );
+        addTearDown(media.dispose);
+        await media.connect();
+        await media.setCameraEnabled(true);
+        final sender = peer.createdTransceivers[1].sender;
+        sender.onReplaceTrack = (track) async {
+          if (track == null) throw StateError('stop failed');
+        };
+
+        await expectLater(media.setCameraEnabled(false), throwsStateError);
+
+        expect(media.localVideoTrack, same(camera));
+        expect([camera.enabled, camera.stopped], [false, false]);
+        await media.setCameraEnabled(true);
+        expect(camera.enabled, isTrue);
+        expect(captures, 1);
+
+        sender.onReplaceTrack = null;
+        await media.setCameraEnabled(false);
+        expect(media.localVideoTrack, isNull);
+        expect(camera.stopped, isTrue);
+      },
+    );
+
     test('discards a cancelled camera capture before publishing it', () async {
       final camera = _FakeTrack('camera', 'video');
       final stream = _FakeStream('camera-stream', [camera]);
@@ -3246,6 +3377,52 @@ void main() {
       await stopping;
       expect(participant.applied, ['screenShare:false']);
     });
+
+    test(
+      'turning the camera off silences it before the SDK publish queue',
+      () async {
+        final camera = _FakeTrack('camera', 'video');
+        final participant = _BusyLiveKitParticipant()
+          ..published(lk.TrackSource.camera, camera);
+        final media = _liveKitSession(
+          _FakeLiveKitRoomAdapter(room: _FakeLiveKitRoom(participant)),
+        );
+        addTearDown(media.dispose);
+        addTearDown(participant.settle);
+
+        final stopping = media.setCameraEnabled(false);
+
+        expect(camera.enabled, isFalse);
+        expect(participant.applied, isEmpty);
+        participant.settle();
+        await stopping;
+        expect(participant.applied, ['camera:false']);
+        expect(media.cameraEnabled, isFalse);
+      },
+    );
+
+    test('a camera-on in flight cannot undo a later camera-off', () async {
+      final camera = _FakeTrack('camera', 'video');
+      final participant = _BusyLiveKitParticipant()
+        ..published(lk.TrackSource.camera, camera);
+      final media = _liveKitSession(
+        _FakeLiveKitRoomAdapter(room: _FakeLiveKitRoom(participant)),
+      );
+      addTearDown(media.dispose);
+      addTearDown(participant.settle);
+
+      final starting = media.setCameraEnabled(true);
+      await _pumpEventQueue();
+      final stopping = media.setCameraEnabled(false);
+
+      expect(camera.enabled, isFalse);
+      participant.settle();
+      await starting;
+      await stopping;
+      expect(participant.applied, ['camera:true', 'camera:false']);
+      expect(camera.enabled, isFalse);
+      expect(media.cameraEnabled, isFalse);
+    });
   });
 
   group('VoiceReconnectCoordinator', () {
@@ -4158,6 +4335,21 @@ final class _BusyLiveKitParticipant implements lk.LocalParticipant {
     await _publishing.future;
     applied.add('screenShare:$enabled');
     return null;
+  }
+
+  /// Enabling unmutes the published camera, which restarts it enabled. The
+  /// SDK's own mute may still be queued behind other work, so disabling here
+  /// only records the call.
+  @override
+  Future<lk.LocalTrackPublication?> setCameraEnabled(
+    bool enabled, {
+    lk.CameraCaptureOptions? cameraCaptureOptions,
+  }) async {
+    await _publishing.future;
+    applied.add('camera:$enabled');
+    final publication = _publications[lk.TrackSource.camera];
+    if (enabled) publication?.track?.mediaStreamTrack.enabled = true;
+    return publication;
   }
 
   @override

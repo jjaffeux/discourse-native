@@ -586,6 +586,7 @@ final class MeshVoiceMediaSession extends _VoiceMediaNotifier {
   bool _deafened = false;
   bool _muted = false;
   int _muteRevision = 0;
+  int _cameraRevision = 0;
   int _screenShareRevision = 0;
   bool audioPublishingAllowed;
   Timer? _speakingTimer;
@@ -1859,20 +1860,41 @@ final class MeshVoiceMediaSession extends _VoiceMediaNotifier {
     bool enabled, {
     String? deviceId,
     bool Function()? shouldContinue,
-  }) => _serialize(
-    () => _setCameraEnabled(
-      enabled,
-      deviceId: deviceId,
-      shouldContinue: shouldContinue,
-    ),
-  );
+  }) {
+    final revision = ++_cameraRevision;
+    // As with a mute, turning the camera off must not wait behind signaling;
+    // only sender replacement and release take their turn.
+    if (!enabled) _setCameraTracksEnabled(false);
+    return _serialize(
+      () => _setCameraEnabled(
+        enabled,
+        revision: revision,
+        deviceId: deviceId,
+        shouldContinue: shouldContinue,
+      ),
+    );
+  }
+
+  void _setCameraTracksEnabled(bool enabled) {
+    for (final track
+        in _localStream?.getVideoTracks() ?? const <rtc.MediaStreamTrack>[]) {
+      track.enabled = enabled;
+    }
+  }
 
   Future<void> _setCameraEnabled(
     bool enabled, {
+    required int revision,
     String? deviceId,
     bool Function()? shouldContinue,
   }) async {
-    bool wanted() => !_closing && !disposed && (shouldContinue?.call() ?? true);
+    // A newer request owns the camera: an enable that an off overtook neither
+    // captures nor publishes. An off always runs; it was reported at once.
+    bool wanted() =>
+        revision == _cameraRevision &&
+        !_closing &&
+        !disposed &&
+        (shouldContinue?.call() ?? true);
     if (enabled && !wanted()) return;
     final existing = List<rtc.MediaStreamTrack>.of(
       _localStream?.getVideoTracks() ?? const <rtc.MediaStreamTrack>[],
@@ -1886,7 +1908,11 @@ final class MeshVoiceMediaSession extends _VoiceMediaNotifier {
       changed();
       return;
     }
-    if (existing.isNotEmpty) return;
+    if (existing.isNotEmpty) {
+      // Only an off that could not switch senders retains a camera, silenced.
+      _setCameraTracksEnabled(true);
+      return;
+    }
     final (width, height, frameRate) = switch (join.room.maxQualityProfile) {
       VoiceQualityProfile.standard => (640, 360, 15),
       VoiceQualityProfile.high => (1280, 720, 24),
@@ -3263,12 +3289,17 @@ final class LiveKitVoiceMediaSession extends _VoiceMediaNotifier {
     bool enabled, {
     String? deviceId,
     bool Function()? shouldContinue,
-  }) => _setCameraEnabled(
-    enabled,
-    deviceId: deviceId,
-    shouldContinue: shouldContinue,
-    revision: ++_cameraRevision,
-  );
+  }) {
+    // The camera tail can be waiting on OS consent, and the SDK mutes only
+    // after any publish in flight; stop sending before joining either.
+    if (!enabled) _silencePublished(lk.TrackSource.camera);
+    return _setCameraEnabled(
+      enabled,
+      deviceId: deviceId,
+      shouldContinue: shouldContinue,
+      revision: ++_cameraRevision,
+    );
+  }
 
   Future<void> _setCameraEnabled(
     bool enabled, {
@@ -3283,6 +3314,10 @@ final class LiveKitVoiceMediaSession extends _VoiceMediaNotifier {
           revision == _cameraRevision &&
           (shouldContinue?.call() ?? true);
       if (_closing || disposed || (enabled && !wanted())) return;
+      // An enable that ran while this off waited may have published or
+      // restarted the camera, and the SDK can still queue the mute behind
+      // other publishes.
+      if (!enabled) _silencePublished(lk.TrackSource.camera);
       final participant = _room.localParticipant;
       if (enabled && shouldContinue != null && participant != null) {
         // SDK's combined capture/publish call cannot cancel between the two.
