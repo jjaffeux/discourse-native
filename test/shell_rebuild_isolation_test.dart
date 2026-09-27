@@ -1,7 +1,10 @@
 import 'dart:async';
 
 import 'package:discourse_native/src/models/content_route.dart';
+import 'package:discourse_native/src/models/discourse_user.dart';
+import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/models/topic.dart';
+import 'package:discourse_native/src/models/user_status.dart';
 import 'package:discourse_native/src/shell/adaptive_shell.dart';
 import 'package:discourse_native/src/shell/forum_tabs_bar.dart';
 import 'package:discourse_native/src/shell/instance_rail.dart';
@@ -410,6 +413,93 @@ void main() {
     expect(controller.readerContentBounds, isNot(beforeResize));
     expect(boundsNotifications, greaterThan(5));
     expect(shellNotifications, 0);
+  });
+
+  testWidgets('sitewide user status events do not notify the shell facade', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1200, 800));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    const siteUrl = 'https://meta.discourse.org';
+    const user = DiscourseUser(id: 7, username: 'reader');
+    final controller = ShellController(
+      instanceStore: FakeInstanceStore([
+        instance('meta.discourse.org', title: 'Meta').copyWith(
+          user: user,
+          config: const SiteConfig(userStatusEnabled: true),
+        ),
+      ]),
+      api: FakeDiscourseApi(
+        user: user,
+        feeds: const {
+          '/latest.json': [
+            Topic(id: 7, title: 'A real topic', slug: 'a-real-topic'),
+          ],
+        },
+        siteConfigs: const {siteUrl: SiteConfig(userStatusEnabled: true)},
+      ),
+      authenticator: FakeAuthenticator()..keys[siteUrl] = 'key',
+      drafts: FakeDraftStore(),
+      trackers: FakeSiteTracker.reset(),
+      updateStore: FakeUpdateStore(),
+    );
+    addTearDown(controller.dispose);
+    await controller.load();
+
+    await tester.pumpWidget(
+      ShellScope(
+        controller: controller,
+        child: MaterialApp(
+          theme: AppTheme.light.copyWith(platform: TargetPlatform.macOS),
+          home: const AdaptiveShell(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('A real topic'), findsOneWidget);
+    final tracker = FakeSiteTracker.built.single;
+    expect(tracker.pluginChannelCallbacks['/user-status'], hasLength(1));
+
+    var shellNotifications = 0;
+    void countShellNotification() => shellNotifications++;
+    controller.addListener(countShellNotification);
+    addTearDown(() => controller.removeListener(countShellNotification));
+    final rebuilt = <Element>{};
+    final previousRebuildCallback = debugOnRebuildDirtyWidget;
+    debugOnRebuildDirtyWidget = (element, builtOnce) {
+      rebuilt.add(element);
+      previousRebuildCallback?.call(element, builtOnce);
+    };
+    addTearDown(() {
+      debugOnRebuildDirtyWidget = previousRebuildCallback;
+    });
+
+    // Every account on the site publishes here when it sets or clears a
+    // status; none of these people is on screen.
+    for (var userId = 100; userId < 110; userId++) {
+      tracker.deliverPluginMessage('/user-status', {
+        '$userId': {'description': 'Status $userId', 'emoji': 'house'},
+      });
+      await tester.pump();
+    }
+    tracker.deliverPluginMessage('/user-status', const {'100': null});
+    await tester.pump();
+
+    expect(
+      controller.userStatuses.statusFor(
+        siteUrl,
+        100,
+        const UserStatus(description: 'Snapshot', emoji: 'clock1'),
+      ),
+      isNull,
+    );
+    expect(
+      controller.userStatuses.statusFor(siteUrl, 109, null)?.description,
+      'Status 109',
+    );
+    expect(shellNotifications, 0);
+    expect(rebuilt, isEmpty);
   });
 
   testWidgets(

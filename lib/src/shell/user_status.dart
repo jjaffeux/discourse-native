@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import '../models/user_status.dart';
 import 'shell_scope.dart';
 import 'site_emoji_image.dart';
+import 'user_status_overrides.dart';
 
 class UserStatusMessage extends StatelessWidget {
   const UserStatusMessage({
@@ -35,33 +36,90 @@ class UserStatusMessage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (ShellScope.maybeIdentityOf(context) == null) {
-      return _ExpiringUserStatus(
-        siteUrl: siteUrl,
-        status: status,
-        showDescription: showDescription,
-        size: size,
-        style: style,
-        descriptionMaxWidth: descriptionMaxWidth,
-        leadingGap: leadingGap,
-        badgeBackgroundColor: badgeBackgroundColor,
-        badgePadding: badgePadding,
-      );
-    }
-    return ShellSelector<UserStatus?>(
-      select: (controller) => controller.userStatusFor(siteUrl, userId, status),
-      builder: (context, liveStatus, child) => _ExpiringUserStatus(
-        siteUrl: siteUrl,
-        status: liveStatus,
-        showDescription: showDescription,
-        size: size,
-        style: style,
-        descriptionMaxWidth: descriptionMaxWidth,
-        leadingGap: leadingGap,
-        badgeBackgroundColor: badgeBackgroundColor,
-        badgePadding: badgePadding,
-      ),
+    final overrides = ShellScope.maybeIdentityOf(context)?.userStatuses;
+    if (overrides == null) return _expiring(status);
+    return _LiveUserStatus(
+      overrides: overrides,
+      siteUrl: siteUrl,
+      userId: userId,
+      snapshot: status,
+      builder: _expiring,
     );
+  }
+
+  Widget _expiring(UserStatus? status) => _ExpiringUserStatus(
+    siteUrl: siteUrl,
+    status: status,
+    showDescription: showDescription,
+    size: size,
+    style: style,
+    descriptionMaxWidth: descriptionMaxWidth,
+    leadingGap: leadingGap,
+    badgeBackgroundColor: badgeBackgroundColor,
+    badgePadding: badgePadding,
+  );
+}
+
+/// Rebuilds only when this user's own resolved status changes, however many
+/// other people on the site change theirs.
+class _LiveUserStatus extends StatefulWidget {
+  const _LiveUserStatus({
+    required this.overrides,
+    required this.siteUrl,
+    required this.userId,
+    required this.snapshot,
+    required this.builder,
+  });
+
+  final UserStatusOverrides overrides;
+  final String siteUrl;
+  final int? userId;
+  final UserStatus? snapshot;
+  final Widget Function(UserStatus? status) builder;
+
+  @override
+  State<_LiveUserStatus> createState() => _LiveUserStatusState();
+}
+
+class _LiveUserStatusState extends State<_LiveUserStatus> {
+  late UserStatus? _status;
+
+  UserStatus? _read() => widget.overrides.statusFor(
+    widget.siteUrl,
+    widget.userId,
+    widget.snapshot,
+  );
+
+  @override
+  void initState() {
+    super.initState();
+    _status = _read();
+    widget.overrides.addListener(_select);
+  }
+
+  @override
+  void didUpdateWidget(_LiveUserStatus oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!identical(oldWidget.overrides, widget.overrides)) {
+      oldWidget.overrides.removeListener(_select);
+      widget.overrides.addListener(_select);
+    }
+    _status = _read();
+  }
+
+  void _select() {
+    final next = _read();
+    if (next == _status) return;
+    setState(() => _status = next);
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.builder(_status);
+
+  @override
+  void dispose() {
+    widget.overrides.removeListener(_select);
+    super.dispose();
   }
 }
 
