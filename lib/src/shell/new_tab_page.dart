@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../foundation/calendar_day.dart';
 import '../models/bookmark.dart';
 import '../models/content_route.dart';
 import '../models/forum_workspace.dart';
@@ -536,13 +537,9 @@ String? _recentRouteUrl(ContentRoute route) {
 
 String _reminderDate(DateTime date) {
   final local = date.toLocal();
-  final today = DateUtils.dateOnly(DateTime.now());
-  final day = DateUtils.dateOnly(local);
-  final label = day == today
-      ? 'Today'
-      : day == today.add(const Duration(days: 1))
-      ? 'Tomorrow'
-      : DateFormat.yMMMd().format(local);
+  final label =
+      upcomingDayName(local, now: DateTime.now()) ??
+      DateFormat.yMMMd().format(local);
   return '$label at ${DateFormat.jm().format(local)}';
 }
 
