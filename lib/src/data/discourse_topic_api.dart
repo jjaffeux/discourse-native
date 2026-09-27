@@ -553,6 +553,7 @@ final class DiscourseTopicApi {
     int? categoryId,
     List<int> tagIds = const [],
     bool chronologicalOrder = false,
+    bool privateMessage = false,
     String? clientId,
   }) async {
     _requirePositiveId(topicId, 'topicId');
@@ -561,6 +562,13 @@ final class DiscourseTopicApi {
       _requirePositiveId(destinationTopicId, 'destinationTopicId');
     }
     if (categoryId != null) _requirePositiveId(categoryId, 'categoryId');
+    if (privateMessage && categoryId != null) {
+      throw ArgumentError.value(
+        categoryId,
+        'categoryId',
+        'a message has no category',
+      );
+    }
     if (tagIds.any((id) => id <= 0)) {
       throw ArgumentError.value(tagIds, 'tagIds', 'must contain positive ids');
     }
@@ -596,6 +604,9 @@ final class DiscourseTopicApi {
         // boolean appends the posts at the destination's end.
         if (destinationTopicId != null)
           'chronological_order': chronologicalOrder.toString(),
+        // Without it PostMover creates a new destination as a public topic,
+        // and admits no moved post's author to an existing message.
+        if (privateMessage) 'archetype': 'private_message',
       },
     );
     final url = jsonText(body['url']);

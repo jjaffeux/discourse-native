@@ -277,11 +277,17 @@ final class TopicPostMoveTarget {
   const TopicPostMoveTarget._({
     required this.siteUrl,
     required this.topicId,
+    required this.privateMessage,
     required this._lease,
   });
 
   final String siteUrl;
   final int topicId;
+
+  /// Whether the source was a message when the move was offered. Its posts
+  /// move only into a message, and a source that has changed archetype since
+  /// is refused rather than moved as the other kind.
+  final bool privateMessage;
   final SiteLease _lease;
 }
 
@@ -10859,6 +10865,8 @@ class ShellController extends FrameSafeNotifier
       TopicPostMoveTarget._(
         siteUrl: siteUrl,
         topicId: topicId,
+        privateMessage:
+            store.read<TopicDetail>(siteUrl, topicId)?.privateMessage ?? false,
         lease: lifecycle.capture(siteUrl),
       );
 
@@ -10867,6 +10875,11 @@ class ShellController extends FrameSafeNotifier
 
   bool isTopicPostMoveTargetCurrent(TopicPostMoveTarget target) =>
       !isDisposed && target._lease.isCurrent;
+
+  /// Whether a message's posts may start a new message. The server accepts it
+  /// from any staff member, but web offers it to admins only.
+  bool canMoveTopicPostsToNewMessage(TopicPostMoveTarget target) =>
+      currentUserFor(target.siteUrl)?.admin == true;
 
   String? _topicPostMoveRefusal(
     TopicPostMoveTarget target, {
@@ -10877,6 +10890,9 @@ class ShellController extends FrameSafeNotifier
     final topic = store.read<TopicDetail>(target.siteUrl, target.topicId);
     final forbidden = const WriteException(WriteFailure.forbidden).message;
     if (topic == null || !topic.canMovePosts) return forbidden;
+    // A move is sent with the archetype it was offered in, and one sent as a
+    // topic publishes a message's posts in a new public topic.
+    if (topic.privateMessage != target.privateMessage) return forbidden;
     if (postIds == null) return null;
     if (postIds.isEmpty ||
         postIds.any(
@@ -10889,7 +10905,9 @@ class ShellController extends FrameSafeNotifier
     if (newTopic &&
         (postIds.length == topic.stream.length ||
             store.read<Post>(target.siteUrl, postIds.first)?.postType !=
-                Post.regularPostType)) {
+                Post.regularPostType ||
+            (target.privateMessage &&
+                !canMoveTopicPostsToNewMessage(target)))) {
       return forbidden;
     }
     return null;
@@ -10919,12 +10937,17 @@ class ShellController extends FrameSafeNotifier
       );
     }
     try {
+      // The server refuses a move between a message and a topic, so each
+      // searches only its own archetype, as web's topic and message choosers
+      // do.
       final results = await api.search.searchPosts(
         siteUrl: siteUrl,
         term: trimmed,
-        typeFilter: 'topic',
+        typeFilter: target.privateMessage ? 'private_messages' : 'topic',
         searchForId: true,
-        restrictToArchetype: 'regular',
+        restrictToArchetype: target.privateMessage
+            ? 'private_message'
+            : 'regular',
         apiKey: credential.apiKey,
       );
       if (_topicPostMoveRefusal(target) case final error?) {
@@ -10935,7 +10958,7 @@ class ShellController extends FrameSafeNotifier
         destinations: List<TopicMoveDestination>.unmodifiable([
           for (final hit in results.hits)
             if (hit.topicId != topicId &&
-                !hit.privateMessage &&
+                hit.privateMessage == target.privateMessage &&
                 seen.add(hit.topicId))
               (id: hit.topicId, title: hit.topicTitle, slug: hit.topicSlug),
         ]),
@@ -11000,6 +11023,7 @@ class ShellController extends FrameSafeNotifier
         postIds: ids,
         destinationTopicId: destinationTopicId,
         chronologicalOrder: chronologicalOrder,
+        privateMessage: target.privateMessage,
       );
     });
     if (!isTopicPostMoveTargetCurrent(target)) {
@@ -11028,7 +11052,7 @@ class ShellController extends FrameSafeNotifier
         case final error?) {
       return (destinationUrl: null, error: error);
     }
-    if (title.trim().isEmpty) {
+    if (title.trim().isEmpty || (target.privateMessage && categoryId != null)) {
       return (
         destinationUrl: null,
         error: const WriteException(WriteFailure.forbidden).message,
@@ -11051,6 +11075,7 @@ class ShellController extends FrameSafeNotifier
         title: title,
         categoryId: categoryId,
         tagIds: tagIds,
+        privateMessage: target.privateMessage,
       );
     });
     if (!isTopicPostMoveTargetCurrent(target)) {

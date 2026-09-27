@@ -735,6 +735,7 @@ abstract interface class PostMutationsApi {
     int? categoryId,
     List<int> tagIds = const [],
     bool chronologicalOrder = false,
+    bool privateMessage = false,
     String? clientId,
   });
 

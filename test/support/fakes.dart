@@ -1036,6 +1036,7 @@ class FakeDiscourseApi
       int? categoryId,
       List<int> tagIds,
       bool chronologicalOrder,
+      bool privateMessage,
     })
   >
   movedTopicPosts = [];
@@ -2689,6 +2690,7 @@ class FakeDiscourseApi
     int? categoryId,
     List<int> tagIds = const [],
     bool chronologicalOrder = false,
+    bool privateMessage = false,
     String? clientId,
   }) async {
     movedTopicPosts.add((
@@ -2699,6 +2701,7 @@ class FakeDiscourseApi
       categoryId: categoryId,
       tagIds: List.unmodifiable(tagIds),
       chronologicalOrder: chronologicalOrder,
+      privateMessage: privateMessage,
     ));
     final failure = writeFailure;
     if (failure != null) throw failure;
