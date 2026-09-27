@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:discourse_native/src/shell/composer_link.dart';
 import 'package:discourse_native/src/shell/markdown_highlight.dart';
 import 'package:flutter/services.dart';
@@ -313,6 +315,178 @@ void main() {
         _expectLinks(source, [_linkify('https://example.test/${entry.value}')]);
       }
     });
+
+    test('finds links where long runs without spaces end', () {
+      final letters = 'a' * 4096;
+      final base64 = 'Ab3+/' * 820;
+      final labels = 'a.' * 2048;
+
+      // Every character of the run before an @ is its local part.
+      for (final run in [letters, base64, labels]) {
+        _expectLinks('${run}x@example.com.', [
+          _linkify('${run}x@example.com', 'mailto:${run}x@example.com'),
+        ]);
+      }
+      // A URL needs a boundary before it, which a slash or a space gives.
+      _expectLinks('${letters}https://example.com/a', []);
+      _expectLinks('${base64}https://example.com/a', [
+        _linkify('https://example.com/a'),
+      ]);
+      _expectLinks('$letters https://example.com/a).', [
+        _linkify('https://example.com/a'),
+      ]);
+      // Labels before a host are its subdomains, however many there are.
+      _expectLinks('${labels}example.com', [
+        _linkify('${labels}example.com', 'http://${labels}example.com'),
+      ]);
+      _expectLinks('$labels www.example.com.', [
+        _linkify('www.example.com', 'http://www.example.com'),
+      ]);
+      _expectLinks('${letters}www.example.com', []);
+      _expectLinks('${'ab-' * 1365} see www.example.com/a_(b)).', [
+        _linkify('www.example.com/a_(b)', 'http://www.example.com/a_(b)'),
+      ]);
+    });
+
+    test('keeps the 63-character label limit', () {
+      final longest = '${'a' * 63}.com';
+      _expectLinks('$longest ${'b' * 64}.com x@${'c' * 64}.com', [
+        _linkify(longest, 'http://$longest'),
+      ]);
+    });
+  });
+
+  group('linkify candidates', () {
+    // The pattern the candidate scan replaced, one alternative per constant.
+    const urlPattern = r'(?:(?:https?|ftp)://|//)[^\s<]+';
+    const emailPattern =
+        r"[A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]+@"
+        r'(?:[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?\.)+'
+        r'[A-Za-z]{2,63}';
+    const hostPattern =
+        r'(?:[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?\.)+'
+        r'[A-Za-z]{2,63}(?::[0-9]{1,5})?(?:[/?#][^\s<]*)?';
+    RegExp compile(String pattern) =>
+        RegExp(pattern, caseSensitive: false, unicode: true);
+    final pattern = compile('$urlPattern|$emailPattern|$hostPattern');
+    List<(int, int)> matches(String source) => [
+      for (final match in pattern.allMatches(source)) (match.start, match.end),
+    ];
+
+    test('agree with the pattern they replaced', () {
+      const alphabet = [
+        'a',
+        'Z',
+        '7',
+        '-',
+        '.',
+        '@',
+        '_',
+        '+',
+        '/',
+        ':',
+        '?',
+        '#',
+        '<',
+        ' ',
+        '\n',
+        'ab',
+        'com',
+        '.io',
+        'x.y',
+        'www.',
+        'x@',
+        '@ab.cd',
+        'http',
+        'HTTPS',
+        'ftp',
+        '://',
+        '//',
+        ':80',
+        '123456',
+        '(',
+        ')',
+        ',',
+        "'",
+        // Whitespace outside ASCII, the two code points that case-fold onto
+        // ASCII letters, a letter that does not, and surrogates.
+        '\u00a0',
+        '\u2028',
+        '\u3000',
+        '\ufeff',
+        '\u017f',
+        '\u212a',
+        'é',
+        '😀',
+        '\ud800',
+        // Two of these make a label longer than 63 characters.
+        'bcdefghijklmnopqrstuvwxyzabcdef',
+      ];
+      final alternatives = {
+        'url': compile(urlPattern),
+        'email': compile(emailPattern),
+        'host': compile(hostPattern),
+      };
+      final reached = {for (final kind in alternatives.keys) kind: 0};
+      var sourcesWithoutCandidates = 0;
+      final random = Random(20260927);
+
+      for (var attempt = 0; attempt < 20000; attempt += 1) {
+        final buffer = StringBuffer();
+        for (var i = random.nextInt(24); i > 0; i -= 1) {
+          buffer.write(alphabet[random.nextInt(alphabet.length)]);
+        }
+        final source = buffer.toString();
+        final expected = matches(source);
+
+        expect(
+          composerLinkifyCandidates(source),
+          expected,
+          reason: 'differed on ${source.codeUnits}',
+        );
+        if (expected.isEmpty) sourcesWithoutCandidates += 1;
+        for (final (start, _) in expected) {
+          final kind = alternatives.entries
+              .firstWhere(
+                (entry) => entry.value.matchAsPrefix(source, start) != null,
+              )
+              .key;
+          reached[kind] = reached[kind]! + 1;
+        }
+      }
+
+      expect(sourcesWithoutCandidates, greaterThan(1000));
+      for (final entry in reached.entries) {
+        expect(entry.value, greaterThan(1000), reason: entry.key);
+      }
+    });
+
+    test('agree with the pattern at its length limits', () {
+      for (final source in [
+        '${'a' * 63}.com',
+        '${'a' * 64}.com',
+        '${'a' * 70}.${'b' * 63}.${'c' * 64}.com',
+        '-${'a' * 62}-.com',
+        'a.${'b' * 70}',
+        'x@${'b' * 63}.com',
+        'x@${'b' * 64}.com',
+        'x@a.${'b' * 64}.c',
+        'host.com:123456/path',
+        'host.com:/path',
+        'host.com:8a',
+        'https:// x',
+        'http\u017f://x',
+        '//<x',
+        '\u017f.com',
+        'a.\u212aa',
+      ]) {
+        expect(
+          composerLinkifyCandidates(source),
+          matches(source),
+          reason: source,
+        );
+      }
+    });
   });
 
   group('composer link parser scaling', () {
@@ -385,6 +559,38 @@ void main() {
           expect(large, lessThan(small * 25));
         },
       );
+    }
+
+    // A paste with no space in it, such as a base64 blob or a minified token,
+    // is one run that every later start position shares. A failed candidate
+    // must not reread the rest of it; the former pattern grew ~60x here.
+    const spacelessRuns = {
+      'letters': 'a',
+      'base64': 'Ab3+/',
+      'hyphenated words': 'ab-',
+      'one-letter labels': 'a.',
+      'email local parts with no @': 'first.last+tag_',
+    };
+    for (final run in spacelessRuns.entries) {
+      test('a run of ${run.key} scales with its length', () {
+        final count = (1024 / run.value.length).ceil();
+        final smallSource = run.value * count;
+        final largeSource = run.value * (count * 8);
+        int scan(String source) =>
+            parseComposerLinks(source, codeRanges: CodeRanges.none).length;
+        expect(scan(smallSource), 0);
+        expect(scan(largeSource), 0);
+
+        final (:small, :large) = measureScaling(
+          () => scan(smallSource),
+          () => scan(largeSource),
+        );
+        expect(
+          large,
+          lessThan(small * 25),
+          reason: 'eight times "${run.value}" took ${large / small} times',
+        );
+      });
     }
 
     for (final closer in [')', ']', '}']) {
