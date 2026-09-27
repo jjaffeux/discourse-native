@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -70,6 +73,73 @@ Widget _drawer<T>({
     ],
   ),
 );
+
+/// Pumps an animated host and opens [builder] through [showDDrawer], leaving
+/// the route's first frame unpumped.
+Future<void> _showAnimatedDrawer(
+  WidgetTester tester, {
+  required DDrawerContentBuilder<void> builder,
+  FocusNode? initialFocusNode,
+}) async {
+  late BuildContext host;
+  await tester.pumpWidget(
+    _host(
+      Builder(
+        builder: (context) {
+          host = context;
+          return const SizedBox.shrink();
+        },
+      ),
+      disableAnimations: false,
+    ),
+  );
+  unawaited(
+    showDDrawer<void>(
+      context: host,
+      initialFocusNode: initialFocusNode,
+      builder: builder,
+    ),
+  );
+}
+
+const _resizingBody = ValueKey('resizing drawer body');
+
+/// Opens and settles a drawer whose only content is [height] tall.
+Future<DDrawerController<void>> _showResizingDrawer(
+  WidgetTester tester,
+  ValueListenable<double> height,
+) async {
+  late DDrawerController<void> drawer;
+  await _showAnimatedDrawer(
+    tester,
+    builder: (_, controller) {
+      drawer = controller;
+      return DDrawerContent(
+        children: [
+          ValueListenableBuilder<double>(
+            valueListenable: height,
+            builder: (_, value, _) =>
+                SizedBox(key: _resizingBody, height: value),
+          ),
+        ],
+      );
+    },
+  );
+  await tester.pumpAndSettle();
+  return drawer;
+}
+
+class _PaintCounter extends CustomPainter {
+  _PaintCounter(this.onPaint);
+
+  final VoidCallback onPaint;
+
+  @override
+  void paint(Canvas canvas, Size size) => onPaint();
+
+  @override
+  bool shouldRepaint(_PaintCounter oldDelegate) => false;
+}
 
 void main() {
   testWidgets('open completion reports after both route transitions', (
@@ -923,6 +993,113 @@ void main() {
     await tester.pumpAndSettle();
     expect(result, 'accepted');
   });
+
+  testWidgets(
+    'an opening drawer paints nothing before it knows its height yet takes '
+    'initial focus on its first frame',
+    (tester) async {
+      final semantics = tester.ensureSemantics();
+      final focus = FocusNode();
+      addTearDown(focus.dispose);
+      const body = ValueKey('opening body');
+      var paints = 0;
+      await _showAnimatedDrawer(
+        tester,
+        initialFocusNode: focus,
+        builder: (_, _) => DDrawerContent(
+          children: [
+            Focus(
+              focusNode: focus,
+              child: SizedBox(
+                key: body,
+                height: 300,
+                child: CustomPaint(
+                  painter: _PaintCounter(() => paints++),
+                  child: const Text('Opening body'),
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+
+      await tester.pump();
+      expect(paints, 0);
+      expect(find.bySemanticsLabel('Opening body'), findsNothing);
+      expect(focus.hasFocus, isTrue);
+
+      await tester.pump(const Duration(milliseconds: 16));
+      expect(paints, greaterThan(0));
+      expect(find.bySemanticsLabel('Opening body'), findsOneWidget);
+      final firstPaintedTop = tester.getTopLeft(find.byKey(body)).dy;
+      await tester.pumpAndSettle();
+      final restingTop = tester.getTopLeft(find.byKey(body)).dy;
+      // It enters from its closed edge instead of flashing fully open.
+      expect(firstPaintedTop, greaterThan(restingTop + 300 * .5));
+      semantics.dispose();
+    },
+  );
+
+  testWidgets('content that grows after opening closes by its grown height', (
+    tester,
+  ) async {
+    final height = ValueNotifier<double>(80);
+    addTearDown(height.dispose);
+    final drawer = await _showResizingDrawer(tester, height);
+    height.value = 400;
+    await tester.pumpAndSettle();
+    final body = find.byKey(_resizingBody);
+    final openTop = tester.getTopLeft(body).dy;
+    expect(openTop, 200);
+
+    drawer.close();
+    var lastTop = openTop;
+    for (var frame = 0; frame < 60; frame++) {
+      await tester.pump(const Duration(milliseconds: 16));
+      if (body.evaluate().isEmpty) break;
+      lastTop = tester.getTopLeft(body).dy;
+    }
+    expect(body, findsNothing);
+    // The last frame leaves at most a sliver on screen rather than dropping
+    // the body from partway down, which travel by the opening height did.
+    expect(lastTop - openTop, greaterThan(400 * .9));
+  });
+
+  testWidgets(
+    'content that grows after opening is swiped against its grown height',
+    (tester) async {
+      final height = ValueNotifier<double>(80);
+      addTearDown(height.dispose);
+      await _showResizingDrawer(tester, height);
+      height.value = 400;
+      await tester.pumpAndSettle();
+      final body = find.byKey(_resizingBody);
+      double top() => tester.getTopLeft(body).dy;
+
+      // 150 px is past the 80 px opening height, so past both its dismiss
+      // threshold and its over-drag resistance, but short of half the grown
+      // height; 250 px is past half the grown height.
+      var gesture = await tester.startGesture(tester.getCenter(body));
+      await gesture.moveBy(const Offset(0, 30));
+      await tester.pump();
+      final accepted = top();
+      await gesture.moveBy(const Offset(0, 120));
+      await tester.pump();
+      expect(top(), closeTo(accepted + 120, .1));
+      await gesture.up();
+      await tester.pumpAndSettle();
+      expect(top(), closeTo(200, .1));
+
+      gesture = await tester.startGesture(tester.getCenter(body));
+      await gesture.moveBy(const Offset(0, 30));
+      await tester.pump();
+      await gesture.moveBy(const Offset(0, 220));
+      await tester.pump();
+      await gesture.up();
+      await tester.pumpAndSettle();
+      expect(body, findsNothing);
+    },
+  );
 
   testWidgets('Escape closes only the frontmost nested drawer', (tester) async {
     await tester.pumpWidget(
