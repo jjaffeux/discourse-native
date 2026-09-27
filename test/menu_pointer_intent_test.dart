@@ -78,7 +78,18 @@ void main() {
         final trigger = tester.getRect(find.byKey(const ValueKey('Share')));
         final popup = tester.getRect(find.byType(DDropdownMenuContent).last);
         expect(popup.top, lessThan(trigger.top));
-        await path.mouse.moveTo(path.over(tester, 'Open', .85));
+        // Cross the bottom of the Open row: above the trigger row, yet below
+        // the popup's raised top edge, so the move still heads into the popup.
+        final target = Offset(
+          path.over(tester, 'Open', .85).dx,
+          trigger.top - 2,
+        );
+        expect(
+          tester.getRect(find.byKey(const ValueKey('Open'))).contains(target),
+          isTrue,
+        );
+        expect(target.dy, greaterThan(popup.top));
+        await path.mouse.moveTo(target);
         await tester.pump(const Duration(milliseconds: 100));
         expect(find.text('Share 0'), findsOneWidget);
         await path.mouse.moveTo(tester.getCenter(find.text('Share 0')));

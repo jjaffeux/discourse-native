@@ -926,15 +926,18 @@ void _registerChatShellTests() {
         ) async {
           final semantics = tester.ensureSemantics();
           try {
-            await pumpChat(
-              tester,
-              totals: withoutChat,
-              public: [channel(9)],
-              messages: {key(9): page(const [])},
-              user: chatUser(
-                separateSidebarMode: ChatSeparateSidebarMode.always,
-              ),
+            final user = chatUser(
+              separateSidebarMode: ChatSeparateSidebarMode.always,
             );
+            final api = _ReportedTotalsApi(
+              withoutChat,
+              user: user,
+              chatChannelsBySite: {
+                site: ChatChannels(public: [channel(9)]),
+              },
+              chatMessagesByKey: {key(9): page(const [])},
+            );
+            await pumpChat(tester, api: api, user: user);
             final shell = ShellScope.read(
               tester.element(find.byType(MainContent)),
             );
@@ -944,7 +947,13 @@ void _registerChatShellTests() {
               findsNothing,
             );
 
-            shell.accountActivity.applyCounts(site, (_) => withChat);
+            // Chat becomes available through a later totals load, which is
+            // also what fetches the channels the Chat sidebar lists.
+            api.reported = withChat;
+            await shell.accountActivity.refresh(
+              shell.currentInstance!,
+              force: true,
+            );
             await tester.pumpAndSettle();
 
             expect(shell.currentTotals?.hasChatEnabled, isTrue);
@@ -959,6 +968,7 @@ void _registerChatShellTests() {
 
             expect(find.bySemanticsLabel('Chat navigation'), findsOneWidget);
             expect(find.bySemanticsLabel('Forum navigation'), findsNothing);
+            expect(sidebarDestination('Bugs'), findsOneWidget);
             expect(shell.currentContent?.id, 'latest');
             expect(
               find.byKey(const ValueKey('sidebar-panel-switch-main')),
@@ -2107,9 +2117,11 @@ void _registerChatShellTests() {
               );
               await pumpChat(tester, api: api, size: phone);
 
+              // Phone inbox rows draw no menu button; touch reaches the
+              // channel menu by long press alone.
               expect(
                 find.byKey(const ValueKey('chat-channel-menu-button-9')),
-                findsOneWidget,
+                findsNothing,
               );
               final shell = ShellScope.read(
                 tester.element(find.byType(InstanceSidebar)),
@@ -2621,7 +2633,8 @@ void _registerChatShellTests() {
         await pumpChat(tester, size: phone, public: [channel(9)]);
         expect(sidebarDestination('Bugs'), findsOneWidget);
 
-        await tester.tap(find.byKey(const ValueKey('mobile-mode-home')));
+        // The forum rail lives behind the phone navigation menu.
+        await tester.tap(find.byKey(const ValueKey('mobile-menu-button')));
         await tester.pumpAndSettle();
         await tester.longPress(
           find.byKey(const ValueKey<String>('https://meta.discourse.org')),
@@ -2904,7 +2917,7 @@ void _registerChatShellTests() {
         final settingsStyle = DefaultTextStyle.of(
           tester.element(settingsLabel),
         ).style;
-        expect(settingsStyle.fontSize, 16);
+        expect(settingsStyle.fontSize, 14);
         expect(settingsStyle.fontWeight, FontWeight.w600);
         expect(
           tester.widget<Text>(summaryTitle).style?.fontSize,
@@ -4065,7 +4078,7 @@ void _registerChatShellTests() {
           await tester.pump();
           final launcher = find.bySemanticsLabel('Add reaction');
           expect(launcher, findsOneWidget);
-          expect(tester.getSize(launcher), const Size.square(28));
+          expect(tester.getSize(launcher), const Size.square(26));
           final launcherRect = tester.getRect(launcher);
           await tester.tap(launcher);
           await tester.pumpAndSettle();
@@ -4750,7 +4763,8 @@ void _registerChatShellTests() {
         await tester.pumpAndSettle();
 
         expect(renderedText('Hello there'), findsNothing);
-        expect(find.text('Channels'), findsOneWidget);
+        // The phone Chat inbox lists its rows without a Channels heading.
+        expect(sidebarDestination('Bugs'), findsOneWidget);
       });
     });
   });
@@ -4840,3 +4854,23 @@ final class _PanePolicy implements PluginPaneRoutePolicy {
 }
 
 final class _PanePolicyLifecycle extends PluginSessionLifecycle {}
+
+/// Answers the totals endpoint with what the site reports at request time, so
+/// a test can let a capability arrive through a later totals load.
+final class _ReportedTotalsApi extends FakeDiscourseApi {
+  _ReportedTotalsApi(
+    this.reported, {
+    super.user,
+    super.chatChannelsBySite,
+    super.chatMessagesByKey,
+  });
+
+  NotificationTotals reported;
+
+  @override
+  Future<NotificationTotals> notificationTotals({
+    required String siteUrl,
+    required String apiKey,
+    String? clientId,
+  }) async => reported;
+}

@@ -1869,7 +1869,7 @@ void main() {
       ].join(),
     );
 
-    final expected = [30.0, 24.0, 20.0, 18.0, 16.0, 14.0];
+    final expected = [28.0, 22.0, 18.0, 17.0, 14.0, 14.0];
     for (var level = 1; level <= 6; level++) {
       final style = styleOf(tester, 'Heading $level');
       expect(style.fontSize, expected[level - 1], reason: 'heading $level');
@@ -1905,7 +1905,8 @@ void main() {
       expect(style.fontFamily, monospaceFontFamily);
       expect(style.fontFamilyFallback, monospaceFallback);
       expect(style.fontFeatures, contains(const FontFeature.disable('liga')));
-      expect(style.fontSize, 14);
+      // 0.875 of the 14px body text.
+      expect(style.fontSize, 12.25);
     });
 
     testWidgets('keeps the whitespace the author wrote', (tester) async {
