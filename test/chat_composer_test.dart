@@ -1947,9 +1947,9 @@ void main() {
           tester.getRect(find.byType(ChatUploadDropRegion)),
         );
 
-        final file = DropItemFile(
-          '/tmp/photo.png',
-          bytes: Uint8List.fromList(const [1, 2, 3]),
+        final file = DropItemFile.fromData(
+          Uint8List.fromList(const [1, 2, 3]),
+          path: '/tmp/photo.png',
         );
         expect(file.name, 'photo.png');
         tester.widget<DropTarget>(_uploadDropTarget(targetFinder)).onDragDone!(
@@ -2029,7 +2029,17 @@ void main() {
       expect(inPane(9, overlay), findsOneWidget);
       expect(inPane(10, overlay), findsNothing);
 
+      // Preparation reads the dropped file's size before calling the API.
+      // Flush both real I/O and the framework's fake microtask queue.
       await drag.drop([nativeDropFile('photo.png')]);
+      final wait = Stopwatch()..start();
+      while (fixture.api.composerUploads.isEmpty &&
+          wait.elapsed < const Duration(seconds: 5)) {
+        await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 1)),
+        );
+        await tester.pump();
+      }
       await tester.pumpAndSettle();
 
       expect(overlay, findsNothing);

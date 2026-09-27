@@ -62,6 +62,41 @@ void main() {
       expect(await pickComposerFiles(), isEmpty);
     });
 
+    test('only mobile photo JPEGs bypass a second lossy encoding', () async {
+      imagePicker.files = [
+        for (final name in ['photo.jpg', 'photo.JPEG', 'alpha.png'])
+          images.XFile.fromData(Uint8List.fromList([1, 2]), path: name),
+      ];
+      try {
+        for (final platform in [
+          TargetPlatform.iOS,
+          TargetPlatform.android,
+          TargetPlatform.macOS,
+          TargetPlatform.linux,
+        ]) {
+          debugDefaultTargetPlatformOverride = platform;
+          final files = await pickComposerImages();
+          final mobile =
+              platform == TargetPlatform.iOS ||
+              platform == TargetPlatform.android;
+          expect(files.map((file) => file.imageOptimizationApplied), [
+            mobile,
+            mobile,
+            false,
+          ]);
+        }
+        selector.files = [
+          XFile.fromData(Uint8List.fromList([1]), path: 'photo.jpg'),
+        ];
+        expect(
+          (await pickComposerFiles()).single.imageOptimizationApplied,
+          isFalse,
+        );
+      } finally {
+        debugDefaultTargetPlatformOverride = null;
+      }
+    });
+
     test(
       'photo selection uses the native gallery and adapts its files',
       () async {

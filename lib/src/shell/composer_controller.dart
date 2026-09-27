@@ -349,6 +349,7 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
     this.pluginStateReader,
     this.isCurrentComposer,
     this.imageUploader,
+    this.prepareUpload,
     ComposerUploadUrlResolver? resolveUploadUrls,
     this.canUploadImage,
     this.canUploadFile,
@@ -445,6 +446,7 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
   final Future<void> Function(ComposerDraftSave save)? onStageDraft;
 
   final ComposerImageUploader? imageUploader;
+  final ComposerUploadPreparer? prepareUpload;
   final bool Function(String filename)? canUploadImage;
   final bool Function(String filename)? canUploadFile;
   final int simultaneousUploads;
@@ -956,6 +958,7 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
   );
   bool get hasActiveUploads => _uploads.any(
     (upload) =>
+        upload.status == ComposerUploadStatus.processing ||
         upload.status == ComposerUploadStatus.uploading ||
         upload.status == ComposerUploadStatus.retrying,
   );
@@ -1169,6 +1172,7 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
       if (pending != null) {
         batches.add(pending.batch);
         if (!pending.abort.isCompleted) pending.abort.complete();
+        pending.releasePreparation();
       }
       _uploads.removeWhere((upload) => upload.id == id);
     }
@@ -1191,9 +1195,38 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
     if (uploader == null || pending == null || index < 0) return;
     final file = _uploads[index].file;
     unawaited(
-      Future<ComposerUploadResult>.sync(
-        () => uploader(
-          file,
+      Future<ComposerUploadResult>.sync(() async {
+        final prepare = prepareUpload;
+        if (prepare != null && pending.prepared == null) {
+          _uploads[index] = _uploads[index].copyWith(
+            status: ComposerUploadStatus.processing,
+          );
+          _notify();
+          final prepared = await prepare(
+            file,
+            abortTrigger: pending.abort.future,
+          );
+          if (_disposed ||
+              _pendingUploads[id] != pending ||
+              pending.abort.isCompleted) {
+            await prepared.dispose();
+            throw const ComposerUploadException('Upload cancelled.');
+          }
+          pending.prepared = prepared;
+          final current = _uploadIndex(id);
+          _uploads[current] = _uploads[current].copyWith(
+            file: prepared.file,
+            status: ComposerUploadStatus.uploading,
+          );
+          _notify();
+        }
+        if (_disposed ||
+            _pendingUploads[id] != pending ||
+            pending.abort.isCompleted) {
+          throw const ComposerUploadException('Upload cancelled.');
+        }
+        return uploader(
+          pending.prepared?.file ?? file,
           abortTrigger: pending.abort.future,
           onProgress: (progress) {
             if (_disposed || !_pendingUploads.containsKey(id)) return;
@@ -1205,10 +1238,11 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
             );
             _notify();
           },
-        ),
-      ).then(
+        );
+      }).then(
         (result) {
           if (_disposed || !_pendingUploads.containsKey(id)) return;
+          pending.releasePreparation();
           pending.result = result;
           if (SiteConfig.isImageFilename(result.originalFilename)) {
             text.cacheImageUrl(result.shortUrl, result.previewUrl);
@@ -3128,6 +3162,7 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
   void _clearUploads() {
     for (final pending in _pendingUploads.values) {
       if (!pending.abort.isCompleted) pending.abort.complete();
+      pending.releasePreparation();
     }
     _pendingUploads.clear();
     _uploads.clear();
@@ -3179,6 +3214,13 @@ class _PendingComposerUpload {
   Completer<void> abort = Completer<void>();
   ComposerUploadResult? result;
   bool failed = false;
+  PreparedComposerUpload? prepared;
+
+  void releasePreparation() {
+    final owned = prepared;
+    prepared = null;
+    if (owned != null) unawaited(owned.dispose());
+  }
 }
 
 class _PendingGalleryUploadTarget {

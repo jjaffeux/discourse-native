@@ -23,10 +23,13 @@ class ComposerUploadAttachment extends StatelessWidget {
     final thumbnail = completed ? upload.result : null;
     final isImage = SiteConfig.isImageFilename(upload.file.name);
     final retrying = upload.status == ComposerUploadStatus.retrying;
+    final processing = upload.status == ComposerUploadStatus.processing;
     final description = failed
         ? upload.error ?? "Couldn't upload this image."
         : completed
         ? 'Uploaded'
+        : processing
+        ? 'Processing image'
         : '${retrying ? 'Retrying' : 'Uploading'} · ${(upload.progress * 100).round()}%';
     return DAttachment(
       width: double.infinity,
@@ -34,7 +37,7 @@ class ComposerUploadAttachment extends StatelessWidget {
           ? DAttachmentState.error
           : completed
           ? DAttachmentState.done
-          : retrying
+          : retrying || processing
           ? DAttachmentState.processing
           : DAttachmentState.uploading,
       liveRegion: !completed,

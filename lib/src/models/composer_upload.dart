@@ -10,12 +10,31 @@ class ComposerUploadFile {
     required this.name,
     required this.length,
     required this.openRead,
+    this.imageOptimizationApplied = false,
   });
 
   final String name;
   final Future<int> Function() length;
   final Stream<List<int>> Function() openRead;
+  final bool imageOptimizationApplied;
 }
+
+/// A prepared upload owns its temporary data until it succeeds or is removed.
+class PreparedComposerUpload {
+  PreparedComposerUpload(this.file, {this.release});
+
+  final ComposerUploadFile file;
+  final Future<void> Function()? release;
+  Future<void>? _disposal;
+
+  Future<void> dispose() => _disposal ??= release?.call() ?? Future.value();
+}
+
+typedef ComposerUploadPreparer =
+    Future<PreparedComposerUpload> Function(
+      ComposerUploadFile file, {
+      required Future<void> abortTrigger,
+    });
 
 @immutable
 class ComposerUploadResult {
@@ -143,7 +162,14 @@ String _humanFileSize(int bytes) {
   return '${size.toStringAsFixed(whole ? 0 : 1)} ${units[unit]}';
 }
 
-enum ComposerUploadStatus { uploading, retrying, completed, failed, cancelled }
+enum ComposerUploadStatus {
+  processing,
+  uploading,
+  retrying,
+  completed,
+  failed,
+  cancelled,
+}
 
 @immutable
 class ComposerUploadItem {
@@ -168,6 +194,7 @@ class ComposerUploadItem {
   final ComposerUploadResult? result;
 
   ComposerUploadItem copyWith({
+    ComposerUploadFile? file,
     double? progress,
     ComposerUploadStatus? status,
     String? error,
@@ -177,7 +204,7 @@ class ComposerUploadItem {
     bool clearResult = false,
   }) => ComposerUploadItem(
     id: id,
-    file: file,
+    file: file ?? this.file,
     progress: progress ?? this.progress,
     status: status ?? this.status,
     error: clearError ? null : error ?? this.error,

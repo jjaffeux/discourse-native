@@ -25,6 +25,7 @@ class ComposerDetailsBodyController extends ComposerController {
         ],
         pluginStateReader: parent.pluginStateReader,
         imageUploader: parent.imageUploader,
+        prepareUpload: parent.prepareUpload,
         resolveUploadUrls: parent.text.resolveUploadUrls,
         canUploadImage: parent.canUploadImage,
         canUploadFile: parent.canUploadFile,
