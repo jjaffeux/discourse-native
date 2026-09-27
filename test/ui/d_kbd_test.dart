@@ -112,8 +112,8 @@ void main() {
         style.fontFamily,
         Theme.of(context).textTheme.labelSmall!.fontFamily,
       );
-      expect(style.fontSize, 12);
-      expect(style.height, 16 / 12);
+      expect(style.fontSize, DiscourseTypography.xs);
+      expect(style.height, DiscourseTypography.lineHeightCaption);
       expect(style.leadingDistribution, TextLeadingDistribution.even);
       expect(style.fontWeight, FontWeight.w500);
       expect(tester.getSize(find.byType(Icon)), const Size(12, 12));
@@ -331,14 +331,18 @@ void main() {
         );
         expect(surface.duration, Duration.zero);
         expect(style.fontFamily, palette.name);
-        expect(style.fontSize, 12);
-        expect(style.height, 16 / 12);
+        expect(style.fontSize, DiscourseTypography.xs);
+        expect(style.height, DiscourseTypography.lineHeightCaption);
         expect(style.leadingDistribution, TextLeadingDistribution.even);
         expect(style.letterSpacing, 0);
         expect(style.fontWeight, FontWeight.w600);
         expect(style.color, tokens.primaryForeground);
         expect(style.decoration, TextDecoration.underline);
-        expect(tester.getSize(find.byType(DKbd)).height, 32);
+        // The doubled caption line box outgrows the fixed minimum height.
+        expect(
+          tester.getSize(find.byType(DKbd)).height,
+          DiscourseTypography.xs * DiscourseTypography.lineHeightCaption * 2,
+        );
       }
     },
   );

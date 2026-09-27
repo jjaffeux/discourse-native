@@ -1,4 +1,5 @@
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/src/theme/discourse_typography.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -88,9 +89,12 @@ void main() {
       16,
     );
     final style = tester.widget<Text>(find.text('No data')).style!;
-    expect(style.fontSize, 18);
+    expect(style.fontSize, DiscourseTypography.lg);
     expect(style.height, 28 / 18);
-    expect(style.letterSpacing, -.45);
+    expect(
+      style.letterSpacing,
+      DiscourseTypography.lg * DiscourseTypography.trackingTight,
+    );
     expect(style.fontWeight, FontWeight.w500);
   });
 

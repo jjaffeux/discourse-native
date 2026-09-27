@@ -126,8 +126,16 @@ void main() {
           'foregroundColor': 1,
           'borderColor': 1,
         },
-        // Chat's primary sidebar action is the mockup's pill.
-        'lib/src/plugins/chat/chat_inbox.dart': {'shape': 1},
+        // Browse's Join/Joined row action is the mockup's pill.
+        'lib/src/plugins/chat/chat_browse_channels_view.dart': {'shape': 1},
+        // The events calendar's view pickers and Today/previous/next chips
+        // share the mockup's tinted fill (background mixed 10% toward
+        // foreground), which no kit variant provides; the picker foreground
+        // stays muted except for the lead view selector.
+        'lib/src/plugins/discourse_events/event_calendar.dart': {
+          'backgroundColor': 3,
+          'foregroundColor': 3,
+        },
         // Message hover actions sit on the row's own hover fill.
         'lib/src/plugins/chat/chat_message_tile.dart': {
           'interactiveBackgroundColor': 2,
