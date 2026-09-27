@@ -76,12 +76,15 @@ class _ChatBrowseChannelsViewState extends State<ChatBrowseChannelsView> {
     );
   }
 
+  // A failed page is retried only from its Try again row: every scroll
+  // update near the end would otherwise resend it as soon as it fails.
   void _maybeLoadMore() {
     if (!_scrollController.hasClients ||
         _scrollController.position.extentAfter >
             paginationPrefetchDistance(_scrollController.position) ||
         !_hasMore ||
-        _loadingMore) {
+        _loadingMore ||
+        _error != null) {
       return;
     }
     unawaited(_load(reset: false));

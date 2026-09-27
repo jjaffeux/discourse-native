@@ -127,8 +127,15 @@ class _ActivityList extends StatelessWidget {
   final Future<void> Function() onLoadMore;
   final ValueChanged<UserActivityItem> onOpen;
 
+  // A failed page is retried only from its Retry row: every scroll
+  // notification near the end would otherwise resend it as soon as it fails.
   bool _nearEnd(ScrollNotification notification) {
-    if (notification.depth != 0 || !feed.hasMore || feed.loading) return false;
+    if (notification.depth != 0 ||
+        !feed.hasMore ||
+        feed.loading ||
+        feed.error != null) {
+      return false;
+    }
     return notification.metrics.extentAfter <
         paginationPrefetchDistance(notification.metrics);
   }

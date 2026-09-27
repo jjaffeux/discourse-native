@@ -11,6 +11,7 @@ import 'package:discourse_native/src/plugin_api/plugin_runtime.dart';
 import 'package:discourse_native/src/plugin_api/site_plugin_api.dart';
 import 'package:discourse_native/src/plugins/chat/chat_notifications.dart';
 import 'package:discourse_native/src/plugins/chat/chat_user_menu.dart';
+import 'package:discourse_native/src/shell/account_activity_controller.dart';
 import 'package:discourse_native/src/shell/bookmark_list.dart';
 import 'package:discourse_native/src/shell/notification_list.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
@@ -53,6 +54,52 @@ void main() {
       expect(tester.takeException(), isNull);
     });
   }
+
+  testWidgets('a failed activity page waits for Retry instead of scrolling', (
+    tester,
+  ) async {
+    final api = _RecordingActivityApi(
+      activityItems: [
+        for (
+          var id = 1;
+          id <= AccountActivityController.userActivityPageSize;
+          id++
+        )
+          UserActivityItem(
+            actionType: UserActivityItem.topicActionType,
+            topicId: id,
+            postNumber: 1,
+            title: 'Activity topic $id',
+            slug: 'activity-$id',
+            username: 'reader',
+            excerpt: '',
+          ),
+      ],
+    )..failLaterPages = true;
+    final controller = await _controller(api);
+    addTearDown(controller.dispose);
+    await tester.pumpWidget(
+      _section(controller, const UserActivityView(siteUrl: _siteUrl)),
+    );
+    await tester.pumpAndSettle();
+    expect(api.userActivityOffsets, [0]);
+
+    final list = find.byType(Scrollable).last;
+    await tester.fling(list, const Offset(0, -6000), 6000);
+    await tester.pumpAndSettle();
+    for (var drag = 0; drag < 5; drag++) {
+      await tester.drag(list, const Offset(0, 40));
+      await tester.drag(list, const Offset(0, -40));
+      await tester.pumpAndSettle();
+    }
+
+    const nextPage = AccountActivityController.userActivityPageSize;
+    expect(api.userActivityOffsets, [0, nextPage]);
+    await tester.tap(find.text('Retry'));
+    await tester.pumpAndSettle();
+    expect(api.userActivityOffsets, [0, nextPage, nextPage]);
+    expect(find.text('Retry'), findsOneWidget);
+  });
 
   for (final activity in _Activity.values) {
     group(activity.label, () {
@@ -244,6 +291,8 @@ final class _RecordingActivityApi extends FakeDiscourseApi {
   final List<String> chatSites = [];
   final List<String> bookmarkSites = [];
   final List<String> userActivitySites = [];
+  final List<int> userActivityOffsets = [];
+  bool failLaterPages = false;
   Completer<UserActivityPage>? activityResponse;
   final Map<String, DiscourseUser> currentUsers = {};
 
@@ -314,6 +363,10 @@ final class _RecordingActivityApi extends FakeDiscourseApi {
     String? clientId,
   }) {
     userActivitySites.add(siteUrl);
+    userActivityOffsets.add(offset);
+    if (failLaterPages && offset > 0) {
+      return Future.error(Exception('offline'));
+    }
     if (activityResponse case final response?) return response.future;
     return super.userActivity(
       siteUrl: siteUrl,
