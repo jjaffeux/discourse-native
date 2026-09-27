@@ -57,11 +57,12 @@ class _MobileForumRootState extends State<MobileForumRoot> {
   Widget build(BuildContext context) {
     final shell = ShellScope.read(context);
     final registry = PluginScope.of(context).registry;
+    // The chrome reads facade and plugin state only. Topic feeds notify
+    // several times per page, and the widgets that read them listen directly.
     final body = ListenableBuilder(
       listenable: Listenable.merge([
         shell,
         shell.accountActivity.totalsListenable,
-        shell.topicFeeds,
         ...registry.sidebarPanelListenables(context),
         ...registry.communitySidebarListenables(context),
       ]),
