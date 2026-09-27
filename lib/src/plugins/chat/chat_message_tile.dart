@@ -150,17 +150,19 @@ class ChatMessageTile extends StatelessWidget {
       messageReply: messageReply,
     );
     if (selecting) {
+      // The row already speaks its author, time and body; the checkbox is the
+      // one control that says "select", named for a person rather than an id.
       return DMessageSurface(
         child: Semantics(
           selected: selected,
-          label: 'Select chat message ${message.id}',
           child: Row(
             children: [
               SizedBox(
                 width: 52,
                 child: DCheckbox(
                   key: ValueKey('chat-message-selector-${message.id}'),
-                  semanticLabel: 'Select message ${message.id}',
+                  semanticLabel:
+                      'Select message from ${message.author.displayName}',
                   value: selected,
                   onChanged: onSelectedChanged == null
                       ? null

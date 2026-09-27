@@ -1023,6 +1023,41 @@ void main() {
     },
   );
 
+  testWidgets('selection names the message by its author, not its id', (
+    tester,
+  ) async {
+    final controller = await _controller(
+      _message(author: 2),
+      channel: _channel(group: true),
+    );
+    final semantics = tester.ensureSemantics();
+    await tester.pumpWidget(
+      _tile(
+        controller,
+        selecting: true,
+        selected: true,
+        onSelectedChanged: (_) {},
+      ),
+    );
+    await tester.pumpAndSettle();
+    final time = tester
+        .widget<Text>(find.byKey(const ValueKey('chat-message-time-7')))
+        .data!;
+    expect(
+      tester.getSemantics(find.byKey(_bodyKey)),
+      isSemantics(label: 'user2, $time\nHello from chat', isSelected: true),
+    );
+    expect(
+      tester.getSemantics(find.bySemanticsLabel(RegExp('Select'))),
+      isSemantics(
+        label: 'Select message from user2',
+        hasCheckedState: true,
+        isChecked: true,
+      ),
+    );
+    semantics.dispose();
+  });
+
   testWidgets('selection and keyboard message actions remain usable in DMs', (
     tester,
   ) async {
