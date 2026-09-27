@@ -926,6 +926,14 @@ abstract interface class AccountActivityApi {
     String? clientId,
   });
 
+  Future<BookmarkListPage> bookmarkListPage({
+    required String siteUrl,
+    required String apiKey,
+    required String username,
+    int page = 0,
+    String? clientId,
+  });
+
   Future<UserActivityPage> userActivity({
     required String siteUrl,
     required String apiKey,

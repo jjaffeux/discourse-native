@@ -1,4 +1,5 @@
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/src/data/discourse_api.dart';
 import 'package:discourse_native/src/models/bookmark.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
@@ -20,6 +21,7 @@ import 'support/bundled_plugins.dart';
 import 'support/fakes.dart';
 
 const _site = 'https://meta.example';
+const _user = DiscourseUser(username: 'reader');
 const _longTitle = 'Anyone else using Obsidian for grocery lists? No? Just me?';
 const _bookmarks = [
   Bookmark(
@@ -194,6 +196,101 @@ void main() {
     }
   });
 
+  testWidgets('the page scrolls through every bookmark, past the menu route', (
+    tester,
+  ) async {
+    final api = FakeDiscourseApi(user: _user, bookmarkList: _numbered(60));
+    final shell = await _shell(api: api);
+    addTearDown(shell.dispose);
+    await _pumpPage(tester, shell);
+
+    // One core page fills the window, so nothing more is read until the
+    // reader scrolls toward the end.
+    expect(api.bookmarkListRequests.map((request) => request.page), [0]);
+
+    await tester.scrollUntilVisible(
+      find.byKey(const ValueKey('bookmark-row-60')),
+      400,
+      scrollable: _pageScrollable,
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('bookmark-row-60')), findsOneWidget);
+    expect(api.bookmarkListRequests, [
+      (username: 'reader', page: 0),
+      (username: 'reader', page: 1),
+      (username: 'reader', page: 2),
+    ]);
+    // The menu's twenty-row route is not what the page reads.
+    expect(api.bookmarksRequested, isEmpty);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('a filter reads on through pages holding none of its rows', (
+    tester,
+  ) async {
+    final api = FakeDiscourseApi(
+      user: _user,
+      bookmarkList: _numbered(45, topics: {41, 42, 43, 44, 45}),
+    );
+    final shell = await _shell(api: api);
+    addTearDown(shell.dispose);
+    await _pumpPage(tester, shell);
+    expect(api.bookmarkListRequests.map((request) => request.page), [0]);
+
+    await _filter(tester, 'Topics');
+
+    expect(find.text('No bookmarks in this filter.'), findsNothing);
+    expect(find.byType(BookmarkRow), findsNWidgets(5));
+    expect(find.byKey(const ValueKey('bookmark-row-41')), findsOneWidget);
+    expect(api.bookmarkListRequests.map((request) => request.page), [0, 1, 2]);
+
+    await _filter(tester, 'Posts');
+    await tester.scrollUntilVisible(
+      find.byKey(const ValueKey('bookmark-row-40')),
+      400,
+      scrollable: _pageScrollable,
+    );
+    expect(find.byKey(const ValueKey('bookmark-row-40')), findsOneWidget);
+    expect(api.bookmarkListRequests, hasLength(3));
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('a failed page keeps its rows and is retried from its row', (
+    tester,
+  ) async {
+    final api = _FailingPageApi(bookmarkList: _numbered(30));
+    final shell = await _shell(api: api);
+    addTearDown(shell.dispose);
+    await _pumpPage(tester, shell);
+
+    await tester.scrollUntilVisible(
+      find.text('Retry'),
+      400,
+      scrollable: _pageScrollable,
+    );
+    await tester.pumpAndSettle();
+    expect(find.textContaining("Couldn't reach"), findsOneWidget);
+    expect(find.byKey(const ValueKey('bookmark-row-20')), findsOneWidget);
+
+    // Reaching the end again does not resend a failed page by itself.
+    await tester.drag(_pageScrollable, const Offset(0, -400));
+    await tester.pumpAndSettle();
+    expect(api.bookmarkListRequests.map((request) => request.page), [0, 1]);
+
+    await tester.tap(find.text('Retry'));
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.byKey(const ValueKey('bookmark-row-30')),
+      400,
+      scrollable: _pageScrollable,
+    );
+
+    expect(find.text('Retry'), findsNothing);
+    expect(api.bookmarkListRequests.map((request) => request.page), [0, 1, 1]);
+    expect(tester.takeException(), isNull);
+  });
+
   test(
     'chat presentation uses the bookmark site and handles unknown channels',
     () async {
@@ -232,13 +329,64 @@ Future<void> _filter(WidgetTester tester, String label) async {
   await tester.pumpAndSettle();
 }
 
-Future<ShellController> _shell({List<Bookmark>? bookmarks = _bookmarks}) async {
-  const user = DiscourseUser(username: 'reader');
+final _pageScrollable = find.descendant(
+  of: find.byType(CustomScrollView),
+  matching: find.byType(Scrollable),
+);
+
+/// Post bookmarks, except for the [topics] ids.
+List<Bookmark> _numbered(int count, {Set<int> topics = const {}}) => [
+  for (var id = 1; id <= count; id++)
+    Bookmark(
+      id: id,
+      bookmarkableType: topics.contains(id) ? 'Topic' : 'Post',
+      postNumber: topics.contains(id) ? null : 2,
+      categoryId: 1,
+      title: 'Bookmark $id',
+      path: '/t/bookmark-$id/$id',
+    ),
+];
+
+/// Answers the first request for a second page as an unreachable site.
+final class _FailingPageApi extends FakeDiscourseApi {
+  _FailingPageApi({super.bookmarkList}) : super(user: _user);
+
+  var _failed = false;
+
+  @override
+  Future<BookmarkListPage> bookmarkListPage({
+    required String siteUrl,
+    required String apiKey,
+    required String username,
+    int page = 0,
+    String? clientId,
+  }) {
+    if (page == 0 || _failed) {
+      return super.bookmarkListPage(
+        siteUrl: siteUrl,
+        apiKey: apiKey,
+        username: username,
+        page: page,
+        clientId: clientId,
+      );
+    }
+    _failed = true;
+    bookmarkListRequests.add((username: username, page: page));
+    return Future.error(
+      SiteLookupException(SiteLookupFailure.unreachable, siteUrl),
+    );
+  }
+}
+
+Future<ShellController> _shell({
+  List<Bookmark>? bookmarks = _bookmarks,
+  FakeDiscourseApi? api,
+}) async {
   final shell = ShellController(
     instanceStore: FakeInstanceStore([
-      instance('meta.example').copyWith(user: user),
+      instance('meta.example').copyWith(user: _user),
     ]),
-    api: FakeDiscourseApi(user: user, bookmarkList: bookmarks),
+    api: api ?? FakeDiscourseApi(user: _user, bookmarkList: bookmarks),
     authenticator: FakeAuthenticator()..keys[_site] = 'api-key',
     drafts: FakeDraftStore(),
     trackers: FakeSiteTracker.reset(),
@@ -297,12 +445,10 @@ Future<void> _pumpPage(
           child: Directionality(
             textDirection: rtl ? TextDirection.rtl : TextDirection.ltr,
             child: Scaffold(
-              body: SingleChildScrollView(
-                child: BookmarkSection(
-                  siteUrl: _site,
-                  page: true,
-                  onOpened: onOpened ?? () {},
-                ),
+              body: BookmarkSection(
+                siteUrl: _site,
+                page: true,
+                onOpened: onOpened ?? () {},
               ),
             ),
           ),

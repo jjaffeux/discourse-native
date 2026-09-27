@@ -14,6 +14,7 @@ enum _AccountActivityRequest {
   likeNotifications,
   otherNotifications,
   bookmarks,
+  bookmarkList,
   userActivity;
 
   Future<void> load(ShellController controller, String siteUrl) =>
@@ -23,6 +24,7 @@ enum _AccountActivityRequest {
         likeNotifications => controller.loadLikeNotifications(siteUrl),
         otherNotifications => controller.loadOtherNotifications(siteUrl),
         bookmarks => controller.loadBookmarks(siteUrl),
+        bookmarkList => controller.loadBookmarkList(siteUrl),
         userActivity => controller.loadUserActivity(siteUrl),
       };
 }
@@ -39,6 +41,12 @@ class AccountActivityLoader extends StatelessWidget {
     required this.siteUrl,
     required this.builder,
   }) : _request = _AccountActivityRequest.bookmarks;
+
+  const AccountActivityLoader.bookmarkList({
+    super.key,
+    required this.siteUrl,
+    required this.builder,
+  }) : _request = _AccountActivityRequest.bookmarkList;
 
   const AccountActivityLoader.replyNotifications({
     super.key,

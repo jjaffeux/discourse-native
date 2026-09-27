@@ -181,6 +181,7 @@ class _AccountApi implements AccountActivityApi {
     this.chatNotificationList,
     this.bookmarkList,
     this.reminderList = const [],
+    this.bookmarkPages = const {},
     this.activityPages = const {},
   });
 
@@ -190,8 +191,11 @@ class _AccountApi implements AccountActivityApi {
   final List<DiscourseNotification>? chatNotificationList;
   final List<Bookmark>? bookmarkList;
   final List<DiscourseNotification> reminderList;
+  final Map<int, BookmarkListPage> bookmarkPages;
   final Map<int, UserActivityPage> activityPages;
   final List<String> bookmarksRequested = [];
+  final List<({String siteUrl, String username, int page})>
+  bookmarkListRequests = [];
   final List<({String siteUrl, String username, int offset, int limit})>
   activityRequests = [];
   final List<String> totalsRequested = [];
@@ -238,6 +242,22 @@ class _AccountApi implements AccountActivityApi {
       reminders: reminderList,
       bookmarks: bookmarkList ?? (throw StateError('No bookmarks configured')),
     );
+  }
+
+  @override
+  Future<BookmarkListPage> bookmarkListPage({
+    required String siteUrl,
+    required String apiKey,
+    required String username,
+    int page = 0,
+    String? clientId,
+  }) async {
+    bookmarkListRequests.add((
+      siteUrl: siteUrl,
+      username: username,
+      page: page,
+    ));
+    return bookmarkPages[page] ?? const BookmarkListPage();
   }
 
   @override
@@ -552,6 +572,9 @@ void main() {
         replyNotificationList: const [_notification],
         chatNotificationList: const [_chatNotification],
         bookmarkList: const [_bookmark],
+        bookmarkPages: const {
+          0: BookmarkListPage(bookmarks: [_bookmark]),
+        },
         activityPages: const {
           0: UserActivityPage(items: [_activityTopic], rawItemCount: 1),
         },
@@ -564,6 +587,7 @@ void main() {
       var replyNotificationChanges = 0;
       var chatNotificationChanges = 0;
       var bookmarkChanges = 0;
+      var bookmarkListChanges = 0;
       var userActivityChanges = 0;
       controller.totalsListenable.addListener(() => totalsChanges++);
       controller.notificationsListenable.addListener(
@@ -576,6 +600,9 @@ void main() {
           .pluginNotificationsListenable(chatNotificationFeed.id)
           .addListener(() => chatNotificationChanges++);
       controller.bookmarksListenable.addListener(() => bookmarkChanges++);
+      controller.bookmarkListListenable.addListener(
+        () => bookmarkListChanges++,
+      );
       controller.userActivityListenable.addListener(
         () => userActivityChanges++,
       );
@@ -587,6 +614,7 @@ void main() {
       expect(replyNotificationChanges, 0);
       expect(chatNotificationChanges, 0);
       expect(bookmarkChanges, 0);
+      expect(bookmarkListChanges, 0);
       expect(userActivityChanges, 0);
 
       await controller.loadPluginNotifications(
@@ -599,6 +627,7 @@ void main() {
       expect(replyNotificationChanges, 0);
       expect(chatNotificationChanges, 2);
       expect(bookmarkChanges, 0);
+      expect(bookmarkListChanges, 0);
       expect(userActivityChanges, 0);
 
       await controller.loadUserActivity(_connectedInstance());
@@ -608,6 +637,17 @@ void main() {
       expect(replyNotificationChanges, 0);
       expect(chatNotificationChanges, 2);
       expect(bookmarkChanges, 0);
+      expect(bookmarkListChanges, 0);
+      expect(userActivityChanges, 2);
+
+      await controller.loadBookmarkList(_connectedInstance());
+
+      expect(totalsChanges, 0);
+      expect(notificationChanges, 2);
+      expect(replyNotificationChanges, 0);
+      expect(chatNotificationChanges, 2);
+      expect(bookmarkChanges, 0);
+      expect(bookmarkListChanges, 2);
       expect(userActivityChanges, 2);
     });
   });
@@ -690,6 +730,173 @@ void main() {
       await Future.wait([first, second]);
       expect(controller.bookmarksFor(_siteUrl).loaded, isTrue);
     });
+
+    test(
+      'the bookmark list appends core pages and lists a shifted row once',
+      () async {
+        const second = Bookmark(id: 10, title: 'Second');
+        const third = Bookmark(id: 11, title: 'Third');
+        final api = _AccountApi(
+          bookmarkPages: const {
+            0: BookmarkListPage(bookmarks: [_bookmark, second], hasMore: true),
+            // A bookmark removed between the two requests shifts core's
+            // offset back by a row, so the next page repeats the last one.
+            1: BookmarkListPage(bookmarks: [second, third]),
+          },
+        );
+        final credentials = FakeApiCredentialReader()..keys[_siteUrl] = 'key';
+        final controller = _controller(api, credentials);
+        addTearDown(controller.dispose);
+
+        await controller.loadBookmarkList(_connectedInstance());
+        var feed = controller.bookmarkListFor(_siteUrl);
+
+        expect(feed.bookmarks, const [_bookmark, second]);
+        expect(feed.hasMore, isTrue);
+        expect(feed.nextPage, 1);
+        // The page's list is not the menu's twenty-row route.
+        expect(api.bookmarksRequested, isEmpty);
+        expect(api.bookmarkListRequests.single, (
+          siteUrl: _siteUrl,
+          username: 'sam',
+          page: 0,
+        ));
+
+        await controller.loadBookmarkList(_connectedInstance(), loadMore: true);
+        feed = controller.bookmarkListFor(_siteUrl);
+
+        expect(feed.bookmarks, const [_bookmark, second, third]);
+        expect(feed.hasMore, isFalse);
+        expect(feed.nextPage, 2);
+
+        // Nothing past the last page is asked for.
+        await controller.loadBookmarkList(_connectedInstance(), loadMore: true);
+        expect(api.bookmarkListRequests.map((request) => request.page), [0, 1]);
+      },
+    );
+
+    for (final rotate in [false, true]) {
+      test('a bookmark page in flight when the account is '
+          '${rotate ? 'replaced' : 'forgotten'} is dropped', () async {
+        const fresh = Bookmark(id: 20, title: 'Fresh');
+        const stale = Bookmark(id: 21, title: 'Stale');
+        final api = _SequencedBookmarkListApi(3);
+        final credentials = FakeApiCredentialReader()..keys[_siteUrl] = 'key';
+        final lifecycle = SiteLifecycle();
+        final controller = _controller(api, credentials, lifecycle: lifecycle);
+        addTearDown(controller.dispose);
+
+        final first = controller.loadBookmarkList(_connectedInstance());
+        await api.started[0].future;
+        api.answers[0].complete(
+          const BookmarkListPage(bookmarks: [_bookmark], hasMore: true),
+        );
+        await first;
+
+        final stalePage = controller.loadBookmarkList(
+          _connectedInstance(),
+          loadMore: true,
+        );
+        await api.started[1].future;
+        if (rotate) lifecycle.invalidate(_siteUrl);
+        controller.forget(_siteUrl);
+        expect(controller.bookmarkListFor(_siteUrl).loaded, isFalse);
+
+        final replacement = controller.loadBookmarkList(_connectedInstance());
+        await api.started[2].future;
+        api.answers[2].complete(
+          const BookmarkListPage(bookmarks: [fresh], hasMore: true),
+        );
+        await replacement;
+        api.answers[1].complete(const BookmarkListPage(bookmarks: [stale]));
+        await stalePage;
+
+        final feed = controller.bookmarkListFor(_siteUrl);
+        expect(feed.bookmarks, const [fresh]);
+        expect(feed.hasMore, isTrue);
+        expect(feed.nextPage, 1);
+        expect(api.pages, [0, 1, 0]);
+      });
+    }
+
+    test(
+      'a failed bookmark page keeps its rows until its Retry row succeeds',
+      () async {
+        const second = Bookmark(id: 10, title: 'Second');
+        final api = _SequencedBookmarkListApi(3);
+        final credentials = FakeApiCredentialReader()..keys[_siteUrl] = 'key';
+        final controller = _controller(api, credentials);
+        addTearDown(controller.dispose);
+
+        final initial = controller.loadBookmarkList(_connectedInstance());
+        await api.started[0].future;
+        api.answers[0].complete(
+          const BookmarkListPage(bookmarks: [_bookmark], hasMore: true),
+        );
+        await initial;
+
+        final failedPage = controller.loadBookmarkList(
+          _connectedInstance(),
+          loadMore: true,
+        );
+        await api.started[1].future;
+        api.answers[1].completeError(StateError('offline'));
+        await failedPage;
+
+        var feed = controller.bookmarkListFor(_siteUrl);
+        expect(feed.bookmarks, const [_bookmark]);
+        expect(feed.error, contains("Couldn't load bookmarks"));
+        expect(feed.retryFromStart, isFalse);
+        expect(feed.hasMore, isTrue);
+
+        final retry = controller.loadBookmarkList(
+          _connectedInstance(),
+          loadMore: true,
+        );
+        await api.started[2].future;
+        api.answers[2].complete(const BookmarkListPage(bookmarks: [second]));
+        await retry;
+
+        feed = controller.bookmarkListFor(_siteUrl);
+        expect(feed.bookmarks, const [_bookmark, second]);
+        expect(feed.error, isNull);
+        expect(feed.hasMore, isFalse);
+        expect(api.pages, [0, 1, 1]);
+      },
+    );
+
+    test(
+      'a bookmark write re-reads a held list from its first page only',
+      () async {
+        final api = _AccountApi(
+          bookmarkPages: const {
+            0: BookmarkListPage(bookmarks: [_bookmark], hasMore: true),
+            1: BookmarkListPage(bookmarks: [Bookmark(id: 10, title: 'Next')]),
+          },
+        );
+        final credentials = FakeApiCredentialReader()..keys[_siteUrl] = 'key';
+        final controller = _controller(api, credentials);
+        addTearDown(controller.dispose);
+
+        await controller.refreshLoadedBookmarkList(_connectedInstance());
+        expect(api.bookmarkListRequests, isEmpty);
+
+        await controller.loadBookmarkList(_connectedInstance());
+        await controller.loadBookmarkList(_connectedInstance(), loadMore: true);
+        expect(controller.bookmarkListFor(_siteUrl).bookmarks, hasLength(2));
+
+        await controller.refreshLoadedBookmarkList(_connectedInstance());
+
+        final feed = controller.bookmarkListFor(_siteUrl);
+        expect(feed.bookmarks, const [_bookmark]);
+        expect(feed.nextPage, 1);
+        expect(api.bookmarkListRequests.map((request) => request.page), [
+          0,
+          1,
+          0,
+        ]);
+      },
+    );
 
     test('activity paginates by raw rows and de-duplicates posts', () async {
       final api = _AccountApi(
@@ -3068,6 +3275,31 @@ final class _SequencedBookmarksApi extends _AccountApi {
     String? clientId,
   }) {
     final call = calls++;
+    started[call].complete();
+    return answers[call].future;
+  }
+}
+
+final class _SequencedBookmarkListApi extends _AccountApi {
+  _SequencedBookmarkListApi(int count)
+    : answers = List.generate(count, (_) => Completer<BookmarkListPage>()),
+      started = List.generate(count, (_) => Completer<void>());
+
+  final List<Completer<BookmarkListPage>> answers;
+  final List<Completer<void>> started;
+  final List<int> pages = [];
+  int calls = 0;
+
+  @override
+  Future<BookmarkListPage> bookmarkListPage({
+    required String siteUrl,
+    required String apiKey,
+    required String username,
+    int page = 0,
+    String? clientId,
+  }) {
+    final call = calls++;
+    pages.add(page);
     started[call].complete();
     return answers[call].future;
   }

@@ -1682,6 +1682,8 @@ class ShellController extends FrameSafeNotifier
         await userSummary.load(instance, refresh: true);
       case 'activity':
         await accountActivity.loadUserActivity(instance, refresh: true);
+      case 'user-bookmarks':
+        await accountActivity.loadBookmarkList(instance, refresh: true);
       case 'preferences':
         await preferences.load(instance, refresh: true);
       default:
@@ -3146,6 +3148,21 @@ class ShellController extends FrameSafeNotifier
   Future<void> loadBookmarks(String siteUrl) async {
     final instance = _instanceAt(siteUrl);
     if (instance != null) await accountActivity.loadBookmarks(instance);
+  }
+
+  Future<void> loadBookmarkList(
+    String siteUrl, {
+    bool refresh = false,
+    bool loadMore = false,
+  }) async {
+    final instance = _instanceAt(siteUrl);
+    if (instance != null) {
+      await accountActivity.loadBookmarkList(
+        instance,
+        refresh: refresh,
+        loadMore: loadMore,
+      );
+    }
   }
 
   Future<void> loadUserActivity(String siteUrl) async {
@@ -12108,6 +12125,7 @@ class ShellController extends FrameSafeNotifier
     }
     if (isDisposed || !lease.isCurrent) return;
     unawaited(accountActivity.loadBookmarks(instance, force: true));
+    unawaited(accountActivity.refreshLoadedBookmarkList(instance));
   }
 
   Future<void> _refreshTopicBookmarks(
@@ -15191,7 +15209,7 @@ class ShellController extends FrameSafeNotifier
         badges.load(instance, const BadgeRoute.directory(), refresh: refresh),
       );
     } else if (destination.id == 'user-bookmarks') {
-      unawaited(loadBookmarks(instance.url));
+      unawaited(accountActivity.loadBookmarkList(instance, refresh: true));
     } else if (destination.id == 'users') {
       unawaited(userDirectory.load(instance, refresh: refresh));
     } else if (destination.id == 'all-tags') {

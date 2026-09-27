@@ -856,6 +856,7 @@ class FakeDiscourseApi
   final List<List<NotificationTypeName>> notificationFilters = [];
 
   final List<String> bookmarksRequested = [];
+  final List<({String username, int page})> bookmarkListRequests = [];
   int _nextBookmarkId = 1000;
   final List<
     ({
@@ -1611,7 +1612,35 @@ class FakeDiscourseApi
     if (result == null) {
       throw SiteLookupException(SiteLookupFailure.unreachable, siteUrl);
     }
-    return (reminders: reminderList, bookmarks: result);
+    // Core's menu route shares one twenty-row budget, reminders first.
+    final budget =
+        DiscourseApi.maximumUserMenuBookmarkRows - reminderList.length;
+    return (
+      reminders: reminderList,
+      bookmarks: result.take(budget < 0 ? 0 : budget).toList(),
+    );
+  }
+
+  /// Pages [bookmarkList] as core does: twenty rows a page, with a next-page
+  /// link while rows remain.
+  @override
+  Future<BookmarkListPage> bookmarkListPage({
+    required String siteUrl,
+    required String apiKey,
+    required String username,
+    int page = 0,
+    String? clientId,
+  }) async {
+    bookmarkListRequests.add((username: username, page: page));
+    final result = bookmarkList;
+    if (result == null) {
+      throw SiteLookupException(SiteLookupFailure.unreachable, siteUrl);
+    }
+    const pageSize = 20;
+    return BookmarkListPage(
+      bookmarks: result.skip(page * pageSize).take(pageSize).toList(),
+      hasMore: (page + 1) * pageSize < result.length,
+    );
   }
 
   @override

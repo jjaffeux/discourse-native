@@ -80,6 +80,7 @@ final class AccountActivityController extends FrameSafeNotifier {
   final Map<PluginNotificationFeedId, PluginNotificationFeedSource>
   _pluginNotificationSources = {};
   final _bookmarkChanges = _ActivityAspect();
+  final _bookmarkListChanges = _ActivityAspect();
   final _userActivityChanges = _ActivityAspect();
 
   Listenable get totalsListenable => _totalsChanges;
@@ -88,6 +89,7 @@ final class AccountActivityController extends FrameSafeNotifier {
   Listenable get likeNotificationsListenable => _likeNotificationChanges;
   Listenable get otherNotificationsListenable => _otherNotificationChanges;
   Listenable get bookmarksListenable => _bookmarkChanges;
+  Listenable get bookmarkListListenable => _bookmarkListChanges;
   Listenable get userActivityListenable => _userActivityChanges;
 
   final Map<String, NotificationTotals> _totals = {};
@@ -96,6 +98,7 @@ final class AccountActivityController extends FrameSafeNotifier {
   final Map<String, NotificationFeed> _likeNotifications = {};
   final Map<String, NotificationFeed> _otherNotifications = {};
   final Map<String, BookmarkFeed> _bookmarks = {};
+  final Map<String, BookmarkListFeed> _bookmarkLists = {};
   final Map<String, UserActivityFeed> _userActivity = {};
   final Map<String, Object> _totalsRequests = {};
   final Map<String, Future<NotificationTotals?>> _totalsTasks = {};
@@ -109,6 +112,7 @@ final class AccountActivityController extends FrameSafeNotifier {
   final Map<String, Future<void>> _likeNotificationTasks = {};
   final Map<String, Future<void>> _otherNotificationTasks = {};
   final Map<String, Future<void>> _bookmarkTasks = {};
+  final Map<String, Future<void>> _bookmarkListTasks = {};
   final Map<String, Future<void>> _userActivityTasks = {};
   final Map<String, DiscourseInstance> _pendingBookmarks = {};
   final Map<String, Completer<void>> _pendingBookmarkWaiters = {};
@@ -118,6 +122,7 @@ final class AccountActivityController extends FrameSafeNotifier {
   final Map<String, Object> _likeNotificationRequests = {};
   final Map<String, Object> _otherNotificationRequests = {};
   final Map<String, Object> _bookmarkRequests = {};
+  final Map<String, Object> _bookmarkListRequests = {};
   final Map<String, Object> _userActivityRequests = {};
   final Map<(String, int), Object> _notificationReadRequests = {};
   final Map<String, Set<int>> _locallyReadNotificationIds = {};
@@ -175,6 +180,10 @@ final class AccountActivityController extends FrameSafeNotifier {
   BookmarkFeed bookmarksFor(String? siteUrl) => siteUrl == null
       ? const BookmarkFeed()
       : _bookmarks[siteUrl] ?? const BookmarkFeed();
+
+  BookmarkListFeed bookmarkListFor(String? siteUrl) => siteUrl == null
+      ? const BookmarkListFeed()
+      : _bookmarkLists[siteUrl] ?? const BookmarkListFeed();
 
   UserActivityFeed userActivityFor(String? siteUrl) => siteUrl == null
       ? const UserActivityFeed()
@@ -895,6 +904,162 @@ final class AccountActivityController extends FrameSafeNotifier {
     }
   }
 
+  /// The bookmarks page's complete list. The menu's [loadBookmarks] stays on
+  /// its own twenty-row route; this one pages until core has no more.
+  Future<void> loadBookmarkList(
+    DiscourseInstance instance, {
+    bool refresh = false,
+    bool loadMore = false,
+  }) {
+    assert(!(refresh && loadMore));
+    if (isDisposed || !instance.isConnected) return Future<void>.value();
+
+    final siteUrl = instance.url;
+    final held = bookmarkListFor(siteUrl);
+    if (!refresh && !loadMore && held.loaded) return Future<void>.value();
+    if (loadMore && (!held.loaded || !held.hasMore)) {
+      return Future<void>.value();
+    }
+
+    final active = _bookmarkListTasks[siteUrl];
+    if (active != null && !refresh) return active;
+
+    final replace = refresh || !held.loaded;
+    final request = Object();
+    final lease = lifecycle.capture(siteUrl);
+    final page = replace ? 0 : held.nextPage;
+    final result = Completer<void>();
+    final task = result.future;
+    _bookmarkListRequests[siteUrl] = request;
+    _bookmarkListTasks[siteUrl] = task;
+    _bookmarkLists[siteUrl] = held.loadingPage();
+
+    void finish([Object? error, StackTrace? stackTrace]) {
+      if (identical(_bookmarkListTasks[siteUrl], task)) {
+        final _ = _bookmarkListTasks.remove(siteUrl);
+      }
+      if (result.isCompleted) return;
+      if (error == null) {
+        result.complete();
+      } else {
+        result.completeError(error, stackTrace!);
+      }
+    }
+
+    _notifyBookmarkList();
+    // Publishing loading state can synchronously dispose this controller.
+    // Do not cross into credential storage for its replacement generation.
+    if (!_ownsRequest(lease, _bookmarkListRequests[siteUrl], request)) {
+      finish();
+      return task;
+    }
+
+    try {
+      unawaited(
+        _loadBookmarkListPage(
+          instance,
+          lease: lease,
+          request: request,
+          page: page,
+          replace: replace,
+        ).then<void>(
+          (_) => finish(),
+          onError: (Object error, StackTrace stackTrace) =>
+              finish(error, stackTrace),
+        ),
+      );
+    } catch (error, stackTrace) {
+      finish(error, stackTrace);
+    }
+    return task;
+  }
+
+  /// A bookmark write invalidates a list already on hand, which Back would
+  /// otherwise show again unchanged. A list never opened is left for the page
+  /// to load when it is.
+  Future<void> refreshLoadedBookmarkList(DiscourseInstance instance) {
+    if (!_bookmarkLists.containsKey(instance.url)) return Future<void>.value();
+    return loadBookmarkList(instance, refresh: true);
+  }
+
+  Future<void> _loadBookmarkListPage(
+    DiscourseInstance instance, {
+    required SiteLease lease,
+    required Object request,
+    required int page,
+    required bool replace,
+  }) async {
+    final siteUrl = instance.url;
+    final username = instance.user?.username;
+    if (username == null) return;
+
+    void fail(String message) {
+      final held = bookmarkListFor(siteUrl);
+      _bookmarkLists[siteUrl] = held.withError(
+        message,
+        retryFromStart: replace,
+      );
+    }
+
+    try {
+      final apiKey = await credentials.apiKeyFor(siteUrl);
+      if (!_ownsRequest(lease, _bookmarkListRequests[siteUrl], request)) {
+        return;
+      }
+      if (apiKey == null) {
+        _commit(lease, () {
+          if (!identical(_bookmarkListRequests[siteUrl], request)) return;
+          fail('Reconnect to ${instance.host} to see your bookmarks.');
+          _notifyBookmarkList();
+        });
+        return;
+      }
+      final loaded = await api.bookmarkListPage(
+        siteUrl: siteUrl,
+        apiKey: apiKey,
+        username: username,
+        page: page,
+      );
+      _commit(lease, () {
+        if (!identical(_bookmarkListRequests[siteUrl], request)) return;
+        _bookmarkLists[siteUrl] = bookmarkListFor(
+          siteUrl,
+        ).withPage(loaded, replace: replace);
+        _notifyBookmarkList();
+      });
+    } on SiteLookupException catch (error, stackTrace) {
+      if (!_ownsRequest(lease, _bookmarkListRequests[siteUrl], request)) {
+        return;
+      }
+      _report(error, stackTrace, 'account.loadBookmarkList');
+      _commit(lease, () {
+        if (!identical(_bookmarkListRequests[siteUrl], request)) return;
+        fail(
+          error.failure == SiteLookupFailure.notDiscourse
+              ? 'Not allowed — try reconnecting to ${instance.host}.'
+              : "Couldn't reach ${instance.host}.",
+        );
+        _notifyBookmarkList();
+      });
+    } catch (error, stackTrace) {
+      if (!_ownsRequest(lease, _bookmarkListRequests[siteUrl], request)) {
+        return;
+      }
+      _report(error, stackTrace, 'account.loadBookmarkList');
+      _commit(lease, () {
+        if (!identical(_bookmarkListRequests[siteUrl], request)) return;
+        fail("Couldn't load bookmarks from ${instance.host}.");
+        _notifyBookmarkList();
+      });
+    } finally {
+      _commit(lease, () {
+        if (identical(_bookmarkListRequests[siteUrl], request)) {
+          _bookmarkListRequests.remove(siteUrl);
+        }
+      });
+    }
+  }
+
   Future<void> loadUserActivity(
     DiscourseInstance instance, {
     bool refresh = false,
@@ -1570,6 +1735,7 @@ final class AccountActivityController extends FrameSafeNotifier {
       if (changed) state.changes.changed();
     }
     final hadBookmarks = _bookmarks.remove(siteUrl) != null;
+    final hadBookmarkList = _bookmarkLists.remove(siteUrl) != null;
     final hadUserActivity = _userActivity.remove(siteUrl) != null;
     _totalsRequests.remove(siteUrl);
     _totalsAttemptedAt.remove(siteUrl);
@@ -1586,6 +1752,7 @@ final class AccountActivityController extends FrameSafeNotifier {
     _likeNotificationTasks.remove(siteUrl)?.ignore();
     _otherNotificationTasks.remove(siteUrl)?.ignore();
     _bookmarkTasks.remove(siteUrl)?.ignore();
+    _bookmarkListTasks.remove(siteUrl)?.ignore();
     _userActivityTasks.remove(siteUrl)?.ignore();
     _pendingBookmarks.remove(siteUrl);
     _pendingBookmarkWaiters.remove(siteUrl)?.complete();
@@ -1599,6 +1766,7 @@ final class AccountActivityController extends FrameSafeNotifier {
     _likeNotificationRequests.remove(siteUrl);
     _otherNotificationRequests.remove(siteUrl);
     _bookmarkRequests.remove(siteUrl);
+    _bookmarkListRequests.remove(siteUrl);
     _userActivityRequests.remove(siteUrl);
     _notificationReadRequests.removeWhere((key, _) => key.$1 == siteUrl);
     _locallyReadNotificationIds.remove(siteUrl);
@@ -1622,6 +1790,7 @@ final class AccountActivityController extends FrameSafeNotifier {
         hadOtherNotifications ||
         hadPluginNotifications ||
         hadBookmarks ||
+        hadBookmarkList ||
         hadUserActivity;
     if (hadTotals) _totalsChanges.changed();
     if (hadNotifications) _notificationChanges.changed();
@@ -1629,6 +1798,7 @@ final class AccountActivityController extends FrameSafeNotifier {
     if (hadLikeNotifications) _likeNotificationChanges.changed();
     if (hadOtherNotifications) _otherNotificationChanges.changed();
     if (hadBookmarks) _bookmarkChanges.changed();
+    if (hadBookmarkList) _bookmarkListChanges.changed();
     if (hadUserActivity) _userActivityChanges.changed();
     if (changed) notifySafely();
   }
@@ -1662,6 +1832,11 @@ final class AccountActivityController extends FrameSafeNotifier {
 
   void _notifyBookmarks() {
     _bookmarkChanges.changed();
+    notifySafely();
+  }
+
+  void _notifyBookmarkList() {
+    _bookmarkListChanges.changed();
     notifySafely();
   }
 
@@ -1737,6 +1912,7 @@ final class AccountActivityController extends FrameSafeNotifier {
     _pluginNotifications.clear();
     _pluginNotificationSources.clear();
     _bookmarkTasks.clear();
+    _bookmarkListTasks.clear();
     _userActivityTasks.clear();
     _totalsRequests.clear();
     _notificationRequests.clear();
@@ -1744,6 +1920,7 @@ final class AccountActivityController extends FrameSafeNotifier {
     _likeNotificationRequests.clear();
     _otherNotificationRequests.clear();
     _bookmarkRequests.clear();
+    _bookmarkListRequests.clear();
     _userActivityRequests.clear();
     _notificationReadRequests.clear();
     _locallyReadNotificationIds.clear();
@@ -1759,6 +1936,7 @@ final class AccountActivityController extends FrameSafeNotifier {
     _likeNotificationChanges.dispose();
     _otherNotificationChanges.dispose();
     _bookmarkChanges.dispose();
+    _bookmarkListChanges.dispose();
     _userActivityChanges.dispose();
     super.dispose();
   }

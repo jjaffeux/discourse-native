@@ -825,9 +825,7 @@ class _ContentViewport extends StatelessWidget {
       return UserSummaryView(siteUrl: siteUrl!);
     }
     if (route.id == 'user-bookmarks' && siteUrl != null && isConnected) {
-      return SingleChildScrollView(
-        child: BookmarkSection(siteUrl: siteUrl!, onOpened: () {}, page: true),
-      );
+      return BookmarkSection(siteUrl: siteUrl!, onOpened: () {}, page: true);
     }
     if (route.isAppearance && siteUrl != null) {
       return ForumSettingsPage(siteUrl: siteUrl!);

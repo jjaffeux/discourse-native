@@ -5,6 +5,7 @@ import 'package:discourse_native/src/models/bookmark.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/post.dart';
+import 'package:discourse_native/src/models/sidebar.dart';
 import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/plugin_api/bookmark_host.dart';
@@ -15,6 +16,7 @@ import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message.dart';
 import 'package:discourse_native/src/plugins/chat/chat_services.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
+import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/bundled_plugins.dart';
@@ -149,6 +151,56 @@ void main() {
       expect(shell.store.read<Topic>(_site, 7)?.bookmarked, isFalse);
       expect(api.deletedBookmarks, [73]);
       expect(api.bookmarksRequested, ['reader']);
+    });
+  });
+
+  group('bookmarks page list', () {
+    test('opening or refreshing the page reads it from the start', () async {
+      final api = _BookmarkFakeApi();
+      final shell = await _loadShell(api);
+      addTearDown(shell.dispose);
+
+      shell.selectDestination(
+        const SidebarDestination(
+          id: 'user-bookmarks',
+          label: 'Bookmarks',
+          icon: DIcons.bookmark,
+        ),
+      );
+      await pumpEventQueue();
+      expect(shell.accountActivity.bookmarkListFor(_site).loaded, isTrue);
+
+      await shell.refreshCurrentTab();
+
+      expect(api.bookmarkListRequests, [
+        (username: 'reader', page: 0),
+        (username: 'reader', page: 0),
+      ]);
+    });
+
+    test('a write re-reads the list only once the page holds it', () async {
+      final api = _BookmarkFakeApi();
+      final shell = await _loadShell(api);
+      addTearDown(shell.dispose);
+
+      final created = await shell.createBookmark(
+        siteUrl: _site,
+        topicId: 7,
+        targetType: BookmarkTargetType.post,
+        targetId: 12,
+      );
+      await pumpEventQueue();
+      expect(api.bookmarkListRequests, isEmpty);
+
+      await shell.loadBookmarkList(_site);
+      await shell.deleteBookmark(
+        siteUrl: _site,
+        topicId: 7,
+        bookmark: created.bookmark!,
+      );
+      await pumpEventQueue();
+
+      expect(api.bookmarkListRequests.map((request) => request.page), [0, 0]);
     });
   });
 
