@@ -5077,6 +5077,7 @@ class ShellController extends FrameSafeNotifier
           ) ||
           changed;
     }
+    _applyTopicDismissal(siteUrl, data, tracking);
     if (changed && currentInstance?.url == siteUrl) {
       _topicTrackingRevisions.update(
         siteUrl,
@@ -5085,6 +5086,76 @@ class ShellController extends FrameSafeNotifier
       );
       _notifyTopicTrackingChanged();
     }
+  }
+
+  /// Core refreshes loaded list rows from tracking state once a dismissal
+  /// changes it (`updateTopics`). Every list here reads one store record per
+  /// topic, so the record takes the dismissal; a list that is not reloaded,
+  /// or is served from its cache, would otherwise keep every marker. The
+  /// message is applied whether or not tracking holds the topic: it is the
+  /// server's record of the dismissal.
+  void _applyTopicDismissal(
+    String siteUrl,
+    Object? data,
+    TopicTrackingState tracking,
+  ) {
+    if (data is! Map) return;
+    final type = data['message_type'];
+    if (type != 'dismiss_new' && type != 'dismiss_new_posts') return;
+    for (final value in jsonArray(jsonObject(data['payload'])['topic_ids'])) {
+      final topicId = jsonIntOrNull(value);
+      if (topicId == null) continue;
+      store.update<Topic>(siteUrl, topicId, (row) {
+        // A dismissed new topic is seen but stays unvisited: core records the
+        // dismissal apart from any read position.
+        if (type == 'dismiss_new') {
+          return row.seen ? row : row.copyWith(seen: true);
+        }
+        // Core moves only an existing read position, to the highest post.
+        if (row.lastReadPostNumber == null) return row;
+        final tracked = tracking.topic(topicId)?.highestPostNumber ?? 0;
+        return _readThrough(
+          row,
+          tracked > row.highestPostNumber ? tracked : row.highestPostNumber,
+        );
+      });
+    }
+  }
+
+  /// A list response sent before a dismissal, or before a read elsewhere,
+  /// must not restore markers tracking state has since cleared. Only a state
+  /// that has passed the row's own is projected: a dismissed topic is never
+  /// new again, and a read position covering the row's highest post leaves
+  /// nothing unread in it. A row reporting a reply since then carries a
+  /// highest post beyond that position, so it keeps its count.
+  Topic _projectTopicTracking(String siteUrl, Topic incoming) {
+    final tracked = _topicTrackingBySite[siteUrl]?.topic(incoming.id);
+    if (tracked == null) return incoming;
+    var row = incoming;
+    if (tracked.isSeen && !row.seen) row = row.copyWith(seen: true);
+    final position = tracked.lastReadPostNumber;
+    final held = row.lastReadPostNumber;
+    // A sparse row's missing highest post is no proof that it is read.
+    if (position != null &&
+        held != null &&
+        position > held &&
+        row.highestPostNumber > 0 &&
+        position >= row.highestPostNumber) {
+      row = _readThrough(row, position);
+    }
+    return row;
+  }
+
+  static Topic _readThrough(Topic row, int position) {
+    final read = row.copyWith(
+      lastReadPostNumber: position > (row.lastReadPostNumber ?? 0)
+          ? position
+          : null,
+      highestPostNumber: position > row.highestPostNumber ? position : null,
+      unreadPosts: 0,
+      newPosts: 0,
+    );
+    return read == row ? row : read;
   }
 
   /// One poll answer can carry a backlog of tracking messages, delivered in
@@ -11715,7 +11786,10 @@ class ShellController extends FrameSafeNotifier
     Topic incoming,
     int? versionAtDispatch,
   ) {
-    incoming = _topicReads.project(siteUrl, incoming);
+    incoming = _projectTopicTracking(
+      siteUrl,
+      _topicReads.project(siteUrl, incoming),
+    );
     if (versionAtDispatch == null ||
         versionAtDispatch == _siteBookmarkVersion(siteUrl)) {
       return incoming;
