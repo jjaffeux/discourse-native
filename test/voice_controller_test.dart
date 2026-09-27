@@ -7027,6 +7027,38 @@ void main() {
       );
     });
 
+    test('a send through a thread followed after a failed first message '
+        'answers for itself', () async {
+      transport.responses['GET /voice/rooms/7/chat_session.json'] = {
+        'channel_id': 42,
+      };
+      transport.failures['POST /voice/rooms/7/chat_message.json'] =
+          const SiteLookupException(SiteLookupFailure.unreachable, 'one');
+      await controller.ensureLoaded(firstSite);
+      await controller.openChat(firstSite, 7);
+      await controller.sendChatMessage(firstSite, 7, 'first');
+      expect(controller.chat(firstSite, 7)?.error, 'Message not sent.');
+
+      // Someone else's first message opened the thread meanwhile.
+      transport.responses['GET /voice/rooms/7/chat_session.json'] = {
+        'channel_id': 42,
+        'thread_id': 99,
+      };
+      firstTracker.deliver('/voice/rooms/7/chat', {'type': 'updated'});
+      await pumpEventQueue();
+      final conversation = chatConversations.find(
+        siteUrl: firstSite,
+        channelId: 42,
+        threadId: 99,
+      )!;
+      expect(conversation.refreshCalls, 1);
+
+      await controller.sendChatMessage(firstSite, 7, 'first');
+
+      expect(conversation.sentMessages, ['first']);
+      expect(controller.chat(firstSite, 7)?.error, isNull);
+    });
+
     test('stops watching when the panel closes', () async {
       await controller.ensureLoaded(firstSite);
       await controller.openChat(firstSite, 7);

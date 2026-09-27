@@ -1849,10 +1849,40 @@ class _VoiceChatSheet extends StatefulWidget {
 class _VoiceChatSheetState extends State<_VoiceChatSheet> {
   final TextEditingController _composer = TextEditingController();
 
+  /// Spans this sheet's whole send, including the credential read the
+  /// controller awaits before it reports the room chat as sending.
+  bool _sending = false;
+
   @override
   void dispose() {
     _composer.dispose();
     super.dispose();
+  }
+
+  VoiceChatSnapshot? get _chat =>
+      widget.controller.chat(widget.siteUrl, widget.roomId);
+
+  Future<void> _send() async {
+    final text = _composer.text;
+    if (_sending || (_chat?.sending ?? false) || text.trim().isEmpty) return;
+    // Cleared up front so the next message can be written while this one is
+    // in flight. A failed send hands its text back only to an empty
+    // composer, never over what was typed since.
+    _composer.clear();
+    setState(() => _sending = true);
+    await widget.controller.sendChatMessage(
+      widget.siteUrl,
+      widget.roomId,
+      text,
+    );
+    if (!mounted) return;
+    setState(() => _sending = false);
+    if (_chat?.error != null && _composer.text.isEmpty) {
+      _composer.value = TextEditingValue(
+        text: text,
+        selection: TextSelection.collapsed(offset: text.length),
+      );
+    }
   }
 
   @override
@@ -1866,42 +1896,19 @@ class _VoiceChatSheetState extends State<_VoiceChatSheet> {
             child: ListenableBuilder(
               listenable: widget.controller,
               builder: (context, _) {
-                final chat = widget.controller.chat(
-                  widget.siteUrl,
-                  widget.roomId,
-                );
-                if (chat == null || chat.loading) {
-                  return const SizedBox.shrink();
-                }
-                if (chat.messages.isEmpty) {
-                  return const Center(child: Text('No messages yet.'));
-                }
-                return ListView.builder(
-                  itemCount:
-                      chat.messages.length + (chat.canLoadMorePast ? 1 : 0),
-                  itemBuilder: (context, index) {
-                    if (chat.canLoadMorePast && index == 0) {
-                      return Center(
-                        child: DButton(
-                          onPressed: () => widget.controller.loadOlderChat(
-                            widget.siteUrl,
-                            widget.roomId,
-                          ),
-                          label: const Text('Load older messages'),
-                          variant: DButtonVariant.link,
+                final chat = _chat;
+                return Column(
+                  children: [
+                    if (chat?.error case final error?)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: DSpacing.sm),
+                        child: DAlert(
+                          variant: DAlertVariant.destructive,
+                          description: DAlertDescription(child: Text(error)),
                         ),
-                      );
-                    }
-                    final message =
-                        chat.messages[index - (chat.canLoadMorePast ? 1 : 0)];
-                    return ListTile(
-                      title: Text(message.author.displayName),
-                      subtitle: CookedHtml(
-                        html: message.cooked,
-                        siteUrl: widget.siteUrl,
                       ),
-                    );
-                  },
+                    Expanded(child: _messages(chat)),
+                  ],
                 );
               },
             ),
@@ -1916,19 +1923,15 @@ class _VoiceChatSheetState extends State<_VoiceChatSheet> {
                   hintText: 'Message the room',
                 ),
               ),
-              DButton.iconOnly(
-                onPressed: () async {
-                  final text = _composer.text;
-                  _composer.clear();
-                  await widget.controller.sendChatMessage(
-                    widget.siteUrl,
-                    widget.roomId,
-                    text,
-                  );
-                },
-                variant: DButtonVariant.primary,
-                tooltip: 'Send message',
-                icon: const DIcon(DIcons.paperPlane),
+              ListenableBuilder(
+                listenable: widget.controller,
+                builder: (context, _) => DButton.iconOnly(
+                  onPressed: _send,
+                  loading: _sending || (_chat?.sending ?? false),
+                  variant: DButtonVariant.primary,
+                  tooltip: 'Send message',
+                  icon: const DIcon(DIcons.paperPlane),
+                ),
               ),
             ],
           ),
@@ -1936,6 +1939,39 @@ class _VoiceChatSheetState extends State<_VoiceChatSheet> {
       ),
     ),
   );
+
+  Widget _messages(VoiceChatSnapshot? chat) {
+    if (chat == null) return const SizedBox.shrink();
+    if (chat.messages.isEmpty) {
+      // Lists draw no loading indicator, and a failure is told by the alert
+      // rather than read as an empty room.
+      return chat.loading || chat.error != null
+          ? const SizedBox.shrink()
+          : const Center(child: Text('No messages yet.'));
+    }
+    return ListView.builder(
+      itemCount: chat.messages.length + (chat.canLoadMorePast ? 1 : 0),
+      itemBuilder: (context, index) {
+        if (chat.canLoadMorePast && index == 0) {
+          return Center(
+            child: DButton(
+              onPressed: () => widget.controller.loadOlderChat(
+                widget.siteUrl,
+                widget.roomId,
+              ),
+              label: const Text('Load older messages'),
+              variant: DButtonVariant.link,
+            ),
+          );
+        }
+        final message = chat.messages[index - (chat.canLoadMorePast ? 1 : 0)];
+        return ListTile(
+          title: Text(message.author.displayName),
+          subtitle: CookedHtml(html: message.cooked, siteUrl: widget.siteUrl),
+        );
+      },
+    );
+  }
 }
 
 Future<void> _showVoiceMembers(

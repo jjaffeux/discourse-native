@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:discourse_native/src/plugins/chat/chat_contract.dart';
 import 'package:flutter/foundation.dart';
 
@@ -85,6 +87,10 @@ final class FakeChatConversation extends ChangeNotifier
 
   final ChatConversationSnapshot? snapshotAfterLoadOlder;
   final ChatConversationSnapshot? snapshotAfterSend;
+
+  /// Holds each [send] open until completed. The snapshot is left as it was,
+  /// so a caller cannot learn of the send from [value].
+  Completer<void>? sendGate;
   int refreshCalls = 0;
   int loadOlderCalls = 0;
   int closeCalls = 0;
@@ -117,6 +123,7 @@ final class FakeChatConversation extends ChangeNotifier
   @override
   Future<void> send(String message) async {
     sentMessages.add(message);
+    await sendGate?.future;
     final configured = snapshotAfterSend;
     if (configured != null) setSnapshot(configured);
   }

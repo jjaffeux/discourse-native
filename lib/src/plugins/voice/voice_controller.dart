@@ -3970,6 +3970,13 @@ final class VoiceController extends ChangeNotifier {
     var state = _chats.putIfAbsent(key, _VoiceChatAssociation.new);
     final heldConversation = state.conversation;
     if (heldConversation != null) {
+      // The panel reads this send's outcome from the snapshot, where an
+      // earlier failure held here would otherwise outrank the
+      // conversation's own answer.
+      if (state.error != null) {
+        state.error = null;
+        notifyListeners();
+      }
       await heldConversation.send(text);
       return;
     }
