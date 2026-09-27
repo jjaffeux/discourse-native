@@ -513,6 +513,8 @@ void main() {
         json,
       );
       probe('TopicTagSearch', () => TopicTagSearch.fromJson(json), json);
+      final updateJson = <String, dynamic>{...json, 'basic_topic': loose};
+      probe('TopicUpdate', () => TopicUpdate.fromJson(updateJson), updateJson);
       probe('TopicTag', () => TopicTag.parse(loose), loose);
       probe('SidebarTag', () => SidebarTag.fromJson(loose), loose);
       probe(

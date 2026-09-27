@@ -399,7 +399,7 @@ final class DiscourseTopicApi {
     return PostRevision.fromJson(body, siteUrl);
   }
 
-  Future<void> updateTopic({
+  Future<TopicUpdate> updateTopic({
     required String siteUrl,
     required String apiKey,
     required int topicId,
@@ -412,7 +412,7 @@ final class DiscourseTopicApi {
   }) async {
     _requirePositiveId(topicId, 'topicId');
     if (categoryId != null) _requirePositiveId(categoryId, 'categoryId');
-    await _write(
+    final body = await _write(
       Uri.parse('$siteUrl/t/$topicId.json'),
       siteUrl: siteUrl,
       method: 'PUT',
@@ -426,6 +426,7 @@ final class DiscourseTopicApi {
         'original_tags': originalTags?.map((tag) => tag.toJson()).toList(),
       },
     );
+    return TopicUpdate.fromJson(body);
   }
 
   Future<void> updateTopicTags({

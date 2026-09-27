@@ -646,7 +646,7 @@ abstract interface class TopicMutationsApi {
   });
 
   /// Omitted taxonomy fields are preserved; an empty [tags] clears tags.
-  Future<void> updateTopic({
+  Future<TopicUpdate> updateTopic({
     required String siteUrl,
     required String apiKey,
     required int topicId,

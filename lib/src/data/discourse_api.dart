@@ -1129,7 +1129,7 @@ class DiscourseApi
   );
 
   @override
-  Future<void> updateTopic({
+  Future<TopicUpdate> updateTopic({
     required String siteUrl,
     required String apiKey,
     required int topicId,

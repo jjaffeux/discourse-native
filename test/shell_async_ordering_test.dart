@@ -948,6 +948,29 @@ void main() {
       expect(api.postRequests, isEmpty);
     });
 
+    test('a topic reload carries a rename to the open route', () async {
+      final api = _PostOrderingApi();
+      final shell = await _loadShell(api);
+      addTearDown(shell.dispose);
+      final tracker = await _openTopic(shell);
+
+      api.topics[7] = topicPayload(
+        id: 7,
+        title: 'A renamed topic',
+        posts: [_post('initial')],
+      );
+      tracker.deliverTopicMessage('/topic/7', const {
+        'type': 'revised',
+        'id': 1,
+        'reload_topic': true,
+      });
+      await pumpEventQueue();
+
+      expect(api.topicsOpened, [7, 7]);
+      expect(shell.currentTopic?.title, 'A renamed topic');
+      expect(shell.currentContent?.title, 'A renamed topic');
+    });
+
     test('keeps a deleted post the reader can still see', () async {
       final api = _PostOrderingApi();
       final shell = await _loadShell(api);

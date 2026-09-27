@@ -2530,7 +2530,7 @@ class FakeDiscourseApi
   }
 
   @override
-  Future<void> updateTopic({
+  Future<TopicUpdate> updateTopic({
     required String siteUrl,
     required String apiKey,
     required int topicId,
@@ -2551,6 +2551,7 @@ class FakeDiscourseApi
     });
     final failure = writeFailure;
     if (failure != null) throw failure;
+    return const TopicUpdate();
   }
 
   @override

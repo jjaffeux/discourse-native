@@ -7032,6 +7032,9 @@ class ShellController extends FrameSafeNotifier
             });
       if (targetHeld) {
         SurfaceOpeningTrace.mark('topic.cacheHit');
+        // A link names its topic by a title spelled from the slug, and no read
+        // follows to replace it with the one the site holds.
+        if (_retitle(instance.url, topicId, held.title)) _notify();
         return;
       }
     }
@@ -7124,9 +7127,6 @@ class ShellController extends FrameSafeNotifier
           postRemovalVersionAtDispatch: postRemovalVersion,
         );
         _ensureMessageListParent(instance.url, tabId, detail);
-        if (currentInstance?.url == instance.url) {
-          _retitle(instance.url, topicId, fetched.detail.title);
-        }
         if (requestedPostNumber == null &&
             currentInstance?.url == instance.url &&
             currentContent?.topicId == topicId &&
@@ -7232,9 +7232,10 @@ class ShellController extends FrameSafeNotifier
     }
   }
 
-  void _retitle(String siteUrl, int topicId, String title) {
-    if (title.isEmpty) return;
-    _rewriteTopicRoutes(siteUrl, topicId, (route) {
+  /// Whether any route of the topic changed.
+  bool _retitle(String siteUrl, int topicId, String title) {
+    if (title.isEmpty) return false;
+    return _rewriteTopicRoutes(siteUrl, topicId, (route) {
       if (route.title == title) return route;
       return ContentRoute.topic(
         topicId: topicId,
@@ -7266,7 +7267,7 @@ class ShellController extends FrameSafeNotifier
     });
   }
 
-  void _rewriteTopicRoutes(
+  bool _rewriteTopicRoutes(
     String siteUrl,
     int topicId,
     ContentRoute Function(ContentRoute route) rewrite,
@@ -7275,12 +7276,12 @@ class ShellController extends FrameSafeNotifier
     (route) => route.topicId == topicId ? rewrite(route) : route,
   );
 
-  void _rewriteContentRoutes(
+  bool _rewriteContentRoutes(
     String siteUrl,
     ContentRoute Function(ContentRoute route) rewrite,
   ) {
     final workspace = _forumWorkspaces[siteUrl];
-    if (workspace == null) return;
+    if (workspace == null) return false;
     var changed = false;
     final tabs = <ForumTab>[];
     for (final tab in workspace.tabs) {
@@ -7289,6 +7290,7 @@ class ShellController extends FrameSafeNotifier
       tabs.add(updated);
     }
     if (changed) _putWorkspace(workspace.copyWith(tabs: tabs));
+    return changed;
   }
 
   /// Advances each time this reader takes a post out of a topic.
@@ -7397,6 +7399,10 @@ class ShellController extends FrameSafeNotifier
           )
           .withPlugins(detail.plugins),
     );
+    // Routes name the topic in its tab and header, so a read that brings a
+    // rename, such as the reload a live `revised` message asks for, has to
+    // reach them as well as the stored topic.
+    _retitle(siteUrl, detail.id, detail.title);
     _armTopicPostHighlightIfLoaded();
     return detail;
   }
@@ -9405,7 +9411,7 @@ class ShellController extends FrameSafeNotifier
       tabId: activeTabId,
       topicId: topicId,
       slug: route?.slug ?? '',
-      topicTitle: route?.title ?? '',
+      topicTitle: currentTopic?.title ?? route?.title ?? '',
       replyToPostNumber: replyToPostNumber,
       replyToUsername: replyToUsername,
       replyingToWhisper: targetsWhisper,
@@ -9497,7 +9503,10 @@ class ShellController extends FrameSafeNotifier
       tabId: activeTabId,
       topicId: topicId,
       slug: route?.slug ?? '',
-      topicTitle: route?.title ?? '',
+      // The site rejects a topic edit whose `original_title` is not the title
+      // it holds, which is the stored topic's; a route can still carry the
+      // title a link spelled from its slug until a read replaces it.
+      topicTitle: detail?.title ?? route?.title ?? '',
       editingPostId: post.id,
       editingPostNumber: post.postNumber,
       mode: editsTopic ? ComposerMode.topicEdit : ComposerMode.postEdit,
@@ -9648,8 +9657,9 @@ class ShellController extends FrameSafeNotifier
     if (!lease.isCurrent) return 'The forum changed before the title saved.';
     if (credential.failure case final failure?) return failure.message;
 
+    final TopicUpdate update;
     try {
-      await api.topicMutations.updateTopic(
+      update = await api.topicMutations.updateTopic(
         siteUrl: siteUrl,
         apiKey: credential.apiKey!,
         topicId: topicId,
@@ -9666,18 +9676,19 @@ class ShellController extends FrameSafeNotifier
     }
     if (!lease.isCurrent) return 'The forum changed before the title saved.';
 
+    final stored = update.title ?? nextTitle;
     lease.commit(() {
       store.update<TopicDetail>(
         siteUrl,
         topicId,
-        (topic) => topic.copyWith(title: nextTitle),
+        (topic) => topic.copyWith(title: stored),
       );
       store.update<Topic>(
         siteUrl,
         topicId,
-        (topic) => topic.copyWith(title: nextTitle),
+        (topic) => topic.copyWith(title: stored),
       );
-      _retitle(siteUrl, topicId, nextTitle);
+      _retitle(siteUrl, topicId, stored);
       _notify();
     });
     return null;
@@ -9706,8 +9717,9 @@ class ShellController extends FrameSafeNotifier
     );
     if (!lease.isCurrent) return 'The forum changed before the category saved.';
 
+    final TopicUpdate update;
     try {
-      await api.topicMutations.updateTopic(
+      update = await api.topicMutations.updateTopic(
         siteUrl: siteUrl,
         apiKey: credential.apiKey!,
         topicId: topicId,
@@ -9727,16 +9739,19 @@ class ShellController extends FrameSafeNotifier
     }
     if (!lease.isCurrent) return 'The forum changed before the category saved.';
 
+    // The answer's title only echoes the baseline this write was accepted
+    // against; its tags are the ones the site kept.
+    final storedTags = update.tags ?? tags;
     lease.commit(() {
       store.update<TopicDetail>(
         siteUrl,
         topicId,
-        (topic) => topic.copyWith(categoryId: categoryId, tags: tags),
+        (topic) => topic.copyWith(categoryId: categoryId, tags: storedTags),
       );
       store.update<Topic>(
         siteUrl,
         topicId,
-        (topic) => topic.copyWith(categoryId: categoryId, tags: tags),
+        (topic) => topic.copyWith(categoryId: categoryId, tags: storedTags),
       );
       _updateTopicRouteMetadata(siteUrl, topicId, detail.title, categoryId);
       _notify();
@@ -12846,8 +12861,9 @@ class ShellController extends FrameSafeNotifier
     final apiKey = credential.apiKey!;
 
     if (target.editsTopicMetadata && composer.metadataChanged) {
+      final TopicUpdate update;
       try {
-        await api.topicMutations.updateTopic(
+        update = await api.topicMutations.updateTopic(
           siteUrl: target.siteUrl,
           apiKey: apiKey,
           topicId: target.topicId,
@@ -12870,7 +12886,8 @@ class ShellController extends FrameSafeNotifier
         return;
       }
       lease.commit(() {
-        final title = composer.title.text.trim();
+        final title = update.title ?? composer.title.text.trim();
+        final tags = update.tags ?? composer.tags;
         store.update<TopicDetail>(
           target.siteUrl,
           target.topicId,
@@ -12878,7 +12895,7 @@ class ShellController extends FrameSafeNotifier
             title: title,
             categoryId: composer.categoryId,
             clearCategory: composer.categoryId == null,
-            tags: composer.tags,
+            tags: tags,
           ),
         );
         store.update<Topic>(
@@ -12888,7 +12905,7 @@ class ShellController extends FrameSafeNotifier
             title: title,
             categoryId: composer.categoryId,
             clearCategory: composer.categoryId == null,
-            tags: composer.tags,
+            tags: tags,
           ),
         );
         _updateTopicRouteMetadata(
@@ -12897,7 +12914,7 @@ class ShellController extends FrameSafeNotifier
           title,
           composer.categoryId,
         );
-        composer.metadataSettled();
+        composer.metadataSettled(title: update.title, tags: update.tags);
       });
       if (raw == composer.originalRaw?.trimRight()) {
         lease.commit(() => _closeSubmittedComposer(composer));
