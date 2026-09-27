@@ -65,19 +65,43 @@ class QuoteData {
   static String? _title(dom.Element? titleEl) {
     if (titleEl == null) return null;
 
-    final text = titleEl.nodes
-        .where(
-          (node) =>
-              node is! dom.Element || !node.classes.contains('quote-controls'),
-        )
-        .map((node) => node is dom.Element ? node.text : (node.text ?? ''))
-        .join()
-        .trim();
+    final buffer = StringBuffer();
+    final pending = <dom.Node>[];
+    void pushChildren(dom.Node parent) {
+      final nodes = parent.nodes;
+      for (var index = nodes.length - 1; index >= 0; index--) {
+        pending.add(nodes[index]);
+      }
+    }
+
+    pushChildren(titleEl);
+    while (pending.isNotEmpty) {
+      final node = pending.removeLast();
+      if (node is dom.Text) {
+        buffer.write(node.data);
+      } else if (node is dom.Element && !_outsideTitle(node)) {
+        pushChildren(node);
+      }
+    }
+    final text = buffer.toString().trim();
 
     final trimmed = text.endsWith(':')
         ? text.substring(0, text.length - 1).trim()
         : text;
     return trimmed.nullIfEmpty;
+  }
+
+  // A same-site topic link is cooked as a quote whose title carries the
+  // topic's category badge after the topic link. The badge names the
+  // category, not the quoted source, so it is neither drawn nor announced as
+  // part of the title — in its current `badge-category__wrapper` form, the
+  // older `badge-wrapper` form, or as a bare `badge-category`.
+  static bool _outsideTitle(dom.Element element) {
+    final classes = element.classes;
+    return classes.contains('quote-controls') ||
+        classes.contains('badge-category__wrapper') ||
+        classes.contains('badge-wrapper') ||
+        classes.contains('badge-category');
   }
 }
 
