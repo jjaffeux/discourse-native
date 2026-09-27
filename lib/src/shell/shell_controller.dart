@@ -242,6 +242,20 @@ final class _PluginBookmarkWriteContext extends _BookmarkWriteContext {
 
 const _pluginBookmarkWriteContext = _PluginBookmarkWriteContext();
 
+/// The held posts of one topic that one synchronous run of live messages
+/// named for a re-read. It is also the owner token of each post's read, so a
+/// write that disowns a queued post keeps it out of the request.
+final class _PostRefreshBatch {
+  _PostRefreshBatch(this.siteUrl, this.topicId, this.lease);
+
+  final String siteUrl;
+  final int topicId;
+  final SiteLease lease;
+
+  /// In the order the run named them; a post named twice is read once.
+  final Set<int> postIds = {};
+}
+
 final class PostPermanentDeleteTarget {
   const PostPermanentDeleteTarget._({
     required this.siteUrl,
@@ -4493,13 +4507,9 @@ class ShellController extends FrameSafeNotifier
             );
           }
           final stale = plugins.registry.stalePosts(channel, data);
-          if (stale.isNotEmpty) {
-            unawaited(_refreshPosts(siteUrl, topicId, stale));
-          }
+          if (stale.isNotEmpty) _refreshPosts(siteUrl, topicId, stale);
           if (core.post case final id?) {
-            unawaited(
-              _refreshPosts(siteUrl, topicId, {id}, deletion: core.deletion),
-            );
+            _refreshPosts(siteUrl, topicId, {id}, deletion: core.deletion);
           }
         }
       },
@@ -4644,12 +4654,19 @@ class ShellController extends FrameSafeNotifier
     }
   }
 
-  Future<void> _refreshPosts(
+  /// Re-reads of held posts that have not left yet, by [_topicKey]. One poll
+  /// answer can name many held posts, some several times: a backlog replayed
+  /// on resume, or the likes of a busy thread. Each request counts against
+  /// the site's per-minute user API budget, which the reader's own actions
+  /// share, so the posts a run names leave together once it is delivered.
+  final Map<String, _PostRefreshBatch> _queuedPostRefreshes = {};
+
+  void _refreshPosts(
     String siteUrl,
     int topicId,
     Set<int> postIds, {
     bool deletion = false,
-  }) async {
+  }) {
     final eligible = <int>[];
     for (final id in postIds) {
       final key = _postKey(siteUrl, id);
@@ -4673,29 +4690,62 @@ class ShellController extends FrameSafeNotifier
     // A deleted post that a write's own re-read already took out holds no
     // count back.
     _releaseDeferredTopicPostsCount(siteUrl, topicId);
-    final wanted = <int>[];
-    for (final id in eligible.take(TopicDetail.maximumInitialPosts)) {
+    final topicKey = _topicKey(siteUrl, topicId);
+    for (final id in eligible) {
       final key = _postKey(siteUrl, id);
-      if (_postRefreshRequests.containsKey(key)) {
+      final owner = _postRefreshRequests[key];
+      if (owner == null) {
+        final batch = _queuedPostRefreshes.putIfAbsent(topicKey, () {
+          final batch = _PostRefreshBatch(
+            siteUrl,
+            topicId,
+            lifecycle.capture(siteUrl),
+          );
+          scheduleMicrotask(() => _sendPostRefreshBatch(batch));
+          return batch;
+        });
+        batch.postIds.add(id);
+        _postRefreshRequests[key] = batch;
+        // Keep the topic beside every active read as well as beside reads that
+        // arrive during a write. If a write starts now, it invalidates this
+        // pre-write response and needs enough context to replay it afterward.
+        _postRefreshTopics[key] = topicId;
+      } else if (!identical(owner, _queuedPostRefreshes[topicKey])) {
+        // The read already out may have been answered before this change.
         _postRefreshPending.add(key);
-      } else {
-        wanted.add(id);
       }
     }
-    if (wanted.isEmpty) return;
-    final lease = lifecycle.capture(siteUrl);
-    final request = Object();
-    for (final id in wanted) {
-      final key = _postKey(siteUrl, id);
-      _postRefreshRequests[key] = request;
-      // Keep the topic beside every active read as well as beside reads that
-      // arrive during a write. If a write starts now, it invalidates this
-      // pre-write response and needs enough context to replay it afterward.
-      _postRefreshTopics[key] = topicId;
+  }
+
+  /// Sends what [batch] still owns, as reads by id of at most
+  /// [TopicDetail.maximumInitialPosts] posts, the page the web client reads
+  /// a stream in.
+  void _sendPostRefreshBatch(_PostRefreshBatch batch) {
+    final topicKey = _topicKey(batch.siteUrl, batch.topicId);
+    // A forgotten site took its queued reads with it.
+    if (!identical(_queuedPostRefreshes[topicKey], batch)) return;
+    _queuedPostRefreshes.remove(topicKey);
+    if (isDisposed) return;
+    final owned = [
+      for (final id in batch.postIds)
+        if (identical(_postRefreshRequests[_postKey(batch.siteUrl, id)], batch))
+          id,
+    ];
+    const page = TopicDetail.maximumInitialPosts;
+    for (var start = 0; start < owned.length; start += page) {
+      final end = math.min(start + page, owned.length);
+      unawaited(_readRefreshedPosts(batch, owned.sublist(start, end)));
     }
+  }
+
+  Future<void> _readRefreshedPosts(
+    _PostRefreshBatch batch,
+    List<int> wanted,
+  ) async {
+    final _PostRefreshBatch(:siteUrl, :topicId, :lease) = batch;
 
     bool requestOwns(int postId) =>
-        identical(_postRefreshRequests[_postKey(siteUrl, postId)], request);
+        identical(_postRefreshRequests[_postKey(siteUrl, postId)], batch);
 
     try {
       final credential = await _readSessionValue(
@@ -4755,7 +4805,7 @@ class ShellController extends FrameSafeNotifier
       lease.commit(() {
         for (final id in wanted) {
           final key = _postKey(siteUrl, id);
-          if (identical(_postRefreshRequests[key], request)) {
+          if (requestOwns(id)) {
             _postRefreshRequests.remove(key);
             if (_postRefreshPending.remove(key)) {
               retry.add(id);
@@ -4767,9 +4817,7 @@ class ShellController extends FrameSafeNotifier
         }
         _releaseDeferredTopicPostsCount(siteUrl, topicId);
       });
-      if (retry.isNotEmpty) {
-        unawaited(_refreshPosts(siteUrl, topicId, retry));
-      }
+      if (retry.isNotEmpty) _refreshPosts(siteUrl, topicId, retry);
     }
   }
 
@@ -12263,9 +12311,7 @@ class ShellController extends FrameSafeNotifier
     if (notify) _notify();
     if (!_postRefreshPending.remove(key)) return;
     final topicId = _postRefreshTopics.remove(key);
-    if (topicId != null) {
-      unawaited(_refreshPosts(siteUrl, topicId, {postId}));
-    }
+    if (topicId != null) _refreshPosts(siteUrl, topicId, {postId});
   }
 
   Future<BookmarkWriteResult> createBookmark({
@@ -15480,6 +15526,7 @@ class ShellController extends FrameSafeNotifier
     _postRefreshPending.removeWhere((key) => key.startsWith('$siteUrl~'));
     _postRefreshTopics.removeWhere((key, _) => key.startsWith('$siteUrl~'));
     _postRefreshDeletions.removeWhere((key) => key.startsWith('$siteUrl~'));
+    _queuedPostRefreshes.removeWhere((key, _) => key.startsWith('$siteUrl#'));
     _deferredTopicPostsCounts.removeWhere(
       (key, _) => key.startsWith('$siteUrl#'),
     );
