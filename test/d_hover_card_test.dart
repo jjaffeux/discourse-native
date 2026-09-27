@@ -1,3 +1,5 @@
+import 'dart:ui' show ViewFocusDirection, ViewFocusEvent, ViewFocusState;
+
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/gestures.dart';
@@ -212,6 +214,78 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Supplementary preview'), findsNothing);
   });
+
+  for (final how in _Hide.values) {
+    testWidgets(
+      'content hidden under the pointer by ${how.name} does not stay hovered',
+      (tester) async {
+        final controller = DHoverCardController();
+        addTearDown(controller.dispose);
+        await tester.pumpWidget(
+          _app(
+            _Card(
+              controller: controller,
+              delay: Duration.zero,
+              closeDelay: const Duration(milliseconds: 100),
+            ),
+          ),
+        );
+        final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+        addTearDown(mouse.removePointer);
+        await mouse.addPointer(location: Offset.zero);
+        await mouse.moveTo(tester.getCenter(find.text('Destination')));
+        await tester.pumpAndSettle();
+        await mouse.moveTo(tester.getCenter(find.byType(DHoverCardContent)));
+        await tester.pumpAndSettle();
+        expect(find.text('Supplementary preview'), findsOneWidget);
+
+        // The content leaves the tree under the pointer, so its region never
+        // reports an exit.
+        switch (how) {
+          case _Hide.escape:
+            await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+          case _Hide.controller:
+            controller.close();
+          case _Hide.lifecycle:
+            tester.binding.handleAppLifecycleStateChanged(
+              AppLifecycleState.inactive,
+            );
+            await tester.pump();
+            tester.binding.handleAppLifecycleStateChanged(
+              AppLifecycleState.resumed,
+            );
+          case _Hide.viewFocus:
+            for (final state in [
+              ViewFocusState.unfocused,
+              ViewFocusState.focused,
+            ]) {
+              tester.binding.handleViewFocusChanged(
+                ViewFocusEvent(
+                  viewId: tester.view.viewId,
+                  state: state,
+                  direction: ViewFocusDirection.undefined,
+                ),
+              );
+              await tester.pump();
+            }
+        }
+        await tester.pumpAndSettle();
+        expect(find.text('Supplementary preview'), findsNothing);
+
+        await mouse.moveTo(const Offset(4, 4));
+        await tester.pump();
+        await mouse.moveTo(tester.getCenter(find.text('Destination')));
+        await tester.pumpAndSettle();
+        expect(find.text('Supplementary preview'), findsOneWidget);
+        await mouse.moveTo(const Offset(4, 4));
+        await tester.pump(const Duration(milliseconds: 99));
+        expect(find.text('Supplementary preview'), findsOneWidget);
+        await tester.pump(const Duration(milliseconds: 1));
+        await tester.pumpAndSettle();
+        expect(find.text('Supplementary preview'), findsNothing);
+      },
+    );
+  }
 
   testWidgets('keyboard focus opens without moving focus and Escape closes', (
     tester,
@@ -776,6 +850,8 @@ void main() {
     );
   });
 }
+
+enum _Hide { escape, controller, lifecycle, viewFocus }
 
 Widget _rtlTrigger(BuildContext context, DHoverCardTriggerState state) =>
     TextButton(

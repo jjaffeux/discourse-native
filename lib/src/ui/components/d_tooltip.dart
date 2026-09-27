@@ -480,7 +480,7 @@ class DTooltipState extends State<DTooltip>
       if (!value && immediate) {
         _stopScrollTracking();
         _allocatedAnimation?.value = 0;
-        _portal.hide();
+        _hidePortal();
       }
       return;
     }
@@ -516,7 +516,7 @@ class DTooltipState extends State<DTooltip>
       _pointerEngaged = false;
       if (still) {
         _animation.value = 0;
-        _portal.hide();
+        _hidePortal();
       } else {
         _animation.reverse();
       }
@@ -572,11 +572,19 @@ class DTooltipState extends State<DTooltip>
     }
   }
 
+  // The popup's MouseRegion leaves the tree with the portal without reporting
+  // an exit. A hidden popup is not hovered: a flag left set would keep every
+  // later opening from closing when the pointer leaves.
+  void _hidePortal() {
+    _popupHovered = false;
+    _portal.hide();
+  }
+
   void _animationStatus(AnimationStatus status) {
     if (!mounted) return;
     if (status == AnimationStatus.dismissed) {
       _stopScrollTracking();
-      _portal.hide();
+      _hidePortal();
       widget.onOpenChangeComplete?.call(false);
     } else if (status == AnimationStatus.completed) {
       widget.onOpenChangeComplete?.call(true);

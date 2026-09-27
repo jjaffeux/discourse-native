@@ -1,4 +1,5 @@
-import 'dart:ui' show Tristate;
+import 'dart:ui'
+    show Tristate, ViewFocusDirection, ViewFocusEvent, ViewFocusState;
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/styleguide/styleguide_theme.dart';
@@ -56,6 +57,8 @@ Future<TestGesture> _mouse(
   await tester.pump(wait);
   return mouse;
 }
+
+enum _Hide { escape, lifecycle, viewFocus }
 
 Finder get _hint => find.text('Information');
 Finder _surface(Finder hint) =>
@@ -360,6 +363,71 @@ void main() {
       expect(_hint, findsNothing);
     },
   );
+
+  for (final how in _Hide.values) {
+    testWidgets(
+      'a popup hidden under the pointer by ${how.name} does not stay hovered',
+      (tester) async {
+        await _pump(
+          tester,
+          const DTooltip(
+            message: 'Information',
+            dismissDelay: Duration(milliseconds: 200),
+            child: _target,
+          ),
+        );
+        final mouse = await _mouse(tester, find.text('Target'));
+        await tester.pumpAndSettle();
+        await mouse.moveTo(tester.getCenter(_surface(_hint)));
+        await tester.pumpAndSettle();
+        expect(_hint, findsOneWidget);
+
+        // The popup leaves the tree under the pointer, so its region never
+        // reports an exit.
+        switch (how) {
+          case _Hide.escape:
+            await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+          case _Hide.lifecycle:
+            tester.binding.handleAppLifecycleStateChanged(
+              AppLifecycleState.inactive,
+            );
+            await tester.pump();
+            tester.binding.handleAppLifecycleStateChanged(
+              AppLifecycleState.resumed,
+            );
+          case _Hide.viewFocus:
+            for (final state in [
+              ViewFocusState.unfocused,
+              ViewFocusState.focused,
+            ]) {
+              tester.binding.handleViewFocusChanged(
+                ViewFocusEvent(
+                  viewId: tester.view.viewId,
+                  state: state,
+                  direction: ViewFocusDirection.undefined,
+                ),
+              );
+              await tester.pump();
+            }
+        }
+        await tester.pumpAndSettle();
+        expect(_hint, findsNothing);
+
+        await mouse.moveTo(Offset.zero);
+        await tester.pump();
+        await mouse.moveTo(tester.getCenter(find.text('Target')));
+        await tester.pump(DTooltip.defaultHoverDelay);
+        await tester.pumpAndSettle();
+        expect(_hint, findsOneWidget);
+        await mouse.moveTo(Offset.zero);
+        await tester.pump(const Duration(milliseconds: 199));
+        expect(_hint, findsOneWidget);
+        await tester.pump(const Duration(milliseconds: 1));
+        await tester.pumpAndSettle();
+        expect(_hint, findsNothing);
+      },
+    );
+  }
 
   testWidgets(
     'keyboard focus opens, Escape dismisses without blurring or closing a parent route',
