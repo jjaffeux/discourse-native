@@ -24,7 +24,7 @@ final class EventCalendar extends StatefulWidget {
     required this.onOpen,
     required this.mine,
     required this.onMineChanged,
-    required this.actions,
+    this.onViewSelected,
     this.loading = false,
     this.status,
     this.firstDay = 1,
@@ -39,7 +39,7 @@ final class EventCalendar extends StatefulWidget {
   final ValueChanged<EventCalendarEntry> onOpen;
   final bool mine;
   final ValueChanged<bool>? onMineChanged;
-  final Widget actions;
+  final VoidCallback? onViewSelected;
   final bool loading;
   final Widget? status;
   final int firstDay;
@@ -247,113 +247,8 @@ final class _EventCalendarState extends State<EventCalendar> {
     EventCalendarView.year => DateFormat.y(_locale).format(widget.page.date),
   };
 
-  Widget _segments<T extends Object>(
-    Map<T, String> values,
-    T selected,
-    ValueChanged<T>? onChanged,
-  ) => DToggleGroup<T>(
-    items: [
-      for (final entry in values.entries)
-        DToggleGroupItem(value: entry.key, child: Text(entry.value)),
-    ],
-    values: [selected],
-    allowEmptySelection: false,
-    variant: DToggleVariant.outline,
-    spacing: 0,
-    onChanged: onChanged == null ? null : (values) => onChanged(values.single),
-  );
-
-  Widget _toolbar(BuildContext context, BoxConstraints constraints) {
-    final scale = MediaQuery.textScalerOf(context).scale(14) / 14;
-    if (constraints.maxWidth < 600) return _mobileToolbar(context, constraints);
-    final wide = constraints.maxWidth >= 1100 * scale;
-    final scopes = _segments(
-      const {false: 'All events', true: 'My events'},
-      widget.mine,
-      widget.onMineChanged,
-    );
-    final views = _segments(
-      {for (final view in EventCalendarView.values) view: view.label},
-      _view,
-      _selectView,
-    );
-    final period = Semantics(
-      header: true,
-      child: Text(
-        _period,
-        textAlign: TextAlign.center,
-        style: Theme.of(context).textTheme.titleMedium,
-      ),
-    );
-    final navigation = Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        DButton.iconOnly(
-          onPressed: widget.page.move(-1).date.year >= 1900
-              ? () => widget.onPageChanged(widget.page.move(-1))
-              : null,
-          variant: DButtonVariant.ghost,
-          size: DControlSize.chip,
-          tooltip: 'Previous ${_view.name}',
-          icon: const Icon(Icons.chevron_left),
-        ),
-        DButton.iconOnly(
-          onPressed: widget.page.move(1).date.year < 2200
-              ? () => widget.onPageChanged(widget.page.move(1))
-              : null,
-          variant: DButtonVariant.ghost,
-          size: DControlSize.chip,
-          tooltip: 'Next ${_view.name}',
-          icon: const Icon(Icons.chevron_right),
-        ),
-        DButton(
-          variant: DButtonVariant.outline,
-          size: DControlSize.chip,
-          label: const Text('Today'),
-          onPressed: _today,
-        ),
-      ],
-    );
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-      child: wide
-          ? Row(
-              children: [
-                scopes,
-                const SizedBox(width: 16),
-                navigation,
-                Expanded(child: period),
-                views,
-                widget.actions,
-              ],
-            )
-          : Column(
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Align(
-                        alignment: AlignmentDirectional.centerStart,
-                        child: scopes,
-                      ),
-                    ),
-                    widget.actions,
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Wrap(
-                  spacing: DSpacing.controlGap,
-                  runSpacing: 8,
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  alignment: WrapAlignment.center,
-                  children: [period, navigation, views],
-                ),
-              ],
-            ),
-    );
-  }
-
   void _selectView(EventCalendarView view) {
+    widget.onViewSelected?.call();
     final now = _now();
     final date =
         view == EventCalendarView.schedule &&
@@ -377,11 +272,16 @@ final class _EventCalendarState extends State<EventCalendar> {
     String label,
     Map<T, String> values,
     T selected,
-    ValueChanged<T>? onChanged,
-  ) => DSelect<T>.controlled(
+    ValueChanged<T>? onChanged, {
+    bool lead = false,
+  }) => DSelect<T>.controlled(
     size: DControlSize.filter,
     value: selected,
     semanticLabel: label,
+    width: 190,
+    maxPopupHeight: 280,
+    align: DPopoverAlign.start,
+    alignItemWithTrigger: false,
     enabled: onChanged != null,
     entries: [
       for (final entry in values.entries)
@@ -401,118 +301,147 @@ final class _EventCalendarState extends State<EventCalendar> {
       hasPopup: true,
       expanded: state.open,
       semanticLabel: label,
+      backgroundColor: Color.lerp(
+        DTokens.of(context).background,
+        DTokens.of(context).foreground,
+        .10,
+      ),
+      foregroundColor: lead
+          ? DTokens.of(context).foreground
+          : DTokens.of(context).mutedForeground,
+      icon: DIcon(
+        DIcons.chevronDown,
+        size: DControlStyle.chevronDimension(DControlSize.filter),
+      ),
+      iconPosition: DButtonIconPosition.end,
       onPressed: state.enabled ? state.toggle : null,
-      label: Row(
-        mainAxisSize: MainAxisSize.min,
-        spacing: DSpacing.controlGap,
-        children: [
-          Flexible(child: Text(values[selected]!, maxLines: 2)),
-          const Icon(Icons.keyboard_arrow_down),
-        ],
+      label: Text(
+        values[selected] ?? '$selected',
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: TextStyle(fontWeight: lead ? FontWeight.w600 : FontWeight.w400),
       ),
     ),
   );
 
-  Widget _mobileToolbar(BuildContext context, BoxConstraints constraints) {
-    final filters = [
-      _select(
-        'Event filter',
-        const {false: 'All events', true: 'My events'},
-        widget.mine,
-        widget.onMineChanged,
-      ),
-      _select(
-        'Calendar view',
-        {
-          for (final view in [
-            EventCalendarView.month,
-            EventCalendarView.schedule,
-            EventCalendarView.week,
-            EventCalendarView.day,
-            EventCalendarView.year,
-          ])
-            view: view.label,
-        },
-        _view,
-        _selectView,
-      ),
-    ];
-    final today = DButton(
+  Widget _toolbar(BuildContext context) {
+    final tokens = DTokens.of(context);
+    Widget navigation(int direction) => DButton.iconOnly(
       variant: DButtonVariant.outline,
       size: DControlSize.chip,
-      label: const Text('Today'),
-      onPressed: _today,
+      backgroundColor: Color.lerp(tokens.background, tokens.foreground, .10),
+      foregroundColor: tokens.mutedForeground,
+      icon: DIcon(
+        direction < 0 ? DIcons.chevronLeft : DIcons.chevronRight,
+        size: 11,
+      ),
+      tooltip:
+          '${direction < 0 ? 'Previous' : 'Next'} ${_schedule ? 'month' : _view.name}',
+      onPressed:
+          widget.page.move(direction).date.year >= 1900 &&
+              widget.page.move(direction).date.year < 2200
+          ? () => widget.onPageChanged(widget.page.move(direction))
+          : null,
     );
-    final largeText = MediaQuery.textScalerOf(context).scale(14) > 21;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+      key: const ValueKey('event-calendar-header'),
+      padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(
-            'Events',
-            style: Theme.of(
-              context,
-            ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700),
-          ),
-          const SizedBox(height: 12),
-          if (largeText || constraints.maxWidth < 360)
-            Wrap(
-              spacing: DSpacing.controlGap,
-              runSpacing: 8,
-              children: [...filters, today],
-            )
-          else
-            Row(
-              spacing: DSpacing.controlGap,
-              children: [
-                Expanded(
-                  child: Wrap(
-                    spacing: DSpacing.controlGap,
-                    runSpacing: 8,
-                    children: filters,
-                  ),
-                ),
-                today,
-              ],
-            ),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              DButton.iconOnly(
-                variant: DButtonVariant.outline,
-                size: DControlSize.chip,
-                icon: const DIcon(DIcons.chevronLeft),
-                tooltip: 'Previous ${_schedule ? 'month' : _view.name}',
-                onPressed: widget.page.move(-1).date.year >= 1900
-                    ? () => widget.onPageChanged(widget.page.move(-1))
-                    : null,
+          Semantics(
+            header: true,
+            child: Text(
+              'Events',
+              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                color: tokens.foreground,
+                fontSize: DiscourseTypography.xxl,
+                height: DiscourseTypography.lineHeightHeading,
+                fontWeight: FontWeight.w700,
               ),
-              Expanded(
-                child: Semantics(
-                  header: true,
-                  child: Text(
-                    toBeginningOfSentenceCase(_period, _locale),
-                    textAlign: TextAlign.center,
-                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 16),
+          DControlWrap(
+            direction: Axis.vertical,
+            wrap: false,
+            reserveTouchTargets: false,
+            spacing: 10,
+            children: [
+              DControlWrap(
+                wrap: false,
+                reserveTouchTargets: false,
+                spacing: 8,
+                children: [
+                  DControlExpanded(
+                    child: DControlWrap(
+                      reserveTouchTargets: false,
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        _select(
+                          'Event filter',
+                          const {false: 'All events', true: 'My events'},
+                          widget.mine,
+                          widget.onMineChanged,
+                          lead: true,
+                        ),
+                        _select(
+                          'Calendar view',
+                          const {
+                            EventCalendarView.month: 'Month',
+                            EventCalendarView.schedule: 'Schedule',
+                          },
+                          _view,
+                          _selectView,
+                        ),
+                      ],
                     ),
                   ),
-                ),
+                  DButton(
+                    variant: DButtonVariant.outline,
+                    size: DControlSize.chip,
+                    backgroundColor: Color.lerp(
+                      tokens.background,
+                      tokens.foreground,
+                      .10,
+                    ),
+                    foregroundColor: tokens.mutedForeground,
+                    label: const Text('Today'),
+                    onPressed: _today,
+                  ),
+                ],
               ),
-              DButton.iconOnly(
-                variant: DButtonVariant.outline,
-                size: DControlSize.chip,
-                icon: const DIcon(DIcons.chevronRight),
-                tooltip: 'Next ${_schedule ? 'month' : _view.name}',
-                onPressed: widget.page.move(1).date.year < 2200
-                    ? () => widget.onPageChanged(widget.page.move(1))
-                    : null,
+              DControlWrap(
+                wrap: false,
+                reserveTouchTargets: false,
+                spacing: 8,
+                children: [
+                  navigation(-1),
+                  DControlExpanded(
+                    child: Semantics(
+                      header: true,
+                      child: Text(
+                        toBeginningOfSentenceCase(_period, _locale),
+                        textAlign: TextAlign.center,
+                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                          color: tokens.foreground,
+                          fontSize: DiscourseTypography.compact,
+                          height: DiscourseTypography.lineHeightSmall,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ),
+                  navigation(1),
+                ],
               ),
             ],
           ),
-          const SizedBox(height: 12),
-          const DSeparator(),
+          const SizedBox(height: 14),
+          DSeparator(
+            color: Color.lerp(tokens.background, tokens.foreground, .12),
+          ),
         ],
       ),
     );
@@ -525,16 +454,11 @@ final class _EventCalendarState extends State<EventCalendar> {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _toolbar(context, constraints),
+          _toolbar(context),
           ?widget.status,
           Expanded(
             child: Padding(
-              padding: EdgeInsets.fromLTRB(
-                compact ? 16 : 12,
-                0,
-                compact ? 16 : 12,
-                12,
-              ),
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
               child: Stack(
                 fit: StackFit.expand,
                 children: [

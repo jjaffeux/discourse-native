@@ -8,6 +8,7 @@ import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/plugin_api/plugin_runtime.dart';
 import 'package:discourse_native/src/plugin_api/plugin_scope.dart';
 import 'package:discourse_native/src/plugins/discourse_events/discourse_events_module.dart';
+import 'package:discourse_native/src/plugins/discourse_events/event_calendar.dart';
 import 'package:discourse_native/src/plugins/discourse_events/event_controller.dart';
 import 'package:discourse_native/src/plugins/discourse_events/event_data.dart';
 import 'package:discourse_native/src/plugins/discourse_events/event_directory.dart';
@@ -117,8 +118,12 @@ void main() {
         expect(controller.destinationId, 'events-upcoming');
         expect(find.byType(EventDirectory), findsOneWidget);
         expect(
-          find.textContaining('Engineering Managers Call', findRichText: true),
-          findsOneWidget,
+          tester
+              .widget<EventCalendar>(find.byType(EventCalendar))
+              .events
+              .single
+              .title,
+          'Engineering Managers Call',
         );
         expect(requests.map((request) => (request.method, request.url.path)), [
           ('GET', _eventsPath),
@@ -126,7 +131,9 @@ void main() {
         expect(requests.single.url.queryParameters, _query());
 
         if (user != null) {
-          await tester.tap(contentText('My events'));
+          await tester.tap(find.byType(DSelect<bool>));
+          await tester.pumpAndSettle();
+          await tester.tap(find.text('My events'));
           await tester.pumpAndSettle();
 
           expect(
@@ -135,11 +142,12 @@ void main() {
           );
           expect(controller.destinationId, 'events-upcoming');
           expect(
-            find.textContaining(
-              'Engineering Managers Call',
-              findRichText: true,
-            ),
-            findsOneWidget,
+            tester
+                .widget<EventCalendar>(find.byType(EventCalendar))
+                .events
+                .single
+                .title,
+            'Engineering Managers Call',
           );
           expect(
             requests.map((request) => (request.method, request.url.path)),

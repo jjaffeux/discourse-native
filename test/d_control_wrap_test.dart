@@ -1,6 +1,7 @@
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/styleguide/examples/control_wrap_examples.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
+import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:discourse_native/src/ui/foundation/control_artwork.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -19,7 +20,7 @@ void main() {
       MaterialApp(
         theme: AppTheme.light.copyWith(platform: TargetPlatform.iOS),
         home: Scaffold(
-          body: Builder(builder: controlWrapExamples.examples.single.builder),
+          body: Builder(builder: controlWrapExamples.examples.first.builder),
         ),
       ),
     );
@@ -31,6 +32,111 @@ void main() {
     expect(find.text('Bookmark'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets('expanded rows reserve their outer targets by default', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light.copyWith(platform: TargetPlatform.iOS),
+        home: Scaffold(
+          body: SizedBox(
+            width: 320,
+            child: DControlWrap(
+              wrap: false,
+              children: [
+                DButton.iconOnly(
+                  key: const ValueKey('previous'),
+                  size: DControlSize.chip,
+                  icon: const DIcon(DIcons.chevronLeft),
+                  tooltip: 'Previous',
+                  onPressed: () {},
+                ),
+                const DControlExpanded(
+                  child: Text('Caption', textAlign: TextAlign.center),
+                ),
+                DButton.iconOnly(
+                  key: const ValueKey('next'),
+                  size: DControlSize.chip,
+                  icon: const DIcon(DIcons.chevronRight),
+                  tooltip: 'Next',
+                  onPressed: () {},
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+    expect(tester.getRect(find.byKey(const ValueKey('previous'))).left, 0);
+    expect(tester.getRect(find.byKey(const ValueKey('next'))).right, 320);
+    expect(tester.getCenter(find.text('Caption')).dx, 160);
+    expect(tester.takeException(), isNull);
+  });
+
+  for (final direction in TextDirection.values) {
+    testWidgets('aligned rows keep full targets in $direction', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light.copyWith(platform: TargetPlatform.iOS),
+          home: Directionality(
+            textDirection: direction,
+            child: Scaffold(
+              body: SizedBox(
+                width: 320,
+                child: Builder(
+                  builder: controlWrapExamples.examples.last.builder,
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      Rect surface(String tooltip) => tester.getRect(
+        find.descendant(
+          of: find.byTooltip(tooltip),
+          matching: find.byType(DControlArtwork),
+        ),
+      );
+      final previous = surface('Previous month');
+      final next = surface('Next month');
+      final caption = tester.getRect(find.text('Month 9'));
+      expect(caption.center.dx, 160);
+      expect(previous.center.dy, next.center.dy);
+      expect(
+        direction == TextDirection.ltr ? previous.left : previous.right,
+        direction == TextDirection.ltr ? 16 : 304,
+      );
+      expect(
+        direction == TextDirection.ltr ? next.right : next.left,
+        direction == TextDirection.ltr ? 304 : 16,
+      );
+      // These points sit beyond the painted row, inside the padded parent.
+      await tester.tapAt(previous.topCenter - const Offset(0, 8));
+      await tester.pump();
+      expect(find.text('Month 8'), findsOneWidget);
+      await tester.tapAt(next.topCenter - const Offset(0, 8));
+      await tester.pump();
+      expect(find.text('Month 9'), findsOneWidget);
+      final today = tester.getRect(
+        find.descendant(
+          of: find.ancestor(
+            of: find.text('Today'),
+            matching: find.byType(DButton),
+          ),
+          matching: find.byType(DControlArtwork),
+        ),
+      );
+      expect(today.top - next.bottom, 10);
+      await tester.tapAt(next.center);
+      await tester.pump();
+      expect(find.text('Month 10'), findsOneWidget);
+      await tester.tapAt(today.bottomCenter + const Offset(0, 8));
+      await tester.pump();
+      expect(find.text('Month 9'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+  }
 
   for (final platform in [
     TargetPlatform.iOS,

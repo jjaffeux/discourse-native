@@ -9,7 +9,6 @@ import 'event_calendar.dart';
 import 'event_calendar_data.dart';
 import 'event_controller.dart';
 import 'event_data.dart';
-import 'event_export.dart';
 import 'event_navigation.dart';
 import 'event_time.dart';
 import 'topic_calendar_data.dart';
@@ -109,7 +108,7 @@ List<PostEvent> eventDirectoryOccurrences(
   return List.unmodifiable(result);
 }
 
-class EventDirectory extends StatefulWidget {
+class EventDirectory extends StatelessWidget {
   const EventDirectory({
     super.key,
     required this.site,
@@ -124,13 +123,42 @@ class EventDirectory extends StatefulWidget {
   final EventNavigation navigation;
   final EventCalendarPage? page;
   @override
-  State<EventDirectory> createState() => _EventDirectoryState();
+  Widget build(BuildContext context) => ContentReadingLaneBox(
+    child: _EventDirectoryBody(
+      site: site,
+      mine: mine,
+      controller: controller,
+      navigation: navigation,
+      page: page,
+      // The mockup follows the shell width (53 + 240 + 420), so a narrow
+      // desktop pane still starts in Month. Picking a view pins that choice.
+      compact: MediaQuery.sizeOf(context).width < 713,
+    ),
+  );
 }
 
-enum _CalendarAction { refresh, search, export, web }
+class _EventDirectoryBody extends StatefulWidget {
+  const _EventDirectoryBody({
+    required this.site,
+    required this.mine,
+    required this.controller,
+    required this.navigation,
+    required this.page,
+    required this.compact,
+  });
 
-class _EventDirectoryState extends State<EventDirectory> {
-  final _search = TextEditingController();
+  final String site;
+  final bool mine;
+  final EventController controller;
+  final EventNavigation navigation;
+  final EventCalendarPage? page;
+  final bool compact;
+
+  @override
+  State<_EventDirectoryBody> createState() => _EventDirectoryState();
+}
+
+class _EventDirectoryState extends State<_EventDirectoryBody> {
   List<PostEvent> _occurrences = const [];
   List<EventCalendarEntry> _events = const [];
   late EventCalendarPage _page;
@@ -142,10 +170,7 @@ class _EventDirectoryState extends State<EventDirectory> {
   int _accountRevision = 0;
   int _foregroundRevision = 0;
   bool _loading = true;
-  bool _initialized = false;
-  bool _searchVisible = false;
-  EventExportOperation? _exportOperation;
-  bool get _exporting => _exportOperation?.isCurrent ?? false;
+  bool _viewSelected = false;
   tz.Location get _location => widget.controller.zones.location(_timezone)!;
   String get _readerTimezone => widget.controller.zones.readerTimezone(
     widget.controller.accountTimezone(widget.site),
@@ -167,30 +192,32 @@ class _EventDirectoryState extends State<EventDirectory> {
     _accountRevision = widget.controller.accountRevision(widget.site);
     _foregroundRevision = widget.controller.foregroundRevision;
     widget.controller.addListener(_changed);
-  }
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    if (_initialized) return;
-    _initialized = true;
-    // Read the inherited platform before choosing the first request's range.
-    _page = widget.page ?? _defaultPage();
+    _viewSelected = widget.page != null;
+    _page = _directoryPage(widget.page) ?? _defaultPage();
     unawaited(_load());
   }
 
   EventCalendarPage _defaultPage() {
     final today = tz.TZDateTime.from(widget.controller.api.clock(), _location);
-    final view = switch (Theme.of(context).platform) {
-      TargetPlatform.iOS ||
-      TargetPlatform.android => EventCalendarView.schedule,
-      _ => _settings.calendarView,
-    };
+    final view = widget.compact
+        ? EventCalendarView.schedule
+        : EventCalendarView.month;
     return EventCalendarPage(
       view,
       DateTime.utc(today.year, today.month, today.day),
     );
   }
+
+  // Old calendar links still open the requested month, but the directory only
+  // offers the Month and Schedule presentations shown in the native mockups.
+  EventCalendarPage? _directoryPage(EventCalendarPage? page) => page == null
+      ? null
+      : EventCalendarPage(
+          page.view == EventCalendarView.schedule
+              ? EventCalendarView.schedule
+              : EventCalendarView.month,
+          page.date,
+        );
 
   void _changed() {
     final revision = widget.controller.accountRevision(widget.site);
@@ -206,7 +233,6 @@ class _EventDirectoryState extends State<EventDirectory> {
     _timezone = _readerTimezone;
     _firstDay = _siteFirstDay;
     _settings = widget.controller.settings(widget.site);
-    if (accountChanged) _exportOperation?.cancel();
     if (accountChanged || resumed || calendarChanged) {
       _occurrences = const [];
       _events = const [];
@@ -217,7 +243,7 @@ class _EventDirectoryState extends State<EventDirectory> {
   }
 
   @override
-  void didUpdateWidget(EventDirectory oldWidget) {
+  void didUpdateWidget(_EventDirectoryBody oldWidget) {
     super.didUpdateWidget(oldWidget);
     final controllerChanged = oldWidget.controller != widget.controller;
     if (controllerChanged) {
@@ -227,14 +253,14 @@ class _EventDirectoryState extends State<EventDirectory> {
     if (controllerChanged ||
         oldWidget.site != widget.site ||
         oldWidget.mine != widget.mine) {
-      _exportOperation?.cancel();
       _accountRevision = widget.controller.accountRevision(widget.site);
       _foregroundRevision = widget.controller.foregroundRevision;
       _timezone = _readerTimezone;
       _firstDay = _siteFirstDay;
       _settings = widget.controller.settings(widget.site);
+      if (oldWidget.site != widget.site) _viewSelected = widget.page != null;
       _page =
-          widget.page ??
+          _directoryPage(widget.page) ??
           (oldWidget.site != widget.site ? _defaultPage() : _page);
       _occurrences = const [];
       _events = const [];
@@ -245,7 +271,13 @@ class _EventDirectoryState extends State<EventDirectory> {
       final oldRange = _page.days(firstDay: _firstDay);
       _timezone = _readerTimezone;
       _firstDay = _siteFirstDay;
-      if (widget.page != null) _page = widget.page!;
+      if (widget.page != null && widget.page != oldWidget.page) {
+        final incoming = _directoryPage(widget.page)!;
+        if (incoming != _page) _viewSelected = true;
+        _page = incoming;
+      } else if (!_viewSelected && oldWidget.compact != widget.compact) {
+        _page = EventCalendarPage(_defaultPage().view, _page.date);
+      }
       if (_settings != widget.controller.settings(widget.site)) {
         _settings = widget.controller.settings(widget.site);
         _projectEvents();
@@ -287,7 +319,10 @@ class _EventDirectoryState extends State<EventDirectory> {
   void _navigate(EventCalendarPage page) {
     if (page == _page) return;
     final oldRange = _page.days(firstDay: _firstDay);
-    setState(() => _page = page);
+    setState(() {
+      _viewSelected = _viewSelected || page.view != _page.view;
+      _page = page;
+    });
     if (oldRange != page.days(firstDay: _firstDay)) unawaited(_load());
     widget.navigation.rememberDirectory(mine: widget.mine, page: page);
   }
@@ -317,7 +352,6 @@ class _EventDirectoryState extends State<EventDirectory> {
           await controller.list(
             site,
             mine: mine,
-            search: _search.text.trim().isEmpty ? null : _search.text.trim(),
             after: inCalendar(after),
             before: inCalendar(before),
           ),
@@ -342,207 +376,63 @@ class _EventDirectoryState extends State<EventDirectory> {
     }
   }
 
-  Future<void> _export() async {
-    if (!mounted || _exporting) return;
-    final controller = widget.controller;
-    final site = widget.site;
-    final mine = widget.mine;
-    final operation = EventExportOperation(controller, site);
-    setState(() => _exportOperation = operation);
-    try {
-      final calendar = await eventCalendar(
-        controller,
-        site,
-        mine: mine,
-        isCurrent: () => operation.isCurrent,
-      );
-      if (!mounted || !operation.isCurrent) return;
-      final box = context.findRenderObject() as RenderBox?;
-      await saveEventCalendar(
-        calendar,
-        filename: mine ? 'my-events.ics' : 'upcoming-events.ics',
-        isCurrent: () => operation.isCurrent,
-        sharePositionOrigin: box == null
-            ? null
-            : box.localToGlobal(Offset.zero) & box.size,
-      );
-    } catch (error) {
-      if (mounted && operation.isCurrent) {
-        setState(() => _error = eventError(error, reading: true));
-      }
-    } finally {
-      if (mounted && identical(_exportOperation, operation)) {
-        setState(() => _exportOperation = null);
-      }
-    }
-  }
-
   @override
   void dispose() {
-    _exportOperation?.cancel();
     _generation++;
     widget.controller.removeListener(_changed);
-    _search.dispose();
     super.dispose();
   }
 
-  void _action(_CalendarAction action) {
-    switch (action) {
-      case _CalendarAction.refresh:
-        unawaited(_load());
-      case _CalendarAction.search:
-        setState(() => _searchVisible = !_searchVisible);
-        if (!_searchVisible && _search.text.isNotEmpty) {
-          _search.clear();
-          unawaited(_load());
-        }
-      case _CalendarAction.export:
-        unawaited(_export());
-      case _CalendarAction.web:
-        unawaited(
-          openExternalLink(
-            resolveSitePath(widget.site, _page.webPath(widget.mine)),
-          ),
-        );
-    }
-  }
-
-  Widget _actions() {
-    final owner = (
-      widget.controller,
-      widget.site,
-      widget.mine,
-      _accountRevision,
-    );
-    VoidCallback guarded(_CalendarAction action) => () {
-      if (mounted &&
-          owner ==
-              (widget.controller, widget.site, widget.mine, _accountRevision)) {
-        _action(action);
-      }
-    };
-    return Builder(
-      builder: (menuContext) {
-        void onSelect(VoidCallback callback) => callback();
-        return Semantics(
-          container: true,
-          explicitChildNodes: true,
-          child: DDropdownMenu(
-            content: DDropdownMenuContent(
-              semanticLabel: 'Calendar actions',
-              width: 280,
-              children: [
-                DDropdownMenuItem(
-                  onPressed: () => onSelect(guarded(_CalendarAction.refresh)),
-                  child: const Text('Refresh'),
-                ),
-                DDropdownMenuCheckboxItem(
-                  checked: _searchVisible,
-                  closeOnSelect: true,
-                  onChanged: (_) => onSelect(guarded(_CalendarAction.search)),
-                  child: const Text('Search events'),
-                ),
-                DDropdownMenuItem(
-                  onPressed: !_exporting
-                      ? () => onSelect(guarded(_CalendarAction.export))
-                      : null,
-                  child: Text(
-                    _exporting ? 'Exporting calendar…' : 'Export calendar',
-                  ),
-                ),
-                DDropdownMenuItem(
-                  onPressed: () => onSelect(guarded(_CalendarAction.web)),
-                  child: const Text('Open web calendar'),
-                ),
-              ],
-            ),
-            child: DDropdownMenuTrigger(
-              builder: (triggerContext, state) => DButton.iconOnly(
-                tooltip: 'Calendar actions',
-                variant: DButtonVariant.ghost,
-                icon: const Icon(Icons.more_vert),
-                focusNode: state.focusNode,
-                hasPopup: true,
-                expanded: state.open,
-                onPressed: state.toggle,
-              ),
-            ),
-          ),
-        );
-      },
-    );
-  }
-
   @override
-  Widget build(BuildContext context) => ContentReadingLaneBox(
-    child: EventCalendar(
-      page: _page,
-      events: _events,
-      loading: _loading,
-      location: _location,
-      firstDay: _firstDay,
-      display: _settings.calendarDisplay,
-      clock: widget.controller.api.clock,
-      mine: widget.mine,
-      onMineChanged:
-          widget.controller.accounts.isConnected(widget.site) || widget.mine
-          ? (mine) => widget.navigation.openDirectory(
-              mine: mine,
-              page: _page,
-              replace: true,
-            )
-          : null,
-      onPageChanged: _navigate,
-      onOpen: (entry) => widget.navigation.openEvent(widget.site, entry.event),
-      actions: _actions(),
-      status: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          if (_searchVisible)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-              child: TextField(
-                style: Theme.of(context).textTheme.bodyMedium,
-                controller: _search,
-                onSubmitted: (_) => _load(),
-                decoration: InputDecoration(
-                  labelText: 'Search events',
-                  suffixIcon: DButton.iconOnly(
+  Widget build(BuildContext context) => EventCalendar(
+    page: _page,
+    events: _events,
+    loading: _loading,
+    location: _location,
+    firstDay: _firstDay,
+    display: _settings.calendarDisplay,
+    clock: widget.controller.api.clock,
+    mine: widget.mine,
+    onMineChanged:
+        widget.controller.accounts.isConnected(widget.site) || widget.mine
+        ? (mine) => widget.navigation.openDirectory(
+            mine: mine,
+            page: _page,
+            replace: true,
+          )
+        : null,
+    onViewSelected: () => _viewSelected = true,
+    onPageChanged: _navigate,
+    onOpen: (entry) => widget.navigation.openEvent(widget.site, entry.event),
+    status: Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (_error != null)
+          Semantics(
+            liveRegion: true,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Row(
+                children: [
+                  Expanded(child: Text(_error!)),
+                  DButton(
+                    variant: DButtonVariant.outline,
                     onPressed: _load,
-                    variant: DButtonVariant.ghost,
-                    tooltip: 'Search events',
-                    icon: const Icon(Icons.search),
+                    label: const Text('Retry'),
                   ),
-                ),
+                ],
               ),
             ),
-          if (_error != null)
-            Semantics(
-              liveRegion: true,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Row(
-                  children: [
-                    Expanded(child: Text(_error!)),
-                    DButton(
-                      variant: DButtonVariant.outline,
-                      onPressed: _load,
-                      label: const Text('Retry'),
-                    ),
-                  ],
-                ),
-              ),
+          ),
+        if (!_loading && _error == null && _events.isEmpty)
+          const Padding(
+            padding: EdgeInsets.all(8),
+            child: Text(
+              'No events in this period.',
+              textAlign: TextAlign.center,
             ),
-          if (!_loading && _error == null && _events.isEmpty)
-            const Padding(
-              padding: EdgeInsets.all(8),
-              child: Text(
-                'No events in this period.',
-                textAlign: TextAlign.center,
-              ),
-            ),
-        ],
-      ),
+          ),
+      ],
     ),
   );
 }
