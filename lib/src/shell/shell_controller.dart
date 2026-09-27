@@ -1401,6 +1401,11 @@ class ShellController extends FrameSafeNotifier
   }
 
   final Map<String, ForumWorkspace> _forumWorkspaces = {};
+
+  /// The workspace an account-session operation rotated away, until that
+  /// operation settles. Only a rollback to the account that owned it may put
+  /// it back; every other outcome lets it go.
+  final Map<String, ForumWorkspace> _rotatedWorkspaces = {};
   final List<_ClosedForumTab> _closedForumTabs = [];
   final Map<_PluginPaneKey, ForumTab> _mainPaneTabs = {};
   final Map<_PluginPaneKey, ForumTab> _pluginPaneTabs = {};
@@ -14422,7 +14427,11 @@ class ShellController extends FrameSafeNotifier
 
   @override
   void clearAccountSessionState(String siteUrl) {
+    // An operation rotates more than once; keep the workspace from before
+    // its first rotation, not one opened on its signed-out boundary since.
+    final workspace = _rotatedWorkspaces[siteUrl] ?? _forumWorkspaces[siteUrl];
     _forgetSiteState(siteUrl, invalidateLifecycle: false);
+    if (workspace != null) _rotatedWorkspaces[siteUrl] = workspace;
   }
 
   @override
@@ -14455,6 +14464,20 @@ class ShellController extends FrameSafeNotifier
       _seedGroupedUnreadNotifications(replacement.url, replacement.user!);
     }
 
+    final rotated = switch (phase) {
+      AccountSessionPhase.connecting ||
+      AccountSessionPhase.disconnecting => null,
+      _ => _rotatedWorkspaces.remove(replacement.url),
+    };
+    // A rolled-back sign-out or removal leaves the same account signed in,
+    // so what it had open comes back with it, in memory and on disk.
+    final restoredWorkspace =
+        phase == AccountSessionPhase.restored &&
+            rotated?.accountIdentity == _workspaceAccountIdentity(applied)
+        ? rotated
+        : null;
+    if (restoredWorkspace != null) _putWorkspace(restoredWorkspace);
+
     _replaceInstance(held, applied);
     // Every phase follows a rotation that invalidated each Aggregate tab
     // holding this forum, and only an open restarts a tab. Reopening here,
@@ -14480,6 +14503,8 @@ class ShellController extends FrameSafeNotifier
           break;
         case AccountSessionPhase.rolledBack:
           _resetToInstanceDefault(refreshAppearance: false);
+        case AccountSessionPhase.restored when restoredWorkspace != null:
+          _restoreInstanceWorkspace();
         case AccountSessionPhase.disconnected || AccountSessionPhase.restored:
           _resetToInstanceDefault();
       }
@@ -14495,6 +14520,7 @@ class ShellController extends FrameSafeNotifier
     siteImages.forget(siteUrl);
     videoThumbnails.forget(siteUrl);
     _removeWorkspace(siteUrl);
+    _rotatedWorkspaces.remove(siteUrl);
     search.forget(siteUrl);
     _composerDrafts.forgetSite(siteUrl);
 

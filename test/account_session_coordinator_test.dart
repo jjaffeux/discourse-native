@@ -568,6 +568,15 @@ void main() {
         expect(result.outcome, AccountDisconnectionOutcome.failed);
         expect(fixture.current.user, _accountA);
         expect((await fixture.durable).user, _accountA);
+        // The opening rotation already forgot the account's session state,
+        // so the host must be told to rebuild it like any other rollback.
+        expect(fixture.events, [
+          'lifecycle:clear',
+          'drafts:clear',
+          'lifecycle:clear',
+          'presentation:restored',
+          'instances:save:account-a',
+        ]);
         fixture.expectPrivateStateIsCoherent();
       },
     );

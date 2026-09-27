@@ -40,7 +40,10 @@ void main() {
     });
 
     authenticator = _InstrumentedAuthenticator()..keys[_siteUrl] = 'api-key';
-    api = _InstrumentedFailureApi(feeds: const {'/latest.json': []});
+    api = _InstrumentedFailureApi(
+      feeds: const {'/latest.json': []},
+      user: const DiscourseUser(id: 7, username: 'reader'),
+    );
     drafts = _InstrumentedDraftStore();
     controller = ShellController(
       instanceStore: FakeInstanceStore([
@@ -281,13 +284,16 @@ void main() {
       () async {
         const error = FileSystemException('draft boundary unavailable');
         drafts.clearSiteError = error;
+        final tabs = await _settledTabIds(controller);
 
         expect(await controller.disconnectInstance(_siteUrl), isFalse);
+        await pumpEventQueue();
 
         expect(controller.currentInstance?.user?.username, 'reader');
         expect(authenticator.keys[_siteUrl], 'api-key');
         expect(authenticator.disconnected, isEmpty);
         expect(api.revoked, isEmpty);
+        _expectForumKept(controller, tabs);
       },
     );
 
@@ -296,20 +302,41 @@ void main() {
       () async {
         const error = FileSystemException('draft boundary unavailable');
         drafts.clearSiteError = error;
+        final tabs = await _settledTabIds(controller);
 
         expect(
           await controller.removeInstance(controller.currentInstance!),
           isFalse,
         );
+        await pumpEventQueue();
 
         expect(controller.instances, hasLength(1));
         expect(controller.currentInstance?.user?.username, 'reader');
         expect(authenticator.keys[_siteUrl], 'api-key');
         expect(authenticator.disconnected, isEmpty);
         expect(api.revoked, isEmpty);
+        _expectForumKept(controller, tabs);
       },
     );
   });
+}
+
+Iterable<FakeSiteTracker> get _liveTrackers =>
+    FakeSiteTracker.built.where((tracker) => !tracker.disposed);
+
+Future<List<String>> _settledTabIds(ShellController controller) async {
+  await pumpEventQueue();
+  expect(controller.currentContent?.topicId, 7);
+  expect(_liveTrackers, hasLength(1));
+  return [for (final tab in controller.tabsForCurrentForum) tab.id];
+}
+
+/// A rolled-back sign-out leaves the account signed in, so the forum it
+/// reads must come back with it rather than stay torn down by the rotation.
+void _expectForumKept(ShellController controller, List<String> tabIds) {
+  expect([for (final tab in controller.tabsForCurrentForum) tab.id], tabIds);
+  expect(controller.currentContent?.topicId, 7);
+  expect(_liveTrackers, hasLength(1));
 }
 
 List<ErrorDiagnosticEvent> _operationEvents(
@@ -353,7 +380,7 @@ final class _InstrumentedDraftStore extends FakeDraftStore {
 }
 
 final class _InstrumentedFailureApi extends FakeDiscourseApi {
-  _InstrumentedFailureApi({required super.feeds});
+  _InstrumentedFailureApi({required super.feeds, super.user});
 
   Object? likeError;
   Completer<void>? opaqueLikeGate;

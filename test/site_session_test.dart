@@ -6,6 +6,7 @@ import 'package:discourse_native/src/diagnostics/diagnostics.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
+import 'package:discourse_native/src/models/forum_workspace.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/site_appearance.dart';
 import 'package:discourse_native/src/models/site_config.dart';
@@ -364,6 +365,20 @@ final class _GatedRevocationApi extends FakeDiscourseApi {
     if (revokedKeys.length != 1) return;
     firstStarted.complete();
     await firstGate.future;
+  }
+}
+
+final class _UnreachableRevocationApi extends FakeDiscourseApi {
+  _UnreachableRevocationApi()
+    : super(user: const DiscourseUser(id: 7, username: 'reader'));
+
+  @override
+  Future<void> revokeApiKey({
+    required String siteUrl,
+    required String apiKey,
+    String? clientId,
+  }) async {
+    throw SiteLookupException(SiteLookupFailure.unreachable, siteUrl);
   }
 }
 
@@ -1374,6 +1389,66 @@ void main() {
           shell.filterCategoriesFor(_siteUrl).map((category) => category.id),
           [12],
         );
+      });
+    }
+
+    for (final removeSelected in [true, false]) {
+      test('keep the tabs of a ${removeSelected ? 'selected' : 'background'} '
+          'forum whose removal the site cannot confirm', () async {
+        const otherSite = 'https://other.example.com';
+        final forumTabs = FakeForumTabStore();
+        final shell = ShellController(
+          instanceStore: FakeInstanceStore([
+            instance(
+              'meta.discourse.org',
+            ).copyWith(user: const DiscourseUser(id: 7, username: 'reader')),
+            instance('other.example.com'),
+          ]),
+          forumTabs: forumTabs,
+          api: _UnreachableRevocationApi(),
+          authenticator: FakeAuthenticator()..keys[_siteUrl] = 'api-key',
+          drafts: FakeDraftStore(),
+          trackers: FakeSiteTracker.reset(),
+        );
+        addTearDown(shell.dispose);
+
+        await shell.load();
+        shell.pushContent(
+          ContentRoute.topic(topicId: 7, slug: 'seven', title: 'Seven'),
+        );
+        shell.createTab();
+        shell.pushContent(
+          ContentRoute.topic(topicId: 8, slug: 'eight', title: 'Eight'),
+        );
+        if (!removeSelected) shell.selectInstance(1);
+        await pumpEventQueue();
+        List<String> tabIds(ForumWorkspace? workspace) => [
+          for (final tab in workspace?.tabs ?? const <ForumTab>[]) tab.id,
+        ];
+        ForumWorkspace? persisted() => forumTabs.workspaces
+            .where((workspace) => workspace.siteUrl == _siteUrl)
+            .singleOrNull;
+        final tabs = tabIds(shell.workspaceFor(_siteUrl));
+        expect(tabs, hasLength(2));
+        expect(tabIds(persisted()), tabs);
+
+        expect(
+          await shell.removeInstance(shell.instanceFor(_siteUrl)!),
+          isFalse,
+        );
+        await pumpEventQueue();
+
+        // The rollback keeps the account signed in, so it keeps what that
+        // account had open, in memory and in the store a relaunch reads.
+        expect(shell.instanceFor(_siteUrl)?.user?.username, 'reader');
+        expect(
+          shell.currentInstance?.url,
+          removeSelected ? _siteUrl : otherSite,
+        );
+        final kept = shell.workspaceFor(_siteUrl);
+        expect(tabIds(kept), tabs);
+        expect(kept!.tabs.map((tab) => tab.currentContent.topicId), [7, 8]);
+        expect(tabIds(persisted()), tabs);
       });
     }
 
