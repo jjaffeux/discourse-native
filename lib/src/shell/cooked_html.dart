@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_widget_from_html_core/flutter_widget_from_html_core.dart';
 import 'package:html/dom.dart' as dom;
 
+import '../foundation/short_number.dart';
 import '../models/post.dart';
 import '../models/post_checklist.dart';
 import '../models/user_status.dart';
@@ -571,7 +572,7 @@ void _decorateLinkCount(dom.Element element, _LinkCountIndex linkCounts) {
   element.append(
     dom.Element.tag('span')
       ..classes.add(_linkClickCountClass)
-      ..text = _shortClickCount(count),
+      ..text = shortNumber(count),
   );
 }
 
@@ -697,18 +698,6 @@ Iterable<dom.Element> _ancestors(dom.Element element) sync* {
     if (current is dom.Element) yield current;
     current = current.parentNode;
   }
-}
-
-String _shortClickCount(int count) {
-  if (count > 999999) return '${_shortDecimal(count / 1000000)}M';
-  if (count > 99999) return '${count ~/ 1000}k';
-  if (count > 999) return '${_shortDecimal(count / 1000)}k';
-  return '$count';
-}
-
-String _shortDecimal(double value) {
-  final fixed = value.toStringAsFixed(1);
-  return fixed.endsWith('.0') ? fixed.substring(0, fixed.length - 2) : fixed;
 }
 
 String _cssColor(Color color) =>

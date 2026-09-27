@@ -331,9 +331,9 @@ void main() {
       ['0m', '0', '—'],
       ['0m', '13', 'words'],
       ['59m', '1.2k', 'one · two'],
-      ['1h 1m', '1.3m', '—'],
-      ['-1m', '-1.3k', '3.5'],
-      ['2562047788h 0m', '120', '1e+294m'],
+      ['1h 1m', '1.3M', '—'],
+      ['-1m', '-1250', '4'],
+      ['2562047788h 0m', '120', '1e+294M'],
       ['2m', '1k', '1'],
     ];
     for (final (index, expected) in expectedRows.indexed) {
@@ -347,6 +347,46 @@ void main() {
       expect(texts.map((text) => text.data), expected);
     }
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('directory abbreviates counts the way the web directory does', (
+    tester,
+  ) async {
+    const rows = [
+      (10500, '10.5k'),
+      (999500, '999k'),
+      (999999, '999k'),
+      (1500000, '1.5M'),
+    ];
+    await _pump(
+      tester,
+      UsersPage(
+        siteUrl: 'https://example.com',
+        data: UsersPageData(
+          items: [
+            for (final (index, (likes, _)) in rows.indexed)
+              UserDirectoryItem.fromWire({
+                'user': {'id': index + 1, 'username': 'user$index'},
+                'likes_received': likes,
+              }, 'https://example.com'),
+          ],
+          columns: const [_likes],
+          loaded: true,
+        ),
+      ),
+      size: const Size(1100, 900),
+    );
+
+    for (final (index, (likes, label)) in rows.indexed) {
+      final texts = tester.widgetList<Text>(
+        find.descendant(
+          of: _metrics('user$index'),
+          matchRoot: true,
+          matching: find.byType(Text),
+        ),
+      );
+      expect(texts.map((text) => text.data), [label], reason: '$likes');
+    }
   });
 
   testWidgets('hover does not reread directory metrics', (tester) async {

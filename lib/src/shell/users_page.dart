@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import '../data/user_directory_column_width_store.dart';
 import '../diagnostics/diagnostics_scope.dart';
 import '../diagnostics/topic_scroll_capture.dart';
+import '../foundation/short_number.dart';
 import '../models/user_directory.dart';
 import '../theme/d_icons.dart';
 import '../utils/pagination.dart';
@@ -959,20 +960,5 @@ String _formatValue(Object? value, UserDirectoryColumn column, num? numeric) {
     }
     return '${duration.inMinutes}m';
   }
-  return _formatCompact(numeric);
+  return shortNumber(numeric);
 }
-
-String _formatCompact(num value) {
-  final absolute = value.abs();
-  if (absolute >= 1000000) {
-    return '${_trimDecimal(value / 1000000)}m';
-  }
-  if (absolute >= 1000) return '${_trimDecimal(value / 1000)}k';
-  return value is int || value == value.roundToDouble()
-      ? value.toInt().toString()
-      : _trimDecimal(value.toDouble());
-}
-
-String _trimDecimal(num value) => value
-    .toStringAsFixed(value.abs() >= 10 ? 0 : 1)
-    .replaceFirst(RegExp(r'\.0$'), '');
