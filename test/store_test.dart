@@ -1,9 +1,16 @@
+import 'dart:collection';
+import 'dart:math';
+
 import 'package:discourse_native/src/data/store.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'support/scaling_benchmark.dart';
+
 const _site = 'https://one.example';
 const _otherSite = 'https://two.example';
+const _thirdSite = 'https://three.example';
+const _fourthSite = 'https://four.example';
 
 class _Record with Storable<_Record> {
   const _Record(this.id, this.label);
@@ -17,6 +24,15 @@ class _Record with Storable<_Record> {
 
 class _OtherRecord with Storable<_OtherRecord> {
   const _OtherRecord(this.id);
+
+  final int id;
+
+  @override
+  Object get storeId => id;
+}
+
+class _ThirdRecord with Storable<_ThirdRecord> {
+  const _ThirdRecord(this.id);
 
   final int id;
 
@@ -275,6 +291,47 @@ void main() {
       expect(types.read<_OtherRecord>(_site, 2), isNotNull);
     });
 
+    // Victims come from per-partition indexes, which must choose exactly what
+    // the fairness rule chooses when stated directly as a walk of every held
+    // ref in least-recently-used order. Each sequence must also still reach
+    // every share its policy sets, and equal shares, or it proves nothing.
+    for (final (shares, policy, reaches) in _differentialPolicies) {
+      for (final seed in [1, 2, 3]) {
+        test('evicts the refs a walk of every held ref chooses '
+            '(shares: $shares, seed: $seed)', () {
+          final reference = _expectReferenceEvictions(policy, seed);
+
+          expect(reference.reached, containsAll(reaches));
+        });
+      }
+    }
+
+    // A full store evicts once per new record, so a 100-record putAll at the
+    // production capacity took 6-10 ms on a desktop when each choice walked
+    // every held ref. Eight times the capacity separates that walk (~7x) from
+    // reading the oldest candidate of each partition (~1x).
+    for (final (share, full) in _fullStores) {
+      test('evicts through the $share at a cost independent of '
+          'capacity', () {
+        final stores = [full(512), full(4096)];
+
+        final (:small, :large) = measureScaling(
+          stores.first.insert,
+          stores.last.insert,
+        );
+
+        expect(
+          large,
+          lessThan(small * 3),
+          reason:
+              'eight times the capacity took ${large / small} times as long',
+        );
+        for (final store in stores) {
+          expect(store.held(), store.bound, reason: 'each insert evicted');
+        }
+      });
+    }
+
     test('record eviction advances only the affected generation', () {
       final store = Store(maxEntries: 2)
         ..put(_site, const _Record(1, 'one'))
@@ -431,4 +488,463 @@ void main() {
     await tester.pump();
     expect(find.text('empty'), findsOneWidget);
   });
+}
+
+const _partitionShare = 'site-and-type share';
+const _siteShare = 'site share';
+const _globalShare = 'global share';
+const _tiedShares = 'tied shares';
+
+const _differentialPolicies = [
+  (
+    'global, site, and site-and-type',
+    StorePolicy(
+      maxEntries: 24,
+      maxEntriesPerSite: 12,
+      maxEntriesPerSiteAndType: 6,
+    ),
+    [_partitionShare, _siteShare, _globalShare, _tiedShares],
+  ),
+  ('global', StorePolicy(maxEntries: 14), [_globalShare, _tiedShares]),
+  (
+    'global and site',
+    StorePolicy(maxEntries: 24, maxEntriesPerSite: 10),
+    [_siteShare, _globalShare, _tiedShares],
+  ),
+  (
+    'global and site-and-type',
+    StorePolicy(maxEntries: 20, maxEntriesPerSiteAndType: 5),
+    [_partitionShare, _globalShare, _tiedShares],
+  ),
+];
+
+StorePolicy _productionShaped(int capacity) => StorePolicy(
+  maxEntries: capacity,
+  maxEntriesPerSite: capacity ~/ 2,
+  maxEntriesPerSiteAndType: capacity ~/ 4,
+);
+
+/// A store filled to one share's bound: every further [_Record] that [insert]
+/// stores evicts through that share, so what [held] counts stays at [bound].
+typedef _FullStore = ({int Function() insert, int Function() held, int bound});
+
+final List<(String, _FullStore Function(int capacity))> _fullStores = [
+  (
+    _partitionShare,
+    (capacity) {
+      // Another type's older records precede the partition's own.
+      final store = Store(policy: _productionShaped(capacity));
+      var id = 0;
+      for (var index = 0; index < capacity ~/ 4; index++) {
+        store.put(_site, _OtherRecord(id++));
+      }
+      for (var index = 0; index < capacity ~/ 4; index++) {
+        store.put(_site, _Record(id++, ''));
+      }
+      return (
+        insert: () => store.put(_site, _Record(id++, '')).id,
+        held: () => store.statisticsForTesting.entriesFor<_Record>(_site),
+        bound: capacity ~/ 4,
+      );
+    },
+  ),
+  (
+    _siteShare,
+    (capacity) {
+      final store = Store(policy: _productionShaped(capacity));
+      var id = 0;
+      for (var index = 0; index < capacity ~/ 4; index++) {
+        store.put(_site, _OtherRecord(id++));
+      }
+      for (var index = 0; index < capacity ~/ 8; index++) {
+        store
+          ..put(_site, _ThirdRecord(id++))
+          ..put(_site, _Record(id++, ''));
+      }
+      return (
+        insert: () => store.put(_site, _Record(id++, '')).id,
+        held: () => store.statisticsForTesting.entriesBySite[_site] ?? 0,
+        bound: capacity ~/ 2,
+      );
+    },
+  ),
+  (
+    _globalShare,
+    (capacity) {
+      final store = Store(policy: _productionShaped(capacity));
+      var id = 0;
+      for (final site in [_site, _otherSite, _thirdSite, _fourthSite]) {
+        for (var index = 0; index < capacity ~/ 8; index++) {
+          store
+            ..put(site, _OtherRecord(id++))
+            ..put(site, _Record(id++, ''));
+        }
+      }
+      return (
+        insert: () => store.put(_site, _Record(id++, '')).id,
+        held: () => store.statisticsForTesting.entries,
+        bound: capacity,
+      );
+    },
+  ),
+];
+
+typedef _Key = (String, Type, int);
+
+/// Addresses one record type's generic Store API from a randomized sequence.
+abstract interface class _Kind {
+  Type get type;
+
+  Object put(Store store, String siteUrl, int id);
+
+  List<Object> putAll(Store store, String siteUrl, List<int> ids);
+
+  Object? read(Store store, String siteUrl, int id);
+
+  Ref<Object> ref(Store store, String siteUrl, int id);
+
+  void remove(Store store, String siteUrl, int id);
+
+  bool contains(Store store, String siteUrl, int id);
+
+  int generation(Store store, String siteUrl);
+}
+
+final class _KindOf<T extends Storable<T>> implements _Kind {
+  _KindOf(this._create);
+
+  final T Function(int id) _create;
+
+  @override
+  Type get type => T;
+
+  @override
+  Object put(Store store, String siteUrl, int id) =>
+      store.put<T>(siteUrl, _create(id));
+
+  @override
+  List<Object> putAll(Store store, String siteUrl, List<int> ids) =>
+      store.putAll<T>(siteUrl, [for (final id in ids) _create(id)]);
+
+  @override
+  Object? read(Store store, String siteUrl, int id) =>
+      store.read<T>(siteUrl, id);
+
+  @override
+  Ref<Object> ref(Store store, String siteUrl, int id) =>
+      store.ref<T>(siteUrl, id);
+
+  @override
+  void remove(Store store, String siteUrl, int id) =>
+      store.remove<T>(siteUrl, id);
+
+  @override
+  bool contains(Store store, String siteUrl, int id) =>
+      store.containsRecord<T>(siteUrl, id);
+
+  @override
+  int generation(Store store, String siteUrl) => store.generationOf<T>(siteUrl);
+}
+
+const _differentialSites = [_site, _otherSite, _thirdSite];
+const _differentialIds = 12;
+final List<_Kind> _differentialKinds = [
+  _KindOf<_Record>((id) => _Record(id, '$id')),
+  _KindOf<_OtherRecord>(_OtherRecord.new),
+  _KindOf<_ThirdRecord>(_ThirdRecord.new),
+];
+
+/// Drives [Store] and [_ReferenceStore] through one randomized sequence and
+/// expects the same refs to be held after every operation.
+_ReferenceStore _expectReferenceEvictions(StorePolicy policy, int seed) {
+  final random = Random(seed);
+  final store = Store(policy: policy);
+  final reference = _ReferenceStore(policy);
+  final observed = <_Key, (Ref<Object>, _ReferenceCell)>{};
+  final handles = <(_Key, Ref<Object>, _ReferenceCell)>[];
+  void listener() {}
+
+  for (var step = 0; step < 1500; step++) {
+    // Favour one site so site shares differ while equal shares still occur.
+    final siteUrl =
+        _differentialSites[min(
+          random.nextInt(4),
+          _differentialSites.length - 1,
+        )];
+    final kind = _differentialKinds[random.nextInt(_differentialKinds.length)];
+    final id = random.nextInt(_differentialIds);
+    final key = (siteUrl, kind.type, id);
+    final roll = random.nextInt(100);
+    final String operation;
+    if (roll < 35) {
+      operation = 'put $key';
+      reference.put(key, kind.put(store, siteUrl, id));
+    } else if (roll < 45) {
+      final ids = [
+        for (var count = random.nextInt(5); count >= 0; count--)
+          random.nextInt(_differentialIds),
+      ];
+      operation = 'putAll ${kind.type} $ids on $siteUrl';
+      final stored = kind.putAll(store, siteUrl, ids);
+      for (final (index, id) in ids.indexed) {
+        reference.put((siteUrl, kind.type, id), stored[index]);
+      }
+    } else if (roll < 63) {
+      operation = 'read $key';
+      expect(
+        kind.read(store, siteUrl, id),
+        same(reference.read(key)),
+        reason: 'seed $seed, step $step: $operation',
+      );
+    } else if (roll < 71) {
+      operation = 'ref $key';
+      handles.add((key, kind.ref(store, siteUrl, id), reference.ref(key)));
+      if (handles.length > 48) handles.removeAt(0);
+    } else if (roll < 79) {
+      operation = 'observe $key';
+      final ref = kind.ref(store, siteUrl, id);
+      final cell = reference.ref(key);
+      if (!observed.containsKey(key)) {
+        ref.addListener(listener);
+        cell.observers++;
+        observed[key] = (ref, cell);
+      }
+    } else if (roll < 88) {
+      operation = 'unobserve';
+      if (observed.isNotEmpty) {
+        final key = observed.keys.elementAt(random.nextInt(observed.length));
+        final (ref, cell) = observed.remove(key)!;
+        ref.removeListener(listener);
+        cell.observers--;
+      }
+    } else if (roll < 98) {
+      operation = 'remove $key';
+      kind.remove(store, siteUrl, id);
+      reference.remove(key);
+    } else {
+      operation = 'forget $siteUrl';
+      store.forget(siteUrl);
+      reference.forget(siteUrl);
+      observed.removeWhere((key, entry) {
+        if (key.$1 != siteUrl) return false;
+        entry.$1.removeListener(listener);
+        return true;
+      });
+    }
+
+    final reason = 'seed $seed, step $step: $operation';
+    expect(_describe(store), reference.describe(), reason: reason);
+    expect(
+      [
+        for (final (key, ref, cell) in handles)
+          if (reference.holds(key, cell) && !identical(ref.value, cell.value))
+            key,
+      ],
+      isEmpty,
+      reason: '$reason; a ref still held diverged from its reference',
+    );
+  }
+  for (final (ref, _) in observed.values) {
+    ref.removeListener(listener);
+  }
+  return reference;
+}
+
+Map<String, Object> _describe(Store store) {
+  final statistics = store.statisticsForTesting;
+  return {
+    'entries': statistics.entries,
+    'records': statistics.records,
+    'observed': statistics.observedEntries,
+    'evictions': statistics.evictions,
+    'record evictions': statistics.recordEvictions,
+    'by site': statistics.entriesBySite,
+    'by partition': statistics.entriesByPartition,
+    'held records': {
+      for (final siteUrl in _differentialSites)
+        for (final kind in _differentialKinds)
+          for (var id = 0; id < _differentialIds; id++)
+            if (kind.contains(store, siteUrl, id)) (siteUrl, kind.type, id),
+    },
+    'generations': {
+      for (final siteUrl in _differentialSites)
+        for (final kind in _differentialKinds)
+          (siteUrl, kind.type): kind.generation(store, siteUrl),
+    },
+  };
+}
+
+final class _ReferenceCell {
+  Object? value;
+  int observers = 0;
+}
+
+/// Store's victim selection as it was before partitions were indexed: every
+/// choice walks all held refs in least-recently-used order.
+final class _ReferenceStore {
+  _ReferenceStore(this.policy);
+
+  final StorePolicy policy;
+  final LinkedHashMap<_Key, _ReferenceCell> _cells = LinkedHashMap();
+  final Map<(String, Type), int> _generations = {};
+  final Set<String> reached = {};
+  int _evictions = 0;
+  int _recordEvictions = 0;
+
+  bool holds(_Key key, _ReferenceCell cell) => identical(_cells[key], cell);
+
+  _ReferenceCell ref(_Key key) {
+    final held = _cells.remove(key);
+    if (held != null) return _cells[key] = held;
+    final created = _cells[key] = _ReferenceCell();
+    _trim(key);
+    return created;
+  }
+
+  Object? read(_Key key) {
+    final held = _cells.remove(key);
+    if (held == null) return null;
+    _cells[key] = held;
+    return held.value;
+  }
+
+  void put(_Key key, Object record) {
+    final cell = ref(key);
+    if (!identical(cell.value, record)) _bump(key);
+    cell.value = record;
+    _trim(key);
+  }
+
+  void remove(_Key key) {
+    final cell = _cells[key];
+    if (cell == null) return;
+    if (cell.value != null) _bump(key);
+    cell.value = null;
+    if (cell.observers == 0) _cells.remove(key);
+  }
+
+  void forget(String siteUrl) {
+    _generations.removeWhere((partition, _) => partition.$1 == siteUrl);
+    _cells.removeWhere((key, _) => key.$1 == siteUrl);
+  }
+
+  Map<String, Object> describe() => {
+    'entries': _cells.length,
+    'records': _cells.values.where((cell) => cell.value != null).length,
+    'observed': _cells.values.where((cell) => cell.observers > 0).length,
+    'evictions': _evictions,
+    'record evictions': _recordEvictions,
+    'by site': {
+      for (final siteUrl in _cells.keys.map((key) => key.$1).toSet())
+        siteUrl: _count((key) => key.$1 == siteUrl),
+    },
+    'by partition': {
+      for (final (siteUrl, type, _) in _cells.keys)
+        (siteUrl: siteUrl, type: type): _count(
+          (key) => key.$1 == siteUrl && key.$2 == type,
+        ),
+    },
+    'held records': {
+      for (final MapEntry(:key, :value) in _cells.entries)
+        if (value.value != null) key,
+    },
+    'generations': {
+      for (final siteUrl in _differentialSites)
+        for (final kind in _differentialKinds)
+          (siteUrl, kind.type): _generations[(siteUrl, kind.type)] ?? 0,
+    },
+  };
+
+  void _bump(_Key key) {
+    final partition = (key.$1, key.$2);
+    _generations[partition] = (_generations[partition] ?? 0) + 1;
+  }
+
+  int _count(bool Function(_Key key) matches) =>
+      _cells.keys.where(matches).length;
+
+  void _trim(_Key keep) {
+    bool inPartition(_Key key) => key.$1 == keep.$1 && key.$2 == keep.$2;
+
+    final partitionLimit = policy.maxEntriesPerSiteAndType;
+    if (partitionLimit != null) {
+      while (_count(inPartition) > partitionLimit &&
+          _evict(_oldestEvictable(keep, inPartition), _partitionShare)) {}
+    }
+
+    final siteLimit = policy.maxEntriesPerSite;
+    if (siteLimit != null) {
+      while (_count((key) => key.$1 == keep.$1) > siteLimit &&
+          _evict(_fairTypeVictim(keep, keep.$1), _siteShare)) {}
+    }
+
+    while (_cells.length > policy.maxEntries &&
+        _evict(_fairSiteAndTypeVictim(keep), _globalShare)) {}
+  }
+
+  _Key? _oldestEvictable(_Key keep, bool Function(_Key key) matches) {
+    for (final MapEntry(:key, :value) in _cells.entries) {
+      if (key == keep || value.observers > 0 || !matches(key)) continue;
+      return key;
+    }
+    return null;
+  }
+
+  _Key? _fairTypeVictim(_Key keep, String siteUrl) {
+    final totals = <Type, int>{};
+    final candidates = <Type, _Key>{};
+    for (final MapEntry(:key, :value) in _cells.entries) {
+      if (key.$1 != siteUrl) continue;
+      totals[key.$2] = (totals[key.$2] ?? 0) + 1;
+      if (key != keep && value.observers == 0) {
+        candidates.putIfAbsent(key.$2, () => key);
+      }
+    }
+    final type = _largest(totals, candidates);
+    return type == null ? null : candidates[type];
+  }
+
+  _Key? _fairSiteAndTypeVictim(_Key keep) {
+    final totals = <String, int>{};
+    final candidates = <String, _Key>{};
+    for (final MapEntry(:key, :value) in _cells.entries) {
+      totals[key.$1] = (totals[key.$1] ?? 0) + 1;
+      if (key != keep && value.observers == 0) {
+        candidates.putIfAbsent(key.$1, () => key);
+      }
+    }
+    final siteUrl = _largest(totals, candidates);
+    return siteUrl == null ? null : _fairTypeVictim(keep, siteUrl);
+  }
+
+  /// The candidate with the largest total; equal totals keep the candidate
+  /// met first, which is the least recently used.
+  K? _largest<K>(Map<K, int> totals, Map<K, _Key> candidates) {
+    K? largest;
+    var largestTotal = -1;
+    for (final key in candidates.keys) {
+      final total = totals[key]!;
+      if (total > largestTotal) {
+        largest = key;
+        largestTotal = total;
+      }
+    }
+    if (candidates.keys.where((key) => totals[key] == largestTotal).length >
+        1) {
+      reached.add(_tiedShares);
+    }
+    return largest;
+  }
+
+  bool _evict(_Key? key, String share) {
+    if (key == null) return false;
+    final evicted = _cells.remove(key)!;
+    reached.add(share);
+    _evictions++;
+    if (evicted.value != null) {
+      _recordEvictions++;
+      _bump(key);
+    }
+    return true;
+  }
 }
