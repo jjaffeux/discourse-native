@@ -143,7 +143,10 @@ class _GifPickerState extends State<GifPicker> {
   }
 
   void _maybeLoadMore() {
-    if (!_resultsScroll.hasClients ||
+    // A failed page waits for Try again or Load more. Re-requesting it on
+    // every scroll tick would prolong a rate limit and re-announce the error.
+    if (widget.controller.error != null ||
+        !_resultsScroll.hasClients ||
         _resultsScroll.position.extentAfter >
             paginationPrefetchDistance(_resultsScroll.position)) {
       return;

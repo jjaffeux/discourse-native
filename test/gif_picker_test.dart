@@ -316,7 +316,8 @@ void main() {
   testWidgets('pagination failure announces error and preserves results', (
     tester,
   ) async {
-    final controller = _controller(_PaginationFailureApi());
+    final api = _PaginationFailureApi();
+    final controller = _controller(api);
     addTearDown(controller.dispose);
     await controller.selectCategory(
       const GifCategory(
@@ -331,19 +332,50 @@ void main() {
       await _pumpPicker(tester, controller);
       expect(find.byKey(const ValueKey('gif-result-0')), findsOneWidget);
 
-      await controller.loadMore();
-      await tester.pump();
+      final grid = find.byKey(const ValueKey('gif-picker-results'));
+      await tester.drag(grid, const Offset(0, -3000));
+      await tester.pumpAndSettle();
 
-      expect(find.byKey(const ValueKey('gif-result-0')), findsOneWidget);
+      expect(api.laterPageRequests, 1);
+      expect(controller.results, _firstPage);
+      expect(find.byKey(const ValueKey('gif-result-39')), findsOneWidget);
       final error = find.bySemanticsLabel(_errorMessage);
       expect(error, findsOneWidget);
       expect(
         tester.getSemantics(error),
         isSemantics(label: _errorMessage, isLiveRegion: true),
       );
+      final announcement = tester.getSemantics(error).id;
+
+      // Scrolling and bouncing at the end of the grid leave the failed page
+      // for an explicit retry, so the live region is not announced again.
+      final wiggle = await tester.startGesture(tester.getCenter(grid));
+      for (final dy in const [60.0, -120.0, 60.0, -120.0, 90.0, -150.0]) {
+        await wiggle.moveBy(Offset(0, dy));
+        await tester.pump();
+      }
+      await wiggle.up();
+      await tester.pumpAndSettle();
+      await tester.drag(grid, const Offset(0, -3000));
+      await tester.pumpAndSettle();
+
+      expect(api.laterPageRequests, 1);
+      expect(tester.getSemantics(error).id, announcement);
+
       final retry = find.widgetWithText(FilledButton, 'Try again');
       expect(retry, findsOneWidget);
       expect(tester.widget<FilledButton>(retry).onPressed, isNotNull);
+      await tester.tap(retry);
+      await tester.pumpAndSettle();
+
+      expect(api.laterPageRequests, 2);
+      expect(controller.results, _firstPage);
+      expect(find.bySemanticsLabel(_errorMessage), findsOneWidget);
+
+      await tester.tap(find.byKey(const ValueKey('gif-picker-load-more')));
+      await tester.pumpAndSettle();
+
+      expect(api.laterPageRequests, 3);
     } finally {
       semantics.dispose();
     }
@@ -379,7 +411,19 @@ Future<void> _pumpPicker(WidgetTester tester, GifPickerController controller) =>
       ),
     );
 
+final List<GifResult> _firstPage = List.unmodifiable([
+  for (var index = 0; index < 40; index++)
+    GifResult(
+      title: 'Cat $index',
+      url: 'https://media.klipy.example/cat-$index.webp',
+      width: 240,
+      height: 180,
+    ),
+]);
+
 final class _PaginationFailureApi extends FakeDiscourseApi {
+  int laterPageRequests = 0;
+
   @override
   Future<GifSearchPage> searchGifs({
     required String siteUrl,
@@ -390,8 +434,12 @@ final class _PaginationFailureApi extends FakeDiscourseApi {
     String? clientId,
   }) async {
     if (position == '0') {
-      return GifSearchPage(results: const [_result], nextPosition: 'next');
+      return GifSearchPage(results: _firstPage, nextPosition: 'next');
     }
+    laterPageRequests += 1;
+    // A failure lands on a later frame, as a network one does, so a
+    // re-request visibly replaces the error rather than restoring it unseen.
+    await Future<void>.delayed(const Duration(milliseconds: 20));
     throw SiteLookupException(SiteLookupFailure.unreachable, siteUrl);
   }
 }
