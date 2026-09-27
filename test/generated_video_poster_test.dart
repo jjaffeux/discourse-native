@@ -13,6 +13,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
+import 'support/blank_png.dart';
 import 'support/fakes.dart';
 import 'support/shell_test_harness.dart' show emojiPng;
 
@@ -122,6 +123,26 @@ void main() {
     },
   );
 
+  testWidgets('a resizing lane shares one decode of the generated frame', (
+    tester,
+  ) async {
+    PaintingBinding.instance.imageCache.clear();
+    addTearDown(PaintingBinding.instance.imageCache.clear);
+    final harness = _Harness();
+    await tester.pumpWidget(harness.app());
+    await tester.pump();
+    harness.jobs.single.result.complete(blankPng(width: 480, height: 360));
+    await _waitForImage(tester);
+    // Every lane is wider than the frame, at the test view's 3x density.
+    for (var width = 300.0; width < 320; width++) {
+      await tester.pumpWidget(harness.app(width: width));
+      await _waitForImage(tester);
+    }
+    expect(harness.jobs, hasLength(1));
+    expect(PaintingBinding.instance.imageCache.currentSize, 1);
+    expect(PaintingBinding.instance.imageCache.currentSizeBytes, 480 * 360 * 4);
+  });
+
   testWidgets('scrolling a preview out of the list releases its extraction', (
     tester,
   ) async {
@@ -142,7 +163,8 @@ Future<void> _waitForImage(WidgetTester tester) async {
       () => Future<void>.delayed(const Duration(milliseconds: 10)),
     );
     await tester.pump();
-    if (find.byType(RawImage).evaluate().isNotEmpty &&
+    if (PaintingBinding.instance.imageCache.pendingImageCount == 0 &&
+        find.byType(RawImage).evaluate().isNotEmpty &&
         tester.widget<RawImage>(find.byType(RawImage)).image != null) {
       return;
     }
@@ -194,6 +216,7 @@ final class _Harness {
     String? poster,
     bool enabled = true,
     bool scrollable = false,
+    double width = 320,
   }) {
     final video = InlineVideo(
       key: const ValueKey('video'),
@@ -216,7 +239,7 @@ final class _Harness {
           enabled: enabled,
           child: Center(
             child: SizedBox(
-              width: 320,
+              width: width,
               height: 300,
               child: scrollable
                   ? ListView(

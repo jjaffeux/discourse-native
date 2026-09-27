@@ -296,6 +296,112 @@ void main() {
     );
   });
 
+  testWidgets('cover bounds are coarse physical sizes', (tester) async {
+    tester.view.devicePixelRatio = 2;
+    addTearDown(tester.view.reset);
+    final bytes = Uint8List.fromList([1, 2, 3]);
+    const network = NetworkImage('https://site.test/poster.png');
+
+    late List<ImageProvider<Object>> covers;
+    late CoveredMemoryImage memory;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) {
+            covers = [
+              for (final size in const [Size(600.5, 300), Size(640, 320)])
+                imageForCover(context, network, logicalSize: size),
+            ];
+            memory = memoryImageForCover(
+              context,
+              bytes,
+              logicalSize: const Size(600.5, 300),
+            );
+            return const SizedBox();
+          },
+        ),
+      ),
+    );
+
+    // 1201x600 and 1280x640 physical pixels share the bound 1280x640.
+    expect(covers.first, covers.last);
+    expect((memory.width, memory.height), (1280, 640));
+  });
+
+  testWidgets('covered memory images key on the dimension their decode is '
+      'sized by, clamped to the source', (tester) async {
+    PaintingBinding.instance.imageCache.clear();
+    addTearDown(PaintingBinding.instance.imageCache.clear);
+    final bytes = await _pngBytes(tester, width: 640, height: 427);
+    Future<CoveredMemoryImage> keyFor(int width, int height) =>
+        CoveredMemoryImage(
+          bytes,
+          width: width,
+          height: height,
+        ).obtainKey(ImageConfiguration.empty);
+
+    // Only the first key waits, to read the encoded header.
+    final source = (await tester.runAsync(() => keyFor(2304, 1296)))!;
+    for (final (width, height) in [(640, 427), (5000, 100), (100, 5000)]) {
+      expect(
+        keyFor(width, height),
+        isA<SynchronousFuture<CoveredMemoryImage>>(),
+      );
+      expect(await keyFor(width, height), source, reason: '${width}x$height');
+    }
+    expect(await _decode(tester, source), (
+      width: 640,
+      height: 427,
+    ), reason: 'never upscaled');
+
+    final byWidth = await keyFor(500, 100);
+    expect(await keyFor(500, 300), byWidth);
+    expect(await _decode(tester, byWidth), (width: 500, height: 333));
+
+    final byHeight = await keyFor(100, 400);
+    expect(byHeight, isNot(byWidth));
+    expect(await _decode(tester, byHeight), (width: 600, height: 400));
+    expect(PaintingBinding.instance.imageCache.currentSize, 3);
+  });
+
+  testWidgets('covered memory images refuse a source over the pixel cap '
+      'without decoding it', (tester) async {
+    const width = 8000;
+    const height = maximumFittedImagePixels ~/ width + 1;
+    final provider = CoveredMemoryImage(
+      blankPng(width: width, height: height),
+      width: 100,
+      height: 100,
+    );
+
+    await tester.runAsync(
+      () => expectLater(
+        _firstFrameSize(provider),
+        throwsA(
+          isA<ImageTooLargeException>().having(
+            (error) => (error.width, error.height),
+            'size',
+            (width, height),
+          ),
+        ),
+      ),
+    );
+  });
+
+  testWidgets('unreadable covered bytes keep their requested bound as the '
+      'key', (tester) async {
+    final provider = CoveredMemoryImage(
+      Uint8List.fromList([1, 2, 3]),
+      width: 10,
+      height: 10,
+    );
+
+    expect(
+      await tester.runAsync(() => provider.obtainKey(ImageConfiguration.empty)),
+      provider,
+    );
+  });
+
   testWidgets('chat thumbnails decode no wider than their layout', (
     tester,
   ) async {

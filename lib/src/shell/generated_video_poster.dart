@@ -72,11 +72,7 @@ class _GeneratedVideoPosterState extends State<GeneratedVideoPoster> {
       final bytes = snapshot.data;
       if (bytes == null) return const SizedBox.shrink();
       return Image(
-        image: imageForCover(
-          context,
-          MemoryImage(bytes),
-          logicalSize: widget.size,
-        ),
+        image: memoryImageForCover(context, bytes, logicalSize: widget.size),
         fit: BoxFit.cover,
         excludeFromSemantics: true,
         errorBuilder: (_, _, _) => const SizedBox.shrink(),

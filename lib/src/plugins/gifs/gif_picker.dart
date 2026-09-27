@@ -459,6 +459,11 @@ class _NetworkArtwork extends StatelessWidget {
     if (!width.isFinite || !height.isFinite || width <= 0 || height <= 0) {
       return provider;
     }
+    // A fit bound would shrink the long side to the tile, and cover would
+    // then scale the short side back up past its decoded pixels.
+    if (fit == BoxFit.cover) {
+      return imageForCover(context, provider, logicalSize: Size(width, height));
+    }
     return ResizeImage(
       provider,
       width: imagePhysicalPixels(context, width),

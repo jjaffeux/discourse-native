@@ -204,9 +204,10 @@ Map<double, String>? _srcsetDensities(String srcset) {
   }
 }
 
-/// The most source pixels [FittedMemoryImage] decodes.
+/// The most source pixels [FittedMemoryImage] and [CoveredMemoryImage]
+/// decode.
 ///
-/// A fit bounds the bitmap a decode keeps, not what it allocates on the way:
+/// A bound limits the bitmap a decode keeps, not what it allocates on the way:
 /// PNG and GIF have no scaled decode, so the whole source is decoded before
 /// it is resized, and lossless WebP holds every source pixel while it
 /// decodes. A few kilobytes of either can declare hundreds of megapixels.
@@ -215,8 +216,8 @@ Map<double, String>? _srcsetDensities(String srcset) {
 /// smaller.
 const maximumFittedImagePixels = 50 * 1000 * 1000;
 
-/// A [FittedMemoryImage] source whose header declares more than
-/// [maximumFittedImagePixels]; none of it was decoded.
+/// A [FittedMemoryImage] or [CoveredMemoryImage] source whose header declares
+/// more than [maximumFittedImagePixels]; none of it was decoded.
 final class ImageTooLargeException implements Exception {
   const ImageTooLargeException(this.width, this.height);
 
@@ -250,7 +251,7 @@ final class FittedMemoryImage extends ImageProvider<FittedMemoryImage> {
 
   @override
   Future<FittedMemoryImage> obtainKey(ImageConfiguration configuration) =>
-      (_sourceSizes[bytes] ??= _readSourceSize(bytes)).then((size) {
+      _sourceSize(bytes).then((size) {
         // A fit bound at or beyond the source in a dimension constrains
         // nothing in it, so clamping never changes what the key decodes to.
         final key = FittedMemoryImage(
@@ -270,7 +271,12 @@ final class FittedMemoryImage extends ImageProvider<FittedMemoryImage> {
     ImageDecoderCallback decode,
   ) {
     final completer = MultiFrameImageStreamCompleter(
-      codec: _decode(key, decode),
+      codec: _decodeWithinCap(
+        key.bytes,
+        decode,
+        (sourceWidth, sourceHeight) =>
+            _fitWithin(sourceWidth, sourceHeight, key.width, key.height),
+      ),
       scale: 1,
     );
     completer.addEphemeralErrorListener((_, _) {
@@ -278,34 +284,6 @@ final class FittedMemoryImage extends ImageProvider<FittedMemoryImage> {
       scheduleMicrotask(() => PaintingBinding.instance.imageCache.evict(key));
     });
     return completer;
-  }
-
-  // Chained rather than awaited: awaiting a SynchronousFuture resumes the
-  // awaiting body re-entrantly, and an error it throws after that is reported
-  // as uncaught.
-  static Future<ui.Codec> _decode(
-    FittedMemoryImage key,
-    ImageDecoderCallback decode,
-  ) {
-    final sourceSize = _sourceSizes[key.bytes] ??= _readSourceSize(key.bytes);
-    return sourceSize.then((size) => _decodeSource(key, decode, size));
-  }
-
-  static Future<ui.Codec> _decodeSource(
-    FittedMemoryImage key,
-    ImageDecoderCallback decode,
-    (int, int)? sourceSize,
-  ) async {
-    final (width, height) = sourceSize ?? (0, 0);
-    if (width * height > maximumFittedImagePixels) {
-      throw ImageTooLargeException(width, height);
-    }
-    final buffer = await ui.ImmutableBuffer.fromUint8List(key.bytes);
-    return decode(
-      buffer,
-      getTargetSize: (sourceWidth, sourceHeight) =>
-          _fitWithin(sourceWidth, sourceHeight, key.width, key.height),
-    );
   }
 
   @override
@@ -319,9 +297,116 @@ final class FittedMemoryImage extends ImageProvider<FittedMemoryImage> {
   int get hashCode => Object.hash(identityHashCode(bytes), width, height);
 }
 
+/// Decodes [bytes] to cover [width] × [height] physical pixels, keeping the
+/// aspect ratio and never upscaling, as [imageForCover] does. A source over
+/// [maximumFittedImagePixels] fails with [ImageTooLargeException] instead.
+///
+/// A cover decode is sized by a single dimension, so once the source's size
+/// is known the key keeps only that dimension's target, clamped to the
+/// source, and neither when the cover takes the whole source. Every bound a
+/// small source cannot fill (a lane wider than a 480×360 video poster) then
+/// shares one bitmap, as do bounds that differ only in the dimension the
+/// decode is not sized by. The size is read from the encoded header once per
+/// [bytes], as [FittedMemoryImage] reads it, so later keys are synchronous.
+@immutable
+final class CoveredMemoryImage extends ImageProvider<CoveredMemoryImage> {
+  const CoveredMemoryImage(
+    this.bytes, {
+    required int this.width,
+    required int this.height,
+  });
+
+  const CoveredMemoryImage._key(this.bytes, {this.width, this.height});
+
+  final Uint8List bytes;
+
+  /// The bound to cover. A key resolved against a readable source keeps only
+  /// the dimension its decode is sized by, or neither for the whole source.
+  final int? width;
+  final int? height;
+
+  @override
+  Future<CoveredMemoryImage> obtainKey(ImageConfiguration configuration) {
+    final width = this.width;
+    final height = this.height;
+    if (width == null || height == null) return SynchronousFuture(this);
+    return _sourceSize(bytes).then((size) {
+      // Unreadable bytes keep the requested bound; their decode reports them.
+      if (size == null) return this;
+      final (sourceWidth, sourceHeight) = size;
+      final target = _coverTarget(sourceWidth, sourceHeight, width, height);
+      return CoveredMemoryImage._key(
+        bytes,
+        width: target.width == sourceWidth ? null : target.width,
+        height: target.height == sourceHeight ? null : target.height,
+      );
+    });
+  }
+
+  @override
+  ImageStreamCompleter loadImage(
+    CoveredMemoryImage key,
+    ImageDecoderCallback decode,
+  ) {
+    final completer = MultiFrameImageStreamCompleter(
+      codec: _decodeWithinCap(
+        key.bytes,
+        decode,
+        (sourceWidth, sourceHeight) => switch ((key.width, key.height)) {
+          (final width?, final height?) => _coverTarget(
+            sourceWidth,
+            sourceHeight,
+            width,
+            height,
+          ),
+          (final width, final height) => ui.TargetImageSize(
+            width: width,
+            height: height,
+          ),
+        },
+      ),
+      scale: 1,
+    );
+    completer.addEphemeralErrorListener((_, _) {
+      // A synchronous failure can precede ImageCache registering this key.
+      scheduleMicrotask(() => PaintingBinding.instance.imageCache.evict(key));
+    });
+    return completer;
+  }
+
+  @override
+  bool operator ==(Object other) =>
+      other is CoveredMemoryImage &&
+      identical(other.bytes, bytes) &&
+      other.width == width &&
+      other.height == height;
+
+  @override
+  int get hashCode => Object.hash(identityHashCode(bytes), width, height);
+}
+
 // By identity, as MemoryImage keys are: the site image cache hands every
 // widget showing a URL the same bytes.
 final _sourceSizes = Expando<Future<(int, int)?>>('encoded image size');
+
+Future<(int, int)?> _sourceSize(Uint8List bytes) =>
+    _sourceSizes[bytes] ??= _readSourceSize(bytes);
+
+// Chained rather than awaited: awaiting a SynchronousFuture resumes the
+// awaiting body re-entrantly, and an error it throws after that is reported
+// as uncaught.
+Future<ui.Codec> _decodeWithinCap(
+  Uint8List bytes,
+  ImageDecoderCallback decode,
+  ui.TargetImageSizeCallback getTargetSize,
+) => _sourceSize(bytes).then((size) async {
+  final (width, height) = size ?? (0, 0);
+  if (width * height > maximumFittedImagePixels) {
+    throw ImageTooLargeException(width, height);
+  }
+  final buffer = await ui.ImmutableBuffer.fromUint8List(bytes);
+  return decode(buffer, getTargetSize: getTargetSize);
+});
 
 Future<(int, int)?> _readSourceSize(Uint8List bytes) async {
   ui.ImmutableBuffer? buffer;
@@ -380,15 +465,54 @@ ResizeImage memoryImageForLayout(
   );
 }
 
+/// Decodes [provider] to cover [logicalSize], keeping its aspect ratio and
+/// never upscaling. Bytes already in memory decode through
+/// [memoryImageForCover] instead.
+///
+/// Both bounds are rounded with [coarseDecodePixels]. A cover commonly
+/// follows its layout (a video poster fills its lane), and every distinct
+/// bound is its own [ImageCache] entry and a full decode, so an exact bound
+/// would decode the image again for each pixel of a window resize, divider
+/// drag or sidebar toggle.
 ImageProvider<Object> imageForCover(
   BuildContext context,
   ImageProvider<Object> provider, {
   required Size logicalSize,
-}) => _CoverImage(
-  provider,
-  imagePhysicalPixels(context, logicalSize.width),
-  imagePhysicalPixels(context, logicalSize.height),
+}) {
+  final (width, height) = _coverBound(context, logicalSize);
+  return _CoverImage(provider, width, height);
+}
+
+/// [imageForCover] for encoded [bytes], through [CoveredMemoryImage], whose
+/// key also ignores the parts of the bound the source cannot fill.
+CoveredMemoryImage memoryImageForCover(
+  BuildContext context,
+  Uint8List bytes, {
+  required Size logicalSize,
+}) {
+  final (width, height) = _coverBound(context, logicalSize);
+  return CoveredMemoryImage(bytes, width: width, height: height);
+}
+
+(int, int) _coverBound(BuildContext context, Size logicalSize) => (
+  coarseDecodePixels(imagePhysicalPixels(context, logicalSize.width)),
+  coarseDecodePixels(imagePhysicalPixels(context, logicalSize.height)),
 );
+
+/// The decode size that covers [width] × [height] with a [sourceWidth] ×
+/// [sourceHeight] image.
+///
+/// Cover needs the larger scale, including pixels outside the crop. One
+/// target dimension preserves the source's aspect ratio; clamping it avoids
+/// decoding an upscale of a small source.
+ui.TargetImageSize _coverTarget(
+  int sourceWidth,
+  int sourceHeight,
+  int width,
+  int height,
+) => width * sourceHeight >= height * sourceWidth
+    ? ui.TargetImageSize(width: math.min(width, sourceWidth))
+    : ui.TargetImageSize(height: math.min(height, sourceHeight));
 
 @immutable
 final class _CoverImage extends ImageProvider<_CoverImageKey> {
@@ -415,16 +539,12 @@ final class _CoverImage extends ImageProvider<_CoverImageKey> {
       assert(getTargetSize == null);
       return decode(
         buffer,
-        getTargetSize: (intrinsicWidth, intrinsicHeight) {
-          // Cover needs the larger scale, including pixels outside the crop.
-          // One target dimension preserves the poster's own aspect ratio;
-          // clamping it avoids decoding an upscale of a small source.
-          return key.width * intrinsicHeight >= key.height * intrinsicWidth
-              ? ui.TargetImageSize(width: math.min(key.width, intrinsicWidth))
-              : ui.TargetImageSize(
-                  height: math.min(key.height, intrinsicHeight),
-                );
-        },
+        getTargetSize: (intrinsicWidth, intrinsicHeight) => _coverTarget(
+          intrinsicWidth,
+          intrinsicHeight,
+          key.width,
+          key.height,
+        ),
       );
     });
     completer.addEphemeralErrorListener((_, _) {
