@@ -124,6 +124,46 @@ void main() {
     expect(session.disposed, isTrue);
   });
 
+  testWidgets('an unfocused window keeps audio playing until it is hidden', (
+    tester,
+  ) async {
+    addTearDown(
+      () => tester.binding.handleAppLifecycleStateChanged(
+        AppLifecycleState.resumed,
+      ),
+    );
+    final session = _Session();
+    // macOS and Linux report a visible window that lost focus as inactive.
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AudioOnebox(
+          data: AudioOneboxData(
+            source: Uri.parse('https://example.com/a.mp3'),
+            title: 'Audio',
+          ),
+          sessionFactory: (_) => session,
+        ),
+      ),
+    );
+    await tester.tap(find.text('Play audio'));
+    await tester.pump();
+    expect(session.started, isTrue);
+    session.update(playing: true);
+    await tester.pump();
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+    session.update(playing: true);
+    await tester.pump();
+    expect(session.pauses, 0);
+    expect(find.text('Pause audio'), findsOneWidget);
+
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.hidden);
+    await tester.pump();
+    expect(session.pauses, 1);
+    await tester.pumpWidget(const SizedBox());
+  });
+
   testWidgets('Native audio layout wraps at large text in both directions', (
     tester,
   ) async {

@@ -10,6 +10,7 @@ import '../data/api_credentials.dart';
 import '../data/http_transport.dart';
 import '../data/site_lifecycle.dart';
 import '../diagnostics/diagnostics_controller.dart';
+import '../foundation/foreground_lifecycle.dart';
 import '../foundation/uri_path.dart';
 import '../theme/d_icons.dart';
 import 'external_link.dart';
@@ -426,13 +427,13 @@ class _InlineVideoPlaybackSurfaceState extends State<InlineVideoPlaybackSurface>
   InlineVideoPlaybackSession? _pausingSession;
   bool _tickerEnabled = true;
   bool _fullscreenTickerEnabled = false;
-  bool _appResumed = true;
+  bool _appForeground = true;
   bool? _playbackVisible;
 
   bool get _fullscreenOpen => _fullscreenSession != null;
 
   bool get _canPlay =>
-      _appResumed &&
+      _appForeground &&
       (_tickerEnabled ||
           (identical(_fullscreenSession, _session) &&
               _fullscreenTickerEnabled));
@@ -440,8 +441,9 @@ class _InlineVideoPlaybackSurfaceState extends State<InlineVideoPlaybackSurface>
   @override
   void initState() {
     super.initState();
-    final lifecycle = WidgetsBinding.instance.lifecycleState;
-    _appResumed = lifecycle == null || lifecycle == AppLifecycleState.resumed;
+    _appForeground = isForegroundLifecycle(
+      WidgetsBinding.instance.lifecycleState,
+    );
     WidgetsBinding.instance.addObserver(this);
   }
 
@@ -594,7 +596,7 @@ class _InlineVideoPlaybackSurfaceState extends State<InlineVideoPlaybackSurface>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    _appResumed = state == AppLifecycleState.resumed;
+    _appForeground = isForegroundLifecycle(state);
     _syncPlaybackVisibility();
   }
 
