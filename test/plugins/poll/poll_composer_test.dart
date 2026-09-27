@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:discourse_native/src/plugins/poll/poll_composer_editor.dart';
 import 'package:discourse_native/src/plugins/poll/poll_composer_parser.dart';
 import 'package:flutter/services.dart';
@@ -424,14 +426,16 @@ void main() {
 
       expect(result.applied, isTrue);
       expect(result.value.text, 'before\n\n$poll\n\nafter');
-      expect(result.value.selection.extentOffset, 9 + poll.length);
+      // The blank line after the poll is a structural gap that holds no
+      // caret; typing continues the following paragraph.
+      expect(result.value.selection.extentOffset, 10 + poll.length);
       expect(
         result.value.text.replaceRange(
           result.value.selection.start,
           result.value.selection.end,
-          'next',
+          'next ',
         ),
-        'before\n\n$poll\nnext\nafter',
+        'before\n\n$poll\n\nnext after',
       );
     });
 
@@ -462,7 +466,7 @@ void main() {
       },
     );
 
-    test('the following caret consumes one complete CRLF', () {
+    test('the following caret consumes a complete CRLF blank line', () {
       const source = 'before\r\nafter';
       final result = insertVerifiedPoll(
         current: const TextEditingValue(text: source),
@@ -472,7 +476,32 @@ void main() {
       );
 
       expect(result.value.text, 'before\r\n\r\n$poll\r\n\r\nafter');
-      expect(result.value.selection.extentOffset, 12 + poll.length);
+      expect(result.value.selection.extentOffset, 14 + poll.length);
+    });
+
+    test('the following caret passes one line break or one blank line', () {
+      // Further empty lines are the author's own and can hold the caret.
+      for (final (following, gap) in [
+        ('\nafter', 1),
+        ('\n\nafter', 2),
+        ('\n\n\nafter', 2),
+        ('\r\n\r\n\r\nafter', 4),
+      ]) {
+        final source = '$poll$following';
+        final result = replaceVerifiedPoll(
+          current: TextEditingValue(text: source),
+          expectedDocument: source,
+          expectedBlock: parsePollComposerBlocks(source).single,
+          replacement: poll,
+        );
+
+        expect(result.value.text, source);
+        expect(
+          result.value.selection,
+          TextSelection.collapsed(offset: poll.length + gap),
+          reason: jsonEncode(following),
+        );
+      }
     });
 
     test('replaces and removes exactly one verified source range', () {
@@ -490,7 +519,7 @@ void main() {
       );
       expect(
         replaced.value.selection.extentOffset,
-        'before\n\n[poll type=number min=0 max=1]\n[/poll]\n'.length,
+        'before\n\n[poll type=number min=0 max=1]\n[/poll]\n\n'.length,
       );
 
       final removed = removeVerifiedPoll(

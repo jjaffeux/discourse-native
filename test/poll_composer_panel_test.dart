@@ -190,6 +190,39 @@ Future<void> _closeComposerDuringProjectedEdit(
   expect(tester.takeException(), isNull);
 }
 
+Finder _pollSheetField(String label) => find.byWidgetPredicate(
+  (widget) =>
+      (widget is DInput && widget.labelText == label) ||
+      (widget is TextField && widget.decoration?.labelText == label),
+  description: 'poll sheet field labelled $label',
+);
+
+Future<void> _applyPollSheet(WidgetTester tester) async {
+  await tester.ensureVisible(find.text('Apply'));
+  await tester.pumpAndSettle();
+  await tester.tap(find.text('Apply'));
+  await tester.pumpAndSettle();
+}
+
+/// Types [typed] where the platform text input inserts it: over the editor's
+/// current selection.
+Future<void> _typeAtSelection(
+  WidgetTester tester,
+  TextEditingController text,
+  String typed,
+) async {
+  final selection = text.selection;
+  tester.testTextInput.updateEditingValue(
+    TextEditingValue(
+      text: text.text.replaceRange(selection.start, selection.end, typed),
+      selection: TextSelection.collapsed(
+        offset: selection.start + typed.length,
+      ),
+    ),
+  );
+  await tester.pump();
+}
+
 Future<void> _closeComposerAfterAssertions(
   WidgetTester tester,
   ShellController shell,
@@ -727,9 +760,7 @@ void main() {
 
       final pill = find.byType(PollComposerPill);
       final poll = composer.text.pollBlocks.single;
-      composer.text.selection = TextSelection.collapsed(
-        offset: composer.text.pollCaretAfter(poll),
-      );
+      composer.text.selection = TextSelection.collapsed(offset: poll.end);
       await tester.pump();
       final position = tester.getCenter(pill);
       final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
@@ -921,7 +952,6 @@ void main() {
           expect(find.text('Edit poll'), findsNothing);
           expect(composer.text.text, expected);
           expect(composer.text.selection.extentOffset, expected.length);
-          expect(composer.text.pollCaretAfter(block), expected.length);
           expect(composer.text.isPollCollapsed(block), isTrue);
           await _closeComposerAfterAssertions(tester, shell);
         },
@@ -975,7 +1005,6 @@ void main() {
           expect(find.text('Edit poll'), findsNothing);
           expect(composer.text.text, expected);
           expect(composer.text.selection.extentOffset, expected.length);
-          expect(composer.text.pollCaretAfter(block), expected.length);
           expect(composer.text.isPollCollapsed(block), isTrue);
           expect(composer.text.keyboardSelectedPoll, isNull);
           expect(_composerEditable(tester).showCursor, isTrue);
@@ -1136,6 +1165,191 @@ void main() {
     });
   });
 
+  // The blank line after a poll is a structural gap that holds no caret, so a
+  // caret left on it would put typed text between the poll and the next
+  // paragraph and join that text to the paragraph.
+  group('poll sheet caret placement', () {
+    for (final lineEnding in const {'LF': '\n', 'CRLF': '\r\n'}.entries) {
+      final newline = lineEnding.value;
+
+      testWidgets(
+        'typing after an added poll continues the next ${lineEnding.key} '
+        'paragraph',
+        (tester) async {
+          final source = 'Before the poll.$newline${newline}After the poll.';
+          final shell = await _openComposer();
+          addTearDown(shell.dispose);
+          final composer = shell.visibleComposer!;
+          composer.text.value = TextEditingValue(
+            text: source,
+            selection: const TextSelection.collapsed(
+              offset: 'Before the poll.'.length,
+            ),
+          );
+
+          await tester.pumpWidget(
+            MaterialApp(
+              theme: AppTheme.dark,
+              home: ShellScope(
+                controller: shell,
+                child: Scaffold(
+                  body: ComposerPanel(composer: composer, height: 500),
+                ),
+              ),
+            ),
+          );
+          composer.focus.requestFocus();
+          await tester.pump();
+
+          await tester.tap(find.byKey(const ValueKey('composer-insert')));
+          await tester.pump();
+          await tester.tap(find.text('Add poll'));
+          await tester.pumpAndSettle();
+          await tester.enterText(_pollSheetField('Option 1'), 'Soup');
+          await tester.enterText(_pollSheetField('Option 2'), 'Salad');
+          await _applyPollSheet(tester);
+
+          final poll = composer.text.pollBlocks.single;
+          expect(
+            composer.text.text,
+            'Before the poll.$newline$newline${poll.source}$newline$newline'
+            'After the poll.',
+          );
+          expect(
+            composer.text.selection,
+            TextSelection.collapsed(
+              offset: composer.text.text.indexOf('After the poll.'),
+            ),
+          );
+
+          await _typeAtSelection(tester, composer.text, 'Then ');
+          expect(
+            composer.text.text,
+            'Before the poll.$newline$newline${poll.source}$newline$newline'
+            'Then After the poll.',
+          );
+          expect(composer.text.pollBlocks.single.source, poll.source);
+          expect(find.byType(PollComposerPill), findsOneWidget);
+          await _closeComposerAfterAssertions(tester, shell);
+        },
+      );
+
+      testWidgets(
+        'typing after an edited poll continues the next ${lineEnding.key} '
+        'paragraph',
+        (tester) async {
+          final pollSource = [
+            '[poll name=lunch]',
+            '# Lunch',
+            '* Soup',
+            '* Salad',
+            '[/poll]',
+          ].join(newline);
+          final original =
+              'Before the poll.$newline$newline$pollSource$newline$newline'
+              'After the poll.';
+          final shell = await _openComposer();
+          addTearDown(shell.dispose);
+          final composer = shell.visibleComposer!;
+          composer.text.value = TextEditingValue(
+            text: original,
+            selection: TextSelection.collapsed(offset: original.length),
+          );
+
+          await tester.pumpWidget(
+            MaterialApp(
+              theme: AppTheme.dark,
+              home: ShellScope(
+                controller: shell,
+                child: Scaffold(
+                  body: ComposerPanel(composer: composer, height: 500),
+                ),
+              ),
+            ),
+          );
+          await tester.pumpAndSettle();
+          await tester.tap(find.byType(PollComposerPill));
+          await tester.pumpAndSettle();
+          expect(find.text('Edit poll'), findsOneWidget);
+          await tester.enterText(_pollSheetField('Option 2'), 'Pasta');
+          await _applyPollSheet(tester);
+
+          final poll = composer.text.pollBlocks.single;
+          expect(poll.optionSources, ['Soup', 'Pasta']);
+          expect(
+            composer.text.text,
+            'Before the poll.$newline$newline${poll.source}$newline$newline'
+            'After the poll.',
+          );
+          expect(
+            composer.text.selection,
+            TextSelection.collapsed(
+              offset: composer.text.text.indexOf('After the poll.'),
+            ),
+          );
+
+          await _typeAtSelection(tester, composer.text, 'Then ');
+          expect(
+            composer.text.text,
+            'Before the poll.$newline$newline${poll.source}$newline$newline'
+            'Then After the poll.',
+          );
+          expect(composer.text.pollBlocks.single.source, poll.source);
+          expect(find.byType(PollComposerPill), findsOneWidget);
+          await _closeComposerAfterAssertions(tester, shell);
+        },
+      );
+    }
+
+    testWidgets('typing after a poll added at the end starts a line below it', (
+      tester,
+    ) async {
+      const before = 'Before the poll.';
+      final shell = await _openComposer();
+      addTearDown(shell.dispose);
+      final composer = shell.visibleComposer!;
+      composer.text.value = const TextEditingValue(
+        text: before,
+        selection: TextSelection.collapsed(offset: before.length),
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.dark,
+          home: ShellScope(
+            controller: shell,
+            child: Scaffold(
+              body: ComposerPanel(composer: composer, height: 500),
+            ),
+          ),
+        ),
+      );
+      composer.focus.requestFocus();
+      await tester.pump();
+
+      await tester.tap(find.byKey(const ValueKey('composer-insert')));
+      await tester.pump();
+      await tester.tap(find.text('Add poll'));
+      await tester.pumpAndSettle();
+      await tester.enterText(_pollSheetField('Option 1'), 'Soup');
+      await tester.enterText(_pollSheetField('Option 2'), 'Salad');
+      await _applyPollSheet(tester);
+
+      final poll = composer.text.pollBlocks.single;
+      expect(composer.text.text, '$before\n\n${poll.source}\n');
+      expect(
+        composer.text.selection,
+        TextSelection.collapsed(offset: composer.text.text.length),
+      );
+
+      await _typeAtSelection(tester, composer.text, 'After the poll.');
+      expect(composer.text.text, '$before\n\n${poll.source}\nAfter the poll.');
+      expect(composer.text.pollBlocks.single.source, poll.source);
+      expect(find.byType(PollComposerPill), findsOneWidget);
+      await _closeComposerAfterAssertions(tester, shell);
+    });
+  });
+
   group('poll selection and editing guards', () {
     testWidgets('a selected poll blocks modified deletion and text input', (
       tester,
@@ -1160,8 +1374,7 @@ void main() {
         ),
       );
       final poll = composer.text.pollBlocks.single;
-      final afterPoll = composer.text.pollCaretAfter(poll);
-      composer.text.selection = TextSelection.collapsed(offset: afterPoll);
+      composer.text.selection = TextSelection.collapsed(offset: poll.end);
       composer.focus.requestFocus();
       composer.autocomplete.update(
         const TextEditingValue(
@@ -1273,9 +1486,7 @@ void main() {
         await tester.pump();
 
         final poll = composer.text.pollBlocks.single;
-        composer.text.selection = TextSelection.collapsed(
-          offset: composer.text.pollCaretAfter(poll),
-        );
+        composer.text.selection = TextSelection.collapsed(offset: poll.end);
         composer.focus.requestFocus();
         await tester.pump();
         await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
@@ -1328,9 +1539,7 @@ void main() {
       await tester.pump(const Duration(milliseconds: 600));
 
       final poll = composer.text.pollBlocks.single;
-      composer.text.selection = TextSelection.collapsed(
-        offset: composer.text.pollCaretAfter(poll),
-      );
+      composer.text.selection = TextSelection.collapsed(offset: poll.end);
       await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
       await tester.pump();
       expect(composer.text.keyboardSelectedPoll, isNotNull);
@@ -1379,9 +1588,7 @@ void main() {
         await tester.pump();
 
         final poll = composer.text.pollBlocks.single;
-        composer.text.selection = TextSelection.collapsed(
-          offset: composer.text.pollCaretAfter(poll),
-        );
+        composer.text.selection = TextSelection.collapsed(offset: poll.end);
         composer.focus.requestFocus();
         await tester.pump();
         await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
@@ -1425,8 +1632,6 @@ void main() {
           await tester.pump();
 
           final block = composer.text.pollBlocks.single;
-          final afterPoll = composer.text.pollCaretAfter(block);
-          expect(afterPoll, source.length);
           await tester.sendKeyEvent(LogicalKeyboardKey.backspace);
           await tester.pump();
 
