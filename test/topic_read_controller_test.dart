@@ -273,6 +273,41 @@ void main() {
   });
 
   group('receipt coalescing and write outcomes', () {
+    test('sends a timing for every newly read post on screen', () async {
+      const siteUrl = 'https://one.example';
+      credentials.keys[siteUrl] = 'key';
+      store.put(siteUrl, _topic(lastRead: 2));
+      addTearDown(() {
+        for (final request in api.requests) {
+          if (!request.response.isCompleted) request.response.complete();
+        }
+      });
+
+      // Core clears notifications only for the exact timing keys, so a post
+      // read above the farthest one must still be sent.
+      final read = controller.mark(
+        siteUrl,
+        1,
+        5,
+        caughtUp: false,
+        readPostNumbers: const [5, 4, 3, 2],
+      );
+      await pumpEventQueue();
+      expect(api.requests.single.postNumbers, [3, 4, 5]);
+      expect(controller.lastReadPostNumberFor(siteUrl, 1), 5);
+      api.requests.single.response.complete();
+      await read;
+
+      await controller.mark(
+        siteUrl,
+        1,
+        5,
+        caughtUp: false,
+        readPostNumbers: const [3, 4],
+      );
+      expect(api.requests, hasLength(1), reason: 'already-read posts');
+    });
+
     test(
       'an older caught-up retry preserves the maximum across stale rows',
       () async {

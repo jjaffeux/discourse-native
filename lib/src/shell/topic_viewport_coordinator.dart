@@ -22,6 +22,13 @@ typedef TopicViewportIdentity = ({
 });
 typedef TopicViewportAnchor = ({int postId, double viewportOffset});
 typedef TopicViewportSeenPost = ({int postId, int postNumber, bool caughtUp});
+typedef _TopicViewportReading = ({
+  String siteUrl,
+  int topicId,
+  int postNumber,
+  bool caughtUp,
+  List<int> readPostNumbers,
+});
 typedef TopicViewportScrollPosition = ({
   double pixels,
   double minScrollExtent,
@@ -196,6 +203,7 @@ final class TopicViewportBinding {
             required int topicId,
             required int postNumber,
             required bool caughtUp,
+            required List<int> readPostNumbers,
           }) {
             // Departing topics still credit their reader, but a queued dwell
             // callback must never acquire a replacement account's credentials.
@@ -205,6 +213,7 @@ final class TopicViewportBinding {
               topicId,
               postNumber,
               caughtUp: caughtUp,
+              readPostNumbers: readPostNumbers,
             );
           },
       saveAnchor: (topicId, postNumber, viewportOffset) =>
@@ -240,6 +249,7 @@ final class TopicViewportBinding {
     required int topicId,
     required int postNumber,
     required bool caughtUp,
+    required List<int> readPostNumbers,
   })
   markRead;
   final void Function(int topicId, int postNumber, double viewportOffset)
@@ -394,8 +404,8 @@ final class TopicViewportCoordinator extends FrameSafeNotifier
   bool _readDwellPending = false;
   bool _tickerEnabled = true;
   bool _appResumed = true;
-  ({String siteUrl, int topicId, int postNumber, bool caughtUp})? _seen;
-  ({String siteUrl, int topicId, int postNumber, bool caughtUp})? _visibleSeen;
+  _TopicViewportReading? _seen;
+  _TopicViewportReading? _leadingSeen;
 
   static TopicViewportTimer _defaultTimerFactory(
     Duration duration,
@@ -513,7 +523,7 @@ final class TopicViewportCoordinator extends FrameSafeNotifier
     _streamIndexes = null;
     _indexedStream = null;
     _seen = null;
-    _visibleSeen = null;
+    _leadingSeen = null;
     _readDwellPending = false;
     _readTimer?.cancel();
     _readTimer = null;
@@ -1141,6 +1151,7 @@ final class TopicViewportCoordinator extends FrameSafeNotifier
     TopicViewportSeenPost? leading,
     TopicViewportSeenPost? visible,
     TopicViewportSeenPost? readable,
+    List<int> readablePostNumbers = const [],
   }) {
     final binding = _binding;
     if (binding == null || !_restored || _restoring) return;
@@ -1158,13 +1169,20 @@ final class TopicViewportCoordinator extends FrameSafeNotifier
       }
     }
 
-    _visibleSeen = visible == null
+    // Leaving the foreground credits the post being read even when none has
+    // reached its end, such as one taller than the screen. That is the post at
+    // the top of the viewport, never the farthest one merely glimpsed.
+    _leadingSeen = leading == null
         ? null
         : (
             siteUrl: snapshot.siteUrl!,
             topicId: snapshot.topicId!,
-            postNumber: visible.postNumber,
-            caughtUp: visible.caughtUp,
+            postNumber: leading.postNumber,
+            caughtUp:
+                visible != null &&
+                visible.caughtUp &&
+                visible.postId == leading.postId,
+            readPostNumbers: const [],
           );
     // Navigation addresses the post at the top of the viewport. Using the
     // farthest visible post makes a jump appear to overshoot by however many
@@ -1186,10 +1204,14 @@ final class TopicViewportCoordinator extends FrameSafeNotifier
         topicId: snapshot.topicId!,
         postNumber: readable.postNumber,
         caughtUp: readable.caughtUp,
+        readPostNumbers: readablePostNumbers,
       );
-      if (seen == _seen) return;
+      if (_isSameReading(seen, _seen)) return;
       _seen = seen;
-      _startReadDwell(readInterval);
+      // Like web's periodic screen tracking, a dwell already under way keeps
+      // running and credits whatever is readable when it elapses. Restarting
+      // it on every change would never credit a reader who keeps scrolling.
+      if (!_readDwellPending) _startReadDwell(readInterval);
       return;
     }
 
@@ -1200,6 +1222,17 @@ final class TopicViewportCoordinator extends FrameSafeNotifier
     _readTimerStartedAt = null;
     _readTimeRemaining = readInterval;
   }
+
+  static bool _isSameReading(
+    _TopicViewportReading a,
+    _TopicViewportReading? b,
+  ) =>
+      b != null &&
+      a.siteUrl == b.siteUrl &&
+      a.topicId == b.topicId &&
+      a.postNumber == b.postNumber &&
+      a.caughtUp == b.caughtUp &&
+      listEquals(a.readPostNumbers, b.readPostNumbers);
 
   int _streamIndex(List<int> streamIds, int postId) {
     if (!identical(_indexedStream, streamIds)) {
@@ -1302,7 +1335,7 @@ final class TopicViewportCoordinator extends FrameSafeNotifier
     _readTimeRemaining = readInterval;
     _readDwellPending = false;
 
-    final seen = leavingForeground ? _visibleSeen ?? _seen : _seen;
+    final seen = leavingForeground ? _seen ?? _leadingSeen : _seen;
     final binding = _binding;
     if (seen == null || binding == null || !_readerActive) return;
     if (!leavingForeground && !_appResumed) return;
@@ -1314,6 +1347,7 @@ final class TopicViewportCoordinator extends FrameSafeNotifier
           topicId: seen.topicId,
           postNumber: seen.postNumber,
           caughtUp: seen.caughtUp,
+          readPostNumbers: seen.readPostNumbers,
         ),
       ),
     );

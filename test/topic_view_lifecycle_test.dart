@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math' as math;
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/data/site_image_repository.dart';
@@ -321,6 +322,18 @@ void main() {
 
         expect(api.topicReadsRecorded.last, (topicId: 1, postNumber: 1));
 
+        // Switching apps flushes the reader's position without a dwell, so it
+        // must not treat the glimpse as the post being read either.
+        addTearDown(() => _resumeLifecycle(tester));
+        tester.binding.handleAppLifecycleStateChanged(
+          AppLifecycleState.inactive,
+        );
+        await tester.pump();
+        await tester.pump();
+        expect(api.topicReadsRecorded.last, (topicId: 1, postNumber: 1));
+        _resumeLifecycle(tester);
+        await tester.pump();
+
         list.controller!.jumpTo(list.controller!.position.maxScrollExtent);
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 600));
@@ -458,6 +471,121 @@ void main() {
         expect(find.byKey(const ValueKey(80)), findsOneWidget);
         expect(list.key, isNot(loadingKey));
         expect(list.listController!.totalExtent, lessThan(whileLoading / 2));
+      });
+
+      testWidgets('credits every post read on a notified screen', (
+        tester,
+      ) async {
+        final site = instance('meta.example');
+        final api = FakeDiscourseApi(feeds: const {'/latest.json': []});
+        final authenticator = FakeAuthenticator()..keys[site.url] = 'key';
+        final controller = ShellController(
+          instanceStore: FakeInstanceStore([site]),
+          api: api,
+          authenticator: authenticator,
+          drafts: FakeDraftStore(),
+          trackers: FakeSiteTracker.reset(),
+        );
+        addTearDown(controller.dispose);
+        await controller.load();
+        _storeFullTopic(controller, site.url, topicId: 1, firstPostId: 100);
+        controller.store.put(
+          site.url,
+          const Topic(
+            id: 1,
+            title: 'One',
+            slug: 'one',
+            unreadPosts: 24,
+            lastReadPostNumber: 6,
+            highestPostNumber: 30,
+          ),
+        );
+        controller.pushContent(
+          ContentRoute.topic(
+            topicId: 1,
+            slug: 'one',
+            title: 'One',
+            postNumber: 7,
+          ),
+        );
+
+        await tester.pumpWidget(_topicView(controller));
+        await tester.pumpAndSettle();
+        await tester.pump(const Duration(milliseconds: 600));
+        await tester.pump();
+
+        final recorded = {
+          for (final read in api.topicReadsRecorded) read.postNumber,
+        };
+        // Core clears a reply notification only for its exact timing key.
+        expect(recorded, contains(7));
+        expect(recorded, contains(8));
+      });
+
+      testWidgets('continuous reading credits the posts it passes', (
+        tester,
+      ) async {
+        final site = instance('meta.example');
+        final api = FakeDiscourseApi(feeds: const {'/latest.json': []});
+        final authenticator = FakeAuthenticator()..keys[site.url] = 'key';
+        final controller = ShellController(
+          instanceStore: FakeInstanceStore([site]),
+          api: api,
+          authenticator: authenticator,
+          drafts: FakeDraftStore(),
+          trackers: FakeSiteTracker.reset(),
+        );
+        addTearDown(controller.dispose);
+        await controller.load();
+        _storeFullTopic(controller, site.url, topicId: 1, firstPostId: 100);
+        controller.store.put(
+          site.url,
+          const Topic(
+            id: 1,
+            title: 'One',
+            slug: 'one',
+            unreadPosts: 30,
+            highestPostNumber: 30,
+          ),
+        );
+        controller.pushContent(
+          ContentRoute.topic(topicId: 1, slug: 'one', title: 'One'),
+        );
+
+        await tester.pumpWidget(_topicView(controller));
+        await tester.pumpAndSettle();
+        await tester.pump(const Duration(milliseconds: 600));
+        final opened = {
+          for (final read in api.topicReadsRecorded) read.postNumber,
+        };
+        expect(opened, containsAll(const [1, 2]));
+
+        // A reader who never pauses for a whole dwell still reads what
+        // scrolls by, as web's periodic screen tracking credits it.
+        final vertical = find.byWidgetPredicate(
+          (widget) =>
+              widget is Scrollable &&
+              widget.axisDirection == AxisDirection.down,
+        );
+        for (var i = 0; i < 30; i++) {
+          final gesture = await tester.startGesture(
+            tester.getCenter(vertical.first),
+          );
+          await gesture.moveBy(const Offset(0, -30));
+          await gesture.moveBy(const Offset(0, -30));
+          await gesture.up();
+          await tester.pump(const Duration(milliseconds: 50));
+          await tester.pump(const Duration(milliseconds: 100));
+        }
+        final whileReading = {
+          for (final read in api.topicReadsRecorded) read.postNumber,
+        };
+        final farthest = whileReading.reduce(math.max);
+        expect(farthest, greaterThan(opened.reduce(math.max) + 3));
+        expect(
+          whileReading,
+          containsAll([for (var n = 1; n <= farthest; n++) n]),
+        );
       });
 
       testWidgets('records the latest read post and targets it on reopen', (
