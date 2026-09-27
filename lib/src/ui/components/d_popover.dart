@@ -230,6 +230,7 @@ class _DPopoverState extends State<DPopover>
   bool _suspended = false;
   bool _tickersEnabled = true;
   bool _restoreFocusForNextClose = true;
+  bool _listening = false;
   DPopoverInteraction _interaction = DPopoverInteraction.imperative;
 
   DPopoverController get _controller => widget.controller ?? _ownedController;
@@ -238,8 +239,6 @@ class _DPopoverState extends State<DPopover>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    GestureBinding.instance.pointerRouter.addGlobalRoute(_globalPointer);
-    FocusManager.instance.addEarlyKeyEventHandler(_observeGlobalKey);
     _controller._attach(this);
   }
 
@@ -269,6 +268,7 @@ class _DPopoverState extends State<DPopover>
       if (!mounted) return;
       _dismissForLifecycle();
       setState(() => _sheet = sheet);
+      _syncGlobalListeners();
     });
   }
 
@@ -386,8 +386,25 @@ class _DPopoverState extends State<DPopover>
       }
       _restoreFocusForNextClose = true;
     }
+    _syncGlobalListeners();
     if (mounted) setState(() {});
     _controller._changed();
+  }
+
+  // Outside presses and Escape are observed globally only while an anchored
+  // popup is open, so the closed menus of a message list cost nothing per
+  // event. A sheet owns its own dismissal.
+  void _syncGlobalListeners() {
+    final needed = mounted && _open && !_sheet;
+    if (needed == _listening) return;
+    _listening = needed;
+    if (needed) {
+      GestureBinding.instance.pointerRouter.addGlobalRoute(_globalPointer);
+      FocusManager.instance.addEarlyKeyEventHandler(_observeGlobalKey);
+    } else {
+      GestureBinding.instance.pointerRouter.removeGlobalRoute(_globalPointer);
+      FocusManager.instance.removeEarlyKeyEventHandler(_observeGlobalKey);
+    }
   }
 
   void _animationStatus(AnimationStatus status) {
@@ -750,8 +767,8 @@ class _DPopoverState extends State<DPopover>
   void dispose() {
     _DPopoverLayers.deactivate(this);
     _controller._detach(this);
-    GestureBinding.instance.pointerRouter.removeGlobalRoute(_globalPointer);
-    FocusManager.instance.removeEarlyKeyEventHandler(_observeGlobalKey);
+    _open = false;
+    _syncGlobalListeners();
     WidgetsBinding.instance.removeObserver(this);
     _curve.dispose();
     _animation.dispose();

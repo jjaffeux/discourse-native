@@ -1,5 +1,6 @@
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -64,6 +65,96 @@ void main() {
       },
     );
   }
+
+  testWidgets('only an open anchored popover observes global pointer events', (
+    tester,
+  ) async {
+    final router = GestureBinding.instance.pointerRouter;
+    final controllers = [
+      for (var index = 0; index < 20; index += 1) DPopoverController(),
+    ];
+    for (final controller in controllers) {
+      addTearDown(controller.dispose);
+    }
+    final reasons = <DPopoverChangeReason>[];
+    Widget popovers({required bool mounted}) => _app(
+      Wrap(
+        children: [
+          if (mounted)
+            for (final controller in controllers)
+              _TestPopover(controller: controller, onReason: reasons.add),
+        ],
+      ),
+    );
+
+    await tester.pumpWidget(popovers(mounted: false));
+    final idle = router.debugGlobalRouteCount;
+    await tester.pumpWidget(popovers(mounted: true));
+    expect(router.debugGlobalRouteCount, idle);
+
+    controllers.first.open();
+    await tester.pumpAndSettle();
+    expect(router.debugGlobalRouteCount, idle + 1);
+    await tester.tapAt(const Offset(4, 4));
+    await tester.pumpAndSettle();
+    expect(reasons.last, DPopoverChangeReason.outsidePress);
+    expect(router.debugGlobalRouteCount, idle);
+
+    controllers[1].open();
+    await tester.pumpAndSettle();
+    expect(router.debugGlobalRouteCount, idle + 1);
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+    expect(reasons.last, DPopoverChangeReason.escape);
+    expect(controllers[1].isOpen, isFalse);
+    expect(router.debugGlobalRouteCount, idle);
+
+    controllers.last.open();
+    await tester.pumpAndSettle();
+    expect(router.debugGlobalRouteCount, idle + 1);
+    await tester.pumpWidget(popovers(mounted: false));
+    expect(router.debugGlobalRouteCount, idle);
+  });
+
+  testWidgets('a mobile sheet popover never observes global pointer events', (
+    tester,
+  ) async {
+    final router = GestureBinding.instance.pointerRouter;
+    final controller = DPopoverController();
+    addTearDown(controller.dispose);
+    Widget sheet({required bool mounted}) => MaterialApp(
+      theme: AppTheme.light.copyWith(platform: TargetPlatform.iOS),
+      home: Scaffold(
+        body: Center(
+          child: mounted
+              ? DPopover(
+                  controller: controller,
+                  sheetOnMobile: true,
+                  content: const DPopoverContent(
+                    semanticLabel: 'Sheet popover',
+                    child: Text('Sheet body'),
+                  ),
+                  child: DPopoverTrigger(
+                    builder: (context, trigger) => DButton(
+                      label: const Text('Open sheet'),
+                      focusNode: trigger.focusNode,
+                      onPressed: trigger.toggle,
+                    ),
+                  ),
+                )
+              : const SizedBox.shrink(),
+        ),
+      ),
+    );
+
+    await tester.pumpWidget(sheet(mounted: false));
+    final idle = router.debugGlobalRouteCount;
+    await tester.pumpWidget(sheet(mounted: true));
+    controller.open();
+    await tester.pumpAndSettle();
+    expect(find.text('Sheet body'), findsOneWidget);
+    expect(router.debugGlobalRouteCount, idle);
+  });
 
   testWidgets('app suspension finishes a partially dismissed popover', (
     tester,

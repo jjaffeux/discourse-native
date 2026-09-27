@@ -362,6 +362,7 @@ class _DHoverCardState extends State<DHoverCard>
   bool _contentHovered = false;
   bool _keyboardFocused = false;
   bool _suspended = false;
+  bool _listening = false;
 
   DHoverCardController get _controller => widget.controller ?? _ownedController;
   FocusNode get _focus => widget.trigger.focusNode ?? _ownedFocus;
@@ -370,8 +371,6 @@ class _DHoverCardState extends State<DHoverCard>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    GestureBinding.instance.pointerRouter.addGlobalRoute(_globalPointer);
-    FocusManager.instance.addEarlyKeyEventHandler(_globalKey);
     _focus.addListener(_focusListener);
     _controller._attach(this);
     _DHoverCardLayers.register(this);
@@ -444,11 +443,33 @@ class _DHoverCardState extends State<DHoverCard>
     _closeTimer?.cancel();
     _openTimer = null;
     _closeTimer = null;
+    _syncGlobalListeners();
   }
 
   void _cancelPendingOpen() {
     _openTimer?.cancel();
     _openTimer = null;
+    _syncGlobalListeners();
+  }
+
+  // Global pointer and key observation exists only while the card is open or
+  // its opening is pending (a press on the trigger withdraws it), so the many
+  // idle triggers of a message list cost nothing per event. A close timer
+  // acts only on an open card, which is already observing.
+  void _syncGlobalListeners() {
+    final needed = mounted && (_open || _openTimer != null);
+    if (needed == _listening) return;
+    _listening = needed;
+    if (needed) {
+      GestureBinding.instance.pointerRouter.addGlobalRoute(_globalPointer);
+      FocusManager.instance.addEarlyKeyEventHandler(_globalKey);
+    } else {
+      GestureBinding.instance.pointerRouter.removeGlobalRoute(_globalPointer);
+      FocusManager.instance.removeEarlyKeyEventHandler(_globalKey);
+      // Unobserved movement would leave the last position stale by the next
+      // opening; an unknown pointer is never inside the bridge.
+      _pointer = null;
+    }
   }
 
   void _request(
@@ -482,6 +503,7 @@ class _DHoverCardState extends State<DHoverCard>
         _animation.reverse();
       }
     }
+    _syncGlobalListeners();
     setState(() {});
     _controller._changed();
   }
@@ -511,13 +533,14 @@ class _DHoverCardState extends State<DHoverCard>
         if (_triggerHovered && mounted) {
           _request(true, DHoverCardChangeReason.triggerHover);
         }
+        _syncGlobalListeners();
       });
     }
+    _syncGlobalListeners();
   }
 
   void _scheduleClose(DHoverCardChangeReason reason) {
-    _openTimer?.cancel();
-    _openTimer = null;
+    _cancelPendingOpen();
     if (!_open || _keyboardFocused || _triggerHovered || _contentHovered) {
       return;
     }
@@ -781,8 +804,8 @@ class _DHoverCardState extends State<DHoverCard>
     _DHoverCardLayers.unregister(this);
     _controller._detach(this);
     _focus.removeListener(_focusListener);
-    GestureBinding.instance.pointerRouter.removeGlobalRoute(_globalPointer);
-    FocusManager.instance.removeEarlyKeyEventHandler(_globalKey);
+    _open = false;
+    _syncGlobalListeners();
     WidgetsBinding.instance.removeObserver(this);
     _allocatedCurve?.dispose();
     _allocatedAnimation?.dispose();
