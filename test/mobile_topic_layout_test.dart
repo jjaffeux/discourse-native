@@ -1,17 +1,21 @@
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/topic.dart';
+import 'package:discourse_native/src/plugin_api/plugin_runtime.dart';
+import 'package:discourse_native/src/plugins/assign/assign_module.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'mobile_shell_test.dart' show pumpMobileShellFixture;
+import 'support/bundled_plugins.dart';
 import 'support/shell_test_harness.dart';
 
 TopicPayload mobileTopicPayload({
   bool canReply = true,
   bool canEditTags = true,
   bool privateMessage = false,
+  bool? canAssign,
 }) => (
   detail: TopicDetail(
     id: 7,
@@ -24,6 +28,9 @@ TopicPayload mobileTopicPayload({
     canEditTags: canEditTags,
     canCloseTopic: true,
     privateMessage: privateMessage,
+    plugins: pluginRegistry.readTopic({
+      'can_assign': ?canAssign,
+    }, 'https://meta.discourse.org'),
     tags: privateMessage
         ? const []
         : const [TopicTag(id: 1, name: 'show-and-tell')],
@@ -69,6 +76,104 @@ void main() {
     TargetPlatform.iOS,
     TargetPlatform.android,
   });
+  for (final (enabled, allowed) in [
+    (true, true),
+    (true, false),
+    (false, true),
+  ]) {
+    testWidgets('mobile header assignment enabled=$enabled allowed=$allowed', (
+      tester,
+    ) async {
+      await pumpMobileShellFixture(
+        tester,
+        topic: mobileTopicPayload(canAssign: allowed),
+        pluginManifest: PluginManifest([
+          for (final module in bundledWidgetTestManifest.modules)
+            if (enabled || module is! AssignModule) module,
+        ]),
+      );
+      await tester.tap(find.byKey(const ValueKey('topic-card-7')));
+      await tester.pumpAndSettle();
+      final assignment = find.byKey(const Key('assign-topic-header'));
+      expect(assignment, enabled && allowed ? findsOneWidget : findsNothing);
+      if (enabled && allowed) {
+        expect(tester.widget<DButton>(assignment).size, DButtonSize.filter);
+        expect(assignment.hitTestable(), findsOneWidget);
+        await tester.tap(assignment);
+        await tester.pumpAndSettle();
+        expect(find.byKey(const Key('assignment-drawer')), findsOneWidget);
+      }
+      expect(tester.takeException(), isNull);
+    }, variant: platforms);
+  }
+
+  testWidgets('mobile topic header shares grouped actions and mockup spacing', (
+    tester,
+  ) async {
+    await pumpMobileTopicFixture(tester);
+    final actions = find.byKey(const ValueKey('topic-header-taxonomy'));
+    final wrap = tester.widget<Wrap>(actions);
+    expect(wrap.spacing, 8);
+    expect(wrap.runSpacing, 8);
+    final bookmark = find.byKey(const ValueKey('topic-header-bookmark-button'));
+    final notifications = find.byKey(
+      const ValueKey('topic-header-notification-button'),
+    );
+    final reminders = find.ancestor(
+      of: bookmark,
+      matching: find.byType(DButtonGroup),
+    );
+    expect(reminders, findsOneWidget);
+    expect(
+      find.descendant(of: reminders, matching: notifications),
+      findsOneWidget,
+    );
+    Finder surface(Finder control) => find.descendant(
+      of: control,
+      matching: find.byWidgetPredicate(
+        (widget) =>
+            widget is AnimatedContainer &&
+            widget.decoration is DButtonDecoration,
+      ),
+    );
+    final category = find.descendant(
+      of: find.byKey(const ValueKey('topic-header-parent-category')),
+      matching: find.byType(DButton),
+    );
+    final categorySurface = tester.getRect(surface(category));
+    for (final control in [
+      bookmark,
+      notifications,
+      find.byKey(const ValueKey('topic-status-button')),
+    ]) {
+      expect(tester.widget<DButton>(control).size, DButtonSize.filter);
+      expect(tester.getRect(surface(control)).height, categorySurface.height);
+    }
+    expect(
+      tester.getRect(surface(bookmark)).right,
+      tester.getRect(surface(notifications)).left,
+    );
+    final title = tester.getRect(
+      find.byKey(const ValueKey('topic-header-compact-title')),
+    );
+    expect(categorySurface.top - title.bottom, closeTo(16, .1));
+    final back = find.byKey(const ValueKey('topic-close-reader'));
+    final backSurface = tester.getRect(surface(back));
+    final header = tester.getRect(
+      find.byKey(const ValueKey('topic-content-header')),
+    );
+    expect(backSurface.top - header.top, closeTo(16, .1));
+    expect(title.top - backSurface.bottom, lessThanOrEqualTo(14));
+    tester.view.physicalSize = const Size(800, 1000);
+    await tester.pumpAndSettle();
+    final notificationSurface = tester.getRect(surface(notifications));
+    final statusSurface = tester.getRect(
+      surface(find.byKey(const ValueKey('topic-status-button'))),
+    );
+    expect(statusSurface.top, notificationSurface.top);
+    expect(statusSurface.left - notificationSurface.right, 8);
+    expect(tester.takeException(), isNull);
+  }, variant: platforms);
   testWidgets('mobile topic chrome fits and keeps the reader footer free', (
     tester,
   ) async {

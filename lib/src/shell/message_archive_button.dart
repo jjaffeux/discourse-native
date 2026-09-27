@@ -82,7 +82,7 @@ class _MessageArchiveButtonState extends State<MessageArchiveButton> {
         tooltip: tooltip,
         loading: _busy,
         variant: DButtonVariant.outline,
-        size: DButtonSize.chip,
+        size: DButtonSize.filter,
       );
     }
     return DButton(

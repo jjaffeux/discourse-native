@@ -414,7 +414,7 @@ final class AssignPlugin
               : canAssign
               ? 'Assign topic'
               : 'Manage assignments',
-          size: anchorContext.isTouch ? DButtonSize.chip : DButtonSize.filter,
+          size: DButtonSize.filter,
           variant: DButtonVariant.outline,
           onPressed: direct != null || !canAssign
               ? showDetails

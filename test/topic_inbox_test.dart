@@ -659,10 +659,21 @@ void main() {
       // Activity moved below the opening post; the taxonomy row closes the
       // header.
       expect(find.byKey(const ValueKey('topic-header-activity')), findsNothing);
-      expect(
-        viewportBounds.top,
-        closeTo(taxonomyBounds.bottom + DSpacing.lg, 1),
+      final paintedActions = find.descendant(
+        of: taxonomy,
+        matching: find.byWidgetPredicate(
+          (widget) =>
+              widget is AnimatedContainer &&
+              widget.decoration is DButtonDecoration,
+        ),
       );
+      final paintedBottom = paintedActions
+          .evaluate()
+          .map(
+            (element) => tester.getRect(find.byWidget(element.widget)).bottom,
+          )
+          .reduce((a, b) => a > b ? a : b);
+      expect(viewportBounds.top, closeTo(paintedBottom + DSpacing.lg, 1));
       expect(tester.getRect(scrollbar), viewportBounds);
       final title = find.byKey(const ValueKey('topic-header-title-field'));
       final toolbarTitleBounds = tester.getRect(_compactHeader);

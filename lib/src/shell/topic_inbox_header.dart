@@ -77,6 +77,10 @@ class TopicInboxHeader extends StatelessWidget {
     final hasTopic = topic != null && siteUrl != null;
     final placeholders = loading && !hasTopic;
     final preview = this.preview;
+    final taxonomyInset = _touchTargetInset(
+      context,
+      _taxonomyRowHeight(context),
+    );
     final Widget? taxonomy = hasTopic
         ? _TopicHeaderTaxonomy(
             siteUrl: siteUrl,
@@ -102,7 +106,9 @@ class TopicInboxHeader extends StatelessWidget {
           ),
           child: _TopicHeaderReadingLane(
             child: Padding(
-              padding: const EdgeInsets.only(top: 16, bottom: 16),
+              padding: EdgeInsets.symmetric(
+                vertical: math.max(0, 16 - taxonomyInset),
+              ),
               child: taxonomy,
             ),
           ),
@@ -132,6 +138,13 @@ double _taxonomyRowHeight(BuildContext context) => DControlStyle.scaledHeight(
   MediaQuery.textScalerOf(context),
   context: context,
 );
+
+// Native controls reserve touch space outside their painted surface. Count
+// that space toward the page gutters instead of adding it a second time.
+double _touchTargetInset(BuildContext context, double artworkHeight) =>
+    context.isTouch
+    ? math.max(0, (DSpacing.touchTarget - artworkHeight) / 2)
+    : 0;
 
 class _TopicHeaderTaxonomyPlaceholder extends StatelessWidget {
   const _TopicHeaderTaxonomyPlaceholder({required this.categories});
@@ -254,7 +267,11 @@ class _TopicHeaderToolbar extends StatelessWidget {
         availableWidth: constraints.maxWidth,
       );
       final padding = lane.padding.add(
-        const EdgeInsetsDirectional.only(start: 16, end: 16, top: 16),
+        EdgeInsetsDirectional.only(
+          start: 16,
+          end: 16,
+          top: math.max(0, 16 - backTargetInset(context)),
+        ),
       );
       return ColoredBox(
         color: ForumWindowBackground.surfaceColor(
@@ -270,7 +287,9 @@ class _TopicHeaderToolbar extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Padding(
-                  padding: const EdgeInsets.only(bottom: 10),
+                  padding: EdgeInsets.only(
+                    bottom: math.max(0, 10 - backTargetInset(context)),
+                  ),
                   child: TopicCloseButton(
                     canReturnToSidebar: header.canReturnToSidebar,
                     backToList: !header.keepTopicListOpen,
@@ -283,6 +302,15 @@ class _TopicHeaderToolbar extends StatelessWidget {
         ),
       );
     },
+  );
+
+  double backTargetInset(BuildContext context) => _touchTargetInset(
+    context,
+    (MediaQuery.textScalerOf(
+              context,
+            ).scale(DButton.fontSizeFor(DButtonSize.toolbar)) *
+            DiscourseTypography.lineHeightSmall)
+        .ceilToDouble(),
   );
 }
 
@@ -370,58 +398,6 @@ class _TopicHeaderTitle extends StatelessWidget {
       ],
     );
   }
-}
-
-List<Widget> _mobileTopicHeaderActions(
-  BuildContext context, {
-  required String siteUrl,
-  required TopicDetail topic,
-  required PluginRegistry registry,
-}) {
-  final shell = ShellScope.of(context);
-  final instance = shell.instanceFor(siteUrl);
-  return [
-    if (instance?.user != null)
-      TopicBookmarkButton(
-        siteUrl: siteUrl,
-        topic: topic,
-        busy: shell.bookmarkWriteInFlight(
-          siteUrl: siteUrl,
-          topicId: topic.id,
-          targetType: BookmarkTargetType.topic,
-          targetId: topic.id,
-        ),
-        variant: DButtonVariant.outline,
-        size: DControlSize.chip,
-        buttonKey: const ValueKey('topic-header-bookmark-button'),
-      ),
-    if (instance?.isConnected == true)
-      TopicNotificationLevelButton(
-        showChevron: true,
-        siteUrl: siteUrl,
-        topic: topic,
-        variant: DButtonVariant.outline,
-        size: DControlSize.chip,
-        buttonKey: const ValueKey('topic-header-notification-button'),
-      ),
-    if (topic.privateMessage &&
-        instance?.isConnected == true &&
-        instance?.user?.canSendPrivateMessages == true)
-      MessageArchiveButton(siteUrl: siteUrl, topic: topic, compact: true),
-    if (registry.topicProperties(context, siteUrl, topic).isNotEmpty)
-      _TopicHeaderProperties(
-        siteUrl: siteUrl,
-        topic: topic,
-        registry: registry,
-        compact: true,
-      ),
-    TopicStatusButton(
-      siteUrl: siteUrl,
-      topic: topic,
-      topicFlags: shell.availableTopicFlagTypes(siteUrl, topic),
-      variant: DButtonVariant.outline,
-    ),
-  ];
 }
 
 class TopicCloseButton extends StatelessWidget {
@@ -702,163 +678,145 @@ class _TopicHeaderTaxonomy extends StatelessWidget {
               panel: panel,
             ),
           );
-          if (mobile) {
-            Widget mobileTaxonomy(BuildContext context) => Wrap(
-              key: const ValueKey('topic-header-taxonomy'),
-              spacing: DSpacing.controlGap,
-              runSpacing: DSpacing.sm,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              children: [
-                if (hasCategories)
-                  ConstrainedBox(
-                    constraints: BoxConstraints(maxWidth: categoryWidth),
-                    child: _TopicCategoryControl(
-                      key: const ValueKey('topic-header-parent-category'),
-                      siteUrl: siteUrl,
-                      topic: topic,
-                      category: root,
-                      subcategory: false,
-                      keepTopicListOpen: keepTopicListOpen,
-                      compressed: compressed,
-                      showBrowseButton: false,
+          Widget taxonomy(BuildContext context) {
+            final instance = shell.instanceFor(siteUrl);
+            final sections = registry.topicProperties(context, siteUrl, topic);
+            return ConstrainedBox(
+              constraints: BoxConstraints(
+                minHeight: _taxonomyRowHeight(context),
+              ),
+              child: Wrap(
+                key: const ValueKey('topic-header-taxonomy'),
+                spacing: 8,
+                runSpacing: 8,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  if (hasCategories)
+                    ConstrainedBox(
+                      constraints: BoxConstraints(maxWidth: categoryWidth),
+                      child: _TopicCategoryControl(
+                        key: const ValueKey('topic-header-parent-category'),
+                        siteUrl: siteUrl,
+                        topic: topic,
+                        category: root,
+                        subcategory: false,
+                        keepTopicListOpen: keepTopicListOpen,
+                        compressed: compressed,
+                        showBrowseButton: false,
+                      ),
                     ),
-                  ),
-                if (hasSubcategory)
-                  ConstrainedBox(
-                    constraints: BoxConstraints(maxWidth: categoryWidth),
-                    child: _TopicCategoryControl(
-                      key: const ValueKey('topic-header-category'),
-                      siteUrl: siteUrl,
-                      topic: topic,
-                      category: parent == null ? null : category,
-                      subcategory: true,
-                      parentCategoryId: root?.id,
-                      keepTopicListOpen: keepTopicListOpen,
-                      compressed: compressed,
-                      showBrowseButton: false,
+                  if (hasSubcategory)
+                    ConstrainedBox(
+                      constraints: BoxConstraints(maxWidth: categoryWidth),
+                      child: _TopicCategoryControl(
+                        key: const ValueKey('topic-header-category'),
+                        siteUrl: siteUrl,
+                        topic: topic,
+                        category: parent == null ? null : category,
+                        subcategory: true,
+                        parentCategoryId: root?.id,
+                        keepTopicListOpen: keepTopicListOpen,
+                        compressed: compressed,
+                        showBrowseButton: false,
+                      ),
                     ),
-                  ),
-                if (hasTags)
-                  ConstrainedBox(
-                    constraints: BoxConstraints(
-                      maxWidth: math.min(148 * scale, constraints.maxWidth),
+                  if (hasTags)
+                    ConstrainedBox(
+                      constraints: BoxConstraints(
+                        maxWidth: math.min(148 * scale, constraints.maxWidth),
+                      ),
+                      child: tags,
                     ),
-                    child: tags,
-                  ),
-                ..._mobileTopicHeaderActions(
-                  context,
-                  siteUrl: siteUrl,
-                  topic: topic,
-                  registry: registry,
-                ),
-              ],
-            );
-            final rebuildOn = registry.topicPropertiesRebuildOn(
-              context,
-              siteUrl,
-              topic,
-            );
-            return rebuildOn == null
-                ? mobileTaxonomy(context)
-                : ListenableBuilder(
-                    listenable: rebuildOn,
-                    builder: (context, _) => mobileTaxonomy(context),
-                  );
-          }
-          final instance = shell.instanceFor(siteUrl);
-          return ConstrainedBox(
-            constraints: BoxConstraints(minHeight: _taxonomyRowHeight(context)),
-            child: Wrap(
-              key: const ValueKey('topic-header-taxonomy'),
-              spacing: 8,
-              runSpacing: 8,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              children: [
-                if (hasCategories)
-                  ConstrainedBox(
-                    constraints: BoxConstraints(maxWidth: categoryWidth),
-                    child: _TopicCategoryControl(
-                      key: const ValueKey('topic-header-parent-category'),
-                      siteUrl: siteUrl,
-                      topic: topic,
-                      category: root,
-                      subcategory: false,
-                      keepTopicListOpen: keepTopicListOpen,
-                      compressed: compressed,
-                      showBrowseButton: false,
-                    ),
-                  ),
-                if (hasSubcategory)
-                  ConstrainedBox(
-                    constraints: BoxConstraints(maxWidth: categoryWidth),
-                    child: _TopicCategoryControl(
-                      key: const ValueKey('topic-header-category'),
-                      siteUrl: siteUrl,
-                      topic: topic,
-                      category: parent == null ? null : category,
-                      subcategory: true,
-                      parentCategoryId: root?.id,
-                      keepTopicListOpen: keepTopicListOpen,
-                      compressed: compressed,
-                      showBrowseButton: false,
-                    ),
-                  ),
-                if (hasTags)
-                  ConstrainedBox(
-                    constraints: BoxConstraints(
-                      maxWidth: math.min(148 * scale, constraints.maxWidth),
-                    ),
-                    child: tags,
-                  ),
-                if (instance?.user != null || instance?.isConnected == true)
-                  DButtonGroup(
-                    semanticLabel: 'Topic reminders',
-                    children: [
-                      if (instance?.user != null)
-                        TopicBookmarkButton(
-                          siteUrl: siteUrl,
-                          topic: topic,
-                          busy: shell.bookmarkWriteInFlight(
+                  if (instance?.user != null || instance?.isConnected == true)
+                    DButtonGroup(
+                      semanticLabel: 'Topic reminders',
+                      children: [
+                        if (instance?.user != null)
+                          TopicBookmarkButton(
                             siteUrl: siteUrl,
-                            topicId: topic.id,
-                            targetType: BookmarkTargetType.topic,
-                            targetId: topic.id,
+                            topic: topic,
+                            busy: shell.bookmarkWriteInFlight(
+                              siteUrl: siteUrl,
+                              topicId: topic.id,
+                              targetType: BookmarkTargetType.topic,
+                              targetId: topic.id,
+                            ),
+                            variant: DButtonVariant.outline,
+                            size: DButtonSize.filter,
+                            buttonKey: const ValueKey(
+                              'topic-header-bookmark-button',
+                            ),
                           ),
-                          variant: DButtonVariant.outline,
-                          size: DButtonSize.filter,
-                          buttonKey: const ValueKey(
-                            'topic-header-bookmark-button',
+                        if (instance?.isConnected == true)
+                          TopicNotificationLevelButton(
+                            showChevron: true,
+                            siteUrl: siteUrl,
+                            topic: topic,
+                            variant: DButtonVariant.outline,
+                            size: DButtonSize.filter,
+                            buttonKey: const ValueKey(
+                              'topic-header-notification-button',
+                            ),
                           ),
-                        ),
-                      if (instance?.isConnected == true)
-                        TopicNotificationLevelButton(
-                          showChevron: true,
+                      ],
+                    ),
+                  if (mobile &&
+                      topic.privateMessage &&
+                      instance?.isConnected == true &&
+                      instance?.user?.canSendPrivateMessages == true)
+                    DButtonGroup(
+                      children: [
+                        MessageArchiveButton(
                           siteUrl: siteUrl,
                           topic: topic,
-                          variant: DButtonVariant.outline,
-                          size: DButtonSize.filter,
-                          buttonKey: const ValueKey(
-                            'topic-header-notification-button',
-                          ),
+                          compact: true,
                         ),
+                      ],
+                    ),
+                  for (final section in sections)
+                    DButtonGroup(
+                      key: ValueKey(('topic-header-property', section.label)),
+                      children: [
+                        _TopicPropertyPopover(
+                          siteUrl: siteUrl,
+                          topicId: topic.id,
+                          section: section,
+                          registry: registry,
+                          compact: true,
+                          navigationRevision: shell.topicNavigationRevision,
+                        ),
+                      ],
+                    ),
+                  DButtonGroup(
+                    children: [
+                      TopicStatusButton(
+                        siteUrl: siteUrl,
+                        topic: topic,
+                        topicFlags: shell.availableTopicFlagTypes(
+                          siteUrl,
+                          topic,
+                        ),
+                        variant: DButtonVariant.outline,
+                        size: DButtonSize.filter,
+                      ),
                     ],
                   ),
-                _TopicHeaderProperties(
-                  siteUrl: siteUrl,
-                  topic: topic,
-                  registry: registry,
-                  compact: true,
-                ),
-                TopicStatusButton(
-                  siteUrl: siteUrl,
-                  topic: topic,
-                  topicFlags: shell.availableTopicFlagTypes(siteUrl, topic),
-                  variant: DButtonVariant.outline,
-                  size: DButtonSize.filter,
-                ),
-              ],
-            ),
+                ],
+              ),
+            );
+          }
+
+          final rebuildOn = registry.topicPropertiesRebuildOn(
+            context,
+            siteUrl,
+            topic,
           );
+          return rebuildOn == null
+              ? taxonomy(context)
+              : ListenableBuilder(
+                  listenable: rebuildOn,
+                  builder: (context, _) => taxonomy(context),
+                );
         },
       );
     },
@@ -1057,65 +1015,8 @@ class _CategoryChip extends StatelessWidget {
   }
 }
 
-class _TopicHeaderProperties extends StatelessWidget {
-  const _TopicHeaderProperties({
-    required this.siteUrl,
-    required this.topic,
-    required this.registry,
-    this.compact = false,
-  });
-  final String siteUrl;
-  final TopicDetail topic;
-  final PluginRegistry registry;
-  final bool compact;
-
-  @override
-  Widget build(BuildContext context) {
-    Widget properties() {
-      final sections = registry.topicProperties(context, siteUrl, topic);
-      if (sections.isEmpty) return const SizedBox.shrink();
-      final children = <Widget>[
-        for (final section in sections)
-          _TopicPropertyPopover(
-            key: ValueKey(('topic-header-property', section.label)),
-            siteUrl: siteUrl,
-            topicId: topic.id,
-            section: section,
-            registry: registry,
-            compact: compact,
-            navigationRevision: ShellScope.read(
-              context,
-            ).topicNavigationRevision,
-          ),
-      ];
-      final content = compact
-          ? Row(mainAxisSize: MainAxisSize.min, children: children)
-          : Wrap(
-              alignment: WrapAlignment.end,
-              spacing: 8,
-              runSpacing: 6,
-              children: children,
-            );
-      return Row(mainAxisSize: MainAxisSize.min, children: [content]);
-    }
-
-    final rebuildOn = registry.topicPropertiesRebuildOn(
-      context,
-      siteUrl,
-      topic,
-    );
-    return rebuildOn == null
-        ? properties()
-        : ListenableBuilder(
-            listenable: rebuildOn,
-            builder: (_, _) => properties(),
-          );
-  }
-}
-
 class _TopicPropertyPopover extends StatefulWidget {
   const _TopicPropertyPopover({
-    super.key,
     required this.siteUrl,
     required this.topicId,
     required this.section,
@@ -1192,7 +1093,7 @@ class _TopicPropertyPopoverState extends State<_TopicPropertyPopover> {
           DButton.iconOnly(
             icon: const DIcon(DIcons.ellipsis),
             tooltip: section.label,
-            size: context.isTouch ? DButtonSize.chip : DButtonSize.filter,
+            size: DButtonSize.filter,
             variant: DButtonVariant.ghost,
             hasPopup: true,
             expanded: expanded,
