@@ -7,10 +7,13 @@ import 'package:discourse_native/src/shell/composer_block_surface.dart';
 import 'package:discourse_native/src/shell/composer_controller.dart';
 import 'package:discourse_native/src/shell/composer_image.dart';
 import 'package:discourse_native/src/shell/composer_panel.dart';
+import 'package:discourse_native/src/shell/composer_upload_placeholder.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+import 'support/scaling_benchmark.dart';
 
 void main() {
   testWidgets('a pending upload completes at its reordered block position', (
@@ -670,6 +673,110 @@ void main() {
     expect(composer.text.text, isNot(contains('upload-')));
     expect(composer.uploads, isEmpty);
     expect(tester.takeException(), isNull);
+  });
+
+  group('upload placeholders', () {
+    final owner = Object();
+    final placeholders = ComposerUploadPlaceholders(owner);
+    final one = placeholders.add(1);
+    final two = placeholders.add(2);
+    // Same composer prefix, but never registered with this registry.
+    final twelve = ComposerUploadPlaceholders(owner).add(12);
+    final source = '$two\nBefore $one$one\n$twelve\nAfter\n$one';
+
+    test('find the first occurrence of each token in document order', () {
+      expect(placeholders.find(source), [
+        (id: 2, start: 0, token: two),
+        (id: 1, start: two.length + 'Before '.length + 1, token: one),
+      ]);
+    });
+
+    test('strip every token with the line break that follows it', () {
+      expect(placeholders.strip(source), 'Before $twelve\nAfter\n');
+    });
+  });
+
+  group('keystroke cost', () {
+    // A composer keeps every slot it has minted so that an undo restoring a
+    // settled one is still recognised. The per-keystroke scans must not pay
+    // for that history: 8x the settled uploads should cost the same.
+    for (final inFlight in [false, true]) {
+      final condition = inFlight
+          ? 'with an upload in flight'
+          : 'with no slot in the document';
+      test('does not grow with settled uploads $condition', () {
+        for (final paragraphs in [60, 480]) {
+          final document = List.filled(paragraphs, _paragraph).join('\n\n');
+          final (:small, :large) = measureScaling(
+            _keystrokes(document, settled: 16, inFlight: inFlight),
+            _keystrokes(document, settled: 128, inFlight: inFlight),
+          );
+          expect(
+            large,
+            lessThan(small * 2),
+            reason:
+                'eight times the settled uploads took ${large / small} times '
+                'as long over ${document.length} characters',
+          );
+        }
+      });
+    }
+  });
+}
+
+const _paragraph =
+    'The quick brown fox jumps over the **lazy** dog, then naps in the '
+    '_shade_ of an old oak by the river.';
+
+/// Types a character at the end of [document] and deletes it again the way
+/// the editor applies an edit: input formatters, the new value, then the
+/// microtasks the edit queued, so that everything a keystroke pays is timed.
+int Function() _keystrokes(
+  String document, {
+  required int settled,
+  required bool inFlight,
+}) {
+  final composer = ComposerController(
+    _target,
+    imageUploader: (file, {required onProgress, required abortTrigger}) =>
+        Completer<ComposerUploadResult>().future,
+  );
+  addTearDown(composer.dispose);
+  for (var i = 0; i < settled; i++) {
+    composer.addImages([_file], 0);
+    composer.cancelUpload(composer.uploads.single.id);
+  }
+  composer.text.text = document;
+  if (inFlight) composer.addImages([_file], document.indexOf('\n\n'));
+  expect(composer.uploads, hasLength(inFlight ? 1 : 0));
+
+  final microtasks = <void Function()>[];
+  final zone = Zone.current.fork(
+    specification: ZoneSpecification(
+      scheduleMicrotask: (self, parent, zone, task) => microtasks.add(task),
+    ),
+  );
+  void apply(TextEditingValue next) {
+    final before = composer.text.value;
+    for (final formatter in composer.text.syntaxInputFormatters) {
+      next = formatter.formatEditUpdate(before, next);
+    }
+    composer.text.value = next;
+    while (microtasks.isNotEmpty) {
+      microtasks.removeAt(0)();
+    }
+  }
+
+  return () => zone.run(() {
+    final value = composer.text.value;
+    apply(
+      TextEditingValue(
+        text: '${value.text}a',
+        selection: TextSelection.collapsed(offset: value.text.length + 1),
+      ),
+    );
+    apply(value);
+    return composer.raw.length;
   });
 }
 

@@ -14,6 +14,7 @@ import 'composer_list_source.dart';
 import 'composer_lists.dart';
 import 'composer_panel.dart';
 import 'composer_todos.dart';
+import 'composer_upload_placeholder.dart';
 import 'markdown_highlight.dart';
 
 const composerListSyntaxKind = ComposerSyntaxKind(
@@ -773,7 +774,8 @@ class ComposerListBodyController extends ComposerController {
   }
 
   @override
-  Map<int, String> get uploadPlaceholders => parent.uploadPlaceholders;
+  ComposerUploadPlaceholders get uploadPlaceholders =>
+      parent.uploadPlaceholders;
   @override
   List<ComposerUploadItem> get uploads => parent.uploads;
   @override

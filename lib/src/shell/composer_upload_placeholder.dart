@@ -7,6 +7,79 @@ import 'composer_block_selection.dart';
 import 'composer_controller.dart';
 import 'composer_upload_attachment.dart';
 
+/// Where one registered upload token occurs in a document.
+typedef ComposerUploadSlot = ({int id, int start, String token});
+
+/// The draft-local tokens one composer holds its upload slots with: U+FFFC,
+/// `upload-<composer>-<id>`, U+FFFC.
+///
+/// A settled slot stays registered: an undo can restore it after its request
+/// has finished, and it must still be recognised to be stripped. The scans run
+/// on every keystroke, so they cannot afford a search per slot ever minted.
+/// Every token shares its composer's prefix instead, and a scan walks that
+/// prefix's occurrences — one pass over the document, however many uploads
+/// the composer has started.
+final class ComposerUploadPlaceholders {
+  ComposerUploadPlaceholders(Object composer)
+    : _prefix = '${_delimiter}upload-${identityHashCode(composer)}-';
+
+  static const _delimiter = '\uFFFC';
+  final String _prefix;
+  final Map<int, String> _tokens = {};
+
+  /// Registers the token for upload [id] and returns it.
+  String add(int id) => _tokens[id] = '$_prefix$id$_delimiter';
+
+  String? operator [](int id) => _tokens[id];
+
+  Iterable<String> get values => _tokens.values;
+
+  /// The first occurrence of each registered token in [source], in document
+  /// order.
+  List<ComposerUploadSlot> find(String source) {
+    final found = <int>{};
+    return [
+      for (final slot in _occurrences(source))
+        if (found.add(slot.id)) slot,
+    ];
+  }
+
+  /// [source] without any registered token, each taking the line break that
+  /// follows it.
+  String strip(String source) {
+    StringBuffer? kept;
+    var copied = 0;
+    for (final slot in _occurrences(source)) {
+      if (slot.start < copied) continue;
+      (kept ??= StringBuffer()).write(source.substring(copied, slot.start));
+      copied = slot.start + slot.token.length;
+      if (source.startsWith('\n', copied)) copied++;
+    }
+    if (kept == null) return source;
+    return (kept..write(source.substring(copied))).toString();
+  }
+
+  Iterable<ComposerUploadSlot> _occurrences(String source) sync* {
+    if (_tokens.isEmpty) return;
+    for (
+      var start = source.indexOf(_prefix);
+      start >= 0;
+      start = source.indexOf(_prefix, start + 1)
+    ) {
+      var id = 0;
+      for (var at = start + _prefix.length; at < source.length; at++) {
+        final digit = source.codeUnitAt(at) - 0x30;
+        if (digit < 0 || digit > 9) break;
+        id = id * 10 + digit;
+      }
+      final token = _tokens[id];
+      if (token != null && source.startsWith(token, start)) {
+        yield (id: id, start: start, token: token);
+      }
+    }
+  }
+}
+
 /// Projects draft-local upload slots through the editor's existing block API.
 /// Tokens are removed from saved/submitted Markdown by the composer owner.
 final class ComposerUploadPlaceholderPolicy implements ComposerSyntaxPolicy {
@@ -29,9 +102,8 @@ final class ComposerUploadPlaceholderPolicy implements ComposerSyntaxPolicy {
 
   @override
   List<ComposerSyntaxProjection> parse(String source) => [
-    for (final entry in composer.uploadPlaceholders.entries)
-      if (source.indexOf(entry.value) case final start when start >= 0)
-        _UploadProjection(composer, entry.key, start, entry.value),
+    for (final slot in composer.uploadPlaceholders.find(source))
+      _UploadProjection(composer, slot.id, slot.start, slot.token),
   ];
 }
 
