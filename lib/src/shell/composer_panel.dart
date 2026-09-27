@@ -504,47 +504,40 @@ class ComposerPanel extends StatelessWidget {
                           },
                         ),
                       ),
-                    if (!minimized &&
-                        mobile &&
-                        !target.isTaxonomyEdit &&
-                        (target.isNewTopic || target.editsTopicMetadata))
-                      Align(
-                        alignment: AlignmentDirectional.centerStart,
-                        child: SingleChildScrollView(
-                          key: const ValueKey('composer-taxonomy-scroll'),
-                          scrollDirection: Axis.horizontal,
-                          child: _TopicTaxonomy(composer: composer),
-                        ),
-                      ),
-                    if (!minimized &&
-                        composer.target.isPlugin &&
-                        composer.uploads.isNotEmpty)
-                      ComposerUploadQueue(composer: composer),
                     if (!minimized)
-                      _Footer(
+                      _ComposerBottom(
                         composer: composer,
-                        onCancel: discard,
-                        sideDocked: placement.isSide,
-                        pickFiles: pickFiles,
-                        pickImages: pickImages,
-                        message:
-                            error?.message ??
-                            notice ??
-                            composer.taxonomyValidationMessage ??
-                            (composer.localDraftFailed
-                                ? "Couldn't save this draft on this device."
-                                : composer.draftStatus == DraftStatus.failing ||
-                                      composer.draftsGaveUp
-                                ? 'Not saved on the site — kept on this device only.'
-                                : null),
-                        isError:
-                            error != null ||
-                            composer.localDraftFailed ||
-                            composer.taxonomyValidationMessage != null,
-                        announce: error != null || notice != null,
-                        busy: busy,
-                        label: submitLabel,
-                        onSubmit: onSubmit,
+                        mobile: mobile,
+                        showTaxonomy:
+                            mobile &&
+                            !target.isTaxonomyEdit &&
+                            (target.isNewTopic || target.editsTopicMetadata),
+                        child: _Footer(
+                          composer: composer,
+                          onCancel: discard,
+                          sideDocked: placement.isSide,
+                          pickFiles: pickFiles,
+                          pickImages: pickImages,
+                          message:
+                              error?.message ??
+                              notice ??
+                              composer.taxonomyValidationMessage ??
+                              (composer.localDraftFailed
+                                  ? "Couldn't save this draft on this device."
+                                  : composer.draftStatus ==
+                                            DraftStatus.failing ||
+                                        composer.draftsGaveUp
+                                  ? 'Not saved on the site — kept on this device only.'
+                                  : null),
+                          isError:
+                              error != null ||
+                              composer.localDraftFailed ||
+                              composer.taxonomyValidationMessage != null,
+                          announce: error != null || notice != null,
+                          busy: busy,
+                          label: submitLabel,
+                          onSubmit: onSubmit,
+                        ),
                       ),
                   ],
                 ),
@@ -703,6 +696,8 @@ class _MobileComposerViewportState extends State<_MobileComposerViewport> {
                       curve: Curves.easeOutCubic,
                       child: DButton.iconOnly(
                         key: const ValueKey('composer-scroll-down'),
+                        size: DControlSize.toolbar,
+                        shape: DButtonShape.pill,
                         icon: const DIcon(DIcons.chevronDown),
                         tooltip: 'Scroll to bottom',
                         semanticLabel: 'Scroll to bottom',
@@ -719,23 +714,6 @@ class _MobileComposerViewportState extends State<_MobileComposerViewport> {
       ),
     );
   }
-}
-
-LinearGradient _composerEdgeGradient(
-  BuildContext context, {
-  bool bottom = false,
-}) {
-  final surface = Theme.of(context).shell.content;
-  return LinearGradient(
-    begin: bottom ? Alignment.bottomCenter : Alignment.topCenter,
-    end: bottom ? Alignment.topCenter : Alignment.bottomCenter,
-    colors: [
-      surface,
-      surface.withValues(alpha: 0.94),
-      surface.withValues(alpha: 0),
-    ],
-    stops: const [0, 0.65, 1],
-  );
 }
 
 class _ComposerPinnedHeader extends SliverPersistentHeaderDelegate {
@@ -755,15 +733,80 @@ class _ComposerPinnedHeader extends SliverPersistentHeaderDelegate {
     double shrinkOffset,
     bool overlapsContent,
   ) {
-    return DecoratedBox(
-      decoration: BoxDecoration(gradient: _composerEdgeGradient(context)),
-      child: child,
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        const Positioned.fill(
+          child: DGradientBlur(key: ValueKey('composer-header-blur')),
+        ),
+        child,
+      ],
     );
   }
 
   @override
   bool shouldRebuild(_ComposerPinnedHeader oldDelegate) =>
       extent != oldDelegate.extent || child != oldDelegate.child;
+}
+
+class _ComposerBottom extends StatelessWidget {
+  const _ComposerBottom({
+    required this.composer,
+    required this.mobile,
+    required this.showTaxonomy,
+    required this.child,
+  });
+
+  final ComposerController composer;
+  final bool mobile;
+  final bool showTaxonomy;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final content = Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (showTaxonomy)
+          Align(
+            alignment: AlignmentDirectional.centerStart,
+            child: SingleChildScrollView(
+              key: const ValueKey('composer-taxonomy-scroll'),
+              scrollDirection: Axis.horizontal,
+              child: _TopicTaxonomy(composer: composer),
+            ),
+          ),
+        if (composer.target.isPlugin && composer.uploads.isNotEmpty)
+          ComposerUploadQueue(composer: composer),
+        child,
+      ],
+    );
+    if (!mobile) return content;
+
+    // Taxonomy is one horizontally scrolling row, with 12px above and below
+    // its toolbar-size controls. Begin the blur at those controls' midpoint.
+    final blurInset = showTaxonomy
+        ? 12 +
+              DControlStyle.scaledHeight(
+                    DControlSize.toolbar,
+                    MediaQuery.textScalerOf(context),
+                    context: context,
+                  ) /
+                  2
+        : 0.0;
+    return Stack(
+      children: [
+        Positioned.fill(
+          top: blurInset,
+          child: const DGradientBlur(
+            key: ValueKey('composer-footer-blur'),
+            edge: DGradientBlurEdge.bottom,
+          ),
+        ),
+        content,
+      ],
+    );
+  }
 }
 
 class _ComposerBodyLayout extends StatelessWidget {
@@ -4645,9 +4688,6 @@ class _Footer extends StatelessWidget {
       key: const ValueKey('composer-footer'),
       decoration: BoxDecoration(
         color: context.isTouch ? null : _composerFooterColor(context),
-        gradient: context.isTouch
-            ? _composerEdgeGradient(context, bottom: true)
-            : null,
         border: context.isTouch
             ? null
             : Border(top: BorderSide(color: tokens.footerBorder)),

@@ -33,6 +33,7 @@ import 'examples/embed_examples.dart';
 import 'examples/empty_examples.dart';
 import 'examples/field_examples.dart';
 import 'examples/foundation_examples.dart';
+import 'examples/gradient_blur_examples.dart';
 import 'examples/history_transition_examples.dart';
 import 'examples/hover_card_examples.dart';
 import 'examples/image_preview_examples.dart';
@@ -83,6 +84,7 @@ import 'styleguide_example.dart';
 
 /// Each component task replaces its baseline or adds its own example file.
 final componentExamples = <String, ComponentExamples>{
+  'gradient-blur': gradientBlurExamples,
   'onebox': oneboxExamples,
   'drag': dragExamples,
   'embed': embedExamples,

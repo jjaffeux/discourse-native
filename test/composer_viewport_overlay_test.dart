@@ -89,7 +89,7 @@ void main() {
 
   for (final brightness in Brightness.values) {
     testWidgets(
-      'full mobile shell matches the keyboard background in $brightness',
+      'full mobile shell blurs composer edges above the keyboard in $brightness',
       (tester) async {
         const user = DiscourseUser(
           id: 7,
@@ -157,15 +157,32 @@ void main() {
         final footer = tester.widget<Container>(
           find.byKey(const ValueKey('composer-footer')),
         );
-        final fade =
-            (footer.decoration! as BoxDecoration).gradient! as LinearGradient;
-        expect(fade.begin, Alignment.bottomCenter);
-        expect(fade.end, Alignment.topCenter);
-        expect(fade.colors, [
-          background,
-          background.withValues(alpha: 0.94),
-          background.withValues(alpha: 0),
-        ]);
+        expect((footer.decoration! as BoxDecoration).gradient, isNull);
+        final topBlur = find.byKey(const ValueKey('composer-header-blur'));
+        final bottomBlur = find.byKey(const ValueKey('composer-footer-blur'));
+        expect(
+          tester.widget<DGradientBlur>(topBlur).edge,
+          DGradientBlurEdge.top,
+        );
+        expect(
+          tester.widget<DGradientBlur>(bottomBlur).edge,
+          DGradientBlurEdge.bottom,
+        );
+        expect(
+          tester.getRect(bottomBlur).top,
+          closeTo(
+            tester
+                .getCenter(
+                  find.byKey(const ValueKey('composer-category-action')),
+                )
+                .dy,
+            .01,
+          ),
+        );
+        expect(
+          tester.getRect(bottomBlur).bottom,
+          tester.getRect(find.byType(ComposerPanel)).bottom,
+        );
         expect(
           tester
               .widget<CustomScrollView>(

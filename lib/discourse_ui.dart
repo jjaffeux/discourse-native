@@ -42,6 +42,7 @@ export 'src/ui/components/d_dropdown_menu.dart';
 export 'src/ui/components/d_embed.dart';
 export 'src/ui/components/d_empty.dart';
 export 'src/ui/components/d_field.dart';
+export 'src/ui/components/d_gradient_blur.dart';
 export 'src/ui/components/d_history_transition.dart';
 export 'src/ui/components/d_hover_card.dart';
 export 'src/ui/components/d_image_preview.dart';

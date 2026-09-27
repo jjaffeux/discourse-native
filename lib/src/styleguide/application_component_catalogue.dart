@@ -4,6 +4,11 @@ import 'styleguide_example.dart';
 /// component reference catalogue.
 const applicationComponentCatalogue = <ComponentReference>[
   ComponentReference(
+    id: 'gradient-blur',
+    name: 'Gradient blur',
+    sections: ['Floating controls'],
+  ),
+  ComponentReference(
     id: 'control-wrap',
     name: 'Control wrap',
     sections: ['Compact controls'],

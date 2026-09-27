@@ -797,6 +797,8 @@ void main() {
     await tester.pumpAndSettle();
     expect(targetScale(), 1);
     expect(arrow.hitTestable(), findsOneWidget);
+    expect(tester.widget<DButton>(arrow).shape, DButtonShape.pill);
+    expect(tester.getSize(arrow).width, tester.getSize(arrow).height);
     expect(tester.widget<AnimatedScale>(scale).duration, isNot(Duration.zero));
     await tester.tap(arrow);
     await tester.pumpAndSettle();
@@ -932,6 +934,15 @@ void main() {
       );
       addTearDown(tester.view.resetViewInsets);
       await tester.pumpAndSettle();
+      expect(
+        tester.getRect(find.byKey(const ValueKey('composer-footer-blur'))).top,
+        closeTo(
+          tester
+              .getCenter(find.byKey(const ValueKey('composer-category-action')))
+              .dy,
+          .01,
+        ),
+      );
       expect(
         tester.getRect(find.byKey(const ValueKey('composer-submit'))).bottom,
         lessThanOrEqualTo(320),
