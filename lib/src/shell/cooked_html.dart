@@ -1,4 +1,5 @@
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_widget_from_html_core/flutter_widget_from_html_core.dart';
 import 'package:html/dom.dart' as dom;
@@ -435,15 +436,49 @@ class CookedHtml extends StatelessWidget {
           horizontalRuleColor,
           insertedBackground,
           deletedBackground,
-          post?.linkCounts,
+          _ListTrigger(post?.linkCounts ?? const <PostLinkCount>[]),
           linkCountBackground,
           linkCountForeground,
-          mentionedUserStatuses,
+          _MapTrigger(mentionedUserStatuses),
         ],
         onTapUrl: (url) => openLink(context, url, siteUrl: resolvedSiteUrl),
       ),
     );
   }
+}
+
+// [HtmlWidget] compares rebuild triggers with `==`, which is identity for a
+// collection, and every post read from the wire builds fresh ones: compared
+// directly, an unrelated change such as a like would reparse the whole body.
+@immutable
+final class _ListTrigger<T> {
+  const _ListTrigger(this.values);
+
+  final List<T> values;
+
+  @override
+  bool operator ==(Object other) =>
+      other is _ListTrigger<T> && listEquals(other.values, values);
+
+  @override
+  int get hashCode => Object.hashAll(values);
+}
+
+@immutable
+final class _MapTrigger<K, V> {
+  const _MapTrigger(this.values);
+
+  final Map<K, V> values;
+
+  @override
+  bool operator ==(Object other) =>
+      other is _MapTrigger<K, V> && mapEquals(other.values, values);
+
+  @override
+  int get hashCode => Object.hashAllUnordered([
+    for (final MapEntry(:key, :value) in values.entries)
+      Object.hash(key, value),
+  ]);
 }
 
 /// Displayed markup keeps the saved post's checkbox indices only while it

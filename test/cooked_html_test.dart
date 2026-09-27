@@ -47,6 +47,7 @@ Future<void> pumpCooked(
   PluginRegistry? registry,
   Post? post,
   bool compactParagraphs = false,
+  Map<String, UserStatusReference> mentionedUserStatuses = const {},
 }) async {
   await tester.pumpWidget(
     MaterialApp(
@@ -58,6 +59,7 @@ Future<void> pumpCooked(
             registry: registry,
             post: post,
             compactParagraphs: compactParagraphs,
+            mentionedUserStatuses: mentionedUserStatuses,
           ),
         ),
       ),
@@ -795,6 +797,67 @@ void main() {
 
     expect(builds, 1);
     expect(renderedText('Already rendered'), findsOneWidget);
+  });
+
+  testWidgets('a re-read post keeps its parsed body until what it draws '
+      'changes', (tester) async {
+    const html = '<p>Read the <a href="/guide">guide</a> first.</p>';
+    final elements = _CountingCookedElements();
+    final registry = PluginRegistry([elements]);
+    Post read({int likes = 3, int clicks = 7, String status = 'At lunch'}) =>
+        Post.fromJson({
+          'id': 1,
+          'post_number': 1,
+          'username': 'sam',
+          'cooked': html,
+          'actions_summary': [
+            {'id': Post.likeActionId, 'count': likes},
+          ],
+          'link_counts': [
+            {'url': '/guide', 'clicks': clicks, 'internal': true},
+          ],
+          'mentioned_users': [
+            {
+              'id': 42,
+              'username': 'sam',
+              'status': {'description': status, 'emoji': 'sandwich'},
+            },
+          ],
+        }, 'https://meta.discourse.org');
+    Future<void> show(Post post) => pumpCooked(
+      tester,
+      html,
+      registry: registry,
+      post: post,
+      mentionedUserStatuses: post.mentionedUserStatuses,
+    );
+
+    final original = read();
+    await show(original);
+    final parsed = elements.calls;
+    expect(parsed, greaterThan(0));
+    expect(renderedText('7'), findsOneWidget);
+
+    // Every read builds its own collections, even when nothing in them moved.
+    final liked = read(likes: 4);
+    expect(liked, isNot(original));
+    expect(liked.linkCounts, isNot(same(original.linkCounts)));
+    expect(
+      liked.mentionedUserStatuses,
+      isNot(same(original.mentionedUserStatuses)),
+    );
+    await show(liked);
+    expect(elements.calls, parsed);
+    expect(renderedText('7'), findsOneWidget);
+
+    await show(read(likes: 4, clicks: 8));
+    final recounted = elements.calls;
+    expect(recounted, greaterThan(parsed));
+    expect(renderedText('7'), findsNothing);
+    expect(renderedText('8'), findsOneWidget);
+
+    await show(read(likes: 4, clicks: 8, status: 'In a meeting'));
+    expect(elements.calls, greaterThan(recounted));
   });
 
   group('links', () {
@@ -2054,6 +2117,20 @@ Finder renderedText(String text) => find.byWidgetPredicate(
   (widget) => widget is RichText && widget.text.toPlainText().contains(text),
   description: 'rendered text containing "$text"',
 );
+
+/// Consulted for each element only while [HtmlWidget] builds its tree.
+final class _CountingCookedElements implements SitePlugin, CookedElementPlugin {
+  var calls = 0;
+
+  @override
+  String get name => 'counting-cooked-elements';
+
+  @override
+  Widget? cookedElement(String? siteUrl, dom.Element element) {
+    calls += 1;
+    return null;
+  }
+}
 
 final class _RoomHashtagPlugin implements SitePlugin, HashtagKindPlugin {
   const _RoomHashtagPlugin();
