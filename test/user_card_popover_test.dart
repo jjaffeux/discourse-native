@@ -270,6 +270,42 @@ void main() {
       expect(find.text('Sam Example'), findsOneWidget);
     },
   );
+
+  testWidgets('a failed hover preview loads again on the next hover', (
+    tester,
+  ) async {
+    final api = await _pumpTarget(tester);
+    const away = Offset(750, 550);
+    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    addTearDown(mouse.removePointer);
+    await mouse.addPointer(location: away);
+    Future<void> hover() async {
+      await mouse.moveTo(tester.getCenter(_target));
+      await tester.pump(const Duration(milliseconds: 600));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 150));
+    }
+
+    await hover();
+    api.requests.single.completeError(StateError('Unavailable'));
+    await tester.pump();
+    expect(find.text("Couldn't load @sam."), findsOneWidget);
+    expect(find.byType(DSkeletonRegion), findsNothing);
+
+    await mouse.moveTo(away);
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pumpAndSettle();
+    expect(find.byType(DHoverCardContent), findsNothing);
+
+    await hover();
+    expect(api.requests, hasLength(2));
+    expect(find.text("Couldn't load @sam."), findsNothing);
+    expect(find.byType(DSkeletonRegion), findsOneWidget);
+    api.requests.last.complete(_profile);
+    await tester.pump();
+    expect(find.text('Sam Example'), findsOneWidget);
+    expect(find.byType(DSkeletonRegion), findsNothing);
+  });
 }
 
 Future<_CardApi> _pumpTarget(

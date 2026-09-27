@@ -2,22 +2,29 @@ import 'dart:async';
 
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
+import 'package:discourse_native/src/models/post.dart';
+import 'package:discourse_native/src/models/post_likers.dart';
 import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/models/topic.dart';
+import 'package:discourse_native/src/models/user_card.dart';
 import 'package:discourse_native/src/models/user_status.dart';
 import 'package:discourse_native/src/shell/adaptive_shell.dart';
 import 'package:discourse_native/src/shell/forum_tabs_bar.dart';
+import 'package:discourse_native/src/shell/hover_panel.dart';
 import 'package:discourse_native/src/shell/instance_rail.dart';
 import 'package:discourse_native/src/shell/instance_sidebar.dart';
 import 'package:discourse_native/src/shell/main_content.dart';
+import 'package:discourse_native/src/shell/post_likes.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/topic_create_button.dart';
 import 'package:discourse_native/src/shell/topic_list_view.dart';
+import 'package:discourse_native/src/shell/user_card.dart';
 import 'package:discourse_native/src/shell/user_menu.dart';
 import 'package:discourse_native/src/shell/user_menu_button.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -502,6 +509,162 @@ void main() {
     expect(rebuilt, isEmpty);
   });
 
+  testWidgets('profile and likers previews do not notify the shell facade', (
+    tester,
+  ) async {
+    const siteUrl = 'https://meta.discourse.org';
+    final api = _PreviewApi();
+    final controller = ShellController(
+      instanceStore: FakeInstanceStore([
+        instance('meta.discourse.org', title: 'Meta'),
+      ]),
+      api: api,
+      authenticator: FakeAuthenticator(),
+      drafts: FakeDraftStore(),
+      trackers: FakeSiteTracker.reset(),
+      updateStore: FakeUpdateStore(),
+    );
+    addTearDown(controller.dispose);
+    await controller.load();
+
+    var broadBuilds = 0;
+    await tester.pumpWidget(
+      ShellScope(
+        controller: controller,
+        child: MaterialApp(
+          theme: AppTheme.light.copyWith(platform: TargetPlatform.macOS),
+          home: Scaffold(
+            body: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const UserCardTarget(
+                    username: 'sam',
+                    siteUrl: siteUrl,
+                    child: Text('Open Sam'),
+                  ),
+                  const PostLikes(
+                    siteUrl: siteUrl,
+                    post: Post(
+                      id: 1,
+                      postNumber: 1,
+                      username: 'author',
+                      cooked: '<p>Post body</p>',
+                      likeCount: 1,
+                      canLike: false,
+                      canUnlike: false,
+                    ),
+                  ),
+                  Builder(
+                    builder: (context) {
+                      ShellScope.of(context);
+                      broadBuilds++;
+                      return const SizedBox.shrink();
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    var shellNotifications = 0;
+    void countShellNotification() => shellNotifications++;
+    controller.addListener(countShellNotification);
+    addTearDown(() => controller.removeListener(countShellNotification));
+    final settledBuilds = broadBuilds;
+    const away = Offset(700, 500);
+    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    addTearDown(mouse.removePointer);
+    await mouse.addPointer(location: away);
+
+    // Every hover-open of a like count fetches its likers again.
+    for (final name in ['Alex Liker', 'Blair Liker']) {
+      await mouse.moveTo(tester.getCenter(find.text('1')));
+      await tester.pump(HoverPanel.openDelay);
+      await tester.pump();
+      api.likerResponses.last.complete(
+        PostLikers(
+          postId: 1,
+          likers: [PostLiker(id: 2, username: 'liker', name: name)],
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text(name), findsOneWidget);
+      await mouse.moveTo(away);
+      await tester.pump(HoverPanel.closeDelay);
+      await tester.pumpAndSettle();
+      expect(find.text(name), findsNothing);
+    }
+    expect(api.likerResponses, hasLength(2));
+
+    // Each newly hovered name loads its card, and a failed one loads again on
+    // the next hover.
+    Future<void> hoverSam() async {
+      await mouse.moveTo(tester.getCenter(find.text('Open Sam')));
+      await tester.pump(const Duration(milliseconds: 600));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 150));
+    }
+
+    await hoverSam();
+    api.cardResponses.single.completeError(StateError('Unavailable'));
+    await tester.pump();
+    expect(find.text("Couldn't load @sam."), findsOneWidget);
+    await mouse.moveTo(away);
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pumpAndSettle();
+    expect(find.text("Couldn't load @sam."), findsNothing);
+
+    await hoverSam();
+    expect(find.text("Couldn't load @sam."), findsNothing);
+    api.cardResponses.last.complete(
+      const UserCard(username: 'sam', name: 'Sam Example'),
+    );
+    await tester.pump();
+    expect(find.text('Sam Example'), findsOneWidget);
+    expect(api.cardResponses, hasLength(2));
+    expect(shellNotifications, 0);
+    expect(broadBuilds, settledBuilds);
+
+    // An open card redraws for its own user, not for unrelated shell changes.
+    for (final open in [false, true]) {
+      if (open) {
+        await tester.tap(find.text('Open Sam'));
+        await tester.pump();
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 150));
+        expect(find.byKey(const ValueKey('user-card-surface')), findsOneWidget);
+      }
+      final card = tester.element(find.text('Sam Example'));
+      final rebuilt = <Element>{};
+      final previousRebuildCallback = debugOnRebuildDirtyWidget;
+      debugOnRebuildDirtyWidget = (element, builtOnce) {
+        rebuilt.add(element);
+        previousRebuildCallback?.call(element, builtOnce);
+      };
+      try {
+        controller.pushContent(
+          ContentRoute(
+            id: 'unrelated-$open',
+            title: 'Unrelated route',
+            icon: DIcons.comments,
+          ),
+        );
+        await tester.pump();
+      } finally {
+        debugOnRebuildDirtyWidget = previousRebuildCallback;
+      }
+      expect(broadBuilds, greaterThan(settledBuilds));
+      expect(rebuilt, isNot(contains(card)));
+    }
+    expect(api.cardResponses, hasLength(2));
+  });
+
   testWidgets(
     'closing an inactive tab updates the bar without rebuilding the viewport',
     (tester) async {
@@ -656,6 +819,36 @@ Element _onlyChild(Element parent) {
   parent.visitChildren(children.add);
   expect(children, hasLength(1));
   return children.single;
+}
+
+final class _PreviewApi extends FakeDiscourseApi {
+  final cardResponses = <Completer<UserCard>>[];
+  final likerResponses = <Completer<PostLikers>>[];
+
+  @override
+  Future<UserCard> userCard({
+    required String siteUrl,
+    required String username,
+    String? apiKey,
+    String? clientId,
+  }) {
+    final response = Completer<UserCard>();
+    cardResponses.add(response);
+    return response.future;
+  }
+
+  @override
+  Future<PostLikers> postLikers({
+    required String siteUrl,
+    required int postId,
+    int limit = 25,
+    String? apiKey,
+    String? clientId,
+  }) {
+    final response = Completer<PostLikers>();
+    likerResponses.add(response);
+    return response.future;
+  }
 }
 
 List<Topic> _topics(int first, int count) => [

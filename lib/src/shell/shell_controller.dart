@@ -120,6 +120,7 @@ import 'plugin_background_retention.dart';
 import 'post_checklist_write.dart';
 import 'post_quote.dart';
 import 'preferences_controller.dart';
+import 'preview_requests.dart';
 import 'shell_search_controller.dart';
 import 'site_presentation_controller.dart';
 import 'site_url.dart';
@@ -1025,6 +1026,12 @@ class ShellController extends FrameSafeNotifier
   );
 
   late final UserStatusOverrides userStatuses = UserStatusOverrides();
+
+  /// Profile-card fetches by lowercase username; the cards live in [store].
+  late final PreviewRequests<String> userCardRequests = PreviewRequests();
+
+  /// Post-likers fetches by post ID; the likers live in [store].
+  late final PreviewRequests<int> likerRequests = PreviewRequests();
 
   late final DraftListController draftList = DraftListController(
     api: api.drafts,
@@ -12165,9 +12172,6 @@ class ShellController extends FrameSafeNotifier
     int targetId,
   ) => '$siteUrl~${targetType.id}~$targetId';
 
-  final Set<String> _likersLoading = {};
-  final Map<String, String> _likersErrors = {};
-
   PostLikers? likers(int postId, {String? siteUrl}) {
     final targetSite = siteUrl ?? currentInstance?.url;
     if (targetSite == null) return null;
@@ -12177,20 +12181,22 @@ class ShellController extends FrameSafeNotifier
   String? likersError(int postId, {String? siteUrl}) {
     final targetSite = siteUrl ?? currentInstance?.url;
     if (targetSite == null) return null;
-    return _likersErrors[_postKey(targetSite, postId)];
+    return likerRequests.errorFor(targetSite, postId);
   }
 
+  // Every hover-open of a like count lands here, so progress and failures
+  // go to [likerRequests] and the likers to [store], never to the facade.
   Future<void> loadLikers(int postId, {String? siteUrl}) async {
     final targetSite = siteUrl ?? currentInstance?.url;
     if (targetSite == null) return;
     final instance = _instanceAt(targetSite);
     if (instance == null) return;
 
-    final key = _postKey(targetSite, postId);
-    if (!_likersLoading.add(key)) return;
-    _likersErrors.remove(key);
+    // Captured before the fetch is announced, so a listener that replaces
+    // the account cannot hand this fetch the new one.
     final lease = lifecycle.capture(targetSite);
-    _notify();
+    if (!likerRequests.begin(targetSite, postId)) return;
+    String? failure;
 
     try {
       final credential = await _readSessionValue(
@@ -12202,12 +12208,14 @@ class ShellController extends FrameSafeNotifier
         siteUrl: targetSite,
         postId: postId,
         // Keep credential reads inside the guarded try: macOS entitlement
-        // failures must not strand the key in [_likersLoading].
+        // failures must not strand the fetch in [likerRequests].
         apiKey: credential.value,
       );
       lease.commit(() => store.put(targetSite, fetched));
     } on SiteLookupException catch (e, stackTrace) {
-      if (isDisposed || !lease.isCurrent || !_likersLoading.contains(key)) {
+      if (isDisposed ||
+          !lease.isCurrent ||
+          !likerRequests.isPending(targetSite, postId)) {
         return;
       }
       _reportOperationalError(
@@ -12216,13 +12224,13 @@ class ShellController extends FrameSafeNotifier
         'post.loadLikers',
         severity: DiagnosticSeverity.warning,
       );
-      lease.commit(() {
-        _likersErrors[key] = e.failure == SiteLookupFailure.notDiscourse
-            ? "Couldn't see who liked this."
-            : "Couldn't reach ${instance.host}.";
-      });
+      failure = e.failure == SiteLookupFailure.notDiscourse
+          ? "Couldn't see who liked this."
+          : "Couldn't reach ${instance.host}.";
     } catch (error, stackTrace) {
-      if (isDisposed || !lease.isCurrent || !_likersLoading.contains(key)) {
+      if (isDisposed ||
+          !lease.isCurrent ||
+          !likerRequests.isPending(targetSite, postId)) {
         return;
       }
       _reportOperationalError(
@@ -12231,14 +12239,11 @@ class ShellController extends FrameSafeNotifier
         'post.loadLikers',
         severity: DiagnosticSeverity.warning,
       );
-      lease.commit(() {
-        _likersErrors[key] = "Couldn't load who liked this.";
-      });
+      failure = "Couldn't load who liked this.";
     } finally {
-      lease.commit(() {
-        _likersLoading.remove(key);
-        _notify();
-      });
+      lease.commit(
+        () => likerRequests.finish(targetSite, postId, error: failure),
+      );
     }
   }
 
@@ -13506,12 +13511,6 @@ class ShellController extends FrameSafeNotifier
     }
   }
 
-  final Set<String> _userCardsLoading = {};
-  final Map<String, String> _userCardErrors = {};
-
-  static String _userKey(String siteUrl, String username) =>
-      '$siteUrl@${username.toLowerCase()}';
-
   UserCard? userCard(String username, {String? siteUrl}) {
     final targetSite = siteUrl ?? currentInstance?.url;
     if (targetSite == null) return null;
@@ -13521,9 +13520,11 @@ class ShellController extends FrameSafeNotifier
   String? userCardError(String username, {String? siteUrl}) {
     final targetSite = siteUrl ?? currentInstance?.url;
     if (targetSite == null) return null;
-    return _userCardErrors[_userKey(targetSite, username)];
+    return userCardRequests.errorFor(targetSite, username.toLowerCase());
   }
 
+  // Every newly hovered name lands here, so progress and failures go to
+  // [userCardRequests] and the card to [store], never to the facade.
   Future<void> loadUserCard(
     String username, {
     bool force = false,
@@ -13534,19 +13535,18 @@ class ShellController extends FrameSafeNotifier
     final instance = _instanceAt(targetSite);
     if (instance == null) return;
 
-    final key = _userKey(targetSite, username);
-    if (_userCardsLoading.contains(key)) return;
+    final key = username.toLowerCase();
+    if (userCardRequests.isPending(targetSite, key)) return;
     if (!force) {
-      if (_userCardErrors.containsKey(key)) return;
-      if (store.read<UserCard>(targetSite, username.toLowerCase()) != null) {
-        return;
-      }
+      if (userCardRequests.errorFor(targetSite, key) != null) return;
+      if (store.read<UserCard>(targetSite, key) != null) return;
     }
 
-    _userCardsLoading.add(key);
-    _userCardErrors.remove(key);
+    // Captured before the fetch is announced, so a listener that replaces
+    // the account cannot hand this fetch the new one.
     final lease = lifecycle.capture(targetSite);
-    _notify();
+    userCardRequests.begin(targetSite, key);
+    String? failure;
 
     try {
       final credential = await _readSessionValue(
@@ -13558,12 +13558,14 @@ class ShellController extends FrameSafeNotifier
         siteUrl: targetSite,
         username: username,
         // Read inside the guard, the way `loadLikers` does: storage that
-        // throws would otherwise strand the key in [_userCardsLoading].
+        // throws would otherwise strand the fetch in [userCardRequests].
         apiKey: credential.value,
       );
       lease.commit(() => store.put(targetSite, card));
     } on SiteLookupException catch (e, stackTrace) {
-      if (isDisposed || !lease.isCurrent || !_userCardsLoading.contains(key)) {
+      if (isDisposed ||
+          !lease.isCurrent ||
+          !userCardRequests.isPending(targetSite, key)) {
         return;
       }
       _reportOperationalError(
@@ -13572,13 +13574,13 @@ class ShellController extends FrameSafeNotifier
         'userCard.load',
         severity: DiagnosticSeverity.warning,
       );
-      lease.commit(() {
-        _userCardErrors[key] = e.failure == SiteLookupFailure.notDiscourse
-            ? "Couldn't see that profile."
-            : "Couldn't reach ${instance.host}.";
-      });
+      failure = e.failure == SiteLookupFailure.notDiscourse
+          ? "Couldn't see that profile."
+          : "Couldn't reach ${instance.host}.";
     } catch (error, stackTrace) {
-      if (isDisposed || !lease.isCurrent || !_userCardsLoading.contains(key)) {
+      if (isDisposed ||
+          !lease.isCurrent ||
+          !userCardRequests.isPending(targetSite, key)) {
         return;
       }
       _reportOperationalError(
@@ -13587,14 +13589,11 @@ class ShellController extends FrameSafeNotifier
         'userCard.load',
         severity: DiagnosticSeverity.warning,
       );
-      lease.commit(() {
-        _userCardErrors[key] = "Couldn't load @$username.";
-      });
+      failure = "Couldn't load @$username.";
     } finally {
-      lease.commit(() {
-        _userCardsLoading.remove(key);
-        _notify();
-      });
+      lease.commit(
+        () => userCardRequests.finish(targetSite, key, error: failure),
+      );
     }
   }
 
@@ -14628,10 +14627,8 @@ class ShellController extends FrameSafeNotifier
     preferences.forget(siteUrl);
     store.forget(siteUrl);
 
-    _likersLoading.removeWhere((key) => key.startsWith('$siteUrl~'));
-    _likersErrors.removeWhere((key, _) => key.startsWith('$siteUrl~'));
-    _userCardsLoading.removeWhere((key) => key.startsWith('$siteUrl@'));
-    _userCardErrors.removeWhere((key, _) => key.startsWith('$siteUrl@'));
+    likerRequests.forget(siteUrl);
+    userCardRequests.forget(siteUrl);
     _postWritesInFlight.removeWhere((key, _) => key.startsWith('$siteUrl~'));
     _postBookmarkWritesInFlight.removeWhere(
       (key) => key.startsWith('$siteUrl~'),
@@ -16442,6 +16439,8 @@ class ShellController extends FrameSafeNotifier
     accountActivity.dispose();
     doNotDisturb.dispose();
     userStatuses.dispose();
+    userCardRequests.dispose();
+    likerRequests.dispose();
     draftList.dispose();
     userSummary.dispose();
     groups.dispose();

@@ -177,21 +177,34 @@ class _Likers extends StatelessWidget {
   final Post post;
 
   @override
-  Widget build(BuildContext context) => ShellSelector<_LikersSnapshot>(
-    select: (controller) => (
-      controller: controller,
-      // Account replacement also needs a reload when both snapshots are empty.
-      session: controller.lifecycle.capture(siteUrl).session,
-      likers: controller.likers(post.id, siteUrl: siteUrl),
-      error: controller.likersError(post.id, siteUrl: siteUrl),
-    ),
-    builder: (context, snapshot, _) => _LikersView(
-      maxHeight: _maxHeight,
-      siteUrl: siteUrl,
-      post: post,
-      snapshot: snapshot,
-    ),
-  );
+  Widget build(BuildContext context) =>
+      ShellSelector<({ShellController controller, Object session})>(
+        select: (controller) => (
+          controller: controller,
+          // Account replacement also needs a reload when both snapshots are
+          // empty, and starts from new store refs.
+          session: controller.lifecycle.capture(siteUrl).session,
+        ),
+        // Each fetch of the likers and its result are announced here, not on
+        // the shell.
+        builder: (context, owner, _) => ListenableBuilder(
+          listenable: Listenable.merge([
+            owner.controller.likerRequests,
+            owner.controller.store.ref<PostLikers>(siteUrl, post.id),
+          ]),
+          builder: (context, _) => _LikersView(
+            maxHeight: _maxHeight,
+            siteUrl: siteUrl,
+            post: post,
+            snapshot: (
+              controller: owner.controller,
+              session: owner.session,
+              likers: owner.controller.likers(post.id, siteUrl: siteUrl),
+              error: owner.controller.likersError(post.id, siteUrl: siteUrl),
+            ),
+          ),
+        ),
+      );
 }
 
 typedef _LikersSnapshot = ({
