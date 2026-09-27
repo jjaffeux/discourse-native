@@ -349,11 +349,10 @@ class _SiteImageState extends State<SiteImage> {
     if (widget.coverDecodeSize case final size?) {
       provider = imageForCover(context, provider, logicalSize: size);
     } else if (widget.cacheWidth != null || widget.cacheHeight != null) {
-      provider = ResizeImage(
-        provider,
+      provider = FittedMemoryImage(
+        image.bytes,
         width: widget.cacheWidth,
         height: widget.cacheHeight,
-        policy: ResizeImagePolicy.fit,
       );
     }
     return Image(
@@ -649,7 +648,7 @@ final class SiteImageWidgetFactory extends WidgetFactory {
             : src.width;
         final cacheWidth =
             logicalWidth != null && logicalWidth.isFinite && logicalWidth > 0
-            ? imagePhysicalPixels(context, logicalWidth.clamp(1, 10000))
+            ? imageDecodeWidth(context, logicalWidth.clamp(1, 10000))
             : null;
         return SiteImage(
           url: src.url,

@@ -328,7 +328,7 @@ class ImageGridTile extends StatelessWidget {
               constraints.hasBoundedWidth &&
                   constraints.maxWidth.isFinite &&
                   constraints.maxWidth > 0
-              ? imagePhysicalPixels(context, constraints.maxWidth)
+              ? imageDecodeWidth(context, constraints.maxWidth)
               : null;
           final description = item.description;
 
