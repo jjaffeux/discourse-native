@@ -4,6 +4,7 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/theme/discourse_typography.dart';
 import 'package:flutter/material.dart';
 
+import '../models/topic.dart';
 import '../plugin_api/global_search.dart' show GlobalSearchLookup;
 import '../plugin_api/plugin_scope.dart';
 import '../theme/d_icons.dart';
@@ -219,10 +220,11 @@ class _GlobalSearchPanelState extends State<GlobalSearchPanel> {
         'Enter at least ${controller.capabilities.minimumLength} characters to search.',
       );
     }
-    if (phase == GlobalSearchPhase.loading && controller.results.isEmpty) {
+    final results = controller.results;
+    if (phase == GlobalSearchPhase.loading && results.isEmpty) {
       return const SizedBox.shrink();
     }
-    if (phase == GlobalSearchPhase.failed && controller.results.isEmpty) {
+    if (phase == GlobalSearchPhase.failed && results.isEmpty) {
       return _status(
         'Search could not load',
         controller.error ?? 'Please try again.',
@@ -279,10 +281,10 @@ class _GlobalSearchPanelState extends State<GlobalSearchPanel> {
               ],
             ),
           ),
-        for (final result in section.results) _result(context, result),
+        for (final result in section.results) _result(result),
       ],
       if (controller.error != null &&
-          controller.results.isNotEmpty &&
+          results.isNotEmpty &&
           !controller.sections.any(
             (section) => section.error == controller.error,
           ))
@@ -307,9 +309,8 @@ class _GlobalSearchPanelState extends State<GlobalSearchPanel> {
           ),
         ),
     ];
-    _resultKeys.removeWhere(
-      (id, _) => !controller.results.any((result) => result.id == id),
-    );
+    final ids = {for (final result in results) result.id};
+    _resultKeys.removeWhere((id, _) => !ids.contains(id));
     return DScrollBar(
       controller: _scroll,
       child: ListView(
@@ -424,13 +425,42 @@ class _GlobalSearchPanelState extends State<GlobalSearchPanel> {
     ),
   );
 
-  Widget _result(BuildContext context, GlobalSearchResult result) {
+  Widget _result(GlobalSearchResult result) {
+    final controller = widget.controller;
+    return KeyedSubtree(
+      key: _resultKeys.putIfAbsent(result.id, GlobalKey.new),
+      child: LinkTarget(
+        url: result.path,
+        siteUrl: controller.siteUrl,
+        title: result.title,
+        child: Focus(
+          canRequestFocus: false,
+          onFocusChange: (focused) {
+            if (focused) widget.onSelect?.call(result.id);
+          },
+          // The shell notifies for every navigation and tracking event; only
+          // this row's category may change what the row draws.
+          child: ShellSelector<TopicCategory?>(
+            select: (shell) => shell.categoryFor(
+              result.categoryId,
+              siteUrl: controller.siteUrl,
+            ),
+            builder: (context, category, _) =>
+                _resultItem(context, result, category),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _resultItem(
+    BuildContext context,
+    GlobalSearchResult result,
+    TopicCategory? category,
+  ) {
     final controller = widget.controller;
     final properties = controller.properties;
     final tokens = DTokens.of(context);
-    final category = ShellScope.maybeOf(
-      context,
-    )?.categoryFor(result.categoryId, siteUrl: controller.siteUrl);
     final metadata = <Widget>[
       if (properties.contains(GlobalSearchDisplayProperty.author) &&
           result.username?.isNotEmpty == true)
@@ -464,94 +494,74 @@ class _GlobalSearchPanelState extends State<GlobalSearchPanel> {
       if (result.closed) const Text('Closed'),
       if (result.archived) const Text('Archived'),
     ];
-    return KeyedSubtree(
-      key: _resultKeys.putIfAbsent(result.id, GlobalKey.new),
-      child: LinkTarget(
-        url: result.path,
-        siteUrl: controller.siteUrl,
-        title: result.title,
-        child: Focus(
-          canRequestFocus: false,
-          onFocusChange: (focused) {
-            if (focused) widget.onSelect?.call(result.id);
-          },
-          child: DItem(
-            key: ValueKey('global-search-result-${result.id}'),
-            size: DItemSize.standard,
-            onPressed: () {
-              widget.onSelect?.call(result.id);
-              widget.onOpen(result);
-            },
-            link: true,
-            selected: widget.selectedResultId == result.id,
-            showSelectionIndicator: false,
-            children: [
-              DItemMedia(
-                child: result.scope.showAvatar
-                    ? DAvatar(
-                        size: DAvatarSize.standard,
-                        decorative: true,
-                        child: AvatarImage(
-                          url: result.avatarUrl,
-                          size: 32,
-                          fallback: DAvatarFallback(
-                            child: Text(
-                              (result.username ?? result.title).characters
-                                  .take(1)
-                                  .toString()
-                                  .toUpperCase(),
-                            ),
-                          ),
-                        ),
-                      )
-                    : DIcon(
-                        result.scope == GlobalSearchScope.groups
-                            ? DIcons.users
-                            : DIcons.comments,
-                        size: 18,
-                        color: tokens.mutedForeground,
+    return DItem(
+      key: ValueKey('global-search-result-${result.id}'),
+      size: DItemSize.standard,
+      onPressed: () {
+        widget.onSelect?.call(result.id);
+        widget.onOpen(result);
+      },
+      link: true,
+      selected: widget.selectedResultId == result.id,
+      showSelectionIndicator: false,
+      children: [
+        DItemMedia(
+          child: result.scope.showAvatar
+              ? DAvatar(
+                  size: DAvatarSize.standard,
+                  decorative: true,
+                  child: AvatarImage(
+                    url: result.avatarUrl,
+                    size: 32,
+                    fallback: DAvatarFallback(
+                      child: Text(
+                        (result.username ?? result.title).characters
+                            .take(1)
+                            .toString()
+                            .toUpperCase(),
                       ),
-              ),
-              DItemContent(
-                children: [
-                  DItemTitle(
-                    maxLines: 2,
-                    child: _SearchHighlight(
-                      siteUrl: controller.siteUrl!,
-                      text: result.title,
-                      query: controller.query,
                     ),
                   ),
-                  if (properties.contains(
-                        GlobalSearchDisplayProperty.excerpt,
-                      ) &&
-                      result.excerpt.isNotEmpty)
-                    DItemDescription(
-                      maxLines: 2,
-                      child: _SearchHighlight(
-                        siteUrl: controller.siteUrl!,
-                        text: result.excerpt,
-                        query: controller.query,
-                      ),
-                    ),
-                  if (metadata.isNotEmpty)
-                    DefaultTextStyle.merge(
-                      style: TextStyle(
-                        fontSize: DiscourseTypography.xs,
-                        color: tokens.mutedForeground,
-                      ),
-                      child: Wrap(
-                        spacing: 10,
-                        runSpacing: 3,
-                        children: metadata,
-                      ),
-                    ),
-                ],
-              ),
-            ],
-          ),
+                )
+              : DIcon(
+                  result.scope == GlobalSearchScope.groups
+                      ? DIcons.users
+                      : DIcons.comments,
+                  size: 18,
+                  color: tokens.mutedForeground,
+                ),
         ),
-      ),
+        DItemContent(
+          children: [
+            DItemTitle(
+              maxLines: 2,
+              child: _SearchHighlight(
+                siteUrl: controller.siteUrl!,
+                text: result.title,
+                query: controller.query,
+              ),
+            ),
+            if (properties.contains(GlobalSearchDisplayProperty.excerpt) &&
+                result.excerpt.isNotEmpty)
+              DItemDescription(
+                maxLines: 2,
+                child: _SearchHighlight(
+                  siteUrl: controller.siteUrl!,
+                  text: result.excerpt,
+                  query: controller.query,
+                ),
+              ),
+            if (metadata.isNotEmpty)
+              DefaultTextStyle.merge(
+                style: TextStyle(
+                  fontSize: DiscourseTypography.xs,
+                  color: tokens.mutedForeground,
+                ),
+                child: Wrap(spacing: 10, runSpacing: 3, children: metadata),
+              ),
+          ],
+        ),
+      ],
     );
   }
 }
