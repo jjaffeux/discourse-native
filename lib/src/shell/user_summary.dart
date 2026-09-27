@@ -14,6 +14,7 @@ import 'avatar_image.dart';
 import 'category_icon.dart';
 import 'content_reading_lane.dart';
 import 'external_link.dart';
+import 'global_search_models.dart';
 import 'relative_time.dart';
 import 'shell_controller.dart';
 import 'shell_scope.dart';
@@ -1095,10 +1096,16 @@ class _CategoryRows extends StatelessWidget {
     UserSummaryCategory category, {
     required bool topics,
   }) {
-    final search = ShellScope.read(context).search;
-    search.requestFocus();
-    search.setQuery('@$username #${category.slug}${topics ? ' in:first' : ''}');
-    search.showTopics();
+    final shell = ShellScope.read(context);
+    // The web links these counts to full-page search: the forum scope here.
+    // Opening search resets scope and filters, so the expression is applied
+    // after the surface opens; submitting turns its tokens into filters and
+    // runs it without the typing debounce.
+    shell.search.requestFocus();
+    shell.globalSearch
+      ..setScope(GlobalSearchScope.forum)
+      ..setQuery('@$username #${category.slug}${topics ? ' in:first' : ''}')
+      ..submit();
   }
 
   @override
