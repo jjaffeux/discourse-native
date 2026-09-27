@@ -2512,6 +2512,9 @@ class ChatController extends FrameSafeNotifier {
     }
   }
 
+  // Message rows redraw the per-message checks only when the channel's
+  // `ChatChannel.messageAccess` changes, so every channel field one of them
+  // reads must be part of it.
   bool canBookmarkMessage(String siteUrl, ChatMessage message) {
     final user = _currentUserFor(siteUrl);
     final heldChannel = channel(siteUrl, message.channelId);

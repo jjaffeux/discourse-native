@@ -463,6 +463,21 @@ typedef ChatChannelMembersResult = ({
   String? error,
 });
 
+/// Every channel field that `ChatController`'s per-message permission checks
+/// read. A message row redraws its actions when this changes, and not for the
+/// rest of the record, which read credits, arrivals, previews, pins and member
+/// counts replace far more often.
+typedef ChatMessageAccess = ({
+  ChatChannelStatus status,
+  bool userSilenced,
+  bool following,
+  bool canModerate,
+  bool canDeleteSelf,
+  bool canDeleteOthers,
+  bool canManagePins,
+  bool canFlag,
+});
+
 @immutable
 class ChatChannel with Storable<ChatChannel> {
   const ChatChannel({
@@ -706,6 +721,17 @@ class ChatChannel with Storable<ChatChannel> {
       status != ChatChannelStatus.readOnly &&
       status != ChatChannelStatus.archived &&
       (isStaff || status != ChatChannelStatus.closed);
+
+  ChatMessageAccess get messageAccess => (
+    status: status,
+    userSilenced: userSilenced,
+    following: membership.following,
+    canModerate: canModerate,
+    canDeleteSelf: canDeleteSelf,
+    canDeleteOthers: canDeleteOthers,
+    canManagePins: canManagePins,
+    canFlag: canFlag,
+  );
 
   /// Remains true for a group DM with only one other participant left.
   final bool isGroup;
