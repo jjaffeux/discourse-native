@@ -49,6 +49,9 @@ void main() {
       isEmpty,
       reason: 'persisted appearance refresh waits behind selected JSON work',
     );
+    expect(api.basicInfoRequested, [
+      firstUrl,
+    ], reason: 'stored forum metadata is re-read on first activation only');
 
     api.firstTotals.complete(const NotificationTotals());
     await pumpEventQueue();
@@ -74,6 +77,7 @@ void main() {
     expect(api.messageBusBootstrapRequests, [firstUrl, secondUrl]);
     expect(api.sessionSites, [firstUrl, secondUrl]);
     expect(api.sidebarSites, [firstUrl, secondUrl]);
+    expect(api.basicInfoRequested, [firstUrl, secondUrl]);
 
     for (var index = 0; index < 10; index++) {
       shell.selectInstance(index.isEven ? 0 : 1);
@@ -93,6 +97,10 @@ void main() {
       firstUrl,
       secondUrl,
     ], reason: 'each live tracker needs one fresh cursor snapshot');
+    expect(api.basicInfoRequested, [
+      firstUrl,
+      secondUrl,
+    ], reason: 'each forum re-reads its metadata once per launch');
   });
 
   test('selected JSON refreshes wait for the cursor snapshot', () async {

@@ -25,6 +25,7 @@ import '../models/search_results.dart';
 import '../models/sidebar.dart';
 import '../models/sidebar_tag.dart';
 import '../models/site_appearance.dart';
+import '../models/site_basic_info.dart';
 import '../models/site_config.dart';
 import '../models/site_emoji.dart';
 import '../models/topic.dart';
@@ -131,6 +132,9 @@ class DiscourseApi
 
   @override
   Future<DiscourseInstance> lookup(String term) async => _site.lookup(term);
+
+  @override
+  Future<SiteBasicInfo> basicInfo(String siteUrl) => _site.basicInfo(siteUrl);
 
   @override
   Future<SiteMessageBusBootstrap?> messageBusBootstrap({

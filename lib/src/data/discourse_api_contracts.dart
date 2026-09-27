@@ -20,6 +20,7 @@ import '../models/search_results.dart';
 import '../models/sidebar.dart';
 import '../models/sidebar_tag.dart';
 import '../models/site_appearance.dart';
+import '../models/site_basic_info.dart';
 import '../models/site_config.dart';
 import '../models/site_emoji.dart';
 import '../models/topic.dart';
@@ -285,6 +286,8 @@ abstract interface class DiscourseApiConfiguration {
 
 abstract interface class SiteLookupApi {
   Future<DiscourseInstance> lookup(String term);
+
+  Future<SiteBasicInfo> basicInfo(String siteUrl);
 }
 
 abstract interface class ShellSiteApi {
