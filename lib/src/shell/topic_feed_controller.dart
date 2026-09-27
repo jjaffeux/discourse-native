@@ -200,6 +200,13 @@ final class TopicFeedController extends FrameSafeNotifier {
           return;
         }
         _feeds[key] = TopicFeed.of(list);
+        // Core's `trackIncoming` starts counting once the list is found, so
+        // an arrival the answer already lists is not announced over it. One
+        // that arrived while the request was out and that the answer missed
+        // stays announced rather than being dropped.
+        incoming?.clear(destinationId, [
+          for (final topic in list.topics) topic.id,
+        ]);
         _rows.remove(key);
         _incomingFilters.remove(key);
         if (incomingFilterFor?.call(path, list) case final filter?) {
