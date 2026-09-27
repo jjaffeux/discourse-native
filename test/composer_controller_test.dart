@@ -991,6 +991,42 @@ void main() {
       expect(composer.canSubmit, isTrue);
     });
 
+    test('settled metadata takes the title and tags the site stored', () {
+      final composer = ComposerController(
+        const ComposerTarget(
+          siteUrl: 'https://meta.discourse.org',
+          topicId: 7,
+          slug: 'a-topic',
+          topicTitle: 'Original',
+          editingPostId: 11,
+          editingPostNumber: 1,
+          mode: ComposerMode.topicEdit,
+          initialTags: [TopicTag(id: 4, name: 'old')],
+        ),
+      );
+      addTearDown(composer.dispose);
+      composer.loadedBody('Original body');
+      composer.title.text = 'changed title!!!';
+      composer.setTags(const [
+        TopicTag(id: 5, name: 'new', slug: 'new', count: 3),
+      ]);
+      final revision = composer.draftRevision;
+
+      composer.metadataSettled(
+        title: 'Changed title!',
+        tags: const [TopicTag(id: 5, name: 'new', slug: 'new')],
+      );
+
+      expect(composer.title.text, 'Changed title!');
+      expect(composer.originalTitle, 'Changed title!');
+      expect(composer.tags, const [TopicTag(id: 5, name: 'new', slug: 'new')]);
+      expect(composer.originalTags, composer.tags);
+      expect(composer.metadataChanged, isFalse);
+      expect(composer.canSubmit, isFalse);
+      // The site's spelling is not an edit of the reader's.
+      expect(composer.draftRevision, revision);
+    });
+
     test('a failed edit body load keeps sending disabled until the body '
         'arrives', () {
       final composer = ComposerController(

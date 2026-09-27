@@ -350,7 +350,7 @@ final class _EditApi extends FakeDiscourseApi {
   }
 
   @override
-  Future<void> updateTopic({
+  Future<TopicUpdate> updateTopic({
     required String siteUrl,
     required String apiKey,
     required int topicId,
@@ -361,7 +361,7 @@ final class _EditApi extends FakeDiscourseApi {
     int? categoryId,
     String? clientId,
   }) async {
-    await super.updateTopic(
+    final update = await super.updateTopic(
       siteUrl: siteUrl,
       apiKey: apiKey,
       topicId: topicId,
@@ -373,5 +373,6 @@ final class _EditApi extends FakeDiscourseApi {
       clientId: clientId,
     );
     await beforeTopicReply?.call();
+    return update;
   }
 }

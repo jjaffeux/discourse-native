@@ -86,6 +86,120 @@ void main() {
     expect(shell.currentContent?.title, _row.title);
   });
 
+  test('a cached topic opened from a link takes the title it holds', () async {
+    final server = _TopicServer();
+    final api = _TopicApi(server);
+    final shell = await _fixture(server, api: api);
+    shell.closeTopic();
+    expect(shell.currentContent?.topicId, isNull);
+
+    // A link without a slug is titled 'Topic' until the topic is known.
+    expect(shell.openTopicUrl('$_siteUrl/t/${_row.id}'), isTrue);
+    await pumpEventQueue();
+
+    expect(api.topicsOpened, [_row.id]);
+    expect(shell.currentContent?.title, _row.title);
+  });
+
+  test('a topic edit is checked against the stored title while the route '
+      'still has its link placeholder', () async {
+    final server = _TopicServer();
+    final api = _TopicApi(server);
+    final shell = await _fixture(server, api: api);
+    shell.closeTopic();
+    final hold = api.readHold = Completer<void>();
+    final reading = shell.loadTopic(_row.id, _row.slug, force: true);
+    // The open joins the read already out, which has yet to retitle it.
+    expect(shell.openTopicUrl('$_siteUrl/t/${_row.id}'), isTrue);
+    await pumpEventQueue();
+    expect(shell.currentContent?.title, 'Topic');
+
+    shell.openEdit(_editable(shell));
+    final composer = shell.visibleComposer!;
+    expect(
+      (composer.title.text, composer.originalTitle),
+      (_row.title, _row.title),
+    );
+    composer.setCategory(_categoryB.id);
+    await shell.submitComposer();
+
+    expect(
+      jsonDecode(server.requests.single.body),
+      containsPair('original_title', _row.title),
+    );
+    expect(server.topic['category_id'], _categoryB.id);
+    expect(shell.visibleComposer, isNull);
+
+    hold.complete();
+    await reading;
+    expect(shell.currentContent?.title, _row.title);
+  });
+
+  test('a renamed title is stored as the site cleaned it and is the next '
+      'save baseline', () async {
+    final server = _TopicServer(cleanTitle: _prettify);
+    final shell = await _fixture(server);
+    const cleaned = 'A clearer topic title!';
+
+    expect(
+      await shell.saveTopicTitle(
+        siteUrl: _siteUrl,
+        topicId: _row.id,
+        title: 'a clearer topic title!!!',
+      ),
+      isNull,
+    );
+    final row = shell.store.read<Topic>(_siteUrl, _row.id)!;
+    expect(
+      (shell.currentTopic?.title, row.title, shell.currentContent?.title),
+      (cleaned, cleaned, cleaned),
+    );
+
+    expect(
+      await shell.saveTopicTitle(
+        siteUrl: _siteUrl,
+        topicId: _row.id,
+        title: _renamed,
+      ),
+      isNull,
+    );
+    expect(jsonDecode(server.requests.last.body), {
+      'title': _renamed,
+      'original_title': cleaned,
+    });
+    expect(server.topic['title'], _renamed);
+  });
+
+  test('a topic edit stores the title as the site cleaned it and edits '
+      'from it next', () async {
+    final server = _TopicServer(cleanTitle: _prettify);
+    final shell = await _fixture(server);
+    const cleaned = 'A clearer topic title!';
+
+    shell.openEdit(_editable(shell));
+    shell.visibleComposer!.title.text = 'a clearer topic title!!!';
+    await shell.submitComposer();
+    expect(shell.visibleComposer, isNull);
+    final row = shell.store.read<Topic>(_siteUrl, _row.id)!;
+    expect(
+      (shell.currentTopic?.title, row.title, shell.currentContent?.title),
+      (cleaned, cleaned, cleaned),
+    );
+
+    shell.openEdit(_editable(shell));
+    final composer = shell.visibleComposer!;
+    expect(composer.originalTitle, cleaned);
+    composer.setCategory(_categoryB.id);
+    await shell.submitComposer();
+
+    expect(
+      jsonDecode(server.requests.last.body),
+      containsPair('original_title', cleaned),
+    );
+    expect(server.topic['category_id'], _categoryB.id);
+    expect(shell.visibleComposer, isNull);
+  });
+
   for (final removeTag in [false, true]) {
     testWidgets(
       'pending header rename preserves the completed category change with tag removal $removeTag',
@@ -213,9 +327,17 @@ void main() {
   }
 }
 
-Future<ShellController> _fixture(_TopicServer server) async {
-  final writes = DiscourseApi(client: MockClient(server.handle));
-  final api = _TopicApi(writes);
+/// The opening post, editable and with the body the edit composer starts from.
+Post _editable(ShellController shell) =>
+    shell.store.read<Post>(_siteUrl, 101)!.copyWith(canEdit: true, raw: 'Body');
+
+/// What `title_prettify` makes of the titles these tests type.
+String _prettify(String title) => title
+    .replaceAll(RegExp('!+'), '!')
+    .replaceFirstMapped(RegExp('^[a-z]'), (match) => match[0]!.toUpperCase());
+
+Future<ShellController> _fixture(_TopicServer server, {_TopicApi? api}) async {
+  final topics = api ?? _TopicApi(server);
   final shell = ShellController(
     instanceStore: FakeInstanceStore([
       instance('meta.example').copyWith(
@@ -227,7 +349,7 @@ Future<ShellController> _fixture(_TopicServer server) async {
         config: const SiteConfig(taggingEnabled: true),
       ),
     ]),
-    api: api,
+    api: topics,
     authenticator: FakeAuthenticator()..keys[_siteUrl] = 'key',
     drafts: FakeDraftStore(),
     forumTabs: FakeForumTabStore(),
@@ -237,7 +359,7 @@ Future<ShellController> _fixture(_TopicServer server) async {
   );
   addTearDown(() {
     shell.dispose();
-    writes.close();
+    topics.writes.close();
     final gate = server.renameGate;
     if (gate != null && !gate.isCompleted) gate.complete();
   });
@@ -249,8 +371,9 @@ Future<ShellController> _fixture(_TopicServer server) async {
 }
 
 final class _TopicApi extends FakeDiscourseApi {
-  _TopicApi(this.writes)
-    : super(
+  _TopicApi(_TopicServer server)
+    : writes = DiscourseApi(client: MockClient(server.handle)),
+      super(
         feeds: const {
           '/latest.json': [_row],
         },
@@ -291,8 +414,35 @@ final class _TopicApi extends FakeDiscourseApi {
 
   final DiscourseApi writes;
 
+  /// While set, topic reads wait for it.
+  Completer<void>? readHold;
+
   @override
-  Future<void> updateTopic({
+  Future<TopicPayload> topic({
+    required String siteUrl,
+    required String slug,
+    required int id,
+    int? postNumber,
+    bool summary = false,
+    String? apiKey,
+    String? clientId,
+    Future<void>? abortTrigger,
+  }) async {
+    await readHold?.future;
+    return super.topic(
+      siteUrl: siteUrl,
+      slug: slug,
+      id: id,
+      postNumber: postNumber,
+      summary: summary,
+      apiKey: apiKey,
+      clientId: clientId,
+      abortTrigger: abortTrigger,
+    );
+  }
+
+  @override
+  Future<TopicUpdate> updateTopic({
     required String siteUrl,
     required String apiKey,
     required int topicId,
@@ -331,9 +481,12 @@ final class _TopicApi extends FakeDiscourseApi {
 }
 
 final class _TopicServer {
-  _TopicServer({this.renameGate});
+  _TopicServer({this.renameGate, this.cleanTitle});
 
   final Completer<void>? renameGate;
+
+  /// `TextCleaner.clean_title`, which the site applies as it stores a title.
+  final String Function(String title)? cleanTitle;
   final requests = <http.Request>[];
   final topic = <String, dynamic>{
     'title': _row.title,
@@ -367,7 +520,24 @@ final class _TopicServer {
     for (final field in ['title', 'category_id', 'tags']) {
       if (body.containsKey(field)) topic[field] = body[field];
     }
-    return http.Response('{}', 200);
+    if (cleanTitle case final clean? when body.containsKey('title')) {
+      topic['title'] = clean(topic['title'] as String);
+    }
+    // TopicsController#update answers with the stored topic, and with its
+    // tags when the request carried tags.
+    return http.Response(
+      jsonEncode({
+        'basic_topic': {
+          'id': _row.id,
+          'title': topic['title'],
+          'fancy_title': topic['title'],
+          'slug': _row.slug,
+          'posts_count': 1,
+        },
+        if (body.containsKey('tags')) 'tags': topic['tags'],
+      }),
+      200,
+    );
   }
 
   List<int> _tagIds(Object? value) => [

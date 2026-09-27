@@ -4655,6 +4655,49 @@ void _writeGroups() {
       ]);
     });
 
+    test('answers with the title and tags the site stored', () async {
+      var answer = <String, Object?>{
+        'basic_topic': {
+          'id': 88,
+          'title': 'Changed title!',
+          'fancy_title': 'Changed title!',
+          'slug': 'changed-title',
+          'posts_count': 1,
+        },
+        'tags': [
+          {'id': 7, 'name': 'feature', 'slug': 'feature'},
+        ],
+      };
+      final api = DiscourseApi(
+        client: MockClient(
+          (request) async => http.Response(jsonEncode(answer), 200),
+        ),
+      );
+      Future<TopicUpdate> update() => api.updateTopic(
+        siteUrl: 'https://example.com',
+        apiKey: 'k',
+        topicId: 88,
+        title: 'changed title!!!',
+        originalTitle: 'Original',
+      );
+
+      final stored = await update();
+      expect(stored.title, 'Changed title!');
+      expect(stored.tags, [
+        const TopicTag(id: 7, name: 'feature', slug: 'feature'),
+      ]);
+
+      // A title-only write answers without tags, which is not an empty list.
+      answer = {
+        'basic_topic': {'id': 88, 'title': 'Changed title!'},
+      };
+      expect((await update()).tags, isNull);
+
+      answer = {};
+      final unknown = await update();
+      expect((unknown.title, unknown.tags), (null, null));
+    });
+
     test('keeps explicitly empty tags in metadata writes', () async {
       late http.Request sent;
       final api = DiscourseApi(

@@ -933,6 +933,39 @@ class TopicComposerCapabilities {
   }
 }
 
+/// What `PUT /t/{id}.json` answers once a metadata write is applied.
+///
+/// The site cleans a title as it stores it, and the next write's
+/// `original_title` is checked against the stored spelling, so a client that
+/// keeps the typed one has its next metadata write rejected as a conflict.
+@immutable
+class TopicUpdate {
+  const TopicUpdate({this.title, this.tags});
+
+  factory TopicUpdate.fromJson(Map<String, dynamic> json) {
+    final topic = jsonObject(json['basic_topic']);
+    return TopicUpdate(
+      // Compared verbatim by the next write, so it is kept exactly as sent.
+      title: switch (topic['title']) {
+        final String title when title.trim().isNotEmpty => title,
+        _ => null,
+      },
+      // Present only when the write carried tags.
+      tags: json['tags'] is List<dynamic>
+          ? List.unmodifiable(
+              jsonArray(json['tags']).map(TopicTag.parse).whereType<TopicTag>(),
+            )
+          : null,
+    );
+  }
+
+  /// Null when the answer does not carry one; the title sent stands then.
+  final String? title;
+
+  /// The visible tags the site stored, or null when the answer has none.
+  final List<TopicTag>? tags;
+}
+
 @immutable
 class TopicTagSearch {
   const TopicTagSearch({

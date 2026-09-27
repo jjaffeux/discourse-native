@@ -687,8 +687,22 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
     _notify();
   }
 
-  void metadataSettled() {
-    _originalTitle = title.text.trim();
+  /// Takes what the site stored as the baseline of the next metadata write.
+  /// The site's [title] and [tags], when its answer carried them, replace the
+  /// typed values too: a baseline left at the typed title fails the next
+  /// write's `original_title` check, and fields left at it read as a change.
+  void metadataSettled({String? title, List<TopicTag>? tags}) {
+    if (_disposed) return;
+    if (title != null && title != this.title.text.trim()) {
+      _replaceMetadata(
+        titleValue: title,
+        categoryId: _categoryId,
+        tags: tags ?? _tags,
+      );
+    } else if (tags != null) {
+      _tags = List.unmodifiable(tags);
+    }
+    _originalTitle = this.title.text.trim();
     _originalCategoryId = _categoryId;
     _originalTags = _tags;
     _recomputeCanSubmit();
