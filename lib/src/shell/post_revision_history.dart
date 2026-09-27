@@ -685,7 +685,6 @@ class _RevisionAttribution extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final date = revision.createdAt;
-    final age = date == null ? null : relativeTime(date);
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -708,11 +707,14 @@ class _RevisionAttribution extends StatelessWidget {
                   fontWeight: FontWeight.w700,
                 ),
               ),
-              if (age != null)
-                Text(
-                  age == 'now' ? 'now' : '$age ago',
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
+              if (date != null)
+                RelativeTimeBuilder(
+                  when: date,
+                  builder: (context, age) => Text(
+                    age == 'now' ? 'now' : '$age ago',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
                   ),
                 ),
               if (revision.editReason case final reason?)

@@ -97,13 +97,8 @@ class _ChatPinnedBarState extends State<ChatPinnedBar> {
         itemBuilder: (context, index) {
           final pin = ordered[ordered.length - index - 1];
           final by = pin.pinnedBy.displayName.trim();
-          final when = pin.pinnedAt == null
-              ? null
-              : relativeTime(pin.pinnedAt!);
-          final metadata = [
-            if (by.isNotEmpty) 'Pinned by $by',
-            ?when,
-          ].join(' · ');
+          Widget metadata(String? when) =>
+              Text([if (by.isNotEmpty) 'Pinned by $by', ?when].join(' · '));
           return ListTile(
             key: ValueKey('chat-pin-${pin.id}'),
             minTileHeight: 56,
@@ -124,7 +119,14 @@ class _ChatPinnedBarState extends State<ChatPinnedBar> {
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
             ),
-            subtitle: metadata.isEmpty ? null : Text(metadata),
+            subtitle: switch (pin.pinnedAt) {
+              final at? => RelativeTimeBuilder(
+                when: at,
+                builder: (context, when) => metadata(when),
+              ),
+              null when by.isNotEmpty => metadata(null),
+              null => null,
+            },
             onTap: () {
               Navigator.of(sheetContext).pop();
               // The sheet outlives a bar rebuilt under a new key while it is

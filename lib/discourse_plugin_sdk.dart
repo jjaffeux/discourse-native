@@ -191,7 +191,8 @@ export 'src/shell/post_flag_editor.dart' show PostFlagEditor;
 export 'src/shell/quote_panel.dart' show QuotePanel;
 export 'src/shell/reaction_presentation.dart'
     show ReactionPill, ReactionPills, ReactionUsersList, ReactionUsersPanel;
-export 'src/shell/relative_time.dart' show relativeTime;
+export 'src/shell/relative_time.dart'
+    show RelativeTimeBuilder, RelativeTimeText, relativeTime;
 export 'src/shell/route_aware_selection_area.dart' show RouteAwareSelectionArea;
 export 'src/shell/shell_metrics.dart' show shellHeaderHeight;
 export 'src/shell/shell_sheet.dart' show showShellSheet;

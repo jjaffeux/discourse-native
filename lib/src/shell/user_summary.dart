@@ -859,9 +859,15 @@ class _SummaryTopicRow extends StatelessWidget {
   final int likes;
   final int? postNumber;
 
+  // The age is part of the row's semantic label as well as its text, so the
+  // whole row follows it.
   @override
-  Widget build(BuildContext context) {
-    final date = createdAt == null ? null : relativeTime(createdAt!);
+  Widget build(BuildContext context) => switch (createdAt) {
+    final at? => RelativeTimeBuilder(when: at, builder: _row),
+    null => _row(context, null),
+  };
+
+  Widget _row(BuildContext context, String? date) {
     final category = ShellScope.read(
       context,
     ).categoryFor(topic.categoryId, siteUrl: siteUrl);

@@ -822,18 +822,14 @@ class _ChatNewDirectMessageDialogState
       trailing: AnimatedBuilder(
         animation: _command,
         builder: (context, _) => DCommandShortcut(
-          Text(
-            _command.value == item.identifier && enabled
-                ? _composingGroup
-                      ? '+'
-                      : '↵'
-                : switch (item) {
-                    ChatDirectMessageChannel(:final channel)
-                        when channel.lastMessageAt != null =>
-                      relativeTime(channel.lastMessageAt!),
-                    _ => '',
-                  },
-          ),
+          _command.value == item.identifier && enabled
+              ? Text(_composingGroup ? '+' : '↵')
+              : switch (item) {
+                  ChatDirectMessageChannel(:final channel)
+                      when channel.lastMessageAt != null =>
+                    RelativeTimeText(channel.lastMessageAt!),
+                  _ => const Text(''),
+                },
         ),
       ),
       onSelected: (_) => unawaited(_select(item)),

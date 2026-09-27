@@ -211,10 +211,16 @@ class UserActivityRow extends StatelessWidget {
   final TopicCategory? category;
   final VoidCallback onTap;
 
+  // The age is part of the row's semantic label as well as its text, so the
+  // whole row follows it.
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => switch (item.createdAt) {
+    final at? => RelativeTimeBuilder(when: at, builder: _row),
+    null => _row(context, null),
+  };
+
+  Widget _row(BuildContext context, String? when) {
     final theme = Theme.of(context);
-    final when = item.createdAt == null ? null : relativeTime(item.createdAt!);
     final category = this.category;
     final semanticLabel = [
       item.title,

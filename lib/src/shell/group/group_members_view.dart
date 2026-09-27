@@ -629,16 +629,22 @@ class _MobileMemberFact extends StatelessWidget {
   final bool relative;
 
   @override
-  Widget build(BuildContext context) => Text(
-    '$label: ${value == null
-        ? '—'
-        : relative
-        ? relativeTime(value!)
-        : _dateText(context, value!)}',
-    style: Theme.of(context).textTheme.labelSmall?.copyWith(
-      color: Theme.of(context).colorScheme.onSurfaceVariant,
-    ),
-  );
+  Widget build(BuildContext context) {
+    Widget fact(String text) => Text(
+      '$label: $text',
+      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+        color: Theme.of(context).colorScheme.onSurfaceVariant,
+      ),
+    );
+    return switch (value) {
+      null => fact('—'),
+      final value when relative => RelativeTimeBuilder(
+        when: value,
+        builder: (context, age) => fact(age),
+      ),
+      final value => fact(_dateText(context, value)),
+    };
+  }
 }
 
 class _MemberDate extends StatelessWidget {
@@ -663,8 +669,8 @@ class _MemberRelativeDate extends StatelessWidget {
     if (value == null) return const Text('—');
     return DTooltip(
       message: _dateTimeText(context, value!),
-      child: Text(
-        relativeTime(value!),
+      child: RelativeTimeText(
+        value!,
         style: Theme.of(context).textTheme.bodyMedium,
       ),
     );

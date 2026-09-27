@@ -159,8 +159,8 @@ class SmallActionTile extends StatelessWidget {
               ),
               if (post.createdAt case final createdAt?) ...[
                 const SizedBox(width: 8),
-                Text(
-                  relativeTime(createdAt),
+                RelativeTimeText(
+                  createdAt,
                   style: theme.textTheme.labelSmall?.copyWith(color: muted),
                 ),
               ],

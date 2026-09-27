@@ -570,8 +570,8 @@ class _DraftRowContent extends StatelessWidget {
                             ),
                           ),
                         if (createdAt != null)
-                          Text(
-                            relativeTime(createdAt),
+                          RelativeTimeText(
+                            createdAt,
                             style: theme.textTheme.labelMedium?.copyWith(
                               color: theme.colorScheme.onSurfaceVariant,
                             ),

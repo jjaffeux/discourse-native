@@ -233,7 +233,7 @@ class _NewTabPageState extends State<NewTabPage> {
               ? DIcons.lock
               : DIcons.layerGroup,
           count: topic.unreadCount,
-          time: topic.bumpedAt == null ? null : relativeTime(topic.bumpedAt!),
+          activityAt: topic.bumpedAt,
           description: topic.excerpt,
           path: shell!.siteLink('/t/${topic.slug}/${topic.id}'),
           onPressed: () =>
@@ -595,6 +595,7 @@ class _StartPageEntry {
     this.color,
     this.count,
     this.time,
+    this.activityAt,
     this.description,
     this.reminderAt,
     this.postNumber,
@@ -614,9 +615,7 @@ class _StartPageEntry {
     icon: destination?.icon ?? route.icon,
     color: destination?.iconColor ?? route.color,
     count: count ?? destination?.unreadCount ?? destination?.badge?.count,
-    time: destination?.lastActivityAt == null
-        ? null
-        : relativeTime(destination!.lastActivityAt!),
+    activityAt: destination?.lastActivityAt,
     description: description ?? destination?.preview ?? route.subtitle,
     path: _recentRouteUrl(siteUrl, route),
     onPressed: onPressed,
@@ -628,11 +627,24 @@ class _StartPageEntry {
   final Color? color;
   final int? count;
   final String? time;
+  final DateTime? activityAt;
   final String? description;
   final DateTime? reminderAt;
   final int? postNumber;
   final String? path;
   final VoidCallback? onPressed;
+
+  /// The age of [activityAt], which advances while the page stays open, or
+  /// else the fixed [time].
+  Widget? timeLabel({required TextStyle style, int? maxLines}) {
+    if (activityAt case final at?) {
+      return RelativeTimeText(at, style: style, maxLines: maxLines);
+    }
+    if (time case final time?) {
+      return Text(time, style: style, maxLines: maxLines);
+    }
+    return null;
+  }
 }
 
 class _StartSection extends StatelessWidget {
@@ -665,10 +677,7 @@ class _StartSection extends StatelessWidget {
             variant: DBadgeVariant.secondary,
             child: Text(entry.count.toString()),
           )
-        : entry.time == null
-        ? null
-        : Text(
-            entry.time!,
+        : entry.timeLabel(
             style: const TextStyle(
               fontSize: DiscourseTypography.metadata,
               fontWeight: FontWeight.w400,
@@ -758,10 +767,7 @@ class _StartSection extends StatelessWidget {
             variant: DBadgeVariant.primary,
             child: Text(entry.count.toString()),
           )
-        : entry.time == null
-        ? null
-        : Text(
-            entry.time!,
+        : entry.timeLabel(
             maxLines: 1,
             style: TextStyle(
               fontSize: DiscourseTypography.metadata,
