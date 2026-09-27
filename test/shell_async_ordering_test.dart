@@ -680,6 +680,36 @@ void main() {
         expect(shell.incomingCount('latest'), 2);
       },
     );
+
+    test('a run of arrivals notifies the shell once', () async {
+      final (:shell, api: _, :tracker) = await _loadIncomingShell();
+      addTearDown(shell.dispose);
+
+      var notifications = 0;
+      shell.addListener(() => notifications++);
+      for (var topicId = 20; topicId < 25; topicId++) {
+        tracker.deliver(_created(topicId));
+      }
+      tracker.deliverDelete(const {'topic_id': 20});
+
+      // The count is current before the run ends; only the redraw waits.
+      expect(shell.incomingCount('latest'), 4);
+      expect(notifications, 0);
+      await pumpEventQueue();
+      expect(notifications, 1);
+    });
+
+    test('a shell disposed during a run of arrivals stays quiet', () async {
+      final (:shell, api: _, :tracker) = await _loadIncomingShell();
+      var notifications = 0;
+      shell.addListener(() => notifications++);
+
+      tracker.deliver(_created(20));
+      shell.dispose();
+      await pumpEventQueue();
+
+      expect(notifications, 0);
+    });
   });
 
   group('live topic updates', () {
@@ -1377,6 +1407,31 @@ void main() {
       expect(row?.likeCount, 4);
       expect(api.topicsOpened, [7]);
       expect(api.postRequests, isEmpty);
+    });
+
+    test('a run of stats messages notifies the shell once', () async {
+      final api = _PostOrderingApi();
+      final shell = await _loadShell(api);
+      addTearDown(shell.dispose);
+      final tracker = await _openTopic(shell);
+      await pumpEventQueue();
+
+      var notifications = 0;
+      shell.addListener(() => notifications++);
+      for (var likes = 1; likes <= 5; likes++) {
+        tracker.deliverTopicMessage('/topic/7', {
+          'type': 'stats',
+          'id': 7,
+          'like_count': likes,
+        });
+      }
+
+      // The totals are current before the run ends; only the redraw waits.
+      expect(shell.currentTopic?.likeCount, 5);
+      expect(shell.store.read<Topic>(_siteUrl, 7)?.likeCount, 5);
+      expect(notifications, 0);
+      await pumpEventQueue();
+      expect(notifications, 1);
     });
 
     test('ignores stats totals that are not counts', () async {

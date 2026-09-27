@@ -3386,7 +3386,7 @@ class ShellController extends FrameSafeNotifier
   final Set<String> _topicTrackingLoads = {};
   final Map<String, ({SiteLease lease, Future<void> Function() load})>
   _topicTrackingRetries = {};
-  bool _topicTrackingNotifyPending = false;
+  bool _liveChangeNotifyPending = false;
   final Map<String, List<Object?>> _topicTrackingPendingEvents = {};
   final Map<String, CategoryFeed> _categoryFeeds = {};
   final Map<(String, int), Future<List<TopicCategory>>> _categoryIdRequests =
@@ -4639,7 +4639,9 @@ class ShellController extends FrameSafeNotifier
           ? row
           : row.copyWith(likeCount: likeCount, postsCount: postsCount),
     );
-    if (changed && !isDisposed && currentInstance?.url == siteUrl) _notify();
+    if (changed && !isDisposed && currentInstance?.url == siteUrl) {
+      _notifyLiveChange();
+    }
   }
 
   Future<void> _refreshPosts(
@@ -4949,7 +4951,7 @@ class ShellController extends FrameSafeNotifier
           shouldLongPoll: () =>
               _foreground || _backgroundRetention.retains(siteUrl),
           onIncomingTopics: () => commit(() {
-            if (currentInstance?.url == siteUrl) _notify();
+            if (currentInstance?.url == siteUrl) _notifyLiveChange();
           }),
           // A superseded account's tracker must not judge by, or leave hints
           // in, the filter its successor now owns at the same URL.
@@ -5278,7 +5280,7 @@ class ShellController extends FrameSafeNotifier
         (value) => value + 1,
         ifAbsent: () => 1,
       );
-      _notifyTopicTrackingChanged();
+      _notifyLiveChange();
     }
   }
 
@@ -5352,14 +5354,17 @@ class ShellController extends FrameSafeNotifier
     return read == row ? row : read;
   }
 
-  /// One poll answer can carry a backlog of tracking messages, delivered in
-  /// one synchronous run. The facade notifies once for the run: every shell
-  /// selector would otherwise re-select per row.
-  void _notifyTopicTrackingChanged() {
-    if (_topicTrackingNotifyPending) return;
-    _topicTrackingNotifyPending = true;
+  /// One poll answer can carry a backlog of messages, delivered in one
+  /// synchronous run: tracking rows, `/latest` and `/new` arrivals, `/topic`
+  /// stats. Each message applies its state at once; the facade notifies once
+  /// for the run, as every shell selector would otherwise re-select per
+  /// message. The notification carries no state, so a disposal or a lease
+  /// change before it runs leaves nothing to undo.
+  void _notifyLiveChange() {
+    if (_liveChangeNotifyPending) return;
+    _liveChangeNotifyPending = true;
     scheduleMicrotask(() {
-      _topicTrackingNotifyPending = false;
+      _liveChangeNotifyPending = false;
       if (!isDisposed) _notify();
     });
   }
@@ -8994,7 +8999,7 @@ class ShellController extends FrameSafeNotifier
           ifAbsent: () => 1,
         );
       }
-      if (currentInstance?.url == siteUrl) _notifyTopicTrackingChanged();
+      if (currentInstance?.url == siteUrl) _notifyLiveChange();
     }
     return receipt;
   }
