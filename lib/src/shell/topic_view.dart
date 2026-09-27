@@ -1413,10 +1413,12 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
     // A one-pixel glimpse of a very tall post is not evidence that it was
     // read. Advance receipts only through a post whose trailing edge reached
     // the viewport; a post taller than the screen qualifies when its end is
-    // eventually reached.
+    // eventually reached. Every such post on screen was read, not only the
+    // farthest, and each needs its own timing.
     final viewportExtent = _scroll?.position.viewportDimension;
     if (viewportExtent == null) return;
     TopicViewportSeenPost? readablePost;
+    final readablePostNumbers = <int>[];
     for (var childIndex = range.$2; childIndex >= range.$1; childIndex--) {
       if (childIndex.isOdd) continue;
       final itemIndex = childIndex ~/ 2;
@@ -1429,6 +1431,12 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
       if (post == null) continue;
       final bounds = _postViewportBounds(post.id);
       if (bounds == null || bounds.bottom > viewportExtent + 0.5) continue;
+      if (readablePost != null) {
+        // Trailing small actions are numbered above highest_post_number and
+        // only the farthest readable post is mapped back to a real one.
+        if (!post.isSmallAction) readablePostNumbers.add(post.postNumber);
+        continue;
+      }
       final caughtUp =
           !snapshot.hasMore && postIndex == snapshot.postIds.length - 1;
       readablePost = (
@@ -1438,7 +1446,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
             : post.postNumber,
         caughtUp: caughtUp,
       );
-      break;
+      readablePostNumbers.add(readablePost.postNumber);
     }
 
     final previousProgress = _progressPosition;
@@ -1449,6 +1457,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
       leading: leadingPost,
       visible: visiblePost,
       readable: readablePost,
+      readablePostNumbers: readablePostNumbers,
     );
     if (_isScrollCaptureRecording && previousProgress != _progressPosition) {
       _recordTopicScrollEvent('topic.progress.changed', {

@@ -8223,6 +8223,7 @@ class ShellController extends FrameSafeNotifier
     int topicId,
     int postNumber, {
     required bool caughtUp,
+    Iterable<int> readPostNumbers = const [],
   }) {
     final lease = lifecycle.capture(siteUrl);
     final receipt = _topicReads.mark(
@@ -8230,6 +8231,7 @@ class ShellController extends FrameSafeNotifier
       topicId,
       postNumber,
       caughtUp: caughtUp,
+      readPostNumbers: readPostNumbers,
     );
     // The read controller publishes locally before its request completes.
     // Update counts and visible queues from that same optimistic position.

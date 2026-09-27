@@ -249,6 +249,39 @@ void main() {
       },
     );
 
+    test(
+      'a reader who keeps scrolling is credited as the dwell elapses',
+      () async {
+        final frames = _FrameQueue();
+        final geometry = _Geometry();
+        final clock = _ManualClock();
+        final subject = _coordinator(
+          frames: frames,
+          geometry: geometry,
+          clock: clock,
+        );
+        _disposeAfter(subject, frames);
+        final owner = _Owner(_snapshot(topicId: 1, postIds: const [10, 11]));
+        subject
+          ..bind(owner.binding)
+          ..restoreInitialPost(owner.snapshot);
+        void read(int postId, int postNumber) => subject.recordObservation(
+          snapshot: owner.snapshot,
+          saveAnchor: false,
+          readable: (postId: postId, postNumber: postNumber, caughtUp: false),
+          readablePostNumbers: [postNumber],
+        );
+
+        read(10, 1);
+        clock.elapse(const Duration(milliseconds: 300));
+        read(11, 2);
+        clock.elapse(const Duration(milliseconds: 200));
+        await _drainMicrotasks();
+
+        expect(owner.reads, const [(postNumber: 2, caughtUp: false)]);
+      },
+    );
+
     test('a saved position past the stream restores at the last post', () {
       final frames = _FrameQueue();
       final geometry = _Geometry();
@@ -560,6 +593,7 @@ final class _Owner {
           required topicId,
           required postNumber,
           required caughtUp,
+          required readPostNumbers,
         }) async => reads.add((postNumber: postNumber, caughtUp: caughtUp)),
     saveAnchor: (topicId, postNumber, viewportOffset) =>
         anchors.add((postNumber: postNumber, viewportOffset: viewportOffset)),

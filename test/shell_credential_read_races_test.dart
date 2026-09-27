@@ -32,6 +32,7 @@ void main() {
           topicId: 7,
           postNumber: 3,
           caughtUp: true,
+          readPostNumbers: const [3],
         ),
       );
 
@@ -63,6 +64,7 @@ void main() {
         topicId: 7,
         postNumber: 3,
         caughtUp: true,
+        readPostNumbers: const [3],
       );
 
       expect(binding.isCurrent(), isFalse);

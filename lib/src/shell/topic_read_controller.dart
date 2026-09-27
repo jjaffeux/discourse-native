@@ -58,11 +58,14 @@ final class TopicReadController {
     );
   }
 
+  /// Credits [postNumber], the farthest post read, and every other post in
+  /// [readPostNumbers] that was read on the same screen.
   Future<void> mark(
     String siteUrl,
     int topicId,
     int postNumber, {
     required bool caughtUp,
+    Iterable<int> readPostNumbers = const [],
   }) {
     if (_disposed || topicId <= 0 || postNumber <= 0) return Future.value();
 
@@ -96,7 +99,17 @@ final class TopicReadController {
     _retain(_queued, key, (
       siteUrl: siteUrl,
       topicId: topicId,
-      postNumbers: {if (postNumber > position) postNumber, ...retryPosts},
+      // Core clears notifications and counts reads only for the exact timing
+      // keys, so every newly read post is sent in reading order, not only the
+      // farthest one. The new position must still cover each of them.
+      postNumbers: {
+        ...readPostNumbers
+            .where((read) => read > position && read < postNumber)
+            .toList()
+          ..sort(),
+        if (postNumber > position) postNumber,
+        ...retryPosts,
+      },
       lease: lease,
     ));
     store.update<Topic>(
