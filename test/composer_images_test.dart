@@ -6,19 +6,60 @@ import 'package:discourse_native/src/shell/composer_images.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  test('attachment markdown preserves and escapes the full filename', () {
-    const upload = ComposerUploadResult(
-      id: 1,
-      originalFilename: 'screen [1].mp4',
-      shortUrl: 'upload://video.mp4',
-      url: 'https://example.com/video.mp4',
-      width: 1920,
-      height: 1080,
-    );
-    expect(
-      uploadFileMarkdown(upload),
-      r'[screen \[1\].mp4](upload://video.mp4)',
-    );
+  group('uploadFileMarkdown', () {
+    ComposerUploadResult upload(String filename, String shortUrl) =>
+        ComposerUploadResult(
+          id: 1,
+          originalFilename: filename,
+          shortUrl: shortUrl,
+          url: 'https://example.com/${shortUrl.substring(9)}',
+          width: 1920,
+          height: 1080,
+        );
+
+    test('videos and audio are written as core writes playable media', () {
+      // Core's `getUploadMarkdown` cooks these into a video placeholder and an
+      // `<audio controls>` player. A plain link cooks to a bare filename on
+      // every client, web included.
+      expect(
+        uploadFileMarkdown(upload('screen [1].mp4', 'upload://video.mp4')),
+        '![screen 1|video](upload://video.mp4)',
+      );
+      expect(
+        uploadFileMarkdown(upload('Holiday.MOV', 'upload://holiday.mov')),
+        '![Holiday|video](upload://holiday.mov)',
+      );
+      expect(
+        uploadFileMarkdown(upload('a|b take.webm', 'upload://take.webm')),
+        '![a b take|video](upload://take.webm)',
+      );
+      expect(
+        uploadFileMarkdown(upload('song.mp3', 'upload://song.mp3')),
+        '![song|audio](upload://song.mp3)',
+      );
+      expect(
+        uploadFileMarkdown(upload('memo.m4a', 'upload://memo.m4a')),
+        '![memo|audio](upload://memo.m4a)',
+      );
+    });
+
+    test('other files are links that keep and escape the full filename', () {
+      expect(
+        uploadFileMarkdown(upload('notes [1].pdf', 'upload://notes.pdf')),
+        r'[notes \[1\].pdf](upload://notes.pdf)',
+      );
+      expect(
+        uploadFileMarkdown(upload('clip.mp4.zip', 'upload://clip.zip')),
+        '[clip.mp4.zip](upload://clip.zip)',
+      );
+    });
+
+    test('images keep their sized image markdown', () {
+      expect(
+        uploadFileMarkdown(upload('photo.png', 'upload://photo.png')),
+        '![photo|1920x1080](upload://photo.png)',
+      );
+    });
   });
 
   group('uploadImageMarkdown', () {
@@ -218,6 +259,61 @@ void main() {
 
       expect(markdown, r'![a \`b\` c|10x20](upload://abc)');
       expect(parseComposerImages(markdown).single.alt, 'a `b` c');
+    });
+
+    test('playable media stays raw source rather than an image', () {
+      // Core draws an image token as a player when the run of known `|`
+      // suffixes ending its alt starts with `video` or `audio`. As an image
+      // block the media would be fetched as a picture, and rewriting the
+      // block would drop the suffix.
+      const source =
+          '![clip|video](upload://clip.mp4) '
+          '![song|audio](upload://song.mp3) '
+          '![|video](upload://bare.mp4) '
+          '![a|b|video](upload://pipes.mp4) '
+          '![clip|video|thumbnail](upload://thumb.mp4) '
+          '![clip|audio|data-x=1](upload://data.mp3) '
+          r'![clip\|video](upload://escaped.mp4) '
+          '![video](upload://named.png) '
+          '![still|800x600|video](upload://sized.png) '
+          '![shot|VIDEO](upload://upper.png) '
+          '![shot|video tour](upload://words.png) '
+          '![video|thumbnail](upload://thumbnail.png)';
+      final images = parseComposerImages(source);
+
+      expect(
+        [for (final image in images) (image.alt, image.url, image.width)],
+        [
+          ('video', 'upload://named.png', null),
+          ('still', 'upload://sized.png', 800),
+          ('shot', 'upload://upper.png', null),
+          ('shot', 'upload://words.png', null),
+          ('video', 'upload://thumbnail.png', null),
+        ],
+      );
+    });
+
+    test('media suffix runs cost their length, not their square', () {
+      // The suffix run is read on every keystroke that reaches an image, so a
+      // pasted alt of known suffixes must not be re-read per segment.
+      for (final segment in [
+        '|1x1',
+        '|${'1' * 64}x1, 50%',
+        '|data-key=value',
+        '|thumbnail',
+      ]) {
+        final small = _bestOf(
+          () => parseComposerImages('![a${segment * 500}](upload://x)'),
+        );
+        final large = _bestOf(
+          () => parseComposerImages('![a${segment * 4000}](upload://x)'),
+        );
+        expect(
+          large,
+          lessThan(small * 25),
+          reason: '$segment: eight times the run took ${large / small} times',
+        );
+      }
     });
 
     test('does not project image syntax inside inline or fenced code', () {
