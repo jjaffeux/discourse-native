@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:discourse_native/src/data/discourse_api.dart';
 import 'package:discourse_native/src/data/discourse_request_coordinator.dart';
@@ -802,6 +803,213 @@ void main() {
               .having((error) => error.statusCode, 'statusCode', 400),
         ),
       );
+    });
+  });
+
+  group('whether a failed write reached the site', () {
+    final onDarwin = Platform.isMacOS || Platform.isIOS;
+    OSError os(String message, {required int darwin, required int linux}) =>
+        OSError(message, onDarwin ? darwin : linux);
+
+    Future<WriteException> failedWrite(
+      DiscourseTransport transport,
+      Uri url,
+    ) async {
+      try {
+        await transport.write(
+          url,
+          siteUrl: url.origin,
+          method: 'POST',
+          apiKey: 'secret',
+          body: const {'message': 'hi'},
+        );
+      } on WriteException catch (error) {
+        return error;
+      }
+      fail('The write succeeded.');
+    }
+
+    for (final (label, error, notSent) in <(String, Object, bool)>[
+      (
+        'a failed host lookup',
+        const SocketException(
+          "Failed host lookup: 'forum.invalid'",
+          osError: OSError('nodename nor servname provided, or not known', 8),
+        ),
+        true,
+      ),
+      (
+        'a refused connection',
+        SocketException(
+          'Connection refused',
+          osError: os('Connection refused', darwin: 61, linux: 111),
+        ),
+        true,
+      ),
+      (
+        'an unreachable network',
+        SocketException(
+          'Connection failed',
+          osError: os('Network is unreachable', darwin: 51, linux: 101),
+        ),
+        true,
+      ),
+      (
+        'an unreachable host',
+        SocketException(
+          'Connection failed',
+          osError: os('No route to host', darwin: 65, linux: 113),
+        ),
+        true,
+      ),
+      (
+        'a network that is down',
+        SocketException(
+          'Connection failed',
+          osError: os('Network is down', darwin: 50, linux: 100),
+        ),
+        true,
+      ),
+      (
+        'a failed TLS handshake',
+        const HandshakeException('Handshake error in client'),
+        true,
+      ),
+      (
+        'a connection reset',
+        SocketException(
+          'Read failed',
+          osError: os('Connection reset by peer', darwin: 54, linux: 104),
+        ),
+        false,
+      ),
+      (
+        'a broken pipe',
+        const SocketException(
+          'Write failed',
+          osError: OSError('Broken pipe', 32),
+        ),
+        false,
+      ),
+      (
+        "another kernel's number for a refused connection",
+        SocketException(
+          'Connection failed',
+          osError: os('Unrelated error', darwin: 111, linux: 61),
+        ),
+        false,
+      ),
+      (
+        'a socket error without a code',
+        const SocketException('offline'),
+        false,
+      ),
+      (
+        'a connection closed early',
+        http.ClientException(
+          'Connection closed before full header was received',
+        ),
+        false,
+      ),
+      ('a timeout', TimeoutException('Future not completed'), false),
+    ]) {
+      test(
+        '${notSent ? 'is known unsent' : 'stays uncertain'} after $label',
+        () async {
+          final transport = DiscourseTransport(
+            SafeHttpClient.owned(MockClient((_) async => throw error)),
+            const Duration(seconds: 1),
+            1024,
+          );
+          addTearDown(transport.close);
+
+          final failure = await failedWrite(
+            transport,
+            Uri.parse('https://example.com/chat/9.json'),
+          );
+
+          expect(failure.failure, WriteFailure.unreachable);
+          expect(failure.notSent, notSent);
+          expect(failure.diagnosticCause, same(error));
+        },
+      );
+    }
+
+    test('is known unsent when the origin backlog refuses it', () async {
+      final gate = Completer<void>();
+      final started = <String>[];
+      final transport = DiscourseTransport(
+        SafeHttpClient.owned(
+          MockClient((request) async {
+            started.add(request.url.path);
+            await gate.future;
+            return http.Response('{}', 200);
+          }),
+        ),
+        const Duration(seconds: 1),
+        1024,
+        maxConcurrentPerOrigin: 1,
+        maxQueuedPerOrigin: 1,
+      );
+      addTearDown(transport.close);
+      final active = transport.get(
+        Uri.parse('https://example.com/active.json'),
+        siteUrl: 'https://example.com',
+      );
+      final queued = transport.get(
+        Uri.parse('https://example.com/queued.json'),
+        siteUrl: 'https://example.com',
+      );
+      await Future<void>.delayed(Duration.zero);
+
+      final failure = await failedWrite(
+        transport,
+        Uri.parse('https://example.com/overflow.json'),
+      );
+
+      expect(failure.notSent, isTrue);
+      expect(failure.diagnosticCause, isA<DiscourseRequestOverloadException>());
+      gate.complete();
+      await Future.wait([active, queued]);
+      expect(started, ['/active.json', '/queued.json']);
+    });
+
+    test('is classified from what the real socket stack raises', () async {
+      final transport = DiscourseTransport.create();
+      addTearDown(transport.close);
+
+      final vacated = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
+      final closedPort = vacated.port;
+      await vacated.close();
+      final refused = await failedWrite(
+        transport,
+        Uri.parse('http://127.0.0.1:$closedPort/chat/9.json'),
+      );
+      expect(refused.diagnosticCause, isA<SocketException>());
+      expect(refused.notSent, isTrue);
+
+      // The site read the whole request before the connection dropped: it
+      // may have been applied, so nothing may say it was not.
+      final reader = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
+      addTearDown(reader.close);
+      final received = Completer<void>();
+      reader.listen((socket) {
+        final request = <int>[];
+        socket.listen((bytes) {
+          request.addAll(bytes);
+          if (utf8.decode(request, allowMalformed: true).endsWith('"hi"}')) {
+            if (!received.isCompleted) received.complete();
+            socket.destroy();
+          }
+        });
+      });
+      final dropped = await failedWrite(
+        transport,
+        Uri.parse('http://127.0.0.1:${reader.port}/chat/9.json'),
+      );
+      expect(received.isCompleted, isTrue);
+      expect(dropped.failure, WriteFailure.unreachable);
+      expect(dropped.notSent, isFalse);
     });
   });
 }

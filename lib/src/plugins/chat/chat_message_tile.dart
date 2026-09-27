@@ -1253,7 +1253,7 @@ class _Tile extends StatelessWidget {
               ),
             if (message.delivery == ChatMessageDelivery.failed &&
                 message.stagedId != null &&
-                message.sendFailure?.failure == WriteFailure.rateLimited)
+                message.sendRetryable)
               PluginServiceSelector<ChatController, bool>(
                 service: chatControllerService,
                 select: (controller) =>

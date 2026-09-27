@@ -787,6 +787,46 @@ void _registerTopicReplyTests() {
       expect(api.created, hasLength(1));
     }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
+    testWidgets('a reply that never reached the site is not checked for', (
+      tester,
+    ) async {
+      final api = FakeDiscourseApi(
+        feeds: {'/latest.json': listed},
+        topics: {7: detail()},
+        writeFailure: const WriteException(
+          WriteFailure.unreachable,
+          notSent: true,
+        ),
+      );
+
+      await openTopic(tester, api);
+      await tester.tap(find.byTooltip('Reply to this topic'));
+      await tester.pumpAndSettle();
+      await tester.enterText(_composerField, 'Offline thought.');
+      await tester.pumpAndSettle();
+
+      // Offline, a check would fail as well and hold the reply back.
+      api.topics.remove(7);
+      final topicReads = api.topicsOpened.length;
+      final postReads = api.postFetches.length;
+
+      await tester.tap(sendButton());
+      await tester.pumpAndSettle();
+
+      expect(api.created, hasLength(1));
+      expect(api.topicsOpened, hasLength(topicReads));
+      expect(api.postFetches, hasLength(postReads));
+      expect(find.textContaining('may have posted'), findsNothing);
+      expect(
+        find.text("Couldn't reach the site. Nothing was posted."),
+        findsOneWidget,
+      );
+      expect(find.text('Offline thought.'), findsOneWidget);
+      final button = tester.widget<DButton>(sendButton());
+      expect(button.tooltip, 'Reply');
+      expect(button.onPressed, isNotNull);
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
+
     testWidgets(
       'Check again looks for what was sent, not what was typed since',
       (tester) async {

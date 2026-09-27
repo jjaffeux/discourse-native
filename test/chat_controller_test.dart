@@ -5698,6 +5698,54 @@ void main() {
       },
     );
 
+    test(
+      'a send that never reached the site is certain and can be retried',
+      () async {
+        const offline = WriteException(WriteFailure.unreachable, notSent: true);
+        final subject = build(
+          sendFailure: offline,
+          currentUser: currentUser,
+          sentMessageId: 42,
+        );
+        addTearDown(subject.chat.dispose);
+        final tracker = attachTracker(subject.chat);
+
+        final handle = subject.chat.sendMessage(
+          site,
+          9,
+          OutgoingChatMessage.text('hello chat'),
+        )!;
+        expect(await handle.settled, ChatSendResult.failed);
+
+        final local = subject.store.read<ChatMessage>(site, handle.localId)!;
+        expect(local.delivery, ChatMessageDelivery.failed);
+        expect(local.sendError, offline.message);
+        expect(local.deliveryUncertain, isFalse);
+        expect(local.sendRetryable, isTrue);
+        // Still listening, for the copy the retry will be answered with.
+        expect(tracker.pluginChannelCallbacks['/chat/9'], hasLength(1));
+
+        subject.api.chatSendFailure = null;
+        final retry = subject.chat.retryMessage(
+          site,
+          const ChatChannelTarget(9),
+          handle.stagedId,
+        )!;
+        expect(await retry.settled, ChatSendResult.sent);
+        tracker.deliverPluginMessage(
+          '/chat/9',
+          sentEvent(stagedId: handle.stagedId),
+        );
+
+        final rows = subject.chat.messages(site, 9);
+        expect(rows, hasLength(1));
+        expect(rows.single.serverId, 42);
+        expect(rows.single.canonicalReceived, isTrue);
+        expect(subject.api.chatMessagesSent, hasLength(2));
+        expect(tracker.pluginChannelCallbacks['/chat/9'], isEmpty);
+      },
+    );
+
     test('read receipts ignore a local negative message ID', () async {
       final subject = build(currentUser: currentUser);
       addTearDown(subject.chat.dispose);

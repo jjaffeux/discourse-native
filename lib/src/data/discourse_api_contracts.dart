@@ -123,6 +123,7 @@ class WriteException implements Exception, DiagnosticErrorCause {
     this.errors = const [],
     this.statusCode,
     this.retryAfter,
+    this.notSent = false,
     this.cause,
     this.causeStackTrace,
   });
@@ -135,6 +136,13 @@ class WriteException implements Exception, DiagnosticErrorCause {
   final int? statusCode;
 
   final Duration? retryAfter;
+
+  /// The request provably never reached the site, so nothing it asked for can
+  /// have happened there and sending it again cannot duplicate it. Any other
+  /// [WriteFailure.unreachable] failure may have been applied with only the
+  /// answer lost.
+  final bool notSent;
+
   final Object? cause;
   final StackTrace? causeStackTrace;
 
@@ -163,7 +171,7 @@ class WriteException implements Exception, DiagnosticErrorCause {
   @override
   String toString() =>
       'WriteException($failure, statusCode: $statusCode, '
-      'retryAfter: $retryAfter)';
+      'retryAfter: $retryAfter${notSent ? ', notSent' : ''})';
 }
 
 /// A category-list response plus whether its page-one site metadata also

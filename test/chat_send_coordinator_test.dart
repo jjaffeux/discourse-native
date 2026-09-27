@@ -183,6 +183,42 @@ void main() {
       },
     );
 
+    test('a send that never reached the site can be retried at once', () async {
+      final scheduler = ManualScheduler();
+      const offline = WriteException(WriteFailure.unreachable, notSent: true);
+      final api = FakeDiscourseApi(chatSendFailure: offline);
+      final projection = _Projection();
+      final coordinator = DefaultChatSendCoordinator(
+        api: api,
+        requests: _Requests(),
+        host: projection.host,
+        cooldownFactory: () => OriginCooldown(
+          clock: scheduler.now,
+          timerFactory: scheduler.createTimer,
+        ),
+      );
+      addTearDown(coordinator.dispose);
+      const target = ChatChannelTarget(9);
+      final first = coordinator.sendMessage(
+        _site,
+        target,
+        OutgoingChatMessage.text('hello'),
+      )!;
+      expect(await first.settled, ChatSendResult.failed);
+      expect(projection.staged.single.sendFailure, same(offline));
+      expect(projection.staged.single.retryWaiting, isFalse);
+      expect(scheduler.activeTimerCount, 0);
+
+      api.chatSendFailure = null;
+      final retry = coordinator.retryMessage(_site, target, first.stagedId)!;
+      expect(coordinator.retryMessage(_site, target, first.stagedId), isNull);
+      expect(await retry.settled, ChatSendResult.sent);
+      expect(api.chatMessagesSent.map((call) => call.stagedId), [
+        first.stagedId,
+        first.stagedId,
+      ]);
+    });
+
     for (final retirement in ['channel', 'account', 'dispose']) {
       test('cancels retry cooldown on $retirement retirement', () async {
         final scheduler = ManualScheduler();

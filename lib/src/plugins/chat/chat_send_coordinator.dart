@@ -332,7 +332,10 @@ final class DefaultChatSendCoordinator implements ChatSendCoordinator {
     );
     _retries.remove(stagedId)?.cooldown.cancel();
     _retries[stagedId] = retry;
-    final advertised = failure.retryAfter ?? const Duration(seconds: 1);
+    // Nothing asked the site to wait for a request that never reached it.
+    final advertised = failure.notSent
+        ? Duration.zero
+        : failure.retryAfter ?? const Duration(seconds: 1);
     final remaining = retry.cooldown.extend(
       advertised.isNegative ? Duration.zero : advertised,
       onExpired: () {
@@ -524,7 +527,7 @@ final class DefaultChatSendCoordinator implements ChatSendCoordinator {
           );
         });
         if (!canonicalAlreadyArrived &&
-            failure.failure == WriteFailure.rateLimited &&
+            ChatMessage.permitsRetry(failure) &&
             _requestIsCurrent(item.lease, queue, item)) {
           _retainRetry(queue, item, failure);
         }

@@ -3279,6 +3279,36 @@ void main() {
       },
     );
 
+    testWidgets('offers retry for a send that never reached the site', (
+      tester,
+    ) async {
+      const failure = WriteException(WriteFailure.unreachable, notSent: true);
+      final fixture = await _fixture(
+        pages: {FakeDiscourseApi.chatMessagesKey(9): _emptyPage},
+        sendFailure: failure,
+      );
+      addTearDown(fixture.shell.dispose);
+      await tester.pumpWidget(_TestView(shell: fixture.shell));
+      await tester.pumpAndSettle();
+
+      await tester.enterText(_composerField(), 'send once back online');
+      await tester.pump();
+      await tester.tap(find.byKey(const ValueKey('chat-composer-send')));
+      await tester.pumpAndSettle();
+      expect(find.text('Failed to send: ${failure.message}'), findsOneWidget);
+
+      fixture.api.chatSendFailure = null;
+      await tester.tap(find.widgetWithText(DButton, 'Retry'));
+      await tester.pumpAndSettle();
+
+      expect(fixture.api.chatMessagesSent.map((m) => m.message), [
+        'send once back online',
+        'send once back online',
+      ]);
+      expect(find.text('Retry'), findsNothing);
+      expect(find.textContaining('Failed to send'), findsNothing);
+    });
+
     testWidgets(
       'retry preserves a newer composer draft and disables repeated clicks',
       (tester) async {
