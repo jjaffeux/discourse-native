@@ -2947,6 +2947,8 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
     if (text.text == _lastText) return;
     // Let EditableText finish applying its exact undo value before removing
     // slots whose requests have already settled. No stale token is saved.
+    // Stripping amends the restored value: as an edit of its own it would
+    // discard redo and be the step the next undo restores, slot and all.
     if (!_updatingUploadPlaceholders && !_target.isPlugin) {
       scheduleMicrotask(() {
         if (_disposed) return;
@@ -2954,9 +2956,12 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
           for (final slot in _uploadPlaceholders.find(text.text))
             if (!_pendingUploads.containsKey(slot.id)) slot.id,
         ];
-        for (final id in settled) {
-          _replaceUploadPlaceholder(id, '', removeLine: true);
-        }
+        if (settled.isEmpty) return;
+        history.amend(() {
+          for (final id in settled) {
+            _replaceUploadPlaceholder(id, '', removeLine: true);
+          }
+        });
       });
     }
     final wasDraftPending = draftPending;

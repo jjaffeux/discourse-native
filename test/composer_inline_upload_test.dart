@@ -675,6 +675,65 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  test('undo steps past a cancelled upload to the text before it', () async {
+    final composer = ComposerController(
+      _target,
+      imageUploader: (file, {required onProgress, required abortTrigger}) =>
+          Completer<ComposerUploadResult>().future,
+    );
+    addTearDown(composer.dispose);
+    composer.history.startSession();
+    _commit(composer, 'Intro');
+    _commit(composer, 'Intro more');
+    composer.addImages([_file], composer.text.text.length);
+    composer.history.flush();
+    composer.cancelUpload(composer.uploads.single.id);
+    composer.history.flush();
+    // Undoing the cancel restores the settled slot, which is stripped again.
+    for (final expected in ['Intro more\n', 'Intro more', 'Intro']) {
+      await _undo(composer);
+      expect(composer.text.text, expected);
+      expect(composer.history.canRedo, isTrue);
+    }
+    while (composer.history.canRedo) {
+      await _redo(composer);
+    }
+    expect(composer.text.text, 'Intro more\n');
+    expect(composer.uploads, isEmpty);
+  });
+
+  test('undo removes a finished upload and redo brings it back', () async {
+    final request = Completer<ComposerUploadResult>();
+    final composer = ComposerController(
+      _target,
+      imageUploader: (file, {required onProgress, required abortTrigger}) =>
+          request.future,
+    );
+    addTearDown(composer.dispose);
+    composer.history.startSession();
+    _commit(composer, 'Intro');
+    composer.addImages([_file], composer.text.text.length);
+    composer.history.flush();
+    request.complete(_result);
+    await Future<void>.delayed(Duration.zero);
+    composer.history.flush();
+    final uploaded = composer.text.text;
+    expect('upload://photo'.allMatches(uploaded), hasLength(1));
+    _commit(composer, '${uploaded}Hello');
+
+    await _undo(composer);
+    expect(composer.text.text, uploaded);
+    await _undo(composer);
+    expect(composer.text.text, 'Intro\n');
+    expect(composer.history.canRedo, isTrue);
+    await _redo(composer);
+    expect(composer.text.text, uploaded);
+    await _undo(composer);
+    expect(composer.text.text, 'Intro\n');
+    await _undo(composer);
+    expect(composer.text.text, 'Intro');
+  });
+
   group('upload placeholders', () {
     final owner = Object();
     final placeholders = ComposerUploadPlaceholders(owner);
@@ -825,6 +884,26 @@ Future<void> _pump(
   );
   await tester.pumpAndSettle();
   await tester.showKeyboard(find.byType(EditableText));
+}
+
+/// Replaces the document with [source] as one finished typing edit.
+void _commit(ComposerController composer, String source) {
+  composer.text.value = TextEditingValue(
+    text: source,
+    selection: TextSelection.collapsed(offset: source.length),
+  );
+  composer.history.flush();
+}
+
+// A restored value's settled slots are stripped in a microtask.
+Future<void> _undo(ComposerController composer) async {
+  expect(composer.history.undo(), isTrue);
+  await Future<void>.delayed(Duration.zero);
+}
+
+Future<void> _redo(ComposerController composer) async {
+  expect(composer.history.redo(), isTrue);
+  await Future<void>.delayed(Duration.zero);
 }
 
 Future<void> _type(

@@ -111,6 +111,24 @@ class ComposerEditHistory extends ChangeNotifier {
     return before.text != text.text;
   }
 
+  /// Applies [edit] as a correction of the current value rather than an edit
+  /// of its own. A value restored by undo or redo that its owner must then
+  /// normalise would otherwise become the newest entry, discarding redo and
+  /// becoming the step the next undo restores, which normalises it again.
+  /// While typing is pending, the correction ends that typed edit instead.
+  void amend(VoidCallback edit) {
+    final restoring = _restoring;
+    _restoring = true;
+    try {
+      edit();
+    } finally {
+      _restoring = restoring;
+      _last = text.value;
+      if (_pendingBefore != null) _pendingAfter = _last;
+    }
+    notifyListeners();
+  }
+
   bool undo() {
     if (composing) return false;
     flush();
