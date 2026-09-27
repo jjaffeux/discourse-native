@@ -288,11 +288,13 @@ void main() {
             ),
         },
       );
+      final instances = [instance('meta.example').copyWith(user: user)];
       await pumpShell(
         tester,
         desktop,
         api: api,
-        instances: [instance('meta.example').copyWith(user: user)],
+        instances: instances,
+        authenticator: FakeAuthenticator.signedIn(instances, site: api),
       );
       final shell = _shell(tester);
       shell.openTopic(other);
@@ -368,11 +370,13 @@ void main() {
           ),
         },
       );
+      final instances = [instance('meta.example').copyWith(user: user)];
       await pumpShell(
         tester,
         desktop,
         api: api,
-        instances: [instance('meta.example').copyWith(user: user)],
+        instances: instances,
+        authenticator: FakeAuthenticator.signedIn(instances, site: api),
       );
       final shell = _shell(tester);
       shell.openTopic(topic);

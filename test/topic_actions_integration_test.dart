@@ -1961,12 +1961,13 @@ void _registerTopicModerationTests() {
       WidgetTester tester,
       FakeDiscourseApi api, {
       FakeInstanceStore? store,
+      FakeAuthenticator? authenticator,
     }) {
       final controller = ShellController(
         instanceStore:
             store ?? FakeInstanceStore([instance('meta.discourse.org')]),
         api: api,
-        authenticator: FakeAuthenticator(),
+        authenticator: authenticator ?? FakeAuthenticator(),
         drafts: FakeDraftStore(),
         trackers: FakeSiteTracker.reset(),
         updateStore: FakeUpdateStore(),
@@ -2184,14 +2185,16 @@ void _registerTopicModerationTests() {
       // account, so keeping an answer that can no longer be refreshed would
       // leave the shell drawing something it cannot correct.
       final api = serving(configs: {site: reactionsOn});
+      final signedIn = [
+        instance(
+          'meta.discourse.org',
+        ).copyWith(user: const DiscourseUser(username: 'joffreyj')),
+      ];
       final controller = controllerWith(
         tester,
         api,
-        store: FakeInstanceStore([
-          instance(
-            'meta.discourse.org',
-          ).copyWith(user: const DiscourseUser(username: 'joffreyj')),
-        ]),
+        store: FakeInstanceStore(signedIn),
+        authenticator: FakeAuthenticator.signedIn(signedIn, site: api),
       );
       await controller.load();
       await controller.loadTopic(7, 'a-real-topic');

@@ -27,21 +27,23 @@ Future<ShellController> _pumpMentions(
   String? username = 'Martin',
   ThemeData? theme,
 }) async {
+  final instances = [
+    DiscourseInstance(
+      url: sourceSite,
+      title: 'Source',
+      user: username == null ? null : DiscourseUser(username: username),
+    ),
+    const DiscourseInstance(
+      url: _selectedSite,
+      title: 'Selected',
+      user: DiscourseUser(username: 'sam'),
+    ),
+  ];
+  final api = FakeDiscourseApi(user: const DiscourseUser(username: 'sam'));
   final controller = ShellController(
-    instanceStore: FakeInstanceStore([
-      DiscourseInstance(
-        url: sourceSite,
-        title: 'Source',
-        user: username == null ? null : DiscourseUser(username: username),
-      ),
-      const DiscourseInstance(
-        url: _selectedSite,
-        title: 'Selected',
-        user: DiscourseUser(username: 'sam'),
-      ),
-    ]),
-    api: FakeDiscourseApi(user: const DiscourseUser(username: 'sam')),
-    authenticator: FakeAuthenticator(),
+    instanceStore: FakeInstanceStore(instances),
+    api: api,
+    authenticator: FakeAuthenticator.signedIn(instances, site: api),
     drafts: FakeDraftStore(),
     trackers: FakeSiteTracker.reset(),
     updateStore: FakeUpdateStore(),

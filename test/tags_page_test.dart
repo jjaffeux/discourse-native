@@ -25,7 +25,7 @@ Future<ShellController> _loadController({
   final controller = ShellController(
     instanceStore: FakeInstanceStore([site]),
     api: api,
-    authenticator: FakeAuthenticator(),
+    authenticator: FakeAuthenticator.signedIn([site], site: api),
     drafts: FakeDraftStore(),
     trackers: FakeSiteTracker.reset(),
     updater: FakeUpdater(),

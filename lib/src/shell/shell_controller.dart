@@ -2714,14 +2714,18 @@ class ShellController extends FrameSafeNotifier
         () => credentials.apiKeyFor(instance.url),
       );
       if (credential == null || !lease.isCurrent) return;
-      if (credential.value case final apiKey?) {
-        await _sessionUser(instance.url, apiKey, lease: lease, force: force);
-        if (!lease.isCurrent || currentInstance?.url != instance.url) return;
-        await _refreshCustomSidebarSections(instance.url, apiKey, lease: lease);
+      final apiKey = credential.value;
+      if (apiKey == null) {
+        await _expireMissingAccount(instance.url, lease);
+        return;
       }
+      await _sessionUser(instance.url, apiKey, lease: lease, force: force);
+      if (!lease.isCurrent || currentInstance?.url != instance.url) return;
+      await _refreshCustomSidebarSections(instance.url, apiKey, lease: lease);
     } catch (_) {
       // Freshness-sensitive plugin capabilities remain unknown. Persisted
-      // extension state must not authorize them in their place.
+      // extension state must not authorize them in their place. A key that
+      // could not be read is not a missing key, so the account stays.
     }
   }
 
@@ -5651,18 +5655,43 @@ class ShellController extends FrameSafeNotifier
   ) async {
     final host = _instanceAt(siteUrl)?.host;
     if (host == null) return;
-    final result = await _accountSessions.expireRejectedKey(
+    _offerSignInAgain(
       siteUrl,
-      apiKey: apiKey,
-      lease: lease,
+      await _accountSessions.expireRejectedKey(
+        siteUrl,
+        apiKey: apiKey,
+        lease: lease,
+      ),
+      '$host no longer accepts this sign-in. Sign in again to continue.',
     );
+  }
+
+  /// A signed-in forum whose key storage holds no key reads anonymously and
+  /// has every write refused while it still shows the account, so it is signed
+  /// out the way a refused key is. Only the account refresh decides this, not
+  /// each request that finds no key.
+  Future<void> _expireMissingAccount(String siteUrl, SiteLease lease) async {
+    final host = _instanceAt(siteUrl)?.host;
+    if (host == null) return;
+    _offerSignInAgain(
+      siteUrl,
+      await _accountSessions.expireMissingKey(siteUrl, lease: lease),
+      'The sign-in for $host is no longer saved on this device. '
+      'Sign in again to continue.',
+    );
+  }
+
+  void _offerSignInAgain(
+    String siteUrl,
+    AccountDisconnectionResult result,
+    String message,
+  ) {
     if (isDisposed ||
         result.outcome != AccountDisconnectionOutcome.disconnected) {
       return;
     }
     result.lease?.commit(() {
-      _connectErrors[siteUrl] =
-          '$host no longer accepts this sign-in. Sign in again to continue.';
+      _connectErrors[siteUrl] = message;
       _notify();
     });
   }

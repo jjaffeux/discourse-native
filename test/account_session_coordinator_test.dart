@@ -757,6 +757,81 @@ void main() {
     });
   });
 
+  group('AccountSessionCoordinator missing key expiry', () {
+    test('signs out a forum whose storage holds no key', () async {
+      final fixture = _Fixture();
+      fixture.authenticator.keys.remove(_siteUrl);
+
+      final result = await fixture.coordinator.expireMissingKey(
+        _siteUrl,
+        lease: fixture.lifecycle.capture(_siteUrl),
+      );
+
+      expect(result.outcome, AccountDisconnectionOutcome.disconnected);
+      expect(result.lease?.isCurrent, isTrue);
+      expect(fixture.current.user, isNull);
+      expect((await fixture.durable).user, isNull);
+      expect(fixture.api.revocationCount, 0);
+      expect(fixture.events, [
+        'credential:read',
+        'lifecycle:clear',
+        'presentation:disconnecting',
+        'instances:save:signed-out',
+        'credential:delete',
+        'lifecycle:clear',
+        'presentation:disconnected',
+      ]);
+    });
+
+    test('keeps the account when storage cannot be read', () async {
+      final fixture = _Fixture(failures: {_Failure.readCredential});
+
+      final result = await fixture.coordinator.expireMissingKey(
+        _siteUrl,
+        lease: fixture.lifecycle.capture(_siteUrl),
+      );
+
+      expect(result.outcome, AccountDisconnectionOutcome.failed);
+      expect(fixture.current.user, _accountA);
+      expect((await fixture.durable).user, _accountA);
+      expect(fixture.authenticator.keys[_siteUrl], _oldKey);
+      expect(fixture.events, ['credential:read']);
+      expect(fixture.reportedOperations, [
+        'authentication.readCredentialForExpiry',
+      ]);
+    });
+
+    test('leaves a key stored since the empty read alone', () async {
+      final fixture = _Fixture();
+
+      final result = await fixture.coordinator.expireMissingKey(
+        _siteUrl,
+        lease: fixture.lifecycle.capture(_siteUrl),
+      );
+
+      expect(result.outcome, AccountDisconnectionOutcome.stale);
+      expect(fixture.current.user, _accountA);
+      expect((await fixture.durable).user, _accountA);
+      expect(fixture.authenticator.keys[_siteUrl], _oldKey);
+      expect(fixture.events, ['credential:read']);
+    });
+
+    test('leaves a signed-out forum alone', () async {
+      final fixture = _Fixture();
+      await fixture.coordinator.disconnect(_siteUrl);
+      fixture.events.clear();
+
+      final result = await fixture.coordinator.expireMissingKey(
+        _siteUrl,
+        lease: fixture.lifecycle.capture(_siteUrl),
+      );
+
+      expect(result.outcome, AccountDisconnectionOutcome.stale);
+      expect(fixture.current.user, isNull);
+      expect(fixture.events, ['credential:read']);
+    });
+  });
+
   group('AccountSessionCoordinator real-store disconnect', () {
     test('coalesced disconnects durably sign out both sites', () async {
       final fixture = await _RealStoreFixture.create();

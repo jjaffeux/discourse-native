@@ -401,7 +401,9 @@ class _Fixture {
     bool bookmarked = true,
   }) async {
     final api = _BookmarkApi();
-    final auth = _Credentials()..keys[_site] = 'opening-key';
+    final auth = _Credentials()
+      ..keys[_site] = 'opening-key'
+      ..keys[_otherSite] = 'other-key';
     final shell = ShellController(
       instanceStore: FakeInstanceStore([
         instance('meta.example').copyWith(user: _reader),

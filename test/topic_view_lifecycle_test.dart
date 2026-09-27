@@ -3113,7 +3113,7 @@ ShellController _controller(DiscourseInstance site, FakeDiscourseApi api) =>
     ShellController(
       instanceStore: FakeInstanceStore([site]),
       api: api,
-      authenticator: FakeAuthenticator(),
+      authenticator: FakeAuthenticator.signedIn([site], site: api),
       drafts: FakeDraftStore(),
       trackers: FakeSiteTracker.reset(),
     );

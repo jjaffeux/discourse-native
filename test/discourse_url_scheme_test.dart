@@ -63,17 +63,19 @@ void main() {
       'discourse://auth_redirect?payload=abc',
     ]) {
       testWidgets('is claimed and leaves one shell: $location', (tester) async {
+        const signedIn = [
+          DiscourseInstance(
+            url: 'https://one.example',
+            title: 'One',
+            user: DiscourseUser(username: 'me'),
+          ),
+        ];
+        final api = FakeDiscourseApi(feeds: const {'/latest.json': []});
         await tester.pumpWidget(
           DiscourseApp(
-            store: FakeInstanceStore([
-              const DiscourseInstance(
-                url: 'https://one.example',
-                title: 'One',
-                user: DiscourseUser(username: 'me'),
-              ),
-            ]),
-            api: FakeDiscourseApi(feeds: const {'/latest.json': []}),
-            authenticator: FakeAuthenticator(),
+            store: FakeInstanceStore(signedIn),
+            api: api,
+            authenticator: FakeAuthenticator.signedIn(signedIn, site: api),
             drafts: FakeDraftStore(),
             forumTabs: FakeForumTabStore(),
             trackers: FakeSiteTracker.reset(),
