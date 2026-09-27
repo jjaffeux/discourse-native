@@ -468,6 +468,113 @@ void main() {
         expect(state.dirty(PreferenceSection.profile), isTrue);
       },
     );
+
+    for (final readAnswersFirst in [false, true]) {
+      test(
+        'a refresh dispatched before a save cannot replace the confirmed '
+        'write when the ${readAnswersFirst ? 'read' : 'write'} answers first',
+        () async {
+          final refresh = Completer<UserPreferences>();
+          final written = Completer<UserPreferences>();
+          var loadCount = 0;
+          final mirrored = <String?>[];
+          final api = _PreferencesApi(
+            onLoad: (_) {
+              loadCount++;
+              return loadCount == 1
+                  ? Future<UserPreferences>.value(_initial)
+                  : refresh.future;
+            },
+            onUpdate: (_) => written.future,
+          );
+          final controller = _controller(
+            api,
+            onSaved: (_, _, preferences) => mirrored.add(preferences.timezone),
+          );
+          addTearDown(controller.dispose);
+          await _seed(controller);
+
+          controller.edit(
+            _siteUrl,
+            PreferenceSection.profile,
+            (current) => current.copyWith(timezone: 'Europe/Paris'),
+          );
+          final refreshTask = controller.load(_accountA, refresh: true);
+          await pumpEventQueue();
+          expect(api.loads, hasLength(2));
+          final saveTask = controller.save(
+            _accountA,
+            PreferenceSection.profile,
+          );
+          await pumpEventQueue();
+          expect(api.updates, hasLength(1));
+
+          // The read was answered from the server's state before the write.
+          final saved = _initial.copyWith(timezone: 'Europe/Paris');
+          if (readAnswersFirst) {
+            refresh.complete(_initial);
+            await refreshTask;
+            expect(
+              controller.stateFor(_siteUrl)?.draft?.timezone,
+              'Europe/Paris',
+            );
+            written.complete(saved);
+            expect(await saveTask, isTrue);
+          } else {
+            written.complete(saved);
+            expect(await saveTask, isTrue);
+            refresh.complete(_initial);
+            await refreshTask;
+          }
+
+          final state = controller.stateFor(_siteUrl)!;
+          expect(state.loading, isFalse);
+          expect(state.confirmed?.timezone, 'Europe/Paris');
+          expect(state.draft?.timezone, 'Europe/Paris');
+          expect(state.dirty(PreferenceSection.profile), isFalse);
+          expect(mirrored, ['Europe/Paris']);
+        },
+      );
+    }
+
+    test('a refresh dispatched after a save reads behind the write', () async {
+      final written = Completer<UserPreferences>();
+      var loadCount = 0;
+      final api = _PreferencesApi(
+        onLoad: (_) {
+          loadCount++;
+          return Future<UserPreferences>.value(
+            loadCount == 1
+                ? _initial
+                : _initial.copyWith(timezone: 'Asia/Tokyo'),
+          );
+        },
+        onUpdate: (_) => written.future,
+      );
+      final controller = _controller(api);
+      addTearDown(controller.dispose);
+      await _seed(controller);
+
+      controller.edit(
+        _siteUrl,
+        PreferenceSection.profile,
+        (current) => current.copyWith(timezone: 'Europe/Paris'),
+      );
+      final saveTask = controller.save(_accountA, PreferenceSection.profile);
+      final refreshTask = controller.load(_accountA, refresh: true);
+      await pumpEventQueue();
+      expect(api.loads, hasLength(1));
+
+      written.complete(_initial.copyWith(timezone: 'Europe/Paris'));
+      expect(await saveTask, isTrue);
+      await refreshTask;
+
+      expect(api.loads, hasLength(2));
+      final state = controller.stateFor(_siteUrl)!;
+      expect(state.loading, isFalse);
+      expect(state.confirmed?.timezone, 'Asia/Tokyo');
+      expect(state.draft?.timezone, 'Asia/Tokyo');
+    });
   });
 
   group('site and account invalidation', () {
