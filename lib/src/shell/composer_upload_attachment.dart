@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import '../models/composer_upload.dart';
 import '../models/site_config.dart';
 import 'composer_controller.dart';
-import 'image_decode.dart';
 import 'site_image.dart';
 
 class ComposerUploadAttachment extends StatelessWidget {
@@ -119,23 +118,26 @@ class _ComposerUploadThumbnail extends StatelessWidget {
       borderRadius: BorderRadius.circular(5),
       child: ColoredBox(
         color: Theme.of(context).colorScheme.surfaceContainerHighest,
-        child: SiteImage(
-          key: ValueKey('composer-upload-thumbnail-$uploadId'),
-          url: url,
-          siteUrl: siteUrl,
-          fit: BoxFit.cover,
-          width: size,
-          height: size,
-          cacheWidth: imagePhysicalPixels(context, size),
-          cacheHeight: imagePhysicalPixels(context, size),
-          semanticLabel: 'Preview of $filename',
-          loadingBuilder: (_) => SizedBox.square(
-            dimension: size,
-            child: Center(child: fallback),
-          ),
-          errorBuilder: (_, _, _) => SizedBox.square(
-            dimension: size,
-            child: Center(child: fallback),
+        // The attachment owns the artwork's extent and may stretch it past
+        // [size], so the decode covers the size it is drawn at.
+        child: LayoutBuilder(
+          builder: (context, constraints) => SiteImage(
+            key: ValueKey('composer-upload-thumbnail-$uploadId'),
+            url: url,
+            siteUrl: siteUrl,
+            fit: BoxFit.cover,
+            width: size,
+            height: size,
+            coverDecodeSize: constraints.constrain(const Size.square(size)),
+            semanticLabel: 'Preview of $filename',
+            loadingBuilder: (_) => SizedBox.square(
+              dimension: size,
+              child: Center(child: fallback),
+            ),
+            errorBuilder: (_, _, _) => SizedBox.square(
+              dimension: size,
+              child: Center(child: fallback),
+            ),
           ),
         ),
       ),

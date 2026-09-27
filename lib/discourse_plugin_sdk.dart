@@ -151,7 +151,7 @@ export 'src/shell/header_notification_button.dart'
     show headerNotificationButton;
 export 'src/shell/hover_action_toolbar.dart' show HoverActionButton;
 export 'src/shell/hover_panel.dart' show HoverPanel, HoverPanelState;
-export 'src/shell/image_decode.dart' show imagePhysicalPixels;
+export 'src/shell/image_decode.dart' show imageForCover, imagePhysicalPixels;
 export 'src/shell/inline_action.dart' show InlineAction;
 export 'src/shell/inline_code.dart' show InlineCode;
 export 'src/shell/inline_video.dart' show InlineVideo, InlineVideoData;

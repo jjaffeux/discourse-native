@@ -17,6 +17,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
+import 'support/fake_image_http_client.dart';
 import 'support/fakes.dart';
 
 const _siteUrl = 'https://forum.example';
@@ -409,7 +410,7 @@ void main() {
       (tester) async {
         tester.view.devicePixelRatio = 2;
         addTearDown(tester.view.reset);
-        final client = _PosterHttpClient(Uint8List.fromList([1, 2, 3]));
+        final client = FakeImageHttpClient(Uint8List.fromList([1, 2, 3]));
         final previousClient = debugNetworkImageHttpClientProvider;
         debugNetworkImageHttpClientProvider = () => client;
         try {
@@ -584,64 +585,3 @@ Future<Uint8List> _pngBytes(WidgetTester tester, Size size) async =>
         image.dispose();
       }
     }))!;
-
-final class _PosterHttpClient implements HttpClient {
-  _PosterHttpClient(this.bytes);
-
-  Uint8List bytes;
-  final requests = <Uri>[];
-
-  @override
-  Future<HttpClientRequest> getUrl(Uri url) async {
-    requests.add(url);
-    return _PosterHttpRequest(bytes);
-  }
-
-  @override
-  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
-}
-
-final class _PosterHttpRequest implements HttpClientRequest {
-  _PosterHttpRequest(this.bytes);
-
-  final Uint8List bytes;
-
-  @override
-  Future<HttpClientResponse> close() async => _PosterHttpResponse(bytes);
-
-  @override
-  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
-}
-
-final class _PosterHttpResponse extends Stream<List<int>>
-    implements HttpClientResponse {
-  _PosterHttpResponse(this.bytes);
-
-  final Uint8List bytes;
-
-  @override
-  int get statusCode => HttpStatus.ok;
-
-  @override
-  int get contentLength => bytes.length;
-
-  @override
-  HttpClientResponseCompressionState get compressionState =>
-      HttpClientResponseCompressionState.notCompressed;
-
-  @override
-  StreamSubscription<List<int>> listen(
-    void Function(List<int>)? onData, {
-    Function? onError,
-    void Function()? onDone,
-    bool? cancelOnError,
-  }) => Stream<List<int>>.value(bytes).listen(
-    onData,
-    onError: onError,
-    onDone: onDone,
-    cancelOnError: cancelOnError,
-  );
-
-  @override
-  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
-}

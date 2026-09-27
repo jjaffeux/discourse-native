@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 
 import 'composer_galleries.dart';
 import 'composer_images.dart';
-import 'image_decode.dart';
 import 'site_image.dart';
 
 @immutable
@@ -378,12 +377,7 @@ class ComposerImageGalleryTile extends StatelessWidget {
                     width: ComposerImageGalleryPreview.tileExtent,
                     height: ComposerImageGalleryPreview.tileExtent,
                     fit: BoxFit.cover,
-                    cacheWidth: imagePhysicalPixels(
-                      context,
-                      ComposerImageGalleryPreview.tileExtent,
-                    ),
-                    cacheHeight: imagePhysicalPixels(
-                      context,
+                    coverDecodeSize: const Size.square(
                       ComposerImageGalleryPreview.tileExtent,
                     ),
                     onNaturalSize: image.hasDimensions

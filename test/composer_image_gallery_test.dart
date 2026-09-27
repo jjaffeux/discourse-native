@@ -1,6 +1,8 @@
 import 'dart:ui' as ui;
 
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/src/data/site_image_repository.dart';
+import 'package:discourse_native/src/data/site_lifecycle.dart';
 import 'package:discourse_native/src/shell/composer_controller.dart';
 import 'package:discourse_native/src/shell/composer_galleries.dart';
 import 'package:discourse_native/src/shell/composer_image.dart';
@@ -16,7 +18,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 
+import 'support/blank_png.dart';
 import 'support/fakes.dart';
 
 const _source =
@@ -238,6 +243,73 @@ void main() {
       expect(artwork.fit, BoxFit.cover);
       expect(artwork.width, ComposerImageGalleryPreview.tileExtent);
       expect(artwork.height, ComposerImageGalleryPreview.tileExtent);
+    });
+
+    testWidgets('decodes wide artwork tall enough to cover its tile', (
+      tester,
+    ) async {
+      tester.view.devicePixelRatio = 2;
+      addTearDown(tester.view.reset);
+      PaintingBinding.instance.imageCache.clear();
+      addTearDown(PaintingBinding.instance.imageCache.clear);
+      const siteUrl = 'https://forum.example';
+      final lifecycle = SiteLifecycle();
+      final shell = ShellController(
+        instanceStore: FakeInstanceStore(),
+        api: FakeDiscourseApi(),
+        authenticator: FakeAuthenticator(),
+        drafts: FakeDraftStore(),
+        trackers: FakeSiteTracker.reset(),
+        lifecycle: lifecycle,
+        siteImages: SiteImageRepository(
+          credentials: FakeApiCredentialReader(),
+          lifecycle: lifecycle,
+          client: MockClient(
+            (_) async =>
+                http.Response.bytes(blankPng(width: 1600, height: 900), 200),
+          ),
+        ),
+      );
+      addTearDown(shell.dispose);
+      final gallery = parseComposerImageGalleries(_source).single;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: ShellScope(
+            controller: shell,
+            child: Scaffold(
+              body: ComposerImageGalleryPreview(
+                gallery: gallery,
+                siteUrl: siteUrl,
+                items: [
+                  ComposerImageGalleryItem(
+                    image: gallery.images.first,
+                    url: '$siteUrl/uploads/wide.png',
+                    imageKey: GlobalKey(),
+                    highlighted: false,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+      ui.Image? decoded;
+      for (var attempt = 0; attempt < 100 && decoded == null; attempt++) {
+        await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 10)),
+        );
+        await tester.pump();
+        final raw = find.byType(RawImage);
+        if (raw.evaluate().isNotEmpty) {
+          decoded = tester.widget<RawImage>(raw).image;
+        }
+      }
+
+      final tile = tester.getSize(find.byType(RawImage));
+      expect(tester.widget<RawImage>(find.byType(RawImage)).fit, BoxFit.cover);
+      expect(decoded!.height, greaterThanOrEqualTo(tile.height * 2));
+      expect(decoded.width / decoded.height, closeTo(16 / 9, 0.01));
     });
 
     testWidgets('fits a 280-pixel composer without overflow', (tester) async {

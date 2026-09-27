@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui' as ui;
 
 import 'package:discourse_native/src/data/discourse_api_contracts.dart';
 import 'package:discourse_native/src/data/site_lifecycle.dart';
@@ -7,10 +8,13 @@ import 'package:discourse_native/src/plugins/gifs/gif_picker.dart';
 import 'package:discourse_native/src/plugins/gifs/gif_picker_controller.dart';
 import 'package:discourse_native/src/plugins/gifs/gifs_api.dart';
 import 'package:discourse_native/src/plugins/gifs/gifs_settings.dart';
+import 'package:discourse_native/src/shell/image_decode.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'support/blank_png.dart';
+import 'support/fake_image_http_client.dart';
 import 'support/fakes.dart';
 
 const _siteUrl = 'https://meta.discourse.org';
@@ -230,9 +234,10 @@ void main() {
         find.byKey(const ValueKey('gif-picker-attribution')),
         findsOneWidget,
       );
-      _expectBoundedNetworkImage(
+      _expectCoverNetworkImage(
         tester,
         within: find.byKey(const ValueKey('gif-category-0')),
+        url: category.imageUrl,
       );
       final attribution = tester.widget<Image>(
         find.descendant(
@@ -265,9 +270,10 @@ void main() {
         ),
       );
       expect(tester.getSemantics(resultAction).tooltip, isEmpty);
-      _expectBoundedNetworkImage(
+      _expectCoverNetworkImage(
         tester,
         within: find.byKey(const ValueKey('gif-result-0')),
+        url: result.url,
       );
 
       await tester.tap(find.byKey(const ValueKey('gif-result-0')));
@@ -275,6 +281,54 @@ void main() {
       expect(selected, result);
     } finally {
       semantics.dispose();
+    }
+  });
+
+  testWidgets('cover tiles decode wide artwork tall enough to fill them', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 2;
+    addTearDown(tester.view.reset);
+    PaintingBinding.instance.imageCache.clear();
+    addTearDown(PaintingBinding.instance.imageCache.clear);
+    const category = GifCategory(
+      title: 'Cats',
+      imageUrl: 'https://media.klipy.example/cats.webp',
+      searchTerm: 'cats',
+    );
+    final controller = _controller(
+      FakeDiscourseApi(
+        gifCategoriesBySite: const {
+          _siteUrl: [category],
+        },
+        gifSearchPages: {
+          FakeDiscourseApi.gifSearchKey('cats'): GifSearchPage(
+            results: const [_result],
+          ),
+        },
+      ),
+    );
+    addTearDown(controller.dispose);
+    final client = FakeImageHttpClient(blankPng(width: 1600, height: 900));
+    debugNetworkImageHttpClientProvider = () => client;
+    try {
+      await _pumpPicker(tester, controller);
+      await controller.loadCategories();
+      await tester.pump();
+      // A 4:3 category tile, then a square result tile.
+      await _expectCoverDecode(
+        tester,
+        within: find.byKey(const ValueKey('gif-category-0')),
+      );
+      await controller.selectCategory(category);
+      await tester.pump();
+      await _expectCoverDecode(
+        tester,
+        within: find.byKey(const ValueKey('gif-result-0')),
+      );
+      await tester.pumpWidget(const SizedBox.shrink());
+    } finally {
+      debugNetworkImageHttpClientProvider = null;
     }
   });
 
@@ -477,15 +531,45 @@ final class _AccountGifsApi implements GifsApi {
   }
 }
 
-void _expectBoundedNetworkImage(WidgetTester tester, {required Finder within}) {
+void _expectCoverNetworkImage(
+  WidgetTester tester, {
+  required Finder within,
+  required String url,
+}) {
   final imageFinder = find.descendant(of: within, matching: find.byType(Image));
   final image = tester.widget<Image>(imageFinder);
-  final provider = image.image as ResizeImage;
-  final layoutSize = tester.getSize(imageFinder);
 
-  expect(provider.imageProvider, isA<NetworkImage>());
-  expect(provider.width, (layoutSize.width * 2).ceil());
-  expect(provider.height, (layoutSize.height * 2).ceil());
-  expect(provider.policy, ResizeImagePolicy.fit);
-  expect(provider.allowUpscaling, isFalse);
+  expect(image.fit, BoxFit.cover);
+  expect(
+    image.image,
+    imageForCover(
+      tester.element(imageFinder),
+      NetworkImage(url),
+      logicalSize: tester.getSize(imageFinder),
+    ),
+  );
+}
+
+/// Waits for the artwork [within] a tile to decode, and expects it to cover
+/// the tile's physical height at the test's 2x density.
+Future<void> _expectCoverDecode(
+  WidgetTester tester, {
+  required Finder within,
+}) async {
+  final raw = find.descendant(of: within, matching: find.byType(RawImage));
+  ui.Image? decoded;
+  for (var attempt = 0; attempt < 100 && decoded == null; attempt++) {
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 10)),
+    );
+    await tester.pump();
+    if (raw.evaluate().isNotEmpty) decoded = tester.widget<RawImage>(raw).image;
+  }
+
+  // The tile is squarer than the source, so a fit would leave it short.
+  final tile = tester.getSize(raw);
+  expect(tile.width / tile.height, lessThan(16 / 9));
+  expect(tester.widget<RawImage>(raw).fit, BoxFit.cover);
+  expect(decoded!.height, greaterThanOrEqualTo(tile.height * 2));
+  expect(decoded.width / decoded.height, closeTo(16 / 9, 0.01));
 }
