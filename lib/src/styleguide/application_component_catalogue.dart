@@ -79,6 +79,7 @@ const applicationComponentCatalogue = <ComponentReference>[
     name: 'Message inbox menu',
     sections: [
       'Personal and groups',
+      'Filter row',
       'Group inbox',
       'Personal only',
       'Many groups',
