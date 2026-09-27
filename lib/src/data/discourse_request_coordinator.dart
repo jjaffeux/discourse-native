@@ -52,7 +52,8 @@ final class DiscourseGetRequestKey {
   );
 }
 
-/// Bounds requests per origin and turns a 429 into a shared origin cooldown.
+/// Bounds requests per origin and turns a site-wide 429 into a shared origin
+/// cooldown.
 ///
 /// This coordinator deliberately does not retry. A queued operation is sent
 /// once when capacity and the server's cooldown allow it; an operation that
@@ -122,7 +123,7 @@ final class DiscourseRequestCoordinator {
   }) => _translateGateErrors(
     _gate.run(url, (lease) async {
       final response = await send();
-      if (response.statusCode == 429) {
+      if (response.statusCode == 429 && _pausesOrigin(response)) {
         final delay =
             explicitRetryAfter(response, now: _clock()) ??
             defaultRateLimitCooldown;
@@ -151,6 +152,40 @@ final class DiscourseRequestCoordinator {
   }
 
   static const Duration maximumRetryAfter = Duration(hours: 1);
+
+  /// Discourse names its request-wide limiters (per IP, per user API key) in
+  /// `Discourse-Rate-Limit-Error-Code`; those mean the whole site should be
+  /// left alone. A refusal of one action — a daily like allowance, a new
+  /// user's first-day replies, search's per-minute budget — carries no such
+  /// code, and pausing the origin for it would hold every read of the forum
+  /// for up to [maximumRetryAfter]. Its caller still receives the 429 and its
+  /// delay. A 429 the site did not recognisably render (a proxy, a CDN, an
+  /// empty or plain-text body) keeps pausing the origin.
+  static bool _pausesOrigin(http.Response response) {
+    if (response.headers.containsKey('discourse-rate-limit-error-code')) {
+      return true;
+    }
+    return !_refusesOnlyTheAction(response);
+  }
+
+  /// Action refusals are a sentence and a few fields; anything larger is not
+  /// one, and is not worth decoding to find out.
+  static const int _maxActionRefusalBytes = 16 * 1024;
+
+  static bool _refusesOnlyTheAction(http.Response response) {
+    if (response.bodyBytes.length > _maxActionRefusalBytes) return false;
+    try {
+      return switch (jsonDecode(response.body)) {
+        // ApplicationController's rendering of RateLimiter::LimitExceeded.
+        {'error_type': 'rate_limit'} => true,
+        // Controllers that refuse with `failed_json`, such as search.
+        {'failed': 'FAILED'} => true,
+        _ => false,
+      };
+    } catch (_) {
+      return false;
+    }
+  }
 
   /// The explicit server delay, preserving the write error contract while the
   /// coordinator separately supplies a conservative default when it is absent.
