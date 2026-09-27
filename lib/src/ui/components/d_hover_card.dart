@@ -305,9 +305,17 @@ class _DHoverCardLayers {
     }
   }
 
+  // Open cards form a tree through the content that hosts each trigger. A
+  // card opening from another card's content keeps that card and its
+  // ancestors open; every other open card closes, topmost first.
   static void activate(_DHoverCardState state) {
-    final previous = open.lastOrNull;
-    if (previous != null && previous != state) {
+    open
+      ..remove(state)
+      ..add(state);
+    for (final previous in open.reversed.toList()) {
+      if (identical(previous, state) || state._isDescendantOf(previous)) {
+        continue;
+      }
       previous._cancelTimers();
       previous._request(
         false,
@@ -315,12 +323,19 @@ class _DHoverCardLayers {
         immediate: true,
       );
     }
-    open
-      ..remove(state)
-      ..add(state);
   }
 
-  static void deactivate(_DHoverCardState state) => open.remove(state);
+  // Ancestors do not close while a descendant is open, so each open one
+  // resumes its close from wherever the pointer now rests.
+  static void deactivate(_DHoverCardState state) {
+    if (!open.remove(state)) return;
+    for (var card = state._parentCard; card != null; card = card._parentCard) {
+      if (card._open) card._scheduleClose(DHoverCardChangeReason.triggerHover);
+    }
+  }
+
+  static bool hasOpenDescendant(_DHoverCardState state) =>
+      open.any((card) => card._isDescendantOf(state));
 
   static bool isTopmost(_DHoverCardState state) =>
       open.isNotEmpty && identical(open.last, state);
@@ -367,6 +382,19 @@ class _DHoverCardState extends State<DHoverCard>
 
   DHoverCardController get _controller => widget.controller ?? _ownedController;
   FocusNode get _focus => widget.trigger.focusNode ?? _ownedFocus;
+
+  // The card whose content hosts this card's trigger. A card nested only in
+  // another card's trigger has no parent.
+  _DHoverCardState? get _parentCard => _active
+      ? context.getInheritedWidgetOfExactType<_HoverCardContentScope>()?.state
+      : null;
+
+  bool _isDescendantOf(_DHoverCardState ancestor) {
+    for (var card = _parentCard; card != null; card = card._parentCard) {
+      if (identical(card, ancestor)) return true;
+    }
+    return false;
+  }
 
   @override
   void initState() {
@@ -553,6 +581,9 @@ class _DHoverCardState extends State<DHoverCard>
     if (!_open || _keyboardFocused || _triggerHovered || _contentHovered) {
       return;
     }
+    // The pointer may be on a descendant's content, which lies outside this
+    // card's bridge. Closing this card would unmount that descendant.
+    if (_DHoverCardLayers.hasOpenDescendant(this)) return;
     if (_inBridge(_pointer)) {
       _closeTimer?.cancel();
       _closeTimer = null;
@@ -570,6 +601,7 @@ class _DHoverCardState extends State<DHoverCard>
         if (!_keyboardFocused &&
             !_triggerHovered &&
             !_contentHovered &&
+            !_DHoverCardLayers.hasOpenDescendant(this) &&
             !_inBridge(_pointer)) {
           _request(false, reason);
         }
@@ -767,7 +799,10 @@ class _DHoverCardState extends State<DHoverCard>
               },
               child: KeyedSubtree(
                 key: _surfaceKey,
-                child: SelectionArea(child: widget.content),
+                child: _HoverCardContentScope(
+                  state: this,
+                  child: SelectionArea(child: widget.content),
+                ),
               ),
             ),
           ),
@@ -877,6 +912,17 @@ class _HoverCardTriggerScope extends InheritedWidget {
   @override
   bool updateShouldNotify(_HoverCardTriggerScope oldWidget) =>
       open != oldWidget.open;
+}
+
+// Marks a card's content so a card whose trigger sits inside it can find its
+// parent. The lookup registers no dependency.
+class _HoverCardContentScope extends InheritedWidget {
+  const _HoverCardContentScope({required this.state, required super.child});
+
+  final _DHoverCardState state;
+
+  @override
+  bool updateShouldNotify(_HoverCardContentScope oldWidget) => false;
 }
 
 /// The styled preview surface and its positioning policy.

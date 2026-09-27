@@ -688,6 +688,140 @@ void main() {
     expect(find.text('Second preview'), findsNothing);
   });
 
+  testWidgets('a card opened from another card keeps that card open', (
+    tester,
+  ) async {
+    final panel = DHoverCardController();
+    addTearDown(panel.dispose);
+    await tester.pumpWidget(_app(_NestedCards(controller: panel)));
+    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    addTearDown(mouse.removePointer);
+    await _openNested(tester, mouse, 'Alice');
+
+    // The nested content lies outside the parent's trigger, content and the
+    // corridor between them.
+    await mouse.moveTo(tester.getCenter(find.text('Alice preview')));
+    await tester.pump(const Duration(seconds: 2));
+    expect(panel.isOpen, isTrue);
+    expect(find.text('Alice preview'), findsOneWidget);
+
+    await mouse.moveTo(tester.getCenter(find.text('Bob')));
+    await tester.pump(const Duration(milliseconds: 600));
+    await tester.pumpAndSettle();
+    expect(panel.isOpen, isTrue);
+    expect(find.text('Alice preview'), findsNothing);
+    expect(find.text('Bob preview'), findsOneWidget);
+
+    // Back on the parent's own content, the nested card closes alone.
+    await mouse.moveTo(tester.getCenter(find.text('Bob preview')));
+    await tester.pump();
+    await mouse.moveTo(tester.getCenter(find.text('Reactors')));
+    await tester.pump(const Duration(seconds: 2));
+    await tester.pumpAndSettle();
+    expect(panel.isOpen, isTrue);
+    expect(find.text('Bob preview'), findsNothing);
+  });
+
+  testWidgets('leaving nested cards closes each after its own delay', (
+    tester,
+  ) async {
+    final panel = DHoverCardController();
+    addTearDown(panel.dispose);
+    await tester.pumpWidget(_app(_NestedCards(controller: panel)));
+    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    addTearDown(mouse.removePointer);
+    await _openNested(tester, mouse, 'Alice');
+    await mouse.moveTo(tester.getCenter(find.text('Alice preview')));
+    await tester.pump();
+
+    await mouse.moveTo(const Offset(4, 4));
+    await tester.pump(const Duration(milliseconds: 299));
+    expect(find.text('Alice preview'), findsOneWidget);
+    await tester.pump(const Duration(milliseconds: 1));
+    await tester.pump(const Duration(milliseconds: 150));
+    expect(find.text('Alice preview'), findsNothing);
+
+    // The parent's delay starts once the nested card has closed.
+    await tester.pump(const Duration(milliseconds: 349));
+    expect(panel.isOpen, isTrue);
+    await tester.pump(const Duration(milliseconds: 1));
+    expect(panel.isOpen, isFalse);
+    await tester.pumpAndSettle();
+    expect(find.text('Reactors'), findsNothing);
+  });
+
+  testWidgets('a pending close waits for a nested card opened meanwhile', (
+    tester,
+  ) async {
+    final panel = DHoverCardController();
+    final alice = DHoverCardController();
+    addTearDown(panel.dispose);
+    addTearDown(alice.dispose);
+    await tester.pumpWidget(
+      _app(_NestedCards(controller: panel, alice: alice)),
+    );
+    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    addTearDown(mouse.removePointer);
+    await mouse.addPointer(location: Offset.zero);
+    await mouse.moveTo(tester.getCenter(find.text('Reactions')));
+    await tester.pump(const Duration(milliseconds: 250));
+    await tester.pumpAndSettle();
+
+    await mouse.moveTo(const Offset(4, 4));
+    await tester.pump(const Duration(milliseconds: 100));
+    alice.open();
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(panel.isOpen, isTrue);
+    expect(find.text('Alice preview'), findsOneWidget);
+  });
+
+  testWidgets('Escape closes a nested card before its parent', (tester) async {
+    await tester.pumpWidget(_app(const _NestedCards()));
+    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    addTearDown(mouse.removePointer);
+    await _openNested(tester, mouse, 'Alice');
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pump();
+    expect(find.text('Reactors'), findsOneWidget);
+    expect(find.text('Alice preview'), findsNothing);
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pump();
+    expect(find.text('Reactors'), findsNothing);
+  });
+
+  testWidgets('an unrelated card closes a nested card and its parent', (
+    tester,
+  ) async {
+    final elsewhere = DHoverCardController();
+    addTearDown(elsewhere.dispose);
+    await tester.pumpWidget(
+      _app(
+        Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _SimpleNamedCard(
+              trigger: 'Elsewhere',
+              content: 'Elsewhere preview',
+              controller: elsewhere,
+            ),
+            const _NestedCards(),
+          ],
+        ),
+      ),
+    );
+    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    addTearDown(mouse.removePointer);
+    await _openNested(tester, mouse, 'Alice');
+
+    elsewhere.open();
+    await tester.pump();
+    expect(find.text('Elsewhere preview'), findsOneWidget);
+    expect(find.text('Reactors'), findsNothing);
+    expect(find.text('Alice preview'), findsNothing);
+  });
+
   testWidgets('one group hands a strongly typed payload between triggers', (
     tester,
   ) async {
@@ -920,13 +1054,19 @@ class _Card extends StatelessWidget {
 }
 
 class _SimpleNamedCard extends StatelessWidget {
-  const _SimpleNamedCard({required this.trigger, required this.content});
+  const _SimpleNamedCard({
+    required this.trigger,
+    required this.content,
+    this.controller,
+  });
 
   final String trigger;
   final String content;
+  final DHoverCardController? controller;
 
   @override
   Widget build(BuildContext context) => DHoverCard(
+    controller: controller,
     trigger: DHoverCardTrigger(
       builder: (context, state) => TextButton(
         focusNode: state.focusNode,
@@ -936,6 +1076,65 @@ class _SimpleNamedCard extends StatelessWidget {
     ),
     content: DHoverCardContent(child: Text(content)),
   );
+}
+
+// A reaction pill's panel whose reactors each preview a profile.
+class _NestedCards extends StatelessWidget {
+  const _NestedCards({this.controller, this.alice});
+
+  final DHoverCardController? controller;
+  final DHoverCardController? alice;
+
+  @override
+  Widget build(BuildContext context) => DHoverCard(
+    controller: controller,
+    trigger: DHoverCardTrigger(
+      delay: const Duration(milliseconds: 250),
+      closeDelay: const Duration(milliseconds: 500),
+      builder: (context, state) => TextButton(
+        focusNode: state.focusNode,
+        onPressed: () {},
+        child: const Text('Reactions'),
+      ),
+    ),
+    content: DHoverCardContent(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Text('Reactors'),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _SimpleNamedCard(
+                trigger: 'Alice',
+                content: 'Alice preview',
+                controller: alice,
+              ),
+              const _SimpleNamedCard(trigger: 'Bob', content: 'Bob preview'),
+            ],
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
+Future<void> _openNested(
+  WidgetTester tester,
+  TestGesture mouse,
+  String reactor,
+) async {
+  await mouse.addPointer(location: Offset.zero);
+  await mouse.moveTo(tester.getCenter(find.text('Reactions')));
+  await tester.pump(const Duration(milliseconds: 250));
+  await tester.pumpAndSettle();
+  await mouse.moveTo(tester.getCenter(find.text('Reactors')));
+  await tester.pump();
+  await mouse.moveTo(tester.getCenter(find.text(reactor)));
+  await tester.pump(const Duration(milliseconds: 600));
+  await tester.pumpAndSettle();
+  expect(find.text('Reactors'), findsOneWidget);
+  expect(find.text('$reactor preview'), findsOneWidget);
 }
 
 Widget _app(Widget child, {Size size = const Size(800, 600)}) => MaterialApp(
