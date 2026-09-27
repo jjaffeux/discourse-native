@@ -235,9 +235,10 @@ void main() {
           );
           final before = surface.blockRect(composer.blocks.index.blocks.first)!;
           final after = surface.blockRect(composer.blocks.index.blocks.last)!;
+          // Adjacent components keep at least the half-line paragraph gap.
           expect(
             after.top - before.bottom,
-            greaterThanOrEqualTo(rendered.preferredLineHeight * .9),
+            greaterThanOrEqualTo(rendered.preferredLineHeight * .5),
           );
           expect(painted.length, composer.text.text.length);
           expect(composer.text.text, '${first.value}\n${second.value}');
@@ -306,9 +307,10 @@ void main() {
             final render = tester
                 .state<EditableTextState>(_field(composer))
                 .renderEditable;
+            // The hidden blank line before the component shares its line.
             expect(
               render.getLineAtOffset(TextPosition(offset: offset)).start,
-              8,
+              7,
             );
             expect(
               render.getLocalRectForCaret(TextPosition(offset: offset)).height,
@@ -422,11 +424,12 @@ void main() {
           final painted = rendered.text!.toPlainText(
             includeSemanticsLabels: false,
           );
+          // One line break remains; the required blank line is hidden.
           expect(
             '\n'.allMatches(
               painted.substring(0, composer.text.text.indexOf(second)),
             ),
-            hasLength(2),
+            hasLength(1),
           );
           expect(tester.takeException(), isNull);
         },
@@ -459,7 +462,7 @@ void main() {
                   TextPosition(offset: composer.text.text.length),
                 )
                 .start,
-            8,
+            7,
             reason: 'The end of the component must share its rendered line',
           );
           expect(

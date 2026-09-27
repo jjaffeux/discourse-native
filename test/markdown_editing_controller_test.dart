@@ -473,9 +473,16 @@ void main() {
             sourceStyle(span, source.indexOf('first')).fontStyle,
             FontStyle.italic,
           );
+          // Headings keep the shared scale relative to the field's own text.
+          final body = sourceStyle(span, source.indexOf('before')).fontSize!;
           expect(
             sourceStyle(span, source.indexOf('tail')).fontSize,
-            DiscourseTypography.headingSize(2),
+            closeTo(
+              body *
+                  DiscourseTypography.headingSize(2) /
+                  DiscourseTypography.base,
+              1e-9,
+            ),
           );
         }
         expect(controller.text, source);
