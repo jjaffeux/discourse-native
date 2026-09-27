@@ -5,6 +5,8 @@ import 'dart:ui' show SemanticsAction;
 import 'package:discourse_native/discourse_plugin_test.dart'
     show PluginTestRequestHost, RecordingPluginLiveChannels;
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/src/data/discourse_api_contracts.dart'
+    show WriteException, WriteFailure;
 import 'package:discourse_native/src/diagnostics/diagnostic_event.dart';
 import 'package:discourse_native/src/diagnostics/diagnostics_controller.dart';
 import 'package:discourse_native/src/diagnostics/diagnostics_persistence.dart';
@@ -1615,28 +1617,7 @@ void main() {
       final transport = RecordingPluginTransport(
         responses: {
           'GET /voice/rooms/7/memberships.json': {
-            'memberships': const [
-              {
-                'id': 8,
-                'room_id': 7,
-                'user_id': 1,
-                'role_name': 'moderator',
-                'user': {'id': 1, 'username': 'sam'},
-              },
-              {
-                'id': 9,
-                'room_id': 7,
-                'user_id': 2,
-                'role_name': 'speaker',
-                'user': {'id': 2, 'username': 'lee', 'name': 'Lee Example'},
-              },
-              {
-                'id': 10,
-                'room_id': 7,
-                'user_id': 3,
-                'role_name': 'participant',
-              },
-            ],
+            'memberships': _membershipRows,
           },
           'POST /voice/rooms/7/memberships.json': <String, Object?>{},
           'PUT /voice/rooms/7/memberships/9.json': <String, Object?>{},
@@ -1732,6 +1713,125 @@ void main() {
 
       await tester.tap(find.text('Done'));
       await tester.pumpAndSettle();
+    });
+
+    testWidgets('keeps the roster when the read after a change fails', (
+      tester,
+    ) async {
+      var reads = 0;
+      final transport = RecordingPluginTransport(
+        responses: const {
+          'PUT /voice/rooms/7/memberships/9.json': <String, Object?>{},
+        },
+        responders: {
+          'GET /voice/rooms/7/memberships.json': (_) {
+            if (++reads > 1) throw const SocketException('offline');
+            return {'memberships': _membershipRows};
+          },
+        },
+      );
+      final harness = _Harness(discourseApi: transport);
+      addTearDown(harness.dispose);
+      await _openMembers(tester, harness);
+
+      final leeTile = find.widgetWithText(ListTile, 'Lee Example');
+      await tester.tap(
+        find.descendant(of: leeTile, matching: find.byTooltip('Change role')),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.widgetWithText(DDropdownMenuItem, VoiceRole.participant.name).last,
+      );
+      await tester.pumpAndSettle();
+
+      expect(transport.writes.single.method, 'PUT');
+      expect(reads, 2);
+      final membersDialog = find.byType(AlertDialog);
+      for (final name in ['sam', 'Lee Example', 'User 3']) {
+        expect(
+          find.descendant(of: membersDialog, matching: find.text(name)),
+          findsOneWidget,
+        );
+      }
+      expect(find.text("Couldn't refresh the room's members."), findsOneWidget);
+
+      await tester.tap(find.text('Done'));
+      await tester.pumpAndSettle();
+    });
+
+    testWidgets('keeps a refused name, says why, and sends it once', (
+      tester,
+    ) async {
+      final addGate = Completer<void>();
+      final transport = RecordingPluginTransport(
+        responses: const {
+          'GET /voice/rooms/7/memberships.json': {
+            'memberships': _membershipRows,
+          },
+        },
+        responders: {
+          'POST /voice/rooms/7/memberships.json': (_) async {
+            await addGate.future;
+            throw const WriteException(
+              WriteFailure.validation,
+              errors: ['There is no user named lee.'],
+              statusCode: 422,
+            );
+          },
+        },
+      );
+      final harness = _Harness(discourseApi: transport);
+      addTearDown(harness.dispose);
+      addTearDown(() {
+        if (!addGate.isCompleted) addGate.complete();
+      });
+      await _openMembers(tester, harness);
+
+      final username = find.widgetWithText(TextField, 'Username');
+      await tester.enterText(username, 'lee');
+      await tester.tap(find.byTooltip('Add member'));
+      await tester.pump();
+      await tester.tap(find.byTooltip('Add member'));
+      await tester.pump();
+      addGate.complete();
+      await tester.pumpAndSettle();
+
+      expect(tester.widget<TextField>(username).controller?.text, 'lee');
+      expect(find.text('There is no user named lee.'), findsOneWidget);
+      expect(transport.writes, hasLength(1));
+      expect(
+        transport.reads.where(
+          (read) => read.path == '/voice/rooms/7/memberships.json',
+        ),
+        hasLength(1),
+      );
+      expect(
+        find.descendant(
+          of: find.byType(AlertDialog),
+          matching: find.text('Lee Example'),
+        ),
+        findsOneWidget,
+      );
+
+      await tester.tap(find.text('Done'));
+      await tester.pumpAndSettle();
+    });
+
+    testWidgets('says why instead of opening on a roster it could not read', (
+      tester,
+    ) async {
+      final harness = _Harness(
+        discourseApi: RecordingPluginTransport(
+          failures: const {
+            'GET /voice/rooms/7/memberships.json': SocketException('offline'),
+          },
+        ),
+      );
+      addTearDown(harness.dispose);
+      await _openMembers(tester, harness);
+
+      expect(find.text("Couldn't load the room's members."), findsOneWidget);
+      expect(find.text('Members of Lounge'), findsNothing);
     });
   });
 
@@ -3611,6 +3711,43 @@ Future<void> _openRoomChat(WidgetTester tester, _Harness harness) async {
   await tester.tap(find.byTooltip('Room chat'));
   await tester.pumpAndSettle();
 }
+
+Future<void> _openMembers(WidgetTester tester, _Harness harness) async {
+  final room = _room(
+    canManage: true,
+    creatorId: 1,
+    participants: const [
+      VoiceParticipant(id: 1, username: 'sam', role: VoiceRole.moderator),
+    ],
+  );
+  await tester.pumpWidget(
+    _app(
+      harness.controller,
+      room: room,
+      call: _call(room, harness.media.createSession()),
+    ),
+  );
+  await tester.tap(find.byTooltip('Manage members'));
+  await tester.pumpAndSettle();
+}
+
+const _membershipRows = [
+  {
+    'id': 8,
+    'room_id': 7,
+    'user_id': 1,
+    'role_name': 'moderator',
+    'user': {'id': 1, 'username': 'sam'},
+  },
+  {
+    'id': 9,
+    'room_id': 7,
+    'user_id': 2,
+    'role_name': 'speaker',
+    'user': {'id': 2, 'username': 'lee', 'name': 'Lee Example'},
+  },
+  {'id': 10, 'room_id': 7, 'user_id': 3, 'role_name': 'participant'},
+];
 
 Future<void> _join(_Harness harness, VoiceRoom room) =>
     harness.controller.join(siteUrl: _siteUrl, siteName: 'Voice', room: room);

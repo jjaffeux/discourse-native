@@ -1982,6 +1982,14 @@ Future<void> _showVoiceMembers(
 }) async {
   final memberships = await controller.memberships(siteUrl, room.id);
   if (!context.mounted) return;
+  if (memberships == null) {
+    DToast.show(
+      context,
+      "Couldn't load the room's members.",
+      type: DToastType.error,
+    );
+    return;
+  }
   await showDialog<void>(
     context: context,
     builder: (context) => _VoiceMembersDialog(
@@ -2015,54 +2023,86 @@ class _VoiceMembersDialogState extends State<_VoiceMembersDialog> {
   late List<VoiceMembership> _memberships = widget.initialMemberships;
   VoiceRole _newRole = VoiceRole.participant;
 
+  /// Spans a write and the roster read after it, so no second change starts
+  /// against rows that are about to be replaced.
+  bool _writing = false;
+
   @override
   void dispose() {
     _username.dispose();
     super.dispose();
   }
 
-  Future<void> _updateMember(VoiceMembership membership, VoiceRole role) async {
-    await widget.controller.updateMember(
-      widget.siteUrl,
-      widget.room.id,
-      membership.id,
-      role,
-    );
-    if (!mounted) return;
-    await _refreshMemberships();
-  }
+  Future<void> _updateMember(VoiceMembership membership, VoiceRole role) =>
+      _write(
+        () => widget.controller.updateMember(
+          widget.siteUrl,
+          widget.room.id,
+          membership.id,
+          role,
+        ),
+      );
 
-  Future<void> _removeMember(VoiceMembership membership) async {
-    await widget.controller.removeMember(
+  Future<void> _removeMember(VoiceMembership membership) => _write(
+    () => widget.controller.removeMember(
       widget.siteUrl,
       widget.room.id,
       membership.id,
-    );
-    if (!mounted) return;
-    await _refreshMemberships();
-  }
+    ),
+  );
 
   Future<void> _addMember() async {
-    final value = _username.text.trim();
+    final typed = _username.text;
+    final value = typed.trim();
     if (value.isEmpty) return;
-    await widget.controller.addMember(
-      widget.siteUrl,
-      widget.room.id,
-      value,
-      _newRole,
+    await _write(
+      () => widget.controller.addMember(
+        widget.siteUrl,
+        widget.room.id,
+        value,
+        _newRole,
+      ),
+      onSuccess: () {
+        // Cleared only once added, and never over a name typed since.
+        if (_username.text == typed) _username.clear();
+      },
     );
-    if (!mounted) return;
-    _username.clear();
-    await _refreshMemberships();
+  }
+
+  Future<void> _write(
+    Future<String?> Function() write, {
+    VoidCallback? onSuccess,
+  }) async {
+    if (_writing) return;
+    setState(() => _writing = true);
+    try {
+      final error = await write();
+      if (!mounted) return;
+      if (error != null) {
+        DToast.show(context, error, type: DToastType.error);
+        return;
+      }
+      onSuccess?.call();
+      await _refreshMemberships();
+    } finally {
+      if (mounted) setState(() => _writing = false);
+    }
   }
 
   Future<void> _refreshMemberships() async {
-    if (!mounted) return;
     final memberships = await widget.controller.memberships(
       widget.siteUrl,
       widget.room.id,
     );
     if (!mounted) return;
+    if (memberships == null) {
+      DToast.show(
+        context,
+        "Couldn't refresh the room's members.",
+        type: DToastType.error,
+      );
+      return;
+    }
     setState(() => _memberships = memberships);
   }
 
@@ -2117,7 +2157,9 @@ class _VoiceMembersDialogState extends State<_VoiceMembersDialog> {
                                         focusNode: state.focusNode,
                                         hasPopup: true,
                                         expanded: state.open,
-                                        onPressed: state.toggle,
+                                        onPressed: _writing
+                                            ? null
+                                            : state.toggle,
                                       ),
                                 ),
                               ),
@@ -2126,7 +2168,9 @@ class _VoiceMembersDialogState extends State<_VoiceMembersDialog> {
                         ),
                         if (membership.userId != widget.room.creatorId)
                           DButton.iconOnly(
-                            onPressed: () => _removeMember(membership),
+                            onPressed: _writing
+                                ? null
+                                : () => _removeMember(membership),
                             variant: DButtonVariant.ghost,
                             tooltip: 'Remove member',
                             icon: const DIcon(DIcons.trashCan),
@@ -2167,7 +2211,7 @@ class _VoiceMembersDialogState extends State<_VoiceMembersDialog> {
                 ),
               ),
               DButton.iconOnly(
-                onPressed: _addMember,
+                onPressed: _writing ? null : _addMember,
                 variant: DButtonVariant.secondary,
                 tooltip: 'Add member',
                 icon: const DIcon(DIcons.userPlus),
