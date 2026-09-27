@@ -14,6 +14,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'support/skeleton_expectations.dart';
 import 'support/topic_scroll_capture.dart';
 
 const _likes = UserDirectoryColumn(
@@ -64,6 +65,29 @@ const _hawk = UserDirectoryItem(
 );
 
 void main() {
+  for (final size in [const Size(390, 844), const Size(1440, 1200)]) {
+    testWidgets('user skeleton fills the page at $size', (tester) async {
+      final semantics = tester.ensureSemantics();
+      await _pump(
+        tester,
+        const UsersPage(
+          siteUrl: 'https://example.com',
+          data: UsersPageData(loading: true),
+        ),
+        size: size,
+      );
+      expectSkeletonFillsViewport(
+        tester,
+        label: 'Loading users',
+        bottom: size.height,
+      );
+      expect(find.bySemanticsLabel('Loading users'), findsOneWidget);
+      expect(find.text('Loading the user directory…'), findsNothing);
+      expect(find.byKey(const ValueKey('users-search')), findsOneWidget);
+      semantics.dispose();
+    });
+  }
+
   testWidgets('failed directory can be retried from its error state', (
     tester,
   ) async {
@@ -1271,6 +1295,7 @@ void main() {
     update(() => data = const UsersPageData(loaded: true));
     await tester.pump();
     expect(find.byKey(const ValueKey('users-empty')), findsOneWidget);
+    expect(find.byType(DSkeletonRegion), findsNothing);
     update(
       () => data = const UsersPageData(
         loaded: true,
@@ -1279,6 +1304,7 @@ void main() {
     );
     await tester.pump();
     expect(find.byKey(const ValueKey('users-error')), findsOneWidget);
+    expect(find.byType(DSkeletonRegion), findsNothing);
     expect(tester.takeException(), isNull);
   });
 

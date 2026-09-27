@@ -12,10 +12,35 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'support/badge_fixtures.dart';
 import 'support/shell_test_harness.dart' show renderedText;
+import 'support/skeleton_expectations.dart';
 
 const _site = 'https://example.com';
 
 void main() {
+  for (final size in [const Size(390, 844), const Size(1440, 1200)]) {
+    for (final route in [const BadgeRoute.directory(), BadgeRoute.detail(1)]) {
+      testWidgets('badge skeleton fills ${route.path} at $size', (
+        tester,
+      ) async {
+        final semantics = tester.ensureSemantics();
+        await _pump(
+          tester,
+          const BadgesState(loading: true),
+          route: route,
+          size: size,
+          settle: false,
+        );
+        expectSkeletonFillsViewport(
+          tester,
+          label: 'Loading badges',
+          bottom: size.height,
+        );
+        expect(find.bySemanticsLabel('Loading badges'), findsOneWidget);
+        semantics.dispose();
+      });
+    }
+  }
+
   for (final (width, scale, platform) in [
     (825.0, 1.0, TargetPlatform.macOS),
     (825.0, 2.0, TargetPlatform.macOS),
@@ -307,6 +332,7 @@ void main() {
       onRefresh: () async => retries++,
     );
     expect(find.byType(DAlert), findsOneWidget);
+    expect(find.byType(DSkeletonRegion), findsNothing);
     await tester.tap(find.text('Retry'));
     expect(retries, 1);
     await _pump(
@@ -320,6 +346,7 @@ void main() {
       BadgesState(catalog: BadgeCatalog(const []), loaded: true),
     );
     expect(find.text('No badges to display.'), findsOneWidget);
+    expect(find.byType(DSkeletonRegion), findsNothing);
     expect(tester.takeException(), isNull);
   });
 }

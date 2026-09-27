@@ -9,6 +9,7 @@ import '../theme/d_icons.dart';
 import '../utils/pagination.dart';
 import 'avatar_image.dart';
 import 'content_reading_lane.dart';
+import 'directory_skeleton.dart';
 import 'site_url.dart';
 
 @immutable
@@ -208,9 +209,9 @@ class _GroupsPageState extends State<GroupsPage> {
                         ),
                       ),
                     if (!data.loaded && data.groups.isEmpty && data.loading)
-                      const SliverFillRemaining(
-                        hasScrollBody: false,
-                        child: SizedBox.shrink(key: ValueKey('groups-loading')),
+                      const SliverDirectorySkeleton(
+                        key: ValueKey('groups-loading'),
+                        kind: DirectorySkeletonKind.groups,
                       )
                     else if (data.groups.isEmpty &&
                         data.loaded &&

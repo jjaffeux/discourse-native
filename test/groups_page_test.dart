@@ -8,6 +8,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'support/skeleton_expectations.dart';
+
 const _support = Group(
   id: 1,
   name: 'support',
@@ -31,6 +33,29 @@ const _members = [
 ];
 
 void main() {
+  for (final size in [const Size(390, 844), const Size(1440, 1200)]) {
+    testWidgets('group skeleton fills the page at $size', (tester) async {
+      final semantics = tester.ensureSemantics();
+      await _pump(
+        tester,
+        const GroupsPage(
+          siteUrl: 'https://example.invalid',
+          data: GroupsPageData(loading: true),
+        ),
+        size: size,
+      );
+      expectSkeletonFillsViewport(
+        tester,
+        label: 'Loading groups',
+        bottom: size.height,
+      );
+      expect(find.bySemanticsLabel('Loading groups'), findsOneWidget);
+      expect(find.byKey(const ValueKey('groups-show-search')), findsOneWidget);
+      expect(find.byKey(const ValueKey('groups-type-filter')), findsOneWidget);
+      semantics.dispose();
+    });
+  }
+
   for (final (width, platform) in [
     (390.0, TargetPlatform.iOS),
     (700.0, TargetPlatform.android),
@@ -317,6 +342,7 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('group-row-moderators')), findsOneWidget);
+    expect(find.byType(DSkeletonRegion), findsNothing);
     expect(
       tester.state<EditableTextState>(find.byType(EditableText)),
       same(editable),

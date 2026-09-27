@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/data/discourse_api.dart';
 import 'package:discourse_native/src/models/bookmark.dart';
@@ -19,6 +21,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'support/bundled_plugins.dart';
 import 'support/fakes.dart';
+import 'support/skeleton_expectations.dart';
 
 const _site = 'https://meta.example';
 const _user = DiscourseUser(username: 'reader');
@@ -66,6 +69,32 @@ const _bookmarks = [
 
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
+
+  for (final size in [const Size(390, 844), const Size(1440, 1200)]) {
+    testWidgets('bookmark skeleton fills the page at $size', (tester) async {
+      final api = _DelayedBookmarksApi();
+      final shell = await _shell(api: api);
+      addTearDown(shell.dispose);
+      final semantics = tester.ensureSemantics();
+      await _pumpPage(tester, shell, size: size, settle: false);
+
+      expectSkeletonFillsViewport(
+        tester,
+        label: 'Loading bookmarks',
+        bottom: size.height,
+      );
+      expect(find.bySemanticsLabel('Loading bookmarks'), findsOneWidget);
+      expect(find.text('Bookmarks'), findsOneWidget);
+      expect(find.byType(DSelect<String>), findsOneWidget);
+
+      api.bookmarksGate.complete();
+      await tester.pumpAndSettle();
+      expect(find.byType(DSkeletonRegion), findsNothing);
+      expect(find.byType(BookmarkRow), findsNWidgets(_bookmarks.length));
+      expect(tester.takeException(), isNull);
+      semantics.dispose();
+    });
+  }
 
   for (final size in [const Size(390, 844), const Size(1080, 810)]) {
     testWidgets('bookmark page wraps and filters at ${size.width}px', (
@@ -378,6 +407,30 @@ final class _FailingPageApi extends FakeDiscourseApi {
   }
 }
 
+final class _DelayedBookmarksApi extends FakeDiscourseApi {
+  _DelayedBookmarksApi() : super(user: _user, bookmarkList: _bookmarks);
+
+  final bookmarksGate = Completer<void>();
+
+  @override
+  Future<BookmarkListPage> bookmarkListPage({
+    required String siteUrl,
+    required String apiKey,
+    required String username,
+    int page = 0,
+    String? clientId,
+  }) async {
+    await bookmarksGate.future;
+    return super.bookmarkListPage(
+      siteUrl: siteUrl,
+      apiKey: apiKey,
+      username: username,
+      page: page,
+      clientId: clientId,
+    );
+  }
+}
+
 Future<ShellController> _shell({
   List<Bookmark>? bookmarks = _bookmarks,
   FakeDiscourseApi? api,
@@ -422,6 +475,7 @@ Future<void> _pumpPage(
   Size size = const Size(1080, 810),
   double scale = 1,
   bool rtl = false,
+  bool settle = true,
   VoidCallback? onOpened,
 }) async {
   tester.view.devicePixelRatio = 1;
@@ -456,5 +510,9 @@ Future<void> _pumpPage(
       ),
     ),
   );
-  await tester.pumpAndSettle();
+  if (settle) {
+    await tester.pumpAndSettle();
+  } else {
+    await tester.pump();
+  }
 }

@@ -12,6 +12,7 @@ import 'avatar_image.dart';
 import 'badges_controller.dart';
 import 'content_reading_lane.dart';
 import 'cooked_html.dart';
+import 'directory_skeleton.dart';
 import 'open_link.dart';
 import 'site_image.dart';
 
@@ -55,9 +56,9 @@ class BadgesPage extends StatelessWidget {
                   child: _BadgeError(message: state.error!, onRetry: onRefresh),
                 ),
               if (state.loading && state.catalog == null && state.badge == null)
-                const SliverFillRemaining(
-                  hasScrollBody: false,
-                  child: SizedBox.shrink(key: ValueKey('badges-loading')),
+                const SliverDirectorySkeleton(
+                  key: ValueKey('badges-loading'),
+                  kind: DirectorySkeletonKind.badges,
                 )
               else if (route.isDirectory && state.catalog != null)
                 _BadgeDirectory(

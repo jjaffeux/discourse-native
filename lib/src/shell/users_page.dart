@@ -14,6 +14,7 @@ import '../theme/d_icons.dart';
 import '../utils/pagination.dart';
 import 'avatar_image.dart';
 import 'content_reading_lane.dart';
+import 'directory_skeleton.dart';
 import 'shell_scope.dart';
 import 'user_card.dart';
 import 'user_directory_controller.dart';
@@ -823,11 +824,9 @@ class _UsersPageState extends State<UsersPage> {
                                 : () => unawaited(widget.onRefresh!()),
                           )
                         : !data.loaded && data.items.isEmpty
-                        ? const _TableState(
+                        ? const DirectorySkeleton(
                             key: ValueKey('users-loading'),
-                            icon: DIcons.users,
-                            title: 'Loading users',
-                            detail: 'Loading the user directory…',
+                            kind: DirectorySkeletonKind.users,
                           )
                         : DDataTable<UserDirectoryItem>(
                             key: ValueKey((
