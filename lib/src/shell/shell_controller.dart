@@ -1854,9 +1854,14 @@ class ShellController extends FrameSafeNotifier
 
   void _removeWorkspace(String siteUrl, {bool persist = true}) {
     _forgetPluginPaneTabs(siteUrl);
-    if (_forumWorkspaces.remove(siteUrl) != null && persist) {
-      _persistWorkspaces();
+    final removed = _forumWorkspaces.remove(siteUrl);
+    if (removed == null) return;
+    // A homepage still waiting for its config can no longer hydrate a tab
+    // that has left the workspace map.
+    for (final tab in removed.tabs) {
+      _pendingHomepageTabs.remove(tab.id);
     }
+    if (persist) _persistWorkspaces();
   }
 
   void _forgetPluginPaneTabs(String siteUrl) {
@@ -2278,7 +2283,8 @@ class ShellController extends FrameSafeNotifier
       requireRemoteRevocation: true,
     );
     final lease = disconnected.lease;
-    if (disconnected.outcome != AccountDisconnectionOutcome.disconnected ||
+    if (isDisposed ||
+        disconnected.outcome != AccountDisconnectionOutcome.disconnected ||
         lease == null ||
         !lease.isCurrent) {
       return false;
@@ -2299,18 +2305,21 @@ class ShellController extends FrameSafeNotifier
       clearAppearance: true,
     );
     _instances.removeAt(index);
-    // A selector may have read the final signed-out state during disconnect.
-    _topicListFilterTagsCache.remove(instance.url);
     if (_instances.isEmpty) _rootMode = ShellRootMode.forum;
+    _instanceIndex = removingSelected
+        ? (_instances.isEmpty ? 0 : index.clamp(0, _instances.length - 1))
+        : _instances.indexOf(selected!);
 
-    if (removingSelected) {
-      _instanceIndex = _instances.isEmpty
-          ? 0
-          : index.clamp(0, _instances.length - 1);
-      _restoreInstanceWorkspace();
-    } else {
-      _instanceIndex = _instances.indexOf(selected!);
-    }
+    // The final disconnected phase re-activates a selected public forum under
+    // the lease it returns, and a selector may have read the signed-out state
+    // of any removed forum since. Retire that lifecycle so those loads cannot
+    // commit into a forum that has left the rail, and drop what they cached.
+    // The index must already be valid: forgetting notifies listeners.
+    _forgetSiteState(held.url);
+    // Only a rollback that no later operation on this URL has overtaken may
+    // put the forum back.
+    final removal = lifecycle.capture(held.url);
+    if (removingSelected) _restoreInstanceWorkspace();
     _notify();
 
     try {
@@ -2318,7 +2327,9 @@ class ShellController extends FrameSafeNotifier
       unawaited(aggregate.pruneForums(_instances));
       return true;
     } catch (_) {
-      if (isDisposed || !lease.isCurrent || _instanceAt(instance.url) != null) {
+      if (isDisposed ||
+          !removal.isCurrent ||
+          _instanceAt(instance.url) != null) {
         return false;
       }
 
