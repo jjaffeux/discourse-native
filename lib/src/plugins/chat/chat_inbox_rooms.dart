@@ -112,16 +112,6 @@ class ChatInboxRoomRow extends StatelessWidget {
                 ),
               ),
             ),
-            DItemDescription(
-              child: Text(
-                active
-                    ? '${room.people} ${room.people == 1 ? 'person' : 'people'} here'
-                    : 'Empty',
-                style: TextStyle(
-                  fontWeight: active ? FontWeight.w600 : FontWeight.w400,
-                ),
-              ),
-            ),
           ],
         ),
       ],

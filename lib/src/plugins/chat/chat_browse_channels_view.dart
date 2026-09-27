@@ -5,6 +5,7 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
 import 'chat_browse_navigation.dart';
+import 'chat_browse_skeleton.dart';
 import 'chat_channel.dart';
 import 'chat_channel_actions.dart';
 import 'chat_chrome_scroll_view.dart';
@@ -266,7 +267,14 @@ class _ChatBrowseChannelsViewState extends State<ChatBrowseChannelsView> {
 
   Widget _buildResults(BuildContext context, bool lazy) {
     if (_loading) {
-      return const SizedBox.shrink();
+      return ContentReadingLane(
+        basePadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+        builder: (context, lane) => ChatBrowseSkeleton(
+          page: ChatBrowsePage.channels,
+          scrollable: lazy,
+          padding: lane.padding,
+        ),
+      );
     }
     final channels = _visibleChannels;
     if (channels.isEmpty && !_hasMore && _error != null) {
@@ -302,7 +310,7 @@ class _ChatBrowseChannelsViewState extends State<ChatBrowseChannelsView> {
         );
       }
       if (_loadingMore) {
-        return const SizedBox.shrink();
+        return const ChatBrowseSkeleton(page: ChatBrowsePage.channels, rows: 2);
       }
       return Padding(
         padding: const EdgeInsets.symmetric(vertical: 12),

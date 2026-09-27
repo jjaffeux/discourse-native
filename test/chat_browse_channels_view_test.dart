@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import 'package:discourse_native/discourse_ui.dart'
-    show DButton, DDropdownMenuItem, DSpacing, DSpinner;
+    show DButton, DDropdownMenuItem, DSpacing, DSpinner, DSkeletonRegion;
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/plugin_api/plugin_data.dart';
@@ -395,6 +395,7 @@ void main() {
       await tester.pump();
 
       expect(find.byType(DSpinner), findsNothing);
+      expect(find.byType(DSkeletonRegion), findsOneWidget);
       expect(find.text('Load more'), findsNothing);
       expect(_offsets(api), [0, 1]);
 

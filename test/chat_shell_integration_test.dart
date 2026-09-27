@@ -2611,7 +2611,7 @@ void _registerChatShellTests() {
           of: find.byType(InstanceSidebar),
           matching: find.text(text, findRichText: true),
         );
-        expect(preview('42 new messages'), findsOneWidget);
+        expect(preview('42 messages'), findsOneWidget);
         expect(preview('1 new mention'), findsOneWidget);
         expect(preview('See you'), findsOneWidget);
         FontWeight? weight(String title) =>
