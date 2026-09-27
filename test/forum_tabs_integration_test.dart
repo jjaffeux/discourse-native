@@ -670,6 +670,8 @@ void main() {
       expect(routedItem.icon, DNativeIcons.topic);
       expect(routedItem.color, color);
 
+      await tester.ensureVisible(find.byKey(ValueKey('forum-tab-$originalId')));
+      await tester.pumpAndSettle();
       await tester.tap(find.byKey(ValueKey('forum-tab-$originalId')));
       await tester.pumpAndSettle();
       expect(controller.activeTabId, originalId);
@@ -694,10 +696,6 @@ void main() {
       expect(_bar(tester).items.map((item) => item.id), contains(newId));
       expect(_bar(tester).selectedId, isNot(originalId));
       expect(_bar(tester).recentlyClosedItems.single.id, originalId);
-      await tester.tap(
-        find.byKey(const ValueKey('forum-tabs-switcher-history')),
-      );
-      await tester.pumpAndSettle();
       await tester.tap(
         find.byKey(ValueKey('forum-tabs-switcher-recent-$originalId')),
       );
