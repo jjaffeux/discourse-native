@@ -54,6 +54,7 @@ final class ChatThreadDirectory extends FrameSafeNotifier {
     notifySafely();
     try {
       if (reset) {
+        loaded = false;
         _channels.clear();
         _offset = 0;
         _moreChannels = true;

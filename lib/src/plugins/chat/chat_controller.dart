@@ -944,6 +944,9 @@ class ChatController extends FrameSafeNotifier {
   bool channelsLoaded(String siteUrl) =>
       _publicIds.containsKey(siteUrl) && _directIds.containsKey(siteUrl);
 
+  bool channelsLoading(String siteUrl) =>
+      _loading.contains(_channelsKey(siteUrl));
+
   ChatComposerDraft? composerDraftFor(
     String siteUrl,
     ChatStreamTarget target,
@@ -5160,6 +5163,7 @@ class ChatController extends FrameSafeNotifier {
       }
     });
     _channelRequests[key] = request;
+    notifySafely();
     return request;
   }
 

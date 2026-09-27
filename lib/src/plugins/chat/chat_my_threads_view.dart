@@ -5,6 +5,7 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
 import 'chat_browse_navigation.dart';
+import 'chat_browse_skeleton.dart';
 import 'chat_chrome_scroll_view.dart';
 import 'chat_controller.dart';
 import 'chat_message.dart';
@@ -102,9 +103,9 @@ class _ChatMyThreadsViewState extends State<ChatMyThreadsView> {
           );
         }
         if (_directory.loading) {
-          return const Padding(
-            padding: EdgeInsets.all(16),
-            child: DSpinner(semanticLabel: 'Loading threads'),
+          return const ChatBrowseSkeleton(
+            page: ChatBrowsePage.threads,
+            rows: 2,
           );
         }
         return Padding(
@@ -181,8 +182,13 @@ class _ChatMyThreadsViewState extends State<ChatMyThreadsView> {
         ),
         list: (context, lazy) {
           if (_directory.loading && !_directory.loaded) {
-            return const Center(
-              child: DSpinner(semanticLabel: 'Loading threads'),
+            return ContentReadingLane(
+              basePadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+              builder: (context, lane) => ChatBrowseSkeleton(
+                page: ChatBrowsePage.threads,
+                scrollable: lazy,
+                padding: lane.padding,
+              ),
             );
           }
           if (threads.isEmpty && !hasFooter) {

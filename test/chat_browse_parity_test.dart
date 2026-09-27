@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/site_config.dart';
@@ -54,6 +56,48 @@ ChatChannel _channel(int id, String name, {int unread = 0}) => ChatChannel(
 );
 
 void main() {
+  for (final page in ChatBrowsePage.values) {
+    testWidgets(
+      '${page.name} shows skeleton rows until its request completes',
+      (tester) async {
+        final fixture = await _pump(tester);
+        final gate = Completer<void>();
+        addTearDown(() {
+          if (!gate.isCompleted) gate.complete();
+        });
+        Future<void>? request;
+        if (page == ChatBrowsePage.chats) {
+          fixture.api.channelsGate = gate;
+          request = fixture.chat.loadChannels(_site, force: true);
+        } else {
+          fixture.api.browseGate = gate;
+          await tester.tap(find.byKey(ValueKey(('toggle-group-item', page))));
+        }
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 50));
+        final skeleton = find.byKey(
+          ValueKey('chat-browse-${page.name}-skeleton'),
+        );
+        expect(skeleton, findsOneWidget);
+        expect(find.byType(DSpinner), findsNothing);
+        expect(
+          find.byKey(const ValueKey('chat-browse-navigation')),
+          findsOneWidget,
+        );
+        await tester.binding.setSurfaceSize(const Size(320, 260));
+        tester.platformDispatcher.textScaleFactorTestValue = 2;
+        addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+        await tester.pump();
+        expect(tester.takeException(), isNull);
+        gate.complete();
+        await request;
+        await tester.pumpAndSettle();
+        expect(skeleton, findsNothing);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
   testWidgets(
     'thread browsing paginates channels and includes unjoined threads',
     (tester) async {
@@ -178,7 +222,7 @@ void main() {
     (tester) async {
       final fixture = await _pump(tester);
       expect(find.text('sam: The latest message'), findsOneWidget);
-      expect(find.text('3 new messages'), findsOneWidget);
+      expect(find.text('3 messages'), findsOneWidget);
       await fixture.show(
         ChatInboxRow(
           siteUrl: _site,
@@ -187,7 +231,7 @@ void main() {
           onPressed: () {},
         ),
       );
-      expect(find.text('1 new message'), findsOneWidget);
+      expect(find.text('1 message'), findsOneWidget);
       final avatar = tester.widget<DAvatar>(find.byType(DAvatar).first);
       expect(avatar.borderRadius, isNotNull);
     },
@@ -203,6 +247,8 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Watercooler'), findsOneWidget);
     expect(find.text('Quiet room'), findsOneWidget);
+    expect(find.text('Empty'), findsNothing);
+    expect(find.text('3 people here'), findsNothing);
     await _pick(tester, 'chat-inbox-kind-filter', 'Voice rooms');
     expect(find.text('general'), findsNothing);
     await _pick(tester, 'chat-inbox-activity-filter', 'Unread');
@@ -258,7 +304,7 @@ class _Fixture {
   final ShellController shell;
   final ChatController chat;
   final ChatInboxRooms rooms;
-  final FakeDiscourseApi api;
+  final _GatedApi api;
   final Future<void> Function(Widget) show;
 }
 
@@ -269,7 +315,7 @@ Future<_Fixture> _pump(WidgetTester tester) async {
     _channel(1, 'general', unread: 1),
     _channel(2, 'workshop', unread: 3),
   ];
-  final api = FakeDiscourseApi(
+  final api = _GatedApi(
     user: _user,
     totals: chatNotificationTotals(),
     siteConfigs: {_site: _config},
@@ -387,4 +433,54 @@ class _Rooms extends ChangeNotifier implements ChatInboxRoomProvider {
       },
     ),
   ];
+}
+
+class _GatedApi extends FakeDiscourseApi {
+  _GatedApi({
+    super.user,
+    super.totals,
+    super.siteConfigs,
+    super.chatChannelsBySite,
+    super.chatBrowsePagesByKey,
+    super.chatChannelThreadPagesByKey,
+  });
+
+  Completer<void>? channelsGate;
+  Completer<void>? browseGate;
+
+  @override
+  Future<ChatChannels> chatChannels({
+    required String siteUrl,
+    String? apiKey,
+    String? clientId,
+  }) async {
+    await channelsGate?.future;
+    return super.chatChannels(
+      siteUrl: siteUrl,
+      apiKey: apiKey,
+      clientId: clientId,
+    );
+  }
+
+  @override
+  Future<ChatChannelBrowsePage> browseChatChannels({
+    required String siteUrl,
+    required String apiKey,
+    String filter = '',
+    ChatChannelBrowseStatus status = ChatChannelBrowseStatus.all,
+    int offset = 0,
+    int limit = ChatChannelBrowsePage.pageSize,
+    String? clientId,
+  }) async {
+    await browseGate?.future;
+    return super.browseChatChannels(
+      siteUrl: siteUrl,
+      apiKey: apiKey,
+      filter: filter,
+      status: status,
+      offset: offset,
+      limit: limit,
+      clientId: clientId,
+    );
+  }
 }
