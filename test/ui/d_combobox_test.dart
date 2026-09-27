@@ -775,6 +775,138 @@ void main() {
     );
   });
 
+  testWidgets('re-selecting the controlled value replaces the typed filter', (
+    tester,
+  ) async {
+    String? value = 'svelte';
+    await tester.pumpWidget(
+      _app(
+        StatefulBuilder(
+          builder: (context, setState) => DCombobox<String>.controlled(
+            value: value,
+            options: _options,
+            onChanged: (next, _) => setState(() => value = next),
+            anchor: const DComboboxInput<String>(),
+            content: const DComboboxContent(
+              children: [DComboboxList<String>()],
+            ),
+          ),
+        ),
+      ),
+    );
+    String text() =>
+        tester.widget<TextField>(find.byType(TextField)).controller!.text;
+    expect(text(), 'SvelteKit');
+    await tester.tap(find.byType(TextField));
+    await tester.enterText(find.byType(TextField), 'Svel');
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('SvelteKit'));
+    await tester.pumpAndSettle();
+    expect(value, 'svelte');
+    expect(find.byType(DComboboxList<String>), findsNothing);
+    expect(text(), 'SvelteKit');
+
+    await tester.enterText(find.byType(TextField), 'Rem');
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Remix'));
+    await tester.pumpAndSettle();
+    expect(value, 'remix');
+    expect(text(), 'Remix');
+  });
+
+  testWidgets('re-selecting in a mobile sheet replaces the typed filter', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final controller = DComboboxController<String>();
+    addTearDown(controller.dispose);
+    String? value = 'svelte';
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData(platform: TargetPlatform.iOS),
+        home: Scaffold(
+          body: StatefulBuilder(
+            builder: (context, setState) => DCombobox<String>.controlled(
+              controller: controller,
+              value: value,
+              options: _options,
+              onChanged: (next, _) => setState(() => value = next),
+              anchor: DComboboxTrigger<String>(
+                builder: (_, state) => DButton(
+                  onPressed: state.toggle,
+                  focusNode: state.focusNode,
+                  label: const Text('Framework'),
+                ),
+              ),
+              content: const DComboboxContent(
+                sheetOnMobile: true,
+                children: [
+                  DComboboxInput<String>(
+                    registerAsAnchor: false,
+                    showTrigger: false,
+                  ),
+                  DComboboxList<String>(),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('Framework'));
+    await tester.pumpAndSettle();
+    expect(find.byType(DSheetContent), findsOneWidget);
+    await tester.enterText(find.byType(EditableText), 'Svel');
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('SvelteKit'));
+    await tester.pumpAndSettle();
+    expect(value, 'svelte');
+    expect(controller.isOpen, isFalse);
+    expect(controller.query, 'SvelteKit');
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('re-selecting leaves a controlled query to its owner', (
+    tester,
+  ) async {
+    String? value = 'svelte';
+    var query = 'SvelteKit';
+    await tester.pumpWidget(
+      _app(
+        StatefulBuilder(
+          builder: (context, setState) => DCombobox<String>.controlled(
+            value: value,
+            query: query,
+            onQueryChanged: (next, _) => setState(() => query = next),
+            options: _options,
+            // An owner that ignores unchanged values never rebuilds the
+            // combobox, so nothing would resynchronise an overwritten query.
+            onChanged: (next, _) {
+              if (next != value) setState(() => value = next);
+            },
+            anchor: const DComboboxInput<String>(),
+            content: const DComboboxContent(
+              children: [DComboboxList<String>()],
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.byType(TextField));
+    await tester.enterText(find.byType(TextField), 'Svel');
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('SvelteKit'));
+    await tester.pumpAndSettle();
+    expect(value, 'svelte');
+    expect(query, 'Svel');
+    expect(
+      tester.widget<TextField>(find.byType(TextField)).controller?.text,
+      'Svel',
+    );
+  });
+
   testWidgets('dynamic results discard stale highlight but retain selection', (
     tester,
   ) async {

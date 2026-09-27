@@ -692,10 +692,15 @@ class _DComboboxState<T> extends FormFieldState<List<T>> {
       _requestQuery('', reason, openPopup: !combobox.closeOnSelect);
       if (combobox.closeOnSelect) _requestOpen(false, reason);
     } else {
+      final reselected = _contains(selectedValues, option.value);
       _emitValues([option.value], reason);
       if (!combobox.controlled) {
         _replaceText(option.label);
         combobox.onQueryChanged?.call(option.label, reason);
+      } else if (reselected && combobox.query == null) {
+        // An unchanged controlled value never reaches didUpdateWidget's sync,
+        // which would otherwise replace the typed filter with the label.
+        _syncTextAfterUpdate(labelFor(option.value));
       }
       _requestOpen(!combobox.closeOnSelect, reason);
     }
