@@ -130,6 +130,7 @@ import 'topic_read_controller.dart';
 import 'unread_topic_feed.dart';
 import 'update_controller.dart';
 import 'user_directory_controller.dart';
+import 'user_status_overrides.dart';
 import 'user_summary_controller.dart';
 
 enum MobilePane { sidebar, content }
@@ -1023,6 +1024,8 @@ class ShellController extends FrameSafeNotifier
     onCommitted: _commitDoNotDisturb,
     clock: _clock,
   );
+
+  late final UserStatusOverrides userStatuses = UserStatusOverrides();
 
   late final DraftListController draftList = DraftListController(
     api: api.drafts,
@@ -3959,7 +3962,6 @@ class ShellController extends FrameSafeNotifier
   final Map<String, SiteTracker> _trackers = {};
   final Set<String> _trackersStarting = {};
   final Map<String, Future<void>> _trackerStartRequests = {};
-  final Map<String, Map<int, UserStatus?>> _userStatusOverrides = {};
   // Each captured lease identifies both one write and its account lifetime.
   final Map<String, SiteLease> _userStatusWrites = {};
   final Map<String, bool> _optimisticHidePresence = {};
@@ -5092,45 +5094,18 @@ class ShellController extends FrameSafeNotifier
     accountActivity.applyGroupedUnreadSnapshot(siteUrl, counts);
   }
 
-  UserStatus? userStatusFor(String siteUrl, int? userId, UserStatus? snapshot) {
-    final overrides = _userStatusOverrides[siteUrl];
-    final status = userId != null && (overrides?.containsKey(userId) ?? false)
-        ? overrides![userId]
-        : snapshot;
-    return status?.isActiveAt(DateTime.now()) == true ? status : null;
-  }
-
+  // Only the account's own status is shell state: it lives on the persisted
+  // instance record. Everyone else's stays on [userStatuses].
   void _applyUserStatusMessage(String siteUrl, Object? data) {
-    if (data is! Map<Object?, Object?>) return;
-    var changed = false;
     var ownStatusChanged = false;
-    for (final entry in data.entries) {
-      final userId = switch (entry.key) {
-        final int value => value,
-        final String value => int.tryParse(value),
-        _ => null,
-      };
-      if (userId == null || userId <= 0) continue;
-
-      final UserStatus? status;
-      if (entry.value == null) {
-        status = null;
-      } else if (entry.value case final Map<Object?, Object?> value) {
-        status = UserStatus.fromJson(Map<String, dynamic>.from(value));
-        if (status == null) continue;
-      } else {
-        continue;
-      }
-      _userStatusOverrides.putIfAbsent(siteUrl, () => {})[userId] = status;
+    for (final MapEntry(key: userId, value: status)
+        in userStatuses.applyMessage(siteUrl, data).entries) {
       ownStatusChanged =
           _applyOwnUserStatus(siteUrl, userId, status) || ownStatusChanged;
-      changed = true;
     }
-    if (changed) {
+    if (ownStatusChanged) {
       _notify();
-      if (ownStatusChanged) {
-        instanceStore.save(List.of(_instances)).ignore();
-      }
+      instanceStore.save(List.of(_instances)).ignore();
     }
   }
 
@@ -5401,7 +5376,7 @@ class ShellController extends FrameSafeNotifier
         endsAt: endsAt?.toUtc(),
       );
       lease.commit(() {
-        _userStatusOverrides.putIfAbsent(siteUrl, () => {})[user!.id!] = status;
+        userStatuses.record(siteUrl, user!.id!, status);
         _applyOwnUserStatus(siteUrl, user.id!, status);
         _notify();
         instanceStore.save(List.of(_instances)).ignore();
@@ -5472,7 +5447,7 @@ class ShellController extends FrameSafeNotifier
       );
       if (!ownsWrite()) return null;
       lease.commit(() {
-        _userStatusOverrides.putIfAbsent(siteUrl, () => {})[user!.id!] = null;
+        userStatuses.record(siteUrl, user!.id!, null);
         _applyOwnUserStatus(siteUrl, user.id!, null);
         _notify();
         instanceStore.save(List.of(_instances)).ignore();
@@ -14527,7 +14502,7 @@ class ShellController extends FrameSafeNotifier
     _sessionUsersRefreshed.remove(siteUrl);
     _sessionUserRequests.remove(siteUrl)?.ignore();
     doNotDisturb.forget(siteUrl);
-    _userStatusOverrides.remove(siteUrl);
+    userStatuses.forget(siteUrl);
     _userStatusWrites.remove(siteUrl);
     _optimisticHidePresence.remove(siteUrl);
     _hidePresenceWrites.remove(siteUrl);
@@ -16154,7 +16129,6 @@ class ShellController extends FrameSafeNotifier
     _topicStatusWrites.clear();
     _messageArchiveWrites.clear();
     _messageArchiveVersions.clear();
-    _userStatusOverrides.clear();
     _userStatusWrites.clear();
     _optimisticHidePresence.clear();
     _hidePresenceWrites.clear();
@@ -16184,6 +16158,7 @@ class ShellController extends FrameSafeNotifier
     updates.dispose();
     accountActivity.dispose();
     doNotDisturb.dispose();
+    userStatuses.dispose();
     draftList.dispose();
     userSummary.dispose();
     groups.dispose();

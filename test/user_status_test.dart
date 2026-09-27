@@ -7,6 +7,10 @@ import 'package:discourse_native/src/models/user_status.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
+import 'package:discourse_native/src/shell/shell_scope.dart';
+import 'package:discourse_native/src/shell/user_status.dart';
+import 'package:discourse_native/src/theme/app_theme.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/bundled_plugins.dart';
@@ -152,8 +156,8 @@ void main() {
     });
 
     expect(
-      shell
-          .userStatusFor(
+      shell.userStatuses
+          .statusFor(
             siteUrl,
             42,
             const UserStatus(description: 'Old', emoji: 'clock1'),
@@ -166,7 +170,7 @@ void main() {
 
     tracker.deliverPluginMessage('/user-status', const {'42': null});
     expect(
-      shell.userStatusFor(
+      shell.userStatuses.statusFor(
         siteUrl,
         42,
         const UserStatus(description: 'Old', emoji: 'clock1'),
@@ -211,5 +215,89 @@ void main() {
     expect(api.userStatusesCleared, [siteUrl]);
     expect(api.doNotDisturbResumes, [siteUrl]);
     expect(shell.currentInstance?.user?.status, isNull);
+  });
+
+  testWidgets('a status message redraws only for its own user', (tester) async {
+    const user = DiscourseUser(id: 7, username: 'reader');
+    final shell = ShellController(
+      plugins: installedPlugins,
+      instanceStore: FakeInstanceStore([
+        instance('meta.discourse.org').copyWith(
+          user: user,
+          config: const SiteConfig(userStatusEnabled: true),
+        ),
+      ]),
+      api: FakeDiscourseApi(
+        user: user,
+        feeds: const {'/latest.json': <Topic>[]},
+        siteConfigs: const {siteUrl: SiteConfig(userStatusEnabled: true)},
+      ),
+      authenticator: FakeAuthenticator()..keys[siteUrl] = 'key',
+      drafts: FakeDraftStore(),
+      trackers: FakeSiteTracker.reset(),
+    );
+    addTearDown(shell.dispose);
+    await shell.load();
+
+    await tester.pumpWidget(
+      ShellScope(
+        controller: shell,
+        child: MaterialApp(
+          theme: AppTheme.light.copyWith(platform: TargetPlatform.macOS),
+          home: const Scaffold(
+            body: Column(
+              children: [
+                UserStatusMessage(
+                  siteUrl: siteUrl,
+                  userId: 42,
+                  status: UserStatus(description: 'Writing', emoji: 'pencil'),
+                  showDescription: true,
+                ),
+                UserStatusMessage(
+                  siteUrl: siteUrl,
+                  userId: 43,
+                  status: UserStatus(description: 'Reading', emoji: 'book'),
+                  showDescription: true,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final tracker = FakeSiteTracker.built.single;
+    // The description and the emoji's alt text both show it.
+    final unchanged = find.text('Reading').evaluate().toSet();
+    expect(unchanged, isNotEmpty);
+    final rebuilt = <Element>{};
+    final previousRebuildCallback = debugOnRebuildDirtyWidget;
+    debugOnRebuildDirtyWidget = (element, builtOnce) {
+      rebuilt.add(element);
+      previousRebuildCallback?.call(element, builtOnce);
+    };
+    addTearDown(() {
+      debugOnRebuildDirtyWidget = previousRebuildCallback;
+    });
+
+    tracker.deliverPluginMessage('/user-status', const {
+      '44': {'description': 'Off screen', 'emoji': 'house'},
+    });
+    await tester.pump();
+    expect(rebuilt, isEmpty);
+
+    tracker.deliverPluginMessage('/user-status', const {
+      '42': {'description': 'At lunch', 'emoji': 'sandwich'},
+    });
+    await tester.pump();
+    expect(find.text('At lunch'), findsWidgets);
+    expect(find.text('Writing'), findsNothing);
+    expect(find.text('Reading').evaluate().toSet(), unchanged);
+    expect(rebuilt.intersection(unchanged), isEmpty);
+
+    tracker.deliverPluginMessage('/user-status', const {'42': null});
+    await tester.pump();
+    expect(find.text('At lunch'), findsNothing);
+    expect(find.text('Reading').evaluate().toSet(), unchanged);
   });
 }

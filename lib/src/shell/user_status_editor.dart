@@ -28,7 +28,11 @@ Future<void> showUserStatusEditor(
       !controller.accountSessionDisposed &&
       lease.isCurrent &&
       identical(ShellScope.maybeRead(navigatorContext), controller);
-  final initialStatus = controller.userStatusFor(siteUrl, user.id, user.status);
+  final initialStatus = controller.userStatuses.statusFor(
+    siteUrl,
+    user.id,
+    user.status,
+  );
   final initialPauseNotifications = controller.doNotDisturb
       .stateFor(siteUrl)
       .isActiveAt(DateTime.now());
