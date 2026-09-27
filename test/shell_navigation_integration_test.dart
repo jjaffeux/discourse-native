@@ -55,6 +55,21 @@ Finder get _searchEditor => find.descendant(
   matching: find.byType(EditableText),
 );
 
+// The sidebar's horizontal section tabs scroll too; the destination list is
+// the vertical one.
+final Finder _verticalScrollable = find.byWidgetPredicate(
+  (widget) =>
+      widget is Scrollable &&
+      axisDirectionToAxis(widget.axisDirection) == Axis.vertical,
+);
+
+// The content header's refresh-tab control shares the glyph; the update
+// button is the one in the rail.
+Finder get _railUpdateButton => find.descendant(
+  of: find.byType(InstanceRail),
+  matching: find.dIcon(DIcons.arrowsRotate),
+);
+
 void main() {
   _registerShellNavigationTests();
   _registerShellUpdateTests();
@@ -156,6 +171,8 @@ void _registerShellNavigationTests() {
       debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
       try {
         await pumpShell(tester, desktop);
+        // Startup reads the window's corner radius and frame on this channel.
+        calls.clear();
         final titleBar = tester.getRect(find.byType(ShellTitleBar));
         final background = find.byKey(ShellTitleBar.maximizeGestureKey);
 
@@ -320,7 +337,7 @@ void _registerShellNavigationTests() {
       tester,
     ) async {
       await pumpShell(tester, phone);
-      final button = find.byKey(const ValueKey('mobile-mode-users'));
+      final button = find.byKey(const ValueKey('mobile-mode-start'));
       expect(tester.getSize(button).height, greaterThanOrEqualTo(48));
       await tester.tap(button);
       await tester.pumpAndSettle();
@@ -402,7 +419,7 @@ void _registerShellNavigationTests() {
     ) async {
       await pumpShell(tester, phone);
       final initial = tester.getRect(userMenu);
-      await tester.tap(find.byKey(const ValueKey('mobile-mode-users')));
+      await tester.tap(find.byKey(const ValueKey('mobile-mode-start')));
       await tester.pumpAndSettle();
       expect(tester.getRect(userMenu), initial);
       expect(
@@ -759,13 +776,16 @@ void _registerShellNavigationTests() {
     expect(sidebarDestination('Groups'), findsOneWidget);
   }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
-  testWidgets('uses a home icon for the aggregate route', (tester) async {
+  testWidgets('uses a network icon for the aggregate route', (tester) async {
     await pumpShell(tester, desktop);
 
     final aggregateButton = find.byKey(const ValueKey('aggregate-rail-button'));
 
     expect(
-      find.descendant(of: aggregateButton, matching: find.dIcon(DIcons.house)),
+      find.descendant(
+        of: aggregateButton,
+        matching: find.dIcon(DIcons.circleNodes),
+      ),
       findsOneWidget,
     );
   }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
@@ -1077,7 +1097,7 @@ void _registerShellNavigationTests() {
 
     final scrollable = find.descendant(
       of: find.byType(InstanceSidebar),
-      matching: find.byType(Scrollable),
+      matching: _verticalScrollable,
     );
     final position = tester.state<ScrollableState>(scrollable).position;
     final initialMax = position.maxScrollExtent;
@@ -1174,7 +1194,7 @@ void _registerShellNavigationTests() {
 
     final scrollable = find.descendant(
       of: sidebar,
-      matching: find.byType(Scrollable),
+      matching: _verticalScrollable,
     );
     await tester.scrollUntilVisible(row(199), 500, scrollable: scrollable);
     await tester.pumpAndSettle();
@@ -1905,7 +1925,7 @@ void _registerShellNavigationTests() {
     expect(tile.top - header.bottom, closeTo(60, 0.01));
     expect(tile.left - sidebar.left, closeTo(8, 0.01));
     expect(sidebar.right - tile.right, closeTo(8, 0.01));
-    expect(tile.height, closeTo(32, 0.01));
+    expect(tile.height, closeTo(40, 0.01));
     expect(tester.getRect(topics).left - sidebar.left, closeTo(42, 0.01));
   }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
@@ -2053,7 +2073,7 @@ void _registerShellNavigationTests() {
       );
       final style = DefaultTextStyle.of(tester.element(label)).style;
       expect(style.fontSize, 12);
-      expect(style.height, 16 / 12);
+      expect(style.height, 1.5);
       expect(style.color, DTokens.of(tester.element(label)).foreground);
       await tester.sendKeyEvent(LogicalKeyboardKey.escape);
       await tester.pumpAndSettle();
@@ -3286,7 +3306,7 @@ void _registerShellNavigationTests() {
 
 void _registerShellUpdateTests() {
   group('the update button', () {
-    Finder updateButton() => find.dIcon(DIcons.arrowsRotate);
+    Finder updateButton() => _railUpdateButton;
 
     testWidgets('is absent where an update cannot be installed', (
       tester,
@@ -3397,7 +3417,7 @@ void _registerShellUpdateTests() {
         updater: updater,
         updateStore: store ?? FakeUpdateStore(lastChecked: DateTime.now()),
       );
-      await tester.tap(find.dIcon(DIcons.arrowsRotate));
+      await tester.tap(_railUpdateButton);
       await tester.pumpAndSettle();
     }
 
@@ -3640,7 +3660,7 @@ void _registerShellUpdateTests() {
         updateStore: FakeUpdateStore(lastChecked: DateTime.now()),
       );
 
-      await tester.tap(find.dIcon(DIcons.arrowsRotate));
+      await tester.tap(_railUpdateButton);
       await tester.pumpAndSettle();
 
       expect(find.textContaining('stable channel'), findsOneWidget);
@@ -3658,7 +3678,7 @@ void _registerShellUpdateTests() {
       );
       await tester.pumpAndSettle();
 
-      await tester.tap(find.dIcon(DIcons.arrowsRotate));
+      await tester.tap(_railUpdateButton);
       await tester.pumpAndSettle();
 
       expect(find.textContaining('canary channel'), findsOneWidget);
@@ -3671,7 +3691,7 @@ void _registerShellUpdateTests() {
       final store = FakeUpdateStore(lastChecked: DateTime.now());
       await pumpShell(tester, desktop, updater: updater, updateStore: store);
 
-      await tester.tap(find.dIcon(DIcons.arrowsRotate));
+      await tester.tap(_railUpdateButton);
       await tester.pumpAndSettle();
       await tester.tap(find.text('Canary'));
       await tester.pumpAndSettle();
@@ -3705,7 +3725,7 @@ void _registerShellUpdateTests() {
       );
       await tester.pumpAndSettle();
 
-      await tester.tap(find.dIcon(DIcons.arrowsRotate));
+      await tester.tap(_railUpdateButton);
       await tester.pumpAndSettle();
       await tester.tap(find.text('Stable'));
       await tester.pumpAndSettle();

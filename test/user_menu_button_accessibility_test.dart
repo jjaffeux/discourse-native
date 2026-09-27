@@ -56,8 +56,8 @@ void main() {
         await tester.pumpAndSettle();
         final signUp = find.byKey(UserMenuButton.signUpKey);
         final signIn = find.byKey(UserMenuButton.signInKey);
-        expect(tester.getSize(signUp).height, 32);
-        expect(tester.getSize(signIn).height, 32);
+        expect(tester.getSize(signUp).height, 40);
+        expect(tester.getSize(signIn).height, 40);
         expect(tester.getSemantics(signUp).label, 'Sign up');
         expect(tester.getSemantics(signIn).label, 'Sign in');
 
@@ -192,8 +192,8 @@ void main() {
       await tester.pumpAndSettle();
 
       final button = find.byKey(UserMenuButton.bellKey);
-      expect(tester.getSize(button).height, 28);
-      expect(tester.getSize(button).width, greaterThan(28));
+      expect(tester.getSize(button).height, 34);
+      expect(tester.getSize(button).width, greaterThan(34));
       expect(
         tester.getRect(button).right,
         lessThanOrEqualTo(

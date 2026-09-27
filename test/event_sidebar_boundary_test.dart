@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/data/discourse_api.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/site_config.dart';
@@ -92,10 +93,9 @@ void main() {
           tester.element(find.byType(MainContent)),
         );
         final mobile = controller.mobileNavigationEnabled;
+        // The phone dock spills Events into its More menu.
         final upcoming = mobile
-            ? find.byKey(
-                const ValueKey('mobile-mode-destination/events-upcoming'),
-              )
+            ? find.byKey(const ValueKey('mobile-mode-more'))
             : sidebarDestination('Upcoming events');
         expect(upcoming, findsOneWidget);
         expect(sidebarDestination('My events'), findsNothing);
@@ -108,6 +108,10 @@ void main() {
 
         await tester.tap(upcoming);
         await tester.pumpAndSettle();
+        if (mobile) {
+          await tester.tap(_dockMenuItem('Events'));
+          await tester.pumpAndSettle();
+        }
 
         expect(controller.currentContent?.id, 'events-upcoming');
         expect(controller.destinationId, 'events-upcoming');
@@ -149,12 +153,9 @@ void main() {
           }
           controller.handleBack(canReturnToSidebar: true);
           await tester.pumpAndSettle();
-          expect(
-            find.byKey(
-              const ValueKey('mobile-mode-destination/events-upcoming'),
-            ),
-            findsOneWidget,
-          );
+          await tester.tap(find.byKey(const ValueKey('mobile-mode-more')));
+          await tester.pumpAndSettle();
+          expect(_dockMenuItem('Events'), findsOneWidget);
         }
       },
       variant: TargetPlatformVariant.only(
@@ -273,6 +274,11 @@ void main() {
     expect(rebuilds, 0);
   }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 }
+
+Finder _dockMenuItem(String label) => find.descendant(
+  of: find.byType(DDropdownMenuItem),
+  matching: find.text(label),
+);
 
 Map<String, Object> _query({bool mine = false}) => {
   'include_ongoing': 'true',

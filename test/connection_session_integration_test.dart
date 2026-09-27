@@ -52,6 +52,18 @@ import 'support/finders.dart';
 
 import 'support/shell_test_harness.dart';
 
+// The page behind the menu reports its own unreachable feed.
+Finder _inMenu(Finder finder) =>
+    find.descendant(of: find.byType(UserMenuPanel), matching: finder);
+
+// The notification categories scroll horizontally; a tab can sit under the
+// strip's scroll control until it is brought into view.
+Future<void> _tapMenuTab(WidgetTester tester, Finder tab) async {
+  await tester.ensureVisible(tab);
+  await tester.pumpAndSettle();
+  await tester.tap(tab);
+}
+
 void main() {
   _registerConnectionSessionTests();
 }
@@ -69,8 +81,8 @@ void _registerConnectionSessionTests() {
 
       final signUp = tester.getRect(find.byKey(UserMenuButton.signUpKey));
       final signIn = tester.getRect(find.byKey(UserMenuButton.signInKey));
-      expect(signUp.height, 32);
-      expect(signIn.height, 32);
+      expect(signUp.height, 40);
+      expect(signIn.height, 40);
     }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('aggregate hides forum account actions', (tester) async {
@@ -438,31 +450,32 @@ void _registerConnectionSessionTests() {
 
     Future<void> openNotifications(WidgetTester tester) async {
       await openMenu(tester);
-      await tester.tap(find.text('Notifications').last);
+      await _tapMenuTab(tester, find.text('Notifications').last);
       await tester.pumpAndSettle();
     }
 
     Future<void> openReplies(WidgetTester tester) async {
       await openMenu(tester);
-      await tester.tap(find.text('Replies'));
+      await _tapMenuTab(tester, find.text('Replies'));
       await tester.pumpAndSettle();
     }
 
     Future<void> openLikes(WidgetTester tester) async {
       await openMenu(tester);
-      await tester.tap(find.text('Likes'));
+      await _tapMenuTab(tester, find.text('Likes'));
       await tester.pumpAndSettle();
     }
 
     Future<void> openOther(WidgetTester tester) async {
       await openMenu(tester);
-      await tester.tap(find.text('Other'));
+      await _tapMenuTab(tester, find.text('Other'));
       await tester.pumpAndSettle();
     }
 
     Future<void> openChat(WidgetTester tester) async {
       await openMenu(tester);
-      await tester.tap(find.text('Chat').last);
+      // The phone dock labels its Chat panel too.
+      await _tapMenuTab(tester, _inMenu(find.text('Chat')).last);
       await tester.pumpAndSettle();
     }
 
@@ -509,7 +522,7 @@ void _registerConnectionSessionTests() {
       expect(api.emojisRequested, ['https://meta.discourse.org']);
     });
 
-    testWidgets('a thumb gets a sheet, and one sheet per section inside it', (
+    testWidgets('a thumb gets the popover, and a tab per section inside it', (
       tester,
     ) async {
       final api = FakeDiscourseApi(
@@ -524,9 +537,8 @@ void _registerConnectionSessionTests() {
       );
       await openMenu(tester);
 
-      expect(find.byType(UserMenuPanel), findsNothing);
+      expect(find.byType(UserMenuPanel), findsOneWidget);
       expect(find.text('Notifications'), findsWidgets);
-      expect(find.text('@joffreyj · meta.discourse.org'), findsOneWidget);
       expect(find.text('Notifications'), findsWidgets);
       expect(find.text('Profile'), findsNothing);
       expect(
@@ -534,19 +546,23 @@ void _registerConnectionSessionTests() {
         isNot(Theme.of(tester.element(find.text('Replies'))).shell.placeholder),
       );
 
-      await tester.tap(find.text('Replies'));
+      await _tapMenuTab(tester, find.text('Replies'));
       await tester.pumpAndSettle();
 
       expect(api.replyNotificationCalls, 1);
-      expect(api.notificationFilters.single, userMenuReplyNotificationTypes);
+      // The popover loads its Notifications tab before Replies is chosen.
+      expect(api.notificationFilters, [
+        isEmpty,
+        userMenuReplyNotificationTypes,
+      ]);
       expect(
         find.textContaining('sam replied to Better image handling'),
         findsOneWidget,
       );
       expect(find.text('Notifications'), findsWidgets);
-      expect(find.dIcon(DIcons.arrowLeft), findsOneWidget);
+      expect(find.dIcon(DIcons.arrowLeft), findsNothing);
 
-      await tester.tap(find.dIcon(DIcons.arrowLeft));
+      await _tapMenuTab(tester, find.text('Notifications').last);
       await tester.pumpAndSettle();
 
       expect(find.text('Profile'), findsNothing);
@@ -593,10 +609,11 @@ void _registerConnectionSessionTests() {
       await openLikes(tester);
 
       expect(api.likeNotificationCalls, 1);
-      expect(
-        api.notificationFilters.single,
+      // The popover loads its Notifications tab before Likes is chosen.
+      expect(api.notificationFilters, [
+        isEmpty,
         pluginRegistry.likeNotificationTypes,
-      );
+      ]);
       expect(
         find.textContaining('david liked your post in Merge CVSS'),
         findsOneWidget,
@@ -685,8 +702,8 @@ void _registerConnectionSessionTests() {
       );
       await openLikes(tester);
 
-      expect(find.textContaining("Couldn't reach"), findsOneWidget);
-      await tester.tap(find.text('Retry'));
+      expect(_inMenu(find.textContaining("Couldn't reach")), findsOneWidget);
+      await tester.tap(_inMenu(find.text('Retry')));
       await tester.pumpAndSettle();
 
       expect(api.likeNotificationCalls, 2);
@@ -744,11 +761,15 @@ void _registerConnectionSessionTests() {
         'https://meta.discourse.org',
       ]);
       expect(api.otherNotificationCalls, 1);
-      expect(api.notificationFilters.single, const [
-        NotificationTypeName('assigned'),
-        NotificationTypeName('granted_badge'),
-        NotificationTypeName('custom'),
-        NotificationTypeName('plugin_alert'),
+      // The popover loads its Notifications tab before Other is chosen.
+      expect(api.notificationFilters, [
+        isEmpty,
+        const [
+          NotificationTypeName('assigned'),
+          NotificationTypeName('granted_badge'),
+          NotificationTypeName('custom'),
+          NotificationTypeName('plugin_alert'),
+        ],
       ]);
       expect(
         find.textContaining('You earned the Nice Reply badge'),
@@ -812,8 +833,8 @@ void _registerConnectionSessionTests() {
       );
       await openOther(tester);
 
-      expect(find.textContaining("Couldn't reach"), findsOneWidget);
-      await tester.tap(find.text('Retry'));
+      expect(_inMenu(find.textContaining("Couldn't reach")), findsOneWidget);
+      await tester.tap(_inMenu(find.text('Retry')));
       await tester.pumpAndSettle();
 
       expect(api.otherNotificationCalls, 2);
@@ -972,7 +993,12 @@ void _registerConnectionSessionTests() {
       );
       await controller.loadTopic(7, 'better-image-handling');
       await tester.pumpAndSettle();
-      expect(find.byKey(const ValueKey('post-reaction-1-clap')), findsNothing);
+      // Phones summarize a post's reactions behind one button, shown only
+      // once the post has any.
+      expect(
+        find.byKey(const ValueKey('post-reaction-summary-1')),
+        findsNothing,
+      );
 
       topics[7] = topicPayload(
         id: 7,
@@ -991,8 +1017,9 @@ void _registerConnectionSessionTests() {
       expect(api.markedRead, [5]);
       await tester.tap(find.byKey(const ValueKey('post-reaction-summary-1')));
       await tester.pumpAndSettle();
+      // The phone reactions sheet offers each reaction as a filter.
       expect(
-        find.byKey(const ValueKey('post-reaction-1-clap')),
+        find.byKey(const ValueKey('post-reaction-filter-clap')),
         findsOneWidget,
       );
     });
@@ -1063,13 +1090,14 @@ void _registerConnectionSessionTests() {
       );
       await openReplies(tester);
 
-      expect(find.textContaining("Couldn't reach"), findsOneWidget);
+      expect(_inMenu(find.textContaining("Couldn't reach")), findsOneWidget);
 
-      await tester.tap(find.text('Retry'));
+      await tester.tap(_inMenu(find.text('Retry')));
       await tester.pumpAndSettle();
 
       expect(api.replyNotificationCalls, 2);
-      expect(api.notificationCalls, 0);
+      // The popover opens on its Notifications tab before Replies is chosen.
+      expect(api.notificationCalls, 1);
       expect(tester.takeException(), isNull);
     });
 
@@ -1176,7 +1204,11 @@ void _registerConnectionSessionTests() {
       expect(launched, ['https://meta.discourse.org/chat/c/-/9/44']);
       expect(find.byType(ChatUserMenuNotifications), findsNothing);
       expect(find.text('@joffreyj · meta.discourse.org'), findsNothing);
-      expect(api.notificationFilters, [chatNotificationFeed.filterByTypes]);
+      // The popover loads its Notifications tab before Chat is chosen.
+      expect(api.notificationFilters, [
+        isEmpty,
+        chatNotificationFeed.filterByTypes,
+      ]);
     });
 
     testWidgets('an empty Chat tab explains that there is no activity', (
@@ -1223,13 +1255,15 @@ void _registerConnectionSessionTests() {
       );
       await openChat(tester);
 
-      expect(find.textContaining("Couldn't reach"), findsOneWidget);
-      await tester.tap(find.text('Retry'));
+      expect(_inMenu(find.textContaining("Couldn't reach")), findsOneWidget);
+      await tester.tap(_inMenu(find.text('Retry')));
       await tester.pumpAndSettle();
 
       expect(api.chatNotificationCalls, 2);
-      expect(api.notificationCalls, 0);
+      // The popover loads its Notifications tab before Chat is chosen.
+      expect(api.notificationCalls, 1);
       expect(api.notificationFilters, [
+        isEmpty,
         chatNotificationFeed.filterByTypes,
         chatNotificationFeed.filterByTypes,
       ]);
@@ -1384,7 +1418,7 @@ void _registerConnectionSessionTests() {
       );
       await openMenu(tester);
 
-      await tester.tap(find.text('Messages').last);
+      await _tapMenuTab(tester, find.text('Messages').last);
       await tester.pumpAndSettle();
 
       expect(find.text('Joffrey'), findsNothing);
@@ -1620,7 +1654,11 @@ void _registerConnectionSessionTests() {
         expect(find.byType(UserActivityView), findsOneWidget);
         expect(shell.handleBack(canReturnToSidebar: false), isTrue);
         await tester.pumpAndSettle();
-        expect(shell.mobileNavigation.atRoot, isTrue);
+        // Back returns to the Topics tab root, which the redesigned mobile
+        // history records as a tab location rather than no location.
+        expect(shell.mobileNavigation.canGoBack, isFalse);
+        expect(shell.currentContent?.id, 'latest');
+        expect(shell.canPopContent, isFalse);
         expect(find.byType(UserActivityView), findsNothing);
       },
     );
@@ -1662,17 +1700,16 @@ void _registerConnectionSessionTests() {
         findsOneWidget,
       );
 
-      await tester.drag(
-        find
-            .descendant(
-              of: find.byType(UserActivityView),
-              matching: find.byType(SingleChildScrollView),
-            )
-            .first,
-        const Offset(0, 320),
+      // Lists no longer refresh on pull; refreshing the tab reloads the stream.
+      expect(api.userActivityRequests, hasLength(1));
+      unawaited(
+        ShellScope.read(
+          tester.element(find.byType(UserActivityView)),
+        ).refreshCurrentTab(),
       );
       await tester.pumpAndSettle();
       expect(api.userActivityRequests, hasLength(2));
+      expect(find.text('No activity yet'), findsOneWidget);
     });
 
     testWidgets('Activity failure remains a retryable native page', (
@@ -1900,9 +1937,9 @@ void _registerConnectionSessionTests() {
       );
       await openNotifications(tester);
 
-      expect(find.textContaining("Couldn't reach"), findsOneWidget);
+      expect(_inMenu(find.textContaining("Couldn't reach")), findsOneWidget);
 
-      await tester.tap(find.text('Retry'));
+      await tester.tap(_inMenu(find.text('Retry')));
       await tester.pumpAndSettle();
 
       expect(api.notificationCalls, 2);
@@ -1934,10 +1971,12 @@ void _registerConnectionSessionTests() {
         api: api,
         authenticator: signedIn(),
       );
+      // The phone menu is a popover with category tabs; switching away and
+      // back to Notifications asks the site again.
       await openNotifications(tester);
-      await tester.tap(find.dIcon(DIcons.arrowLeft));
+      await _tapMenuTab(tester, find.text('Replies'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Notifications').last);
+      await _tapMenuTab(tester, find.text('Notifications').last);
       await tester.pumpAndSettle();
 
       expect(api.notificationCalls, 2);
@@ -1975,7 +2014,7 @@ void _registerConnectionSessionTests() {
 
     Future<void> openBookmarks(WidgetTester tester) async {
       await openMenu(tester);
-      await tester.tap(find.text('Bookmarks'));
+      await _tapMenuTab(tester, find.text('Bookmarks'));
       await tester.pumpAndSettle();
     }
 
@@ -2371,9 +2410,9 @@ void _registerConnectionSessionTests() {
       );
       await openBookmarks(tester);
 
-      expect(find.textContaining("Couldn't reach"), findsOneWidget);
+      expect(_inMenu(find.textContaining("Couldn't reach")), findsOneWidget);
 
-      await tester.tap(find.text('Retry'));
+      await tester.tap(_inMenu(find.text('Retry')));
       await tester.pumpAndSettle();
 
       expect(api.bookmarksRequested.length, 2);
