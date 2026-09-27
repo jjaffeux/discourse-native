@@ -4559,37 +4559,45 @@ final class VoiceController extends ChangeNotifier {
     fallback: const [],
   );
 
-  Future<List<VoiceMembership>> memberships(String siteUrl, int roomId) =>
-      _runPublicValueOperation<List<VoiceMembership>>(
+  /// Null when the roster could not be read, so the members dialog keeps
+  /// what it shows rather than reading the failure as an empty room.
+  Future<List<VoiceMembership>?> memberships(String siteUrl, int roomId) =>
+      _runPublicValueOperation<List<VoiceMembership>?>(
         () => _memberships(siteUrl, roomId),
         'voice.memberships',
-        fallback: const [],
+        fallback: null,
       );
 
-  Future<List<VoiceMembership>> _memberships(String siteUrl, int roomId) async {
+  Future<List<VoiceMembership>?> _memberships(
+    String siteUrl,
+    int roomId,
+  ) async {
     final siteSession = _siteSession(siteUrl);
     bool isCurrent() => _isCurrentSiteSession(siteUrl, siteSession);
     final credentials = await _requestCredentials(
       siteUrl,
       ifCurrent: isCurrent,
     );
-    if (credentials == null) return const [];
+    if (credentials == null) return null;
     final memberships = await api.memberships(
       siteUrl: siteUrl,
       roomId: roomId,
       apiKey: credentials.apiKey,
     );
-    return isCurrent() ? memberships : const [];
+    return isCurrent() ? memberships : null;
   }
 
-  Future<void> addMember(
+  /// Null once [username] is a member; otherwise what the members dialog
+  /// should say instead.
+  Future<String?> addMember(
     String siteUrl,
     int roomId,
     String username,
     VoiceRole role,
-  ) => _runPublicOperation(
+  ) => _runMembershipWrite(
     () => _addMember(siteUrl, roomId, username, role),
     'voice.membership.add',
+    failure: "Couldn't add the member.",
   );
 
   Future<void> _addMember(
@@ -4604,7 +4612,9 @@ final class VoiceController extends ChangeNotifier {
       siteUrl,
       ifCurrent: isCurrent,
     );
-    if (credentials == null) return;
+    if (credentials == null) {
+      throw const WriteException(WriteFailure.forbidden);
+    }
     await api.addMembership(
       siteUrl: siteUrl,
       roomId: roomId,
@@ -4614,14 +4624,17 @@ final class VoiceController extends ChangeNotifier {
     );
   }
 
-  Future<void> updateMember(
+  /// Null once the role changed; otherwise what the members dialog should
+  /// say instead.
+  Future<String?> updateMember(
     String siteUrl,
     int roomId,
     int membershipId,
     VoiceRole role,
-  ) => _runPublicOperation(
+  ) => _runMembershipWrite(
     () => _updateMember(siteUrl, roomId, membershipId, role),
     'voice.membership.update',
+    failure: "Couldn't change the member's role.",
   );
 
   Future<void> _updateMember(
@@ -4636,7 +4649,9 @@ final class VoiceController extends ChangeNotifier {
       siteUrl,
       ifCurrent: isCurrent,
     );
-    if (credentials == null) return;
+    if (credentials == null) {
+      throw const WriteException(WriteFailure.forbidden);
+    }
     await api.updateMembership(
       siteUrl: siteUrl,
       roomId: roomId,
@@ -4646,10 +4661,13 @@ final class VoiceController extends ChangeNotifier {
     );
   }
 
-  Future<void> removeMember(String siteUrl, int roomId, int membershipId) =>
-      _runPublicOperation(
+  /// Null once the member is removed; otherwise what the members dialog
+  /// should say instead.
+  Future<String?> removeMember(String siteUrl, int roomId, int membershipId) =>
+      _runMembershipWrite(
         () => _removeMember(siteUrl, roomId, membershipId),
         'voice.membership.remove',
+        failure: "Couldn't remove the member.",
       );
 
   Future<void> _removeMember(
@@ -4663,7 +4681,9 @@ final class VoiceController extends ChangeNotifier {
       siteUrl,
       ifCurrent: isCurrent,
     );
-    if (credentials == null) return;
+    if (credentials == null) {
+      throw const WriteException(WriteFailure.forbidden);
+    }
     await api.removeMembership(
       siteUrl: siteUrl,
       roomId: roomId,
@@ -5033,6 +5053,23 @@ final class VoiceController extends ChangeNotifier {
     } catch (error, stackTrace) {
       _report(error, stackTrace, operation, correlationId: correlationId);
       return fallback;
+    }
+  }
+
+  /// Contained like any public operation, but answers with what the user
+  /// should be told: the server's own refusal, or [failure]. The error's
+  /// private cause stays behind the diagnostics boundary.
+  Future<String?> _runMembershipWrite(
+    Future<void> Function() action,
+    String operation, {
+    required String failure,
+  }) async {
+    try {
+      await action();
+      return null;
+    } catch (error, stackTrace) {
+      _report(error, stackTrace, operation);
+      return error is WriteException ? error.message : failure;
     }
   }
 

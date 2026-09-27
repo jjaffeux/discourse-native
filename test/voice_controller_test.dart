@@ -1420,6 +1420,7 @@ void main() {
           message: privateCause,
           details: {'userId': 987654321},
         );
+        final answers = <String, Object?>{};
         final actions = <Future<void> Function()>[
           () => controller.requestToSpeak(),
           () => controller.kick(2),
@@ -1428,21 +1429,31 @@ void main() {
           },
           () => controller.setRecording(true),
           () async {
-            await controller.memberships(firstSite, 7);
+            answers['read'] = await controller.memberships(firstSite, 7);
           },
-          () => controller.addMember(
-            firstSite,
-            7,
-            'admin-private-user',
-            VoiceRole.participant,
-          ),
-          () => controller.updateMember(
-            firstSite,
-            7,
-            987654321,
-            VoiceRole.speaker,
-          ),
-          () => controller.removeMember(firstSite, 7, 987654321),
+          () async {
+            answers['add'] = await controller.addMember(
+              firstSite,
+              7,
+              'admin-private-user',
+              VoiceRole.participant,
+            );
+          },
+          () async {
+            answers['update'] = await controller.updateMember(
+              firstSite,
+              7,
+              987654321,
+              VoiceRole.speaker,
+            );
+          },
+          () async {
+            answers['remove'] = await controller.removeMember(
+              firstSite,
+              7,
+              987654321,
+            );
+          },
         ];
 
         final uncaught = await _captureUncaught(() async {
@@ -1455,6 +1466,14 @@ void main() {
         });
 
         expect(uncaught, isEmpty);
+        // The members dialog shows these answers, so a failure the server
+        // did not word itself reaches the user only as a generic message.
+        expect(answers, {
+          'read': null,
+          'add': "Couldn't add the member.",
+          'update': "Couldn't change the member's role.",
+          'remove': "Couldn't remove the member.",
+        });
         const operations = {
           'voice.requestToSpeak',
           'voice.kick',
