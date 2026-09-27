@@ -142,53 +142,73 @@ class _MessageListNavigation extends StatelessWidget {
       }
       return ContentReadingLaneBox(
         widthLimit: topicListContentWidth,
-        child: ConstrainedBox(
+        child: Padding(
           key: const ValueKey('message-list-navigation'),
-          constraints: const BoxConstraints(minHeight: 38),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: DSpacing.lg,
-              vertical: 8,
-            ),
-            child: Align(
-              alignment: AlignmentDirectional.centerStart,
-              child: DDropdownMenu(
-                content: DDropdownMenuContent(
-                  width: 240,
-                  semanticLabel: 'Message lists',
-                  children: [
-                    for (final mode in MessageListMode.values)
-                      if (state.group == null || mode.supportsGroup)
-                        DDropdownMenuItem(
-                          key: ValueKey('message-list-${mode.name}'),
-                          trailing: state.mode == mode
-                              ? const DIcon(DIcons.check, size: 14)
-                              : null,
-                          onPressed: () =>
-                              ShellScope.read(context).selectMessageListMode(
-                                mode,
-                                keepTopicOpen: keepTopicOpen,
+          padding: const EdgeInsets.fromLTRB(
+            DSpacing.lg,
+            0,
+            DSpacing.lg,
+            DSpacing.lg,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                spacing: DSpacing.sm,
+                children: [
+                  Flexible(
+                    child: DDropdownMenu(
+                      content: DDropdownMenuContent(
+                        width: 240,
+                        semanticLabel: 'Message lists',
+                        children: [
+                          for (final mode in MessageListMode.values)
+                            if (state.group == null || mode.supportsGroup)
+                              DDropdownMenuItem(
+                                key: ValueKey('message-list-${mode.name}'),
+                                trailing: state.mode == mode
+                                    ? const DIcon(DIcons.check, size: 14)
+                                    : null,
+                                onPressed: () => ShellScope.read(context)
+                                    .selectMessageListMode(
+                                      mode,
+                                      keepTopicOpen: keepTopicOpen,
+                                    ),
+                                child: Text(mode.label),
                               ),
-                          child: Text(mode.label),
+                        ],
+                      ),
+                      child: DDropdownMenuTrigger(
+                        builder: (context, trigger) => DButton(
+                          key: const ValueKey('message-list-menu'),
+                          label: Text(state.mode.label),
+                          icon: const DIcon(DIcons.chevronDown, size: 12),
+                          iconPosition: DButtonIconPosition.end,
+                          variant: DButtonVariant.secondary,
+                          size: DButtonSize.filter,
+                          focusNode: trigger.focusNode,
+                          hasPopup: true,
+                          expanded: trigger.open,
+                          onPressed: trigger.toggle,
                         ),
-                  ],
-                ),
-                child: DDropdownMenuTrigger(
-                  builder: (context, trigger) => DButton(
-                    key: const ValueKey('message-list-menu'),
-                    label: Text(state.mode.label),
-                    icon: const DIcon(DIcons.chevronDown, size: 12),
-                    iconPosition: DButtonIconPosition.end,
-                    variant: DButtonVariant.secondary,
-                    size: DButtonSize.filter,
-                    focusNode: trigger.focusNode,
-                    hasPopup: true,
-                    expanded: trigger.open,
-                    onPressed: trigger.toggle,
+                      ),
+                    ),
                   ),
-                ),
+                  Flexible(
+                    flex: 2,
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 240),
+                      child: MessageInboxSelector(
+                        selectedGroup: state.group,
+                        keepTopicOpen: keepTopicOpen,
+                      ),
+                    ),
+                  ),
+                ],
               ),
-            ),
+              const SizedBox(height: 14),
+              const DSeparator(key: ValueKey('message-header-separator')),
+            ],
           ),
         ),
       );

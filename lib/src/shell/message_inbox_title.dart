@@ -1,7 +1,6 @@
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
-import '../theme/app_theme.dart';
 import '../theme/d_icons.dart';
 import 'shell_scope.dart';
 
@@ -15,53 +14,26 @@ typedef _InboxOwner = ({
 });
 
 class MessageInboxTitle extends StatelessWidget {
-  const MessageInboxTitle({
-    super.key,
-    required this.selectedGroup,
-    this.trailing,
-    this.keepTopicOpen = false,
-  });
+  const MessageInboxTitle({super.key, this.trailing});
 
-  final String? selectedGroup;
   final Widget? trailing;
-  final bool keepTopicOpen;
 
   @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Row(
-      key: const ValueKey('message-inbox-title'),
-      children: [
-        Flexible(
-          child: Text(
-            'Messages',
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: theme.textTheme.titleSmall?.copyWith(
-              fontWeight: FontWeight.w600,
-            ),
-          ),
+  Widget build(BuildContext context) => Row(
+    key: const ValueKey('message-inbox-title'),
+    children: [
+      const Flexible(
+        child: DText(
+          'Messages',
+          variant: DTextVariant.h3,
+          headingLevel: 1,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
         ),
-        DSeparator(
-          orientation: Axis.vertical,
-          length: 18,
-          space: 21,
-          color: theme.shell.divider,
-        ),
-        Flexible(
-          flex: 2,
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 240),
-            child: MessageInboxSelector(
-              selectedGroup: selectedGroup,
-              keepTopicOpen: keepTopicOpen,
-            ),
-          ),
-        ),
-        ?trailing,
-      ],
-    );
-  }
+      ),
+      ?trailing,
+    ],
+  );
 }
 
 class MessageInboxSelector extends StatelessWidget {
@@ -181,6 +153,8 @@ class MessageInboxSelector extends StatelessWidget {
               )
             : DMessageInboxMenu<String>(
                 buttonKey: const ValueKey('message-inbox-selector'),
+                size: DButtonSize.filter,
+                variant: DButtonVariant.secondary,
                 value: value,
                 options: options,
                 onChanged: lease == null ? null : select,
