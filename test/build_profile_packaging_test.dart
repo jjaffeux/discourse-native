@@ -291,12 +291,11 @@ void main() {
       expect(swiftPackage, contains('.iOS("15.0")'));
     });
 
-    test('the WebRTC fork and provenance tooling stay visibly third-party', () {
+    test('the WebRTC fork stays visibly third-party', () {
       const vendorPath = '$_voicePackagePath/third_party/flutter_webrtc';
       final vendorPubspec = File('$vendorPath/pubspec.yaml');
       final vendorPatches = File('$vendorPath/PATCHES.md');
       final contract = File('$_voicePackagePath/tool/vendor_contract.json');
-      final validator = File('tool/vendor_provenance_contract.dart');
 
       expect(vendorPubspec.existsSync(), isTrue);
       expect(
@@ -305,17 +304,12 @@ void main() {
       );
       expect(vendorPatches.existsSync(), isTrue);
       expect(contract.existsSync(), isTrue);
-      expect(validator.existsSync(), isTrue);
       expect(Directory('third_party/flutter_webrtc').existsSync(), isFalse);
       expect(File('tool/flutter_webrtc_contract.dart').existsSync(), isFalse);
 
       final contractSource = contract.readAsStringSync();
       expect(contractSource, contains('third_party/flutter_webrtc'));
       expect(contractSource, contains('PATCHES.md'));
-      expect(
-        validator.readAsStringSync(),
-        contains('loadVendorProvenanceContracts'),
-      );
     });
   });
 

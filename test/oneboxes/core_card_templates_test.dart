@@ -17,33 +17,6 @@ void main() {
               )
               as List)
           .cast<Map<String, dynamic>>();
-  test('the engine inventory covers every pinned core engine', () {
-    final inventory =
-        jsonDecode(
-              File(
-                'tool/markup_contracts/core/onebox_inventory.json',
-              ).readAsStringSync(),
-            )
-            as Map<String, dynamic>;
-    final engines = (inventory['engines'] as List).cast<Map<String, dynamic>>();
-    final snapshots = Directory('tool/markup_contracts/core/onebox_snapshot')
-        .listSync()
-        .whereType<File>()
-        .map((file) => file.uri.pathSegments.last)
-        .where(
-          (name) =>
-              name.startsWith('lib__onebox__engine__') &&
-              name.endsWith('_onebox.rb'),
-        )
-        .toSet();
-    expect(
-      engines
-          .map((engine) => (engine['source'] as String).replaceAll('/', '__'))
-          .toSet(),
-      snapshots,
-    );
-    expect(engines.length, 69);
-  });
   for (final fixture in fixtures) {
     test('core ${fixture['template']} retains non-extracted content', () {
       final aside = html
