@@ -89,6 +89,12 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
   static const SidebarWidthStore _sidebarWidthStore = SidebarWidthStore();
   late final PanelWidthController _diagnosticsWidth;
   late final PanelWidthController _sidebarWidth;
+  // Aggregate and a forum's gate replace the forum shell while they are
+  // shown. The sidebar and panel layouts belong to the window, so they are
+  // held here to be found as they were when a forum comes back. Unlike the
+  // widths above, they are not persisted.
+  final _sidebarExpanded = ValueNotifier<bool?>(null);
+  final _panelsLayout = DesktopPanelsLayout();
   VoidCallback? _cancelPendingReply;
 
   @override
@@ -115,6 +121,8 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
     HardwareKeyboard.instance.removeHandler(_handleShortcut);
     _diagnosticsWidth.dispose();
     _sidebarWidth.dispose();
+    _sidebarExpanded.dispose();
+    _panelsLayout.dispose();
     super.dispose();
   }
 
@@ -571,6 +579,8 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
                 : _WideShell(
                     layout: layout,
                     sidebarWidth: _sidebarWidth,
+                    sidebarExpanded: _sidebarExpanded,
+                    panelsLayout: _panelsLayout,
                     atWindowEdge:
                         !diagnosticsOpen || layout != ShellLayout.expanded,
                   );
@@ -1008,11 +1018,18 @@ class _WideShell extends StatefulWidget {
   const _WideShell({
     required this.layout,
     required this.sidebarWidth,
+    required this.sidebarExpanded,
+    required this.panelsLayout,
     required this.atWindowEdge,
   });
 
   final ShellLayout layout;
   final PanelWidthController sidebarWidth;
+
+  /// What the rail's toggle last chose for the sidebar, or null while the
+  /// sidebar follows the window's width.
+  final ValueNotifier<bool?> sidebarExpanded;
+  final DesktopPanelsLayout panelsLayout;
   final bool atWindowEdge;
 
   @override
@@ -1020,13 +1037,36 @@ class _WideShell extends StatefulWidget {
 }
 
 class _WideShellState extends State<_WideShell> {
-  bool? _sidebarExpanded;
-
   // Window constraints change on every resize tick, but the fixed-width rail
   // only needs new configuration when the sidebar opens or closes. Its own
   // selectors and inherited dependencies still update it normally.
   late final _expandedRail = _buildRail(true);
   late final _collapsedRail = _buildRail(false);
+  // The panels take no configuration from this shell either, so its rebuilds
+  // leave them to their own dependencies and constraints.
+  late final _desktopPanels = DesktopPanels(layout: widget.panelsLayout);
+
+  @override
+  void initState() {
+    super.initState();
+    widget.sidebarExpanded.addListener(_sidebarChoiceChanged);
+  }
+
+  @override
+  void didUpdateWidget(_WideShell oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.sidebarExpanded == widget.sidebarExpanded) return;
+    oldWidget.sidebarExpanded.removeListener(_sidebarChoiceChanged);
+    widget.sidebarExpanded.addListener(_sidebarChoiceChanged);
+  }
+
+  @override
+  void dispose() {
+    widget.sidebarExpanded.removeListener(_sidebarChoiceChanged);
+    super.dispose();
+  }
+
+  void _sidebarChoiceChanged() => setState(() {});
 
   Widget _buildRail(bool sidebarExpanded) => ShellSelector<bool>(
     select: (controller) =>
@@ -1035,13 +1075,14 @@ class _WideShellState extends State<_WideShell> {
       showSidebarToggle: true,
       sidebarExpanded: available && sidebarExpanded,
       onToggleSidebar: available
-          ? () => setState(() => _sidebarExpanded = !sidebarExpanded)
+          ? () => widget.sidebarExpanded.value = !sidebarExpanded
           : null,
     ),
   );
 
   @override
   Widget build(BuildContext context) {
+    final sidebarChoice = widget.sidebarExpanded.value;
     return LayoutBuilder(
       builder: (context, constraints) {
         final windowMaximum = math.max(
@@ -1051,8 +1092,7 @@ class _WideShellState extends State<_WideShell> {
               AdaptiveShell.mainContentMinWidth,
         );
         final sidebarExpanded =
-            _sidebarExpanded ??
-            (context.isTouch || constraints.maxWidth >= 1100);
+            sidebarChoice ?? (context.isTouch || constraints.maxWidth >= 1100);
         return Row(
           children: [
             SizedBox(
@@ -1090,7 +1130,7 @@ class _WideShellState extends State<_WideShell> {
                         InstanceLoadStatus.ready when state.hasInstances =>
                           DesktopNavigation(
                             compact: !sidebarExpanded,
-                            showTrigger: _sidebarExpanded == null,
+                            showTrigger: sidebarChoice == null,
                             sidebar: ResizablePane(
                               controller: widget.sidebarWidth,
                               edge: ResizablePaneEdge.trailing,
@@ -1111,7 +1151,7 @@ class _WideShellState extends State<_WideShell> {
                               child:
                                   !context.isTouch &&
                                       ShellScope.read(context).forumTabsEnabled
-                                  ? const DesktopPanels()
+                                  ? _desktopPanels
                                   : MainContent(
                                       key:
                                           ComposerPresentationHost.contentKeyOf(

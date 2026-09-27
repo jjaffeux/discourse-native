@@ -79,6 +79,38 @@ void main() {
     expect(tester.element(find.byType(MainContent)), same(content));
   }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 
+  testWidgets('a sidebar closed from the rail stays closed past a forum gate', (
+    tester,
+  ) async {
+    final controller = await _controller(
+      store: FakeInstanceStore([
+        instance('meta.discourse.org', title: 'Meta'),
+        instance(
+          'private.example.com',
+          title: 'Private',
+        ).copyWith(loginRequired: true),
+      ]),
+    );
+    await _pumpShell(tester, controller, const Size(1200, 800));
+    final toggle = find.byKey(const ValueKey('rail-sidebar-toggle'));
+    await tester.tap(toggle);
+    await tester.pumpAndSettle();
+    expect(find.byType(InstanceSidebar), findsNothing);
+
+    // The sign-in gate takes the whole forum shell's place while it is shown.
+    controller.selectInstance(1);
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('private-forum-gate')), findsOneWidget);
+    controller.selectInstance(0);
+    await tester.pumpAndSettle();
+
+    expect(find.byType(InstanceSidebar), findsNothing);
+    expect(tester.widget<DButton>(toggle).tooltip, 'Expand sidebar');
+    await tester.tap(toggle);
+    await tester.pumpAndSettle();
+    expect(find.byType(InstanceSidebar), findsOneWidget);
+  }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
+
   testWidgets('Home keeps the rail toggle visible until a forum is selected', (
     tester,
   ) async {

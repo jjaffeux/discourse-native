@@ -20,9 +20,31 @@ import 'window_frame.dart';
 
 enum _WindowResizeEdge { left, right }
 
+/// The split between the desktop panels and which of them is minimized.
+///
+/// Both belong to the window rather than to the panels showing them, so they
+/// outlive views that replace the panels for a while, such as Aggregate or a
+/// forum's sign-in gate. Neither is persisted.
+final class DesktopPanelsLayout {
+  final mainWidth = PanelWidthController(
+    initialWidth: 400 + workspacePanelGap,
+    minimumWidth: 320 + workspacePanelGap,
+  );
+
+  // Only one panel stands down at a time, or there would be nothing left to
+  // read.
+  ForumPanel? _minimized;
+
+  void dispose() => mainWidth.dispose();
+}
+
 /// Two document panels whose identities survive either one being minimized.
 class DesktopPanels extends StatefulWidget {
-  const DesktopPanels({super.key, this.windowFrame});
+  const DesktopPanels({super.key, this.layout, this.windowFrame});
+
+  /// The window's panel layout. Without one the panels keep their own, which
+  /// lasts only as long as they stay mounted.
+  final DesktopPanelsLayout? layout;
 
   /// Allows a host to supply window geometry during resizing.
   final ValueListenable<Rect?>? windowFrame;
@@ -39,10 +61,8 @@ class _DesktopPanelsState extends State<DesktopPanels>
   // Tab-strip and focus changes must not rebuild an unchanged document.
   final _tabContents = <(String, String), MainContent>{};
   final _panelWidgets = <ForumPanel, ({Object key, Widget widget})>{};
-  final _mainWidth = PanelWidthController(
-    initialWidth: 400 + workspacePanelGap,
-    minimumWidth: 320 + workspacePanelGap,
-  );
+  late DesktopPanelsLayout _layout;
+  DesktopPanelsLayout? _ownedLayout;
   late ValueListenable<Rect?> _windowFrame;
   WindowFrame? _ownedWindowFrame;
   Rect? _previousWindowFrame;
@@ -53,9 +73,15 @@ class _DesktopPanelsState extends State<DesktopPanels>
   double? _lastSplitMainWidth;
   double? _lastSplitTotalWidth;
 
+  PanelWidthController get _mainWidth => _layout.mainWidth;
+
+  ForumPanel? get _minimized => _layout._minimized;
+  set _minimized(ForumPanel? panel) => _layout._minimized = panel;
+
   @override
   void initState() {
     super.initState();
+    _layout = widget.layout ?? (_ownedLayout = DesktopPanelsLayout());
     _windowFrame = widget.windowFrame ?? (_ownedWindowFrame = WindowFrame());
     _previousWindowFrame = _windowFrame.value;
     _windowFrame.addListener(_frameChanged);
@@ -65,6 +91,13 @@ class _DesktopPanelsState extends State<DesktopPanels>
   @override
   void didUpdateWidget(DesktopPanels oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (oldWidget.layout != widget.layout) {
+      _mainWidth.removeListener(_preferredWidthChanged);
+      _ownedLayout?.dispose();
+      _ownedLayout = null;
+      _layout = widget.layout ?? (_ownedLayout = DesktopPanelsLayout());
+      _mainWidth.addListener(_preferredWidthChanged);
+    }
     if (oldWidget.windowFrame == widget.windowFrame) return;
     _windowFrame.removeListener(_frameChanged);
     _ownedWindowFrame?.dispose();
@@ -103,10 +136,6 @@ class _DesktopPanelsState extends State<DesktopPanels>
     }
     setState(() => _resizeEdge = nextEdge);
   }
-
-  // Only one panel stands down at a time, or there would be nothing left to
-  // read. Like the panel width, it belongs to this window's layout.
-  ForumPanel? _minimized;
 
   // The panel still folding into its rail or back out of it. The motion is
   // painted only: that panel slides and fades while the other one reveals
@@ -213,7 +242,7 @@ class _DesktopPanelsState extends State<DesktopPanels>
     _folded.dispose();
     _fold.dispose();
     _moving.dispose();
-    _mainWidth.dispose();
+    _ownedLayout?.dispose();
     super.dispose();
   }
 
