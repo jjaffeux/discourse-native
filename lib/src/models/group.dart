@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 
 import '../plugin_api/plugin_data.dart';
+import 'discourse_instance.dart';
 import 'json.dart';
 import 'topic.dart';
 
@@ -300,7 +301,10 @@ final class GroupDirectoryPage {
       ]),
       typeFilters: _strings(extras['type_filters'], maximum: 16),
       totalRows: jsonInt(json['total_rows_groups']),
-      loadMoreUrl: jsonText(json['load_more_groups']),
+      loadMoreUrl: DiscourseInstance.pathAndQueryWithinUrl(
+        siteUrl,
+        jsonText(json['load_more_groups']),
+      ),
     );
   }
 

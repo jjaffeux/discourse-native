@@ -62,7 +62,7 @@ void main() {
           Uri.parse('https://example.com/forum/c/current-name/7.json?page=2'),
         ]);
         expect(list.topics.single.id, 42);
-        expect(list.moreTopicsUrl, '/forum/c/current-name/7?page=3');
+        expect(list.nextPagePath, '/c/current-name/7.json?page=3');
       });
     }
 

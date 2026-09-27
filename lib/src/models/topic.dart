@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import '../data/store.dart';
 import '../plugin_api/plugin_data.dart';
 import '../plugin_api/topic_recommendation_source.dart';
+import 'discourse_instance.dart';
 import 'json.dart';
 import 'topic_filter.dart';
 import 'topic_tag.dart';
@@ -615,7 +616,10 @@ class TopicList {
         ).take(maximumCategoriesPerPage))
           TopicCategory.fromJson(value),
       ]),
-      moreTopicsUrl: jsonText(list['more_topics_url']),
+      moreTopicsUrl: DiscourseInstance.pathAndQueryWithinUrl(
+        siteUrl,
+        jsonText(list['more_topics_url']),
+      ),
       canCreateTopic: list['can_create_topic'] == true,
       filterOptions: List.unmodifiable([
         for (final value in jsonArray(list['filter_option_info']))
@@ -628,6 +632,8 @@ class TopicList {
 
   final List<TopicCategory> categories;
 
+  /// The next page's address below the forum's subfolder, so that every
+  /// request appends it to the site URL the way it appends its own paths.
   final String? moreTopicsUrl;
   final bool canCreateTopic;
   final List<TopicFilterOption> filterOptions;

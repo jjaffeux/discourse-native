@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 
+import 'discourse_instance.dart';
 import 'json.dart';
 
 enum UserDirectoryPeriod {
@@ -227,7 +228,10 @@ final class UserDirectoryPage {
       ]),
       totalRows: jsonInt(meta['total_rows_directory_items']),
       lastUpdatedAt: jsonDate(meta['last_updated_at']),
-      nextPagePath: jsonText(meta['load_more_directory_items']),
+      nextPagePath: DiscourseInstance.pathAndQueryWithinUrl(
+        siteUrl,
+        jsonText(meta['load_more_directory_items']),
+      ),
     );
   }
 

@@ -13,6 +13,7 @@ import 'package:discourse_native/src/models/post_creation.dart';
 import 'package:discourse_native/src/models/sidebar.dart';
 import 'package:discourse_native/src/models/sidebar_tag.dart';
 import 'package:discourse_native/src/models/topic.dart';
+import 'package:discourse_native/src/models/topic_feed.dart';
 import 'package:discourse_native/src/models/user_preferences.dart';
 import 'package:discourse_native/src/plugin_api/discourse_model_codec.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel_list_preferences.dart';
@@ -1334,6 +1335,115 @@ void _feedGroups() {
 
       expect(list.topics.single.hasUnread, isFalse);
       expect(list.topics.single.posterAvatars, isEmpty);
+    });
+
+    for (final siteUrl in [
+      'https://example.com',
+      'https://example.com/forum',
+    ]) {
+      test('follows the next page of a forum at $siteUrl', () async {
+        // Discourse writes a subfolder forum's cursor with that subfolder in
+        // front of it, the way its Rails path helpers write every route.
+        final subfolder = Uri.parse(siteUrl).path;
+        final requested = <Uri>[];
+        final api = DiscourseApi(
+          client: MockClient((request) async {
+            requested.add(request.url);
+            final page = requested.length;
+            return http.Response(
+              jsonEncode({
+                'topic_list': {
+                  'topics': [
+                    {'id': page, 'title': 'Topic $page', 'slug': 'topic'},
+                  ],
+                  'more_topics_url': '$subfolder/latest?page=$page',
+                },
+              }),
+              200,
+            );
+          }),
+        );
+        addTearDown(api.close);
+
+        final first = await api.topicList(
+          siteUrl: siteUrl,
+          path: '/latest.json',
+        );
+        final second = await api.topicList(
+          siteUrl: siteUrl,
+          path: first.nextPagePath!,
+        );
+
+        expect(requested, [
+          Uri.parse('$siteUrl/latest.json'),
+          Uri.parse('$siteUrl/latest.json?page=1'),
+        ]);
+        expect(second.topics.single.id, 2);
+        expect(second.nextPagePath, '/latest.json?page=2');
+      });
+    }
+
+    test('keeps a subfolder forum\'s percent-encoded cursor intact', () async {
+      final api = DiscourseApi(
+        client: MockClient(
+          (_) async => http.Response(
+            jsonEncode({
+              'topic_list': {
+                'topics': const <Object>[],
+                'more_topics_url':
+                    '/forum/tag/caf%C3%A9?page=1&match_all_tags=true',
+              },
+            }),
+            200,
+          ),
+        ),
+      );
+      addTearDown(api.close);
+
+      final list = await api.topicList(
+        siteUrl: 'https://example.com/forum',
+        path: '/tag/caf%C3%A9.json',
+      );
+
+      expect(
+        list.nextPagePath,
+        '/tag/caf%C3%A9.json?page=1&match_all_tags=true',
+      );
+    });
+
+    test('has no next page when the cursor is outside the forum', () async {
+      for (final cursor in [
+        '/latest?page=1',
+        '/forums/latest?page=1',
+        '/other/forum/latest?page=1',
+        'latest?page=1',
+        'forum/latest?page=1',
+        '//example.com/forum/latest?page=1',
+        'https://example.com/forum/latest?page=1',
+      ]) {
+        final api = DiscourseApi(
+          client: MockClient(
+            (_) async => http.Response(
+              jsonEncode({
+                'topic_list': {
+                  'topics': const <Object>[],
+                  'more_topics_url': cursor,
+                },
+              }),
+              200,
+            ),
+          ),
+        );
+        addTearDown(api.close);
+
+        final list = await api.topicList(
+          siteUrl: 'https://example.com/forum',
+          path: '/latest.json',
+        );
+
+        expect(list.nextPagePath, isNull, reason: cursor);
+        expect(TopicFeed.of(list).hasMore, isFalse, reason: cursor);
+      }
     });
   });
 
