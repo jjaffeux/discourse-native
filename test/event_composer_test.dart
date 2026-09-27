@@ -373,6 +373,8 @@ class _Editor implements ComposerEditorHost {
   @override
   bool get isReply => !isNewTopic && !isEdit;
   @override
+  bool get isPrivateMessage => false;
+  @override
   bool get isEditing => editing;
   @override
   PluginData get siteSettings => policy.state.siteSettings;

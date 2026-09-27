@@ -141,6 +141,7 @@ class ComposerTarget {
     this.initialCategoryId,
     this.initialTags = const [],
     this.targetRecipients,
+    this.privateMessageTopic = false,
     String? draftKey,
   }) : policy = null,
        data = const {},
@@ -165,6 +166,7 @@ class ComposerTarget {
        initialCategoryId = null,
        initialTags = const [],
        targetRecipients = null,
+       privateMessageTopic = false,
        replyToPostNumber = null,
        replyToUsername = null,
        replyingToWhisper = false,
@@ -187,6 +189,10 @@ class ComposerTarget {
   final int? initialCategoryId;
   final List<TopicTag> initialTags;
   final String? targetRecipients;
+
+  /// Whether [topicId] is a message topic, which makes a reply to or edit of
+  /// a post in it private. [isPrivateMessage] only describes a new message.
+  final bool privateMessageTopic;
   final String? _draftKey;
 
   final int? replyToPostNumber;
@@ -245,6 +251,7 @@ class ComposerTarget {
       initialCategoryId: initialCategoryId,
       initialTags: initialTags,
       targetRecipients: targetRecipients,
+      privateMessageTopic: privateMessageTopic,
       draftKey: _draftKey,
     );
   }
@@ -259,6 +266,7 @@ class ComposerTarget {
     originFeedId: originFeedId,
     originTopicId: originTopicId,
     targetRecipients: recipients,
+    privateMessageTopic: privateMessageTopic,
     draftKey: _draftKey,
   );
 }
@@ -755,6 +763,10 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
 
   @override
   bool get isReply => _target.mode == ComposerMode.reply;
+
+  @override
+  bool get isPrivateMessage =>
+      _target.isPrivateMessage || _target.privateMessageTopic;
 
   @override
   bool get isEditing =>

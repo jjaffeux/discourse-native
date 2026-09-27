@@ -184,6 +184,42 @@ void main() {
     expect(composer.whisper, isFalse);
   });
 
+  test('a reply in a message topic tells plugins it is private', () {
+    final public = ComposerController(_target);
+    final message = ComposerController(
+      const ComposerTarget(
+        siteUrl: 'https://meta.discourse.org',
+        topicId: 0,
+        slug: '',
+        topicTitle: 'New message',
+        mode: ComposerMode.privateMessage,
+        targetRecipients: 'sam',
+      ),
+    );
+    final reply = ComposerController(
+      const ComposerTarget(
+        siteUrl: 'https://meta.discourse.org',
+        topicId: 8,
+        slug: 'a-message',
+        topicTitle: 'A message',
+        privateMessageTopic: true,
+      ),
+    );
+    addTearDown(public.dispose);
+    addTearDown(message.dispose);
+    addTearDown(reply.dispose);
+
+    expect(public.isPrivateMessage, isFalse);
+    expect(message.isPrivateMessage, isTrue);
+    expect(reply.isReply, isTrue);
+    expect(reply.isPrivateMessage, isTrue);
+
+    reply.retarget(replyToPostNumber: 9, replyToUsername: 'nine');
+
+    expect(reply.target.replyToPostNumber, 9);
+    expect(reply.isPrivateMessage, isTrue);
+  });
+
   test('an unresolved composer can still be discarded', () {
     final composer = ComposerController(_target);
     addTearDown(composer.dispose);

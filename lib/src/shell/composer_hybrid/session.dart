@@ -330,6 +330,9 @@ final class _RevisionLeasedComposerEditorHost implements ComposerEditorHost {
   bool get isReply => _delegate.isReply;
 
   @override
+  bool get isPrivateMessage => _delegate.isPrivateMessage;
+
+  @override
   bool get isEditing => _delegate.isEditing;
 
   @override
