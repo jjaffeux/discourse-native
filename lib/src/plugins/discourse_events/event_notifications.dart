@@ -30,7 +30,7 @@ String _title(DiscourseNotification row) =>
     eventText(row.data['topic_title']) ??
     'an event';
 
-ResolvedNotification? _reminder(DiscourseNotification row) {
+ResolvedNotification? _reminder(String _, DiscourseNotification row) {
   if (row.typeId.value != 27) return null;
   // The reminder job puts the event's display title in topic_title.
   final title = eventText(row.data['topic_title']) ?? _title(row);
@@ -53,7 +53,7 @@ ResolvedNotification? _reminder(DiscourseNotification row) {
   );
 }
 
-ResolvedNotification? _invitation(DiscourseNotification row) {
+ResolvedNotification? _invitation(String _, DiscourseNotification row) {
   if (row.typeId.value != 28) return null;
   final actor = eventText(row.data['display_username']);
   final predefined =

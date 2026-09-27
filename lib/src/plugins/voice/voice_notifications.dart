@@ -14,6 +14,7 @@ const voiceNotificationTypes = <PluginNotificationType>[
 ];
 
 ResolvedNotification? _decodeVoiceInvitation(
+  String _,
   DiscourseNotification notification,
 ) {
   if (notification.typeId.value != VoiceNotificationTypes.invitation.wireId) {

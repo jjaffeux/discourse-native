@@ -17,6 +17,7 @@ const reactionsNotificationTypes = <PluginNotificationType>[
 ];
 
 ResolvedNotification? _decodeReactionNotification(
+  String _,
   DiscourseNotification notification,
 ) {
   if (notification.typeId.value != ReactionsNotificationTypes.reaction.wireId) {

@@ -13,6 +13,7 @@ NotificationPresentation describe(
   Map<String, Object?> data = const {},
 }) {
   final resolved = resolveCoreNotification(
+    _siteUrl,
     DiscourseNotification.fromJson({
       'id': 1,
       'notification_type': type.wireId,
@@ -32,6 +33,8 @@ NotificationPresentation describe(
 String line(NotificationPresentation description) => description.actor == null
     ? description.phrase
     : '${description.actor} ${description.phrase}';
+
+const _siteUrl = 'https://forum.example';
 
 void main() {
   group('core notification wording', () {

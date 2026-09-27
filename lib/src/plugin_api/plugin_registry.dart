@@ -549,11 +549,17 @@ final class PluginRegistry
           .where((definition) => definition.wireType.wireId == id.value)
           .firstOrNull;
 
-  ResolvedNotification resolveNotification(DiscourseNotification notification) {
+  /// [notification] as it reads on [siteUrl], the forum it came from.
+  ResolvedNotification resolveNotification(
+    String siteUrl,
+    DiscourseNotification notification,
+  ) {
     final definition = notificationType(notification.typeId);
-    if (definition == null) return resolveCoreNotification(notification);
+    if (definition == null) {
+      return resolveCoreNotification(siteUrl, notification);
+    }
     try {
-      return definition.decode(notification) ??
+      return definition.decode(siteUrl, notification) ??
           fallbackNotification(notification);
     } catch (error, stackTrace) {
       DiagnosticsSink.current.reportError(

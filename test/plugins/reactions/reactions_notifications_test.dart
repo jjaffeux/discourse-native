@@ -4,6 +4,8 @@ import 'package:discourse_native/src/plugins/reactions/reactions_plugin.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+const _siteUrl = 'https://forum.example';
+
 void main() {
   test('Reactions owns notification decoding, route, wording and icon', () {
     const registry = PluginRegistry([ReactionsPlugin()]);
@@ -16,7 +18,7 @@ void main() {
       'data': {'display_username': 'sam', 'topic_title': 'Emoji'},
     });
 
-    final resolved = registry.resolveNotification(notification);
+    final resolved = registry.resolveNotification(_siteUrl, notification);
 
     expect(resolved.presentation.actor, 'sam');
     expect(resolved.presentation.phrase, 'reacted to your post in Emoji');

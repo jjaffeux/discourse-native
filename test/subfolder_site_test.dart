@@ -1,10 +1,20 @@
 import 'package:discourse_native/src/models/discourse_instance.dart';
+import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/group_route.dart';
+import 'package:discourse_native/src/models/notification.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/topic.dart';
+import 'package:discourse_native/src/plugin_api/plugin_data.dart';
+import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
+import 'package:discourse_native/src/plugins/chat/chat_notification_counter.dart';
+import 'package:discourse_native/src/plugins/chat/chat_plugin_data.dart';
 import 'package:discourse_native/src/shell/forum_search.dart';
 import 'package:discourse_native/src/shell/group_pages_shell_port.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
+import 'package:discourse_native/src/shell/shell_scope.dart';
+import 'package:discourse_native/src/shell/user_menu.dart';
+import 'package:discourse_native/src/shell/user_menu_button.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -15,6 +25,7 @@ import 'support/global_search_fixtures.dart';
 import 'support/shell_test_harness.dart';
 
 const _siteUrl = 'https://example.com/forum';
+const _rootSiteUrl = 'https://example.com';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -168,4 +179,331 @@ void main() {
       expect(find.byKey(const ValueKey('user-card-surface')), findsOneWidget);
     }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
   });
+
+  for (final site in const [_rootSiteUrl, _siteUrl]) {
+    final prefix = Uri.parse(site).path;
+    group('a notification on a forum served from '
+        '${site == _siteUrl ? 'a subfolder' : 'the root'}', () {
+      testWidgets('opens a reply in the app', (tester) async {
+        final menu = await _pumpNotificationMenu(
+          tester,
+          site,
+          notifications: [
+            _notification(
+              1,
+              CoreNotificationTypes.replied,
+              topicId: 7,
+              postNumber: 3,
+            ),
+          ],
+        );
+
+        await menu.tap('notification-row-1');
+
+        expect(menu.launched, isEmpty);
+        expect(menu.shell.currentInstance?.url, site);
+        expect(menu.shell.currentContent?.topicId, 7);
+        expect(menu.shell.currentContent?.postNumber, 3);
+      }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
+
+      testWidgets('opens a mention in the app', (tester) async {
+        final menu = await _pumpNotificationMenu(
+          tester,
+          site,
+          notifications: [
+            _notification(
+              1,
+              CoreNotificationTypes.mentioned,
+              topicId: 7,
+              postNumber: 2,
+            ),
+          ],
+        );
+
+        await menu.tap('notification-row-1');
+
+        expect(menu.launched, isEmpty);
+        expect(menu.shell.currentContent?.topicId, 7);
+        expect(menu.shell.currentContent?.postNumber, 2);
+      }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
+
+      testWidgets(
+        "opens the post a bookmark reminder's server link names in the app",
+        (tester) async {
+          final menu = await _pumpNotificationMenu(
+            tester,
+            site,
+            notifications: [
+              _notification(
+                1,
+                CoreNotificationTypes.bookmarkReminder,
+                data: {'bookmarkable_url': '$prefix/t/a-topic/7/3'},
+              ),
+            ],
+          );
+
+          await menu.tap('notification-row-1');
+
+          expect(menu.launched, isEmpty);
+          expect(menu.shell.currentContent?.topicId, 7);
+          expect(menu.shell.currentContent?.postNumber, 3);
+        },
+        variant: TargetPlatformVariant.only(TargetPlatform.macOS),
+      );
+
+      testWidgets(
+        'opens a bookmark reminder from the Bookmarks tab in the app',
+        (tester) async {
+          final menu = await _pumpNotificationMenu(
+            tester,
+            site,
+            reminders: [
+              _notification(
+                1,
+                CoreNotificationTypes.bookmarkReminder,
+                topicId: 7,
+                postNumber: 3,
+              ),
+            ],
+          );
+          await menu.tap('user-menu-tab-${UserMenuSection.bookmarksId}');
+
+          await menu.tap('notification-row-1');
+
+          expect(menu.launched, isEmpty);
+          expect(menu.shell.currentContent?.topicId, 7);
+          expect(menu.shell.currentContent?.postNumber, 3);
+        },
+        variant: TargetPlatformVariant.only(TargetPlatform.macOS),
+      );
+
+      testWidgets(
+        'opens a group message summary at the group inbox on the forum',
+        (tester) async {
+          final menu = await _pumpNotificationMenu(
+            tester,
+            site,
+            notifications: [
+              _notification(
+                1,
+                CoreNotificationTypes.groupMessageSummary,
+                data: {
+                  'username': 'reader',
+                  'group_name': 'staff',
+                  'inbox_count': 2,
+                },
+              ),
+            ],
+          );
+
+          await menu.tap('notification-row-1');
+
+          // A group inbox has no page in the app on any forum, so it opens
+          // in the browser; it must be this forum's inbox that opens.
+          expect(menu.launched, ['$site/u/reader/messages/group/staff']);
+        },
+        variant: TargetPlatformVariant.only(TargetPlatform.macOS),
+      );
+
+      testWidgets('opens an accepted group membership in the app', (
+        tester,
+      ) async {
+        final menu = await _pumpNotificationMenu(
+          tester,
+          site,
+          notifications: [
+            _notification(
+              1,
+              CoreNotificationTypes.membershipRequestAccepted,
+              data: {'group_name': 'staff'},
+            ),
+          ],
+        );
+
+        await menu.tap('notification-row-1');
+
+        expect(menu.launched, isEmpty);
+        expect(
+          menu.shell.currentContent?.groupRoute,
+          GroupRoute.detail('staff'),
+        );
+      }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
+
+      testWidgets('opens a reply in another panel from its context menu', (
+        tester,
+      ) async {
+        final menu = await _pumpNotificationMenu(
+          tester,
+          site,
+          notifications: [
+            _notification(
+              1,
+              CoreNotificationTypes.replied,
+              topicId: 7,
+              postNumber: 3,
+            ),
+          ],
+        );
+        menu.shell.desktopTopicTabs = true;
+        await tester.pumpAndSettle();
+
+        await tester.tap(
+          find.byKey(const ValueKey('notification-row-1')),
+          kind: PointerDeviceKind.mouse,
+          buttons: kSecondaryMouseButton,
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Open in secondary panel'));
+        await tester.pumpAndSettle();
+
+        expect(menu.launched, isEmpty);
+        expect(menu.shell.currentContent?.topicId, 7);
+        expect(menu.shell.currentContent?.postNumber, 3);
+      }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
+
+      testWidgets('opens a chat mention in the app', (tester) async {
+        final menu = await _pumpNotificationMenu(
+          tester,
+          site,
+          chatNotifications: [
+            _notification(
+              51,
+              const NotificationWireType(29, 'chat_mention'),
+              data: {
+                'chat_message_id': 44,
+                'chat_channel_id': 9,
+                'chat_channel_title': 'Support',
+                'mentioned_by_username': 'sam',
+              },
+            ),
+          ],
+        );
+        await menu.tap('user-menu-tab-chat/notifications');
+
+        await menu.tap('notification-row-51');
+
+        expect(menu.launched, isEmpty);
+        expect(menu.shell.currentInstance?.url, site);
+        expect(menu.shell.currentContent?.id, 'chat-c-9');
+      }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
+
+      test('resolves plugin notification links under the forum', () async {
+        final shell = ShellController(
+          instanceStore: FakeInstanceStore([
+            DiscourseInstance(url: site, title: 'Forum', apiVersion: 4),
+          ]),
+          api: FakeDiscourseApi(),
+          authenticator: FakeAuthenticator(),
+          drafts: FakeDraftStore(),
+          trackers: FakeSiteTracker.reset(),
+          plugins: installedPlugins,
+        );
+        addTearDown(shell.dispose);
+        await shell.load();
+
+        expect(
+          shell.pluginAbsoluteUrl(
+            '/my/preferences/notifications',
+            siteUrl: site,
+          ),
+          '$site/my/preferences/notifications',
+        );
+      });
+    });
+  }
+}
+
+final DiscourseUser _reader = DiscourseUser(
+  id: 1,
+  username: 'reader',
+  plugins: PluginData.none.withValue(
+    chatCurrentUserDataKey,
+    const ChatCurrentUser(hasChatEnabled: true, canDirectMessage: true),
+  ),
+);
+
+DiscourseNotification _notification(
+  int id,
+  NotificationWireType type, {
+  int? topicId,
+  int? postNumber,
+  Map<String, Object?> data = const {},
+}) => DiscourseNotification.test(
+  id: id,
+  typeId: NotificationTypeId(type.wireId),
+  topicId: topicId,
+  postNumber: postNumber,
+  slug: topicId == null ? '' : 'a-topic',
+  title: topicId == null ? '' : 'A topic',
+  data: {'display_username': 'sam', ...data},
+);
+
+typedef _NotificationMenu = ({
+  ShellController shell,
+  List<String> launched,
+  Future<void> Function(String key) tap,
+});
+
+Future<_NotificationMenu> _pumpNotificationMenu(
+  WidgetTester tester,
+  String site, {
+  List<DiscourseNotification> notifications = const [],
+  List<DiscourseNotification> reminders = const [],
+  List<DiscourseNotification> chatNotifications = const [],
+}) async {
+  final launched = watchBrowser(tester);
+  final api = FakeDiscourseApi(
+    user: _reader,
+    totals: chatNotificationTotals(chatNotifications: chatNotifications.length),
+    notificationList: notifications,
+    chatNotificationList: chatNotifications,
+    reminderList: reminders,
+    bookmarkList: const [],
+    feeds: const {'/latest.json': []},
+    topics: {
+      7: topicPayload(
+        id: 7,
+        title: 'A topic',
+        posts: const [
+          Post(id: 1, postNumber: 1, username: 'author', cooked: '<p>x</p>'),
+        ],
+      ),
+    },
+    chatChannelsBySite: {
+      site: const ChatChannels(
+        public: [
+          ChatChannel(
+            id: 9,
+            title: 'Support',
+            kind: ChatChannelKind.category,
+            membership: ChatMembership(following: true),
+            tracking: ChatTracking(),
+          ),
+        ],
+      ),
+    },
+  );
+  await pumpShell(
+    tester,
+    desktop,
+    instances: [
+      DiscourseInstance(
+        url: site,
+        title: 'Forum',
+        apiVersion: 4,
+        user: _reader,
+      ),
+    ],
+    api: api,
+    authenticator: FakeAuthenticator()..keys[site] = 'api-key',
+  );
+  await tester.tap(find.byKey(UserMenuButton.bellKey));
+  await tester.pumpAndSettle();
+  final shell = ShellScope.read(tester.element(find.byType(UserMenuPanel)));
+  Future<void> tap(String key) async {
+    await tester.tap(find.byKey(ValueKey(key)));
+    await tester.pumpAndSettle();
+  }
+
+  return (shell: shell, launched: launched, tap: tap);
 }

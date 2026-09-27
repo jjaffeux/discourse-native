@@ -40,6 +40,7 @@ const chatNotificationTypes = <PluginNotificationType>[
 ];
 
 ResolvedNotification? _decodeChatNotification(
+  String _,
   DiscourseNotification notification,
 ) {
   final type = notification.typeId.value;

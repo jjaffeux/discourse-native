@@ -16,9 +16,12 @@ DiscourseNotification voiceNotification({
   'data': {'call': call ? true : null, ...data},
 });
 
+const _siteUrl = 'https://forum.example';
+
 void main() {
   test('Voice owns room invitation wording, icon and inviter route', () {
     final resolved = registry.resolveNotification(
+      _siteUrl,
       voiceNotification(
         data: const {
           'display_username': 'Sam',
@@ -36,6 +39,7 @@ void main() {
 
   test('Voice distinguishes incoming calls from room invitations', () {
     final resolved = registry.resolveNotification(
+      _siteUrl,
       voiceNotification(
         call: true,
         data: const {
@@ -54,6 +58,7 @@ void main() {
 
   test('malformed Voice payload stays visible without an unsafe route', () {
     final resolved = registry.resolveNotification(
+      _siteUrl,
       voiceNotification(data: const {'room_name': 'Team Room'}),
     );
 

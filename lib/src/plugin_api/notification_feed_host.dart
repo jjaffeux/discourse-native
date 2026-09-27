@@ -25,6 +25,8 @@ final class PluginNotificationFeedLink {
       assert(path != '');
 
   final String label;
+
+  /// Written from the forum root, as `ResolvedNotification.path` is.
   final String path;
 
   @override
@@ -162,6 +164,10 @@ abstract interface class PluginNotificationFeedHost {
     String siteUrl,
     DiscourseNotification notification,
   );
+
+  /// [path] under [siteUrl]. It is written from the forum root, as
+  /// `ResolvedNotification.path` and [PluginNotificationFeedLink.path] are,
+  /// so a subfolder forum's prefix is added here.
   String pluginAbsoluteUrl(String path, {required String siteUrl});
   Future<bool> openPluginNotificationUrl(String url);
 }

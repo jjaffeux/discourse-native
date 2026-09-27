@@ -18,6 +18,8 @@ import 'package:http/testing.dart';
 import '../../support/fakes.dart';
 import '../../support/media_pipeline.dart';
 
+const _siteUrl = 'https://forum.example';
+
 void main() {
   test('user topic assignments match core presentation and route', () {
     const registry = PluginRegistry([AssignPlugin()]);
@@ -31,7 +33,7 @@ void main() {
       'data': {'display_username': 'sam', 'topic_title': 'Raw work list'},
     });
 
-    final resolved = registry.resolveNotification(notification);
+    final resolved = registry.resolveNotification(_siteUrl, notification);
 
     expect(resolved.presentation.actor, isNull);
     expect(resolved.presentation.phrase, 'Localized work list');
@@ -54,7 +56,7 @@ void main() {
       },
     });
 
-    final resolved = registry.resolveNotification(notification);
+    final resolved = registry.resolveNotification(_siteUrl, notification);
 
     expect(resolved.presentation.actor, 'Team');
     expect(resolved.presentation.phrase, 'Work list (#4)');
@@ -104,7 +106,7 @@ void main() {
             body: NotificationRow(
               siteUrl: siteUrl,
               notification: notification,
-              resolved: registry.resolveNotification(notification),
+              resolved: registry.resolveNotification(siteUrl, notification),
               onTap: () {},
             ),
           ),

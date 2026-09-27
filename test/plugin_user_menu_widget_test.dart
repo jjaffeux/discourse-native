@@ -14,6 +14,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/fakes.dart';
+import 'support/shell_test_harness.dart';
 
 const _siteUrl = 'https://meta.example';
 const _alphaTabKey = ValueKey('user-menu-tab-alpha/activity');
@@ -226,6 +227,33 @@ void main() {
     expect(dismissals, 1);
   });
 
+  for (final host in const ['example.com', 'example.com/forum']) {
+    testWidgets('a plugin tab active link stays on the forum at $host', (
+      tester,
+    ) async {
+      final launched = watchBrowser(tester);
+      await _pumpUserMenu(
+        tester,
+        const PluginManifest([
+          _MenuModule(
+            'alpha',
+            'Alpha activity',
+            _alphaBodyKey,
+            linkWhenActive: '/u/reader/activity/alpha',
+          ),
+        ]),
+        host: host,
+      );
+
+      await tester.tap(find.byKey(_alphaTabKey));
+      await tester.pump();
+      await tester.tap(find.byKey(_alphaTabKey));
+      await tester.pumpAndSettle();
+
+      expect(launched, ['https://$host/u/reader/activity/alpha']);
+    });
+  }
+
   testWidgets('mobile plugin tabs remain selected when the panel widens', (
     tester,
   ) async {
@@ -299,6 +327,7 @@ Future<ShellController> _pumpUserMenu(
   VoidCallback onDismiss = _ignore,
   NotificationTotals totals = const NotificationTotals(),
   List<DiscourseNotification> notificationList = const [],
+  String host = 'meta.example',
 }) async {
   const user = DiscourseUser(
     id: 7,
@@ -307,11 +336,9 @@ Future<ShellController> _pumpUserMenu(
     canInviteToForum: true,
   );
   final plugins = PluginInstaller.install(manifest);
-  final authenticator = FakeAuthenticator()..keys[_siteUrl] = 'api-key';
+  final authenticator = FakeAuthenticator()..keys['https://$host'] = 'api-key';
   final controller = ShellController(
-    instanceStore: FakeInstanceStore([
-      instance('meta.example').copyWith(user: user),
-    ]),
+    instanceStore: FakeInstanceStore([instance(host).copyWith(user: user)]),
     api: FakeDiscourseApi(
       user: user,
       totals: totals,

@@ -35,6 +35,7 @@ const assignNotificationTypes = <PluginNotificationType>[
 ];
 
 ResolvedNotification? _decodeAssignedNotification(
+  String _,
   DiscourseNotification notification,
 ) {
   if (notification.typeId.value != AssignNotificationTypes.assigned.wireId) {

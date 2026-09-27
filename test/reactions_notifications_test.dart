@@ -3,11 +3,14 @@ import 'package:discourse_native/src/plugin_api/plugin_registry.dart';
 import 'package:discourse_native/src/plugins/reactions/reactions_plugin.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+const _siteUrl = 'https://forum.example';
+
 void main() {
   final registry = PluginRegistry.validated(const [ReactionsPlugin()]);
 
   test('consolidated reactions count posts and filter by the actor', () {
     final resolved = registry.resolveNotification(
+      _siteUrl,
       DiscourseNotification.fromJson(const {
         'id': 5,
         'notification_type': 25,
@@ -35,6 +38,7 @@ void main() {
 
   test('multiple reactions on one post retain the exact topic destination', () {
     final resolved = registry.resolveNotification(
+      _siteUrl,
       DiscourseNotification.fromJson(const {
         'id': 6,
         'notification_type': 25,

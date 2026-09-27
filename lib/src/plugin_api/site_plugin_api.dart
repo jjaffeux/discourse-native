@@ -195,7 +195,8 @@ final class PluginUserMenuSection {
 
   /// Relative forum path opened when an already-selected desktop tab is
   /// selected again. This mirrors Discourse's user-menu tab contract while
-  /// leaving same-origin navigation and browser fallback with the shell.
+  /// leaving same-origin navigation and browser fallback with the shell. It
+  /// is written from the forum root, as `ResolvedNotification.path` is.
   final String? linkWhenActive;
   final PluginUserMenuSectionBuilder builder;
 }

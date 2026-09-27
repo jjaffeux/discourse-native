@@ -104,11 +104,15 @@ class _BookmarkSectionViewState extends State<_BookmarkSectionView> {
     );
   }
 
-  Future<void> _open(String? path, {bool newTab = false}) async {
+  /// A bookmark's path is the link Discourse wrote, subfolder included.
+  Future<void> _openBookmark(Bookmark bookmark) async {
+    final path = bookmark.path;
     if (path == null) return;
+    await _open(widget.controller.absoluteUrl(path, siteUrl: widget.siteUrl));
+  }
 
+  Future<void> _open(String absolute, {bool newTab = false}) async {
     final controller = widget.controller;
-    final absolute = controller.absoluteUrl(path, siteUrl: widget.siteUrl);
     if (newTab) {
       await openLink(context, absolute, newTab: true);
       return;
@@ -136,7 +140,11 @@ class _BookmarkSectionViewState extends State<_BookmarkSectionView> {
     bool newTab = false,
   }) async {
     ShellScope.read(context).readNotification(widget.siteUrl, reminder);
-    await _open(path, newTab: newTab);
+    if (path == null) return;
+    await _open(
+      widget.controller.siteLink(path, siteUrl: widget.siteUrl),
+      newTab: newTab,
+    );
   }
 
   @override
@@ -204,7 +212,7 @@ class _BookmarkSectionViewState extends State<_BookmarkSectionView> {
                 Builder(
                   builder: (context) {
                     final resolved = controller.plugins.registry
-                        .resolveNotification(reminder);
+                        .resolveNotification(widget.siteUrl, reminder);
                     return NotificationRow(
                       notification: reminder,
                       resolved: resolved,
@@ -224,7 +232,7 @@ class _BookmarkSectionViewState extends State<_BookmarkSectionView> {
                   bookmark: entry.bookmark,
                   siteUrl: widget.siteUrl,
                   presentation: widget.page ? entry.presentation : null,
-                  onTap: () => _open(entry.bookmark.path),
+                  onTap: () => _openBookmark(entry.bookmark),
                 ),
               ],
             ],

@@ -15,8 +15,10 @@ const _testNotificationType = NotificationWireType(901, 'test_notification');
 
 String _dismissNotifications(int count) => 'Dismiss $count notifications?';
 
-ResolvedNotification? _ignoreNotification(DiscourseNotification notification) =>
-    null;
+ResolvedNotification? _ignoreNotification(
+  String _,
+  DiscourseNotification notification,
+) => null;
 
 void main() {
   test('public SDK exposes complete notification feed declarations', () {
