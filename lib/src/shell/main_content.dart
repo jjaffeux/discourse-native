@@ -274,7 +274,7 @@ class _MainContentBody extends StatelessWidget {
       ));
     }
 
-    return Material(
+    final page = Material(
       type: context.isTouch && !ForumWindowBackground.isContinuous(context)
           ? MaterialType.canvas
           : MaterialType.transparency,
@@ -347,6 +347,20 @@ class _MainContentBody extends StatelessWidget {
           ),
         ),
       ),
+    );
+    if (!route.isTopic || sourceRoute == null) return page;
+    // A panel reader replaces its list on screen, but the tab still holds that
+    // list, so the reader keeps its topic sequence. The shortcuts sit above
+    // the per-topic subtree so a held sequence key survives the topic change.
+    return ReadingShortcuts(
+      sequenceContext: (state.siteUrl, state.activeTabId, route),
+      commands: {
+        ReadingCommand.openNextTopic: () =>
+            openAdjacentTopic(context, next: true, fromKeyboard: true),
+        ReadingCommand.openPreviousTopic: () =>
+            openAdjacentTopic(context, next: false, fromKeyboard: true),
+      },
+      child: page,
     );
   }
 }
