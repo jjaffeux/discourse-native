@@ -1708,27 +1708,44 @@ class SidebarDestinationTile extends StatelessWidget {
     final trailingLabel = destination.trailingLabel;
     final action = destination.onSecondaryTap;
     final description = destination.semanticDescription;
+    final count = badge.isVisible && !badge.dot ? badge.count : null;
+    final dotLabel = badge.urgent ? 'Unread mentions' : 'Unread';
+    // The trailing texts sit beside the button, outside its node, so they are
+    // spoken as part of its name instead: otherwise a screen reader stops on
+    // a bare number before it reaches the destination the number belongs to.
+    // The count wording matches the forum tab badges; the drafts count is
+    // not unread activity, so it stays a plain number as in the user menu.
+    final semanticDetails = [
+      ?description,
+      ?trailingLabel,
+      if (count != null)
+        destination.id == 'drafts'
+            ? '$count'
+            : '$count ${count == 1 ? 'unread item' : 'unread items'}',
+    ];
     Widget tile = DSidebarMenuItem(
-      badge: trailingLabel != null || (badge.isVisible && !badge.dot)
+      badge: trailingLabel != null || count != null
           ? DSidebarMenuBadge(
-              child: Wrap(
-                spacing: 4,
-                alignment: WrapAlignment.end,
-                crossAxisAlignment: WrapCrossAlignment.center,
-                children: [
-                  if (trailingLabel != null)
-                    Text(
-                      trailingLabel,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  if (badge.isVisible && !badge.dot)
-                    Text(
-                      '${badge.count}',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                ],
+              child: ExcludeSemantics(
+                child: Wrap(
+                  spacing: 4,
+                  alignment: WrapAlignment.end,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    if (trailingLabel != null)
+                      Text(
+                        trailingLabel,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    if (count != null)
+                      Text(
+                        '$count',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                  ],
+                ),
               ),
             )
           : null,
@@ -1750,9 +1767,14 @@ class SidebarDestinationTile extends StatelessWidget {
         onPressed: destination.enabled ? onTap : null,
         iconSize: context.isTouch ? 22 : 18,
         icon: Center(child: _prefix(context, foreground)),
-        semanticLabel: description == null
+        // A label replaces the row's own text semantics, dot included.
+        semanticLabel: semanticDetails.isEmpty
             ? null
-            : '${destination.label}, $description',
+            : [
+                destination.label,
+                ...semanticDetails,
+                if (badge.isVisible && badge.dot) dotLabel,
+              ].join(', '),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -1772,7 +1794,7 @@ class SidebarDestinationTile extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 3),
                 child: DNotificationDot(
                   key: ValueKey('sidebar-badge-${destination.id}'),
-                  semanticLabel: badge.urgent ? 'Unread mentions' : 'Unread',
+                  semanticLabel: dotLabel,
                   color: badge.urgent
                       ? theme.discourse.success
                       : theme.discourse.unreadIndicator,

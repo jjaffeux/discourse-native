@@ -396,18 +396,28 @@ void main() {
     }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('shows the draft count in the sidebar badge', (tester) async {
-      await _pump(tester);
+      final semantics = tester.ensureSemantics();
+      try {
+        await _pump(tester);
 
-      final count = find.descendant(
-        of: find.byType(InstanceSidebar),
-        matching: find.text('1'),
-      );
+        final count = find.descendant(
+          of: find.byType(InstanceSidebar),
+          matching: find.text('1'),
+        );
 
-      expect(count, findsOneWidget);
-      expect(
-        find.ancestor(of: count, matching: find.byType(DSidebarMenuBadge)),
-        findsOneWidget,
-      );
+        expect(count, findsOneWidget);
+        expect(
+          find.ancestor(of: count, matching: find.byType(DSidebarMenuBadge)),
+          findsOneWidget,
+        );
+        // A draft count is not unread activity.
+        expect(
+          tester.getSemantics(find.bySemanticsLabel('Drafts, 1')),
+          isSemantics(isButton: true),
+        );
+      } finally {
+        semantics.dispose();
+      }
     }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('open the account-backed page from the sidebar', (
