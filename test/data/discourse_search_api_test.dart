@@ -651,6 +651,41 @@ void main() {
       expect(real, {'sam', 'staff'});
     });
 
+    test('answers in the spellings that were asked', () async {
+      Uri? asked;
+      final api = _searchApi(
+        client: MockClient((request) async {
+          asked = request.url;
+          // What core renders for `names[]=Sam&names[]=Staff`: it lowercases
+          // every name before looking it up and keys the answer by that.
+          return http.Response(
+            jsonEncode({
+              'users': ['sam'],
+              'user_reasons': <String, Object?>{},
+              'groups': {
+                'staff': {'user_count': 12},
+              },
+              'group_reasons': <String, Object?>{},
+            }),
+            200,
+          );
+        }),
+      );
+
+      final real = await api.checkMentions(
+        siteUrl: 'https://example.com',
+        names: ['Sam', 'nobody', 'Staff', 'sam'],
+      );
+
+      expect(asked!.queryParametersAll['names[]'], [
+        'Sam',
+        'nobody',
+        'Staff',
+        'sam',
+      ]);
+      expect(real, {'Sam', 'sam', 'Staff'});
+    });
+
     test('asks for nothing when there is nothing to ask about', () async {
       var called = false;
       final api = _searchApi(
