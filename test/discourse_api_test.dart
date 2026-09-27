@@ -1686,6 +1686,7 @@ void _feedGroups() {
         List<CategoryFeaturedTopic> featuredTopics = const [
           CategoryFeaturedTopic(id: 101, title: 'A topic', slug: 'a-topic'),
         ],
+        String? topicTemplate = '### Steps',
       }) => TopicCategory(
         id: 1,
         name: 'Feature',
@@ -1699,6 +1700,7 @@ void _feedGroups() {
         isUncategorized: isUncategorized,
         notificationLevel: notificationLevel,
         featuredTopics: featuredTopics,
+        topicTemplate: topicTemplate,
       );
 
       final baseline = category();
@@ -1728,7 +1730,34 @@ void _feedGroups() {
             ),
           ],
         ),
+        category(topicTemplate: null),
+        category(topicTemplate: '### Expected'),
       ], everyElement(isNot(baseline)));
+      expect(
+        baseline.withNotificationLevel(CategoryNotificationLevel.normal),
+        category(notificationLevel: CategoryNotificationLevel.normal),
+      );
+    });
+
+    test('keeps a topic template exactly as the site holds it', () {
+      TopicCategory parse(Object? template) => TopicCategory.fromJson({
+        'id': 1,
+        'name': 'Bug reports',
+        'topic_template': template,
+      });
+
+      expect(
+        parse('### Steps to reproduce\n\n1. \n').topicTemplate,
+        '### Steps to reproduce\n\n1. \n',
+      );
+      expect(parse(null).topicTemplate, isNull);
+      expect(parse('').topicTemplate, isNull);
+      expect(parse(' \n ').topicTemplate, isNull);
+      expect(parse(['### Steps']).topicTemplate, isNull);
+      expect(
+        TopicCategory.fromJson(const {'id': 1, 'name': 'Bugs'}).topicTemplate,
+        isNull,
+      );
     });
 
     test('presentation fields default safely when malformed', () {
