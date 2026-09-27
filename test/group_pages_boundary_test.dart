@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
+import 'package:discourse_native/src/models/forum_workspace.dart';
 import 'package:discourse_native/src/models/group_route.dart';
 import 'package:discourse_native/src/shell/group_pages_coordinator.dart';
 import 'package:discourse_native/src/shell/group_pages_shell_port.dart';
@@ -117,6 +118,21 @@ final class _Shell extends ShellController {
 
   @override
   ContentRoute get currentContent => content;
+
+  // The port only acts on a tab the current workspace still holds.
+  @override
+  ForumWorkspace get currentWorkspace => ForumWorkspace(
+    siteUrl: currentInstance.url,
+    accountIdentity: currentAccountIdentity,
+    tabs: [
+      ForumTab(
+        id: activeTabId,
+        rootDestinationId: 'groups',
+        contentStack: [content],
+      ),
+    ],
+    activeTabId: activeTabId,
+  );
 
   @override
   void replaceCurrentContent(ContentRoute route) {

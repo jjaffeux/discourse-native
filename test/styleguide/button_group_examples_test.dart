@@ -12,6 +12,7 @@ void main() {
     expect(buttonGroupExamples.examples.map((example) => example.title), [
       'Composition and independent actions',
       'Orientation',
+      'Separate post actions',
       'Sizes',
       'Nested groups',
       'Separator and split action',
@@ -54,7 +55,7 @@ void main() {
             home: Scaffold(
               body: Center(
                 child: Builder(
-                  builder: buttonGroupExamples.examples[5].builder,
+                  builder: buttonGroupExamples.examples[6].builder,
                 ),
               ),
             ),
@@ -72,7 +73,7 @@ void main() {
   testWidgets('nested fixture spaces complete button and input groups', (
     tester,
   ) async {
-    await _pump(tester, 3);
+    await _pump(tester, 4);
 
     expect(find.byType(DButtonGroup), findsNWidgets(3));
     expect(find.byType(DInputGroup), findsOneWidget);
@@ -95,7 +96,7 @@ void main() {
   testWidgets('dropdown trigger opens and remains an independent button', (
     tester,
   ) async {
-    await _pump(tester, 7);
+    await _pump(tester, 8);
     await tester.tap(find.byTooltip('More follow actions'));
     await tester.pumpAndSettle();
     expect(find.text('Mute conversation'), findsOneWidget);
@@ -106,7 +107,7 @@ void main() {
   testWidgets('currency fixture updates without resetting amount editing', (
     tester,
   ) async {
-    await _pump(tester, 8);
+    await _pump(tester, 9);
     expect(find.byType(DSelect<String>), findsOneWidget);
     await tester.enterText(find.byType(TextField), '42.50');
     await tester.tap(find.text(r'$'));
@@ -120,7 +121,7 @@ void main() {
   testWidgets('input fixture matches the documented two-control composition', (
     tester,
   ) async {
-    await _pump(tester, 5);
+    await _pump(tester, 6);
 
     expect(find.byType(DField), findsNothing);
     expect(find.byType(DButtonGroupText), findsNothing);
@@ -144,7 +145,7 @@ void main() {
   testWidgets('input group fixture preserves editing and voice action state', (
     tester,
   ) async {
-    await _pump(tester, 6);
+    await _pump(tester, 7);
 
     expect(find.byType(DButtonGroup), findsNWidgets(3));
     final attachment = tester.getRect(find.byTooltip('Add attachment'));
@@ -166,7 +167,7 @@ void main() {
   testWidgets(
     'popover fixture uses the public overlay and restores its trigger',
     (tester) async {
-      await _pump(tester, 9);
+      await _pump(tester, 10);
       final trigger = find.byTooltip('Open Copilot task form');
       await tester.tap(trigger);
       await tester.pumpAndSettle();

@@ -56,12 +56,20 @@ void main() {
     final shell = ShellScope.read(tester.element(find.byType(MainContent)));
     expect(shell.currentContent?.id, 'users');
     expect(find.byType(UsersPage), findsOneWidget);
+    // The page names itself; its desktop panel tab carries the other label.
     expect(
       find.descendant(
         of: find.byType(MainContent),
         matching: find.text('Users'),
       ),
-      findsNWidgets(2),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(
+        of: find.byKey(ValueKey('forum-tab-${shell.activeTabId}')),
+        matching: find.text('Users'),
+      ),
+      findsOneWidget,
     );
     expect(find.text('Community signal'), findsNothing);
     expect(find.byKey(const ValueKey('user-row-sam')), findsOneWidget);

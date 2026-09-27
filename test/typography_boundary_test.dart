@@ -265,8 +265,8 @@ void main() {
       find.byKey(const ValueKey('forum-tabs-bar')),
     );
     final labelRect = tester.getRect(find.text('Latest'));
-    expect(label.text.style!.fontSize, 12.5);
-    expect(label.textScaler.scale(12.5), 33);
+    expect(label.text.style!.fontSize, DiscourseTypography.control);
+    expect(label.textScaler.scale(DiscourseTypography.control), 34);
     expect(barRect.height, greaterThan(ForumTabsBar.height));
     expect(barRect.contains(labelRect.topLeft), isTrue);
     expect(barRect.contains(labelRect.bottomRight), isTrue);

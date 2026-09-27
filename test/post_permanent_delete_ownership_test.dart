@@ -5,6 +5,7 @@ import 'package:discourse_native/src/data/discourse_api_contracts.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/topic.dart';
+import 'package:discourse_native/src/shell/adaptive_shell.dart';
 import 'package:discourse_native/src/shell/main_content.dart';
 import 'package:discourse_native/src/shell/post_permanent_delete.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
@@ -413,10 +414,11 @@ void _showConfirmation(
   _DeletionApi api,
   int postId,
 ) {
-  // Keep the caller mounted while navigation overlaps the initial check.
+  // Keep the caller mounted while navigation overlaps the initial check. Each
+  // forum workspace builds its own content, so the caller is the shell.
   unawaited(
     showPostPermanentDelete(
-      context: tester.element(find.byType(MainContent)),
+      context: tester.element(find.byType(AdaptiveShell)),
       controller: controller,
       siteUrl: _siteA,
       topicId: 7,

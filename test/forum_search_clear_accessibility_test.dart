@@ -136,12 +136,17 @@ void main() {
           DControlSize.small,
         );
         expect(tester.getSize(clear), const Size.square(24));
-        expect(tester.getSize(find.byType(ForumSearch)).height, 32);
+        expect(
+          tester.getSize(find.byType(ForumSearch)).height,
+          DControlStyle.largeHeight,
+        );
         final groupRect = tester.getRect(find.byType(DInputGroup));
         final clearRect = tester.getRect(clear);
         expect(clearRect.right, lessThan(groupRect.right));
-        expect(clearRect.top - groupRect.top, closeTo(4, .5));
-        expect(groupRect.bottom - clearRect.bottom, closeTo(4, .5));
+        // The small clear button sits centred in the large field.
+        const inset = (DControlStyle.largeHeight - 24) / 2;
+        expect(clearRect.top - groupRect.top, closeTo(inset, .5));
+        expect(groupRect.bottom - clearRect.bottom, closeTo(inset, .5));
         expect(
           tester.getSemantics(clear),
           isSemantics(
