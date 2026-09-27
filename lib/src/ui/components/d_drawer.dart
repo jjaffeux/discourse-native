@@ -5,6 +5,7 @@ import 'dart:ui' show ImageFilter, PointerDeviceKind;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/physics.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 
 import '../../theme/discourse_typography.dart';
@@ -699,7 +700,7 @@ class _DDrawerRoutePageState<T> extends State<_DDrawerRoutePage<T>>
   late final _DDrawerStackHandle _stack;
   double _extent = 1;
   double? _dismissOrigin;
-  bool _initialized = false;
+  bool _measured = false;
   bool _dragging = false;
   bool _overscrollDragging = false;
   bool _openCompletionSent = false;
@@ -767,10 +768,13 @@ class _DDrawerRoutePageState<T> extends State<_DDrawerRoutePage<T>>
         if (mounted && !_dragging) _settleTo(_activeSnapOffset(), 0);
       });
     }
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _measurePopup();
-    });
+    _schedulePopupMeasure();
   }
+
+  void _schedulePopupMeasure() =>
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _measurePopup();
+      });
 
   void _routeAnimationChanged() {
     if (widget.animation.status == AnimationStatus.reverse &&
@@ -821,14 +825,14 @@ class _DDrawerRoutePageState<T> extends State<_DDrawerRoutePage<T>>
     final render = _popupKey.currentContext?.findRenderObject();
     if (render is! RenderBox || !render.hasSize) return;
     final next = _vertical ? render.size.height : render.size.width;
-    if (next <= 0 || (next - _extent).abs() < .5) return;
+    if (next <= 0 || (_measured && (next - _extent).abs() < .5)) return;
     final oldSnap = _activeSnapOffset(extent: _extent);
     _extent = next;
     final newSnap = _activeSnapOffset();
-    if (!_initialized || (_travel.value - oldSnap).abs() < 1) {
+    if (!_measured || (_travel.value - oldSnap).abs() < 1) {
       _travel.value = newSnap;
     }
-    _initialized = true;
+    setState(() => _measured = true);
   }
 
   double _activeSnapOffset({double? extent}) {
@@ -1140,8 +1144,11 @@ class _DDrawerRoutePageState<T> extends State<_DDrawerRoutePage<T>>
                 const Cubic(.32, .72, 0, 1).transform(widget.animation.value))
             .toDouble();
 
-    Widget popup = KeyedSubtree(
+    // Content that loads after opening changes the distance a close, a swipe
+    // threshold and over-drag resistance are measured against.
+    Widget popup = _DDrawerResizeObserver(
       key: _popupKey,
+      onResized: _schedulePopupMeasure,
       child: _DDrawerGestureScope(
         onStart: _dragStartGesture,
         onUpdate: _dragUpdateGesture,
@@ -1218,6 +1225,19 @@ class _DDrawerRoutePageState<T> extends State<_DDrawerRoutePage<T>>
         ),
       );
     }
+    // Every offset is relative to the popup's own extent, which is unknown
+    // until it has laid out once; the first frame would otherwise show it
+    // fully open. Layout, state and focusability stay live so that
+    // measurement and initial focus happen on that frame, while painting,
+    // hit testing and semantics wait for the measured position.
+    popup = Visibility(
+      visible: _measured,
+      maintainState: true,
+      maintainAnimation: true,
+      maintainSize: true,
+      maintainFocusability: true,
+      child: popup,
+    );
     popup = _positionDrawer(direction, popup);
 
     final children = <Widget>[];
@@ -1306,6 +1326,46 @@ class _DDrawerRoutePageState<T> extends State<_DDrawerRoutePage<T>>
     if (widget.parentStack != null) widget.parentStack!.swiping = false;
     _focusScope.dispose();
     super.dispose();
+  }
+}
+
+/// Calls [onResized] from each layout that gives the popup a new size.
+///
+/// The callback runs during layout, so it must defer any state change past
+/// the frame. The drawer's own offsets never change the popup's size, which
+/// keeps a re-measurement from feeding back into another one.
+class _DDrawerResizeObserver extends SingleChildRenderObjectWidget {
+  const _DDrawerResizeObserver({
+    super.key,
+    required this.onResized,
+    required super.child,
+  });
+
+  final VoidCallback onResized;
+
+  @override
+  _RenderDDrawerResizeObserver createRenderObject(BuildContext context) =>
+      _RenderDDrawerResizeObserver(onResized);
+
+  @override
+  void updateRenderObject(
+    BuildContext context,
+    _RenderDDrawerResizeObserver renderObject,
+  ) => renderObject.onResized = onResized;
+}
+
+class _RenderDDrawerResizeObserver extends RenderProxyBox {
+  _RenderDDrawerResizeObserver(this.onResized);
+
+  VoidCallback onResized;
+  Size? _reportedSize;
+
+  @override
+  void performLayout() {
+    super.performLayout();
+    if (size == _reportedSize) return;
+    _reportedSize = size;
+    onResized();
   }
 }
 
