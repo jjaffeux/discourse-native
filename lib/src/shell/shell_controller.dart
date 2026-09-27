@@ -9331,14 +9331,16 @@ class ShellController extends FrameSafeNotifier
   Future<void> Function(ComposerController composer)?
   confirmComposerReplacement;
 
-  int _lastNewTopicDraftId = 0;
+  int _lastNewDraftId = 0;
 
-  String _newTopicDraftKey() {
-    _lastNewTopicDraftId = math.max(
+  /// A key no saved draft uses, so a fresh composer neither restores nor
+  /// overwrites another draft of the same kind.
+  String _newDraftKey(String base) {
+    _lastNewDraftId = math.max(
       _clock().millisecondsSinceEpoch,
-      _lastNewTopicDraftId + 1,
+      _lastNewDraftId + 1,
     );
-    return '${ComposerDraft.newTopicDraftKey}_$_lastNewTopicDraftId';
+    return '${base}_$_lastNewDraftId';
   }
 
   Future<bool> _prepareNewTopicComposer() async {
@@ -9445,7 +9447,8 @@ class ShellController extends FrameSafeNotifier
       slug: '',
       topicTitle: 'New topic',
       mode: ComposerMode.newTopic,
-      draftKey: listedDraft?.key ?? _newTopicDraftKey(),
+      draftKey:
+          listedDraft?.key ?? _newDraftKey(ComposerDraft.newTopicDraftKey),
       originFeedId: originFeedId,
       initialCategoryId: categoryId,
     );
@@ -9570,6 +9573,13 @@ class ShellController extends FrameSafeNotifier
     );
   }
 
+  /// Whether [topic] offers continuing in a new topic, or, from a message, in
+  /// a new message to the same participants.
+  bool canReplyAsNewTopic(TopicDetail topic) =>
+      topic.canReplyAsNewTopic &&
+      (!topic.privateMessage ||
+          currentInstance?.user?.canSendPrivateMessages == true);
+
   Future<void> openReplyAsNewTopic(String continuation) async {
     final instance = currentInstance;
     final route = currentContent;
@@ -9577,54 +9587,86 @@ class ShellController extends FrameSafeNotifier
     final tabId = activeTabId;
     if (instance == null ||
         route?.topicId == null ||
-        detail?.canReplyAsNewTopic != true ||
+        detail == null ||
+        !canReplyAsNewTopic(detail) ||
         tabId == null ||
         continuation.trim().isEmpty) {
       return;
     }
 
     final siteUrl = instance.url;
-    final sourceTopicId = detail!.id;
+    final sourceTopicId = detail.id;
+    // The continuation names and links the source, so a message may only be
+    // continued among its own participants, never in a public topic.
+    final privateMessage = detail.privateMessage;
     final lease = lifecycle.capture(siteUrl);
-    await Future.wait<void>([
-      loadCategories(siteUrl),
-      _ensureTopicComposerCapabilities(siteUrl),
-    ]);
-    if (!lease.isCurrent ||
-        activeTabId != tabId ||
-        currentInstance?.url != siteUrl ||
-        currentContent?.topicId != sourceTopicId ||
-        currentTopic?.canReplyAsNewTopic != true) {
-      return;
-    }
-    if (!await _prepareNewTopicComposer() ||
-        !lease.isCurrent ||
-        activeTabId != tabId ||
-        currentInstance?.url != siteUrl ||
-        currentContent?.topicId != sourceTopicId ||
-        currentTopic?.canReplyAsNewTopic != true) {
-      return;
+    bool sourceIsCurrent() {
+      final current = currentTopic;
+      return lease.isCurrent &&
+          activeTabId == tabId &&
+          currentInstance?.url == siteUrl &&
+          currentContent?.topicId == sourceTopicId &&
+          current != null &&
+          current.privateMessage == privateMessage &&
+          canReplyAsNewTopic(current);
     }
 
-    final category = topicComposerCategories(siteUrl)
-        .where((item) => item.id == detail.categoryId && item.canCreateTopic)
-        .firstOrNull;
+    if (!privateMessage) {
+      await Future.wait<void>([
+        loadCategories(siteUrl),
+        _ensureTopicComposerCapabilities(siteUrl),
+      ]);
+      if (!sourceIsCurrent()) return;
+    }
+    if (!await _prepareNewTopicComposer() || !sourceIsCurrent()) return;
+
+    final ComposerTarget target;
+    var minimumRequiredTags = 0;
+    if (privateMessage) {
+      final source = currentTopic!;
+      final username = currentInstance?.user?.username.toLowerCase();
+      // The site adds the author to every message it creates, and naming them
+      // would also hold them to their own message preferences. A message only
+      // the author is left in still has to name someone.
+      final others = [
+        for (final name in source.allowedMessageUsers)
+          if (name.toLowerCase() != username) name,
+        ...source.allowedMessageGroups,
+      ];
+      target = ComposerTarget(
+        siteUrl: siteUrl,
+        tabId: tabId,
+        topicId: 0,
+        slug: '',
+        topicTitle: 'New message',
+        mode: ComposerMode.privateMessage,
+        originTopicId: sourceTopicId,
+        draftKey: _newDraftKey(ComposerDraft.newPrivateMessageDraftKey),
+        targetRecipients: (others.isEmpty ? source.allowedMessageUsers : others)
+            .join(','),
+      );
+    } else {
+      final category = topicComposerCategories(siteUrl)
+          .where((item) => item.id == detail.categoryId && item.canCreateTopic)
+          .firstOrNull;
+      minimumRequiredTags = category?.minimumRequiredTags ?? 0;
+      target = ComposerTarget(
+        siteUrl: siteUrl,
+        tabId: tabId,
+        topicId: 0,
+        slug: '',
+        topicTitle: 'New topic',
+        mode: ComposerMode.newTopic,
+        originTopicId: sourceTopicId,
+        draftKey: _newDraftKey(ComposerDraft.newTopicDraftKey),
+        initialCategoryId: category?.id,
+      );
+    }
     if (!_replaceComposer()) return;
-    final target = ComposerTarget(
-      siteUrl: siteUrl,
-      tabId: tabId,
-      topicId: 0,
-      slug: '',
-      topicTitle: 'New topic',
-      mode: ComposerMode.newTopic,
-      originTopicId: sourceTopicId,
-      draftKey: _newTopicDraftKey(),
-      initialCategoryId: category?.id,
-    );
     final composer = _buildTextComposer(
       target,
       persistsDraft: true,
-      minimumRequiredTags: category?.minimumRequiredTags ?? 0,
+      minimumRequiredTags: minimumRequiredTags,
     );
     _setComposer(composer);
     _notify();
@@ -9713,7 +9755,7 @@ class ShellController extends FrameSafeNotifier
         topicTitle: 'New topic',
         mode: ComposerMode.newTopic,
         originFeedId: feedId,
-        draftKey: _newTopicDraftKey(),
+        draftKey: _newDraftKey(ComposerDraft.newTopicDraftKey),
         initialCategoryId: category?.id,
       );
       composer = _buildTextComposer(

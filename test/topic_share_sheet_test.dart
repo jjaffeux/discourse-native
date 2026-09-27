@@ -135,6 +135,32 @@ void main() {
         expect(find.byKey(_shareKey), findsNothing);
       },
     );
+
+    testWidgets(
+      '${postNumber == null ? 'topic' : 'post'} sharing continues a message as a message, never a topic',
+      (tester) async {
+        for (final privateMessage in [false, true]) {
+          await _openShare(
+            tester,
+            postNumber: postNumber,
+            privateMessage: privateMessage,
+            onReplyAsNewTopic: () async {},
+          );
+
+          expect(
+            find.descendant(
+              of: find.byKey(_replyKey),
+              matching: find.text(
+                privateMessage ? 'Reply as new message' : 'Reply as new topic',
+              ),
+            ),
+            findsOneWidget,
+          );
+          await tester.tap(find.byTooltip('Close'));
+          await tester.pumpAndSettle();
+        }
+      },
+    );
   }
 
   for (final platform in [TargetPlatform.macOS, TargetPlatform.iOS]) {
@@ -187,6 +213,7 @@ Future<void> _openShare(
   Size size = const Size(800, 600),
   double textScale = 1,
   int? postNumber,
+  bool privateMessage = false,
   Future<void> Function()? onReplyAsNewTopic,
 }) async {
   tester.view.physicalSize = size;
@@ -213,6 +240,7 @@ Future<void> _openShare(
                       title: _title,
                       url: _url,
                       onReplyAsNewTopic: onReplyAsNewTopic,
+                      privateMessage: privateMessage,
                     )
                   : showPostShareSheet(
                       context: context,
@@ -220,6 +248,7 @@ Future<void> _openShare(
                       url: _url,
                       postNumber: postNumber,
                       onReplyAsNewTopic: onReplyAsNewTopic,
+                      privateMessage: privateMessage,
                     ),
             ),
             child: const Text('Open share'),
