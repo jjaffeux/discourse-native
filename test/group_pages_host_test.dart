@@ -153,6 +153,60 @@ void main() {
     },
   );
 
+  testWidgets(
+    'member filter and sort reload the member list without the group',
+    (tester) async {
+      final port = _Port();
+      addTearDown(port.dispose);
+      final coordinator = GroupPagesCoordinator();
+      addTearDown(coordinator.dispose);
+      final route = GroupRoute.detail('staff');
+      coordinator.bind(
+        port,
+        GroupPagesRouteSnapshot(
+          owner: port.owner,
+          routeId: route.id,
+          groupNamespace: true,
+          route: route,
+          canPopContent: false,
+        ),
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light,
+          builder: (context, child) => DToaster(child: child!),
+          home: Scaffold(
+            body: GroupPagesHost(
+              coordinator: coordinator,
+              port: port,
+              registry: PluginRegistry.empty,
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      expect(port.loads, ['detail:false', 'section::last_seen_at:false']);
+      port.loads.clear();
+
+      final page = tester.widget<GroupPage>(find.byType(GroupPage));
+      page.onMemberFilterChanged!('sam');
+      page.onMemberSortChanged!('username', true);
+      await tester.pump();
+
+      expect(port.loads, [
+        'section:sam:last_seen_at:true',
+        'section:sam:username:true',
+      ]);
+      port.loads.clear();
+
+      await page.onRefresh!();
+
+      expect(port.loads, ['detail:true', 'section:sam:username:true']);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   group('group deletion navigation', () {
     for (final destination in _DeleteDestination.values) {
       for (final returnToOrigin in [false, true]) {
@@ -379,6 +433,7 @@ final class _Port implements GroupPagesPort {
     tabId: 'tab-1',
   );
   int directoryLoads = 0;
+  final loads = <String>[];
   int directoryReplacements = 0;
   Completer<bool>? deleteGate;
   VoidCallback? onReplaceWithDirectory;
@@ -457,7 +512,9 @@ final class _Port implements GroupPagesPort {
     GroupPagesOwner owner,
     GroupRoute route, {
     required bool refresh,
-  }) async {}
+  }) async {
+    loads.add('detail:$refresh');
+  }
 
   @override
   Future<void> loadSection(
@@ -466,7 +523,9 @@ final class _Port implements GroupPagesPort {
     GroupPagesMemberQuery memberQuery, {
     required bool refresh,
     required bool more,
-  }) async {}
+  }) async {
+    loads.add('section:${memberQuery.filter}:${memberQuery.order}:$refresh');
+  }
 
   void dispose() => _changes.dispose();
 

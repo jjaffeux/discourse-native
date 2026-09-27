@@ -287,6 +287,33 @@ final class GroupPagesCoordinator {
     );
   }
 
+  /// Re-requests only the current section's list, for a change such as the
+  /// member filter or sort that cannot alter the group itself.
+  ///
+  /// A full [requestLoad] re-requests the group first and holds the list
+  /// behind that round trip. This does not count as the route's load, so a
+  /// later [requestLoad] still runs the full chain and restores a missing
+  /// group.
+  Future<void> reloadSection() async {
+    final snapshot = _snapshot;
+    final port = _port;
+    final route = _page.route;
+    if (_disposed ||
+        snapshot == null ||
+        port == null ||
+        route == null ||
+        _page.kind != GroupPagesPageKind.detail) {
+      return;
+    }
+    await port.loadSection(
+      snapshot.owner,
+      route,
+      _memberQuery,
+      refresh: true,
+      more: false,
+    );
+  }
+
   Future<void> loadMore() async {
     final snapshot = _snapshot;
     final port = _port;
