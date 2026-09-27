@@ -14,10 +14,47 @@ typedef ComposerInlineFormat = ({
 
 /// Recognized inline wrappers, excluding literal syntax inside code spans.
 List<ComposerInlineFormat> composerInlineFormats(String source) {
-  final runs = scanMarkdown(source);
+  // Pair within the scan's own blocks. It marks only what it paired there, so
+  // a pair across blocks is refused below — but only after it has consumed
+  // the closer of a span the editor really draws.
+  final (:runs, :blocks) = scanMarkdownBlocks(source);
   final code = CodeRanges.of(runs);
-  bool marker(int at) =>
-      runs.any((run) => run.start <= at && run.end > at && run.has(Md.marker));
+  // The runs tile the source in order: the first one ending after an offset
+  // holds it, so a lookup bisects rather than walking the whole draft.
+  int runAt(int at) {
+    var low = 0;
+    var high = runs.length;
+    while (low < high) {
+      final middle = low + ((high - low) >> 1);
+      if (runs[middle].end <= at) {
+        low = middle + 1;
+      } else {
+        high = middle;
+      }
+    }
+    return low;
+  }
+
+  bool marker(int at) {
+    final index = runAt(at);
+    return index < runs.length &&
+        runs[index].start <= at &&
+        runs[index].has(Md.marker);
+  }
+
+  // Whether a run within [start, end) is drawn with all of [flag]. The pairs
+  // of one delimiter are disjoint, so their windows visit each run once.
+  bool drawn(int start, int end, int flag) {
+    for (
+      var index = runAt(start);
+      index < runs.length && runs[index].start < end;
+      index += 1
+    ) {
+      if (runs[index].mask & flag == flag) return true;
+    }
+    return false;
+  }
+
   final formats = <ComposerInlineFormat>[];
   for (final (delimiter, flag) in const [
     ('***', Md.bold | Md.italic),
@@ -28,45 +65,44 @@ List<ComposerInlineFormat> composerInlineFormats(String source) {
     ('_', Md.italic),
     ('~~', Md.strikethrough),
   ]) {
-    for (final (start, end) in markdownPairs(
-      source,
-      delimiter,
-      wordBounded: delimiter.startsWith('_'),
-      spokenFor: code.contains,
-    )) {
-      if (!marker(start) || !marker(end - 1)) continue;
-      if (!runs.any(
-        (run) =>
-            run.start < end - delimiter.length &&
-            run.end > start + delimiter.length &&
-            run.mask & flag == flag,
+    for (final block in blocks) {
+      for (final (open, close) in markdownPairs(
+        block.text,
+        delimiter,
+        wordBounded: delimiter.startsWith('_'),
+        spokenFor: (offset) => code.contains(block.offset + offset),
       )) {
-        continue;
-      }
-      if (delimiter.length == 3) {
+        final start = block.offset + open;
+        final end = block.offset + close;
+        if (!marker(start) || !marker(end - 1)) continue;
+        if (!drawn(start + delimiter.length, end - delimiter.length, flag)) {
+          continue;
+        }
+        if (delimiter.length == 3) {
+          formats.add((
+            start: start,
+            contentStart: start + 2,
+            contentEnd: end - 2,
+            end: end,
+            kind: '**',
+          ));
+          formats.add((
+            start: start + 2,
+            contentStart: start + 3,
+            contentEnd: end - 3,
+            end: end - 2,
+            kind: '*',
+          ));
+          continue;
+        }
         formats.add((
           start: start,
-          contentStart: start + 2,
-          contentEnd: end - 2,
+          contentStart: start + delimiter.length,
+          contentEnd: end - delimiter.length,
           end: end,
-          kind: '**',
+          kind: delimiter.replaceAll('_', '*'),
         ));
-        formats.add((
-          start: start + 2,
-          contentStart: start + 3,
-          contentEnd: end - 3,
-          end: end - 2,
-          kind: '*',
-        ));
-        continue;
       }
-      formats.add((
-        start: start,
-        contentStart: start + delimiter.length,
-        contentEnd: end - delimiter.length,
-        end: end,
-        kind: delimiter.replaceAll('_', '*'),
-      ));
     }
   }
   void tags(String text, int offset) {
@@ -90,7 +126,9 @@ List<ComposerInlineFormat> composerInlineFormats(String source) {
     }
   }
 
-  tags(source, 0);
+  for (final block in blocks) {
+    tags(block.text, block.offset);
+  }
   for (final link in parseComposerLinks(source, enableLinkify: false)) {
     // Images have a separate editing owner.
     if (link.start > 0 && source[link.start - 1] == '!') continue;
@@ -103,11 +141,7 @@ List<ComposerInlineFormat> composerInlineFormats(String source) {
     ));
   }
   for (final (start, end) in code.ranges) {
-    if (runs.any(
-      (r) => r.start < end && r.end > start && r.has(Md.codeBlock),
-    )) {
-      continue;
-    }
+    if (drawn(start, end, Md.codeBlock)) continue;
     var openingStart = start;
     while (openingStart > 0 &&
         source[openingStart - 1] == '`' &&
@@ -141,15 +175,20 @@ final _tags = RegExp(
   caseSensitive: false,
 );
 
-bool composerSelectionHasFormat(TextEditingValue value, String kind) {
+bool composerSelectionHasFormat(TextEditingValue value, String kind) =>
+    composerSelectionFormats(value)(kind);
+
+/// Answers [composerSelectionHasFormat] for every kind from one read of
+/// [value], for a toolbar showing the state of several at once.
+bool Function(String kind) composerSelectionFormats(TextEditingValue value) {
   final selection = value.selection;
-  if (!selection.isValid || selection.isCollapsed) return false;
-  return composerInlineFormats(value.text).any(
-    (format) =>
-        _matchesKind(format.kind, kind) &&
-        selection.start >= format.start &&
-        selection.end <= format.end,
-  );
+  if (!selection.isValid || selection.isCollapsed) return (_) => false;
+  final enclosing = [
+    for (final format in composerInlineFormats(value.text))
+      if (selection.start >= format.start && selection.end <= format.end)
+        format.kind,
+  ];
+  return (kind) => enclosing.any((format) => _matchesKind(format, kind));
 }
 
 /// The innermost color enclosing the entire selection, or the default color.

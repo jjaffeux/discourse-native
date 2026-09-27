@@ -276,13 +276,23 @@ bool _isWordCharacter(int unit) =>
 List<MarkdownRun> scanMarkdown(
   String source, {
   DeferredFenceHighlight? deferHighlight,
-}) {
-  if (source.isEmpty) return const [];
+}) => scanMarkdownBlocks(source, deferHighlight: deferHighlight).runs;
+
+/// [scanMarkdown], with the blocks its inline passes paired delimiters within:
+/// paragraphs, minus any fence inside them.
+///
+/// A reader pairing delimiters over the same source has to pair within these
+/// too. Across them, a delimiter the scan left unpaired in one block takes the
+/// closer of a span it drew in the next.
+({List<MarkdownRun> runs, List<({int offset, String text})> blocks})
+scanMarkdownBlocks(String source, {DeferredFenceHighlight? deferHighlight}) {
+  if (source.isEmpty) return (runs: const [], blocks: const []);
 
   final scan = _Scan(source, deferHighlight);
   scan.blocks();
-  scan.inlines();
-  return scan.runs();
+  final blocks = scan._blocks();
+  scan.inlines(blocks);
+  return (runs: scan.runs(), blocks: blocks);
 }
 
 class _Scan {
@@ -456,8 +466,7 @@ class _Scan {
     }
   }
 
-  void inlines() {
-    final blocks = _blocks();
+  void inlines(List<({int offset, String text})> blocks) {
     // Before the escapes, and it has to be: a backslash inside a code span is
     // a literal backslash, so the span has to be claimed before anything can
     // read one as syntax. `_codeSpans` has its own escape rule for the

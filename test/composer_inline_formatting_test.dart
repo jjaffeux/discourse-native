@@ -6,6 +6,8 @@ import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'support/scaling_benchmark.dart';
+
 TextEditingValue selection(
   String source,
   String selected, {
@@ -137,6 +139,99 @@ void main() {
     final after = setComposerColor(before, null);
     expect(after.text, '**hello**');
     expect(after.selection.textInside(after.text), 'hello');
+  });
+
+  group('pairs within a block, as the editor draws it', () {
+    // Each prefix leaves a delimiter the highlighter pairs with nothing, since
+    // a mark cannot span a paragraph or a fence. Paired across them, it takes
+    // the closer of the span below and hides that span from the toolbar.
+    for (final (prefix, source, mark, kind, toggled) in const [
+      (
+        'Pass **kwargs through.\n\n',
+        'Some **bold words** here',
+        ComposerMark.bold,
+        '**',
+        'Some **bold** words here',
+      ),
+      (
+        'Costs 2*3 today.\n\n',
+        'Some *ital words* here',
+        ComposerMark.italic,
+        '*',
+        'Some *ital* words here',
+      ),
+      // No blank line: only the fence separates the two blocks.
+      (
+        'Pass **kwargs\n```\ncode\n```\n',
+        'Some **bold words** here',
+        ComposerMark.bold,
+        '**',
+        'Some **bold** words here',
+      ),
+      (
+        'Costs 2~~3 today.\n\n',
+        'Some ~~struck words~~ here',
+        null,
+        '~~',
+        'Some ~~struck~~ words here',
+      ),
+    ]) {
+      test('${prefix.trim()} / $source', () {
+        final value = selection('$prefix$source', 'words');
+        expect(composerSelectionHasFormat(value, kind), isTrue);
+
+        final cleared = clearComposerInlineFormatting(value, kind: kind);
+        expect(cleared.text, '$prefix$toggled');
+        expect(cleared.selection.textInside(cleared.text), 'words');
+        if (mark != null) {
+          expect(toggleComposerInlineMark(value, mark), cleared);
+        }
+
+        final whole = source.substring(
+          source.indexOf(kind),
+          source.lastIndexOf(kind) + kind.length,
+        );
+        expect(
+          clearComposerInlineFormatting(
+            selection('$prefix$source', whole),
+          ).text,
+          '$prefix${source.replaceFirst(whole, whole.replaceAll(kind, ''))}',
+        );
+      });
+    }
+
+    test('an unclosed tag in an earlier paragraph does not hide a tag', () {
+      final value = selection(
+        'Type <ins>here.\n\nSome <ins>underlined words</ins> here',
+        'words',
+      );
+      expect(composerSelectionHasFormat(value, 'ins'), isTrue);
+      expect(
+        toggleComposerTag(value, 'ins').text,
+        'Type <ins>here.\n\nSome <ins>underlined </ins>words here',
+      );
+    });
+  });
+
+  test('finding formats grows with the draft, not its square', () {
+    // The selection toolbar asks on every selection change. An 8x draft
+    // separates linear growth from a lookup over every run for each pair.
+    String draft(int paragraphs) => [
+      for (var i = 0; i < paragraphs; i += 1)
+        'Line $i has **bold**, *italic*, ~~gone~~, `code` and <ins>u</ins>.',
+    ].join('\n\n');
+
+    final smallSource = draft(150);
+    final largeSource = draft(1200);
+    final (:small, :large) = measureScaling(
+      () => composerInlineFormats(smallSource).length,
+      () => composerInlineFormats(largeSource).length,
+    );
+    expect(
+      large,
+      lessThan(small * 25),
+      reason: 'eight times the draft took ${large / small} times as long',
+    );
   });
 
   test('collapsed selections do not insert formatting or colors', () {

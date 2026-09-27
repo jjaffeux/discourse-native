@@ -28,14 +28,14 @@ class ComposerSelectionMenu extends StatelessWidget {
     composer.focus.requestFocus();
   }
 
-  Widget _toggle(String label, Widget icon, String kind, VoidCallback action) =>
+  Widget _toggle(String label, Widget icon, bool active, VoidCallback action) =>
       DTooltip(
         message: label,
         excludeFromSemantics: true,
         child: DToggle.iconOnly(
           semanticLabel: label,
           icon: icon,
-          pressed: composerSelectionHasFormat(composer.value, kind),
+          pressed: active,
           enabled: composer.isEditing,
           onPressedChanged: (_) {
             action();
@@ -52,171 +52,178 @@ class ComposerSelectionMenu extends StatelessWidget {
     child: TextFieldTapRegion(
       child: ListenableBuilder(
         listenable: composer.text,
-        builder: (context, _) => DDropdownMenu(
-          open: true,
-          restoreFocus: false,
-          onOpenChange: (open, reason) {
-            if (!open) {
-              onDismiss();
-              if (reason == DPopoverChangeReason.escape) {
-                composer.focus.requestFocus();
+        builder: (context, _) {
+          // This rebuilds on every selection change; one read of the draft
+          // answers all of the toggles.
+          final pressed = composerSelectionFormats(composer.value);
+          return DDropdownMenu(
+            open: true,
+            restoreFocus: false,
+            onOpenChange: (open, reason) {
+              if (!open) {
+                onDismiss();
+                if (reason == DPopoverChangeReason.escape) {
+                  composer.focus.requestFocus();
+                }
               }
-            }
-          },
-          content: DDropdownMenuContent(
-            key: const ValueKey('composer-selection-toolbar'),
-            semanticLabel: 'Text formatting',
-            autofocus: false,
-            side: DPopoverSide.top,
-            align: DPopoverAlign.center,
-            width: DControlStyle.isTouch(context) ? 292 : 240,
-            children: [
-              // The popup paints in its own overlay. Its controls must join the
-              // editor's tap region so mouse presses retain the selection.
-              TextFieldTapRegion(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Wrap(
-                      alignment: WrapAlignment.center,
-                      spacing: DSpacing.controlGap,
-                      runSpacing: DSpacing.controlGap,
-                      children: [
-                        if (ShellScope.maybeOf(
-                              context,
-                            )?.supportsComposerColors(composer.siteUrl) ??
-                            false)
-                          ComposerSelectionColors(composer: composer),
-                        _toggle(
-                          'Bold',
-                          const DIcon(DIcons.bold),
-                          '**',
-                          () => _format(
-                            (value) => toggleComposerInlineMark(
-                              value,
-                              ComposerMark.bold,
+            },
+            content: DDropdownMenuContent(
+              key: const ValueKey('composer-selection-toolbar'),
+              semanticLabel: 'Text formatting',
+              autofocus: false,
+              side: DPopoverSide.top,
+              align: DPopoverAlign.center,
+              width: DControlStyle.isTouch(context) ? 292 : 240,
+              children: [
+                // The popup paints in its own overlay. Its controls must join the
+                // editor's tap region so mouse presses retain the selection.
+                TextFieldTapRegion(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Wrap(
+                        alignment: WrapAlignment.center,
+                        spacing: DSpacing.controlGap,
+                        runSpacing: DSpacing.controlGap,
+                        children: [
+                          if (ShellScope.maybeOf(
+                                context,
+                              )?.supportsComposerColors(composer.siteUrl) ??
+                              false)
+                            ComposerSelectionColors(composer: composer),
+                          _toggle(
+                            'Bold',
+                            const DIcon(DIcons.bold),
+                            pressed('**'),
+                            () => _format(
+                              (value) => toggleComposerInlineMark(
+                                value,
+                                ComposerMark.bold,
+                              ),
                             ),
                           ),
-                        ),
-                        _toggle(
-                          'Italic',
-                          const DIcon(DIcons.italic),
-                          '*',
-                          () => _format(
-                            (value) => toggleComposerInlineMark(
-                              value,
-                              ComposerMark.italic,
+                          _toggle(
+                            'Italic',
+                            const DIcon(DIcons.italic),
+                            pressed('*'),
+                            () => _format(
+                              (value) => toggleComposerInlineMark(
+                                value,
+                                ComposerMark.italic,
+                              ),
                             ),
                           ),
-                        ),
-                        _toggle(
-                          'Underline',
-                          const Icon(Icons.format_underlined),
-                          'ins',
-                          () => _format(
-                            (value) => toggleComposerTag(value, 'ins'),
-                          ),
-                        ),
-                        DButton.iconOnly(
-                          tooltip: 'Clear formatting',
-                          icon: const Icon(Icons.format_clear),
-                          variant: DButtonVariant.ghost,
-                          onPressed: () =>
-                              _format(clearComposerInlineFormatting),
-                        ),
-                      ],
-                    ),
-                    const DDropdownMenuSeparator(),
-                    Wrap(
-                      alignment: WrapAlignment.center,
-                      spacing: DSpacing.controlGap,
-                      runSpacing: DSpacing.controlGap,
-                      children: [
-                        DButton.iconOnly(
-                          tooltip: 'Link',
-                          icon: const DIcon(DIcons.link),
-                          variant: DButtonVariant.ghost,
-                          onPressed: onLink,
-                        ),
-                        _toggle(
-                          'Strikethrough',
-                          const Icon(Icons.format_strikethrough),
-                          '~~',
-                          () => _format(
-                            (value) => composerSelectionHasFormat(value, '~~')
-                                ? clearComposerInlineFormatting(
-                                    value,
-                                    kind: '~~',
-                                  )
-                                : toggleMarkdownMark(value, '~~'),
-                          ),
-                        ),
-                        _toggle(
-                          'Inline code',
-                          const DIcon(DIcons.code),
-                          'code',
-                          () => _format(
-                            (value) => toggleComposerInlineMark(
-                              value,
-                              ComposerMark.inlineCode,
+                          _toggle(
+                            'Underline',
+                            const Icon(Icons.format_underlined),
+                            pressed('ins'),
+                            () => _format(
+                              (value) => toggleComposerTag(value, 'ins'),
                             ),
                           ),
-                        ),
-                        DDropdownMenu(
-                          content: DDropdownMenuContent(
-                            semanticLabel: 'More formatting',
-                            width: 180,
-                            children: [
-                              for (final (label, tag) in const [
-                                ('Superscript', 'sup'),
-                                ('Subscript', 'sub'),
-                                ('Keyboard key', 'kbd'),
-                              ])
-                                DPopoverClose(
-                                  builder: (context, close) =>
-                                      TextFieldTapRegion(
-                                        child: DDropdownMenuItem(
-                                          closeOnSelect: false,
-                                          onPressed: () {
-                                            close();
-                                            _format(
-                                              (value) =>
-                                                  toggleComposerTag(value, tag),
-                                            );
-                                          },
-                                          child: Text(label),
+                          DButton.iconOnly(
+                            tooltip: 'Clear formatting',
+                            icon: const Icon(Icons.format_clear),
+                            variant: DButtonVariant.ghost,
+                            onPressed: () =>
+                                _format(clearComposerInlineFormatting),
+                          ),
+                        ],
+                      ),
+                      const DDropdownMenuSeparator(),
+                      Wrap(
+                        alignment: WrapAlignment.center,
+                        spacing: DSpacing.controlGap,
+                        runSpacing: DSpacing.controlGap,
+                        children: [
+                          DButton.iconOnly(
+                            tooltip: 'Link',
+                            icon: const DIcon(DIcons.link),
+                            variant: DButtonVariant.ghost,
+                            onPressed: onLink,
+                          ),
+                          _toggle(
+                            'Strikethrough',
+                            const Icon(Icons.format_strikethrough),
+                            pressed('~~'),
+                            () => _format(
+                              (value) => composerSelectionHasFormat(value, '~~')
+                                  ? clearComposerInlineFormatting(
+                                      value,
+                                      kind: '~~',
+                                    )
+                                  : toggleMarkdownMark(value, '~~'),
+                            ),
+                          ),
+                          _toggle(
+                            'Inline code',
+                            const DIcon(DIcons.code),
+                            pressed('code'),
+                            () => _format(
+                              (value) => toggleComposerInlineMark(
+                                value,
+                                ComposerMark.inlineCode,
+                              ),
+                            ),
+                          ),
+                          DDropdownMenu(
+                            content: DDropdownMenuContent(
+                              semanticLabel: 'More formatting',
+                              width: 180,
+                              children: [
+                                for (final (label, tag) in const [
+                                  ('Superscript', 'sup'),
+                                  ('Subscript', 'sub'),
+                                  ('Keyboard key', 'kbd'),
+                                ])
+                                  DPopoverClose(
+                                    builder: (context, close) =>
+                                        TextFieldTapRegion(
+                                          child: DDropdownMenuItem(
+                                            closeOnSelect: false,
+                                            onPressed: () {
+                                              close();
+                                              _format(
+                                                (value) => toggleComposerTag(
+                                                  value,
+                                                  tag,
+                                                ),
+                                              );
+                                            },
+                                            child: Text(label),
+                                          ),
                                         ),
-                                      ),
-                                ),
-                            ],
-                          ),
-                          child: DDropdownMenuTrigger(
-                            builder: (context, state) => DButton.iconOnly(
-                              tooltip: 'More formatting',
-                              icon: const DIcon(DIcons.ellipsis),
-                              variant: DButtonVariant.ghost,
-                              focusNode: state.focusNode,
-                              expanded: state.open,
-                              hasPopup: true,
-                              onPressed: state.toggle,
+                                  ),
+                              ],
+                            ),
+                            child: DDropdownMenuTrigger(
+                              builder: (context, state) => DButton.iconOnly(
+                                tooltip: 'More formatting',
+                                icon: const DIcon(DIcons.ellipsis),
+                                variant: DButtonVariant.ghost,
+                                focusNode: state.focusNode,
+                                expanded: state.open,
+                                hasPopup: true,
+                                onPressed: state.toggle,
+                              ),
                             ),
                           ),
-                        ),
-                      ],
-                    ),
-                  ],
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-            ],
-          ),
-          child: DPopoverAnchor(
-            child: Semantics(
-              container: true,
-              explicitChildNodes: true,
-              child: const SizedBox.expand(),
+              ],
             ),
-          ),
-        ),
+            child: DPopoverAnchor(
+              child: Semantics(
+                container: true,
+                explicitChildNodes: true,
+                child: const SizedBox.expand(),
+              ),
+            ),
+          );
+        },
       ),
     ),
   );
