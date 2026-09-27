@@ -505,7 +505,8 @@ void main() {
         http.Response('{}', 429, headers: {'retry-after': '5'}),
       );
       expect((await second).statusCode, 429);
-      expect(scheduler.activeTimerCount, 1);
+      // One wake per lane; the shorter delay re-armed neither.
+      expect(scheduler.activeTimerCount, 2);
 
       final queued = coordinator.run(origin.resolve('/queued'), () async {
         sends++;
@@ -521,12 +522,13 @@ void main() {
       expect(scheduler.activeTimerCount, 0);
     });
 
-    test(
-      'close rejects queued work but preserves an in-flight result',
-      () async {
+    for (final lane in _lanes) {
+      test('close rejects queued work in the ${lane.name} lane but preserves '
+          'an in-flight result', () async {
         final scheduler = ManualScheduler();
         final coordinator = DiscourseRequestCoordinator(
           maxConcurrentPerOrigin: 1,
+          maxConcurrentTransfersPerOrigin: 1,
           cooldownFactory: () => OriginCooldown(
             clock: scheduler.now,
             timerFactory: scheduler.createTimer,
@@ -538,11 +540,11 @@ void main() {
         final active = coordinator.run(origin.resolve('/active'), () {
           sends++;
           return activeResponse.future;
-        });
+        }, transfer: lane.transfer);
         final queued = coordinator.run(origin.resolve('/queued'), () async {
           sends++;
           return http.Response('{}', 200);
-        });
+        }, transfer: lane.transfer);
         final queuedRejection = expectLater(queued, throwsA(isA<StateError>()));
 
         coordinator.close();
@@ -554,7 +556,147 @@ void main() {
         expect((await active).statusCode, 429);
         expect(sends, 1);
         expect(scheduler.activeTimerCount, 0);
-      },
-    );
+        await expectLater(
+          coordinator.run(
+            origin.resolve('/later'),
+            () async => http.Response('{}', 200),
+            transfer: lane.transfer,
+          ),
+          throwsA(isA<StateError>()),
+        );
+      });
+    }
+
+    test('transfers and ordinary requests hold separate slots', () async {
+      final coordinator = DiscourseRequestCoordinator(
+        maxConcurrentPerOrigin: 1,
+        maxConcurrentTransfersPerOrigin: 2,
+      );
+      addTearDown(coordinator.close);
+      final origin = Uri.parse('https://forum.example');
+      final started = <String>[];
+      final responses = <String, Completer<http.Response>>{};
+      Future<http.Response> run(String path, {bool transfer = false}) =>
+          coordinator.run(origin.resolve(path), () {
+            started.add(path);
+            return (responses[path] = Completer()).future;
+          }, transfer: transfer);
+
+      final uploads = [
+        for (final path in ['/upload-1', '/upload-2', '/upload-3'])
+          run(path, transfer: true),
+      ];
+      expect(started, ['/upload-1', '/upload-2']);
+
+      // A photo batch on a slow uplink must not hold back opening a topic.
+      final topic = run('/t/42.json');
+      final feed = run('/latest.json');
+      expect(started, ['/upload-1', '/upload-2', '/t/42.json']);
+
+      // A freed transfer slot admits the next transfer, not the waiting read,
+      // and a busy ordinary lane does not hold that transfer back.
+      responses['/upload-1']!.complete(http.Response('{}', 200));
+      await pumpEventQueue();
+      expect(started, ['/upload-1', '/upload-2', '/t/42.json', '/upload-3']);
+
+      responses['/t/42.json']!.complete(http.Response('{}', 200));
+      await pumpEventQueue();
+      expect(started.last, '/latest.json');
+
+      for (final path in ['/upload-2', '/upload-3', '/latest.json']) {
+        responses[path]!.complete(http.Response('{}', 200));
+      }
+      await Future.wait([...uploads, topic, feed]);
+    });
+
+    for (final limited in _lanes) {
+      test(
+        'a request-wide 429 in the ${limited.name} lane pauses both lanes',
+        () async {
+          final scheduler = ManualScheduler();
+          final coordinator = DiscourseRequestCoordinator(
+            cooldownFactory: () => OriginCooldown(
+              clock: scheduler.now,
+              timerFactory: scheduler.createTimer,
+            ),
+          );
+          addTearDown(coordinator.close);
+          final origin = Uri.parse('https://forum.example');
+          await coordinator.run(
+            origin.resolve('/limited'),
+            () async => http.Response(
+              'Slow down, too many requests from this IP address.',
+              429,
+              headers: {
+                'retry-after': '60',
+                'discourse-rate-limit-error-code': 'ip_60_secs_limit',
+              },
+            ),
+            transfer: limited.transfer,
+          );
+
+          final sent = <String>[];
+          final queued = [
+            for (final lane in _lanes)
+              coordinator.run(origin.resolve('/queued'), () async {
+                sent.add(lane.name);
+                return http.Response('{}', 200);
+              }, transfer: lane.transfer),
+          ];
+          scheduler.advance(const Duration(seconds: 59));
+          expect(sent, isEmpty);
+          scheduler.advance(const Duration(seconds: 1));
+          expect(sent, unorderedEquals(_lanes.map((lane) => lane.name)));
+          await Future.wait(queued);
+          expect(scheduler.activeTimerCount, 0);
+        },
+      );
+
+      test(
+        'an action refusal in the ${limited.name} lane pauses neither lane',
+        () async {
+          final scheduler = ManualScheduler();
+          final coordinator = DiscourseRequestCoordinator(
+            cooldownFactory: () => OriginCooldown(
+              clock: scheduler.now,
+              timerFactory: scheduler.createTimer,
+            ),
+          );
+          addTearDown(coordinator.close);
+          final origin = Uri.parse('https://forum.example');
+          final refused = await coordinator.run(
+            origin.resolve('/refused'),
+            () async => http.Response(
+              jsonEncode({
+                'errors': ["You've performed this action too many times."],
+                'error_type': 'rate_limit',
+                'extras': {'wait_seconds': 60, 'time_left': '1 minute'},
+              }),
+              429,
+              headers: {'retry-after': '60'},
+            ),
+            transfer: limited.transfer,
+          );
+          expect(refused.statusCode, 429);
+
+          final sent = <String>[];
+          final queued = [
+            for (final lane in _lanes)
+              coordinator.run(origin.resolve('/queued'), () async {
+                sent.add(lane.name);
+                return http.Response('{}', 200);
+              }, transfer: lane.transfer),
+          ];
+          expect(sent, _lanes.map((lane) => lane.name));
+          await Future.wait(queued);
+          expect(scheduler.activeTimerCount, 0);
+        },
+      );
+    }
   });
 }
+
+const _lanes = [
+  (name: 'ordinary', transfer: false),
+  (name: 'transfer', transfer: true),
+];

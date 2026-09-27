@@ -212,6 +212,67 @@ void main() {
       expect(maximumActive, 2);
     });
 
+    test('a batch of uploads leaves the forum free to read', () async {
+      final sent = <String>[];
+      final uploads = <Completer<void>>[];
+      final transport = DiscourseTransport(
+        SafeHttpClient.owned(
+          MockClient((request) async {
+            sent.add('${request.method} ${request.url.path}');
+            if (request.url.path == '/uploads.json') {
+              final uplink = Completer<void>();
+              uploads.add(uplink);
+              await uplink.future;
+            }
+            return http.Response('{}', 200);
+          }),
+        ),
+        const Duration(seconds: 1),
+        1024,
+      );
+      addTearDown(transport.close);
+
+      final batch = [
+        for (var index = 0; index < 4; index++)
+          transport.upload(
+            url: Uri.parse('https://example.com/uploads.json'),
+            siteUrl: 'https://example.com',
+            apiKey: 'secret',
+            uploadType: 'composer',
+            filename: 'photo-$index.png',
+            fileLength: 3,
+            fileBytes: Stream.value([1, 2, 3]),
+            onProgress: (_) {},
+            abortTrigger: Completer<void>().future,
+          ),
+      ];
+      await pumpEventQueue();
+      expect(sent, ['POST /uploads.json', 'POST /uploads.json']);
+
+      final topic = transport.get(
+        Uri.parse('https://example.com/t/42.json'),
+        siteUrl: 'https://example.com',
+        apiKey: 'secret',
+      );
+      await pumpEventQueue();
+      expect(sent.last, 'GET /t/42.json');
+      expect((await topic).statusCode, 200);
+
+      uploads.first.complete();
+      await pumpEventQueue();
+      expect(
+        sent.where((route) => route == 'POST /uploads.json'),
+        hasLength(3),
+      );
+      for (final uplink in uploads.skip(1)) {
+        uplink.complete();
+      }
+      await pumpEventQueue();
+      expect(uploads, hasLength(4));
+      uploads.last.complete();
+      await Future.wait(batch);
+    });
+
     test(
       'bounds queued work per origin and reuses capacity in FIFO order',
       () async {

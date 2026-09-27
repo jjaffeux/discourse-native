@@ -161,6 +161,7 @@ final class DiscourseTransport {
       apiKey: apiKey,
       clientId: clientId,
       requestTimeout: requestTimeout,
+      transfer: true,
     );
   }
 
@@ -176,9 +177,12 @@ final class DiscourseTransport {
     clientId: clientId,
   );
 
+  /// [transfer] sends a request that moves a file in the coordinator's
+  /// transfer lane, where it cannot hold back the site's ordinary requests.
   Future<http.Response> send(
     http.BaseRequest request, {
     Duration? requestTimeout,
+    bool transfer = false,
   }) async {
     try {
       requireSafeHttpUrl(request.url);
@@ -197,6 +201,7 @@ final class DiscourseTransport {
           http.Abortable(:final abortTrigger) => abortTrigger,
           _ => null,
         },
+        transfer: transfer,
       );
     } on UnsafeHttpTransportException catch (error, stackTrace) {
       throw SiteLookupException(
@@ -216,11 +221,16 @@ final class DiscourseTransport {
     required String apiKey,
     String? clientId,
     Duration? requestTimeout,
+    bool transfer = false,
   }) async {
     try {
       _requireCredentialOrigin(request.url, siteUrl);
       request.headers.addAll(authHeaders(apiKey, clientId: clientId));
-      return await send(request, requestTimeout: requestTimeout);
+      return await send(
+        request,
+        requestTimeout: requestTimeout,
+        transfer: transfer,
+      );
     } on UnsafeHttpTransportException catch (error, stackTrace) {
       // Match [send]'s public failure shape when the earlier credential-origin
       // gate, rather than SafeHttpClient, is the check that refused the URL.
