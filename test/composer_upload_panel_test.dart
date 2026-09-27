@@ -23,6 +23,8 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:image_picker_platform_interface/image_picker_platform_interface.dart'
+    as images;
 
 import 'support/fakes.dart';
 
@@ -898,6 +900,52 @@ void main() {
           '![first|640x480](upload://first)\n'
           '![photo|640x480](upload://photo)\n',
         );
+      },
+    );
+
+    testWidgets(
+      "the photo library resizes and encodes as the site's composer would",
+      (tester) async {
+        final previousPicker = images.ImagePickerPlatform.instance;
+        final picker = _RecordingImagePicker();
+        images.ImagePickerPlatform.instance = picker;
+        addTearDown(() => images.ImagePickerPlatform.instance = previousPicker);
+        const config = SiteConfig(
+          composerImageOptimization: ComposerImageOptimization(
+            resizeWidthTarget: 1280,
+            encodeQuality: 75,
+          ),
+        );
+        final shell = ShellController(
+          instanceStore: FakeInstanceStore([
+            instance('meta.discourse.org').copyWith(config: config),
+          ]),
+          api: FakeDiscourseApi(siteConfigs: {_target.siteUrl: config}),
+          authenticator: FakeAuthenticator(),
+          drafts: FakeDraftStore(),
+          trackers: FakeSiteTracker.reset(),
+        );
+        await shell.load();
+        final composer = ComposerController(
+          _target,
+          simultaneousUploads: 6,
+          imageUploader: (_, {required onProgress, required abortTrigger}) =>
+              Completer<ComposerUploadResult>().future,
+        );
+        addTearDown(shell.dispose);
+        addTearDown(composer.dispose);
+        expect(shell.siteConfigFor(_target.siteUrl), config);
+        await _pumpPanel(tester, shell, composer, pickImages: null);
+
+        await tester.tap(find.byKey(const ValueKey('composer-upload')));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const ValueKey('composer-upload-photos')));
+        await tester.pumpAndSettle();
+
+        final options = picker.options!;
+        expect(options.imageOptions.maxWidth, 1280);
+        expect(options.imageOptions.imageQuality, 75);
+        expect(options.limit, 6);
       },
     );
 
@@ -2288,7 +2336,7 @@ Future<void> _pumpPanel(
   ComposerController composer, {
   double? height,
   ComposerFilePicker pickFiles = _cancelImagePick,
-  ComposerImagePicker pickImages = _cancelImagePick,
+  ComposerImagePicker? pickImages = _cancelImagePick,
   ComposerClipboardFileReader readClipboardFiles = readComposerClipboardFiles,
 }) => tester.pumpWidget(
   MaterialApp(
@@ -2382,6 +2430,19 @@ final _file = ComposerUploadFile(
   length: () => Future.value(3),
   openRead: () => Stream.value([1, 2, 3]),
 );
+
+final class _RecordingImagePicker extends images.ImagePickerPlatform {
+  images.MultiImagePickerOptions? options;
+
+  @override
+  Future<List<images.XFile>> getMultiImageWithOptions({
+    images.MultiImagePickerOptions options =
+        const images.MultiImagePickerOptions(),
+  }) async {
+    this.options = options;
+    return const [];
+  }
+}
 
 class _PanelUploadCall {
   _PanelUploadCall(this.onProgress);

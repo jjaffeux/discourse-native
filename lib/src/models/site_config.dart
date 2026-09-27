@@ -59,6 +59,7 @@ class SiteConfig {
     this.suggestWeekendsInDatePickers = true,
     this.fastEditEnabled = true,
     this.invites = const InviteSettings(),
+    this.composerImageOptimization = const ComposerImageOptimization(),
     this.plugins = PluginData.none,
   });
 
@@ -223,6 +224,7 @@ class SiteConfig {
           json['suggest_weekends_in_date_pickers'] != false,
       fastEditEnabled: json['enable_fast_edit'] != false,
       invites: InviteSettings.fromJson(json),
+      composerImageOptimization: ComposerImageOptimization.fromJson(json),
       plugins: extensions.readSiteSettings(json, siteUrl),
     );
   }
@@ -318,6 +320,9 @@ class SiteConfig {
     suggestWeekendsInDatePickers: json['suggestWeekendsInDatePickers'] != false,
     fastEditEnabled: json['fastEditEnabled'] != false,
     invites: InviteSettings.fromJson(jsonObject(json['invites'])),
+    composerImageOptimization: ComposerImageOptimization.fromJson(
+      jsonObject(json['composerImageOptimization']),
+    ),
     plugins: extensions.readStoredSiteSettings(json),
   );
 
@@ -378,6 +383,7 @@ class SiteConfig {
       'suggestWeekendsInDatePickers': suggestWeekendsInDatePickers,
       'fastEditEnabled': fastEditEnabled,
       'invites': invites.toJson(),
+      'composerImageOptimization': composerImageOptimization.toJson(),
       if (pluginJson.isNotEmpty) 'plugins': pluginJson,
     };
   }
@@ -483,6 +489,8 @@ class SiteConfig {
   final bool fastEditEnabled;
 
   final InviteSettings invites;
+
+  final ComposerImageOptimization composerImageOptimization;
 
   /// Values decoded by the installed feature manifest. Core intentionally
   /// cannot name or interpret anything in this bag.
@@ -593,6 +601,7 @@ class SiteConfig {
         suggestWeekendsInDatePickers: suggestWeekendsInDatePickers,
         fastEditEnabled: fastEditEnabled,
         invites: invites,
+        composerImageOptimization: composerImageOptimization,
         plugins: value,
       );
 
@@ -659,6 +668,7 @@ class SiteConfig {
       other.suggestWeekendsInDatePickers == suggestWeekendsInDatePickers &&
       other.fastEditEnabled == fastEditEnabled &&
       other.invites == invites &&
+      other.composerImageOptimization == composerImageOptimization &&
       other.plugins == plugins;
 
   @override
@@ -715,6 +725,7 @@ class SiteConfig {
     suggestWeekendsInDatePickers,
     fastEditEnabled,
     invites,
+    composerImageOptimization,
     plugins,
   ]);
 
@@ -836,4 +847,96 @@ class SiteConfig {
           if (seen.add(id)) id,
     ]);
   }
+}
+
+/// Core's client-side image optimisation, which the web composer runs before
+/// an upload (`media-optimization-worker.js`). The iOS photo library decodes
+/// and re-encodes each photo it returns — at full resolution and maximum
+/// quality unless told otherwise — so it follows these settings in place of
+/// that worker.
+@immutable
+final class ComposerImageOptimization {
+  const ComposerImageOptimization({
+    this.enabled = true,
+    this.iosEnabled = true,
+    this.resizeWidthTarget = defaultResizeWidthTarget,
+    this.encodeQuality = 0,
+    this.imageQuality = defaultImageQuality,
+  });
+
+  /// Stored copies keep the wire keys, so one reader serves both.
+  factory ComposerImageOptimization.fromJson(
+    Map<String, dynamic> json,
+  ) => ComposerImageOptimization(
+    enabled: json['composer_media_optimization_image_enabled'] != false,
+    iosEnabled: json['composer_ios_media_optimisation_image_enabled'] != false,
+    resizeWidthTarget: switch (jsonIntOrNull(
+      json['composer_media_optimization_image_resize_width_target'],
+    )) {
+      final value? when value > 0 => value,
+      _ => defaultResizeWidthTarget,
+    },
+    encodeQuality:
+        _quality(json['composer_media_optimization_image_encode_quality']) ?? 0,
+    imageQuality: _quality(json['image_quality']) ?? defaultImageQuality,
+  );
+
+  static const int defaultResizeWidthTarget = 1920;
+  static const int defaultImageQuality = 90;
+
+  final bool enabled;
+
+  /// Checked in addition to [enabled], on iOS only, as core does.
+  final bool iosEnabled;
+
+  /// Core resizes only past a separate dimensions threshold. A picker can
+  /// only cap the width, and both settings default to the same value.
+  final int resizeWidthTarget;
+
+  /// Zero defers to [imageQuality].
+  final int encodeQuality;
+  final int imageQuality;
+
+  /// The width a wider photo is scaled down to, or null where core would
+  /// upload it at full resolution.
+  int? resizeWidth({required bool ios}) =>
+      enabled && (iosEnabled || !ios) ? resizeWidthTarget : null;
+
+  /// Applies even where [resizeWidth] is null: the photo library re-encodes
+  /// every photo, and without a quality it encodes at the maximum, several
+  /// times the size of the camera's own file.
+  int get quality => encodeQuality > 0 ? encodeQuality : imageQuality;
+
+  Map<String, dynamic> toJson() => {
+    'composer_media_optimization_image_enabled': enabled,
+    'composer_ios_media_optimisation_image_enabled': iosEnabled,
+    'composer_media_optimization_image_resize_width_target': resizeWidthTarget,
+    'composer_media_optimization_image_encode_quality': encodeQuality,
+    'image_quality': imageQuality,
+  };
+
+  @override
+  bool operator ==(Object other) =>
+      other is ComposerImageOptimization &&
+      other.enabled == enabled &&
+      other.iosEnabled == iosEnabled &&
+      other.resizeWidthTarget == resizeWidthTarget &&
+      other.encodeQuality == encodeQuality &&
+      other.imageQuality == imageQuality;
+
+  @override
+  int get hashCode => Object.hash(
+    enabled,
+    iosEnabled,
+    resizeWidthTarget,
+    encodeQuality,
+    imageQuality,
+  );
+
+  /// The photo library rejects a quality outside 0–100, and core's zero
+  /// means unset, never the lowest quality.
+  static int? _quality(Object? raw) => switch (jsonIntOrNull(raw)) {
+    final value? when value > 0 && value <= 100 => value,
+    _ => null,
+  };
 }

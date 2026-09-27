@@ -49,6 +49,8 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
+import 'package:image_picker_platform_interface/image_picker_platform_interface.dart'
+    as images;
 
 import 'support/bundled_plugins.dart';
 import 'support/chat_shell.dart';
@@ -2589,6 +2591,40 @@ void main() {
       expect(_field(tester).focusNode!.hasFocus, isTrue);
     });
 
+    testWidgets('the photo library follows the site optimisation policy', (
+      tester,
+    ) async {
+      final previousPicker = images.ImagePickerPlatform.instance;
+      final picker = _RecordingImagePicker();
+      images.ImagePickerPlatform.instance = picker;
+      addTearDown(() => images.ImagePickerPlatform.instance = previousPicker);
+      final fixture = await _fixture(
+        pages: {FakeDiscourseApi.chatMessagesKey(9): _emptyPage},
+        config: const SiteConfig(
+          simultaneousUploads: 5,
+          composerImageOptimization: ComposerImageOptimization(
+            enabled: false,
+            imageQuality: 70,
+          ),
+        ),
+      );
+      addTearDown(fixture.shell.dispose);
+      await tester.pumpWidget(
+        _ComposerView(shell: fixture.shell, channelId: 9, pickImages: null),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const ValueKey('chat-composer-add')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('chat-composer-photos')));
+      await tester.pumpAndSettle();
+
+      final options = picker.options!;
+      expect(options.imageOptions.maxWidth, isNull);
+      expect(options.imageOptions.imageQuality, 70);
+      expect(options.limit, 5);
+    });
+
     testWidgets('reports file picker failures through the Chat session', (
       tester,
     ) async {
@@ -3736,7 +3772,7 @@ final class _ComposerView extends StatelessWidget {
   final ShellController shell;
   final int channelId;
   final ComposerFilePicker pickFiles;
-  final ComposerImagePicker pickImages;
+  final ComposerImagePicker? pickImages;
 
   @override
   Widget build(BuildContext context) => ShellScope(
@@ -3756,6 +3792,19 @@ final class _ComposerView extends StatelessWidget {
       ),
     ),
   );
+}
+
+final class _RecordingImagePicker extends images.ImagePickerPlatform {
+  images.MultiImagePickerOptions? options;
+
+  @override
+  Future<List<images.XFile>> getMultiImageWithOptions({
+    images.MultiImagePickerOptions options =
+        const images.MultiImagePickerOptions(),
+  }) async {
+    this.options = options;
+    return const [];
+  }
 }
 
 final class _ComposerVisibilityView extends StatelessWidget {

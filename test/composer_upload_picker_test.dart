@@ -1,7 +1,10 @@
 import 'dart:typed_data';
 
+import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/shell/composer_upload_picker.dart';
 import 'package:file_selector_platform_interface/file_selector_platform_interface.dart';
+import 'package:flutter/foundation.dart'
+    show TargetPlatform, debugDefaultTargetPlatformOverride;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:image_picker_platform_interface/image_picker_platform_interface.dart'
     as images;
@@ -77,6 +80,71 @@ void main() {
         );
       },
     );
+
+    group('on iOS, where the photo library re-encodes every photo', () {
+      setUp(() => debugDefaultTargetPlatformOverride = TargetPlatform.iOS);
+      tearDown(() => debugDefaultTargetPlatformOverride = null);
+
+      test('photos leave at core defaults rather than full size', () async {
+        await pickComposerImages();
+
+        final options = imagePicker.options!.imageOptions;
+        expect(options.maxWidth, 1920);
+        expect(options.maxHeight, isNull);
+        expect(options.imageQuality, 90);
+      });
+
+      test('the site sets the width, quality, and selection limit', () async {
+        await pickComposerImages(
+          optimization: ComposerImageOptimization.fromJson(const {
+            'composer_media_optimization_image_resize_width_target': 1600,
+            'composer_media_optimization_image_encode_quality': 80,
+            'image_quality': 70,
+          }),
+          limit: 4,
+        );
+
+        final options = imagePicker.options!;
+        expect(options.imageOptions.maxWidth, 1600);
+        expect(options.imageOptions.imageQuality, 80);
+        expect(options.limit, 4);
+      });
+
+      test('an unset encode quality falls back to image quality', () async {
+        await pickComposerImages(
+          optimization: ComposerImageOptimization.fromJson(const {
+            'composer_media_optimization_image_encode_quality': 0,
+            'image_quality': 70,
+          }),
+        );
+
+        expect(imagePicker.options!.imageOptions.imageQuality, 70);
+      });
+
+      test(
+        'a site that does not optimise keeps full size, not maximum quality',
+        () async {
+          for (final settings in [
+            {'composer_media_optimization_image_enabled': false},
+            {'composer_ios_media_optimisation_image_enabled': false},
+          ]) {
+            await pickComposerImages(
+              optimization: ComposerImageOptimization.fromJson(settings),
+            );
+
+            final options = imagePicker.options!.imageOptions;
+            expect(options.maxWidth, isNull, reason: '$settings');
+            expect(options.imageQuality, 90, reason: '$settings');
+          }
+        },
+      );
+
+      test('a composer without a batch limit leaves selection open', () async {
+        await pickComposerImages(limit: 0);
+
+        expect(imagePicker.options!.limit, isNull);
+      });
+    });
   });
 
   test('adapts selected native file streams', () async {

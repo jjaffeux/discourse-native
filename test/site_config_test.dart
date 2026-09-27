@@ -602,6 +602,104 @@ void main() {
     });
   });
 
+  group('composer image optimization', () {
+    test('defaults to core optimisation when settings are absent', () {
+      final optimization = SiteConfig.fromSettings(
+        const {},
+      ).composerImageOptimization;
+
+      expect(optimization, const ComposerImageOptimization());
+      expect(optimization.resizeWidth(ios: true), 1920);
+      expect(optimization.resizeWidth(ios: false), 1920);
+      expect(optimization.quality, 90);
+    });
+
+    test('reads the resize target and encode quality', () {
+      final optimization = SiteConfig.fromSettings(const {
+        'composer_media_optimization_image_resize_width_target': 1600,
+        'composer_media_optimization_image_encode_quality': 80,
+        'image_quality': 50,
+      }).composerImageOptimization;
+
+      expect(optimization.resizeWidth(ios: true), 1600);
+      expect(optimization.quality, 80);
+    });
+
+    test('an unset encode quality defers to image quality', () {
+      final optimization = SiteConfig.fromSettings(const {
+        'composer_media_optimization_image_encode_quality': 0,
+        'image_quality': '70',
+      }).composerImageOptimization;
+
+      expect(optimization.quality, 70);
+    });
+
+    test('the iOS gate keeps iOS photos at full size and nothing else', () {
+      final optimization = SiteConfig.fromSettings(const {
+        'composer_ios_media_optimisation_image_enabled': false,
+      }).composerImageOptimization;
+
+      expect(optimization.resizeWidth(ios: true), isNull);
+      expect(optimization.resizeWidth(ios: false), 1920);
+      expect(optimization.quality, 90);
+    });
+
+    test('disabling optimisation keeps full size everywhere', () {
+      final optimization = SiteConfig.fromSettings(const {
+        'composer_media_optimization_image_enabled': false,
+      }).composerImageOptimization;
+
+      expect(optimization.resizeWidth(ios: true), isNull);
+      expect(optimization.resizeWidth(ios: false), isNull);
+      expect(optimization.quality, 90);
+    });
+
+    test('falls back from values the photo library would refuse', () {
+      for (final value in [-1, 0, 'wide', true]) {
+        expect(
+          SiteConfig.fromSettings({
+            'composer_media_optimization_image_resize_width_target': value,
+          }).composerImageOptimization.resizeWidth(ios: true),
+          1920,
+          reason: '$value',
+        );
+      }
+      for (final value in [-1, 0, 101, 'high', 1.5e300, true]) {
+        expect(
+          SiteConfig.fromSettings({
+            'composer_media_optimization_image_encode_quality': value,
+            'image_quality': value,
+          }).composerImageOptimization.quality,
+          90,
+          reason: '$value',
+        );
+      }
+    });
+
+    test('survives storage, and reads a copy that predates it', () {
+      final config = SiteConfig.fromSettings(const {
+        'composer_media_optimization_image_enabled': false,
+        'composer_ios_media_optimisation_image_enabled': false,
+        'composer_media_optimization_image_resize_width_target': 1280,
+        'composer_media_optimization_image_encode_quality': 75,
+        'image_quality': 50,
+      });
+
+      final restored = SiteConfig.fromJson(
+        jsonDecode(jsonEncode(config.toJson())) as Map<String, dynamic>,
+      );
+      expect(restored, config);
+      expect(
+        restored.composerImageOptimization,
+        config.composerImageOptimization,
+      );
+      expect(
+        SiteConfig.fromJson(const {}).composerImageOptimization,
+        const ComposerImageOptimization(),
+      );
+    });
+  });
+
   group('composer uploads', () {
     test('compound extensions follow site and staff permissions', () {
       final config = SiteConfig.fromSettings(

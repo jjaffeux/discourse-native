@@ -431,6 +431,11 @@ void main() {
       probe('SiteAppearance', () => SiteAppearance.fromJson(json), json);
       probe('SiteConfig', () => SiteConfig.fromJson(json), json);
       probe('InviteSettings', () => InviteSettings.fromJson(json), json);
+      probe(
+        'ComposerImageOptimization',
+        () => ComposerImageOptimization.fromJson(json),
+        json,
+      );
       probe('DiscourseInvite', () => DiscourseInvite.fromJson(json), json);
       probe('InvitePage', () => InvitePage.fromJson(json), json);
       probe('AssignSettings', () => AssignSettings.fromWire(json), json);
