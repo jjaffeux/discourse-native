@@ -841,6 +841,53 @@ void main() {
       expect(api.olderSites, isEmpty);
     });
 
+    testWidgets('a failed history page is asked for again only by a scroll', (
+      tester,
+    ) async {
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      // Tall enough to show the whole window, so only its oldest row's build
+      // can ask for history.
+      await tester.binding.setSurfaceSize(const Size(800, 3000));
+      final api = _ChatApi(
+        openPages: {
+          firstSite: [_messagesPage(1, 20, canLoadMorePast: true)],
+        },
+        failOlder: true,
+      );
+      final controller = await _controller(api, sites: const [firstSite]);
+      addTearDown(controller.dispose);
+      controller.chatRecords.put(firstSite, _channel(lastRead: 20));
+
+      await tester.pumpWidget(_TestView(controller: controller));
+      // Each failure republishes the window, which rebuilds its oldest row.
+      for (var frame = 0; frame < 10; frame++) {
+        await tester.pump();
+      }
+
+      final oldest = find.byWidgetPredicate(
+        (widget) => widget is ChatMessageTile && widget.messageId == 1,
+      );
+      expect(oldest, findsOne);
+      expect(api.olderSites, [firstSite]);
+
+      await tester.binding.setSurfaceSize(const Size(800, 700));
+      await tester.pumpAndSettle();
+      expect(oldest, findsNothing);
+      expect(api.olderSites, hasLength(1));
+
+      await tester.drag(_verticalChatScroll(), const Offset(0, 2000));
+      await tester.pumpAndSettle();
+      expect(oldest, findsOne);
+      final asked = api.olderSites.length;
+      expect(asked, greaterThan(1));
+
+      // Scrolled to the oldest edge, the same failed window is not re-asked.
+      for (var frame = 0; frame < 10; frame++) {
+        await tester.pump();
+      }
+      expect(api.olderSites, hasLength(asked));
+    });
+
     testWidgets('a paging flag does not reproject the whole message window', (
       tester,
     ) async {
@@ -3013,6 +3060,7 @@ final class _ChatApi extends FakeDiscourseApi {
     super.createdChatThreadsByKey,
     required this.openPages,
     this.failNewer = false,
+    this.failOlder = false,
     this.gatedOpen,
     this.failedOpen,
     this.gatedOlder,
@@ -3020,6 +3068,7 @@ final class _ChatApi extends FakeDiscourseApi {
 
   final Map<String, List<ChatMessagePage>> openPages;
   final bool failNewer;
+  final bool failOlder;
   final _OpenGate? gatedOpen;
   final _FailedOpen? failedOpen;
   final Completer<ChatMessagePage>? gatedOlder;
@@ -3042,6 +3091,7 @@ final class _ChatApi extends FakeDiscourseApi {
   }) {
     if (before != null) {
       olderSites.add(siteUrl);
+      if (failOlder) throw StateError('older page refused');
       final gate = gatedOlder;
       if (gate != null) return gate.future;
       return SynchronousFuture(_messagesPage(before - 1, 1));

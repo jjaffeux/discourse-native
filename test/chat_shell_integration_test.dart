@@ -4515,6 +4515,38 @@ void _registerChatShellTests() {
         variant: TargetPlatformVariant.only(TargetPlatform.linux),
       );
 
+      testWidgets(
+        'keeps asking while each older page leaves the window short',
+        (tester) async {
+          // An arrived page moves the oldest row, a new window state to fill.
+          final api = FakeDiscourseApi(
+            totals: withChat,
+            chatChannelsBySite: {
+              site: ChatChannels(public: [channel(9)], direct: const []),
+            },
+            chatMessagesByKey: {
+              key(9): page([msg(5, minute: 5)], canLoadMorePast: true),
+              key(9, before: 5): page([
+                msg(3, minute: 3),
+              ], canLoadMorePast: true),
+              key(9, before: 3): page([msg(1)]),
+            },
+          );
+
+          await pumpChat(tester, api: api);
+          await tester.tap(sidebarDestination('Bugs'));
+          await tester.pumpAndSettle();
+
+          expect(api.chatMessagesRequested.map((ask) => ask.before), [
+            null,
+            5,
+            3,
+          ]);
+          expect(renderedText('Hello there'), findsNWidgets(3));
+        },
+        variant: TargetPlatformVariant.only(TargetPlatform.linux),
+      );
+
       testWidgets('stops asking once the site says there is nothing older', (
         tester,
       ) async {
