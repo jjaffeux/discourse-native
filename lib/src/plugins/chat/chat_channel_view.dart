@@ -374,6 +374,7 @@ class _ChatChannelBodyState extends State<_ChatChannelBody> {
                   messageIds: _selectedMessageIds,
                   chat: widget.chat,
                   onCancel: _cancelSelecting,
+                  allowMove: true,
                 )
               : stream.error == null || hasMessages
               ? ChatComposer(
@@ -1892,6 +1893,7 @@ class ChatMessageSelectionBar extends StatefulWidget {
     required this.messageIds,
     required this.chat,
     required this.onCancel,
+    this.allowMove = false,
   });
 
   final String siteUrl;
@@ -1899,6 +1901,13 @@ class ChatMessageSelectionBar extends StatefulWidget {
   final Set<int> messageIds;
   final ChatController chat;
   final VoidCallback onCancel;
+
+  /// Whether this pane may offer moving the selection to another channel.
+  ///
+  /// The site moves every message sharing a selected message's thread, root
+  /// included, so only the channel stream, where a thread is represented by
+  /// its original message, offers it; a thread pane never does.
+  final bool allowMove;
 
   @override
   State<ChatMessageSelectionBar> createState() =>
@@ -2126,6 +2135,7 @@ class _ChatMessageSelectionBarState extends State<ChatMessageSelectionBar> {
       widget.channelId,
     );
     final offersMove =
+        widget.allowMove &&
         source?.isCategoryChannel == true &&
         source?.canModerate == true &&
         moveDestinations.isNotEmpty;

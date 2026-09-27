@@ -26,6 +26,7 @@ import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:discourse_native/src/theme/d_native_icons.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
@@ -873,6 +874,77 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('a moderator selecting in the thread pane is not offered Move', (
+    tester,
+  ) async {
+    final fixture = await _fixture(
+      channels: const [
+        ChatChannel(
+          id: _channelId,
+          title: _channelTitle,
+          kind: ChatChannelKind.category,
+          canModerate: true,
+          membership: ChatMembership(following: true),
+          threadingEnabled: true,
+        ),
+        ChatChannel(
+          id: 10,
+          title: 'Bugs',
+          kind: ChatChannelKind.category,
+          membership: ChatMembership(following: true),
+        ),
+      ],
+      threadPage: (
+        messages: [
+          _threadOriginal,
+          ChatMessage(
+            id: 51,
+            channelId: _channelId,
+            cooked: '<p>A reply inside the thread</p>',
+            author: const ChatMessageAuthor(id: 2, username: 'sam'),
+            createdAt: DateTime.utc(2026, 8, 11, 10),
+            threadId: _threadId,
+          ),
+        ],
+        canLoadMorePast: false,
+        canLoadMoreFuture: false,
+        targetMessageId: null,
+      ),
+    );
+    addTearDown(fixture.shell.dispose);
+    await _pumpWorkspace(tester, fixture.shell, width: 1000);
+    expect(
+      fixture.shell.chat.messageMoveDestinations(_siteUrl, _channelId),
+      isNotEmpty,
+    );
+
+    final threadView = find.byType(ChatThreadView);
+    final reply = find.descendant(
+      of: threadView,
+      matching: find.byKey(const ValueKey('chat-message-51')),
+    );
+    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    await mouse.addPointer(location: Offset.zero);
+    addTearDown(mouse.removePointer);
+    await mouse.moveTo(tester.getCenter(reply));
+    await tester.pump();
+    await tester.tap(
+      find.byKey(const ValueKey('chat-message-more-actions-51')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Select'));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.descendant(
+        of: threadView,
+        matching: find.byKey(const ValueKey('chat-message-selection-bar')),
+      ),
+      findsOneWidget,
+    );
+    expect(find.byKey(const ValueKey('chat-move-selection')), findsNothing);
+  });
+
   testWidgets('Arrow Up edits the last current-user message in a thread', (
     tester,
   ) async {
@@ -1093,6 +1165,7 @@ Future<({ShellController shell, _WorkspaceApi api})> _fixture({
   bool terminalThread = false,
   bool editableThread = false,
   ChatThread? thread,
+  List<ChatChannel> channels = const [_channel],
   ChatMessagePage channelPage = _channelPage,
   ChatMessagePage threadPage = _threadPage,
   SiteConfig? siteConfig,
@@ -1102,6 +1175,7 @@ Future<({ShellController shell, _WorkspaceApi api})> _fixture({
   final api = _WorkspaceApi(
     terminalThread: terminalThread,
     thread: thread ?? (editableThread ? _editableThread : _thread),
+    channels: channels,
     channelPage: channelPage,
     threadPage: threadPage,
     siteConfig: siteConfig,
@@ -1182,6 +1256,7 @@ final class _WorkspaceApi extends FakeDiscourseApi {
   _WorkspaceApi({
     this.terminalThread = false,
     this.thread = _thread,
+    List<ChatChannel> channels = const [_channel],
     ChatMessagePage channelPage = _channelPage,
     ChatMessagePage threadPage = _threadPage,
     SiteConfig? siteConfig,
@@ -1191,9 +1266,7 @@ final class _WorkspaceApi extends FakeDiscourseApi {
          user: _reader,
          totals: chatNotificationTotals(),
          feeds: const {'/latest.json': []},
-         chatChannelsBySite: const {
-           _siteUrl: ChatChannels(public: [_channel]),
-         },
+         chatChannelsBySite: {_siteUrl: ChatChannels(public: channels)},
          chatMessagesByKey: {'9': channelPage, 'thread-9-3': threadPage},
          chatThreadsByKey: {'9~3': thread},
          siteConfigs: {_siteUrl: ?siteConfig},
