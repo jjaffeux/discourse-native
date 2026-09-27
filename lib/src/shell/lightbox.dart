@@ -480,6 +480,12 @@ class _LightboxGalleryState extends State<LightboxGallery> {
   void _step(int delta) {
     final target = _index + delta;
     if (target < 0 || target >= widget.images.length) return;
+    // Unlike the route and chrome fades, a page scroll keeps its full length
+    // under Reduce Motion.
+    if (MediaQuery.disableAnimationsOf(context)) {
+      _controller.jumpToPage(target);
+      return;
+    }
     unawaited(
       _controller.animateToPage(
         target,
