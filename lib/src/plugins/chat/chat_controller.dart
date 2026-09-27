@@ -27,6 +27,7 @@ import 'chat_reactors.dart';
 import 'chat_send_coordinator.dart';
 import 'chat_stream_target.dart';
 import 'chat_thread.dart';
+import 'chat_thread_list_refresh.dart';
 import 'chat_wire.dart';
 
 typedef _ChatReactionWriteKey = ({String siteUrl, int messageId, String emoji});
@@ -467,7 +468,7 @@ class ChatController extends FrameSafeNotifier {
               message,
               preservePersonalizedState: preservePersonalizedState,
             ),
-        putThread: (siteUrl, thread) => _store.put(siteUrl, thread),
+        putThread: _putThread,
         publishNotificationChange: _publishNotificationChange,
         notifyCanonicalChange: notifySafely,
         removeKickedChannelState: _removeKickedChannelState,
@@ -716,6 +717,7 @@ class ChatController extends FrameSafeNotifier {
   final Map<String, List<int>> _publicIds = {};
   final Map<String, List<int>> _directIds = {};
   final Map<String, ChatChannelRefresh> _channelRefreshes = {};
+  final Map<String, Set<ChatThreadListRefresh>> _threadListRefreshes = {};
   final Map<String, List<int>> _myThreadIds = {};
   final Map<String, int> _myThreadOffsets = {};
   final Map<String, bool> _myThreadsHaveMore = {};
@@ -2208,6 +2210,64 @@ class ChatController extends FrameSafeNotifier {
 
   ChatThread? thread(String siteUrl, int threadId) =>
       _store.read<ChatThread>(siteUrl, threadId);
+
+  // Live and local mutations participate in in-flight thread-list pages.
+  // Ordinary HTTP hydration (thread detail and list pages) is not a newer
+  // mutation.
+  void _putThread(String siteUrl, ChatThread next) {
+    final before = thread(siteUrl, next.id);
+    _recordThreadChange(siteUrl, before, _store.put(siteUrl, next));
+  }
+
+  void _updateThread(
+    String siteUrl,
+    int threadId,
+    ChatThread Function(ChatThread held) change,
+  ) {
+    final before = thread(siteUrl, threadId);
+    if (before == null) return;
+    _store.update<ChatThread>(siteUrl, threadId, change);
+    if (thread(siteUrl, threadId) case final after?) {
+      _recordThreadChange(siteUrl, before, after);
+    }
+  }
+
+  void _recordThreadChange(
+    String siteUrl,
+    ChatThread? before,
+    ChatThread after,
+  ) {
+    final refreshes = _threadListRefreshes[siteUrl];
+    if (refreshes == null || identical(before, after)) return;
+    for (final refresh in refreshes) {
+      refresh.recordChange(before, after);
+    }
+  }
+
+  ChatThreadListRefresh _beginThreadListRefresh(String siteUrl) {
+    final refresh = ChatThreadListRefresh();
+    (_threadListRefreshes[siteUrl] ??= {}).add(refresh);
+    return refresh;
+  }
+
+  void _endThreadListRefresh(String siteUrl, ChatThreadListRefresh refresh) {
+    final refreshes = _threadListRefreshes[siteUrl];
+    if (refreshes == null || !refreshes.remove(refresh)) return;
+    if (refreshes.isEmpty) _threadListRefreshes.remove(siteUrl);
+  }
+
+  void _putThreadPage(
+    String siteUrl,
+    ChatThreadListRefresh refresh,
+    ChatThreadPage page,
+  ) {
+    for (final incoming in page.threads) {
+      _store.put(
+        siteUrl,
+        refresh.reconcile(incoming, thread(siteUrl, incoming.id)),
+      );
+    }
+  }
 
   Ref<ChatThread> threadRef(String siteUrl, int threadId) =>
       _store.ref<ChatThread>(siteUrl, threadId);
@@ -3985,7 +4045,7 @@ class ChatController extends FrameSafeNotifier {
     final movesReadCursor = membership?.lastReadMessageId == deletedId;
     final movesLastMessage = thread.lastMessageId == deletedId;
     if (!movesReadCursor && !movesLastMessage) return;
-    _store.update<ChatThread>(siteUrl, thread.id, (current) {
+    _updateThread(siteUrl, thread.id, (current) {
       final currentMembership = current.membership;
       return current.copyWith(
         lastMessageId: movesLastMessage ? latest : current.lastMessageId,
@@ -4029,7 +4089,7 @@ class ChatController extends FrameSafeNotifier {
       );
       final movesLast = deletedIds.contains(thread.lastMessageId);
       if (movesRead || movesLast) {
-        _store.update<ChatThread>(siteUrl, thread.id, (current) {
+        _updateThread(siteUrl, thread.id, (current) {
           final membership = current.membership;
           return current.copyWith(
             clearLastMessageId: movesLast,
@@ -5091,6 +5151,7 @@ class ChatController extends FrameSafeNotifier {
   ) async {
     final lease = _requests.capture(siteUrl);
     bool ownsRequest() => identical(_myThreadRuns[key], run);
+    final refresh = _beginThreadListRefresh(siteUrl);
 
     try {
       final requestCredentials = await _requests.credentialsFor(siteUrl);
@@ -5113,7 +5174,7 @@ class ChatController extends FrameSafeNotifier {
           _store.put(siteUrl, embedded);
           (_partialChannelIds[siteUrl] ??= {}).add(embedded.id);
         }
-        _store.putAll(siteUrl, page.threads);
+        _putThreadPage(siteUrl, refresh, page);
         final incoming = [for (final thread in page.threads) thread.id];
         if (offset == 0) {
           _myThreadIds[siteUrl] = List.unmodifiable(incoming);
@@ -5139,6 +5200,8 @@ class ChatController extends FrameSafeNotifier {
       lease.commit(() {
         _errors[key] = 'Could not load your chat threads.';
       });
+    } finally {
+      _endThreadListRefresh(siteUrl, refresh);
     }
   }
 
@@ -5192,6 +5255,7 @@ class ChatController extends FrameSafeNotifier {
   ) async {
     final lease = _requests.capture(siteUrl);
     bool ownsRequest() => identical(_channelThreadListRuns[key], run);
+    final refresh = _beginThreadListRefresh(siteUrl);
 
     try {
       final requestCredentials = await _requests.credentialsFor(siteUrl);
@@ -5208,7 +5272,7 @@ class ChatController extends FrameSafeNotifier {
       );
       if (!_requestIsCurrent(lease, ownsRequest)) return;
       lease.commit(() {
-        _store.putAll(siteUrl, page.threads);
+        _putThreadPage(siteUrl, refresh, page);
         final incoming = [
           for (final thread in page.threads)
             if (thread.channelId == channelId) thread.id,
@@ -5232,6 +5296,8 @@ class ChatController extends FrameSafeNotifier {
       lease.commit(() {
         _errors[key] = 'Could not load this channel’s threads.';
       });
+    } finally {
+      _endThreadListRefresh(siteUrl, refresh);
     }
   }
 
@@ -5649,7 +5715,7 @@ class ChatController extends FrameSafeNotifier {
     final optimistic =
         (previous ?? ChatThreadMembership(threadId: target.threadId))
             .withNotificationLevel(level);
-    _store.update<ChatThread>(
+    _updateThread(
       siteUrl,
       target.threadId,
       (current) => current.copyWith(membership: optimistic),
@@ -5741,7 +5807,7 @@ class ChatController extends FrameSafeNotifier {
         write.lease.commit(() {
           final current = thread(write.siteUrl, write.target.threadId);
           if (current != null) {
-            _store.update<ChatThread>(
+            _updateThread(
               write.siteUrl,
               current.id,
               (held) => held.copyWith(membership: confirmed),
@@ -5773,7 +5839,7 @@ class ChatController extends FrameSafeNotifier {
     write.lease.commit(() {
       final current = thread(write.siteUrl, write.target.threadId);
       if (current != null) {
-        _store.update<ChatThread>(
+        _updateThread(
           write.siteUrl,
           current.id,
           (held) => held.copyWith(
@@ -6285,7 +6351,7 @@ class ChatController extends FrameSafeNotifier {
         _publishNotificationChange(siteUrl, channelHeld!, updated);
       }
     } else {
-      _store.update<ChatThread>(siteUrl, target.threadId!, (current) {
+      _updateThread(siteUrl, target.threadId!, (current) {
         final membership = current.membership;
         if (membership == null ||
             (membership.lastReadMessageId ?? 0) >= messageId) {
@@ -6398,6 +6464,7 @@ class ChatController extends FrameSafeNotifier {
     channelListPreferences.forget(siteUrl);
     inboxFilters.forget(siteUrl);
     _channelRefreshes.remove(siteUrl);
+    _threadListRefreshes.remove(siteUrl);
     _liveSync.forget(siteUrl);
     _releaseMessagePinsForSite(siteUrl);
     _retainedTargets.removeWhere((_, entry) => entry.siteUrl == siteUrl);
@@ -6517,6 +6584,7 @@ class ChatController extends FrameSafeNotifier {
     channelListPreferences.dispose();
     inboxFilters.dispose();
     _channelRefreshes.clear();
+    _threadListRefreshes.clear();
     _liveSync.dispose();
     for (final pins in _messagePins.values) {
       pins.release();

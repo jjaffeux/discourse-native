@@ -151,6 +151,22 @@ Map<String, dynamic> threadSentEvent(int id) => {
   },
 };
 
+/// The server's user-tracking echo once the reader has read the thread through
+/// [lastReadMessageId]: nothing is unread in the thread or its channel.
+Map<String, dynamic> threadReadEcho(int lastReadMessageId) => {
+  'channel_id': target.channelId,
+  'thread_id': target.threadId,
+  'last_read_message_id': lastReadMessageId,
+  'unread_count': 0,
+  'mention_count': 0,
+  'watched_threads_unread_count': 0,
+  'thread_tracking': {
+    'unread_count': 0,
+    'mention_count': 0,
+    'watched_threads_unread_count': 0,
+  },
+};
+
 Map<String, dynamic> authoritativePreviewEvent({int replyCount = 4}) => {
   'type': 'update_thread_original_message',
   'original_message_id': 100,
@@ -785,6 +801,96 @@ void main() {
     await next;
     expect(subject.chat.myThreads(site).map((thread) => thread.id), [3]);
   });
+
+  test('a my-threads page answered before a local read and level change keeps '
+      'them', () async {
+    const tracked = ChatThreadMembership(
+      threadId: 22,
+      notificationLevel: ChatThreadNotificationLevel.tracking,
+      lastReadMessageId: 17,
+    );
+    final answeredBefore = listedThread(
+      22,
+      tracking: const ChatTracking(unreadCount: 2),
+      membership: tracked,
+    );
+    final api = _SequencedThreadListApi(
+      chatChannelsBySite: {
+        site: ChatChannels(public: [followedChannel()]),
+      },
+    );
+    final subject = _controllerFor(api);
+    await subject.chat.loadChannels(site);
+    subject.store.put(site, answeredBefore);
+
+    final started = api.nextMyThreadPage();
+    final refresh = subject.chat.loadMyThreads(site, force: true);
+    await started;
+    await subject.chat.markReadFor(site, target, 40);
+    expect(
+      await subject.chat.updateThreadNotificationLevel(
+        site,
+        target,
+        ChatThreadNotificationLevel.watching,
+      ),
+      isTrue,
+    );
+    api.myThreadPages.single.complete(
+      ChatThreadPage(threads: [answeredBefore]),
+    );
+    await refresh;
+
+    final held = subject.chat.thread(site, 22)!;
+    expect(subject.chat.myThreads(site).map((thread) => thread.id), [22]);
+    expect(held.membership?.lastReadMessageId, 40);
+    expect(
+      held.membership?.notificationLevel,
+      ChatThreadNotificationLevel.watching,
+    );
+  });
+
+  test(
+    'a channel threads page answered before a read echo keeps the thread read',
+    () async {
+      final answeredBefore = listedThread(
+        22,
+        tracking: const ChatTracking(unreadCount: 2),
+        membership: const ChatThreadMembership(
+          threadId: 22,
+          notificationLevel: ChatThreadNotificationLevel.tracking,
+          lastReadMessageId: 17,
+        ),
+      );
+      final api = _SequencedThreadListApi(
+        chatChannelsBySite: {
+          site: ChatChannels(public: [followedChannel()]),
+        },
+      );
+      final subject = _controllerFor(api);
+      final tracker = attachTracker(subject.chat);
+      await subject.chat.loadChannels(site);
+      subject.store.put(site, answeredBefore);
+
+      final started = api.nextChannelThreadPage();
+      final refresh = subject.chat.loadChannelThreads(site, 9, force: true);
+      await started;
+      tracker.deliverPluginMessage(
+        '/chat/user-tracking-state/7',
+        threadReadEcho(40),
+      );
+      api.channelThreadPages.single.complete(
+        ChatThreadPage(threads: [answeredBefore]),
+      );
+      await refresh;
+
+      final held = subject.chat.thread(site, 22)!;
+      expect(subject.chat.channelThreads(site, 9).map((thread) => thread.id), [
+        22,
+      ]);
+      expect(held.tracking, ChatTracking.none);
+      expect(held.membership?.lastReadMessageId, 40);
+    },
+  );
 
   test(
     'a channel threads refresh supersedes a page already in flight',
@@ -1479,6 +1585,93 @@ void main() {
         ),
       );
       expect(subject.chat.thread(site, 22)?.membership?.lastReadMessageId, 33);
+    },
+  );
+
+  test('a read echo clears a tracked thread back to zero unread', () async {
+    final api = _AdversarialThreadApi(
+      detail: threadDetail(),
+      channels: {
+        site: ChatChannels(public: [followedChannel()]),
+      },
+    );
+    final store = Store()
+      ..put(
+        site,
+        threadDetail().copyWith(tracking: const ChatTracking(unreadCount: 2)),
+      );
+    final subject = _controllerFor(api, store: store);
+    final tracker = attachTracker(subject.chat);
+    await subject.chat.loadChannels(site);
+
+    tracker.deliverPluginMessage(
+      '/chat/user-tracking-state/7',
+      threadReadEcho(40),
+    );
+
+    final held = subject.chat.thread(site, 22)!;
+    expect(held.tracking, ChatTracking.none);
+    expect(held.membership?.lastReadMessageId, 40);
+  });
+
+  test(
+    'a read thread stays read through its echo and a my-threads refresh',
+    () async {
+      final api = FakeDiscourseApi(
+        chatChannelsBySite: {
+          site: ChatChannels(
+            public: [followedChannel()],
+            newMessageBusLastIds: const {9: 80},
+          ),
+        },
+        chatThreadPagesByOffset: {},
+      );
+      final subject = _controllerFor(api);
+      final tracker = attachTracker(subject.chat);
+      await subject.chat.loadChannels(site);
+      subject.store.put(site, threadDetail());
+
+      tracker.deliverPluginMessage('/chat/9/new-messages', {
+        'type': 'thread',
+        'channel_id': 9,
+        'thread_id': 22,
+        'message': {
+          'id': 41,
+          'chat_channel_id': 9,
+          'created_at': '2026-08-12T12:00:00.000Z',
+          'user': {'id': 2, 'username': 'sam'},
+        },
+      });
+      expect(subject.chat.thread(site, 22)?.tracking.unreadCount, 1);
+
+      await subject.chat.markReadFor(site, target, 41);
+      tracker.deliverPluginMessage(
+        '/chat/user-tracking-state/7',
+        threadReadEcho(41),
+      );
+      expect(subject.chat.thread(site, 22)?.tracking, ChatTracking.none);
+
+      // Core leaves a read thread out of the page's tracking map.
+      api.chatThreadPagesByOffset[0] = ChatThreadPage.fromJson(const {
+        'threads': [
+          {
+            'id': 22,
+            'channel_id': 9,
+            'status': 'open',
+            'reply_count': 4,
+            'current_user_membership': {
+              'thread_id': 22,
+              'notification_level': 2,
+              'last_read_message_id': 41,
+            },
+          },
+        ],
+        'tracking': <String, dynamic>{},
+      }, site);
+      await subject.chat.loadMyThreads(site, force: true);
+
+      expect(subject.chat.myThreads(site).map((thread) => thread.id), [22]);
+      expect(subject.chat.thread(site, 22)?.tracking, ChatTracking.none);
     },
   );
 

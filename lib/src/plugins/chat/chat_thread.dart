@@ -20,6 +20,8 @@ final class ChatThreadPage {
     final tracking = jsonObject(json['tracking']);
     final channels = <int, ChatChannel>{};
 
+    // Core leaves a read thread out of the page's tracking map, so absence is
+    // an explicit zero rather than an unreported count.
     ChatTracking trackingFor(int threadId) {
       final entry = tracking['$threadId'];
       return entry is Map<String, dynamic>
@@ -222,12 +224,12 @@ final class ChatThread with Storable<ChatThread> {
     this.title,
     this.messageBusLastId,
     this.membership,
-    this.tracking = ChatTracking.none,
+    ChatTracking? tracking,
     this.preview,
     this.lastMessageId,
     this.force = false,
     this.originalMessage,
-  });
+  }) : _reportedTracking = tracking;
 
   factory ChatThread.fromJson(Map<String, dynamic> json, String siteUrl) {
     final messageBusLastIds = jsonObject(
@@ -264,7 +266,14 @@ final class ChatThread with Storable<ChatThread> {
   final String? title;
   final int? messageBusLastId;
   final ChatThreadMembership? membership;
-  final ChatTracking tracking;
+
+  /// Null when the payload did not report tracking (thread detail and creation
+  /// responses), which a merge must not mistake for the thread being read.
+  /// Equality compares [tracking]: unreported and an explicit zero merge alike.
+  final ChatTracking? _reportedTracking;
+
+  ChatTracking get tracking => _reportedTracking ?? ChatTracking.none;
+
   final ChatThreadPreview? preview;
   final int? lastMessageId;
   final bool force;
@@ -292,7 +301,7 @@ final class ChatThread with Storable<ChatThread> {
     title: clearTitle ? null : title ?? this.title,
     messageBusLastId: messageBusLastId ?? this.messageBusLastId,
     membership: clearMembership ? null : membership ?? this.membership,
-    tracking: tracking ?? this.tracking,
+    tracking: tracking ?? _reportedTracking,
     preview: preview ?? this.preview,
     lastMessageId: clearLastMessageId
         ? null
@@ -325,9 +334,7 @@ final class ChatThread with Storable<ChatThread> {
       title: detail.title,
       messageBusLastId: detail.messageBusLastId,
       membership: membershipWithMonotonicRead,
-      tracking: detail.tracking == ChatTracking.none
-          ? tracking
-          : detail.tracking,
+      tracking: detail._reportedTracking ?? _reportedTracking,
       preview: detail.preview,
       lastMessageId: detail.lastMessageId,
       force: detail.force,
@@ -345,9 +352,7 @@ final class ChatThread with Storable<ChatThread> {
       title: incoming.title ?? title,
       messageBusLastId: incoming.messageBusLastId ?? messageBusLastId,
       membership: incoming.membership ?? membership,
-      tracking: incoming.tracking == ChatTracking.none
-          ? tracking
-          : incoming.tracking,
+      tracking: incoming._reportedTracking ?? _reportedTracking,
       preview: incoming.preview ?? preview,
       lastMessageId: incoming.lastMessageId ?? lastMessageId,
       force: incoming.force,
