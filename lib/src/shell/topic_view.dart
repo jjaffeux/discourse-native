@@ -4765,8 +4765,8 @@ class _PostTileState extends State<_PostTile> {
               if (post.createdAt != null) const SizedBox(width: 4),
             ],
             if (post.createdAt case final createdAt?)
-              Text(
-                relativeTime(createdAt),
+              RelativeTimeText(
+                createdAt,
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: theme.colorScheme.onSurfaceVariant,
                 ),

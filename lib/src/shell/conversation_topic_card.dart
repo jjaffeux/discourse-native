@@ -108,7 +108,6 @@ class _ConversationTopicCardState extends State<_ConversationTopicCard> {
       color: muted,
       fontFeatures: const [FontFeature.tabularFigures()],
     );
-    final age = topic.bumpedAt == null ? '—' : relativeTime(topic.bumpedAt!);
     final largeText = MediaQuery.textScalerOf(context).scale(14) > 21;
     Widget field(String label, String column) => _TopicCardField(
       label: label,
@@ -117,6 +116,16 @@ class _ConversationTopicCardState extends State<_ConversationTopicCard> {
       ascending: ascending,
       onSort: onSort,
     );
+    Widget ageLabel(String age) => mobile
+        ? Text(
+            age,
+            style: textStyle?.copyWith(
+              fontSize: DiscourseTypography.xs,
+              fontWeight: FontWeight.w400,
+              color: Color.lerp(tokens.background, tokens.foreground, .4),
+            ),
+          )
+        : field(age, 'activity');
     final taxonomyItems = <Widget>[
       if (row.forum case final forum? when mobile)
         Row(
@@ -274,20 +283,13 @@ class _ConversationTopicCardState extends State<_ConversationTopicCard> {
                       SizedBox(width: mobile ? 10 : DSpacing.sm),
                       KeyedSubtree(
                         key: ValueKey('inbox-row-time-${topic.id}'),
-                        child: mobile
-                            ? Text(
-                                age,
-                                style: textStyle?.copyWith(
-                                  fontSize: DiscourseTypography.xs,
-                                  fontWeight: FontWeight.w400,
-                                  color: Color.lerp(
-                                    tokens.background,
-                                    tokens.foreground,
-                                    .4,
-                                  ),
-                                ),
-                              )
-                            : field(age, 'activity'),
+                        child: switch (topic.bumpedAt) {
+                          final bumpedAt? => RelativeTimeBuilder(
+                            when: bumpedAt,
+                            builder: (context, age) => ageLabel(age),
+                          ),
+                          null => ageLabel('—'),
+                        },
                       ),
                     ],
                   ),

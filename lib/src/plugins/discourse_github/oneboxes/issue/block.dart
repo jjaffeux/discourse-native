@@ -77,15 +77,17 @@ class _Info extends StatelessWidget {
       runSpacing: 4,
       crossAxisAlignment: WrapCrossAlignment.center,
       children: [
-        if (data.openedAt != null)
-          Text(
-            '${data.openedVerb ?? 'Opened'} ${relativeTime(data.openedAt!)}',
-            style: muted,
+        if (data.openedAt case final openedAt?)
+          RelativeTimeBuilder(
+            when: openedAt,
+            builder: (context, age) =>
+                Text('${data.openedVerb ?? 'Opened'} $age', style: muted),
           ),
-        if (data.closedAt != null)
-          Text(
-            '${data.closedVerb ?? 'Closed'} ${relativeTime(data.closedAt!)}',
-            style: muted,
+        if (data.closedAt case final closedAt?)
+          RelativeTimeBuilder(
+            when: closedAt,
+            builder: (context, age) =>
+                Text('${data.closedVerb ?? 'Closed'} $age', style: muted),
           ),
         if (data.userLogin != null)
           GithubUser(

@@ -395,15 +395,19 @@ class ChatThreadListRow extends StatelessWidget {
         _text(preview?.lastReplyUser?.displayName) ??
         _text(preview?.lastReplyUsername);
     final latestExcerpt = _text(preview?.lastReplyExcerpt);
-    final latestTime = switch (preview?.lastReplyAt) {
-      final DateTime at => relativeTime(at),
-      _ => null,
-    };
-    final latest = [
-      if (latestName != null) '$latestName:',
-      ?latestExcerpt,
-      if (latestTime != null) '· $latestTime',
-    ].join(' ');
+    Widget latestText(String? latestTime) {
+      final latest = [
+        if (latestName != null) '$latestName:',
+        ?latestExcerpt,
+        if (latestTime != null) '· $latestTime',
+      ].join(' ');
+      return Text(
+        latest.isEmpty ? _replyCountLabel(thread.replyCount) : latest,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+      );
+    }
+
     final semantics = StringBuffer('Open thread $title');
     if (channel != null) semantics.write(' in ${channel.title}');
     if (unread) semantics.write(', unread');
@@ -478,13 +482,13 @@ class ChatThreadListRow extends StatelessWidget {
                     if (preview?.lastReplyUser?.status != null)
                       const SizedBox(width: 4),
                     Expanded(
-                      child: Text(
-                        latest.isEmpty
-                            ? _replyCountLabel(thread.replyCount)
-                            : latest,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
+                      child: switch (preview?.lastReplyAt) {
+                        final at? => RelativeTimeBuilder(
+                          when: at,
+                          builder: (context, time) => latestText(time),
+                        ),
+                        null => latestText(null),
+                      },
                     ),
                   ],
                 ),
@@ -720,7 +724,6 @@ class _LatestReplyCard extends StatelessWidget {
             : null);
     final latestAt =
         preview?.lastReplyAt ?? (preview == null ? original?.createdAt : null);
-    final latestTime = latestAt == null ? null : relativeTime(latestAt);
     final latestAvatarUrl =
         replyUser?.avatarUrl ??
         preview?.lastReplyAvatarUrl ??
@@ -753,7 +756,7 @@ class _LatestReplyCard extends StatelessWidget {
       userId: displayedUser?.id,
       status: latestStatus,
       name: latestName,
-      time: latestTime,
+      at: latestAt,
       excerpt:
           latestExcerpt ??
           (thread.replyCount == 0 ? 'No replies yet' : 'Latest reply'),
@@ -819,7 +822,7 @@ class _LatestReplyCopy extends StatelessWidget {
     required this.userId,
     required this.status,
     required this.name,
-    required this.time,
+    required this.at,
     required this.excerpt,
     required this.compact,
   });
@@ -828,7 +831,7 @@ class _LatestReplyCopy extends StatelessWidget {
   final int? userId;
   final UserStatus? status;
   final String? name;
-  final String? time;
+  final DateTime? at;
   final String excerpt;
   final bool compact;
 
@@ -838,7 +841,7 @@ class _LatestReplyCopy extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (name != null || time != null || status != null)
+        if (name != null || at != null || status != null)
           Row(
             children: [
               if (name case final value?)
@@ -859,9 +862,9 @@ class _LatestReplyCopy extends StatelessWidget {
                 size: 14,
                 leadingGap: name == null ? 0 : 4,
               ),
-              if (time case final value?) ...[
+              if (at case final value?) ...[
                 if (name != null || status != null) const SizedBox(width: 6),
-                Text(
+                RelativeTimeText(
                   value,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
@@ -872,7 +875,7 @@ class _LatestReplyCopy extends StatelessWidget {
               ],
             ],
           ),
-        if (name != null || time != null || status != null)
+        if (name != null || at != null || status != null)
           const SizedBox(height: 3),
         Text(
           excerpt,

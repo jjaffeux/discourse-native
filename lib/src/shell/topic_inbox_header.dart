@@ -583,10 +583,13 @@ class _TopicActivityStats extends StatelessWidget {
       stat(links, links == 1 ? 'link' : 'links'),
       if (readMinutes > 0) stat(readMinutes, 'min read'),
       if (lastActivity case final activity?)
-        Text(switch (relativeTime(activity)) {
-          'now' => 'last activity just now',
-          final age => 'last activity $age ago',
-        }, style: style),
+        RelativeTimeBuilder(
+          when: activity,
+          builder: (context, age) => Text(switch (age) {
+            'now' => 'last activity just now',
+            _ => 'last activity $age ago',
+          }, style: style),
+        ),
     ];
     Widget reserve(Widget child) => placeholder
         ? Stack(

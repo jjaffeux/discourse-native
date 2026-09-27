@@ -84,6 +84,9 @@ class _Status extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final release = updates.available;
+    final muted = theme.textTheme.bodySmall?.copyWith(
+      color: theme.colorScheme.onSurfaceVariant,
+    );
 
     return switch (updates.status) {
       UpdateStatus.checking => const _CheckButton(checking: true),
@@ -223,21 +226,19 @@ class _Status extends StatelessWidget {
       UpdateStatus.idle => Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            // relativeTime is the compact form the topic list uses -- "2h",
-            // "3d", "now" -- so "now" needs its own phrasing rather than
-            // reading as "now ago".
-            switch (updates.lastChecked) {
-              null => 'Never checked for updates.',
-              final at => switch (relativeTime(at)) {
-                'now' => 'Checked just now.',
-                final ago => 'Last checked $ago ago.',
-              },
-            },
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
+          switch (updates.lastChecked) {
+            null => Text('Never checked for updates.', style: muted),
+            final at => RelativeTimeBuilder(
+              when: at,
+              // relativeTime is the compact form the topic list uses -- "2h",
+              // "3d", "now" -- so "now" needs its own phrasing rather than
+              // reading as "now ago".
+              builder: (context, ago) => Text(
+                ago == 'now' ? 'Checked just now.' : 'Last checked $ago ago.',
+                style: muted,
+              ),
             ),
-          ),
+          },
           const SizedBox(height: 16),
           const _CheckButton(),
         ],

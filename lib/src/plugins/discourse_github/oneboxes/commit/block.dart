@@ -67,11 +67,11 @@ class _Info extends StatelessWidget {
       runSpacing: 4,
       crossAxisAlignment: WrapCrossAlignment.center,
       children: [
-        if (data.committedAt != null)
-          Text(
-            '${data.committedVerb ?? 'Committed'} '
-            '${relativeTime(data.committedAt!)}',
-            style: muted,
+        if (data.committedAt case final committedAt?)
+          RelativeTimeBuilder(
+            when: committedAt,
+            builder: (context, age) =>
+                Text('${data.committedVerb ?? 'Committed'} $age', style: muted),
           ),
         if (data.authorLogin != null)
           GithubUser(

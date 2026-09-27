@@ -398,8 +398,8 @@ class _ChannelListChannelRow extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 if (at != null)
-                  Text(
-                    relativeTime(at),
+                  RelativeTimeText(
+                    at,
                     key: ValueKey('chat-channel-list-time-${channel.id}'),
                     style: theme.textTheme.labelSmall?.copyWith(
                       color: colors.onSurfaceVariant,

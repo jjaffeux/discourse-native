@@ -111,10 +111,11 @@ class _Info extends StatelessWidget {
       runSpacing: 4,
       crossAxisAlignment: WrapCrossAlignment.center,
       children: [
-        if (data.date != null)
-          Text(
-            '${data.dateVerb ?? ''} ${relativeTime(data.date!)}'.trim(),
-            style: muted,
+        if (data.date case final date?)
+          RelativeTimeBuilder(
+            when: date,
+            builder: (context, age) =>
+                Text('${data.dateVerb ?? ''} $age'.trim(), style: muted),
           ),
         if (data.userLogin != null)
           GithubUser(
