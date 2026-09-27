@@ -56,6 +56,7 @@ import 'support/bundled_plugins.dart';
 import 'support/chat_shell.dart';
 import 'support/fakes.dart';
 import 'support/media_pipeline.dart';
+import 'support/native_drop.dart';
 
 const _site = 'https://chat.example';
 final _gifsConfig = SiteConfig(
@@ -1864,7 +1865,7 @@ void main() {
         await tester.pumpAndSettle();
         final finder = find.byKey(const ValueKey('chat-upload-drop-target'));
         final position = tester.getCenter(finder);
-        tester.widget<DropTarget>(finder).onDragDone!(
+        tester.widget<DropTarget>(_uploadDropTarget(finder)).onDragDone!(
           DropDoneDetails(
             files: [
               DropItemFile(
@@ -1929,7 +1930,9 @@ void main() {
         final targetFinder = find.byKey(
           const ValueKey('chat-upload-drop-target'),
         );
-        final target = tester.widget<DropTarget>(targetFinder);
+        final target = tester.widget<DropTarget>(
+          _uploadDropTarget(targetFinder),
+        );
         final position = tester.getCenter(targetFinder);
         target.onDragEntered!(
           DropEventDetails(localPosition: position, globalPosition: position),
@@ -1949,7 +1952,7 @@ void main() {
           bytes: Uint8List.fromList(const [1, 2, 3]),
         );
         expect(file.name, 'photo.png');
-        tester.widget<DropTarget>(targetFinder).onDragDone!(
+        tester.widget<DropTarget>(_uploadDropTarget(targetFinder)).onDragDone!(
           DropDoneDetails(
             files: [file],
             localPosition: position,
@@ -1985,6 +1988,56 @@ void main() {
         expect(thumbnailFinder, findsNothing);
       },
     );
+
+    testWidgets('a native drop reaches only the chat pane on screen', (
+      tester,
+    ) async {
+      const upload = ComposerUploadResult(
+        id: 73,
+        originalFilename: 'photo.png',
+        shortUrl: 'upload://photo',
+        url: 'https://chat.example/uploads/photo.png',
+        width: 640,
+        height: 480,
+      );
+      final fixture = await _fixture(
+        pages: {
+          FakeDiscourseApi.chatMessagesKey(9): _emptyPage,
+          FakeDiscourseApi.chatMessagesKey(10): _emptyPage,
+        },
+        composerUploadResult: upload,
+      );
+      addTearDown(fixture.shell.dispose);
+      await tester.pumpWidget(
+        _StackedPanesView(shell: fixture.shell, visibleChannelId: 9),
+      );
+      await tester.pumpAndSettle();
+      Finder inPane(int channelId, Finder matching) => find.descendant(
+        of: find.byKey(ValueKey('stacked-chat-pane-$channelId')),
+        matching: matching,
+        skipOffstage: false,
+      );
+      final overlay = find.byKey(
+        const ValueKey('chat-upload-drop-overlay'),
+        skipOffstage: false,
+      );
+
+      final drag = NativeFileDrag(tester);
+      final center = tester.getCenter(find.byType(Scaffold));
+      await drag.moveTo(center);
+      await drag.moveTo(center + const Offset(0, 20));
+      expect(inPane(9, overlay), findsOneWidget);
+      expect(inPane(10, overlay), findsNothing);
+
+      await drag.drop([nativeDropFile('photo.png')]);
+      await tester.pumpAndSettle();
+
+      expect(overlay, findsNothing);
+      expect(fixture.api.composerUploads, hasLength(1));
+      final thumbnail = find.text('photo.png', skipOffstage: false);
+      expect(inPane(9, thumbnail), findsOneWidget);
+      expect(inPane(10, thumbnail), findsNothing);
+    }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 
     testWidgets(
       'editing fills the composer and restores its normal draft afterward',
@@ -2312,7 +2365,7 @@ void main() {
       final targetFinder = find.byKey(
         const ValueKey('chat-upload-drop-target'),
       );
-      final target = tester.widget<DropTarget>(targetFinder);
+      final target = tester.widget<DropTarget>(_uploadDropTarget(targetFinder));
       final position = tester.getCenter(targetFinder);
       target.onDragEntered!(
         DropEventDetails(localPosition: position, globalPosition: position),
@@ -3655,6 +3708,10 @@ Finder _composerField() => find.descendant(
   matching: find.byType(TextField),
 );
 
+/// The upload region's plugin target, ahead of the composer's disabled one.
+Finder _uploadDropTarget(Finder region) =>
+    find.descendant(of: region, matching: find.byType(DropTarget)).first;
+
 Future<void> _hoverReply(WidgetTester tester, int messageId) async {
   final pointer = await tester.createGesture(kind: PointerDeviceKind.mouse);
   await pointer.addPointer(location: Offset.zero);
@@ -3763,6 +3820,50 @@ final class _TestView extends StatelessWidget {
     );
     final ownedApp = PluginUiScope.own(chatPluginId, app);
     return ShellScope(controller: shell, child: ownedApp);
+  }
+}
+
+/// Both chat panes mounted over one another, as the narrow two-panel
+/// workspace keeps them, with only [visibleChannelId] on screen.
+final class _StackedPanesView extends StatelessWidget {
+  const _StackedPanesView({
+    required this.shell,
+    required this.visibleChannelId,
+  });
+
+  final ShellController shell;
+  final int visibleChannelId;
+
+  @override
+  Widget build(BuildContext context) {
+    Widget pane(int channelId) {
+      final visible = channelId == visibleChannelId;
+      return Positioned.fill(
+        key: ValueKey('stacked-chat-pane-$channelId'),
+        child: Offstage(
+          offstage: !visible,
+          child: TickerMode(
+            enabled: visible,
+            child: ExcludeFocus(
+              excluding: !visible,
+              child: ChatChannelView(channelId: channelId),
+            ),
+          ),
+        ),
+      );
+    }
+
+    final app = MaterialApp(
+      theme: AppTheme.light,
+      builder: (context, child) => DToaster(
+        child: AppTextScaleRegion(controller: shell.appSettings, child: child!),
+      ),
+      home: Scaffold(body: Stack(children: [pane(9), pane(10)])),
+    );
+    return ShellScope(
+      controller: shell,
+      child: PluginUiScope.own(chatPluginId, app),
+    );
   }
 }
 

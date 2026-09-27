@@ -116,7 +116,7 @@ export 'src/shell/composer_controller.dart'
         ComposerTargetRequest,
         ComposerUploadDisposition;
 export 'src/shell/composer_drop.dart'
-    show composerUploadFilesFromDrop, dropContainsDirectory;
+    show NativeDropTarget, composerUploadFilesFromDrop, dropContainsDirectory;
 export 'src/shell/composer_embedded_editor.dart' show ComposerEmbeddedEditor;
 export 'src/shell/composer_images.dart' show escapeImageAlt, flattenImageAlt;
 export 'src/shell/composer_link.dart' show showComposerLinkDialog;
