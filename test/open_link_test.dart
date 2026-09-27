@@ -126,6 +126,119 @@ void main() {
     });
   }
 
+  for (final (path, id, feed) in <(String, String, String?)>[
+    ('/top?period=weekly', 'top-weekly', '/top.json?period=weekly'),
+    ('/top', 'top-yearly', '/top.json?period=yearly'),
+    ('/new', 'new', '/new.json'),
+    // Only a reader on the unified New list can ask for part of it.
+    ('/new?subset=topics', 'new', '/new.json'),
+    ('/unread?page=2', 'unread', '/unread.json'),
+    ('/hot', 'hot', '/hot.json'),
+    (
+      '/latest?order=views',
+      'topic-list-filter-/latest.json?order=views',
+      '/latest.json?order=views',
+    ),
+    (
+      '/top?period=monthly&order=views',
+      'topic-list-filter-/top.json?order=views&period=monthly',
+      '/top.json?order=views&period=monthly',
+    ),
+    (
+      '/filter?q=in:bookmarked',
+      'topic-list-filter-/filter.json?q=in%3Abookmarked',
+      '/filter.json?q=in%3Abookmarked',
+    ),
+    ('/tags', 'all-tags', null),
+  ]) {
+    for (final newTab in [false, true]) {
+      testWidgets('opens the forum $path list natively (new tab: $newTab)', (
+        tester,
+      ) async {
+        final launched = watchBrowser(tester);
+        final api = FakeDiscourseApi(
+          feeds: {'/latest.json': const [], ?feed: const []},
+        );
+        final controller = await _pumpLink(
+          tester,
+          url: 'https://one.example$path',
+          signedIn: true,
+          api: api,
+        );
+        controller.pushContent(ContentRoute.newTab());
+        await tester.pumpAndSettle();
+
+        await tester.tap(
+          find.text('Open link'),
+          kind: PointerDeviceKind.mouse,
+          buttons: newTab ? kMiddleMouseButton : kPrimaryMouseButton,
+        );
+        await tester.pumpAndSettle();
+
+        expect(launched, isEmpty);
+        if (newTab) {
+          expect(controller.tabsForCurrentForum, hasLength(2));
+          controller.selectTab(controller.tabsForCurrentForum.last.id);
+          await tester.pumpAndSettle();
+        }
+        expect(controller.currentContent?.id, id);
+        if (feed != null) {
+          expect(controller.currentFeedId, id);
+          expect(api.feedPaths, contains(feed));
+          expect(controller.currentFeed?.loaded, isTrue);
+          expect(controller.currentFeed?.error, isNull);
+        }
+      });
+    }
+  }
+
+  for (final newTab in [false, true]) {
+    testWidgets(
+      'a signed-out /unread link opens the browser (new tab: $newTab)',
+      (tester) async {
+        final launched = watchBrowser(tester);
+        final controller = await _pumpLink(
+          tester,
+          url: 'https://one.example/unread',
+        );
+
+        await tester.tap(
+          find.text('Open link'),
+          kind: PointerDeviceKind.mouse,
+          buttons: newTab ? kMiddleMouseButton : kPrimaryMouseButton,
+        );
+        await tester.pumpAndSettle();
+
+        expect(launched, ['https://one.example/unread']);
+        expect(controller.tabsForCurrentForum, hasLength(1));
+        expect(controller.currentContent?.id, isNot('unread'));
+      },
+    );
+  }
+
+  testWidgets('a link to the list on screen does not stack it again', (
+    tester,
+  ) async {
+    final launched = watchBrowser(tester);
+    final controller = await _pumpLink(
+      tester,
+      url: 'https://one.example/top?period=weekly',
+      api: FakeDiscourseApi(
+        feeds: const {'/latest.json': [], '/top.json?period=weekly': []},
+      ),
+    );
+    await tester.tap(find.text('Open link'));
+    await tester.pumpAndSettle();
+    final stack = controller.contentStack;
+    expect(stack.last.id, 'top-weekly');
+
+    await tester.tap(find.text('Open link'));
+    await tester.pumpAndSettle();
+
+    expect(launched, isEmpty);
+    expect(controller.contentStack, stack);
+  });
+
   for (final newTab in [false, true]) {
     testWidgets('opens the forum categories URL natively (new tab: $newTab)', (
       tester,
