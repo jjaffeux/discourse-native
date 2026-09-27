@@ -2,6 +2,7 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -714,6 +715,78 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('opening follows an anchor moved in the frame that opens it', (
+    tester,
+  ) async {
+    await tester.pumpWidget(_app(const _MovingAnchorTest()));
+    final state = tester.state<_MovingAnchorTestState>(
+      find.byType(_MovingAnchorTest),
+    );
+    state.moveRight();
+    state._controller.open();
+    await tester.pumpAndSettle();
+
+    final anchor = tester.getRect(find.byType(DPopoverAnchor));
+    final popup = tester.getRect(find.byType(DPopoverContent));
+    expect(popup.center.dx, moreOrLessEquals(anchor.center.dx, epsilon: 1));
+    expect(popup.top, greaterThanOrEqualTo(anchor.bottom));
+  });
+
+  testWidgets('closed popovers skip anchor transforms while painting', (
+    tester,
+  ) async {
+    final repaint = ValueNotifier(0);
+    addTearDown(repaint.dispose);
+    final controllers = [
+      for (var index = 0; index < 20; index += 1) DPopoverController(),
+    ];
+    for (final controller in controllers) {
+      addTearDown(controller.dispose);
+    }
+    await tester.pumpWidget(
+      _app(
+        _TransformProbe(
+          child: Wrap(
+            children: [
+              for (final controller in controllers)
+                DPopover(
+                  controller: controller,
+                  content: const DPopoverContent(child: Text('Content')),
+                  child: DPopoverTrigger(
+                    builder: (context, trigger) => CustomPaint(
+                      size: const Size.square(24),
+                      painter: _RepaintProbe(repaint),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+    final probe = tester.renderObject<_RenderTransformProbe>(
+      find.byType(_TransformProbe),
+    );
+    Future<int> walksWhileRepainting() async {
+      probe.walks = 0;
+      repaint.value += 1;
+      await tester.pump();
+      // An anchor that stayed put must not schedule another placement pass.
+      expect(tester.binding.hasScheduledFrame, isFalse);
+      return probe.walks;
+    }
+
+    expect(await walksWhileRepainting(), 0);
+
+    controllers.first.open();
+    await tester.pumpAndSettle();
+    expect(await walksWhileRepainting(), 1);
+
+    controllers.first.close();
+    await tester.pumpAndSettle();
+    expect(await walksWhileRepainting(), 0);
+  });
+
   testWidgets('surface keeps independent semantics and reads live theme', (
     tester,
   ) async {
@@ -1068,4 +1141,34 @@ class _MovingAnchorTestState extends State<_MovingAnchorTest> {
     _controller.dispose();
     super.dispose();
   }
+}
+
+class _TransformProbe extends SingleChildRenderObjectWidget {
+  const _TransformProbe({required super.child});
+
+  @override
+  _RenderTransformProbe createRenderObject(BuildContext context) =>
+      _RenderTransformProbe();
+}
+
+// Counts the transform walks its descendants make through it while painting.
+// Semantics and the overlay's layout builder walk too, but in other phases.
+class _RenderTransformProbe extends RenderProxyBox {
+  int walks = 0;
+
+  @override
+  void applyPaintTransform(RenderBox child, Matrix4 transform) {
+    if (owner!.debugDoingPaint) walks += 1;
+    super.applyPaintTransform(child, transform);
+  }
+}
+
+class _RepaintProbe extends CustomPainter {
+  _RepaintProbe(Listenable repaint) : super(repaint: repaint);
+
+  @override
+  void paint(Canvas canvas, Size size) {}
+
+  @override
+  bool shouldRepaint(_RepaintProbe oldDelegate) => false;
 }

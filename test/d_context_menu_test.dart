@@ -42,6 +42,32 @@ void main() {
     expect(find.text('Back'), findsNothing);
   });
 
+  testWidgets('each secondary click opens at its own pointer position', (
+    tester,
+  ) async {
+    await _pumpMenu(
+      tester,
+      children: [
+        DContextMenuItem(onPressed: () {}, child: const Text('Inspect')),
+      ],
+    );
+
+    final fromPointer = <Offset>[];
+    for (final point in const [Offset(300, 240), Offset(460, 330)]) {
+      await tester.tapAt(point, buttons: kSecondaryButton);
+      await tester.pumpAndSettle();
+      fromPointer.add(
+        tester.getTopLeft(find.byType(DContextMenuContent)) - point,
+      );
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+      expect(find.text('Inspect'), findsNothing);
+    }
+    expect(fromPointer.first.distance, lessThan(8));
+    expect(fromPointer.last, fromPointer.first);
+  });
+
   testWidgets('long press opens at the touch location', (tester) async {
     await _pumpMenu(
       tester,
