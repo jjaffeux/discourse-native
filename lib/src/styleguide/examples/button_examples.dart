@@ -369,6 +369,7 @@ DButtonGroup(children: [
       states: const [
         'Text',
         'Inline',
+        'Back link',
         'Icon',
         'Hover',
         'Focus',
@@ -487,6 +488,13 @@ class _ButtonTransparentBackgroundState
                 size: DButtonSize.small,
                 variant: DButtonVariant.inline,
                 onPressed: () => setState(() => _result = 'Replies sorted'),
+              ),
+              DButton(
+                label: const Text('Latest topics'),
+                icon: const DIcon(DIcons.chevronLeft),
+                variant: DButtonVariant.inline,
+                density: DButtonDensity.backLink,
+                onPressed: () => setState(() => _result = 'Back to topics'),
               ),
               const Text('226'),
             ],

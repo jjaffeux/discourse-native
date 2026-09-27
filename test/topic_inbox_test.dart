@@ -88,7 +88,8 @@ void main() {
       findsOneWidget,
     );
     final backButton = tester.widget<DButton>(back);
-    expect(backButton.interactiveBackgroundColor, Colors.transparent);
+    expect(backButton.variant, DButtonVariant.inline);
+    expect(backButton.density, DButtonDensity.backLink);
     final restForeground = buttonSurface(tester, of: back).color;
     final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
     await mouse.addPointer(location: Offset.zero);
@@ -106,7 +107,20 @@ void main() {
     );
     await mouse.moveTo(Offset.zero);
     await tester.pump();
-    expect(tester.getRect(back).bottom, lessThan(tester.getRect(title).top));
+    expect(tester.getRect(title).top - tester.getRect(back).bottom, 10);
+    expect(tester.getRect(title).left, tester.getRect(back).left);
+    final titleStyle = tester
+        .widget<InlineTopicTitleEditor>(
+          find.descendant(
+            of: header,
+            matching: find.byType(InlineTopicTitleEditor),
+          ),
+        )
+        .style!;
+    expect(titleStyle.fontSize, 22);
+    expect(titleStyle.fontWeight, FontWeight.w700);
+    expect(titleStyle.height, 1.25);
+    expect(tester.getRect(taxonomy).top - tester.getRect(title).bottom, 16);
     expect(
       tester.getRect(title).bottom,
       lessThan(tester.getRect(taxonomy).top),
@@ -1122,19 +1136,13 @@ void main() {
         find.descendant(of: add, matching: find.text('Add tag')),
         findsOneWidget,
       );
-      // Taxonomy controls use the filter size and the back action the chip
-      // size; an editable topic edits its category instead of browsing it.
+      // An editable topic edits its category instead of browsing it.
       expect(
         find.byKey(const ValueKey('topic-header-browse-category-22')),
         findsNothing,
       );
       final headerControls = [
         (add, DButtonSize.filter),
-        if (find
-            .byKey(const ValueKey('topic-close-reader'))
-            .evaluate()
-            .isNotEmpty)
-          (find.byKey(const ValueKey('topic-close-reader')), DButtonSize.chip),
         (
           find.byWidgetPredicate(
             (widget) =>

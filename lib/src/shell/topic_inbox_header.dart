@@ -452,9 +452,8 @@ class TopicCloseButton extends StatelessWidget {
           : backToList
           ? 'Back to $content list'
           : 'Collapse $content',
-      variant: DButtonVariant.transparentBackground,
-      size: DButtonSize.chip,
-      interactiveBackgroundColor: Colors.transparent,
+      variant: DButtonVariant.inline,
+      density: DButtonDensity.backLink,
       onPressed: () {
         if (controller.topicListContent != null) {
           controller.closeTopicListReader();

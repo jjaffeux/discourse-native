@@ -8,6 +8,71 @@ import 'package:flutter_test/flutter_test.dart';
 import 'support/button_surface.dart';
 
 void main() {
+  for (final platform in [TargetPlatform.macOS, TargetPlatform.iOS]) {
+    testWidgets('back link matches mockup artwork on $platform', (
+      tester,
+    ) async {
+      var presses = 0;
+      for (final scale in [1.0, 2.0]) {
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: AppTheme.dark.copyWith(platform: platform),
+            home: MediaQuery(
+              data: MediaQueryData(textScaler: TextScaler.linear(scale)),
+              child: Scaffold(
+                body: Center(
+                  child: DButton(
+                    label: const Text('Latest topics'),
+                    icon: const Icon(Icons.chevron_left),
+                    density: DButtonDensity.backLink,
+                    variant: DButtonVariant.inline,
+                    onPressed: () => presses++,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+        final button = tester.widget<FilledButton>(find.byType(FilledButton));
+        final style = button.style!.textStyle!.resolve({})!;
+        expect(style.fontSize, 13);
+        expect(style.fontWeight, FontWeight.w500);
+        expect(style.height, 1.5);
+        expect(button.style!.padding!.resolve({}), EdgeInsets.zero);
+        expect(
+          tester.getSize(find.byIcon(Icons.chevron_left)),
+          const Size(11, 11),
+        );
+        expect(
+          tester.getRect(find.byIcon(Icons.chevron_left)).left,
+          tester.getRect(find.byType(DButton)).left - 2,
+        );
+        final surface = find.byWidgetPredicate(
+          (widget) =>
+              widget is AnimatedContainer &&
+              widget.decoration is DButtonDecoration,
+        );
+        expect(tester.getSize(surface).height, (19.5 * scale).ceilToDouble());
+        expect(buttonSurface(tester).color, Colors.transparent);
+        if (platform == TargetPlatform.iOS) {
+          expect(
+            tester.getSize(find.byType(DButton)).height,
+            greaterThanOrEqualTo(48),
+          );
+        }
+        await tester.tap(find.text('Latest topics'));
+        await tester.pump();
+      }
+      expect(presses, 2);
+      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+      await tester.pump();
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pump();
+      expect(presses, 3);
+      expect(tester.takeException(), isNull);
+    });
+  }
+
   testWidgets('chat message action matches compact mockup geometry', (
     tester,
   ) async {

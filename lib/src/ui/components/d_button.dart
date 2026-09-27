@@ -54,6 +54,10 @@ enum DButtonShape { rounded, pill }
 /// Named artwork presets with shared styling and accessible touch targets.
 enum DButtonDensity {
   standard,
+
+  /// Hierarchical back link: 13px medium text, an 11px chevron and no insets.
+  /// Pair with [DButtonVariant.inline]; mobile retains a 48px touch target.
+  backLink,
   mobileNavigation,
 
   /// A 46px labelled mobile dock item with a 20px icon and one button target.
@@ -632,13 +636,16 @@ class DButton extends StatelessWidget {
     final fillsSlot = _iconOnly && mobileDockAction;
     final compactToolbar = density == DButtonDensity.compactToolbar;
     final chatMessageAction = density == DButtonDensity.chatMessageAction;
+    final backLink = density == DButtonDensity.backLink;
     final dashedTile = variant == DButtonVariant.dashedTile;
     final intrinsicIcon =
         _iconOnly &&
         (size == DControlSize.chip || size == DControlSize.chrome) &&
         density == DButtonDensity.standard;
     final composerBlock = _iconOnly && density == DButtonDensity.composerBlock;
-    final effectiveSize = compactToolbar
+    final effectiveSize = backLink
+        ? DButtonSize.toolbar
+        : compactToolbar
         ? DButtonSize.small
         : mobileNavigation || mobileDock || mobileDockAction || composerBlock
         ? DButtonSize.regular
@@ -646,7 +653,9 @@ class DButton extends StatelessWidget {
     final fontSize = dashedTile
         ? DControlStyle.fontSize(DButtonSize.large, context: context)
         : DControlStyle.fontSize(effectiveSize, context: context);
-    final spacingUnit = mobileDock || mobileDockAction
+    final spacingUnit = backLink
+        ? 11.0
+        : mobileDock || mobileDockAction
         ? 20.0
         : mobileNavigation
         ? 18.0
@@ -669,7 +678,9 @@ class DButton extends StatelessWidget {
               : 0.0,
           double.infinity,
         );
-    final visualDimension = dashedTile
+    final visualDimension = backLink
+        ? MediaQuery.textScalerOf(context).scale(fontSize) * 1.5
+        : dashedTile
         ? 50 +
               (MediaQuery.textScalerOf(context).scale(fontSize) - fontSize) *
                   1.5
@@ -814,7 +825,7 @@ class DButton extends StatelessWidget {
       padding: WidgetStatePropertyAll(
         (_iconOnly && !intrinsicIcon
             ? EdgeInsets.zero
-            : mobileDock
+            : mobileDock || backLink
             ? EdgeInsets.zero
             : dashedTile
             ? const EdgeInsetsDirectional.fromSTEB(10, 8, 10, 8)
@@ -850,7 +861,7 @@ class DButton extends StatelessWidget {
                     fontSize
               : DControlStyle.lineHeight(effectiveSize, context: context) /
                     fontSize,
-          fontWeight: mobileDock
+          fontWeight: mobileDock || backLink
               ? FontWeight.w500
               : _visualVariant == DButtonVariant.primary || dashedTile
               ? FontWeight.w600
@@ -1068,6 +1079,15 @@ class DButton extends StatelessWidget {
         side: tooltipSide,
         shortcut: shortcut,
         excludeFromSemantics: effectiveSemanticLabel != null,
+        child: result,
+      );
+    }
+
+    if (backLink) {
+      // The reference chevron has no leading bearing: tuck the link 2px
+      // into the page gutter while keeping its focus ring and target together.
+      result = Transform.translate(
+        offset: Offset(direction == TextDirection.ltr ? -2 : 2, 0),
         child: result,
       );
     }
