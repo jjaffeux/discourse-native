@@ -989,7 +989,7 @@ class _ContentHeader extends StatelessWidget {
         : (!controller.mobileNavigationEnabled && layout.isCompact) || canPop;
 
     return Container(
-      height: shellHeaderHeight,
+      key: const ValueKey('content-header'),
       padding: const EdgeInsets.symmetric(horizontal: 8),
       child: ForumTabLayoutBuilder(
         builder: (context, constraints) {
@@ -1003,8 +1003,16 @@ class _ContentHeader extends StatelessWidget {
                   !carriesSearch ||
                   constraints.maxWidth >= 620);
           final searchWidth = constraints.maxWidth >= 800 ? 360.0 : 260.0;
+          // Only the plain title below stacks a second line. The groups count
+          // keeps its line while it loads so the header does not jump.
+          final stacksSubtitle =
+              showRouteIdentity &&
+              !(route.isMessages && isConnected) &&
+              !(route.categoryId != null && siteUrl != null) &&
+              contentHeaderTitleAction == null &&
+              ((route.isGroups && siteUrl != null) || route.subtitle != null);
 
-          return Row(
+          final header = Row(
             children: [
               if (showBack)
                 DButton.iconOnly(
@@ -1208,6 +1216,10 @@ class _ContentHeader extends StatelessWidget {
                 UserMenuButton(ringColor: theme.shell.content),
               ],
             ],
+          );
+          return SizedBox(
+            height: shellHeaderHeightFor(context, subtitle: stacksSubtitle),
+            child: header,
           );
         },
       ),

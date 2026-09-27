@@ -1,11 +1,19 @@
 import 'package:discourse_native/src/models/discourse_user.dart';
+import 'package:discourse_native/src/models/site_config.dart';
+import 'package:discourse_native/src/plugin_api/plugin_data.dart';
 import 'package:discourse_native/src/plugin_api/plugin_scope.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel_threads_view.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message.dart';
+import 'package:discourse_native/src/plugins/chat/chat_notification_counter.dart';
+import 'package:discourse_native/src/plugins/chat/chat_plugin.dart';
+import 'package:discourse_native/src/plugins/chat/chat_plugin_data.dart';
 import 'package:discourse_native/src/plugins/chat/chat_services.dart';
+import 'package:discourse_native/src/plugins/chat/chat_shell_service.dart';
 import 'package:discourse_native/src/plugins/chat/chat_thread.dart';
+import 'package:discourse_native/src/shell/main_content.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
+import 'package:discourse_native/src/shell/shell_metrics.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
@@ -13,6 +21,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'support/bundled_plugins.dart';
 import 'support/fakes.dart';
+import 'support/shell_test_harness.dart';
 
 const _site = 'https://meta.discourse.org';
 const _user = DiscourseUser(id: 7, username: 'reader');
@@ -68,6 +77,43 @@ void main() {
     expect(offsets(), [0, 20, 20]);
     expect(find.text('Try again'), findsOneWidget);
   });
+
+  group('on a narrow phone', () {
+    for (final scale in [1.0, 1.5, 2.0, 3.0]) {
+      testWidgets(
+        'the Threads header fits its channel line at ${scale}x text',
+        (tester) async {
+          tester.platformDispatcher.textScaleFactorTestValue = scale;
+          addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+          await _pumpMobileThreads(tester);
+
+          expect(tester.takeException(), isNull);
+          final header = tester.getRect(
+            find.byKey(const ValueKey('content-header')),
+          );
+          final title = tester.getRect(find.text('Threads'));
+          final channel = tester.getRect(find.text('Support'));
+          if (scale == 1) expect(header.height, shellHeaderHeight);
+          expect(title.height, greaterThanOrEqualTo(_titleLine(scale) - 1));
+          expect(title.bottom, channel.top);
+          expect(title.top, greaterThan(header.top));
+          expect(channel.bottom, lessThan(header.bottom));
+          expect(
+            title.top - header.top,
+            closeTo(header.bottom - channel.bottom, 1),
+          );
+          expect(
+            tester.getRect(find.text('Thread 1')).top,
+            greaterThan(header.bottom),
+          );
+        },
+        variant: const TargetPlatformVariant({
+          TargetPlatform.iOS,
+          TargetPlatform.android,
+        }),
+      );
+    }
+  });
 }
 
 ChatThread _thread(int id) => ChatThread(
@@ -83,6 +129,80 @@ ChatThread _thread(int id) => ChatThread(
     excerpt: 'Original $id',
   ),
 );
+
+/// The production mobile shell on a 320x720 phone, on a channel's threads.
+Future<void> _pumpMobileThreads(WidgetTester tester) async {
+  final user = DiscourseUser(
+    id: _user.id,
+    username: _user.username,
+    plugins: PluginData.none.withValue(
+      chatCurrentUserDataKey,
+      const ChatCurrentUser(hasChatEnabled: true, canDirectMessage: true),
+    ),
+  );
+  final config = SiteConfig(
+    plugins: PluginData.none.withValue(
+      chatSettingsDataKey,
+      const ChatSettings(chatEnabled: true, publicChannelsEnabled: true),
+    ),
+  );
+  await pumpShell(
+    tester,
+    const Size(320, 720),
+    instances: [
+      instance(
+        'meta.discourse.org',
+        title: 'Meta',
+      ).copyWith(user: user, config: config),
+    ],
+    authenticator: FakeAuthenticator()..keys[_site] = 'key',
+    api: FakeDiscourseApi(
+      user: user,
+      totals: chatNotificationTotals(),
+      siteConfigs: {_site: config},
+      feeds: const {'/latest.json': []},
+      chatChannelsBySite: {
+        _site: const ChatChannels(
+          public: [
+            ChatChannel(
+              id: _channelId,
+              title: 'Support',
+              kind: ChatChannelKind.category,
+              membership: ChatMembership(following: true),
+              threadingEnabled: true,
+            ),
+          ],
+        ),
+      },
+      chatMessagesByKey: {
+        FakeDiscourseApi.chatMessagesKey(_channelId): (
+          messages: const <ChatMessage>[],
+          canLoadMorePast: false,
+          canLoadMoreFuture: false,
+          targetMessageId: null,
+        ),
+      },
+      chatChannelThreadPagesByKey: {
+        FakeDiscourseApi.chatChannelThreadPageKey(_channelId, 0):
+            ChatThreadPage(threads: [_thread(1)]),
+      },
+    ),
+  );
+  final shell = ShellScope.read(tester.element(find.byType(MainContent)));
+  await shell.pluginSession.require(chatControllerService).loadChannels(_site);
+  final chat = shell.pluginSession.require(chatShellService);
+  expect(chat.openChannel(_channelId), isTrue);
+  await tester.pumpAndSettle();
+  expect(
+    chat.openChannelThreads(siteUrl: _site, channelId: _channelId),
+    isTrue,
+  );
+  await tester.pumpAndSettle();
+  expect(
+    shell.currentContent?.id,
+    ChatPlugin.channelThreadsRouteId(_channelId),
+  );
+}
 
 Future<void> _pump(WidgetTester tester, FakeDiscourseApi api) async {
   final controller = ShellController(
@@ -115,4 +235,10 @@ Future<void> _pump(WidgetTester tester, FakeDiscourseApi api) async {
     ),
   );
   await tester.pumpAndSettle();
+}
+
+/// The title's whole line box at [scale], so a clipped title cannot pass.
+double _titleLine(double scale) {
+  final style = AppTheme.light.textTheme.titleSmall!;
+  return style.fontSize! * scale * style.height!;
 }

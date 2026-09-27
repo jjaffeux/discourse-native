@@ -4,10 +4,12 @@ import 'package:discourse_native/src/plugin_api/site_plugin_api.dart';
 import 'package:discourse_native/src/shell/adaptive_shell.dart';
 import 'package:discourse_native/src/shell/main_content.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
+import 'package:discourse_native/src/shell/shell_metrics.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/fakes.dart';
@@ -83,7 +85,84 @@ void main() {
     expect(find.byType(CheckboxListTile), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
+
+  group('the standard header', () {
+    const stacked = ContentRoute(
+      id: 'test-standard',
+      title: 'Threads',
+      subtitle: 'Support',
+      icon: DIcons.comments,
+    );
+
+    testWidgets('keeps its fixed height for a subtitle at normal text', (
+      tester,
+    ) async {
+      final shell = await _shellWith(const _StandardPlugin());
+      shell.pushContent(stacked);
+
+      await _pump(tester, shell);
+
+      final header = tester.getRect(_header);
+      expect(header.height, shellHeaderHeight);
+      final title = tester.getRect(find.text('Threads'));
+      final subtitle = tester.getRect(find.text('Support'));
+      expect(title.bottom, subtitle.top);
+      expect(title.top - header.top, header.bottom - subtitle.bottom);
+    });
+
+    for (final scale in [1.5, 2.0, 3.0]) {
+      testWidgets('grows with ${scale}x text so a subtitle keeps its inset', (
+        tester,
+      ) async {
+        final shell = await _shellWith(const _StandardPlugin());
+        shell.pushContent(stacked);
+        await _pump(tester, shell);
+        final normal = tester.getRect(_header);
+        final inset = tester.getRect(find.text('Threads')).top - normal.top;
+
+        tester.platformDispatcher.textScaleFactorTestValue = scale;
+        addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+        await tester.pumpAndSettle();
+
+        expect(tester.takeException(), isNull);
+        final header = tester.getRect(_header);
+        final title = tester.getRect(find.text('Threads'));
+        final subtitle = tester.getRect(find.text('Support'));
+        expect(header.height, greaterThan(shellHeaderHeight));
+        expect(title.height, greaterThanOrEqualTo(_titleLine(scale) - 1));
+        expect(title.top - header.top, closeTo(inset, 1));
+        expect(header.bottom - subtitle.bottom, closeTo(inset, 1));
+        expect(_paragraph(tester, 'Threads').didExceedMaxLines, isFalse);
+        expect(_paragraph(tester, 'Support').didExceedMaxLines, isFalse);
+      });
+    }
+
+    testWidgets('keeps its fixed height for a single line at larger text', (
+      tester,
+    ) async {
+      tester.platformDispatcher.textScaleFactorTestValue = 2;
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+      final shell = await _shellWith(const _StandardPlugin());
+      shell.pushContent(
+        const ContentRoute(
+          id: 'test-standard',
+          title: 'Standard route',
+          icon: DIcons.comment,
+        ),
+      );
+
+      await _pump(tester, shell);
+
+      expect(tester.getRect(_header).height, shellHeaderHeight);
+      expect(tester.takeException(), isNull);
+    });
+  });
 }
+
+final Finder _header = find.byKey(const ValueKey('content-header'));
+
+RenderParagraph _paragraph(WidgetTester tester, String text) =>
+    tester.renderObject<RenderParagraph>(find.text(text));
 
 Future<void> _pump(WidgetTester tester, ShellController shell) async {
   tester.view.physicalSize = const Size(1200, 800);
@@ -211,4 +290,10 @@ class _ListTilePlugin implements SitePlugin, ContentPlugin {
           title: const Text('Choice'),
         )
       : null;
+}
+
+/// The title's whole line box at [scale], so a clipped title cannot pass.
+double _titleLine(double scale) {
+  final style = AppTheme.light.textTheme.titleSmall!;
+  return style.fontSize! * scale * style.height!;
 }
