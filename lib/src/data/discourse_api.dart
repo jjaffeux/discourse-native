@@ -1235,6 +1235,7 @@ class DiscourseApi
     int? categoryId,
     List<int> tagIds = const [],
     bool chronologicalOrder = false,
+    bool privateMessage = false,
     String? clientId,
   }) async => _topic.movePosts(
     siteUrl: siteUrl,
@@ -1246,6 +1247,7 @@ class DiscourseApi
     categoryId: categoryId,
     tagIds: tagIds,
     chronologicalOrder: chronologicalOrder,
+    privateMessage: privateMessage,
     clientId: clientId,
   );
 

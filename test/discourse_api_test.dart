@@ -5062,6 +5062,68 @@ void _writeGroups() {
       },
     );
 
+    test('moves a message\'s posts with the message archetype', () async {
+      final sent = <http.Request>[];
+      final api = DiscourseApi(
+        client: MockClient((request) async {
+          sent.add(request);
+          return http.Response(
+            jsonEncode({'success': true, 'url': '/t/moved/100'}),
+            200,
+          );
+        }),
+      );
+
+      await api.movePosts(
+        siteUrl: 'https://meta.discourse.org',
+        apiKey: 'the-key',
+        topicId: 7,
+        postIds: const [42],
+        title: 'A split message',
+        privateMessage: true,
+      );
+      await api.movePosts(
+        siteUrl: 'https://meta.discourse.org',
+        apiKey: 'the-key',
+        topicId: 7,
+        postIds: const [42],
+        destinationTopicId: 98,
+        privateMessage: true,
+      );
+      // PostMover files a new destination moved without it as a public
+      // topic.
+      expect(
+        [for (final request in sent) jsonDecode(request.body)],
+        [
+          {
+            'post_ids': [42],
+            'title': 'A split message',
+            'archetype': 'private_message',
+          },
+          {
+            'post_ids': [42],
+            'destination_topic_id': 98,
+            'chronological_order': 'false',
+            'archetype': 'private_message',
+          },
+        ],
+      );
+
+      await expectLater(
+        api.movePosts(
+          siteUrl: 'https://meta.discourse.org',
+          apiKey: 'the-key',
+          topicId: 7,
+          postIds: const [42],
+          title: 'A split message',
+          categoryId: 3,
+          privateMessage: true,
+        ),
+        throwsArgumentError,
+      );
+      expect(sent, hasLength(2));
+    });
+
     test('sends the web topic chooser search modifiers', () async {
       late http.Request sent;
       final api = DiscourseApi(

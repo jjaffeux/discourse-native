@@ -20,11 +20,18 @@ import 'support/shell_test_harness.dart';
 const _siteA = 'https://meta.discourse.org';
 const _siteB = 'https://team.discourse.org';
 const _staff = DiscourseUser(id: 9, username: 'moderator', staff: true);
+const _admin = DiscourseUser(
+  id: 9,
+  username: 'admin',
+  staff: true,
+  admin: true,
+);
 const _obsolete = 'Your connection changed. Reopen Move posts and try again.';
 const _dialog = ValueKey('topic-move-posts-dialog');
 const _submit = ValueKey('topic-move-posts-submit');
 const _search = ValueKey('topic-move-posts-search');
 const _title = ValueKey('topic-move-posts-title');
+const _category = ValueKey('topic-move-posts-category');
 const _posts = [
   Post(id: 1, postNumber: 1, username: 'author', cooked: '<p>First</p>'),
   Post(id: 2, postNumber: 2, username: 'author', cooked: '<p>Second</p>'),
@@ -385,6 +392,158 @@ void main() {
       expect(shell.currentTopic?.id, 99);
     }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
   }
+
+  testWidgets('a destination read already on its way is read again', (
+    tester,
+  ) async {
+    final api = _MoveApi();
+    final shell = await _openDialog(tester, api);
+    final destinationRead = api.destinationRead = Completer<void>();
+    unawaited(shell.loadTopic(99, 'destination'));
+    await tester.pump();
+    expect(api.topicsOpened.where((id) => id == 99), hasLength(1));
+
+    final result = await shell.moveSelectedTopicPostsToExisting(
+      shell.captureTopicPostMoveTarget(_siteA, 7),
+      99,
+    );
+    expect(result.error, isNull);
+    // That read reached the server before the move and answers without it.
+    destinationRead.complete();
+    await tester.pumpAndSettle();
+
+    expect(api.topicsOpened.where((id) => id == 99), hasLength(2));
+    expect(shell.store.read<TopicDetail>(_siteA, 99)?.stream, [99, 1]);
+  }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
+
+  testWidgets('a message offers an admin a new message, never a topic', (
+    tester,
+  ) async {
+    final api = _MoveApi(message: true, me: _admin);
+    await _openDialog(tester, api);
+    expect(find.text('New topic'), findsNothing);
+    expect(find.text('Existing topic'), findsNothing);
+    expect(find.text('New message'), findsOneWidget);
+    expect(find.text('Existing message'), findsOneWidget);
+    // A message has no category, and web leaves the chooser out.
+    expect(find.byKey(_category), findsNothing);
+
+    await tester.enterText(find.byKey(_title), 'A new message');
+    await tester.pump();
+    await _pressSubmit(tester);
+    await tester.pumpAndSettle();
+
+    final move = api.movedTopicPosts.single;
+    expect(move.title, 'A new message');
+    expect(move.categoryId, isNull);
+    expect(move.privateMessage, isTrue);
+  }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
+
+  testWidgets('a message offers other staff only an existing message', (
+    tester,
+  ) async {
+    final api = _MoveApi(message: true);
+    await _openDialog(tester, api);
+    expect(find.text('New message'), findsNothing);
+    expect(find.text('New topic'), findsNothing);
+    expect(find.text('Existing topic'), findsNothing);
+    expect(find.text('Existing message'), findsOneWidget);
+
+    await tester.enterText(find.byKey(_search), 'Destination');
+    await tester.pump(const Duration(milliseconds: 350));
+    await tester.pumpAndSettle();
+    expect(api.searches.single, (
+      siteUrl: _siteA,
+      apiKey: 'a-key',
+      term: 'Destination',
+      typeFilter: 'private_messages',
+      searchForId: true,
+      restrictToArchetype: 'private_message',
+    ));
+    expect(find.text('Private destination'), findsOneWidget);
+    expect(find.text('Destination topic'), findsNothing);
+    await _pressSubmit(tester);
+    await tester.pumpAndSettle();
+
+    final move = api.movedTopicPosts.single;
+    expect(move.destinationTopicId, 98);
+    expect(move.privateMessage, isTrue);
+  }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
+
+  testWidgets('the controller never moves a message into a public topic', (
+    tester,
+  ) async {
+    final forbidden = const WriteException(WriteFailure.forbidden).message;
+    final api = _MoveApi(me: _admin);
+    final shell = await _openDialog(tester, api);
+    final offeredAsTopic = shell.captureTopicPostMoveTarget(_siteA, 7);
+    expect(offeredAsTopic.privateMessage, isFalse);
+    // Staff converted the topic to a message after the move was offered.
+    shell.store.update<TopicDetail>(
+      _siteA,
+      7,
+      (topic) => topic.copyWith(privateMessage: true),
+    );
+    final asTopic = [
+      await shell.moveSelectedTopicPostsToNew(
+        offeredAsTopic,
+        title: 'Now public',
+        categoryId: 10,
+      ),
+      await shell.moveSelectedTopicPostsToNew(
+        offeredAsTopic,
+        title: 'Now public',
+      ),
+      await shell.moveSelectedTopicPostsToExisting(offeredAsTopic, 99),
+    ];
+    expect(
+      [for (final result in asTopic) result.error],
+      [forbidden, forbidden, forbidden],
+    );
+    expect(
+      (await shell.searchTopicMoveDestinations(offeredAsTopic, 'Public')).error,
+      forbidden,
+    );
+
+    final message = shell.captureTopicPostMoveTarget(_siteA, 7);
+    expect(message.privateMessage, isTrue);
+    final categorized = await shell.moveSelectedTopicPostsToNew(
+      message,
+      title: 'Still public',
+      categoryId: 10,
+    );
+    expect(categorized.error, forbidden);
+    expect(api.searches, isEmpty);
+    expect(api.writes, isEmpty);
+
+    final moved = await shell.moveSelectedTopicPostsToNew(
+      message,
+      title: 'A new message',
+    );
+    expect(moved.error, isNull);
+    expect(api.movedTopicPosts.single.categoryId, isNull);
+    expect(api.movedTopicPosts.single.privateMessage, isTrue);
+  }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
+
+  for (final admin in [true, false]) {
+    final outcome = admin ? 'starts' : 'refuses';
+    final who = admin ? 'an admin' : 'other staff';
+    testWidgets('the controller $outcome a new message for $who', (
+      tester,
+    ) async {
+      final api = _MoveApi(message: true, me: admin ? _admin : _staff);
+      final shell = await _openDialog(tester, api);
+      final result = await shell.moveSelectedTopicPostsToNew(
+        shell.captureTopicPostMoveTarget(_siteA, 7),
+        title: 'A new message',
+      );
+      expect(
+        result.error,
+        admin ? isNull : const WriteException(WriteFailure.forbidden).message,
+      );
+      expect(api.writes, hasLength(admin ? 1 : 0));
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
+  }
 }
 
 Future<ShellController> _openDialog(
@@ -398,8 +557,8 @@ Future<ShellController> _openDialog(
     desktop,
     api: api,
     instances: [
-      instance('meta.discourse.org', title: 'Meta').copyWith(user: _staff),
-      instance('team.discourse.org', title: 'Team').copyWith(user: _staff),
+      instance('meta.discourse.org', title: 'Meta').copyWith(user: api.me),
+      instance('team.discourse.org', title: 'Team').copyWith(user: api.me),
     ],
     authenticator: (auth ?? _GatedAuthenticator())
       ..keys[_siteA] = 'a-key'
@@ -488,9 +647,9 @@ class _GatedAuthenticator extends FakeAuthenticator {
 }
 
 class _MoveApi extends FakeDiscourseApi {
-  _MoveApi({this.nonregular = false})
+  _MoveApi({this.nonregular = false, this.message = false, this.me = _staff})
     : super(
-        user: _staff,
+        user: me,
         feeds: const {
           '/latest.json': [Topic(id: 7, title: 'Source topic', slug: 'source')],
         },
@@ -516,10 +675,18 @@ class _MoveApi extends FakeDiscourseApi {
       );
 
   final bool nonregular;
+
+  // Whether the source topic is a message.
+  final bool message;
+  final DiscourseUser me;
   WriteException? moveFailure;
   Completer<String>? moveResponse;
   Completer<SearchResults>? searchResponse;
   Completer<List<Post>>? refreshResponse;
+
+  // Holds a read of topic 99 after the server has taken its snapshot.
+  Completer<void>? destinationRead;
+  final destinationPostIds = <int>[];
   final writes = <({String siteUrl, String apiKey})>[];
   final refreshes = <({String siteUrl, int topicId, String? apiKey})>[];
   final searches =
@@ -541,7 +708,7 @@ class _MoveApi extends FakeDiscourseApi {
     String? clientId,
   }) async => apiKey == 'api-key'
       ? const DiscourseUser(id: 10, username: 'replacement', staff: true)
-      : _staff;
+      : me;
 
   @override
   Future<TopicPayload> topic({
@@ -555,24 +722,34 @@ class _MoveApi extends FakeDiscourseApi {
     Future<void>? abortTrigger,
   }) async {
     topicsOpened.add(id);
-    return topicPayload(
+    final payload = topicPayload(
       id: id,
       title: id == 99 ? 'Destination' : 'Source topic',
+      privateMessage: message && id == 7,
       posts: [
-        if (id == 99)
+        if (id == 99) ...[
           const Post(
             id: 99,
             postNumber: 1,
             username: 'destination',
             cooked: '<p>Arrived</p>',
-          )
-        else ...[
+          ),
+          for (final (index, postId) in destinationPostIds.indexed)
+            Post(
+              id: postId,
+              postNumber: index + 2,
+              username: 'author',
+              cooked: '<p>Moved</p>',
+            ),
+        ] else ...[
           if (nonregular) _nonregularPost else _posts.first,
           ..._posts.skip(1),
         ],
       ],
       canMovePosts: true,
     );
+    if (id == 99) await destinationRead?.future;
+    return payload;
   }
 
   @override
@@ -610,6 +787,7 @@ class _MoveApi extends FakeDiscourseApi {
     int? categoryId,
     List<int> tagIds = const [],
     bool chronologicalOrder = false,
+    bool privateMessage = false,
     String? clientId,
   }) async {
     writes.add((siteUrl: siteUrl, apiKey: apiKey));
@@ -624,7 +802,9 @@ class _MoveApi extends FakeDiscourseApi {
       categoryId: categoryId,
       tagIds: tagIds,
       chronologicalOrder: chronologicalOrder,
+      privateMessage: privateMessage,
     );
+    if (destinationTopicId == 99) destinationPostIds.addAll(postIds);
     return moveResponse == null
         ? '/t/destination/99'
         : await moveResponse!.future;

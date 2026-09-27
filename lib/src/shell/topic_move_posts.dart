@@ -85,9 +85,15 @@ class _TopicMovePostsDialogState extends State<_TopicMovePostsDialog> {
   bool _saving = false;
   String? _error;
 
+  // A message's posts stay in messages: its destinations are other messages,
+  // never a topic anyone can read.
+  bool get _message => widget.target.privateMessage;
+
   bool get _canCreateNew {
     if (widget.selectedPosts.isEmpty ||
-        widget.selectedPosts.length == widget.topic.stream.length) {
+        widget.selectedPosts.length == widget.topic.stream.length ||
+        (_message &&
+            !widget.controller.canMoveTopicPostsToNewMessage(widget.target))) {
       return false;
     }
     return widget.selectedPosts.first.postType == Post.regularPostType;
@@ -189,13 +195,13 @@ class _TopicMovePostsDialogState extends State<_TopicMovePostsDialog> {
               key: const ValueKey('topic-move-posts-mode'),
               items: [
                 if (_canCreateNew)
-                  const DToggleGroupItem(
+                  DToggleGroupItem(
                     value: _MoveMode.newTopic,
-                    child: Text('New topic'),
+                    child: Text(_message ? 'New message' : 'New topic'),
                   ),
-                const DToggleGroupItem(
+                DToggleGroupItem(
                   value: _MoveMode.existingTopic,
-                  child: Text('Existing topic'),
+                  child: Text(_message ? 'Existing message' : 'Existing topic'),
                 ),
               ],
               values: [_mode],
@@ -253,44 +259,46 @@ class _TopicMovePostsDialogState extends State<_TopicMovePostsDialog> {
         autofocus: true,
         enabled: !_saving,
         onChanged: (_) => setState(() => _error = null),
-        labelText: 'Topic title',
+        labelText: _message ? 'Message title' : 'Topic title',
       ),
-      const SizedBox(height: 16),
-      DSelect<int>.controlled(
-        key: const ValueKey('topic-move-posts-category'),
-        value: _categoryId,
-        label: const Text('Category'),
-        isExpanded: true,
-        enabled: !_saving,
-        entries: [
-          const DSelectItem<int>(
-            value: null,
-            textValue: 'Default category',
-            child: Text('Default category'),
-          ),
-          for (final category in widget.categories)
-            DSelectItem(
-              value: category.id,
-              textValue: category.name,
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  CategoryIcon(
-                    category: category,
-                    siteUrl: widget.target.siteUrl,
-                    size: 16,
-                    squareSize: 11,
-                  ),
-                  const SizedBox(width: 8),
-                  Flexible(child: Text(category.name)),
-                ],
-              ),
+      if (!_message) ...[
+        const SizedBox(height: 16),
+        DSelect<int>.controlled(
+          key: const ValueKey('topic-move-posts-category'),
+          value: _categoryId,
+          label: const Text('Category'),
+          isExpanded: true,
+          enabled: !_saving,
+          entries: [
+            const DSelectItem<int>(
+              value: null,
+              textValue: 'Default category',
+              child: Text('Default category'),
             ),
-        ],
-        onChanged: _saving
-            ? null
-            : (value) => setState(() => _categoryId = value),
-      ),
+            for (final category in widget.categories)
+              DSelectItem(
+                value: category.id,
+                textValue: category.name,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    CategoryIcon(
+                      category: category,
+                      siteUrl: widget.target.siteUrl,
+                      size: 16,
+                      squareSize: 11,
+                    ),
+                    const SizedBox(width: 8),
+                    Flexible(child: Text(category.name)),
+                  ],
+                ),
+              ),
+          ],
+          onChanged: _saving
+              ? null
+              : (value) => setState(() => _categoryId = value),
+        ),
+      ],
     ],
   );
 
@@ -303,7 +311,9 @@ class _TopicMovePostsDialogState extends State<_TopicMovePostsDialog> {
         autofocus: true,
         enabled: !_saving,
         onChanged: _scheduleSearch,
-        labelText: 'Search by topic title or ID',
+        labelText: _message
+            ? 'Search by message title or ID'
+            : 'Search by topic title or ID',
       ),
       const SizedBox(height: 8),
       Expanded(
@@ -311,11 +321,12 @@ class _TopicMovePostsDialogState extends State<_TopicMovePostsDialog> {
             ? const SizedBox.shrink()
             : _destinations.isEmpty
             ? Center(
-                child: Text(
-                  _search.text.trim().isEmpty
-                      ? 'Search for a destination topic.'
-                      : 'No topics found.',
-                ),
+                child: Text(switch ((_search.text.trim().isEmpty, _message)) {
+                  (true, false) => 'Search for a destination topic.',
+                  (true, true) => 'Search for a destination message.',
+                  (false, false) => 'No topics found.',
+                  (false, true) => 'No messages found.',
+                }),
               )
             : DRadioGroup<TopicMoveDestination>.controlled(
                 groupValue: _destination,
@@ -333,7 +344,10 @@ class _TopicMovePostsDialogState extends State<_TopicMovePostsDialog> {
                         ),
                         value: destination,
                         label: Text(destination.title),
-                        description: Text('Topic #${destination.id}'),
+                        description: Text(
+                          '${_message ? 'Message' : 'Topic'} '
+                          '#${destination.id}',
+                        ),
                       ),
                   ],
                 ),
