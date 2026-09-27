@@ -2128,6 +2128,24 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
     );
   }
 
+  // A panel's reader need not hold the active tab when its retry is pressed,
+  // so the press resolves against the reader's own tab, where the anchor that
+  // chooses the target post also lives. A press that lands after that tab has
+  // moved on answers a failure no longer shown, and asks for nothing.
+  void _retryTopicLoad(
+    ShellController controller, {
+    required String? tabId,
+    required String? siteUrl,
+    required int topicId,
+  }) => controller.readTab(tabId, () {
+    final route = controller.currentContent;
+    if (controller.currentInstance?.url != siteUrl ||
+        route?.topicId != topicId) {
+      return;
+    }
+    unawaited(controller.loadTopic(topicId, route!.slug ?? ''));
+  });
+
   Widget _buildForViewport(
     BuildContext context,
     TopicViewportSnapshot snapshot,
@@ -2186,6 +2204,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
           canPinSidebar: canPinSidebar,
         );
       }
+      final tabId = ForumTabScope.idOf(context);
       return Column(
         children: [
           _TopicViewHeader(
@@ -2199,23 +2218,34 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
           ),
           Expanded(
             child: Center(
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
+              child: SingleChildScrollView(
+                child: DEmpty(
                   children: [
-                    DIcon(
-                      DIcons.triangleExclamation,
-                      size: 40,
-                      color: theme.colorScheme.onSurfaceVariant,
+                    const DEmptyHeader(
+                      children: [
+                        DEmptyMedia(
+                          variant: DEmptyMediaVariant.icon,
+                          child: DIcon(DIcons.triangleExclamation),
+                        ),
+                        DEmptyTitle("Couldn't load this topic."),
+                      ],
                     ),
-                    const SizedBox(height: 12),
-                    Text(
-                      "Couldn't load this topic.",
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
+                    if (widget.route?.topicId case final topicId?)
+                      DEmptyContent(
+                        children: [
+                          DButton(
+                            key: const ValueKey('topic-load-retry'),
+                            label: const Text('Retry'),
+                            variant: DButtonVariant.link,
+                            onPressed: () => _retryTopicLoad(
+                              controller,
+                              tabId: tabId,
+                              siteUrl: snapshot.siteUrl,
+                              topicId: topicId,
+                            ),
+                          ),
+                        ],
                       ),
-                    ),
                   ],
                 ),
               ),
