@@ -189,14 +189,14 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      expect(find.text('01:00 Team availability'), findsOneWidget);
+      expect(find.text('1:00 AM Team availability'), findsOneWidget);
       await tester.tap(find.text('Etc/UTC'));
       await tester.pumpAndSettle();
       await tester.enterText(find.byType(TextField), 'Los Angeles');
       await tester.pumpAndSettle();
       await tester.tap(find.text('America/Los Angeles'));
       await tester.pumpAndSettle();
-      expect(find.text('18:00 Team availability'), findsOneWidget);
+      expect(find.text('6:00 PM Team availability'), findsOneWidget);
       expect(ports.zones.readerTimezone(), 'Etc/UTC');
     },
   );

@@ -84,6 +84,7 @@ String eventDateLabel(
   PluginTimezoneHost zones, {
   String? accountTimezone,
   String? locale,
+  required bool use24HourClock,
 }) {
   final start = eventDate(
     event.startsAt,
@@ -117,12 +118,13 @@ String eventDateLabel(
         ? '${date.format(start)} · All day'
         : '${date.format(start)} – ${date.format(end)} · All day';
   }
-  final time = DateFormat.Hm(locale);
+  String time(DateTime value) =>
+      clockTime(value, use24HourClock: use24HourClock, locale: locale);
   final zone = event.showLocalTime
       ? event.timezone
       : zones.readerTimezone(accountTimezone);
-  return '${date.format(start)}, ${time.format(start)}'
-      '${end == null ? '' : ' → ${sameDay ? '' : '${date.format(end)}, '}${time.format(end)}'}'
+  return '${date.format(start)}, ${time(start)}'
+      '${end == null ? '' : ' → ${sameDay ? '' : '${date.format(end)}, '}${time(end)}'}'
       '${zone == null ? '' : ' ($zone)'}';
 }
 

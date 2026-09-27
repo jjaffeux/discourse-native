@@ -2,7 +2,10 @@ import 'dart:async';
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
+import 'package:timezone/timezone.dart' as tz;
 
+import '../foundation/clock_time.dart';
+import '../foundation/timezone_environment.dart';
 import '../models/user_status.dart';
 import 'shell_scope.dart';
 import 'site_emoji_image.dart';
@@ -157,7 +160,14 @@ class _ExpiringUserStatusState extends State<_ExpiringUserStatus> {
   @override
   void initState() {
     super.initState();
+    TimezoneEnvironment.instance.addListener(_readerZoneChanged);
     _scheduleExpiry();
+  }
+
+  // The expiry is shown in the reader's zone, whose device fallback is only
+  // detected after launch and changes when the device travels.
+  void _readerZoneChanged() {
+    if (widget.status?.endsAt != null) setState(() {});
   }
 
   @override
@@ -237,17 +247,30 @@ class _ExpiringUserStatusState extends State<_ExpiringUserStatus> {
           );
   }
 
+  /// "Until" is read in the account's zone, as on web's `until(ends_at,
+  /// user_option.timezone)` and in the status editor that set it.
   String _tooltip(BuildContext context, UserStatus status) {
-    final endsAt = status.endsAt?.toLocal();
+    final endsAt = status.endsAt;
     if (endsAt == null) return status.description;
-    final localizations = MaterialLocalizations.of(context);
+    final environment = TimezoneEnvironment.instance;
+    final until = tz.TZDateTime.from(
+      endsAt,
+      environment.location(
+        environment.readerTimezone(
+          ShellScope.maybeRead(
+            context,
+          )?.currentUserFor(widget.siteUrl)?.timezone,
+        ),
+      )!,
+    );
     return '${status.description} — until '
-        '${localizations.formatMediumDate(endsAt)} '
-        '${localizations.formatTimeOfDay(TimeOfDay.fromDateTime(endsAt))}';
+        '${MaterialLocalizations.of(context).formatMediumDate(until)} '
+        '${clockTimeLabel(context, until)}';
   }
 
   @override
   void dispose() {
+    TimezoneEnvironment.instance.removeListener(_readerZoneChanged);
     _expiryTimer?.cancel();
     super.dispose();
   }

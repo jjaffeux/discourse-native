@@ -234,10 +234,16 @@ void main() {
         'events': [current],
       };
       await pump(tester);
-      expect(find.textContaining('21:00', findRichText: true), findsOneWidget);
+      expect(
+        find.textContaining('9:00 PM', findRichText: true),
+        findsOneWidget,
+      );
       ports.environment.setDeviceTimezone('Europe/Paris');
       await tester.pumpAndSettle();
-      expect(find.textContaining('23:00', findRichText: true), findsOneWidget);
+      expect(
+        find.textContaining('11:00 PM', findRichText: true),
+        findsOneWidget,
+      );
       ports.controller.setForeground(false);
       current = eventJson(overrides: {'name': 'Updated while away'});
       ports.controller.setForeground(true);

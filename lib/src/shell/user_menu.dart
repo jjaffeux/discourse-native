@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
+import '../foundation/clock_time.dart';
 import '../models/discourse_user.dart';
 import '../models/do_not_disturb.dart';
 import '../models/notification_totals.dart';
@@ -1022,7 +1023,7 @@ class _DoNotDisturbTile extends StatelessWidget {
             ? state.isEternal
                   ? 'On, no expiration'
                   : 'On, until ${localizations.formatMediumDate(until!.toLocal())} '
-                        '${localizations.formatTimeOfDay(TimeOfDay.fromDateTime(until.toLocal()))}'
+                        '${clockTimeLabel(context, until.toLocal())}'
             : 'Off';
         final toastController = DToast.maybeOf(context);
 

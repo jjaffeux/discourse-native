@@ -423,6 +423,7 @@ class _EventCardState extends State<EventCard> {
                         event,
                         zones,
                         accountTimezone: accountTimezone,
+                        use24HourClock: use24HourClockOf(context),
                       ),
                       style: const TextStyle(fontWeight: FontWeight.w500),
                     ),

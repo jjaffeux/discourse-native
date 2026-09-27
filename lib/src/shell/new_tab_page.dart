@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:timezone/timezone.dart' as tz;
 
 import '../foundation/calendar_day.dart';
+import '../foundation/clock_time.dart';
 import '../foundation/timezone_environment.dart';
 import '../models/bookmark.dart';
 import '../models/content_route.dart';
@@ -567,15 +568,20 @@ String reminderDateLabel(
   DateTime date, {
   required tz.Location location,
   required DateTime now,
+  required bool use24HourClock,
 }) {
   final wall = tz.TZDateTime.from(date, location);
   final label =
       upcomingDayName(wall, now: tz.TZDateTime.from(now, location)) ??
       DateFormat.yMMMd().format(wall);
-  return '$label at ${DateFormat.jm().format(wall)}';
+  return '$label at ${clockTime(wall, use24HourClock: use24HourClock)}';
 }
 
-String _reminderDate(DateTime date, {String? accountTimezone}) {
+String _reminderDate(
+  DateTime date, {
+  String? accountTimezone,
+  required bool use24HourClock,
+}) {
   final environment = TimezoneEnvironment.instance;
   return reminderDateLabel(
     date,
@@ -583,6 +589,7 @@ String _reminderDate(DateTime date, {String? accountTimezone}) {
       environment.readerTimezone(accountTimezone),
     )!,
     now: DateTime.now(),
+    use24HourClock: use24HourClock,
   );
 }
 
@@ -860,6 +867,7 @@ class _StartSection extends StatelessWidget {
                               accountTimezone: ShellScope.maybeRead(
                                 context,
                               )?.currentUserFor(siteUrl)?.timezone,
+                              use24HourClock: use24HourClockOf(context),
                             ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,

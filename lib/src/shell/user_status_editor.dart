@@ -4,6 +4,7 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:timezone/timezone.dart' as tz;
 
+import '../foundation/clock_time.dart';
 import '../foundation/timezone_environment.dart';
 import '../models/bookmark_reminder.dart';
 import '../models/user_status.dart';
@@ -382,7 +383,7 @@ class _UserStatusDialogState extends State<_UserStatusDialog> {
                 const SizedBox(height: 8),
                 Text(
                   'Until ${MaterialLocalizations.of(context).formatMediumDate(until)} '
-                  '${MaterialLocalizations.of(context).formatTimeOfDay(TimeOfDay.fromDateTime(until))}',
+                  '${clockTimeLabel(context, until)}',
                   style: theme.textTheme.bodySmall,
                 ),
               ],

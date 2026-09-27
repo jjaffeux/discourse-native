@@ -80,6 +80,7 @@ void main() {
           PostEvent.decode(eventJson())!,
           ports.zones,
           accountTimezone: 'Europe/Paris',
+          use24HourClock: true,
         ),
         contains('Sep 9, 2026, 00:00'),
       );
@@ -89,11 +90,31 @@ void main() {
             eventJson(overrides: {'starts_at': null, 'is_expired': true}),
           )!,
           ports.zones,
+          use24HourClock: true,
         ),
         'This event has ended',
       );
     },
   );
+
+  test('times follow the reader clock rather than always reading 24-hour', () {
+    String label({required bool use24HourClock}) => eventDateLabel(
+      PostEvent.decode(eventJson())!,
+      ports.zones,
+      accountTimezone: 'Europe/Paris',
+      locale: 'en_US',
+      use24HourClock: use24HourClock,
+    );
+
+    expect(
+      label(use24HourClock: false),
+      'Sep 8, 2026, 11:00 PM → Sep 9, 2026, 12:00 AM (Europe/Paris)',
+    );
+    expect(
+      label(use24HourClock: true),
+      'Sep 8, 2026, 23:00 → Sep 9, 2026, 00:00 (Europe/Paris)',
+    );
+  });
 
   test(
     'directory uses server occurrences, orders instants and hides current RSVP data',

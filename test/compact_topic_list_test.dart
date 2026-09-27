@@ -249,7 +249,7 @@ void main() {
         tester.getRect(date).top,
         greaterThanOrEqualTo(tester.getRect(title).bottom),
       );
-      expect(find.text('Wed, Oct 14 · 20:00'), findsOneWidget);
+      expect(find.text('Wed, Oct 14 · 8:00 PM'), findsOneWidget);
       expect(
         tester.getRect(avatar).top,
         greaterThan(tester.getRect(tags).bottom),
@@ -545,7 +545,7 @@ void main() {
         findsOneWidget,
       );
       expect(find.text('joffrey'), findsOneWidget);
-      expect(find.textContaining(RegExp(r'^.* · 20:00$')), findsOneWidget);
+      expect(find.textContaining(RegExp(r'^.* · 8:00 PM$')), findsOneWidget);
       await tester.tap(find.byKey(const ValueKey('event-schedule-trigger')));
       await tester.pumpAndSettle();
       expect(find.text('Event schedule').hitTestable(), findsOneWidget);

@@ -1,3 +1,4 @@
+import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -128,6 +129,7 @@ class EventTopicTitle extends StatelessWidget {
           ? event.timezone
           : controller.zones.readerTimezone(controller.accountTimezone(site)),
       locale: Localizations.localeOf(context).toString(),
+      use24HourClock: use24HourClockOf(context),
     );
   }
 }
@@ -139,6 +141,7 @@ class _EventSchedule {
     required this.allDay,
     required this.zone,
     required this.locale,
+    required this.use24HourClock,
   });
 
   final DateTime start;
@@ -146,11 +149,13 @@ class _EventSchedule {
   final bool allDay;
   final String? zone;
   final String locale;
+  final bool use24HourClock;
 
   // A list row uses the same description for its tooltip and semantics, and
   // the same formatters for both endpoints. Resolve each once per schedule.
   late final _fullDateFormat = DateFormat.yMMMMEEEEd(locale);
-  late final _timeFormat = DateFormat.Hm(locale);
+  String _time(DateTime value) =>
+      clockTime(value, use24HourClock: use24HourClock, locale: locale);
 
   bool get spansDays => end != null && _day(start) != _day(end!);
   DateTime _day(DateTime date) => DateTime.utc(date.year, date.month, date.day);
@@ -170,12 +175,12 @@ class _EventSchedule {
         ? DateFormat.MMMEd(locale)
         : DateFormat.E(locale);
     return '${date.format(start)} · '
-        '${allDay ? 'All day' : _timeFormat.format(start)}';
+        '${allDay ? 'All day' : _time(start)}';
   }
 
   String fullDate(DateTime date) =>
       '${_fullDateFormat.format(date)}'
-      '${allDay ? ' · All day' : ' · ${_timeFormat.format(date)}'}';
+      '${allDay ? ' · All day' : ' · ${_time(date)}'}';
 
   late final String description =
       '${fullDate(start)}'
