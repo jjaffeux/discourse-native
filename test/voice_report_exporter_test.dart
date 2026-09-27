@@ -135,12 +135,92 @@ void main() {
 
     expect(outcome, VoiceReportExportOutcome.shared);
     expect(exporter.actionLabel, 'Share report');
-    expect(environment.sharedFilename, _expectedFilename);
     expect(environment.sharedContents, '{"safe":true}\n');
     expect(environment.sharedOrigin, origin);
     expect(environment.sharedFileExisted, isTrue);
-    expect(environment.sharedFilePath, isNotNull);
-    expect(await File(environment.sharedFilePath!).exists(), isFalse);
+    if (!Platform.isWindows) {
+      expect(environment.sharedDirectoryMode! & 0x1ff, 0x1c0); // 0700
+      expect(environment.sharedFileMode! & 0x1ff, 0x180); // 0600
+    }
+    expect(await directory.list().toList(), isEmpty);
+  });
+
+  // share_plus ignores `fileNameOverrides` for a file that has a path, so
+  // the staged basename is the only name recipients ever see.
+  test('the shared file itself carries the report name', () async {
+    final environment = _FakeExportEnvironment(
+      directory: directory,
+      shareOutcome: VoiceReportExportOutcome.shared,
+    );
+    final exporter = NativeVoiceReportExporter(
+      platform: TargetPlatform.iOS,
+      environment: environment,
+      clock: _fixedClock,
+    );
+
+    await exporter.export('{"safe":true}\n');
+
+    final shared = File(environment.sharedFilePath!);
+    expect(shared.uri.pathSegments.last, _expectedFilename);
+    expect(shared.parent.parent.path, directory.path);
+  });
+
+  test('a dismissed share leaves no staged report behind', () async {
+    final environment = _FakeExportEnvironment(directory: directory);
+    final exporter = NativeVoiceReportExporter(
+      platform: TargetPlatform.iOS,
+      environment: environment,
+      clock: _fixedClock,
+    );
+
+    final outcome = await exporter.export('{"safe":true}\n');
+
+    expect(outcome, VoiceReportExportOutcome.cancelled);
+    expect(environment.sharedFileExisted, isTrue);
+    expect(await directory.list().toList(), isEmpty);
+  });
+
+  test('a failed share leaves no staged report behind', () async {
+    final environment = _FakeExportEnvironment(
+      directory: directory,
+      shareError: StateError('share sheet unavailable'),
+    );
+    final exporter = NativeVoiceReportExporter(
+      platform: TargetPlatform.iOS,
+      environment: environment,
+      clock: _fixedClock,
+    );
+
+    await expectLater(
+      exporter.export('{"safe":true}\n'),
+      throwsA(same(environment.shareError)),
+    );
+
+    expect(environment.sharedFileExisted, isTrue);
+    expect(await directory.list().toList(), isEmpty);
+  });
+
+  test('a failed generator never reaches the share sheet', () async {
+    final environment = _FakeExportEnvironment(
+      directory: directory,
+      shareOutcome: VoiceReportExportOutcome.shared,
+    );
+    final exporter = NativeVoiceReportExporter(
+      platform: TargetPlatform.iOS,
+      environment: environment,
+      clock: _fixedClock,
+    );
+
+    await expectLater(
+      exporter.exportGenerated((output) {
+        output.write('partial report');
+        throw StateError('capture failed');
+      }),
+      throwsA(isA<StateError>()),
+    );
+
+    expect(environment.sharedFilePath, isNull);
+    expect(await directory.list().toList(), isEmpty);
   });
 
   test('overlapping shares own distinct temporary files', () async {
@@ -162,6 +242,7 @@ void main() {
 
     final firstFile = environment.files['first report']!;
     final secondFile = environment.files['second report']!;
+    expect(firstFile.uri.pathSegments.last, secondFile.uri.pathSegments.last);
     expect(firstFile.path, isNot(secondFile.path));
     expect(await firstFile.exists(), isTrue);
     expect(await secondFile.exists(), isTrue);
@@ -196,16 +277,19 @@ final class _FakeExportEnvironment implements VoiceReportExportEnvironment {
     required this.directory,
     this.savePath,
     this.shareOutcome = VoiceReportExportOutcome.cancelled,
+    this.shareError,
   });
 
   final Directory directory;
   final String? savePath;
   final VoiceReportExportOutcome shareOutcome;
+  final Object? shareError;
 
   String? suggestedName;
-  String? sharedFilename;
   String? sharedContents;
   String? sharedFilePath;
+  int? sharedFileMode;
+  int? sharedDirectoryMode;
   Rect? sharedOrigin;
   bool sharedFileExisted = false;
 
@@ -218,14 +302,15 @@ final class _FakeExportEnvironment implements VoiceReportExportEnvironment {
   @override
   Future<VoiceReportExportOutcome> shareReport(
     File file, {
-    required String filename,
     Rect? sharePositionOrigin,
   }) async {
-    sharedFilename = filename;
     sharedFilePath = file.path;
     sharedOrigin = sharePositionOrigin;
     sharedFileExisted = await file.exists();
     sharedContents = await file.readAsString();
+    sharedFileMode = (await file.stat()).mode;
+    sharedDirectoryMode = (await file.parent.stat()).mode;
+    if (shareError case final error?) throw error;
     return shareOutcome;
   }
 
@@ -247,7 +332,6 @@ final class _GatedShareEnvironment implements VoiceReportExportEnvironment {
   @override
   Future<VoiceReportExportOutcome> shareReport(
     File file, {
-    required String filename,
     Rect? sharePositionOrigin,
   }) async {
     final report = await file.readAsString();
