@@ -212,7 +212,19 @@ final class ChatShellService
     final siteUrl = _host.instances[index].url;
     await chat.loadChannels(siteUrl);
     if (superseded()) return true;
-    if (chat.channel(siteUrl, link.route.channelId) == null) return false;
+    if (chat.channel(siteUrl, link.route.channelId) == null) {
+      // The snapshot lists only followed channels and the most recent direct
+      // messages, so an invitation or an older conversation is fetched on its
+      // own; only a channel the site refuses falls back to the browser.
+      final ChatChannel? resolved;
+      try {
+        resolved = await chat.ensureChannel(siteUrl, link.route.channelId);
+      } catch (_) {
+        return superseded();
+      }
+      if (superseded()) return true;
+      if (resolved == null) return false;
+    }
     if (link.route.threadId case final threadId?) {
       final detail = await chat.refreshThreadDetail(
         siteUrl,
