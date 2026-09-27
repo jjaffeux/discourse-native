@@ -53,6 +53,50 @@ void main() {
     },
   );
 
+  test(
+    'a page shifted by a newer invite keeps the held row and raw offset',
+    () async {
+      transport.onGet = (_) =>
+          invitePage([inviteRow(1), inviteRow(2)], pending: 5);
+      await controller.load();
+      final held = controller.invites.last;
+      transport.onGet = (_) =>
+          invitePage([inviteRow(2), inviteRow(3)], pending: 6);
+      await controller.load(more: true);
+      expect(controller.invites.map((invite) => invite.id), [1, 2, 3]);
+      expect(controller.invites[1], same(held));
+      expect(controller.hasMore, isTrue);
+      transport.onGet = (_) => invitePage([inviteRow(4)], pending: 6);
+      await controller.load(more: true);
+      expect(controller.invites.map((invite) => invite.id), [1, 2, 3, 4]);
+      expect(
+        transport.requests.map(
+          (request) => Uri.parse(request.path).queryParameters['offset'],
+        ),
+        ['0', '2', '4'],
+      );
+    },
+  );
+
+  test('keeps every user who redeemed a shared link across pages', () async {
+    Map<String, dynamic> redemption(int user) => {
+      'id': 1,
+      'redeemed_at': '2026-09-0${user}T12:00:00.000Z',
+      'user': {'id': user, 'username': 'user$user'},
+    };
+    transport.onGet = (_) =>
+        invitePage([redemption(3), redemption(2)], redeemed: 3);
+    await controller.load(filter: InviteFilter.redeemed);
+    transport.onGet = (_) =>
+        invitePage([redemption(2), redemption(1)], redeemed: 4);
+    await controller.load(more: true);
+    expect(controller.invites.map((invite) => (invite.id, invite.userId)), [
+      (1, 3),
+      (1, 2),
+      (1, 1),
+    ]);
+  });
+
   test('a delayed filter response cannot replace a newer search', () async {
     final old = Completer<Map<String, dynamic>>();
     final started = Completer<void>();
