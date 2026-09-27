@@ -2,9 +2,13 @@ import 'dart:async';
 import 'dart:collection';
 
 import 'package:discourse_native/src/data/account_session_coordinator.dart';
+import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
+import 'package:discourse_native/src/models/sidebar.dart';
 import 'package:discourse_native/src/models/sidebar_tag.dart';
+import 'package:discourse_native/src/models/tag_sidebar.dart';
+import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -300,6 +304,162 @@ void main() {
       expect(controller.topicListFilterTagsFor(_siteUrl), [_top, _anonymous]);
     },
   );
+
+  group('a tag list reached by its URL slug filters by the tag name', () {
+    // Core derives a tag's slug from its name (`Slug.for`), using `<id>-tag`
+    // when that comes out empty, but resolves `tags[]`, `tag:` and a
+    // `/tags/c/…/<tag>` segment by name. A slug that differs from the name
+    // only in case still lists the tag, so reset-new is what it breaks.
+    for (final tag in const [
+      SidebarTag(id: 7, name: 'café', slug: 'cafe'),
+      SidebarTag(id: 7, name: '中文', slug: '7-tag'),
+      SidebarTag(id: 7, name: 'iOS', slug: 'ios'),
+    ]) {
+      test('${tag.name} keeps its topics in every other list', () async {
+        final api = _TagServerApi(
+          serverTags: [tag],
+          reader: _readerWith([tag]),
+        );
+        final controller = await _loadController(api, user: _readerWith([tag]));
+        await _open(controller, buildTagDestination(tag)!);
+        expect(
+          controller.topicListContent!.feedPath,
+          '/tag/${tag.slug}/7.json',
+        );
+        expect(controller.currentFeed!.topicIds, [1]);
+
+        await controller.selectTopicListMode(TopicListMode.newActivity);
+        expect(_query(controller)['tags[]'], [tag.name]);
+        expect(controller.currentFeed!.topicIds, [1]);
+        expect(controller.canDismissNewTopics, isTrue);
+        expect(await controller.dismissNewTopics(), isNull);
+        expect(api.dismissNewCalls.single.tagName, tag.name);
+
+        await controller.selectTopicListMode(TopicListMode.topWeekly);
+        expect(_query(controller)['tags[]'], [tag.name]);
+        expect(controller.currentFeed!.topicIds, [1]);
+      });
+
+      test(
+        '${tag.name} narrows the Filter box and a category by name',
+        () async {
+          final api = _TagServerApi(
+            serverTags: [tag],
+            reader: _readerWith([tag]),
+          );
+          final controller = await _loadController(
+            api,
+            user: _readerWith([tag]),
+          );
+          await _open(controller, buildTagDestination(tag)!);
+
+          await controller.submitTopicFilter('status:open');
+          expect(
+            Uri.parse(api.feedPaths.last).queryParameters['q'],
+            'status:open tag:${tag.name}',
+          );
+          expect(controller.currentFeed!.topicIds, [1]);
+
+          await _open(controller, buildTagDestination(tag)!);
+          controller.selectTopicListCategory(_category);
+          await controller.loadFeed(controller.topicListContent!.id);
+          expect(Uri.parse(api.feedPaths.last).pathSegments, [
+            'tags',
+            'c',
+            'support',
+            '5',
+            '${tag.name}.json',
+          ]);
+          expect(controller.currentFeed!.topicIds, [1]);
+        },
+      );
+    }
+
+    test(
+      'a tag outside the sidebar takes its name from its own list',
+      () async {
+        const tag = TopicTag(id: 7, name: '中文', slug: '7-tag');
+        final api = _TagServerApi(
+          serverTags: const [SidebarTag(id: 7, name: '中文', slug: '7-tag')],
+          reader: _readerWith(const []),
+        );
+        final controller = await _loadController(
+          api,
+          user: _readerWith(const []),
+        );
+        await _open(controller, buildTopicTagDestination(tag)!);
+        expect(controller.currentFeed!.topicIds, [1]);
+
+        await controller.selectTopicListMode(TopicListMode.newActivity);
+        expect(_query(controller)['tags[]'], ['中文']);
+        expect(controller.currentFeed!.topicIds, [1]);
+      },
+    );
+
+    test('an unknown tag keeps its slug and offers no dismissal', () async {
+      const tag = TopicTag(id: 7, name: '中文', slug: '7-tag');
+      final api = _TagServerApi(
+        serverTags: const [SidebarTag(id: 7, name: '中文', slug: '7-tag')],
+        reader: _readerWith(const []),
+        listed: const [],
+      );
+      final controller = await _loadController(
+        api,
+        user: _readerWith(const []),
+      );
+      await _open(controller, buildTopicTagDestination(tag)!);
+
+      await controller.selectTopicListMode(TopicListMode.newActivity);
+      expect(_query(controller)['tags[]'], ['7-tag']);
+      expect(controller.canDismissNewTopics, isFalse);
+      expect(await controller.dismissNewTopics(), isNull);
+      expect(api.dismissNewCalls, isEmpty);
+    });
+
+    // reset-new matches `tag_name` case-sensitively and widens a name that
+    // matches nothing to every new topic on the forum, while the list itself
+    // matched `tags[]` case-insensitively.
+    test('dismissal sends the exact name the listed topics carry', () async {
+      const tag = SidebarTag(id: 7, name: 'iOS', slug: 'ios');
+      final api = _TagServerApi(
+        serverTags: const [tag],
+        reader: _readerWith([]),
+      );
+      final controller = await _loadController(api, user: _readerWith([]));
+      await _open(controller, controller.currentInstance!.defaultDestination);
+      await controller.selectTopicListMode(TopicListMode.newActivity);
+      controller.selectTopicListTags(const ['ios']);
+      await controller.loadFeed(controller.topicListContent!.id);
+      expect(controller.currentFeed!.topicIds, [1]);
+
+      expect(controller.canDismissNewTopics, isTrue);
+      expect(await controller.dismissNewTopics(), isNull);
+      expect(api.dismissNewCalls.single.tagName, 'iOS');
+    });
+
+    test(
+      'dismissal is not offered when no listed topic carries the tag',
+      () async {
+        const tag = SidebarTag(id: 7, name: 'iOS', slug: 'ios');
+        final api = _TagServerApi(
+          serverTags: const [tag],
+          reader: _readerWith(const [tag]),
+          topicsCarryTags: false,
+        );
+        final controller = await _loadController(
+          api,
+          user: _readerWith(const [tag]),
+        );
+        await _open(controller, buildTagDestination(tag)!);
+        await controller.selectTopicListMode(TopicListMode.newActivity);
+        expect(controller.currentFeed!.topicIds, [1]);
+
+        expect(controller.canDismissNewTopics, isFalse);
+        expect(await controller.dismissNewTopics(), isNull);
+        expect(api.dismissNewCalls, isEmpty);
+      },
+    );
+  });
 }
 
 Future<ShellController> _loadController(
@@ -385,5 +545,95 @@ final class _TagApi extends FakeDiscourseApi {
       return response;
     }
     return super.tags(siteUrl: siteUrl, apiKey: apiKey, clientId: clientId);
+  }
+}
+
+const _category = TopicCategory(
+  id: 5,
+  name: 'Support',
+  slug: 'support',
+  color: '112233',
+);
+
+DiscourseUser _readerWith(List<SidebarTag> tags) =>
+    DiscourseUser(id: 7, username: 'sam', sidebarTags: tags);
+
+Future<void> _open(
+  ShellController controller,
+  SidebarDestination destination,
+) async {
+  controller.selectDestination(destination);
+  await controller.loadFeed(controller.topicListContent!.id);
+}
+
+Map<String, List<String>> _query(ShellController controller) =>
+    Uri.parse(controller.topicListContent!.feedPath!).queryParametersAll;
+
+/// Lists topics the way core's TopicQuery does: `/tag/<slug>/<id>` by id, and
+/// every other tag filter by name, case-insensitively (`Tag.where_name`), with
+/// `match_all_tags` emptying a list whose names do not all resolve.
+final class _TagServerApi extends _TagApi {
+  _TagServerApi({
+    required this.serverTags,
+    required super.reader,
+    List<Topic>? listed,
+    this.topicsCarryTags = true,
+  }) : listed =
+           listed ??
+           [
+             Topic(
+               id: 1,
+               title: 'Tagged',
+               slug: 'tagged',
+               tags: [
+                 for (final tag in serverTags)
+                   TopicTag(id: tag.id, name: tag.name, slug: tag.slug),
+               ],
+             ),
+           ];
+
+  final List<SidebarTag> serverTags;
+  final List<Topic> listed;
+  final bool topicsCarryTags;
+
+  @override
+  Future<TopicList> topicList({
+    required String siteUrl,
+    required String path,
+    String? apiKey,
+    String? clientId,
+  }) async {
+    feedPaths.add(path);
+    final ids = _tagIds(Uri.parse(path));
+    return TopicList(
+      topics: [
+        for (final topic in listed)
+          if (ids != null &&
+              ids.every((id) => topic.tags.any((tag) => tag.id == id)))
+            topicsCarryTags ? topic : topic.copyWith(tags: const []),
+      ],
+    );
+  }
+
+  List<int>? _tagIds(Uri uri) {
+    final segments = uri.pathSegments;
+    String bare(String segment) =>
+        segment.substring(0, segment.length - '.json'.length);
+    if (segments.length == 3 && segments.first == 'tag') {
+      return [int.parse(bare(segments.last))];
+    }
+    final names = [
+      ...?uri.queryParametersAll['tags[]'],
+      for (final term in (uri.queryParameters['q'] ?? '').split(' '))
+        if (term.startsWith('tag:')) ...term.substring(4).split('+'),
+      if (segments.first == 'tags' || segments.first == 'tag')
+        bare(segments.last),
+    ];
+    final folded = {for (final name in names) name.toLowerCase()};
+    final matched = [
+      for (final tag in serverTags)
+        if (folded.contains(tag.name.toLowerCase())) tag.id,
+    ];
+    return matched.length == folded.length ? matched : null;
   }
 }
