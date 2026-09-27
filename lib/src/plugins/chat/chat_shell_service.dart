@@ -186,17 +186,39 @@ final class ChatShellService
     if (link == null) return false;
     final generation = ++_urlOpenGeneration;
     if (index < 0 || !_host.instances[index].isConnected) return false;
+    final newTab =
+        origin == PluginLinkOrigin.newTab ||
+        origin == PluginLinkOrigin.mainPanelNewTab ||
+        origin == PluginLinkOrigin.secondaryPanelNewTab;
+
+    // Core navigation never advances the generation, so a route or site the
+    // reader moved to while the access check was in flight is detected by
+    // where the shell now stands. A desktop background tab leaves the current
+    // route alone, but selecting this link's site would still pull the reader
+    // back. Standing down counts as handled: a browser fallback would be as
+    // unwanted as the stale route.
+    final sourceSiteUrl = _host.currentInstance?.url;
+    final sourceRouteId = _host.currentContent?.id;
+    bool superseded() {
+      if (_host.isDisposed ||
+          generation != _urlOpenGeneration ||
+          _host.currentInstance?.url != sourceSiteUrl) {
+        return true;
+      }
+      final backgroundTab = newTab && desktopPanelsEnabled;
+      return !backgroundTab && _host.currentContent?.id != sourceRouteId;
+    }
 
     final siteUrl = _host.instances[index].url;
     await chat.loadChannels(siteUrl);
-    if (_host.isDisposed || generation != _urlOpenGeneration) return true;
+    if (superseded()) return true;
     if (chat.channel(siteUrl, link.route.channelId) == null) return false;
     if (link.route.threadId case final threadId?) {
       final detail = await chat.refreshThreadDetail(
         siteUrl,
         ChatThreadTarget(channelId: link.route.channelId, threadId: threadId),
       );
-      if (_host.isDisposed || generation != _urlOpenGeneration) return true;
+      if (superseded()) return true;
       if (detail == null) return false;
     }
 
@@ -213,10 +235,7 @@ final class ChatShellService
       secondaryPanel:
           origin == PluginLinkOrigin.secondaryPanel ||
           origin == PluginLinkOrigin.secondaryPanelNewTab,
-      newTab:
-          origin == PluginLinkOrigin.newTab ||
-          origin == PluginLinkOrigin.mainPanelNewTab ||
-          origin == PluginLinkOrigin.secondaryPanelNewTab,
+      newTab: newTab,
     );
   }
 

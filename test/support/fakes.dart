@@ -655,6 +655,7 @@ class FakeDiscourseApi
     this.chatThreadPagesByOffset = const {},
     this.chatChannelThreadPagesByKey = const {},
     this.chatThreadsByKey = const {},
+    this.chatThreadGate,
     this.createdChatThreadsByKey = const {},
     this.chatMessageGate,
     this.chatReadFailure,
@@ -1256,6 +1257,7 @@ class FakeDiscourseApi
   final Map<int, ChatThreadPage> chatThreadPagesByOffset;
   final Map<String, ChatThreadPage> chatChannelThreadPagesByKey;
   final Map<String, ChatThread> chatThreadsByKey;
+  final Completer<void>? chatThreadGate;
   final Map<String, ChatThread> createdChatThreadsByKey;
 
   static String chatThreadKey(int channelId, int threadId) =>
@@ -3324,6 +3326,7 @@ class FakeDiscourseApi
     String? clientId,
   }) async {
     chatThreadsRequested.add((channelId: channelId, threadId: threadId));
+    if (chatThreadGate != null) await chatThreadGate!.future;
     final found = chatThreadsByKey[chatThreadKey(channelId, threadId)];
     if (found == null) {
       throw SiteLookupException(SiteLookupFailure.unreachable, siteUrl);
