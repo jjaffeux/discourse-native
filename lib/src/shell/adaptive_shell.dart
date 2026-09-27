@@ -18,6 +18,7 @@ import '../theme/app_theme.dart';
 import '../theme/d_icons.dart';
 import 'aggregate_view.dart';
 import 'bookmark_ui.dart';
+import 'composer_panel.dart';
 import 'composer_presentation.dart';
 import 'desktop_navigation.dart';
 import 'desktop_panels.dart';
@@ -253,6 +254,7 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
       return _openTab(controller);
     }
     if (event.logicalKey == LogicalKeyboardKey.keyW) {
+      if (_focusOwnsCloseShortcut) return false;
       return _closeCurrentTab(controller);
     }
     if (event.logicalKey == LogicalKeyboardKey.arrowLeft) {
@@ -434,6 +436,23 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
   // Navigator's scope. Editable controls still own their keyboard input.
   bool get _formControlHasFocus =>
       !navigationShortcutsAllowed(context, matchFocusRoute: false);
+
+  // The composer binds the close chord to closing itself. Handlers here run
+  // before the focus tree, not instead of it, so claiming the chord as well
+  // would also close the tab under the composer, or quit the app when that
+  // tab is the last one.
+  bool get _focusOwnsCloseShortcut {
+    final focusContext = FocusManager.instance.primaryFocus?.context;
+    if (focusContext == null) return false;
+    // A detached focus cannot be searched (see navigationShortcutsAllowed),
+    // and closing the tab, or the app, on a guess is the worse failure.
+    if (!focusContext.mounted ||
+        (focusContext is Element &&
+            focusContext.renderObject?.attached != true)) {
+      return true;
+    }
+    return focusContext.findAncestorWidgetOfExactType<ComposerPanel>() != null;
+  }
 
   @override
   Widget build(BuildContext context) {
