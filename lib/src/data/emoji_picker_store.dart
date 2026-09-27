@@ -6,6 +6,7 @@ import '../models/site_emoji.dart';
 import '../plugin_api/emoji_preferences.dart';
 import '../plugin_api/emoji_usage.dart';
 import 'serial_operation_queue.dart';
+import 'site_preference_keys.dart';
 import 'store_diagnostics.dart';
 
 abstract interface class EmojiPickerPersistence {
@@ -21,7 +22,10 @@ final class SharedPreferencesEmojiPickerPersistence
     implements EmojiPickerPersistence {
   const SharedPreferencesEmojiPickerPersistence();
 
-  static const String _keyPrefix = 'discourse_native.emoji_picker';
+  static const keys = SitePreferenceKey(
+    'discourse_native.emoji_picker',
+    spelling: _canonicalSiteUrl,
+  );
 
   @override
   Future<String?> readPreferences({required String siteUrl}) async =>
@@ -34,8 +38,7 @@ final class SharedPreferencesEmojiPickerPersistence
   }) async =>
       (await SharedPreferences.getInstance()).setString(_key(siteUrl), encoded);
 
-  static String _key(String siteUrl) =>
-      '$_keyPrefix.${Uri.encodeComponent(siteUrl)}';
+  static String _key(String siteUrl) => keys.of(siteUrl);
 }
 
 final class EmojiPickerStore implements EmojiPreferenceStore {
@@ -171,6 +174,15 @@ final class EmojiPickerStore implements EmojiPreferenceStore {
   }
 
   final Set<String> _unreadable = {};
+
+  /// Drops what was read for forums that left the rail for good. Their stored
+  /// preferences go with the rest of theirs; see [forgetSitePreferences].
+  void forgetSites(ForgottenSites sites) {
+    bool forgotten(String site) =>
+        sites.includes(site, SharedPreferencesEmojiPickerPersistence.keys);
+    _preferences.removeWhere((site, _) => forgotten(site));
+    _unreadable.removeWhere(forgotten);
+  }
 
   Future<_EmojiPickerPreferences> _read(String siteUrl) async {
     try {

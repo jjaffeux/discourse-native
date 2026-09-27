@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:discourse_native/src/data/site_preference_keys.dart';
 import 'package:discourse_native/src/data/topic_sidebar_store.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -64,6 +65,44 @@ void main() {
     persistence.finishWrite.complete();
     await write;
   });
+
+  test('a forgotten forum keeps nothing a read in flight answers', () async {
+    const meta = 'https://meta.discourse.org';
+    const team = 'https://team.discourse.org';
+    final persistence = _HeldReadPersistence()..values[meta] = true;
+    final store = TopicSidebarStore(persistence: persistence);
+    await store.write(siteUrl: team, collapsed: true);
+    persistence.holdReads = true;
+    final reading = store.ensure(siteUrl: meta);
+
+    store.forgetSites(ForgottenSites.removed(meta, keeping: const [team]));
+    persistence.releaseReads.complete();
+
+    expect(await reading, isTrue);
+    expect(store.collapsedFor(meta), isNull);
+    expect(store.collapsedFor(team), isTrue);
+  });
+}
+
+final class _HeldReadPersistence implements TopicSidebarPersistence {
+  final values = <String, bool>{};
+  final releaseReads = Completer<void>();
+  bool holdReads = false;
+
+  @override
+  Future<bool?> readCollapsed({required String siteUrl}) async {
+    if (holdReads && !releaseReads.isCompleted) await releaseReads.future;
+    return values[siteUrl];
+  }
+
+  @override
+  Future<bool> writeCollapsed({
+    required String siteUrl,
+    required bool collapsed,
+  }) async {
+    values[siteUrl] = collapsed;
+    return true;
+  }
 }
 
 final class _GatedSidebarPersistence implements TopicSidebarPersistence {

@@ -9,6 +9,7 @@ import '../models/forum_theme_preferences.dart';
 import '../models/shared_appearance.dart';
 import 'scalar_preference_repository.dart';
 import 'serial_operation_queue.dart';
+import 'site_preference_keys.dart';
 import 'store_diagnostics.dart';
 import 'stored_forum_base.dart';
 
@@ -21,13 +22,17 @@ final class ForumSettingsStore {
   final ScalarPreferencePersistence<String> _persistence;
   static final _operations = SerialOperationQueue();
 
+  static const themeModeKeys = SitePreferenceKey(
+    'discourse_native.forum_theme_mode',
+  );
+
+  static const themesKeys = SitePreferenceKey('discourse_native.forum_themes');
+
   static String themeModeKey(String siteUrl) =>
-      'discourse_native.forum_theme_mode.'
-      '${Uri.encodeComponent(requireStoredForumBase(siteUrl))}';
+      themeModeKeys.of(requireStoredForumBase(siteUrl));
 
   static String themesKey(String siteUrl) =>
-      'discourse_native.forum_themes.'
-      '${Uri.encodeComponent(requireStoredForumBase(siteUrl))}';
+      themesKeys.of(requireStoredForumBase(siteUrl));
 
   static const appearanceKey = 'discourse_native.appearance';
 

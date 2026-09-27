@@ -2,6 +2,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../plugin_api/topic_recommendation_source.dart';
 import 'serial_operation_queue.dart';
+import 'site_preference_keys.dart';
 import 'store_diagnostics.dart';
 
 abstract interface class TopicRecommendationsTabPersistence {
@@ -17,7 +18,9 @@ final class SharedPreferencesTopicRecommendationsTabPersistence
     implements TopicRecommendationsTabPersistence {
   const SharedPreferencesTopicRecommendationsTabPersistence();
 
-  static const String _keyPrefix = 'discourse_native.topic_recommendations_tab';
+  static const keys = SitePreferenceKey(
+    'discourse_native.topic_recommendations_tab',
+  );
 
   @override
   Future<String?> readStoredSourceId({required String siteUrl}) async =>
@@ -32,8 +35,7 @@ final class SharedPreferencesTopicRecommendationsTabPersistence
     sourceId.value,
   );
 
-  static String _key(String siteUrl) =>
-      '$_keyPrefix.${Uri.encodeComponent(siteUrl)}';
+  static String _key(String siteUrl) => keys.of(siteUrl);
 }
 
 final class TopicRecommendationsTabStore {

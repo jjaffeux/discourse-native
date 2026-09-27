@@ -10,16 +10,31 @@ final class PreferenceSnapshots<K, V extends Object> {
   Future<V> ensure(K key, Future<V> Function() read) {
     final held = _values[key];
     if (held != null) return Future.value(held);
-    return _requests.putIfAbsent(key, () {
-      return read()
-          .then((value) {
-            // An interaction while storage was being read takes precedence over
-            // that older snapshot, including while its write is still pending.
-            return _values.putIfAbsent(key, () => value);
-          })
-          .whenComplete(() {
+    final pending = _requests[key];
+    if (pending != null) return pending;
+    late final Future<V> request;
+    request = read()
+        .then((value) {
+          // Forgotten while storage was being read: the caller still gets the
+          // value, but nothing later peeks it.
+          if (!identical(_requests[key], request)) return value;
+          // An interaction while storage was being read takes precedence over
+          // that older snapshot, including while its write is still pending.
+          return _values.putIfAbsent(key, () => value);
+        })
+        .whenComplete(() {
+          if (identical(_requests[key], request)) {
             final _ = _requests.remove(key);
-          });
-    });
+          }
+        });
+    _requests[key] = request;
+    return request;
+  }
+
+  /// Drops every value [test] accepts, and keeps a read of one still in
+  /// flight from holding what it read.
+  void forgetWhere(bool Function(K key) test) {
+    _values.removeWhere((key, _) => test(key));
+    _requests.removeWhere((key, _) => test(key));
   }
 }

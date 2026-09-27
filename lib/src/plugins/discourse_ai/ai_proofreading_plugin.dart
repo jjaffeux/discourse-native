@@ -4,6 +4,7 @@ import 'package:flutter/widgets.dart';
 
 import 'ai_proofreading_controller.dart';
 import 'ai_proofreading_data.dart';
+import 'ai_proofreading_preferences.dart';
 import 'discourse_ai_services.dart';
 
 final class AiProofreadingPlugin
@@ -11,7 +12,8 @@ final class AiProofreadingPlugin
         SitePlugin,
         SiteSettingsPlugin<DiscourseAiSettings>,
         CurrentUserPlugin<DiscourseAiCurrentUser>,
-        ComposerOptionsPlugin {
+        ComposerOptionsPlugin,
+        SitePreferencesPlugin {
   const AiProofreadingPlugin();
 
   @override
@@ -36,6 +38,12 @@ final class AiProofreadingPlugin
     Map<String, dynamic> json,
     String siteUrl,
   ) => DiscourseAiCurrentUser.fromWire(json);
+
+  @override
+  List<SitePreferenceKey> get sitePreferenceKeys => const [
+    SharedPreferencesAiProofreadingPreferencePersistence.keys,
+    SharedPreferencesAiProofreadingPreferencePersistence.siteWideKeys,
+  ];
 
   @override
   List<Widget> composerOptions(

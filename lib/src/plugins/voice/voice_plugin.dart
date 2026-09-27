@@ -10,6 +10,7 @@ import 'voice_join.dart';
 import 'voice_models.dart';
 import 'voice_notices.dart';
 import 'voice_notifications.dart';
+import 'voice_preferences.dart';
 import 'voice_room_view.dart';
 import 'voice_services.dart';
 import 'voice_settings.dart';
@@ -30,7 +31,8 @@ final class VoicePlugin
         HashtagKindPlugin,
         UserCardRecordPlugin<VoiceUserCardData>,
         UserCardActionPlugin,
-        PluginSiteFeature {
+        PluginSiteFeature,
+        SitePreferencesPlugin {
   const VoicePlugin();
 
   @override
@@ -73,6 +75,12 @@ final class VoicePlugin
   @override
   bool siteFeatureEnabled(PluginData siteSettings) =>
       siteSettings.voiceSettings.enabled;
+
+  @override
+  List<SitePreferenceKey> get sitePreferenceKeys => const [
+    SharedPreferencesVoicePreferences.cameraEnabledKeys,
+    SharedPreferencesVoicePreferences.volumeKeys,
+  ];
 
   @override
   PluginDataKey<VoiceUserCardData> get record => voiceUserCardKey;

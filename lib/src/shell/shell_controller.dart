@@ -16,6 +16,7 @@ import '../data/app_settings_store.dart';
 import '../data/application_cooking.dart';
 import '../data/authenticator.dart';
 import '../data/badges_api.dart';
+import '../data/bookmark_reminder_store.dart';
 import '../data/discourse_api_contracts.dart';
 import '../data/discover_sites.dart';
 import '../data/draft_store.dart';
@@ -31,13 +32,16 @@ import '../data/sidebar_section_store.dart';
 import '../data/site_image_repository.dart';
 import '../data/site_lifecycle.dart';
 import '../data/site_message_bus_bootstrap.dart';
+import '../data/site_preference_keys.dart';
 import '../data/site_tracker.dart';
 import '../data/site_video_thumbnail_repository.dart';
 import '../data/store.dart';
+import '../data/topic_recommendations_tab_store.dart';
 import '../data/topic_sidebar_store.dart';
 import '../data/update_store.dart';
 import '../data/updater.dart';
 import '../data/user_directory_api.dart';
+import '../data/user_directory_column_width_store.dart';
 import '../diagnostics/diagnostics_controller.dart';
 import '../diagnostics/surface_opening_trace.dart';
 import '../foundation/bounded_lru_cache.dart';
@@ -161,6 +165,19 @@ const _shellEntityStorePolicy = StorePolicy(
   maxEntriesPerSite: 2048,
   maxEntriesPerSiteAndType: 1024,
 );
+
+/// Every preference core keeps on the device per forum. They name the forum,
+/// and some its accounts or what was used there, so they leave with it.
+const _coreSitePreferenceKeys = [
+  BookmarkReminderStore.keys,
+  SharedPreferencesEmojiPickerPersistence.keys,
+  ForumSettingsStore.themeModeKeys,
+  ForumSettingsStore.themesKeys,
+  SharedPreferencesSidebarSectionPersistence.keys,
+  SharedPreferencesTopicSidebarPersistence.keys,
+  SharedPreferencesTopicRecommendationsTabPersistence.keys,
+  SharedPreferencesUserDirectoryColumnWidthPersistence.keys,
+];
 
 typedef TopicMoveDestinationSearchResult = ({
   List<TopicMoveDestination> destinations,
@@ -2055,6 +2072,9 @@ class ShellController extends FrameSafeNotifier
         forumSettings.load(instance.url, initialMode: appSettings.themeMode),
       forumSettings.loadShared([for (final instance in stored) instance.url]),
       for (final instance in stored) topicSidebar.ensure(siteUrl: instance.url),
+      // Only forums on the rail keep their preferences: a removal may have
+      // ended before they were dropped, and older builds kept them.
+      _forgetStoredPreferences(),
     ]);
     if (isDisposed) return;
     _durableInstanceOrder = [for (final instance in stored) instance.url];
@@ -2384,13 +2404,16 @@ class ShellController extends FrameSafeNotifier
     try {
       await instanceStore.save(List.of(_instances));
       unawaited(aggregate.pruneForums(_instances));
-      // Start page visits name private messages and direct chats, so every
-      // account's visits leave with the forum. Only a durable removal drops
-      // them: a rollback restores the forum with its visits, and a re-add
-      // that landed during the save owns the URL's visits again.
-      if (_instanceAt(held.url) == null &&
-          recentDestinations.forgetSite(held.url)) {
-        unawaited(recentDestinations.save());
+      // Start page visits name private messages and direct chats, and stored
+      // preferences name the forum, its usernames and what was used there, so
+      // both leave with the forum for every account. Only a durable removal
+      // drops them: a rollback restores the forum with them, and a re-add that
+      // landed during the save owns the URL's again.
+      if (_instanceAt(held.url) == null) {
+        if (recentDestinations.forgetSite(held.url)) {
+          unawaited(recentDestinations.save());
+        }
+        unawaited(_forgetStoredPreferences(removed: held.url));
       }
       return true;
     } catch (_) {
@@ -2422,6 +2445,38 @@ class ShellController extends FrameSafeNotifier
       return false;
     }
   }
+
+  /// Drops the preferences kept on this device for forums that left the rail
+  /// for good: [removed] once its removal is saved, or else every forum off
+  /// the rail. What the stores read of them goes in the same turn as what is
+  /// stored, so neither brings the other back.
+  Future<void> _forgetStoredPreferences({String? removed}) =>
+      forgetSitePreferences(
+        [..._coreSitePreferenceKeys, ...plugins.registry.sitePreferenceKeys],
+        () {
+          // The Aggregate home keeps an appearance of its own, like a forum.
+          final keeping = [
+            ForumSettingsController.homeSite,
+            for (final instance in _instances) instance.url,
+          ];
+          final ForgottenSites sites;
+          if (removed == null) {
+            // An empty rail may be a list that could not be decoded, so it
+            // must not erase every forum's preferences.
+            if (_instances.isEmpty) return null;
+            sites = ForgottenSites.except(keeping);
+          } else {
+            // A re-add that landed while storage opened owns the URL again.
+            if (_instanceAt(removed) != null) return null;
+            sites = ForgottenSites.removed(removed, keeping: keeping);
+          }
+          emojiPickerStore.forgetSites(sites);
+          forumSettings.forgetSites(sites);
+          sidebarSections.forgetSites(sites);
+          topicSidebar.forgetSites(sites);
+          return sites;
+        },
+      );
 
   NotificationTotals? totalsFor(DiscourseInstance instance) =>
       accountActivity.totalsFor(instance.url);
