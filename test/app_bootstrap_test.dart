@@ -27,6 +27,7 @@ void main() {
     expect(host.calls.skip(9), [
       'initializeTimezoneEnvironment',
       'initializePersistentMediaCache',
+      'restrictApplicationDirectories',
     ]);
     expect(host.reportedErrors, isEmpty);
     expect(host.unhandledErrors, isEmpty);
@@ -56,6 +57,7 @@ void main() {
     expect(host.calls.skip(9), [
       'initializeTimezoneEnvironment',
       'initializePersistentMediaCache',
+      'restrictApplicationDirectories',
       'reportError',
     ]);
     expect(host.reportedErrors, hasLength(1));
@@ -66,6 +68,36 @@ void main() {
     expect(reported.handled, isTrue);
     expect(reported.degraded, isTrue);
   });
+
+  test(
+    'reports a failure to restrict application directories after launch',
+    () async {
+      final host = _RecordingBootstrapHost(
+        failureStage: 'restrictApplicationDirectories',
+      );
+
+      AppBootstrap(host: host).start();
+      await host.launched.future;
+
+      expect(host.calls, contains('launchApplication'));
+      expect(host.calls, isNot(contains('restrictApplicationDirectories')));
+
+      await host.runDeferred();
+      expect(host.calls.skip(9), [
+        'initializeTimezoneEnvironment',
+        'initializePersistentMediaCache',
+        'restrictApplicationDirectories',
+        'reportError',
+      ]);
+      final reported = host.reportedErrors.single;
+      expect(reported.error, same(host.failure));
+      expect(reported.operation, 'storage.restrictApplicationDirectories');
+      expect(reported.source, 'storage');
+      expect(reported.handled, isTrue);
+      expect(reported.degraded, isTrue);
+      expect(host.unhandledErrors, isEmpty);
+    },
+  );
 
   test('records and forwards a fatal error after handlers install', () async {
     final host = _RecordingBootstrapHost(failureStage: 'initializePlugins');
@@ -208,6 +240,11 @@ final class _RecordingBootstrapHost implements AppBootstrapHost {
   @override
   Future<void> initializePersistentMediaCache() async {
     _record('initializePersistentMediaCache');
+  }
+
+  @override
+  Future<void> restrictApplicationDirectories() async {
+    _record('restrictApplicationDirectories');
   }
 
   @override

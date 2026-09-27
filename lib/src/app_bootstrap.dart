@@ -4,6 +4,7 @@ import 'package:flutter/widgets.dart';
 
 import 'app.dart';
 import 'data/byte_cache_store.dart';
+import 'data/linux_application_directories.dart';
 import 'data/media_pipeline.dart';
 import 'diagnostics/diagnostics.dart';
 import 'foundation/timezone_environment.dart';
@@ -36,6 +37,8 @@ abstract interface class AppBootstrapHost {
   void initializePlugins();
 
   Future<void> initializePersistentMediaCache();
+
+  Future<void> restrictApplicationDirectories();
 
   void scheduleAfterFirstFrame(Future<void> Function() work);
 
@@ -99,6 +102,11 @@ final class AppBootstrap {
                 _host.initializePersistentMediaCache,
                 operation: 'image.initializePersistentCache',
                 source: 'image',
+              ),
+              _runDeferredInitialization(
+                _host.restrictApplicationDirectories,
+                operation: 'storage.restrictApplicationDirectories',
+                source: 'storage',
               ),
             ]);
           });
@@ -188,6 +196,10 @@ final class _ProductionAppBootstrapHost implements AppBootstrapHost {
     final mediaStore = await FileByteCacheStore.applicationCache();
     MediaPipeline.replace(MediaPipeline(store: mediaStore));
   }
+
+  @override
+  Future<void> restrictApplicationDirectories() =>
+      restrictLinuxApplicationDirectories();
 
   @override
   void scheduleAfterFirstFrame(Future<void> Function() work) {
