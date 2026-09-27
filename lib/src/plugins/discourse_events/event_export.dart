@@ -1,9 +1,11 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:file_selector/file_selector.dart' as selector;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart' as sharing;
 
 import 'event_controller.dart';
@@ -75,6 +77,7 @@ Future<void> saveEventCalendar(
   required String filename,
   required bool Function() isCurrent,
   Rect? sharePositionOrigin,
+  @visibleForTesting Future<Directory> Function()? temporaryDirectory,
 }) async {
   if (!isCurrent()) return;
   final bytes = Uint8List.fromList(utf8.encode(calendar));
@@ -98,18 +101,23 @@ Future<void> saveEventCalendar(
       ).saveTo(location.path);
     }
   } else {
-    await sharing.SharePlus.instance.share(
-      sharing.ShareParams(
-        files: [
-          sharing.XFile.fromData(
-            bytes,
-            name: filename,
-            mimeType: 'text/calendar',
+    // The calendar carries private event names, places and descriptions, so
+    // no copy may outlive the share.
+    await withStagedPrivateFile(
+      await (temporaryDirectory ?? getTemporaryDirectory)(),
+      bytes,
+      prefix: 'calendar-share-',
+      filename: filename,
+      use: (file) async {
+        // Staging yields, and an obsolete export must not reach the sheet.
+        if (!isCurrent()) return;
+        await sharing.SharePlus.instance.share(
+          sharing.ShareParams(
+            files: [sharing.XFile(file.path, mimeType: 'text/calendar')],
+            sharePositionOrigin: sharePositionOrigin,
           ),
-        ],
-        fileNameOverrides: [filename],
-        sharePositionOrigin: sharePositionOrigin,
-      ),
+        );
+      },
     );
   }
 }
