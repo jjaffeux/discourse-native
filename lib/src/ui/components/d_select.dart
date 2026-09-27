@@ -1715,12 +1715,9 @@ class _DSelectOptionRowState<T> extends State<_DSelectOptionRow<T>> {
     // makes the previous and next options appear highlighted at the same time.
     Widget row = interactiveRowSurface(
       key: ValueKey(('d-select-item', widget.item.value)),
-      height: math.max(
-        DControlStyle.rowHeight,
-        MediaQuery.textScalerOf(context).scale(DControlStyle.labelFontSize) *
-                DiscourseTypography.lineHeightSmall +
-            DInsets.menuItem.vertical,
-      ),
+      // Fill the touch target so the first and last row surfaces retain the
+      // same popup inset as the sides, including at larger text sizes.
+      height: widget.height,
       padding: EdgeInsetsDirectional.fromSTEB(
         8,
         DControlStyle.menuVerticalInset(context),
@@ -1778,12 +1775,7 @@ class _DSelectOptionRowState<T> extends State<_DSelectOptionRow<T>> {
       onTap: enabled && !widget.readOnly
           ? () => widget.onChoose(widget.item, DSelectChangeReason.itemPress)
           : null,
-      child: ExcludeSemantics(
-        child: SizedBox(
-          height: widget.height,
-          child: Center(child: row),
-        ),
-      ),
+      child: ExcludeSemantics(child: row),
     );
     return MouseRegion(
       onEnter: (_) {
