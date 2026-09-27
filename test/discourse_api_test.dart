@@ -12,6 +12,7 @@ import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/post_creation.dart';
 import 'package:discourse_native/src/models/sidebar.dart';
 import 'package:discourse_native/src/models/sidebar_tag.dart';
+import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/models/topic_feed.dart';
 import 'package:discourse_native/src/models/user_preferences.dart';
@@ -5651,6 +5652,163 @@ void _writeGroups() {
       expect(result.id, 74);
       final multipart = latin1.decode(sent.bodyBytes);
       expect(multipart, contains('chat-composer'));
+    });
+
+    test('marks an upload for a private message and nothing else', () async {
+      final sent = <String>[];
+      final api = DiscourseApi(
+        client: MockClient((request) async {
+          sent.add(latin1.decode(request.bodyBytes));
+          return http.Response(
+            jsonEncode({
+              'id': 75,
+              'original_filename': 'photo.png',
+              'url': '/uploads/default/original/photo.png',
+              'short_url': 'upload://photo',
+            }),
+            200,
+          );
+        }),
+      );
+
+      for (final forPrivateMessage in [true, false]) {
+        await api.uploadComposerImage(
+          siteUrl: 'https://meta.discourse.org',
+          apiKey: 'key',
+          file: _uploadFile,
+          forPrivateMessage: forPrivateMessage,
+          onProgress: (_) {},
+          abortTrigger: Completer<void>().future,
+        );
+      }
+
+      expect(
+        sent.first,
+        matches(RegExp(r'name="for_private_message"\r\n\r\ntrue\r\n')),
+      );
+      expect(sent.last, isNot(contains('for_private_message')));
+    });
+
+    group('size limits', () {
+      const config = SiteConfig(authorizedExtensions: ['png', 'mp4']);
+      const tooLarge = 'clip.mp4 is too large (maximum size is 10 MB).';
+      const sixtyMegabytes = 60 * 1024 * 1024;
+
+      http.Response uploaded(String name) => http.Response(
+        jsonEncode({
+          'id': 76,
+          'original_filename': name,
+          'url': '/uploads/default/original/$name',
+          'short_url': 'upload://$name',
+        }),
+        200,
+      );
+
+      ComposerUploadFile file(String name, int length, List<String> opened) =>
+          ComposerUploadFile(
+            name: name,
+            length: () async => length,
+            openRead: () {
+              opened.add(name);
+              return Stream.value([1, 2, 3]);
+            },
+          );
+
+      Future<ComposerUploadResult> upload(
+        DiscourseApi api,
+        ComposerUploadFile file,
+      ) => api.uploadComposerImage(
+        siteUrl: 'https://meta.discourse.org',
+        apiKey: 'key',
+        file: file,
+        sizeLimit: config.uploadSizeLimit(file.name, staff: false),
+        onProgress: (_) {},
+        abortTrigger: Completer<void>().future,
+      );
+
+      test('an oversized attachment is refused before any request', () async {
+        var sends = 0;
+        final opened = <String>[];
+        final api = DiscourseApi(
+          client: MockClient((_) async {
+            sends++;
+            return uploaded('clip.mp4');
+          }),
+        );
+
+        await expectLater(
+          upload(api, file('clip.mp4', sixtyMegabytes, opened)),
+          throwsA(
+            isA<ComposerUploadException>()
+                .having((error) => error.message, 'message', tooLarge)
+                .having((error) => error.retryable, 'retryable', isFalse),
+          ),
+        );
+        expect(sends, 0);
+        expect(opened, isEmpty);
+      });
+
+      for (final (name, length) in [
+        ('photo.png', sixtyMegabytes),
+        ('clip.mp4', 10240 * 1024),
+      ]) {
+        test('$name of $length bytes is still sent', () async {
+          final opened = <String>[];
+          final api = DiscourseApi(
+            client: MockClient((_) async => uploaded(name)),
+          );
+
+          final result = await upload(api, file(name, length, opened));
+
+          expect(result.id, 76);
+          expect(opened, [name]);
+        });
+      }
+
+      test('names a limit the way the web client does', () {
+        for (final (maxBytes, text) in [
+          (10240 * 1024, 'clip.mp4 is too large (maximum size is 10 MB).'),
+          (1536 * 1024, 'clip.mp4 is too large (maximum size is 1.5 MB).'),
+          (500 * 1024, 'clip.mp4 is too large (maximum size is 500 KB).'),
+          (1024000 * 1024, 'clip.mp4 is too large (maximum size is 1000 MB).'),
+          (null, 'clip.mp4 is too large to upload.'),
+        ]) {
+          expect(
+            ComposerUploadException.tooLarge(
+              'clip.mp4',
+              maxBytes: maxBytes,
+            ).message,
+            text,
+          );
+        }
+      });
+
+      test('a proxy 413 names the limit and is final', () async {
+        var sends = 0;
+        final api = DiscourseApi(
+          client: MockClient((_) async {
+            sends++;
+            return http.Response(
+              '<html><head><title>413 Request Entity Too Large</title></head>'
+              '<body><center><h1>413 Request Entity Too Large</h1></center>'
+              '<hr><center>nginx</center></body></html>',
+              413,
+              headers: {'content-type': 'text/html'},
+            );
+          }),
+        );
+
+        await expectLater(
+          upload(api, file('clip.mp4', 3, [])),
+          throwsA(
+            isA<ComposerUploadException>()
+                .having((error) => error.statusCode, 'status', 413)
+                .having((error) => error.message, 'message', tooLarge)
+                .having((error) => error.retryable, 'retryable', isFalse),
+          ),
+        );
+        expect(sends, 1);
+      });
     });
 
     test('surfaces a 422 server message', () async {

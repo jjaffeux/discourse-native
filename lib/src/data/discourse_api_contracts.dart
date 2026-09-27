@@ -874,6 +874,10 @@ abstract interface class ComposerPersistenceApi {
     String? clientId,
   });
 
+  /// [forPrivateMessage] marks a new message or a post in one, where the site
+  /// may let staff attach any file. An enforced [sizeLimit] refuses a larger
+  /// file before any request, and any limit names the ceiling when the site
+  /// answers 413.
   Future<ComposerUploadResult> uploadComposerImage({
     required String siteUrl,
     required String apiKey,
@@ -881,6 +885,8 @@ abstract interface class ComposerPersistenceApi {
     required void Function(double progress) onProgress,
     required Future<void> abortTrigger,
     ComposerUploadType uploadType = ComposerUploadType.composer,
+    bool forPrivateMessage = false,
+    ComposerUploadSizeLimit? sizeLimit,
     String? clientId,
   });
 

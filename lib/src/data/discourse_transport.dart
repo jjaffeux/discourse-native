@@ -122,6 +122,7 @@ final class DiscourseTransport {
     required Stream<List<int>> fileBytes,
     required void Function(double progress) onProgress,
     required Future<void> abortTrigger,
+    bool forPrivateMessage = false,
     String? clientId,
     Duration requestTimeout = const Duration(minutes: 5),
   }) {
@@ -133,6 +134,11 @@ final class DiscourseTransport {
     final request =
         http.AbortableMultipartRequest('POST', url, abortTrigger: abortTrigger)
           ..fields['upload_type'] = uploadType
+          // Core reads only the literal "true", and waives its extension and
+          // size checks for staff when it is set.
+          ..fields.addAll({
+            if (forPrivateMessage) 'for_private_message': 'true',
+          })
           ..files.add(
             http.MultipartFile(
               'file',
