@@ -150,6 +150,65 @@ void main() {
     });
   }
 
+  // A pin change is optimistic and holds only its own lock: the reader keeps
+  // reading and a moderator can close the topic while it is in flight. Taking
+  // it back must take back only its own guess.
+  group('a rejected pin change', () {
+    for (final completion in [_Completion.refusal, _Completion.failure]) {
+      test('ending in $completion keeps what changed meanwhile', () async {
+        final (:shell, :api) = await _fixture(_Action.pin);
+        shell.store.put(
+          _siteUrl,
+          const Topic(
+            id: _topicId,
+            title: 'Topic',
+            slug: 'topic',
+            postsCount: 5,
+            highestPostNumber: 5,
+            lastReadPostNumber: 1,
+            unreadPosts: 4,
+          ),
+        );
+        final pinning = _write(shell, _Action.pin, true);
+        await api.waitForWrites(1);
+        _expectState(shell, _Action.pin, true);
+
+        await shell.markTopicRead(_siteUrl, _topicId, 5, caughtUp: true);
+        final closing = _write(shell, _Action.closed, true);
+        await api.waitForWrites(2);
+        api.writes.last.result.complete();
+        expect(await closing, isNull);
+
+        _complete(api.writes.first.result, completion);
+        expect(await pinning, _result(completion));
+
+        _expectState(shell, _Action.pin, false);
+        _expectState(shell, _Action.closed, true);
+        final row = shell.store.read<Topic>(_siteUrl, _topicId)!;
+        expect(row.lastReadPostNumber, 5);
+        expect(row.unreadPosts, 0);
+      });
+    }
+
+    test('leaves a pin the site has since taken away', () async {
+      final (:shell, :api) = await _fixture(_Action.pin);
+      final pinning = _write(shell, _Action.pin, true);
+      await api.waitForWrites(1);
+
+      // Staff unpinned the topic for everyone, so it no longer offers the
+      // reader a pin preference to restore.
+      api.topics[_topicId] = topicPayload(id: _topicId, title: 'Topic');
+      await shell.loadTopic(_topicId, 'topic', force: true);
+      _complete(api.writes.single.result, _Completion.refusal);
+      expect(await pinning, _result(_Completion.refusal));
+
+      final topic = shell.store.read<TopicDetail>(_siteUrl, _topicId)!;
+      expect(topic.pinned, isFalse);
+      expect(topic.unpinned, isFalse);
+      expect(topic.hasPinPreference, isFalse);
+    });
+  });
+
   // PostDestroyer#recover also recovers the topic of a first post, and the
   // only topic message it publishes is a stats one.
   group('first post undelete', () {
