@@ -123,9 +123,11 @@ List<ComposerImageGalleryBlock> parseComposerImageGalleries(
   String source, {
   CodeRanges? codeRanges,
 }) {
-  if (source.isEmpty || !source.contains('[', 0)) return const [];
+  // Its input formatter asks on every edit. A gallery needs an opening tag,
+  // and a draft of links has brackets enough without one.
+  if (!_gridOpener.hasMatch(source)) return const [];
 
-  final code = codeRanges ?? CodeRanges.of(scanMarkdown(source));
+  final code = codeRanges ?? markdownCodeRanges(source);
   final images = parseComposerImages(source, codeRanges: code);
   final pairs = <_GalleryTagPair>[];
   final stack = <_OpenGalleryTag>[];
@@ -529,6 +531,7 @@ bool _isEscapedTag(String source, int opening) {
   return backslashes.isOdd;
 }
 
+final RegExp _gridOpener = RegExp(r'\[grid', caseSensitive: false);
 final RegExp _validOpenTag = RegExp(
   r'^grid(?:[ \t]+mode[ \t]*=[ \t]*(grid|carousel))?[ \t]*$',
   caseSensitive: false,

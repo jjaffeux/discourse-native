@@ -1036,4 +1036,112 @@ void main() {
       );
     });
   });
+
+  group('shared scans', () {
+    setUp(clearSyntaxHighlightCacheForTesting);
+
+    // Each draft is new to the shared scans, whichever tests ran before.
+    var drafts = 0;
+    String draft(String body) => 'Shared draft ${drafts++}\n\n$body';
+
+    List<(int, int)> ranges(CodeRanges code) => code.ranges.toList();
+
+    test('the scan that painted a draft says where its code is', () {
+      final source = draft('a `span`\n\n```dart\nfinal x = 1;\n```\n\nafter');
+      final painted = scanMarkdown(source, deferHighlight: (_, _) {});
+      final scans = markdownScanCount;
+
+      expect(
+        ranges(markdownCodeRanges(source)),
+        ranges(CodeRanges.of(painted)),
+      );
+      expect(
+        ranges(markdownFenceRanges(source)),
+        ranges(
+          CodeRanges.of([
+            for (final run in painted)
+              if (run.has(Md.codeBlock)) run,
+          ]),
+        ),
+      );
+      final span = source.indexOf('span');
+      expect(markdownCodeRanges(source).contains(span), isTrue);
+      expect(markdownFenceRanges(source).contains(span), isFalse);
+      expect(markdownFenceRanges(source).isEmpty, isFalse);
+      expect(sharedMarkdownScan(source).runs, same(painted));
+      expect(markdownScanCount, scans);
+    });
+
+    test('an equal draft in another string shares its scan', () {
+      final source = draft('see [docs](https://x.test/) and `code`');
+      scanMarkdown(source);
+      final copy = String.fromCharCodes(source.codeUnits);
+      final scans = markdownScanCount;
+
+      expect(identical(copy, source), isFalse);
+      expect(
+        ranges(markdownCodeRanges(copy)),
+        ranges(markdownCodeRanges(source)),
+      );
+      expect(markdownScanCount, scans);
+    });
+
+    test('a deferred fence says where code is, but not how it is coloured', () {
+      final body =
+          '${List.generate(40, (i) => 'final value$i = "line $i";').join('\n')}'
+          '\n';
+      final source = draft('```dart\n$body```');
+      bool coloured(List<MarkdownRun> runs) =>
+          runs.any((run) => run.has(Md.codeBlock) && run.detail != null);
+
+      final deferred = <String>[];
+      final painted = scanMarkdown(
+        source,
+        deferHighlight: (body, _) => deferred.add(body),
+      );
+      expect(deferred, [body]);
+      expect(coloured(painted), isFalse);
+      var scans = markdownScanCount;
+      expect(
+        ranges(markdownCodeRanges(source)),
+        ranges(CodeRanges.of(painted)),
+      );
+      expect(markdownScanCount, scans);
+
+      final shared = sharedMarkdownScan(source).runs;
+      expect(coloured(shared), isTrue);
+      expect(markdownScanCount, scans + 1);
+
+      // A later plain rescan by the editor must not replace the coloured one.
+      clearSyntaxHighlightCacheForTesting();
+      scanMarkdown(source, deferHighlight: (_, _) {});
+      scans = markdownScanCount;
+      expect(sharedMarkdownScan(source).runs, same(shared));
+      expect(markdownScanCount, scans);
+    });
+
+    test('only the newest scans are held', () {
+      final source = draft('`code`');
+      scanMarkdown(source);
+      for (var other = 0; other < 16; other += 1) {
+        scanMarkdown(draft('other'));
+      }
+      final scans = markdownScanCount;
+
+      markdownCodeRanges(source);
+      expect(markdownScanCount, scans + 1);
+    });
+
+    test('no reader can change a scan it shares with the others', () {
+      final source = draft('**bold** and `code`');
+      final (:runs, :blocks) = sharedMarkdownScan(source);
+
+      expect(
+        () => runs.add(const MarkdownRun(0, 1, 0)),
+        throwsUnsupportedError,
+      );
+      expect(blocks.clear, throwsUnsupportedError);
+      expect(() => scanMarkdown(source).removeLast(), throwsUnsupportedError);
+    });
+  });
 }

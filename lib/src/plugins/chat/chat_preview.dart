@@ -124,7 +124,7 @@ final class ChatPreviewEngine {
 
     final claimedSource = _replaceClaims(source, claims);
     final grammarSource = _normalizeChatDialect(claimedSource);
-    final runs = scanMarkdown(grammarSource);
+    final runs = sharedMarkdownScan(grammarSource).runs;
     if (_hasUnsupportedScannerSyntax(runs)) {
       return _fallback(request, ChatPreviewFallbackReason.unsupportedSyntax);
     }
@@ -204,7 +204,7 @@ String _replaceClaims(String source, List<ChatPreviewClaim> claims) {
 }
 
 String _normalizeChatDialect(String source) {
-  final codeRanges = CodeRanges.of(scanMarkdown(source));
+  final codeRanges = markdownCodeRanges(source);
   final tripled = _replaceUnderscorePair(source, '___', codeRanges);
   return _replaceUnderscorePair(tripled, '__', codeRanges);
 }

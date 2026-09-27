@@ -79,6 +79,27 @@ after''';
       );
     });
 
+    test('a draft of links opens no gallery and is not scanned for one', () {
+      // The input formatter asks on every edit. Every link has brackets, and
+      // brackets without a grid tag must not buy a scan of the whole draft.
+      final source = [
+        for (var link = 0; link < 40; link += 1)
+          'Gallery-free [link $link](https://example.com/$link) and `[x]`.',
+      ].join('\n\n');
+      final edited = TextEditingValue(text: '${source}a');
+      final scans = markdownScanCount;
+
+      expect(parseComposerImageGalleries(source), isEmpty);
+      expect(
+        const ComposerImageGalleryInputFormatter().formatEditUpdate(
+          TextEditingValue(text: source),
+          edited,
+        ),
+        edited,
+      );
+      expect(markdownScanCount, scans);
+    });
+
     test('leaves malformed, nested, and mixed-content grids raw', () {
       const invalid = [
         '[grid]![one](upload://one)',
