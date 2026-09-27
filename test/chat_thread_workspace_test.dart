@@ -5,6 +5,7 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/data/discourse_api_contracts.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
+import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel_view.dart';
 import 'package:discourse_native/src/plugins/chat/chat_composer.dart';
@@ -12,11 +13,13 @@ import 'package:discourse_native/src/plugins/chat/chat_message.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message_tile.dart';
 import 'package:discourse_native/src/plugins/chat/chat_notification_counter.dart';
 import 'package:discourse_native/src/plugins/chat/chat_plugin.dart';
+import 'package:discourse_native/src/plugins/chat/chat_shell_service.dart';
 import 'package:discourse_native/src/plugins/chat/chat_thread.dart';
 import 'package:discourse_native/src/plugins/chat/chat_thread_panel_width_store.dart';
 import 'package:discourse_native/src/plugins/chat/chat_thread_view.dart';
 import 'package:discourse_native/src/shell/adaptive_shell.dart';
 import 'package:discourse_native/src/shell/composer_panel.dart';
+import 'package:discourse_native/src/shell/cooked_html.dart';
 import 'package:discourse_native/src/shell/main_content.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
@@ -418,6 +421,127 @@ void main() {
     expect(channelScroll.pixels, greaterThan(0));
     expect(threadScroll.pixels, 0);
   });
+
+  for (final width in const [390.0, 1440.0]) {
+    testWidgets(
+      'a forum totals change does not rebuild held messages at $width pixels',
+      (tester) async {
+        final fixture = await _fixture(
+          channelPage: _workspaceMessagesPage(1),
+          threadPage: _workspaceMessagesPage(101, threadId: _threadId),
+        );
+        addTearDown(fixture.shell.dispose);
+        await _pumpWorkspace(tester, fixture.shell, width: width);
+        final held = find
+            .byType(CookedHtml, skipOffstage: false)
+            .evaluate()
+            .toSet();
+        expect(
+          find.descendant(
+            of: find.byType(ChatThreadView),
+            matching: find.byType(CookedHtml, skipOffstage: false),
+          ),
+          findsAtLeastNWidgets(10),
+        );
+        final shell = fixture.shell.pluginSession.require(chatShellService);
+        var shellChanges = 0;
+        void countShellChange() => shellChanges++;
+        shell.addListener(countShellChange);
+        addTearDown(() => shell.removeListener(countShellChange));
+        final rebuilt = _recordMessageRebuilds();
+
+        FakeSiteTracker.built
+            .lastWhere((tracker) => tracker.siteUrl == _siteUrl)
+            .deliverNotification(const {'all_unread_notifications_count': 3});
+        // New totals reach Chat with the shell's next notification, whatever
+        // that notification was for.
+        fixture.shell.notifyListeners();
+        await tester.pumpAndSettle();
+
+        expect(shellChanges, 1);
+        expect(rebuilt, isEmpty);
+        expect(
+          find.byType(CookedHtml, skipOffstage: false).evaluate().toSet(),
+          held,
+        );
+      },
+    );
+
+    testWidgets(
+      'the thread pane follows the site settings and account at $width pixels',
+      (tester) async {
+        final siteConfigGate = Completer<void>();
+        final sessionUser = Completer<DiscourseUser>();
+        const sam = ChatMessageAuthor(id: 2, username: 'sam', name: 'Sam');
+        final fixture = await _fixture(
+          threadPage: (
+            messages: [
+              ChatMessage(
+                id: 201,
+                channelId: _channelId,
+                cooked: '<p>Before the pause</p>',
+                author: sam,
+                createdAt: DateTime.utc(2026, 8, 1, 10),
+                threadId: _threadId,
+              ),
+              ChatMessage(
+                id: 202,
+                channelId: _channelId,
+                cooked: '<p>After the pause</p>',
+                author: sam,
+                createdAt: DateTime.utc(2026, 8, 4, 10),
+                threadId: _threadId,
+              ),
+            ],
+            canLoadMorePast: false,
+            canLoadMoreFuture: false,
+            targetMessageId: null,
+          ),
+          siteConfig: const SiteConfig(showTimeGapDays: 2),
+          siteConfigGate: siteConfigGate,
+          sessionUser: sessionUser,
+        );
+        addTearDown(fixture.shell.dispose);
+        await _pumpWorkspace(tester, fixture.shell, width: width);
+        final gap = find.descendant(
+          of: find.byType(ChatThreadView),
+          matching: find.text('3 days later'),
+        );
+        Set<String?> actionsOf(int id) => {
+          for (final semantics in tester.widgetList<Semantics>(
+            find.descendant(
+              of: find.byKey(ChatMessageTile.actionsKey(id)),
+              matching: find.byType(Semantics),
+            ),
+          ))
+            ...?semantics.properties.customSemanticsActions?.keys.map(
+              (action) => action.label,
+            ),
+        };
+        expect(gap, findsNothing);
+        expect(actionsOf(202), contains('Copy link'));
+        expect(actionsOf(202), isNot(contains('Rebuild HTML')));
+
+        // The site's settings arrive after the restored thread has drawn
+        // with the defaults.
+        siteConfigGate.complete();
+        await tester.pumpAndSettle();
+        expect(gap, findsOneWidget);
+
+        // The session refresh finds the stored account is now staff.
+        sessionUser.complete(
+          const DiscourseUser(
+            id: 7,
+            username: 'reader',
+            name: 'Reader',
+            staff: true,
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(actionsOf(202), contains('Rebuild HTML'));
+      },
+    );
+  }
 
   for (final width in [390.0, 1400.0]) {
     testWidgets(
@@ -844,6 +968,21 @@ void main() {
   );
 }
 
+/// Message tiles and bodies whose elements build from now on, whether
+/// rebuilt in place or mounted afresh.
+List<Element> _recordMessageRebuilds() {
+  final rebuilt = <Element>[];
+  final previous = debugOnRebuildDirtyWidget;
+  debugOnRebuildDirtyWidget = (element, builtOnce) {
+    previous?.call(element, builtOnce);
+    if (element.widget is ChatMessageTile || element.widget is CookedHtml) {
+      rebuilt.add(element);
+    }
+  };
+  addTearDown(() => debugOnRebuildDirtyWidget = previous);
+  return rebuilt;
+}
+
 void _expectThreadBodyTargets(WidgetTester tester) {
   final threadView = find.byType(ChatThreadView);
   expect(
@@ -899,12 +1038,18 @@ Future<({ShellController shell, _WorkspaceApi api})> _fixture({
   ChatThread? thread,
   ChatMessagePage channelPage = _channelPage,
   ChatMessagePage threadPage = _threadPage,
+  SiteConfig? siteConfig,
+  Completer<void>? siteConfigGate,
+  Completer<DiscourseUser>? sessionUser,
 }) async {
   final api = _WorkspaceApi(
     terminalThread: terminalThread,
     thread: thread ?? (editableThread ? _editableThread : _thread),
     channelPage: channelPage,
     threadPage: threadPage,
+    siteConfig: siteConfig,
+    siteConfigGate: siteConfigGate,
+    sessionUser: sessionUser,
   );
   final shell = ShellController(
     instanceStore: FakeInstanceStore([
@@ -982,6 +1127,9 @@ final class _WorkspaceApi extends FakeDiscourseApi {
     this.thread = _thread,
     ChatMessagePage channelPage = _channelPage,
     ChatMessagePage threadPage = _threadPage,
+    SiteConfig? siteConfig,
+    super.siteConfigGate,
+    this.sessionUser,
   }) : super(
          user: _reader,
          totals: chatNotificationTotals(),
@@ -991,7 +1139,21 @@ final class _WorkspaceApi extends FakeDiscourseApi {
          },
          chatMessagesByKey: {'9': channelPage, 'thread-9-3': threadPage},
          chatThreadsByKey: {'9~3': thread},
+         siteConfigs: {_siteUrl: ?siteConfig},
        );
+
+  /// Answers the session's account refresh when completed; until then the
+  /// stored account stays current.
+  final Completer<DiscourseUser>? sessionUser;
+
+  @override
+  Future<DiscourseUser> currentUser({
+    required String siteUrl,
+    required String apiKey,
+    String? clientId,
+  }) =>
+      sessionUser?.future ??
+      super.currentUser(siteUrl: siteUrl, apiKey: apiKey, clientId: clientId);
 
   Completer<void>? titleResponse;
 
