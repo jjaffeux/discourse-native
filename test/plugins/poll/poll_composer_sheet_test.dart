@@ -172,6 +172,32 @@ void main() {
         findsOneWidget,
       );
     });
+
+    testWidgets('writes an offset-less close time as local time', (
+      tester,
+    ) async {
+      final result = await openSheet(
+        tester,
+        PollComposerDraft.newPoll(name: 'poll', defaultPublic: false),
+      );
+      await tester.enterText(field('Option 1'), 'A');
+      await tester.enterText(field('Option 2'), 'B');
+      final automaticClose = find.text('Automatic close');
+      await tester.ensureVisible(automaticClose);
+      await tester.pumpAndSettle();
+      await tester.tap(automaticClose);
+      await tester.pumpAndSettle();
+      await tester.enterText(field('Close date and time'), '2026-08-30T18:00');
+      await tapSheetAction(tester, 'Apply');
+      final action = await result.future;
+
+      final close = parsePollComposerBlocks(
+        action!.draft!.serialize(),
+      ).single.attribute('close')!;
+      final written = DateTime.parse(close);
+      expect(written.isUtc, isTrue, reason: '$close carries no offset');
+      expect(written.isAtSameMomentAs(DateTime(2026, 8, 30, 18)), isTrue);
+    });
   });
 
   group('existing poll editing', () {

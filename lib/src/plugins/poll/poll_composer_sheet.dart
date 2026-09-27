@@ -243,7 +243,9 @@ class _PollComposerSheetState extends State<PollComposerSheet> {
               controller: _close,
               labelText: 'Close date and time',
               hintText: '2026-08-30T18:00:00Z',
-              helperText: 'ISO 8601, including a time zone',
+              helperText:
+                  "ISO 8601, in this device's time zone unless one is "
+                  'given',
               keyboardType: TextInputType.datetime,
             ),
           if (_error case final error?) ...[
