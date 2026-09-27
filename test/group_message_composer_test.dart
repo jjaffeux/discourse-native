@@ -2,6 +2,7 @@ import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/group.dart';
 import 'package:discourse_native/src/models/group_route.dart';
+import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/shell/composer_controller.dart';
 import 'package:discourse_native/src/shell/group_pages_shell_port.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
@@ -63,6 +64,71 @@ void main() {
       expect(shell.currentContent?.topicId, 901);
     },
   );
+
+  test('a message sent to a group re-reads its page Messages tab', () async {
+    const inbox = '/topics/private-messages-group/reader/tech-leads.json';
+    const held = Topic(
+      id: 5,
+      title: 'Held',
+      slug: 'held',
+      privateMessage: true,
+    );
+    const user = DiscourseUser(
+      id: 1,
+      username: 'reader',
+      canSendPrivateMessages: true,
+      groups: ['tech-leads'],
+      messageGroupNames: ['tech-leads'],
+    );
+    final api = FakeDiscourseApi(
+      user: user,
+      feeds: {
+        '/latest.json': const [],
+        inbox: const [held],
+      },
+    );
+    final shell = ShellController(
+      instanceStore: FakeInstanceStore([
+        instance('meta.discourse.org').copyWith(user: user),
+      ]),
+      api: api,
+      authenticator: FakeAuthenticator()..keys[_siteUrl] = 'api-key',
+      drafts: FakeDraftStore(),
+      trackers: FakeSiteTracker.reset(),
+      updateStore: FakeUpdateStore(),
+    );
+    addTearDown(shell.dispose);
+    await shell.load();
+    final tab = GroupRoute.detail(
+      'tech-leads',
+      section: GroupRoute.messages,
+      subsection: GroupRoute.inbox,
+    );
+    shell.pushContent(
+      ContentRoute.group(tab, feedPath: tab.topicFeedPath('reader')),
+    );
+    await shell.loadFeed(tab.id);
+
+    shell.openPrivateMessage(siteUrl: _siteUrl, targetRecipients: 'tech-leads');
+    final composer = shell.visibleComposer!;
+    composer.title.text = 'A private subject';
+    composer.text.text = 'Hello team';
+    api.feeds[inbox] = const [
+      Topic(
+        id: 901,
+        title: 'A private subject',
+        slug: 'created-topic',
+        privateMessage: true,
+      ),
+      held,
+    ];
+    final reads = api.feedPaths.length;
+    await shell.submitComposer();
+    await pumpEventQueue();
+
+    expect(shell.topicFeeds.feedFor(_siteUrl, tab.id)?.topicIds, [901, 5]);
+    expect(api.feedPaths.sublist(reads), [inbox]);
+  });
 
   group('without general private-message permission', () {
     Future<ShellController> loadShell() async {
