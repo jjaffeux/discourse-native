@@ -1913,6 +1913,127 @@ void main() {
         }
       },
     );
+
+    for (final direction in TextDirection.values) {
+      // Eight tabs overflow an 800-pixel strip, which starts scrolled to
+      // centre the selected fifth tab.
+      final items = [
+        for (var index = 0; index < 8; index++)
+          ForumTabItem(id: 'tab-$index', title: 'Forum tab $index'),
+      ];
+      final indicator = find.byKey(
+        const ValueKey('forum-tab-drop-placeholder'),
+      );
+      Rect rectOf(WidgetTester tester, ForumTabItem item) =>
+          tester.getRect(find.byKey(ValueKey('forum-tab-item-${item.id}')));
+      Offset startEdgeOf(WidgetTester tester, ForumTabItem item) {
+        final rect = rectOf(tester, item);
+        return Offset(
+          direction == TextDirection.ltr ? rect.left + 2 : rect.right - 2,
+          rect.center.dy,
+        );
+      }
+
+      void expectBarBetween(
+        WidgetTester tester,
+        ForumTabItem earlier,
+        ForumTabItem later,
+      ) {
+        expect(indicator, findsOneWidget);
+        final bar = tester.getRect(indicator);
+        final (left, right) = direction == TextDirection.ltr
+            ? (rectOf(tester, earlier), rectOf(tester, later))
+            : (rectOf(tester, later), rectOf(tester, earlier));
+        expect(bar.left, greaterThan(left.right));
+        expect(bar.right, lessThan(right.left));
+      }
+
+      testWidgets('a tab pressed in a scrolled strip keeps its own slot while '
+          'the strip re-centres on it in $direction', (tester) async {
+        final reordered = <({String id, int newIndex})>[];
+        await _pumpBar(
+          tester,
+          items: items,
+          selectedId: items[4].id,
+          width: 800,
+          textDirection: direction,
+          followSelection: true,
+          onReorder: (id, newIndex) =>
+              reordered.add((id: id, newIndex: newIndex)),
+        );
+        final pressed = items[2];
+        final before = rectOf(tester, pressed);
+        final drag = await tester.startGesture(
+          before.center,
+          kind: PointerDeviceKind.mouse,
+        );
+        await drag.moveBy(const Offset(4, 0));
+        await tester.pumpAndSettle();
+        // The carry began before the selection scrolled the strip.
+        final slot = rectOf(tester, pressed);
+        expect(slot, isNot(before));
+
+        for (final dx in [slot.left + 2, slot.right - 2]) {
+          await drag.moveTo(Offset(dx, slot.center.dy));
+          await tester.pumpAndSettle();
+          expect(indicator, findsNothing);
+        }
+        await drag.up();
+        await tester.pumpAndSettle();
+        expect(reordered, isEmpty);
+        expect(tester.takeException(), isNull);
+      });
+
+      testWidgets('a carried tab lands where the bar shows after the strip '
+          'scrolls under the pointer in $direction', (tester) async {
+        final reordered = <({String id, int newIndex})>[];
+        await _pumpBar(
+          tester,
+          items: items,
+          selectedId: items[4].id,
+          width: 800,
+          textDirection: direction,
+          onReorder: (id, newIndex) =>
+              reordered.add((id: id, newIndex: newIndex)),
+        );
+        final carried = items[4];
+        final pointer = rectOf(tester, carried).center;
+        final drag = await tester.startGesture(
+          pointer - const Offset(4, 0),
+          kind: PointerDeviceKind.mouse,
+        );
+        await drag.moveTo(pointer);
+        await tester.pumpAndSettle();
+        expect(indicator, findsNothing);
+
+        // Wheel the strip one tab toward its start under the still pointer:
+        // the preceding tab takes the carried tab's place beneath it and
+        // answers its far side.
+        await tester.sendEventToBinding(
+          PointerScrollEvent(
+            kind: PointerDeviceKind.mouse,
+            position: pointer,
+            scrollDelta: Offset(
+              rectOf(tester, items[3]).center.dx - pointer.dx,
+              0,
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(rectOf(tester, items[3]).center, pointer);
+        expectBarBetween(tester, items[2], items[3]);
+
+        await drag.moveTo(startEdgeOf(tester, items[2]));
+        await tester.pumpAndSettle();
+        expectBarBetween(tester, items[1], items[2]);
+
+        await drag.up();
+        await tester.pumpAndSettle();
+        expect(indicator, findsNothing);
+        expect(reordered, [(id: carried.id, newIndex: 2)]);
+        expect(tester.takeException(), isNull);
+      });
+    }
   });
 
   group('accessibility', () {
@@ -2134,7 +2255,9 @@ Future<void> _pumpBar(
   void Function(String id, ForumPanel panel)? onMoveToPanel,
   TextScaler? textScaler,
   TextDirection textDirection = TextDirection.ltr,
+  bool followSelection = false,
 }) async {
+  var selected = selectedId;
   Widget child = MaterialApp(
     theme: (theme ?? AppTheme.light).copyWith(platform: TargetPlatform.macOS),
     builder: textScaler == null && textDirection == TextDirection.ltr
@@ -2161,20 +2284,27 @@ Future<void> _pumpBar(
                 key: const ValueKey('forum-tabs-paint-boundary'),
                 child: ColoredBox(
                   color: (theme ?? AppTheme.light).shell.sidebar,
-                  child: ForumTabsBar(
-                    panel: panel,
-                    onMoveToPanel: onMoveToPanel,
-                    forumName: 'Discourse Meta',
-                    items: items,
-                    selectedId: selectedId,
-                    onAdd: addEnabled ? (onAdd ?? () {}) : null,
-                    onSelect: onSelect ?? (_) {},
-                    onClose: onClose ?? (_) {},
-                    onReorder: onReorder ?? (_, _) {},
-                    onCloseOthers: onCloseOthers ?? (_) {},
-                    recentlyClosedItems: recentlyClosedItems,
-                    onReopen: onReopen,
-                    onRename: onRename,
+                  child: StatefulBuilder(
+                    builder: (context, setState) => ForumTabsBar(
+                      panel: panel,
+                      onMoveToPanel: onMoveToPanel,
+                      forumName: 'Discourse Meta',
+                      items: items,
+                      selectedId: selected,
+                      onAdd: addEnabled ? (onAdd ?? () {}) : null,
+                      onSelect: (id) {
+                        onSelect?.call(id);
+                        // As in the app, pressing a tab selects it, which
+                        // re-centres a scrolling strip on it.
+                        if (followSelection) setState(() => selected = id);
+                      },
+                      onClose: onClose ?? (_) {},
+                      onReorder: onReorder ?? (_, _) {},
+                      onCloseOthers: onCloseOthers ?? (_) {},
+                      recentlyClosedItems: recentlyClosedItems,
+                      onReopen: onReopen,
+                      onRename: onRename,
+                    ),
                   ),
                 ),
               ),
