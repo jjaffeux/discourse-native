@@ -105,11 +105,11 @@ void main() {
     await pump(
       tester,
       '<p><span class="discourse-local-date" data-range="from" '
-      'data-date="2026-08-09" data-time="09:00:00" data-timezone="UTC" '
-      'data-calendar="off">start</span> → '
+      'data-date="2026-08-09" data-time="09:00:00" data-timezone="UTC">'
+      'start</span> → '
       '<span class="discourse-local-date" data-range="to" '
-      'data-date="2026-08-09" data-time="10:30:00" data-timezone="UTC" '
-      'data-calendar="off">end</span></p>',
+      'data-date="2026-08-09" data-time="10:30:00" data-timezone="UTC">'
+      'end</span></p>',
     );
 
     expect(find.byType(LocalDateInline), findsNWidgets(2));
@@ -120,6 +120,46 @@ void main() {
       closeTo(tester.getTopLeft(find.byType(LocalDateInline).last).dy, 1),
       reason: 'range dates should remain on the same line when they fit',
     );
+  });
+
+  testWidgets('a same-day range without the calendar keeps its full end', (
+    tester,
+  ) async {
+    await pump(
+      tester,
+      '<p><span class="discourse-local-date" data-range="from" '
+      'data-date="2026-08-09" data-time="09:00:00" data-timezone="UTC" '
+      'data-calendar="off">start</span> → '
+      '<span class="discourse-local-date" data-range="to" '
+      'data-date="2026-08-09" data-time="10:30:00" data-timezone="UTC" '
+      'data-calendar="off">end</span></p>'
+      '<p><span class="discourse-local-date" data-range="from" '
+      'data-date="2026-08-09" data-time="09:00:00" data-timezone="UTC" '
+      'data-format="YYYY-MM-DD HH:mm">start</span> → '
+      '<span class="discourse-local-date" data-range="to" '
+      'data-date="2026-08-09" data-time="10:30:00" data-timezone="UTC" '
+      'data-format="YYYY-MM-DD HH:mm">end</span></p>',
+    );
+
+    expect(find.byType(LocalDateInline), findsNWidgets(4));
+    expect(find.textContaining('August 9, 2026 10:30'), findsOneWidget);
+    expect(find.textContaining('2026-08-09 10:30'), findsOneWidget);
+    expect(find.textContaining('(UTC)'), findsNothing);
+  });
+
+  testWidgets('a range across days keeps its full end', (tester) async {
+    await pump(
+      tester,
+      '<p><span class="discourse-local-date" data-range="from" '
+      'data-date="2026-08-09" data-time="09:00:00" data-timezone="UTC">'
+      'start</span> → '
+      '<span class="discourse-local-date" data-range="to" '
+      'data-date="2026-08-10" data-time="10:30:00" data-timezone="UTC">'
+      'end</span></p>',
+    );
+
+    expect(find.textContaining('August 10, 2026 10:30'), findsOneWidget);
+    expect(find.textContaining('(UTC)'), findsNothing);
   });
 
   testWidgets('activation opens device, source, and extra zone previews', (

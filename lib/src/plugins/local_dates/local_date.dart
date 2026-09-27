@@ -303,7 +303,9 @@ class LocalDateFormatter {
       return _countdown(source.difference(now));
     }
 
-    if (sameLocalDayAsFrom) {
+    // Upstream shortens a same-day range end only in calendar mode; an explicit
+    // format or calendar=off keeps the end in the author's format.
+    if (sameLocalDayAsFrom && spec.usesCalendar) {
       return '${formatMoment(displayed, 'LT', locale)} '
           '(${zoneLabel(displayedName)})';
     }

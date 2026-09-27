@@ -260,6 +260,67 @@ void main() {
     });
   });
 
+  group('same-day range end', () {
+    final formatter = LocalDateFormatter(environment: environment);
+
+    String end({
+      String? format,
+      bool? calendar,
+      bool countdown = false,
+      bool sameLocalDayAsFrom = true,
+    }) => formatter
+        .resolve(
+          LocalDateSpec(
+            date: '2026-08-09',
+            time: '10:30:00',
+            timezone: 'UTC',
+            range: 'to',
+            format: format,
+            calendar: calendar,
+            countdown: countdown,
+            fallbackText: '',
+          ),
+          locale: const Locale('en'),
+          now: DateTime.utc(2026, 1, 1),
+          sameLocalDayAsFrom: sameLocalDayAsFrom,
+        )!
+        .formatted;
+
+    String time(String format) => LocalDateFormatter.formatMoment(
+      DateTime.utc(2026, 8, 9, 10, 30),
+      format,
+      const Locale('en'),
+    );
+
+    test('shortens to the zoned time while the calendar is in use', () {
+      expect(end(), '${time('LT')} (UTC)');
+      expect(
+        end(format: 'YYYY-MM-DD HH:mm', calendar: true),
+        '${time('LT')} (UTC)',
+      );
+    });
+
+    test('keeps the full format when calendar is off or a format opts out', () {
+      expect(end(calendar: false), time('LLL'));
+      expect(end(format: 'YYYY-MM-DD HH:mm'), '2026-08-09 10:30');
+      expect(
+        end(format: 'YYYY-MM-DD HH:mm', calendar: false),
+        '2026-08-09 10:30',
+      );
+    });
+
+    test('a different-day end keeps the full format', () {
+      expect(end(sameLocalDayAsFrom: false), time('LLL'));
+    });
+
+    test('a countdown ignores the range', () {
+      expect(
+        end(countdown: true),
+        end(countdown: true, sameLocalDayAsFrom: false),
+      );
+    });
+  });
+
   group('recurrence', () {
     final formatter = LocalDateFormatter(environment: environment);
 
