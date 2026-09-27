@@ -1,3 +1,6 @@
+import 'dart:async';
+import 'dart:io';
+
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/data/site_image_repository.dart';
 import 'package:discourse_native/src/plugin_api/plugin_registry.dart';
@@ -124,6 +127,35 @@ double containedScale(Size viewport, Size image) {
 }
 
 void main() {
+  testWidgets(
+    'loading spinner keeps its screen size when the image is scaled',
+    (tester) async {
+      debugNetworkImageHttpClientProvider = () => _PendingImageHttpClient();
+      addTearDown(() => debugNetworkImageHttpClientProvider = null);
+      await pumpGallery(
+        tester,
+        images: [parse(singleImage.replaceAll('full.png', 'pending.png'))],
+      );
+      final spinner = find.byType(DSpinner);
+      expect(spinner, findsOneWidget);
+
+      void expectScreenSize() {
+        final box = tester.renderObject<RenderBox>(spinner);
+        final origin = box.localToGlobal(Offset.zero);
+        final corner = box.localToGlobal(box.size.bottomRight(Offset.zero));
+        expect((corner - origin).dx, closeTo(32, 0.01));
+        expect((corner - origin).dy, closeTo(32, 0.01));
+      }
+
+      expectScreenSize();
+      photoControllerAt(tester, 0).scale = 2;
+      await tester.pump();
+      expectScreenSize();
+      await tester.pumpWidget(const SizedBox.shrink());
+      debugNetworkImageHttpClientProvider = null;
+    },
+  );
+
   group('LightboxImage.from', () {
     test('reads the full-size image off the anchor, not the thumbnail', () {
       final image = parse(singleImage);
@@ -1333,4 +1365,16 @@ final class _FakeImageDownloader implements LightboxImageDownloader {
     this.siteUrl = siteUrl;
     return ImageDownloadOutcome.saved;
   }
+}
+
+class _PendingImageHttpClient implements HttpClient {
+  @override
+  bool autoUncompress = true;
+
+  @override
+  Future<HttpClientRequest> getUrl(Uri url) =>
+      Completer<HttpClientRequest>().future;
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
