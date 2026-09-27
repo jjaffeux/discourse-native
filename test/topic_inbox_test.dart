@@ -2752,7 +2752,8 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(recommendations, findsOneWidget);
-    expect(find.text('Suggested'), findsOneWidget);
+    expect(find.text('Suggested'), findsNothing);
+    expect(find.text('Related'), findsNothing);
     expect(
       find.descendant(
         of: recommendations,

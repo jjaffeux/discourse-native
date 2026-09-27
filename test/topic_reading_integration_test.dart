@@ -4481,7 +4481,7 @@ void _registerTopicReadingTests() {
     }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets(
-      'labels a single recommendation source and uses the topic list card',
+      'shows a single recommendation source without tabs and uses the topic list card',
       (tester) async {
         const recommendations = TopicRecommendations(
           sources: [
@@ -4517,7 +4517,8 @@ void _registerTopicReadingTests() {
           find.byKey(const ValueKey('topic-list-ledger-header')),
           findsNothing,
         );
-        expect(find.text('Suggested'), findsOneWidget);
+        expect(find.text('Suggested'), findsNothing);
+        expect(find.text('Related'), findsNothing);
         expect(find.byKey(const ValueKey('topic-card-8')), findsOneWidget);
         final compactTitle = tester.widget<TopicTitle>(
           find.byWidgetPredicate(

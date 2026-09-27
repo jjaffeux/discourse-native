@@ -4017,7 +4017,7 @@ class _MoreTopics extends StatelessWidget {
           if (value != null) onSelected(value);
         },
         children: [
-          if (available.length > 1 || inbox)
+          if (available.length > 1)
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: DTabList<TopicRecommendationSourceId>(
