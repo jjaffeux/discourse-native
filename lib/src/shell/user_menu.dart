@@ -146,7 +146,10 @@ List<UserMenuSection> userMenuSections(
   NotificationTotals? totals, {
   DiscourseUser? user,
   bool userStatusEnabled = false,
+  int repliesBadge = 0,
   int likesBadge = 0,
+  int messagesBadge = 0,
+  int bookmarksBadge = 0,
   int otherBadge = 0,
   List<PluginUserMenuSection> pluginSections = const [],
 }) {
@@ -157,10 +160,11 @@ List<UserMenuSection> userMenuSections(
       label: 'Notifications',
       badge: totals?.unreadNotifications ?? 0,
     ),
-    const UserMenuSection(
+    UserMenuSection(
       id: UserMenuSection.repliesId,
       icon: DIcons.reply,
       label: 'Replies',
+      badge: repliesBadge,
     ),
     if (user?.likesNotificationsDisabled != true)
       UserMenuSection(
@@ -173,12 +177,13 @@ List<UserMenuSection> userMenuSections(
       id: UserMenuSection.messagesId,
       icon: DIcons.envelope,
       label: 'Messages',
-      badge: totals?.unreadPersonalMessages ?? 0,
+      badge: messagesBadge,
     ),
-    const UserMenuSection(
+    UserMenuSection(
       id: UserMenuSection.bookmarksId,
       icon: DIcons.bookmark,
       label: 'Bookmarks',
+      badge: bookmarksBadge,
     ),
     if (user?.canInviteToForum == true)
       const UserMenuSection(
@@ -297,9 +302,18 @@ class _UserMenuPanelState extends State<UserMenuPanel> {
             totals,
             user: menu.user,
             userStatusEnabled: menu.userStatusEnabled,
+            repliesBadge: siteUrl == null
+                ? 0
+                : controller.replyNotificationUnreadCount(siteUrl),
             likesBadge: siteUrl == null
                 ? 0
                 : controller.likeNotificationUnreadCount(siteUrl),
+            messagesBadge: siteUrl == null
+                ? 0
+                : controller.messageNotificationUnreadCount(siteUrl),
+            bookmarksBadge: siteUrl == null
+                ? 0
+                : controller.bookmarkReminderUnreadCount(siteUrl),
             otherBadge: siteUrl == null
                 ? 0
                 : controller.otherNotificationUnreadCount(
@@ -1610,7 +1624,16 @@ class _SectionList extends StatelessWidget {
             totals,
             user: user,
             userStatusEnabled: state.userStatusEnabled,
+            repliesBadge: controller.replyNotificationUnreadCount(
+              currentSiteUrl,
+            ),
             likesBadge: controller.likeNotificationUnreadCount(currentSiteUrl),
+            messagesBadge: controller.messageNotificationUnreadCount(
+              currentSiteUrl,
+            ),
+            bookmarksBadge: controller.bookmarkReminderUnreadCount(
+              currentSiteUrl,
+            ),
             otherBadge: controller.otherNotificationUnreadCount(
               currentSiteUrl,
               pluginSections: pluginSections,
@@ -1694,7 +1717,16 @@ class _LiveNestedSectionBody extends StatelessWidget {
             totals,
             user: user,
             userStatusEnabled: state.userStatusEnabled,
+            repliesBadge: state.controller.replyNotificationUnreadCount(
+              currentSiteUrl,
+            ),
             likesBadge: state.controller.likeNotificationUnreadCount(
+              currentSiteUrl,
+            ),
+            messagesBadge: state.controller.messageNotificationUnreadCount(
+              currentSiteUrl,
+            ),
+            bookmarksBadge: state.controller.bookmarkReminderUnreadCount(
               currentSiteUrl,
             ),
             otherBadge: state.controller.otherNotificationUnreadCount(

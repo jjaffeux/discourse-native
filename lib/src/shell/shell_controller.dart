@@ -2893,10 +2893,34 @@ class ShellController extends FrameSafeNotifier
     }
   }
 
-  int likeNotificationUnreadCount(String siteUrl) {
+  int likeNotificationUnreadCount(String siteUrl) =>
+      _groupedUnreadCountOf(siteUrl, plugins.registry.likeNotificationTypes);
+
+  // The Replies, Messages and Bookmarks tabs count unread notifications of
+  // their own types, as Discourse's menu does. The seen-scoped
+  // `new_personal_messages_notifications_count` is not a Messages count: the
+  // Notifications tab's non-silent fetch bumps the seen marker, and core then
+  // publishes it as zero while those notifications are still unread.
+  int replyNotificationUnreadCount(String siteUrl) =>
+      _groupedUnreadCountOf(siteUrl, userMenuReplyNotificationTypes);
+
+  int messageNotificationUnreadCount(String siteUrl) {
+    final counts = _groupedUnreadNotificationCountsFor(siteUrl);
+    return counts?.count(CoreNotificationTypes.privateMessage) ?? 0;
+  }
+
+  int bookmarkReminderUnreadCount(String siteUrl) {
+    final counts = _groupedUnreadNotificationCountsFor(siteUrl);
+    return counts?.count(CoreNotificationTypes.bookmarkReminder) ?? 0;
+  }
+
+  int _groupedUnreadCountOf(
+    String siteUrl,
+    Iterable<NotificationTypeName> types,
+  ) {
     final counts = _groupedUnreadNotificationCountsFor(siteUrl);
     if (counts == null) return 0;
-    final names = plugins.registry.likeNotificationTypes.toSet();
+    final names = types.toSet();
     return _registeredNotificationTypes
         .where((type) => names.contains(NotificationTypeName(type.wireName)))
         .fold(0, (total, type) => total + counts.count(type));
