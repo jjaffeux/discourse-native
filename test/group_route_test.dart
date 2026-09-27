@@ -39,6 +39,38 @@ void main() {
       );
     });
 
+    test('reads a link under the forum\'s subfolder, and no other', () {
+      const site = 'https://example.com/forum';
+
+      expect(
+        GroupRoute.parse('$site/g/staff', siteUrl: site),
+        GroupRoute.detail('staff'),
+      );
+      expect(
+        GroupRoute.parse('$site/g/', siteUrl: site),
+        const GroupRoute.directory(),
+      );
+      expect(
+        GroupRoute.parse('$site/g/staff/activity/topics', siteUrl: site),
+        GroupRoute.detail(
+          'staff',
+          section: GroupRoute.activity,
+          subsection: GroupRoute.topics,
+        ),
+      );
+      expect(
+        GroupRoute.parse('https://example.com/g/staff', siteUrl: site),
+        isNull,
+      );
+      expect(
+        GroupRoute.parse(
+          'https://meta.discourse.org/g/staff',
+          siteUrl: 'https://meta.discourse.org',
+        ),
+        GroupRoute.detail('staff'),
+      );
+    });
+
     test('leaves plugin and unsupported routes unclaimed', () {
       expect(GroupRoute.parse('/g/team/assigned/everyone'), isNull);
       expect(GroupRoute.parse('/g/custom/new'), isNull);

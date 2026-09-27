@@ -103,6 +103,34 @@ void main() {
       );
     });
 
+    test('reads a link under the forum\'s subfolder, and no other', () {
+      const site = 'https://example.com/forum';
+      String readOn(String siteUrl, String url) {
+        final link = ListLink.parse(url, siteUrl: siteUrl);
+        if (link == null) return '-';
+        return '${link.kind.name}:${link.slug}:${link.id}:${link.feedPath}';
+      }
+
+      expect(
+        readOn(site, '$site/c/general/4'),
+        'category:general:4:/c/general/4.json',
+      );
+      expect(readOn(site, '$site/tag/news/3/'), 'tag:news:3:/tag/news/3.json');
+      expect(
+        readOn(site, '$site/c/todo?status=open'),
+        'category:todo:null:/c/todo.json?status=open',
+      );
+      expect(readOn(site, 'https://example.com/c/general/4'), '-');
+      expect(readOn(site, 'https://example.com/other/c/general/4'), '-');
+      expect(
+        readOn(
+          'https://meta.discourse.org',
+          'https://meta.discourse.org/c/bug/5',
+        ),
+        'category:bug:5:/c/bug/5.json',
+      );
+    });
+
     test('refuses a filtered list', () {
       expect(read('/c/bug/l/top'), '-');
       expect(read('/c/bug/none'), '-');

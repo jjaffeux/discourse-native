@@ -6204,8 +6204,8 @@ class ShellController extends FrameSafeNotifier
     if (instance == null) return null;
 
     final topic = TopicLink.parse(absolute, siteUrl: instance.url);
-    final list = ListLink.parse(absolute);
-    final group = GroupRoute.parse(absolute);
+    final list = ListLink.parse(absolute, siteUrl: instance.url);
+    final group = GroupRoute.parse(absolute, siteUrl: instance.url);
     final badge = instance.config.badgesEnabled
         ? BadgeRoute.parse(absolute, siteUrl: instance.url)
         : null;
@@ -6427,12 +6427,12 @@ class ShellController extends FrameSafeNotifier
 
   bool openGroupUrl(String url) {
     final absolute = absoluteUrl(url);
-    final route = GroupRoute.parse(absolute);
-    if (route == null) return false;
     final target = Uri.tryParse(absolute);
     if (target == null) return false;
     final index = _instances.indexWhere((instance) => instance.serves(target));
     if (index < 0) return false;
+    final route = GroupRoute.parse(absolute, siteUrl: _instances[index].url);
+    if (route == null) return false;
     if (index != _instanceIndex) selectInstance(index);
     final rootChanged = _setForumContentRoot();
     if (currentContent?.groupRoute == route) {
@@ -6733,11 +6733,13 @@ class ShellController extends FrameSafeNotifier
   }
 
   bool openListUrl(String url, {String? title}) {
-    final link = ListLink.parse(absoluteUrl(url));
-    if (link == null) return false;
-
-    final index = _instances.indexWhere((i) => i.serves(link.uri));
+    final absolute = absoluteUrl(url);
+    final target = Uri.tryParse(absolute);
+    if (target == null) return false;
+    final index = _instances.indexWhere((i) => i.serves(target));
     if (index < 0) return false;
+    final link = ListLink.parse(absolute, siteUrl: _instances[index].url);
+    if (link == null) return false;
 
     if (index != _instanceIndex) selectInstance(index);
     final rootChanged = _setForumContentRoot();

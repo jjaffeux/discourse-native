@@ -1,7 +1,9 @@
 import 'package:discourse_native/src/models/discourse_instance.dart';
+import 'package:discourse_native/src/models/group_route.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/shell/forum_search.dart';
+import 'package:discourse_native/src/shell/group_pages_shell_port.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
@@ -87,6 +89,40 @@ void main() {
       expect(shell.siteLink('/u/alice'), '$_siteUrl/u/alice');
       expect(shell.openCorePageUrl(shell.siteLink('/latest')), isTrue);
       expect(shell.currentContent?.id, 'latest');
+    });
+
+    test('opens its category, tag and group links in the app', () async {
+      final shell = await loadShell(FakeDiscourseApi());
+      addTearDown(shell.dispose);
+
+      expect(shell.openListUrl('$_siteUrl/c/general/4'), isTrue);
+      expect(shell.currentContent?.feedPath, '/c/general/4.json');
+      expect(shell.openListUrl('$_siteUrl/tag/news/3'), isTrue);
+      expect(shell.currentContent?.feedPath, '/tag/news/3.json');
+      expect(shell.openListUrl('https://example.com/c/general/4'), isFalse);
+
+      expect(shell.openGroupUrl('$_siteUrl/g/staff'), isTrue);
+      expect(shell.currentContent?.groupRoute, GroupRoute.detail('staff'));
+      expect(shell.openGroupUrl('https://example.com/g/staff'), isFalse);
+
+      expect(
+        shell.openLinkInNewTab('$_siteUrl/c/general/4'),
+        TabOpenResult.opened,
+      );
+      expect(shell.openLinkInNewTab('$_siteUrl/g/staff'), TabOpenResult.opened);
+    });
+
+    test('opens a group chosen from its directory', () async {
+      final shell = await loadShell(FakeDiscourseApi());
+      addTearDown(shell.dispose);
+
+      ShellGroupPagesPort(shell).openGroup((
+        siteUrl: _siteUrl,
+        accountIdentity: shell.currentAccountIdentity!,
+        tabId: shell.activeTabId,
+      ), 'staff');
+
+      expect(shell.currentContent?.groupRoute, GroupRoute.detail('staff'));
     });
 
     testWidgets('shows the card of a user found by search in the app', (
