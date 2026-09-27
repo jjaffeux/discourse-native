@@ -3,14 +3,29 @@ import 'sidebar.dart';
 import 'topic.dart';
 
 final class TopicTrackingState {
-  TopicTrackingState([Iterable<TrackedTopicState> topics = const []])
-    : _topics = {for (final topic in topics) topic.topicId: topic};
+  TopicTrackingState([Iterable<TrackedTopicState> topics = const []]) {
+    topics.forEach(_put);
+  }
 
   factory TopicTrackingState.fromJson(Object? value) => TopicTrackingState([
     for (final item in jsonObjects(value)) ?TrackedTopicState.fromJson(item),
   ]);
 
-  final Map<int, TrackedTopicState> _topics;
+  /// A settled row, neither new nor unread, counts toward nothing, yet a long
+  /// session would keep one for every topic read or dismissed, and each change
+  /// rescans them all for the badges. Only the most recently changed are kept:
+  /// they let a topic read on another device leave an unread list before that
+  /// list reloads (`UnreadTopicFeed.isRead`), which concerns the pages a list
+  /// has loaded, and 1024 is over thirty of core's 30-topic pages. Dropping an
+  /// older row leaves its topic as a fresh snapshot leaves any topic settled
+  /// when it was taken: absent, since core's report carries only new and
+  /// unread topics. Countable rows are never dropped; they are the badges.
+  static const _maxSettledTopics = 1024;
+
+  final Map<int, TrackedTopicState> _topics = {};
+
+  /// Ids of the settled rows in [_topics], least recently changed first.
+  final Set<int> _settled = {};
 
   /// Sidebar badges are asked for per visible row on every sidebar rebuild.
   /// Both indexes are built from the current topics on first use and dropped
@@ -28,15 +43,25 @@ final class TopicTrackingState {
 
   TrackedTopicState? topic(int topicId) => _topics[topicId];
 
+  void _put(TrackedTopicState topic) {
+    final topicId = topic.topicId;
+    _topics[topicId] = topic;
+    _settled.remove(topicId);
+    if (topic.isNew || topic.isUnread) return;
+    _settled.add(topicId);
+    if (_settled.length > _maxSettledTopics) {
+      final oldest = _settled.first;
+      _settled.remove(oldest);
+      _topics.remove(oldest);
+    }
+  }
+
   bool markRead(int topicId, int postNumber) {
     final held = _topics[topicId];
     if (held == null || postNumber <= (held.lastReadPostNumber ?? 0)) {
       return false;
     }
-    _topics[topicId] = held.copyWith(
-      lastReadPostNumber: postNumber,
-      isSeen: true,
-    );
+    _put(held.copyWith(lastReadPostNumber: postNumber, isSeen: true));
     _invalidateCounts();
     return true;
   }
@@ -193,7 +218,7 @@ final class TopicTrackingState {
             ? held.copyWith(isSeen: true)
             : held.copyWith(lastReadPostNumber: held.highestPostNumber);
         if (next != held) {
-          _topics[id] = next;
+          _put(next);
           changed = true;
         }
       }
@@ -209,17 +234,18 @@ final class TopicTrackingState {
           return false;
         }
         if (held.notificationLevel == level) return false;
-        _topics[topicId] = held.copyWith(notificationLevel: level);
+        _put(held.copyWith(notificationLevel: level));
         return true;
       case 'delete':
         if (held == null || held.deleted) return false;
-        _topics[topicId] = held.copyWith(deleted: true);
+        _put(held.copyWith(deleted: true));
         return true;
       case 'recover':
         if (held == null || !held.deleted) return false;
-        _topics[topicId] = held.copyWith(deleted: false);
+        _put(held.copyWith(deleted: false));
         return true;
       case 'destroy':
+        _settled.remove(topicId);
         return _topics.remove(topicId) != null;
       case 'new_topic':
       case 'unread':
@@ -232,7 +258,7 @@ final class TopicTrackingState {
           unread: type == 'unread',
         );
         if (merged == held) return false;
-        _topics[topicId] = merged;
+        _put(merged);
         return true;
       default:
         // `latest`, `muted`, and `unmuted` affect other client state but do
@@ -289,10 +315,7 @@ final class TrackedTopicState {
       notificationLevel: jsonIntOrNull(json['notification_level']),
       createdInNewPeriod: json['created_in_new_period'] == true,
       isSeen: json['is_seen'] == true,
-      tagIds: Set.unmodifiable([
-        for (final tag in jsonObjects(json['tags']))
-          if (jsonIntOrNull(tag['id']) case final id? when id > 0) id,
-      ]),
+      tagIds: _tagIds(json['tags']),
       deleted: json['deleted'] == true,
     );
   }
@@ -335,10 +358,7 @@ final class TrackedTopicState {
           ? payload['is_seen'] == true
           : (previous?.isSeen ?? false),
       tagIds: tagsPresent
-          ? Set.unmodifiable([
-              for (final tag in jsonObjects(payload['tags']))
-                if (jsonIntOrNull(tag['id']) case final id? when id > 0) id,
-            ])
+          ? _tagIds(payload['tags'])
           : (previous?.tagIds ?? const {}),
       deleted: previous?.deleted ?? false,
     );
@@ -416,6 +436,15 @@ final class TrackedTopicState {
 }
 
 int _nonNegative(int value) => value < 0 ? 0 : value;
+
+/// Most topics carry no tag, and those rows share one empty set.
+Set<int> _tagIds(Object? tags) {
+  final ids = [
+    for (final tag in jsonObjects(tags))
+      if (jsonIntOrNull(tag['id']) case final id? when id > 0) id,
+  ];
+  return ids.isEmpty ? const {} : Set.unmodifiable(ids);
+}
 
 bool _setEquals<T>(Set<T> left, Set<T> right) =>
     left.length == right.length && left.containsAll(right);
