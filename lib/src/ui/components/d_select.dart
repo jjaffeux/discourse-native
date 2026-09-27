@@ -1502,6 +1502,16 @@ class _DSelectBodyState<T> extends State<_DSelectBody<T>> {
         widget.semanticLabel ??
         (widget.label is Text ? (widget.label as Text).data : null) ??
         widget.placeholder;
+    // Artwork shorter than a touch target is centred in one, and the whole
+    // target answers the pointer, not only the artwork inside it.
+    final padded = _touch && visualHeight < DSpacing.touchTarget;
+    Widget target = ExcludeSemantics(child: visual);
+    if (padded) {
+      target = SizedBox(
+        height: DSpacing.touchTarget,
+        child: Center(widthFactor: 1, child: target),
+      );
+    }
     Widget action = Semantics(
       button: true,
       enabled: widget.enabled,
@@ -1513,7 +1523,7 @@ class _DSelectBodyState<T> extends State<_DSelectBody<T>> {
       label: semanticsLabel,
       value: _items.where(_selected).map((item) => item.textValue).join(', '),
       onTap: widget.enabled ? trigger.toggle : null,
-      child: ExcludeSemantics(child: visual),
+      child: target,
     );
     action = Focus(
       focusNode: trigger.focusNode,
@@ -1538,12 +1548,7 @@ class _DSelectBodyState<T> extends State<_DSelectBody<T>> {
       ),
     );
     if (!widget.enabled) action = Opacity(opacity: 0.5, child: action);
-    if (_touch && visualHeight < DSpacing.touchTarget) {
-      action = SizedBox(
-        height: DSpacing.touchTarget,
-        child: Center(child: action),
-      );
-    }
+    if (padded) action = Center(heightFactor: 1, child: action);
     final state = DSelectTriggerState<T>(
       open: trigger.open,
       enabled: widget.enabled,
