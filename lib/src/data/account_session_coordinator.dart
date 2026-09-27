@@ -428,7 +428,14 @@ final class AccountSessionCoordinator {
             warning: false,
           );
         }
-        return const AccountDisconnectionResult.failed();
+        // The opening rotation has already forgotten the account's session
+        // state, so even this early abort must publish the restored phase.
+        return await _restoreFailedDisconnect(
+          siteUrl,
+          operation,
+          lease,
+          initial,
+        );
       }
       if (!_isCurrent(siteUrl, operation, lease)) {
         return AccountDisconnectionResult.stale(lease);
