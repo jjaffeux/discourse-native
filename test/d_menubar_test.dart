@@ -16,7 +16,7 @@ void main() {
 
     final bar = tester.getRect(find.byType(DMenubar));
     final trigger = tester.getRect(find.byType(DMenubarTrigger).first);
-    expect(bar.height, 34);
+    expect(bar.height, 40);
     expect(trigger.top - bar.top, 3);
     expect(bar.bottom - trigger.bottom, 3);
     expect(tester.getCenter(find.text('File')).dy, trigger.center.dy);

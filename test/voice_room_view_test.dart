@@ -1081,7 +1081,9 @@ void main() {
   });
 
   group('room Chat', () {
-    testWidgets('shows loading before an empty conversation', (tester) async {
+    testWidgets('stays quiet while an empty conversation loads', (
+      tester,
+    ) async {
       final transport = _GatedChatTransport();
       final harness = _Harness(discourseApi: transport);
       addTearDown(harness.dispose);
@@ -1109,7 +1111,10 @@ void main() {
       await tester.pump();
 
       expect(find.byType(DSheetContent), findsOneWidget);
-      expect(find.byType(DSpinner), findsOneWidget);
+      // Lists draw no loading indicator, and the empty state waits for the
+      // conversation to load.
+      expect(find.byType(DSpinner), findsNothing);
+      expect(find.text('No messages yet.'), findsNothing);
       transport.sessionGate.complete();
       await tester.pumpAndSettle();
       expect(find.text('No messages yet.'), findsOneWidget);

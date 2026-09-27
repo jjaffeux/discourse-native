@@ -996,8 +996,16 @@ void main() {
           expect(find.byType(DDropdownMenuContent), findsNothing);
           await tester.tap(find.text('React'));
           await tester.pumpAndSettle();
-          expect(find.byType(DSheetContent), findsNothing);
-          expect(find.byType(EmojiPicker), findsOneWidget);
+          // The actions sheet closes; on touch the picker is its own sheet.
+          expect(find.text('React'), findsNothing);
+          expect(find.byType(DSheetContent), findsOneWidget);
+          expect(
+            find.descendant(
+              of: find.byType(DSheetContent),
+              matching: find.byType(EmojiPicker),
+            ),
+            findsOneWidget,
+          );
           await tester.tap(find.byTooltip(':wave:'));
           await tester.pumpAndSettle();
           expect(api.chatReactionsSet.single.emoji, 'wave');

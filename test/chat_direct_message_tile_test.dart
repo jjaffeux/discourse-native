@@ -481,7 +481,14 @@ void main() {
         await tester.pumpAndSettle();
         await hover(tester);
         expect(find.byType(DBubble), findsOneWidget);
-        expect(find.byType(DDropdownMenu), findsOneWidget);
+        // The attachment link carries its own context menu, which is built on
+        // DDropdownMenu; the message keeps a single actions dropdown.
+        expect(find.byType(DContextMenu), findsOneWidget);
+        expect(find.byType(DDropdownMenu), findsNWidgets(2));
+        expect(
+          find.ancestor(of: trigger, matching: find.byType(DDropdownMenu)),
+          findsOneWidget,
+        );
         final semantics = tester.ensureSemantics();
         expect(find.bySemanticsLabel('More message actions'), findsOneWidget);
         expect(

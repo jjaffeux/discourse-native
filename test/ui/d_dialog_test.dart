@@ -799,7 +799,7 @@ void main() {
       }
       final titleContext = tester.element(find.text('Example dialog').first);
       final style = DefaultTextStyle.of(titleContext).style;
-      expect(style.fontSize, 16);
+      expect(style.fontSize, 14);
       expect(style.height, 1);
       expect(style.fontWeight, FontWeight.w500);
       await tester.pumpWidget(const SizedBox());
