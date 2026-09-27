@@ -138,6 +138,68 @@ void main() {
     expect(unavailable.badge, 0);
   });
 
+  test('refresh keeps live core counts the response did not send', () {
+    // Totals omit personal messages outside the PM-enabled groups and
+    // reviewables for non-staff, while the live channels always carry both.
+    const live = NotificationTotals(
+      unreadNotifications: 2,
+      unreadPersonalMessages: 1,
+      unseenReviewables: 3,
+    );
+    final response = NotificationTotals.fromJson(const {
+      'unread_notifications': 4,
+      'topic_tracking': {'unread': 6, 'new': 0},
+    });
+
+    final merged = NotificationTotals.mergeRefresh(
+      response: response,
+      before: live,
+      live: live,
+    );
+
+    expect(merged.unreadNotifications, 4);
+    expect(merged.unreadPersonalMessages, 1);
+    expect(merged.unseenReviewables, 3);
+    expect(merged.topicTrackingUnread, 6);
+    expect(merged.coreBadge, 8);
+  });
+
+  test('refresh takes sent zero core counts over unchanged live ones', () {
+    const live = NotificationTotals(
+      unreadNotifications: 2,
+      unreadPersonalMessages: 1,
+      unseenReviewables: 3,
+    );
+    final response = NotificationTotals.fromJson(const {
+      'unread_notifications': 0,
+      'unread_personal_messages': 0,
+      'unseen_reviewables': 0,
+    });
+
+    final merged = NotificationTotals.mergeRefresh(
+      response: response,
+      before: live,
+      live: live,
+    );
+
+    expect(merged.coreBadge, 0);
+  });
+
+  test('what a response sent is neither compared nor stored', () {
+    final omitted = NotificationTotals.fromJson(const {
+      'unread_notifications': 4,
+    });
+    final sent = NotificationTotals.fromJson(const {
+      'unread_notifications': 4,
+      'unread_personal_messages': 0,
+      'unseen_reviewables': 0,
+    });
+
+    expect(omitted, sent);
+    expect(omitted.hashCode, sent.hashCode);
+    expect(omitted.toStoredJson(), sent.toStoredJson());
+  });
+
   group('withNotification', () {
     test('derives the notification count the way the endpoint does', () {
       // The live message's `unread_notifications` is not the endpoint's

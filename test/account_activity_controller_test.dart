@@ -1499,6 +1499,45 @@ void main() {
       expect(api.totalsRequested, hasLength(3));
     });
 
+    test(
+      'a totals response without optional counts keeps the live ones',
+      () async {
+        // A TL0 user outside personal_message_enabled_groups gets no
+        // unread_personal_messages, and a non-staff reviewer no
+        // unseen_reviewables; unread_notifications still excludes the PMs.
+        final api = _AccountApi(
+          totals: NotificationTotals.fromJson(const {
+            'username': 'sam',
+            'unread_notifications': 2,
+            'topic_tracking': {'unread': 0, 'new': 0},
+          }),
+        );
+        final loaded = <NotificationTotals>[];
+        final controller = _controller(
+          api,
+          FakeApiCredentialReader()..keys[_siteUrl] = 'key',
+          onTotalsLoaded: (_, totals) => loaded.add(totals),
+        );
+        addTearDown(controller.dispose);
+        controller.applyLiveNotificationState(_siteUrl, const {
+          'all_unread_notifications_count': 3,
+          'new_personal_messages_notifications_count': 1,
+        });
+        controller.applyReviewableCounts(_siteUrl, const {
+          'unseen_reviewable_count': 3,
+        });
+
+        final result = (await controller.refresh(_connectedInstance()))!;
+
+        expect(result.unreadNotifications, 2);
+        expect(result.unreadPersonalMessages, 1);
+        expect(result.unseenReviewables, 3);
+        expect(result.coreBadge, 6);
+        expect(controller.totalsFor(_siteUrl), result);
+        expect(loaded, [result]);
+      },
+    );
+
     test('a live counter update survives an older totals response', () async {
       final gate = Completer<NotificationTotals>();
       final api = _GatedTotalsApi([gate]);
