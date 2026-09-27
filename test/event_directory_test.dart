@@ -8,6 +8,7 @@ import 'package:discourse_native/src/plugins/discourse_events/event_calendar_dat
 import 'package:discourse_native/src/plugins/discourse_events/event_data.dart';
 import 'package:discourse_native/src/plugins/discourse_events/event_directory.dart';
 import 'package:discourse_native/src/plugins/discourse_events/event_navigation.dart';
+import 'package:discourse_native/src/plugins/discourse_events/event_notifications.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kalender/kalender.dart' as kalender;
@@ -35,6 +36,7 @@ void main() {
     TargetPlatform platform = TargetPlatform.macOS,
     Brightness brightness = Brightness.light,
     EventCalendarPage? page,
+    _Routes? routes,
     bool settle = true,
   }) async {
     await tester.pumpWidget(
@@ -47,7 +49,7 @@ void main() {
             page: page,
             controller: ports.controller,
             navigation: EventNavigation(
-              host: _Routes(),
+              host: routes ?? _Routes(),
               editor: PluginPostEditorHost(open: (_, _, {focusText}) => false),
               controller: ports.controller,
             ),
@@ -378,6 +380,88 @@ void main() {
     });
   }
 
+  testWidgets('the day dialog offers no view the directory cannot show', (
+    tester,
+  ) async {
+    transport.respond = (_) => {
+      'events': [current],
+    };
+    final routes = _Routes()
+      ..currentContent = _calendarRoute('events-upcoming/month/2026/9/8');
+    await pump(
+      tester,
+      routes: routes,
+      page: EventCalendarPage.readRoute(routes.currentContent!.id)!.page,
+    );
+    // October 1 is drawn in September's grid; a Day page for it used to
+    // round-trip through the route back into October's Month.
+    for (final day in [
+      'Tuesday, September 8, 2026',
+      'Thursday, October 1, 2026',
+    ]) {
+      await tester.ensureVisible(find.bySemanticsLabel(day));
+      await tester.tap(find.bySemanticsLabel(day));
+      await tester.pumpAndSettle();
+      expect(find.byType(DDialogContent), findsOneWidget);
+      expect(find.text('Day view'), findsNothing);
+      await tester.tap(find.text('Close'));
+      await tester.pumpAndSettle();
+      expect(find.byType(DDialogContent), findsNothing);
+    }
+    expect(
+      tester.widget<EventCalendar>(find.byType(EventCalendar)).page,
+      EventCalendarPage(EventCalendarView.month, DateTime.utc(2026, 9, 8)),
+    );
+    expect(routes.currentContent!.id, 'events-upcoming/month/2026/9/8');
+    expect(transport.queries, hasLength(1));
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('calendar routes round-trip the shown page without reloading', (
+    tester,
+  ) async {
+    transport.respond = (_) => {'events': <Object?>[]};
+    final routes = _Routes()
+      ..currentContent = _calendarRoute('events-upcoming/month/2026/9/8');
+    // The shell rebuilds the directory from whatever route id it holds.
+    Future<void> pumpRoute() => pump(
+      tester,
+      routes: routes,
+      page: EventCalendarPage.readRoute(routes.currentContent!.id)!.page,
+    );
+    EventCalendarPage shown() =>
+        tester.widget<EventCalendar>(find.byType(EventCalendar)).page;
+    await pumpRoute();
+    await tester.tap(find.byTooltip('Next month'));
+    await tester.pumpAndSettle();
+    expect(routes.currentContent!.id, 'events-upcoming/month/2026/10/1');
+    await pumpRoute();
+    expect(
+      shown(),
+      EventCalendarPage(EventCalendarView.month, DateTime.utc(2026, 10)),
+    );
+    expect(transport.queries, hasLength(2));
+
+    // A restored route from before the directory dropped Day view.
+    routes.currentContent = _calendarRoute('events-upcoming/day/2026/11/12');
+    await pumpRoute();
+    expect(
+      shown(),
+      EventCalendarPage(EventCalendarView.month, DateTime.utc(2026, 11, 12)),
+    );
+    expect(find.text('November 2026'), findsOneWidget);
+    await tester.tap(find.byTooltip('Next month'));
+    await tester.pumpAndSettle();
+    expect(routes.currentContent!.id, 'events-upcoming/month/2026/12/1');
+    await pumpRoute();
+    expect(
+      shown(),
+      EventCalendarPage(EventCalendarView.month, DateTime.utc(2026, 12)),
+    );
+    expect(transport.queries, hasLength(4));
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('default follows window width until a view is selected', (
     tester,
   ) async {
@@ -427,6 +511,9 @@ final class _CalendarTransport extends RecordingPluginTransport {
           );
   }
 }
+
+ContentRoute _calendarRoute(String id) =>
+    ContentRoute(id: id, title: 'Upcoming events', icon: EventIcons.calendar);
 
 final class _Routes implements PluginRouteNavigationHost {
   @override

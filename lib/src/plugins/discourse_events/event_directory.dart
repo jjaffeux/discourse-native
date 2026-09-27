@@ -193,7 +193,7 @@ class _EventDirectoryState extends State<_EventDirectoryBody> {
     _foregroundRevision = widget.controller.foregroundRevision;
     widget.controller.addListener(_changed);
     _viewSelected = widget.page != null;
-    _page = _directoryPage(widget.page) ?? _defaultPage();
+    _page = widget.page?.directoryPage ?? _defaultPage();
     unawaited(_load());
   }
 
@@ -207,17 +207,6 @@ class _EventDirectoryState extends State<_EventDirectoryBody> {
       DateTime.utc(today.year, today.month, today.day),
     );
   }
-
-  // Old calendar links still open the requested month, but the directory only
-  // offers the Month and Schedule presentations shown in the native mockups.
-  EventCalendarPage? _directoryPage(EventCalendarPage? page) => page == null
-      ? null
-      : EventCalendarPage(
-          page.view == EventCalendarView.schedule
-              ? EventCalendarView.schedule
-              : EventCalendarView.month,
-          page.date,
-        );
 
   void _changed() {
     final revision = widget.controller.accountRevision(widget.site);
@@ -260,7 +249,7 @@ class _EventDirectoryState extends State<_EventDirectoryBody> {
       _settings = widget.controller.settings(widget.site);
       if (oldWidget.site != widget.site) _viewSelected = widget.page != null;
       _page =
-          _directoryPage(widget.page) ??
+          widget.page?.directoryPage ??
           (oldWidget.site != widget.site ? _defaultPage() : _page);
       _occurrences = const [];
       _events = const [];
@@ -272,7 +261,7 @@ class _EventDirectoryState extends State<_EventDirectoryBody> {
       _timezone = _readerTimezone;
       _firstDay = _siteFirstDay;
       if (widget.page != null && widget.page != oldWidget.page) {
-        final incoming = _directoryPage(widget.page)!;
+        final incoming = widget.page!.directoryPage;
         if (incoming != _page) _viewSelected = true;
         _page = incoming;
       } else if (!_viewSelected && oldWidget.compact != widget.compact) {

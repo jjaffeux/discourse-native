@@ -146,20 +146,36 @@ void main() {
         isTrue,
       );
       expect(host.currentContent!.id, 'events-upcoming/month/2026/9/1');
+      // The directory shows only Month and Schedule, so a link naming another
+      // view opens a route for the month it will actually show.
+      expect(
+        await navigation.openPluginUrl(
+          '$eventSite/upcoming-events/day/2026/10/1',
+        ),
+        isTrue,
+      );
+      expect(host.currentContent!.id, 'events-upcoming/month/2026/10/1');
+      expect(
+        await navigation.openPluginUrl(
+          '$eventSite/upcoming-events/listMonth/2026/10/8',
+        ),
+        isTrue,
+      );
+      expect(host.currentContent!.id, 'events-upcoming/schedule/2026/10/8');
       expect(
         await navigation.openPluginUrl(
           '$eventSite/upcoming-events/mine/agendaWeek/2026/9/8',
         ),
         isTrue,
       );
-      expect(host.currentContent!.id, 'events-mine/week/2026/9/8');
+      expect(host.currentContent!.id, 'events-mine/month/2026/9/8');
       expect(
         await navigation.openPluginUrl(
           '$eventSite/upcoming-events/month/2026/2/30',
         ),
         isFalse,
       );
-      expect(host.currentContent!.id, 'events-mine/week/2026/9/8');
+      expect(host.currentContent!.id, 'events-mine/month/2026/9/8');
     },
   );
 

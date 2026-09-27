@@ -14,6 +14,13 @@ final class EventCalendarPage {
   final EventCalendarView view;
   final DateTime date;
 
+  /// The upcoming-events directory offers only Month and Schedule. A link or
+  /// restored route naming another view opens the month holding its date.
+  EventCalendarPage get directoryPage => switch (view) {
+    EventCalendarView.month || EventCalendarView.schedule => this,
+    _ => EventCalendarPage(EventCalendarView.month, date),
+  };
+
   String routeId(bool mine) =>
       'events-${mine ? 'mine' : 'upcoming'}/${view.name}/${date.year}/${date.month}/${date.day}';
   String webPath(bool mine) =>
