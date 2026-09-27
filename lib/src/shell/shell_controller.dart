@@ -12508,6 +12508,10 @@ class ShellController extends FrameSafeNotifier
     }
     if (preparationChanged) await composer.flushDraft();
     await composer.finishDraftSaves();
+    // Accepting the post deletes its draft. A replaced composer's save of the
+    // same key that lands after that would write the posted text back into
+    // the cached draft, and its conflict retry would recreate it on the site.
+    await _composerDrafts.finishRetiredSaves(composer);
     if (!lease.isCurrent) return;
 
     final raw = composer.raw;

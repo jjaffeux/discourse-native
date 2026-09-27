@@ -292,6 +292,43 @@ void main() {
     },
   );
 
+  test(
+    "a replacement waits out a retired save and survives that save's failure",
+    () async {
+      final gate = Completer<void>();
+      addTearDown(() {
+        if (!gate.isCompleted) gate.complete();
+      });
+      final harness = _Harness(
+        api: FakeDiscourseApi(
+          draftGate: gate,
+          draftFailure: const WriteException(WriteFailure.unreachable),
+        ),
+      );
+      addTearDown(harness.dispose);
+      final retired = harness.open(_replyTarget).composer;
+      retired.text.text = 'Retired reply';
+      unawaited(retired.flushDraft());
+      await pumpEventQueue();
+      expect(harness.api.draftsSaved, hasLength(1));
+      harness.coordinator.retire(retired);
+      harness.composers.remove(retired);
+      retired.dispose();
+
+      final replacement = harness.open(_replyTarget).composer;
+      var settled = false;
+      final waiting = harness.coordinator
+          .finishRetiredSaves(replacement)
+          .then((_) => settled = true);
+      await pumpEventQueue();
+      expect(settled, isFalse);
+
+      gate.complete();
+      await waiting;
+      expect(settled, isTrue);
+    },
+  );
+
   group('list deletion', () {
     test(
       'a superseded save is still skipped after a slow local write',

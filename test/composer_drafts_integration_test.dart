@@ -2485,6 +2485,57 @@ void _registerComposerAndDraftTests() {
       expect(find.byType(ComposerPanel), findsNothing);
     }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
+    testWidgets('posting waits for an older save of the same draft key', (
+      tester,
+    ) async {
+      final saveGate = Completer<void>();
+      addTearDown(() {
+        if (!saveGate.isCompleted) saveGate.complete();
+      });
+      final drafts = FakeDraftStore();
+      final api = FakeDiscourseApi(
+        feeds: {'/latest.json': listed},
+        topics: {7: detail()},
+        draftGate: saveGate,
+      );
+
+      await openComposer(tester, api, drafts: drafts);
+      final shell = ShellScope.read(tester.element(find.byType(MainContent)));
+      await tester.enterText(_composerField, 'Posted once');
+      await tester.pump(ComposerController.draftDebounce);
+      await tester.pump();
+      expect(api.draftsSaved, hasLength(1));
+
+      // The replacement restores the local copy at once, so nothing on the
+      // way to Send waits for the retired controller's request.
+      shell.closeComposer();
+      shell.openReply();
+      await tester.pumpAndSettle();
+      expect(shell.visibleComposer?.text.text, 'Posted once');
+
+      await tester.tap(
+        find.descendant(
+          of: find.byType(ComposerPanel),
+          matching: find.byKey(const ValueKey('composer-submit')),
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+      expect(api.created, isEmpty);
+
+      saveGate.complete();
+      await tester.pumpAndSettle();
+
+      expect(api.created.single['raw'], 'Posted once');
+      expect(api.draftsSaved, hasLength(1));
+      expect(shell.currentTopic?.draft, isNull);
+      expect(drafts.saved, isEmpty);
+
+      await tester.tap(find.byTooltip('Reply to this topic'));
+      await tester.pumpAndSettle();
+      expect(shell.visibleComposer?.text.text, isEmpty);
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
+
     testWidgets('a new composer stays locally durable behind an old save', (
       tester,
     ) async {

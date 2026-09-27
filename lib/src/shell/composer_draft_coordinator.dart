@@ -290,6 +290,15 @@ final class ComposerDraftCoordinator {
     );
   }
 
+  /// Completes once every save a replaced composer left in flight for this
+  /// composer's draft key has settled. Never throws: retired saves absorb
+  /// their own failures, and each is bounded by its request's timeout.
+  Future<void> finishRetiredSaves(ComposerController composer) async {
+    final session = _sessions[composer];
+    if (session == null) return;
+    await _waitForRetiredSaves(composer.target, session);
+  }
+
   void detach(ComposerController composer) {
     _restoreTasks[composer] = null;
   }
